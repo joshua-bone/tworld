@@ -9,7 +9,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "verify:ms-replays": "vitest run src/application/use-cases/compareMsSolutionFileReplaySweep.test.ts",
-    "verify:lynx-replays": "TWORLD_ENABLE_LYNX_REPLAY_SWEEP=1 vitest run src/application/use-cases/compareLynxSolutionFileReplaySweep.test.ts"
+    "verify:lynx-replays": "TWORLD_ENABLE_LYNX_REPLAY_SWEEP=1 vitest run src/application/use-cases/compareLynxSolutionFileReplaySweep.test.ts",
+    "verify:all-replays": "vite-node src/application/use-cases/verifyAllSolutionReplays.ts"
   },
   "dependencies": {
     "fast-xml-parser": "^5.2.5",
