@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { MS_TILE, msCreatureTile } from "@domain/game/rules/ms/tiles";
 import {
+  advanceLynxInteractiveSession,
+  createLynxInteractiveSession,
   initializeLynxEngineState,
+  LYNX_SOUND,
   runLynxInputTrace,
   runLynxInputTraceDebug,
   runLynxReplayTrace,
@@ -41,6 +44,22 @@ function createLevel(
       cells.filter((cell) => cell.top.id !== MS_TILE.Empty || cell.bottom.id !== MS_TILE.Empty).map((cell) => cell.position.pos),
     statusFlags: 0,
   };
+}
+
+function createRequest() {
+  return { seriesFile: "intro-lynx.dac", levelNumber: 1, ruleset: "Lynx" as const };
+}
+
+function advanceLynxTicks(
+  session: ReturnType<typeof createLynxInteractiveSession>,
+  ticks: number,
+  firstInputCode = 0,
+) {
+  let current = session;
+  for (let tick = 0; tick < ticks; tick += 1) {
+    current = advanceLynxInteractiveSession(current, tick === 0 ? firstInputCode : 0);
+  }
+  return current;
 }
 
 describe("initializeLynxEngineState", () => {
@@ -105,6 +124,79 @@ describe("initializeLynxEngineState", () => {
     );
 
     expect(state.replay.initialRandomSlideDirection).toBe("east");
+  });
+});
+
+describe("advanceLynxInteractiveSession", () => {
+  it("starts the native failed endgame when Chip enters deadly fire", () => {
+    const chipPos = 33;
+    const firePos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+        createCell(firePos, MS_TILE.Fire),
+      ]),
+    );
+
+    const afterArrival = advanceLynxTicks(session, 4, 8);
+
+    expect(afterArrival.state.status).toBe("playing");
+    expect(afterArrival.endGameResult).toBe("failed");
+    expect(afterArrival.endGameAnimationTileId).toBe(0x76);
+    expect(afterArrival.chipMoving).toBe(0);
+    expect(afterArrival.state.soundEffects & (1 << LYNX_SOUND.ChipLoses)).not.toBe(0);
+
+    const afterDeath = advanceLynxTicks(afterArrival, 13);
+    expect(afterDeath.state.status).toBe("failed");
+  });
+
+  it("starts the native failed endgame when a creature collides with Chip", () => {
+    const chipPos = 33;
+    const ballPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+          createCell(ballPos, msCreatureTile(MS_TILE.Ball, 2)),
+        ],
+        [chipPos, ballPos],
+      ),
+    );
+
+    const collided = advanceLynxInteractiveSession(session, 0);
+
+    expect(collided.state.status).toBe("playing");
+    expect(collided.endGameResult).toBe("failed");
+    expect(collided.endGameAnimationTileId).toBe(0x76);
+    expect(collided.state.soundEffects & (1 << LYNX_SOUND.ChipLoses)).not.toBe(0);
+
+    const afterDeath = advanceLynxTicks(collided, 13);
+    expect(afterDeath.state.status).toBe("failed");
+  });
+
+  it("times out with the native failed endgame instead of continuing play", () => {
+    const chipPos = 33;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      {
+        ...createLevel([createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8))]),
+        timeLimitTicks: 3,
+      },
+    );
+    session.state.timer.currentTime = 3;
+    session.state.timer.tick = 3;
+
+    const timedOut = advanceLynxInteractiveSession(session, 0);
+
+    expect(timedOut.state.status).toBe("playing");
+    expect(timedOut.endGameResult).toBe("failed");
+    expect(timedOut.endGameAnimationTileId).toBe(0x76);
+    expect(timedOut.chipMoving).toBe(0);
+
+    const afterDeath = advanceLynxTicks(timedOut, 13);
+    expect(afterDeath.state.status).toBe("failed");
   });
 });
 
@@ -1266,10 +1358,10 @@ describe("runLynxInputTrace", () => {
   it("starts an unlisted static block moving on a force floor after the opening tick", () => {
     const level = createLevel(
       [
-        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(1, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
         createCell(65, MS_TILE.Block_Static, MS_TILE.Slide_North),
       ],
-      [33],
+      [1],
     );
 
     const trace = runLynxInputTraceDebug(

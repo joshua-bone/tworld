@@ -166,6 +166,9 @@ interface LynxRenderableSession {
   chipPos: number;
   chipDir: number;
   chipMoving: number;
+  endGameTicksElapsed: number | null;
+  endGameResult: "completed" | "failed" | null;
+  endGameAnimationTileId: number | null;
   actors: LynxRenderableActor[];
 }
 
@@ -179,6 +182,13 @@ function isLynxRenderableSession(token: unknown): token is LynxRenderableSession
     typeof candidate.chipPos === "number" &&
     typeof candidate.chipDir === "number" &&
     typeof candidate.chipMoving === "number" &&
+    ("endGameTicksElapsed" in candidate ? candidate.endGameTicksElapsed === null || typeof candidate.endGameTicksElapsed === "number" : true) &&
+    ("endGameResult" in candidate
+      ? candidate.endGameResult === null || candidate.endGameResult === "completed" || candidate.endGameResult === "failed"
+      : true) &&
+    ("endGameAnimationTileId" in candidate
+      ? candidate.endGameAnimationTileId === null || typeof candidate.endGameAnimationTileId === "number"
+      : true) &&
     Array.isArray(candidate.actors)
   );
 }
@@ -229,15 +239,19 @@ function drawLynxActorOverlays(
   const token = session.token;
   const chipX = xOrigin + (token.chipPos % 32) * LEGACY_TILE_SIZE;
   const chipY = yOrigin + Math.floor(token.chipPos / 32) * LEGACY_TILE_SIZE;
-  drawLynxActorSprite(
-    context,
-    tileset,
-    msCreatureTile(MS_TILE.Chip, token.chipDir || MS_DIRECTION.north),
-    token.chipDir,
-    token.chipMoving,
-    chipX,
-    chipY,
-  );
+  if (token.endGameResult === "failed" && token.endGameAnimationTileId !== null) {
+    drawSprite(context, tileset, token.endGameAnimationTileId, chipX, chipY);
+  } else {
+    drawLynxActorSprite(
+      context,
+      tileset,
+      msCreatureTile(MS_TILE.Chip, token.chipDir || MS_DIRECTION.north),
+      token.chipDir,
+      token.chipMoving,
+      chipX,
+      chipY,
+    );
+  }
 
   for (const actor of token.actors) {
     if (actor.hidden) {
