@@ -4,7 +4,7 @@ import msTilesUrl from "../../../../../res/tiles.bmp?url";
 import { buildLegacyTileset, type LegacyTileset } from "@adapters/react/legacyTileset";
 import type { InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
 import type { SeriesCatalogEntry, SeriesLevel } from "@domain/series";
-import { MS_STATUS_FLAG, MS_TILE } from "@domain/game/rules/ms/tiles";
+import { MS_DIRECTION, MS_STATUS_FLAG, MS_TILE, msCreatureTile } from "@domain/game/rules/ms/tiles";
 import { TIME_NIL } from "@domain/score";
 import {
   LEGACY_INFO_X,
@@ -154,6 +154,102 @@ function drawSprite(
   context.drawImage(sprite.image, x + sprite.offsetX, y + sprite.offsetY);
 }
 
+interface LynxRenderableActor {
+  id: number;
+  pos: number;
+  dir: number;
+  moving: number;
+  hidden: boolean;
+}
+
+interface LynxRenderableSession {
+  chipPos: number;
+  chipDir: number;
+  chipMoving: number;
+  actors: LynxRenderableActor[];
+}
+
+function isLynxRenderableSession(token: unknown): token is LynxRenderableSession {
+  if (!token || typeof token !== "object") {
+    return false;
+  }
+
+  const candidate = token as Partial<LynxRenderableSession>;
+  return (
+    typeof candidate.chipPos === "number" &&
+    typeof candidate.chipDir === "number" &&
+    typeof candidate.chipMoving === "number" &&
+    Array.isArray(candidate.actors)
+  );
+}
+
+function drawLynxActorSprite(
+  context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
+  tileId: number,
+  dir: number,
+  moving: number,
+  x: number,
+  y: number,
+): void {
+  let drawX = x;
+  let drawY = y;
+
+  if (moving > 0) {
+    switch (dir) {
+      case MS_DIRECTION.north:
+        drawY += (moving * LEGACY_TILE_SIZE) / 8;
+        break;
+      case MS_DIRECTION.west:
+        drawX += (moving * LEGACY_TILE_SIZE) / 8;
+        break;
+      case MS_DIRECTION.south:
+        drawY -= (moving * LEGACY_TILE_SIZE) / 8;
+        break;
+      case MS_DIRECTION.east:
+        drawX -= (moving * LEGACY_TILE_SIZE) / 8;
+        break;
+    }
+  }
+
+  drawSprite(context, tileset, tileId, drawX, drawY);
+}
+
+function drawLynxActorOverlays(
+  context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  xOrigin: number,
+  yOrigin: number,
+): void {
+  if (!isLynxRenderableSession(session.token)) {
+    return;
+  }
+
+  const token = session.token;
+  const chipX = xOrigin + (token.chipPos % 32) * LEGACY_TILE_SIZE;
+  const chipY = yOrigin + Math.floor(token.chipPos / 32) * LEGACY_TILE_SIZE;
+  drawLynxActorSprite(
+    context,
+    tileset,
+    msCreatureTile(MS_TILE.Chip, token.chipDir || MS_DIRECTION.north),
+    token.chipDir,
+    token.chipMoving,
+    chipX,
+    chipY,
+  );
+
+  for (const actor of token.actors) {
+    if (actor.hidden) {
+      continue;
+    }
+
+    const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
+    const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
+    drawLynxActorSprite(context, tileset, msCreatureTile(actor.id, actor.dir), actor.dir, actor.moving, x, y);
+  }
+}
+
 function drawCompositedCell(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
@@ -241,6 +337,7 @@ function drawGameScreen(
   series: SeriesCatalogEntry | null,
   message: string | null,
   isLoading: boolean,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
 ): void {
   context.fillStyle = COLORS.background;
   context.fillRect(0, 0, LEGACY_WINDOW_WIDTH, LEGACY_WINDOW_HEIGHT);
@@ -272,6 +369,10 @@ function drawGameScreen(
     }
 
     drawCompositedCell(context, tileset, cell.top.id, cell.bottom.id, x, y);
+  }
+
+  if (ruleset === "Lynx") {
+    drawLynxActorOverlays(context, tileset, session, xOrigin, yOrigin);
   }
 
   context.restore();
@@ -431,8 +532,8 @@ export function LegacyCanvasScreen({
       return;
     }
 
-    drawGameScreen(context, tileset, session, currentLevel, currentSeries, message, isLoading);
-  }, [catalog, currentLevel, currentSeries, isLoading, message, mode, selectedSeriesFile, session, tileset]);
+    drawGameScreen(context, tileset, session, currentLevel, currentSeries, message, isLoading, currentRuleset);
+  }, [catalog, currentLevel, currentRuleset, currentSeries, isLoading, message, mode, selectedSeriesFile, session, tileset]);
 
   return (
     <canvas
