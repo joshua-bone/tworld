@@ -16,7 +16,8 @@ import {
   buildReplayTraceScenariosFromSolutionFile,
   resolveReplaySeries,
 } from "@application/use-cases/buildReplayTraceScenariosFromSolutionFile";
-import type { GameEnginePort, GameTrace } from "@application/ports/GameEngine";
+import type { GameEnginePort } from "@application/ports/GameEngine";
+import type { GameTrace } from "@domain/game/types";
 import type { RulesetName } from "@domain/ruleset";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));

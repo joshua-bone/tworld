@@ -66,7 +66,7 @@ runSuite("native Lynx replay characterization", () => {
     const trace = await oracle.runReplayTraceDebugWindow(scenario!.request, scenario!.replay, scenario!.maxTicks, 797, 801);
 
     expect(trace.steps.map((step) => step?.soundEffects)).toEqual([1 << 5, 1 << 5, 1 << 5, 1 << 5]);
-    expect(trace.steps.map((step) => step?.chip.position.pos)).toEqual([405, 405, 405, 405]);
+    expect(trace.steps.map((step) => step?.chip?.position.pos)).toEqual([405, 405, 405, 405]);
     expect(trace.steps.map((step) => step?.lastMoveCode)).toEqual([1, 1, 1, 1]);
   }, 30_000);
 
@@ -182,7 +182,7 @@ runSuite("native Lynx replay characterization", () => {
 
     expect(pushStep?.soundEffects).toBe(1 << 18);
     expect(pushStep?.lastMoveCode).toBe(12);
-    expect(pushStep?.chip.position.pos).toBe(430);
+    expect(pushStep?.chip?.position.pos).toBe(430);
     expect(movingBlock?.position.pos).toBe(494);
     expect(movingBlock?.moving).toBe(6);
   }, 30_000);
@@ -196,7 +196,7 @@ runSuite("native Lynx replay characterization", () => {
     const trace = await oracle.runReplayTraceDebugWindow(scenario!.request, scenario!.replay, scenario!.maxTicks, 23, 24);
 
     expect(trace.steps[0]?.soundEffects).toBe((1 << 12) | (1 << 18));
-    expect(trace.steps[0]?.chip.position.pos).toBe(432);
+    expect(trace.steps[0]?.chip?.position.pos).toBe(432);
   }, 30_000);
 
   it("enters the held-open beartrap and is released south on the next tick in CCLP1:7", async () => {
@@ -208,8 +208,8 @@ runSuite("native Lynx replay characterization", () => {
     const trace = await oracle.runReplayTraceDebugWindow(scenario!.request, scenario!.replay, scenario!.maxTicks, 42, 44);
 
     expect(trace.steps[0]?.soundEffects).toBe(1 << 15);
-    expect(trace.steps[0]?.chip.position.pos).toBe(559);
-    expect(trace.steps[1]?.chip.position.pos).toBe(591);
+    expect(trace.steps[0]?.chip?.position.pos).toBe(559);
+    expect(trace.steps[1]?.chip?.position.pos).toBe(591);
   }, 30_000);
 
   it("keeps the pushed block sliding on ice until it explodes on a bomb in CCLP1:21", async () => {
@@ -272,7 +272,7 @@ runSuite("native Lynx replay characterization", () => {
     ]);
     expect(trace.steps[4]?.inputCode).toBe(4);
     expect(trace.steps[4]?.replayCursor).toBe(7);
-    expect(trace.steps[5]?.chip.position.pos).toBe(307);
+    expect(trace.steps[5]?.chip?.position.pos).toBe(307);
   }, 30_000);
 
   it("updates lastMove on the first tokened turn while Chip keeps the replay path in CCLP1:31", async () => {
@@ -314,7 +314,7 @@ runSuite("native Lynx replay characterization", () => {
 
     expect(trace.steps.map((step) => step?.view.x)).toEqual([128, 126, 124, 122, 120, 118]);
     expect(trace.steps.map((step) => step?.soundEffects)).toEqual([1 << 21, 0, 0, 0, 1 << 14, 0]);
-    expect(trace.steps[3]?.chip.position.pos).toBe(79);
+    expect(trace.steps[3]?.chip?.position.pos).toBe(79);
     expect(trace.steps[4]?.mapHash).toBe("be7ebc8503cd5b5e");
   }, 30_000);
 
@@ -346,7 +346,7 @@ runSuite("native Lynx replay characterization", () => {
 
     expect(trace.steps.map((step) => step?.soundEffects)).toEqual([1 << 18, 1 << 18, 1 << 18, (1 << 18) | (1 << 9)]);
     expect(trace.steps.map((step) => step?.view.x)).toEqual([162, 164, 166, 168]);
-    expect(trace.steps.map((step) => step?.chip.position.pos)).toEqual([436, 437, 437, 437]);
+    expect(trace.steps.map((step) => step?.chip?.position.pos)).toEqual([436, 437, 437, 437]);
     expect(trace.steps.map((step) => step?.lastMoveCode)).toEqual([8, 8, 8, 8]);
   }, 30_000);
 
@@ -360,7 +360,7 @@ runSuite("native Lynx replay characterization", () => {
     const postTeleportPhase = trace.steps[0]?.phases.find((entry) => entry.phase === "post-teleport-resolution");
     const forcedExitPhase = trace.steps[1]?.phases.find((entry) => entry.phase === "post-creature-movement");
 
-    expect(postTeleportPhase?.soundEffects & (1 << 9)).toBe(1 << 9);
+    expect((postTeleportPhase?.soundEffects ?? 0) & (1 << 9)).toBe(1 << 9);
     expect(forcedExitPhase?.blocks.some((actor) => actor.position.pos === 439 && actor.moving === 6)).toBe(true);
     expect(forcedExitPhase?.activeCreatures[0]?.position.pos).toBe(438);
   }, 30_000);
@@ -374,7 +374,7 @@ runSuite("native Lynx replay characterization", () => {
     const trace = await oracle.runReplayTraceDebugWindow(scenario!.request, scenario!.replay, scenario!.maxTicks, 110, 116);
     const reroutePhase = trace.steps[1]?.phases.find((entry) => entry.phase === "post-teleport-resolution");
 
-    expect(reroutePhase?.soundEffects & (1 << 9)).toBe(1 << 9);
+    expect((reroutePhase?.soundEffects ?? 0) & (1 << 9)).toBe(1 << 9);
     expect(reroutePhase?.activeCreatures[0]?.position.pos).toBe(967);
     expect(trace.steps[5]?.chipsNeeded).toBe(17);
   }, 30_000);
@@ -400,7 +400,7 @@ runSuite("native Lynx replay characterization", () => {
     ]);
     expect(pushingBlock?.position.pos).toBe(166);
     expect(pushingBlock?.floor.id).toBe(MS_TILE.Fire);
-    expect(trace.steps[5]?.chip.position.pos).toBe(166);
+    expect(trace.steps[5]?.chip?.position.pos).toBe(166);
   }, 30_000);
 
   it("ignores the queued replay input after Chip reaches the exit in CCLP1:26", async () => {
@@ -440,9 +440,9 @@ runSuite("native Lynx replay characterization", () => {
 
     expect(trace.steps.map((step) => step?.soundEffects)).toEqual([524320, 0, 0, 0, 4096, 524288]);
     expect(trace.steps.map((step) => step?.view.x)).toEqual([56, 58, 60, 62, 64, 68]);
-    expect(trace.steps[4]?.chip.position.pos).toBe(520);
+    expect(trace.steps[4]?.chip?.position.pos).toBe(520);
     expect(trace.steps[5]?.lastMoveCode).toBe(8);
-    expect(trace.steps[5]?.chip.position.pos).toBe(521);
+    expect(trace.steps[5]?.chip?.position.pos).toBe(521);
   }, 30_000);
 
   it("blocks the first west push until the moving block settles in CCLP1:42", async () => {
@@ -455,9 +455,9 @@ runSuite("native Lynx replay characterization", () => {
 
     expect(trace.steps.map((step) => step?.soundEffects)).toEqual([4096, 32, 0, 262144]);
     expect(trace.steps.map((step) => step?.view.x)).toEqual([128, 128, 128, 126]);
-    expect(trace.steps[0]?.chip.position.pos).toBe(80);
-    expect(trace.steps[2]?.chip.position.pos).toBe(80);
-    expect(trace.steps[3]?.chip.position.pos).toBe(80);
+    expect(trace.steps[0]?.chip?.position.pos).toBe(80);
+    expect(trace.steps[2]?.chip?.position.pos).toBe(80);
+    expect(trace.steps[3]?.chip?.position.pos).toBe(80);
   }, 30_000);
 
   it("uses the same-tick green-button wall toggle before Chip collects the boots in CCLP1:72", async () => {
@@ -470,7 +470,7 @@ runSuite("native Lynx replay characterization", () => {
 
     expect(trace.steps.map((step) => step?.view.x)).toEqual([110, 108, 106, 104, 102, 100, 98, 96]);
     expect(trace.steps[0]?.soundEffects).toBe(1 << 12);
-    expect(trace.steps[0]?.chip.position.pos).toBe(398);
+    expect(trace.steps[0]?.chip?.position.pos).toBe(398);
     expect(trace.steps[7]?.soundEffects).toBe(1 << 7);
     expect(trace.steps[7]?.inventory.boots).toEqual([1, 0, 0, 0]);
   }, 30_000);
@@ -495,7 +495,7 @@ runSuite("native Lynx replay characterization", () => {
     expect(trace.steps.map((step) => step?.soundEffects)).toEqual([266240, 262144, 262144, 294912, 32, 0, 4096, 0, 0]);
     expect(trapButtonBall?.moving).toBe(0);
     expect(trace.steps[6]?.view).toEqual({ x: 120, y: 214 });
-    expect(trace.steps[8]?.chip.position.pos).toBe(847);
+    expect(trace.steps[8]?.chip?.position.pos).toBe(847);
   }, 30_000);
 
   it("uses the queued west input when the held-open trap keeps releasing Chip in CCLP1:81", async () => {
@@ -509,8 +509,8 @@ runSuite("native Lynx replay characterization", () => {
     expect(trace.steps.map((step) => step?.lastMoveCode)).toEqual([2, 2, 2, 2, 2, 2, 2]);
     expect(trace.steps.map((step) => step?.view.x)).toEqual([104, 100, 98, 96, 94, 92, 90]);
     expect(trace.steps[1]?.soundEffects).toBe(0);
-    expect(trace.steps[2]?.chip.position.pos).toBe(684);
-    expect(trace.steps[6]?.chip.position.pos).toBe(683);
+    expect(trace.steps[2]?.chip?.position.pos).toBe(684);
+    expect(trace.steps[6]?.chip?.position.pos).toBe(683);
   }, 30_000);
 
   it("drops a queued tank reversal if the tank is still moving when the blue button pulse lands in CCLP1:83", async () => {
@@ -680,7 +680,7 @@ runSuite("native Lynx replay characterization", () => {
       { prng1: 252, prng2: 255 },
       { prng1: 252, prng2: 255 },
     ]);
-    expect(trace.steps[10]?.chip.position.pos).toBe(110);
+    expect(trace.steps[10]?.chip?.position.pos).toBe(110);
   }, 30_000);
 
   it("teleports Chip and forces the north exit on the next tick in CCLP1:27", async () => {
@@ -692,8 +692,8 @@ runSuite("native Lynx replay characterization", () => {
     const trace = await oracle.runReplayTraceDebugWindow(scenario!.request, scenario!.replay, scenario!.maxTicks, 7, 13);
 
     expect(trace.steps[0]?.soundEffects).toBe(1 << 9);
-    expect(trace.steps[0]?.chip.position.pos).toBe(590);
-    expect(trace.steps[3]?.chip.position.pos).toBe(558);
+    expect(trace.steps[0]?.chip?.position.pos).toBe(590);
+    expect(trace.steps[3]?.chip?.position.pos).toBe(558);
     expect(trace.steps.map((step) => step?.view)).toEqual([
       { x: 112, y: 144 },
       { x: 112, y: 142 },
@@ -814,7 +814,7 @@ runSuite("native Lynx replay characterization", () => {
     expect(trace.steps[0]?.lastMoveCode).toBe(3);
     expect(trace.steps[0]?.view).toEqual({ x: 160, y: 78 });
     expect(postInput?.activeCreatures[0]?.tdir).toBe("none");
-    expect(trace.steps[2]?.chip.position.pos).toBe(308);
+    expect(trace.steps[2]?.chip?.position.pos).toBe(308);
   }, 30_000);
 
   it("keeps the random-slide glider pinned after later slide rotations in CCLXP2:59", async () => {
@@ -940,7 +940,7 @@ runSuite("native Lynx replay characterization", () => {
 
     expect(keyBlock?.tdir).toBe("west");
     expect(trace.steps[0]?.soundEffects).toBe(1 << 18);
-    expect(trace.steps[2]?.chip.position.pos).toBe(622);
+    expect(trace.steps[2]?.chip?.position.pos).toBe(622);
     expect(trace.steps[3]?.inventory.keys[0]).toBe(1);
   }, 30_000);
 
@@ -956,7 +956,7 @@ runSuite("native Lynx replay characterization", () => {
     expect(trace.steps.map((step) => step?.soundEffects)).toEqual([1 << 12, 1 << 15, 0]);
     expect(arrivalPhase?.soundEffects).toBe(1 << 15);
     expect(trace.steps.map((step) => step?.view.x)).toEqual([90, 88, 84]);
-    expect(trace.steps[1]?.chip.position.pos).toBe(587);
+    expect(trace.steps[1]?.chip?.position.pos).toBe(587);
   }, 30_000);
 
   it("preserves the held-trap release CantMove after the arrival tick in CCLP5 Voting Qualification:48", async () => {
@@ -969,6 +969,6 @@ runSuite("native Lynx replay characterization", () => {
 
     expect(trace.steps.map((step) => step?.soundEffects)).toEqual([36864, 4128, 4096]);
     expect(trace.steps.map((step) => step?.lastMoveCode)).toEqual([4, 4, 4]);
-    expect(trace.steps[1]?.chip.position.pos).toBe(614);
+    expect(trace.steps[1]?.chip?.position.pos).toBe(614);
   }, 30_000);
 });

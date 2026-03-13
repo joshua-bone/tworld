@@ -260,7 +260,7 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[2]?.view).toEqual({ x: 6, y: 16 });
     expect(trace.steps[2]?.soundEffects).toBe(0);
     expect(trace.steps[4]?.view).toEqual({ x: 2, y: 16 });
-    expect(trace.steps[5]?.chip.position.pos).toBe(64);
+    expect(trace.steps[5]?.chip?.position.pos).toBe(64);
     expect(trace.steps[5]?.soundEffects).toBe(1 << 14);
   });
 
@@ -705,8 +705,8 @@ describe("runLynxInputTrace", () => {
     );
 
     expect(trace.steps[2]?.soundEffects).toBe(1 << 15);
-    expect(trace.steps[2]?.chip.position.pos).toBe(65);
-    expect(trace.steps[3]?.chip.position.pos).toBe(97);
+    expect(trace.steps[2]?.chip?.position.pos).toBe(65);
+    expect(trace.steps[3]?.chip?.position.pos).toBe(97);
     expect(trace.steps[3]?.view.y).toBeGreaterThan(trace.steps[2]?.view.y ?? 0);
   });
 
@@ -744,10 +744,10 @@ describe("runLynxInputTrace", () => {
 
     expect(arrivalPhase?.soundEffects).toBe(1 << 15);
     expect(trace.steps[2]?.soundEffects).toBe(1 << 15);
-    expect(trace.steps[2]?.chip.position.pos).toBe(trapPos);
+    expect(trace.steps[2]?.chip?.position.pos).toBe(trapPos);
     expect(trace.steps[3]?.soundEffects).toBe(0);
     expect(trace.steps[3]?.lastMove).toBe("west");
-    expect(trace.steps[3]?.chip.position.pos).toBe(97);
+    expect(trace.steps[3]?.chip?.position.pos).toBe(97);
   });
 
   it("advances a moving beartrap occupant once more when a held brown button fires later in the same tick", () => {
@@ -816,8 +816,8 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[2]?.soundEffects).toBe(1 << 15);
     expect(trace.steps[3]?.lastMove).toBe("west");
     expect(trace.steps[3]?.view).toEqual({ x: 8, y: 20 });
-    expect(trace.steps[3]?.chip.position.pos).toBe(97);
-    expect(trace.steps[4]?.chip.position.pos).toBe(97);
+    expect(trace.steps[3]?.chip?.position.pos).toBe(97);
+    expect(trace.steps[4]?.chip?.position.pos).toBe(97);
     expect(trace.steps[4]?.lastMove).toBe("west");
   });
 
@@ -851,7 +851,7 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[0]?.soundEffects).toBe(1 << 5);
     expect(trace.steps[0]?.view).toEqual({ x: 8, y: 16 });
     expect(trace.steps[1]?.view).toEqual({ x: 4, y: 16 });
-    expect(trace.steps[2]?.chip.position.pos).toBe(64);
+    expect(trace.steps[2]?.chip?.position.pos).toBe(64);
   });
 
   it("accepts opening replay input on slide floors before slide forcing starts", () => {
@@ -913,7 +913,7 @@ describe("runLynxInputTrace", () => {
       6,
     );
 
-    expect(trace.steps[1]?.chip.position.pos).toBe(65);
+    expect(trace.steps[1]?.chip?.position.pos).toBe(65);
     expect(trace.steps[2]?.mapHash).not.toBe(trace.steps[1]?.mapHash);
     expect(trace.steps[5]?.soundEffects).toBe(1 << 16);
   });
@@ -1630,7 +1630,7 @@ describe("runLynxInputTrace", () => {
         createCell(66, MS_TILE.Empty, MS_TILE.Empty),
         createCell(97, MS_TILE.Empty, MS_TILE.Empty),
       ]),
-      [{ tick: 0, inputCode: 12, inputName: "cmd-12" }],
+      [{ tick: 0, inputCode: 12, inputName: "none" }],
       1,
     );
 
@@ -1712,7 +1712,7 @@ describe("runLynxInputTrace", () => {
     );
 
     expect(trace.steps[0]?.lastMoveCode).toBe(3);
-    expect(trace.steps[3]?.chip.position.pos).toBe(308);
+    expect(trace.steps[3]?.chip?.position.pos).toBe(308);
   });
 
   it("queues the diagonal side-leg push before a brown-button trap release on the same tick", () => {
@@ -1730,7 +1730,7 @@ describe("runLynxInputTrace", () => {
         undefined,
         { traps: [{ from: 405, to: 407 }] },
       ),
-      [{ tick: 0, inputCode: 9, inputName: "cmd-9" }],
+      [{ tick: 0, inputCode: 9, inputName: "none" }],
       1,
     );
 
@@ -1754,7 +1754,7 @@ describe("runLynxInputTrace", () => {
         createCell(66, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Slide_South),
         createCell(98, MS_TILE.Empty, MS_TILE.Empty),
       ]),
-      [{ tick: 0, inputCode: 6, inputName: "cmd-6" }],
+      [{ tick: 0, inputCode: 6, inputName: "none" }],
       1,
     );
 
