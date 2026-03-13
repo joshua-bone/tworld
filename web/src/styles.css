@@ -1,0 +1,159 @@
+:root {
+  color: #ffffff;
+  background: #000000;
+  font-family: "Courier New", monospace;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: #000000;
+}
+
+body {
+  display: grid;
+  place-items: center;
+}
+
+.legacy-shell {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  padding: 24px 12px;
+}
+
+.legacy-help-toggle {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.legacy-help-toggle:hover,
+.legacy-help-toggle:focus-visible,
+.legacy-help__close:hover,
+.legacy-help__close:focus-visible {
+  background: #ffffff;
+  color: #000000;
+}
+
+.legacy-canvas {
+  display: block;
+  width: min(96vw, 960px);
+  height: auto;
+  background: #000000;
+  border: 1px solid #202020;
+  box-shadow: 0 0 0 2px #000000, 0 18px 60px rgba(0, 0, 0, 0.65);
+  image-rendering: pixelated;
+}
+
+.legacy-help-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 24px 12px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.legacy-help {
+  width: min(96vw, 760px);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  border: 1px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  padding: 16px;
+  box-shadow: 0 0 0 2px #000000;
+}
+
+.legacy-help__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.legacy-help__title,
+.legacy-help__section-title {
+  margin: 0;
+  font: inherit;
+  font-weight: 700;
+}
+
+.legacy-help__close {
+  border: 1px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  font: inherit;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.legacy-help__note {
+  margin: 12px 0 16px;
+  color: #c0c0c0;
+}
+
+.legacy-help__section + .legacy-help__section {
+  margin-top: 16px;
+}
+
+.legacy-help__table {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.legacy-help__row {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.legacy-help__keys {
+  color: #ffff00;
+}
+
+.legacy-help__action {
+  color: #ffffff;
+}
+
+@media (max-width: 720px) {
+  .legacy-shell {
+    padding: 12px 8px;
+  }
+
+  .legacy-help-toggle {
+    top: 12px;
+    right: 12px;
+  }
+
+  .legacy-canvas {
+    width: 100%;
+  }
+
+  .legacy-help__row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}

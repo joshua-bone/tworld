@@ -30,6 +30,7 @@ enum {
 /* Forward declaration of a central function.
  */
 static int advancecreature(creature* cr, int dir);
+extern void tworldoraclerecordphase(char const* phase);
 
 /* The most recently used stepping phase value.
  */
@@ -2015,10 +2016,13 @@ static void floormovements_of_blocks_and_monsters(void) /* split into two */
 static void floormovements(void) /* split version with patch */
 {
     floormovements_of_chip();
+    tworldoraclerecordphase("post-chip-floor-movement");
     updatesliplist(); /* remove deadwood */
     /* TSG stuff, not yet included */
-    if (!checkforending()) /* Squish patch (maybe was oversight?) */
+    if (!checkforending()) { /* Squish patch (maybe was oversight?) */
         floormovements_of_blocks_and_monsters();
+        tworldoraclerecordphase("post-block-floor-movement");
+    }
     if (!completed() && chipstatus() == CHIP_SQUISHED)
         chipstatus() = CHIP_SQUISHED_DEATH;
 }
@@ -2348,6 +2352,7 @@ static int advancegame(gamelogic* logic) {
 
     timeoffset() = -1;
     initialhousekeeping();
+    tworldoraclerecordphase("post-initial-housekeeping");
 
     msccslippers = slipcount;
     if (getchip()->state & (CS_SLIP | CS_SLIDE)) /* new accounting */
@@ -2365,6 +2370,7 @@ static int advancegame(gamelogic* logic) {
             if (cr->tdir != NIL)
                 advancecreature(cr, cr->tdir);
         }
+        tworldoraclerecordphase("post-creature-movement");
         if ((r = checkforending()))
             goto done;
     }
@@ -2389,18 +2395,22 @@ static int advancegame(gamelogic* logic) {
 
     cr = getchip();
     choosemove(cr);
+    tworldoraclerecordphase("post-chip-input");
     if (cr->tdir != NIL) {
         advancecreature(cr, cr->tdir); /* Squish patch, TW checked this?! */
         if ((r = checkforending())) /* TW checks advancecreature() status */
             goto done; /* guess it's a remnant of Chip starting on exit? */
         cr->state |= CS_HASMOVED;
     }
+    tworldoraclerecordphase("post-chip-movement");
     updatesliplist();
     createclones();
+    tworldoraclerecordphase("post-clone-release");
 
     done:
     finalhousekeeping();
     preparedisplay();
+    tworldoraclerecordphase("final");
     return r;
 }
 
@@ -2434,6 +2444,38 @@ static void shutdown(gamelogic* logic) {
     slipsallocated = 0;
 
     freecreaturepool();
+}
+
+int mslogicoraclecreaturecount(void) {
+    return creaturecount;
+}
+
+creature* const* mslogicoraclecreatures(void) {
+    return creatures;
+}
+
+int mslogicoracleblockcount(void) {
+    return blockcount;
+}
+
+creature* const* mslogicoracleblocks(void) {
+    return blocks;
+}
+
+int mslogicoracleslipcount(void) {
+    return slipcount;
+}
+
+creature const* mslogicoracleslipcreature(int index) {
+    return index >= 0 && index < slipcount ? slips[index].cr : NULL;
+}
+
+int mslogicoracleslipdir(int index) {
+    return index >= 0 && index < slipcount ? slips[index].dir : NIL;
+}
+
+int mslogicoraclemsccslippers(void) {
+    return msccslippers;
 }
 
 /* The exported function: Initialize and return the module's gamelogic

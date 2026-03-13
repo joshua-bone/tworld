@@ -1,0 +1,54 @@
+{
+  "command": "score-table",
+  "series": "CCLP1-MS.dac",
+  "rowLevelIndexes": [
+    -1
+  ],
+  "table": {
+    "rows": 2,
+    "cols": 5,
+    "sep": 2,
+    "collapse": 1,
+    "data": [
+      [
+        {
+          "span": 1,
+          "align": "+",
+          "text": "Level"
+        },
+        {
+          "span": 1,
+          "align": "-",
+          "text": "Name"
+        },
+        {
+          "span": 1,
+          "align": "+",
+          "text": "Base"
+        },
+        {
+          "span": 1,
+          "align": "+",
+          "text": "Bonus"
+        },
+        {
+          "span": 1,
+          "align": "+",
+          "text": "Score"
+        }
+      ],
+      [
+        {
+          "span": 2,
+          "align": "-",
+          "text": "Total Score"
+        },
+        {
+          "span": 3,
+          "align": "+",
+          "text": "0"
+        }
+      ]
+    ]
+  }
+}

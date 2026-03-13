@@ -1,0 +1,26 @@
+[
+  {
+    "name": "lynx-packed-and-mouse",
+    "ruleset": "Lynx",
+    "levelNumber": 7,
+    "password": "ABCD",
+    "bestTimeTicks": 4321,
+    "flags": 0,
+    "randomSlideDirection": 1,
+    "stepping": 2,
+    "randomSeed": 123456,
+    "moves": "0:1,4:2,8:4,12:8,3000:12,3050:260"
+  },
+  {
+    "name": "ms-long-orthogonal",
+    "ruleset": "MS",
+    "levelNumber": 11,
+    "password": "WXYZ",
+    "bestTimeTicks": 9876,
+    "flags": 0,
+    "randomSlideDirection": 1,
+    "stepping": 0,
+    "randomSeed": 42,
+    "moves": "0:1,1:8,3000:2,6000:4"
+  }
+]

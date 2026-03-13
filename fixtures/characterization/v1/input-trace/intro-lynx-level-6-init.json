@@ -1,0 +1,81 @@
+{
+  "command": "input-trace",
+  "series": "intro-lynx.dac",
+  "levelNumber": 6,
+  "levelIndex": 5,
+  "ruleset": "Lynx",
+  "maxTicks": 0,
+  "timerSecondMs": 1000,
+  "randomSeed": "362436069",
+  "scheduledInputs": [],
+  "initialState": {
+    "phase": "initial",
+    "tick": -1,
+    "status": "playing",
+    "input": "none",
+    "inputCode": 0,
+    "replayCursor": -1,
+    "currentTime": -1,
+    "timeOffset": 0,
+    "secondsPlayed": 0,
+    "timelimit": 10000,
+    "chipsNeeded": 7,
+    "statusFlags": 0,
+    "lastMoveCode": 0,
+    "lastMove": "none",
+    "stepping": 0,
+    "initRandomSlideDir": "north",
+    "randomState": {
+      "main": {
+        "initial": "362436069",
+        "value": "362436069",
+        "shared": false
+      },
+      "lynx": {
+        "prng1": 0,
+        "prng2": 0
+      }
+    },
+    "soundEffects": 0,
+    "view": {
+      "x": 32,
+      "y": 48
+    },
+    "inventory": {
+      "keys": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "boots": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "chip": {
+      "id": -1,
+      "layer": -1,
+      "dir": "none",
+      "position": {
+        "x": 4,
+        "y": 6,
+        "pos": 196
+      },
+      "state": 0,
+      "source": "view"
+    },
+    "creatureCount": 0,
+    "creaturesHash": "14650fb0739d0383",
+    "mapHash": "281fee27959e0fb0",
+    "creatures": []
+  },
+  "steps": [],
+  "result": {
+    "status": "playing",
+    "finalTick": -1,
+    "stepCount": 0
+  }
+}

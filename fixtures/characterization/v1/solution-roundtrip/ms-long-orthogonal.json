@@ -1,0 +1,89 @@
+{
+  "command": "solution-roundtrip",
+  "ruleset": "MS",
+  "levelNumber": 11,
+  "password": "WXYZ",
+  "bestTimeTicks": 9876,
+  "source": {
+    "flags": 0,
+    "randomSlideDirection": 1,
+    "stepping": 0,
+    "randomSeed": 42,
+    "moves": [
+      {
+        "when": 0,
+        "dir": 1
+      },
+      {
+        "when": 1,
+        "dir": 8
+      },
+      {
+        "when": 3000,
+        "dir": 2
+      },
+      {
+        "when": 6000,
+        "dir": 4
+      }
+    ]
+  },
+  "encoded": {
+    "size": 26,
+    "hex": "0b005758595a00002a00000094260000010dc7760100eb760100"
+  },
+  "memoryRoundTrip": {
+    "flags": 0,
+    "randomSlideDirection": 1,
+    "stepping": 0,
+    "randomSeed": 42,
+    "moves": [
+      {
+        "when": 0,
+        "dir": 1
+      },
+      {
+        "when": 1,
+        "dir": 8
+      },
+      {
+        "when": 3000,
+        "dir": 2
+      },
+      {
+        "when": 6000,
+        "dir": 4
+      }
+    ]
+  },
+  "fileRoundTrip": {
+    "bestTimeTicks": 9876,
+    "sgflags": 1,
+    "solutionSize": 26,
+    "hex": "0b005758595a00002a00000094260000010dc7760100eb760100",
+    "expanded": {
+      "flags": 0,
+      "randomSlideDirection": 1,
+      "stepping": 0,
+      "randomSeed": 42,
+      "moves": [
+        {
+          "when": 0,
+          "dir": 1
+        },
+        {
+          "when": 1,
+          "dir": 8
+        },
+        {
+          "when": 3000,
+          "dir": 2
+        },
+        {
+          "when": 6000,
+          "dir": 4
+        }
+      ]
+    }
+  }
+}

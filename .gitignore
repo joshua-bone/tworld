@@ -5,3 +5,12 @@
 /oshw-qt/ui_*.h
 /oshw-qt/moc_*.cpp
 /build
+/build-*
+/node_modules
+/web/node_modules
+/web/dist
+/scripts/__pycache__/
+*.pyc
+*.tsbuildinfo
+/CHIPS.dat
+/data/CHIPS.dat

@@ -1,0 +1,15 @@
+{
+  "name": "tworld",
+  "private": true,
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm --workspace web run dev --",
+    "build": "npm --workspace web run build --",
+    "test": "npm --workspace web run test --",
+    "typecheck": "npm --workspace web run typecheck --",
+    "verify:ms-replays": "npm --workspace web run verify:ms-replays --",
+    "verify:lynx-replays": "npm --workspace web run verify:lynx-replays --"
+  }
+}

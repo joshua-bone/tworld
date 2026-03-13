@@ -1,0 +1,113 @@
+{
+  "command": "solution-roundtrip",
+  "ruleset": "Lynx",
+  "levelNumber": 7,
+  "password": "ABCD",
+  "bestTimeTicks": 4321,
+  "source": {
+    "flags": 0,
+    "randomSlideDirection": 1,
+    "stepping": 2,
+    "randomSeed": 123456,
+    "moves": [
+      {
+        "when": 0,
+        "dir": 1
+      },
+      {
+        "when": 4,
+        "dir": 2
+      },
+      {
+        "when": 8,
+        "dir": 4
+      },
+      {
+        "when": 12,
+        "dir": 8
+      },
+      {
+        "when": 3000,
+        "dir": 12
+      },
+      {
+        "when": 3050,
+        "dir": 260
+      }
+    ]
+  },
+  "encoded": {
+    "size": 25,
+    "hex": "070041424344001040e20100e110000001e49bc1ea0297600c"
+  },
+  "memoryRoundTrip": {
+    "flags": 0,
+    "randomSlideDirection": 1,
+    "stepping": 2,
+    "randomSeed": 123456,
+    "moves": [
+      {
+        "when": 0,
+        "dir": 1
+      },
+      {
+        "when": 4,
+        "dir": 2
+      },
+      {
+        "when": 8,
+        "dir": 4
+      },
+      {
+        "when": 12,
+        "dir": 8
+      },
+      {
+        "when": 3000,
+        "dir": 12
+      },
+      {
+        "when": 3050,
+        "dir": 260
+      }
+    ]
+  },
+  "fileRoundTrip": {
+    "bestTimeTicks": 4321,
+    "sgflags": 1,
+    "solutionSize": 25,
+    "hex": "070041424344001040e20100e110000001e49bc1ea0297600c",
+    "expanded": {
+      "flags": 0,
+      "randomSlideDirection": 1,
+      "stepping": 2,
+      "randomSeed": 123456,
+      "moves": [
+        {
+          "when": 0,
+          "dir": 1
+        },
+        {
+          "when": 4,
+          "dir": 2
+        },
+        {
+          "when": 8,
+          "dir": 4
+        },
+        {
+          "when": 12,
+          "dir": 8
+        },
+        {
+          "when": 3000,
+          "dir": 12
+        },
+        {
+          "when": 3050,
+          "dir": 260
+        }
+      ]
+    }
+  }
+}
