@@ -1,16 +1,32 @@
 import type { GameEnginePort } from "@application/ports/GameEngine";
 import type { DebugGameEnginePort } from "@application/ports/DebugGameEngine";
+import type { InteractiveGameEnginePort, InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
 import type { LevelRepository } from "@application/ports/LevelRepository";
+import { getGameInputCode, type GameInputName } from "@domain/game/command";
 import { parseLynxLevel } from "@domain/game/rules/lynx/level";
 import {
+  advanceLynxInteractiveSession,
+  createLynxInteractiveSession,
+  createLynxReplaySession,
   runLynxInputTrace,
   runLynxInputTraceDebug,
   runLynxReplayTrace,
   runLynxReplayTraceDebug,
   runLynxReplayTraceDebugWindow,
+  type LynxInteractiveSessionState,
 } from "@domain/game/rules/lynx/engine";
+import { engineStateToSnapshot } from "@domain/game/snapshot";
+import type { ReplaySolutionPayload } from "@domain/game/codec";
 
-export class TsLynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePort {
+function cloneCells(token: LynxInteractiveSessionState) {
+  return token.state.map.cells.map((cell) => ({
+    position: { ...cell.position },
+    top: { ...cell.top },
+    bottom: { ...cell.bottom },
+  }));
+}
+
+export class TsLynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePort, InteractiveGameEnginePort {
   constructor(private readonly levels: LevelRepository) {}
 
   supportsRuleset(ruleset: Parameters<NonNullable<GameEnginePort["supportsRuleset"]>>[0]): boolean {
@@ -87,5 +103,71 @@ export class TsLynxGameEngineAdapter implements GameEnginePort, DebugGameEngineP
     const loaded = await this.levels.loadLevel(request);
     const level = parseLynxLevel(loaded.levelData);
     return runLynxReplayTraceDebugWindow(loaded.request, level, replay, maxTicks, windowStart, windowEndExclusive);
+  }
+
+  async startSession(request: Parameters<InteractiveGameEnginePort["startSession"]>[0]): Promise<InteractiveGameSession> {
+    if (request.ruleset !== "Lynx") {
+      throw new Error(`TS Lynx engine does not support ruleset ${request.ruleset}`);
+    }
+
+    const loaded = await this.levels.loadLevel(request);
+    const level = parseLynxLevel(loaded.levelData);
+    const token = createLynxInteractiveSession(request, level);
+
+    return {
+      request: { ...request },
+      mode: "manual",
+      hintText: level.hintText || null,
+      frame: {
+        snapshot: engineStateToSnapshot(token.state, "initial", token.lastInput),
+        cells: cloneCells(token),
+      },
+      recordedMoves: token.recordedMoves.map((move) => ({ ...move })),
+      token,
+    };
+  }
+
+  async startReplaySession(
+    request: Parameters<InteractiveGameEnginePort["startReplaySession"]>[0],
+    replay: ReplaySolutionPayload,
+  ): Promise<InteractiveGameSession> {
+    if (request.ruleset !== "Lynx") {
+      throw new Error(`TS Lynx engine does not support ruleset ${request.ruleset}`);
+    }
+
+    const loaded = await this.levels.loadLevel(request);
+    const level = parseLynxLevel(loaded.levelData);
+    const token = createLynxReplaySession(request, level, replay);
+
+    return {
+      request: { ...request },
+      mode: "replay",
+      hintText: level.hintText || null,
+      frame: {
+        snapshot: engineStateToSnapshot(token.state, "initial", token.lastInput),
+        cells: cloneCells(token),
+      },
+      recordedMoves: token.recordedMoves.map((move) => ({ ...move })),
+      token,
+    };
+  }
+
+  async advanceSession(session: InteractiveGameSession, input: GameInputName): Promise<InteractiveGameSession> {
+    const request = session.request;
+    if (request.ruleset !== "Lynx") {
+      throw new Error(`TS Lynx engine does not support ruleset ${request.ruleset}`);
+    }
+
+    const token = advanceLynxInteractiveSession(session.token as LynxInteractiveSessionState, getGameInputCode(input));
+
+    return {
+      ...session,
+      frame: {
+        snapshot: engineStateToSnapshot(token.state, "tick", token.lastInput),
+        cells: cloneCells(token),
+      },
+      recordedMoves: token.recordedMoves.map((move) => ({ ...move })),
+      token,
+    };
   }
 }

@@ -33,11 +33,17 @@ body {
   padding: 24px 12px;
 }
 
-.legacy-help-toggle {
+.legacy-toolbar {
   position: absolute;
   top: 24px;
   right: 24px;
   z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.legacy-toolbar__button {
   width: 40px;
   height: 40px;
   border: 1px solid #ffffff;
@@ -45,14 +51,81 @@ body {
   color: #ffffff;
   font: inherit;
   cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
 }
 
-.legacy-help-toggle:hover,
-.legacy-help-toggle:focus-visible,
+.legacy-toolbar__button:hover,
+.legacy-toolbar__button:focus-visible,
 .legacy-help__close:hover,
-.legacy-help__close:focus-visible {
+.legacy-help__close:focus-visible,
+.legacy-sound__mute:hover,
+.legacy-sound__mute:focus-visible,
+.legacy-sound__close:hover,
+.legacy-sound__close:focus-visible {
   background: #ffffff;
   color: #000000;
+}
+
+.legacy-toolbar__icon {
+  width: 20px;
+  height: 20px;
+}
+
+.legacy-sound {
+  position: relative;
+}
+
+.legacy-sound__panel {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  width: 220px;
+  border: 1px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  padding: 12px;
+  box-shadow: 0 0 0 2px #000000;
+}
+
+.legacy-sound__header,
+.legacy-sound__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.legacy-sound__title,
+.legacy-sound__label {
+  font: inherit;
+}
+
+.legacy-sound__label {
+  display: block;
+  margin: 12px 0 6px;
+  color: #c0c0c0;
+}
+
+.legacy-sound__slider {
+  width: 100%;
+  margin: 0;
+}
+
+.legacy-sound__mute,
+.legacy-sound__close {
+  border: 1px solid #ffffff;
+  background: #000000;
+  color: #ffffff;
+  font: inherit;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.legacy-sound__footer {
+  margin-top: 12px;
+  color: #c0c0c0;
 }
 
 .legacy-canvas {
@@ -143,7 +216,7 @@ body {
     padding: 12px 8px;
   }
 
-  .legacy-help-toggle {
+  .legacy-toolbar {
     top: 12px;
     right: 12px;
   }

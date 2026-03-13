@@ -1,4 +1,6 @@
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
+import { BrowserSoundEffectsPlayer } from "@adapters/audio/BrowserSoundEffectsPlayer";
+import { TsLynxGameEngineAdapter } from "@adapters/engine/TsLynxGameEngineAdapter";
 import { TsMsGameEngineAdapter } from "@adapters/engine/TsMsGameEngineAdapter";
 import { StaticCharacterizationFixtureRepository } from "@adapters/fixtures/StaticCharacterizationFixtureRepository";
 import {
@@ -20,15 +22,21 @@ import { loadPlayableSelection } from "@application/use-cases/loadPlayableSelect
 import { loadSeriesCatalog } from "@application/use-cases/loadSeriesCatalog";
 import { savePlayableSelection } from "@application/use-cases/savePlayableSelection";
 import { startInteractiveGameSession } from "@application/use-cases/startInteractiveGameSession";
-import type { InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
+import type { InteractiveGameEnginePort, InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
 import type { PlayableSelection } from "@application/ports/PlayableSelectionStore";
 import type { GameInputName } from "@domain/game/command";
 import type { SeriesCatalogEntry } from "@domain/series";
 
 const fixtureRepository = new StaticCharacterizationFixtureRepository();
-const engine = new TsMsGameEngineAdapter(new BrowserLevelRepository());
+const levelRepository = new BrowserLevelRepository();
+const engines: Record<Exclude<SeriesCatalogEntry["ruleset"], "None">, InteractiveGameEnginePort> = {
+  MS: new TsMsGameEngineAdapter(levelRepository),
+  Lynx: new TsLynxGameEngineAdapter(levelRepository),
+};
 const selectionStore = new BrowserPlayableSelectionStore();
 const SESSION_SEED = 123456789;
+const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";
+const SOUND_VOLUME_STORAGE_KEY = "tworld.sound-volume";
 
 interface HelpCommand {
   keys: string;
@@ -38,6 +46,57 @@ interface HelpCommand {
 interface HelpSection {
   title: string;
   commands: HelpCommand[];
+}
+
+function loadStoredMuted(): boolean {
+  try {
+    return window.localStorage.getItem(SOUND_MUTED_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function loadStoredVolume(): number {
+  try {
+    const stored = Number(window.localStorage.getItem(SOUND_VOLUME_STORAGE_KEY));
+    if (!Number.isFinite(stored)) {
+      return 0.7;
+    }
+    return Math.max(0, Math.min(1, stored));
+  } catch {
+    return 0.7;
+  }
+}
+
+function interactiveEngineForRuleset(ruleset: SeriesCatalogEntry["ruleset"]): InteractiveGameEnginePort {
+  if (ruleset === "None") {
+    throw new Error("This series does not declare a playable ruleset.");
+  }
+
+  return engines[ruleset];
+}
+
+function SoundIcon({ muted }: { muted: boolean }) {
+  return (
+    <svg aria-hidden="true" className="legacy-toolbar__icon" viewBox="0 0 16 16">
+      <path
+        d="M2 6h3l4-3v10L5 10H2z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeWidth="1.5"
+      />
+      {muted ? (
+        <path d="M11 5l3 6M14 5l-3 6" fill="none" stroke="currentColor" strokeWidth="1.5" />
+      ) : (
+        <>
+          <path d="M11 6c1 .5 1.5 1.2 1.5 2S12 9.5 11 10" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M12.5 4.5C14 5.4 15 6.6 15 8s-1 2.6-2.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        </>
+      )}
+    </svg>
+  );
 }
 
 const SERIES_LIST_HELP: HelpSection[] = [
@@ -167,18 +226,53 @@ export function App() {
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [showSoundControls, setShowSoundControls] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(() => loadStoredMuted());
+  const [soundVolume, setSoundVolume] = useState(() => loadStoredVolume());
   const [reloadToken, setReloadToken] = useState(0);
   const tickingRef = useRef(false);
   const inputBufferRef = useRef(new LegacyMsInputBuffer());
+  const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
+  const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
   const helpSections =
     mode === "series-list"
       ? [...SERIES_LIST_HELP, ...GLOBAL_HELP]
       : session?.frame.snapshot.status === "playing"
         ? [...GAME_PLAYING_HELP, ...GLOBAL_HELP]
         : [...GAME_ENDED_HELP, ...GLOBAL_HELP];
+
+  useEffect(() => {
+    const player = new BrowserSoundEffectsPlayer();
+    soundPlayerRef.current = player;
+    player.setMuted(soundMuted);
+    player.setVolume(soundVolume);
+
+    return () => {
+      player.dispose();
+      soundPlayerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SOUND_MUTED_STORAGE_KEY, soundMuted ? "1" : "0");
+    } catch {
+      // Ignore storage failures and keep in-memory settings.
+    }
+    soundPlayerRef.current?.setMuted(soundMuted);
+  }, [soundMuted]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SOUND_VOLUME_STORAGE_KEY, String(soundVolume));
+    } catch {
+      // Ignore storage failures and keep in-memory settings.
+    }
+    soundPlayerRef.current?.setVolume(soundVolume);
+  }, [soundVolume]);
 
   useEffect(() => {
     let active = true;
@@ -237,21 +331,20 @@ export function App() {
     if (!series) {
       return;
     }
-    if (series.ruleset !== "MS") {
+    if (series.ruleset === "None") {
       setMode("series-list");
-      setMessage(`${series.filebase} uses ${series.ruleset}. Lynx gameplay is not ported yet.`);
+      setMessage(`${series.filebase} does not declare a playable ruleset.`);
       return;
     }
-
     let active = true;
     inputBufferRef.current.reset();
     setIsRunning(false);
     setIsSessionLoading(true);
 
-    startInteractiveGameSession(engine, {
+    startInteractiveGameSession(interactiveEngineForRuleset(series.ruleset), {
       seriesFile: selectedSeriesFile,
       levelNumber: selectedLevelNumber,
-      ruleset: "MS",
+      ruleset: series.ruleset,
       randomSeed: SESSION_SEED,
     })
       .then((nextSession) => {
@@ -290,7 +383,7 @@ export function App() {
 
     tickingRef.current = true;
     try {
-      const nextSession = await advanceInteractiveGameSession(engine, session, input);
+      const nextSession = await advanceInteractiveGameSession(interactiveEngineForRuleset(session.request.ruleset), session, input);
       startTransition(() => {
         setSession(nextSession);
       });
@@ -331,14 +424,13 @@ export function App() {
     if (!series) {
       return;
     }
-
-    selectSeries(seriesFile);
-    if (series.ruleset !== "MS") {
+    if (series.ruleset === "None") {
       setMode("series-list");
-      setMessage(`${series.filebase} uses ${series.ruleset}. Lynx gameplay is not ported yet.`);
+      setMessage(`${series.filebase} does not declare a playable ruleset.`);
       return;
     }
 
+    selectSeries(seriesFile);
     setMode("game");
   });
 
@@ -416,6 +508,7 @@ export function App() {
 
   const toggleHelp = useEffectEvent(() => {
     inputBufferRef.current.reset();
+    setShowSoundControls(false);
     setShowHelp((value) => !value);
   });
 
@@ -423,6 +516,76 @@ export function App() {
     inputBufferRef.current.reset();
     setShowHelp(false);
   });
+
+  const toggleSoundControls = useEffectEvent(() => {
+    setShowHelp(false);
+    setShowSoundControls((value) => !value);
+  });
+
+  const closeSoundControls = useEffectEvent(() => {
+    setShowSoundControls(false);
+  });
+
+  const toggleMuted = useEffectEvent(() => {
+    if (soundMuted || soundVolume <= 0) {
+      setSoundMuted(false);
+      if (soundVolume <= 0) {
+        setSoundVolume(0.7);
+      }
+      return;
+    }
+
+    setSoundMuted(true);
+  });
+
+  useEffect(() => {
+    if (showHelp) {
+      setShowSoundControls(false);
+    }
+  }, [showHelp]);
+
+  useEffect(() => {
+    const player = soundPlayerRef.current;
+    if (!player) {
+      return;
+    }
+
+    if (mode !== "game" || !session || showHelp) {
+      player.reset();
+      return;
+    }
+
+    player.syncFrame(
+      `${session.request.seriesFile}:${session.request.levelNumber}:${session.request.ruleset}`,
+      session.request.ruleset,
+      session.frame.snapshot.tick,
+      session.frame.snapshot.soundEffects,
+    );
+  }, [mode, session, showHelp]);
+
+  useEffect(() => {
+    if (!showSoundControls) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (target.closest(".legacy-toolbar")) {
+        return;
+      }
+
+      setShowSoundControls(false);
+    };
+
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [showSoundControls]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -443,6 +606,12 @@ export function App() {
         } else if (event.key !== "Tab") {
           event.preventDefault();
         }
+        return;
+      }
+
+      if (showSoundControls && event.key === "Escape") {
+        event.preventDefault();
+        closeSoundControls();
         return;
       }
 
@@ -589,24 +758,81 @@ export function App() {
     proceedAfterLevelEnd,
     selectedSeriesFile,
     session,
+    showSoundControls,
     showHelp,
+    closeSoundControls,
     toggleHelp,
   ]);
 
   return (
     <main className="legacy-shell">
-      <button
-        aria-label={showHelp ? "Hide keyboard help" : "Show keyboard help"}
-        className="legacy-help-toggle"
-        onClick={toggleHelp}
-        type="button"
-      >
-        ?
-      </button>
+      <div className="legacy-toolbar">
+        <div className="legacy-sound">
+          <button
+            aria-expanded={showSoundControls}
+            aria-label={soundMuted ? "Sound muted; open sound controls" : "Open sound controls"}
+            className="legacy-toolbar__button"
+            onClick={toggleSoundControls}
+            type="button"
+          >
+            <SoundIcon muted={soundMuted || soundVolume <= 0} />
+          </button>
+          {showSoundControls ? (
+            <section
+              aria-label="Sound controls"
+              className="legacy-sound__panel"
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              <div className="legacy-sound__header">
+                <span className="legacy-sound__title">Sound</span>
+                <button className="legacy-sound__mute" onClick={toggleMuted} type="button">
+                  {soundMuted || soundVolume <= 0 ? "Enable" : "Mute"}
+                </button>
+              </div>
+              <label className="legacy-sound__label" htmlFor="legacy-sound-volume">
+                Volume
+              </label>
+              <input
+                className="legacy-sound__slider"
+                id="legacy-sound-volume"
+                max="1"
+                min="0"
+                onChange={(event) => {
+                  const nextVolume = Number(event.currentTarget.value);
+                  setSoundVolume(Number.isFinite(nextVolume) ? nextVolume : 0.7);
+                  if (nextVolume > 0 && soundMuted) {
+                    setSoundMuted(false);
+                  }
+                }}
+                step="0.05"
+                type="range"
+                value={soundVolume}
+              />
+              <div className="legacy-sound__footer">
+                <span>{Math.round(soundVolume * 100)}%</span>
+                <button className="legacy-sound__close" onClick={closeSoundControls} type="button">
+                  Close
+                </button>
+              </div>
+            </section>
+          ) : null}
+        </div>
+        <button
+          aria-label={showHelp ? "Hide keyboard help" : "Show keyboard help"}
+          className="legacy-toolbar__button"
+          onClick={toggleHelp}
+          type="button"
+        >
+          ?
+        </button>
+      </div>
       <LegacyCanvasScreen
         catalog={catalog}
         currentLevel={currentLevel}
         currentSeries={currentSeries}
+        currentRuleset={currentRuleset}
         isLoading={isCatalogLoading || isSessionLoading}
         message={message}
         mode={mode}

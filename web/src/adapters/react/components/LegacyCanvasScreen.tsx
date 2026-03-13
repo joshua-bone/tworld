@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import legacyTilesUrl from "../../../../../res/tiles.bmp?url";
+import lynxTilesUrl from "../../../../../res/atiles.bmp?url";
+import msTilesUrl from "../../../../../res/tiles.bmp?url";
 import type { InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
 import type { SeriesCatalogEntry, SeriesLevel } from "@domain/series";
 import { MS_STATUS_FLAG, MS_TILE, isMsBoots, isMsCreature, isMsKey } from "@domain/game/rules/ms/tiles";
@@ -27,6 +28,7 @@ interface LegacyCanvasScreenProps {
   selectedSeriesFile: string | null;
   currentSeries: SeriesCatalogEntry | null;
   currentLevel: SeriesLevel | null;
+  currentRuleset: SeriesCatalogEntry["ruleset"] | null;
   session: InteractiveGameSession | null;
   isLoading: boolean;
   message: string | null;
@@ -357,13 +359,14 @@ function drawGameScreen(
   );
 }
 
-function useLegacyTilesheet(): CanvasImageSource | null {
+function useLegacyTilesheet(tilesUrl: string): CanvasImageSource | null {
   const [sheet, setSheet] = useState<CanvasImageSource | null>(null);
 
   useEffect(() => {
     let active = true;
     const image = new Image();
-    image.src = legacyTilesUrl;
+    setSheet(null);
+    image.src = tilesUrl;
     image.onload = () => {
       if (!active) {
         return;
@@ -395,7 +398,7 @@ function useLegacyTilesheet(): CanvasImageSource | null {
     return () => {
       active = false;
     };
-  }, []);
+  }, [tilesUrl]);
 
   return sheet;
 }
@@ -406,6 +409,7 @@ export function LegacyCanvasScreen({
   selectedSeriesFile,
   currentSeries,
   currentLevel,
+  currentRuleset,
   session,
   isLoading,
   message,
@@ -413,7 +417,7 @@ export function LegacyCanvasScreen({
   onActivateSeries,
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const spritesheet = useLegacyTilesheet();
+  const spritesheet = useLegacyTilesheet(currentRuleset === "Lynx" ? lynxTilesUrl : msTilesUrl);
 
   useEffect(() => {
     const canvas = canvasRef.current;
