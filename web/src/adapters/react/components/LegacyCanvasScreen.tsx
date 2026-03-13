@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import lynxTilesUrl from "../../../../../res/atiles.bmp?url";
 import msTilesUrl from "../../../../../res/tiles.bmp?url";
+import { buildLegacyTileset, type LegacyTileset } from "@adapters/react/legacyTileset";
 import type { InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
 import type { SeriesCatalogEntry, SeriesLevel } from "@domain/series";
-import { MS_STATUS_FLAG, MS_TILE, isMsBoots, isMsCreature, isMsKey } from "@domain/game/rules/ms/tiles";
+import { MS_STATUS_FLAG, MS_TILE } from "@domain/game/rules/ms/tiles";
 import { TIME_NIL } from "@domain/score";
 import {
-  getLegacySpriteCoords,
   LEGACY_INFO_X,
   LEGACY_MAP_HEIGHT,
   LEGACY_MAP_TILES,
@@ -137,7 +137,7 @@ function seriesIndexAt(y: number, itemCount: number): number {
 
 function drawSprite(
   context: CanvasRenderingContext2D,
-  spritesheet: CanvasImageSource,
+  tileset: LegacyTileset,
   tileId: number,
   x: number,
   y: number,
@@ -146,31 +146,17 @@ function drawSprite(
     return;
   }
 
-  const coords = getLegacySpriteCoords(tileId);
-  if (!coords) {
+  const sprite = tileset.get(tileId);
+  if (!sprite) {
     return;
   }
 
-  context.drawImage(
-    spritesheet,
-    coords.x * LEGACY_TILE_SIZE,
-    coords.y * LEGACY_TILE_SIZE,
-    LEGACY_TILE_SIZE,
-    LEGACY_TILE_SIZE,
-    x,
-    y,
-    LEGACY_TILE_SIZE,
-    LEGACY_TILE_SIZE,
-  );
-}
-
-function isTransparentLegacyTile(tileId: number): boolean {
-  return tileId !== MS_TILE.Empty && tileId !== MS_TILE.Nothing && (isMsKey(tileId) || isMsBoots(tileId) || isMsCreature(tileId));
+  context.drawImage(sprite.image, x + sprite.offsetX, y + sprite.offsetY);
 }
 
 function drawCompositedCell(
   context: CanvasRenderingContext2D,
-  spritesheet: CanvasImageSource,
+  tileset: LegacyTileset,
   topId: number,
   bottomId: number,
   x: number,
@@ -178,35 +164,42 @@ function drawCompositedCell(
 ): void {
   const top = topId || MS_TILE.Empty;
   const bottom = bottomId || MS_TILE.Empty;
+  const topSprite = tileset.get(top);
+  const bottomSprite = tileset.get(bottom);
 
-  if (!isTransparentLegacyTile(top)) {
-    drawSprite(context, spritesheet, top, x, y);
+  if (!topSprite) {
+    drawSprite(context, tileset, bottom, x, y);
+    return;
+  }
+
+  if (!topSprite?.transparent) {
+    drawSprite(context, tileset, top, x, y);
     return;
   }
 
   if (bottom === MS_TILE.Nothing || bottom === MS_TILE.Empty) {
-    drawSprite(context, spritesheet, MS_TILE.Empty, x, y);
-  } else if (isTransparentLegacyTile(bottom)) {
-    drawSprite(context, spritesheet, MS_TILE.Empty, x, y);
-    drawSprite(context, spritesheet, bottom, x, y);
+    drawSprite(context, tileset, MS_TILE.Empty, x, y);
+  } else if (bottomSprite?.transparent) {
+    drawSprite(context, tileset, MS_TILE.Empty, x, y);
+    drawSprite(context, tileset, bottom, x, y);
   } else {
-    drawSprite(context, spritesheet, bottom, x, y);
+    drawSprite(context, tileset, bottom, x, y);
   }
 
-  drawSprite(context, spritesheet, top, x, y);
+  drawSprite(context, tileset, top, x, y);
 }
 
 function drawInventoryTile(
   context: CanvasRenderingContext2D,
-  spritesheet: CanvasImageSource,
+  tileset: LegacyTileset,
   overlayId: number,
   x: number,
   y: number,
 ): void {
-  drawSprite(context, spritesheet, MS_TILE.Empty, x, y);
+  drawSprite(context, tileset, MS_TILE.Empty, x, y);
 
   if (overlayId !== MS_TILE.Empty && overlayId !== MS_TILE.Nothing) {
-    drawSprite(context, spritesheet, overlayId, x, y);
+    drawSprite(context, tileset, overlayId, x, y);
   }
 }
 
@@ -242,7 +235,7 @@ function drawSeriesList(
 
 function drawGameScreen(
   context: CanvasRenderingContext2D,
-  spritesheet: CanvasImageSource,
+  tileset: LegacyTileset,
   session: InteractiveGameSession | null,
   level: SeriesLevel | null,
   series: SeriesCatalogEntry | null,
@@ -278,7 +271,7 @@ function drawGameScreen(
       continue;
     }
 
-    drawCompositedCell(context, spritesheet, cell.top.id, cell.bottom.id, x, y);
+    drawCompositedCell(context, tileset, cell.top.id, cell.bottom.id, x, y);
   }
 
   context.restore();
@@ -303,7 +296,7 @@ function drawGameScreen(
   keyIds.forEach((tileId, index) => {
     drawInventoryTile(
       context,
-      spritesheet,
+      tileset,
       snapshot.inventory.keys[index] > 0 ? tileId : MS_TILE.Empty,
       inventoryX + index * LEGACY_TILE_SIZE,
       inventoryY,
@@ -312,7 +305,7 @@ function drawGameScreen(
   bootIds.forEach((tileId, index) => {
     drawInventoryTile(
       context,
-      spritesheet,
+      tileset,
       snapshot.inventory.boots[index] > 0 ? tileId : MS_TILE.Empty,
       inventoryX + index * LEGACY_TILE_SIZE,
       inventoryY + LEGACY_TILE_SIZE,
@@ -359,13 +352,14 @@ function drawGameScreen(
   );
 }
 
-function useLegacyTilesheet(tilesUrl: string): CanvasImageSource | null {
-  const [sheet, setSheet] = useState<CanvasImageSource | null>(null);
+function useLegacyTileset(ruleset: "MS" | "Lynx" | null): LegacyTileset | null {
+  const [tileset, setTileset] = useState<LegacyTileset | null>(null);
+  const tilesUrl = ruleset === "Lynx" ? lynxTilesUrl : msTilesUrl;
 
   useEffect(() => {
     let active = true;
     const image = new Image();
-    setSheet(null);
+    setTileset(null);
     image.src = tilesUrl;
     image.onload = () => {
       if (!active) {
@@ -381,26 +375,19 @@ function useLegacyTilesheet(tilesUrl: string): CanvasImageSource | null {
       }
 
       context.drawImage(image, 0, 0);
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      for (let index = 0; index < imageData.data.length; index += 4) {
-        if (
-          imageData.data[index] === 255 &&
-          imageData.data[index + 1] === 0 &&
-          imageData.data[index + 2] === 255
-        ) {
-          imageData.data[index + 3] = 0;
-        }
+      try {
+        setTileset(buildLegacyTileset(canvas, ruleset === "Lynx" ? "Lynx" : "MS"));
+      } catch (error) {
+        console.error("Failed to decode legacy tileset", error);
       }
-      context.putImageData(imageData, 0, 0);
-      setSheet(canvas);
     };
 
     return () => {
       active = false;
     };
-  }, [tilesUrl]);
+  }, [ruleset, tilesUrl]);
 
-  return sheet;
+  return tileset;
 }
 
 export function LegacyCanvasScreen({
@@ -417,7 +404,7 @@ export function LegacyCanvasScreen({
   onActivateSeries,
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const spritesheet = useLegacyTilesheet(currentRuleset === "Lynx" ? lynxTilesUrl : msTilesUrl);
+  const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -437,15 +424,15 @@ export function LegacyCanvasScreen({
       return;
     }
 
-    if (!spritesheet) {
+    if (!tileset) {
       context.fillStyle = COLORS.background;
       context.fillRect(0, 0, LEGACY_WINDOW_WIDTH, LEGACY_WINDOW_HEIGHT);
       drawText(context, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, COLORS.text);
       return;
     }
 
-    drawGameScreen(context, spritesheet, session, currentLevel, currentSeries, message, isLoading);
-  }, [catalog, currentLevel, currentSeries, isLoading, message, mode, selectedSeriesFile, session, spritesheet]);
+    drawGameScreen(context, tileset, session, currentLevel, currentSeries, message, isLoading);
+  }, [catalog, currentLevel, currentSeries, isLoading, message, mode, selectedSeriesFile, session, tileset]);
 
   return (
     <canvas
