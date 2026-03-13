@@ -35,10 +35,12 @@ export interface LynxInteractiveSessionState {
   currentInputCode: number;
   queuedReplayInputCode: number;
   queuedChipInputCode: number;
+  chipPushing: boolean;
   actors: LynxRuntimeActor[];
   endGameTicksElapsed: number | null;
   endGameResult: LynxEndGameResult | null;
   endGameAnimationTileId: number | null;
+  endGameAnimationFrame: number | null;
 }
 
 type LynxEndGameResult = "completed" | "failed";
@@ -64,6 +66,7 @@ interface LynxRuntimeActor {
 interface LynxAnimationState {
   pos: number;
   frame: number;
+  tileId: number;
 }
 
 const LYNX_ANIMATION_TILE = {
@@ -318,7 +321,11 @@ function releaseReservedAnimationActorAt(actors: LynxRuntimeActor[], pos: number
   actor.animationReserved = false;
 }
 
-function startLynxAnimation(state: EngineState, actors: LynxRuntimeActor[], pos: number): void {
+function initialLynxAnimationFrame(state: EngineState): number {
+  return (((state.timer.currentTime + 1) + state.replay.stepping) & 1) !== 0 ? 11 : 10;
+}
+
+function startLynxAnimation(state: EngineState, actors: LynxRuntimeActor[], pos: number, tileId: number): void {
   clearLynxAnimationAt(state, actors, pos);
 
   const cell = state.map.cells[pos];
@@ -328,7 +335,8 @@ function startLynxAnimation(state: EngineState, actors: LynxRuntimeActor[], pos:
 
   lynxRuntimeState(state).animations.push({
     pos,
-    frame: (((state.timer.currentTime + 1) + state.replay.stepping) & 1) !== 0 ? 11 : 10,
+    frame: initialLynxAnimationFrame(state),
+    tileId,
   });
   cell.top.state |= LYNX_CELL_FLAG.Animated;
 }
@@ -349,17 +357,26 @@ function advanceLynxAnimations(state: EngineState, actors: LynxRuntimeActor[]): 
   }
 }
 
-function removeLynxActor(state: EngineState, actors: LynxRuntimeActor[], actor: LynxRuntimeActor): void {
+function removeLynxActor(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  actor: LynxRuntimeActor,
+  animationTileId: number = LYNX_ANIMATION_TILE.Entity_Explosion,
+): void {
+  if (actor.moving > 0) {
+    actor.pos -= directionDelta(actor.dir);
+    actor.moving = 0;
+  }
+
   if (actor.pushed) {
     actor.pushed = false;
     state.soundEffects &= ~(1 << LYNX_SOUND.BlockMoving);
   }
 
   actor.hidden = true;
-  actor.moving = 0;
   actor.frame = 0;
   actor.animationReserved = true;
-  startLynxAnimation(state, actors, actor.pos);
+  startLynxAnimation(state, actors, actor.pos, animationTileId);
 }
 
 function startLynxEndGame(
@@ -367,18 +384,21 @@ function startLynxEndGame(
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
   endGameAnimationTileId: number | null,
+  endGameAnimationFrame: number | null,
   result: LynxEndGameResult,
   animationTileId: number | null,
 ): {
   endGameTicksElapsed: number | null;
   endGameResult: LynxEndGameResult | null;
   endGameAnimationTileId: number | null;
+  endGameAnimationFrame: number | null;
 } {
   if (endGameTicksElapsed !== null) {
     return {
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
+      endGameAnimationFrame,
     };
   }
 
@@ -387,6 +407,7 @@ function startLynxEndGame(
     endGameTicksElapsed: 0,
     endGameResult: result,
     endGameAnimationTileId: animationTileId,
+    endGameAnimationFrame: result === "failed" && animationTileId !== null ? initialLynxAnimationFrame(state) : null,
   };
 }
 
@@ -394,9 +415,12 @@ function failLynxChip(
   state: EngineState,
   actors: LynxRuntimeActor[],
   chipPos: number,
+  chipDir: number,
+  chipMoving: number,
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
   endGameAnimationTileId: number | null,
+  endGameAnimationFrame: number | null,
   reason: "drowned" | "burned" | "bombed" | "outoftime" | "collided",
   collidedActor: LynxRuntimeActor | null = null,
 ): {
@@ -404,10 +428,15 @@ function failLynxChip(
   endGameTicksElapsed: number | null;
   endGameResult: LynxEndGameResult | null;
   endGameAnimationTileId: number | null;
+  endGameAnimationFrame: number | null;
 } {
   if (collidedActor && !collidedActor.hidden) {
     state.map.cells[collidedActor.pos]!.top.state &= ~LYNX_CELL_FLAG.Claimed;
-    removeLynxActor(state, actors, collidedActor);
+    removeLynxActor(state, actors, collidedActor, LYNX_ANIMATION_TILE.Entity_Explosion);
+  }
+
+  if (chipMoving > 0) {
+    chipPos -= directionDelta(chipDir);
   }
 
   let animationTileId: number = LYNX_ANIMATION_TILE.Entity_Explosion;
@@ -435,6 +464,7 @@ function failLynxChip(
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
+      endGameAnimationFrame,
       "failed",
       animationTileId,
     ),
@@ -463,6 +493,17 @@ function finalizeLynxEndGame(
     endGameTicksElapsed,
     endGameResult,
   };
+}
+
+function advanceLynxEndGameAnimationFrame(
+  endGameResult: LynxEndGameResult | null,
+  endGameAnimationFrame: number | null,
+): number | null {
+  if (endGameResult !== "failed" || endGameAnimationFrame === null) {
+    return endGameAnimationFrame;
+  }
+
+  return endGameAnimationFrame > 0 ? endGameAnimationFrame - 1 : null;
 }
 
 function clearLynxCouldntMove(state: EngineState): void {
@@ -1411,12 +1452,14 @@ function resolveCompletedLynxChipMove(
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
   endGameAnimationTileId: number | null,
+  endGameAnimationFrame: number | null,
 ): {
   chipPos: number;
   chipDir: number;
   endGameTicksElapsed: number | null;
   endGameResult: LynxEndGameResult | null;
   endGameAnimationTileId: number | null;
+  endGameAnimationFrame: number | null;
 } {
   clearLynxCouldntMove(state);
   const floorAfterMove = state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty;
@@ -1428,9 +1471,12 @@ function resolveCompletedLynxChipMove(
         state,
         actors,
         chipPos,
+        chipDir,
+        0,
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
+        endGameAnimationFrame,
         "drowned",
       ),
     };
@@ -1443,9 +1489,12 @@ function resolveCompletedLynxChipMove(
         state,
         actors,
         chipPos,
+        chipDir,
+        0,
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
+        endGameAnimationFrame,
         "burned",
       ),
     };
@@ -1462,9 +1511,12 @@ function resolveCompletedLynxChipMove(
         state,
         actors,
         chipPos,
+        chipDir,
+        0,
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
+        endGameAnimationFrame,
         "bombed",
       ),
     };
@@ -1478,12 +1530,14 @@ function resolveCompletedLynxChipMove(
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
+      endGameAnimationFrame,
       "completed",
       null,
     );
     endGameTicksElapsed = endGame.endGameTicksElapsed;
     endGameResult = endGame.endGameResult;
     endGameAnimationTileId = endGame.endGameAnimationTileId;
+    endGameAnimationFrame = endGame.endGameAnimationFrame;
   }
   state.soundEffects |= collectLynxItemAtPosition(state, chipPos);
   const resolvedFloorAfterMove = state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty;
@@ -1500,6 +1554,7 @@ function resolveCompletedLynxChipMove(
     endGameTicksElapsed,
     endGameResult,
     endGameAnimationTileId,
+    endGameAnimationFrame,
   };
 }
 
@@ -2272,13 +2327,13 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
     if (cell.top.id === MS_TILE.Water) {
       cell.top = { ...cell.top, id: MS_TILE.Dirt };
       cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
-      removeLynxActor(state, actors, actor);
+      removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Water_Splash);
       state.soundEffects |= 1 << LYNX_SOUND.WaterSplash;
     } else if (cell.top.id === MS_TILE.Bomb) {
       cell.top = { ...cell.bottom };
       cell.bottom = { id: MS_TILE.Empty, state: 0 };
       cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
-      removeLynxActor(state, actors, actor);
+      removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Bomb_Explosion);
       state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
     } else if (cell.top.id === MS_TILE.Key_Blue) {
       cell.top = { ...cell.bottom, state: cell.bottom.state | LYNX_CELL_FLAG.Claimed };
@@ -2293,7 +2348,7 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
 
   if (cell.top.id === MS_TILE.Water && actor.id !== MS_TILE.Glider) {
     cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
-    removeLynxActor(state, actors, actor);
+    removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Water_Splash);
     state.soundEffects |= 1 << LYNX_SOUND.WaterSplash;
     state.map.hash = mapHash(state.map.cells);
     return;
@@ -2303,7 +2358,7 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
     cell.top = { ...cell.bottom };
     cell.bottom = { id: MS_TILE.Empty, state: 0 };
     cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
-    removeLynxActor(state, actors, actor);
+    removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Bomb_Explosion);
     state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
     state.map.hash = mapHash(state.map.cells);
     return;
@@ -2397,14 +2452,18 @@ function resolveLynxChipCollision(
   state: EngineState,
   actors: LynxRuntimeActor[],
   chipPos: number,
+  chipDir: number,
+  chipMoving: number,
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
   endGameAnimationTileId: number | null,
+  endGameAnimationFrame: number | null,
 ): {
   chipPos: number;
   endGameTicksElapsed: number | null;
   endGameResult: LynxEndGameResult | null;
   endGameAnimationTileId: number | null;
+  endGameAnimationFrame: number | null;
 } {
   if (endGameTicksElapsed !== null) {
     return {
@@ -2412,6 +2471,7 @@ function resolveLynxChipCollision(
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
+      endGameAnimationFrame,
     };
   }
 
@@ -2422,6 +2482,7 @@ function resolveLynxChipCollision(
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
+      endGameAnimationFrame,
     };
   }
 
@@ -2429,9 +2490,12 @@ function resolveLynxChipCollision(
     state,
     actors,
     chipPos,
+    chipDir,
+    chipMoving,
     endGameTicksElapsed,
     endGameResult,
     endGameAnimationTileId,
+    endGameAnimationFrame,
     "collided",
     actor,
   );
@@ -2607,6 +2671,7 @@ function advanceLynxChipTrapRelease(
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
   endGameAnimationTileId: number | null,
+  endGameAnimationFrame: number | null,
 ): {
   chipPos: number;
   chipDir: number;
@@ -2614,6 +2679,7 @@ function advanceLynxChipTrapRelease(
   endGameTicksElapsed: number | null;
   endGameResult: LynxEndGameResult | null;
   endGameAnimationTileId: number | null;
+  endGameAnimationFrame: number | null;
 } {
   if ((state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty) !== MS_TILE.Beartrap || chipDir === 0) {
     return {
@@ -2623,6 +2689,7 @@ function advanceLynxChipTrapRelease(
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
+      endGameAnimationFrame,
     };
   }
 
@@ -2637,6 +2704,7 @@ function advanceLynxChipTrapRelease(
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
+        endGameAnimationFrame,
       };
     }
     const targetPos = chipPos + directionDelta(chipDir);
@@ -2664,6 +2732,7 @@ function advanceLynxChipTrapRelease(
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
+        endGameAnimationFrame,
       };
     }
 
@@ -2685,12 +2754,14 @@ function advanceLynxChipTrapRelease(
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
+      endGameAnimationFrame,
     );
     chipPos = completed.chipPos;
     chipDir = completed.chipDir;
     endGameTicksElapsed = completed.endGameTicksElapsed;
     endGameResult = completed.endGameResult;
     endGameAnimationTileId = completed.endGameAnimationTileId;
+    endGameAnimationFrame = completed.endGameAnimationFrame;
   }
 
   return {
@@ -2700,6 +2771,7 @@ function advanceLynxChipTrapRelease(
     endGameTicksElapsed,
     endGameResult,
     endGameAnimationTileId,
+    endGameAnimationFrame,
   };
 }
 
@@ -2714,6 +2786,7 @@ function springLynxHeldBrownButton(
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
   endGameAnimationTileId: number | null,
+  endGameAnimationFrame: number | null,
   replayInputCode = 0,
 ): {
   chipPos: number;
@@ -2722,6 +2795,7 @@ function springLynxHeldBrownButton(
   endGameTicksElapsed: number | null;
   endGameResult: LynxEndGameResult | null;
   endGameAnimationTileId: number | null;
+  endGameAnimationFrame: number | null;
   consumedReplayInput: boolean;
   deferredChipInputCode: number;
   chipArrivedOnTrapThisTick: boolean;
@@ -2732,6 +2806,7 @@ function springLynxHeldBrownButton(
   let nextEndGameTicksElapsed = endGameTicksElapsed;
   let nextEndGameResult = endGameResult;
   let nextEndGameAnimationTileId = endGameAnimationTileId;
+  let nextEndGameAnimationFrame = endGameAnimationFrame;
   let consumedReplayInput = false;
   let deferredChipInputCode = 0;
   let chipArrivedOnTrapThisTick = false;
@@ -2755,6 +2830,7 @@ function springLynxHeldBrownButton(
       nextEndGameTicksElapsed,
       nextEndGameResult,
       nextEndGameAnimationTileId,
+      nextEndGameAnimationFrame,
     );
     nextChipPos = released.chipPos;
     nextChipDir = released.chipDir;
@@ -2762,6 +2838,7 @@ function springLynxHeldBrownButton(
     nextEndGameTicksElapsed = released.endGameTicksElapsed;
     nextEndGameResult = released.endGameResult;
     nextEndGameAnimationTileId = released.endGameAnimationTileId;
+    nextEndGameAnimationFrame = released.endGameAnimationFrame;
     chipArrivedOnTrapThisTick =
       releaseStartMoving > 0 &&
       nextChipPos === releaseStartPos &&
@@ -2780,6 +2857,7 @@ function springLynxHeldBrownButton(
     endGameTicksElapsed: nextEndGameTicksElapsed,
     endGameResult: nextEndGameResult,
     endGameAnimationTileId: nextEndGameAnimationTileId,
+    endGameAnimationFrame: nextEndGameAnimationFrame,
     consumedReplayInput,
     deferredChipInputCode,
     chipArrivedOnTrapThisTick,
@@ -2884,10 +2962,12 @@ function createLynxInteractiveToken(
     currentInputCode: 0,
     queuedReplayInputCode: 0,
     queuedChipInputCode: 0,
+    chipPushing: false,
     actors: parseLynxActors(level),
     endGameTicksElapsed: null,
     endGameResult: null,
     endGameAnimationTileId: null,
+    endGameAnimationFrame: null,
   };
 }
 
@@ -2916,24 +2996,30 @@ function advanceLynxInteractiveTick(
   let currentInputCode = session.currentInputCode;
   let queuedReplayInputCode = session.queuedReplayInputCode;
   let queuedChipInputCode = session.queuedChipInputCode;
+  let chipPushing = false;
   const actors = session.actors;
   let endGameTicksElapsed = session.endGameTicksElapsed;
   let endGameResult = session.endGameResult;
   let endGameAnimationTileId = session.endGameAnimationTileId;
+  let endGameAnimationFrame = session.endGameAnimationFrame;
 
   if (scheduledInputCode !== null) {
     currentInputCode = scheduledInputCode;
   }
   state.soundEffects &= ~LYNX_ONE_SHOT_MASK;
   runLynxInitialHousekeeping(state, actors);
+  endGameAnimationFrame = advanceLynxEndGameAnimationFrame(endGameResult, endGameAnimationFrame);
   if (endGameTicksElapsed === null && state.timer.timeLimit > 0 && state.timer.currentTime >= state.timer.timeLimit) {
     const timedOut = failLynxChip(
       state,
       actors,
       chipPos,
+      chipDir,
+      chipMoving,
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
+      endGameAnimationFrame,
       "outoftime",
     );
     chipPos = timedOut.chipPos;
@@ -2941,6 +3027,7 @@ function advanceLynxInteractiveTick(
     endGameTicksElapsed = timedOut.endGameTicksElapsed;
     endGameResult = timedOut.endGameResult;
     endGameAnimationTileId = timedOut.endGameAnimationTileId;
+    endGameAnimationFrame = timedOut.endGameAnimationFrame;
   }
   advanceLynxAnimations(state, actors);
   if (replayMode && scheduledInputCode !== null) {
@@ -3039,6 +3126,7 @@ function advanceLynxInteractiveTick(
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
+        endGameAnimationFrame,
         replayMode ? currentInputCode : 0,
       );
       chipPos = heldButton.chipPos;
@@ -3047,6 +3135,7 @@ function advanceLynxInteractiveTick(
       endGameTicksElapsed = heldButton.endGameTicksElapsed;
       endGameResult = heldButton.endGameResult;
       endGameAnimationTileId = heldButton.endGameAnimationTileId;
+      endGameAnimationFrame = heldButton.endGameAnimationFrame;
       chipArrivedOnHeldTrapThisTick ||= heldButton.chipArrivedOnTrapThisTick;
       if (replayMode && heldButton.consumedReplayInput) {
         state.lastMove = {
@@ -3066,15 +3155,19 @@ function advanceLynxInteractiveTick(
       state,
       actors,
       chipPos,
+      chipDir,
+      chipMoving,
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
+      endGameAnimationFrame,
     );
     chipPos = collision.chipPos;
     chipMoving = collision.endGameTicksElapsed !== null ? 0 : chipMoving;
     endGameTicksElapsed = collision.endGameTicksElapsed;
     endGameResult = collision.endGameResult;
     endGameAnimationTileId = collision.endGameAnimationTileId;
+    endGameAnimationFrame = collision.endGameAnimationFrame;
   }
 
   const chipMoveSelection =
@@ -3139,6 +3232,7 @@ function advanceLynxInteractiveTick(
     updateLynxChipStartMovementState(state, floorBeforeMove, chosenInputCode);
     if (canLynxExitTile(state, floorBeforeMove, MS_TILE.Chip, startInputCode, false)) {
       if (!canAdvanceLynxPosition(chipPos, startInputCode)) {
+        chipPushing = true;
         chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
         addLynxCantMove(state);
       } else {
@@ -3160,17 +3254,22 @@ function advanceLynxInteractiveTick(
             : revealLynxHiddenWall(state, targetPos)
               ? false
               : canLynxChipEnterCell(state, targetPos, startInputCode));
+        if (targetBlock && (pushedBlock || !canEnterTarget)) {
+          chipPushing = true;
+        }
         if (canEnterTarget) {
           clearLynxCouldntMove(state);
           chipDir = startInputCode;
           chipPos = targetPos;
           chipMoving = 8;
         } else {
+          chipPushing = true;
           chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
           addLynxCantMove(state);
         }
       }
     } else {
+      chipPushing = true;
       chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
       addLynxCantMove(state);
     }
@@ -3193,12 +3292,14 @@ function advanceLynxInteractiveTick(
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
+        endGameAnimationFrame,
       );
       chipPos = completed.chipPos;
       chipDir = completed.chipDir;
       endGameTicksElapsed = completed.endGameTicksElapsed;
       endGameResult = completed.endGameResult;
       endGameAnimationTileId = completed.endGameAnimationTileId;
+      endGameAnimationFrame = completed.endGameAnimationFrame;
     }
   }
   if (!chipArrivedThisTick && chipMoving === 0 && (state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty) === MS_TILE.Button_Brown) {
@@ -3257,10 +3358,12 @@ function advanceLynxInteractiveTick(
     currentInputCode,
     queuedReplayInputCode,
     queuedChipInputCode,
+    chipPushing,
     actors,
     endGameTicksElapsed,
     endGameResult,
     endGameAnimationTileId,
+    endGameAnimationFrame,
   };
 }
 
@@ -3451,6 +3554,7 @@ function runLynxReplayTraceDebugInternal(
   let endGameTicksElapsed: number | null = null;
   let endGameResult: LynxEndGameResult | null = null;
   let endGameAnimationTileId: number | null = null;
+  let endGameAnimationFrame: number | null = null;
 
   for (let tick = 0; tick < maxTicks; tick += 1) {
     const scheduled = scheduledInputForTick(commands, tick);
@@ -3467,14 +3571,18 @@ function runLynxReplayTraceDebugInternal(
       buildLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, currentInputCode, tick, "post-input-latch"),
     );
     runLynxInitialHousekeeping(state, actors);
+    endGameAnimationFrame = advanceLynxEndGameAnimationFrame(endGameResult, endGameAnimationFrame);
     if (endGameTicksElapsed === null && state.timer.timeLimit > 0 && state.timer.currentTime >= state.timer.timeLimit) {
       const timedOut = failLynxChip(
         state,
         actors,
         chipPos,
+        chipDir,
+        chipMoving,
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
+        endGameAnimationFrame,
         "outoftime",
       );
       chipPos = timedOut.chipPos;
@@ -3482,6 +3590,7 @@ function runLynxReplayTraceDebugInternal(
       endGameTicksElapsed = timedOut.endGameTicksElapsed;
       endGameResult = timedOut.endGameResult;
       endGameAnimationTileId = timedOut.endGameAnimationTileId;
+      endGameAnimationFrame = timedOut.endGameAnimationFrame;
     }
     phases.push(
       buildLynxDebugPhaseSnapshot(
@@ -3591,6 +3700,7 @@ function runLynxReplayTraceDebugInternal(
           endGameTicksElapsed,
           endGameResult,
           endGameAnimationTileId,
+          endGameAnimationFrame,
           replay ? currentInputCode : 0,
         );
         chipPos = heldButton.chipPos;
@@ -3599,6 +3709,7 @@ function runLynxReplayTraceDebugInternal(
         endGameTicksElapsed = heldButton.endGameTicksElapsed;
         endGameResult = heldButton.endGameResult;
         endGameAnimationTileId = heldButton.endGameAnimationTileId;
+        endGameAnimationFrame = heldButton.endGameAnimationFrame;
         chipArrivedOnHeldTrapThisTick ||= heldButton.chipArrivedOnTrapThisTick;
         if (replay && heldButton.consumedReplayInput) {
           state.lastMove = {
@@ -3618,15 +3729,19 @@ function runLynxReplayTraceDebugInternal(
         state,
         actors,
         chipPos,
+        chipDir,
+        chipMoving,
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
+        endGameAnimationFrame,
       );
       chipPos = collision.chipPos;
       chipMoving = collision.endGameTicksElapsed !== null ? 0 : chipMoving;
       endGameTicksElapsed = collision.endGameTicksElapsed;
       endGameResult = collision.endGameResult;
       endGameAnimationTileId = collision.endGameAnimationTileId;
+      endGameAnimationFrame = collision.endGameAnimationFrame;
     }
 
     phases.push(
@@ -3758,12 +3873,14 @@ function runLynxReplayTraceDebugInternal(
           endGameTicksElapsed,
           endGameResult,
           endGameAnimationTileId,
+          endGameAnimationFrame,
         );
         chipPos = completed.chipPos;
         chipDir = completed.chipDir;
         endGameTicksElapsed = completed.endGameTicksElapsed;
         endGameResult = completed.endGameResult;
         endGameAnimationTileId = completed.endGameAnimationTileId;
+        endGameAnimationFrame = completed.endGameAnimationFrame;
       }
     }
     if (!chipArrivedThisTick && chipMoving === 0 && (state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty) === MS_TILE.Button_Brown) {

@@ -10,6 +10,8 @@ export interface LegacyTileSprite {
 
 export interface LegacyTileset {
   get(tileId: number): LegacyTileSprite | null;
+  getCell?: (topId: number, bottomId: number, timerval: number) => LegacyTileSprite | null;
+  getCreature?: (id: number, dir: number, moving: number, frame: number) => LegacyTileSprite | null;
 }
 
 interface RasterImage {
@@ -44,6 +46,19 @@ interface LynxLargeTileLayout {
   tileHeight: number;
   positions: Array<LynxLargeTileBounds | null>;
 }
+
+interface LegacyTileEntry {
+  opaque: Array<HTMLCanvasElement | null>;
+  transp: Array<HTMLCanvasElement | null>;
+  celCount: number;
+  transpSize: number;
+}
+
+const SIZE_EXTLEFT = 0x01;
+const SIZE_EXTRIGHT = 0x02;
+const SIZE_EXTUP = 0x04;
+const SIZE_EXTDOWN = 0x08;
+const SIZE_EXTALL = SIZE_EXTLEFT | SIZE_EXTRIGHT | SIZE_EXTUP | SIZE_EXTDOWN;
 
 const NORTH = MS_DIRECTION.north;
 const WEST = MS_DIRECTION.west;
@@ -185,6 +200,64 @@ function spriteCanvasFromImageData(imageData: ImageData): HTMLCanvasElement {
   return canvas;
 }
 
+function createLegacyTileEntry(): LegacyTileEntry {
+  return {
+    opaque: Array.from({ length: 16 }, () => null),
+    transp: Array.from({ length: 16 }, () => null),
+    celCount: 0,
+    transpSize: 0,
+  };
+}
+
+function createLegacyTileSprite(image: HTMLCanvasElement, transparent: boolean, offsetX = 0, offsetY = 0): LegacyTileSprite {
+  return {
+    image,
+    offsetX,
+    offsetY,
+    transparent,
+  };
+}
+
+function extractOpaqueCanvas(
+  sourceContext: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  transparencyColor: readonly number[],
+  emptyTileData: ImageData,
+): HTMLCanvasElement {
+  const imageData = sourceContext.getImageData(x, y, width, height);
+  for (let index = 0; index < imageData.data.length; index += 4) {
+    if (matchesColor(imageData.data, index, transparencyColor)) {
+      imageData.data[index] = emptyTileData.data[index]!;
+      imageData.data[index + 1] = emptyTileData.data[index + 1]!;
+      imageData.data[index + 2] = emptyTileData.data[index + 2]!;
+      imageData.data[index + 3] = emptyTileData.data[index + 3]!;
+    }
+  }
+
+  return spriteCanvasFromImageData(imageData);
+}
+
+function extractTransparentCanvas(
+  sourceContext: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  transparencyColor: readonly number[],
+): HTMLCanvasElement {
+  const imageData = sourceContext.getImageData(x, y, width, height);
+  for (let index = 0; index < imageData.data.length; index += 4) {
+    if (matchesColor(imageData.data, index, transparencyColor)) {
+      imageData.data[index + 3] = 0;
+    }
+  }
+
+  return spriteCanvasFromImageData(imageData);
+}
+
 function extractRawSprite(
   sourceContext: CanvasRenderingContext2D,
   x: number,
@@ -195,12 +268,12 @@ function extractRawSprite(
   offsetX = 0,
   offsetY = 0,
 ): LegacyTileSprite {
-  return {
-    image: spriteCanvasFromImageData(sourceContext.getImageData(x, y, width, height)),
+  return createLegacyTileSprite(
+    spriteCanvasFromImageData(sourceContext.getImageData(x, y, width, height)),
+    transparent,
     offsetX,
     offsetY,
-    transparent,
-  };
+  );
 }
 
 function extractTransparentSprite(
@@ -213,19 +286,12 @@ function extractTransparentSprite(
   offsetX = 0,
   offsetY = 0,
 ): LegacyTileSprite {
-  const imageData = sourceContext.getImageData(x, y, width, height);
-  for (let index = 0; index < imageData.data.length; index += 4) {
-    if (matchesColor(imageData.data, index, transparencyColor)) {
-      imageData.data[index + 3] = 0;
-    }
-  }
-
-  return {
-    image: spriteCanvasFromImageData(imageData),
+  return createLegacyTileSprite(
+    extractTransparentCanvas(sourceContext, x, y, width, height, transparencyColor),
+    true,
     offsetX,
     offsetY,
-    transparent: true,
-  };
+  );
 }
 
 function extractOpaqueSprite(
@@ -237,22 +303,10 @@ function extractOpaqueSprite(
   transparencyColor: readonly number[],
   emptyTileData: ImageData,
 ): LegacyTileSprite {
-  const imageData = sourceContext.getImageData(x, y, width, height);
-  for (let index = 0; index < imageData.data.length; index += 4) {
-    if (matchesColor(imageData.data, index, transparencyColor)) {
-      imageData.data[index] = emptyTileData.data[index]!;
-      imageData.data[index + 1] = emptyTileData.data[index + 1]!;
-      imageData.data[index + 2] = emptyTileData.data[index + 2]!;
-      imageData.data[index + 3] = emptyTileData.data[index + 3]!;
-    }
-  }
-
-  return {
-    image: spriteCanvasFromImageData(imageData),
-    offsetX: 0,
-    offsetY: 0,
-    transparent: false,
-  };
+  return createLegacyTileSprite(
+    extractOpaqueCanvas(sourceContext, x, y, width, height, transparencyColor, emptyTileData),
+    false,
+  );
 }
 
 function extractMsSprite(sourceContext: CanvasRenderingContext2D, tileId: number): LegacyTileSprite | null {
@@ -378,8 +432,74 @@ export function scanLynxLargeTileLayout(
   return { tileWidth, tileHeight, positions };
 }
 
-function setSprite(sprites: Map<number, LegacyTileSprite>, id: number, sprite: LegacyTileSprite): void {
-  sprites.set(id, sprite);
+function setEntry(entries: Map<number, LegacyTileEntry>, id: number, entry: LegacyTileEntry): void {
+  entries.set(id, entry);
+}
+
+function extractOpaqueSequence(
+  sourceContext: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  count: number,
+  transparencyColor: readonly number[],
+  emptyTileData: ImageData,
+): HTMLCanvasElement[] {
+  const frames: HTMLCanvasElement[] = [];
+  for (let index = 0; index < count; index += 1) {
+    frames.push(extractOpaqueCanvas(sourceContext, x + index * width, y, width, height, transparencyColor, emptyTileData));
+  }
+  return frames;
+}
+
+function extractTransparentSequence(
+  sourceContext: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  count: number,
+  transparencyColor: readonly number[],
+): HTMLCanvasElement[] {
+  const frames = new Array<HTMLCanvasElement>(count);
+  for (let index = count - 1, frameX = x; index >= 0; index -= 1, frameX += width) {
+    frames[index] = extractTransparentCanvas(sourceContext, frameX, y, width, height, transparencyColor);
+  }
+  return frames;
+}
+
+function isLynxAnimationTile(id: number): boolean {
+  return id >= LYNX_TILE.Water_Splash && id <= LYNX_TILE.Entity_Explosion;
+}
+
+function renderEntryFrame(
+  entry: LegacyTileEntry,
+  index: number,
+  offsetX = 0,
+  offsetY = 0,
+): LegacyTileSprite | null {
+  const transparentImage = entry.transp[index] ?? null;
+  if (transparentImage) {
+    return createLegacyTileSprite(transparentImage, true, offsetX, offsetY);
+  }
+
+  const opaqueImage = entry.opaque[index] ?? null;
+  if (!opaqueImage) {
+    return null;
+  }
+
+  return createLegacyTileSprite(opaqueImage, false, offsetX, offsetY);
+}
+
+function timedCelIndex(entry: LegacyTileEntry, timerval: number): number {
+  if (entry.celCount <= 1) {
+    return 0;
+  }
+  if (timerval < 0) {
+    return 0;
+  }
+  return (timerval + 1) % entry.celCount;
 }
 
 function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset {
@@ -392,11 +512,12 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
   const layout = scanLynxLargeTileLayout(raster);
   const transparencyColor = rasterColorAt(raster, 1, 0);
   const emptyTileData = sourceContext.getImageData(1, 1, layout.tileWidth, layout.tileHeight);
-  const sprites = new Map<number, LegacyTileSprite>();
+  const entries = new Map<number, LegacyTileEntry>();
 
-  setSprite(sprites, MS_TILE.Empty, extractRawSprite(sourceContext, 1, 1, layout.tileWidth, layout.tileHeight, false));
-
-  const transparentFrameX = (x: number, width: number, count: number): number => x + (count - 1) * width;
+  const emptyEntry = createLegacyTileEntry();
+  emptyEntry.celCount = 1;
+  emptyEntry.opaque[0] = spriteCanvasFromImageData(emptyTileData);
+  setEntry(entries, MS_TILE.Empty, emptyEntry);
 
   for (let index = 1; index < LYNX_TILE_SPECS.length; index += 1) {
     const spec = LYNX_TILE_SPECS[index]!;
@@ -409,77 +530,86 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
     const baseY = position.y;
 
     switch (spec.shape) {
-      case LegacyLynxTileShape.SingleOpaque:
-        setSprite(
-          sprites,
-          spec.id,
-          extractRawSprite(
-            sourceContext,
-            baseX,
-            baseY,
-            layout.tileWidth,
-            layout.tileHeight,
-            false,
-          ),
-        );
+      case LegacyLynxTileShape.SingleOpaque: {
+        const entry = createLegacyTileEntry();
+        entry.celCount = 1;
+        entry.opaque[0] = spriteCanvasFromImageData(sourceContext.getImageData(baseX, baseY, layout.tileWidth, layout.tileHeight));
+        setEntry(entries, spec.id, entry);
         break;
+      }
 
-      case LegacyLynxTileShape.OpaqueCels:
-        setSprite(
-          sprites,
-          spec.id,
-          extractOpaqueSprite(
-            sourceContext,
-            baseX,
-            baseY,
-            layout.tileWidth,
-            layout.tileHeight,
-            transparencyColor,
-            emptyTileData,
-          ),
-        );
+      case LegacyLynxTileShape.OpaqueCels: {
+        const entry = createLegacyTileEntry();
+        entry.celCount = position.w;
+        extractOpaqueSequence(
+          sourceContext,
+          baseX,
+          baseY,
+          layout.tileWidth,
+          layout.tileHeight,
+          position.w,
+          transparencyColor,
+          emptyTileData,
+        ).forEach((frame, frameIndex) => {
+          entry.opaque[frameIndex] = frame;
+        });
+        setEntry(entries, spec.id, entry);
         break;
+      }
 
-      case LegacyLynxTileShape.TranspCels:
-        setSprite(
-          sprites,
-          spec.id,
-          extractTransparentSprite(
-            sourceContext,
-            transparentFrameX(baseX, layout.tileWidth, position.w),
-            baseY,
-            layout.tileWidth,
-            layout.tileHeight,
-            transparencyColor,
-          ),
-        );
+      case LegacyLynxTileShape.TranspCels: {
+        const entry = createLegacyTileEntry();
+        entry.celCount = position.w;
+        extractTransparentSequence(
+          sourceContext,
+          baseX,
+          baseY,
+          layout.tileWidth,
+          layout.tileHeight,
+          position.w,
+          transparencyColor,
+        ).forEach((frame, frameIndex) => {
+          entry.transp[frameIndex] = frame;
+        });
+        setEntry(entries, spec.id, entry);
         break;
+      }
 
       case LegacyLynxTileShape.Animation: {
+        const entry = createLegacyTileEntry();
         const cellWidth = position.h === 3 ? layout.tileWidth * 3 : layout.tileWidth;
         const cellHeight = position.h === 3 ? layout.tileHeight * 3 : layout.tileHeight;
         const frameCount = position.h === 3 ? position.w / 3 : position.w;
-        setSprite(
-          sprites,
-          spec.id,
-          extractTransparentSprite(
-            sourceContext,
-            transparentFrameX(baseX, cellWidth, frameCount),
-            baseY,
-            cellWidth,
-            cellHeight,
-            transparencyColor,
-            position.h === 3 ? -layout.tileWidth : 0,
-            position.h === 3 ? -layout.tileHeight : 0,
-          ),
-        );
+        entry.transpSize = position.h === 3 ? SIZE_EXTALL : 0;
+        entry.celCount = frameCount;
+        extractTransparentSequence(
+          sourceContext,
+          baseX,
+          baseY,
+          cellWidth,
+          cellHeight,
+          frameCount,
+          transparencyColor,
+        ).forEach((frame, frameIndex) => {
+          entry.transp[frameIndex] = frame;
+        });
+        if (entry.celCount < 12) {
+          const originalCount = entry.celCount;
+          for (let frameIndex = 11; frameIndex >= 0; frameIndex -= 1) {
+            entry.transp[frameIndex] = entry.transp[Math.trunc((frameIndex * originalCount) / 12)] ?? null;
+          }
+          entry.celCount = 12;
+        }
+        setEntry(entries, spec.id, entry);
         break;
       }
 
       case LegacyLynxTileShape.Creature:
         if (position.h === 1) {
           if (position.w === 1) {
-            const sprite = extractTransparentSprite(
+            const entry = createLegacyTileEntry();
+            entry.celCount = 1;
+            entry.transp[0] = extractTransparentCanvas(
               sourceContext,
               baseX,
               baseY,
@@ -487,12 +617,14 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
               layout.tileHeight,
               transparencyColor,
             );
-            setSprite(sprites, spec.id, sprite);
-            setSprite(sprites, spec.id + 1, sprite);
-            setSprite(sprites, spec.id + 2, sprite);
-            setSprite(sprites, spec.id + 3, sprite);
+            setEntry(entries, spec.id, entry);
+            setEntry(entries, spec.id + 1, entry);
+            setEntry(entries, spec.id + 2, entry);
+            setEntry(entries, spec.id + 3, entry);
           } else if (position.w === 2) {
-            const northSouth = extractTransparentSprite(
+            const northSouth = createLegacyTileEntry();
+            northSouth.celCount = 1;
+            northSouth.transp[0] = extractTransparentCanvas(
               sourceContext,
               baseX,
               baseY,
@@ -500,7 +632,9 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
               layout.tileHeight,
               transparencyColor,
             );
-            const westEast = extractTransparentSprite(
+            const westEast = createLegacyTileEntry();
+            westEast.celCount = 1;
+            westEast.transp[0] = extractTransparentCanvas(
               sourceContext,
               baseX + layout.tileWidth,
               baseY,
@@ -508,29 +642,30 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
               layout.tileHeight,
               transparencyColor,
             );
-            setSprite(sprites, spec.id, northSouth);
-            setSprite(sprites, spec.id + 1, westEast);
-            setSprite(sprites, spec.id + 2, northSouth);
-            setSprite(sprites, spec.id + 3, westEast);
+            setEntry(entries, spec.id, northSouth);
+            setEntry(entries, spec.id + 1, westEast);
+            setEntry(entries, spec.id + 2, northSouth);
+            setEntry(entries, spec.id + 3, westEast);
           } else if (position.w === 4) {
             for (let direction = 0; direction < 4; direction += 1) {
-              setSprite(
-                sprites,
-                spec.id + direction,
-                extractTransparentSprite(
-                  sourceContext,
-                  baseX + direction * layout.tileWidth,
-                  baseY,
-                  layout.tileWidth,
-                  layout.tileHeight,
-                  transparencyColor,
-                ),
+              const entry = createLegacyTileEntry();
+              entry.celCount = 1;
+              entry.transp[0] = extractTransparentCanvas(
+                sourceContext,
+                baseX + direction * layout.tileWidth,
+                baseY,
+                layout.tileWidth,
+                layout.tileHeight,
+                transparencyColor,
               );
+              setEntry(entries, spec.id + direction, entry);
             }
           }
         } else if (position.h === 2) {
           if (position.w === 1) {
-            const northSouth = extractTransparentSprite(
+            const northSouth = createLegacyTileEntry();
+            northSouth.celCount = 1;
+            northSouth.transp[0] = extractTransparentCanvas(
               sourceContext,
               baseX,
               baseY,
@@ -538,7 +673,9 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
               layout.tileHeight,
               transparencyColor,
             );
-            const westEast = extractTransparentSprite(
+            const westEast = createLegacyTileEntry();
+            westEast.celCount = 1;
+            westEast.transp[0] = extractTransparentCanvas(
               sourceContext,
               baseX,
               baseY + layout.tileHeight,
@@ -546,170 +683,297 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
               layout.tileHeight,
               transparencyColor,
             );
-            setSprite(sprites, spec.id, northSouth);
-            setSprite(sprites, spec.id + 1, westEast);
-            setSprite(sprites, spec.id + 2, northSouth);
-            setSprite(sprites, spec.id + 3, westEast);
+            setEntry(entries, spec.id, northSouth);
+            setEntry(entries, spec.id + 1, westEast);
+            setEntry(entries, spec.id + 2, northSouth);
+            setEntry(entries, spec.id + 3, westEast);
           } else if (position.w === 2) {
-            setSprite(
-              sprites,
-              spec.id,
-              extractTransparentSprite(
+            [
+              [0, 0, spec.id],
+              [1, 0, spec.id + 1],
+              [0, 1, spec.id + 2],
+              [1, 1, spec.id + 3],
+            ].forEach(([xOffset, yOffset, id]) => {
+              const entry = createLegacyTileEntry();
+              entry.celCount = 1;
+              entry.transp[0] = extractTransparentCanvas(
                 sourceContext,
-                baseX,
-                baseY,
+                baseX + Number(xOffset) * layout.tileWidth,
+                baseY + Number(yOffset) * layout.tileHeight,
                 layout.tileWidth,
                 layout.tileHeight,
                 transparencyColor,
-              ),
-            );
-            setSprite(
-              sprites,
-              spec.id + 1,
-              extractTransparentSprite(
-                sourceContext,
-                baseX + layout.tileWidth,
-                baseY,
-                layout.tileWidth,
-                layout.tileHeight,
-                transparencyColor,
-              ),
-            );
-            setSprite(
-              sprites,
-              spec.id + 2,
-              extractTransparentSprite(
-                sourceContext,
-                baseX,
-                baseY + layout.tileHeight,
-                layout.tileWidth,
-                layout.tileHeight,
-                transparencyColor,
-              ),
-            );
-            setSprite(
-              sprites,
-              spec.id + 3,
-              extractTransparentSprite(
-                sourceContext,
-                baseX + layout.tileWidth,
-                baseY + layout.tileHeight,
-                layout.tileWidth,
-                layout.tileHeight,
-                transparencyColor,
-              ),
-            );
+              );
+              setEntry(entries, Number(id), entry);
+            });
           } else if (position.w === 8) {
-            const frameWidth = layout.tileWidth;
-            const northX = transparentFrameX(baseX, frameWidth, 4);
-            const westX = transparentFrameX(baseX + 4 * layout.tileWidth, frameWidth, 4);
-            setSprite(
-              sprites,
-              spec.id,
-              extractTransparentSprite(sourceContext, northX, baseY, frameWidth, layout.tileHeight, transparencyColor),
-            );
-            setSprite(
-              sprites,
-              spec.id + 1,
-              extractTransparentSprite(sourceContext, westX, baseY, frameWidth, layout.tileHeight, transparencyColor),
-            );
-            setSprite(
-              sprites,
-              spec.id + 2,
-              extractTransparentSprite(
-                sourceContext,
-                northX,
-                baseY + layout.tileHeight,
-                frameWidth,
-                layout.tileHeight,
-                transparencyColor,
-              ),
-            );
-            setSprite(
-              sprites,
-              spec.id + 3,
-              extractTransparentSprite(
-                sourceContext,
-                westX,
-                baseY + layout.tileHeight,
-                frameWidth,
-                layout.tileHeight,
-                transparencyColor,
-              ),
-            );
+            const north = createLegacyTileEntry();
+            north.celCount = 4;
+            extractTransparentSequence(
+              sourceContext,
+              baseX,
+              baseY,
+              layout.tileWidth,
+              layout.tileHeight,
+              4,
+              transparencyColor,
+            ).forEach((frame, frameIndex) => {
+              north.transp[frameIndex] = frame;
+            });
+            const west = createLegacyTileEntry();
+            west.celCount = 4;
+            extractTransparentSequence(
+              sourceContext,
+              baseX + 4 * layout.tileWidth,
+              baseY,
+              layout.tileWidth,
+              layout.tileHeight,
+              4,
+              transparencyColor,
+            ).forEach((frame, frameIndex) => {
+              west.transp[frameIndex] = frame;
+            });
+            const south = createLegacyTileEntry();
+            south.celCount = 4;
+            extractTransparentSequence(
+              sourceContext,
+              baseX,
+              baseY + layout.tileHeight,
+              layout.tileWidth,
+              layout.tileHeight,
+              4,
+              transparencyColor,
+            ).forEach((frame, frameIndex) => {
+              south.transp[frameIndex] = frame;
+            });
+            const east = createLegacyTileEntry();
+            east.celCount = 4;
+            extractTransparentSequence(
+              sourceContext,
+              baseX + 4 * layout.tileWidth,
+              baseY + layout.tileHeight,
+              layout.tileWidth,
+              layout.tileHeight,
+              4,
+              transparencyColor,
+            ).forEach((frame, frameIndex) => {
+              east.transp[frameIndex] = frame;
+            });
+            setEntry(entries, spec.id, north);
+            setEntry(entries, spec.id + 1, west);
+            setEntry(entries, spec.id + 2, south);
+            setEntry(entries, spec.id + 3, east);
           } else if (position.w === 16) {
-            const northX = transparentFrameX(baseX, layout.tileWidth, 4);
-            const southX = transparentFrameX(baseX + 4 * layout.tileWidth, layout.tileWidth, 4);
-            const westX = transparentFrameX(baseX + 8 * layout.tileWidth, layout.tileWidth * 2, 4);
-            const eastX = westX;
-
-            setSprite(
-              sprites,
-              spec.id,
-              extractTransparentSprite(
-                sourceContext,
-                northX,
-                baseY,
-                layout.tileWidth,
-                layout.tileHeight * 2,
-                transparencyColor,
-              ),
-            );
-            setSprite(
-              sprites,
-              spec.id + 2,
-              extractTransparentSprite(
-                sourceContext,
-                southX,
-                baseY,
-                layout.tileWidth,
-                layout.tileHeight * 2,
-                transparencyColor,
-                0,
-                -layout.tileHeight,
-              ),
-            );
-            setSprite(
-              sprites,
-              spec.id + 1,
-              extractTransparentSprite(
-                sourceContext,
-                westX,
-                baseY,
-                layout.tileWidth * 2,
-                layout.tileHeight,
-                transparencyColor,
-              ),
-            );
-            setSprite(
-              sprites,
-              spec.id + 3,
-              extractTransparentSprite(
-                sourceContext,
-                eastX,
-                baseY + layout.tileHeight,
-                layout.tileWidth * 2,
-                layout.tileHeight,
-                transparencyColor,
-                -layout.tileWidth,
-                0,
-              ),
-            );
+            const north = createLegacyTileEntry();
+            north.transpSize = SIZE_EXTDOWN;
+            north.celCount = 4;
+            extractTransparentSequence(
+              sourceContext,
+              baseX,
+              baseY,
+              layout.tileWidth,
+              layout.tileHeight * 2,
+              4,
+              transparencyColor,
+            ).forEach((frame, frameIndex) => {
+              north.transp[frameIndex] = frame;
+            });
+            const south = createLegacyTileEntry();
+            south.transpSize = SIZE_EXTUP;
+            south.celCount = 4;
+            extractTransparentSequence(
+              sourceContext,
+              baseX + 4 * layout.tileWidth,
+              baseY,
+              layout.tileWidth,
+              layout.tileHeight * 2,
+              4,
+              transparencyColor,
+            ).forEach((frame, frameIndex) => {
+              south.transp[frameIndex] = frame;
+            });
+            const west = createLegacyTileEntry();
+            west.transpSize = SIZE_EXTRIGHT;
+            west.celCount = 4;
+            extractTransparentSequence(
+              sourceContext,
+              baseX + 8 * layout.tileWidth,
+              baseY,
+              layout.tileWidth * 2,
+              layout.tileHeight,
+              4,
+              transparencyColor,
+            ).forEach((frame, frameIndex) => {
+              west.transp[frameIndex] = frame;
+            });
+            const east = createLegacyTileEntry();
+            east.transpSize = SIZE_EXTLEFT;
+            east.celCount = 4;
+            extractTransparentSequence(
+              sourceContext,
+              baseX + 8 * layout.tileWidth,
+              baseY + layout.tileHeight,
+              layout.tileWidth * 2,
+              layout.tileHeight,
+              4,
+              transparencyColor,
+            ).forEach((frame, frameIndex) => {
+              east.transp[frameIndex] = frame;
+            });
+            setEntry(entries, spec.id, north);
+            setEntry(entries, spec.id + 1, west);
+            setEntry(entries, spec.id + 2, south);
+            setEntry(entries, spec.id + 3, east);
           }
         }
         break;
     }
   }
 
-  setSprite(sprites, MS_TILE.Overlay_Buffer, sprites.get(MS_TILE.Empty)!);
-  setSprite(sprites, MS_TILE.Block_Static, sprites.get(msCreatureTile(MS_TILE.Block, NORTH))!);
-  setSprite(sprites, MS_TILE.HiddenWall_Perm, sprites.get(MS_TILE.Empty)!);
-  setSprite(sprites, MS_TILE.HiddenWall_Temp, sprites.get(MS_TILE.Empty)!);
-  setSprite(sprites, MS_TILE.BlueWall_Fake, sprites.get(MS_TILE.BlueWall_Real)!);
+  setEntry(entries, MS_TILE.Overlay_Buffer, entries.get(MS_TILE.Empty)!);
+  const staticBlockEntry = createLegacyTileEntry();
+  staticBlockEntry.celCount = 1;
+  staticBlockEntry.opaque[0] = entries.get(msCreatureTile(MS_TILE.Block, NORTH))?.transp[0] ?? null;
+  setEntry(entries, MS_TILE.Block_Static, staticBlockEntry);
+  setEntry(entries, MS_TILE.HiddenWall_Perm, entries.get(MS_TILE.Empty)!);
+  setEntry(entries, MS_TILE.HiddenWall_Temp, entries.get(MS_TILE.Empty)!);
+  setEntry(entries, MS_TILE.BlueWall_Fake, entries.get(MS_TILE.BlueWall_Real)!);
+
+  const cellCache = new Map<string, LegacyTileSprite>();
 
   return {
     get(tileId: number): LegacyTileSprite | null {
-      return sprites.get(tileId) ?? null;
+      const entry = entries.get(tileId);
+      if (!entry || entry.celCount <= 0) {
+        return null;
+      }
+
+      let offsetX = 0;
+      let offsetY = 0;
+      if ((entry.transpSize & SIZE_EXTLEFT) !== 0) {
+        offsetX -= layout.tileWidth;
+      }
+      if ((entry.transpSize & SIZE_EXTUP) !== 0) {
+        offsetY -= layout.tileHeight;
+      }
+
+      return renderEntryFrame(entry, 0, offsetX, offsetY);
+    },
+    getCell(topId: number, bottomId: number, timerval: number): LegacyTileSprite | null {
+      const topEntry = entries.get(topId);
+      if (!topEntry || topEntry.celCount <= 0) {
+        return null;
+      }
+
+      const topIndex = timedCelIndex(topEntry, timerval);
+      if (bottomId === MS_TILE.Nothing || bottomId === MS_TILE.Empty || topEntry.transp[0] === null) {
+        const opaqueTop = topEntry.opaque[topIndex] ?? null;
+        if (opaqueTop) {
+          return createLegacyTileSprite(opaqueTop, false);
+        }
+
+        const topTransparent = topEntry.transp[topIndex] ?? null;
+        if (!topTransparent) {
+          return null;
+        }
+
+        const cacheKey = `${topId}|${bottomId}|${topIndex}|overlay`;
+        const cached = cellCache.get(cacheKey);
+        if (cached) {
+          return cached;
+        }
+
+        const canvas = createCanvas(layout.tileWidth, layout.tileHeight);
+        const context = canvas.getContext("2d");
+        if (!context) {
+          return null;
+        }
+        context.drawImage(emptyEntry.opaque[0]!, 0, 0);
+        context.drawImage(topTransparent, 0, 0);
+        const sprite = createLegacyTileSprite(canvas, false);
+        cellCache.set(cacheKey, sprite);
+        return sprite;
+      }
+
+      const bottomEntry = entries.get(bottomId);
+      if (!bottomEntry || bottomEntry.celCount <= 0) {
+        return null;
+      }
+
+      const bottomIndex = timedCelIndex(bottomEntry, timerval);
+      const cacheKey = `${topId}|${bottomId}|${topIndex}|${bottomIndex}`;
+      const cached = cellCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
+      const canvas = createCanvas(layout.tileWidth, layout.tileHeight);
+      const context = canvas.getContext("2d");
+      if (!context) {
+        return null;
+      }
+
+      const bottomOpaque = bottomEntry.opaque[bottomIndex] ?? null;
+      const bottomTransparent = bottomEntry.transp[bottomIndex] ?? null;
+      if (bottomOpaque) {
+        context.drawImage(bottomOpaque, 0, 0);
+      } else {
+        context.drawImage(emptyEntry.opaque[0]!, 0, 0);
+        if (bottomTransparent) {
+          context.drawImage(bottomTransparent, 0, 0);
+        }
+      }
+
+      const topTransparent = topEntry.transp[topIndex] ?? null;
+      if (topTransparent) {
+        context.drawImage(topTransparent, 0, 0);
+      } else {
+        const topOpaque = topEntry.opaque[topIndex] ?? null;
+        if (topOpaque) {
+          context.drawImage(topOpaque, 0, 0);
+        }
+      }
+
+      const sprite = createLegacyTileSprite(canvas, false);
+      cellCache.set(cacheKey, sprite);
+      return sprite;
+    },
+    getCreature(id: number, dir: number, moving: number, frame: number): LegacyTileSprite | null {
+      const tileId = isLynxAnimationTile(id) ? id : msCreatureTile(id, dir || NORTH);
+      const entry = entries.get(tileId);
+      if (!entry || entry.celCount <= 0) {
+        return null;
+      }
+
+      const frameIndex = entry.celCount > 1 ? Math.max(0, Math.min(frame, entry.celCount - 1)) : 0;
+      let offsetX = 0;
+      let offsetY = 0;
+
+      if ((entry.transpSize === 0 || isLynxAnimationTile(id)) && moving > 0) {
+        switch (dir) {
+          case NORTH:
+            offsetY += (moving * layout.tileHeight) / 8;
+            break;
+          case WEST:
+            offsetX += (moving * layout.tileWidth) / 8;
+            break;
+          case SOUTH:
+            offsetY -= (moving * layout.tileHeight) / 8;
+            break;
+          case EAST:
+            offsetX -= (moving * layout.tileWidth) / 8;
+            break;
+        }
+      }
+
+      if ((entry.transpSize & SIZE_EXTLEFT) !== 0) {
+        offsetX -= layout.tileWidth;
+      }
+      if ((entry.transpSize & SIZE_EXTUP) !== 0) {
+        offsetY -= layout.tileHeight;
+      }
+
+      return renderEntryFrame(entry, frameIndex, offsetX, offsetY);
     },
   };
 }

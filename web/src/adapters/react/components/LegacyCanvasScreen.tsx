@@ -159,17 +159,38 @@ interface LynxRenderableActor {
   pos: number;
   dir: number;
   moving: number;
+  frame: number;
   hidden: boolean;
+  animationReserved?: boolean;
+}
+
+interface LynxRenderableAnimation {
+  pos: number;
+  frame: number;
+  tileId: number;
+}
+
+interface LynxRenderableRuntimeState {
+  animations: LynxRenderableAnimation[];
+  chipTeleported?: boolean;
 }
 
 interface LynxRenderableSession {
   chipPos: number;
   chipDir: number;
   chipMoving: number;
+  chipPushing?: boolean;
   endGameTicksElapsed: number | null;
   endGameResult: "completed" | "failed" | null;
   endGameAnimationTileId: number | null;
+  endGameAnimationFrame?: number | null;
   actors: LynxRenderableActor[];
+  state: {
+    lynxRuntimeState?: LynxRenderableRuntimeState;
+    timer: {
+      currentTime: number;
+    };
+  };
 }
 
 function isLynxRenderableSession(token: unknown): token is LynxRenderableSession {
@@ -189,40 +210,33 @@ function isLynxRenderableSession(token: unknown): token is LynxRenderableSession
     ("endGameAnimationTileId" in candidate
       ? candidate.endGameAnimationTileId === null || typeof candidate.endGameAnimationTileId === "number"
       : true) &&
-    Array.isArray(candidate.actors)
+    Array.isArray(candidate.actors) &&
+    "state" in candidate &&
+    !!candidate.state &&
+    typeof candidate.state === "object"
   );
 }
 
 function drawLynxActorSprite(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
-  tileId: number,
+  actorId: number,
   dir: number,
   moving: number,
+  frame: number,
   x: number,
   y: number,
 ): void {
-  let drawX = x;
-  let drawY = y;
-
-  if (moving > 0) {
-    switch (dir) {
-      case MS_DIRECTION.north:
-        drawY += (moving * LEGACY_TILE_SIZE) / 8;
-        break;
-      case MS_DIRECTION.west:
-        drawX += (moving * LEGACY_TILE_SIZE) / 8;
-        break;
-      case MS_DIRECTION.south:
-        drawY -= (moving * LEGACY_TILE_SIZE) / 8;
-        break;
-      case MS_DIRECTION.east:
-        drawX -= (moving * LEGACY_TILE_SIZE) / 8;
-        break;
-    }
+  if (!tileset.getCreature) {
+    return;
   }
 
-  drawSprite(context, tileset, tileId, drawX, drawY);
+  const sprite = tileset.getCreature(actorId, dir, moving, frame);
+  if (!sprite) {
+    return;
+  }
+
+  context.drawImage(sprite.image, x + sprite.offsetX, y + sprite.offsetY);
 }
 
 function drawLynxActorOverlays(
@@ -239,28 +253,65 @@ function drawLynxActorOverlays(
   const token = session.token;
   const chipX = xOrigin + (token.chipPos % 32) * LEGACY_TILE_SIZE;
   const chipY = yOrigin + Math.floor(token.chipPos / 32) * LEGACY_TILE_SIZE;
-  if (token.endGameResult === "failed" && token.endGameAnimationTileId !== null) {
-    drawSprite(context, tileset, token.endGameAnimationTileId, chipX, chipY);
-  } else {
+  const chipHidden = token.state.lynxRuntimeState?.chipTeleported === true;
+  if (
+    token.endGameResult === "failed" &&
+    token.endGameAnimationTileId !== null &&
+    token.endGameAnimationFrame !== null &&
+    token.endGameAnimationFrame !== undefined
+  ) {
     drawLynxActorSprite(
       context,
       tileset,
-      msCreatureTile(MS_TILE.Chip, token.chipDir || MS_DIRECTION.north),
+      token.endGameAnimationTileId,
+      MS_DIRECTION.north,
+      0,
+      token.endGameAnimationFrame,
+      chipX,
+      chipY,
+    );
+  } else if (!chipHidden) {
+    drawLynxActorSprite(
+      context,
+      tileset,
+      token.chipPushing ? MS_TILE.Pushing_Chip : MS_TILE.Chip,
       token.chipDir,
       token.chipMoving,
+      Math.trunc(token.chipMoving / 2),
       chipX,
       chipY,
     );
   }
 
+  const animations = token.state.lynxRuntimeState?.animations ?? [];
+  const animationsByPos = new Map(animations.map((animation) => [animation.pos, animation] as const));
+  const drawnAnimations = new Set<number>();
+
   for (const actor of token.actors) {
+    const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
+    const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
+
     if (actor.hidden) {
+      if (actor.animationReserved) {
+        const animation = animationsByPos.get(actor.pos);
+        if (animation) {
+          drawLynxActorSprite(context, tileset, animation.tileId, MS_DIRECTION.north, 0, animation.frame, x, y);
+          drawnAnimations.add(animation.pos);
+        }
+      }
       continue;
     }
 
-    const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
-    const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
-    drawLynxActorSprite(context, tileset, msCreatureTile(actor.id, actor.dir), actor.dir, actor.moving, x, y);
+    drawLynxActorSprite(context, tileset, actor.id, actor.dir, actor.moving, actor.frame, x, y);
+  }
+
+  for (const animation of animations) {
+    if (drawnAnimations.has(animation.pos)) {
+      continue;
+    }
+    const x = xOrigin + (animation.pos % 32) * LEGACY_TILE_SIZE;
+    const y = yOrigin + Math.floor(animation.pos / 32) * LEGACY_TILE_SIZE;
+    drawLynxActorSprite(context, tileset, animation.tileId, MS_DIRECTION.north, 0, animation.frame, x, y);
   }
 }
 
@@ -269,9 +320,18 @@ function drawCompositedCell(
   tileset: LegacyTileset,
   topId: number,
   bottomId: number,
+  timerval: number,
   x: number,
   y: number,
 ): void {
+  if (tileset.getCell) {
+    const sprite = tileset.getCell(topId, bottomId, timerval);
+    if (sprite) {
+      context.drawImage(sprite.image, x + sprite.offsetX, y + sprite.offsetY);
+      return;
+    }
+  }
+
   const top = topId || MS_TILE.Empty;
   const bottom = bottomId || MS_TILE.Empty;
   const topSprite = tileset.get(top);
@@ -366,6 +426,7 @@ function drawGameScreen(
   const viewY = clamp(snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
   const xOrigin = LEGACY_MAP_X - (viewX * LEGACY_TILE_SIZE) / 4;
   const yOrigin = LEGACY_MAP_Y - (viewY * LEGACY_TILE_SIZE) / 4;
+  const timerval = (snapshot.statusFlags & MS_STATUS_FLAG.NoAnimation) !== 0 ? -1 : snapshot.currentTime;
 
   context.save();
   context.beginPath();
@@ -382,7 +443,7 @@ function drawGameScreen(
       continue;
     }
 
-    drawCompositedCell(context, tileset, cell.top.id, cell.bottom.id, x, y);
+    drawCompositedCell(context, tileset, cell.top.id, cell.bottom.id, timerval, x, y);
   }
 
   if (ruleset === "Lynx") {

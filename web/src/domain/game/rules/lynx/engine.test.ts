@@ -198,6 +198,127 @@ describe("advanceLynxInteractiveSession", () => {
     const afterDeath = advanceLynxTicks(timedOut, 13);
     expect(afterDeath.state.status).toBe("failed");
   });
+
+  it("advances the failed endgame animation frame-by-frame and then hides Chip", () => {
+    const chipPos = 33;
+    const firePos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+        createCell(firePos, MS_TILE.Fire),
+      ]),
+    );
+
+    let current = advanceLynxTicks(session, 4, 8);
+    const frames: number[] = [];
+
+    while (current.endGameAnimationFrame !== null) {
+      frames.push(current.endGameAnimationFrame);
+      current = advanceLynxInteractiveSession(current, 0);
+    }
+
+    expect(frames[0]).toBeGreaterThanOrEqual(10);
+    expect(frames[0]).toBeLessThanOrEqual(11);
+    expect(frames.at(-1)).toBe(0);
+    expect(frames.slice(1)).toEqual(frames.slice(0, -1).map((frame) => frame - 1));
+    expect(current.endGameResult).toBe("failed");
+    expect(current.endGameAnimationFrame).toBeNull();
+    expect(current.state.status).toBe("playing");
+  });
+
+  it("keeps Chip hidden for the legacy teleport hold tick after a teleport resolves", () => {
+    const chipPos = 33;
+    const entryTeleportPos = 34;
+    const exitTeleportPos = 96;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+        createCell(entryTeleportPos, MS_TILE.Teleport),
+        createCell(exitTeleportPos, MS_TILE.Teleport),
+      ]),
+    );
+
+    const teleported = advanceLynxTicks(session, 4, 8);
+    const runtime = teleported.state as typeof teleported.state & {
+      lynxRuntimeState?: { chipTeleported?: boolean };
+    };
+
+    expect(teleported.chipPos).toBe(exitTeleportPos);
+    expect(runtime.lynxRuntimeState?.chipTeleported).toBe(true);
+  });
+
+  it("marks Chip as pushing for the display tick when a move is blocked", () => {
+    const chipPos = 33;
+    const wallPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+        createCell(wallPos, MS_TILE.Wall),
+      ]),
+    );
+
+    const blocked = advanceLynxInteractiveSession(session, 8);
+    expect(blocked.chipPushing).toBe(true);
+    expect(blocked.chipPos).toBe(chipPos);
+    expect(blocked.chipMoving).toBe(0);
+
+    const settled = advanceLynxInteractiveSession(blocked, 0);
+    expect(settled.chipPushing).toBe(false);
+  });
+
+  it("rewinds Chip's death animation to the source tile on a mid-step collision", () => {
+    const chipPos = 33;
+    const bugPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+          createCell(bugPos, msCreatureTile(MS_TILE.Bug, 1)),
+        ],
+        [chipPos, bugPos],
+      ),
+    );
+
+    const collided = advanceLynxInteractiveSession(session, 8);
+    const runtime = collided.state as typeof collided.state & {
+      lynxRuntimeState?: { animations: Array<{ pos: number; tileId: number }> };
+    };
+
+    expect(collided.endGameResult).toBe("failed");
+    expect(collided.chipPos).toBe(chipPos);
+    expect(runtime.lynxRuntimeState?.animations).toEqual(
+      expect.arrayContaining([expect.objectContaining({ pos: bugPos, tileId: 0x76 })]),
+    );
+  });
+
+  it("rewinds creature death animations to their source tile on a mid-step collision with Chip", () => {
+    const chipPos = 33;
+    const ballPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+          createCell(ballPos, msCreatureTile(MS_TILE.Ball, 2)),
+        ],
+        [chipPos, ballPos],
+      ),
+    );
+
+    const collided = advanceLynxInteractiveSession(session, 0);
+    const runtime = collided.state as typeof collided.state & {
+      lynxRuntimeState?: { animations: Array<{ pos: number; tileId: number }> };
+    };
+
+    expect(collided.endGameResult).toBe("failed");
+    expect(runtime.lynxRuntimeState?.animations).toEqual(
+      expect.arrayContaining([expect.objectContaining({ pos: ballPos, tileId: 0x76 })]),
+    );
+  });
 });
 
 describe("runLynxInputTrace", () => {
