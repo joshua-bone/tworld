@@ -254,8 +254,9 @@ function drawLynxActorOverlays(
   const chipX = xOrigin + (token.chipPos % 32) * LEGACY_TILE_SIZE;
   const chipY = yOrigin + Math.floor(token.chipPos / 32) * LEGACY_TILE_SIZE;
   const chipHidden = token.state.lynxRuntimeState?.chipTeleported === true;
+  const chipFailed = token.endGameResult === "failed";
   if (
-    token.endGameResult === "failed" &&
+    chipFailed &&
     token.endGameAnimationTileId !== null &&
     token.endGameAnimationFrame !== null &&
     token.endGameAnimationFrame !== undefined
@@ -270,7 +271,7 @@ function drawLynxActorOverlays(
       chipX,
       chipY,
     );
-  } else if (!chipHidden) {
+  } else if (!chipHidden && !chipFailed) {
     drawLynxActorSprite(
       context,
       tileset,

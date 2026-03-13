@@ -116,7 +116,8 @@ const GAME_PLAYING_HELP: HelpSection[] = [
   {
     title: "While Playing",
     commands: [
-      { keys: "Arrow keys / WASD", action: "move Chip" },
+      { keys: "Arrow keys / WASD", action: "move Chip and start the clock" },
+      { keys: "Space", action: "start the clock without moving" },
       { keys: "R", action: "restart the current level" },
       { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
       { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
@@ -229,6 +230,7 @@ export function App() {
   const [showSoundControls, setShowSoundControls] = useState(false);
   const [soundMuted, setSoundMuted] = useState(() => loadStoredMuted());
   const [soundVolume, setSoundVolume] = useState(() => loadStoredVolume());
+  const [manualRunStarted, setManualRunStarted] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const tickingRef = useRef(false);
   const inputBufferRef = useRef(new LegacyMsInputBuffer());
@@ -354,6 +356,7 @@ export function App() {
 
         startTransition(() => {
           setSession(nextSession);
+          setManualRunStarted(nextSession.mode === "replay");
           setIsRunning(nextSession.frame.snapshot.status === "playing");
           setMessage(null);
         });
@@ -399,7 +402,13 @@ export function App() {
   });
 
   useEffect(() => {
-    if (mode !== "game" || !session || !isRunning || showHelp) {
+    if (
+      mode !== "game" ||
+      !session ||
+      !isRunning ||
+      showHelp ||
+      (session.mode === "manual" && !manualRunStarted)
+    ) {
       return;
     }
 
@@ -410,7 +419,7 @@ export function App() {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [advanceTick, isRunning, mode, session, showHelp]);
+  }, [advanceTick, isRunning, manualRunStarted, mode, session, showHelp]);
 
   const selectSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
@@ -658,6 +667,15 @@ export function App() {
         return;
       }
 
+      const startClockKey =
+        session?.mode === "manual" &&
+        !manualRunStarted &&
+        (event.key === " " || event.key === "Spacebar" || keyToInput(event.key) !== null);
+      if (startClockKey) {
+        event.preventDefault();
+        setManualRunStarted(true);
+      }
+
       if (session && session.frame.snapshot.status !== "playing" && isProceedKey(event.key)) {
         event.preventDefault();
         proceedAfterLevelEnd();
@@ -703,6 +721,10 @@ export function App() {
       }
 
       const input = keyToInput(event.key);
+      if ((event.key === " " || event.key === "Spacebar") && session?.mode === "manual") {
+        event.preventDefault();
+        return;
+      }
       if (!input) {
         return;
       }
