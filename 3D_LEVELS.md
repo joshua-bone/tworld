@@ -31,8 +31,25 @@ This document captures the agreed engine-side and display-side rules for stacked
 ## Data Model
 
 - All cells have `x`, `y`, and `z`.
+- All gameplay logic should operate on `x,y,z`, even when `z = 1`.
 - Existing single-layer behavior must remain unchanged.
 - `z = 1` should preserve current behavior unless a rule below explicitly says otherwise.
+
+## Architecture Constraint
+
+- 3D levels are first-class citizens at the engine level.
+- The engine should not branch into separate 2D and 3D gameplay modes.
+- The only special-case parsing behavior is at map assembly / DAT grouping time:
+  - title suffix grouping into `\1`, `\2`, `\3`, ...
+  - remapping special DAT file codes for 3D layers
+- After parsing, gameplay systems should operate on one unified 3D model.
+- Existing non-3D levels should simply be levels whose cells all live on `z = 1`.
+
+## Compatibility Requirement
+
+- Existing replay behavior must remain intact for non-3D content.
+- Replay verification during implementation may use bounded subsets only while the feature is in progress.
+- Full compatibility remains the acceptance bar, but intermediate work should validate with focused replay subsets rather than full-corpus sweeps.
 
 ## Special 3D Tile Codes
 
@@ -222,6 +239,9 @@ Lower-layer parallax:
 - Lower-layer tiles are rendered at `0.9x` size.
 - Lower-layer tiles are blurred slightly.
 - Lower-layer tiles are darkened by `0.25`.
+- Lower-layer rendering must remain visually contiguous as a map.
+- Parallax must not introduce visible gaps between adjacent lower-layer tiles.
+- The lower map should read as one connected surface, not as separately shrunken tiles floating apart.
 
 Support highlight:
 
