@@ -13,6 +13,7 @@ import {
   topTileIdOr,
 } from "@domain/game/core/board";
 import {
+  advancePositionIfPossible,
   canAdvancePosition as canAdvanceLynxPosition,
   directionCode,
   directionDelta,
@@ -909,11 +910,10 @@ function probeLynxChipMoveDirection(
   if (!canLynxExitTile(state, topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), MS_TILE.Chip, dir, false)) {
     return { canMove: false, pushBlockPos: null };
   }
-  if (!canAdvanceLynxPosition(chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
+  const targetPos = advancePositionIfPossible(chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (targetPos === null) {
     return { canMove: false, pushBlockPos: null };
   }
-
-  const targetPos = chipPos + directionDelta(dir, MS_GRID_WIDTH);
   const target = state.map.cells[targetPos];
   if (!target) {
     return { canMove: false, pushBlockPos: null };
@@ -1696,11 +1696,11 @@ function canLynxChipExitTeleportThroughBlock(
 
 function resolveLynxChipTeleport(state: EngineState, actors: LynxRuntimeActor[], chipPos: number, chipDir: number): number {
   const destination = findLynxTeleportDestination(state, chipPos, (teleportPos) => {
-    if (!canAdvanceLynxPosition(teleportPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
+    const exitPos = advancePositionIfPossible(teleportPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+    if (exitPos === null) {
       return false;
     }
-    const exitPos = teleportPos + directionDelta(chipDir, MS_GRID_WIDTH);
-    const exitCell = inBounds(exitPos, MS_GRID_WIDTH, MS_GRID_HEIGHT) ? state.map.cells[exitPos] : null;
+    const exitCell = state.map.cells[exitPos] ?? null;
     if (!exitCell) {
       return false;
     }
@@ -1755,15 +1755,15 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
     removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     actor.pos = pos;
 
-    if (!canAdvanceLynxPosition(pos, actor.dir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
+    const exitPos = advancePositionIfPossible(pos, actor.dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+    if (exitPos === null) {
       if (pos === origin) {
         addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
         return;
       }
       continue;
     }
-    const exitPos = pos + directionDelta(actor.dir, MS_GRID_WIDTH);
-    const exitCell = inBounds(exitPos, MS_GRID_WIDTH, MS_GRID_HEIGHT) ? state.map.cells[exitPos] : null;
+    const exitCell = state.map.cells[exitPos] ?? null;
     if (!exitCell || !canLynxCreatureEnter(effectiveLynxTargetTileId(state, exitCell.top.id), actor.id, actor.dir)) {
       if (pos === origin) {
         addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
@@ -1898,12 +1898,8 @@ function canLynxCreatureStartMovement(
   if (!canLynxExitTile(state, floorFrom, actor.id, dir, releasing)) {
     return false;
   }
-  if (!canAdvanceLynxPosition(actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
-    return false;
-  }
-
-  const targetPos = actor.pos + directionDelta(dir, MS_GRID_WIDTH);
-  if (!inBounds(targetPos, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
+  const targetPos = advancePositionIfPossible(actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (targetPos === null) {
     return false;
   }
 

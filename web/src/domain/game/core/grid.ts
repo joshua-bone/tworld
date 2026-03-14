@@ -76,6 +76,10 @@ export function nextPosition(pos: number, dir: number, width: number): number {
   return pos + directionDelta(dir, width);
 }
 
+export function advancePositionIfPossible(pos: number, dir: number, width: number, height: number): number | null {
+  return canAdvancePosition(pos, dir, width, height) ? nextPosition(pos, dir, width) : null;
+}
+
 export function isDirectionalInput(inputCode: number): boolean {
   return inputCode >= 1 && inputCode <= 15;
 }
