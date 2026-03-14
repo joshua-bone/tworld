@@ -233,6 +233,7 @@ Expose all discussed behavior through explicit UI options.
 ### Baseline Controls
 
 - `Undo`: restore to previous checkpointed/history point and pause
+  default binding: `Z`
 - `Rewind`: open a history scrubber or step backward by configured increment
 - `Resume Original Timeline`: restore and keep replaying historical events
 
@@ -241,6 +242,7 @@ Expose all discussed behavior through explicit UI options.
 Add entries to the `?` menu for:
 
 - `Undo`
+  shortcut: `Z`
 - `Rewind/Resume`
 - `Take over during replay to fork a new timeline`
 
@@ -479,12 +481,12 @@ Exit criteria:
 
 - full-token equality can be asserted deterministically for both rulesets
 
-### [ ] PR2: History Model And MS Checkpoints
+### [x] PR2: History Model And MS Checkpoints
 
-- [ ] add undo history package
-- [ ] add per-tick event log
-- [ ] add MS checkpoint capture/restore
-- [ ] add MS restore-and-replay tests
+- [x] add undo history package
+- [x] add per-tick event log
+- [x] add MS checkpoint capture/restore
+- [x] add MS restore-and-replay tests
 
 Exit criteria:
 
