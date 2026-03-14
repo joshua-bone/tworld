@@ -452,18 +452,14 @@ Validation:
   - `exit`
 - [x] Restrict MS Chip upward destinations to `air`, force floors, and `exit`.
 - [x] Restrict non-player and Lynx upward destinations to the same rules.
-- [ ] Implement upward occupancy interactions.
-- [ ] Implement player-up-into-block horizontal push using current `N/E/W/S` facing.
+- [x] Implement upward occupancy interactions.
+- [x] Implement player-up-into-block horizontal push using current `N/E/W/S` facing.
 - [x] Make `elevator` support the `air` tile directly above it.
 - [x] Ensure nothing ever falls onto an `elevator`.
 
-Remaining PR4 risk to close explicitly:
-
-- Lynx `player -> block` elevator timing still needs focused validation so the push and the vertical rise occur on the intended cadence.
-
 Validation:
 
-- [ ] focused engine tests for:
+- [x] focused engine tests for:
   - successful rise into air
   - denied rise into non-air terrain
   - rise into force floor

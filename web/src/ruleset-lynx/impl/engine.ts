@@ -412,15 +412,6 @@ function resolveLynxNonChipSupportBelow(
     return false;
   }
 
-  if (chipZ === z && chipPos === pos) {
-    return false;
-  }
-
-  const actorBelow = findLynxVisibleActorAt(actors, pos, z);
-  if (actorBelow) {
-    return true;
-  }
-
   const topId = cell.top.id;
   const bottomId = cell.bottom.id;
 
@@ -429,6 +420,15 @@ function resolveLynxNonChipSupportBelow(
   }
 
   if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
+    return true;
+  }
+
+  if (chipZ === z && chipPos === pos) {
+    return false;
+  }
+
+  const actorBelow = findLynxVisibleActorAt(actors, pos, z);
+  if (actorBelow) {
     return true;
   }
 
@@ -442,6 +442,10 @@ function resolveLynxNonChipSupportBelow(
   }
 
   return false;
+}
+
+function isLynxVerticalMoveKind(moveKind: LynxMoveKind | undefined): boolean {
+  return moveKind === "air" || moveKind === "elevator";
 }
 
 function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
@@ -665,6 +669,7 @@ function failLynxChip(
   endGameAnimationFrame: number | null,
   reason: "drowned" | "burned" | "bombed" | "outoftime" | "collided",
   collidedActor: LynxRuntimeActor | null = null,
+  preserveCollidedActor = false,
 ): {
   chipPos: number;
   endGameTicksElapsed: number | null;
@@ -672,7 +677,7 @@ function failLynxChip(
   endGameAnimationTileId: number | null;
   endGameAnimationFrame: number | null;
 } {
-  if (collidedActor && !collidedActor.hidden) {
+  if (collidedActor && !collidedActor.hidden && !preserveCollidedActor) {
     removeTopTileFlags(state.map.cells, collidedActor.pos, LYNX_CELL_FLAG.Claimed);
     removeLynxActor(state, actors, collidedActor, LYNX_ANIMATION_TILE.Entity_Explosion);
   }
@@ -1825,7 +1830,8 @@ function startLynxActorElevatorMovement(
   if (!upperCells || !isValidLynxElevatorDestinationFloor(topTileIdOr(upperCells, actor.pos, MS_TILE.Empty))) {
     return false;
   }
-  if (findLynxVisibleActorAt(actors, actor.pos, targetZ)) {
+  const actorAbove = findLynxVisibleActorAt(actors, actor.pos, targetZ);
+  if (actorAbove && actorAbove.id !== MS_TILE.Chip) {
     return false;
   }
 
@@ -2551,6 +2557,7 @@ function resolveLynxChipCollision(
   chipPos: number,
   chipDir: number,
   chipMoving: number,
+  chipMoveKind: LynxMoveKind,
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
   endGameAnimationTileId: number | null,
@@ -2583,6 +2590,7 @@ function resolveLynxChipCollision(
     };
   }
 
+  const preserveCollidedActor = isLynxVerticalMoveKind(chipMoveKind) || isLynxVerticalMoveKind(actor.moveKind);
   return failLynxChip(
     state,
     actors,
@@ -2595,6 +2603,7 @@ function resolveLynxChipCollision(
     endGameAnimationFrame,
     "collided",
     actor,
+    preserveCollidedActor,
   );
 }
 
@@ -3299,6 +3308,7 @@ function advanceLynxInteractiveTick(
         chipPos,
         chipDir,
         chipMoving,
+        chipMoveKind,
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
@@ -3924,6 +3934,7 @@ function runLynxReplayTraceDebugInternal(
         chipPos,
         chipDir,
         chipMoving,
+        chipMoveKind,
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
