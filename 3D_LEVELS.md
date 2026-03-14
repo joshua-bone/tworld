@@ -1,8 +1,6 @@
 # 3D Levels
 
-This document captures the agreed engine-side rules for stacked z-layers in DAT level sets.
-
-Display and presentation rules are intentionally out of scope here.
+This document captures the agreed engine-side and display-side rules for stacked z-layers in DAT level sets.
 
 ## Layer Grouping
 
@@ -206,6 +204,46 @@ Examples:
 - Each z-layer can have its own hint text.
 - Hint text must be stored per layer, not globally collapsed to the first layer.
 - When the player is on a hint tile, the active hint is the hint text for the player's current z-layer.
+
+## Display Rules
+
+- The current z-layer is always rendered.
+- Up to the next three lower z-layers are also rendered, if they exist.
+- Lower-layer rendering is only a visual aid and does not alter engine behavior.
+
+Air:
+
+- `air` is always rendered as transparency.
+- Lower layers are visible through `air`.
+
+Lower-layer parallax:
+
+- Each visible lower z-layer is rendered with parallax.
+- Lower-layer tiles are rendered at `0.9x` size.
+- Lower-layer tiles are blurred slightly.
+- Lower-layer tiles are darkened by `0.25`.
+
+Support highlight:
+
+- Any time a downward fall request is supported by the tile below, draw a blue border around the supporting tile for that tick.
+- The blue border is cleared on the following tick.
+
+Elevator rendering:
+
+- `elevator` is rendered procedurally in code.
+- The tile is a green floor.
+- A dark green rectangle is centered inside it.
+- The large centered word `UP` is drawn inside that rectangle.
+
+Failed elevator move highlight:
+
+- Any failed upward move from an `elevator` draws a red border around that elevator tile for that tick.
+- The red border is cleared on the following tick.
+
+Lynx falling animation:
+
+- In Lynx only, mobs that are falling scale down smoothly during the fall.
+- The scale animates toward `0.9x` to indicate vertical motion.
 
 ## Engine Examples
 
