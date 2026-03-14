@@ -148,7 +148,9 @@ Scope:
 
 Changes:
 
-- [ ] add an MS tile catalog with tags, capabilities, and hooks
+- [x] Status: in progress
+- [x] add an MS tile catalog with tags, capabilities, and hooks
+- [x] route the first low-risk MS movement-mask and inventory-key policy helpers through the catalog
 - [ ] route movement legality, floor interaction, collection, button handling, and death handling through policy helpers
 - [ ] shrink the monolithic MS engine loop into a phase pipeline plus policy calls
 

@@ -48,6 +48,15 @@ import type { GameCommand, GameRequest, GameRuntimeCommand, GameTrace } from "@d
 import type { MsConnection, MsLevel } from "@domain/game/rules/ms/level";
 import type { SolutionMove } from "@domain/solution-file";
 import {
+  msBlockMovementMask,
+  msChipMovementMask,
+  msCreatureMovementMask,
+  msDoorKeyIndex,
+  msInventoryIndex,
+  msInventorySlot,
+  msTileHasTag,
+} from "@domain/game/rules/ms/catalog";
+import {
   MS_DIRECTION,
   MS_FLOOR_STATE,
   MS_GRID_HEIGHT,
@@ -58,7 +67,6 @@ import {
   MS_TILE,
   isMsBoots,
   isMsCreature,
-  isMsDoor,
   isMsFloor,
   isMsKey,
   msCreatureDir,
@@ -366,24 +374,6 @@ function placeStaticBlock(cells: EngineMapCell[], pos: number, state: number): v
   };
 }
 
-function chipInventorySlot(id: number): "keys" | "boots" {
-  if (id >= MS_TILE.Key_Red && id <= MS_TILE.Key_Green) {
-    return "keys";
-  }
-  return "boots";
-}
-
-function chipInventoryIndex(id: number): number {
-  if (id >= MS_TILE.Key_Red && id <= MS_TILE.Key_Green) {
-    return id - MS_TILE.Key_Red;
-  }
-  return id - MS_TILE.Boots_Ice;
-}
-
-function doorKeyIndex(id: number): number {
-  return id - MS_TILE.Door_Red;
-}
-
 function cloneInventory(inventory: EngineState["inventory"]): EngineState["inventory"] {
   return {
     keys: [...inventory.keys] as EngineState["inventory"]["keys"],
@@ -422,125 +412,6 @@ function cloneInternalState(internal: MsInternalState): MsInternalState {
   };
 }
 
-function movementLaw(floor: number): number {
-  switch (floor) {
-    case MS_TILE.Empty:
-    case MS_TILE.Slide_North:
-    case MS_TILE.Slide_West:
-    case MS_TILE.Slide_South:
-    case MS_TILE.Slide_East:
-    case MS_TILE.Slide_Random:
-    case MS_TILE.Ice:
-    case MS_TILE.Gravel:
-    case MS_TILE.Dirt:
-    case MS_TILE.Water:
-    case MS_TILE.Fire:
-    case MS_TILE.Bomb:
-    case MS_TILE.Beartrap:
-    case MS_TILE.Burglar:
-    case MS_TILE.HintButton:
-    case MS_TILE.Button_Blue:
-    case MS_TILE.Button_Green:
-    case MS_TILE.Button_Red:
-    case MS_TILE.Button_Brown:
-    case MS_TILE.Teleport:
-    case MS_TILE.HiddenWall_Temp:
-    case MS_TILE.BlueWall_Real:
-    case MS_TILE.BlueWall_Fake:
-    case MS_TILE.SwitchWall_Open:
-    case MS_TILE.PopupWall:
-    case MS_TILE.Door_Red:
-    case MS_TILE.Door_Blue:
-    case MS_TILE.Door_Yellow:
-    case MS_TILE.Door_Green:
-    case MS_TILE.Socket:
-    case MS_TILE.Exit:
-    case MS_TILE.ICChip:
-    case MS_TILE.Key_Red:
-    case MS_TILE.Key_Blue:
-    case MS_TILE.Key_Yellow:
-    case MS_TILE.Key_Green:
-    case MS_TILE.Boots_Ice:
-    case MS_TILE.Boots_Slide:
-    case MS_TILE.Boots_Fire:
-    case MS_TILE.Boots_Water:
-    case MS_TILE.Block_Static:
-      return MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
-    case MS_TILE.IceWall_Northwest:
-      return MS_DIRECTION.south | MS_DIRECTION.east;
-    case MS_TILE.IceWall_Northeast:
-      return MS_DIRECTION.south | MS_DIRECTION.west;
-    case MS_TILE.IceWall_Southwest:
-      return MS_DIRECTION.north | MS_DIRECTION.east;
-    case MS_TILE.IceWall_Southeast:
-      return MS_DIRECTION.north | MS_DIRECTION.west;
-    case MS_TILE.Wall_North:
-      return MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.east;
-    case MS_TILE.Wall_West:
-      return MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south;
-    case MS_TILE.Wall_South:
-      return MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
-    case MS_TILE.Wall_East:
-      return MS_DIRECTION.north | MS_DIRECTION.south | MS_DIRECTION.east;
-    case MS_TILE.Wall_Southeast:
-      return MS_DIRECTION.south | MS_DIRECTION.east;
-    default:
-      return 0;
-  }
-}
-
-function creatureMovementLaw(floor: number): number {
-  switch (floor) {
-    case MS_TILE.Slide_Random:
-    case MS_TILE.Gravel:
-    case MS_TILE.Dirt:
-    case MS_TILE.Burglar:
-    case MS_TILE.HiddenWall_Temp:
-    case MS_TILE.BlueWall_Real:
-    case MS_TILE.BlueWall_Fake:
-    case MS_TILE.SwitchWall_Closed:
-    case MS_TILE.PopupWall:
-    case MS_TILE.CloneMachine:
-    case MS_TILE.Door_Red:
-    case MS_TILE.Door_Blue:
-    case MS_TILE.Door_Yellow:
-    case MS_TILE.Door_Green:
-    case MS_TILE.Socket:
-    case MS_TILE.Exit:
-    case MS_TILE.ICChip:
-    case MS_TILE.Boots_Ice:
-    case MS_TILE.Boots_Slide:
-    case MS_TILE.Boots_Fire:
-    case MS_TILE.Boots_Water:
-    case MS_TILE.Block_Static:
-      return 0;
-    default:
-      return movementLaw(floor);
-  }
-}
-
-function blockMovementLaw(floor: number): number {
-  switch (floor) {
-    case MS_TILE.Dirt:
-    case MS_TILE.Burglar:
-    case MS_TILE.HiddenWall_Temp:
-    case MS_TILE.BlueWall_Real:
-    case MS_TILE.BlueWall_Fake:
-    case MS_TILE.SwitchWall_Closed:
-    case MS_TILE.PopupWall:
-    case MS_TILE.CloneMachine:
-    case MS_TILE.Door_Red:
-    case MS_TILE.Door_Blue:
-    case MS_TILE.Door_Yellow:
-    case MS_TILE.Door_Green:
-    case MS_TILE.Socket:
-    case MS_TILE.ICChip:
-    case MS_TILE.Block_Static:
-      return 0;
-    default:
-      return movementLaw(floor);
-  }
-}
 
 function statusName(internal: MsInternalState): EngineState["status"] {
   if (internal.completed) {
@@ -907,14 +778,17 @@ function canMoveChip(
   }
 
   const floor = floorAt(cells, to);
-  if ((movementLaw(floor) & dir) === 0) {
+  if ((msChipMovementMask(floor) & dir) === 0) {
     return false;
   }
   if (floor === MS_TILE.Socket && inventory.chipsNeeded > 0) {
     return false;
   }
-  if (isMsDoor(floor) && inventory.keys[doorKeyIndex(floor)] === 0) {
-    return false;
+  if (msTileHasTag(floor, "door")) {
+    const doorKeyIndex = msDoorKeyIndex(floor);
+    if (doorKeyIndex === null || inventory.keys[doorKeyIndex] === 0) {
+      return false;
+    }
   }
   if (isMsCreature(cells[to]!.top.id)) {
     const targetId = msCreatureId(cells[to]!.top.id);
@@ -1003,7 +877,7 @@ function canMoveCreatureWithOptions(
       return blockingCreature !== undefined && blockingCreature.dir === creature.dir;
     }
   }
-  if ((creatureMovementLaw(floor) & dir) === 0) {
+  if ((msCreatureMovementMask(floor) & dir) === 0) {
     return false;
   }
   if (!ignoreFireCheck && floor === MS_TILE.Fire && (creature.id === MS_TILE.Bug || creature.id === MS_TILE.Walker)) {
@@ -1082,7 +956,7 @@ function canMoveBlockInto(cells: EngineMapCell[], to: number, dir: number, occup
     return targetId === MS_TILE.Chip || targetId === MS_TILE.Swimming_Chip;
   }
 
-  if ((blockMovementLaw(targetTop) & dir) === 0) {
+  if ((msBlockMovementMask(targetTop) & dir) === 0) {
     return false;
   }
   return cells[to]!.bottom.id !== MS_TILE.CloneMachine;
@@ -2948,7 +2822,7 @@ function moveChipOnce(
     case MS_TILE.Door_Blue:
     case MS_TILE.Door_Yellow:
     case MS_TILE.Door_Green: {
-      const index = doorKeyIndex(floor);
+      const index = msDoorKeyIndex(floor) ?? 0;
       if (floor !== MS_TILE.Door_Green) {
         inventory.keys[index] -= 1;
       }
@@ -2964,8 +2838,11 @@ function moveChipOnce(
     case MS_TILE.Boots_Slide:
     case MS_TILE.Boots_Fire:
     case MS_TILE.Boots_Water: {
-      const slot = chipInventorySlot(floor);
-      const index = chipInventoryIndex(floor);
+      const slot = msInventorySlot(floor);
+      const index = msInventoryIndex(floor);
+      if (slot === null || index === null) {
+        break;
+      }
       inventory[slot][index] += 1;
       popTile(cells, nextPos);
       soundEffects |= 1 << MS_SOUND.ItemCollected;
