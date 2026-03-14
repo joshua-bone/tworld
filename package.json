@@ -9,6 +9,7 @@
     "build": "npm --workspace web run build --",
     "test": "npm --workspace web run test --",
     "typecheck": "npm --workspace web run typecheck --",
+    "legacy": "./scripts/run_legacy.sh",
     "verify:ms-replays": "npm --workspace web run verify:ms-replays --",
     "verify:lynx-replays": "npm --workspace web run verify:lynx-replays --",
     "verify:all-replays": "npm --workspace web run verify:all-replays --"
