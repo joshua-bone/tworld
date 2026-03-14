@@ -27,7 +27,7 @@ import {
   reverseDirection as backDirection,
   roundedBoardPosition,
 } from "@domain/game/core/grid";
-import { advanceTimer, syncTimerSecondsPlayed } from "@domain/game/core/timer";
+import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@domain/game/core/timer";
 import { mapHash } from "@domain/game/hash";
 import { createReplayPlan, createRuntimeCommand, plannedReplayInput, recordManualMove, runtimeCommandName } from "@domain/game/playback";
 import { getGameInputNameFromCode } from "@domain/game/command";
@@ -2613,13 +2613,7 @@ export function initializeLynxEngineState(
   return {
     request: { ...request },
     status: "playing",
-    timer: {
-      tick: -1,
-      currentTime: -1,
-      timeOffset: 0,
-      secondsPlayed: 0,
-      timeLimit: level.timeLimitTicks,
-    },
+    timer: createInitialEngineTimer(level.timeLimitTicks),
     inventory: {
       keys: [0, 0, 0, 0],
       boots: [0, 0, 0, 0],

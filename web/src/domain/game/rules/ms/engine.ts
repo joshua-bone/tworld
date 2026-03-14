@@ -31,7 +31,7 @@ import {
   normalizeCardinalDirection as normalizeDirection,
   reverseDirection as backDirection,
 } from "@domain/game/core/grid";
-import { advanceTimer } from "@domain/game/core/timer";
+import { advanceTimer, createInitialEngineTimer } from "@domain/game/core/timer";
 import { mapHash } from "@domain/game/hash";
 import {
   createReplayPlan,
@@ -835,13 +835,7 @@ export function initializeMsGameState(
   const engine: EngineState = {
     request: { ...request },
     status: "playing",
-    timer: {
-      tick: -1,
-      currentTime: -1,
-      timeOffset: 0,
-      secondsPlayed: 0,
-      timeLimit: level.timeLimitTicks,
-    },
+    timer: createInitialEngineTimer(level.timeLimitTicks),
     inventory: {
       keys: [0, 0, 0, 0],
       boots: [0, 0, 0, 0],

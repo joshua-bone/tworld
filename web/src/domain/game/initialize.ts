@@ -1,5 +1,6 @@
 import type { EngineLevelSeed, EngineMapCell, EngineState, InventorySlots } from "@domain/game/model";
 import type { GameActor, GameSnapshot } from "@domain/game/types";
+import { snapshotToEngineTimer } from "@domain/game/core/timer";
 
 function cloneActor(actor: GameActor): GameActor {
   return {
@@ -37,13 +38,7 @@ export function snapshotToEngineState(
   return {
     request: { ...request },
     status: snapshot.status,
-    timer: {
-      tick: snapshot.tick,
-      currentTime: snapshot.currentTime,
-      timeOffset: snapshot.timeOffset,
-      secondsPlayed: snapshot.secondsPlayed,
-      timeLimit: snapshot.timelimit,
-    },
+    timer: snapshotToEngineTimer(snapshot),
     inventory: {
       keys: toInventorySlots(snapshot.inventory.keys),
       boots: toInventorySlots(snapshot.inventory.boots),
