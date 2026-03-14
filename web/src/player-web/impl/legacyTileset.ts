@@ -1,5 +1,5 @@
 import { LEGACY_TILE_SIZE, getLegacySpriteCoords } from "@player-web/impl/legacySprites";
-import { MS_DIRECTION, MS_TILE, isMsBoots, isMsCreature, isMsKey, msCreatureTile } from "@domain/game/rules/ms/tiles";
+import { MS_DIRECTION, MS_TILE, isMsBoots, isMsCreature, isMsKey, msCreatureTile } from "@ruleset-ms/api/tiles";
 
 export interface LegacyTileSprite {
   image: HTMLCanvasElement;

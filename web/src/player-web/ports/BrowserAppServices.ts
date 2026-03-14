@@ -1,7 +1,7 @@
-import type { CharacterizationFixtureRepository } from "@application/ports/CharacterizationFixtureRepository";
-import type { InteractiveGameEnginePort } from "@application/ports/InteractiveGameEngine";
-import type { PlayableSelectionStore } from "@application/ports/PlayableSelectionStore";
-import type { SeriesCatalogEntry } from "@domain/series";
+import type { CharacterizationFixtureRepository } from "@oracle-fixtures/ports/CharacterizationFixtureRepository";
+import type { InteractiveGameEnginePort } from "@game-runtime/ports/InteractiveGameEngine";
+import type { PlayableSelectionStore } from "@player-web/ports/PlayableSelectionStore";
+import type { SeriesCatalogEntry } from "@content/api/series";
 
 export interface BrowserAppServices {
   fixtureRepository: CharacterizationFixtureRepository;

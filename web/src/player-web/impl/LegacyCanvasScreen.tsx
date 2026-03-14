@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import lynxTilesUrl from "../../../../res/atiles.bmp?url";
 import msTilesUrl from "../../../../res/tiles.bmp?url";
 import { buildLegacyTileset, type LegacyTileset } from "@player-web/impl/legacyTileset";
-import type { InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
-import type { InteractiveGameRenderFrame } from "@domain/game/interactive";
-import type { SeriesCatalogEntry, SeriesLevel } from "@domain/series";
-import { MS_DIRECTION, MS_STATUS_FLAG, MS_TILE, msCreatureTile } from "@domain/game/rules/ms/tiles";
-import { TIME_NIL } from "@domain/score";
+import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import type { InteractiveGameRenderFrame } from "@game-core/api/interactive";
+import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
+import { MS_DIRECTION, MS_STATUS_FLAG, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
+import { TIME_NIL } from "@content/api/score";
 import {
   LEGACY_INFO_X,
   LEGACY_MAP_HEIGHT,

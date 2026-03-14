@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { absoluteMouseMoveCode, LegacyLynxInputBuffer, LegacyMsInputBuffer } from "@player-web/impl/legacyInput";
-import { GAME_INPUT_CODES } from "@domain/game/command";
+import { GAME_INPUT_CODES } from "@game-core/api/command";
 
 describe("LegacyMsInputBuffer", () => {
   it("latches a quick tap even if the key is released before the next tick", () => {

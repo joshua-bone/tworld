@@ -1,4 +1,4 @@
-import type { PlayableSelection, PlayableSelectionStore } from "@application/ports/PlayableSelectionStore";
+import type { PlayableSelection, PlayableSelectionStore } from "@player-web/ports/PlayableSelectionStore";
 
 const STORAGE_KEY = "tworld:web:selection";
 

@@ -17,15 +17,15 @@ import {
 } from "@player-web/impl/legacyInput";
 import { LegacyCanvasScreen, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
-import { advanceInteractiveGameSession } from "@application/use-cases/advanceInteractiveGameSession";
-import { loadPlayableSelection } from "@application/use-cases/loadPlayableSelection";
-import { loadSeriesCatalog } from "@application/use-cases/loadSeriesCatalog";
-import { savePlayableSelection } from "@application/use-cases/savePlayableSelection";
-import { startInteractiveGameSession } from "@application/use-cases/startInteractiveGameSession";
-import type { InteractiveGameEnginePort, InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
-import type { PlayableSelection } from "@application/ports/PlayableSelectionStore";
-import type { InteractiveInput } from "@domain/game/command";
-import type { SeriesCatalogEntry } from "@domain/series";
+import { advanceInteractiveGameSession } from "@game-runtime/impl/advanceInteractiveGameSession";
+import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
+import { loadSeriesCatalog } from "@level-catalog/impl/loadSeriesCatalog";
+import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
+import { startInteractiveGameSession } from "@game-runtime/impl/startInteractiveGameSession";
+import type { InteractiveGameEnginePort, InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
+import type { InteractiveInput } from "@game-core/api/command";
+import type { SeriesCatalogEntry } from "@content/api/series";
 
 const SESSION_SEED = 123456789;
 const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";

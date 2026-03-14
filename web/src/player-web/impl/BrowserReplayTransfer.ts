@@ -1,4 +1,4 @@
-import type { ImportedReplayFile, ReplayTransferArtifact, ReplayTransferPort } from "@application/ports/ReplayTransfer";
+import type { ImportedReplayFile, ReplayTransferArtifact, ReplayTransferPort } from "@player-web/ports/ReplayTransfer";
 
 export class BrowserReplayTransfer implements ReplayTransferPort {
   async exportReplay(artifact: ReplayTransferArtifact): Promise<void> {

@@ -19,10 +19,15 @@
     "baseUrl": ".",
     "paths": {
       "@bootstrap/*": ["src/bootstrap/*"],
-      "@adapters/*": ["src/adapters/*"],
-      "@application/*": ["src/application/*"],
-      "@domain/*": ["src/domain/*"],
+      "@content/*": ["src/content/*"],
+      "@game-core/*": ["src/game-core/*"],
+      "@game-runtime/*": ["src/game-runtime/*"],
+      "@level-catalog/*": ["src/level-catalog/*"],
+      "@oracle-fixtures/*": ["src/oracle-fixtures/*"],
       "@player-web/*": ["src/player-web/*"],
+      "@replay-verifier/*": ["src/replay-verifier/*"],
+      "@ruleset-lynx/*": ["src/ruleset-lynx/*"],
+      "@ruleset-ms/*": ["src/ruleset-ms/*"],
       "@fixtures/*": ["../fixtures/characterization/v1/*"]
     }
   },

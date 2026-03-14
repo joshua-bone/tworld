@@ -23,9 +23,9 @@ import tileEmptiedUrl from "../../../../res/whisk.wav?url";
 import wallCreatedUrl from "../../../../res/popup.wav?url";
 import waterWalkingUrl from "../../../../res/plip.wav?url";
 import blockedMoveMsUrl from "../../../../res/oof.wav?url";
-import type { GameRequest } from "@domain/game/types";
-import { LYNX_FLOOR_SOUND_MASK, LYNX_SOUND } from "@domain/game/rules/lynx/engine";
-import { MS_SOUND } from "@domain/game/rules/ms/tiles";
+import type { GameRequest } from "@game-core/api/types";
+import { LYNX_FLOOR_SOUND_MASK, LYNX_SOUND } from "@ruleset-lynx/impl/engine";
+import { MS_SOUND } from "@ruleset-ms/api/tiles";
 
 type Ruleset = GameRequest["ruleset"];
 

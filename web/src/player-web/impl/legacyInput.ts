@@ -1,4 +1,4 @@
-import { GAME_INPUT_CODES, getGameInputCode, type GameInputName } from "@domain/game/command";
+import { GAME_INPUT_CODES, getGameInputCode, type GameInputName } from "@game-core/api/command";
 
 export type DirectionInput = Exclude<GameInputName, "none" | "preserve">;
 

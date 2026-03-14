@@ -1,4 +1,4 @@
-import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@domain/game/rules/ms/tiles";
+import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 
 export const LEGACY_TILE_SIZE = 48;
 export const LEGACY_WINDOW_WIDTH = 640;

@@ -1,6 +1,6 @@
-import type { EngineMapCell } from "@domain/game/model";
-import type { GameSnapshot } from "@domain/game/types";
-import { MS_TILE, isMsCreature, msCreatureId } from "@domain/game/rules/ms/tiles";
+import type { EngineMapCell } from "@game-core/api/model";
+import type { GameSnapshot } from "@game-core/api/types";
+import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
 interface GameBoardProps {
   cells: EngineMapCell[];

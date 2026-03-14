@@ -1,7 +1,7 @@
-import { TsLynxGameEngineAdapter } from "@adapters/engine/TsLynxGameEngineAdapter";
-import { TsMsGameEngineAdapter } from "@adapters/engine/TsMsGameEngineAdapter";
-import { StaticCharacterizationFixtureRepository } from "@adapters/fixtures/StaticCharacterizationFixtureRepository";
-import { BrowserLevelRepository } from "@adapters/levels/BrowserLevelRepository";
+import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter";
+import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
+import { StaticCharacterizationFixtureRepository } from "@oracle-fixtures/impl/StaticCharacterizationFixtureRepository";
+import { BrowserLevelRepository } from "@level-catalog/impl/BrowserLevelRepository";
 import { BrowserPlayableSelectionStore } from "@player-web/impl/BrowserPlayableSelectionStore";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 
@@ -12,8 +12,8 @@ export function createBrowserAppServices(): BrowserAppServices {
     fixtureRepository: new StaticCharacterizationFixtureRepository(),
     selectionStore: new BrowserPlayableSelectionStore(),
     engines: {
-      MS: new TsMsGameEngineAdapter(levelRepository),
-      Lynx: new TsLynxGameEngineAdapter(levelRepository),
+      MS: new MsGameEngineAdapter(levelRepository),
+      Lynx: new LynxGameEngineAdapter(levelRepository),
     },
   };
 }

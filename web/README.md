@@ -1,17 +1,30 @@
 # Web Workspace
 
-This workspace follows a hexagonal structure:
+This workspace follows a package-first hexagonal structure:
 
-- `src/domain/`: pure TypeScript logic and legacy file-format parsers
-- `src/application/`: ports, fixture contracts, mappers, and use-cases
-- `src/adapters/`: browser, Node, and React adapters
+- `src/bootstrap/`: browser entrypoints and cross-package architecture checks
+- `src/content/`: pure file-format parsing and series/solution metadata
+- `src/game-core/`: shared simulation model, commands, traces, and kernel helpers
+- `src/game-runtime/`: game engine ports and interactive session services
+- `src/level-catalog/`: level repositories and catalog-loading services
+- `src/oracle-fixtures/`: oracle adapters, fixture repositories, and fixture mappers
+- `src/player-web/`: browser UI, browser storage, audio, and player composition
+- `src/replay-verifier/`: replay comparison, sweep, inspect, and report flows
+- `src/ruleset-ms/`: MS ruleset implementation
+- `src/ruleset-lynx/`: Lynx ruleset implementation
+
+Package layout conventions:
+
+- pure libraries expose public contracts from `api/` and keep internal helpers in `impl/`
+- boundary-facing packages expose adapters/contracts from `ports/`, keep concrete code in `impl/`, and place wiring in `compose/`
+- `bootstrap/` holds true entrypoints and architecture checks, not feature logic
 
 Current migration state:
 
-- series metadata is parsed from raw `.dac` and `.dat` files in domain code
-- solution payloads are parsed and serialized in domain code
-- fixture JSON is treated as an outer-layer contract owned by the application layer
-- React only calls use-cases through adapter repositories
+- content parsing is isolated from runtime orchestration
+- shared simulation code is isolated from MS and Lynx policy
+- browser composition is isolated in `player-web/compose` and `bootstrap/browser`
+- replay verification and oracle fixture plumbing are split into their own packages
 
 Validation commands:
 
