@@ -41,6 +41,8 @@ const selectionStore = new BrowserPlayableSelectionStore();
 const SESSION_SEED = 123456789;
 const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";
 const SOUND_VOLUME_STORAGE_KEY = "tworld.sound-volume";
+const LEGACY_FAST_TICK_MS = 25;
+const LEGACY_NORMAL_TICK_MS = 50;
 
 interface HelpCommand {
   keys: string;
@@ -122,6 +124,7 @@ const GAME_PLAYING_HELP: HelpSection[] = [
     commands: [
       { keys: "Arrow keys / WASD", action: "move Chip and start the clock" },
       { keys: "Mouse click (MS)", action: "set a mouse goal on the clicked map tile" },
+      { keys: "Hold Shift", action: "run the game clock at 2x speed" },
       { keys: "Space", action: "start the clock without moving" },
       { keys: "R", action: "restart the current level" },
       { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
@@ -236,6 +239,7 @@ export function App() {
   const [soundMuted, setSoundMuted] = useState(() => loadStoredMuted());
   const [soundVolume, setSoundVolume] = useState(() => loadStoredVolume());
   const [manualRunStarted, setManualRunStarted] = useState(false);
+  const [isFastForwarding, setIsFastForwarding] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const tickingRef = useRef(false);
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
@@ -281,6 +285,12 @@ export function App() {
     }
     soundPlayerRef.current?.setVolume(soundVolume);
   }, [soundVolume]);
+
+  useEffect(() => {
+    if (mode !== "game") {
+      setIsFastForwarding(false);
+    }
+  }, [mode]);
 
   useEffect(() => {
     let active = true;
@@ -425,12 +435,12 @@ export function App() {
           ? lynxInputBufferRef.current.nextTickInputCode()
           : msInputBufferRef.current.nextTickInputCode();
       void advanceTick(inputCode);
-    }, 50);
+    }, isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [advanceTick, isRunning, manualRunStarted, mode, session, showHelp]);
+  }, [advanceTick, isFastForwarding, isRunning, manualRunStarted, mode, session, showHelp]);
 
   const selectSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
@@ -612,6 +622,13 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        if (mode === "game") {
+          setIsFastForwarding(true);
+        }
+        return;
+      }
+
       if (isSystemModifierKey(event.key)) {
         msInputBufferRef.current.reset();
         lynxInputBufferRef.current.reset();
@@ -761,6 +778,11 @@ export function App() {
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        setIsFastForwarding(false);
+        return;
+      }
+
       if (mode !== "game") {
         return;
       }
@@ -783,6 +805,7 @@ export function App() {
     };
 
     const onWindowBlur = () => {
+      setIsFastForwarding(false);
       msInputBufferRef.current.reset();
       lynxInputBufferRef.current.reset();
     };
