@@ -378,10 +378,20 @@ Validation:
 ### PR2: Engine Coordinate Lift
 
 - [ ] Lift engine board/cell/actor addressing to `x,y,z`.
-- [ ] Keep existing single-layer gameplay behavior unchanged on `z = 1`.
+- [x] Keep existing single-layer gameplay behavior unchanged on `z = 1`.
 - [ ] Ensure teleports, traps, and cloners are layer-scoped in the runtime model.
-- [ ] Ensure creature ordering remains z1 first, then z2, etc.
+- [x] Ensure creature ordering remains z1 first, then z2, etc.
 - [ ] Preserve teeth targeting by global `x,y` only.
+
+Progress checkpoints:
+
+- [x] carry layered map boards in runtime state
+- [x] preserve z-aware actor/debug projection without changing z1 traces
+- [x] seed MS and Lynx runtime actor order from layered creature metadata
+- [ ] select live board cells by active actor/chip z during runtime advancement
+- [ ] scope live teleport search to the actor's current z-layer
+- [ ] scope live trap/cloner activation to the actor's current z-layer
+- [ ] make runtime actor occupancy/lookups z-aware so layers do not collide by shared `pos`
 
 Validation:
 
