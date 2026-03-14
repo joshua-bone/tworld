@@ -269,30 +269,26 @@ describe("advanceLynxInteractiveSession", () => {
     expect(settled.chipPushing).toBe(false);
   });
 
-  it("rewinds Chip's death animation to the source tile on a mid-step collision", () => {
+  it("keeps Chip's death animation on the in-progress destination tile when a death starts mid-step", () => {
     const chipPos = 33;
-    const bugPos = 34;
+    const targetPos = 34;
     const session = createLynxInteractiveSession(
       createRequest(),
-      createLevel(
-        [
-          createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
-          createCell(bugPos, msCreatureTile(MS_TILE.Bug, 1)),
-        ],
-        [chipPos, bugPos],
-      ),
+      createLevel([createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)), createCell(targetPos, MS_TILE.Empty)]),
     );
 
-    const collided = advanceLynxInteractiveSession(session, 8);
-    const runtime = collided.state as typeof collided.state & {
-      lynxRuntimeState?: { animations: Array<{ pos: number; tileId: number }> };
-    };
+    const moving = advanceLynxInteractiveSession(session, 8);
+    moving.state.timer.currentTime = 1;
+    moving.state.timer.tick = 1;
+    moving.state.timer.timeLimit = 1;
+    const timedOut = advanceLynxInteractiveSession(moving, 0);
 
-    expect(collided.endGameResult).toBe("failed");
-    expect(collided.chipPos).toBe(chipPos);
-    expect(runtime.lynxRuntimeState?.animations).toEqual(
-      expect.arrayContaining([expect.objectContaining({ pos: bugPos, tileId: 0x76 })]),
-    );
+    expect(timedOut.endGameResult).toBe("failed");
+    expect(timedOut.endGameAnimationTileId).toBe(0x76);
+    expect(timedOut.chipPos).toBe(targetPos);
+    expect(timedOut.chipMoving).toBe(0);
+    expect(timedOut.state.view.x).toBe(16);
+    expect(timedOut.state.view.y).toBe(8);
   });
 
   it("rewinds creature death animations to their source tile on a mid-step collision with Chip", () => {

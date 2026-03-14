@@ -471,10 +471,6 @@ function failLynxChip(
     removeLynxActor(state, actors, collidedActor, LYNX_ANIMATION_TILE.Entity_Explosion);
   }
 
-  if (chipMoving > 0) {
-    chipPos = nextPosition(chipPos, backDirection(chipDir), MS_GRID_WIDTH);
-  }
-
   let animationTileId: number = LYNX_ANIMATION_TILE.Entity_Explosion;
   switch (reason) {
     case "drowned":
