@@ -3818,7 +3818,10 @@ export function advanceMsInteractiveSession(
 ): MsInteractiveSessionState {
   const tick = session.state.engine.timer.currentTime + 1;
   const scheduledInput = createRuntimeCommand(inputCode, tick);
-  let input = resolveManualInput(session.lastInput, scheduledInput);
+  let input =
+    scheduledInput.inputCode === GAME_INPUT_CODES.preserve
+      ? createRuntimeCommand(session.state.internal.currentInput, tick)
+      : scheduledInput;
   let replayPlan = session.replayPlan;
   if (replayPlan) {
     const replayTick = plannedReplayInput(replayPlan, tick);
