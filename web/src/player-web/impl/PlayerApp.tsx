@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
 import {
+  isFineUndoKey,
   hasBlockedMovementModifier,
   isFirstLevelKey,
   isHelpToggleKey,
@@ -22,6 +23,7 @@ import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import { advanceInteractiveGameSession } from "@game-runtime/impl/advanceInteractiveGameSession";
 import {
   previousInteractiveGameSessionCheckpointTick,
+  previousInteractiveGameSessionTickByCount,
   previousInteractiveGameSessionTick,
 } from "@game-runtime/impl/interactiveHistoryNavigation";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
@@ -157,8 +159,9 @@ const GAME_PLAYING_HELP: HelpSection[] = [
       { keys: "Arrow keys / WASD", action: "move Chip and start the clock" },
       { keys: "Mouse click (MS)", action: "set a mouse goal on the clicked map tile" },
       { keys: "Hold Shift", action: "run the game clock at 2x speed" },
-      { keys: "Space", action: "start the clock without moving" },
-      { keys: "Z / hold Z", action: "restore the previous tick and keep rewinding while held when undo history is enabled" },
+      { keys: "Space", action: "start the clock without moving, or resume the original timeline after a restore" },
+      { keys: "Z / hold Z", action: "rewind 4 ticks at a time and keep rewinding while held when undo history is enabled" },
+      { keys: "Cmd/Ctrl + Z", action: "rewind 1 tick at a time" },
       { keys: "Shift + Z", action: "rewind to the previous checkpoint and keep rewinding checkpoints while held" },
       { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
       { keys: "R", action: "restart the current level" },
@@ -174,8 +177,10 @@ const GAME_ENDED_HELP: HelpSection[] = [
   {
     title: "After A Level Ends",
     commands: [
-      { keys: "Enter / Space", action: "continue: next level after a win, retry after a loss" },
-      { keys: "Z / hold Z", action: "restore the previous tick and keep rewinding while held when undo history is enabled" },
+      { keys: "Enter", action: "continue: next level after a win, retry after a loss" },
+      { keys: "Space", action: "resume the original timeline after a restore, or continue when no rewind is active" },
+      { keys: "Z / hold Z", action: "rewind 4 ticks at a time and keep rewinding while held when undo history is enabled" },
+      { keys: "Cmd/Ctrl + Z", action: "rewind 1 tick at a time" },
       { keys: "Shift + Z", action: "rewind to the previous checkpoint and keep rewinding checkpoints while held" },
       { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
       { keys: "R", action: "restart the current level" },
@@ -289,7 +294,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
   const [manualRunStarted, setManualRunStarted] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
-  const [heldUndoMode, setHeldUndoMode] = useState<"tick" | "checkpoint" | null>(null);
+  const [heldUndoMode, setHeldUndoMode] = useState<"coarse" | "fine" | "checkpoint" | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const tickingRef = useRef(false);
   const historyNavigationRef = useRef(false);
@@ -302,6 +307,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
   const previousHistoryTick = session ? previousInteractiveGameSessionTick(session) : null;
+  const previousCoarseHistoryTick = session ? previousInteractiveGameSessionTickByCount(session, 4) : null;
   const previousHistoryCheckpointTick = session ? previousInteractiveGameSessionCheckpointTick(session) : null;
   const canUndoToPreviousTick = Boolean(session?.history.enabled && previousHistoryTick !== null);
   const canUndoToPreviousCheckpoint = Boolean(
@@ -319,8 +325,8 @@ export function PlayerApp({ services }: PlayerAppProps) {
       : session.history.restoreMode === "restored-paused"
         ? `Restored to tick ${session.history.currentTick}. ${
             canResumeOriginalTimeline
-              ? `Use Resume Original Timeline to replay forward to tick ${session.history.latestTick}.`
-              : "Use Z or Shift+Z to keep rewinding, or take over with a live move."
+              ? `Press Space or use Resume Original Timeline to replay forward to tick ${session.history.latestTick}.`
+              : "Use Z, Cmd/Ctrl+Z, or Shift+Z to keep rewinding, or take over with a live move."
           }`
         : `Replaying the original timeline from tick ${session.history.currentTick} to tick ${session.history.replayTargetTick}. ${
             undoSettings.allowTakeoverDuringHistoricalReplay
@@ -542,6 +548,10 @@ export function PlayerApp({ services }: PlayerAppProps) {
     restoreToTick(previousHistoryTick);
   });
 
+  const undoPreviousTickBurst = useEffectEvent(() => {
+    restoreToTick(previousCoarseHistoryTick);
+  });
+
   const undoPreviousCheckpoint = useEffectEvent(() => {
     restoreToTick(previousHistoryCheckpointTick);
   });
@@ -572,13 +582,27 @@ export function PlayerApp({ services }: PlayerAppProps) {
     setHeldUndoMode(null);
   });
 
-  const stepHeldUndo = useEffectEvent((nextMode: "tick" | "checkpoint") => {
+  const stepHeldUndo = useEffectEvent((nextMode: "coarse" | "fine" | "checkpoint") => {
     if (nextMode === "checkpoint") {
       undoPreviousCheckpoint();
       return;
     }
 
-    undoPreviousTick();
+    if (nextMode === "fine") {
+      undoPreviousTick();
+      return;
+    }
+
+    undoPreviousTickBurst();
+  });
+
+  const resumeOriginalTimelineFromSpace = useEffectEvent(() => {
+    setIsRunning(true);
+    resumeOriginalTimeline();
+  });
+
+  const resumeLivePlayFromRestore = useEffectEvent(() => {
+    setIsRunning(true);
   });
 
   useEffect(() => {
@@ -916,13 +940,29 @@ export function PlayerApp({ services }: PlayerAppProps) {
         return;
       }
 
+      if (session?.history.enabled && isFineUndoKey(event)) {
+        event.preventDefault();
+        if (event.repeat) {
+          return;
+        }
+        setHeldUndoMode("fine");
+        undoPreviousTick();
+        return;
+      }
+
       if (session?.history.enabled && isUndoKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
         }
-        setHeldUndoMode("tick");
-        undoPreviousTick();
+        setHeldUndoMode("coarse");
+        undoPreviousTickBurst();
+        return;
+      }
+
+      if (canResumeOriginalTimeline && (event.key === " " || event.key === "Spacebar")) {
+        event.preventDefault();
+        resumeOriginalTimelineFromSpace();
         return;
       }
 
@@ -992,7 +1032,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
       if ((event.key === " " || event.key === "Spacebar") && session?.mode === "manual") {
         event.preventDefault();
         if (session.history.restoreMode === "restored-paused") {
-          setIsRunning(true);
+          resumeLivePlayFromRestore();
         }
         return;
       }
@@ -1014,7 +1054,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
         msInputBufferRef.current.keyDown(input);
       }
       if (session?.history.restoreMode === "restored-paused") {
-        setIsRunning(true);
+        resumeLivePlayFromRestore();
       }
     };
 
@@ -1067,6 +1107,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
     };
   }, [
     activateSeries,
+    canResumeOriginalTimeline,
     changeLevelBy,
     changeSelectedSeriesBy,
     closeHelp,
@@ -1075,6 +1116,8 @@ export function PlayerApp({ services }: PlayerAppProps) {
     jumpSelectedSeries,
     mode,
     proceedAfterLevelEnd,
+    resumeLivePlayFromRestore,
+    resumeOriginalTimelineFromSpace,
     selectedSeriesFile,
     session,
     showHistoryControls,
@@ -1085,6 +1128,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
     stepHeldUndo,
     toggleHelp,
     undoPreviousCheckpoint,
+    undoPreviousTickBurst,
     undoPreviousTick,
     undoSettings.allowTakeoverDuringHistoricalReplay,
   ]);

@@ -26,6 +26,10 @@ export function isUndoKey(event: LegacyKeyboardEventLike): boolean {
   return hasPlainModifiers(event) && !event.shiftKey && (event.key === "z" || event.key === "Z");
 }
 
+export function isFineUndoKey(event: LegacyKeyboardEventLike): boolean {
+  return !event.altKey && !event.shiftKey && hasCommandModifier(event) && (event.key === "z" || event.key === "Z");
+}
+
 export function isUndoCheckpointKey(event: LegacyKeyboardEventLike): boolean {
   return !event.altKey && !event.ctrlKey && !event.metaKey && Boolean(event.shiftKey) && (event.key === "z" || event.key === "Z");
 }

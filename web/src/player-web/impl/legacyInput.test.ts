@@ -65,6 +65,19 @@ describe("LegacyLynxInputBuffer", () => {
     expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.north | GAME_INPUT_CODES.east);
   });
 
+  it("does not combine a tapped-and-released orthogonal key into a diagonal with a held key", () => {
+    const buffer = new LegacyLynxInputBuffer();
+
+    buffer.keyDown("north");
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.north);
+
+    buffer.keyDown("east");
+    buffer.keyUp("east");
+
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.north);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.north);
+  });
+
   it("keeps a quick tap for one poll even if the key is released before the tick", () => {
     const buffer = new LegacyLynxInputBuffer();
 

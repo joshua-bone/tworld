@@ -157,11 +157,14 @@ export class LegacyLynxInputBuffer {
   }
 
   nextTickInputCode(): number {
-    const code = this.composeActiveInputCode();
+    const code = this.composePolledInputCode();
 
     for (const [input, state] of this.states) {
-      state.pending = false;
-      if (!state.active) {
+      if (state.pending && state.active) {
+        state.pending = false;
+        continue;
+      }
+      if (state.pending && !state.active) {
         this.states.delete(input);
       }
     }
@@ -173,32 +176,39 @@ export class LegacyLynxInputBuffer {
     this.states.clear();
   }
 
-  private composeActiveInputCode(): number {
-    let code: number = GAME_INPUT_CODES.none;
+  private composePolledInputCode(): number {
+    let heldCode: number = GAME_INPUT_CODES.none;
+    let struckCode: number = GAME_INPUT_CODES.none;
 
     for (const input of LYNX_DIRECTION_PRIORITY) {
       const state = this.states.get(input);
-      if (!state || (!state.pending && !state.active)) {
+      if (!state) {
         continue;
       }
 
       const inputCode = getGameInputCode(input);
-      if (code === GAME_INPUT_CODES.none) {
-        code = inputCode;
+      if (state.active) {
+        if (heldCode === GAME_INPUT_CODES.none) {
+          heldCode = inputCode;
+          continue;
+        }
+
+        const hasVertical = (heldCode & (GAME_INPUT_CODES.north | GAME_INPUT_CODES.south)) !== 0;
+        const hasHorizontal = (heldCode & (GAME_INPUT_CODES.west | GAME_INPUT_CODES.east)) !== 0;
+        const isVertical = (inputCode & (GAME_INPUT_CODES.north | GAME_INPUT_CODES.south)) !== 0;
+        const isHorizontal = (inputCode & (GAME_INPUT_CODES.west | GAME_INPUT_CODES.east)) !== 0;
+
+        if ((hasVertical && isHorizontal) || (hasHorizontal && isVertical)) {
+          return heldCode | inputCode;
+        }
         continue;
       }
 
-      const hasVertical = (code & (GAME_INPUT_CODES.north | GAME_INPUT_CODES.south)) !== 0;
-      const hasHorizontal = (code & (GAME_INPUT_CODES.west | GAME_INPUT_CODES.east)) !== 0;
-      const isVertical = (inputCode & (GAME_INPUT_CODES.north | GAME_INPUT_CODES.south)) !== 0;
-      const isHorizontal = (inputCode & (GAME_INPUT_CODES.west | GAME_INPUT_CODES.east)) !== 0;
-
-      if ((hasVertical && isHorizontal) || (hasHorizontal && isVertical)) {
-        code |= inputCode;
+      if (state.pending) {
+        struckCode = inputCode;
       }
-      break;
     }
 
-    return code;
+    return heldCode !== GAME_INPUT_CODES.none ? heldCode : struckCode;
   }
 }

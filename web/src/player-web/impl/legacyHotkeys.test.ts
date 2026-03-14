@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   hasBlockedMovementModifier,
+  isFineUndoKey,
   isFirstLevelKey,
   isHelpToggleKey,
   isSystemModifierKey,
@@ -26,11 +27,17 @@ describe("legacy hotkeys", () => {
     expect(isHelpToggleKey("h")).toBe(false);
   });
 
-  it("maps Z and Shift+Z to undo and checkpoint rewind", () => {
+  it("maps Z, Cmd/Ctrl+Z, and Shift+Z to the undo variants", () => {
     expect(isUndoKey({ key: "z" })).toBe(true);
     expect(isUndoKey({ key: "Z" })).toBe(true);
     expect(isUndoKey({ key: "z", shiftKey: true })).toBe(false);
     expect(isUndoKey({ key: "z", ctrlKey: true })).toBe(false);
+    expect(isUndoKey({ key: "z", metaKey: true })).toBe(false);
+
+    expect(isFineUndoKey({ key: "z", ctrlKey: true })).toBe(true);
+    expect(isFineUndoKey({ key: "Z", metaKey: true })).toBe(true);
+    expect(isFineUndoKey({ key: "z" })).toBe(false);
+    expect(isFineUndoKey({ key: "z", shiftKey: true, ctrlKey: true })).toBe(false);
 
     expect(isUndoCheckpointKey({ key: "z", shiftKey: true })).toBe(true);
     expect(isUndoCheckpointKey({ key: "Z", shiftKey: true })).toBe(true);
