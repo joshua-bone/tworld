@@ -80,7 +80,7 @@ function creatureStateValue(
   cloning: boolean,
   hasMoved: boolean,
   turning: boolean,
-  floorMovement: "none" | "ice" | "slide" | "teleport",
+  floorMovement: "none" | "ice" | "slide" | "teleport" | "air",
   sliding: boolean,
 ): number {
   let state = 0;
@@ -110,7 +110,7 @@ function creatureStateFlags(
   cloning: boolean,
   hasMoved: boolean,
   turning: boolean,
-  floorMovement: "none" | "ice" | "slide" | "teleport",
+  floorMovement: "none" | "ice" | "slide" | "teleport" | "air",
   sliding: boolean,
 ): string[] {
   const flags: string[] = [];

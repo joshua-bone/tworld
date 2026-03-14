@@ -405,10 +405,13 @@ Validation:
 ### PR3: Air Tile And Downward Movement
 
 - [x] Remap DAT code `32` to `air` on `z > 1` only.
+- [x] Seed MS Chip air falling from live state and initial state on the existing floor-movement cadence.
+- [ ] Extend initial unsupported `air` falling to non-player mobs.
+- [ ] Extend initial unsupported `air` falling to Lynx.
 - [ ] Implement support checks from the immediately lower layer only.
 - [ ] Implement downward movement as force-floor-style movement toward lower `z`.
 - [ ] Limit vertical movement to one z-layer per tick.
-- [ ] Apply falling from initial state when starting unsupported in `air`.
+- [ ] Apply falling from initial state when starting unsupported in `air`, including non-player mobs such as blocks.
 - [ ] Implement downward landing effects and the ice exception.
 - [ ] Implement collision-on-landing rules, including block/monster kills on player.
 
@@ -425,7 +428,7 @@ Validation:
 
 ### PR4: Elevator Tile And Upward Movement
 
-- [ ] Remap DAT code `57` to `elevator`.
+- [ ] Remap DAT code `57` to `elevator` only when the grouped level has higher z-layers; allow ordinary `Exited_Chip` on single-layer levels and on `z = 1` when there is no higher layer.
 - [ ] Implement elevator upward movement as force-floor-style movement toward higher `z`.
 - [ ] Restrict legal upward destinations to:
   - `air`

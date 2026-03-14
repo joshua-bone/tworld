@@ -284,6 +284,71 @@ describe("MS engine regressions", () => {
     expect(teeth?.position.pos).toBe(teethPos);
   });
 
+  it("applies unsupported air from initial state by dropping Chip one layer on the first floor tick", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(8, 8);
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(1);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+    expect(session.state.engine.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("does not drop Chip from air when the immediately lower layer supports him", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(9, 8);
+    lower[chipPos]!.top.id = MS_TILE.Wall;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Wall);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south));
+  });
+
   it("seeds Chip's runtime direction from the lower tile when Chip starts on the top layer", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);
