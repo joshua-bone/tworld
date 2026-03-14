@@ -1,3 +1,4 @@
+import { cloneBoardCells } from "@domain/game/core/board";
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type {
   GameDebugBoardFlag,
@@ -9,14 +10,6 @@ import { createRuntimeCommand } from "@domain/game/playback";
 import { mapHash } from "@domain/game/hash";
 import { MS_GRID_WIDTH, MS_TILE } from "@domain/game/rules/ms/tiles";
 import type { LynxRuntimeActor } from "@domain/game/rules/lynx/engine";
-
-function cloneCells(cells: EngineMapCell[]): EngineMapCell[] {
-  return cells.map((cell) => ({
-    position: { ...cell.position },
-    top: { ...cell.top },
-    bottom: { ...cell.bottom },
-  }));
-}
 
 function directionName(dir: number): string {
   switch (dir) {
@@ -200,7 +193,7 @@ export function projectLynxDebugPhaseSnapshot(
     slipList: [],
     boardFlags: collectLynxBoardFlags(state.map.cells),
     map: {
-      cells: cloneCells(state.map.cells),
+      cells: cloneBoardCells(state.map.cells),
     },
   };
 }

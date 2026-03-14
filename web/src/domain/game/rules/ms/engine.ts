@@ -4,6 +4,7 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@domain/game/debug";
+import { cloneBoardCells, popBoardTile, pushBoardTile } from "@domain/game/core/board";
 import {
   directionName,
   nextPosition,
@@ -165,14 +166,6 @@ function normalizeRandomSeed(seed: number | undefined): bigint {
   return BigInt((seed ?? 0) & Number(UINT31_MASK));
 }
 
-function cloneCells(cells: EngineMapCell[]): EngineMapCell[] {
-  return cells.map((cell) => ({
-    position: { ...cell.position },
-    top: { ...cell.top },
-    bottom: { ...cell.bottom },
-  }));
-}
-
 function isRelativeMouseCommand(code: number): boolean {
   return code >= CMD_MOUSE_MOVE_FIRST && code <= CMD_MOUSE_MOVE_LAST;
 }
@@ -332,17 +325,11 @@ function canLeaveFloor(cells: EngineMapCell[], pos: number, dir: number, release
 }
 
 function pushTile(cells: EngineMapCell[], pos: number, tile: EngineMapCell["top"]): void {
-  const cell = cells[pos]!;
-  cell.bottom = { ...cell.top };
-  cell.top = { ...tile };
+  pushBoardTile(cells, pos, tile);
 }
 
 function popTile(cells: EngineMapCell[], pos: number): EngineMapCell["top"] {
-  const cell = cells[pos]!;
-  const tile = { ...cell.top };
-  cell.top = { ...cell.bottom };
-  cell.bottom = { id: MS_TILE.Empty, state: 0 };
-  return tile;
+  return popBoardTile(cells, pos, MS_TILE.Empty);
 }
 
 function placeStaticBlock(cells: EngineMapCell[], pos: number, state: number): void {
@@ -724,7 +711,7 @@ export function initializeMsGameState(
       })
     | null = null,
 ): MsGameState {
-  const cells = cloneCells(level.cells);
+  const cells = cloneBoardCells(level.cells);
   initializeBrokenFloors(cells);
 
   let chipPos = 0;
@@ -3320,7 +3307,7 @@ function advanceMsTick(
   input: GameRuntimeCommand,
   debugPhases: GameDebugPhaseSnapshot[] | null = null,
 ): MsGameState {
-  const cells = cloneCells(state.engine.map.cells);
+  const cells = cloneBoardCells(state.engine.map.cells);
   const internal = cloneInternalState(state.internal);
   const inputLatchInternal = cloneInternalState(state.internal);
   const inventory = cloneInventory(state.engine.inventory);

@@ -1,5 +1,6 @@
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@domain/game/debug";
+import { cloneBoardCells, promoteBottomTile } from "@domain/game/core/board";
 import {
   canAdvancePosition as canAdvanceLynxPosition,
   directionCode,
@@ -106,14 +107,6 @@ const LYNX_CELL_FLAG = {
   Animated: 0x20,
   Claimed: 0x40,
 } as const;
-
-function cloneCells(cells: EngineMapCell[]): EngineMapCell[] {
-  return cells.map((cell) => ({
-    position: { ...cell.position },
-    top: { ...cell.top },
-    bottom: { ...cell.bottom },
-  }));
-}
 
 function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
   const stripped = cells.map((cell) => {
@@ -764,8 +757,7 @@ function collectChipAtPosition(state: EngineState, pos: number): boolean {
   }
 
   if (cell.top.id === MS_TILE.ICChip) {
-    cell.top = { ...cell.bottom };
-    cell.bottom = { id: MS_TILE.Empty, state: 0 };
+    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.inventory.chipsNeeded = Math.max(0, state.inventory.chipsNeeded - 1);
     state.map.hash = mapHash(state.map.cells);
     return true;
@@ -786,16 +778,14 @@ function collectLynxItemAtPosition(state: EngineState, pos: number): number {
 
   if (isMsKey(cell.top.id)) {
     state.inventory.keys[Math.max(0, Math.min(3, cell.top.id - MS_TILE.Key_Red))] += 1;
-    cell.top = { ...cell.bottom };
-    cell.bottom = { id: MS_TILE.Empty, state: 0 };
+    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
     return 1 << LYNX_SOUND.ItemCollected;
   }
 
   if (isMsBoots(cell.top.id)) {
     state.inventory.boots[Math.max(0, Math.min(3, cell.top.id - MS_TILE.Boots_Ice))] += 1;
-    cell.top = { ...cell.bottom };
-    cell.bottom = { id: MS_TILE.Empty, state: 0 };
+    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
     return 1 << LYNX_SOUND.ItemCollected;
   }
@@ -1260,8 +1250,7 @@ function resolveLynxChipArrival(
     if (keyIndex !== 3) {
       state.inventory.keys[keyIndex] -= 1;
     }
-    cell.top = { ...cell.bottom };
-    cell.bottom = { id: MS_TILE.Empty, state: 0 };
+    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
     return {
       soundEffects: 1 << LYNX_SOUND.DoorOpened,
@@ -1270,8 +1259,7 @@ function resolveLynxChipArrival(
   }
 
   if (cell.top.id === MS_TILE.Socket && state.inventory.chipsNeeded === 0) {
-    cell.top = { ...cell.bottom };
-    cell.bottom = { id: MS_TILE.Empty, state: 0 };
+    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
     return {
       soundEffects: 1 << LYNX_SOUND.SocketOpened,
@@ -1395,9 +1383,7 @@ function resolveCompletedLynxChipMove(
   }
 
   if (floorAfterMove === MS_TILE.Bomb) {
-    const cell = state.map.cells[chipPos]!;
-    cell.top = { ...cell.bottom };
-    cell.bottom = { id: MS_TILE.Empty, state: 0 };
+    promoteBottomTile(state.map.cells, chipPos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
     return {
       chipDir,
@@ -2067,14 +2053,13 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
       removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Water_Splash);
       state.soundEffects |= 1 << LYNX_SOUND.WaterSplash;
     } else if (cell.top.id === MS_TILE.Bomb) {
-      cell.top = { ...cell.bottom };
-      cell.bottom = { id: MS_TILE.Empty, state: 0 };
+      promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
       cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
       removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Bomb_Explosion);
       state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
     } else if (cell.top.id === MS_TILE.Key_Blue) {
-      cell.top = { ...cell.bottom, state: cell.bottom.state | LYNX_CELL_FLAG.Claimed };
-      cell.bottom = { id: MS_TILE.Empty, state: 0 };
+      promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
+      cell.top = { ...cell.top, state: cell.top.state | LYNX_CELL_FLAG.Claimed };
     }
     actor.deferPush = false;
     actor.deferPushArmed = false;
@@ -2092,8 +2077,7 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
   }
 
   if (cell.top.id === MS_TILE.Bomb) {
-    cell.top = { ...cell.bottom };
-    cell.bottom = { id: MS_TILE.Empty, state: 0 };
+    promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
     cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
     removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Bomb_Explosion);
     state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
@@ -2102,8 +2086,8 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
   }
 
   if (cell.top.id === MS_TILE.Key_Blue) {
-    cell.top = { ...cell.bottom, state: cell.bottom.state | LYNX_CELL_FLAG.Claimed };
-    cell.bottom = { id: MS_TILE.Empty, state: 0 };
+    promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
+    cell.top = { ...cell.top, state: cell.top.state | LYNX_CELL_FLAG.Claimed };
     state.map.hash = mapHash(state.map.cells);
   }
 
@@ -2611,7 +2595,7 @@ export function initializeLynxEngineState(
       })
     | null = null,
 ): EngineState {
-  const sourceCells = cloneCells(level.cells);
+  const sourceCells = cloneBoardCells(level.cells);
   const cells = stripCreaturesForInitialHash(sourceCells);
   const chipPos = findChipPosition(sourceCells);
   const initialStatusFlags =

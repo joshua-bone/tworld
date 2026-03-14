@@ -1,3 +1,4 @@
+import { cloneBoardCells } from "@domain/game/core/board";
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type {
   GameDebugBoardFlag,
@@ -20,14 +21,6 @@ import {
   msCreatureId,
 } from "@domain/game/rules/ms/tiles";
 import type { MsGameState, MsInternalState, MsTrackedBlock, MsTrackedCreature } from "@domain/game/rules/ms/engine";
-
-function cloneCells(cells: EngineMapCell[]): EngineMapCell[] {
-  return cells.map((cell) => ({
-    position: { ...cell.position },
-    top: { ...cell.top },
-    bottom: { ...cell.bottom },
-  }));
-}
 
 function directionName(dir: number): string {
   switch (dir) {
@@ -578,7 +571,7 @@ export function projectMsDebugPhaseSnapshot(
     slipList,
     boardFlags: collectBoardFlags(cells),
     map: {
-      cells: cloneCells(cells),
+      cells: cloneBoardCells(cells),
     },
   };
 }
