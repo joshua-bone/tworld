@@ -10,6 +10,7 @@ import {
   boardCell,
   bottomTile,
   bottomTileId,
+  bottomTileIdOr,
   hasBottomTileFlags,
   hasTopTileFlags,
   cloneBoardCells,
@@ -20,6 +21,7 @@ import {
   replaceTopTile,
   topTile,
   topTileId,
+  topTileIdOr,
 } from "@domain/game/core/board";
 import {
   directionName,
@@ -1268,7 +1270,7 @@ function pushBlock(
   }
   const moved = moveBlock(cells, internal, pos, dir, deferButtons, false, occupiedOriginPos);
   if (!moved && trackedBlock && !trackedBlock.hidden && !teleportPush) {
-    const standingFloor = cells[pos]?.bottom.id ?? MS_TILE.Empty;
+    const standingFloor = bottomTileIdOr(cells, pos, MS_TILE.Empty);
     if (standingFloor !== MS_TILE.Beartrap && standingFloor !== MS_TILE.CloneMachine && trackedBlock.floorMovement === "none") {
       trackedBlock.dir = dir;
     }
@@ -1625,7 +1627,7 @@ function upsertTrackedBlock(cells: EngineMapCell[], internal: MsInternalState, p
     return existing;
   }
 
-  const topId = cells[pos]?.top.id ?? MS_TILE.Empty;
+  const topId = topTileIdOr(cells, pos, MS_TILE.Empty);
 
   const block: MsTrackedBlock = {
     pos,

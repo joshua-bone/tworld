@@ -12,6 +12,10 @@ export function boardCell(cells: EngineMapCell[], pos: number): EngineMapCell {
   return cells[pos]!;
 }
 
+export function hasBoardCell(cells: EngineMapCell[], pos: number): boolean {
+  return cells[pos] !== undefined;
+}
+
 export function topTile(cells: EngineMapCell[], pos: number): EngineTile {
   return boardCell(cells, pos).top;
 }
@@ -26,6 +30,14 @@ export function topTileId(cells: EngineMapCell[], pos: number): number {
 
 export function bottomTileId(cells: EngineMapCell[], pos: number): number {
   return bottomTile(cells, pos).id;
+}
+
+export function topTileIdOr(cells: EngineMapCell[], pos: number, fallback: number): number {
+  return hasBoardCell(cells, pos) ? topTileId(cells, pos) : fallback;
+}
+
+export function bottomTileIdOr(cells: EngineMapCell[], pos: number, fallback: number): number {
+  return hasBoardCell(cells, pos) ? bottomTileId(cells, pos) : fallback;
 }
 
 export function topTileState(cells: EngineMapCell[], pos: number): number {

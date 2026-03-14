@@ -5,8 +5,10 @@ import {
   boardCell,
   bottomTile,
   bottomTileId,
+  bottomTileIdOr,
   bottomTileState,
   cloneBoardCells,
+  hasBoardCell,
   hasBottomTileFlags,
   hasTopTileFlags,
   popBoardTile,
@@ -18,6 +20,7 @@ import {
   replaceTopTile,
   topTile,
   topTileId,
+  topTileIdOr,
   topTileState,
 } from "@domain/game/core/board";
 import type { EngineMapCell } from "@domain/game/model";
@@ -59,8 +62,12 @@ describe("board core helpers", () => {
     expect(boardCell(cells, 0)).toBe(cells[0]);
     expect(topTile(cells, 0)).toBe(cells[0]?.top);
     expect(bottomTile(cells, 0)).toBe(cells[0]?.bottom);
+    expect(hasBoardCell(cells, 0)).toBe(true);
+    expect(hasBoardCell(cells, 1)).toBe(false);
     expect(topTileId(cells, 0)).toBe(10);
     expect(bottomTileId(cells, 0)).toBe(20);
+    expect(topTileIdOr(cells, 1, 99)).toBe(99);
+    expect(bottomTileIdOr(cells, 1, 77)).toBe(77);
     expect(topTileState(cells, 0)).toBe(11);
     expect(bottomTileState(cells, 0)).toBe(21);
   });
