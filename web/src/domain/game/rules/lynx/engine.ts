@@ -26,6 +26,7 @@ import {
   reverseDirection as backDirection,
   roundedBoardPosition,
 } from "@domain/game/core/grid";
+import { TURN_DEBUG_PHASE, recordTurnDebugPhase } from "@domain/game/core/turnPhases";
 import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@domain/game/core/timer";
 import { mapHash } from "@domain/game/hash";
 import { createReplayPlan, createRuntimeCommand, plannedReplayInput, recordManualMove, runtimeCommandName } from "@domain/game/playback";
@@ -3176,7 +3177,16 @@ function runLynxReplayTraceDebugInternal(
   const initialState = engineStateToSnapshot(state, "initial", createRuntimeCommand(0, -1));
   const initialActors = parseLynxActors(level);
   const initialChipPos = findChipPosition(level.cells);
-  const initialDebugState = projectLynxDebugPhaseSnapshot(state, initialActors, initialChipPos, 0, 0, 0, 0, "initial");
+  const initialDebugState = projectLynxDebugPhaseSnapshot(
+    state,
+    initialActors,
+    initialChipPos,
+    0,
+    0,
+    0,
+    0,
+    TURN_DEBUG_PHASE.initial,
+  );
   const includeStep = (tick: number) => tick >= windowStart && tick < windowEndExclusive;
 
   if (maxTicks === 0) {
@@ -3218,8 +3228,8 @@ function runLynxReplayTraceDebugInternal(
     }
 
     const phases: GameDebugPhaseSnapshot[] = [];
-    phases.push(
-      projectLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, currentInputCode, tick, "post-input-latch"),
+    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postInputLatch, (phase) =>
+      projectLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, currentInputCode, tick, phase),
     );
     runLynxInitialHousekeeping(state, actors);
     endGameAnimationFrame = advanceLynxEndGameAnimationFrame(endGameResult, endGameAnimationFrame);
@@ -3243,7 +3253,7 @@ function runLynxReplayTraceDebugInternal(
       endGameAnimationTileId = timedOut.endGameAnimationTileId;
       endGameAnimationFrame = timedOut.endGameAnimationFrame;
     }
-    phases.push(
+    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postInitialHousekeeping, (phase) =>
       projectLynxDebugPhaseSnapshot(
         state,
         actors,
@@ -3252,7 +3262,7 @@ function runLynxReplayTraceDebugInternal(
         chipMoving,
         currentInputCode,
         tick,
-        "post-initial-housekeeping",
+        phase,
       ),
     );
     advanceLynxAnimations(state, actors);
@@ -3324,7 +3334,9 @@ function runLynxReplayTraceDebugInternal(
       clearLynxCouldntMove(state);
     }
 
-    phases.push(projectLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, 0, tick, "post-creature-intent"));
+    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postCreatureIntent, (phase) =>
+      projectLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, 0, tick, phase),
+    );
 
     let chipArrivedOnHeldTrapThisTick = false;
 
@@ -3395,7 +3407,7 @@ function runLynxReplayTraceDebugInternal(
       endGameAnimationFrame = collision.endGameAnimationFrame;
     }
 
-    phases.push(
+    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postCreatureMovement, (phase) =>
       projectLynxDebugPhaseSnapshot(
         state,
         actors,
@@ -3404,7 +3416,7 @@ function runLynxReplayTraceDebugInternal(
         chipMoving,
         0,
         tick,
-        "post-creature-movement",
+        phase,
       ),
     );
 
@@ -3529,7 +3541,7 @@ function runLynxReplayTraceDebugInternal(
     endGameResult = postMove.endGameResult;
     endGameAnimationTileId = postMove.endGameAnimationTileId;
     endGameAnimationFrame = postMove.endGameAnimationFrame;
-    phases.push(
+    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postTeleportResolution, (phase) =>
       projectLynxDebugPhaseSnapshot(
         state,
         actors,
@@ -3538,7 +3550,7 @@ function runLynxReplayTraceDebugInternal(
         chipMoving,
         0,
         tick,
-        "post-teleport-resolution",
+        phase,
       ),
     );
 
@@ -3551,7 +3563,7 @@ function runLynxReplayTraceDebugInternal(
       endGameResult,
     );
 
-    phases.push(
+    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postPutwallResolution, (phase) =>
       projectLynxDebugPhaseSnapshot(
         state,
         actors,
@@ -3560,10 +3572,12 @@ function runLynxReplayTraceDebugInternal(
         chipMoving,
         0,
         tick,
-        "post-putwall-resolution",
+        phase,
       ),
     );
-    phases.push(projectLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, 0, tick, "final"));
+    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.final, (phase) =>
+      projectLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, 0, tick, phase),
+    );
 
     endGameTicksElapsed = finalizedEndGame.endGameTicksElapsed;
     endGameResult = finalizedEndGame.endGameResult;

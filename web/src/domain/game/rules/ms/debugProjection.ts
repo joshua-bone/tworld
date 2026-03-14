@@ -1,4 +1,5 @@
 import { cloneBoardCells } from "@domain/game/core/board";
+import type { TurnDebugPhaseName } from "@domain/game/core/turnPhases";
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type {
   GameDebugBoardFlag,
@@ -528,7 +529,7 @@ export function projectMsDebugPhaseSnapshot(
   currentTime: number,
   soundEffects: number,
   lastMove: EngineState["lastMove"],
-  phase: string,
+  phase: TurnDebugPhaseName,
   chipSlipCarryDir: number = MS_DIRECTION.none,
 ): GameDebugPhaseSnapshot {
   const activeCreatures = [

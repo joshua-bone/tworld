@@ -31,6 +31,7 @@ import {
   normalizeCardinalDirection as normalizeDirection,
   reverseDirection as backDirection,
 } from "@domain/game/core/grid";
+import { TURN_DEBUG_PHASE, recordTurnDebugPhase, type TurnDebugPhaseName } from "@domain/game/core/turnPhases";
 import { advanceTimer, createInitialEngineTimer } from "@domain/game/core/timer";
 import { mapHash } from "@domain/game/hash";
 import {
@@ -3227,7 +3228,7 @@ function advanceMsTick(
       soundEffects,
     );
     if (debugPhases && includeFinalPhase) {
-      debugPhases.push(
+      recordTurnDebugPhase(debugPhases, TURN_DEBUG_PHASE.final, (phase) =>
         projectMsDebugPhaseSnapshot(
           nextState,
           nextState.engine.map.cells,
@@ -3236,7 +3237,7 @@ function advanceMsTick(
           nextState.engine.timer.currentTime,
           nextState.engine.soundEffects,
           nextState.engine.lastMove,
-          "final",
+          phase,
         ),
       );
     }
@@ -3252,11 +3253,11 @@ function advanceMsTick(
     return finishTick(state.engine.lastMove, state.engine.timer.timeOffset, false);
   }
 
-  const recordPhase = (phase: string, lastMove: EngineState["lastMove"] = state.engine.lastMove): void => {
+  const recordPhase = (phase: TurnDebugPhaseName, lastMove: EngineState["lastMove"] = state.engine.lastMove): void => {
     if (!debugPhases) {
       return;
     }
-    debugPhases.push(
+    recordTurnDebugPhase(debugPhases, phase, (recordedPhase) =>
       projectMsDebugPhaseSnapshot(
         state,
         cells,
@@ -3265,13 +3266,13 @@ function advanceMsTick(
         nextTick,
         soundEffects,
         lastMove,
-        phase,
+        recordedPhase,
       ),
     );
   };
 
   const recordPhaseWithInternal = (
-    phase: string,
+    phase: TurnDebugPhaseName,
     snapshotInternal: MsInternalState,
     lastMove: EngineState["lastMove"] = state.engine.lastMove,
     chipSlipCarryDir: number = MS_DIRECTION.none,
@@ -3279,7 +3280,7 @@ function advanceMsTick(
     if (!debugPhases) {
       return;
     }
-    debugPhases.push(
+    recordTurnDebugPhase(debugPhases, phase, (recordedPhase) =>
       projectMsDebugPhaseSnapshot(
         state,
         cells,
@@ -3288,7 +3289,7 @@ function advanceMsTick(
         nextTick,
         soundEffects,
         lastMove,
-        phase,
+        recordedPhase,
         chipSlipCarryDir,
       ),
     );
@@ -3316,7 +3317,7 @@ function advanceMsTick(
           nextTick,
           soundEffects,
           state.engine.lastMove,
-          "post-input-latch",
+          TURN_DEBUG_PHASE.postInputLatch,
         ),
       );
     }
@@ -3340,7 +3341,7 @@ function advanceMsTick(
     }
 
     latchCurrentInput(state, internal, input);
-    recordPhase("post-initial-housekeeping");
+    recordPhase(TURN_DEBUG_PHASE.postInitialHousekeeping);
     return internal.currentInput;
   };
 
@@ -3353,7 +3354,7 @@ function advanceMsTick(
     }
     soundEffects |= runCreatureMovements(cells, internal, nextTick, state.engine.replay.stepping);
     if (nextTick > 0 && (nextTick & 1) === 0) {
-      recordPhase("post-creature-movement");
+      recordPhase(TURN_DEBUG_PHASE.postCreatureMovement);
     }
   };
 
@@ -3374,7 +3375,7 @@ function advanceMsTick(
     if (nextTick > 0 && (nextTick & 1) === 0) {
       soundEffects |= runFloorMovement(cells, internal, inventory);
       recordPhaseWithInternal(
-        "post-chip-floor-movement",
+        TURN_DEBUG_PHASE.postChipFloorMovement,
         cloneInternalState(internal),
         state.engine.lastMove,
         chipFloorMovementWasActive && internal.floorMovement === "none"
@@ -3395,7 +3396,7 @@ function advanceMsTick(
       return;
     }
     soundEffects |= runCreatureFloorMovements(cells, internal, nextTick);
-    recordPhase("post-block-floor-movement");
+    recordPhase(TURN_DEBUG_PHASE.postBlockFloorMovement);
   };
 
   const resolveChipInputPhase = (
@@ -3475,7 +3476,7 @@ function advanceMsTick(
     chipFloorMovementModeBeforeFloor: MsInternalState["floorMovement"],
     chipFloorMovementModeAfterFloor: MsInternalState["floorMovement"],
   ): MsGameState | null => {
-    recordPhaseWithInternal("post-chip-input", cloneInternalState(internal), nextLastMove);
+    recordPhaseWithInternal(TURN_DEBUG_PHASE.postChipInput, cloneInternalState(internal), nextLastMove);
     if (isPlayablePhase()) {
       soundEffects |= runManualMovement(cells, internal, inventory, manualDir);
     }
@@ -3489,7 +3490,7 @@ function advanceMsTick(
       internal.floorMovement === "none" &&
       internal.chipPos !== chipPosBeforeManualMovement;
     recordPhaseWithInternal(
-      "post-chip-movement",
+      TURN_DEBUG_PHASE.postChipMovement,
       cloneInternalState(internal),
       nextLastMove,
       ((chipFloorMovementWasActive &&
@@ -3508,7 +3509,7 @@ function advanceMsTick(
     resolvePendingCloners(cells, internal);
     createClones(internal);
     flushPendingSoundEffects();
-    recordPhase("post-clone-release", nextLastMove);
+    recordPhase(TURN_DEBUG_PHASE.postCloneRelease, nextLastMove);
     return finishTick(nextLastMove);
   };
 
@@ -3606,7 +3607,7 @@ export function runMsInputTraceDebug(
     state.engine.timer.currentTime,
     state.engine.soundEffects,
     state.engine.lastMove,
-    "initial",
+    TURN_DEBUG_PHASE.initial,
   );
   const steps: GameDebugTrace["steps"] = [];
   let previousInput = createRuntimeCommand(0, -1);
@@ -3712,7 +3713,7 @@ export function runMsReplayTraceDebugWindow(
     state.engine.timer.currentTime,
     state.engine.soundEffects,
     state.engine.lastMove,
-    "initial",
+    TURN_DEBUG_PHASE.initial,
   );
   const steps: GameDebugTrace["steps"] = [];
   const includeStep = (tick: number) => tick >= windowStart && tick < windowEndExclusive;

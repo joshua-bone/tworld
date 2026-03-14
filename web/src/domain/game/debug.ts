@@ -1,3 +1,4 @@
+import type { TurnDebugPhaseName } from "@domain/game/core/turnPhases";
 import type { GamePosition, GameSnapshot, GameTrace } from "@domain/game/types";
 
 export interface GameDebugFloorState {
@@ -51,7 +52,7 @@ export interface GameDebugMapCell {
 }
 
 export interface GameDebugPhaseSnapshot {
-  phase: string;
+  phase: TurnDebugPhaseName;
   tick: number;
   currentTime: number;
   replayCursor: number;

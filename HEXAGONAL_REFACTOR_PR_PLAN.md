@@ -183,10 +183,12 @@ Exit criteria:
 
 Scope:
 
+- [x] Status: in progress
 - [ ] standardize both engines around explicit phase orchestration
 
 Changes:
 
+- [x] formalize shared named debug phases and move both engines onto that shared phase vocabulary
 - [ ] formalize named phases such as input resolution, forced movement, actor intents, movement validation, collision resolution, tile hooks, deferred wiring actions, endgame, and animation updates
 - [ ] keep ruleset-specific phase handlers separate from the shared phase runner
 

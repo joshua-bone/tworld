@@ -1,4 +1,5 @@
 import { cloneBoardCells } from "@domain/game/core/board";
+import type { TurnDebugPhaseName } from "@domain/game/core/turnPhases";
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type {
   GameDebugBoardFlag,
@@ -152,7 +153,7 @@ export function projectLynxDebugPhaseSnapshot(
   chipMoving: number,
   currentInputCode: number,
   currentTick: number,
-  phase: string,
+  phase: TurnDebugPhaseName,
 ): GameDebugPhaseSnapshot {
   const chipCell = state.map.cells[chipPos];
   const chipFloorId = chipCell?.top.id ?? MS_TILE.Empty;
