@@ -1,6 +1,6 @@
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@domain/game/debug";
-import { findHiddenActorAtPosition, findVisibleActorAtPosition, hasVisibleActorAtPosition, storeActorInReusableHiddenSlot } from "@domain/game/core/actors";
+import { findHiddenActorAtPosition, findVisibleActorAtPosition, storeActorInReusableHiddenSlot } from "@domain/game/core/actors";
 import {
   addTopTileFlags,
   cloneBoardCells,
@@ -12,6 +12,7 @@ import {
   topTile,
   topTileIdOr,
 } from "@domain/game/core/board";
+import { findVisibleActorOnFlaggedTopCell } from "@domain/game/core/occupancy";
 import {
   advanceToCell,
   advancePositionIfPossible,
@@ -918,7 +919,9 @@ function probeLynxChipMoveDirection(
   const { pos: targetPos, cell: target } = targetStep;
 
   if (hasTopTileFlags(state.map.cells, targetPos, LYNX_CELL_FLAG.Claimed)) {
-    const block = findLynxBlockActor(actors, targetPos);
+    const block =
+      findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
+      null;
     if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
       return { canMove: false, pushBlockPos: null };
     }
@@ -1710,7 +1713,9 @@ function resolveLynxChipTeleport(state: EngineState, actors: LynxRuntimeActor[],
     }
 
     if (hasTopTileFlags(state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
-      const exitBlock = findLynxBlockActor(actors, exitPos);
+      const exitBlock =
+        findVisibleActorOnFlaggedTopCell(state.map.cells, actors, exitPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
+        null;
       if (exitBlock) {
         return canLynxChipExitTeleportThroughBlock(state, actors, exitPos, chipDir);
       }
@@ -2173,10 +2178,6 @@ function findLynxVisibleActorAt(actors: LynxRuntimeActor[], pos: number): LynxRu
   return findVisibleActorAtPosition(actors, pos) ?? null;
 }
 
-function hasLynxBlockActorAt(actors: LynxRuntimeActor[], pos: number): boolean {
-  return hasVisibleActorAtPosition(actors, pos, (actor) => actor.id === MS_TILE.Block);
-}
-
 function resolveLynxChipCollision(
   state: EngineState,
   actors: LynxRuntimeActor[],
@@ -2432,9 +2433,10 @@ function advanceLynxChipTrapRelease(
     const targetPos = chipPos + directionDelta(chipDir, MS_GRID_WIDTH);
     const target = state.map.cells[targetPos];
     const targetBlock =
-      target && (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 && hasLynxBlockActorAt(actors, targetPos)
-        ? findLynxBlockActor(actors, targetPos)
-        : null;
+      target === undefined
+        ? null
+        : findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
+          null;
     const canPushIntoClaimedCell = targetBlock ? canLynxChipPushIntoClaimedCell(state, targetPos, chipDir) : false;
     const pushedBlock =
       targetBlock && canPushIntoClaimedCell ? tryPushLynxBlock(state, level, actors, targetPos, chipDir) : false;
@@ -2963,9 +2965,10 @@ function advanceLynxInteractiveTick(
         const targetPos = chipPos + directionDelta(startInputCode, MS_GRID_WIDTH);
         const target = state.map.cells[targetPos];
         const targetBlock =
-          target && (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 && hasLynxBlockActorAt(actors, targetPos)
-            ? findLynxBlockActor(actors, targetPos)
-            : null;
+          target === undefined
+            ? null
+            : findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
+              null;
         const canPushIntoClaimedCell = targetBlock
           ? canLynxChipPushIntoClaimedCell(state, targetPos, startInputCode)
           : false;
@@ -3548,9 +3551,10 @@ function runLynxReplayTraceDebugInternal(
         const targetPos = chipPos + directionDelta(startInputCode, MS_GRID_WIDTH);
         const target = state.map.cells[targetPos];
         const targetBlock =
-          target && (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 && hasLynxBlockActorAt(actors, targetPos)
-            ? findLynxBlockActor(actors, targetPos)
-            : null;
+          target === undefined
+            ? null
+            : findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
+              null;
         const canPushIntoClaimedCell = targetBlock
           ? canLynxChipPushIntoClaimedCell(state, targetPos, startInputCode)
           : false;

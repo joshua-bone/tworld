@@ -120,6 +120,7 @@ Changes:
 - [x] extract initial shared movement primitives into `domain/game/core`
 - [x] extract initial shared actor storage helpers into `domain/game/core`
 - [x] extract initial shared actor occupancy predicates into `domain/game/core`
+- [x] extract initial shared board-flag plus actor-occupancy predicates into `domain/game/core`
 - [ ] extract board math, occupancy checks, movement primitives, actor storage, timer primitives, collision primitives, and effect queues into `domain/game/core`
 - [ ] keep all ruleset-specific policy outside this kernel
 
