@@ -132,7 +132,7 @@ Remaining work in this PR:
 - [ ] extract the next shared actor lifecycle/storage helpers, especially the remaining hide, upsert, and slot-reuse flows
 - [ ] extract shared collision and arrival-effect queue primitives where the engines currently duplicate generic bookkeeping
 - [ ] extract shared board-mutation helpers for repeated flag-transfer and claim/unclaim flows where they are policy-neutral
-- [ ] reduce duplicated replay-vs-interactive tick bookkeeping inside each engine once the shared kernel helpers are in place
+- [x] reduce duplicated replay-vs-interactive tick bookkeeping inside the Lynx engine once the shared kernel helpers were in place
 - [ ] finish replacing remaining raw board/actor/timer helper patterns in both engines where a core primitive now exists
 
 Exit criteria:
