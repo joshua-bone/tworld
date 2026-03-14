@@ -167,7 +167,10 @@ Scope:
 
 Changes:
 
-- [ ] add a Lynx tile catalog with tags, capabilities, and hooks
+- [x] Status: in progress
+- [x] add a Lynx tile catalog with tags, capabilities, and hooks
+- [x] route the first low-risk Lynx inventory, button, and forced-floor helpers through the catalog
+- [x] route Lynx movement masks and chip entry classification through the catalog
 - [ ] route entry, leave, death, sound, trap, cloner, teleport, and animation policy through the catalog layer
 
 Exit criteria:

@@ -34,14 +34,25 @@ import { engineStateToSnapshot } from "@domain/game/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@domain/game/trace";
 import { projectLynxDebugPhaseSnapshot } from "@domain/game/rules/lynx/debugProjection";
 import {
+  lynxBlockMovementMask,
+  lynxButtonAction,
+  lynxChipEnterAction,
+  lynxChipMovementMask,
+  lynxCreatureMovementMask,
+  lynxDoorKeyIndex,
+  lynxFixedSlideDirection,
+  lynxIceWallTurn,
+  lynxInventoryIndex,
+  lynxInventorySlot,
+  lynxTileForcedFloorKind,
+} from "@domain/game/rules/lynx/catalog";
+import {
   MS_GRID_HEIGHT,
   MS_GRID_WIDTH,
   MS_STATUS_FLAG,
   MS_TICKS_PER_SECOND,
   MS_TILE,
-  isMsBoots,
   isMsCreature,
-  isMsKey,
   msCreatureDir,
   msCreatureId,
 } from "@domain/game/rules/ms/tiles";
@@ -525,115 +536,11 @@ function addLynxCantMove(state: EngineState): void {
 }
 
 function lynxChipEntryMask(tileId: number): number {
-  switch (tileId) {
-    case MS_TILE.Empty:
-    case MS_TILE.Slide_North:
-    case MS_TILE.Slide_West:
-    case MS_TILE.Slide_South:
-    case MS_TILE.Slide_East:
-    case MS_TILE.Slide_Random:
-    case MS_TILE.Ice:
-    case MS_TILE.Water:
-    case MS_TILE.Fire:
-    case MS_TILE.Bomb:
-    case MS_TILE.Beartrap:
-    case MS_TILE.Burglar:
-    case MS_TILE.HintButton:
-    case MS_TILE.Button_Blue:
-    case MS_TILE.Button_Green:
-    case MS_TILE.Button_Red:
-    case MS_TILE.Button_Brown:
-    case MS_TILE.Teleport:
-    case MS_TILE.Door_Red:
-    case MS_TILE.Door_Blue:
-    case MS_TILE.Door_Yellow:
-    case MS_TILE.Door_Green:
-    case MS_TILE.Socket:
-    case MS_TILE.Exit:
-    case MS_TILE.ICChip:
-    case MS_TILE.Key_Red:
-    case MS_TILE.Key_Blue:
-    case MS_TILE.Key_Yellow:
-    case MS_TILE.Key_Green:
-    case MS_TILE.Boots_Ice:
-    case MS_TILE.Boots_Slide:
-    case MS_TILE.Boots_Fire:
-    case MS_TILE.Boots_Water:
-    case MS_TILE.Gravel:
-    case MS_TILE.Dirt:
-    case MS_TILE.BlueWall_Fake:
-    case MS_TILE.SwitchWall_Open:
-    case MS_TILE.PopupWall:
-      return 1 | 2 | 4 | 8;
-    case MS_TILE.IceWall_Northwest:
-      return 4 | 8;
-    case MS_TILE.IceWall_Northeast:
-      return 4 | 2;
-    case MS_TILE.IceWall_Southwest:
-      return 1 | 8;
-    case MS_TILE.IceWall_Southeast:
-      return 1 | 2;
-    case MS_TILE.Wall_North:
-      return 1 | 2 | 8;
-    case MS_TILE.Wall_West:
-      return 1 | 2 | 4;
-    case MS_TILE.Wall_South:
-      return 2 | 4 | 8;
-    case MS_TILE.Wall_East:
-      return 1 | 4 | 8;
-    case MS_TILE.Wall_Southeast:
-      return 4 | 8;
-    default:
-      return 0;
-  }
+  return lynxChipMovementMask(tileId);
 }
 
 function lynxBlockOrCreatureEntryMask(tileId: number, kind: "block" | "creature"): number {
-  switch (tileId) {
-    case MS_TILE.Empty:
-    case MS_TILE.Slide_North:
-    case MS_TILE.Slide_West:
-    case MS_TILE.Slide_South:
-    case MS_TILE.Slide_East:
-    case MS_TILE.Slide_Random:
-    case MS_TILE.Ice:
-    case MS_TILE.Water:
-    case MS_TILE.Fire:
-    case MS_TILE.Bomb:
-    case MS_TILE.Beartrap:
-    case MS_TILE.Button_Blue:
-    case MS_TILE.Button_Green:
-    case MS_TILE.Button_Red:
-    case MS_TILE.Button_Brown:
-    case MS_TILE.Teleport:
-    case MS_TILE.SwitchWall_Open:
-      return 1 | 2 | 4 | 8;
-    case MS_TILE.IceWall_Northwest:
-      return 4 | 8;
-    case MS_TILE.IceWall_Northeast:
-      return 4 | 2;
-    case MS_TILE.IceWall_Southwest:
-      return 1 | 8;
-    case MS_TILE.IceWall_Southeast:
-      return 1 | 2;
-    case MS_TILE.Wall_North:
-      return 1 | 2 | 8;
-    case MS_TILE.Wall_West:
-      return 1 | 2 | 4;
-    case MS_TILE.Wall_South:
-      return 2 | 4 | 8;
-    case MS_TILE.Wall_East:
-      return 1 | 4 | 8;
-    case MS_TILE.Wall_Southeast:
-      return 4 | 8;
-    case MS_TILE.Gravel:
-      return kind === "block" ? 1 | 2 | 4 | 8 : 0;
-    case MS_TILE.Key_Red:
-    case MS_TILE.Key_Blue:
-      return 1 | 2 | 4 | 8;
-    default:
-      return 0;
-  }
+  return kind === "block" ? lynxBlockMovementMask(tileId) : lynxCreatureMovementMask(tileId);
 }
 
 function canLynxCreatureEnter(tileId: number, actorId: number, dir: number): boolean {
@@ -790,16 +697,10 @@ function collectLynxItemAtPosition(state: EngineState, pos: number): number {
   }
 
   const tile = topTile(state.map.cells, pos);
-
-  if (isMsKey(tile.id)) {
-    state.inventory.keys[Math.max(0, Math.min(3, tile.id - MS_TILE.Key_Red))] += 1;
-    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
-    state.map.hash = mapHash(state.map.cells);
-    return 1 << LYNX_SOUND.ItemCollected;
-  }
-
-  if (isMsBoots(tile.id)) {
-    state.inventory.boots[Math.max(0, Math.min(3, tile.id - MS_TILE.Boots_Ice))] += 1;
+  const inventorySlot = lynxInventorySlot(tile.id);
+  const inventoryIndex = lynxInventoryIndex(tile.id);
+  if (inventorySlot !== null && inventoryIndex !== null) {
+    state.inventory[inventorySlot][inventoryIndex] += 1;
     promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
     return 1 << LYNX_SOUND.ItemCollected;
@@ -808,34 +709,10 @@ function collectLynxItemAtPosition(state: EngineState, pos: number): number {
   return 0;
 }
 
-function lynxDoorKeyIndex(tileId: number): number {
-  switch (tileId) {
-    case MS_TILE.Door_Red:
-      return 0;
-    case MS_TILE.Door_Blue:
-      return 1;
-    case MS_TILE.Door_Yellow:
-      return 2;
-    case MS_TILE.Door_Green:
-      return 3;
-    default:
-      return -1;
-  }
-}
-
 function hasLynxBoots(state: EngineState, tileId: number): boolean {
-  switch (tileId) {
-    case MS_TILE.Boots_Ice:
-      return state.inventory.boots[0] > 0;
-    case MS_TILE.Boots_Slide:
-      return state.inventory.boots[1] > 0;
-    case MS_TILE.Boots_Fire:
-      return state.inventory.boots[2] > 0;
-    case MS_TILE.Boots_Water:
-      return state.inventory.boots[3] > 0;
-    default:
-      return false;
-  }
+  const inventorySlot = lynxInventorySlot(tileId);
+  const inventoryIndex = lynxInventoryIndex(tileId);
+  return inventorySlot === "boots" && inventoryIndex !== null ? state.inventory.boots[inventoryIndex] > 0 : false;
 }
 
 function lynxChipMovementSpeed(state: EngineState, floorId: number): number {
@@ -867,7 +744,7 @@ function canLynxChipEnterCell(state: EngineState, pos: number, dir: number): boo
     return false;
   }
   const keyIndex = lynxDoorKeyIndex(tileId);
-  if (keyIndex >= 0) {
+  if (keyIndex !== null) {
     return state.inventory.keys[keyIndex] > 0;
   }
   if (tileId === MS_TILE.Socket) {
@@ -894,7 +771,7 @@ function canLynxChipPushIntoClaimedCell(state: EngineState, pos: number, dir: nu
     return false;
   }
   const keyIndex = lynxDoorKeyIndex(tileId);
-  if (keyIndex >= 0) {
+  if (keyIndex !== null) {
     return state.inventory.keys[keyIndex] > 0;
   }
   if (tileId === MS_TILE.Socket) {
@@ -1195,16 +1072,16 @@ function selectLynxChipMoveForTick(
 }
 
 function resolveLynxButtonEffects(state: EngineState, level: LynxLevel, actors: LynxRuntimeActor[], pos: number, tileId: number): number {
-  switch (tileId) {
-    case MS_TILE.Button_Blue:
+  switch (lynxButtonAction(tileId)) {
+    case "turn-tanks":
       queueLynxTankReversals(state, actors);
       return 1 << LYNX_SOUND.ButtonPushed;
-    case MS_TILE.Button_Green:
+    case "toggle-walls":
       lynxRuntimeState(state).toggleWallsPending = !lynxRuntimeState(state).toggleWallsPending;
       return 1 << LYNX_SOUND.ButtonPushed;
-    case MS_TILE.Button_Red:
+    case "activate-cloner":
       return activateLynxCloner(state, level, actors, pos) ? 1 << LYNX_SOUND.ButtonPushed : 0;
-    case MS_TILE.Button_Brown:
+    case "spring-trap":
       return 1 << LYNX_SOUND.ButtonPushed;
     default:
       return 0;
@@ -1260,7 +1137,7 @@ function resolveLynxChipArrival(
   }
 
   const keyIndex = lynxDoorKeyIndex(cell.top.id);
-  if (keyIndex >= 0 && state.inventory.keys[keyIndex] > 0) {
+  if (keyIndex !== null && state.inventory.keys[keyIndex] > 0) {
     if (keyIndex !== 3) {
       state.inventory.keys[keyIndex] -= 1;
     }
@@ -1272,65 +1149,52 @@ function resolveLynxChipArrival(
     };
   }
 
-  if (cell.top.id === MS_TILE.Socket && state.inventory.chipsNeeded === 0) {
-    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
-    state.map.hash = mapHash(state.map.cells);
-    return {
-      soundEffects: 1 << LYNX_SOUND.SocketOpened,
-      completed: false,
-    };
-  }
-
-  if (cell.top.id === MS_TILE.Dirt || cell.top.id === MS_TILE.BlueWall_Fake) {
-    replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Empty });
-    state.map.hash = mapHash(state.map.cells);
-    return {
-      soundEffects: 1 << LYNX_SOUND.TileEmptied,
-      completed: false,
-    };
-  }
-
-  if (cell.top.id === MS_TILE.PopupWall) {
-    replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
-    state.map.hash = mapHash(state.map.cells);
-    return {
-      soundEffects: 1 << LYNX_SOUND.WallCreated,
-      completed: false,
-    };
-  }
-
-  if (cell.top.id === MS_TILE.Burglar) {
-    state.inventory.boots = [0, 0, 0, 0];
-    return {
-      soundEffects: 1 << LYNX_SOUND.BootsStolen,
-      completed: false,
-    };
-  }
-
-  if (
-    cell.top.id === MS_TILE.Button_Blue ||
-    cell.top.id === MS_TILE.Button_Green ||
-    cell.top.id === MS_TILE.Button_Red ||
-    cell.top.id === MS_TILE.Button_Brown
-  ) {
-    return {
-      soundEffects: resolveLynxButtonEffects(state, level, actors, pos, cell.top.id),
-      completed: false,
-    };
-  }
-
-  if (cell.top.id === MS_TILE.Beartrap) {
-    return {
-      soundEffects: 1 << LYNX_SOUND.TrapEntered,
-      completed: false,
-    };
-  }
-
-  if (cell.top.id === MS_TILE.Exit) {
-    return {
-      soundEffects: 1 << LYNX_SOUND.ChipWins,
-      completed: true,
-    };
+  switch (lynxChipEnterAction(cell.top.id)) {
+    case "open-socket":
+      if (state.inventory.chipsNeeded === 0) {
+        promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
+        state.map.hash = mapHash(state.map.cells);
+        return {
+          soundEffects: 1 << LYNX_SOUND.SocketOpened,
+          completed: false,
+        };
+      }
+      break;
+    case "clear-floor":
+      replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Empty });
+      state.map.hash = mapHash(state.map.cells);
+      return {
+        soundEffects: 1 << LYNX_SOUND.TileEmptied,
+        completed: false,
+      };
+    case "popup-wall":
+      replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
+      state.map.hash = mapHash(state.map.cells);
+      return {
+        soundEffects: 1 << LYNX_SOUND.WallCreated,
+        completed: false,
+      };
+    case "steal-boots":
+      state.inventory.boots = [0, 0, 0, 0];
+      return {
+        soundEffects: 1 << LYNX_SOUND.BootsStolen,
+        completed: false,
+      };
+    case "button":
+      return {
+        soundEffects: resolveLynxButtonEffects(state, level, actors, pos, cell.top.id),
+        completed: false,
+      };
+    case "trap":
+      return {
+        soundEffects: 1 << LYNX_SOUND.TrapEntered,
+        completed: false,
+      };
+    case "exit":
+      return {
+        soundEffects: 1 << LYNX_SOUND.ChipWins,
+        completed: true,
+      };
   }
 
   return {
@@ -1360,60 +1224,63 @@ function resolveCompletedLynxChipMove(
   clearLynxCouldntMove(state);
   const floorAfterMove = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
 
-  if (floorAfterMove === MS_TILE.Water && !hasLynxBoots(state, MS_TILE.Boots_Water)) {
-    return {
-      chipDir,
-      ...failLynxChip(
-        state,
-        actors,
-        chipPos,
+  switch (lynxChipEnterAction(floorAfterMove)) {
+    case "water-death":
+      if (!hasLynxBoots(state, MS_TILE.Boots_Water)) {
+        return {
+          chipDir,
+          ...failLynxChip(
+            state,
+            actors,
+            chipPos,
+            chipDir,
+            0,
+            endGameTicksElapsed,
+            endGameResult,
+            endGameAnimationTileId,
+            endGameAnimationFrame,
+            "drowned",
+          ),
+        };
+      }
+      break;
+    case "fire-death":
+      if (!hasLynxBoots(state, MS_TILE.Boots_Fire)) {
+        return {
+          chipDir,
+          ...failLynxChip(
+            state,
+            actors,
+            chipPos,
+            chipDir,
+            0,
+            endGameTicksElapsed,
+            endGameResult,
+            endGameAnimationTileId,
+            endGameAnimationFrame,
+            "burned",
+          ),
+        };
+      }
+      break;
+    case "explode-bomb":
+      promoteBottomTile(state.map.cells, chipPos, MS_TILE.Empty);
+      state.map.hash = mapHash(state.map.cells);
+      return {
         chipDir,
-        0,
-        endGameTicksElapsed,
-        endGameResult,
-        endGameAnimationTileId,
-        endGameAnimationFrame,
-        "drowned",
-      ),
-    };
-  }
-
-  if (floorAfterMove === MS_TILE.Fire && !hasLynxBoots(state, MS_TILE.Boots_Fire)) {
-    return {
-      chipDir,
-      ...failLynxChip(
-        state,
-        actors,
-        chipPos,
-        chipDir,
-        0,
-        endGameTicksElapsed,
-        endGameResult,
-        endGameAnimationTileId,
-        endGameAnimationFrame,
-        "burned",
-      ),
-    };
-  }
-
-  if (floorAfterMove === MS_TILE.Bomb) {
-    promoteBottomTile(state.map.cells, chipPos, MS_TILE.Empty);
-    state.map.hash = mapHash(state.map.cells);
-    return {
-      chipDir,
-      ...failLynxChip(
-        state,
-        actors,
-        chipPos,
-        chipDir,
-        0,
-        endGameTicksElapsed,
-        endGameResult,
-        endGameAnimationTileId,
-        endGameAnimationFrame,
-        "bombed",
-      ),
-    };
+        ...failLynxChip(
+          state,
+          actors,
+          chipPos,
+          chipDir,
+          0,
+          endGameTicksElapsed,
+          endGameResult,
+          endGameAnimationTileId,
+          endGameAnimationFrame,
+          "bombed",
+        ),
+      };
   }
 
   const arrival = resolveLynxChipArrival(state, level, actors, chipPos);
@@ -1507,60 +1374,30 @@ function toggleLynxWalls(state: EngineState): void {
 }
 
 function isLynxIce(tileId: number): boolean {
-  return (
-    tileId === MS_TILE.Ice ||
-    tileId === MS_TILE.IceWall_Northwest ||
-    tileId === MS_TILE.IceWall_Northeast ||
-    tileId === MS_TILE.IceWall_Southwest ||
-    tileId === MS_TILE.IceWall_Southeast
-  );
+  return lynxTileForcedFloorKind(tileId) === "ice";
 }
 
 function isLynxSlide(tileId: number): boolean {
-  return (
-    tileId === MS_TILE.Slide_North ||
-    tileId === MS_TILE.Slide_West ||
-    tileId === MS_TILE.Slide_South ||
-    tileId === MS_TILE.Slide_East ||
-    tileId === MS_TILE.Slide_Random
-  );
+  return lynxTileForcedFloorKind(tileId) === "slide";
 }
 
 function getLynxSlideDirection(state: EngineState, floorId: number, advance: boolean): number {
-  switch (floorId) {
-    case MS_TILE.Slide_North:
-      return 1;
-    case MS_TILE.Slide_West:
-      return 2;
-    case MS_TILE.Slide_South:
-      return 4;
-    case MS_TILE.Slide_East:
-      return 8;
-    case MS_TILE.Slide_Random: {
-      const runtime = lynxRuntimeState(state);
-      if (advance) {
-        runtime.lastRandomSlideDir = right(runtime.lastRandomSlideDir || 1);
-      }
-      return runtime.lastRandomSlideDir || 1;
-    }
-    default:
-      return 0;
+  const fixedDir = lynxFixedSlideDirection(floorId);
+  if (fixedDir !== 0) {
+    return fixedDir;
   }
+  if (floorId !== MS_TILE.Slide_Random) {
+    return 0;
+  }
+  const runtime = lynxRuntimeState(state);
+  if (advance) {
+    runtime.lastRandomSlideDir = right(runtime.lastRandomSlideDir || 1);
+  }
+  return runtime.lastRandomSlideDir || 1;
 }
 
 function applyLynxIceWallTurn(dir: number, floorId: number): number {
-  switch (floorId) {
-    case MS_TILE.IceWall_Northeast:
-      return dir === 4 ? 8 : dir === 2 ? 1 : dir;
-    case MS_TILE.IceWall_Southwest:
-      return dir === 1 ? 2 : dir === 8 ? 4 : dir;
-    case MS_TILE.IceWall_Northwest:
-      return dir === 4 ? 2 : dir === 8 ? 1 : dir;
-    case MS_TILE.IceWall_Southeast:
-      return dir === 1 ? 8 : dir === 2 ? 4 : dir;
-    default:
-      return dir;
-  }
+  return lynxIceWallTurn(floorId, dir);
 }
 
 function getLynxChipForcedMove(
