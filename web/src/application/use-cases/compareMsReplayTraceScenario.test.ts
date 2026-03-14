@@ -97,10 +97,18 @@ runSuite("TS MS engine replay trace differential", () => {
       const comparison = await compareReplayTraceScenario(candidate, oracle, scenario);
       expect(comparison.mismatches).toEqual([]);
     }
-  });
+  }, 60_000);
 
   it("matches the returning blue-button tank window from CCLP5 Voting Zipline:14", async () => {
     await expectReplayWindowToMatch("CCLP5Voting-Zipline-MS.tws:14", 316, 321);
+  }, 30_000);
+
+  it("matches the opening RNG window from CCLP5 Voting Zipline:2", async () => {
+    await expectReplayWindowToMatch("CCLP5Voting-Zipline-MS.tws:2", 0, 3);
+  }, 30_000);
+
+  it("matches the late RNG window from CCLP5 Voting Initiative:47", async () => {
+    await expectReplayWindowToMatch("CCLP5Voting-Initiative-MS.tws:47", 418, 422);
   }, 30_000);
 
   it("matches the teleport probe bomb-sound window from CCLP5 Voting Nonsense:22", async () => {

@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  msActorHasTag,
   msBlockMovementMask,
+  msButtonAction,
   msChipMovementMask,
+  msChipEnterAction,
   msCreatureMovementMask,
   msDoorKeyIndex,
+  msIceWallTurn,
   msInventoryIndex,
   msInventorySlot,
+  msIsOverlayFloorTile,
+  msPreservesUnderlyingFloor,
+  msSlideDirection,
+  msTileForcedFloorKind,
   msRulesetCatalog,
   msTileHasCapability,
   msTileHasTag,
@@ -59,5 +67,37 @@ describe("MS ruleset catalog", () => {
     expect(msInventoryIndex(MS_TILE.Boots_Fire)).toBe(2);
     expect(msDoorKeyIndex(MS_TILE.Door_Yellow)).toBe(2);
     expect(msDoorKeyIndex(MS_TILE.Teleport)).toBeNull();
+  });
+
+  it("provides chip entry and button policy actions", () => {
+    expect(msChipEnterAction(MS_TILE.Key_Red)).toBe("collect-item");
+    expect(msChipEnterAction(MS_TILE.Bomb)).toBe("explode-bomb");
+    expect(msChipEnterAction(MS_TILE.Water)).toBe("water-death");
+    expect(msChipEnterAction(MS_TILE.Fire)).toBe("fire-death");
+    expect(msChipEnterAction(MS_TILE.Teleport)).toBe("teleport");
+    expect(msChipEnterAction(MS_TILE.Bug)).toBe("collision");
+    expect(msButtonAction(MS_TILE.Button_Blue)).toBe("turn-tanks");
+    expect(msButtonAction(MS_TILE.Button_Green)).toBe("toggle-walls");
+    expect(msButtonAction(MS_TILE.Button_Red)).toBe("activate-cloner");
+    expect(msButtonAction(MS_TILE.Button_Brown)).toBe("spring-trap");
+  });
+
+  it("provides actor and floor-layer policy helpers", () => {
+    expect(msActorHasTag(MS_TILE.Fireball, "fire-immune")).toBe(true);
+    expect(msActorHasTag(MS_TILE.Glider, "water-immune")).toBe(true);
+    expect(msActorHasTag(MS_TILE.Chip, "chip")).toBe(true);
+    expect(msIsOverlayFloorTile(MS_TILE.Key_Red)).toBe(true);
+    expect(msIsOverlayFloorTile(MS_TILE.Bug)).toBe(true);
+    expect(msPreservesUnderlyingFloor(MS_TILE.Empty)).toBe(true);
+    expect(msPreservesUnderlyingFloor(MS_TILE.Boots_Ice)).toBe(false);
+  });
+
+  it("provides forced-floor policy helpers", () => {
+    expect(msTileForcedFloorKind(MS_TILE.Ice)).toBe("ice");
+    expect(msTileForcedFloorKind(MS_TILE.Slide_Random)).toBe("slide");
+    expect(msTileForcedFloorKind(MS_TILE.Teleport)).toBe("teleport");
+    expect(msSlideDirection(MS_TILE.Slide_East, MS_DIRECTION.north)).toBe(MS_DIRECTION.east);
+    expect(msSlideDirection(MS_TILE.Slide_Random, MS_DIRECTION.west)).toBe(MS_DIRECTION.west);
+    expect(msIceWallTurn(MS_TILE.IceWall_Northwest, MS_DIRECTION.south)).toBe(MS_DIRECTION.west);
   });
 });

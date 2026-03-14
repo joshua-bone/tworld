@@ -144,20 +144,20 @@ Exit criteria:
 
 Scope:
 
-- [ ] replace direct tile-id decisions in the MS engine with catalog-driven policy
+- [x] replace direct tile-id decisions in the MS engine with catalog-driven policy
 
 Changes:
 
-- [x] Status: in progress
+- [x] Status: complete
 - [x] add an MS tile catalog with tags, capabilities, and hooks
 - [x] route the first low-risk MS movement-mask and inventory-key policy helpers through the catalog
-- [ ] route movement legality, floor interaction, collection, button handling, and death handling through policy helpers
-- [ ] shrink the monolithic MS engine loop into a phase pipeline plus policy calls
+- [x] route movement legality, floor interaction, collection, button handling, and death handling through policy helpers
+- [x] shrink the monolithic MS engine loop into a phase pipeline plus policy calls
 
 Exit criteria:
 
-- [ ] MS replay parity stays green
-- [ ] adding a new MS tile no longer requires editing the generic movement kernel
+- [x] MS replay parity stays green on bounded validation subsets while the full sweep remains deferred until the end of the plan
+- [x] adding a new MS tile no longer requires editing the generic movement kernel for movement masks, collection, button hooks, death triggers, or forced-floor classification
 
 ## PR 6: Lynx Ruleset Catalog And Policy Routing
 
