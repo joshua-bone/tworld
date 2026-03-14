@@ -20,6 +20,7 @@ export default defineConfig({
       "@res": fileURLToPath(new URL("../res", import.meta.url)),
       "@ruleset-lynx": fileURLToPath(new URL("./src/ruleset-lynx", import.meta.url)),
       "@ruleset-ms": fileURLToPath(new URL("./src/ruleset-ms", import.meta.url)),
+      "@undo-runtime": fileURLToPath(new URL("./src/undo-runtime", import.meta.url)),
       "@sets": fileURLToPath(new URL("../sets", import.meta.url)),
       "@fixtures": fileURLToPath(new URL("../fixtures/characterization/v1", import.meta.url)),
     },

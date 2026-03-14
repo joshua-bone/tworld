@@ -30,6 +30,7 @@
       "@res/*": ["../res/*"],
       "@ruleset-lynx/*": ["src/ruleset-lynx/*"],
       "@ruleset-ms/*": ["src/ruleset-ms/*"],
+      "@undo-runtime/*": ["src/undo-runtime/*"],
       "@sets/*": ["../sets/*"],
       "@fixtures/*": ["../fixtures/characterization/v1/*"]
     }
