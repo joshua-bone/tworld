@@ -3,6 +3,7 @@ import type {
   RestoreUndoHistoryResult,
   UndoCheckpoint,
   UndoHistory,
+  UndoTimeline,
   UndoSettingsSnapshot,
   UndoTimelineId,
   UndoTickEvent,
@@ -57,8 +58,15 @@ export function eventsForTimeline<TSession>(
   history: UndoHistory<TSession>,
   timelineId = history.branchMetadata.currentTimelineId,
 ): UndoTickEvent[] {
-  return history.events
-    .filter((event) => event.timelineId === timelineId)
+  return timelineSegments(history, timelineId)
+    .flatMap((segment) =>
+      history.events.filter(
+        (event) =>
+          event.timelineId === segment.timelineId &&
+          (segment.segmentStartTick === null || event.tick > segment.segmentStartTick) &&
+          (segment.segmentEndTick === null || event.tick <= segment.segmentEndTick),
+      ),
+    )
     .sort(eventSort);
 }
 
@@ -87,9 +95,24 @@ export function checkpointsForTimeline<TSession>(
   history: UndoHistory<TSession>,
   timelineId = history.branchMetadata.currentTimelineId,
 ): UndoCheckpoint<TSession>[] {
-  return [history.initialCheckpoint, ...history.checkpoints]
-    .filter((checkpoint) => checkpoint.timelineId === timelineId)
-    .sort(eventSort);
+  const depthByTimeline = new Map(
+    timelineSegments(history, timelineId).map((segment) => [segment.timelineId, segment.depth]),
+  );
+  const checkpoints = timelineSegments(history, timelineId)
+    .flatMap((segment) =>
+      directCheckpointsForTimeline(history, segment.timelineId).filter(
+        (checkpoint) =>
+          (segment.segmentStartTick === null || checkpoint.tick >= segment.segmentStartTick) &&
+          (segment.segmentEndTick === null || checkpoint.tick <= segment.segmentEndTick),
+      ),
+    )
+    .sort(
+      (left, right) =>
+        left.tick - right.tick ||
+        (depthByTimeline.get(left.timelineId) ?? 0) - (depthByTimeline.get(right.timelineId) ?? 0),
+    );
+
+  return dedupeCheckpointsByTick(checkpoints);
 }
 
 function recordedTicksForTimeline<TSession>(
@@ -200,11 +223,80 @@ function timelineCheckpoints<TSession>(
   history: UndoHistory<TSession>,
   timelineId: UndoTimelineId,
 ): UndoCheckpoint<TSession>[] {
+  return directCheckpointsForTimeline(history, timelineId);
+}
+
+function directCheckpointsForTimeline<TSession>(
+  history: UndoHistory<TSession>,
+  timelineId: UndoTimelineId,
+): UndoCheckpoint<TSession>[] {
   return (timelineId === history.initialCheckpoint.timelineId
     ? [history.initialCheckpoint, ...history.checkpoints]
     : history.checkpoints)
     .filter((checkpoint) => checkpoint.timelineId === timelineId)
     .sort(eventSort);
+}
+
+function timelineById<TSession>(
+  history: UndoHistory<TSession>,
+  timelineId: UndoTimelineId,
+): UndoTimeline {
+  const timeline = history.branchMetadata.timelines.find((candidate) => candidate.id === timelineId);
+  if (!timeline) {
+    throw new Error(`unknown undo timeline ${timelineId}`);
+  }
+  return timeline;
+}
+
+function timelineLineage<TSession>(
+  history: UndoHistory<TSession>,
+  timelineId: UndoTimelineId,
+): UndoTimeline[] {
+  const lineage: UndoTimeline[] = [];
+  let currentTimelineId: UndoTimelineId | null = timelineId;
+
+  while (currentTimelineId !== null) {
+    const timeline: UndoTimeline = timelineById(history, currentTimelineId);
+    lineage.push(timeline);
+    currentTimelineId = timeline.parentTimelineId;
+  }
+
+  return lineage.reverse();
+}
+
+interface TimelineSegment {
+  timelineId: UndoTimelineId;
+  segmentStartTick: number | null;
+  segmentEndTick: number | null;
+  depth: number;
+}
+
+function timelineSegments<TSession>(
+  history: UndoHistory<TSession>,
+  timelineId: UndoTimelineId,
+): TimelineSegment[] {
+  const lineage = timelineLineage(history, timelineId);
+  return lineage.map((timeline, depth) => ({
+    timelineId: timeline.id,
+    segmentStartTick: timeline.forkTick,
+    segmentEndTick: lineage[depth + 1]?.forkTick ?? null,
+    depth,
+  }));
+}
+
+function dedupeCheckpointsByTick<TSession>(
+  checkpoints: UndoCheckpoint<TSession>[],
+): UndoCheckpoint<TSession>[] {
+  const deduped: UndoCheckpoint<TSession>[] = [];
+  for (const checkpoint of checkpoints) {
+    const previous = deduped[deduped.length - 1];
+    if (previous && previous.tick === checkpoint.tick) {
+      deduped[deduped.length - 1] = checkpoint;
+      continue;
+    }
+    deduped.push(checkpoint);
+  }
+  return deduped;
 }
 
 function thinTimelineCheckpoints<TSession>(
@@ -368,8 +460,8 @@ export function restoreUndoHistoryToTick<TSession>(
     throw new Error(`cannot restore undo history to future tick ${targetTick}; latest recorded tick is ${latestTick}`);
   }
   const checkpoint = findCheckpointAtOrBeforeTick(history, targetTick, timelineId);
-  const events = history.events
-    .filter((event) => event.timelineId === timelineId && event.tick > checkpoint.tick && event.tick <= targetTick)
+  const events = eventsForTimeline(history, timelineId)
+    .filter((event) => event.tick > checkpoint.tick && event.tick <= targetTick)
     .sort((left, right) => left.tick - right.tick);
 
   let session = options.restoreCheckpoint(checkpoint);

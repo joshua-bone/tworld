@@ -172,6 +172,19 @@ describe("restoreInteractiveGameSession", () => {
       restoredFromTick: null,
       replayTargetTick: null,
     });
+
+    const backToStart = await restoreInteractiveGameSession(adapter, takenOver, -1);
+    expect(backToStart.history).toMatchObject({
+      currentTick: -1,
+      latestTick: 7,
+      timelineId: "timeline-1",
+      timelineCount: 2,
+      previousTick: null,
+      previousCheckpointTick: null,
+      restoreMode: "restored-paused",
+      restoredFromTick: -1,
+      replayTargetTick: null,
+    });
   });
 
   it("forks a new Lynx timeline on first live input during historical replay", async () => {
@@ -197,6 +210,19 @@ describe("restoreInteractiveGameSession", () => {
       previousCheckpointTick: 6,
       restoreMode: "live",
       restoredFromTick: null,
+      replayTargetTick: null,
+    });
+
+    const backToStart = await restoreInteractiveGameSession(adapter, takenOver, -1);
+    expect(backToStart.history).toMatchObject({
+      currentTick: -1,
+      latestTick: 7,
+      timelineId: "timeline-1",
+      timelineCount: 2,
+      previousTick: null,
+      previousCheckpointTick: null,
+      restoreMode: "restored-paused",
+      restoredFromTick: -1,
       replayTargetTick: null,
     });
   });

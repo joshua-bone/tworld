@@ -508,7 +508,9 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const syncSessionState = useEffectEvent((nextSession: InteractiveGameSession) => {
     startTransition(() => {
       setSession(nextSession);
-      setIsRunning(nextSession.frame.snapshot.status === "playing");
+      setIsRunning(
+        nextSession.frame.snapshot.status === "playing" && nextSession.history.restoreMode !== "restored-paused",
+      );
       setMessage(null);
     });
   });
@@ -604,7 +606,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   }, [advanceTick, isFastForwarding, isRunning, manualRunStarted, mode, session, showHelp]);
 
   useEffect(() => {
-    if (mode !== "game" || heldUndoMode === null || !session?.history.enabled || showHelp) {
+    if (mode !== "game" || heldUndoMode === null || showHelp) {
       return;
     }
 
@@ -621,7 +623,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
         window.clearInterval(intervalId);
       }
     };
-  }, [heldUndoMode, mode, session, showHelp, stepHeldUndo]);
+  }, [heldUndoMode, mode, showHelp, stepHeldUndo]);
 
   const selectSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
@@ -989,6 +991,9 @@ export function PlayerApp({ services }: PlayerAppProps) {
       }
       if ((event.key === " " || event.key === "Spacebar") && session?.mode === "manual") {
         event.preventDefault();
+        if (session.history.restoreMode === "restored-paused") {
+          setIsRunning(true);
+        }
         return;
       }
       if (!input) {
@@ -1007,6 +1012,9 @@ export function PlayerApp({ services }: PlayerAppProps) {
         lynxInputBufferRef.current.keyDown(input);
       } else {
         msInputBufferRef.current.keyDown(input);
+      }
+      if (session?.history.restoreMode === "restored-paused") {
+        setIsRunning(true);
       }
     };
 

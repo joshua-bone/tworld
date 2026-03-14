@@ -255,10 +255,14 @@ describe("MS undo history", () => {
   it("forks MS history onto a new timeline without deleting the original future", () => {
     let session = createScenarioSession();
     let history = createMsUndoHistory(session, 2);
+    const originalDigests = new Map<number, string>([
+      [session.state.engine.timer.currentTime, digestMsInteractiveSession(session)],
+    ]);
 
     for (const inputCode of [GAME_INPUT_CODES.east, GAME_INPUT_CODES.none, GAME_INPUT_CODES.none]) {
       session = advanceMsInteractiveSession(session, inputCode);
       history = recordMsUndoTick(history, session, inputCode);
+      originalDigests.set(session.state.engine.timer.currentTime, digestMsInteractiveSession(session));
     }
 
     const restored = restoreMsUndoHistoryToTick(history, 1).session;
@@ -279,8 +283,12 @@ describe("MS undo history", () => {
     ]);
     expect(forked.checkpoints.filter((checkpoint) => checkpoint.timelineId === "timeline-1").map((checkpoint) => checkpoint.tick)).toEqual([1]);
     expect(latestUndoTick(forked, "timeline-1")).toBe(1);
+    expect(previousUndoTick(forked, 1, "timeline-1")).toBe(0);
     expect(previousUndoTick(forked, 2, "timeline-1")).toBe(1);
+    expect(nextUndoTickEvent(forked, 0, "timeline-1")?.tick).toBe(1);
     expect(nextUndoTickEvent(forked, 1, "main")?.tick).toBe(2);
+    expect(digestMsInteractiveSession(restoreMsUndoHistoryToTick(forked, 0).session)).toBe(originalDigests.get(0));
+    expect(digestMsInteractiveSession(restoreMsUndoHistoryToTick(forked, -1).session)).toBe(originalDigests.get(-1));
   });
 
   it("keeps recent MS checkpoints dense and thins older checkpoints exponentially", () => {
@@ -376,10 +384,14 @@ describe("Lynx undo history", () => {
   it("forks Lynx history onto a new timeline without deleting the original future", () => {
     let session = createLynxReplayScenarioSession();
     let history = createLynxUndoHistory(session, 2);
+    const originalDigests = new Map<number, string>([
+      [session.state.timer.currentTime, digestLynxInteractiveSession(session)],
+    ]);
 
     for (const inputCode of [GAME_INPUT_CODES.east, GAME_INPUT_CODES.none, GAME_INPUT_CODES.none]) {
       session = advanceLynxInteractiveSession(session, inputCode);
       history = recordLynxUndoTick(history, session, inputCode);
+      originalDigests.set(session.state.timer.currentTime, digestLynxInteractiveSession(session));
     }
 
     const restored = restoreLynxUndoHistoryToTick(history, 1).session;
@@ -388,8 +400,12 @@ describe("Lynx undo history", () => {
     expect(forked.branchMetadata.currentTimelineId).toBe("timeline-1");
     expect(forked.checkpoints.filter((checkpoint) => checkpoint.timelineId === "timeline-1").map((checkpoint) => checkpoint.tick)).toEqual([1]);
     expect(latestUndoTick(forked, "timeline-1")).toBe(1);
+    expect(previousUndoTick(forked, 1, "timeline-1")).toBe(0);
     expect(previousUndoTick(forked, 2, "timeline-1")).toBe(1);
+    expect(nextUndoTickEvent(forked, 0, "timeline-1")?.tick).toBe(1);
     expect(nextUndoTickEvent(forked, 1, "main")?.tick).toBe(2);
+    expect(digestLynxInteractiveSession(restoreLynxUndoHistoryToTick(forked, 0).session)).toBe(originalDigests.get(0));
+    expect(digestLynxInteractiveSession(restoreLynxUndoHistoryToTick(forked, -1).session)).toBe(originalDigests.get(-1));
   });
 
   it("bounds Lynx history by policy when unlimited retention is disabled", () => {
