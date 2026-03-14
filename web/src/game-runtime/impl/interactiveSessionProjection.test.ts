@@ -15,6 +15,16 @@ describe("interactive session projection", () => {
 
     expect(session.frame.cells).toHaveLength(32 * 32);
     expect(session.frame.render).toBeNull();
+    expect(session.history).toMatchObject({
+      initialTick: -1,
+      currentTick: -1,
+      latestTick: -1,
+      checkpointTicks: [-1],
+      previousTick: null,
+      previousCheckpointTick: null,
+      restoreMode: "live",
+      restoredFromTick: null,
+    });
     expect(session.handle).toBeTruthy();
   });
 
@@ -33,9 +43,18 @@ describe("interactive session projection", () => {
       failed: false,
     });
     expect(Array.isArray(session.frame.render?.actors)).toBe(true);
+    expect(session.history.currentTick).toBe(-1);
 
     const next = await adapter.advanceSession(session, "none");
     expect(next.frame.render?.chip?.pos).toBe(session.frame.render?.chip?.pos);
+    expect(next.history).toMatchObject({
+      currentTick: 0,
+      latestTick: 0,
+      previousTick: -1,
+      previousCheckpointTick: -1,
+      restoreMode: "live",
+      restoredFromTick: null,
+    });
     expect(next.handle).toBeTruthy();
   });
 });

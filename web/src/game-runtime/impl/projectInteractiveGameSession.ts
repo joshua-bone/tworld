@@ -1,4 +1,5 @@
 import type {
+  InteractiveGameSessionHistory,
   InteractiveGameSession,
   InteractiveGameSessionHandle,
 } from "@game-runtime/ports/InteractiveGameEngine";
@@ -11,6 +12,7 @@ interface ProjectInteractiveGameSessionParams {
   mode: "manual" | "replay";
   hintText: string | null;
   frame: InteractiveGameFrame;
+  history: InteractiveGameSessionHistory;
   recordedMoves: SolutionMove[];
   handle: InteractiveGameSessionHandle;
 }
@@ -20,6 +22,7 @@ export function projectInteractiveGameSession({
   mode,
   hintText,
   frame,
+  history,
   recordedMoves,
   handle,
 }: ProjectInteractiveGameSessionParams): InteractiveGameSession {
@@ -28,6 +31,10 @@ export function projectInteractiveGameSession({
     mode,
     hintText,
     frame,
+    history: {
+      ...history,
+      checkpointTicks: [...history.checkpointTicks],
+    },
     recordedMoves: recordedMoves.map((move) => ({ ...move })),
     handle,
   };

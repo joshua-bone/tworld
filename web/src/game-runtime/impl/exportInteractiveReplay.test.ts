@@ -61,6 +61,16 @@ describe("exportInteractiveReplay", () => {
         cells: [],
         render: null,
       },
+      history: {
+        initialTick: -1,
+        currentTick: 4,
+        latestTick: 4,
+        checkpointTicks: [-1, 4],
+        previousTick: 3,
+        previousCheckpointTick: -1,
+        restoreMode: "live",
+        restoredFromTick: null,
+      },
       recordedMoves: [{ when: 0, dir: 8 }],
       handle: null as never,
     } satisfies InteractiveGameSession;

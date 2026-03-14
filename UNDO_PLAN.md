@@ -501,11 +501,11 @@ Exit criteria:
 
 - Lynx undo is exact under deterministic tests
 
-### [ ] PR4: Restore Commands
+### [x] PR4: Restore Commands
 
-- [ ] add undo restore behavior
-- [ ] add history navigation commands
-- [ ] keep restore paused by default
+- [x] add undo restore behavior
+- [x] add history navigation commands
+- [x] keep restore paused by default
 
 Exit criteria:
 
