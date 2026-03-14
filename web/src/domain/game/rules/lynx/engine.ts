@@ -1,6 +1,6 @@
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@domain/game/debug";
-import { cloneBoardCells, promoteBottomTile } from "@domain/game/core/board";
+import { cloneBoardCells, promoteBottomTile, topTile } from "@domain/game/core/board";
 import {
   canAdvancePosition as canAdvanceLynxPosition,
   directionCode,
@@ -751,12 +751,11 @@ function updateLynxViewChip(state: EngineState): void {
 }
 
 function collectChipAtPosition(state: EngineState, pos: number): boolean {
-  const cell = state.map.cells[pos];
-  if (!cell) {
+  if (!state.map.cells[pos]) {
     return false;
   }
 
-  if (cell.top.id === MS_TILE.ICChip) {
+  if (topTile(state.map.cells, pos).id === MS_TILE.ICChip) {
     promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.inventory.chipsNeeded = Math.max(0, state.inventory.chipsNeeded - 1);
     state.map.hash = mapHash(state.map.cells);
@@ -771,20 +770,21 @@ function collectLynxItemAtPosition(state: EngineState, pos: number): number {
     return 1 << LYNX_SOUND.IcCollected;
   }
 
-  const cell = state.map.cells[pos];
-  if (!cell) {
+  if (!state.map.cells[pos]) {
     return 0;
   }
 
-  if (isMsKey(cell.top.id)) {
-    state.inventory.keys[Math.max(0, Math.min(3, cell.top.id - MS_TILE.Key_Red))] += 1;
+  const tile = topTile(state.map.cells, pos);
+
+  if (isMsKey(tile.id)) {
+    state.inventory.keys[Math.max(0, Math.min(3, tile.id - MS_TILE.Key_Red))] += 1;
     promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
     return 1 << LYNX_SOUND.ItemCollected;
   }
 
-  if (isMsBoots(cell.top.id)) {
-    state.inventory.boots[Math.max(0, Math.min(3, cell.top.id - MS_TILE.Boots_Ice))] += 1;
+  if (isMsBoots(tile.id)) {
+    state.inventory.boots[Math.max(0, Math.min(3, tile.id - MS_TILE.Boots_Ice))] += 1;
     promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
     return 1 << LYNX_SOUND.ItemCollected;
@@ -836,15 +836,15 @@ function lynxChipMovementSpeed(state: EngineState, floorId: number): number {
 }
 
 function canLynxChipEnterCell(state: EngineState, pos: number, dir: number): boolean {
-  const cell = state.map.cells[pos];
-  if (!cell) {
+  if (!state.map.cells[pos]) {
     return false;
   }
-  if ((cell.top.state & LYNX_CELL_FLAG.Animated) !== 0) {
+  const tile = topTile(state.map.cells, pos);
+  if ((tile.state & LYNX_CELL_FLAG.Animated) !== 0) {
     return false;
   }
 
-  const tileId = effectiveLynxTargetTileId(state, cell.top.id);
+  const tileId = effectiveLynxTargetTileId(state, tile.id);
   if ((lynxChipEntryMask(tileId) & dir) === 0) {
     return false;
   }
@@ -863,15 +863,15 @@ function canLynxChipEnterCell(state: EngineState, pos: number, dir: number): boo
 }
 
 function canLynxChipPushIntoClaimedCell(state: EngineState, pos: number, dir: number): boolean {
-  const cell = state.map.cells[pos];
-  if (!cell) {
+  if (!state.map.cells[pos]) {
     return false;
   }
-  if ((cell.top.state & LYNX_CELL_FLAG.Animated) !== 0) {
+  const tile = topTile(state.map.cells, pos);
+  if ((tile.state & LYNX_CELL_FLAG.Animated) !== 0) {
     return false;
   }
 
-  const tileId = effectiveLynxTargetTileId(state, cell.top.id);
+  const tileId = effectiveLynxTargetTileId(state, tile.id);
   if (tileId === MS_TILE.HiddenWall_Temp || tileId === MS_TILE.BlueWall_Real) {
     return true;
   }

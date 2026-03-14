@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cloneBoardCells, popBoardTile, promoteBottomTile, pushBoardTile } from "@domain/game/core/board";
+import { boardCell, bottomTile, bottomTileId, cloneBoardCells, popBoardTile, promoteBottomTile, pushBoardTile, topTile, topTileId } from "@domain/game/core/board";
 import type { EngineMapCell } from "@domain/game/model";
 
 function makeCell(): EngineMapCell {
@@ -31,6 +31,16 @@ describe("board core helpers", () => {
       top: { id: 30, state: 31 },
       bottom: { id: 10, state: 11 },
     });
+  });
+
+  it("reads the active cell layers through shared accessors", () => {
+    const cells = [makeCell()];
+
+    expect(boardCell(cells, 0)).toBe(cells[0]);
+    expect(topTile(cells, 0)).toBe(cells[0]?.top);
+    expect(bottomTile(cells, 0)).toBe(cells[0]?.bottom);
+    expect(topTileId(cells, 0)).toBe(10);
+    expect(bottomTileId(cells, 0)).toBe(20);
   });
 
   it("promotes the bottom tile and clears the lower layer", () => {

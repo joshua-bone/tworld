@@ -4,7 +4,7 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@domain/game/debug";
-import { cloneBoardCells, popBoardTile, pushBoardTile } from "@domain/game/core/board";
+import { boardCell, bottomTile, bottomTileId, cloneBoardCells, popBoardTile, pushBoardTile, topTile, topTileId } from "@domain/game/core/board";
 import {
   directionName,
   nextPosition,
@@ -288,29 +288,31 @@ function iceWallTurn(floor: number, dir: number): number {
 }
 
 function floorAt(cells: EngineMapCell[], pos: number): number {
-  const cell = cells[pos]!;
-  if (!isMsKey(cell.top.id) && !isMsBoots(cell.top.id) && !isMsCreature(cell.top.id)) {
-    return cell.top.id;
+  const top = topTile(cells, pos);
+  if (!isMsKey(top.id) && !isMsBoots(top.id) && !isMsCreature(top.id)) {
+    return top.id;
   }
-  if (!isMsKey(cell.bottom.id) && !isMsBoots(cell.bottom.id) && !isMsCreature(cell.bottom.id)) {
-    return cell.bottom.id;
+  const bottom = bottomTile(cells, pos);
+  if (!isMsKey(bottom.id) && !isMsBoots(bottom.id) && !isMsCreature(bottom.id)) {
+    return bottom.id;
   }
   return MS_TILE.Empty;
 }
 
 function floorTile(cells: EngineMapCell[], pos: number): EngineMapCell["top"] {
-  const cell = cells[pos]!;
-  if (!isMsKey(cell.top.id) && !isMsBoots(cell.top.id) && !isMsCreature(cell.top.id)) {
-    return cell.top;
+  const top = topTile(cells, pos);
+  if (!isMsKey(top.id) && !isMsBoots(top.id) && !isMsCreature(top.id)) {
+    return top;
   }
-  if (!isMsKey(cell.bottom.id) && !isMsBoots(cell.bottom.id) && !isMsCreature(cell.bottom.id)) {
-    return cell.bottom;
+  const bottom = bottomTile(cells, pos);
+  if (!isMsKey(bottom.id) && !isMsBoots(bottom.id) && !isMsCreature(bottom.id)) {
+    return bottom;
   }
-  return cell.bottom;
+  return bottom;
 }
 
 function canLeaveFloor(cells: EngineMapCell[], pos: number, dir: number, released: boolean): boolean {
-  const floor = cells[pos]?.bottom.id ?? MS_TILE.Empty;
+  const floor = cells[pos] ? bottomTileId(cells, pos) : MS_TILE.Empty;
   if (
     (floor === MS_TILE.Wall_North && dir === MS_DIRECTION.north) ||
     (floor === MS_TILE.Wall_West && dir === MS_DIRECTION.west) ||
@@ -333,7 +335,7 @@ function popTile(cells: EngineMapCell[], pos: number): EngineMapCell["top"] {
 }
 
 function placeStaticBlock(cells: EngineMapCell[], pos: number, state: number): void {
-  const cell = cells[pos]!;
+  const cell = boardCell(cells, pos);
   if (cell.top.id !== MS_TILE.Empty) {
     pushTile(cells, pos, { id: MS_TILE.Empty, state: 0 });
   }
@@ -631,7 +633,7 @@ function refreshFloorMovement(
     return;
   }
 
-  const standingTile = cells[internal.chipPos]!.bottom;
+  const standingTile = bottomTile(cells, internal.chipPos);
   const floor = standingTile.id;
   if (floor === MS_TILE.Teleport) {
     internal.floorMovement = "teleport";
@@ -1276,7 +1278,7 @@ function creatureAtPos(internal: MsInternalState, pos: number): MsTrackedCreatur
 }
 
 function isTrapButtonDown(cells: EngineMapCell[], pos: number): boolean {
-  return pos >= 0 && pos < cells.length && cells[pos]!.top.id !== MS_TILE.Button_Brown;
+  return pos >= 0 && pos < cells.length && topTileId(cells, pos) !== MS_TILE.Button_Brown;
 }
 
 function hasTrapConnection(internal: MsInternalState, pos: number): boolean {
@@ -1446,7 +1448,7 @@ function syncCreatureFloorMovement(cells: EngineMapCell[], creature: MsTrackedCr
     return false;
   }
 
-  const standingTile = cells[creature.pos]!.bottom;
+  const standingTile = bottomTile(cells, creature.pos);
   const floor = standingTile.id;
   if (
     floor === MS_TILE.Teleport &&
@@ -1508,7 +1510,7 @@ function restartCreatureFloorMovementAfterBlockedAttempt(
     return;
   }
 
-  const standingTile = cells[creature.pos]!.bottom;
+  const standingTile = bottomTile(cells, creature.pos);
   const floor = standingTile.id;
   if (
     floor === MS_TILE.Teleport &&
@@ -1646,7 +1648,7 @@ function refreshBlockFloorMovement(cells: EngineMapCell[], block: MsTrackedBlock
     return;
   }
 
-  const standingTile = cells[block.pos]!.bottom;
+  const standingTile = bottomTile(cells, block.pos);
   const floor = standingTile.id;
   if (floor === MS_TILE.Teleport && (standingTile.state & MS_FLOOR_STATE.Broken) === 0) {
     block.floorMovement = "teleport";
@@ -1705,7 +1707,7 @@ function restartBlockFloorMovementAfterBlockedAttempt(
     return;
   }
 
-  const standingTile = cells[block.pos]!.bottom;
+  const standingTile = bottomTile(cells, block.pos);
   const floor = standingTile.id;
   if (floor === MS_TILE.Teleport && (standingTile.state & MS_FLOOR_STATE.Broken) === 0) {
     block.floorMovement = "teleport";
@@ -1764,7 +1766,7 @@ function restartBlockFloorMovementAfterRetrySuccess(
     return;
   }
 
-  const standingTile = cells[block.pos]!.bottom;
+  const standingTile = bottomTile(cells, block.pos);
   const floor = standingTile.id;
   if (floor === MS_TILE.Teleport && (standingTile.state & MS_FLOOR_STATE.Broken) === 0) {
     block.floorMovement = "teleport";
@@ -2022,12 +2024,12 @@ function activateCloner(cells: EngineMapCell[], internal: MsInternalState, butto
 }
 
 function resolveCreatureFloorEffects(cells: EngineMapCell[], creature: MsTrackedCreature, internal: MsInternalState): number {
-  const floor = cells[creature.pos]!.bottom.id;
+  const floor = bottomTileId(cells, creature.pos);
   return resolveButtonFloorEffects(cells, internal, creature.pos, floor, creature);
 }
 
 function resolveChipFloorEffects(cells: EngineMapCell[], internal: MsInternalState): number {
-  const floor = cells[internal.chipPos]!.bottom.id;
+  const floor = bottomTileId(cells, internal.chipPos);
   return resolveButtonFloorEffects(cells, internal, internal.chipPos, floor);
 }
 
@@ -3073,7 +3075,7 @@ function runFloorMovement(
   internal.goalPos = -1;
 
   if (internal.floorMovement === "ice") {
-    internal.floorMovementDir = iceWallTurn(cells[internal.chipPos]!.bottom.id, backDirection(internal.floorMovementDir));
+    internal.floorMovementDir = iceWallTurn(bottomTileId(cells, internal.chipPos), backDirection(internal.floorMovementDir));
     internal.lastSlipDir = internal.floorMovementDir;
     internal.chipDir = internal.floorMovementDir;
     updateChipTile(cells, internal);
