@@ -26,5 +26,19 @@ export function prepareLynxLevel(decoded: DecodedLynxLevelData): LynxLevel {
         id: isLynxSpecialTile(cell.bottom.id) ? MS_TILE.Wall : cell.bottom.id,
       },
     })),
+    layers: (level.layers ?? []).map((layer) => ({
+      ...layer,
+      cells: layer.cells.map((cell) => ({
+        ...cell,
+        top: {
+          ...cell.top,
+          id: isLynxSpecialTile(cell.top.id) ? MS_TILE.Wall : cell.top.id,
+        },
+        bottom: {
+          ...cell.bottom,
+          id: isLynxSpecialTile(cell.bottom.id) ? MS_TILE.Wall : cell.bottom.id,
+        },
+      })),
+    })),
   };
 }

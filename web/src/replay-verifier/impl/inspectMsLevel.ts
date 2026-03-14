@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeLevelRepository } from "@level-catalog/impl/NodeLevelRepository";
-import { decodeMsLevelData, prepareMsLevel } from "@ruleset-ms/api/level";
+import { decodeMsLevelGroupData, prepareMsLevel } from "@ruleset-ms/api/level";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
     levelNumber,
     ruleset: "MS",
   });
-  const level = prepareMsLevel(decodeMsLevelData(loaded.levelData));
+  const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData));
 
   const positions = positionsText
     ? positionsText

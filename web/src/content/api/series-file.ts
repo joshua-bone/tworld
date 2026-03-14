@@ -61,6 +61,14 @@ export interface RawDatLevel {
   levelData: Uint8Array;
 }
 
+export interface RawDatLevelGroup {
+  index: number;
+  number: number;
+  levelData: Uint8Array;
+  layerData: Uint8Array[];
+  layerNumbers: number[];
+}
+
 function readUint16(data: Uint8Array, offset: number): number {
   if (offset + 2 > data.length) {
     throw new Error("unexpected end of file while reading uint16");
@@ -246,9 +254,68 @@ function parseLevel(levelData: Uint8Array, index: number): SeriesLevel {
   };
 }
 
+interface ThreeDLevelTitleParts {
+  baseName: string;
+  layerNumber: number;
+}
+
+function parseThreeDLevelTitle(name: string): ThreeDLevelTitleParts | null {
+  const match = /^(.*)\\([1-9][0-9]*)$/.exec(name);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    baseName: match[1] ?? "",
+    layerNumber: Number.parseInt(match[2] ?? "", 10),
+  };
+}
+
+function groupContiguousThreeDLevelRuns<T extends { name: string }>(entries: readonly T[]): Array<{ start: number; endExclusive: number; baseName: string | null }> {
+  const runs: Array<{ start: number; endExclusive: number; baseName: string | null }> = [];
+
+  for (let index = 0; index < entries.length; ) {
+    const first = parseThreeDLevelTitle(entries[index]?.name ?? "");
+    if (!first || first.layerNumber !== 1) {
+      runs.push({ start: index, endExclusive: index + 1, baseName: null });
+      index += 1;
+      continue;
+    }
+
+    let endExclusive = index + 1;
+    let expectedLayerNumber = 2;
+    while (endExclusive < entries.length) {
+      const next = parseThreeDLevelTitle(entries[endExclusive]?.name ?? "");
+      if (!next || next.baseName !== first.baseName || next.layerNumber !== expectedLayerNumber) {
+        break;
+      }
+      endExclusive += 1;
+      expectedLayerNumber += 1;
+    }
+
+    if (endExclusive - index > 1) {
+      runs.push({ start: index, endExclusive, baseName: first.baseName });
+    } else {
+      runs.push({ start: index, endExclusive: index + 1, baseName: null });
+    }
+    index = endExclusive;
+  }
+
+  return runs;
+}
+
 export function parseDatFile(data: Uint8Array, options: { ruleset?: RulesetName } = {}): ParsedDatFile {
   const extracted = extractDatLevels(data);
-  const levels = extracted.levels.map((level, index) => parseLevel(level.levelData, index));
+  const parsedLevels = extracted.levels.map((level, index) => parseLevel(level.levelData, index));
+  const runs = groupContiguousThreeDLevelRuns(parsedLevels);
+  const levels = runs.map((run, groupedIndex) => {
+    const level = { ...parsedLevels[run.start]! };
+    if (run.baseName !== null) {
+      level.name = run.baseName;
+    }
+    level.index = groupedIndex;
+    return level;
+  });
 
   return {
     headerRuleset: extracted.headerRuleset,
@@ -296,5 +363,29 @@ export function extractDatLevels(data: Uint8Array): {
   return {
     headerRuleset,
     levels,
+  };
+}
+
+export function extractGroupedDatLevels(data: Uint8Array): {
+  headerRuleset: Exclude<RulesetName, "None">;
+  levels: RawDatLevelGroup[];
+} {
+  const extracted = extractDatLevels(data);
+  const parsedLevels = extracted.levels.map((level, index) => parseLevel(level.levelData, index));
+  const runs = groupContiguousThreeDLevelRuns(parsedLevels);
+
+  return {
+    headerRuleset: extracted.headerRuleset,
+    levels: runs.map((run, groupedIndex) => {
+      const layers = extracted.levels.slice(run.start, run.endExclusive);
+      const first = layers[0]!;
+      return {
+        index: groupedIndex,
+        number: first.number,
+        levelData: first.levelData,
+        layerData: layers.map((layer) => layer.levelData),
+        layerNumbers: layers.map((layer) => layer.number),
+      };
+    }),
   };
 }

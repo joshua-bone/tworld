@@ -1,6 +1,7 @@
 export interface BoardPosition {
   x: number;
   y: number;
+  z?: number;
   pos: number;
 }
 

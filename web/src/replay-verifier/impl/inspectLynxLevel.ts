@@ -2,7 +2,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeLevelRepository } from "@level-catalog/impl/NodeLevelRepository";
 import { prepareLynxLevel } from "@ruleset-lynx/api/level";
-import { decodeMsLevelData } from "@ruleset-ms/api/level";
+import { decodeMsLevelGroupData } from "@ruleset-ms/api/level";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
@@ -26,7 +26,7 @@ async function main(): Promise<void> {
     levelNumber,
     ruleset: "Lynx",
   });
-  const level = prepareLynxLevel(decodeMsLevelData(loaded.levelData));
+  const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData));
 
   const positions = positionsText
     ? positionsText

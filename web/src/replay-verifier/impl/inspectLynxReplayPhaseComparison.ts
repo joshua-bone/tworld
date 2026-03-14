@@ -11,7 +11,7 @@ import {
 import { NodeSolutionFileRepository } from "@replay-verifier/impl/NodeSolutionFileRepository";
 import { buildReplayTraceScenariosFromSolutionFile } from "@replay-verifier/impl/buildReplayTraceScenariosFromSolutionFile";
 import { prepareLynxLevel } from "@ruleset-lynx/api/level";
-import { decodeMsLevelData } from "@ruleset-ms/api/level";
+import { decodeMsLevelGroupData } from "@ruleset-ms/api/level";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
@@ -77,7 +77,7 @@ async function main(): Promise<void> {
     oraclePath: process.env.TWORLD_ORACLE_BIN ?? defaultOraclePath,
   });
   const loadedLevel = await levelRepository.loadLevel(scenario.request);
-  const level = prepareLynxLevel(decodeMsLevelData(loadedLevel.levelData));
+  const level = prepareLynxLevel(decodeMsLevelGroupData(loadedLevel.layerData));
 
   const actual = await candidate.runReplayTraceDebugWindow(
     scenario.request,

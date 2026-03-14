@@ -11,12 +11,12 @@ function createDecodedLevelWithSpecialTiles(): DecodedMsLevelData {
     hintText: "",
     cells: [
       {
-        position: { x: 0, y: 0, pos: 0 },
+        position: { x: 0, y: 0, z: 1, pos: 0 },
         top: { id: MS_TILE.Drowned_Chip, state: 0 },
         bottom: { id: MS_TILE.Bombed_Chip, state: 0 },
       },
       {
-        position: { x: 1, y: 0, pos: 1 },
+        position: { x: 1, y: 0, z: 1, pos: 1 },
         top: { id: MS_TILE.Exited_Chip, state: 0 },
         bottom: { id: MS_TILE.Exit_Extra_1, state: 0 },
       },
@@ -25,6 +25,31 @@ function createDecodedLevelWithSpecialTiles(): DecodedMsLevelData {
     cloners: [],
     creaturePositions: [],
     badTiles: true,
+    layers: [
+      {
+        z: 1,
+        number: 11,
+        timeLimitSeconds: 20,
+        chipsNeeded: 0,
+        hintText: "",
+        cells: [
+          {
+            position: { x: 0, y: 0, z: 1, pos: 0 },
+            top: { id: MS_TILE.Drowned_Chip, state: 0 },
+            bottom: { id: MS_TILE.Bombed_Chip, state: 0 },
+          },
+          {
+            position: { x: 1, y: 0, z: 1, pos: 1 },
+            top: { id: MS_TILE.Exited_Chip, state: 0 },
+            bottom: { id: MS_TILE.Exit_Extra_1, state: 0 },
+          },
+        ],
+        traps: [],
+        cloners: [],
+        creaturePositions: [],
+        badTiles: true,
+      },
+    ],
   };
 }
 
@@ -38,5 +63,6 @@ describe("lynx level preparation", () => {
     expect(prepared.cells[0]?.bottom.id).toBe(MS_TILE.Wall);
     expect(prepared.cells[1]?.top.id).toBe(MS_TILE.Exited_Chip);
     expect(prepared.cells[1]?.bottom.id).toBe(MS_TILE.Wall);
+    expect(prepared.layers?.[0]?.cells[0]?.position.z).toBe(1);
   });
 });

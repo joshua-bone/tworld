@@ -6,6 +6,15 @@ export interface MsConnection {
   to: number;
 }
 
+export interface MsLevelLayer {
+  z: number;
+  cells: EngineMapCell[];
+  traps: MsConnection[];
+  cloners: MsConnection[];
+  creaturePositions: number[];
+  hintText: string;
+}
+
 export interface MsLevel {
   number: number;
   timeLimitTicks: number;
@@ -16,6 +25,20 @@ export interface MsLevel {
   cloners: MsConnection[];
   creaturePositions: number[];
   statusFlags: number;
+  layers?: MsLevelLayer[];
+}
+
+export interface DecodedMsLevelLayerData {
+  z: number;
+  number: number;
+  timeLimitSeconds: number;
+  chipsNeeded: number;
+  hintText: string;
+  cells: EngineMapCell[];
+  traps: MsConnection[];
+  cloners: MsConnection[];
+  creaturePositions: number[];
+  badTiles: boolean;
 }
 
 export interface DecodedMsLevelData {
@@ -28,6 +51,7 @@ export interface DecodedMsLevelData {
   cloners: MsConnection[];
   creaturePositions: number[];
   badTiles: boolean;
+  layers?: DecodedMsLevelLayerData[];
 }
 
 function decodeLatin1(data: Uint8Array): string {
@@ -48,11 +72,12 @@ function readPos(data: Uint8Array, xOffset: number, yOffset: number): number {
   return x < MS_GRID_WIDTH ? x + MS_GRID_HEIGHT * y : MS_GRID_WIDTH * MS_GRID_HEIGHT;
 }
 
-function createEmptyCells(): EngineMapCell[] {
+function createEmptyCells(z = 1): EngineMapCell[] {
   return Array.from({ length: MS_GRID_WIDTH * MS_GRID_HEIGHT }, (_, pos) => ({
     position: {
       x: pos % MS_GRID_WIDTH,
       y: Math.floor(pos / MS_GRID_WIDTH),
+      z,
       pos,
     },
     top: { id: 0, state: 0 },
@@ -213,7 +238,7 @@ function decodeLayer(target: EngineMapCell[], data: Uint8Array, startOffset: num
   };
 }
 
-export function decodeMsLevelData(levelData: Uint8Array): DecodedMsLevelData {
+function decodeMsSingleLevelData(levelData: Uint8Array, z: number): DecodedMsLevelLayerData {
   if (levelData.length < 10) {
     throw new Error("invalid level data");
   }
@@ -221,7 +246,7 @@ export function decodeMsLevelData(levelData: Uint8Array): DecodedMsLevelData {
   const number = readUint16(levelData, 0);
   let timeLimitSeconds = readUint16(levelData, 2);
   let chipsNeeded = readUint16(levelData, 4);
-  const cells = createEmptyCells();
+  const cells = createEmptyCells(z);
   const traps: MsConnection[] = [];
   const cloners: MsConnection[] = [];
   const creaturePositions: number[] = [];
@@ -290,6 +315,7 @@ export function decodeMsLevelData(levelData: Uint8Array): DecodedMsLevelData {
   }
 
   return {
+    z,
     number,
     timeLimitSeconds,
     chipsNeeded,
@@ -302,16 +328,52 @@ export function decodeMsLevelData(levelData: Uint8Array): DecodedMsLevelData {
   };
 }
 
+export function decodeMsLevelGroupData(levelDataLayers: readonly Uint8Array[]): DecodedMsLevelData {
+  if (levelDataLayers.length === 0) {
+    throw new Error("level group must contain at least one layer");
+  }
+
+  const layers = levelDataLayers.map((levelData, index) => decodeMsSingleLevelData(levelData, index + 1));
+  const first = layers[0]!;
+
+  return {
+    number: first.number,
+    timeLimitSeconds: first.timeLimitSeconds,
+    chipsNeeded: first.chipsNeeded,
+    hintText: first.hintText,
+    cells: first.cells,
+    traps: first.traps,
+    cloners: first.cloners,
+    creaturePositions: first.creaturePositions,
+    badTiles: layers.some((layer) => layer.badTiles),
+    layers,
+  };
+}
+
+export function decodeMsLevelData(levelData: Uint8Array): DecodedMsLevelData {
+  return decodeMsLevelGroupData([levelData]);
+}
+
 export function prepareMsLevel(decoded: DecodedMsLevelData): MsLevel {
+  const layers: MsLevelLayer[] = (decoded.layers ?? []).map((layer) => ({
+    z: layer.z,
+    cells: layer.cells,
+    traps: layer.traps,
+    cloners: layer.cloners,
+    creaturePositions: layer.creaturePositions,
+    hintText: layer.hintText,
+  }));
+
   return {
     number: decoded.number,
     timeLimitTicks: decoded.timeLimitSeconds * MS_TICKS_PER_SECOND,
     chipsNeeded: decoded.chipsNeeded,
     hintText: decoded.hintText,
-    cells: decoded.cells,
-    traps: decoded.traps,
-    cloners: decoded.cloners,
-    creaturePositions: decoded.creaturePositions,
+    cells: layers[0]?.cells ?? decoded.cells,
+    traps: layers[0]?.traps ?? decoded.traps,
+    cloners: layers[0]?.cloners ?? decoded.cloners,
+    creaturePositions: layers[0]?.creaturePositions ?? decoded.creaturePositions,
     statusFlags: decoded.badTiles ? MS_STATUS_FLAG.BadTiles : 0,
+    layers,
   };
 }

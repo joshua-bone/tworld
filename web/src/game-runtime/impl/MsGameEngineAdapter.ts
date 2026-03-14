@@ -16,7 +16,7 @@ import {
 import { projectInteractiveGameSession } from "@game-runtime/impl/projectInteractiveGameSession";
 import { projectInteractiveSessionHistory } from "@game-runtime/impl/projectInteractiveSessionHistory";
 import { GAME_INPUT_CODES, resolveGameInputCode, type InteractiveInput } from "@game-core/api/command";
-import { decodeMsLevelData, prepareMsLevel } from "@ruleset-ms/api/level";
+import { decodeMsLevelGroupData, prepareMsLevel } from "@ruleset-ms/api/level";
 import {
   advanceMsInteractiveSession,
   createMsInteractiveSession,
@@ -91,7 +91,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelData(loaded.levelData));
+    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData));
     return runMsInputTrace(loaded.request, level, commands, maxTicks);
   }
 
@@ -105,7 +105,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelData(loaded.levelData));
+    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData));
     return runMsReplayTrace(loaded.request, level, replay, maxTicks);
   }
 
@@ -119,7 +119,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelData(loaded.levelData));
+    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData));
     return runMsInputTraceDebug(loaded.request, level, commands, maxTicks);
   }
 
@@ -133,7 +133,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelData(loaded.levelData));
+    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData));
     return runMsReplayTraceDebug(loaded.request, level, replay, maxTicks);
   }
 
@@ -149,7 +149,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelData(loaded.levelData));
+    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData));
     return runMsReplayTraceDebugWindow(loaded.request, level, replay, maxTicks, windowStart, windowEndExclusive);
   }
 
@@ -162,7 +162,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelData(loaded.levelData));
+    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData));
     const token = createMsInteractiveSession(request, level);
     const runtime: MsInteractiveRuntime = {
       token,
@@ -191,7 +191,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelData(loaded.levelData));
+    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData));
     const token = createMsReplaySession(request, level, replay);
     const runtime: MsInteractiveRuntime = {
       token,

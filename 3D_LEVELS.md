@@ -360,20 +360,20 @@ The implementation should be split into small, reversible PRs. During the featur
 
 ### PR1: 3D Parsing And Unified Level Model
 
-- [ ] Group contiguous DAT levels with titles ending in `\1`, `\2`, `\3`, ... into one logical 3D level.
-- [ ] Strip `\1` from the visible merged title.
-- [ ] Keep global metadata from layer 1 only.
-- [ ] Preserve per-layer cell data, creature order metadata, trap connections, cloner connections, and hint text.
-- [ ] Introduce unified `x,y,z` coordinates in the parsed/prepared level model, even for ordinary `z = 1` levels.
-- [ ] Keep all non-3D levels represented as single-layer 3D levels rather than a separate 2D path.
+- [x] Group contiguous DAT levels with titles ending in `\1`, `\2`, `\3`, ... into one logical 3D level.
+- [x] Strip `\1` from the visible merged title.
+- [x] Keep global metadata from layer 1 only.
+- [x] Preserve per-layer cell data, creature order metadata, trap connections, cloner connections, and hint text.
+- [x] Introduce unified `x,y,z` coordinates in the parsed/prepared level model, even for ordinary `z = 1` levels.
+- [x] Keep all non-3D levels represented as single-layer 3D levels rather than a separate 2D path.
 
 Validation:
 
-- [ ] focused parser/unit tests for DAT grouping and title stripping
-- [ ] bounded replay subset:
-  - `intro.dat`
-  - one MS replay file
-  - one Lynx replay file
+- [x] focused parser/unit tests for DAT grouping and title stripping
+- [x] bounded replay subset:
+  - `series3d.test.ts`
+  - `CCLP1.dac.tws:1`
+  - `CCLP1-lynx.dac.tws:1`
 
 ### PR2: Engine Coordinate Lift
 

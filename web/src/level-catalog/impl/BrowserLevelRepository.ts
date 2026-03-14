@@ -1,4 +1,4 @@
-import { extractDatLevels, parseSeriesConfig } from "@content/api/series-file";
+import { extractGroupedDatLevels, parseSeriesConfig } from "@content/api/series-file";
 import type { LevelRepository, LoadedLevelData } from "@level-catalog/ports/LevelRepository";
 
 export class BrowserLevelRepository implements LevelRepository {
@@ -55,7 +55,7 @@ export class BrowserLevelRepository implements LevelRepository {
   async loadLevel(request: LoadedLevelData["request"]): Promise<LoadedLevelData> {
     const config = parseSeriesConfig(await this.loadSeriesConfig(request.seriesFile));
     const datFile = await this.loadDataFile(config.mapFile);
-    const extracted = extractDatLevels(datFile);
+    const extracted = extractGroupedDatLevels(datFile);
     const level = extracted.levels.find((candidate) => candidate.number === request.levelNumber);
 
     if (!level) {
@@ -65,6 +65,7 @@ export class BrowserLevelRepository implements LevelRepository {
     return {
       request: { ...request },
       levelData: level.levelData,
+      layerData: level.layerData.map((entry) => new Uint8Array(entry)),
     };
   }
 }
