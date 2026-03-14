@@ -36,6 +36,16 @@ function createEmptyCells(): EngineMapCell[] {
   }));
 }
 
+function createEmptyCellsAtZ(z: number): EngineMapCell[] {
+  return createEmptyCells().map((cell) => ({
+    ...cell,
+    position: {
+      ...cell.position,
+      z,
+    },
+  }));
+}
+
 function pos(x: number, y: number): number {
   return y * MS_GRID_WIDTH + x;
 }
@@ -159,6 +169,119 @@ describe("MS engine regressions", () => {
       { id: MS_TILE.Bug, pos: lowerBugPos, z: 1 },
       { id: MS_TILE.Fireball, pos: upperFireballPos, z: 2 },
     ]);
+  });
+
+  it("uses same-layer trap connections when Chip presses a brown button on z2", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(14, 15);
+    const buttonPos = pos(13, 15);
+    const lowerTrapPos = pos(12, 13);
+    const upperTrapPos = pos(12, 14);
+    lower[buttonPos]!.top.id = MS_TILE.Button_Brown;
+    lower[lowerTrapPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.south);
+    lower[lowerTrapPos]!.bottom.id = MS_TILE.Beartrap;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    upper[buttonPos]!.top.id = MS_TILE.Button_Brown;
+    upper[upperTrapPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.south);
+    upper[upperTrapPos]!.bottom.id = MS_TILE.Beartrap;
+
+    const next = advanceMsInteractiveSession(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells: lower,
+          creaturePositions: [lowerTrapPos],
+          layers: [
+            {
+              z: 1,
+              cells: lower,
+              traps: [{ from: buttonPos, to: lowerTrapPos, fromZ: 1, toZ: 1 }],
+              cloners: [],
+              creaturePositions: [lowerTrapPos],
+              hintText: "",
+            },
+            {
+              z: 2,
+              cells: upper,
+              traps: [{ from: buttonPos, to: upperTrapPos, fromZ: 2, toZ: 2 }],
+              cloners: [],
+              creaturePositions: [chipPos, upperTrapPos],
+              hintText: "",
+            },
+          ],
+        }),
+      ),
+      MS_DIRECTION.west,
+    );
+
+    expect(next.state.internal.chipZ).toBe(2);
+    expect(next.state.internal.creatures.find((creature) => creature.pos === upperTrapPos && creature.z === 2)?.released).toBe(true);
+    expect(next.state.internal.creatures.find((creature) => creature.pos === lowerTrapPos && creature.z === 1)?.released).toBe(false);
+  });
+
+  it("uses the active z-layer when Chip teleports on z2", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(13, 9);
+    const entryTeleportPos = pos(14, 9);
+    const lowerExitPos = pos(10, 9);
+    const upperExitPos = pos(11, 9);
+    lower[entryTeleportPos]!.top.id = MS_TILE.Teleport;
+    lower[lowerExitPos]!.top.id = MS_TILE.Teleport;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    upper[entryTeleportPos]!.top.id = MS_TILE.Teleport;
+    upper[upperExitPos]!.top.id = MS_TILE.Teleport;
+
+    const next = advanceMsInteractiveSession(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells: lower,
+          creaturePositions: [],
+          layers: [
+            { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+            { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          ],
+        }),
+      ),
+      MS_DIRECTION.east,
+    );
+
+    expect(next.state.internal.chipZ).toBe(2);
+    expect(next.state.internal.chipPos).toBe(upperExitPos);
+    expect(next.state.engine.map.cells[upperExitPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+  });
+
+  it("keeps teeth targeting Chip by x/y even when they are on a different z-layer", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(10, 8);
+    const teethPos = pos(10, 10);
+    const wallPos = pos(10, 9);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    upper[teethPos]!.top.id = msCreatureTile(MS_TILE.Teeth, MS_DIRECTION.east);
+    upper[wallPos]!.top.id = MS_TILE.Wall;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [teethPos], hintText: "" },
+        ],
+      }),
+    );
+
+    for (let tick = 0; tick < 9; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const teeth = session.state.engine.actors.find((actor) => actor.id === MS_TILE.Teeth && actor.position.z === 2);
+    expect(teeth?.dir).toBe("north");
+    expect(teeth?.position.pos).toBe(teethPos);
   });
 
   it("seeds Chip's runtime direction from the lower tile when Chip starts on the top layer", () => {

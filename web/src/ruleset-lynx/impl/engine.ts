@@ -151,6 +151,11 @@ interface LynxRuntimeState {
   lastRandomSlideDir: number;
 }
 
+interface LynxRuntimeLayer {
+  z: number;
+  cells: EngineMapCell[];
+}
+
 const LYNX_CELL_FLAG = {
   Beartrap: 0x01,
   Teleport: 0x02,
@@ -232,29 +237,47 @@ function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
   return stripped;
 }
 
-function findChipPosition(cells: EngineMapCell[]): number {
-  for (const cell of cells) {
-    if (
-      (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) ||
-      (isMsCreature(cell.bottom.id) && msCreatureId(cell.bottom.id) === MS_TILE.Chip)
-    ) {
-      return cell.position.pos;
+function findChipSeed(level: LynxLevel): { pos: number; z: number; dir: number } {
+  for (const layer of levelLayers(level)) {
+    for (const cell of layer.cells) {
+      if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
+        return { pos: cell.position.pos, z: layer.z, dir: msCreatureDir(cell.top.id) };
+      }
+      if (isMsCreature(cell.bottom.id) && msCreatureId(cell.bottom.id) === MS_TILE.Chip) {
+        return { pos: cell.position.pos, z: layer.z, dir: msCreatureDir(cell.bottom.id) };
+      }
     }
   }
-  return 0;
+
+  return { pos: 0, z: 1, dir: 0 };
 }
 
-function findChipDirection(cells: EngineMapCell[]): number {
-  for (const cell of cells) {
-    if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
-      return msCreatureDir(cell.top.id);
-    }
-    if (isMsCreature(cell.bottom.id) && msCreatureId(cell.bottom.id) === MS_TILE.Chip) {
-      return msCreatureDir(cell.bottom.id);
-    }
-  }
+function lynxRuntimeLayers(map: EngineState["map"]): LynxRuntimeLayer[] {
+  return map.layers?.map((layer) => ({ z: layer.z, cells: layer.cells })) ?? [{ z: 1, cells: map.cells }];
+}
 
-  return 0;
+function lynxCellsForZ(map: EngineState["map"], z = 1): EngineMapCell[] {
+  return lynxRuntimeLayers(map).find((layer) => layer.z === z)?.cells ?? lynxRuntimeLayers(map)[0]!.cells;
+}
+
+function setLynxActiveLayer(state: EngineState, z = 1): EngineMapCell[] {
+  const cells = lynxCellsForZ(state.map, z);
+  state.map.cells = cells;
+  return cells;
+}
+
+function withLynxLayer<T>(state: EngineState, z: number, run: () => T): T {
+  const previousCells = state.map.cells;
+  setLynxActiveLayer(state, z);
+  try {
+    return run();
+  } finally {
+    state.map.cells = previousCells;
+  }
+}
+
+function activeLynxLayerZ(state: EngineState): number {
+  return state.map.cells[0]?.position.z ?? state.map.layers?.[0]?.z ?? 1;
 }
 
 function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
@@ -803,9 +826,7 @@ function probeLynxChipMoveDirection(
   const { pos: targetPos, cell: target } = targetStep;
 
   if (hasTopTileFlags(state.map.cells, targetPos, LYNX_CELL_FLAG.Claimed)) {
-    const block =
-      findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
-      null;
+    const block = findClaimedLynxBlockOnActiveLayer(state, actors, targetPos);
     if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
       return { canMove: false, pushBlockPos: null };
     }
@@ -868,7 +889,9 @@ function markPendingLynxChipPush(
       if (horizontalDir !== 0) {
         const horizontalProbe = probeLynxChipMoveDirection(state, actors, chipPos, horizontalDir);
         const horizontalBlock =
-          horizontalProbe.pushBlockPos !== null ? findLynxBlockActor(actors, horizontalProbe.pushBlockPos) : null;
+          horizontalProbe.pushBlockPos !== null
+            ? findLynxBlockActor(actors, horizontalProbe.pushBlockPos, activeLynxLayerZ(state))
+            : null;
         if ((!horizontalProbe.canMove || horizontalBlock?.dormant) && horizontalProbe.pushBlockPos !== null) {
           queuePendingLynxBlockPush(state, actors, horizontalProbe.pushBlockPos, horizontalDir);
         }
@@ -897,7 +920,7 @@ function queuePendingLynxBlockPush(
   targetPos: number,
   dir: number,
 ): void {
-  const block = findLynxBlockActor(actors, targetPos);
+  const block = findLynxBlockActor(actors, targetPos, activeLynxLayerZ(state));
   if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
     return;
   }
@@ -957,7 +980,7 @@ function shouldPreviewLynxForcedSlidePush(
   }
   const { pos: targetPos } = targetStep;
 
-  const block = findLynxBlockActor(actors, targetPos);
+  const block = findLynxBlockActor(actors, targetPos, activeLynxLayerZ(state));
   return !!block && !block.hidden && block.dormant;
 }
 
@@ -992,7 +1015,9 @@ function resolveLynxChipInputDirection(
   if (horizontalDir !== 0) {
     const horizontalProbe = probeLynxChipMoveDirection(state, actors, chipPos, horizontalDir);
     const horizontalBlock =
-      horizontalProbe.pushBlockPos !== null ? findLynxBlockActor(actors, horizontalProbe.pushBlockPos) : null;
+      horizontalProbe.pushBlockPos !== null
+        ? findLynxBlockActor(actors, horizontalProbe.pushBlockPos, activeLynxLayerZ(state))
+        : null;
     if (horizontalBlock?.dormant && horizontalProbe.pushBlockPos !== null) {
       return inputCode & (1 | 4);
     }
@@ -1533,7 +1558,7 @@ function canLynxChipExitTeleportThroughBlock(
   exitPos: number,
   dir: number,
 ): boolean {
-  const block = findLynxBlockActor(actors, exitPos);
+  const block = findLynxBlockActor(actors, exitPos, activeLynxLayerZ(state));
   if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
     return false;
   }
@@ -1557,9 +1582,7 @@ function resolveLynxChipTeleport(state: EngineState, actors: LynxRuntimeActor[],
     }
 
     if (hasTopTileFlags(state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
-      const exitBlock =
-        findVisibleActorOnFlaggedTopCell(state.map.cells, actors, exitPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
-        null;
+      const exitBlock = findClaimedLynxBlockOnActiveLayer(state, actors, exitPos);
       if (exitBlock) {
         return canLynxChipExitTeleportThroughBlock(state, actors, exitPos, chipDir);
       }
@@ -1650,10 +1673,12 @@ function resolveLynxTeleports(
     if (actor.hidden || actor.moving > 0) {
       continue;
     }
-    if (lynxTileForcedFloorKind(topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty)) !== "teleport") {
-      continue;
-    }
-    resolveLynxActorTeleport(state, actor);
+    withLynxLayer(state, actor.z ?? 1, () => {
+      if (lynxTileForcedFloorKind(topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty)) !== "teleport") {
+        return;
+      }
+      resolveLynxActorTeleport(state, actor);
+    });
   }
 
   if (chipMoving === 0 && lynxTileForcedFloorKind(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty)) === "teleport") {
@@ -1901,85 +1926,84 @@ function chooseLynxCreatureMoveForTick(
   currentTime: number,
   stepping: number,
 ): void {
-  actor.intentDir = 0;
-  actor.forcedDir = 0;
+  withLynxLayer(state, actor.z ?? 1, () => {
+    actor.intentDir = 0;
+    actor.forcedDir = 0;
 
-  if (actor.teleported) {
-    actor.forcedDir = actor.dir;
-    actor.teleported = false;
-    return;
-  }
-
-  const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-  if (currentTime !== 0 && isLynxSlide(floor)) {
-    actor.forcedDir = getLynxSlideDirection(state, floor, true);
-    return;
-  }
-  if (currentTime !== 0 && isLynxIce(floor)) {
-    actor.forcedDir = actor.dir;
-    return;
-  }
-
-  if (actor.id === MS_TILE.Block) {
-    return;
-  }
-
-  if (lynxCreatureFloorAction(floor) === "hold-direction") {
-    actor.intentDir = actor.dir;
-    return;
-  }
-
-  if (actor.id === MS_TILE.Teeth) {
-    if (((currentTime + stepping) & 4) !== 0) {
+    if (actor.teleported) {
+      actor.forcedDir = actor.dir;
+      actor.teleported = false;
       return;
     }
 
-    const dy = Math.floor(chipPos / MS_GRID_WIDTH) - Math.floor(actor.pos / MS_GRID_WIDTH);
-    const dx = (chipPos % MS_GRID_WIDTH) - (actor.pos % MS_GRID_WIDTH);
-    const vertical = dy < 0 ? 1 : dy > 0 ? 4 : 0;
-    const horizontal = dx < 0 ? 2 : dx > 0 ? 8 : 0;
-    const fallbackDirs =
-      Math.abs(dx) > Math.abs(dy)
-        ? [horizontal, vertical]
-        : [vertical, horizontal];
+    const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
+    if (currentTime !== 0 && isLynxSlide(floor)) {
+      actor.forcedDir = getLynxSlideDirection(state, floor, true);
+      return;
+    }
+    if (currentTime !== 0 && isLynxIce(floor)) {
+      actor.forcedDir = actor.dir;
+      return;
+    }
 
-    for (const dir of fallbackDirs) {
-      if (dir === 0) {
-        continue;
+    if (actor.id === MS_TILE.Block) {
+      return;
+    }
+
+    if (lynxCreatureFloorAction(floor) === "hold-direction") {
+      actor.intentDir = actor.dir;
+      return;
+    }
+
+    if (actor.id === MS_TILE.Teeth) {
+      if (((currentTime + stepping) & 4) !== 0) {
+        return;
       }
+
+      const dy = Math.floor(chipPos / MS_GRID_WIDTH) - Math.floor(actor.pos / MS_GRID_WIDTH);
+      const dx = (chipPos % MS_GRID_WIDTH) - (actor.pos % MS_GRID_WIDTH);
+      const vertical = dy < 0 ? 1 : dy > 0 ? 4 : 0;
+      const horizontal = dx < 0 ? 2 : dx > 0 ? 8 : 0;
+      const fallbackDirs = Math.abs(dx) > Math.abs(dy) ? [horizontal, vertical] : [vertical, horizontal];
+
+      for (const dir of fallbackDirs) {
+        if (dir === 0) {
+          continue;
+        }
+        actor.intentDir = dir;
+        if (canLynxCreatureStartMovement(state, actors, actor, dir, false, true)) {
+          return;
+        }
+      }
+      actor.intentDir = fallbackDirs[0] ?? 0;
+      return;
+    }
+
+    const firstChoice = chooseLynxCreatureDirection(state, actor, chipPos, currentTime, stepping);
+
+    if (actor.id === MS_TILE.Walker) {
+      if (firstChoice !== 0) {
+        actor.intentDir = firstChoice;
+        if (canLynxCreatureStartMovement(state, actors, actor, firstChoice, false, true)) {
+          return;
+        }
+      }
+
+      const randomDir = [actor.dir, right(actor.dir), back(actor.dir), left(actor.dir)][advanceLynxPrng(state) & 3] ?? actor.dir;
+      if (randomDir !== 0) {
+        actor.intentDir = randomDir;
+      }
+      return;
+    }
+
+    const fallbackDirs = chooseLynxCreatureFallbacks(actor, firstChoice);
+    for (const dir of fallbackDirs) {
       actor.intentDir = dir;
       if (canLynxCreatureStartMovement(state, actors, actor, dir, false, true)) {
         return;
       }
     }
-    actor.intentDir = fallbackDirs[0] ?? 0;
-    return;
-  }
-
-  const firstChoice = chooseLynxCreatureDirection(state, actor, chipPos, currentTime, stepping);
-
-  if (actor.id === MS_TILE.Walker) {
-    if (firstChoice !== 0) {
-      actor.intentDir = firstChoice;
-      if (canLynxCreatureStartMovement(state, actors, actor, firstChoice, false, true)) {
-        return;
-      }
-    }
-
-    const randomDir = [actor.dir, right(actor.dir), back(actor.dir), left(actor.dir)][advanceLynxPrng(state) & 3] ?? actor.dir;
-    if (randomDir !== 0) {
-      actor.intentDir = randomDir;
-    }
-    return;
-  }
-
-  const fallbackDirs = chooseLynxCreatureFallbacks(actor, firstChoice);
-  for (const dir of fallbackDirs) {
-    actor.intentDir = dir;
-    if (canLynxCreatureStartMovement(state, actors, actor, dir, false, true)) {
-      return;
-    }
-  }
+  });
 }
 
 function startLynxCreatureMovement(
@@ -2088,30 +2112,32 @@ function advanceLynxCreature(
   actor: LynxRuntimeActor,
   currentTime: number,
 ): void {
-  if (actor.hidden) {
-    return;
-  }
-
-  if (actor.moving <= 0) {
-    const floorBeforeMove = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-    const moveDir = actor.intentDir || actor.forcedDir || forcedLynxActorDirection(state, actor, floorBeforeMove, currentTime);
-    actor.intentDir = 0;
-    actor.forcedDir = 0;
-    if (moveDir === 0 || !startLynxCreatureMovement(state, actors, actor, moveDir)) {
+  withLynxLayer(state, actor.z ?? 1, () => {
+    if (actor.hidden) {
       return;
     }
-  }
 
-  const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-  let speed = actor.id === MS_TILE.Blob ? 1 : 2;
-  if (isLynxSlide(floor) || isLynxIce(floor)) {
-    speed *= 2;
-  }
-  actor.moving = Math.max(0, actor.moving - speed);
-  actor.frame = Math.trunc(actor.moving / 2);
-  if (actor.moving === 0) {
-    finishLynxActorMovement(state, level, actors, actor);
-  }
+    if (actor.moving <= 0) {
+      const floorBeforeMove = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
+      const moveDir = actor.intentDir || actor.forcedDir || forcedLynxActorDirection(state, actor, floorBeforeMove, currentTime);
+      actor.intentDir = 0;
+      actor.forcedDir = 0;
+      if (moveDir === 0 || !startLynxCreatureMovement(state, actors, actor, moveDir)) {
+        return;
+      }
+    }
+
+    const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
+    let speed = actor.id === MS_TILE.Blob ? 1 : 2;
+    if (isLynxSlide(floor) || isLynxIce(floor)) {
+      speed *= 2;
+    }
+    actor.moving = Math.max(0, actor.moving - speed);
+    actor.frame = Math.trunc(actor.moving / 2);
+    if (actor.moving === 0) {
+      finishLynxActorMovement(state, level, actors, actor);
+    }
+  });
 }
 
 function clearFinishedPushedBlocks(state: EngineState, actors: LynxRuntimeActor[]): void {
@@ -2148,12 +2174,25 @@ function clearDeferredLynxBlockPushes(actors: LynxRuntimeActor[]): void {
   }
 }
 
-function findLynxBlockActor(actors: LynxRuntimeActor[], pos: number): LynxRuntimeActor | null {
-  return findVisibleActorAtPosition(actors, pos, (actor) => actor.id === MS_TILE.Block) ?? null;
+function findLynxBlockActor(actors: LynxRuntimeActor[], pos: number, z = 1): LynxRuntimeActor | null {
+  return findVisibleActorAtPosition(actors, pos, (actor) => actor.id === MS_TILE.Block && (actor.z ?? 1) === z) ?? null;
 }
 
-function findLynxVisibleActorAt(actors: LynxRuntimeActor[], pos: number): LynxRuntimeActor | null {
-  return findVisibleActorAtPosition(actors, pos) ?? null;
+function findLynxVisibleActorAt(actors: LynxRuntimeActor[], pos: number, z = 1): LynxRuntimeActor | null {
+  return findVisibleActorAtPosition(actors, pos, (actor) => (actor.z ?? 1) === z) ?? null;
+}
+
+function findClaimedLynxBlockOnActiveLayer(state: EngineState, actors: LynxRuntimeActor[], pos: number): LynxRuntimeActor | null {
+  const activeZ = activeLynxLayerZ(state);
+  return (
+    findVisibleActorOnFlaggedTopCell(
+      state.map.cells,
+      actors,
+      pos,
+      LYNX_CELL_FLAG.Claimed,
+      (actor) => actor.id === MS_TILE.Block && (actor.z ?? 1) === activeZ,
+    ) ?? null
+  );
 }
 
 function resolveLynxChipCollision(
@@ -2183,7 +2222,7 @@ function resolveLynxChipCollision(
     };
   }
 
-  const actor = findLynxVisibleActorAt(actors, chipPos);
+  const actor = findLynxVisibleActorAt(actors, chipPos, activeLynxLayerZ(state));
   if (!actor) {
     return {
       chipPos,
@@ -2230,11 +2269,13 @@ function queueLynxTankReversals(state: EngineState, actors: LynxRuntimeActor[]):
     if (actor.hidden || actor.id !== MS_TILE.Tank) {
       continue;
     }
-    const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-    if (lynxTileHasTag(floor, "cloner") || isLynxIce(floor)) {
-      continue;
-    }
-    actor.reversePending = !actor.reversePending;
+    withLynxLayer(state, actor.z ?? 1, () => {
+      const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
+      if (lynxTileHasTag(floor, "cloner") || isLynxIce(floor)) {
+        return;
+      }
+      actor.reversePending = !actor.reversePending;
+    });
   }
 }
 
@@ -2298,72 +2339,81 @@ function skipsDormantLynxActorAdvance(state: EngineState, actor: LynxRuntimeActo
     return false;
   }
 
-  const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-  return currentTime === 0 || (!isLynxSlide(floor) && !isLynxIce(floor));
+  return withLynxLayer(state, actor.z ?? 1, () => {
+    const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
+    return currentTime === 0 || (!isLynxSlide(floor) && !isLynxIce(floor));
+  });
 }
 
 function activateLynxCloner(state: EngineState, level: LynxLevel, actors: LynxRuntimeActor[], buttonPos: number): boolean {
-  const sourcePos = findLynxClonerTarget(level, buttonPos);
-  if (sourcePos === null || sourcePos < 0 || sourcePos >= state.map.cells.length) {
-    return false;
-  }
+  const buttonZ = activeLynxLayerZ(state);
+  return withLynxLayer(state, buttonZ, () => {
+    const sourcePos = findLynxClonerTarget(level, buttonPos, buttonZ);
+    if (sourcePos === null || sourcePos < 0 || sourcePos >= state.map.cells.length) {
+      return false;
+    }
 
-  if (!lynxTileHasTag(state.map.cells[sourcePos]?.top.id ?? MS_TILE.Empty, "cloner")) {
-    return false;
-  }
+    if (!lynxTileHasTag(state.map.cells[sourcePos]?.top.id ?? MS_TILE.Empty, "cloner")) {
+      return false;
+    }
 
-  const sourceActor = findLynxVisibleActorAt(actors, sourcePos);
-  if (!sourceActor || sourceActor.dir === 0) {
-    return false;
-  }
+    const sourceActor = findLynxVisibleActorAt(actors, sourcePos, buttonZ);
+    if (!sourceActor || sourceActor.dir === 0) {
+      return false;
+    }
 
-  const sourceSnapshot: LynxRuntimeActor = {
-    ...sourceActor,
-    intentDir: 0,
-    forcedDir: 0,
-    teleported: false,
-    moving: 0,
-    frame: 0,
-    hidden: true,
-    pushed: false,
-    deferPush: false,
-    deferPushArmed: false,
-    animationReserved: false,
-  };
-  const clone = allocateLynxActorSlot(actors, sourceSnapshot);
+    const sourceSnapshot: LynxRuntimeActor = {
+      ...sourceActor,
+      z: buttonZ,
+      intentDir: 0,
+      forcedDir: 0,
+      teleported: false,
+      moving: 0,
+      frame: 0,
+      hidden: true,
+      pushed: false,
+      deferPush: false,
+      deferPushArmed: false,
+      animationReserved: false,
+    };
+    const clone = allocateLynxActorSlot(actors, sourceSnapshot);
 
-  if (!startLynxCreatureMovement(state, actors, sourceActor, sourceActor.dir, true)) {
-    return false;
-  }
+    if (!startLynxCreatureMovement(state, actors, sourceActor, sourceActor.dir, true)) {
+      return false;
+    }
 
-  Object.assign(clone, {
-    ...sourceSnapshot,
-    hidden: false,
+    Object.assign(clone, {
+      ...sourceSnapshot,
+      hidden: false,
+    });
+    advanceLynxCreature(state, level, actors, sourceActor, state.timer.currentTime + 1);
+    return true;
   });
-  advanceLynxCreature(state, level, actors, sourceActor, state.timer.currentTime + 1);
-  return true;
 }
 
 function springLynxTrap(state: EngineState, level: LynxLevel, actors: LynxRuntimeActor[], buttonPos: number): boolean {
-  const sourcePos = findLynxTrapTarget(level, buttonPos);
-  if (sourcePos === null || sourcePos < 0 || sourcePos >= state.map.cells.length) {
-    return false;
-  }
-  if (!lynxTileHasTag(topTileIdOr(state.map.cells, sourcePos, MS_TILE.Empty), "trap")) {
-    return false;
-  }
+  const buttonZ = activeLynxLayerZ(state);
+  return withLynxLayer(state, buttonZ, () => {
+    const sourcePos = findLynxTrapTarget(level, buttonPos, buttonZ);
+    if (sourcePos === null || sourcePos < 0 || sourcePos >= state.map.cells.length) {
+      return false;
+    }
+    if (!lynxTileHasTag(topTileIdOr(state.map.cells, sourcePos, MS_TILE.Empty), "trap")) {
+      return false;
+    }
 
-  const sourceActor = findLynxVisibleActorAt(actors, sourcePos);
-  if (!sourceActor || sourceActor.dir === 0) {
-    return false;
-  }
+    const sourceActor = findLynxVisibleActorAt(actors, sourcePos, buttonZ);
+    if (!sourceActor || sourceActor.dir === 0) {
+      return false;
+    }
 
-  if (sourceActor.moving <= 0 && !startLynxCreatureMovement(state, actors, sourceActor, sourceActor.dir, true)) {
-    return false;
-  }
+    if (sourceActor.moving <= 0 && !startLynxCreatureMovement(state, actors, sourceActor, sourceActor.dir, true)) {
+      return false;
+    }
 
-  advanceLynxCreature(state, level, actors, sourceActor, state.timer.currentTime + 1);
-  return true;
+    advanceLynxCreature(state, level, actors, sourceActor, state.timer.currentTime + 1);
+    return true;
+  });
 }
 
 function advanceLynxChipTrapRelease(
@@ -2519,7 +2569,7 @@ function springLynxHeldBrownButton(
   let deferredChipInputCode = 0;
   let chipArrivedOnTrapThisTick = false;
 
-  const trapPos = findLynxTrapTarget(level, buttonPos);
+  const trapPos = findLynxTrapTarget(level, buttonPos, activeLynxLayerZ(state));
   springLynxTrap(state, level, actors, buttonPos);
   if (trapPos === nextChipPos && lynxTileHasTag(topTileIdOr(state.map.cells, nextChipPos, MS_TILE.Empty), "trap")) {
     if (isDirectionalInput(replayInputCode) && nextChipMoving <= 0) {
@@ -2582,9 +2632,22 @@ export function initializeLynxEngineState(
       })
     | null = null,
 ): EngineState {
-  const sourceCells = cloneBoardCells(level.cells);
-  const cells = stripCreaturesForInitialHash(sourceCells);
-  const chipPos = findChipPosition(sourceCells);
+  const chipSeed = findChipSeed(level);
+  const layers = levelLayers(level).map((layer) => ({
+    z: layer.z,
+    cells: stripCreaturesForInitialHash(cloneBoardCells(layer.cells)),
+  }));
+  const cells = lynxCellsForZ(
+    {
+      hash: "",
+      creaturesHash: "",
+      creatureCount: 0,
+      cells: layers[0]?.cells ?? stripCreaturesForInitialHash(cloneBoardCells(level.cells)),
+      layers,
+    },
+    chipSeed.z,
+  );
+  const chipPos = chipSeed.pos;
   const initialStatusFlags =
     (level.statusFlags & ~MS_STATUS_FLAG.ShowHint) |
     (lynxTileHasTag(topTileIdOr(cells, chipPos, MS_TILE.Empty), "hint") ? MS_STATUS_FLAG.ShowHint : 0);
@@ -2631,10 +2694,7 @@ export function initializeLynxEngineState(
       creaturesHash: "14650fb0739d0383",
       creatureCount: 0,
       cells,
-      layers: (level.layers ?? [{ z: 1, cells, traps: [], cloners: [], creaturePositions: [], hintText: "" }]).map((layer) => ({
-        z: layer.z,
-        cells: layer.z === 1 ? cells : cloneBoardCells(layer.cells),
-      })),
+      layers,
     },
     view: {
       x: (chipPos % MS_GRID_WIDTH) * 8,
@@ -2656,15 +2716,16 @@ function createLynxInteractiveToken(
       })
     | null = null,
 ): LynxInteractiveSessionState {
+  const chipSeed = findChipSeed(level);
   return {
     level,
     state: initializeLynxEngineState(request, level, replay),
     lastInput: createRuntimeCommand(0, -1),
     recordedMoves: replay ? replay.moves.map((move) => ({ ...move })) : [],
     replayPlan: replay ? createReplayPlan(replay) : null,
-    chipPos: findChipPosition(level.cells),
-    chipZ: 1,
-    chipDir: findChipDirection(level.cells),
+    chipPos: chipSeed.pos,
+    chipZ: chipSeed.z,
+    chipDir: chipSeed.dir,
     chipMoving: 0,
     currentInputCode: 0,
     queuedReplayInputCode: 0,
@@ -2685,6 +2746,7 @@ function advanceLynxInteractiveTick(
   const replayMode = session.replayPlan !== null;
   const state = session.state;
   const level = session.level;
+  setLynxActiveLayer(state, session.chipZ ?? 1);
   let replayPlan = session.replayPlan;
   let runtimeInput =
     scheduledInputCode === null
@@ -2827,11 +2889,14 @@ function advanceLynxInteractiveTick(
       }
       actor.intentDir = 0;
       actor.forcedDir = 0;
-      if (
-        !actor.hidden &&
-        actor.moving <= 0 &&
-        lynxButtonAction(topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty)) === "spring-trap"
-      ) {
+      withLynxLayer(state, actor.z ?? 1, () => {
+        if (
+          actor.hidden ||
+          actor.moving > 0 ||
+          lynxButtonAction(topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty)) !== "spring-trap"
+        ) {
+          return;
+        }
         const heldButton = springLynxHeldBrownButton(
           state,
           level,
@@ -2865,7 +2930,7 @@ function advanceLynxInteractiveTick(
           }
           currentInputCode = 0;
         }
-      }
+      });
     }
     {
       const collision = resolveLynxChipCollision(
@@ -2960,8 +3025,7 @@ function advanceLynxInteractiveTick(
           const targetBlock =
             target === undefined
               ? null
-              : findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
-                null;
+              : findClaimedLynxBlockOnActiveLayer(state, actors, targetPos);
           const canPushIntoClaimedCell = targetBlock
             ? canLynxChipPushIntoClaimedCell(state, targetPos, startInputCode)
             : false;
@@ -3085,6 +3149,7 @@ function advanceLynxInteractiveTick(
     recordedMoves: recordManualMove(session.recordedMoves, state.timer.currentTime, state.replay.cursor, runtimeInput.inputCode),
     replayPlan,
     chipPos,
+    chipZ: session.chipZ,
     chipDir,
     chipMoving,
     currentInputCode,
@@ -3253,7 +3318,8 @@ function runLynxReplayTraceDebugInternal(
   state.map.hash = mapHash(state.map.cells);
   const initialState = engineStateToSnapshot(state, "initial", createRuntimeCommand(0, -1));
   const initialActors = parseLynxActors(level);
-  const initialChipPos = findChipPosition(level.cells);
+  const initialChipSeed = findChipSeed(level);
+  const initialChipPos = initialChipSeed.pos;
   const initialDebugState = projectLynxDebugPhaseSnapshot(
     state,
     initialActors,
@@ -3282,8 +3348,9 @@ function runLynxReplayTraceDebugInternal(
   }
 
   const steps: GameDebugTrace["steps"] = [];
-  let chipPos = findChipPosition(level.cells);
-  let chipDir = findChipDirection(level.cells);
+  const chipSeed = findChipSeed(level);
+  let chipPos = chipSeed.pos;
+  let chipDir = chipSeed.dir;
   let chipMoving = 0;
   let currentInputCode = 0;
   let queuedReplayInputCode = 0;

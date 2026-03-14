@@ -21,6 +21,18 @@ function createCell(pos: number, topId: number, bottomId: number = MS_TILE.Empty
   };
 }
 
+function createCellAtZ(pos: number, z: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
+  return {
+    position: { x: pos % 32, y: Math.floor(pos / 32), z, pos },
+    top: { id: topId, state: 0 },
+    bottom: { id: bottomId, state: 0 },
+  };
+}
+
+function createBoardAtZ(z: number): EngineMapCell[] {
+  return Array.from({ length: 32 * 32 }, (_, pos) => createCellAtZ(pos, z, MS_TILE.Empty));
+}
+
 function createLevel(
   cells: EngineMapCell[],
   creaturePositions?: number[],
@@ -130,6 +142,100 @@ describe("initializeLynxEngineState", () => {
       { id: MS_TILE.Bug, pos: lowerBugPos, z: 1 },
       { id: MS_TILE.Fireball, pos: upperFireballPos, z: 2 },
     ]);
+  });
+
+  it("uses same-layer teleport search when Chip teleports on z2", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 33;
+    const entryTeleportPos = 34;
+    const lowerExitPos = 40;
+    const upperExitPos = 50;
+
+    lower[entryTeleportPos] = createCell(entryTeleportPos, MS_TILE.Teleport, MS_TILE.Empty);
+    lower[lowerExitPos] = createCell(lowerExitPos, MS_TILE.Teleport, MS_TILE.Empty);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty);
+    upper[entryTeleportPos] = createCellAtZ(entryTeleportPos, 2, MS_TILE.Teleport, MS_TILE.Empty);
+    upper[upperExitPos] = createCellAtZ(upperExitPos, 2, MS_TILE.Teleport, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      {
+        ...createLevel([createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty)]),
+        cells: lower,
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      },
+    );
+
+    const teleported = advanceLynxTicks(session, 4, 8);
+
+    expect(teleported.chipZ).toBe(2);
+    expect(teleported.chipPos).toBe(upperExitPos);
+  });
+
+  it("uses same-layer trap connections when Chip presses a brown button on z2", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 33;
+    const buttonPos = 34;
+    const lowerTrapPos = 97;
+    const upperTrapPos = 98;
+
+    lower[lowerTrapPos] = createCell(lowerTrapPos, msCreatureTile(MS_TILE.Ball, 1), MS_TILE.Beartrap);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty);
+    upper[buttonPos] = createCellAtZ(buttonPos, 2, MS_TILE.Button_Brown, MS_TILE.Empty);
+    upper[upperTrapPos] = createCellAtZ(upperTrapPos, 2, msCreatureTile(MS_TILE.Ball, 1), MS_TILE.Beartrap);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      {
+        ...createLevel([createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty)]),
+        cells: lower,
+        layers: [
+          { z: 1, cells: lower, traps: [{ from: buttonPos, to: lowerTrapPos, fromZ: 1, toZ: 1 }], cloners: [], creaturePositions: [lowerTrapPos], hintText: "" },
+          { z: 2, cells: upper, traps: [{ from: buttonPos, to: upperTrapPos, fromZ: 2, toZ: 2 }], cloners: [], creaturePositions: [chipPos, upperTrapPos], hintText: "" },
+        ],
+      },
+    );
+
+    const next = advanceLynxTicks(session, 4, 8);
+    const upperBall = next.actors.find((actor) => actor.id === MS_TILE.Ball && actor.z === 2);
+    const lowerBall = next.actors.find((actor) => actor.id === MS_TILE.Ball && actor.z === 1);
+
+    expect(next.chipZ).toBe(2);
+    expect(upperBall?.pos).toBe(66);
+    expect(lowerBall?.pos).toBe(lowerTrapPos);
+  });
+
+  it("keeps teeth targeting Chip by x/y even when they are on a different z-layer", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 33;
+    const teethPos = 97;
+
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty);
+    upper[teethPos] = createCellAtZ(teethPos, 2, msCreatureTile(MS_TILE.Teeth, 4), MS_TILE.Empty);
+    upper[65] = createCellAtZ(65, 2, MS_TILE.Empty, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      {
+        ...createLevel([createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty)]),
+        cells: lower,
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [teethPos], hintText: "" },
+        ],
+      },
+    );
+
+    const next = advanceLynxTicks(session, 6);
+    const teeth = next.actors.find((actor) => actor.id === MS_TILE.Teeth && actor.z === 2);
+
+    expect(teeth?.pos).toBe(65);
   });
 
   it("removes Chip from the map without claiming the floor", () => {

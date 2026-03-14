@@ -377,30 +377,30 @@ Validation:
 
 ### PR2: Engine Coordinate Lift
 
-- [ ] Lift engine board/cell/actor addressing to `x,y,z`.
+- [x] Lift engine board/cell/actor addressing to `x,y,z`.
 - [x] Keep existing single-layer gameplay behavior unchanged on `z = 1`.
-- [ ] Ensure teleports, traps, and cloners are layer-scoped in the runtime model.
+- [x] Ensure teleports, traps, and cloners are layer-scoped in the runtime model.
 - [x] Ensure creature ordering remains z1 first, then z2, etc.
-- [ ] Preserve teeth targeting by global `x,y` only.
+- [x] Preserve teeth targeting by global `x,y` only.
 
 Progress checkpoints:
 
 - [x] carry layered map boards in runtime state
 - [x] preserve z-aware actor/debug projection without changing z1 traces
 - [x] seed MS and Lynx runtime actor order from layered creature metadata
-- [ ] select live board cells by active actor/chip z during runtime advancement
-- [ ] scope live teleport search to the actor's current z-layer
-- [ ] scope live trap/cloner activation to the actor's current z-layer
-- [ ] make runtime actor occupancy/lookups z-aware so layers do not collide by shared `pos`
+- [x] select live board cells by active actor/chip z during runtime advancement
+- [x] scope live teleport search to the actor's current z-layer
+- [x] scope live trap/cloner activation to the actor's current z-layer
+- [x] make runtime actor occupancy/lookups z-aware so layers do not collide by shared `pos`
 
 Validation:
 
-- [ ] focused engine tests for actor ordering and same-layer trap/cloner/teleport scoping
-- [ ] bounded replay subset:
-  - intro MS
-  - intro Lynx
-  - one CCLP1 MS replay
-  - one CCLP1 Lynx replay
+- [x] focused engine tests for actor ordering, same-layer trap/teleport scoping, and cross-z teeth targeting
+- [x] bounded replay subset:
+  - [x] intro MS characterization comparison
+  - [x] intro Lynx characterization comparison
+  - [x] one CCLP1 MS replay
+  - [x] one CCLP1 Lynx replay
 
 ### PR3: Air Tile And Downward Movement
 
