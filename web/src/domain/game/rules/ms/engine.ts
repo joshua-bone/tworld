@@ -4,7 +4,7 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@domain/game/debug";
-import { findHiddenActorAtPosition, findVisibleActorAtPosition } from "@domain/game/core/actors";
+import { findExistingActorAtPosition, findVisibleActorAtPosition } from "@domain/game/core/actors";
 import {
   addBottomTileFlags,
   addTopTileFlags,
@@ -1593,7 +1593,7 @@ function findVisibleTrackedBlock(internal: MsInternalState, pos: number): MsTrac
 function hideTrackedBlockAtPos(internal: MsInternalState, pos: number, dir: number): MsTrackedBlock {
   const block =
     findVisibleTrackedBlock(internal, pos) ??
-    findHiddenActorAtPosition(internal.blocks, pos) ?? {
+    findExistingActorAtPosition(internal.blocks, pos) ?? {
       pos,
       dir,
       hidden: false,

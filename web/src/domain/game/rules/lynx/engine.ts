@@ -1,6 +1,6 @@
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@domain/game/debug";
-import { findHiddenActorAtPosition, findReusableHiddenActorIndex, findVisibleActorAtPosition } from "@domain/game/core/actors";
+import { findHiddenActorAtPosition, findVisibleActorAtPosition, storeActorInReusableHiddenSlot } from "@domain/game/core/actors";
 import {
   addTopTileFlags,
   cloneBoardCells,
@@ -2233,14 +2233,7 @@ function resolveLynxChipCollision(
 }
 
 function allocateLynxActorSlot(actors: LynxRuntimeActor[], actor: LynxRuntimeActor): LynxRuntimeActor {
-  const hiddenIndex = findReusableHiddenActorIndex(actors, (entry) => !entry.animationReserved);
-  if (hiddenIndex < 0) {
-    actors.push(actor);
-    return actor;
-  }
-
-  actors[hiddenIndex] = actor;
-  return actor;
+  return storeActorInReusableHiddenSlot(actors, actor, (entry) => !entry.animationReserved);
 }
 
 function findLynxClonerTarget(level: LynxLevel, buttonPos: number): number | null {

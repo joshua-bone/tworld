@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { findHiddenActorAtPosition, findReusableHiddenActorIndex, findVisibleActorAtPosition, type HiddenPositionedActor } from "@domain/game/core/actors";
+import {
+  findExistingActorAtPosition,
+  findHiddenActorAtPosition,
+  findReusableHiddenActorIndex,
+  findVisibleActorAtPosition,
+  storeActorInReusableHiddenSlot,
+  type HiddenPositionedActor,
+} from "@domain/game/core/actors";
 
 interface TestActor extends HiddenPositionedActor {
   id: number;
@@ -26,9 +33,23 @@ describe("actor core helpers", () => {
     expect(findHiddenActorAtPosition(actors, 8, (actor) => actor.reserved === true)).toBeUndefined();
   });
 
+  it("finds an existing actor at a position preferring visible actors", () => {
+    expect(findExistingActorAtPosition(actors, 5)?.id).toBe(1);
+    expect(findExistingActorAtPosition(actors, 8, (actor) => actor.hidden)?.id).toBe(3);
+  });
+
   it("finds reusable hidden actor slots with optional filtering", () => {
     expect(findReusableHiddenActorIndex(actors)).toBe(1);
     expect(findReusableHiddenActorIndex(actors, (actor) => actor.reserved !== true)).toBe(2);
     expect(findReusableHiddenActorIndex(actors, (actor) => actor.id === 99)).toBe(-1);
+  });
+
+  it("stores actors in reusable hidden slots before appending", () => {
+    const next = [...actors];
+    const stored = storeActorInReusableHiddenSlot(next, { id: 9, pos: 99, hidden: false }, (actor) => actor.reserved !== true);
+
+    expect(stored).toEqual({ id: 9, pos: 99, hidden: false });
+    expect(next[2]).toEqual({ id: 9, pos: 99, hidden: false });
+    expect(next).toHaveLength(4);
   });
 });
