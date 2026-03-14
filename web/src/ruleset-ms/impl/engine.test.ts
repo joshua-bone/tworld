@@ -349,6 +349,251 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south));
   });
 
+  it("drops a tracked block from unsupported air into water on the first non-chip floor tick", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const blockPos = pos(11, 8);
+    lower[blockPos]!.top.id = MS_TILE.Water;
+    upper[blockPos]!.top.id = MS_TILE.Block_Static;
+    upper[blockPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.engine.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Dirt);
+    expect(session.state.engine.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Air);
+    expect(session.state.internal.blocks.find((block) => block.pos === blockPos && (block.z ?? 1) === 2)?.hidden).toBe(true);
+    expect((session.state.engine.soundEffects & (1 << MS_SOUND.WaterSplash)) !== 0).toBe(true);
+  });
+
+  it("does not drop a tracked block from air when another non-player below supports it", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const blockPos = pos(12, 8);
+    lower[blockPos]!.top.id = MS_TILE.Block_Static;
+    upper[blockPos]!.top.id = MS_TILE.Block_Static;
+    upper[blockPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const block = session.state.internal.blocks.find((entry) => !entry.hidden);
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(blockPos);
+    expect(session.state.engine.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.engine.map.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
+
+  it("drops a non-player from unsupported air onto Chip and collides on landing", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const sharedPos = pos(13, 8);
+    lower[sharedPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    upper[sharedPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west);
+    upper[sharedPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [sharedPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [sharedPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [sharedPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const bug = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Bug);
+    expect(session.state.internal.chipStatus).toBe("collided");
+    expect(bug?.z).toBe(1);
+    expect(bug?.pos).toBe(sharedPos);
+    expect(session.state.engine.map.cells[sharedPos]?.top.id).toBe(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west));
+  });
+
+  it("collects a top-layer key when Chip falls from unsupported air", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(14, 8);
+    lower[chipPos]!.top.id = MS_TILE.Key_Yellow;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(1);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.inventory.keys[2]).toBe(1);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+    expect(session.state.engine.map.cells[chipPos]?.bottom.id).toBe(MS_TILE.Empty);
+  });
+
+  it("does not arm ice movement when Chip falls from unsupported air onto ice", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(15, 8);
+    lower[chipPos]!.top.id = MS_TILE.Ice;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(1);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.internal.floorMovement).toBe("none");
+    expect(session.state.internal.floorMovementDir).toBe(MS_DIRECTION.none);
+  });
+
+  it("arms force-floor movement when Chip falls from unsupported air onto a force floor", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(16, 8);
+    lower[chipPos]!.top.id = MS_TILE.Slide_South;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(1);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.internal.floorMovement).toBe("slide");
+    expect(session.state.internal.floorMovementDir).toBe(MS_DIRECTION.south);
+  });
+
+  it("bombs Chip when he falls from unsupported air onto a bomb", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(16, 9);
+    lower[chipPos]!.top.id = MS_TILE.Bomb;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(1);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.internal.chipStatus).toBe("bombed");
+    expect((session.state.engine.soundEffects & (1 << MS_SOUND.BombExplodes)) !== 0).toBe(true);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Bombed_Chip);
+  });
+
+  it("keeps a pickup under a block when the block falls from unsupported air", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const blockPos = pos(17, 8);
+    lower[blockPos]!.top.id = MS_TILE.Key_Red;
+    upper[blockPos]!.top.id = MS_TILE.Block_Static;
+    upper[blockPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const block = session.state.internal.blocks.find((entry) => !entry.hidden);
+    expect(block?.z).toBe(1);
+    expect(block?.pos).toBe(blockPos);
+    expect(session.state.engine.map.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.engine.map.cells[blockPos]?.bottom.id).toBe(MS_TILE.Key_Red);
+  });
+
   it("seeds Chip's runtime direction from the lower tile when Chip starts on the top layer", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);
