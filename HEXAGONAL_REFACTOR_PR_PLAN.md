@@ -203,8 +203,8 @@ Exit criteria:
 
 Scope:
 
-- [x] Status: in progress
-- [ ] separate raw DAT decoding from ruleset preparation
+- [x] Status: complete
+- [x] separate raw DAT decoding from ruleset preparation
 
 Changes:
 
@@ -212,13 +212,14 @@ Changes:
 - [x] split Lynx preparation from shared DAT decoding
 - [x] route adapters and level-inspection tools through explicit `decode -> prepare` calls
 - [x] add focused preparation tests for MS and Lynx level assembly
-- [ ] migrate the remaining level-loading call sites to prepared-level-only entry points
-- [ ] make prepared level assembly the only normalization layer for tile layout, actor seeds, connections, and status flags before simulation starts
+- [x] migrate the remaining level-loading call sites to prepared-level-only entry points
+- [x] remove the old `parse*Level()` shortcuts so prepared-level assembly is the only supported normalization path
+- [x] make prepared level assembly the only normalization layer for tile layout, actor seeds, connections, and status flags before simulation starts
 
 Exit criteria:
 
-- [ ] ruleset preparation is explicit and testable
-- [ ] engines receive prepared levels instead of raw parser output
+- [x] ruleset preparation is explicit and testable
+- [x] engines receive prepared levels instead of raw parser output
 
 ## PR 9: Adapter Cleanup And Final Boundary Tightening
 

@@ -315,7 +315,3 @@ export function prepareMsLevel(decoded: DecodedMsLevelData): MsLevel {
     statusFlags: decoded.badTiles ? MS_STATUS_FLAG.BadTiles : 0,
   };
 }
-
-export function parseMsLevel(levelData: Uint8Array): MsLevel {
-  return prepareMsLevel(decodeMsLevelData(levelData));
-}
