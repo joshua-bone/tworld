@@ -469,11 +469,11 @@ Mitigation:
 
 ## Recommended Implementation Order
 
-### [ ] PR1: Session Equality Contract (in progress)
+### [x] PR1: Session Equality Contract
 
 - [x] define canonical full-token digest for MS and Lynx
 - [x] add session-equality tests
-- [ ] add fixtures for state round-trip tests
+- [x] add fixtures for state round-trip tests
 
 Exit criteria:
 
