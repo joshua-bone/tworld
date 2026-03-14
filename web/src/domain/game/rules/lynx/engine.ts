@@ -1,5 +1,6 @@
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@domain/game/debug";
+import { findHiddenActorAtPosition, findReusableHiddenActorIndex, findVisibleActorAtPosition } from "@domain/game/core/actors";
 import {
   addTopTileFlags,
   cloneBoardCells,
@@ -313,7 +314,7 @@ function clearLynxAnimationAt(state: EngineState, actors: LynxRuntimeActor[], po
 }
 
 function releaseReservedAnimationActorAt(actors: LynxRuntimeActor[], pos: number): void {
-  const actor = actors.find((entry) => entry.hidden && entry.animationReserved && entry.pos === pos);
+  const actor = findHiddenActorAtPosition(actors, pos, (entry) => entry.animationReserved);
   if (!actor) {
     return;
   }
@@ -2175,11 +2176,11 @@ function clearDeferredLynxBlockPushes(actors: LynxRuntimeActor[]): void {
 }
 
 function findLynxBlockActor(actors: LynxRuntimeActor[], pos: number): LynxRuntimeActor | null {
-  return actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden && actor.pos === pos) ?? null;
+  return findVisibleActorAtPosition(actors, pos, (actor) => actor.id === MS_TILE.Block) ?? null;
 }
 
 function findLynxVisibleActorAt(actors: LynxRuntimeActor[], pos: number): LynxRuntimeActor | null {
-  return actors.find((actor) => !actor.hidden && actor.pos === pos) ?? null;
+  return findVisibleActorAtPosition(actors, pos) ?? null;
 }
 
 function resolveLynxChipCollision(
@@ -2236,7 +2237,7 @@ function resolveLynxChipCollision(
 }
 
 function allocateLynxActorSlot(actors: LynxRuntimeActor[], actor: LynxRuntimeActor): LynxRuntimeActor {
-  const hiddenIndex = actors.findIndex((entry) => entry.hidden && !entry.animationReserved);
+  const hiddenIndex = findReusableHiddenActorIndex(actors, (entry) => !entry.animationReserved);
   if (hiddenIndex < 0) {
     actors.push(actor);
     return actor;

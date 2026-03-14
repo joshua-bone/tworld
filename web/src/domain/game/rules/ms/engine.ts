@@ -4,6 +4,7 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@domain/game/debug";
+import { findHiddenActorAtPosition, findVisibleActorAtPosition } from "@domain/game/core/actors";
 import {
   addBottomTileFlags,
   addTopTileFlags,
@@ -1291,7 +1292,7 @@ function findTrapTarget(internal: MsInternalState, buttonPos: number): number | 
 }
 
 function creatureAtPos(internal: MsInternalState, pos: number): MsTrackedCreature | undefined {
-  return internal.creatures.find((creature) => !creature.hidden && creature.pos === pos);
+  return findVisibleActorAtPosition(internal.creatures, pos);
 }
 
 function isTrapButtonDown(cells: EngineMapCell[], pos: number): boolean {
@@ -1586,13 +1587,13 @@ function restartCreatureFloorMovementAfterBlockedAttempt(
 }
 
 function findVisibleTrackedBlock(internal: MsInternalState, pos: number): MsTrackedBlock | undefined {
-  return internal.blocks.find((block) => block.pos === pos && !block.hidden);
+  return findVisibleActorAtPosition(internal.blocks, pos);
 }
 
 function hideTrackedBlockAtPos(internal: MsInternalState, pos: number, dir: number): MsTrackedBlock {
   const block =
     findVisibleTrackedBlock(internal, pos) ??
-    internal.blocks.find((candidate) => candidate.pos === pos && candidate.hidden) ?? {
+    findHiddenActorAtPosition(internal.blocks, pos) ?? {
       pos,
       dir,
       hidden: false,
