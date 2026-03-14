@@ -14,7 +14,11 @@ import {
   isProceedKey,
 } from "@adapters/react/legacyHotkeys";
 import { BrowserLevelRepository } from "@adapters/levels/BrowserLevelRepository";
-import { LegacyMsInputBuffer, type DirectionInput } from "@adapters/react/legacyMsInput";
+import {
+  LegacyLynxInputBuffer,
+  LegacyMsInputBuffer,
+  type DirectionInput,
+} from "@adapters/react/legacyMsInput";
 import { LegacyCanvasScreen, type LegacyMode } from "@adapters/react/components/LegacyCanvasScreen";
 import { BrowserPlayableSelectionStore } from "@adapters/storage/BrowserPlayableSelectionStore";
 import { advanceInteractiveGameSession } from "@application/use-cases/advanceInteractiveGameSession";
@@ -24,7 +28,7 @@ import { savePlayableSelection } from "@application/use-cases/savePlayableSelect
 import { startInteractiveGameSession } from "@application/use-cases/startInteractiveGameSession";
 import type { InteractiveGameEnginePort, InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
 import type { PlayableSelection } from "@application/ports/PlayableSelectionStore";
-import type { GameInputName } from "@domain/game/command";
+import type { InteractiveInput } from "@domain/game/command";
 import type { SeriesCatalogEntry } from "@domain/series";
 
 const fixtureRepository = new StaticCharacterizationFixtureRepository();
@@ -117,6 +121,7 @@ const GAME_PLAYING_HELP: HelpSection[] = [
     title: "While Playing",
     commands: [
       { keys: "Arrow keys / WASD", action: "move Chip and start the clock" },
+      { keys: "Mouse click (MS)", action: "set a mouse goal on the clicked map tile" },
       { keys: "Space", action: "start the clock without moving" },
       { keys: "R", action: "restart the current level" },
       { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
@@ -233,7 +238,8 @@ export function App() {
   const [manualRunStarted, setManualRunStarted] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const tickingRef = useRef(false);
-  const inputBufferRef = useRef(new LegacyMsInputBuffer());
+  const msInputBufferRef = useRef(new LegacyMsInputBuffer());
+  const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
@@ -339,7 +345,8 @@ export function App() {
       return;
     }
     let active = true;
-    inputBufferRef.current.reset();
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
     setIsRunning(false);
     setIsSessionLoading(true);
 
@@ -379,7 +386,7 @@ export function App() {
     };
   }, [catalog, mode, reloadToken, selectedLevelNumber, selectedSeriesFile]);
 
-  const advanceTick = useEffectEvent(async (input: GameInputName) => {
+  const advanceTick = useEffectEvent(async (input: InteractiveInput) => {
     if (mode !== "game" || !session || tickingRef.current) {
       return;
     }
@@ -413,7 +420,11 @@ export function App() {
     }
 
     const intervalId = window.setInterval(() => {
-      void advanceTick(inputBufferRef.current.nextTickInput());
+      const inputCode =
+        session.request.ruleset === "Lynx"
+          ? lynxInputBufferRef.current.nextTickInputCode()
+          : msInputBufferRef.current.nextTickInputCode();
+      void advanceTick(inputCode);
     }, 50);
 
     return () => {
@@ -494,7 +505,8 @@ export function App() {
       return;
     }
 
-    inputBufferRef.current.reset();
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
 
     if (session.frame.snapshot.status === "completed") {
       const currentIndex = currentSeries.levels.findIndex((level) => level.number === currentLevel.number);
@@ -516,13 +528,15 @@ export function App() {
   });
 
   const toggleHelp = useEffectEvent(() => {
-    inputBufferRef.current.reset();
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
     setShowSoundControls(false);
     setShowHelp((value) => !value);
   });
 
   const closeHelp = useEffectEvent(() => {
-    inputBufferRef.current.reset();
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
     setShowHelp(false);
   });
 
@@ -599,7 +613,8 @@ export function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isSystemModifierKey(event.key)) {
-        inputBufferRef.current.reset();
+        msInputBufferRef.current.reset();
+        lynxInputBufferRef.current.reset();
       }
 
       if (isHelpToggleKey(event.key)) {
@@ -684,7 +699,8 @@ export function App() {
 
       if (event.key === "Escape") {
         event.preventDefault();
-        inputBufferRef.current.reset();
+        msInputBufferRef.current.reset();
+        lynxInputBufferRef.current.reset();
         setIsRunning(false);
         setMode("series-list");
         return;
@@ -731,12 +747,17 @@ export function App() {
 
       if (hasBlockedMovementModifier(event)) {
         event.preventDefault();
-        inputBufferRef.current.reset();
+        msInputBufferRef.current.reset();
+        lynxInputBufferRef.current.reset();
         return;
       }
 
       event.preventDefault();
-      inputBufferRef.current.keyDown(input);
+      if (session?.request.ruleset === "Lynx") {
+        lynxInputBufferRef.current.keyDown(input);
+      } else {
+        msInputBufferRef.current.keyDown(input);
+      }
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
@@ -745,19 +766,25 @@ export function App() {
       }
 
       if (isSystemModifierKey(event.key)) {
-        inputBufferRef.current.reset();
+        msInputBufferRef.current.reset();
+        lynxInputBufferRef.current.reset();
         return;
       }
 
       const input = keyToInput(event.key);
       if (input) {
         event.preventDefault();
-        inputBufferRef.current.keyUp(input);
+        if (session?.request.ruleset === "Lynx") {
+          lynxInputBufferRef.current.keyUp(input);
+        } else {
+          msInputBufferRef.current.keyUp(input);
+        }
       }
     };
 
     const onWindowBlur = () => {
-      inputBufferRef.current.reset();
+      msInputBufferRef.current.reset();
+      lynxInputBufferRef.current.reset();
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -858,6 +885,25 @@ export function App() {
         isLoading={isCatalogLoading || isSessionLoading}
         message={message}
         mode={mode}
+        onMapClick={(position) => {
+          if (
+            mode !== "game" ||
+            !session ||
+            session.mode !== "manual" ||
+            session.request.ruleset !== "MS" ||
+            session.frame.snapshot.status !== "playing"
+          ) {
+            return;
+          }
+
+          msInputBufferRef.current.queueAbsoluteMouseMove(position);
+          if (!manualRunStarted) {
+            setManualRunStarted(true);
+          }
+          if (!isRunning) {
+            setIsRunning(true);
+          }
+        }}
         onActivateSeries={activateSeries}
         onSelectSeries={selectSeries}
         selectedSeriesFile={selectedSeriesFile}

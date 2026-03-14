@@ -7,7 +7,7 @@ import type {
 } from "@application/ports/InteractiveGameEngine";
 import type { LevelRepository } from "@application/ports/LevelRepository";
 import { projectInteractiveGameSession } from "@application/use-cases/projectInteractiveGameSession";
-import { getGameInputCode, type GameInputName } from "@domain/game/command";
+import { resolveGameInputCode, type InteractiveInput } from "@domain/game/command";
 import { prepareLynxLevel } from "@domain/game/rules/lynx/level";
 import { decodeMsLevelData } from "@domain/game/rules/ms/level";
 import {
@@ -152,13 +152,13 @@ export class TsLynxGameEngineAdapter implements GameEnginePort, DebugGameEngineP
     });
   }
 
-  async advanceSession(session: InteractiveGameSession, input: GameInputName): Promise<InteractiveGameSession> {
+  async advanceSession(session: InteractiveGameSession, input: InteractiveInput): Promise<InteractiveGameSession> {
     const request = session.request;
     if (request.ruleset !== "Lynx") {
       throw new Error(`TS Lynx engine does not support ruleset ${request.ruleset}`);
     }
 
-    const token = advanceLynxInteractiveSession(fromInteractiveHandle(session.handle), getGameInputCode(input));
+    const token = advanceLynxInteractiveSession(fromInteractiveHandle(session.handle), resolveGameInputCode(input));
 
     return projectInteractiveGameSession({
       request: session.request,

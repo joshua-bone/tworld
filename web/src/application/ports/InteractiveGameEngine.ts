@@ -1,4 +1,4 @@
-import type { GameInputName } from "@domain/game/command";
+import type { InteractiveInput } from "@domain/game/command";
 import type { ReplaySolutionPayload } from "@domain/game/codec";
 import type { InteractiveGameFrame } from "@domain/game/interactive";
 import type { GameRequest } from "@domain/game/types";
@@ -22,5 +22,5 @@ export interface InteractiveGameSession {
 export interface InteractiveGameEnginePort {
   startSession(request: GameRequest): Promise<InteractiveGameSession>;
   startReplaySession(request: GameRequest, replay: ReplaySolutionPayload): Promise<InteractiveGameSession>;
-  advanceSession(session: InteractiveGameSession, input: GameInputName): Promise<InteractiveGameSession>;
+  advanceSession(session: InteractiveGameSession, input: InteractiveInput): Promise<InteractiveGameSession>;
 }

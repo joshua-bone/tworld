@@ -3187,7 +3187,9 @@ function latchCurrentInput(state: MsGameState, internal: MsInternalState, input:
     return;
   }
 
-  internal.currentInput = normalizeDirection(input.inputCode);
+  internal.currentInput = isMouseGoalInputCode(input.inputCode)
+    ? input.inputCode
+    : normalizeDirection(input.inputCode);
 }
 
 // MS runs Chip floor movement on even ticks before normal input handling.

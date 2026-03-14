@@ -35,6 +35,7 @@ interface LegacyCanvasScreenProps {
   message: string | null;
   onSelectSeries: (seriesFile: string) => void;
   onActivateSeries: (seriesFile: string) => void;
+  onMapClick?: (position: number) => void;
 }
 
 const COLORS = {
@@ -134,6 +135,42 @@ function seriesIndexAt(y: number, itemCount: number): number {
 
   const index = Math.floor((y - LIST_FIRST_ROW_Y) / LIST_ROW_HEIGHT);
   return index >= 0 && index < itemCount ? index : -1;
+}
+
+function mapPositionAtCanvasPoint(
+  session: InteractiveGameSession,
+  canvasX: number,
+  canvasY: number,
+): number | null {
+  if (
+    canvasX < LEGACY_MAP_X ||
+    canvasY < LEGACY_MAP_Y ||
+    canvasX >= LEGACY_MAP_X + LEGACY_MAP_WIDTH ||
+    canvasY >= LEGACY_MAP_Y + LEGACY_MAP_HEIGHT
+  ) {
+    return null;
+  }
+
+  const viewX = clamp(
+    session.frame.snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4),
+    0,
+    (32 - LEGACY_MAP_TILES) * 4,
+  );
+  const viewY = clamp(
+    session.frame.snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4),
+    0,
+    (32 - LEGACY_MAP_TILES) * 4,
+  );
+  const xOrigin = LEGACY_MAP_X - (viewX * LEGACY_TILE_SIZE) / 4;
+  const yOrigin = LEGACY_MAP_Y - (viewY * LEGACY_TILE_SIZE) / 4;
+  const tileX = Math.floor((canvasX - xOrigin) / LEGACY_TILE_SIZE);
+  const tileY = Math.floor((canvasY - yOrigin) / LEGACY_TILE_SIZE);
+
+  if (tileX < 0 || tileX >= 32 || tileY < 0 || tileY >= 32) {
+    return null;
+  }
+
+  return tileY * 32 + tileX;
 }
 
 function drawSprite(
@@ -529,6 +566,7 @@ export function LegacyCanvasScreen({
   message,
   onSelectSeries,
   onActivateSeries,
+  onMapClick,
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
@@ -566,14 +604,25 @@ export function LegacyCanvasScreen({
       className="legacy-canvas"
       height={LEGACY_WINDOW_HEIGHT}
       onClick={(event) => {
+        const canvas = event.currentTarget;
+        const bounds = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / bounds.width;
+        const scaleY = canvas.height / bounds.height;
+        const x = (event.clientX - bounds.left) * scaleX;
+        const y = (event.clientY - bounds.top) * scaleY;
+
         if (mode !== "series-list") {
+          if (!session || currentRuleset !== "MS" || !onMapClick) {
+            return;
+          }
+
+          const position = mapPositionAtCanvasPoint(session, x, y);
+          if (position !== null) {
+            onMapClick(position);
+          }
           return;
         }
 
-        const canvas = event.currentTarget;
-        const bounds = canvas.getBoundingClientRect();
-        const scaleY = canvas.height / bounds.height;
-        const y = (event.clientY - bounds.top) * scaleY;
         const index = seriesIndexAt(y, catalog.length);
         if (index < 0) {
           return;

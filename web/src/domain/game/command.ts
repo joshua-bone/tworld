@@ -8,6 +8,7 @@ export const GAME_INPUT_CODES = {
 } as const;
 
 export type GameInputName = keyof typeof GAME_INPUT_CODES;
+export type InteractiveInput = GameInputName | number;
 
 const GAME_INPUT_NAMES_BY_CODE = new Map<number, GameInputName>(
   Object.entries(GAME_INPUT_CODES).map(([name, code]) => [code, name as GameInputName]),
@@ -44,6 +45,10 @@ export function normalizeGameInputName(value: string): GameInputName | null {
 
 export function getGameInputCode(name: GameInputName): number {
   return GAME_INPUT_CODES[name];
+}
+
+export function resolveGameInputCode(input: InteractiveInput): number {
+  return typeof input === "number" ? input : getGameInputCode(input);
 }
 
 export function getGameInputNameFromCode(code: number): GameInputName | null {

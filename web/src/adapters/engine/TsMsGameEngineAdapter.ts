@@ -7,7 +7,7 @@ import type {
 } from "@application/ports/InteractiveGameEngine";
 import type { LevelRepository } from "@application/ports/LevelRepository";
 import { projectInteractiveGameSession } from "@application/use-cases/projectInteractiveGameSession";
-import { getGameInputCode, type GameInputName } from "@domain/game/command";
+import { resolveGameInputCode, type InteractiveInput } from "@domain/game/command";
 import { decodeMsLevelData, prepareMsLevel } from "@domain/game/rules/ms/level";
 import {
   advanceMsInteractiveSession,
@@ -153,9 +153,9 @@ export class TsMsGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
 
   async advanceSession(
     session: InteractiveGameSession,
-    input: GameInputName,
+    input: InteractiveInput,
   ): Promise<InteractiveGameSession> {
-    const token = advanceMsInteractiveSession(fromInteractiveHandle(session.handle), getGameInputCode(input));
+    const token = advanceMsInteractiveSession(fromInteractiveHandle(session.handle), resolveGameInputCode(input));
 
     return projectInteractiveGameSession({
       request: session.request,

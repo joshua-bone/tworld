@@ -1,4 +1,4 @@
-import type { GameInputName } from "@domain/game/command";
+import { GAME_INPUT_CODES, getGameInputCode, type GameInputName } from "@domain/game/command";
 
 export type DirectionInput = Exclude<GameInputName, "none" | "preserve">;
 
@@ -12,9 +12,21 @@ interface InputState {
 // MS runs with keyboard-style arrows plus casual input handling, which
 // inserts two non-repeating polls before a held key starts repeating.
 const MS_REPEAT_DELAY_TICKS = 2;
+const MS_ABSOLUTE_MOUSE_MOVE_FIRST = 512;
+const LYNX_DIRECTION_PRIORITY: readonly DirectionInput[] = ["north", "west", "south", "east"];
+
+interface LynxInputState {
+  active: boolean;
+  pending: boolean;
+}
+
+export function absoluteMouseMoveCode(position: number): number {
+  return MS_ABSOLUTE_MOUSE_MOVE_FIRST + position;
+}
 
 export class LegacyMsInputBuffer {
   private readonly states = new Map<DirectionInput, InputState>();
+  private readonly queuedCodes: number[] = [];
   private order = 0;
 
   keyDown(input: DirectionInput): void {
@@ -47,6 +59,34 @@ export class LegacyMsInputBuffer {
   }
 
   nextTickInput(): GameInputName {
+    return this.nextKeyboardInput();
+  }
+
+  nextTickInputCode(): number {
+    const queued = this.queuedCodes.shift();
+    if (queued !== undefined) {
+      return queued;
+    }
+
+    return getGameInputCode(this.nextKeyboardInput());
+  }
+
+  queueAbsoluteMouseMove(position: number): void {
+    this.queuedCodes.push(
+      absoluteMouseMoveCode(position),
+      GAME_INPUT_CODES.preserve,
+      GAME_INPUT_CODES.preserve,
+      GAME_INPUT_CODES.preserve,
+    );
+  }
+
+  reset(): void {
+    this.states.clear();
+    this.queuedCodes.length = 0;
+    this.order = 0;
+  }
+
+  private nextKeyboardInput(): GameInputName {
     const pending = this.selectState(([, state]) => state.pending);
     if (pending) {
       const [input, state] = pending;
@@ -71,11 +111,6 @@ export class LegacyMsInputBuffer {
     return input;
   }
 
-  reset(): void {
-    this.states.clear();
-    this.order = 0;
-  }
-
   private selectState(
     predicate: (entry: [DirectionInput, InputState]) => boolean,
   ): [DirectionInput, InputState] | null {
@@ -89,5 +124,81 @@ export class LegacyMsInputBuffer {
       }
     }
     return selected;
+  }
+}
+
+export class LegacyLynxInputBuffer {
+  private readonly states = new Map<DirectionInput, LynxInputState>();
+
+  keyDown(input: DirectionInput): void {
+    const existing = this.states.get(input);
+    if (existing?.active) {
+      return;
+    }
+
+    this.states.set(input, {
+      active: true,
+      pending: true,
+    });
+  }
+
+  keyUp(input: DirectionInput): void {
+    const existing = this.states.get(input);
+    if (!existing) {
+      return;
+    }
+
+    if (existing.pending) {
+      existing.active = false;
+      return;
+    }
+
+    this.states.delete(input);
+  }
+
+  nextTickInputCode(): number {
+    const code = this.composeActiveInputCode();
+
+    for (const [input, state] of this.states) {
+      state.pending = false;
+      if (!state.active) {
+        this.states.delete(input);
+      }
+    }
+
+    return code;
+  }
+
+  reset(): void {
+    this.states.clear();
+  }
+
+  private composeActiveInputCode(): number {
+    let code: number = GAME_INPUT_CODES.none;
+
+    for (const input of LYNX_DIRECTION_PRIORITY) {
+      const state = this.states.get(input);
+      if (!state || (!state.pending && !state.active)) {
+        continue;
+      }
+
+      const inputCode = getGameInputCode(input);
+      if (code === GAME_INPUT_CODES.none) {
+        code = inputCode;
+        continue;
+      }
+
+      const hasVertical = (code & (GAME_INPUT_CODES.north | GAME_INPUT_CODES.south)) !== 0;
+      const hasHorizontal = (code & (GAME_INPUT_CODES.west | GAME_INPUT_CODES.east)) !== 0;
+      const isVertical = (inputCode & (GAME_INPUT_CODES.north | GAME_INPUT_CODES.south)) !== 0;
+      const isHorizontal = (inputCode & (GAME_INPUT_CODES.west | GAME_INPUT_CODES.east)) !== 0;
+
+      if ((hasVertical && isHorizontal) || (hasHorizontal && isVertical)) {
+        code |= inputCode;
+      }
+      break;
+    }
+
+    return code;
   }
 }

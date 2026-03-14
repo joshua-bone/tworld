@@ -72,6 +72,10 @@ function relativeMouseMoveCode(chipPos: number, targetPos: number): number {
   return TEST_CMD_MOUSE_MOVE_FIRST + (dy - TEST_MOUSE_RANGE_MIN) * TEST_MOUSE_RANGE + (dx - TEST_MOUSE_RANGE_MIN);
 }
 
+function absoluteMouseMoveCode(targetPos: number): number {
+  return 512 + targetPos;
+}
+
 describe("MS engine regressions", () => {
   it("seeds Chip's runtime direction from the lower tile when Chip starts on the top layer", () => {
     const cells = createEmptyCells();
@@ -306,6 +310,28 @@ describe("MS engine regressions", () => {
     expect(trace.steps[0]?.inputCode).toBe(mouseCode);
     expect(trace.steps[0]?.phases[0]?.currentInputCode).toBe(mouseCode);
     expect(trace.steps[0]?.chip?.position.pos).toBe(chipPos);
+  });
+
+  it("keeps manual absolute mouse-goal commands intact and starts moving toward the clicked tile", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const targetPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [],
+      }),
+    );
+
+    const afterClick = advanceMsInteractiveSession(session, absoluteMouseMoveCode(targetPos));
+    const afterMove = advanceMsInteractiveSession(afterClick, MS_DIRECTION.none);
+    const settled = advanceMsInteractiveSession(afterMove, MS_DIRECTION.none);
+
+    expect(afterClick.state.internal.goalPos).toBe(targetPos);
+    expect(settled.state.internal.chipPos).toBe(targetPos);
   });
 
   it("moves Chip toward a replay mouse-goal on step-two cadence", () => {
