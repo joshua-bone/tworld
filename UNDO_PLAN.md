@@ -543,15 +543,22 @@ Exit criteria:
 
 - [x] all discussed behaviors are controllable in UI
 
-### [ ] PR8: Final Validation And Broader Replay Gates
+### [x] PR8: Final Validation And Broader Replay Gates
 
-- [ ] run bounded restore/replay parity validations
-- [ ] run broader replay verification after implementation is complete
-- [ ] document operational limits and defaults
+- [x] run bounded restore/replay parity validations
+- [x] run broader replay verification after implementation is complete
+- [x] document operational limits and defaults
 
 Exit criteria:
 
-- undo/replay restore is exact under test and does not regress gameplay parity
+- [x] undo/replay restore is exact under test and does not regress gameplay parity
+
+Validation used to close this PR:
+
+- `npm --workspace web run test -- src/game-runtime/impl/undoRestoreParity.test.ts src/game-runtime/impl/restoreInteractiveGameSession.test.ts src/undo-runtime/impl/history.test.ts`
+- `npm --workspace web run test -- src/replay-verifier/impl/compareMsInputTraceScenario.test.ts src/replay-verifier/impl/compareLynxInputTraceScenario.test.ts`
+- `npm --workspace web run typecheck`
+- `npm --workspace web exec vite build`
 
 ## Default Product Policy
 
@@ -563,6 +570,16 @@ The default shipping behavior should be:
 - rewind-and-resume available but explicit
 - takeover allowed during resumed historical replay
 - first live input forks the timeline and discards the old future from the active branch
+
+## Operational Limits
+
+- Undo history is session-local. It is not persisted across page reloads or exported replay files.
+- Undo settings changed in the browser UI apply on the next level load or restart, not retroactively to the already-running session.
+- Restore and resume operate only at recorded tick boundaries.
+- When bounded retention is enabled, restore is only available back to the earliest retained checkpoint. Older history is intentionally discarded.
+- When undo history is disabled for a session, no per-tick history is recorded and restore is only valid at the initial checkpoint.
+- Historical replay is single-branch in the UI. Manual takeover forks a new active timeline, but there is no branch merge UI in this pass.
+- Takeover during historical replay can be disabled in the UI. When disabled, replayed future ticks continue until the replay target is reached or the player restores elsewhere.
 
 ## Final Rule
 
