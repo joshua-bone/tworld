@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import lynxTilesUrl from "../../../../res/atiles.bmp?url";
-import msTilesUrl from "../../../../res/tiles.bmp?url";
+import lynxTilesUrl from "@res/atiles.bmp?url";
+import msTilesUrl from "@res/tiles.bmp?url";
 import { buildLegacyTileset, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type { InteractiveGameRenderFrame } from "@game-core/api/interactive";

@@ -11,36 +11,33 @@ import type {
 } from "@oracle-fixtures/impl/contracts/characterizationContract";
 
 export class StaticCharacterizationFixtureRepository implements CharacterizationFixtureRepository {
-  private readonly manifests = import.meta.glob("../../../../fixtures/characterization/v1/manifest.json", {
+  private readonly manifests = import.meta.glob("@fixtures/manifest.json", {
     import: "default",
   }) as Record<string, () => Promise<FixtureManifest>>;
-  private readonly seriesLists = import.meta.glob("../../../../fixtures/characterization/v1/series-list.json", {
+  private readonly seriesLists = import.meta.glob("@fixtures/series-list.json", {
     import: "default",
   }) as Record<string, () => Promise<SeriesListFixture>>;
-  private readonly levelInfoFixtures = import.meta.glob("../../../../fixtures/characterization/v1/level-info/*.json", {
+  private readonly levelInfoFixtures = import.meta.glob("@fixtures/level-info/*.json", {
     import: "default",
   }) as Record<string, () => Promise<LevelInfoFixture>>;
-  private readonly scoreFixtures = import.meta.glob("../../../../fixtures/characterization/v1/score-table/*.json", {
+  private readonly scoreFixtures = import.meta.glob("@fixtures/score-table/*.json", {
     import: "default",
   }) as Record<string, () => Promise<ScoreTableFixture>>;
-  private readonly timeFixtures = import.meta.glob("../../../../fixtures/characterization/v1/times-table/*.json", {
+  private readonly timeFixtures = import.meta.glob("@fixtures/times-table/*.json", {
     import: "default",
   }) as Record<string, () => Promise<TimesTableFixture>>;
-  private readonly solutionFixtures = import.meta.glob("../../../../fixtures/characterization/v1/solution-list/*.json", {
+  private readonly solutionFixtures = import.meta.glob("@fixtures/solution-list/*.json", {
     import: "default",
   }) as Record<string, () => Promise<SolutionListFixture>>;
-  private readonly traceFixtures = import.meta.glob("../../../../fixtures/characterization/v1/input-trace/*.json", {
+  private readonly traceFixtures = import.meta.glob("@fixtures/input-trace/*.json", {
     import: "default",
   }) as Record<string, () => Promise<InputTraceFixture>>;
-  private readonly replayTraceFixtures = import.meta.glob("../../../../fixtures/characterization/v1/replay-trace/*.json", {
+  private readonly replayTraceFixtures = import.meta.glob("@fixtures/replay-trace/*.json", {
     import: "default",
   }) as Record<string, () => Promise<InputTraceFixture>>;
-  private readonly solutionRoundTripFixtures = import.meta.glob(
-    "../../../../fixtures/characterization/v1/solution-roundtrip/*.json",
-    {
-      import: "default",
-    },
-  ) as Record<string, () => Promise<SolutionRoundTripFixture>>;
+  private readonly solutionRoundTripFixtures = import.meta.glob("@fixtures/solution-roundtrip/*.json", {
+    import: "default",
+  }) as Record<string, () => Promise<SolutionRoundTripFixture>>;
 
   private async loadSingle<T>(fixtures: Record<string, () => Promise<T>>, suffix: string): Promise<T> {
     const match = Object.entries(fixtures).find(([path]) => path.endsWith(suffix));

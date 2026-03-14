@@ -20,14 +20,17 @@
     "paths": {
       "@bootstrap/*": ["src/bootstrap/*"],
       "@content/*": ["src/content/*"],
+      "@data/*": ["../data/*"],
       "@game-core/*": ["src/game-core/*"],
       "@game-runtime/*": ["src/game-runtime/*"],
       "@level-catalog/*": ["src/level-catalog/*"],
       "@oracle-fixtures/*": ["src/oracle-fixtures/*"],
       "@player-web/*": ["src/player-web/*"],
       "@replay-verifier/*": ["src/replay-verifier/*"],
+      "@res/*": ["../res/*"],
       "@ruleset-lynx/*": ["src/ruleset-lynx/*"],
       "@ruleset-ms/*": ["src/ruleset-ms/*"],
+      "@sets/*": ["../sets/*"],
       "@fixtures/*": ["../fixtures/characterization/v1/*"]
     }
   },

@@ -2,12 +2,12 @@ import { extractDatLevels, parseSeriesConfig } from "@content/api/series-file";
 import type { LevelRepository, LoadedLevelData } from "@level-catalog/ports/LevelRepository";
 
 export class BrowserLevelRepository implements LevelRepository {
-  private readonly seriesConfigs = import.meta.glob("../../../../sets/*.dac", {
+  private readonly seriesConfigs = import.meta.glob("@sets/*.dac", {
     import: "default",
     query: "?raw",
   }) as Record<string, () => Promise<string>>;
 
-  private readonly dataFiles = import.meta.glob(["../../../../data/*.dat", "../../../../data/*.ccx", "!../../../../data/CHIPS.dat"], {
+  private readonly dataFiles = import.meta.glob(["@data/*.dat", "@data/*.ccx", "!@data/CHIPS.dat"], {
     import: "default",
     query: "?url",
   }) as Record<string, () => Promise<string>>;
