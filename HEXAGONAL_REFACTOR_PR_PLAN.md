@@ -33,6 +33,8 @@ npm run verify:all-replays
 
 When a PR only changes architecture scaffolding and not gameplay, a smaller bounded replay sample is acceptable during iteration, but the full replay verifier must be green before the PR is considered complete.
 
+- [x] Do not rerun the full replay sweep while this PR plan is still in progress. Use focused subsets for minimal validation during execution, then reserve the full sweep for the end of the plan.
+
 ## Done When
 
 - `domain/game/core` contains shared simulation primitives only.
@@ -44,159 +46,159 @@ When a PR only changes architecture scaffolding and not gameplay, a smaller boun
 
 ## PR 1: Boundary Guardrails And Core Ruleset Seams
 
-Status: complete
+- [x] Status: complete
 
 Scope:
 
-- add this refactor plan
-- add enforceable architecture tests for the current pure zones
-- add the first domain-core ruleset extension seam as types only
+- [x] add this refactor plan
+- [x] add enforceable architecture tests for the current pure zones
+- [x] add the first domain-core ruleset extension seam as types only
 
 Changes:
 
-- enforce that `domain/` non-test code stays free of adapter, React, and Node runtime imports
-- enforce that the current pure application surfaces stay free of adapter imports
-- add core ruleset metadata types for tile tags, actor tags, capabilities, and hooks
+- [x] enforce that `domain/` non-test code stays free of adapter, React, and Node runtime imports
+- [x] enforce that the current pure application surfaces stay free of adapter imports
+- [x] add core ruleset metadata types for tile tags, actor tags, capabilities, and hooks
 
 Exit criteria:
 
-- no runtime behavior changes
-- boundary tests pass
-- typecheck passes
-- build passes
+- [x] no runtime behavior changes
+- [x] boundary tests pass
+- [x] typecheck passes
+- [x] build passes
 
 ## PR 2: Snapshot, Trace, And Debug Projection Extraction
 
-Status: in progress
+- [x] Status: complete
 
 Scope:
 
-- move snapshot shaping, trace shaping, debug shaping, map-hash projection, and sound-bitmask projection out of the engines
+- [x] move snapshot shaping, trace shaping, debug shaping, map-hash projection, and sound-bitmask projection out of the engines
 
 Changes:
 
-- extract shared `GameTrace` and `GameDebugTrace` builders so engines stop hand-assembling outer trace payloads
-- extract projectors that convert internal simulation state into `GameSnapshot`, `GameTrace`, and debug payloads
-- reduce engine responsibilities to state transition plus effect emission
+- [x] extract shared `GameTrace` and `GameDebugTrace` builders so engines stop hand-assembling outer trace payloads
+- [x] extract projectors that convert internal simulation state into `GameSnapshot`, `GameTrace`, and debug payloads
+- [x] reduce engine responsibilities to state transition plus effect emission
 
 Exit criteria:
 
-- no trace changes
-- replay verifier remains green
+- [x] no trace changes
+- [x] replay verifier remains green
 
 ## PR 3: Interactive Session Shell Extraction
 
 Scope:
 
-- stop exposing engine internals directly through interactive session tokens
+- [ ] stop exposing engine internals directly through interactive session tokens
 
 Changes:
 
-- replace opaque adapter-owned session mutation with explicit session services and projectors
-- make interactive sessions consume projected frames instead of raw engine state
+- [ ] replace opaque adapter-owned session mutation with explicit session services and projectors
+- [ ] make interactive sessions consume projected frames instead of raw engine state
 
 Exit criteria:
 
-- browser player behavior is unchanged
-- replay import/export stays unchanged
+- [ ] browser player behavior is unchanged
+- [ ] replay import/export stays unchanged
 
 ## PR 4: Board And Actor Kernel Extraction
 
 Scope:
 
-- create the reusable simulation kernel shared by both rulesets
+- [ ] create the reusable simulation kernel shared by both rulesets
 
 Changes:
 
-- extract board math, occupancy checks, movement primitives, actor storage, timer primitives, collision primitives, and effect queues into `domain/game/core`
-- keep all ruleset-specific policy outside this kernel
+- [ ] extract board math, occupancy checks, movement primitives, actor storage, timer primitives, collision primitives, and effect queues into `domain/game/core`
+- [ ] keep all ruleset-specific policy outside this kernel
 
 Exit criteria:
 
-- both rulesets still run through existing adapters
-- no direct adapter imports anywhere in the kernel
+- [ ] both rulesets still run through existing adapters
+- [ ] no direct adapter imports anywhere in the kernel
 
 ## PR 5: MS Ruleset Catalog And Policy Routing
 
 Scope:
 
-- replace direct tile-id decisions in the MS engine with catalog-driven policy
+- [ ] replace direct tile-id decisions in the MS engine with catalog-driven policy
 
 Changes:
 
-- add an MS tile catalog with tags, capabilities, and hooks
-- route movement legality, floor interaction, collection, button handling, and death handling through policy helpers
-- shrink the monolithic MS engine loop into a phase pipeline plus policy calls
+- [ ] add an MS tile catalog with tags, capabilities, and hooks
+- [ ] route movement legality, floor interaction, collection, button handling, and death handling through policy helpers
+- [ ] shrink the monolithic MS engine loop into a phase pipeline plus policy calls
 
 Exit criteria:
 
-- MS replay parity stays green
-- adding a new MS tile no longer requires editing the generic movement kernel
+- [ ] MS replay parity stays green
+- [ ] adding a new MS tile no longer requires editing the generic movement kernel
 
 ## PR 6: Lynx Ruleset Catalog And Policy Routing
 
 Scope:
 
-- perform the same decoupling for the Lynx engine
+- [ ] perform the same decoupling for the Lynx engine
 
 Changes:
 
-- add a Lynx tile catalog with tags, capabilities, and hooks
-- route entry, leave, death, sound, trap, cloner, teleport, and animation policy through the catalog layer
+- [ ] add a Lynx tile catalog with tags, capabilities, and hooks
+- [ ] route entry, leave, death, sound, trap, cloner, teleport, and animation policy through the catalog layer
 
 Exit criteria:
 
-- Lynx replay parity stays green
-- legacy draw and sound parity surfaces still get the same projected state
+- [ ] Lynx replay parity stays green
+- [ ] legacy draw and sound parity surfaces still get the same projected state
 
 ## PR 7: Shared Turn Pipeline
 
 Scope:
 
-- standardize both engines around explicit phase orchestration
+- [ ] standardize both engines around explicit phase orchestration
 
 Changes:
 
-- formalize named phases such as input resolution, forced movement, actor intents, movement validation, collision resolution, tile hooks, deferred wiring actions, endgame, and animation updates
-- keep ruleset-specific phase handlers separate from the shared phase runner
+- [ ] formalize named phases such as input resolution, forced movement, actor intents, movement validation, collision resolution, tile hooks, deferred wiring actions, endgame, and animation updates
+- [ ] keep ruleset-specific phase handlers separate from the shared phase runner
 
 Exit criteria:
 
-- engine ordering stays parity-correct
-- phase sequencing becomes testable in isolation
+- [ ] engine ordering stays parity-correct
+- [ ] phase sequencing becomes testable in isolation
 
 ## PR 8: Level Preparation And Ruleset Assembly
 
 Scope:
 
-- separate raw DAT decoding from ruleset preparation
+- [ ] separate raw DAT decoding from ruleset preparation
 
 Changes:
 
-- keep raw level parsing as data decoding
-- add prepared-level assembly for MS and Lynx that normalizes tile layout, actor seeds, connections, and status flags before simulation starts
+- [ ] keep raw level parsing as data decoding
+- [ ] add prepared-level assembly for MS and Lynx that normalizes tile layout, actor seeds, connections, and status flags before simulation starts
 
 Exit criteria:
 
-- ruleset preparation is explicit and testable
-- engines receive prepared levels instead of raw parser output
+- [ ] ruleset preparation is explicit and testable
+- [ ] engines receive prepared levels instead of raw parser output
 
 ## PR 9: Adapter Cleanup And Final Boundary Tightening
 
 Scope:
 
-- remove remaining architecture leaks after the engines are migrated
+- [ ] remove remaining architecture leaks after the engines are migrated
 
 Changes:
 
-- tighten boundary tests to cover more of `application/use-cases`
-- remove old helper paths made obsolete by the refactor
-- document the extension workflow for new tiles and actors
+- [ ] tighten boundary tests to cover more of `application/use-cases`
+- [ ] remove old helper paths made obsolete by the refactor
+- [ ] document the extension workflow for new tiles and actors
 
 Exit criteria:
 
-- all boundaries are enforced by tests
-- the codebase matches the target architecture
+- [ ] all boundaries are enforced by tests
+- [ ] the codebase matches the target architecture
 
 ## Notes For Execution
 
