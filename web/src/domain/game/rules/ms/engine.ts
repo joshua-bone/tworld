@@ -25,6 +25,7 @@ import {
   topTileIdOr,
 } from "@domain/game/core/board";
 import {
+  advanceToCell,
   directionName,
   nextPosition,
   normalizeCardinalDirection as normalizeDirection,
@@ -1117,8 +1118,8 @@ function teleportDestinationForBlock(cells: EngineMapCell[], start: number, dir:
       continue;
     }
 
-    const exitPos = nextPosition(destination, dir, MS_GRID_WIDTH);
-    if (canMoveBlockInto(cells, exitPos, dir, occupiedOriginPos)) {
+    const exitStep = advanceToCell(cells, destination, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+    if (exitStep && canMoveBlockInto(cells, exitStep.pos, dir, occupiedOriginPos)) {
       return destination;
     }
   }

@@ -13,6 +13,7 @@ import {
   topTileIdOr,
 } from "@domain/game/core/board";
 import {
+  advanceToCell,
   advancePositionIfPossible,
   canAdvancePosition as canAdvanceLynxPosition,
   directionCode,
@@ -910,14 +911,11 @@ function probeLynxChipMoveDirection(
   if (!canLynxExitTile(state, topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), MS_TILE.Chip, dir, false)) {
     return { canMove: false, pushBlockPos: null };
   }
-  const targetPos = advancePositionIfPossible(chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-  if (targetPos === null) {
+  const targetStep = advanceToCell(state.map.cells, chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
     return { canMove: false, pushBlockPos: null };
   }
-  const target = state.map.cells[targetPos];
-  if (!target) {
-    return { canMove: false, pushBlockPos: null };
-  }
+  const { pos: targetPos, cell: target } = targetStep;
 
   if (hasTopTileFlags(state.map.cells, targetPos, LYNX_CELL_FLAG.Claimed)) {
     const block = findLynxBlockActor(actors, targetPos);
@@ -1066,10 +1064,11 @@ function shouldPreviewLynxForcedSlidePush(
     return false;
   }
 
-  const targetPos = chipPos + directionDelta(inputCode, MS_GRID_WIDTH);
-  if (!hasBoardCell(state.map.cells, targetPos)) {
+  const targetStep = advanceToCell(state.map.cells, chipPos, inputCode, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
     return false;
   }
+  const { pos: targetPos } = targetStep;
 
   const block = findLynxBlockActor(actors, targetPos);
   return !!block && !block.hidden && block.dormant;
@@ -1696,14 +1695,11 @@ function canLynxChipExitTeleportThroughBlock(
 
 function resolveLynxChipTeleport(state: EngineState, actors: LynxRuntimeActor[], chipPos: number, chipDir: number): number {
   const destination = findLynxTeleportDestination(state, chipPos, (teleportPos) => {
-    const exitPos = advancePositionIfPossible(teleportPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-    if (exitPos === null) {
+    const exitStep = advanceToCell(state.map.cells, teleportPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+    if (!exitStep) {
       return false;
     }
-    const exitCell = state.map.cells[exitPos] ?? null;
-    if (!exitCell) {
-      return false;
-    }
+    const { pos: exitPos, cell: exitCell } = exitStep;
 
     const teleportClaimed =
       teleportPos !== chipPos &&
@@ -1755,16 +1751,16 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
     removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     actor.pos = pos;
 
-    const exitPos = advancePositionIfPossible(pos, actor.dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-    if (exitPos === null) {
+    const exitStep = advanceToCell(state.map.cells, pos, actor.dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+    if (!exitStep) {
       if (pos === origin) {
         addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
         return;
       }
       continue;
     }
-    const exitCell = state.map.cells[exitPos] ?? null;
-    if (!exitCell || !canLynxCreatureEnter(effectiveLynxTargetTileId(state, exitCell.top.id), actor.id, actor.dir)) {
+    const { pos: exitPos, cell: exitCell } = exitStep;
+    if (!canLynxCreatureEnter(effectiveLynxTargetTileId(state, exitCell.top.id), actor.id, actor.dir)) {
       if (pos === origin) {
         addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
         return;
@@ -1898,14 +1894,12 @@ function canLynxCreatureStartMovement(
   if (!canLynxExitTile(state, floorFrom, actor.id, dir, releasing)) {
     return false;
   }
-  const targetPos = advancePositionIfPossible(actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-  if (targetPos === null) {
+  const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
     return false;
   }
-
-  const target = state.map.cells[targetPos];
+  const { pos: targetPos, cell: target } = targetStep;
   if (
-    !target ||
     (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 ||
     !canLynxCreatureEnter(effectiveLynxTargetTileId(state, target.top.id), actor.id, dir)
   ) {

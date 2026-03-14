@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  advanceToCell,
   advancePositionIfPossible,
   canAdvancePosition,
   directionCode,
@@ -45,6 +46,8 @@ describe("grid core helpers", () => {
     expect(canAdvancePosition(33, 1 | 8, 32, 32)).toBe(true);
     expect(advancePositionIfPossible(0, 2, 32, 32)).toBeNull();
     expect(advancePositionIfPossible(0, 8, 32, 32)).toBe(1);
+    expect(advanceToCell(["a", "b"], 0, 8, 2, 1)).toEqual({ pos: 1, cell: "b" });
+    expect(advanceToCell(["a", "b"], 0, 2, 2, 1)).toBeNull();
   });
 
   it("rounds view coordinates to a board position", () => {

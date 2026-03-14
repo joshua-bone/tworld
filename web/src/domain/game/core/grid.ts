@@ -80,6 +80,26 @@ export function advancePositionIfPossible(pos: number, dir: number, width: numbe
   return canAdvancePosition(pos, dir, width, height) ? nextPosition(pos, dir, width) : null;
 }
 
+export function advanceToCell<T>(
+  cells: readonly T[],
+  pos: number,
+  dir: number,
+  width: number,
+  height: number,
+): { pos: number; cell: T } | null {
+  const nextPos = advancePositionIfPossible(pos, dir, width, height);
+  if (nextPos === null) {
+    return null;
+  }
+
+  const cell = cells[nextPos];
+  if (cell === undefined) {
+    return null;
+  }
+
+  return { pos: nextPos, cell };
+}
+
 export function isDirectionalInput(inputCode: number): boolean {
   return inputCode >= 1 && inputCode <= 15;
 }
