@@ -31,6 +31,7 @@ import {
   normalizeCardinalDirection as normalizeDirection,
   reverseDirection as backDirection,
 } from "@domain/game/core/grid";
+import { advanceTimer } from "@domain/game/core/timer";
 import { mapHash } from "@domain/game/hash";
 import {
   createReplayPlan,
@@ -557,7 +558,7 @@ function statusName(internal: MsInternalState): EngineState["status"] {
 function updateEngine(state: MsGameState, cells: EngineMapCell[], soundEffects: number, advanceTick = true): MsGameState {
   const actors = collectMsActors(cells);
   const chip = actors.find((actor) => actor.id === MS_TILE.Chip || actor.id === MS_TILE.Swimming_Chip) ?? null;
-  const nextCurrentTime = state.engine.timer.currentTime + (advanceTick ? 1 : 0);
+  const timer = advanceTimer(state.engine.timer, advanceTick ? 1 : 0, MS_TICKS_PER_SECOND);
   let statusFlags = state.engine.statusFlags & ~MS_STATUS_FLAG.ShowHint;
   let nextSoundEffects = soundEffects;
   if (state.internal.completed) {
@@ -576,12 +577,7 @@ function updateEngine(state: MsGameState, cells: EngineMapCell[], soundEffects: 
     engine: {
       ...state.engine,
       status: statusName(state.internal),
-      timer: {
-        ...state.engine.timer,
-        tick: state.engine.timer.tick + (advanceTick ? 1 : 0),
-        currentTime: nextCurrentTime,
-        secondsPlayed: Math.trunc((nextCurrentTime + state.engine.timer.timeOffset) / 20),
-      },
+      timer,
       replay: {
         ...state.engine.replay,
         randomState: {

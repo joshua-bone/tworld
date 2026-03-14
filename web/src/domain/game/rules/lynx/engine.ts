@@ -27,6 +27,7 @@ import {
   reverseDirection as backDirection,
   roundedBoardPosition,
 } from "@domain/game/core/grid";
+import { advanceTimer, syncTimerSecondsPlayed } from "@domain/game/core/timer";
 import { mapHash } from "@domain/game/hash";
 import { createReplayPlan, createRuntimeCommand, plannedReplayInput, recordManualMove, runtimeCommandName } from "@domain/game/playback";
 import { getGameInputNameFromCode } from "@domain/game/command";
@@ -37,6 +38,7 @@ import {
   MS_GRID_HEIGHT,
   MS_GRID_WIDTH,
   MS_STATUS_FLAG,
+  MS_TICKS_PER_SECOND,
   MS_TILE,
   isMsBoots,
   isMsCreature,
@@ -3039,8 +3041,7 @@ function advanceLynxInteractiveTick(
   clearDeferredLynxBlockPushes(actors);
   state.map.hash = mapHash(state.map.cells);
 
-  state.timer.tick += 1;
-  state.timer.currentTime += 1;
+  state.timer = advanceTimer(state.timer, 1, MS_TICKS_PER_SECOND);
   updateLynxViewFromMovement(state, chipPos, chipDir, chipMoving);
   const displayFloor = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
   if (displayFloor === MS_TILE.HintButton && chipMoving === 0) {
@@ -3072,7 +3073,7 @@ function advanceLynxInteractiveTick(
   const finalizedEndGame = finalizeLynxEndGame(state, endGameTicksElapsed, endGameResult);
   endGameTicksElapsed = finalizedEndGame.endGameTicksElapsed;
   endGameResult = finalizedEndGame.endGameResult;
-  state.timer.secondsPlayed = Math.trunc((state.timer.currentTime + state.timer.timeOffset) / 20);
+  state.timer = syncTimerSecondsPlayed(state.timer, MS_TICKS_PER_SECOND);
   state.map.hash = mapHash(state.map.cells);
 
   return {
@@ -3632,8 +3633,7 @@ function runLynxReplayTraceDebugInternal(
       ),
     );
 
-    state.timer.tick += 1;
-    state.timer.currentTime += 1;
+    state.timer = advanceTimer(state.timer, 1, MS_TICKS_PER_SECOND);
     updateLynxViewFromMovement(state, chipPos, chipDir, chipMoving);
     const displayFloor = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
     if (displayFloor === MS_TILE.HintButton && chipMoving === 0) {
@@ -3679,7 +3679,7 @@ function runLynxReplayTraceDebugInternal(
     const finalizedEndGame = finalizeLynxEndGame(state, endGameTicksElapsed, endGameResult);
     endGameTicksElapsed = finalizedEndGame.endGameTicksElapsed;
     endGameResult = finalizedEndGame.endGameResult;
-    state.timer.secondsPlayed = Math.trunc((state.timer.currentTime + state.timer.timeOffset) / 20);
+    state.timer = syncTimerSecondsPlayed(state.timer, MS_TICKS_PER_SECOND);
     state.map.hash = mapHash(state.map.cells);
 
     if (includeStep(tick)) {
