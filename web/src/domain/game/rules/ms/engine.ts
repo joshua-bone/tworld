@@ -10,6 +10,8 @@ import {
   boardCell,
   bottomTile,
   bottomTileId,
+  hasBottomTileFlags,
+  hasTopTileFlags,
   cloneBoardCells,
   popBoardTile,
   pushBoardTile,
@@ -779,7 +781,7 @@ export function initializeMsGameState(
   }
 
   for (const cell of cells) {
-    if (cell.top.state & MS_FLOOR_STATE.Marker) {
+    if (hasTopTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.Marker)) {
       removeTopTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.Marker);
     } else if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
       chipPos = cell.position.pos;
@@ -1357,10 +1359,10 @@ function handleDeferredButtons(cells: EngineMapCell[], internal: MsInternalState
 
   for (const cell of cells) {
     let floor: number = MS_TILE.Empty;
-    if ((cell.top.state & MS_FLOOR_STATE.ButtonDown) !== 0) {
+    if (hasTopTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.ButtonDown)) {
       removeTopTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.ButtonDown);
       floor = cell.top.id;
-    } else if ((cell.bottom.state & MS_FLOOR_STATE.ButtonDown) !== 0) {
+    } else if (hasBottomTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.ButtonDown)) {
       removeBottomTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.ButtonDown);
       floor = cell.bottom.id;
     }

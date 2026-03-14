@@ -28,6 +28,22 @@ export function bottomTileId(cells: EngineMapCell[], pos: number): number {
   return bottomTile(cells, pos).id;
 }
 
+export function topTileState(cells: EngineMapCell[], pos: number): number {
+  return topTile(cells, pos).state;
+}
+
+export function bottomTileState(cells: EngineMapCell[], pos: number): number {
+  return bottomTile(cells, pos).state;
+}
+
+export function hasTopTileFlags(cells: EngineMapCell[], pos: number, flags: number): boolean {
+  return (topTileState(cells, pos) & flags) !== 0;
+}
+
+export function hasBottomTileFlags(cells: EngineMapCell[], pos: number, flags: number): boolean {
+  return (bottomTileState(cells, pos) & flags) !== 0;
+}
+
 export function replaceTopTile(cells: EngineMapCell[], pos: number, tile: EngineTile): void {
   boardCell(cells, pos).top = { ...tile };
 }

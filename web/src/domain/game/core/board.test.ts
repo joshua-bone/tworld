@@ -5,7 +5,10 @@ import {
   boardCell,
   bottomTile,
   bottomTileId,
+  bottomTileState,
   cloneBoardCells,
+  hasBottomTileFlags,
+  hasTopTileFlags,
   popBoardTile,
   promoteBottomTile,
   pushBoardTile,
@@ -15,6 +18,7 @@ import {
   replaceTopTile,
   topTile,
   topTileId,
+  topTileState,
 } from "@domain/game/core/board";
 import type { EngineMapCell } from "@domain/game/model";
 
@@ -57,6 +61,8 @@ describe("board core helpers", () => {
     expect(bottomTile(cells, 0)).toBe(cells[0]?.bottom);
     expect(topTileId(cells, 0)).toBe(10);
     expect(bottomTileId(cells, 0)).toBe(20);
+    expect(topTileState(cells, 0)).toBe(11);
+    expect(bottomTileState(cells, 0)).toBe(21);
   });
 
   it("replaces and mutates top and bottom layers through shared helpers", () => {
@@ -74,6 +80,10 @@ describe("board core helpers", () => {
       top: { id: 30, state: 4 },
       bottom: { id: 40, state: 8 },
     });
+    expect(hasTopTileFlags(cells, 0, 4)).toBe(true);
+    expect(hasTopTileFlags(cells, 0, 1)).toBe(false);
+    expect(hasBottomTileFlags(cells, 0, 8)).toBe(true);
+    expect(hasBottomTileFlags(cells, 0, 2)).toBe(false);
   });
 
   it("promotes the bottom tile and clears the lower layer", () => {

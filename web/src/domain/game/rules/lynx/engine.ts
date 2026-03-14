@@ -3,6 +3,7 @@ import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@domain/game/debug"
 import {
   addTopTileFlags,
   cloneBoardCells,
+  hasTopTileFlags,
   promoteBottomTile,
   removeTopTileFlags,
   replaceTopTile,
@@ -915,7 +916,7 @@ function probeLynxChipMoveDirection(
     return { canMove: false, pushBlockPos: null };
   }
 
-  if ((target.top.state & LYNX_CELL_FLAG.Claimed) !== 0) {
+  if (hasTopTileFlags(state.map.cells, targetPos, LYNX_CELL_FLAG.Claimed)) {
     const block = findLynxBlockActor(actors, targetPos);
     if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
       return { canMove: false, pushBlockPos: null };
@@ -1701,12 +1702,15 @@ function resolveLynxChipTeleport(state: EngineState, actors: LynxRuntimeActor[],
       return false;
     }
 
-    const teleportClaimed = (state.map.cells[teleportPos]?.top.state ?? 0) & LYNX_CELL_FLAG.Claimed;
-    if (teleportPos !== chipPos && teleportClaimed !== 0) {
+    const teleportClaimed =
+      teleportPos !== chipPos &&
+      state.map.cells[teleportPos] !== undefined &&
+      hasTopTileFlags(state.map.cells, teleportPos, LYNX_CELL_FLAG.Claimed);
+    if (teleportClaimed) {
       return false;
     }
 
-    if ((exitCell.top.state & LYNX_CELL_FLAG.Claimed) !== 0) {
+    if (hasTopTileFlags(state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
       const exitBlock = findLynxBlockActor(actors, exitPos);
       if (exitBlock) {
         return canLynxChipExitTeleportThroughBlock(state, actors, exitPos, chipDir);
@@ -1765,7 +1769,7 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
       continue;
     }
 
-    if ((state.map.cells[pos]?.top.state ?? 0) & LYNX_CELL_FLAG.Claimed) {
+    if (hasTopTileFlags(state.map.cells, pos, LYNX_CELL_FLAG.Claimed)) {
       if (pos === origin) {
         addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
         return;
@@ -1773,7 +1777,7 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
       continue;
     }
 
-    if ((exitCell.top.state & LYNX_CELL_FLAG.Claimed) === 0) {
+    if (!hasTopTileFlags(state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
       addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
       actor.teleported = true;
       return;
