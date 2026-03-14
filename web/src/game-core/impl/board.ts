@@ -8,6 +8,13 @@ export function cloneBoardCells(cells: EngineMapCell[]): EngineMapCell[] {
   }));
 }
 
+export function cloneBoardLayers(layers: ReadonlyArray<{ z: number; cells: EngineMapCell[] }>): Array<{ z: number; cells: EngineMapCell[] }> {
+  return layers.map((layer) => ({
+    z: layer.z,
+    cells: cloneBoardCells(layer.cells),
+  }));
+}
+
 export function boardCell(cells: EngineMapCell[], pos: number): EngineMapCell {
   return cells[pos]!;
 }

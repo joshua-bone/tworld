@@ -4,6 +4,13 @@ import { MS_FLOOR_STATE, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_STATUS_FLAG, MS_TICKS
 export interface MsConnection {
   from: number;
   to: number;
+  fromZ?: number;
+  toZ?: number;
+}
+
+export interface MsLayerPosition {
+  z: number;
+  pos: number;
 }
 
 export interface MsLevelLayer {
@@ -288,6 +295,8 @@ function decodeMsSingleLevelData(levelData: Uint8Array, z: number): DecodedMsLev
           traps.push({
             from: readPos(levelData, fieldOffset + connectionOffset, fieldOffset + connectionOffset + 2),
             to: readPos(levelData, fieldOffset + connectionOffset + 4, fieldOffset + connectionOffset + 6),
+            fromZ: z,
+            toZ: z,
           });
         }
         break;
@@ -296,6 +305,8 @@ function decodeMsSingleLevelData(levelData: Uint8Array, z: number): DecodedMsLev
           cloners.push({
             from: readPos(levelData, fieldOffset + connectionOffset, fieldOffset + connectionOffset + 2),
             to: readPos(levelData, fieldOffset + connectionOffset + 4, fieldOffset + connectionOffset + 6),
+            fromZ: z,
+            toZ: z,
           });
         }
         break;
@@ -354,12 +365,49 @@ export function decodeMsLevelData(levelData: Uint8Array): DecodedMsLevelData {
   return decodeMsLevelGroupData([levelData]);
 }
 
+export function levelLayers(level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "hintText" | "layers">): MsLevelLayer[] {
+  return level.layers ?? [
+    {
+      z: 1,
+      cells: level.cells,
+      traps: level.traps.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? 1, toZ: connection.toZ ?? 1 })),
+      cloners: level.cloners.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? 1, toZ: connection.toZ ?? 1 })),
+      creaturePositions: [...level.creaturePositions],
+      hintText: level.hintText,
+    },
+  ];
+}
+
+export function collectLevelConnections(
+  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "hintText" | "layers">,
+  kind: "traps" | "cloners",
+): MsConnection[] {
+  return levelLayers(level).flatMap((layer) =>
+    layer[kind].map((connection) => ({
+      ...connection,
+      fromZ: connection.fromZ ?? layer.z,
+      toZ: connection.toZ ?? layer.z,
+    })),
+  );
+}
+
+export function collectLevelCreaturePositions(
+  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "hintText" | "layers">,
+): MsLayerPosition[] {
+  return levelLayers(level).flatMap((layer) =>
+    layer.creaturePositions.map((pos) => ({
+      z: layer.z,
+      pos,
+    })),
+  );
+}
+
 export function prepareMsLevel(decoded: DecodedMsLevelData): MsLevel {
   const layers: MsLevelLayer[] = (decoded.layers ?? []).map((layer) => ({
     z: layer.z,
     cells: layer.cells,
-    traps: layer.traps,
-    cloners: layer.cloners,
+    traps: layer.traps.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? layer.z, toZ: connection.toZ ?? layer.z })),
+    cloners: layer.cloners.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? layer.z, toZ: connection.toZ ?? layer.z })),
     creaturePositions: layer.creaturePositions,
     hintText: layer.hintText,
   }));

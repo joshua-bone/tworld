@@ -53,7 +53,7 @@ import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
 import { collectMsActors, hashMsCreatures, projectMsDebugPhaseSnapshot } from "@ruleset-ms/impl/debugProjection";
 import type { GameCommand, GameRequest, GameRuntimeCommand, GameTrace } from "@game-core/api/types";
-import type { MsConnection, MsLevel } from "@ruleset-ms/api/level";
+import { collectLevelConnections, type MsConnection, type MsLevel } from "@ruleset-ms/api/level";
 import type { SolutionMove } from "@content/api/solution-file";
 import {
   msBlockMovementMask,
@@ -96,6 +96,7 @@ export interface MsTrackedCreature {
   dir: number;
   tdir: number;
   pos: number;
+  z?: number;
   hidden: boolean;
   moving: number;
   frame: number;
@@ -116,6 +117,7 @@ interface MsCreatureSlipEntry {
 
 export interface MsTrackedBlock {
   pos: number;
+  z?: number;
   dir: number;
   hidden: boolean;
   released: boolean;
@@ -128,6 +130,7 @@ export interface MsTrackedBlock {
 
 export interface MsInternalState {
   chipPos: number;
+  chipZ?: number;
   chipDir: number;
   chipTDir: number;
   currentInput: number;
@@ -380,6 +383,7 @@ function cloneInventory(inventory: EngineState["inventory"]): EngineState["inven
 function createTrackedBlockState(pos: number, dir: number): MsTrackedBlock {
   return {
     pos,
+    z: 1,
     dir,
     hidden: false,
     released: false,
@@ -462,6 +466,10 @@ function updateEngine(state: MsGameState, cells: EngineMapCell[], soundEffects: 
         creaturesHash: hashMsCreatures(cells),
         creatureCount: actors.length,
         cells,
+        layers: state.engine.map.layers?.map((layer) => ({
+          z: layer.z,
+          cells: layer.z === 1 ? cells : cloneBoardCells(layer.cells),
+        })),
       },
       view: {
         x: (state.internal.chipPos % MS_GRID_WIDTH) * 8,
@@ -630,6 +638,7 @@ export function initializeMsGameState(
           dir: msCreatureDir(cell.top.id),
           tdir: MS_DIRECTION.none,
           pos,
+          z: cell.position.z ?? 1,
           hidden: false,
           moving: 0,
           frame: 0,
@@ -659,6 +668,7 @@ export function initializeMsGameState(
 
   const internal: MsInternalState = {
     chipPos,
+    chipZ: 1,
     chipDir,
     chipTDir: MS_DIRECTION.none,
     currentInput: MS_DIRECTION.none,
@@ -676,8 +686,8 @@ export function initializeMsGameState(
     creatureIndexBySerial: new Map(creatures.map((creature, creatureIndex) => [creature.serial, creatureIndex])),
     creatureSlipList: [],
     blocks,
-    traps: level.traps.map((connection) => ({ ...connection })),
-    cloners: level.cloners.map((connection) => ({ ...connection })),
+    traps: collectLevelConnections(level, "traps"),
+    cloners: collectLevelConnections(level, "cloners"),
     pendingCloners: [],
     pendingSoundEffects: 0,
     nextCreatureSerial: creatures.length + 1,
@@ -690,9 +700,11 @@ export function initializeMsGameState(
 
   for (const connection of internal.traps) {
     if (
-      connection.to === internal.chipPos ||
-      cells[connection.to]?.top.id === MS_TILE.Block_Static ||
-      isTrapButtonDown(cells, connection.from)
+      (connection.toZ ?? 1) === 1 &&
+      (connection.fromZ ?? 1) === 1 &&
+      (connection.to === internal.chipPos ||
+        cells[connection.to]?.top.id === MS_TILE.Block_Static ||
+        isTrapButtonDown(cells, connection.from))
     ) {
       springTrap(cells, internal, connection.from);
     }
@@ -732,6 +744,10 @@ export function initializeMsGameState(
       creaturesHash: "",
       creatureCount: 0,
       cells,
+      layers: (level.layers ?? [{ z: 1, cells, traps: [], cloners: [], creaturePositions: [], hintText: "" }]).map((layer) => ({
+        z: layer.z,
+        cells: layer.z === 1 ? cells : cloneBoardCells(layer.cells),
+      })),
     },
     view: { x: 0, y: 0 },
     soundEffects: 0,
@@ -1143,12 +1159,16 @@ function advanceCloneMachineBlock(cells: EngineMapCell[], internal: MsInternalSt
   return moveBlock(cells, internal, pos, dir, false, true);
 }
 
-function findClonerTarget(internal: MsInternalState, buttonPos: number): number | null {
-  return internal.cloners.find((connection) => connection.from === buttonPos)?.to ?? null;
+function findClonerTarget(internal: MsInternalState, buttonPos: number, buttonZ = 1): number | null {
+  return internal.cloners.find(
+    (connection) => connection.from === buttonPos && (connection.fromZ ?? 1) === buttonZ && (connection.toZ ?? 1) === buttonZ,
+  )?.to ?? null;
 }
 
-function findTrapTarget(internal: MsInternalState, buttonPos: number): number | null {
-  return internal.traps.find((connection) => connection.from === buttonPos)?.to ?? null;
+function findTrapTarget(internal: MsInternalState, buttonPos: number, buttonZ = 1): number | null {
+  return internal.traps.find(
+    (connection) => connection.from === buttonPos && (connection.fromZ ?? 1) === buttonZ && (connection.toZ ?? 1) === buttonZ,
+  )?.to ?? null;
 }
 
 function creatureAtPos(internal: MsInternalState, pos: number): MsTrackedCreature | undefined {
@@ -1159,13 +1179,18 @@ function isTrapButtonDown(cells: EngineMapCell[], pos: number): boolean {
   return pos >= 0 && pos < cells.length && topTileId(cells, pos) !== MS_TILE.Button_Brown;
 }
 
-function hasTrapConnection(internal: MsInternalState, pos: number): boolean {
-  return internal.traps.some((connection) => connection.to === pos);
+function hasTrapConnection(internal: MsInternalState, pos: number, z = 1): boolean {
+  return internal.traps.some((connection) => connection.to === pos && (connection.toZ ?? 1) === z);
 }
 
-function isTrapOpen(cells: EngineMapCell[], internal: MsInternalState, trapPos: number, skipButtonPos: number): boolean {
+function isTrapOpen(cells: EngineMapCell[], internal: MsInternalState, trapPos: number, skipButtonPos: number, z = 1): boolean {
   return internal.traps.some(
-    (connection) => connection.to === trapPos && connection.from !== skipButtonPos && isTrapButtonDown(cells, connection.from),
+    (connection) =>
+      connection.to === trapPos &&
+      connection.from !== skipButtonPos &&
+      (connection.fromZ ?? 1) === z &&
+      (connection.toZ ?? 1) === z &&
+      isTrapButtonDown(cells, connection.from),
   );
 }
 

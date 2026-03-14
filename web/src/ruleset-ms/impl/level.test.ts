@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { decodeMsLevelData, decodeMsLevelGroupData, prepareMsLevel } from "@ruleset-ms/api/level";
+import {
+  collectLevelConnections,
+  collectLevelCreaturePositions,
+  decodeMsLevelData,
+  decodeMsLevelGroupData,
+  prepareMsLevel,
+} from "@ruleset-ms/api/level";
 import { MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE } from "@ruleset-ms/api/tiles";
 
 function createMinimalLevelData(levelNumber = 7): Uint8Array {
@@ -38,6 +44,60 @@ describe("ms level preparation", () => {
     expect(decoded.layers?.[1]?.number).toBe(8);
     expect(decoded.layers?.[0]?.cells[0]?.position.z).toBe(1);
     expect(decoded.layers?.[1]?.cells[0]?.position.z).toBe(2);
+  });
+
+  it("collects z-aware connection and creature metadata in layer order", () => {
+    const prepared = prepareMsLevel({
+      number: 9,
+      timeLimitSeconds: 15,
+      chipsNeeded: 4,
+      hintText: "hint-1",
+      cells: [],
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      badTiles: false,
+      layers: [
+        {
+          z: 1,
+          number: 9,
+          timeLimitSeconds: 15,
+          chipsNeeded: 4,
+          hintText: "hint-1",
+          cells: [],
+          traps: [{ from: 1, to: 2 }],
+          cloners: [{ from: 3, to: 4 }],
+          creaturePositions: [12],
+          badTiles: false,
+        },
+        {
+          z: 2,
+          number: 10,
+          timeLimitSeconds: 99,
+          chipsNeeded: 0,
+          hintText: "hint-2",
+          cells: [],
+          traps: [{ from: 5, to: 6 }],
+          cloners: [{ from: 7, to: 8 }],
+          creaturePositions: [20, 21],
+          badTiles: false,
+        },
+      ],
+    });
+
+    expect(collectLevelConnections(prepared, "traps")).toEqual([
+      { from: 1, to: 2, fromZ: 1, toZ: 1 },
+      { from: 5, to: 6, fromZ: 2, toZ: 2 },
+    ]);
+    expect(collectLevelConnections(prepared, "cloners")).toEqual([
+      { from: 3, to: 4, fromZ: 1, toZ: 1 },
+      { from: 7, to: 8, fromZ: 2, toZ: 2 },
+    ]);
+    expect(collectLevelCreaturePositions(prepared)).toEqual([
+      { z: 1, pos: 12 },
+      { z: 2, pos: 20 },
+      { z: 2, pos: 21 },
+    ]);
   });
 
   it("prepares decoded MS level data into runtime ticks and flags", () => {

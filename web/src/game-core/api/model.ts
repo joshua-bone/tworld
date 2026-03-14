@@ -48,6 +48,10 @@ export interface EngineMapState {
   creaturesHash: string;
   creatureCount: number;
   cells: EngineMapCell[];
+  layers?: Array<{
+    z: number;
+    cells: EngineMapCell[];
+  }>;
 }
 
 export interface EngineMoveState {

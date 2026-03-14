@@ -63,6 +63,28 @@ function advanceLynxTicks(
 }
 
 describe("initializeLynxEngineState", () => {
+  it("preserves cloned runtime map layers during initialization", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    lower[33] = createCell(33, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty);
+
+    const state = initializeLynxEngineState(
+      { seriesFile: "intro-lynx.dac", levelNumber: 1, ruleset: "Lynx" },
+      {
+        ...createLevel([createCell(33, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty)]),
+        cells: lower,
+        layers: [
+          { z: 1, cells: lower, traps: [{ from: 10, to: 11, fromZ: 1, toZ: 1 }], cloners: [], creaturePositions: [33], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [{ from: 20, to: 21, fromZ: 2, toZ: 2 }], creaturePositions: [], hintText: "" },
+        ],
+      },
+    );
+
+    expect(state.map.layers?.map((layer) => layer.z)).toEqual([1, 2]);
+    expect(state.map.layers?.[0]?.cells).toBe(state.map.cells);
+    expect(state.map.layers?.[1]?.cells).not.toBe(upper);
+  });
+
   it("removes Chip from the map without claiming the floor", () => {
     const level = createLevel([createCell(33, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty)]);
     const state = initializeLynxEngineState(

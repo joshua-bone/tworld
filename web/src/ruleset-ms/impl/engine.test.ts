@@ -78,6 +78,37 @@ function absoluteMouseMoveCode(targetPos: number): number {
 }
 
 describe("MS engine regressions", () => {
+  it("preserves cloned runtime map layers and z-aware connection metadata during initialization", () => {
+    const cells = createEmptyCells();
+    const upperCells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+
+    const state = initializeMsGameState(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells, traps: [{ from: 10, to: 11 }], cloners: [{ from: 12, to: 13 }], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upperCells, traps: [{ from: 20, to: 21 }], cloners: [{ from: 22, to: 23 }], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    expect(state.engine.map.layers?.map((layer) => layer.z)).toEqual([1, 2]);
+    expect(state.engine.map.layers?.[0]?.cells).toBe(state.engine.map.cells);
+    expect(state.engine.map.layers?.[1]?.cells).not.toBe(upperCells);
+    expect(state.internal.traps).toEqual([
+      { from: 10, to: 11, fromZ: 1, toZ: 1 },
+      { from: 20, to: 21, fromZ: 2, toZ: 2 },
+    ]);
+    expect(state.internal.cloners).toEqual([
+      { from: 12, to: 13, fromZ: 1, toZ: 1 },
+      { from: 22, to: 23, fromZ: 2, toZ: 2 },
+    ]);
+  });
+
   it("seeds Chip's runtime direction from the lower tile when Chip starts on the top layer", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);

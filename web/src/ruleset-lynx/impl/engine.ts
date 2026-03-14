@@ -69,6 +69,7 @@ import {
 import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
+import { collectLevelConnections } from "@ruleset-ms/api/level";
 import type { GameRuntimeCommand } from "@game-core/api/types";
 import type { SolutionMove } from "@content/api/solution-file";
 
@@ -82,6 +83,7 @@ export interface LynxInteractiveSessionState {
   recordedMoves: SolutionMove[];
   replayPlan: ReturnType<typeof createReplayPlan> | null;
   chipPos: number;
+  chipZ?: number;
   chipDir: number;
   chipMoving: number;
   currentInputCode: number;
@@ -100,6 +102,7 @@ type LynxEndGameResult = "completed" | "failed";
 export interface LynxRuntimeActor {
   id: number;
   pos: number;
+  z?: number;
   dir: number;
   intentDir: number;
   forcedDir: number;
@@ -260,10 +263,11 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
   for (const cell of level.cells) {
     const tile = cell.top;
     if (tile.id === MS_TILE.Block_Static) {
-      scanned.push({
-        id: MS_TILE.Block,
-        pos: cell.position.pos,
-        dir: 1,
+    scanned.push({
+      id: MS_TILE.Block,
+      pos: cell.position.pos,
+      z: cell.position.z ?? 1,
+      dir: 1,
         intentDir: 0,
         forcedDir: 0,
         teleported: false,
@@ -286,6 +290,7 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
     scanned.push({
       id: msCreatureId(tile.id),
       pos: cell.position.pos,
+      z: cell.position.z ?? 1,
       dir: msCreatureDir(tile.id),
       intentDir: 0,
       forcedDir: 0,
@@ -2203,12 +2208,16 @@ function allocateLynxActorSlot(actors: LynxRuntimeActor[], actor: LynxRuntimeAct
   return storeActorInReusableHiddenSlot(actors, actor, (entry) => !entry.animationReserved);
 }
 
-function findLynxClonerTarget(level: LynxLevel, buttonPos: number): number | null {
-  return level.cloners.find((connection) => connection.from === buttonPos)?.to ?? null;
+function findLynxClonerTarget(level: LynxLevel, buttonPos: number, z = 1): number | null {
+  return collectLevelConnections(level, "cloners").find(
+    (connection) => connection.from === buttonPos && (connection.fromZ ?? 1) === z && (connection.toZ ?? 1) === z,
+  )?.to ?? null;
 }
 
-function findLynxTrapTarget(level: LynxLevel, buttonPos: number): number | null {
-  return level.traps.find((connection) => connection.from === buttonPos)?.to ?? null;
+function findLynxTrapTarget(level: LynxLevel, buttonPos: number, z = 1): number | null {
+  return collectLevelConnections(level, "traps").find(
+    (connection) => connection.from === buttonPos && (connection.fromZ ?? 1) === z && (connection.toZ ?? 1) === z,
+  )?.to ?? null;
 }
 
 function queueLynxTankReversals(state: EngineState, actors: LynxRuntimeActor[]): void {
@@ -2617,6 +2626,10 @@ export function initializeLynxEngineState(
       creaturesHash: "14650fb0739d0383",
       creatureCount: 0,
       cells,
+      layers: (level.layers ?? [{ z: 1, cells, traps: [], cloners: [], creaturePositions: [], hintText: "" }]).map((layer) => ({
+        z: layer.z,
+        cells: layer.z === 1 ? cells : cloneBoardCells(layer.cells),
+      })),
     },
     view: {
       x: (chipPos % MS_GRID_WIDTH) * 8,
@@ -2645,6 +2658,7 @@ function createLynxInteractiveToken(
     recordedMoves: replay ? replay.moves.map((move) => ({ ...move })) : [],
     replayPlan: replay ? createReplayPlan(replay) : null,
     chipPos: findChipPosition(level.cells),
+    chipZ: 1,
     chipDir: findChipDirection(level.cells),
     chipMoving: 0,
     currentInputCode: 0,
