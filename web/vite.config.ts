@@ -8,9 +8,11 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      "@bootstrap": fileURLToPath(new URL("./src/bootstrap", import.meta.url)),
       "@adapters": fileURLToPath(new URL("./src/adapters", import.meta.url)),
       "@application": fileURLToPath(new URL("./src/application", import.meta.url)),
       "@domain": fileURLToPath(new URL("./src/domain", import.meta.url)),
+      "@player-web": fileURLToPath(new URL("./src/player-web", import.meta.url)),
       "@fixtures": fileURLToPath(new URL("../fixtures/characterization/v1", import.meta.url)),
     },
   },

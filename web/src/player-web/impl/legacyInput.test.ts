@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { absoluteMouseMoveCode, LegacyLynxInputBuffer, LegacyMsInputBuffer } from "@adapters/react/legacyMsInput";
+import { absoluteMouseMoveCode, LegacyLynxInputBuffer, LegacyMsInputBuffer } from "@player-web/impl/legacyInput";
 import { GAME_INPUT_CODES } from "@domain/game/command";
 
 describe("LegacyMsInputBuffer", () => {

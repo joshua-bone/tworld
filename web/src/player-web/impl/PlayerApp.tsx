@@ -1,8 +1,5 @@
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
-import { BrowserSoundEffectsPlayer } from "@adapters/audio/BrowserSoundEffectsPlayer";
-import { TsLynxGameEngineAdapter } from "@adapters/engine/TsLynxGameEngineAdapter";
-import { TsMsGameEngineAdapter } from "@adapters/engine/TsMsGameEngineAdapter";
-import { StaticCharacterizationFixtureRepository } from "@adapters/fixtures/StaticCharacterizationFixtureRepository";
+import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
 import {
   hasBlockedMovementModifier,
   isFirstLevelKey,
@@ -12,15 +9,14 @@ import {
   isNextLevelKey,
   isPrevLevelKey,
   isProceedKey,
-} from "@adapters/react/legacyHotkeys";
-import { BrowserLevelRepository } from "@adapters/levels/BrowserLevelRepository";
+} from "@player-web/impl/legacyHotkeys";
 import {
   LegacyLynxInputBuffer,
   LegacyMsInputBuffer,
   type DirectionInput,
-} from "@adapters/react/legacyMsInput";
-import { LegacyCanvasScreen, type LegacyMode } from "@adapters/react/components/LegacyCanvasScreen";
-import { BrowserPlayableSelectionStore } from "@adapters/storage/BrowserPlayableSelectionStore";
+} from "@player-web/impl/legacyInput";
+import { LegacyCanvasScreen, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
+import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import { advanceInteractiveGameSession } from "@application/use-cases/advanceInteractiveGameSession";
 import { loadPlayableSelection } from "@application/use-cases/loadPlayableSelection";
 import { loadSeriesCatalog } from "@application/use-cases/loadSeriesCatalog";
@@ -31,13 +27,6 @@ import type { PlayableSelection } from "@application/ports/PlayableSelectionStor
 import type { InteractiveInput } from "@domain/game/command";
 import type { SeriesCatalogEntry } from "@domain/series";
 
-const fixtureRepository = new StaticCharacterizationFixtureRepository();
-const levelRepository = new BrowserLevelRepository();
-const engines: Record<Exclude<SeriesCatalogEntry["ruleset"], "None">, InteractiveGameEnginePort> = {
-  MS: new TsMsGameEngineAdapter(levelRepository),
-  Lynx: new TsLynxGameEngineAdapter(levelRepository),
-};
-const selectionStore = new BrowserPlayableSelectionStore();
 const SESSION_SEED = 123456789;
 const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";
 const SOUND_VOLUME_STORAGE_KEY = "tworld.sound-volume";
@@ -74,7 +63,10 @@ function loadStoredVolume(): number {
   }
 }
 
-function interactiveEngineForRuleset(ruleset: SeriesCatalogEntry["ruleset"]): InteractiveGameEnginePort {
+function interactiveEngineForRuleset(
+  ruleset: SeriesCatalogEntry["ruleset"],
+  engines: BrowserAppServices["engines"],
+): InteractiveGameEnginePort {
   if (ruleset === "None") {
     throw new Error("This series does not declare a playable ruleset.");
   }
@@ -224,7 +216,12 @@ function pickLevelNumber(series: SeriesCatalogEntry | null, requested: number | 
   return series.levels[0]?.number ?? null;
 }
 
-export function App() {
+interface PlayerAppProps {
+  services: BrowserAppServices;
+}
+
+export function PlayerApp({ services }: PlayerAppProps) {
+  const { engines, fixtureRepository, selectionStore } = services;
   const [mode, setMode] = useState<LegacyMode>("series-list");
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
   const [selectedSeriesFile, setSelectedSeriesFile] = useState<string | null>(null);
@@ -360,7 +357,7 @@ export function App() {
     setIsRunning(false);
     setIsSessionLoading(true);
 
-    startInteractiveGameSession(interactiveEngineForRuleset(series.ruleset), {
+    startInteractiveGameSession(interactiveEngineForRuleset(series.ruleset, engines), {
       seriesFile: selectedSeriesFile,
       levelNumber: selectedLevelNumber,
       ruleset: series.ruleset,
@@ -394,7 +391,7 @@ export function App() {
     return () => {
       active = false;
     };
-  }, [catalog, mode, reloadToken, selectedLevelNumber, selectedSeriesFile]);
+  }, [catalog, engines, mode, reloadToken, selectedLevelNumber, selectedSeriesFile]);
 
   const advanceTick = useEffectEvent(async (input: InteractiveInput) => {
     if (mode !== "game" || !session || tickingRef.current) {
@@ -403,7 +400,11 @@ export function App() {
 
     tickingRef.current = true;
     try {
-      const nextSession = await advanceInteractiveGameSession(interactiveEngineForRuleset(session.request.ruleset), session, input);
+      const nextSession = await advanceInteractiveGameSession(
+        interactiveEngineForRuleset(session.request.ruleset, engines),
+        session,
+        input,
+      );
       startTransition(() => {
         setSession(nextSession);
       });

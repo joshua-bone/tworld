@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import lynxTilesUrl from "../../../../../res/atiles.bmp?url";
-import msTilesUrl from "../../../../../res/tiles.bmp?url";
-import { buildLegacyTileset, type LegacyTileset } from "@adapters/react/legacyTileset";
+import lynxTilesUrl from "../../../../res/atiles.bmp?url";
+import msTilesUrl from "../../../../res/tiles.bmp?url";
+import { buildLegacyTileset, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import type { InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
 import type { InteractiveGameRenderFrame } from "@domain/game/interactive";
 import type { SeriesCatalogEntry, SeriesLevel } from "@domain/series";
@@ -19,7 +19,7 @@ import {
   LEGACY_TITLE_Y,
   LEGACY_WINDOW_HEIGHT,
   LEGACY_WINDOW_WIDTH,
-} from "@adapters/react/legacySprites";
+} from "@player-web/impl/legacySprites";
 
 export type LegacyMode = "series-list" | "game";
 

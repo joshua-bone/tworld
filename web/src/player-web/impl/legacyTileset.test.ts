@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LegacyLynxTileShape, scanLynxLargeTileLayout } from "@adapters/react/legacyTileset";
+import { LegacyLynxTileShape, scanLynxLargeTileLayout } from "@player-web/impl/legacyTileset";
 
 function createRaster(width: number, height: number, fill: readonly number[]): Uint8ClampedArray {
   const data = new Uint8ClampedArray(width * height * 4);

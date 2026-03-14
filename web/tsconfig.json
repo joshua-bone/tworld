@@ -18,9 +18,11 @@
     "types": ["node", "vite/client", "vitest/globals"],
     "baseUrl": ".",
     "paths": {
+      "@bootstrap/*": ["src/bootstrap/*"],
       "@adapters/*": ["src/adapters/*"],
       "@application/*": ["src/application/*"],
       "@domain/*": ["src/domain/*"],
+      "@player-web/*": ["src/player-web/*"],
       "@fixtures/*": ["../fixtures/characterization/v1/*"]
     }
   },

@@ -8,7 +8,7 @@ import {
   isNextLevelKey,
   isPrevLevelKey,
   isProceedKey,
-} from "@adapters/react/legacyHotkeys";
+} from "@player-web/impl/legacyHotkeys";
 
 describe("legacy hotkeys", () => {
   it("recognizes proceed keys", () => {
