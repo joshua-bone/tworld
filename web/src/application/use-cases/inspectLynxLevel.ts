@@ -1,7 +1,8 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeLevelRepository } from "@adapters/levels/NodeLevelRepository";
-import { parseLynxLevel } from "@domain/game/rules/lynx/level";
+import { prepareLynxLevel } from "@domain/game/rules/lynx/level";
+import { decodeMsLevelData } from "@domain/game/rules/ms/level";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
@@ -25,7 +26,7 @@ async function main(): Promise<void> {
     levelNumber,
     ruleset: "Lynx",
   });
-  const level = parseLynxLevel(loaded.levelData);
+  const level = prepareLynxLevel(decodeMsLevelData(loaded.levelData));
 
   const positions = positionsText
     ? positionsText

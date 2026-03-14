@@ -1,5 +1,5 @@
 import type { EngineMapCell } from "@domain/game/model";
-import { MS_FLOOR_STATE, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TICKS_PER_SECOND, MS_TILE, msCreatureTile } from "@domain/game/rules/ms/tiles";
+import { MS_FLOOR_STATE, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE, msCreatureTile } from "@domain/game/rules/ms/tiles";
 
 export interface MsConnection {
   from: number;
@@ -16,6 +16,18 @@ export interface MsLevel {
   cloners: MsConnection[];
   creaturePositions: number[];
   statusFlags: number;
+}
+
+export interface DecodedMsLevelData {
+  number: number;
+  timeLimitSeconds: number;
+  chipsNeeded: number;
+  hintText: string;
+  cells: EngineMapCell[];
+  traps: MsConnection[];
+  cloners: MsConnection[];
+  creaturePositions: number[];
+  badTiles: boolean;
 }
 
 function decodeLatin1(data: Uint8Array): string {
@@ -201,7 +213,7 @@ function decodeLayer(target: EngineMapCell[], data: Uint8Array, startOffset: num
   };
 }
 
-export function parseMsLevel(levelData: Uint8Array): MsLevel {
+export function decodeMsLevelData(levelData: Uint8Array): DecodedMsLevelData {
   if (levelData.length < 10) {
     throw new Error("invalid level data");
   }
@@ -215,18 +227,15 @@ export function parseMsLevel(levelData: Uint8Array): MsLevel {
   const creaturePositions: number[] = [];
   let hintText = "";
 
-  let statusFlags = 0;
   let offset = 10;
 
   const upperSize = readUint16(levelData, 8);
   const upperResult = decodeLayer(cells, levelData, offset, upperSize, "top");
-  statusFlags |= upperResult.badTiles ? 0x0004 : 0;
   offset = upperResult.nextOffset;
 
   const lowerSize = readUint16(levelData, offset);
   offset += 2;
   const lowerResult = decodeLayer(cells, levelData, offset, lowerSize, "bottom");
-  statusFlags |= lowerResult.badTiles ? 0x0004 : 0;
   offset = lowerResult.nextOffset;
 
   const metadataSize = readUint16(levelData, offset);
@@ -282,13 +291,31 @@ export function parseMsLevel(levelData: Uint8Array): MsLevel {
 
   return {
     number,
-    timeLimitTicks: timeLimitSeconds * MS_TICKS_PER_SECOND,
+    timeLimitSeconds,
     chipsNeeded,
     hintText,
     cells,
     traps,
     cloners,
     creaturePositions,
-    statusFlags,
+    badTiles: upperResult.badTiles || lowerResult.badTiles,
   };
+}
+
+export function prepareMsLevel(decoded: DecodedMsLevelData): MsLevel {
+  return {
+    number: decoded.number,
+    timeLimitTicks: decoded.timeLimitSeconds * MS_TICKS_PER_SECOND,
+    chipsNeeded: decoded.chipsNeeded,
+    hintText: decoded.hintText,
+    cells: decoded.cells,
+    traps: decoded.traps,
+    cloners: decoded.cloners,
+    creaturePositions: decoded.creaturePositions,
+    statusFlags: decoded.badTiles ? MS_STATUS_FLAG.BadTiles : 0,
+  };
+}
+
+export function parseMsLevel(levelData: Uint8Array): MsLevel {
+  return prepareMsLevel(decodeMsLevelData(levelData));
 }

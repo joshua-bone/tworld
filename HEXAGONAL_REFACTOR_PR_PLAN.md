@@ -203,12 +203,17 @@ Exit criteria:
 
 Scope:
 
+- [x] Status: in progress
 - [ ] separate raw DAT decoding from ruleset preparation
 
 Changes:
 
-- [ ] keep raw level parsing as data decoding
-- [ ] add prepared-level assembly for MS and Lynx that normalizes tile layout, actor seeds, connections, and status flags before simulation starts
+- [x] split MS DAT decoding from MS level preparation
+- [x] split Lynx preparation from shared DAT decoding
+- [x] route adapters and level-inspection tools through explicit `decode -> prepare` calls
+- [x] add focused preparation tests for MS and Lynx level assembly
+- [ ] migrate the remaining level-loading call sites to prepared-level-only entry points
+- [ ] make prepared level assembly the only normalization layer for tile layout, actor seeds, connections, and status flags before simulation starts
 
 Exit criteria:
 

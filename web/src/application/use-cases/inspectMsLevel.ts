@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeLevelRepository } from "@adapters/levels/NodeLevelRepository";
-import { parseMsLevel } from "@domain/game/rules/ms/level";
+import { decodeMsLevelData, prepareMsLevel } from "@domain/game/rules/ms/level";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
     levelNumber,
     ruleset: "MS",
   });
-  const level = parseMsLevel(loaded.levelData);
+  const level = prepareMsLevel(decodeMsLevelData(loaded.levelData));
 
   const positions = positionsText
     ? positionsText
