@@ -58,6 +58,42 @@ function createLevel(
   };
 }
 
+function createTwoLayerLevel(
+  lowerCells: EngineMapCell[],
+  upperCells: EngineMapCell[],
+  options: {
+    lowerCreaturePositions?: number[];
+    upperCreaturePositions?: number[];
+    lowerTraps?: LynxLevel["traps"];
+    upperTraps?: LynxLevel["traps"];
+    lowerCloners?: LynxLevel["cloners"];
+    upperCloners?: LynxLevel["cloners"];
+  } = {},
+): LynxLevel {
+  return {
+    ...createLevel([]),
+    cells: lowerCells,
+    layers: [
+      {
+        z: 1,
+        cells: lowerCells,
+        traps: options.lowerTraps?.map((connection) => ({ ...connection })) ?? [],
+        cloners: options.lowerCloners?.map((connection) => ({ ...connection })) ?? [],
+        creaturePositions: options.lowerCreaturePositions ?? [],
+        hintText: "",
+      },
+      {
+        z: 2,
+        cells: upperCells,
+        traps: options.upperTraps?.map((connection) => ({ ...connection })) ?? [],
+        cloners: options.upperCloners?.map((connection) => ({ ...connection })) ?? [],
+        creaturePositions: options.upperCreaturePositions ?? [],
+        hintText: "",
+      },
+    ],
+  };
+}
+
 function createRequest() {
   return { seriesFile: "intro-lynx.dac", levelNumber: 1, ruleset: "Lynx" as const };
 }
@@ -303,6 +339,171 @@ describe("initializeLynxEngineState", () => {
 });
 
 describe("advanceLynxInteractiveSession", () => {
+  it("applies unsupported air from initial state by dropping Chip one layer on the first forced-move cadence", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 33;
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const fallen = advanceLynxTicks(session, 2);
+
+    expect(fallen.chipZ).toBe(1);
+    expect(fallen.chipPos).toBe(chipPos);
+    expect(fallen.chipMoving).toBe(0);
+    expect(fallen.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(fallen.state.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(fallen.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("does not drop Chip from air when the immediately lower layer supports him", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 34;
+    lower[chipPos] = createCell(chipPos, MS_TILE.Wall);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const settled = advanceLynxTicks(session, 2);
+
+    expect(settled.chipZ).toBe(2);
+    expect(settled.chipPos).toBe(chipPos);
+    expect(settled.chipMoving).toBe(0);
+    expect(settled.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+    expect(settled.state.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Wall);
+    expect(settled.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("drops a block from unsupported air into water", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const blockPos = 35;
+    lower[blockPos] = createCell(blockPos, MS_TILE.Water);
+    upper[blockPos] = createCellAtZ(blockPos, 2, MS_TILE.Block_Static, MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [blockPos] }),
+    );
+
+    const fallen = advanceLynxTicks(session, 2);
+    const block = fallen.actors.find((actor) => actor.id === MS_TILE.Block);
+
+    expect(block?.hidden).toBe(true);
+    expect(fallen.state.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Dirt);
+    expect(fallen.state.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("drops a non-player from unsupported air onto Chip and collides on landing", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const sharedPos = 36;
+    lower[sharedPos] = createCell(sharedPos, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty);
+    upper[sharedPos] = createCellAtZ(sharedPos, 2, msCreatureTile(MS_TILE.Bug, 1), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, {
+        lowerCreaturePositions: [sharedPos],
+        upperCreaturePositions: [sharedPos],
+      }),
+    );
+
+    const collided = advanceLynxTicks(session, 2);
+    const bug = collided.actors.find((actor) => actor.id === MS_TILE.Bug);
+
+    expect(collided.endGameResult).toBe("failed");
+    expect(collided.chipZ).toBe(1);
+    expect(bug?.z).toBe(1);
+    expect(bug?.pos).toBe(sharedPos);
+  });
+
+  it("collects a key when Chip falls from unsupported air", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 37;
+    lower[chipPos] = createCell(chipPos, MS_TILE.Key_Yellow);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const fallen = advanceLynxTicks(session, 2);
+
+    expect(fallen.chipZ).toBe(1);
+    expect(fallen.state.inventory.keys).toEqual([0, 0, 1, 0]);
+    expect(fallen.state.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("does not start ice forcing when Chip falls from unsupported air onto ice", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 38;
+    lower[chipPos] = createCell(chipPos, MS_TILE.Ice);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const landed = advanceLynxTicks(session, 2);
+    const held = advanceLynxInteractiveSession(landed, 0);
+
+    expect(held.chipZ).toBe(1);
+    expect(held.chipPos).toBe(chipPos);
+    expect(held.chipMoving).toBe(0);
+  });
+
+  it("starts force-floor movement when Chip falls from unsupported air onto a force floor", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 39;
+    lower[chipPos] = createCell(chipPos, MS_TILE.Slide_South);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const landed = advanceLynxTicks(session, 2);
+    const forced = advanceLynxInteractiveSession(landed, 0);
+
+    expect(forced.chipZ).toBe(1);
+    expect(forced.chipPos).toBe(71);
+    expect(forced.chipMoving).toBeGreaterThan(0);
+  });
+
+  it("bombs Chip when he falls from unsupported air onto a bomb", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 40;
+    lower[chipPos] = createCell(chipPos, MS_TILE.Bomb);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const fallen = advanceLynxTicks(session, 2);
+
+    expect(fallen.endGameResult).toBe("failed");
+    expect(fallen.chipZ).toBe(1);
+    expect(fallen.endGameAnimationTileId).not.toBeNull();
+  });
+
   it("starts the native failed endgame when Chip enters deadly fire", () => {
     const chipPos = 33;
     const firePos = 34;

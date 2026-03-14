@@ -86,6 +86,7 @@ export interface LynxInteractiveSessionState {
   chipZ?: number;
   chipDir: number;
   chipMoving: number;
+  chipMoveKind?: "planar" | "air";
   currentInputCode: number;
   queuedReplayInputCode: number;
   queuedChipInputCode: number;
@@ -109,6 +110,8 @@ export interface LynxRuntimeActor {
   teleported: boolean;
   moving: number;
   frame: number;
+  moveKind?: "planar" | "air";
+  ignoreIceFromAir?: boolean;
   hidden: boolean;
   pushed: boolean;
   deferPush: boolean;
@@ -146,6 +149,7 @@ interface LynxRuntimeState {
   animations: LynxAnimationState[];
   chipTeleported: boolean;
   chipSlideToken: boolean;
+  chipIgnoreIceFromAir?: boolean;
   couldntMove: boolean;
   trapReleaseCantMoveThisTick: boolean;
   lastRandomSlideDir: number;
@@ -280,6 +284,144 @@ function activeLynxLayerZ(state: EngineState): number {
   return state.map.cells[0]?.position.z ?? state.map.layers?.[0]?.z ?? 1;
 }
 
+function isLynxAir(id: number): boolean {
+  return lynxTileForcedFloorKind(id) === "air";
+}
+
+function lynxLowerRuntimeCells(state: EngineState, z: number | undefined): EngineMapCell[] | null {
+  const currentZ = z ?? 1;
+  if (currentZ <= 1) {
+    return null;
+  }
+  return lynxCellsForZ(state.map, currentZ - 1);
+}
+
+function isLynxSupportingWallTile(id: number): boolean {
+  switch (id) {
+    case MS_TILE.Wall:
+    case MS_TILE.IceWall_Northwest:
+    case MS_TILE.IceWall_Northeast:
+    case MS_TILE.IceWall_Southwest:
+    case MS_TILE.IceWall_Southeast:
+    case MS_TILE.HiddenWall_Perm:
+    case MS_TILE.HiddenWall_Temp:
+    case MS_TILE.BlueWall_Real:
+    case MS_TILE.SwitchWall_Closed:
+      return true;
+    default:
+      return false;
+  }
+}
+
+function resolveLynxChipSupportBelow(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  lowerCells: EngineMapCell[] | null,
+  pos: number,
+  z: number,
+): boolean {
+  if (!lowerCells) {
+    return false;
+  }
+
+  const cell = lowerCells[pos];
+  if (!cell) {
+    return false;
+  }
+
+  const actorBelow = findLynxVisibleActorAt(actors, pos, z);
+  if (actorBelow) {
+    return actorBelow.id === MS_TILE.Block;
+  }
+
+  const topId = cell.top.id;
+  const bottomId = cell.bottom.id;
+
+  if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
+    return true;
+  }
+
+  if (isLynxSupportingWallTile(topId)) {
+    if (topId === MS_TILE.BlueWall_Real) {
+      replaceTopTile(lowerCells, pos, { ...cell.top, id: MS_TILE.Wall });
+    }
+    return true;
+  }
+
+  if (topId === MS_TILE.BlueWall_Fake) {
+    promoteBottomTile(lowerCells, pos, MS_TILE.Empty);
+    return false;
+  }
+
+  if (lynxTileHasTag(topId, "door")) {
+    const keyIndex = lynxDoorKeyIndex(topId);
+    if (keyIndex !== null && state.inventory.keys[keyIndex] > 0) {
+      if (topId !== MS_TILE.Door_Green) {
+        state.inventory.keys[keyIndex] -= 1;
+      }
+      promoteBottomTile(lowerCells, pos, MS_TILE.Empty);
+      return false;
+    }
+    return true;
+  }
+
+  if (topId === MS_TILE.Socket) {
+    if (state.inventory.chipsNeeded === 0) {
+      promoteBottomTile(lowerCells, pos, MS_TILE.Empty);
+      return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+function resolveLynxNonChipSupportBelow(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  lowerCells: EngineMapCell[] | null,
+  pos: number,
+  z: number,
+  chipPos: number,
+  chipZ: number,
+): boolean {
+  if (!lowerCells) {
+    return false;
+  }
+
+  const cell = lowerCells[pos];
+  if (!cell) {
+    return false;
+  }
+
+  if (chipZ === z && chipPos === pos) {
+    return false;
+  }
+
+  const actorBelow = findLynxVisibleActorAt(actors, pos, z);
+  if (actorBelow) {
+    return true;
+  }
+
+  const topId = cell.top.id;
+  const bottomId = cell.bottom.id;
+
+  if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
+    return true;
+  }
+
+  if (
+    isLynxSupportingWallTile(topId) ||
+    topId === MS_TILE.BlueWall_Fake ||
+    lynxTileHasTag(topId, "door") ||
+    topId === MS_TILE.Socket
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
   const scanned: LynxRuntimeActor[] = [];
   const orderedCreaturePositions = new Set(
@@ -300,6 +442,8 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
           teleported: false,
           moving: 0,
           frame: 0,
+          moveKind: "planar",
+          ignoreIceFromAir: false,
           hidden: false,
           pushed: false,
           deferPush: false,
@@ -324,6 +468,8 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
         teleported: false,
         moving: 0,
         frame: 0,
+        moveKind: "planar",
+        ignoreIceFromAir: false,
         hidden: false,
         pushed: false,
         deferPush: false,
@@ -361,6 +507,7 @@ function lynxRuntimeState(state: EngineState): LynxRuntimeState {
       animations: [],
       chipTeleported: false,
       chipSlideToken: false,
+      chipIgnoreIceFromAir: false,
       couldntMove: false,
       trapReleaseCantMoveThisTick: false,
       lastRandomSlideDir: directionCode(state.replay.initialRandomSlideDirection),
@@ -433,7 +580,9 @@ function removeLynxActor(
   animationTileId: number = LYNX_ANIMATION_TILE.Entity_Explosion,
 ): void {
   if (actor.moving > 0) {
-    actor.pos = nextPosition(actor.pos, backDirection(actor.dir), MS_GRID_WIDTH);
+    if ((actor.moveKind ?? "planar") === "planar") {
+      actor.pos = nextPosition(actor.pos, backDirection(actor.dir), MS_GRID_WIDTH);
+    }
     actor.moving = 0;
   }
 
@@ -444,6 +593,8 @@ function removeLynxActor(
 
   actor.hidden = true;
   actor.frame = 0;
+  actor.moveKind = "planar";
+  actor.ignoreIceFromAir = false;
   actor.animationReserved = true;
   startLynxAnimation(state, actors, actor.pos, animationTileId);
 }
@@ -744,10 +895,12 @@ function hasLynxBoots(state: EngineState, tileId: number): boolean {
   return inventorySlot === "boots" && inventoryIndex !== null ? state.inventory.boots[inventoryIndex] > 0 : false;
 }
 
-function lynxChipMovementSpeed(state: EngineState, floorId: number): number {
+function lynxChipMovementSpeed(state: EngineState, floorId: number, moveKind: "planar" | "air" = "planar"): number {
   let speed = 2;
 
-  if (isLynxSlide(floorId) && !hasLynxBoots(state, MS_TILE.Boots_Slide)) {
+  if (moveKind === "air") {
+    speed *= 2;
+  } else if (isLynxSlide(floorId) && !hasLynxBoots(state, MS_TILE.Boots_Slide)) {
     speed *= 2;
   } else if (isLynxIce(floorId) && !hasLynxBoots(state, MS_TILE.Boots_Ice)) {
     speed *= 2;
@@ -1031,6 +1184,7 @@ function resolveLynxChipInputDirection(
 
 type LynxChipMoveSelection = {
   chipPos: number;
+  chipZ: number;
   chipDir: number;
   chipMoving: number;
   endGameTicksElapsed: number | null;
@@ -1040,6 +1194,7 @@ type LynxChipMoveSelection = {
   chosenInputCode: number;
   forcedInputCode: number;
   startInputCode: number;
+  startAirMove: boolean;
 };
 
 function shouldSuppressLynxChipMoveSelectionForHeldTrapArrival(
@@ -1070,6 +1225,7 @@ function selectLynxChipMoveForTick(
   level: LynxLevel,
   actors: LynxRuntimeActor[],
   chipPos: number,
+  chipZ: number,
   chipDir: number,
   chipMoving: number,
   endGameTicksElapsed: number | null,
@@ -1080,7 +1236,9 @@ function selectLynxChipMoveForTick(
   const chipInEndGame = endGameTicksElapsed !== null;
   const floorBeforeMove = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
   const forcedMove =
-    chipMoving === 0 && !chipInEndGame ? getLynxChipForcedMove(state, floorBeforeMove, chipDir) : { dir: 0, discardInput: false };
+    chipMoving === 0 && !chipInEndGame
+      ? getLynxChipForcedMove(state, actors, chipPos, chipZ, floorBeforeMove, chipDir)
+      : { dir: 0, discardInput: false };
   const rawRequestedInputCode = chipMoving === 0 ? queuedReplayInputCode || currentInputCode : 0;
   const requestedInputCode = chipMoving === 0 && !chipInEndGame && !forcedMove.discardInput ? rawRequestedInputCode : 0;
   const chosenInputCode =
@@ -1090,6 +1248,7 @@ function selectLynxChipMoveForTick(
 
   return {
     chipPos,
+    chipZ,
     chipDir,
     chipMoving,
     endGameTicksElapsed,
@@ -1099,6 +1258,7 @@ function selectLynxChipMoveForTick(
     chosenInputCode,
     forcedInputCode: forcedMove.dir,
     startInputCode: chipMoving === 0 ? chosenInputCode || forcedMove.dir : 0,
+    startAirMove: chipMoving === 0 && chosenInputCode === 0 && forcedMove.moveKind === "air",
   };
 }
 
@@ -1240,6 +1400,7 @@ function resolveCompletedLynxChipMove(
   actors: LynxRuntimeActor[],
   chipPos: number,
   chipDir: number,
+  chipMoveKind: "planar" | "air",
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
   endGameAnimationTileId: number | null,
@@ -1337,7 +1498,11 @@ function resolveCompletedLynxChipMove(
     springLynxTrap(state, level, actors, chipPos);
   }
   if (isLynxIce(resolvedFloorAfterMove)) {
-    chipDir = applyLynxIceWallTurn(chipDir, resolvedFloorAfterMove);
+    if (chipMoveKind === "air") {
+      lynxRuntimeState(state).chipIgnoreIceFromAir = true;
+    } else {
+      chipDir = applyLynxIceWallTurn(chipDir, resolvedFloorAfterMove);
+    }
   }
 
   return {
@@ -1433,13 +1598,24 @@ function applyLynxIceWallTurn(dir: number, floorId: number): number {
 
 function getLynxChipForcedMove(
   state: EngineState,
+  actors: LynxRuntimeActor[],
+  chipPos: number,
+  chipZ: number,
   floorId: number,
   chipDir: number,
 ): {
   dir: number;
   discardInput: boolean;
+  moveKind?: "air";
 } {
   const runtime = lynxRuntimeState(state);
+  if (isLynxAir(floorId)) {
+    const lowerZ = Math.max(1, chipZ - 1);
+    const lowerCells = lynxLowerRuntimeCells(state, chipZ);
+    if (!resolveLynxChipSupportBelow(state, actors, lowerCells, chipPos, lowerZ)) {
+      return { dir: 0, discardInput: true, moveKind: "air" };
+    }
+  }
   // Native Lynx does not apply forced-floor carry on the opening tick.
   if (state.timer.currentTime < 0) {
     return { dir: 0, discardInput: false };
@@ -1454,6 +1630,10 @@ function getLynxChipForcedMove(
       : { dir: getLynxSlideDirection(state, floorId, true), discardInput: !runtime.chipSlideToken };
   }
   if (isLynxIce(floorId)) {
+    if (runtime.chipIgnoreIceFromAir) {
+      runtime.chipIgnoreIceFromAir = false;
+      return { dir: 0, discardInput: false };
+    }
     return hasLynxBoots(state, MS_TILE.Boots_Ice)
       ? { dir: 0, discardInput: false }
       : { dir: chipDir, discardInput: true };
@@ -1462,13 +1642,17 @@ function getLynxChipForcedMove(
 }
 
 function forcedLynxActorDirection(state: EngineState, actor: LynxRuntimeActor, floorId: number, currentTime: number): number {
-  if (currentTime === 0) {
+  if (currentTime === 0 && !isLynxAir(floorId)) {
     return 0;
   }
   if (isLynxSlide(floorId)) {
     return getLynxSlideDirection(state, floorId, true);
   }
   if (isLynxIce(floorId)) {
+    if (actor.ignoreIceFromAir) {
+      actor.ignoreIceFromAir = false;
+      return 0;
+    }
     return actor.dir;
   }
   return 0;
@@ -1494,11 +1678,17 @@ function turnLynxChipAroundOnBlockedIce(state: EngineState, floorId: number, att
   return applyLynxIceWallTurn(backDirection(attemptedDir), floorId);
 }
 
-function updateLynxViewFromMovement(state: EngineState, chipPos: number, chipDir: number, chipMoving: number): void {
+function updateLynxViewFromMovement(
+  state: EngineState,
+  chipPos: number,
+  chipDir: number,
+  chipMoving: number,
+  chipMoveKind: "planar" | "air" = "planar",
+): void {
   let viewX = (chipPos % MS_GRID_WIDTH) * 8;
   let viewY = Math.floor(chipPos / MS_GRID_WIDTH) * 8;
 
-  if (chipMoving > 0) {
+  if (chipMoving > 0 && chipMoveKind === "planar") {
     switch (chipDir) {
       case 1:
         viewY += chipMoving;
@@ -1519,6 +1709,42 @@ function updateLynxViewFromMovement(state: EngineState, chipPos: number, chipDir
 
   state.view = { x: viewX, y: viewY };
   updateLynxViewChip(state);
+}
+
+function startLynxChipAirMovement(
+  state: EngineState,
+  chipPos: number,
+  chipZ: number,
+): { chipPos: number; chipZ: number; chipMoving: number; chipMoveKind: "air" | "planar" } {
+  const currentZ = chipZ;
+  const targetZ = Math.max(1, currentZ - 1);
+  if (targetZ === currentZ) {
+    return { chipPos, chipZ, chipMoving: 0, chipMoveKind: "planar" };
+  }
+
+  setLynxActiveLayer(state, targetZ);
+  return {
+    chipPos,
+    chipZ: targetZ,
+    chipMoving: 8,
+    chipMoveKind: "air",
+  };
+}
+
+function startLynxActorAirMovement(state: EngineState, actor: LynxRuntimeActor): boolean {
+  const currentZ = actor.z ?? 1;
+  const targetZ = Math.max(1, currentZ - 1);
+  if (targetZ === currentZ) {
+    return false;
+  }
+
+  removeTopTileFlags(lynxCellsForZ(state.map, currentZ), actor.pos, LYNX_CELL_FLAG.Claimed);
+  actor.z = targetZ;
+  actor.moving = 8;
+  actor.frame = 4;
+  actor.moveKind = "air";
+  addTopTileFlags(lynxCellsForZ(state.map, targetZ), actor.pos, LYNX_CELL_FLAG.Claimed);
+  return true;
 }
 
 function findLynxTeleportDestination(
@@ -1695,6 +1921,7 @@ function resolveLynxPostChipMovement(
   chipPos: number,
   chipDir: number,
   chipMoving: number,
+  chipMoveKind: "planar" | "air",
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
   endGameAnimationTileId: number | null,
@@ -1703,6 +1930,7 @@ function resolveLynxPostChipMovement(
   chipPos: number;
   chipDir: number;
   chipMoving: number;
+  chipMoveKind: "planar" | "air";
   endGameTicksElapsed: number | null;
   endGameResult: LynxEndGameResult | null;
   endGameAnimationTileId: number | null;
@@ -1711,7 +1939,7 @@ function resolveLynxPostChipMovement(
   let chipArrivedThisTick = false;
   if (chipMoving > 0) {
     const floor = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
-    const speed = lynxChipMovementSpeed(state, floor);
+    const speed = lynxChipMovementSpeed(state, floor, chipMoveKind);
 
     chipMoving = Math.max(0, chipMoving - speed);
     if (chipMoving === 0) {
@@ -1722,6 +1950,7 @@ function resolveLynxPostChipMovement(
         actors,
         chipPos,
         chipDir,
+        chipMoveKind,
         endGameTicksElapsed,
         endGameResult,
         endGameAnimationTileId,
@@ -1729,6 +1958,7 @@ function resolveLynxPostChipMovement(
       );
       chipPos = completed.chipPos;
       chipDir = completed.chipDir;
+      chipMoveKind = "planar";
       endGameTicksElapsed = completed.endGameTicksElapsed;
       endGameResult = completed.endGameResult;
       endGameAnimationTileId = completed.endGameAnimationTileId;
@@ -1752,6 +1982,7 @@ function resolveLynxPostChipMovement(
     chipPos,
     chipDir,
     chipMoving,
+    chipMoveKind,
     endGameTicksElapsed,
     endGameResult,
     endGameAnimationTileId,
@@ -1764,6 +1995,7 @@ function finalizeLynxTickBookkeeping(
   chipPos: number,
   chipDir: number,
   chipMoving: number,
+  chipMoveKind: "planar" | "air",
   endGameTicksElapsed: number | null,
   endGameResult: LynxEndGameResult | null,
 ): {
@@ -1771,7 +2003,7 @@ function finalizeLynxTickBookkeeping(
   endGameResult: LynxEndGameResult | null;
 } {
   state.timer = advanceTimer(state.timer, 1, MS_TICKS_PER_SECOND);
-  updateLynxViewFromMovement(state, chipPos, chipDir, chipMoving);
+  updateLynxViewFromMovement(state, chipPos, chipDir, chipMoving, chipMoveKind);
   const displayFloor = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
   if (lynxTileHasTag(displayFloor, "hint") && chipMoving === 0) {
     state.statusFlags |= MS_STATUS_FLAG.ShowHint;
@@ -2037,6 +2269,8 @@ function startLynxCreatureMovement(
   actor.pos = targetPos;
   actor.moving = 8;
   actor.frame = 4;
+  actor.moveKind = "planar";
+  actor.ignoreIceFromAir = false;
   addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
   if (actor.pushed) {
     state.soundEffects |= 1 << LYNX_SOUND.BlockMoving;
@@ -2050,8 +2284,13 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
     return;
   }
 
-  if (isLynxIce(cell.top.id)) {
+  const moveKind = actor.moveKind ?? "planar";
+  actor.moveKind = "planar";
+  actor.ignoreIceFromAir = false;
+  if (isLynxIce(cell.top.id) && moveKind !== "air") {
     actor.dir = applyLynxIceWallTurn(actor.dir, cell.top.id);
+  } else if (isLynxIce(cell.top.id) && moveKind === "air") {
+    actor.ignoreIceFromAir = true;
   }
 
   const arrivalAction = lynxCreatureArrivalAction(cell.top.id, actor.id);
@@ -2111,6 +2350,8 @@ function advanceLynxCreature(
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
   currentTime: number,
+  chipPos = -1,
+  chipZ = activeLynxLayerZ(state),
 ): void {
   withLynxLayer(state, actor.z ?? 1, () => {
     if (actor.hidden) {
@@ -2119,17 +2360,31 @@ function advanceLynxCreature(
 
     if (actor.moving <= 0) {
       const floorBeforeMove = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-      const moveDir = actor.intentDir || actor.forcedDir || forcedLynxActorDirection(state, actor, floorBeforeMove, currentTime);
-      actor.intentDir = 0;
-      actor.forcedDir = 0;
-      if (moveDir === 0 || !startLynxCreatureMovement(state, actors, actor, moveDir)) {
-        return;
+      if (isLynxAir(floorBeforeMove)) {
+        const targetZ = Math.max(1, (actor.z ?? 1) - 1);
+        const lowerCells = lynxLowerRuntimeCells(state, actor.z);
+        if (!resolveLynxNonChipSupportBelow(state, actors, lowerCells, actor.pos, targetZ, chipPos, chipZ)) {
+          if (!startLynxActorAirMovement(state, actor)) {
+            return;
+          }
+        } else {
+          actor.moveKind = "planar";
+          actor.ignoreIceFromAir = false;
+          return;
+        }
+      } else {
+        const moveDir = actor.intentDir || actor.forcedDir || forcedLynxActorDirection(state, actor, floorBeforeMove, currentTime);
+        actor.intentDir = 0;
+        actor.forcedDir = 0;
+        if (moveDir === 0 || !startLynxCreatureMovement(state, actors, actor, moveDir)) {
+          return;
+        }
       }
     }
 
     const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
     let speed = actor.id === MS_TILE.Blob ? 1 : 2;
-    if (isLynxSlide(floor) || isLynxIce(floor)) {
+    if ((actor.moveKind ?? "planar") === "air" || isLynxSlide(floor) || isLynxIce(floor)) {
       speed *= 2;
     }
     actor.moving = Math.max(0, actor.moving - speed);
@@ -2341,7 +2596,7 @@ function skipsDormantLynxActorAdvance(state: EngineState, actor: LynxRuntimeActo
 
   return withLynxLayer(state, actor.z ?? 1, () => {
     const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-    return currentTime === 0 || (!isLynxSlide(floor) && !isLynxIce(floor));
+    return (currentTime === 0 && !isLynxAir(floor)) || (!isLynxSlide(floor) && !isLynxIce(floor) && !isLynxAir(floor));
   });
 }
 
@@ -2370,6 +2625,8 @@ function activateLynxCloner(state: EngineState, level: LynxLevel, actors: LynxRu
       teleported: false,
       moving: 0,
       frame: 0,
+      moveKind: "planar",
+      ignoreIceFromAir: false,
       hidden: true,
       pushed: false,
       deferPush: false,
@@ -2509,6 +2766,7 @@ function advanceLynxChipTrapRelease(
       actors,
       chipPos,
       chipDir,
+      "planar",
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
@@ -2727,6 +2985,7 @@ function createLynxInteractiveToken(
     chipZ: chipSeed.z,
     chipDir: chipSeed.dir,
     chipMoving: 0,
+    chipMoveKind: "planar",
     currentInputCode: 0,
     queuedReplayInputCode: 0,
     queuedChipInputCode: 0,
@@ -2760,8 +3019,10 @@ function advanceLynxInteractiveTick(
   }
 
   let chipPos = session.chipPos;
+  let chipZ = session.chipZ ?? 1;
   let chipDir = session.chipDir;
   let chipMoving = session.chipMoving;
+  let chipMoveKind = session.chipMoveKind ?? "planar";
   let currentInputCode = session.currentInputCode;
   let queuedReplayInputCode = session.queuedReplayInputCode;
   let queuedChipInputCode = session.queuedChipInputCode;
@@ -2839,6 +3100,7 @@ function advanceLynxInteractiveTick(
             level,
             actors,
             chipPos,
+            chipZ,
             chipDir,
             chipMoving,
             endGameTicksElapsed,
@@ -2885,7 +3147,7 @@ function advanceLynxInteractiveTick(
     for (let index = actors.length - 1; index >= 0; index -= 1) {
       const actor = actors[index]!;
       if (!skipsDormantLynxActorAdvance(state, actor, state.timer.currentTime + 1)) {
-        advanceLynxCreature(state, level, actors, actor, state.timer.currentTime + 1);
+        advanceLynxCreature(state, level, actors, actor, state.timer.currentTime + 1, chipPos, chipZ);
       }
       actor.intentDir = 0;
       actor.forcedDir = 0;
@@ -2959,6 +3221,7 @@ function advanceLynxInteractiveTick(
         const selection =
           latchedChipMoveSelection &&
           chipPos === latchedChipMoveSelection.chipPos &&
+          chipZ === latchedChipMoveSelection.chipZ &&
           chipDir === latchedChipMoveSelection.chipDir &&
           chipMoving === latchedChipMoveSelection.chipMoving &&
           endGameTicksElapsed === latchedChipMoveSelection.endGameTicksElapsed
@@ -2968,6 +3231,7 @@ function advanceLynxInteractiveTick(
                 level,
                 actors,
                 chipPos,
+                chipZ,
                 chipDir,
                 chipMoving,
                 endGameTicksElapsed,
@@ -3005,14 +3269,21 @@ function advanceLynxInteractiveTick(
     queuedChipInputCode = 0;
     const startInputCode = chipMoveSelection.startInputCode;
 
-    if (startInputCode === 0 && chipMoving === 0) {
+    if (startInputCode === 0 && !chipMoveSelection.startAirMove && chipMoving === 0) {
       if (!lynxRuntimeState(state).trapReleaseCantMoveThisTick) {
         clearLynxCouldntMove(state);
       }
       resetLynxFloorSounds(state);
     }
 
-    if (chipMoving === 0 && startInputCode !== 0) {
+    if (chipMoving === 0 && chipMoveSelection.startAirMove) {
+      const airborne = startLynxChipAirMovement(state, chipPos, chipZ);
+      chipPos = airborne.chipPos;
+      chipZ = airborne.chipZ;
+      chipMoving = airborne.chipMoving;
+      chipMoveKind = airborne.chipMoveKind;
+      clearLynxCouldntMove(state);
+    } else if (chipMoving === 0 && startInputCode !== 0) {
       updateLynxChipStartMovementState(state, floorBeforeMove, chosenInputCode);
       if (canLynxExitTile(state, floorBeforeMove, MS_TILE.Chip, startInputCode, false)) {
         if (!canAdvanceLynxPosition(chipPos, startInputCode, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
@@ -3048,6 +3319,7 @@ function advanceLynxInteractiveTick(
             chipDir = startInputCode;
             chipPos = targetPos;
             chipMoving = 8;
+            chipMoveKind = "planar";
           } else {
             chipPushing = true;
             chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
@@ -3070,6 +3342,7 @@ function advanceLynxInteractiveTick(
       chipPos,
       chipDir,
       chipMoving,
+      chipMoveKind,
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
@@ -3078,6 +3351,7 @@ function advanceLynxInteractiveTick(
     chipPos = postMove.chipPos;
     chipDir = postMove.chipDir;
     chipMoving = postMove.chipMoving;
+    chipMoveKind = postMove.chipMoveKind;
     endGameTicksElapsed = postMove.endGameTicksElapsed;
     endGameResult = postMove.endGameResult;
     endGameAnimationTileId = postMove.endGameAnimationTileId;
@@ -3090,6 +3364,7 @@ function advanceLynxInteractiveTick(
       chipPos,
       chipDir,
       chipMoving,
+      chipMoveKind,
       endGameTicksElapsed,
       endGameResult,
     );
@@ -3149,9 +3424,10 @@ function advanceLynxInteractiveTick(
     recordedMoves: recordManualMove(session.recordedMoves, state.timer.currentTime, state.replay.cursor, runtimeInput.inputCode),
     replayPlan,
     chipPos,
-    chipZ: session.chipZ,
+    chipZ,
     chipDir,
     chipMoving,
+    chipMoveKind,
     currentInputCode,
     queuedReplayInputCode,
     queuedChipInputCode,
@@ -3350,8 +3626,10 @@ function runLynxReplayTraceDebugInternal(
   const steps: GameDebugTrace["steps"] = [];
   const chipSeed = findChipSeed(level);
   let chipPos = chipSeed.pos;
+  let chipZ = chipSeed.z;
   let chipDir = chipSeed.dir;
   let chipMoving = 0;
+  let chipMoveKind: "planar" | "air" = "planar";
   let currentInputCode = 0;
   let queuedReplayInputCode = 0;
   let queuedChipInputCode = 0;
@@ -3442,6 +3720,7 @@ function runLynxReplayTraceDebugInternal(
             level,
             actors,
             chipPos,
+            chipZ,
             chipDir,
             chipMoving,
             endGameTicksElapsed,
@@ -3487,7 +3766,7 @@ function runLynxReplayTraceDebugInternal(
     for (let index = actors.length - 1; index >= 0; index -= 1) {
       const actor = actors[index]!;
       if (!skipsDormantLynxActorAdvance(state, actor, state.timer.currentTime + 1)) {
-        advanceLynxCreature(state, level, actors, actor, state.timer.currentTime + 1);
+        advanceLynxCreature(state, level, actors, actor, state.timer.currentTime + 1, chipPos, chipZ);
       }
       actor.intentDir = 0;
       actor.forcedDir = 0;
@@ -3569,6 +3848,7 @@ function runLynxReplayTraceDebugInternal(
         const selection =
           latchedChipMoveSelection &&
           chipPos === latchedChipMoveSelection.chipPos &&
+          chipZ === latchedChipMoveSelection.chipZ &&
           chipDir === latchedChipMoveSelection.chipDir &&
           chipMoving === latchedChipMoveSelection.chipMoving &&
           endGameTicksElapsed === latchedChipMoveSelection.endGameTicksElapsed
@@ -3578,6 +3858,7 @@ function runLynxReplayTraceDebugInternal(
                 level,
                 actors,
                 chipPos,
+                chipZ,
                 chipDir,
                 chipMoving,
                 endGameTicksElapsed,
@@ -3615,14 +3896,21 @@ function runLynxReplayTraceDebugInternal(
     queuedChipInputCode = 0;
     const startInputCode = chipMoveSelection.startInputCode;
 
-    if (startInputCode === 0 && chipMoving === 0) {
+    if (startInputCode === 0 && !chipMoveSelection.startAirMove && chipMoving === 0) {
       if (!lynxRuntimeState(state).trapReleaseCantMoveThisTick) {
         clearLynxCouldntMove(state);
       }
       resetLynxFloorSounds(state);
     }
 
-    if (chipMoving === 0 && startInputCode !== 0) {
+    if (chipMoving === 0 && chipMoveSelection.startAirMove) {
+      const airborne = startLynxChipAirMovement(state, chipPos, chipZ);
+      chipPos = airborne.chipPos;
+      chipZ = airborne.chipZ;
+      chipMoving = airborne.chipMoving;
+      chipMoveKind = airborne.chipMoveKind;
+      clearLynxCouldntMove(state);
+    } else if (chipMoving === 0 && startInputCode !== 0) {
       updateLynxChipStartMovementState(state, floorBeforeMove, chosenInputCode);
       if (canLynxExitTile(state, floorBeforeMove, MS_TILE.Chip, startInputCode, false)) {
         if (!canAdvanceLynxPosition(chipPos, startInputCode, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
@@ -3655,6 +3943,7 @@ function runLynxReplayTraceDebugInternal(
             chipDir = startInputCode;
             chipPos = targetPos;
             chipMoving = 8;
+            chipMoveKind = "planar";
           } else {
             chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
             addLynxCantMove(state);
@@ -3673,6 +3962,7 @@ function runLynxReplayTraceDebugInternal(
       chipPos,
       chipDir,
       chipMoving,
+      chipMoveKind,
       endGameTicksElapsed,
       endGameResult,
       endGameAnimationTileId,
@@ -3681,6 +3971,7 @@ function runLynxReplayTraceDebugInternal(
     chipPos = postMove.chipPos;
     chipDir = postMove.chipDir;
     chipMoving = postMove.chipMoving;
+    chipMoveKind = postMove.chipMoveKind;
     endGameTicksElapsed = postMove.endGameTicksElapsed;
     endGameResult = postMove.endGameResult;
     endGameAnimationTileId = postMove.endGameAnimationTileId;
@@ -3703,6 +3994,7 @@ function runLynxReplayTraceDebugInternal(
       chipPos,
       chipDir,
       chipMoving,
+      chipMoveKind,
       endGameTicksElapsed,
       endGameResult,
     );

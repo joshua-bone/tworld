@@ -407,19 +407,19 @@ Validation:
 - [x] Remap DAT code `32` to `air` on `z > 1` only.
 - [x] Seed MS Chip air falling from live state and initial state on the existing floor-movement cadence.
 - [x] Extend initial unsupported `air` falling to non-player mobs in MS.
-- [ ] Extend initial unsupported `air` falling to Lynx.
+- [x] Extend initial unsupported `air` falling to Lynx.
 - [x] Implement support checks from the immediately lower layer only in MS.
-- [ ] Implement support checks from the immediately lower layer only in Lynx.
+- [x] Implement support checks from the immediately lower layer only in Lynx.
 - [x] Implement downward movement as force-floor-style movement toward lower `z` in MS.
-- [ ] Implement downward movement as force-floor-style movement toward lower `z` in Lynx.
+- [x] Implement downward movement as force-floor-style movement toward lower `z` in Lynx.
 - [x] Limit vertical movement to one z-layer per tick in MS.
-- [ ] Limit vertical movement to one z-layer per tick in Lynx.
+- [x] Limit vertical movement to one z-layer per tick in Lynx.
 - [x] Apply falling from initial state when starting unsupported in `air`, including non-player mobs such as blocks, in MS.
-- [ ] Apply falling from initial state when starting unsupported in `air`, including non-player mobs such as blocks, in Lynx.
+- [x] Apply falling from initial state when starting unsupported in `air`, including non-player mobs such as blocks, in Lynx.
 - [x] Implement downward landing effects and the ice exception in MS.
-- [ ] Implement downward landing effects and the ice exception in Lynx.
+- [x] Implement downward landing effects and the ice exception in Lynx.
 - [x] Implement collision-on-landing rules, including block/monster kills on player, in MS.
-- [ ] Implement collision-on-landing rules, including block/monster kills on player, in Lynx.
+- [x] Implement collision-on-landing rules, including block/monster kills on player, in Lynx.
 
 Validation:
 
@@ -430,7 +430,7 @@ Validation:
   - falling onto ice
   - falling onto force floors
   - falling onto player / monster / block
-- [ ] focused Lynx engine tests for:
+- [x] focused Lynx engine tests for:
   - falling into water
   - falling onto pickups
   - falling onto bombs
