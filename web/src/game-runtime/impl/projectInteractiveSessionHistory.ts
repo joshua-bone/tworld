@@ -20,7 +20,10 @@ export function projectInteractiveSessionHistory<TSession>(
     checkpointTicks: checkpointsForTimeline(history).map((checkpoint) => checkpoint.tick),
     previousTick: previousUndoTick(history, currentTick),
     previousCheckpointTick: previousUndoCheckpointTick(history, currentTick),
+    timelineId: history.branchMetadata.currentTimelineId,
+    timelineCount: history.branchMetadata.timelines.length,
     restoreMode: restoreState.mode,
     restoredFromTick: restoreState.restoredFromTick,
+    replayTargetTick: restoreState.replayTargetTick,
   };
 }

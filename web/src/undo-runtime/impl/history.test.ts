@@ -26,6 +26,7 @@ import {
 } from "@undo-runtime/impl/msCheckpoint";
 import {
   createMsUndoHistory,
+  forkMsUndoHistory,
   recordMsUndoTick,
   restoreMsUndoHistoryToTick,
 } from "@undo-runtime/impl/msHistory";
@@ -36,9 +37,11 @@ import {
 } from "@undo-runtime/impl/lynxCheckpoint";
 import {
   createLynxUndoHistory,
+  forkLynxUndoHistory,
   recordLynxUndoTick,
   restoreLynxUndoHistoryToTick,
 } from "@undo-runtime/impl/lynxHistory";
+import { latestUndoTick, nextUndoTickEvent, previousUndoTick } from "@undo-runtime/impl/history";
 
 function pos(x: number, y: number): number {
   return y * MS_GRID_WIDTH + x;
@@ -248,6 +251,37 @@ describe("MS undo history", () => {
     expect(digestMsInteractiveSession(restoredInitial.session)).toBe(originalDigests.get(-1));
     expect(restoredInitial.replayedEventCount).toBe(0);
   });
+
+  it("forks MS history onto a new timeline without deleting the original future", () => {
+    let session = createScenarioSession();
+    let history = createMsUndoHistory(session, 2);
+
+    for (const inputCode of [GAME_INPUT_CODES.east, GAME_INPUT_CODES.none, GAME_INPUT_CODES.none]) {
+      session = advanceMsInteractiveSession(session, inputCode);
+      history = recordMsUndoTick(history, session, inputCode);
+    }
+
+    const restored = restoreMsUndoHistoryToTick(history, 1).session;
+    const forked = forkMsUndoHistory(history, restored);
+
+    expect(forked.branchMetadata.currentTimelineId).toBe("timeline-1");
+    expect(forked.branchMetadata.timelines).toEqual([
+      {
+        id: "main",
+        parentTimelineId: null,
+        forkTick: null,
+      },
+      {
+        id: "timeline-1",
+        parentTimelineId: "main",
+        forkTick: 1,
+      },
+    ]);
+    expect(forked.checkpoints.filter((checkpoint) => checkpoint.timelineId === "timeline-1").map((checkpoint) => checkpoint.tick)).toEqual([1]);
+    expect(latestUndoTick(forked, "timeline-1")).toBe(1);
+    expect(previousUndoTick(forked, 2, "timeline-1")).toBe(1);
+    expect(nextUndoTickEvent(forked, 1, "main")?.tick).toBe(2);
+  });
 });
 
 describe("Lynx undo history", () => {
@@ -297,5 +331,24 @@ describe("Lynx undo history", () => {
     const restoredInitial = restoreLynxUndoHistoryToTick(history, -1);
     expect(digestLynxInteractiveSession(restoredInitial.session)).toBe(originalDigests.get(-1));
     expect(restoredInitial.replayedEventCount).toBe(0);
+  });
+
+  it("forks Lynx history onto a new timeline without deleting the original future", () => {
+    let session = createLynxReplayScenarioSession();
+    let history = createLynxUndoHistory(session, 2);
+
+    for (const inputCode of [GAME_INPUT_CODES.east, GAME_INPUT_CODES.none, GAME_INPUT_CODES.none]) {
+      session = advanceLynxInteractiveSession(session, inputCode);
+      history = recordLynxUndoTick(history, session, inputCode);
+    }
+
+    const restored = restoreLynxUndoHistoryToTick(history, 1).session;
+    const forked = forkLynxUndoHistory(history, restored);
+
+    expect(forked.branchMetadata.currentTimelineId).toBe("timeline-1");
+    expect(forked.checkpoints.filter((checkpoint) => checkpoint.timelineId === "timeline-1").map((checkpoint) => checkpoint.tick)).toEqual([1]);
+    expect(latestUndoTick(forked, "timeline-1")).toBe(1);
+    expect(previousUndoTick(forked, 2, "timeline-1")).toBe(1);
+    expect(nextUndoTickEvent(forked, 1, "main")?.tick).toBe(2);
   });
 });

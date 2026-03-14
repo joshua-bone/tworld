@@ -4,6 +4,7 @@ import {
   appendUndoTick,
   createUndoHistory,
   createUndoSettingsSnapshot,
+  forkUndoTimeline,
   restoreUndoHistoryToTick,
   UNDO_MAIN_TIMELINE_ID,
 } from "@undo-runtime/impl/history";
@@ -53,4 +54,13 @@ export function restoreLynxUndoHistoryToTick(
     restoreCheckpoint: restoreLynxUndoCheckpoint,
     advance: advanceLynxInteractiveSession,
   });
+}
+
+export function forkLynxUndoHistory(
+  history: LynxUndoHistory,
+  session: LynxInteractiveSessionState,
+): LynxUndoHistory {
+  return forkUndoTimeline(history, session.state.timer.currentTime, (timelineId) =>
+    captureLynxUndoCheckpoint(session, timelineId),
+  );
 }

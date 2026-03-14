@@ -1,8 +1,9 @@
 import type { InteractiveGameSessionHandle } from "@game-runtime/ports/InteractiveGameEngine";
 
 export interface InteractiveSessionRestoreState {
-  mode: "live" | "restored-paused";
+  mode: "live" | "restored-paused" | "replaying-history";
   restoredFromTick: number | null;
+  replayTargetTick: number | null;
 }
 
 export interface InteractiveSessionRuntimeState<TToken, THistory> {
@@ -15,6 +16,7 @@ export function createLiveRestoreState(): InteractiveSessionRestoreState {
   return {
     mode: "live",
     restoredFromTick: null,
+    replayTargetTick: null,
   };
 }
 
@@ -22,6 +24,18 @@ export function createPausedRestoreState(targetTick: number): InteractiveSession
   return {
     mode: "restored-paused",
     restoredFromTick: targetTick,
+    replayTargetTick: null,
+  };
+}
+
+export function createHistoricalReplayRestoreState(
+  restoredFromTick: number,
+  replayTargetTick: number,
+): InteractiveSessionRestoreState {
+  return {
+    mode: "replaying-history",
+    restoredFromTick,
+    replayTargetTick,
   };
 }
 

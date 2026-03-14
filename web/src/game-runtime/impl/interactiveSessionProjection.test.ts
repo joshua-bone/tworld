@@ -22,8 +22,11 @@ describe("interactive session projection", () => {
       checkpointTicks: [-1],
       previousTick: null,
       previousCheckpointTick: null,
+      timelineId: "main",
+      timelineCount: 1,
       restoreMode: "live",
       restoredFromTick: null,
+      replayTargetTick: null,
     });
     expect(session.handle).toBeTruthy();
   });
@@ -50,10 +53,13 @@ describe("interactive session projection", () => {
     expect(next.history).toMatchObject({
       currentTick: 0,
       latestTick: 0,
+      timelineId: "main",
+      timelineCount: 1,
       previousTick: -1,
       previousCheckpointTick: -1,
       restoreMode: "live",
       restoredFromTick: null,
+      replayTargetTick: null,
     });
     expect(next.handle).toBeTruthy();
   });

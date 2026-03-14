@@ -17,8 +17,11 @@ export interface InteractiveGameSessionHistory {
   checkpointTicks: number[];
   previousTick: number | null;
   previousCheckpointTick: number | null;
-  restoreMode: "live" | "restored-paused";
+  timelineId: string;
+  timelineCount: number;
+  restoreMode: "live" | "restored-paused" | "replaying-history";
   restoredFromTick: number | null;
+  replayTargetTick: number | null;
 }
 
 export interface InteractiveGameSession {
@@ -36,4 +39,5 @@ export interface InteractiveGameEnginePort {
   startReplaySession(request: GameRequest, replay: ReplaySolutionPayload): Promise<InteractiveGameSession>;
   advanceSession(session: InteractiveGameSession, input: InteractiveInput): Promise<InteractiveGameSession>;
   restoreSession(session: InteractiveGameSession, targetTick: number): Promise<InteractiveGameSession>;
+  resumeSession(session: InteractiveGameSession): Promise<InteractiveGameSession>;
 }

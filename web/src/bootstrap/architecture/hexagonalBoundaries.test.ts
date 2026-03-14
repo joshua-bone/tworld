@@ -154,6 +154,7 @@ describe("hexagonal boundaries", () => {
         "game-runtime/impl/importReplayForLevel.ts",
         "game-runtime/impl/projectInteractiveGameSession.ts",
         "game-runtime/impl/projectInteractiveSessionHistory.ts",
+        "game-runtime/impl/resumeInteractiveGameSession.ts",
         "game-runtime/impl/restoreInteractiveGameSession.ts",
         "game-runtime/impl/startInteractiveGameSession.ts",
         "game-runtime/impl/startReplayInteractiveGameSession.ts",

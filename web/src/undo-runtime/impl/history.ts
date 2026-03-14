@@ -4,10 +4,12 @@ import type {
   UndoCheckpoint,
   UndoHistory,
   UndoSettingsSnapshot,
+  UndoTimelineId,
   UndoTickEvent,
 } from "@undo-runtime/api/history";
 
 export const UNDO_MAIN_TIMELINE_ID = "main";
+const UNDO_BRANCH_PREFIX = "timeline";
 
 function eventSort(left: { tick: number }, right: { tick: number }): number {
   return left.tick - right.tick;
@@ -81,12 +83,22 @@ export function checkpointsForTimeline<TSession>(
     .sort(eventSort);
 }
 
+function recordedTicksForTimeline<TSession>(
+  history: UndoHistory<TSession>,
+  timelineId = history.branchMetadata.currentTimelineId,
+): number[] {
+  return [...new Set([
+    ...checkpointsForTimeline(history, timelineId).map((checkpoint) => checkpoint.tick),
+    ...eventsForTimeline(history, timelineId).map((event) => event.tick),
+  ])].sort((left, right) => left - right);
+}
+
 export function latestUndoTick<TSession>(
   history: UndoHistory<TSession>,
   timelineId = history.branchMetadata.currentTimelineId,
 ): number {
-  const events = eventsForTimeline(history, timelineId);
-  return events[events.length - 1]?.tick ?? history.initialCheckpoint.tick;
+  const recordedTicks = recordedTicksForTimeline(history, timelineId);
+  return recordedTicks[recordedTicks.length - 1] ?? history.initialCheckpoint.tick;
 }
 
 export function previousUndoTick<TSession>(
@@ -94,12 +106,7 @@ export function previousUndoTick<TSession>(
   currentTick: number,
   timelineId = history.branchMetadata.currentTimelineId,
 ): number | null {
-  const previousEvent = eventsForTimeline(history, timelineId).filter((event) => event.tick < currentTick).at(-1);
-  if (previousEvent) {
-    return previousEvent.tick;
-  }
-
-  return history.initialCheckpoint.tick < currentTick ? history.initialCheckpoint.tick : null;
+  return recordedTicksForTimeline(history, timelineId).filter((tick) => tick < currentTick).at(-1) ?? null;
 }
 
 export function previousUndoCheckpointTick<TSession>(
@@ -123,6 +130,42 @@ export function truncateUndoHistoryAfterTick<TSession>(
     checkpoints: history.checkpoints.filter(
       (checkpoint) => checkpoint.timelineId !== timelineId || checkpoint.tick <= targetTick,
     ),
+  };
+}
+
+export function nextUndoTickEvent<TSession>(
+  history: UndoHistory<TSession>,
+  currentTick: number,
+  timelineId = history.branchMetadata.currentTimelineId,
+): UndoTickEvent | null {
+  return eventsForTimeline(history, timelineId).find((event) => event.tick > currentTick) ?? null;
+}
+
+function nextTimelineId<TSession>(history: UndoHistory<TSession>): UndoTimelineId {
+  return `${UNDO_BRANCH_PREFIX}-${history.branchMetadata.timelines.length}`;
+}
+
+export function forkUndoTimeline<TSession>(
+  history: UndoHistory<TSession>,
+  forkTick: number,
+  createCheckpoint: (timelineId: UndoTimelineId) => UndoCheckpoint<TSession>,
+): UndoHistory<TSession> {
+  const parentTimelineId = history.branchMetadata.currentTimelineId;
+  const timelineId = nextTimelineId(history);
+  return {
+    ...history,
+    checkpoints: [...history.checkpoints, createCheckpoint(timelineId)],
+    branchMetadata: {
+      currentTimelineId: timelineId,
+      timelines: [
+        ...history.branchMetadata.timelines,
+        {
+          id: timelineId,
+          parentTimelineId,
+          forkTick,
+        },
+      ],
+    },
   };
 }
 

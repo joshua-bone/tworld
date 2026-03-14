@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { previousInteractiveGameSessionCheckpointTick, previousInteractiveGameSessionTick } from "@game-runtime/impl/interactiveHistoryNavigation";
+import { resumeInteractiveGameSession } from "@game-runtime/impl/resumeInteractiveGameSession";
 import { restoreInteractiveGameSession } from "@game-runtime/impl/restoreInteractiveGameSession";
 import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter";
 import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
@@ -40,20 +41,46 @@ describe("restoreInteractiveGameSession", () => {
     expect(restored.frame.snapshot.tick).toBe(7);
     expect(restored.history).toMatchObject({
       currentTick: 7,
-      latestTick: 7,
+      latestTick: 8,
       checkpointTicks: [-1, 7],
+      timelineId: "main",
+      timelineCount: 1,
       previousTick: 6,
       previousCheckpointTick: -1,
       restoreMode: "restored-paused",
       restoredFromTick: 7,
+      replayTargetTick: null,
     });
 
-    const resumed = await adapter.advanceSession(restored, "none");
+    const stillPaused = await adapter.advanceSession(restored, "none");
+    expect(stillPaused.history).toMatchObject({
+      currentTick: 7,
+      latestTick: 8,
+      restoreMode: "restored-paused",
+      restoredFromTick: 7,
+      replayTargetTick: null,
+    });
+
+    const resumed = await resumeInteractiveGameSession(adapter, restored);
     expect(resumed.history).toMatchObject({
+      currentTick: 7,
+      latestTick: 8,
+      timelineId: "main",
+      timelineCount: 1,
+      restoreMode: "replaying-history",
+      restoredFromTick: 7,
+      replayTargetTick: 8,
+    });
+
+    const replayed = await adapter.advanceSession(resumed, "none");
+    expect(replayed.history).toMatchObject({
       currentTick: 8,
       latestTick: 8,
+      timelineId: "main",
+      timelineCount: 1,
       restoreMode: "live",
       restoredFromTick: null,
+      replayTargetTick: null,
     });
   });
 
@@ -78,20 +105,99 @@ describe("restoreInteractiveGameSession", () => {
     expect(restored.frame.snapshot.tick).toBe(7);
     expect(restored.history).toMatchObject({
       currentTick: 7,
-      latestTick: 7,
+      latestTick: 8,
       checkpointTicks: [-1, 7],
+      timelineId: "main",
+      timelineCount: 1,
       previousTick: 6,
       previousCheckpointTick: -1,
       restoreMode: "restored-paused",
       restoredFromTick: 7,
+      replayTargetTick: null,
     });
 
-    const resumed = await adapter.advanceSession(restored, "none");
+    const stillPaused = await adapter.advanceSession(restored, "none");
+    expect(stillPaused.history).toMatchObject({
+      currentTick: 7,
+      latestTick: 8,
+      restoreMode: "restored-paused",
+      restoredFromTick: 7,
+      replayTargetTick: null,
+    });
+
+    const resumed = await resumeInteractiveGameSession(adapter, restored);
     expect(resumed.history).toMatchObject({
+      currentTick: 7,
+      latestTick: 8,
+      timelineId: "main",
+      timelineCount: 1,
+      restoreMode: "replaying-history",
+      restoredFromTick: 7,
+      replayTargetTick: 8,
+    });
+
+    const replayed = await adapter.advanceSession(resumed, "none");
+    expect(replayed.history).toMatchObject({
       currentTick: 8,
       latestTick: 8,
+      timelineId: "main",
+      timelineCount: 1,
       restoreMode: "live",
       restoredFromTick: null,
+      replayTargetTick: null,
+    });
+  });
+
+  it("forks a new MS timeline on first live input after restore", async () => {
+    const adapter = new MsGameEngineAdapter(new NodeLevelRepository());
+    const started = await adapter.startSession({
+      seriesFile: "intro-ms.dac",
+      levelNumber: 1,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+    const session = await advanceMany(started, (current) => adapter.advanceSession(current, "none"), 9);
+    const restored = await restoreInteractiveGameSession(adapter, session, 6);
+
+    const takenOver = await adapter.advanceSession(restored, "east");
+
+    expect(takenOver.history).toMatchObject({
+      currentTick: 7,
+      latestTick: 7,
+      timelineId: "timeline-1",
+      timelineCount: 2,
+      previousTick: 6,
+      previousCheckpointTick: 6,
+      restoreMode: "live",
+      restoredFromTick: null,
+      replayTargetTick: null,
+    });
+  });
+
+  it("forks a new Lynx timeline on first live input during historical replay", async () => {
+    const adapter = new LynxGameEngineAdapter(new NodeLevelRepository());
+    const started = await adapter.startSession({
+      seriesFile: "intro-lynx.dac",
+      levelNumber: 1,
+      ruleset: "Lynx",
+      randomSeed: 123456789,
+    });
+    const session = await advanceMany(started, (current) => adapter.advanceSession(current, "none"), 9);
+    const restored = await restoreInteractiveGameSession(adapter, session, 6);
+    const resumed = await resumeInteractiveGameSession(adapter, restored);
+
+    const takenOver = await adapter.advanceSession(resumed, "east");
+
+    expect(takenOver.history).toMatchObject({
+      currentTick: 7,
+      latestTick: 7,
+      timelineId: "timeline-1",
+      timelineCount: 2,
+      previousTick: 6,
+      previousCheckpointTick: 6,
+      restoreMode: "live",
+      restoredFromTick: null,
+      replayTargetTick: null,
     });
   });
 });

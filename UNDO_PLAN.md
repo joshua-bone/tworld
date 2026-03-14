@@ -511,11 +511,11 @@ Exit criteria:
 
 - user can restore to prior points in both rulesets
 
-### [ ] PR5: Resume Historical Timeline
+### [x] PR5: Resume Historical Timeline
 
-- [ ] add rewind-and-resume mode
-- [ ] add explicit timeline replay state
-- [ ] add takeover branching on first manual input
+- [x] add rewind-and-resume mode
+- [x] add explicit timeline replay state
+- [x] add takeover branching on first manual input
 
 Exit criteria:
 

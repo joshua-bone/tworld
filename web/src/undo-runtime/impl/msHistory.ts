@@ -4,6 +4,7 @@ import {
   appendUndoTick,
   createUndoHistory,
   createUndoSettingsSnapshot,
+  forkUndoTimeline,
   restoreUndoHistoryToTick,
   UNDO_MAIN_TIMELINE_ID,
 } from "@undo-runtime/impl/history";
@@ -53,4 +54,13 @@ export function restoreMsUndoHistoryToTick(
     restoreCheckpoint: restoreMsUndoCheckpoint,
     advance: advanceMsInteractiveSession,
   });
+}
+
+export function forkMsUndoHistory(
+  history: MsUndoHistory,
+  session: MsInteractiveSessionState,
+): MsUndoHistory {
+  return forkUndoTimeline(history, session.state.engine.timer.currentTime, (timelineId) =>
+    captureMsUndoCheckpoint(session, timelineId),
+  );
 }
