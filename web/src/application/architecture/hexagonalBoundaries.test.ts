@@ -12,6 +12,12 @@ interface BoundaryRule {
   forbidden: RegExp[];
 }
 
+interface BoundaryFileRule {
+  name: string;
+  files: string[];
+  forbidden: RegExp[];
+}
+
 function normalizePath(path: string): string {
   return path.replaceAll("\\", "/");
 }
@@ -59,6 +65,10 @@ function filesUnder(relativeRoot: string): string[] {
   return listSourceFiles(resolve(srcRoot, relativeRoot));
 }
 
+function sourceFile(relativePath: string): string {
+  return resolve(srcRoot, relativePath);
+}
+
 function assertNoForbiddenImports(rule: BoundaryRule): void {
   const violations: string[] = [];
 
@@ -69,6 +79,22 @@ function assertNoForbiddenImports(rule: BoundaryRule): void {
         if (rule.forbidden.some((pattern) => pattern.test(specifier))) {
           violations.push(`${normalizePath(relative(srcRoot, file))} -> ${specifier}`);
         }
+      }
+    }
+  }
+
+  expect(violations, `${rule.name} violations`).toEqual([]);
+}
+
+function assertFilesHaveNoForbiddenImports(rule: BoundaryFileRule): void {
+  const violations: string[] = [];
+
+  for (const relativeFile of rule.files) {
+    const file = sourceFile(relativeFile);
+    const specifiers = readImportSpecifiers(file);
+    for (const specifier of specifiers) {
+      if (rule.forbidden.some((pattern) => pattern.test(specifier))) {
+        violations.push(`${normalizePath(relative(srcRoot, file))} -> ${specifier}`);
       }
     }
   }
@@ -98,6 +124,30 @@ describe("hexagonal boundaries", () => {
       name: "application purity",
       roots: ["application/ports", "application/mappers", "application/engine"],
       forbidden: [/^@adapters(\/|$)/, /^react$/, /^react-dom$/],
+    });
+  });
+
+  it("keeps pure application orchestration use cases free of adapters and runtime APIs", () => {
+    assertFilesHaveNoForbiddenImports({
+      name: "pure application use case purity",
+      files: [
+        "application/use-cases/advanceInteractiveGameSession.ts",
+        "application/use-cases/buildReplayExport.ts",
+        "application/use-cases/buildReplayTraceScenariosFromSolutionFile.ts",
+        "application/use-cases/compareInputTraceScenario.ts",
+        "application/use-cases/exportInteractiveReplay.ts",
+        "application/use-cases/importReplayForLevel.ts",
+        "application/use-cases/loadDashboardSummary.ts",
+        "application/use-cases/loadPlayableSelection.ts",
+        "application/use-cases/loadPlayableSeriesCatalog.ts",
+        "application/use-cases/loadSeriesCatalog.ts",
+        "application/use-cases/loadSolutionCatalog.ts",
+        "application/use-cases/projectInteractiveGameSession.ts",
+        "application/use-cases/runSolutionFileReplaySweep.ts",
+        "application/use-cases/startInteractiveGameSession.ts",
+        "application/use-cases/startReplayInteractiveGameSession.ts",
+      ],
+      forbidden: [/^@adapters(\/|$)/, /^node:/, /^react$/, /^react-dom$/],
     });
   });
 });
