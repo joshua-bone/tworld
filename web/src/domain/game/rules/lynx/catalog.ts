@@ -35,6 +35,8 @@ interface LynxTilePolicyDefinition {
   readonly chipMovementMask: number;
   readonly creatureMovementMask: number;
   readonly blockMovementMask: number;
+  readonly exitMovementMask: number;
+  readonly requiresReleaseToExit: boolean;
   readonly inventorySlot?: InventorySlot;
   readonly inventoryIndex?: number;
   readonly doorKeyIndex?: number;
@@ -410,6 +412,34 @@ function defaultLynxBlockMovementMask(id: number): number {
   return defaultLynxChipMovementMask(id);
 }
 
+function defaultLynxExitMovementMask(id: number): number {
+  switch (id) {
+    case MS_TILE.Wall_North:
+      return MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
+    case MS_TILE.Wall_West:
+      return MS_DIRECTION.north | MS_DIRECTION.south | MS_DIRECTION.east;
+    case MS_TILE.Wall_South:
+      return MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.east;
+    case MS_TILE.Wall_East:
+      return MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south;
+    case MS_TILE.Wall_Southeast:
+    case MS_TILE.IceWall_Northwest:
+      return MS_DIRECTION.north | MS_DIRECTION.west;
+    case MS_TILE.IceWall_Northeast:
+      return MS_DIRECTION.north | MS_DIRECTION.east;
+    case MS_TILE.IceWall_Southwest:
+      return MS_DIRECTION.south | MS_DIRECTION.west;
+    case MS_TILE.IceWall_Southeast:
+      return MS_DIRECTION.south | MS_DIRECTION.east;
+    default:
+      return FULL_MOVEMENT_MASK;
+  }
+}
+
+function defaultLynxRequiresReleaseToExit(id: number): boolean {
+  return id === MS_TILE.Beartrap || id === MS_TILE.CloneMachine;
+}
+
 function inventoryPolicy(id: number): Pick<LynxTilePolicyDefinition, "inventorySlot" | "inventoryIndex" | "doorKeyIndex"> {
   if (KEY_TILE_SET.has(id)) {
     return {
@@ -439,6 +469,8 @@ function createLynxTilePolicyDefinition(id: number): LynxTilePolicyDefinition {
     chipMovementMask: defaultLynxChipMovementMask(id),
     creatureMovementMask: defaultLynxCreatureMovementMask(id),
     blockMovementMask: defaultLynxBlockMovementMask(id),
+    exitMovementMask: defaultLynxExitMovementMask(id),
+    requiresReleaseToExit: defaultLynxRequiresReleaseToExit(id),
     forcedFloorKind: defaultLynxForcedFloorKind(id),
     chipEnterAction: defaultLynxChipEnterAction(id),
     buttonAction: defaultLynxButtonAction(id),
@@ -465,7 +497,7 @@ function createLynxActorDefinition(id: number): ActorDefinition<number> {
     id === MS_TILE.Chip || id === MS_TILE.Swimming_Chip || id === MS_TILE.Pushing_Chip
       ? (["chip", "collects-items", "pushes-blocks"] as const)
       : id === MS_TILE.Block
-        ? (["block"] as const)
+        ? (["block", "fire-immune"] as const)
         : id === MS_TILE.Glider
           ? (["creature", "water-immune"] as const)
           : id === MS_TILE.Fireball
@@ -509,6 +541,8 @@ function lynxTilePolicy(id: number): LynxTilePolicyDefinition {
       chipMovementMask: 0,
       creatureMovementMask: 0,
       blockMovementMask: 0,
+      exitMovementMask: FULL_MOVEMENT_MASK,
+      requiresReleaseToExit: false,
       forcedFloorKind: "none",
       chipEnterAction: "none",
       buttonAction: "none",
@@ -556,6 +590,14 @@ export function lynxCreatureMovementMask(id: number): number {
 
 export function lynxBlockMovementMask(id: number): number {
   return lynxTilePolicy(id).blockMovementMask;
+}
+
+export function lynxExitMovementMask(id: number): number {
+  return lynxTilePolicy(id).exitMovementMask;
+}
+
+export function lynxRequiresReleaseToExit(id: number): boolean {
+  return lynxTilePolicy(id).requiresReleaseToExit;
 }
 
 export function lynxTileForcedFloorKind(id: number): LynxForcedFloorKind {

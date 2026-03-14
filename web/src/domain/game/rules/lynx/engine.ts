@@ -34,16 +34,19 @@ import { engineStateToSnapshot } from "@domain/game/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@domain/game/trace";
 import { projectLynxDebugPhaseSnapshot } from "@domain/game/rules/lynx/debugProjection";
 import {
+  lynxActorHasTag,
   lynxBlockMovementMask,
   lynxButtonAction,
   lynxChipEnterAction,
   lynxChipMovementMask,
   lynxCreatureMovementMask,
   lynxDoorKeyIndex,
+  lynxExitMovementMask,
   lynxFixedSlideDirection,
   lynxIceWallTurn,
   lynxInventoryIndex,
   lynxInventorySlot,
+  lynxRequiresReleaseToExit,
   lynxTileForcedFloorKind,
 } from "@domain/game/rules/lynx/catalog";
 import {
@@ -548,7 +551,7 @@ function canLynxCreatureEnter(tileId: number, actorId: number, dir: number): boo
   if ((mask & dir) === 0) {
     return false;
   }
-  if (tileId === MS_TILE.Fire && actorId !== MS_TILE.Fireball && actorId !== MS_TILE.Block) {
+  if (tileId === MS_TILE.Fire && !lynxActorHasTag(actorId, "fire-immune")) {
     return false;
   }
   return true;
@@ -565,34 +568,16 @@ function effectiveLynxTargetTileId(state: EngineState, tileId: number): number {
 }
 
 function canLynxExitTile(state: EngineState, tileId: number, actorId: number, dir: number, releasing: boolean): boolean {
-  switch (tileId) {
-    case MS_TILE.Wall_North:
-      return dir !== 1;
-    case MS_TILE.Wall_West:
-      return dir !== 2;
-    case MS_TILE.Wall_South:
-      return dir !== 4;
-    case MS_TILE.Wall_East:
-      return dir !== 8;
-    case MS_TILE.Wall_Southeast:
-      return (dir & (4 | 8)) === 0;
-    case MS_TILE.IceWall_Northwest:
-      return (dir & (4 | 8)) === 0;
-    case MS_TILE.IceWall_Northeast:
-      return (dir & (4 | 2)) === 0;
-    case MS_TILE.IceWall_Southwest:
-      return (dir & (1 | 8)) === 0;
-    case MS_TILE.IceWall_Southeast:
-      return (dir & (1 | 2)) === 0;
-    case MS_TILE.Beartrap:
-    case MS_TILE.CloneMachine:
-      return releasing;
-    default:
-      if (isLynxSlide(tileId) && (actorId !== MS_TILE.Chip || !hasLynxBoots(state, MS_TILE.Boots_Slide))) {
-        return getLynxSlideDirection(state, tileId, false) !== backDirection(dir);
-      }
-      return true;
+  if (lynxRequiresReleaseToExit(tileId)) {
+    return releasing;
   }
+  if ((lynxExitMovementMask(tileId) & dir) === 0) {
+    return false;
+  }
+  if (isLynxSlide(tileId) && (actorId !== MS_TILE.Chip || !hasLynxBoots(state, MS_TILE.Boots_Slide))) {
+    return getLynxSlideDirection(state, tileId, false) !== backDirection(dir);
+  }
+  return true;
 }
 
 function advanceLynxMainRandom4(state: EngineState): number {

@@ -7,10 +7,12 @@ import {
   lynxChipMovementMask,
   lynxCreatureMovementMask,
   lynxDoorKeyIndex,
+  lynxExitMovementMask,
   lynxFixedSlideDirection,
   lynxIceWallTurn,
   lynxInventoryIndex,
   lynxInventorySlot,
+  lynxRequiresReleaseToExit,
   lynxRulesetCatalog,
   lynxTileForcedFloorKind,
   lynxTileHasCapability,
@@ -86,6 +88,14 @@ describe("Lynx ruleset catalog", () => {
     expect(lynxChipEnterAction(MS_TILE.Beartrap)).toBe("trap");
     expect(lynxChipEnterAction(MS_TILE.Exit)).toBe("exit");
     expect(lynxChipEnterAction(MS_TILE.Fire)).toBe("fire-death");
+    expect(lynxExitMovementMask(MS_TILE.Wall_East)).toBe(
+      MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south,
+    );
+    expect(lynxExitMovementMask(MS_TILE.IceWall_Southwest)).toBe(
+      MS_DIRECTION.south | MS_DIRECTION.west,
+    );
+    expect(lynxRequiresReleaseToExit(MS_TILE.Beartrap)).toBe(true);
+    expect(lynxRequiresReleaseToExit(MS_TILE.Empty)).toBe(false);
   });
 
   it("provides actor tags for the shared creature families", () => {
@@ -94,5 +104,6 @@ describe("Lynx ruleset catalog", () => {
     expect(lynxActorHasTag(MS_TILE.Glider, "water-immune")).toBe(true);
     expect(lynxActorHasTag(MS_TILE.Fireball, "fire-immune")).toBe(true);
     expect(lynxActorHasTag(MS_TILE.Block, "block")).toBe(true);
+    expect(lynxActorHasTag(MS_TILE.Block, "fire-immune")).toBe(true);
   });
 });
