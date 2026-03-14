@@ -46,6 +46,8 @@ const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";
 const SOUND_VOLUME_STORAGE_KEY = "tworld.sound-volume";
 const LEGACY_FAST_TICK_MS = 25;
 const LEGACY_NORMAL_TICK_MS = 50;
+const UNDO_HOLD_REPEAT_DELAY_MS = 160;
+const UNDO_HOLD_REPEAT_INTERVAL_MS = 40;
 
 interface HelpCommand {
   keys: string;
@@ -156,8 +158,8 @@ const GAME_PLAYING_HELP: HelpSection[] = [
       { keys: "Mouse click (MS)", action: "set a mouse goal on the clicked map tile" },
       { keys: "Hold Shift", action: "run the game clock at 2x speed" },
       { keys: "Space", action: "start the clock without moving" },
-      { keys: "Z", action: "restore the previous tick and pause there when undo history is enabled" },
-      { keys: "Shift + Z", action: "rewind to the previous checkpoint and pause there when undo history is enabled" },
+      { keys: "Z / hold Z", action: "restore the previous tick and keep rewinding while held when undo history is enabled" },
+      { keys: "Shift + Z", action: "rewind to the previous checkpoint and keep rewinding checkpoints while held" },
       { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
       { keys: "R", action: "restart the current level" },
       { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
@@ -173,8 +175,8 @@ const GAME_ENDED_HELP: HelpSection[] = [
     title: "After A Level Ends",
     commands: [
       { keys: "Enter / Space", action: "continue: next level after a win, retry after a loss" },
-      { keys: "Z", action: "restore the previous tick and pause there when undo history is enabled" },
-      { keys: "Shift + Z", action: "rewind to the previous checkpoint and pause there when undo history is enabled" },
+      { keys: "Z / hold Z", action: "restore the previous tick and keep rewinding while held when undo history is enabled" },
+      { keys: "Shift + Z", action: "rewind to the previous checkpoint and keep rewinding checkpoints while held" },
       { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
       { keys: "R", action: "restart the current level" },
       { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
@@ -287,8 +289,10 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
   const [manualRunStarted, setManualRunStarted] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
+  const [heldUndoMode, setHeldUndoMode] = useState<"tick" | "checkpoint" | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const tickingRef = useRef(false);
+  const historyNavigationRef = useRef(false);
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
   const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
@@ -510,10 +514,11 @@ export function PlayerApp({ services }: PlayerAppProps) {
   });
 
   const restoreToTick = useEffectEvent((targetTick: number | null) => {
-    if (targetTick === null || mode !== "game" || !session) {
+    if (targetTick === null || mode !== "game" || !session || historyNavigationRef.current) {
       return;
     }
 
+    historyNavigationRef.current = true;
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
 
@@ -525,6 +530,9 @@ export function PlayerApp({ services }: PlayerAppProps) {
       .then(syncSessionState)
       .catch((error: unknown) => {
         setMessage(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => {
+        historyNavigationRef.current = false;
       });
   });
 
@@ -537,10 +545,11 @@ export function PlayerApp({ services }: PlayerAppProps) {
   });
 
   const resumeOriginalTimeline = useEffectEvent(() => {
-    if (!canResumeOriginalTimeline || mode !== "game" || !session) {
+    if (!canResumeOriginalTimeline || mode !== "game" || !session || historyNavigationRef.current) {
       return;
     }
 
+    historyNavigationRef.current = true;
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
 
@@ -551,7 +560,23 @@ export function PlayerApp({ services }: PlayerAppProps) {
       .then(syncSessionState)
       .catch((error: unknown) => {
         setMessage(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => {
+        historyNavigationRef.current = false;
       });
+  });
+
+  const stopHeldUndo = useEffectEvent(() => {
+    setHeldUndoMode(null);
+  });
+
+  const stepHeldUndo = useEffectEvent((nextMode: "tick" | "checkpoint") => {
+    if (nextMode === "checkpoint") {
+      undoPreviousCheckpoint();
+      return;
+    }
+
+    undoPreviousTick();
   });
 
   useEffect(() => {
@@ -577,6 +602,26 @@ export function PlayerApp({ services }: PlayerAppProps) {
       window.clearInterval(intervalId);
     };
   }, [advanceTick, isFastForwarding, isRunning, manualRunStarted, mode, session, showHelp]);
+
+  useEffect(() => {
+    if (mode !== "game" || heldUndoMode === null || !session?.history.enabled || showHelp) {
+      return;
+    }
+
+    let intervalId: number | null = null;
+    const timeoutId = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        stepHeldUndo(heldUndoMode);
+      }, UNDO_HOLD_REPEAT_INTERVAL_MS);
+    }, UNDO_HOLD_REPEAT_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [heldUndoMode, mode, session, showHelp, stepHeldUndo]);
 
   const selectSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
@@ -684,6 +729,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const closeHelp = useEffectEvent(() => {
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
+    stopHeldUndo();
     setShowHelp(false);
   });
 
@@ -694,6 +740,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   });
 
   const closeSoundControls = useEffectEvent(() => {
+    stopHeldUndo();
     setShowSoundControls(false);
   });
 
@@ -704,6 +751,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   });
 
   const closeHistoryControls = useEffectEvent(() => {
+    stopHeldUndo();
     setShowHistoryControls(false);
   });
 
@@ -762,6 +810,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
 
       setShowSoundControls(false);
       setShowHistoryControls(false);
+      stopHeldUndo();
     };
 
     window.addEventListener("pointerdown", onPointerDown);
@@ -857,12 +906,20 @@ export function PlayerApp({ services }: PlayerAppProps) {
 
       if (session?.history.enabled && isUndoCheckpointKey(event)) {
         event.preventDefault();
+        if (event.repeat) {
+          return;
+        }
+        setHeldUndoMode("checkpoint");
         undoPreviousCheckpoint();
         return;
       }
 
       if (session?.history.enabled && isUndoKey(event)) {
         event.preventDefault();
+        if (event.repeat) {
+          return;
+        }
+        setHeldUndoMode("tick");
         undoPreviousTick();
         return;
       }
@@ -969,6 +1026,10 @@ export function PlayerApp({ services }: PlayerAppProps) {
         return;
       }
 
+      if (event.key === "z" || event.key === "Z") {
+        stopHeldUndo();
+      }
+
       const input = keyToInput(event.key);
       if (input) {
         event.preventDefault();
@@ -982,6 +1043,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
 
     const onWindowBlur = () => {
       setIsFastForwarding(false);
+      stopHeldUndo();
       msInputBufferRef.current.reset();
       lynxInputBufferRef.current.reset();
     };
@@ -1011,6 +1073,8 @@ export function PlayerApp({ services }: PlayerAppProps) {
     showSoundControls,
     showHelp,
     closeSoundControls,
+    stopHeldUndo,
+    stepHeldUndo,
     toggleHelp,
     undoPreviousCheckpoint,
     undoPreviousTick,
