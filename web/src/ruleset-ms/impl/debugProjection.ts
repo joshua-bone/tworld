@@ -10,6 +10,7 @@ import type {
 } from "@game-core/api/debug";
 import { createRuntimeCommand } from "@game-core/api/playback";
 import { hashByte, hashHex, hashInt, mapHash } from "@game-core/impl/hash";
+import { boardGamePosition, projectGamePosition } from "@game-core/impl/position";
 import {
   MS_DIRECTION,
   MS_FLOOR_STATE,
@@ -213,12 +214,8 @@ function floorTile(cells: EngineMapCell[], pos: number): EngineMapCell["top"] {
   return cell.bottom;
 }
 
-function debugPosition(pos: number) {
-  return {
-    x: pos % MS_GRID_WIDTH,
-    y: Math.floor(pos / MS_GRID_WIDTH),
-    pos,
-  };
+function debugPosition(pos: number, z = 1) {
+  return boardGamePosition(pos, MS_GRID_WIDTH, z);
 }
 
 function debugFloorState(tile: EngineMapCell["top"], movementMode: string, slipDir: number): GameDebugFloorState {
@@ -249,7 +246,7 @@ function collectBoardFlags(cells: EngineMapCell[]): GameDebugBoardFlag[] {
       flags.push({
         layer: 1,
         id: cell.top.id,
-        position: { ...cell.position },
+        position: projectGamePosition(cell.position),
         state: cell.top.state,
         stateFlags: floorStateFlags(cell.top.state),
       });
@@ -258,7 +255,7 @@ function collectBoardFlags(cells: EngineMapCell[]): GameDebugBoardFlag[] {
       flags.push({
         layer: 0,
         id: cell.bottom.id,
-        position: { ...cell.position },
+        position: projectGamePosition(cell.position),
         state: cell.bottom.state,
         stateFlags: floorStateFlags(cell.bottom.state),
       });
@@ -303,7 +300,7 @@ function buildCreatureDebugActor(
     index,
     id: creature.id,
     dir: directionName(creature.dir),
-    position: debugPosition(creature.pos),
+    position: debugPosition(creature.pos, creature.z ?? 1),
     hidden: creature.hidden,
     state,
     stateFlags: nonChipStateFlags(
@@ -343,7 +340,7 @@ function buildChipDebugActor(
     index: 0,
     id: MS_TILE.Chip,
     dir: directionName(internal.chipDir),
-    position: debugPosition(internal.chipPos),
+    position: debugPosition(internal.chipPos, internal.chipZ ?? 1),
     hidden: false,
     state,
     stateFlags: creatureStateFlags(
@@ -392,7 +389,7 @@ function buildBlockDebugActor(cells: EngineMapCell[], block: MsTrackedBlock, ind
     index,
     id: MS_TILE.Block,
     dir: directionName(block.dir),
-    position: debugPosition(block.pos),
+    position: debugPosition(block.pos, block.z ?? 1),
     hidden: block.hidden,
     state,
     stateFlags,
@@ -473,36 +470,45 @@ function buildSlipList(
   return slips;
 }
 
-export function collectMsActors(cells: EngineMapCell[]): EngineState["actors"] {
+export function collectMsActorsFromLayers(layers: ReadonlyArray<{ z: number; cells: EngineMapCell[] }>): EngineState["actors"] {
   const actors: EngineState["actors"] = [];
-  for (let pos = 0; pos < cells.length; pos += 1) {
-    const cell = cells[pos]!;
-    if (isMsCreature(cell.top.id)) {
-      actors.push({
-        id: msCreatureId(cell.top.id),
-        layer: 1,
-        dir: directionName(msCreatureDir(cell.top.id)),
-        position: { x: pos % MS_GRID_WIDTH, y: Math.floor(pos / MS_GRID_WIDTH), pos },
-        state: cell.top.state,
-      });
-    }
-    if (isMsCreature(cell.bottom.id)) {
-      actors.push({
-        id: msCreatureId(cell.bottom.id),
-        layer: 0,
-        dir: directionName(msCreatureDir(cell.bottom.id)),
-        position: { x: pos % MS_GRID_WIDTH, y: Math.floor(pos / MS_GRID_WIDTH), pos },
-        state: cell.bottom.state,
-      });
+  for (const layer of layers) {
+    for (let pos = 0; pos < layer.cells.length; pos += 1) {
+      const cell = layer.cells[pos]!;
+      if (isMsCreature(cell.top.id)) {
+        actors.push({
+          id: msCreatureId(cell.top.id),
+          layer: 1,
+          dir: directionName(msCreatureDir(cell.top.id)),
+          position: projectGamePosition(cell.position),
+          state: cell.top.state,
+        });
+      }
+      if (isMsCreature(cell.bottom.id)) {
+        actors.push({
+          id: msCreatureId(cell.bottom.id),
+          layer: 0,
+          dir: directionName(msCreatureDir(cell.bottom.id)),
+          position: projectGamePosition(cell.position),
+          state: cell.bottom.state,
+        });
+      }
     }
   }
   return actors;
 }
 
-export function hashMsCreatures(cells: EngineMapCell[]): string {
+export function collectMsActors(cells: EngineMapCell[]): EngineState["actors"] {
+  return collectMsActorsFromLayers([{ z: 1, cells }]);
+}
+
+export function hashMsCreaturesFromLayers(layers: ReadonlyArray<{ z: number; cells: EngineMapCell[] }>): string {
   let hash = 1469598103934665603n;
-  for (const actor of collectMsActors(cells)) {
+  for (const actor of collectMsActorsFromLayers(layers)) {
     hash = hashInt(hash, actor.position.pos);
+    if (actor.position.z !== undefined) {
+      hash = hashByte(hash, actor.position.z);
+    }
     hash = hashByte(hash, actor.layer);
     hash = hashByte(hash, actor.id);
     const dirCode =
@@ -519,6 +525,10 @@ export function hashMsCreatures(cells: EngineMapCell[]): string {
     hash = hashByte(hash, actor.state);
   }
   return hashHex(hash);
+}
+
+export function hashMsCreatures(cells: EngineMapCell[]): string {
+  return hashMsCreaturesFromLayers([{ z: 1, cells }]);
 }
 
 export function projectMsDebugPhaseSnapshot(
@@ -572,7 +582,10 @@ export function projectMsDebugPhaseSnapshot(
     slipList,
     boardFlags: collectBoardFlags(cells),
     map: {
-      cells: cloneBoardCells(cells),
+      cells: cloneBoardCells(cells).map((cell) => ({
+        ...cell,
+        position: projectGamePosition(cell.position),
+      })),
     },
   };
 }

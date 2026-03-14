@@ -80,9 +80,16 @@ function absoluteMouseMoveCode(targetPos: number): number {
 describe("MS engine regressions", () => {
   it("preserves cloned runtime map layers and z-aware connection metadata during initialization", () => {
     const cells = createEmptyCells();
-    const upperCells = createEmptyCells();
+    const upperCells = createEmptyCells().map((cell) => ({
+      ...cell,
+      position: {
+        ...cell.position,
+        z: 2,
+      },
+    }));
     const chipPos = pos(1, 1);
     cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    upperCells[pos(2, 2)]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.east);
 
     const state = initializeMsGameState(
       createRequest(),
@@ -106,6 +113,10 @@ describe("MS engine regressions", () => {
     expect(state.internal.cloners).toEqual([
       { from: 12, to: 13, fromZ: 1, toZ: 1 },
       { from: 22, to: 23, fromZ: 2, toZ: 2 },
+    ]);
+    expect(state.engine.actors.map((actor) => actor.position)).toEqual([
+      { x: 1, y: 1, pos: chipPos },
+      { x: 2, y: 2, z: 2, pos: pos(2, 2) },
     ]);
   });
 

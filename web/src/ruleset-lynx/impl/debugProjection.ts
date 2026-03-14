@@ -9,6 +9,7 @@ import type {
 } from "@game-core/api/debug";
 import { createRuntimeCommand } from "@game-core/api/playback";
 import { mapHash } from "@game-core/impl/hash";
+import { boardGamePosition, projectGamePosition } from "@game-core/impl/position";
 import { MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 import type { LynxRuntimeActor } from "@ruleset-lynx/impl/engine";
 
@@ -79,11 +80,7 @@ function buildLynxDebugActor(cells: EngineMapCell[], actor: LynxRuntimeActor, in
     index,
     id: actor.id,
     dir: directionName(actor.dir),
-    position: {
-      x: actor.pos % MS_GRID_WIDTH,
-      y: Math.floor(actor.pos / MS_GRID_WIDTH),
-      pos: actor.pos,
-    },
+    position: boardGamePosition(actor.pos, MS_GRID_WIDTH, actor.z ?? 1),
     hidden: actor.hidden,
     state: 0,
     stateFlags: actor.dormant ? ["dormant"] : [],
@@ -103,11 +100,7 @@ function buildLynxChipDebugActor(cells: EngineMapCell[], chipPos: number, chipDi
     index: 0,
     id: MS_TILE.Chip,
     dir: directionName(chipDir),
-    position: {
-      x: chipPos % MS_GRID_WIDTH,
-      y: Math.floor(chipPos / MS_GRID_WIDTH),
-      pos: chipPos,
-    },
+    position: boardGamePosition(chipPos, MS_GRID_WIDTH),
     hidden: false,
     state: 0,
     stateFlags: [],
@@ -126,7 +119,7 @@ function collectLynxBoardFlags(cells: EngineMapCell[]): GameDebugBoardFlag[] {
       flags.push({
         layer: 1,
         id: cell.top.id,
-        position: { ...cell.position },
+        position: projectGamePosition(cell.position),
         state: cell.top.state,
         stateFlags: [],
       });
@@ -135,7 +128,7 @@ function collectLynxBoardFlags(cells: EngineMapCell[]): GameDebugBoardFlag[] {
       flags.push({
         layer: 0,
         id: cell.bottom.id,
-        position: { ...cell.position },
+        position: projectGamePosition(cell.position),
         state: cell.bottom.state,
         stateFlags: [],
       });
@@ -194,7 +187,10 @@ export function projectLynxDebugPhaseSnapshot(
     slipList: [],
     boardFlags: collectLynxBoardFlags(state.map.cells),
     map: {
-      cells: cloneBoardCells(state.map.cells),
+      cells: cloneBoardCells(state.map.cells).map((cell) => ({
+        ...cell,
+        position: projectGamePosition(cell.position),
+      })),
     },
   };
 }

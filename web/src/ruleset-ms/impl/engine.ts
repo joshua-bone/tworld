@@ -51,7 +51,7 @@ import {
 import { GAME_INPUT_CODES } from "@game-core/api/command";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
-import { collectMsActors, hashMsCreatures, projectMsDebugPhaseSnapshot } from "@ruleset-ms/impl/debugProjection";
+import { collectMsActorsFromLayers, hashMsCreaturesFromLayers, projectMsDebugPhaseSnapshot } from "@ruleset-ms/impl/debugProjection";
 import type { GameCommand, GameRequest, GameRuntimeCommand, GameTrace } from "@game-core/api/types";
 import { collectLevelConnections, type MsConnection, type MsLevel } from "@ruleset-ms/api/level";
 import type { SolutionMove } from "@content/api/solution-file";
@@ -426,7 +426,11 @@ function statusName(internal: MsInternalState): EngineState["status"] {
 }
 
 function updateEngine(state: MsGameState, cells: EngineMapCell[], soundEffects: number, advanceTick = true): MsGameState {
-  const actors = collectMsActors(cells);
+  const mapLayers = (state.engine.map.layers ?? [{ z: 1, cells }]).map((layer) => ({
+    z: layer.z,
+    cells: layer.z === 1 ? cells : layer.cells,
+  }));
+  const actors = collectMsActorsFromLayers(mapLayers);
   const chip = actors.find((actor) => actor.id === MS_TILE.Chip || actor.id === MS_TILE.Swimming_Chip) ?? null;
   const timer = advanceTimer(state.engine.timer, advanceTick ? 1 : 0, MS_TICKS_PER_SECOND);
   let statusFlags = state.engine.statusFlags & ~MS_STATUS_FLAG.ShowHint;
@@ -463,10 +467,10 @@ function updateEngine(state: MsGameState, cells: EngineMapCell[], soundEffects: 
       actors,
       map: {
         hash: mapHash(cells),
-        creaturesHash: hashMsCreatures(cells),
+        creaturesHash: hashMsCreaturesFromLayers(mapLayers),
         creatureCount: actors.length,
         cells,
-        layers: state.engine.map.layers?.map((layer) => ({
+        layers: mapLayers.map((layer) => ({
           z: layer.z,
           cells: layer.z === 1 ? cells : cloneBoardCells(layer.cells),
         })),
