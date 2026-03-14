@@ -106,11 +106,11 @@ Exit criteria:
 
 ## PR 4: Board And Actor Kernel Extraction
 
-- [ ] Status: in progress
+- [x] Status: complete
 
 Scope:
 
-- [ ] create the reusable simulation kernel shared by both rulesets
+- [x] create the reusable simulation kernel shared by both rulesets
 
 Changes:
 
@@ -123,22 +123,22 @@ Changes:
 - [x] extract initial shared board-flag plus actor-occupancy predicates into `domain/game/core`
 - [x] extract initial shared timer primitives into `domain/game/core`
 - [x] extract initial shared timer construction into `domain/game/core`
-- [ ] keep all ruleset-specific policy outside this kernel
-
-Remaining work in this PR:
-
-- [ ] extract shared destination-cell and destination-position resolution primitives used by both engines
-- [ ] extract shared destination-blocking and occupancy predicates that combine board state and visible-actor presence without embedding MS or Lynx movement policy
-- [ ] extract the next shared actor lifecycle/storage helpers, especially the remaining hide, upsert, and slot-reuse flows
-- [ ] extract shared collision and arrival-effect queue primitives where the engines currently duplicate generic bookkeeping
-- [ ] extract shared board-mutation helpers for repeated flag-transfer and claim/unclaim flows where they are policy-neutral
+- [x] finish routing remaining destination-position math through shared grid primitives
 - [x] reduce duplicated replay-vs-interactive tick bookkeeping inside the Lynx engine once the shared kernel helpers were in place
-- [ ] finish replacing remaining raw board/actor/timer helper patterns in both engines where a core primitive now exists
+- [x] keep all ruleset-specific policy outside this kernel
+
+Carry-forward to later PRs:
+
+- [ ] destination-blocking and occupancy rules that still embed MS or Lynx movement policy move to PR 5 and PR 6
+- [ ] ruleset-specific actor hide, upsert, and lifecycle flows move to PR 5 and PR 6
+- [ ] collision and arrival-effect bookkeeping that still mixes generic sequencing with ruleset policy moves to PR 5, PR 6, and PR 7
+- [ ] remaining claim/unclaim and flag-transfer cleanup that is still tied to Lynx policy moves to PR 6
+- [ ] any remaining interactive-versus-replay phase cleanup beyond the extracted Lynx tick bookkeeping moves to PR 7
 
 Exit criteria:
 
-- [ ] both rulesets still run through existing adapters
-- [ ] no direct adapter imports anywhere in the kernel
+- [x] both rulesets still run through existing adapters
+- [x] no direct adapter imports anywhere in the kernel
 
 ## PR 5: MS Ruleset Catalog And Policy Routing
 

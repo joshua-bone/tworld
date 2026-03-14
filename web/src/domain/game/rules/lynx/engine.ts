@@ -18,7 +18,6 @@ import {
   advancePositionIfPossible,
   canAdvancePosition as canAdvanceLynxPosition,
   directionCode,
-  directionDelta,
   directionName,
   isDiagonalInput,
   isDirectionalInput,
@@ -369,7 +368,7 @@ function removeLynxActor(
   animationTileId: number = LYNX_ANIMATION_TILE.Entity_Explosion,
 ): void {
   if (actor.moving > 0) {
-    actor.pos -= directionDelta(actor.dir, MS_GRID_WIDTH);
+    actor.pos = nextPosition(actor.pos, backDirection(actor.dir), MS_GRID_WIDTH);
     actor.moving = 0;
   }
 
@@ -441,7 +440,7 @@ function failLynxChip(
   }
 
   if (chipMoving > 0) {
-    chipPos -= directionDelta(chipDir, MS_GRID_WIDTH);
+    chipPos = nextPosition(chipPos, backDirection(chipDir), MS_GRID_WIDTH);
   }
 
   let animationTileId: number = LYNX_ANIMATION_TILE.Entity_Explosion;
@@ -2133,7 +2132,7 @@ function startLynxCreatureMovement(
   actor.dir = dir;
   const floorFrom = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
 
-  const targetPos = actor.pos + directionDelta(dir, MS_GRID_WIDTH);
+  const targetPos = nextPosition(actor.pos, dir, MS_GRID_WIDTH);
   if (!canLynxCreatureStartMovement(state, actors, actor, dir, releasing, true)) {
     if (isLynxIce(floorFrom)) {
       actor.dir = applyLynxIceWallTurn(backDirection(dir), floorFrom);
@@ -2546,7 +2545,7 @@ function advanceLynxChipTrapRelease(
         endGameAnimationFrame,
       };
     }
-    const targetPos = chipPos + directionDelta(chipDir, MS_GRID_WIDTH);
+    const targetPos = nextPosition(chipPos, chipDir, MS_GRID_WIDTH);
     const target = state.map.cells[targetPos];
     const targetBlock =
       target === undefined
@@ -3072,7 +3071,7 @@ function advanceLynxInteractiveTick(
         chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
         addLynxCantMove(state);
       } else {
-        const targetPos = chipPos + directionDelta(startInputCode, MS_GRID_WIDTH);
+        const targetPos = nextPosition(chipPos, startInputCode, MS_GRID_WIDTH);
         const target = state.map.cells[targetPos];
         const targetBlock =
           target === undefined
@@ -3618,36 +3617,36 @@ function runLynxReplayTraceDebugInternal(
           chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
           addLynxCantMove(state);
         } else {
-        const targetPos = chipPos + directionDelta(startInputCode, MS_GRID_WIDTH);
-        const target = state.map.cells[targetPos];
-        const targetBlock =
-          target === undefined
-            ? null
-            : findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
-              null;
-        const canPushIntoClaimedCell = targetBlock
-          ? canLynxChipPushIntoClaimedCell(state, targetPos, startInputCode)
-          : false;
-        const pushedBlock =
-          targetBlock && canPushIntoClaimedCell
-            ? tryPushLynxBlock(state, level, actors, targetPos, startInputCode)
+          const targetPos = nextPosition(chipPos, startInputCode, MS_GRID_WIDTH);
+          const target = state.map.cells[targetPos];
+          const targetBlock =
+            target === undefined
+              ? null
+              : findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
+                null;
+          const canPushIntoClaimedCell = targetBlock
+            ? canLynxChipPushIntoClaimedCell(state, targetPos, startInputCode)
             : false;
-        const canEnterTarget =
-          !!target &&
-          (targetBlock
-            ? pushedBlock && (revealLynxHiddenWall(state, targetPos) ? false : canLynxChipEnterCell(state, targetPos, startInputCode))
-            : revealLynxHiddenWall(state, targetPos)
-              ? false
-              : canLynxChipEnterCell(state, targetPos, startInputCode));
-        if (canEnterTarget) {
-          clearLynxCouldntMove(state);
-          chipDir = startInputCode;
-          chipPos = targetPos;
-          chipMoving = 8;
-        } else {
-          chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
-          addLynxCantMove(state);
-        }
+          const pushedBlock =
+            targetBlock && canPushIntoClaimedCell
+              ? tryPushLynxBlock(state, level, actors, targetPos, startInputCode)
+              : false;
+          const canEnterTarget =
+            !!target &&
+            (targetBlock
+              ? pushedBlock && (revealLynxHiddenWall(state, targetPos) ? false : canLynxChipEnterCell(state, targetPos, startInputCode))
+              : revealLynxHiddenWall(state, targetPos)
+                ? false
+                : canLynxChipEnterCell(state, targetPos, startInputCode));
+          if (canEnterTarget) {
+            clearLynxCouldntMove(state);
+            chipDir = startInputCode;
+            chipPos = targetPos;
+            chipMoving = 8;
+          } else {
+            chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
+            addLynxCantMove(state);
+          }
         }
       } else {
         chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
