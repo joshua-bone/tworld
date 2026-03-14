@@ -35,10 +35,14 @@ import { createGameDebugTrace, createGameTrace } from "@domain/game/trace";
 import { projectLynxDebugPhaseSnapshot } from "@domain/game/rules/lynx/debugProjection";
 import {
   lynxActorHasTag,
+  lynxArrivalAnimationKind,
   lynxBlockMovementMask,
   lynxButtonAction,
+  lynxChipMoveSoundAction,
   lynxChipEnterAction,
   lynxChipMovementMask,
+  lynxCreatureArrivalAction,
+  lynxCreatureFloorAction,
   lynxCreatureMovementMask,
   lynxDoorKeyIndex,
   lynxExitMovementMask,
@@ -48,6 +52,8 @@ import {
   lynxInventorySlot,
   lynxRequiresReleaseToExit,
   lynxTileForcedFloorKind,
+  lynxTileHasTag,
+  lynxToggledWallTileId,
 } from "@domain/game/rules/lynx/catalog";
 import {
   MS_GRID_HEIGHT,
@@ -119,6 +125,17 @@ const LYNX_ANIMATION_TILE = {
   Bomb_Explosion: 0x75,
   Entity_Explosion: 0x76,
 } as const;
+
+function lynxAnimationTileId(kind: "water-splash" | "bomb-explosion" | "none"): number | null {
+  switch (kind) {
+    case "water-splash":
+      return LYNX_ANIMATION_TILE.Water_Splash;
+    case "bomb-explosion":
+      return LYNX_ANIMATION_TILE.Bomb_Explosion;
+    default:
+      return null;
+  }
+}
 
 interface LynxRuntimeState {
   toggleWallsPending: boolean;
@@ -200,10 +217,10 @@ function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
   });
 
   for (const cell of stripped) {
-    if (cell.top.id === MS_TILE.Beartrap) {
+    if (lynxTileHasTag(cell.top.id, "trap")) {
       cell.top.state |= LYNX_CELL_FLAG.Beartrap;
     }
-    if (cell.top.id === MS_TILE.Teleport) {
+    if (lynxTileForcedFloorKind(cell.top.id) === "teleport") {
       cell.top.state |= LYNX_CELL_FLAG.Teleport;
     }
   }
@@ -561,10 +578,7 @@ function effectiveLynxTargetTileId(state: EngineState, tileId: number): number {
   if (!lynxRuntimeState(state).toggleWallsPending) {
     return tileId;
   }
-  if (tileId === MS_TILE.SwitchWall_Open || tileId === MS_TILE.SwitchWall_Closed) {
-    return tileId ^ (MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed);
-  }
-  return tileId;
+  return lynxToggledWallTileId(tileId);
 }
 
 function canLynxExitTile(state: EngineState, tileId: number, actorId: number, dir: number, releasing: boolean): boolean {
@@ -1005,7 +1019,7 @@ function shouldSuppressLynxChipMoveSelectionForHeldTrapArrival(
   return (
     chipArrivedOnHeldTrapThisTick &&
     chipMoving === 0 &&
-    topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty) === MS_TILE.Beartrap
+    lynxTileHasTag(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), "trap")
   );
 }
 
@@ -1080,14 +1094,14 @@ function resolveLynxCreatureArrivalEffects(
   pos: number,
   tileId: number,
 ): number {
-  let soundEffects = 0;
-
-  if (tileId === MS_TILE.Beartrap) {
-    soundEffects |= 1 << LYNX_SOUND.TrapEntered;
+  switch (lynxChipEnterAction(tileId)) {
+    case "trap":
+      return 1 << LYNX_SOUND.TrapEntered;
+    case "button":
+      return resolveLynxButtonEffects(state, level, actors, pos, tileId);
+    default:
+      return 0;
   }
-
-  soundEffects |= resolveLynxButtonEffects(state, level, actors, pos, tileId);
-  return soundEffects;
 }
 
 function revealLynxHiddenWall(state: EngineState, pos: number): boolean {
@@ -1287,7 +1301,7 @@ function resolveCompletedLynxChipMove(
   }
   state.soundEffects |= collectLynxItemAtPosition(state, chipPos);
   const resolvedFloorAfterMove = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
-  if (floorAfterMove === MS_TILE.Button_Brown) {
+  if (lynxButtonAction(floorAfterMove) === "spring-trap") {
     springLynxTrap(state, level, actors, chipPos);
   }
   if (isLynxIce(resolvedFloorAfterMove)) {
@@ -1349,11 +1363,11 @@ function resetLynxFloorSounds(state: EngineState): void {
 
 function toggleLynxWalls(state: EngineState): void {
   for (const cell of state.map.cells) {
-    if (cell.top.id === MS_TILE.SwitchWall_Open || cell.top.id === MS_TILE.SwitchWall_Closed) {
-      cell.top.id ^= MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed;
+    if (lynxTileHasTag(cell.top.id, "toggleable")) {
+      cell.top.id = lynxToggledWallTileId(cell.top.id);
     }
-    if (cell.bottom.id === MS_TILE.SwitchWall_Open || cell.bottom.id === MS_TILE.SwitchWall_Closed) {
-      cell.bottom.id ^= MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed;
+    if (lynxTileHasTag(cell.bottom.id, "toggleable")) {
+      cell.bottom.id = lynxToggledWallTileId(cell.bottom.id);
     }
   }
 }
@@ -1489,7 +1503,7 @@ function findLynxTeleportDestination(
     }
 
     const cell = state.map.cells[pos];
-    if (cell?.top.id !== MS_TILE.Teleport) {
+    if (lynxTileForcedFloorKind(cell?.top.id ?? MS_TILE.Empty) !== "teleport") {
       if ((cell?.top.state ?? 0) & LYNX_CELL_FLAG.Teleport) {
         replaceTopTile(state.map.cells, pos, { ...cell!.top, id: MS_TILE.Teleport });
       }
@@ -1569,7 +1583,7 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
     }
 
     const cell = state.map.cells[pos];
-    if (cell?.top.id !== MS_TILE.Teleport) {
+    if (lynxTileForcedFloorKind(cell?.top.id ?? MS_TILE.Empty) !== "teleport") {
       if ((cell?.top.state ?? 0) & LYNX_CELL_FLAG.Teleport) {
         replaceTopTile(state.map.cells, pos, { ...cell!.top, id: MS_TILE.Teleport });
       }
@@ -1629,13 +1643,13 @@ function resolveLynxTeleports(
     if (actor.hidden || actor.moving > 0) {
       continue;
     }
-    if (topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty) !== MS_TILE.Teleport) {
+    if (lynxTileForcedFloorKind(topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty)) !== "teleport") {
       continue;
     }
     resolveLynxActorTeleport(state, actor);
   }
 
-  if (chipMoving === 0 && topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty) === MS_TILE.Teleport) {
+  if (chipMoving === 0 && lynxTileForcedFloorKind(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty)) === "teleport") {
     chipPos = resolveLynxChipTeleport(state, actors, chipPos, chipDir);
   }
 
@@ -1690,7 +1704,11 @@ function resolveLynxPostChipMovement(
     }
   }
 
-  if (!chipArrivedThisTick && chipMoving === 0 && topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty) === MS_TILE.Button_Brown) {
+  if (
+    !chipArrivedThisTick &&
+    chipMoving === 0 &&
+    lynxButtonAction(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty)) === "spring-trap"
+  ) {
     springLynxTrap(state, level, actors, chipPos);
   }
 
@@ -1723,7 +1741,7 @@ function finalizeLynxTickBookkeeping(
   state.timer = advanceTimer(state.timer, 1, MS_TICKS_PER_SECOND);
   updateLynxViewFromMovement(state, chipPos, chipDir, chipMoving);
   const displayFloor = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
-  if (displayFloor === MS_TILE.HintButton && chipMoving === 0) {
+  if (lynxTileHasTag(displayFloor, "hint") && chipMoving === 0) {
     state.statusFlags |= MS_STATUS_FLAG.ShowHint;
   } else {
     state.statusFlags &= ~MS_STATUS_FLAG.ShowHint;
@@ -1731,22 +1749,35 @@ function finalizeLynxTickBookkeeping(
 
   if (chipMoving > 0) {
     resetLynxFloorSounds(state);
-    if (displayFloor === MS_TILE.Fire && hasLynxBoots(state, MS_TILE.Boots_Fire)) {
-      state.soundEffects |= 1 << LYNX_SOUND.FireWalking;
-    } else if (displayFloor === MS_TILE.Water && hasLynxBoots(state, MS_TILE.Boots_Water)) {
-      state.soundEffects |= 1 << LYNX_SOUND.WaterWalking;
-    } else if (displayFloor === MS_TILE.Ice && hasLynxBoots(state, MS_TILE.Boots_Ice)) {
-      state.soundEffects |= 1 << LYNX_SOUND.IceWalking;
-    } else if (displayFloor === MS_TILE.Ice) {
-      state.soundEffects |= 1 << LYNX_SOUND.SkatingForward;
-    } else if (isLynxIce(displayFloor) && hasLynxBoots(state, MS_TILE.Boots_Ice)) {
-      state.soundEffects |= 1 << LYNX_SOUND.IceWalking;
-    } else if (isLynxIce(displayFloor)) {
-      state.soundEffects |= 1 << LYNX_SOUND.SkatingTurn;
-    } else if (isLynxSlide(displayFloor) && hasLynxBoots(state, MS_TILE.Boots_Slide)) {
-      state.soundEffects |= 1 << LYNX_SOUND.SlideWalking;
-    } else if (isLynxSlide(displayFloor)) {
-      state.soundEffects |= 1 << LYNX_SOUND.Sliding;
+    switch (
+      lynxChipMoveSoundAction(displayFloor, {
+        hasFireBoots: hasLynxBoots(state, MS_TILE.Boots_Fire),
+        hasWaterBoots: hasLynxBoots(state, MS_TILE.Boots_Water),
+        hasIceBoots: hasLynxBoots(state, MS_TILE.Boots_Ice),
+        hasSlideBoots: hasLynxBoots(state, MS_TILE.Boots_Slide),
+      })
+    ) {
+      case "fire-walk":
+        state.soundEffects |= 1 << LYNX_SOUND.FireWalking;
+        break;
+      case "water-walk":
+        state.soundEffects |= 1 << LYNX_SOUND.WaterWalking;
+        break;
+      case "ice-walk":
+        state.soundEffects |= 1 << LYNX_SOUND.IceWalking;
+        break;
+      case "skate-forward":
+        state.soundEffects |= 1 << LYNX_SOUND.SkatingForward;
+        break;
+      case "skate-turn":
+        state.soundEffects |= 1 << LYNX_SOUND.SkatingTurn;
+        break;
+      case "slide-walk":
+        state.soundEffects |= 1 << LYNX_SOUND.SlideWalking;
+        break;
+      case "slide":
+        state.soundEffects |= 1 << LYNX_SOUND.Sliding;
+        break;
     }
   }
 
@@ -1886,7 +1917,7 @@ function chooseLynxCreatureMoveForTick(
     return;
   }
 
-  if (floor === MS_TILE.CloneMachine || floor === MS_TILE.Beartrap) {
+  if (lynxCreatureFloorAction(floor) === "hold-direction") {
     actor.intentDir = actor.dir;
     return;
   }
@@ -1992,18 +2023,21 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
     actor.dir = applyLynxIceWallTurn(actor.dir, cell.top.id);
   }
 
+  const arrivalAction = lynxCreatureArrivalAction(cell.top.id, actor.id);
+  const arrivalAnimationTileId = lynxAnimationTileId(lynxArrivalAnimationKind(cell.top.id, actor.id));
+
   if (actor.id === MS_TILE.Block) {
-    if (cell.top.id === MS_TILE.Water) {
+    if (arrivalAction === "block-water") {
       replaceTopTile(state.map.cells, actor.pos, { ...cell.top, id: MS_TILE.Dirt });
       removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Water_Splash);
+      removeLynxActor(state, actors, actor, arrivalAnimationTileId ?? LYNX_ANIMATION_TILE.Water_Splash);
       state.soundEffects |= 1 << LYNX_SOUND.WaterSplash;
-    } else if (cell.top.id === MS_TILE.Bomb) {
+    } else if (arrivalAction === "block-bomb") {
       promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
       removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Bomb_Explosion);
+      removeLynxActor(state, actors, actor, arrivalAnimationTileId ?? LYNX_ANIMATION_TILE.Bomb_Explosion);
       state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
-    } else if (cell.top.id === MS_TILE.Key_Blue) {
+    } else if (arrivalAction === "clear-key-blue") {
       promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
       addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     }
@@ -2014,24 +2048,24 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
     return;
   }
 
-  if (cell.top.id === MS_TILE.Water && actor.id !== MS_TILE.Glider) {
+  if (arrivalAction === "creature-water") {
     removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Water_Splash);
+    removeLynxActor(state, actors, actor, arrivalAnimationTileId ?? LYNX_ANIMATION_TILE.Water_Splash);
     state.soundEffects |= 1 << LYNX_SOUND.WaterSplash;
     state.map.hash = mapHash(state.map.cells);
     return;
   }
 
-  if (cell.top.id === MS_TILE.Bomb) {
+  if (arrivalAction === "creature-bomb") {
     promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
     removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Bomb_Explosion);
+    removeLynxActor(state, actors, actor, arrivalAnimationTileId ?? LYNX_ANIMATION_TILE.Bomb_Explosion);
     state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
     state.map.hash = mapHash(state.map.cells);
     return;
   }
 
-  if (cell.top.id === MS_TILE.Key_Blue) {
+  if (arrivalAction === "clear-key-blue") {
     promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
     addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     state.map.hash = mapHash(state.map.cells);
@@ -2186,7 +2220,7 @@ function queueLynxTankReversals(state: EngineState, actors: LynxRuntimeActor[]):
       continue;
     }
     const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-    if (floor === MS_TILE.CloneMachine || isLynxIce(floor)) {
+    if (lynxTileHasTag(floor, "cloner") || isLynxIce(floor)) {
       continue;
     }
     actor.reversePending = !actor.reversePending;
@@ -2263,7 +2297,7 @@ function activateLynxCloner(state: EngineState, level: LynxLevel, actors: LynxRu
     return false;
   }
 
-  if (state.map.cells[sourcePos]?.top.id !== MS_TILE.CloneMachine) {
+  if (!lynxTileHasTag(state.map.cells[sourcePos]?.top.id ?? MS_TILE.Empty, "cloner")) {
     return false;
   }
 
@@ -2304,7 +2338,7 @@ function springLynxTrap(state: EngineState, level: LynxLevel, actors: LynxRuntim
   if (sourcePos === null || sourcePos < 0 || sourcePos >= state.map.cells.length) {
     return false;
   }
-  if (topTileIdOr(state.map.cells, sourcePos, MS_TILE.Empty) !== MS_TILE.Beartrap) {
+  if (!lynxTileHasTag(topTileIdOr(state.map.cells, sourcePos, MS_TILE.Empty), "trap")) {
     return false;
   }
 
@@ -2341,7 +2375,7 @@ function advanceLynxChipTrapRelease(
   endGameAnimationTileId: number | null;
   endGameAnimationFrame: number | null;
 } {
-  if (topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty) !== MS_TILE.Beartrap || chipDir === 0) {
+  if (!lynxTileHasTag(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), "trap") || chipDir === 0) {
     return {
       chipPos,
       chipDir,
@@ -2476,7 +2510,7 @@ function springLynxHeldBrownButton(
 
   const trapPos = findLynxTrapTarget(level, buttonPos);
   springLynxTrap(state, level, actors, buttonPos);
-  if (trapPos === nextChipPos && topTileIdOr(state.map.cells, nextChipPos, MS_TILE.Empty) === MS_TILE.Beartrap) {
+  if (trapPos === nextChipPos && lynxTileHasTag(topTileIdOr(state.map.cells, nextChipPos, MS_TILE.Empty), "trap")) {
     if (isDirectionalInput(replayInputCode) && nextChipMoving <= 0) {
       deferredChipInputCode = resolveLynxChipInputDirection(state, level, actors, nextChipPos, nextChipDir, replayInputCode);
       consumedReplayInput = true;
@@ -2506,7 +2540,7 @@ function springLynxHeldBrownButton(
       releaseStartMoving > 0 &&
       nextChipPos === releaseStartPos &&
       nextChipMoving === 0 &&
-      topTileIdOr(state.map.cells, nextChipPos, MS_TILE.Empty) === MS_TILE.Beartrap;
+      lynxTileHasTag(topTileIdOr(state.map.cells, nextChipPos, MS_TILE.Empty), "trap");
     const releaseStarted = nextChipPos !== releaseStartPos || (releaseStartMoving <= 0 && nextChipMoving > 0);
     if (releaseStarted) {
       deferredChipInputCode = 0;
@@ -2542,7 +2576,7 @@ export function initializeLynxEngineState(
   const chipPos = findChipPosition(sourceCells);
   const initialStatusFlags =
     (level.statusFlags & ~MS_STATUS_FLAG.ShowHint) |
-    (topTileIdOr(cells, chipPos, MS_TILE.Empty) === MS_TILE.HintButton ? MS_STATUS_FLAG.ShowHint : 0);
+    (lynxTileHasTag(topTileIdOr(cells, chipPos, MS_TILE.Empty), "hint") ? MS_STATUS_FLAG.ShowHint : 0);
   const randomSeed = normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed);
 
   return {
@@ -2718,7 +2752,7 @@ function advanceLynxInteractiveTick(
     ),
   );
   const latchedChipMoveSelection =
-    chipMoving === 0 && topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty) !== MS_TILE.Beartrap
+    chipMoving === 0 && !lynxTileHasTag(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), "trap")
       ? selectLynxChipMoveForTick(
           state,
           level,
@@ -2751,7 +2785,7 @@ function advanceLynxInteractiveTick(
   }
 
   const chipOnBeartrapBeforeCreatureMovement =
-    chipMoving === 0 && topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty) === MS_TILE.Beartrap;
+    chipMoving === 0 && lynxTileHasTag(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), "trap");
   const chipHasPreCreatureMoveQueued =
     (latchedChipMoveSelection !== null && latchedChipMoveSelection.startInputCode !== 0) ||
     (chipOnBeartrapBeforeCreatureMovement &&
@@ -2770,7 +2804,7 @@ function advanceLynxInteractiveTick(
     if (
       !actor.hidden &&
       actor.moving <= 0 &&
-      topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty) === MS_TILE.Button_Brown
+      lynxButtonAction(topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty)) === "spring-trap"
     ) {
       const heldButton = springLynxHeldBrownButton(
         state,
@@ -3248,7 +3282,7 @@ function runLynxReplayTraceDebugInternal(
       ),
     );
     const latchedChipMoveSelection =
-      chipMoving === 0 && topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty) !== MS_TILE.Beartrap
+      chipMoving === 0 && !lynxTileHasTag(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), "trap")
         ? selectLynxChipMoveForTick(
             state,
             level,
@@ -3281,7 +3315,7 @@ function runLynxReplayTraceDebugInternal(
     }
 
     const chipOnBeartrapBeforeCreatureMovement =
-      chipMoving === 0 && topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty) === MS_TILE.Beartrap;
+      chipMoving === 0 && lynxTileHasTag(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), "trap");
     const chipHasPreCreatureMoveQueued =
       (latchedChipMoveSelection !== null && latchedChipMoveSelection.startInputCode !== 0) ||
       (chipOnBeartrapBeforeCreatureMovement &&
@@ -3304,7 +3338,7 @@ function runLynxReplayTraceDebugInternal(
       if (
         !actor.hidden &&
         actor.moving <= 0 &&
-        topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty) === MS_TILE.Button_Brown
+        lynxButtonAction(topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty)) === "spring-trap"
       ) {
         const heldButton = springLynxHeldBrownButton(
           state,

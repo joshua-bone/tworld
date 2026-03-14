@@ -163,21 +163,21 @@ Exit criteria:
 
 Scope:
 
-- [ ] perform the same decoupling for the Lynx engine
+- [x] perform the same decoupling for the Lynx engine
 
 Changes:
 
-- [x] Status: in progress
+- [x] Status: complete
 - [x] add a Lynx tile catalog with tags, capabilities, and hooks
 - [x] route the first low-risk Lynx inventory, button, and forced-floor helpers through the catalog
 - [x] route Lynx movement masks and chip entry classification through the catalog
 - [x] route Lynx leave masks and actor immunity tags through the catalog
-- [ ] route entry, leave, death, sound, trap, cloner, teleport, and animation policy through the catalog layer
+- [x] route entry, leave, death, sound, trap, cloner, teleport, and animation policy through the catalog layer
 
 Exit criteria:
 
-- [ ] Lynx replay parity stays green
-- [ ] legacy draw and sound parity surfaces still get the same projected state
+- [x] Lynx replay parity stays green on bounded validation subsets while the full sweep remains deferred until the end of the plan
+- [x] legacy draw and sound parity surfaces still get the same projected state
 
 ## PR 7: Shared Turn Pipeline
 

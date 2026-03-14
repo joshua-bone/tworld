@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   lynxActorHasTag,
+  lynxArrivalAnimationKind,
   lynxButtonAction,
   lynxBlockMovementMask,
+  lynxChipMoveSoundAction,
   lynxChipEnterAction,
   lynxChipMovementMask,
+  lynxCreatureArrivalAction,
+  lynxCreatureFloorAction,
   lynxCreatureMovementMask,
   lynxDoorKeyIndex,
   lynxExitMovementMask,
@@ -17,6 +21,7 @@ import {
   lynxTileForcedFloorKind,
   lynxTileHasCapability,
   lynxTileHasTag,
+  lynxToggledWallTileId,
 } from "@domain/game/rules/lynx/catalog";
 import { MS_DIRECTION, MS_TILE } from "@domain/game/rules/ms/tiles";
 
@@ -96,6 +101,9 @@ describe("Lynx ruleset catalog", () => {
     );
     expect(lynxRequiresReleaseToExit(MS_TILE.Beartrap)).toBe(true);
     expect(lynxRequiresReleaseToExit(MS_TILE.Empty)).toBe(false);
+    expect(lynxCreatureFloorAction(MS_TILE.CloneMachine)).toBe("hold-direction");
+    expect(lynxCreatureFloorAction(MS_TILE.Empty)).toBe("none");
+    expect(lynxToggledWallTileId(MS_TILE.SwitchWall_Open)).toBe(MS_TILE.SwitchWall_Closed);
   });
 
   it("provides actor tags for the shared creature families", () => {
@@ -105,5 +113,39 @@ describe("Lynx ruleset catalog", () => {
     expect(lynxActorHasTag(MS_TILE.Fireball, "fire-immune")).toBe(true);
     expect(lynxActorHasTag(MS_TILE.Block, "block")).toBe(true);
     expect(lynxActorHasTag(MS_TILE.Block, "fire-immune")).toBe(true);
+  });
+
+  it("provides creature arrival and floor-sound policy", () => {
+    expect(lynxCreatureArrivalAction(MS_TILE.Beartrap, MS_TILE.Ball)).toBe("trap");
+    expect(lynxCreatureArrivalAction(MS_TILE.Button_Red, MS_TILE.Ball)).toBe("button");
+    expect(lynxCreatureArrivalAction(MS_TILE.Water, MS_TILE.Block)).toBe("block-water");
+    expect(lynxCreatureArrivalAction(MS_TILE.Water, MS_TILE.Glider)).toBe("none");
+    expect(lynxCreatureArrivalAction(MS_TILE.Bomb, MS_TILE.Ball)).toBe("creature-bomb");
+    expect(lynxArrivalAnimationKind(MS_TILE.Water, MS_TILE.Ball)).toBe("water-splash");
+    expect(lynxArrivalAnimationKind(MS_TILE.Bomb, MS_TILE.Block)).toBe("bomb-explosion");
+    expect(
+      lynxChipMoveSoundAction(MS_TILE.Ice, {
+        hasFireBoots: false,
+        hasWaterBoots: false,
+        hasIceBoots: false,
+        hasSlideBoots: false,
+      }),
+    ).toBe("skate-forward");
+    expect(
+      lynxChipMoveSoundAction(MS_TILE.IceWall_Northwest, {
+        hasFireBoots: false,
+        hasWaterBoots: false,
+        hasIceBoots: true,
+        hasSlideBoots: false,
+      }),
+    ).toBe("ice-walk");
+    expect(
+      lynxChipMoveSoundAction(MS_TILE.Slide_East, {
+        hasFireBoots: false,
+        hasWaterBoots: false,
+        hasIceBoots: false,
+        hasSlideBoots: true,
+      }),
+    ).toBe("slide-walk");
   });
 });

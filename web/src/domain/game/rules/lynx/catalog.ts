@@ -11,6 +11,7 @@ import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@domain/game/
 
 type InventorySlot = "keys" | "boots";
 type LynxForcedFloorKind = "none" | "slide" | "ice" | "teleport";
+type LynxCreatureFloorAction = "none" | "hold-direction";
 type LynxChipEnterAction =
   | "none"
   | "clear-floor"
@@ -27,6 +28,25 @@ type LynxChipEnterAction =
   | "button"
   | "exit";
 type LynxButtonAction = "none" | "turn-tanks" | "toggle-walls" | "activate-cloner" | "spring-trap";
+type LynxCreatureArrivalAction =
+  | "none"
+  | "trap"
+  | "button"
+  | "clear-key-blue"
+  | "block-water"
+  | "block-bomb"
+  | "creature-water"
+  | "creature-bomb";
+type LynxAnimationKind = "none" | "water-splash" | "bomb-explosion";
+type LynxFloorSoundAction =
+  | "none"
+  | "fire-walk"
+  | "water-walk"
+  | "ice-walk"
+  | "skate-forward"
+  | "skate-turn"
+  | "slide-walk"
+  | "slide";
 
 interface LynxTilePolicyDefinition {
   readonly tags: readonly TileTag[];
@@ -37,12 +57,20 @@ interface LynxTilePolicyDefinition {
   readonly blockMovementMask: number;
   readonly exitMovementMask: number;
   readonly requiresReleaseToExit: boolean;
+  readonly creatureFloorAction: LynxCreatureFloorAction;
   readonly inventorySlot?: InventorySlot;
   readonly inventoryIndex?: number;
   readonly doorKeyIndex?: number;
   readonly forcedFloorKind: LynxForcedFloorKind;
   readonly chipEnterAction: LynxChipEnterAction;
   readonly buttonAction: LynxButtonAction;
+}
+
+interface LynxChipMoveSoundOptions {
+  readonly hasFireBoots: boolean;
+  readonly hasWaterBoots: boolean;
+  readonly hasIceBoots: boolean;
+  readonly hasSlideBoots: boolean;
 }
 
 const FULL_MOVEMENT_MASK =
@@ -440,6 +468,10 @@ function defaultLynxRequiresReleaseToExit(id: number): boolean {
   return id === MS_TILE.Beartrap || id === MS_TILE.CloneMachine;
 }
 
+function defaultLynxCreatureFloorAction(id: number): LynxCreatureFloorAction {
+  return id === MS_TILE.CloneMachine || id === MS_TILE.Beartrap ? "hold-direction" : "none";
+}
+
 function inventoryPolicy(id: number): Pick<LynxTilePolicyDefinition, "inventorySlot" | "inventoryIndex" | "doorKeyIndex"> {
   if (KEY_TILE_SET.has(id)) {
     return {
@@ -471,6 +503,7 @@ function createLynxTilePolicyDefinition(id: number): LynxTilePolicyDefinition {
     blockMovementMask: defaultLynxBlockMovementMask(id),
     exitMovementMask: defaultLynxExitMovementMask(id),
     requiresReleaseToExit: defaultLynxRequiresReleaseToExit(id),
+    creatureFloorAction: defaultLynxCreatureFloorAction(id),
     forcedFloorKind: defaultLynxForcedFloorKind(id),
     chipEnterAction: defaultLynxChipEnterAction(id),
     buttonAction: defaultLynxButtonAction(id),
@@ -543,6 +576,7 @@ function lynxTilePolicy(id: number): LynxTilePolicyDefinition {
       blockMovementMask: 0,
       exitMovementMask: FULL_MOVEMENT_MASK,
       requiresReleaseToExit: false,
+      creatureFloorAction: "none",
       forcedFloorKind: "none",
       chipEnterAction: "none",
       buttonAction: "none",
@@ -600,6 +634,10 @@ export function lynxRequiresReleaseToExit(id: number): boolean {
   return lynxTilePolicy(id).requiresReleaseToExit;
 }
 
+export function lynxCreatureFloorAction(id: number): LynxCreatureFloorAction {
+  return lynxTilePolicy(id).creatureFloorAction;
+}
+
 export function lynxTileForcedFloorKind(id: number): LynxForcedFloorKind {
   return lynxTilePolicy(id).forcedFloorKind;
 }
@@ -614,6 +652,13 @@ export function lynxButtonAction(id: number): LynxButtonAction {
 
 export function lynxActorHasTag(id: number, tag: ActorTag): boolean {
   return lynxActorDefinition(id)?.tags.includes(tag) ?? false;
+}
+
+export function lynxToggledWallTileId(id: number): number {
+  if (id === MS_TILE.SwitchWall_Open || id === MS_TILE.SwitchWall_Closed) {
+    return id ^ (MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed);
+  }
+  return id;
 }
 
 export function lynxFixedSlideDirection(id: number): number {
@@ -644,4 +689,59 @@ export function lynxIceWallTurn(id: number, dir: number): number {
     default:
       return dir;
   }
+}
+
+export function lynxCreatureArrivalAction(tileId: number, actorId: number): LynxCreatureArrivalAction {
+  if (tileId === MS_TILE.Beartrap) {
+    return "trap";
+  }
+  if (BUTTON_TILE_SET.has(tileId)) {
+    return "button";
+  }
+  if (tileId === MS_TILE.Key_Blue) {
+    return "clear-key-blue";
+  }
+  if (tileId === MS_TILE.Water) {
+    return actorId === MS_TILE.Block
+      ? "block-water"
+      : lynxActorHasTag(actorId, "water-immune")
+        ? "none"
+        : "creature-water";
+  }
+  if (tileId === MS_TILE.Bomb) {
+    return actorId === MS_TILE.Block ? "block-bomb" : "creature-bomb";
+  }
+  return "none";
+}
+
+export function lynxArrivalAnimationKind(tileId: number, actorId: number): LynxAnimationKind {
+  switch (lynxCreatureArrivalAction(tileId, actorId)) {
+    case "block-water":
+    case "creature-water":
+      return "water-splash";
+    case "block-bomb":
+    case "creature-bomb":
+      return "bomb-explosion";
+    default:
+      return "none";
+  }
+}
+
+export function lynxChipMoveSoundAction(tileId: number, options: LynxChipMoveSoundOptions): LynxFloorSoundAction {
+  if (tileId === MS_TILE.Fire) {
+    return options.hasFireBoots ? "fire-walk" : "none";
+  }
+  if (tileId === MS_TILE.Water) {
+    return options.hasWaterBoots ? "water-walk" : "none";
+  }
+  if (tileId === MS_TILE.Ice) {
+    return options.hasIceBoots ? "ice-walk" : "skate-forward";
+  }
+  if (lynxTileForcedFloorKind(tileId) === "ice") {
+    return options.hasIceBoots ? "ice-walk" : "skate-turn";
+  }
+  if (lynxTileForcedFloorKind(tileId) === "slide") {
+    return options.hasSlideBoots ? "slide-walk" : "slide";
+  }
+  return "none";
 }
