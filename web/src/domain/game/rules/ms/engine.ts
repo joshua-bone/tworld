@@ -48,6 +48,7 @@ import {
   resolveManualInput,
   scheduledInputForTick,
 } from "@domain/game/playback";
+import { GAME_INPUT_CODES } from "@domain/game/command";
 import { engineStateToSnapshot } from "@domain/game/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@domain/game/trace";
 import { collectMsActors, hashMsCreatures, projectMsDebugPhaseSnapshot } from "@domain/game/rules/ms/debugProjection";
@@ -3816,7 +3817,8 @@ export function advanceMsInteractiveSession(
   inputCode: number,
 ): MsInteractiveSessionState {
   const tick = session.state.engine.timer.currentTime + 1;
-  let input = createRuntimeCommand(inputCode, tick);
+  const scheduledInput = createRuntimeCommand(inputCode, tick);
+  let input = resolveManualInput(session.lastInput, scheduledInput);
   let replayPlan = session.replayPlan;
   if (replayPlan) {
     const replayTick = plannedReplayInput(replayPlan, tick);
@@ -3824,6 +3826,7 @@ export function advanceMsInteractiveSession(
     input = replayTick.input;
   }
   const nextState = advanceMsTick(session.state, input);
+  const recordedInputCode = scheduledInput.inputCode === GAME_INPUT_CODES.preserve ? GAME_INPUT_CODES.none : input.inputCode;
 
   return {
     state: nextState,
@@ -3832,7 +3835,7 @@ export function advanceMsInteractiveSession(
       session.recordedMoves,
       nextState.engine.timer.currentTime,
       nextState.engine.replay.cursor,
-      input.inputCode,
+      recordedInputCode,
     ),
     replayPlan,
   };

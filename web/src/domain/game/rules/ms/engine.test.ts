@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell } from "@domain/game/model";
 import type { ReplaySolutionPayload } from "@domain/game/codec";
+import { GAME_INPUT_CODES } from "@domain/game/command";
 import {
   advanceMsInteractiveSession,
   createMsInteractiveSession,
@@ -312,7 +313,7 @@ describe("MS engine regressions", () => {
     expect(trace.steps[0]?.chip?.position.pos).toBe(chipPos);
   });
 
-  it("keeps manual absolute mouse-goal commands intact and starts moving toward the clicked tile", () => {
+  it("advances a manual absolute mouse-goal through legacy preserve polls", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);
     const targetPos = pos(11, 10);
@@ -327,11 +328,13 @@ describe("MS engine regressions", () => {
     );
 
     const afterClick = advanceMsInteractiveSession(session, absoluteMouseMoveCode(targetPos));
-    const afterMove = advanceMsInteractiveSession(afterClick, MS_DIRECTION.none);
-    const settled = advanceMsInteractiveSession(afterMove, MS_DIRECTION.none);
+    const afterPreserve1 = advanceMsInteractiveSession(afterClick, GAME_INPUT_CODES.preserve);
+    const afterPreserve2 = advanceMsInteractiveSession(afterPreserve1, GAME_INPUT_CODES.preserve);
 
     expect(afterClick.state.internal.goalPos).toBe(targetPos);
-    expect(settled.state.internal.chipPos).toBe(targetPos);
+    expect(afterPreserve1.state.internal.goalPos).toBe(targetPos);
+    expect(afterPreserve2.state.internal.chipPos).toBe(targetPos);
+    expect(afterPreserve2.recordedMoves).toEqual([{ when: 0, dir: absoluteMouseMoveCode(targetPos) }]);
   });
 
   it("moves Chip toward a replay mouse-goal on step-two cadence", () => {
