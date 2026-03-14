@@ -532,16 +532,16 @@ Exit criteria:
 - history memory is bounded by policy
 - recent undo remains fast
 
-### [ ] PR7: UI And Settings
+### [x] PR7: UI And Settings
 
-- [ ] add help entries
-- [ ] add UI controls for undo, rewind, resume, takeover
-- [ ] add settings toggles for all supported behaviors
-- [ ] add status banner for replaying historical future
+- [x] add help entries
+- [x] add UI controls for undo, rewind, resume, takeover
+- [x] add settings toggles for all supported behaviors
+- [x] add status banner for replaying historical future
 
 Exit criteria:
 
-- all discussed behaviors are controllable in UI
+- [x] all discussed behaviors are controllable in UI
 
 ### [ ] PR8: Final Validation And Broader Replay Gates
 

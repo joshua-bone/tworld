@@ -9,6 +9,8 @@ import {
   isNextLevelKey,
   isPrevLevelKey,
   isProceedKey,
+  isUndoCheckpointKey,
+  isUndoKey,
 } from "@player-web/impl/legacyHotkeys";
 import {
   LegacyLynxInputBuffer,
@@ -18,14 +20,26 @@ import {
 import { LegacyCanvasScreen, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import { advanceInteractiveGameSession } from "@game-runtime/impl/advanceInteractiveGameSession";
+import {
+  previousInteractiveGameSessionCheckpointTick,
+  previousInteractiveGameSessionTick,
+} from "@game-runtime/impl/interactiveHistoryNavigation";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { loadSeriesCatalog } from "@level-catalog/impl/loadSeriesCatalog";
+import { restoreInteractiveGameSession } from "@game-runtime/impl/restoreInteractiveGameSession";
+import { resumeInteractiveGameSession } from "@game-runtime/impl/resumeInteractiveGameSession";
 import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
 import { startInteractiveGameSession } from "@game-runtime/impl/startInteractiveGameSession";
 import type { InteractiveGameEnginePort, InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 import type { InteractiveInput } from "@game-core/api/command";
 import type { SeriesCatalogEntry } from "@content/api/series";
+import {
+  loadStoredUndoSettings,
+  saveStoredUndoSettings,
+  toUndoSessionStartOptions,
+  type BrowserUndoSettings,
+} from "@player-web/impl/undoSettings";
 
 const SESSION_SEED = 123456789;
 const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";
@@ -97,6 +111,30 @@ function SoundIcon({ muted }: { muted: boolean }) {
   );
 }
 
+function HistoryIcon() {
+  return (
+    <svg aria-hidden="true" className="legacy-toolbar__icon" viewBox="0 0 16 16">
+      <path
+        d="M3 4v4h4"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M4 8a4.5 4.5 0 1 0 1-3"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeWidth="1.5"
+      />
+      <path d="M8 5v3l2 1" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 const SERIES_LIST_HELP: HelpSection[] = [
   {
     title: "Series List",
@@ -118,6 +156,9 @@ const GAME_PLAYING_HELP: HelpSection[] = [
       { keys: "Mouse click (MS)", action: "set a mouse goal on the clicked map tile" },
       { keys: "Hold Shift", action: "run the game clock at 2x speed" },
       { keys: "Space", action: "start the clock without moving" },
+      { keys: "Z", action: "restore the previous tick and pause there when undo history is enabled" },
+      { keys: "Shift + Z", action: "rewind to the previous checkpoint and pause there when undo history is enabled" },
+      { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
       { keys: "R", action: "restart the current level" },
       { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
       { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
@@ -132,6 +173,9 @@ const GAME_ENDED_HELP: HelpSection[] = [
     title: "After A Level Ends",
     commands: [
       { keys: "Enter / Space", action: "continue: next level after a win, retry after a loss" },
+      { keys: "Z", action: "restore the previous tick and pause there when undo history is enabled" },
+      { keys: "Shift + Z", action: "rewind to the previous checkpoint and pause there when undo history is enabled" },
+      { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
       { keys: "R", action: "restart the current level" },
       { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
       { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
@@ -222,6 +266,10 @@ interface PlayerAppProps {
 
 export function PlayerApp({ services }: PlayerAppProps) {
   const { engines, fixtureRepository, selectionStore } = services;
+  const undoSettingsSeedRef = useRef<BrowserUndoSettings | null>(null);
+  if (undoSettingsSeedRef.current === null) {
+    undoSettingsSeedRef.current = loadStoredUndoSettings();
+  }
   const [mode, setMode] = useState<LegacyMode>("series-list");
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
   const [selectedSeriesFile, setSelectedSeriesFile] = useState<string | null>(null);
@@ -233,8 +281,10 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showSoundControls, setShowSoundControls] = useState(false);
+  const [showHistoryControls, setShowHistoryControls] = useState(false);
   const [soundMuted, setSoundMuted] = useState(() => loadStoredMuted());
   const [soundVolume, setSoundVolume] = useState(() => loadStoredVolume());
+  const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
   const [manualRunStarted, setManualRunStarted] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
@@ -242,10 +292,37 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
   const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
+  const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
+  const previousHistoryTick = session ? previousInteractiveGameSessionTick(session) : null;
+  const previousHistoryCheckpointTick = session ? previousInteractiveGameSessionCheckpointTick(session) : null;
+  const canUndoToPreviousTick = Boolean(session?.history.enabled && previousHistoryTick !== null);
+  const canUndoToPreviousCheckpoint = Boolean(
+    session?.history.enabled && previousHistoryCheckpointTick !== null,
+  );
+  const canResumeOriginalTimeline = Boolean(
+    session?.history.enabled &&
+      undoSettings.enableRewindAndResume &&
+      session?.history.restoreMode === "restored-paused" &&
+      session.history.latestTick > session.history.currentTick,
+  );
+  const historyStatusMessage =
+    mode !== "game" || !session || !session.history.enabled || session.history.restoreMode === "live"
+      ? null
+      : session.history.restoreMode === "restored-paused"
+        ? `Restored to tick ${session.history.currentTick}. ${
+            canResumeOriginalTimeline
+              ? `Use Resume Original Timeline to replay forward to tick ${session.history.latestTick}.`
+              : "Use Z or Shift+Z to keep rewinding, or take over with a live move."
+          }`
+        : `Replaying the original timeline from tick ${session.history.currentTick} to tick ${session.history.replayTargetTick}. ${
+            undoSettings.allowTakeoverDuringHistoricalReplay
+              ? "Any live input will fork a new timeline."
+              : "Live takeover is disabled in history settings."
+          }`;
   const helpSections =
     mode === "series-list"
       ? [...SERIES_LIST_HELP, ...GLOBAL_HELP]
@@ -288,6 +365,11 @@ export function PlayerApp({ services }: PlayerAppProps) {
       setIsFastForwarding(false);
     }
   }, [mode]);
+
+  useEffect(() => {
+    undoStartOptionsRef.current = toUndoSessionStartOptions(undoSettings);
+    saveStoredUndoSettings(undoSettings);
+  }, [undoSettings]);
 
   useEffect(() => {
     let active = true;
@@ -362,7 +444,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
       levelNumber: selectedLevelNumber,
       ruleset: series.ruleset,
       randomSeed: SESSION_SEED,
-    })
+    }, undoStartOptionsRef.current)
       .then((nextSession) => {
         if (!active) {
           return;
@@ -417,6 +499,59 @@ export function PlayerApp({ services }: PlayerAppProps) {
     } finally {
       tickingRef.current = false;
     }
+  });
+
+  const syncSessionState = useEffectEvent((nextSession: InteractiveGameSession) => {
+    startTransition(() => {
+      setSession(nextSession);
+      setIsRunning(nextSession.frame.snapshot.status === "playing");
+      setMessage(null);
+    });
+  });
+
+  const restoreToTick = useEffectEvent((targetTick: number | null) => {
+    if (targetTick === null || mode !== "game" || !session) {
+      return;
+    }
+
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
+
+    void restoreInteractiveGameSession(
+      interactiveEngineForRuleset(session.request.ruleset, engines),
+      session,
+      targetTick,
+    )
+      .then(syncSessionState)
+      .catch((error: unknown) => {
+        setMessage(error instanceof Error ? error.message : String(error));
+      });
+  });
+
+  const undoPreviousTick = useEffectEvent(() => {
+    restoreToTick(previousHistoryTick);
+  });
+
+  const undoPreviousCheckpoint = useEffectEvent(() => {
+    restoreToTick(previousHistoryCheckpointTick);
+  });
+
+  const resumeOriginalTimeline = useEffectEvent(() => {
+    if (!canResumeOriginalTimeline || mode !== "game" || !session) {
+      return;
+    }
+
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
+
+    void resumeInteractiveGameSession(
+      interactiveEngineForRuleset(session.request.ruleset, engines),
+      session,
+    )
+      .then(syncSessionState)
+      .catch((error: unknown) => {
+        setMessage(error instanceof Error ? error.message : String(error));
+      });
   });
 
   useEffect(() => {
@@ -542,6 +677,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
     setShowSoundControls(false);
+    setShowHistoryControls(false);
     setShowHelp((value) => !value);
   });
 
@@ -553,11 +689,22 @@ export function PlayerApp({ services }: PlayerAppProps) {
 
   const toggleSoundControls = useEffectEvent(() => {
     setShowHelp(false);
+    setShowHistoryControls(false);
     setShowSoundControls((value) => !value);
   });
 
   const closeSoundControls = useEffectEvent(() => {
     setShowSoundControls(false);
+  });
+
+  const toggleHistoryControls = useEffectEvent(() => {
+    setShowHelp(false);
+    setShowSoundControls(false);
+    setShowHistoryControls((value) => !value);
+  });
+
+  const closeHistoryControls = useEffectEvent(() => {
+    setShowHistoryControls(false);
   });
 
   const toggleMuted = useEffectEvent(() => {
@@ -575,6 +722,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   useEffect(() => {
     if (showHelp) {
       setShowSoundControls(false);
+      setShowHistoryControls(false);
     }
   }, [showHelp]);
 
@@ -598,7 +746,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   }, [mode, session, showHelp]);
 
   useEffect(() => {
-    if (!showSoundControls) {
+    if (!showSoundControls && !showHistoryControls) {
       return;
     }
 
@@ -613,13 +761,14 @@ export function PlayerApp({ services }: PlayerAppProps) {
       }
 
       setShowSoundControls(false);
+      setShowHistoryControls(false);
     };
 
     window.addEventListener("pointerdown", onPointerDown);
     return () => {
       window.removeEventListener("pointerdown", onPointerDown);
     };
-  }, [showSoundControls]);
+  }, [showHistoryControls, showSoundControls]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -654,6 +803,12 @@ export function PlayerApp({ services }: PlayerAppProps) {
       if (showSoundControls && event.key === "Escape") {
         event.preventDefault();
         closeSoundControls();
+        return;
+      }
+
+      if (showHistoryControls && event.key === "Escape") {
+        event.preventDefault();
+        closeHistoryControls();
         return;
       }
 
@@ -697,6 +852,18 @@ export function PlayerApp({ services }: PlayerAppProps) {
       }
 
       if (mode !== "game") {
+        return;
+      }
+
+      if (session?.history.enabled && isUndoCheckpointKey(event)) {
+        event.preventDefault();
+        undoPreviousCheckpoint();
+        return;
+      }
+
+      if (session?.history.enabled && isUndoKey(event)) {
+        event.preventDefault();
+        undoPreviousTick();
         return;
       }
 
@@ -755,6 +922,14 @@ export function PlayerApp({ services }: PlayerAppProps) {
       }
 
       const input = keyToInput(event.key);
+      if (
+        session?.history.restoreMode === "replaying-history" &&
+        !undoSettings.allowTakeoverDuringHistoricalReplay &&
+        (input !== null || event.key === " " || event.key === "Spacebar")
+      ) {
+        event.preventDefault();
+        return;
+      }
       if ((event.key === " " || event.key === "Spacebar") && session?.mode === "manual") {
         event.preventDefault();
         return;
@@ -825,16 +1000,21 @@ export function PlayerApp({ services }: PlayerAppProps) {
     changeLevelBy,
     changeSelectedSeriesBy,
     closeHelp,
+    closeHistoryControls,
     jumpLevel,
     jumpSelectedSeries,
     mode,
     proceedAfterLevelEnd,
     selectedSeriesFile,
     session,
+    showHistoryControls,
     showSoundControls,
     showHelp,
     closeSoundControls,
     toggleHelp,
+    undoPreviousCheckpoint,
+    undoPreviousTick,
+    undoSettings.allowTakeoverDuringHistoricalReplay,
   ]);
 
   return (
@@ -892,6 +1072,190 @@ export function PlayerApp({ services }: PlayerAppProps) {
             </section>
           ) : null}
         </div>
+        <div className="legacy-history">
+          <button
+            aria-expanded={showHistoryControls}
+            aria-label="Open undo and rewind controls"
+            className="legacy-toolbar__button"
+            onClick={toggleHistoryControls}
+            type="button"
+          >
+            <HistoryIcon />
+          </button>
+          {showHistoryControls ? (
+            <section
+              aria-label="Undo and rewind controls"
+              className="legacy-history__panel"
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+            >
+              <div className="legacy-history__header">
+                <span className="legacy-history__title">History</span>
+                <button className="legacy-history__close" onClick={closeHistoryControls} type="button">
+                  Close
+                </button>
+              </div>
+              {mode === "game" && session ? (
+                <div className="legacy-history__summary">
+                  <div className="legacy-history__summary-row">
+                    <span>Tick</span>
+                    <span>
+                      {session.history.currentTick} / {session.history.latestTick}
+                    </span>
+                  </div>
+                  <div className="legacy-history__summary-row">
+                    <span>Timeline</span>
+                    <span>
+                      {session.history.timelineId} ({session.history.timelineCount})
+                    </span>
+                  </div>
+                  <div className="legacy-history__summary-row">
+                    <span>State</span>
+                    <span>{session.history.restoreMode}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="legacy-history__note">Start a level to use undo, rewind, and resume.</p>
+              )}
+              <div className="legacy-history__actions">
+                <button
+                  className="legacy-history__action"
+                  disabled={!canUndoToPreviousTick}
+                  onClick={undoPreviousTick}
+                  type="button"
+                >
+                  Undo (Z)
+                </button>
+                <button
+                  className="legacy-history__action"
+                  disabled={!canUndoToPreviousCheckpoint}
+                  onClick={undoPreviousCheckpoint}
+                  type="button"
+                >
+                  Rewind (Shift+Z)
+                </button>
+                <button
+                  className="legacy-history__action"
+                  disabled={!canResumeOriginalTimeline}
+                  onClick={resumeOriginalTimeline}
+                  type="button"
+                >
+                  Resume Original Timeline
+                </button>
+              </div>
+              <div className="legacy-history__settings">
+                <label className="legacy-history__checkbox">
+                  <input
+                    checked={undoSettings.enabled}
+                    onChange={(event) => {
+                      setUndoSettings((current) => ({
+                        ...current,
+                        enabled: event.currentTarget.checked,
+                      }));
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Enable Undo History</span>
+                </label>
+                <label className="legacy-history__checkbox">
+                  <input
+                    checked={undoSettings.enableRewindAndResume}
+                    onChange={(event) => {
+                      setUndoSettings((current) => ({
+                        ...current,
+                        enableRewindAndResume: event.currentTarget.checked,
+                      }));
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Enable Rewind And Resume</span>
+                </label>
+                <label className="legacy-history__checkbox">
+                  <input
+                    checked={undoSettings.allowTakeoverDuringHistoricalReplay}
+                    onChange={(event) => {
+                      setUndoSettings((current) => ({
+                        ...current,
+                        allowTakeoverDuringHistoricalReplay: event.currentTarget.checked,
+                      }));
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Allow Takeover During Historical Replay</span>
+                </label>
+                <label className="legacy-history__checkbox">
+                  <input
+                    checked={undoSettings.retainUnlimitedHistory}
+                    onChange={(event) => {
+                      setUndoSettings((current) => ({
+                        ...current,
+                        retainUnlimitedHistory: event.currentTarget.checked,
+                      }));
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Keep Unlimited History</span>
+                </label>
+                <label className="legacy-history__field">
+                  <span>Checkpoint Density</span>
+                  <select
+                    onChange={(event) => {
+                      const nextDensity = event.currentTarget.value as BrowserUndoSettings["checkpointDensity"];
+                      setUndoSettings((current) => ({
+                        ...current,
+                        checkpointDensity: nextDensity,
+                      }));
+                    }}
+                    value={undoSettings.checkpointDensity}
+                  >
+                    <option value="dense">Dense</option>
+                    <option value="standard">Standard</option>
+                    <option value="sparse">Sparse</option>
+                  </select>
+                </label>
+                <label className="legacy-history__field">
+                  <span>History Retention Mode</span>
+                  <select
+                    onChange={(event) => {
+                      const nextMode = event.currentTarget.value as BrowserUndoSettings["checkpointRetentionMode"];
+                      setUndoSettings((current) => ({
+                        ...current,
+                        checkpointRetentionMode: nextMode,
+                      }));
+                    }}
+                    value={undoSettings.checkpointRetentionMode}
+                  >
+                    <option value="dense-recent-exponential">Dense recent + exponential</option>
+                    <option value="dense-recent">Dense recent only</option>
+                  </select>
+                </label>
+                <label className="legacy-history__field">
+                  <span>Bounded History Window</span>
+                  <select
+                    disabled={undoSettings.retainUnlimitedHistory}
+                    onChange={(event) => {
+                      const nextWindow = Number(event.currentTarget.value) as BrowserUndoSettings["maximumRetainedHistoryMinutes"];
+                      setUndoSettings((current) => ({
+                        ...current,
+                        maximumRetainedHistoryMinutes: nextWindow,
+                      }));
+                    }}
+                    value={undoSettings.maximumRetainedHistoryMinutes}
+                  >
+                    <option value="5">5 minutes</option>
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="60">60 minutes</option>
+                  </select>
+                </label>
+              </div>
+              <p className="legacy-history__note">
+                New history settings apply on the next level load or restart.
+              </p>
+            </section>
+          ) : null}
+        </div>
         <button
           aria-label={showHelp ? "Hide keyboard help" : "Show keyboard help"}
           className="legacy-toolbar__button"
@@ -901,6 +1265,11 @@ export function PlayerApp({ services }: PlayerAppProps) {
           ?
         </button>
       </div>
+      {historyStatusMessage ? (
+        <div className="legacy-history__status" role="status">
+          {historyStatusMessage}
+        </div>
+      ) : null}
       <LegacyCanvasScreen
         catalog={catalog}
         currentLevel={currentLevel}
@@ -915,7 +1284,9 @@ export function PlayerApp({ services }: PlayerAppProps) {
             !session ||
             session.mode !== "manual" ||
             session.request.ruleset !== "MS" ||
-            session.frame.snapshot.status !== "playing"
+            session.frame.snapshot.status !== "playing" ||
+            (session.history.restoreMode === "replaying-history" &&
+              !undoSettings.allowTakeoverDuringHistoricalReplay)
           ) {
             return;
           }

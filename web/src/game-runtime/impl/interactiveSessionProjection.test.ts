@@ -16,6 +16,7 @@ describe("interactive session projection", () => {
     expect(session.frame.cells).toHaveLength(32 * 32);
     expect(session.frame.render).toBeNull();
     expect(session.history).toMatchObject({
+      enabled: true,
       initialTick: -1,
       currentTick: -1,
       latestTick: -1,
@@ -51,6 +52,7 @@ describe("interactive session projection", () => {
     const next = await adapter.advanceSession(session, "none");
     expect(next.frame.render?.chip?.pos).toBe(session.frame.render?.chip?.pos);
     expect(next.history).toMatchObject({
+      enabled: true,
       currentTick: 0,
       latestTick: 0,
       timelineId: "main",
@@ -62,5 +64,33 @@ describe("interactive session projection", () => {
       replayTargetTick: null,
     });
     expect(next.handle).toBeTruthy();
+  });
+
+  it("projects disabled undo history when a session starts with undo disabled", async () => {
+    const adapter = new MsGameEngineAdapter(new NodeLevelRepository());
+    const session = await adapter.startSession(
+      {
+        seriesFile: "intro-ms.dac",
+        levelNumber: 1,
+        ruleset: "MS",
+        randomSeed: 123456789,
+      },
+      {
+        undoSettings: {
+          enabled: false,
+        },
+      },
+    );
+
+    expect(session.history).toMatchObject({
+      enabled: false,
+      initialTick: -1,
+      currentTick: -1,
+      latestTick: -1,
+      checkpointTicks: [-1],
+      previousTick: null,
+      previousCheckpointTick: null,
+      restoreMode: "live",
+    });
   });
 });

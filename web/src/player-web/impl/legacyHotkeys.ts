@@ -22,6 +22,14 @@ export function isHelpToggleKey(key: string): boolean {
   return key === "?" || key === "F1";
 }
 
+export function isUndoKey(event: LegacyKeyboardEventLike): boolean {
+  return hasPlainModifiers(event) && !event.shiftKey && (event.key === "z" || event.key === "Z");
+}
+
+export function isUndoCheckpointKey(event: LegacyKeyboardEventLike): boolean {
+  return !event.altKey && !event.ctrlKey && !event.metaKey && Boolean(event.shiftKey) && (event.key === "z" || event.key === "Z");
+}
+
 export function isPrevLevelKey(event: LegacyKeyboardEventLike): boolean {
   return hasPlainModifiers(event) && (event.key === "PageUp" || event.key === "p" || event.key === "P");
 }

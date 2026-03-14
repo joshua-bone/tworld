@@ -8,6 +8,8 @@ import {
   isNextLevelKey,
   isPrevLevelKey,
   isProceedKey,
+  isUndoCheckpointKey,
+  isUndoKey,
 } from "@player-web/impl/legacyHotkeys";
 
 describe("legacy hotkeys", () => {
@@ -22,6 +24,18 @@ describe("legacy hotkeys", () => {
     expect(isHelpToggleKey("?")).toBe(true);
     expect(isHelpToggleKey("F1")).toBe(true);
     expect(isHelpToggleKey("h")).toBe(false);
+  });
+
+  it("maps Z and Shift+Z to undo and checkpoint rewind", () => {
+    expect(isUndoKey({ key: "z" })).toBe(true);
+    expect(isUndoKey({ key: "Z" })).toBe(true);
+    expect(isUndoKey({ key: "z", shiftKey: true })).toBe(false);
+    expect(isUndoKey({ key: "z", ctrlKey: true })).toBe(false);
+
+    expect(isUndoCheckpointKey({ key: "z", shiftKey: true })).toBe(true);
+    expect(isUndoCheckpointKey({ key: "Z", shiftKey: true })).toBe(true);
+    expect(isUndoCheckpointKey({ key: "z" })).toBe(false);
+    expect(isUndoCheckpointKey({ key: "z", shiftKey: true, metaKey: true })).toBe(false);
   });
 
   it("maps plain P/N to previous and next level", () => {

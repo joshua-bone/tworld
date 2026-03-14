@@ -154,7 +154,10 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     return runLynxReplayTraceDebugWindow(loaded.request, level, replay, maxTicks, windowStart, windowEndExclusive);
   }
 
-  async startSession(request: Parameters<InteractiveGameEnginePort["startSession"]>[0]): Promise<InteractiveGameSession> {
+  async startSession(
+    request: Parameters<InteractiveGameEnginePort["startSession"]>[0],
+    options?: Parameters<InteractiveGameEnginePort["startSession"]>[1],
+  ): Promise<InteractiveGameSession> {
     if (request.ruleset !== "Lynx") {
       throw new Error(`TS Lynx engine does not support ruleset ${request.ruleset}`);
     }
@@ -164,7 +167,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     const token = createLynxInteractiveSession(request, level);
     const runtime: LynxInteractiveRuntime = {
       token,
-      history: createLynxUndoHistory(token),
+      history: createLynxUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
 
@@ -182,6 +185,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
   async startReplaySession(
     request: Parameters<InteractiveGameEnginePort["startReplaySession"]>[0],
     replay: ReplaySolutionPayload,
+    options?: Parameters<InteractiveGameEnginePort["startReplaySession"]>[2],
   ): Promise<InteractiveGameSession> {
     if (request.ruleset !== "Lynx") {
       throw new Error(`TS Lynx engine does not support ruleset ${request.ruleset}`);
@@ -192,7 +196,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     const token = createLynxReplaySession(request, level, replay);
     const runtime: LynxInteractiveRuntime = {
       token,
-      history: createLynxUndoHistory(token),
+      history: createLynxUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
 

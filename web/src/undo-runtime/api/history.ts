@@ -24,6 +24,7 @@ export interface UndoBranchMetadata {
 }
 
 export interface UndoSettingsSnapshot {
+  enabled: boolean;
   checkpointIntervalTicks: number;
   retainUnlimitedHistory: boolean;
   checkpointRetentionMode: "dense-recent" | "dense-recent-exponential";

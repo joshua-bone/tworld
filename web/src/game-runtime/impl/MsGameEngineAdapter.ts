@@ -153,7 +153,10 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     return runMsReplayTraceDebugWindow(loaded.request, level, replay, maxTicks, windowStart, windowEndExclusive);
   }
 
-  async startSession(request: Parameters<InteractiveGameEnginePort["startSession"]>[0]): Promise<InteractiveGameSession> {
+  async startSession(
+    request: Parameters<InteractiveGameEnginePort["startSession"]>[0],
+    options?: Parameters<InteractiveGameEnginePort["startSession"]>[1],
+  ): Promise<InteractiveGameSession> {
     if (request.ruleset !== "MS") {
       throw new Error(`TS MS engine does not support ruleset ${request.ruleset}`);
     }
@@ -163,7 +166,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     const token = createMsInteractiveSession(request, level);
     const runtime: MsInteractiveRuntime = {
       token,
-      history: createMsUndoHistory(token),
+      history: createMsUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
 
@@ -181,6 +184,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
   async startReplaySession(
     request: Parameters<InteractiveGameEnginePort["startReplaySession"]>[0],
     replay: ReplaySolutionPayload,
+    options?: Parameters<InteractiveGameEnginePort["startReplaySession"]>[2],
   ): Promise<InteractiveGameSession> {
     if (request.ruleset !== "MS") {
       throw new Error(`TS MS engine does not support ruleset ${request.ruleset}`);
@@ -191,7 +195,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     const token = createMsReplaySession(request, level, replay);
     const runtime: MsInteractiveRuntime = {
       token,
-      history: createMsUndoHistory(token),
+      history: createMsUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
 

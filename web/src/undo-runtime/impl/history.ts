@@ -20,6 +20,7 @@ export function createUndoSettingsSnapshot(
 ): UndoSettingsSnapshot {
   const checkpointIntervalTicks = overrides.checkpointIntervalTicks ?? 8;
   return {
+    enabled: true,
     checkpointIntervalTicks,
     retainUnlimitedHistory: true,
     checkpointRetentionMode: "dense-recent-exponential",
@@ -66,6 +67,9 @@ export function appendUndoTick<TSession>(
   event: UndoTickEvent,
   createCheckpoint: () => UndoCheckpoint<TSession>,
 ): UndoHistory<TSession> {
+  if (!history.settingsSnapshot.enabled) {
+    return history;
+  }
   const nextEvents = [...history.events, event];
   const timelineEventCount = nextEvents.filter((existingEvent) => existingEvent.timelineId === event.timelineId).length;
   const captureCheckpoint =
@@ -102,6 +106,9 @@ export function latestUndoTick<TSession>(
   history: UndoHistory<TSession>,
   timelineId = history.branchMetadata.currentTimelineId,
 ): number {
+  if (!history.settingsSnapshot.enabled) {
+    return history.initialCheckpoint.tick;
+  }
   const recordedTicks = recordedTicksForTimeline(history, timelineId);
   return recordedTicks[recordedTicks.length - 1] ?? history.initialCheckpoint.tick;
 }
@@ -111,6 +118,9 @@ export function previousUndoTick<TSession>(
   currentTick: number,
   timelineId = history.branchMetadata.currentTimelineId,
 ): number | null {
+  if (!history.settingsSnapshot.enabled) {
+    return null;
+  }
   return recordedTicksForTimeline(history, timelineId).filter((tick) => tick < currentTick).at(-1) ?? null;
 }
 
@@ -119,6 +129,9 @@ export function previousUndoCheckpointTick<TSession>(
   currentTick: number,
   timelineId = history.branchMetadata.currentTimelineId,
 ): number | null {
+  if (!history.settingsSnapshot.enabled) {
+    return null;
+  }
   return checkpointsForTimeline(history, timelineId)
     .filter((checkpoint) => checkpoint.tick < currentTick)
     .at(-1)?.tick ?? null;
@@ -129,6 +142,9 @@ export function truncateUndoHistoryAfterTick<TSession>(
   targetTick: number,
   timelineId = history.branchMetadata.currentTimelineId,
 ): UndoHistory<TSession> {
+  if (!history.settingsSnapshot.enabled) {
+    return history;
+  }
   return {
     ...history,
     events: history.events.filter((event) => event.timelineId !== timelineId || event.tick <= targetTick),
@@ -143,6 +159,9 @@ export function nextUndoTickEvent<TSession>(
   currentTick: number,
   timelineId = history.branchMetadata.currentTimelineId,
 ): UndoTickEvent | null {
+  if (!history.settingsSnapshot.enabled) {
+    return null;
+  }
   return eventsForTimeline(history, timelineId).find((event) => event.tick > currentTick) ?? null;
 }
 
@@ -155,6 +174,9 @@ export function forkUndoTimeline<TSession>(
   forkTick: number,
   createCheckpoint: (timelineId: UndoTimelineId) => UndoCheckpoint<TSession>,
 ): UndoHistory<TSession> {
+  if (!history.settingsSnapshot.enabled) {
+    return history;
+  }
   const parentTimelineId = history.branchMetadata.currentTimelineId;
   const timelineId = nextTimelineId(history);
   return pruneUndoHistory({
@@ -242,6 +264,23 @@ function boundedTimelineFloorCheckpoint<TSession>(
 }
 
 export function pruneUndoHistory<TSession>(history: UndoHistory<TSession>): UndoHistory<TSession> {
+  if (!history.settingsSnapshot.enabled) {
+    return {
+      ...history,
+      checkpoints: [],
+      events: [],
+      branchMetadata: {
+        currentTimelineId: history.initialCheckpoint.timelineId,
+        timelines: [
+          {
+            id: history.initialCheckpoint.timelineId,
+            parentTimelineId: null,
+            forkTick: null,
+          },
+        ],
+      },
+    };
+  }
   let initialCheckpoint = history.initialCheckpoint;
   const retainedTimelineCheckpoints = new Map<UndoTimelineId, UndoCheckpoint<TSession>[]>();
   const earliestRetainedTickByTimeline = new Map<UndoTimelineId, number>();
@@ -314,6 +353,16 @@ export function restoreUndoHistoryToTick<TSession>(
   options: RestoreUndoHistoryOptions<TSession>,
   timelineId = history.branchMetadata.currentTimelineId,
 ): RestoreUndoHistoryResult<TSession> {
+  if (!history.settingsSnapshot.enabled) {
+    if (targetTick !== history.initialCheckpoint.tick) {
+      throw new Error("undo history is disabled for this session");
+    }
+    return {
+      session: options.restoreCheckpoint(history.initialCheckpoint),
+      checkpointTick: history.initialCheckpoint.tick,
+      replayedEventCount: 0,
+    };
+  }
   const latestTick = latestUndoTick(history, timelineId);
   if (targetTick > latestTick) {
     throw new Error(`cannot restore undo history to future tick ${targetTick}; latest recorded tick is ${latestTick}`);

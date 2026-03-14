@@ -62,6 +62,7 @@ describe("exportInteractiveReplay", () => {
         render: null,
       },
       history: {
+        enabled: true,
         initialTick: -1,
         currentTick: 4,
         latestTick: 4,

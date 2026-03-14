@@ -14,6 +14,7 @@ export function projectInteractiveSessionHistory<TSession>(
   restoreState: InteractiveSessionRestoreState,
 ): InteractiveGameSessionHistory {
   return {
+    enabled: history.settingsSnapshot.enabled,
     initialTick: history.initialCheckpoint.tick,
     currentTick,
     latestTick: latestUndoTick(history),
