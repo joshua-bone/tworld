@@ -349,6 +349,305 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south));
   });
 
+  it("does not drop Chip from air when an elevator is directly below", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(10, 8);
+    lower[chipPos]!.top.id = MS_TILE.Elevator;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Elevator);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+  });
+
+  it("moves Chip upward from an elevator into air on the first floor tick", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(11, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[chipPos]!.bottom.id = MS_TILE.Elevator;
+    upper[chipPos]!.top.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+    expect(session.state.engine.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Elevator);
+  });
+
+  it("denies an elevator rise into non-air terrain", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(12, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[chipPos]!.bottom.id = MS_TILE.Elevator;
+    upper[chipPos]!.top.id = MS_TILE.Wall;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(1);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.map.layers?.[0]?.cells[chipPos]?.bottom.id).toBe(MS_TILE.Elevator);
+    expect(session.state.engine.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Wall);
+  });
+
+  it("arms force-floor movement after an elevator rise onto a force floor", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(13, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    lower[chipPos]!.bottom.id = MS_TILE.Elevator;
+    upper[chipPos]!.top.id = MS_TILE.Slide_South;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.internal.floorMovement).toBe("slide");
+    expect(session.state.internal.floorMovementDir).toBe(MS_DIRECTION.south);
+  });
+
+  it("completes the level after an elevator rise into an exit", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(14, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[chipPos]!.bottom.id = MS_TILE.Elevator;
+    upper[chipPos]!.top.id = MS_TILE.Exit;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.internal.completed).toBe(true);
+    expect(session.state.engine.status).toBe("completed");
+  });
+
+  it("pushes a block on the upper layer before rising into its elevator destination", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(15, 8);
+    const pushedBlockPos = pos(16, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[chipPos]!.bottom.id = MS_TILE.Elevator;
+    upper[chipPos]!.top.id = MS_TILE.Block_Static;
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+    upper[pushedBlockPos]!.top.id = MS_TILE.Empty;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.map.layers?.[1]?.cells[pushedBlockPos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
+
+  it("raises a tracked block from an elevator into air on the first non-chip floor tick", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const blockPos = pos(16, 8);
+    lower[blockPos]!.top.id = MS_TILE.Block_Static;
+    lower[blockPos]!.bottom.id = MS_TILE.Elevator;
+    upper[blockPos]!.top.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.engine.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Elevator);
+    expect(session.state.engine.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.internal.blocks.find((block) => !block.hidden && block.pos === blockPos)?.z).toBe(2);
+  });
+
+  it("arms block force-floor movement after an elevator rise onto a force floor", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const blockPos = pos(17, 8);
+    lower[blockPos]!.top.id = MS_TILE.Block_Static;
+    lower[blockPos]!.bottom.id = MS_TILE.Elevator;
+    upper[blockPos]!.top.id = MS_TILE.Slide_South;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const block = session.state.internal.blocks.find((entry) => !entry.hidden && entry.pos === blockPos);
+    expect(block?.z).toBe(2);
+    expect(block?.floorMovement).toBe("slide");
+    expect(block?.floorMovementDir).toBe(MS_DIRECTION.south);
+  });
+
+  it("blocks a non-player elevator rise into another non-player occupant", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const creaturePos = pos(18, 8);
+    lower[creaturePos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.east);
+    lower[creaturePos]!.bottom.id = MS_TILE.Elevator;
+    upper[creaturePos]!.top.id = MS_TILE.Block_Static;
+    upper[creaturePos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [creaturePos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [creaturePos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [creaturePos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const bug = session.state.internal.creatures.find((entry) => !entry.hidden && entry.id === MS_TILE.Bug);
+    expect(bug?.z).toBe(1);
+    expect(session.state.engine.map.layers?.[1]?.cells[creaturePos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
+
+  it("kills Chip when a block rises into the player's elevator destination", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const blockPos = pos(19, 8);
+    lower[blockPos]!.top.id = MS_TILE.Block_Static;
+    lower[blockPos]!.bottom.id = MS_TILE.Elevator;
+    upper[blockPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    upper[blockPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [blockPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipStatus).toBe("collided");
+    expect(session.state.engine.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.internal.blocks.find((block) => !block.hidden && block.pos === blockPos)?.z).toBe(2);
+  });
+
   it("drops a tracked block from unsupported air into water on the first non-chip floor tick", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);

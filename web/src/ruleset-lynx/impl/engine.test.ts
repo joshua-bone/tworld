@@ -382,6 +382,87 @@ describe("advanceLynxInteractiveSession", () => {
     expect(settled.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
   });
 
+  it("does not drop Chip from air when an elevator is directly below", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 35;
+    lower[chipPos] = createCell(chipPos, MS_TILE.Elevator);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const settled = advanceLynxTicks(session, 2);
+
+    expect(settled.chipZ).toBe(2);
+    expect(settled.chipPos).toBe(chipPos);
+    expect(settled.chipMoving).toBe(0);
+    expect(settled.state.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Elevator);
+    expect(settled.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("moves Chip upward from an elevator into air", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 41;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Elevator);
+    upper[chipPos] = createCellAtZ(chipPos, 2, MS_TILE.Air, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { lowerCreaturePositions: [chipPos] }),
+    );
+
+    const elevated = advanceLynxTicks(session, 2);
+
+    expect(elevated.chipZ).toBe(2);
+    expect(elevated.chipPos).toBe(chipPos);
+    expect(elevated.chipMoving).toBe(0);
+    expect(elevated.state.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Elevator);
+    expect(elevated.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("denies a Lynx elevator rise into non-air terrain", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 42;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Elevator);
+    upper[chipPos] = createCellAtZ(chipPos, 2, MS_TILE.Wall, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { lowerCreaturePositions: [chipPos] }),
+    );
+
+    const blocked = advanceLynxTicks(session, 2);
+
+    expect(blocked.chipZ).toBe(1);
+    expect(blocked.chipPos).toBe(chipPos);
+    expect(blocked.chipMoving).toBe(0);
+  });
+
+  it("raises a Lynx block from an elevator into air", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const blockPos = 45;
+    lower[blockPos] = createCell(blockPos, MS_TILE.Block_Static, MS_TILE.Elevator);
+    upper[blockPos] = createCellAtZ(blockPos, 2, MS_TILE.Air, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { lowerCreaturePositions: [blockPos] }),
+    );
+
+    const elevated = advanceLynxTicks(session, 2);
+    const block = elevated.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
+
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(blockPos);
+    expect(elevated.state.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Elevator);
+  });
+
   it("drops a block from unsupported air into water", () => {
     const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
     const upper = createBoardAtZ(2);

@@ -441,16 +441,25 @@ Validation:
 
 ### PR4: Elevator Tile And Upward Movement
 
-- [ ] Remap DAT code `57` to `elevator` only when the grouped level has higher z-layers; allow ordinary `Exited_Chip` on single-layer levels and on `z = 1` when there is no higher layer.
-- [ ] Implement elevator upward movement as force-floor-style movement toward higher `z`.
-- [ ] Restrict legal upward destinations to:
+- [x] Remap DAT code `57` to `elevator` only when the grouped level has higher z-layers; allow ordinary `Exited_Chip` on single-layer levels and on `z = 1` when there is no higher layer.
+- [x] Implement elevator upward movement as force-floor-style movement toward higher `z`.
+- [x] Implement MS Chip elevator movement on the existing floor-movement cadence.
+- [x] Implement non-player elevator movement in MS.
+- [x] Implement Lynx elevator movement.
+- [x] Restrict legal upward destinations to:
   - `air`
   - force floor
   - `exit`
+- [x] Restrict MS Chip upward destinations to `air`, force floors, and `exit`.
+- [x] Restrict non-player and Lynx upward destinations to the same rules.
 - [ ] Implement upward occupancy interactions.
 - [ ] Implement player-up-into-block horizontal push using current `N/E/W/S` facing.
-- [ ] Make `elevator` support the `air` tile directly above it.
-- [ ] Ensure nothing ever falls onto an `elevator`.
+- [x] Make `elevator` support the `air` tile directly above it.
+- [x] Ensure nothing ever falls onto an `elevator`.
+
+Remaining PR4 risk to close explicitly:
+
+- Lynx `player -> block` elevator timing still needs focused validation so the push and the vertical rise occur on the intended cadence.
 
 Validation:
 
@@ -461,7 +470,7 @@ Validation:
   - rise into exit
   - rise into player / monster / block cases
   - supported air above elevator
-- [ ] bounded replay subset for ordinary non-3D regression safety
+- [x] bounded replay subset for ordinary non-3D regression safety
 
 ### PR5: Per-Layer Hints And Connected-Item Isolation
 

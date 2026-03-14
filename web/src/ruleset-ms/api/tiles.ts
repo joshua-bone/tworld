@@ -74,7 +74,7 @@ export const MS_TILE = {
   Exit_Extra_2: 0x3c,
   Overlay_Buffer: 0x3d,
   Air: 0x3e,
-  Floor_Reserved1: 0x3f,
+  Elevator: 0x3f,
   Chip: 0x40,
   Block: 0x44,
   Tank: 0x48,
@@ -165,7 +165,7 @@ export function isMsBoots(id: number): boolean {
 }
 
 export function isMsFloor(id: number): boolean {
-  return id <= MS_TILE.Floor_Reserved1;
+  return id <= MS_TILE.Elevator;
 }
 
 export function isMsDoor(id: number): boolean {

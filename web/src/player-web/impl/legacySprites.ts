@@ -79,6 +79,7 @@ const SPRITES = new Map<number, LegacySpriteCoords>([
   [MS_TILE.Block_Static, { x: 0, y: 10 }],
   [MS_TILE.Overlay_Buffer, { x: 2, y: 0 }],
   [MS_TILE.Air, { x: 2, y: 0 }],
+  [MS_TILE.Elevator, { x: 3, y: 9 }],
   [MS_TILE.Exit_Extra_1, { x: 3, y: 10 }],
   [MS_TILE.Exit_Extra_2, { x: 3, y: 11 }],
   [MS_TILE.Burned_Chip, { x: 3, y: 4 }],

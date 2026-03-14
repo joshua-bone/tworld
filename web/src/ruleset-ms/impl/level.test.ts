@@ -66,6 +66,15 @@ describe("ms level preparation", () => {
     expect(decoded.layers?.[1]?.cells[0]?.top.id).toBe(MS_TILE.Air);
   });
 
+  it("remaps DAT file code 57 to elevator only when the grouped level has higher layers", () => {
+    const grouped = decodeMsLevelGroupData([createSingleTopTileLevelData(57, 7), createSingleTopTileLevelData(57, 8)]);
+    const single = decodeMsLevelData(createSingleTopTileLevelData(57, 7));
+
+    expect(grouped.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Elevator);
+    expect(grouped.layers?.[1]?.cells[0]?.top.id).toBe(MS_TILE.Elevator);
+    expect(single.cells[0]?.top.id).toBe(MS_TILE.Exited_Chip);
+  });
+
   it("collects z-aware connection and creature metadata in layer order", () => {
     const prepared = prepareMsLevel({
       number: 9,

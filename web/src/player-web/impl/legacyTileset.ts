@@ -139,6 +139,7 @@ export const LYNX_TILE_SPECS: LegacyLynxTileSpec[] = [
   lynxImplicit(MS_TILE.Block_Static),
   lynxImplicit(MS_TILE.Overlay_Buffer),
   lynxImplicit(MS_TILE.Air),
+  lynxSingleOpaque(MS_TILE.Elevator),
   lynxSingleOpaque(MS_TILE.Exit_Extra_1),
   lynxSingleOpaque(MS_TILE.Exit_Extra_2),
   lynxSingleOpaque(MS_TILE.Burned_Chip),
@@ -833,6 +834,7 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
 
   setEntry(entries, MS_TILE.Overlay_Buffer, entries.get(MS_TILE.Empty)!);
   setEntry(entries, MS_TILE.Air, entries.get(MS_TILE.Empty)!);
+  setEntry(entries, MS_TILE.Elevator, entries.get(MS_TILE.Exited_Chip)!);
   const staticBlockEntry = createLegacyTileEntry();
   staticBlockEntry.celCount = 1;
   staticBlockEntry.opaque[0] = entries.get(msCreatureTile(MS_TILE.Block, NORTH))?.transp[0] ?? null;

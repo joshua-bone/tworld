@@ -10,7 +10,7 @@ import {
 import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 type InventorySlot = "keys" | "boots";
-type MsForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air";
+type MsForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air" | "elevator";
 type MsChipEnterAction =
   | "none"
   | "clear-floor"
@@ -97,6 +97,7 @@ const ACTOR_TILE_SET = new Set<number>(ACTOR_TILE_IDS);
 const CHIPPABLE_TILE_IDS = new Set<number>([
   MS_TILE.Empty,
   MS_TILE.Air,
+  MS_TILE.Elevator,
   ...SLIDE_TILE_IDS,
   MS_TILE.Ice,
   MS_TILE.Gravel,
@@ -188,6 +189,9 @@ function defaultMsTileTags(id: number): TileTag[] {
     tags.push("walkable");
   }
   if (id === MS_TILE.Air) {
+    tags.push("walkable");
+  }
+  if (id === MS_TILE.Elevator) {
     tags.push("walkable");
   }
   if (DOOR_TILE_SET.has(id)) {
@@ -306,6 +310,9 @@ function defaultForcedFloorKind(id: number): MsForcedFloorKind {
   }
   if (id === MS_TILE.Air) {
     return "air";
+  }
+  if (id === MS_TILE.Elevator) {
+    return "elevator";
   }
   if (SLIDE_TILE_SET.has(id)) {
     return "slide";

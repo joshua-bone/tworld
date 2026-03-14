@@ -207,9 +207,13 @@ const FILE_IDS = [
   msCreatureTile(MS_TILE.Chip, 8),
 ] as const;
 
-function remapThreeDimensionalTileId(tileId: number, z: number): number {
+function remapThreeDimensionalTileId(tileId: number, z: number, hasHigherLayers: boolean): number {
   if (z > 1 && tileId === MS_TILE.Overlay_Buffer) {
     return MS_TILE.Air;
+  }
+
+  if (hasHigherLayers && tileId === MS_TILE.Exited_Chip) {
+    return MS_TILE.Elevator;
   }
 
   return tileId;
@@ -222,6 +226,7 @@ function decodeLayer(
   size: number,
   key: "top" | "bottom",
   z: number,
+  hasHigherLayers: boolean,
 ): {
   nextOffset: number;
   badTiles: boolean;
@@ -242,7 +247,7 @@ function decodeLayer(
     }
 
     const tileId = FILE_IDS[fileId];
-    const resolvedId = remapThreeDimensionalTileId(tileId ?? MS_TILE.Wall, z);
+    const resolvedId = remapThreeDimensionalTileId(tileId ?? MS_TILE.Wall, z, hasHigherLayers);
     if (tileId === undefined) {
       badTiles = true;
     }
@@ -260,7 +265,7 @@ function decodeLayer(
   };
 }
 
-function decodeMsSingleLevelData(levelData: Uint8Array, z: number): DecodedMsLevelLayerData {
+function decodeMsSingleLevelData(levelData: Uint8Array, z: number, hasHigherLayers: boolean): DecodedMsLevelLayerData {
   if (levelData.length < 10) {
     throw new Error("invalid level data");
   }
@@ -277,12 +282,12 @@ function decodeMsSingleLevelData(levelData: Uint8Array, z: number): DecodedMsLev
   let offset = 10;
 
   const upperSize = readUint16(levelData, 8);
-  const upperResult = decodeLayer(cells, levelData, offset, upperSize, "top", z);
+  const upperResult = decodeLayer(cells, levelData, offset, upperSize, "top", z, hasHigherLayers);
   offset = upperResult.nextOffset;
 
   const lowerSize = readUint16(levelData, offset);
   offset += 2;
-  const lowerResult = decodeLayer(cells, levelData, offset, lowerSize, "bottom", z);
+  const lowerResult = decodeLayer(cells, levelData, offset, lowerSize, "bottom", z, hasHigherLayers);
   offset = lowerResult.nextOffset;
 
   const metadataSize = readUint16(levelData, offset);
@@ -359,7 +364,8 @@ export function decodeMsLevelGroupData(levelDataLayers: readonly Uint8Array[]): 
     throw new Error("level group must contain at least one layer");
   }
 
-  const layers = levelDataLayers.map((levelData, index) => decodeMsSingleLevelData(levelData, index + 1));
+  const hasHigherLayers = levelDataLayers.length > 1;
+  const layers = levelDataLayers.map((levelData, index) => decodeMsSingleLevelData(levelData, index + 1, hasHigherLayers));
   const first = layers[0]!;
 
   return {
