@@ -18,10 +18,14 @@ function eventSort(left: { tick: number }, right: { tick: number }): number {
 export function createUndoSettingsSnapshot(
   overrides: Partial<UndoSettingsSnapshot> = {},
 ): UndoSettingsSnapshot {
+  const checkpointIntervalTicks = overrides.checkpointIntervalTicks ?? 8;
   return {
-    checkpointIntervalTicks: 8,
+    checkpointIntervalTicks,
     retainUnlimitedHistory: true,
-    checkpointRetentionMode: "dense-recent",
+    checkpointRetentionMode: "dense-recent-exponential",
+    recentCheckpointWindowTicks: checkpointIntervalTicks * 10,
+    checkpointExponentialBase: 2,
+    maximumRetainedHistoryTicks: null,
     ...overrides,
   };
 }
@@ -63,15 +67,16 @@ export function appendUndoTick<TSession>(
   createCheckpoint: () => UndoCheckpoint<TSession>,
 ): UndoHistory<TSession> {
   const nextEvents = [...history.events, event];
+  const timelineEventCount = nextEvents.filter((existingEvent) => existingEvent.timelineId === event.timelineId).length;
   const captureCheckpoint =
     history.settingsSnapshot.checkpointIntervalTicks > 0 &&
-    nextEvents.length % history.settingsSnapshot.checkpointIntervalTicks === 0;
+    timelineEventCount % history.settingsSnapshot.checkpointIntervalTicks === 0;
 
-  return {
+  return pruneUndoHistory({
     ...history,
     events: nextEvents,
     checkpoints: captureCheckpoint ? [...history.checkpoints, createCheckpoint()] : history.checkpoints,
-  };
+  });
 }
 
 export function checkpointsForTimeline<TSession>(
@@ -152,7 +157,7 @@ export function forkUndoTimeline<TSession>(
 ): UndoHistory<TSession> {
   const parentTimelineId = history.branchMetadata.currentTimelineId;
   const timelineId = nextTimelineId(history);
-  return {
+  return pruneUndoHistory({
     ...history,
     checkpoints: [...history.checkpoints, createCheckpoint(timelineId)],
     branchMetadata: {
@@ -166,6 +171,127 @@ export function forkUndoTimeline<TSession>(
         },
       ],
     },
+  });
+}
+
+function timelineCheckpoints<TSession>(
+  history: UndoHistory<TSession>,
+  timelineId: UndoTimelineId,
+): UndoCheckpoint<TSession>[] {
+  return (timelineId === history.initialCheckpoint.timelineId
+    ? [history.initialCheckpoint, ...history.checkpoints]
+    : history.checkpoints)
+    .filter((checkpoint) => checkpoint.timelineId === timelineId)
+    .sort(eventSort);
+}
+
+function thinTimelineCheckpoints<TSession>(
+  checkpoints: UndoCheckpoint<TSession>[],
+  settings: UndoSettingsSnapshot,
+): UndoCheckpoint<TSession>[] {
+  if (checkpoints.length <= 2 || settings.checkpointRetentionMode !== "dense-recent-exponential") {
+    return checkpoints;
+  }
+
+  const recentWindowTicks = Math.max(settings.recentCheckpointWindowTicks, settings.checkpointIntervalTicks);
+  const exponentialBase = Math.max(settings.checkpointExponentialBase, 2);
+  const retained: UndoCheckpoint<TSession>[] = [];
+  let lastRetainedTick = Number.POSITIVE_INFINITY;
+  let lastRetainedBand: number | null = null;
+  const latestTick = checkpoints[checkpoints.length - 1]!.tick;
+
+  for (let index = checkpoints.length - 1; index >= 0; index -= 1) {
+    const checkpoint = checkpoints[index]!;
+    const age = latestTick - checkpoint.tick;
+    const keepRecent = age <= recentWindowTicks;
+    const keepLatest = checkpoint.tick === latestTick;
+    const band =
+      age <= recentWindowTicks
+        ? 0
+        : Math.max(1, Math.ceil(Math.log(age / recentWindowTicks) / Math.log(exponentialBase)));
+    const minimumGap =
+      band === 0
+        ? settings.checkpointIntervalTicks
+        : settings.checkpointIntervalTicks * exponentialBase ** band;
+    if (keepLatest || keepRecent || band !== lastRetainedBand || lastRetainedTick - checkpoint.tick >= minimumGap) {
+      retained.push(checkpoint);
+      lastRetainedTick = checkpoint.tick;
+      lastRetainedBand = band;
+    }
+  }
+
+  const oldestCheckpoint = checkpoints[0]!;
+  if (!retained.some((checkpoint) => checkpoint.tick === oldestCheckpoint.tick)) {
+    retained.push(oldestCheckpoint);
+  }
+
+  return retained.sort(eventSort);
+}
+
+function boundedTimelineFloorCheckpoint<TSession>(
+  checkpoints: UndoCheckpoint<TSession>[],
+  latestTick: number,
+  settings: UndoSettingsSnapshot,
+): UndoCheckpoint<TSession> | null {
+  if (settings.retainUnlimitedHistory || settings.maximumRetainedHistoryTicks === null) {
+    return null;
+  }
+
+  const cutoffTick = latestTick - settings.maximumRetainedHistoryTicks;
+  return checkpoints.filter((checkpoint) => checkpoint.tick <= cutoffTick).at(-1) ?? checkpoints[0] ?? null;
+}
+
+export function pruneUndoHistory<TSession>(history: UndoHistory<TSession>): UndoHistory<TSession> {
+  let initialCheckpoint = history.initialCheckpoint;
+  const retainedTimelineCheckpoints = new Map<UndoTimelineId, UndoCheckpoint<TSession>[]>();
+  const earliestRetainedTickByTimeline = new Map<UndoTimelineId, number>();
+
+  for (const timeline of history.branchMetadata.timelines) {
+    const checkpoints = timelineCheckpoints(history, timeline.id);
+    if (checkpoints.length === 0) {
+      continue;
+    }
+    const latestTick = latestUndoTick(history, timeline.id);
+    const thinned = thinTimelineCheckpoints(checkpoints, history.settingsSnapshot);
+    const floorCheckpoint = boundedTimelineFloorCheckpoint(checkpoints, latestTick, history.settingsSnapshot);
+    const retained = floorCheckpoint
+      ? [
+          floorCheckpoint,
+          ...thinned.filter((checkpoint) => checkpoint.tick >= floorCheckpoint.tick && checkpoint.tick !== floorCheckpoint.tick),
+        ].sort(eventSort)
+      : thinned;
+    retainedTimelineCheckpoints.set(timeline.id, retained);
+    if (floorCheckpoint) {
+      earliestRetainedTickByTimeline.set(timeline.id, floorCheckpoint.tick);
+    }
+  }
+
+  const nextCheckpoints: UndoCheckpoint<TSession>[] = [];
+  const mainTimelineId = history.initialCheckpoint.timelineId;
+  const mainRetained = retainedTimelineCheckpoints.get(mainTimelineId) ?? [history.initialCheckpoint];
+  initialCheckpoint = mainRetained[0]!;
+  nextCheckpoints.push(...mainRetained.slice(1));
+
+  for (const timeline of history.branchMetadata.timelines) {
+    if (timeline.id === mainTimelineId) {
+      continue;
+    }
+    nextCheckpoints.push(...(retainedTimelineCheckpoints.get(timeline.id) ?? []));
+  }
+
+  const nextEvents =
+    history.settingsSnapshot.retainUnlimitedHistory || history.settingsSnapshot.maximumRetainedHistoryTicks === null
+      ? history.events
+      : history.events.filter((event) => {
+          const earliestRetainedTick = earliestRetainedTickByTimeline.get(event.timelineId);
+          return earliestRetainedTick === undefined || event.tick > earliestRetainedTick;
+        });
+
+  return {
+    ...history,
+    initialCheckpoint,
+    checkpoints: nextCheckpoints.sort(eventSort),
+    events: nextEvents.sort(eventSort),
   };
 }
 

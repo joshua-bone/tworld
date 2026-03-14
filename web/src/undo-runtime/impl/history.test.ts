@@ -282,6 +282,46 @@ describe("MS undo history", () => {
     expect(previousUndoTick(forked, 2, "timeline-1")).toBe(1);
     expect(nextUndoTickEvent(forked, 1, "main")?.tick).toBe(2);
   });
+
+  it("keeps recent MS checkpoints dense and thins older checkpoints exponentially", () => {
+    let session = createScenarioSession();
+    let history = createMsUndoHistory(session, {
+      checkpointIntervalTicks: 2,
+      recentCheckpointWindowTicks: 4,
+      checkpointExponentialBase: 2,
+    });
+
+    for (let index = 0; index < 20; index += 1) {
+      session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
+      history = recordMsUndoTick(history, session, GAME_INPUT_CODES.none);
+    }
+
+    expect(history.checkpoints.map((checkpoint) => checkpoint.tick)).toEqual([13, 15, 17, 19]);
+    expect(history.initialCheckpoint.tick).toBe(-1);
+  });
+
+  it("bounds MS history by policy when unlimited retention is disabled", () => {
+    let session = createScenarioSession();
+    let history = createMsUndoHistory(session, {
+      checkpointIntervalTicks: 2,
+      recentCheckpointWindowTicks: 4,
+      checkpointExponentialBase: 2,
+      retainUnlimitedHistory: false,
+      maximumRetainedHistoryTicks: 6,
+    });
+
+    for (let index = 0; index < 20; index += 1) {
+      session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
+      history = recordMsUndoTick(history, session, GAME_INPUT_CODES.none);
+    }
+
+    expect(history.initialCheckpoint.tick).toBe(13);
+    expect(history.checkpoints.map((checkpoint) => checkpoint.tick)).toEqual([15, 17, 19]);
+    expect(history.events[0]?.tick).toBe(14);
+    expect(history.events.at(-1)?.tick).toBe(19);
+    expect(() => restoreMsUndoHistoryToTick(history, 12)).toThrowError(/no undo checkpoint found/);
+    expect(restoreMsUndoHistoryToTick(history, 13).session.state.engine.timer.currentTime).toBe(13);
+  });
 });
 
 describe("Lynx undo history", () => {
@@ -350,5 +390,28 @@ describe("Lynx undo history", () => {
     expect(latestUndoTick(forked, "timeline-1")).toBe(1);
     expect(previousUndoTick(forked, 2, "timeline-1")).toBe(1);
     expect(nextUndoTickEvent(forked, 1, "main")?.tick).toBe(2);
+  });
+
+  it("bounds Lynx history by policy when unlimited retention is disabled", () => {
+    let session = createLynxReplayScenarioSession();
+    let history = createLynxUndoHistory(session, {
+      checkpointIntervalTicks: 2,
+      recentCheckpointWindowTicks: 4,
+      checkpointExponentialBase: 2,
+      retainUnlimitedHistory: false,
+      maximumRetainedHistoryTicks: 6,
+    });
+
+    for (let index = 0; index < 20; index += 1) {
+      session = advanceLynxInteractiveSession(session, GAME_INPUT_CODES.none);
+      history = recordLynxUndoTick(history, session, GAME_INPUT_CODES.none);
+    }
+
+    expect(history.initialCheckpoint.tick).toBe(13);
+    expect(history.checkpoints.map((checkpoint) => checkpoint.tick)).toEqual([15, 17, 19]);
+    expect(history.events[0]?.tick).toBe(14);
+    expect(history.events.at(-1)?.tick).toBe(19);
+    expect(() => restoreLynxUndoHistoryToTick(history, 12)).toThrowError(/no undo checkpoint found/);
+    expect(restoreLynxUndoHistoryToTick(history, 13).session.state.timer.currentTime).toBe(13);
   });
 });

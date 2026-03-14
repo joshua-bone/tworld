@@ -1,4 +1,4 @@
-import type { UndoHistory, UndoTickEvent } from "@undo-runtime/api/history";
+import type { UndoHistory, UndoSettingsSnapshot, UndoTickEvent } from "@undo-runtime/api/history";
 import { advanceMsInteractiveSession, type MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
 import {
   appendUndoTick,
@@ -17,13 +17,17 @@ export type MsUndoHistory = UndoHistory<MsInteractiveSessionState>;
 
 export function createMsUndoHistory(
   session: MsInteractiveSessionState,
-  checkpointIntervalTicks = 8,
+  settings: number | Partial<UndoSettingsSnapshot> = 8,
 ): MsUndoHistory {
+  const settingsSnapshot =
+    typeof settings === "number"
+      ? createUndoSettingsSnapshot({
+          checkpointIntervalTicks: settings,
+        })
+      : createUndoSettingsSnapshot(settings);
   return createUndoHistory(
     captureMsUndoCheckpoint(session, UNDO_MAIN_TIMELINE_ID),
-    createUndoSettingsSnapshot({
-      checkpointIntervalTicks,
-    }),
+    settingsSnapshot,
   );
 }
 

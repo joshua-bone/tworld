@@ -26,7 +26,10 @@ export interface UndoBranchMetadata {
 export interface UndoSettingsSnapshot {
   checkpointIntervalTicks: number;
   retainUnlimitedHistory: boolean;
-  checkpointRetentionMode: "dense-recent";
+  checkpointRetentionMode: "dense-recent" | "dense-recent-exponential";
+  recentCheckpointWindowTicks: number;
+  checkpointExponentialBase: number;
+  maximumRetainedHistoryTicks: number | null;
 }
 
 export interface UndoCheckpoint<TSession> {

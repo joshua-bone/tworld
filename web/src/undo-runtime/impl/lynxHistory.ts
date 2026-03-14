@@ -1,4 +1,4 @@
-import type { UndoHistory, UndoTickEvent } from "@undo-runtime/api/history";
+import type { UndoHistory, UndoSettingsSnapshot, UndoTickEvent } from "@undo-runtime/api/history";
 import { advanceLynxInteractiveSession, type LynxInteractiveSessionState } from "@ruleset-lynx/impl/engine";
 import {
   appendUndoTick,
@@ -17,13 +17,17 @@ export type LynxUndoHistory = UndoHistory<LynxInteractiveSessionState>;
 
 export function createLynxUndoHistory(
   session: LynxInteractiveSessionState,
-  checkpointIntervalTicks = 8,
+  settings: number | Partial<UndoSettingsSnapshot> = 8,
 ): LynxUndoHistory {
+  const settingsSnapshot =
+    typeof settings === "number"
+      ? createUndoSettingsSnapshot({
+          checkpointIntervalTicks: settings,
+        })
+      : createUndoSettingsSnapshot(settings);
   return createUndoHistory(
     captureLynxUndoCheckpoint(session, UNDO_MAIN_TIMELINE_ID),
-    createUndoSettingsSnapshot({
-      checkpointIntervalTicks,
-    }),
+    settingsSnapshot,
   );
 }
 

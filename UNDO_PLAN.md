@@ -521,11 +521,11 @@ Exit criteria:
 
 - restored future continues deterministically until player takeover
 
-### [ ] PR6: Retention And Pruning
+### [x] PR6: Retention And Pruning
 
-- [ ] add dense recent checkpoints
-- [ ] add exponential thinning for older checkpoints
-- [ ] add history retention settings
+- [x] add dense recent checkpoints
+- [x] add exponential thinning for older checkpoints
+- [x] add history retention settings
 
 Exit criteria:
 
