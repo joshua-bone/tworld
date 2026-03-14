@@ -123,8 +123,17 @@ Changes:
 - [x] extract initial shared board-flag plus actor-occupancy predicates into `domain/game/core`
 - [x] extract initial shared timer primitives into `domain/game/core`
 - [x] extract initial shared timer construction into `domain/game/core`
-- [ ] extract board math, occupancy checks, movement primitives, actor storage, timer primitives, collision primitives, and effect queues into `domain/game/core`
 - [ ] keep all ruleset-specific policy outside this kernel
+
+Remaining work in this PR:
+
+- [ ] extract shared destination-cell and destination-position resolution primitives used by both engines
+- [ ] extract shared destination-blocking and occupancy predicates that combine board state and visible-actor presence without embedding MS or Lynx movement policy
+- [ ] extract the next shared actor lifecycle/storage helpers, especially the remaining hide, upsert, and slot-reuse flows
+- [ ] extract shared collision and arrival-effect queue primitives where the engines currently duplicate generic bookkeeping
+- [ ] extract shared board-mutation helpers for repeated flag-transfer and claim/unclaim flows where they are policy-neutral
+- [ ] reduce duplicated replay-vs-interactive tick bookkeeping inside each engine once the shared kernel helpers are in place
+- [ ] finish replacing remaining raw board/actor/timer helper patterns in both engines where a core primitive now exists
 
 Exit criteria:
 
