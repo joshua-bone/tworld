@@ -69,7 +69,7 @@ import {
 import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
-import { collectLevelConnections } from "@ruleset-ms/api/level";
+import { collectLevelConnections, collectLevelCreaturePositions, levelLayers } from "@ruleset-ms/api/level";
 import type { GameRuntimeCommand } from "@game-core/api/types";
 import type { SolutionMove } from "@content/api/solution-file";
 
@@ -259,15 +259,43 @@ function findChipDirection(cells: EngineMapCell[]): number {
 
 function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
   const scanned: LynxRuntimeActor[] = [];
+  const orderedCreaturePositions = new Set(
+    collectLevelCreaturePositions(level).map(({ pos, z }) => `${z}:${pos}`),
+  );
 
-  for (const cell of level.cells) {
-    const tile = cell.top;
-    if (tile.id === MS_TILE.Block_Static) {
-    scanned.push({
-      id: MS_TILE.Block,
-      pos: cell.position.pos,
-      z: cell.position.z ?? 1,
-      dir: 1,
+  for (const layer of levelLayers(level)) {
+    for (const cell of layer.cells) {
+      const tile = cell.top;
+      if (tile.id === MS_TILE.Block_Static) {
+        scanned.push({
+          id: MS_TILE.Block,
+          pos: cell.position.pos,
+          z: layer.z,
+          dir: 1,
+          intentDir: 0,
+          forcedDir: 0,
+          teleported: false,
+          moving: 0,
+          frame: 0,
+          hidden: false,
+          pushed: false,
+          deferPush: false,
+          deferPushArmed: false,
+          reversePending: false,
+          dormant: !orderedCreaturePositions.has(`${layer.z}:${cell.position.pos}`),
+          animationReserved: false,
+        });
+        continue;
+      }
+
+      if (!isMsCreature(tile.id)) {
+        continue;
+      }
+      scanned.push({
+        id: msCreatureId(tile.id),
+        pos: cell.position.pos,
+        z: layer.z,
+        dir: msCreatureDir(tile.id),
         intentDir: 0,
         forcedDir: 0,
         teleported: false,
@@ -278,33 +306,10 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
         deferPush: false,
         deferPushArmed: false,
         reversePending: false,
-        dormant: !level.creaturePositions.includes(cell.position.pos),
+        dormant: false,
         animationReserved: false,
       });
-      continue;
     }
-
-    if (!isMsCreature(tile.id)) {
-      continue;
-    }
-    scanned.push({
-      id: msCreatureId(tile.id),
-      pos: cell.position.pos,
-      z: cell.position.z ?? 1,
-      dir: msCreatureDir(tile.id),
-      intentDir: 0,
-      forcedDir: 0,
-      teleported: false,
-      moving: 0,
-      frame: 0,
-      hidden: false,
-      pushed: false,
-      deferPush: false,
-      deferPushArmed: false,
-      reversePending: false,
-      dormant: false,
-      animationReserved: false,
-    });
   }
 
   const chipIndex = scanned.findIndex((actor) => actor.id === MS_TILE.Chip);

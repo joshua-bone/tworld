@@ -53,7 +53,13 @@ import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
 import { collectMsActorsFromLayers, hashMsCreaturesFromLayers, projectMsDebugPhaseSnapshot } from "@ruleset-ms/impl/debugProjection";
 import type { GameCommand, GameRequest, GameRuntimeCommand, GameTrace } from "@game-core/api/types";
-import { collectLevelConnections, type MsConnection, type MsLevel } from "@ruleset-ms/api/level";
+import {
+  collectLevelConnections,
+  collectLevelCreaturePositions,
+  levelLayers,
+  type MsConnection,
+  type MsLevel,
+} from "@ruleset-ms/api/level";
 import type { SolutionMove } from "@content/api/solution-file";
 import {
   msBlockMovementMask,
@@ -380,10 +386,10 @@ function cloneInventory(inventory: EngineState["inventory"]): EngineState["inven
   };
 }
 
-function createTrackedBlockState(pos: number, dir: number): MsTrackedBlock {
+function createTrackedBlockState(pos: number, dir: number, z = 1): MsTrackedBlock {
   return {
     pos,
-    z: 1,
+    z,
     dir,
     hidden: false,
     released: false,
@@ -608,22 +614,28 @@ export function initializeMsGameState(
 ): MsGameState {
   const cells = cloneBoardCells(level.cells);
   initializeBrokenFloors(cells);
+  const layers = levelLayers(level);
+  const layerCellsByZ = new Map<number, EngineMapCell[]>(
+    layers.map((layer) => [layer.z, layer.z === 1 ? cells : layer.cells]),
+  );
 
   let chipPos = 0;
+  let chipZ = 1;
   let chipDir: number = MS_DIRECTION.south;
   const creatures: MsTrackedCreature[] = [];
   const blocks: MsTrackedBlock[] = [];
-  const trackedBlockPositions = new Set<number>();
+  const seededPositions = new Set<string>();
+  const layerPositionKey = (pos: number, z: number) => `${z}:${pos}`;
 
-  for (const pos of level.creaturePositions) {
-    if (pos < 0 || pos >= cells.length) {
+  for (const { pos, z } of collectLevelCreaturePositions(level)) {
+    const layerCells = layerCellsByZ.get(z);
+    if (!layerCells || pos < 0 || pos >= layerCells.length) {
       continue;
     }
-    const cell = cells[pos]!;
+    const cell = layerCells[pos]!;
     if (cell.top.id === MS_TILE.Block_Static) {
-      blocks.push(createTrackedBlockState(pos, MS_DIRECTION.none));
-      trackedBlockPositions.add(pos);
-      addTopTileFlags(cells, pos, MS_FLOOR_STATE.Marker);
+      blocks.push(createTrackedBlockState(pos, MS_DIRECTION.none, z));
+      seededPositions.add(layerPositionKey(pos, z));
       continue;
     }
     if (!isMsCreature(cell.top.id)) {
@@ -631,6 +643,7 @@ export function initializeMsGameState(
     }
     if (msCreatureId(cell.top.id) === MS_TILE.Chip) {
       chipPos = pos;
+      chipZ = z;
       chipDir = msCreatureDir(cell.top.id);
     } else {
       const creatureId = msCreatureId(cell.top.id);
@@ -642,7 +655,7 @@ export function initializeMsGameState(
           dir: msCreatureDir(cell.top.id),
           tdir: MS_DIRECTION.none,
           pos,
-          z: cell.position.z ?? 1,
+          z,
           hidden: false,
           moving: 0,
           frame: 0,
@@ -656,23 +669,28 @@ export function initializeMsGameState(
         });
       }
     }
-    addTopTileFlags(cells, pos, MS_FLOOR_STATE.Marker);
+    seededPositions.add(layerPositionKey(pos, z));
   }
 
-  for (const cell of cells) {
-    if (hasTopTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.Marker)) {
-      removeTopTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.Marker);
-    } else if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
-      chipPos = cell.position.pos;
-      // Native MS seeds Chip's runtime direction from the lower tile
-      // when Chip starts on the top layer.
-      chipDir = msCreatureDir(cell.bottom.id);
+  for (const layer of layers) {
+    const layerCells = layerCellsByZ.get(layer.z) ?? layer.cells;
+    for (const cell of layerCells) {
+      if (seededPositions.has(layerPositionKey(cell.position.pos, layer.z))) {
+        continue;
+      }
+      if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
+        chipPos = cell.position.pos;
+        chipZ = layer.z;
+        // Native MS seeds Chip's runtime direction from the lower tile
+        // when Chip starts on the top layer.
+        chipDir = msCreatureDir(cell.bottom.id);
+      }
     }
   }
 
   const internal: MsInternalState = {
     chipPos,
-    chipZ: 1,
+    chipZ,
     chipDir,
     chipTDir: MS_DIRECTION.none,
     currentInput: MS_DIRECTION.none,

@@ -85,6 +85,53 @@ describe("initializeLynxEngineState", () => {
     expect(state.map.layers?.[1]?.cells).not.toBe(upper);
   });
 
+  it("seeds runtime actor order across layers with z1 actors before z2 actors", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = Array.from({ length: 32 * 32 }, (_, pos) => ({
+      ...createCell(pos, MS_TILE.Empty),
+      position: {
+        x: pos % 32,
+        y: Math.floor(pos / 32),
+        z: 2,
+        pos,
+      },
+    }));
+    const chipPos = 33;
+    const lowerBugPos = 34;
+    const upperFireballPos = 35;
+
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty);
+    lower[lowerBugPos] = createCell(lowerBugPos, msCreatureTile(MS_TILE.Bug, 2), MS_TILE.Empty);
+    upper[upperFireballPos] = {
+      position: { x: upperFireballPos % 32, y: Math.floor(upperFireballPos / 32), z: 2, pos: upperFireballPos },
+      top: { id: msCreatureTile(MS_TILE.Fireball, 8), state: 0 },
+      bottom: { id: MS_TILE.Empty, state: 0 },
+    };
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      {
+        ...createLevel([createCell(chipPos, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty)]),
+        cells: lower,
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos, lowerBugPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [upperFireballPos], hintText: "" },
+        ],
+      },
+    );
+
+    expect(
+      session.actors.map((actor) => ({
+        id: actor.id,
+        pos: actor.pos,
+        z: actor.z,
+      })),
+    ).toEqual([
+      { id: MS_TILE.Bug, pos: lowerBugPos, z: 1 },
+      { id: MS_TILE.Fireball, pos: upperFireballPos, z: 2 },
+    ]);
+  });
+
   it("removes Chip from the map without claiming the floor", () => {
     const level = createLevel([createCell(33, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty)]);
     const state = initializeLynxEngineState(

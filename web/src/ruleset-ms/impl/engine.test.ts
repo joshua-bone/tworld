@@ -120,6 +120,47 @@ describe("MS engine regressions", () => {
     ]);
   });
 
+  it("seeds runtime creature order across layers with z1 actors before z2 actors", () => {
+    const cells = createEmptyCells();
+    const upperCells = createEmptyCells().map((cell) => ({
+      ...cell,
+      position: {
+        ...cell.position,
+        z: 2,
+      },
+    }));
+    const chipPos = pos(1, 1);
+    const lowerBugPos = pos(2, 1);
+    const upperFireballPos = pos(3, 1);
+
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[lowerBugPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.east);
+    upperCells[upperFireballPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.north);
+
+    const state = initializeMsGameState(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, lowerBugPos],
+        layers: [
+          { z: 1, cells, traps: [], cloners: [], creaturePositions: [chipPos, lowerBugPos], hintText: "" },
+          { z: 2, cells: upperCells, traps: [], cloners: [], creaturePositions: [upperFireballPos], hintText: "" },
+        ],
+      }),
+    );
+
+    expect(
+      state.internal.creatures.map((creature) => ({
+        id: creature.id,
+        pos: creature.pos,
+        z: creature.z,
+      })),
+    ).toEqual([
+      { id: MS_TILE.Bug, pos: lowerBugPos, z: 1 },
+      { id: MS_TILE.Fireball, pos: upperFireballPos, z: 2 },
+    ]);
+  });
+
   it("seeds Chip's runtime direction from the lower tile when Chip starts on the top layer", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);
