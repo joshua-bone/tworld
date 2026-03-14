@@ -31,7 +31,13 @@ import {
   normalizeCardinalDirection as normalizeDirection,
   reverseDirection as backDirection,
 } from "@domain/game/core/grid";
-import { TURN_DEBUG_PHASE, recordTurnDebugPhase, type TurnDebugPhaseName } from "@domain/game/core/turnPhases";
+import {
+  TURN_DEBUG_PHASE,
+  TURN_PHASE,
+  recordTurnDebugPhase,
+  runTurnPhaseHandlers,
+  type TurnDebugPhaseName,
+} from "@domain/game/core/turnPhases";
 import { advanceTimer, createInitialEngineTimer } from "@domain/game/core/timer";
 import { mapHash } from "@domain/game/hash";
 import {
@@ -3513,58 +3519,78 @@ function advanceMsTick(
     return finishTick(nextLastMove);
   };
 
-  const replayLastMoveInputCode = runInitialHousekeepingPhase();
-  runCreatureMovementPhase();
-
+  let replayLastMoveInputCode = 0;
   let nextLastMove = state.engine.lastMove;
-  const earlyAfterCreatureMovement = maybeFinishEarly(nextLastMove);
-  if (earlyAfterCreatureMovement) {
-    return earlyAfterCreatureMovement;
-  }
-
-  const {
-    chipFloorMovementModeBeforeFloor,
-    chipFloorMovementModeAfterFloor,
-    chipFloorMovementWasActive,
-  } = runChipFloorPhase();
-
-  nextLastMove = state.engine.lastMove;
-  const earlyAfterChipFloor = maybeFinishEarly(nextLastMove);
-  if (earlyAfterChipFloor) {
-    return earlyAfterChipFloor;
-  }
-
-  runCreatureFloorPhase();
-
-  nextLastMove = state.engine.lastMove;
-  const earlyAfterCreatureFloor = maybeFinishEarly(nextLastMove);
-  if (earlyAfterCreatureFloor) {
-    return earlyAfterCreatureFloor;
-  }
-
-  const { chipPosBeforeManualMovement, manualDir, nextLastMove: resolvedNextLastMove } = resolveChipInputPhase(
-    replayLastMoveInputCode,
-  );
-  nextLastMove = resolvedNextLastMove;
-
-  const timerResult = runTimerPhase(nextLastMove);
-  if (timerResult) {
-    return timerResult;
-  }
-
-  const manualMovementResult = runManualMovementPhase(
-    nextLastMove,
-    manualDir,
-    chipPosBeforeManualMovement,
-    chipFloorMovementWasActive,
-    chipFloorMovementModeBeforeFloor,
-    chipFloorMovementModeAfterFloor,
-  );
-  if (manualMovementResult) {
-    return manualMovementResult;
-  }
-
-  return runCloneReleasePhase(nextLastMove);
+  let chipFloorMovementModeBeforeFloor = internal.floorMovement;
+  let chipFloorMovementModeAfterFloor = internal.floorMovement;
+  let chipFloorMovementWasActive = false;
+  let chipPosBeforeManualMovement = internal.chipPos;
+  let manualDir: number = MS_DIRECTION.none;
+  const earlyResult = runTurnPhaseHandlers<MsGameState>([
+    {
+      name: TURN_PHASE.initialHousekeeping,
+      run: () => {
+        replayLastMoveInputCode = runInitialHousekeepingPhase();
+        return null;
+      },
+    },
+    {
+      name: TURN_PHASE.creatureMovement,
+      run: () => {
+        runCreatureMovementPhase();
+        nextLastMove = state.engine.lastMove;
+        return maybeFinishEarly(nextLastMove);
+      },
+    },
+    {
+      name: TURN_PHASE.chipFloorMovement,
+      run: () => {
+        ({
+          chipFloorMovementModeBeforeFloor,
+          chipFloorMovementModeAfterFloor,
+          chipFloorMovementWasActive,
+        } = runChipFloorPhase());
+        nextLastMove = state.engine.lastMove;
+        return maybeFinishEarly(nextLastMove);
+      },
+    },
+    {
+      name: TURN_PHASE.creatureFloorMovement,
+      run: () => {
+        runCreatureFloorPhase();
+        nextLastMove = state.engine.lastMove;
+        return maybeFinishEarly(nextLastMove);
+      },
+    },
+    {
+      name: TURN_PHASE.chipInputResolution,
+      run: () => {
+        ({ chipPosBeforeManualMovement, manualDir, nextLastMove } = resolveChipInputPhase(replayLastMoveInputCode));
+        return null;
+      },
+    },
+    {
+      name: TURN_PHASE.timer,
+      run: () => runTimerPhase(nextLastMove),
+    },
+    {
+      name: TURN_PHASE.manualMovement,
+      run: () =>
+        runManualMovementPhase(
+          nextLastMove,
+          manualDir,
+          chipPosBeforeManualMovement,
+          chipFloorMovementWasActive,
+          chipFloorMovementModeBeforeFloor,
+          chipFloorMovementModeAfterFloor,
+        ),
+    },
+    {
+      name: TURN_PHASE.cloneRelease,
+      run: () => runCloneReleasePhase(nextLastMove),
+    },
+  ]);
+  return earlyResult ?? runCloneReleasePhase(nextLastMove);
 }
 
 export function runMsInputTrace(request: GameRequest, level: MsLevel, commands: GameCommand[], maxTicks: number): GameTrace {

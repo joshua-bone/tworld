@@ -183,19 +183,21 @@ Exit criteria:
 
 Scope:
 
-- [x] Status: in progress
-- [ ] standardize both engines around explicit phase orchestration
+- [x] Status: complete
+- [x] standardize both engines around explicit phase orchestration
 
 Changes:
 
 - [x] formalize shared named debug phases and move both engines onto that shared phase vocabulary
-- [ ] formalize named phases such as input resolution, forced movement, actor intents, movement validation, collision resolution, tile hooks, deferred wiring actions, endgame, and animation updates
-- [ ] keep ruleset-specific phase handlers separate from the shared phase runner
+- [x] formalize named turn phases and canonical MS/Lynx phase sequences in `domain/game/core`
+- [x] route the MS turn loop through the shared phase runner without changing phase-local gameplay logic
+- [x] route the Lynx interactive turn loop through the shared phase runner without changing phase-local gameplay logic
+- [x] keep ruleset-specific phase handlers separate from the shared phase runner
 
 Exit criteria:
 
-- [ ] engine ordering stays parity-correct
-- [ ] phase sequencing becomes testable in isolation
+- [x] engine ordering stays parity-correct on bounded validation subsets while the full replay sweep remains deferred until the end of the plan
+- [x] phase sequencing becomes testable in isolation
 
 ## PR 8: Level Preparation And Ruleset Assembly
 
