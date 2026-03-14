@@ -14,19 +14,19 @@ export class StaticCharacterizationFixtureRepository implements Characterization
   private readonly manifests = import.meta.glob("../../../../fixtures/characterization/v1/manifest.json", {
     import: "default",
   }) as Record<string, () => Promise<FixtureManifest>>;
-  private readonly seriesLists = import.meta.glob("../../../../fixtures/characterization/v1/impl/series-list.json", {
+  private readonly seriesLists = import.meta.glob("../../../../fixtures/characterization/v1/series-list.json", {
     import: "default",
   }) as Record<string, () => Promise<SeriesListFixture>>;
   private readonly levelInfoFixtures = import.meta.glob("../../../../fixtures/characterization/v1/level-info/*.json", {
     import: "default",
   }) as Record<string, () => Promise<LevelInfoFixture>>;
-  private readonly scoreFixtures = import.meta.glob("../../../../fixtures/characterization/v1/impl/score-table/*.json", {
+  private readonly scoreFixtures = import.meta.glob("../../../../fixtures/characterization/v1/score-table/*.json", {
     import: "default",
   }) as Record<string, () => Promise<ScoreTableFixture>>;
   private readonly timeFixtures = import.meta.glob("../../../../fixtures/characterization/v1/times-table/*.json", {
     import: "default",
   }) as Record<string, () => Promise<TimesTableFixture>>;
-  private readonly solutionFixtures = import.meta.glob("../../../../fixtures/characterization/v1/impl/solution-list/*.json", {
+  private readonly solutionFixtures = import.meta.glob("../../../../fixtures/characterization/v1/solution-list/*.json", {
     import: "default",
   }) as Record<string, () => Promise<SolutionListFixture>>;
   private readonly traceFixtures = import.meta.glob("../../../../fixtures/characterization/v1/input-trace/*.json", {
@@ -36,7 +36,7 @@ export class StaticCharacterizationFixtureRepository implements Characterization
     import: "default",
   }) as Record<string, () => Promise<InputTraceFixture>>;
   private readonly solutionRoundTripFixtures = import.meta.glob(
-    "../../../../fixtures/characterization/v1/impl/solution-roundtrip/*.json",
+    "../../../../fixtures/characterization/v1/solution-roundtrip/*.json",
     {
       import: "default",
     },
@@ -55,7 +55,7 @@ export class StaticCharacterizationFixtureRepository implements Characterization
   }
 
   async loadSeriesList(): Promise<SeriesListFixture> {
-    return this.loadSingle(this.seriesLists, "/impl/series-list.json");
+    return this.loadSingle(this.seriesLists, "/series-list.json");
   }
 
   async loadLevelInfo(seriesFile: string): Promise<LevelInfoFixture> {
@@ -63,7 +63,7 @@ export class StaticCharacterizationFixtureRepository implements Characterization
   }
 
   async loadScoreTable(seriesFile: string): Promise<ScoreTableFixture> {
-    return this.loadSingle(this.scoreFixtures, `/impl/score-table/${seriesFile}.json`);
+    return this.loadSingle(this.scoreFixtures, `/score-table/${seriesFile}.json`);
   }
 
   async loadTimesTable(seriesFile: string): Promise<TimesTableFixture> {
@@ -71,7 +71,7 @@ export class StaticCharacterizationFixtureRepository implements Characterization
   }
 
   async loadSolutionList(seriesFile: string): Promise<SolutionListFixture> {
-    return this.loadSingle(this.solutionFixtures, `/impl/solution-list/${seriesFile}.json`);
+    return this.loadSingle(this.solutionFixtures, `/solution-list/${seriesFile}.json`);
   }
 
   async loadInputTrace(traceName: string): Promise<InputTraceFixture> {
@@ -83,6 +83,6 @@ export class StaticCharacterizationFixtureRepository implements Characterization
   }
 
   async loadSolutionRoundTrip(name: string): Promise<SolutionRoundTripFixture> {
-    return this.loadSingle(this.solutionRoundTripFixtures, `/impl/solution-roundtrip/${name}.json`);
+    return this.loadSingle(this.solutionRoundTripFixtures, `/solution-roundtrip/${name}.json`);
   }
 }
