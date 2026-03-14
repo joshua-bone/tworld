@@ -492,10 +492,10 @@ Exit criteria:
 
 - MS undo is exact under deterministic tests
 
-### [ ] PR3: Lynx Checkpoints
+### [x] PR3: Lynx Checkpoints
 
-- [ ] add Lynx full-session checkpoint capture/restore
-- [ ] add Lynx restore-and-replay tests
+- [x] add Lynx full-session checkpoint capture/restore
+- [x] add Lynx restore-and-replay tests
 
 Exit criteria:
 

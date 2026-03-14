@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell } from "@game-core/api/model";
 import { GAME_INPUT_CODES } from "@game-core/api/command";
+import type { LynxLevel } from "@ruleset-lynx/api/level";
+import {
+  advanceLynxInteractiveSession,
+  createLynxInteractiveSession,
+  type LynxInteractiveSessionState,
+} from "@ruleset-lynx/impl/engine";
 import type { MsLevel } from "@ruleset-ms/api/level";
 import {
   MS_DIRECTION,
@@ -23,6 +29,16 @@ import {
   recordMsUndoTick,
   restoreMsUndoHistoryToTick,
 } from "@undo-runtime/impl/msHistory";
+import { digestLynxInteractiveSession } from "@undo-runtime/impl/sessionDigest";
+import {
+  captureLynxUndoCheckpoint,
+  restoreLynxUndoCheckpoint,
+} from "@undo-runtime/impl/lynxCheckpoint";
+import {
+  createLynxUndoHistory,
+  recordLynxUndoTick,
+  restoreLynxUndoHistoryToTick,
+} from "@undo-runtime/impl/lynxHistory";
 
 function pos(x: number, y: number): number {
   return y * MS_GRID_WIDTH + x;
@@ -40,6 +56,18 @@ function createMsEmptyCells(): EngineMapCell[] {
   }));
 }
 
+function createLynxCell(cellPos: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
+  return {
+    position: {
+      x: cellPos % 32,
+      y: Math.floor(cellPos / 32),
+      pos: cellPos,
+    },
+    top: { id: topId, state: 0 },
+    bottom: { id: bottomId, state: 0 },
+  };
+}
+
 function createMsLevel(overrides: Partial<MsLevel> & { cells: EngineMapCell[]; creaturePositions?: number[] }): MsLevel {
   return {
     number: 1,
@@ -54,11 +82,45 @@ function createMsLevel(overrides: Partial<MsLevel> & { cells: EngineMapCell[]; c
   };
 }
 
+function createLynxLevel(
+  cells: EngineMapCell[],
+  creaturePositions?: number[],
+  hintText = "",
+): LynxLevel {
+  const board = Array.from({ length: 32 * 32 }, (_, cellPos) => createLynxCell(cellPos, MS_TILE.Empty));
+  for (const cell of cells) {
+    board[cell.position.pos] = cell;
+  }
+
+  return {
+    number: 1,
+    timeLimitTicks: 4000,
+    chipsNeeded: 0,
+    hintText,
+    cells: board,
+    traps: [],
+    cloners: [],
+    creaturePositions:
+      creaturePositions ??
+      cells.filter((cell) => cell.top.id !== MS_TILE.Empty || cell.bottom.id !== MS_TILE.Empty).map((cell) => cell.position.pos),
+    statusFlags: 0,
+  };
+}
+
 function createMsRequest() {
   return {
     seriesFile: "undo-ms.dac",
     levelNumber: 1,
     ruleset: "MS" as const,
+    randomSeed: 123456789,
+  };
+}
+
+function createLynxRequest() {
+  return {
+    seriesFile: "undo-lynx.dac",
+    levelNumber: 1,
+    ruleset: "Lynx" as const,
     randomSeed: 123456789,
   };
 }
@@ -82,6 +144,34 @@ function createScenarioSession(): MsInteractiveSessionState {
   );
 }
 
+function createLynxCheckpointScenarioSession(): LynxInteractiveSessionState {
+  const chipPos = pos(1, 1);
+  const bugPos = pos(2, 1);
+  return createLynxInteractiveSession(
+    createLynxRequest(),
+    createLynxLevel(
+      [
+        createLynxCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)),
+        createLynxCell(bugPos, msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west)),
+      ],
+      [chipPos, bugPos],
+      "undo checkpoint hint",
+    ),
+  );
+}
+
+function createLynxReplayScenarioSession(): LynxInteractiveSessionState {
+  const chipPos = pos(1, 1);
+  const firePos = pos(2, 1);
+  return createLynxInteractiveSession(
+    createLynxRequest(),
+    createLynxLevel([
+      createLynxCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)),
+      createLynxCell(firePos, MS_TILE.Fire),
+    ]),
+  );
+}
+
 describe("MS undo checkpoints", () => {
   it("captures checkpoints by value instead of retaining live references", () => {
     const session = createScenarioSession();
@@ -93,6 +183,21 @@ describe("MS undo checkpoints", () => {
 
     expect(checkpoint.stateDigest).toBe(before);
     expect(digestMsInteractiveSession(restoreMsUndoCheckpoint(checkpoint))).toBe(before);
+  });
+});
+
+describe("Lynx undo checkpoints", () => {
+  it("captures checkpoints by value instead of retaining live references", () => {
+    const session = createLynxCheckpointScenarioSession();
+    const checkpoint = captureLynxUndoCheckpoint(session);
+    const before = checkpoint.stateDigest;
+
+    session.queuedChipInputCode = GAME_INPUT_CODES.east | GAME_INPUT_CODES.north;
+    session.level.hintText = "mutated";
+    session.actors[0]!.hidden = true;
+
+    expect(checkpoint.stateDigest).toBe(before);
+    expect(digestLynxInteractiveSession(restoreLynxUndoCheckpoint(checkpoint))).toBe(before);
   });
 });
 
@@ -141,6 +246,56 @@ describe("MS undo history", () => {
 
     const restoredInitial = restoreMsUndoHistoryToTick(history, -1);
     expect(digestMsInteractiveSession(restoredInitial.session)).toBe(originalDigests.get(-1));
+    expect(restoredInitial.replayedEventCount).toBe(0);
+  });
+});
+
+describe("Lynx undo history", () => {
+  it("records every tick including none inputs", () => {
+    let session = createLynxReplayScenarioSession();
+    let history = createLynxUndoHistory(session, 2);
+
+    for (const inputCode of [GAME_INPUT_CODES.east, GAME_INPUT_CODES.none, GAME_INPUT_CODES.none]) {
+      session = advanceLynxInteractiveSession(session, inputCode);
+      history = recordLynxUndoTick(history, session, inputCode);
+    }
+
+    expect(history.events.map((event) => [event.tick, event.inputCode])).toEqual([
+      [0, GAME_INPUT_CODES.east],
+      [1, GAME_INPUT_CODES.none],
+      [2, GAME_INPUT_CODES.none],
+    ]);
+    expect(history.checkpoints.map((checkpoint) => checkpoint.tick)).toEqual([1]);
+  });
+
+  it("restores exact Lynx session state by checkpoint plus replay", () => {
+    const inputs = [
+      GAME_INPUT_CODES.east,
+      GAME_INPUT_CODES.none,
+      GAME_INPUT_CODES.none,
+      GAME_INPUT_CODES.none,
+      GAME_INPUT_CODES.none,
+      GAME_INPUT_CODES.none,
+    ];
+    let session = createLynxReplayScenarioSession();
+    let history = createLynxUndoHistory(session, 2);
+    const originalDigests = new Map<number, string>([
+      [session.state.timer.currentTime, digestLynxInteractiveSession(session)],
+    ]);
+
+    for (const inputCode of inputs) {
+      session = advanceLynxInteractiveSession(session, inputCode);
+      history = recordLynxUndoTick(history, session, inputCode);
+      originalDigests.set(session.state.timer.currentTime, digestLynxInteractiveSession(session));
+    }
+
+    for (const tick of [0, 1, 2, 3, 4, 5]) {
+      const restored = restoreLynxUndoHistoryToTick(history, tick);
+      expect(digestLynxInteractiveSession(restored.session)).toBe(originalDigests.get(tick));
+    }
+
+    const restoredInitial = restoreLynxUndoHistoryToTick(history, -1);
+    expect(digestLynxInteractiveSession(restoredInitial.session)).toBe(originalDigests.get(-1));
     expect(restoredInitial.replayedEventCount).toBe(0);
   });
 });
