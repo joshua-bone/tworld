@@ -17,6 +17,7 @@ import {
   scheduledInputForTick,
 } from "@domain/game/playback";
 import { engineStateToSnapshot } from "@domain/game/snapshot";
+import { createGameDebugTrace, createGameTrace } from "@domain/game/trace";
 import type { GameCommand, GameRequest, GameRuntimeCommand, GameTrace } from "@domain/game/types";
 import type { MsConnection, MsLevel } from "@domain/game/rules/ms/level";
 import type { SolutionMove } from "@domain/solution-file";
@@ -4237,18 +4238,12 @@ export function runMsInputTrace(request: GameRequest, level: MsLevel, commands: 
     }
   }
 
-  const lastStep = steps[steps.length - 1];
-  return {
-    request: { ...request },
-    scheduledInputs: commands.map((command) => ({ ...command })),
+  return createGameTrace({
+    request,
+    scheduledInputs: commands,
     initialState,
     steps,
-    result: {
-      status: lastStep?.status ?? initialState.status,
-      finalTick: lastStep?.currentTime ?? initialState.currentTime,
-      stepCount: steps.length,
-    },
-  };
+  });
 }
 
 export function runMsInputTraceDebug(
@@ -4286,20 +4281,14 @@ export function runMsInputTraceDebug(
     }
   }
 
-  const lastStep = steps[steps.length - 1];
-  return {
-    request: { ...request },
+  return createGameDebugTrace({
+    request,
     debugSchemaVersion: MS_DEBUG_SCHEMA_VERSION,
-    scheduledInputs: commands.map((command) => ({ ...command })),
+    scheduledInputs: commands,
     initialState,
     initialDebugState,
     steps,
-    result: {
-      status: lastStep?.status ?? initialState.status,
-      finalTick: lastStep?.currentTime ?? initialState.currentTime,
-      stepCount: steps.length,
-    },
-  };
+  });
 }
 
 export function runMsReplayTrace(
@@ -4339,18 +4328,12 @@ export function runMsReplayTrace(
     }
   }
 
-  const lastStep = steps[steps.length - 1];
-  return {
-    request: { ...request },
+  return createGameTrace({
+    request,
     scheduledInputs: [],
     initialState,
     steps,
-    result: {
-      status: lastStep?.status ?? initialState.status,
-      finalTick: lastStep?.currentTime ?? initialState.currentTime,
-      stepCount: steps.length,
-    },
-  };
+  });
 }
 
 export function runMsReplayTraceDebug(
@@ -4419,20 +4402,14 @@ export function runMsReplayTraceDebugWindow(
     }
   }
 
-  const lastStep = steps[steps.length - 1];
-  return {
-    request: { ...request },
+  return createGameDebugTrace({
+    request,
     debugSchemaVersion: MS_DEBUG_SCHEMA_VERSION,
     scheduledInputs: [],
     initialState,
     initialDebugState,
     steps,
-    result: {
-      status: lastStep?.status ?? initialState.status,
-      finalTick: lastStep?.currentTime ?? initialState.currentTime,
-      stepCount: steps.length,
-    },
-  };
+  });
 }
 
 export function createMsInteractiveSession(request: GameRequest, level: MsLevel): MsInteractiveSessionState {

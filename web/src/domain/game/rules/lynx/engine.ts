@@ -3,6 +3,7 @@ import type { GameDebugBoardFlag, GameDebugFloorState, GameDebugPhaseSnapshot, G
 import { createReplayPlan, createRuntimeCommand, plannedReplayInput, recordManualMove, runtimeCommandName } from "@domain/game/playback";
 import { getGameInputNameFromCode } from "@domain/game/command";
 import { engineStateToSnapshot } from "@domain/game/snapshot";
+import { createGameDebugTrace, createGameTrace } from "@domain/game/trace";
 import {
   MS_GRID_HEIGHT,
   MS_GRID_WIDTH,
@@ -3408,17 +3409,16 @@ function runLynxTrace(
   token.state.map.hash = mapHash(token.state.map.cells);
   const initialState = engineStateToSnapshot(token.state, "initial", createRuntimeCommand(0, -1));
   if (maxTicks === 0) {
-    return {
-      request: { ...request },
-      scheduledInputs: replay ? [] : commands.map((command) => ({ ...command })),
+    return createGameTrace({
+      request,
+      scheduledInputs: replay ? [] : commands,
       initialState,
       steps: [],
       result: {
         status: token.state.status,
         finalTick: token.state.timer.tick,
-        stepCount: 0,
       },
-    };
+    });
   }
 
   const steps: GameTrace["steps"] = [];
@@ -3439,17 +3439,16 @@ function runLynxTrace(
     }
   }
 
-  return {
-    request: { ...request },
-    scheduledInputs: replay ? [] : commands.map((command) => ({ ...command })),
+  return createGameTrace({
+    request,
+    scheduledInputs: replay ? [] : commands,
     initialState,
     steps,
     result: {
       status: token.state.status,
       finalTick: token.state.timer.tick,
-      stepCount: steps.length,
     },
-  };
+  });
 }
 
 export function runLynxInputTrace(
@@ -3528,19 +3527,18 @@ function runLynxReplayTraceDebugInternal(
   const includeStep = (tick: number) => tick >= windowStart && tick < windowEndExclusive;
 
   if (maxTicks === 0) {
-    return {
-      request: { ...request },
+    return createGameDebugTrace({
+      request,
       debugSchemaVersion: LYNX_DEBUG_SCHEMA_VERSION,
-      scheduledInputs: replay ? [] : commands.map((command) => ({ ...command })),
+      scheduledInputs: replay ? [] : commands,
       initialState,
       initialDebugState,
       steps: [],
       result: {
         status: state.status,
         finalTick: state.timer.tick,
-        stepCount: 0,
       },
-    };
+    });
   }
 
   const steps: GameDebugTrace["steps"] = [];
@@ -3968,17 +3966,16 @@ function runLynxReplayTraceDebugInternal(
     }
   }
 
-  return {
-    request: { ...request },
+  return createGameDebugTrace({
+    request,
     debugSchemaVersion: LYNX_DEBUG_SCHEMA_VERSION,
-    scheduledInputs: replay ? [] : commands.map((command) => ({ ...command })),
+    scheduledInputs: replay ? [] : commands,
     initialState,
     initialDebugState,
     steps,
     result: {
       status: steps[steps.length - 1]?.status ?? initialState.status,
       finalTick: steps[steps.length - 1]?.currentTime ?? initialState.currentTime,
-      stepCount: steps.length,
     },
-  };
+  });
 }

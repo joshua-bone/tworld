@@ -2,6 +2,7 @@ import { initializeEngineState } from "@domain/game/initialize";
 import { createRuntimeCommand, plannedReplayInput, recordManualMove, resolveManualInput, scheduledInputForTick, type ReplayPlan } from "@domain/game/playback";
 import { engineStateToSnapshot } from "@domain/game/snapshot";
 import { stepEngineState } from "@domain/game/step";
+import { createGameTrace } from "@domain/game/trace";
 import type { EngineLevelSeed } from "@domain/game/model";
 import type { GameCommand, GameSnapshot, GameTrace } from "@domain/game/types";
 import type { SolutionMove } from "@domain/solution-file";
@@ -60,17 +61,16 @@ export function runCanonicalTrace(seed: EngineLevelSeed, options: CanonicalTrace
   const lastStep = steps[steps.length - 1];
 
   return {
-    trace: {
+    trace: createGameTrace({
       request: { ...seed.request },
-      scheduledInputs: options.scheduledInputs.map((command) => ({ ...command })),
+      scheduledInputs: options.scheduledInputs,
       initialState: initialSnapshot,
       steps,
       result: {
         status: lastStep?.status ?? state.status,
         finalTick: lastStep?.currentTime ?? state.timer.currentTime,
-        stepCount: steps.length,
       },
-    },
+    }),
     recordedMoves,
     replayPlan,
   };

@@ -44,7 +44,7 @@ When a PR only changes architecture scaffolding and not gameplay, a smaller boun
 
 ## PR 1: Boundary Guardrails And Core Ruleset Seams
 
-Status: in progress
+Status: complete
 
 Scope:
 
@@ -67,12 +67,15 @@ Exit criteria:
 
 ## PR 2: Snapshot, Trace, And Debug Projection Extraction
 
+Status: in progress
+
 Scope:
 
 - move snapshot shaping, trace shaping, debug shaping, map-hash projection, and sound-bitmask projection out of the engines
 
 Changes:
 
+- extract shared `GameTrace` and `GameDebugTrace` builders so engines stop hand-assembling outer trace payloads
 - extract projectors that convert internal simulation state into `GameSnapshot`, `GameTrace`, and debug payloads
 - reduce engine responsibilities to state transition plus effect emission
 
