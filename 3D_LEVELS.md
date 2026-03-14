@@ -353,3 +353,172 @@ Lynx falling animation:
 
 - Mob landing vertically on force floor:
   - force-floor behavior applies
+
+## PR Plan
+
+The implementation should be split into small, reversible PRs. During the feature build-out, replay validation should stay bounded to focused subsets. Full-corpus replay verification is for the end, not every intermediate PR.
+
+### PR1: 3D Parsing And Unified Level Model
+
+- [ ] Group contiguous DAT levels with titles ending in `\1`, `\2`, `\3`, ... into one logical 3D level.
+- [ ] Strip `\1` from the visible merged title.
+- [ ] Keep global metadata from layer 1 only.
+- [ ] Preserve per-layer cell data, creature order metadata, trap connections, cloner connections, and hint text.
+- [ ] Introduce unified `x,y,z` coordinates in the parsed/prepared level model, even for ordinary `z = 1` levels.
+- [ ] Keep all non-3D levels represented as single-layer 3D levels rather than a separate 2D path.
+
+Validation:
+
+- [ ] focused parser/unit tests for DAT grouping and title stripping
+- [ ] bounded replay subset:
+  - `intro.dat`
+  - one MS replay file
+  - one Lynx replay file
+
+### PR2: Engine Coordinate Lift
+
+- [ ] Lift engine board/cell/actor addressing to `x,y,z`.
+- [ ] Keep existing single-layer gameplay behavior unchanged on `z = 1`.
+- [ ] Ensure teleports, traps, and cloners are layer-scoped in the runtime model.
+- [ ] Ensure creature ordering remains z1 first, then z2, etc.
+- [ ] Preserve teeth targeting by global `x,y` only.
+
+Validation:
+
+- [ ] focused engine tests for actor ordering and same-layer trap/cloner/teleport scoping
+- [ ] bounded replay subset:
+  - intro MS
+  - intro Lynx
+  - one CCLP1 MS replay
+  - one CCLP1 Lynx replay
+
+### PR3: Air Tile And Downward Movement
+
+- [ ] Remap DAT code `32` to `air` on `z > 1` only.
+- [ ] Implement support checks from the immediately lower layer only.
+- [ ] Implement downward movement as force-floor-style movement toward lower `z`.
+- [ ] Limit vertical movement to one z-layer per tick.
+- [ ] Apply falling from initial state when starting unsupported in `air`.
+- [ ] Implement downward landing effects and the ice exception.
+- [ ] Implement collision-on-landing rules, including block/monster kills on player.
+
+Validation:
+
+- [ ] focused engine tests for:
+  - falling into water
+  - falling onto pickups
+  - falling onto bombs
+  - falling onto ice
+  - falling onto force floors
+  - falling onto player / monster / block
+- [ ] bounded replay subset for regression safety on ordinary non-3D levels
+
+### PR4: Elevator Tile And Upward Movement
+
+- [ ] Remap DAT code `57` to `elevator`.
+- [ ] Implement elevator upward movement as force-floor-style movement toward higher `z`.
+- [ ] Restrict legal upward destinations to:
+  - `air`
+  - force floor
+  - `exit`
+- [ ] Implement upward occupancy interactions.
+- [ ] Implement player-up-into-block horizontal push using current `N/E/W/S` facing.
+- [ ] Make `elevator` support the `air` tile directly above it.
+- [ ] Ensure nothing ever falls onto an `elevator`.
+
+Validation:
+
+- [ ] focused engine tests for:
+  - successful rise into air
+  - denied rise into non-air terrain
+  - rise into force floor
+  - rise into exit
+  - rise into player / monster / block cases
+  - supported air above elevator
+- [ ] bounded replay subset for ordinary non-3D regression safety
+
+### PR5: Per-Layer Hints And Connected-Item Isolation
+
+- [ ] Make hint text layer-local.
+- [ ] Show the active hint for the player’s current `z`.
+- [ ] Lock teleport searches to the player or actor’s current z-layer.
+- [ ] Lock trap and cloner connections to their current z-layer only.
+
+Validation:
+
+- [ ] focused engine/use-case tests for per-layer hints and same-layer-only connections
+- [ ] bounded MS/Lynx replay subset
+
+### PR6: Renderer And Visual Stack
+
+- [ ] Render the current z-layer always.
+- [ ] Render up to the next three lower z-layers if present.
+- [ ] Render `air` as transparency.
+- [ ] Render lower layers with contiguous parallax presentation:
+  - no gaps between adjacent lower-layer tiles
+  - `0.9x` scale treatment
+  - slight blur
+  - `0.25` darkening
+- [ ] Procedurally render `elevator`.
+- [ ] Add blue support-border overlay for one tick after supported downward checks.
+- [ ] Add red failure-border overlay for one tick after failed upward elevator moves.
+- [ ] Add smooth Lynx falling scale toward `0.9x`.
+
+Validation:
+
+- [ ] focused renderer/snapshot tests
+- [ ] manual visual smoke check in browser player
+
+### PR7: Hand-Stitched Showcase Set
+
+- [ ] Create a small hand-authored showcase level set named `3DINTRO`.
+- [ ] Place it alongside the existing intro data so it is visible in the startup console menu.
+- [ ] Add corresponding MS and Lynx solution / replay files if needed for smoke verification.
+- [ ] Include levels demonstrating:
+  - air falling
+  - support from doors/socket
+  - real vs fake blue wall behavior
+  - nonplayer/nonplayer support
+  - player/monster/block vertical collisions
+  - elevator rise success and failure
+  - player-up-into-block push
+  - per-layer hints
+  - per-layer teleports
+  - per-layer traps/cloners
+  - ice landing exception
+  - force-floor landing
+
+Placement:
+
+- [ ] `data/3DINTRO.dat`
+- [ ] matching set entries alongside the intro sets in `sets/`
+- [ ] matching solution/replay assets in `save/` as needed
+
+Validation:
+
+- [ ] run the showcase set manually in both MS and Lynx modes
+- [ ] add focused smoke tests if practical
+
+### PR8: Replay/Undo/Editor Compatibility Sweep
+
+- [ ] Ensure undo/history captures the new z-aware state without lossy shortcuts.
+- [ ] Ensure interactive projection and replay export preserve `z`.
+- [ ] Verify non-3D replays still pass on a bounded but representative subset.
+- [ ] Verify 3D showcase replays pass in both MS and Lynx.
+
+Validation:
+
+- [ ] bounded replay subset:
+  - intro MS
+  - intro Lynx
+  - one CCLP1 MS replay
+  - one CCLP1 Lynx replay
+  - one CCLP2 replay
+  - one EvanD1 replay
+  - all `3DINTRO` smoke replays
+
+### Final Acceptance
+
+- [ ] browser/manual play works for the showcase set in both rulesets
+- [ ] bounded replay subset is green throughout development
+- [ ] full replay frontier is rerun once the feature stack is complete
