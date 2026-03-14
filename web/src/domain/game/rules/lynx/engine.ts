@@ -1,6 +1,13 @@
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@domain/game/debug";
-import { cloneBoardCells, promoteBottomTile, topTile } from "@domain/game/core/board";
+import {
+  addTopTileFlags,
+  cloneBoardCells,
+  promoteBottomTile,
+  removeTopTileFlags,
+  replaceTopTile,
+  topTile,
+} from "@domain/game/core/board";
 import {
   canAdvancePosition as canAdvanceLynxPosition,
   directionCode,
@@ -297,7 +304,7 @@ function clearLynxAnimationAt(state: EngineState, actors: LynxRuntimeActor[], po
   }
 
   runtime.animations.splice(index, 1);
-  state.map.cells[pos]!.top.state &= ~LYNX_CELL_FLAG.Animated;
+  removeTopTileFlags(state.map.cells, pos, LYNX_CELL_FLAG.Animated);
   releaseReservedAnimationActorAt(actors, pos);
   return true;
 }
@@ -327,7 +334,7 @@ function startLynxAnimation(state: EngineState, actors: LynxRuntimeActor[], pos:
     frame: initialLynxAnimationFrame(state),
     tileId,
   });
-  cell.top.state |= LYNX_CELL_FLAG.Animated;
+  addTopTileFlags(state.map.cells, pos, LYNX_CELL_FLAG.Animated);
 }
 
 function advanceLynxAnimations(state: EngineState, actors: LynxRuntimeActor[]): void {
@@ -340,7 +347,7 @@ function advanceLynxAnimations(state: EngineState, actors: LynxRuntimeActor[]): 
       continue;
     }
 
-    state.map.cells[animation.pos]!.top.state &= ~LYNX_CELL_FLAG.Animated;
+    removeTopTileFlags(state.map.cells, animation.pos, LYNX_CELL_FLAG.Animated);
     releaseReservedAnimationActorAt(actors, animation.pos);
     runtime.animations.splice(index, 1);
   }
@@ -420,7 +427,7 @@ function failLynxChip(
   endGameAnimationFrame: number | null;
 } {
   if (collidedActor && !collidedActor.hidden) {
-    state.map.cells[collidedActor.pos]!.top.state &= ~LYNX_CELL_FLAG.Claimed;
+    removeTopTileFlags(state.map.cells, collidedActor.pos, LYNX_CELL_FLAG.Claimed);
     removeLynxActor(state, actors, collidedActor, LYNX_ANIMATION_TILE.Entity_Explosion);
   }
 
@@ -1223,7 +1230,7 @@ function revealLynxHiddenWall(state: EngineState, pos: number): boolean {
     return false;
   }
 
-  cell.top = { ...cell.top, id: MS_TILE.Wall };
+  replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
   state.map.hash = mapHash(state.map.cells);
   return true;
 }
@@ -1268,7 +1275,7 @@ function resolveLynxChipArrival(
   }
 
   if (cell.top.id === MS_TILE.Dirt || cell.top.id === MS_TILE.BlueWall_Fake) {
-    cell.top = { ...cell.top, id: MS_TILE.Empty };
+    replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Empty });
     state.map.hash = mapHash(state.map.cells);
     return {
       soundEffects: 1 << LYNX_SOUND.TileEmptied,
@@ -1277,7 +1284,7 @@ function resolveLynxChipArrival(
   }
 
   if (cell.top.id === MS_TILE.PopupWall) {
-    cell.top = { ...cell.top, id: MS_TILE.Wall };
+    replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
     state.map.hash = mapHash(state.map.cells);
     return {
       soundEffects: 1 << LYNX_SOUND.WallCreated,
@@ -1655,7 +1662,7 @@ function findLynxTeleportDestination(
     const cell = state.map.cells[pos];
     if (cell?.top.id !== MS_TILE.Teleport) {
       if ((cell?.top.state ?? 0) & LYNX_CELL_FLAG.Teleport) {
-        cell!.top = { ...cell!.top, id: MS_TILE.Teleport };
+        replaceTopTile(state.map.cells, pos, { ...cell!.top, id: MS_TILE.Teleport });
       }
       continue;
     }
@@ -1733,17 +1740,17 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
     const cell = state.map.cells[pos];
     if (cell?.top.id !== MS_TILE.Teleport) {
       if ((cell?.top.state ?? 0) & LYNX_CELL_FLAG.Teleport) {
-        cell!.top = { ...cell!.top, id: MS_TILE.Teleport };
+        replaceTopTile(state.map.cells, pos, { ...cell!.top, id: MS_TILE.Teleport });
       }
       continue;
     }
 
-    state.map.cells[actor.pos]!.top.state &= ~LYNX_CELL_FLAG.Claimed;
+    removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     actor.pos = pos;
 
     if (!canAdvanceLynxPosition(pos, actor.dir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
       if (pos === origin) {
-        state.map.cells[actor.pos]!.top.state |= LYNX_CELL_FLAG.Claimed;
+        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
         return;
       }
       continue;
@@ -1752,7 +1759,7 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
     const exitCell = inBounds(exitPos, MS_GRID_WIDTH, MS_GRID_HEIGHT) ? state.map.cells[exitPos] : null;
     if (!exitCell || !canLynxCreatureEnter(effectiveLynxTargetTileId(state, exitCell.top.id), actor.id, actor.dir)) {
       if (pos === origin) {
-        state.map.cells[actor.pos]!.top.state |= LYNX_CELL_FLAG.Claimed;
+        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
         return;
       }
       continue;
@@ -1760,20 +1767,20 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
 
     if ((state.map.cells[pos]?.top.state ?? 0) & LYNX_CELL_FLAG.Claimed) {
       if (pos === origin) {
-        state.map.cells[actor.pos]!.top.state |= LYNX_CELL_FLAG.Claimed;
+        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
         return;
       }
       continue;
     }
 
     if ((exitCell.top.state & LYNX_CELL_FLAG.Claimed) === 0) {
-      state.map.cells[actor.pos]!.top.state |= LYNX_CELL_FLAG.Claimed;
+      addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
       actor.teleported = true;
       return;
     }
 
     if (pos === origin) {
-      state.map.cells[actor.pos]!.top.state |= LYNX_CELL_FLAG.Claimed;
+      addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
       return;
     }
   }
@@ -2025,11 +2032,11 @@ function startLynxCreatureMovement(
     actor.dormant = false;
   }
 
-  state.map.cells[actor.pos]!.top.state &= ~LYNX_CELL_FLAG.Claimed;
+  removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
   actor.pos = targetPos;
   actor.moving = 8;
   actor.frame = 4;
-  state.map.cells[actor.pos]!.top.state |= LYNX_CELL_FLAG.Claimed;
+  addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
   if (actor.pushed) {
     state.soundEffects |= 1 << LYNX_SOUND.BlockMoving;
   }
@@ -2048,18 +2055,18 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
 
   if (actor.id === MS_TILE.Block) {
     if (cell.top.id === MS_TILE.Water) {
-      cell.top = { ...cell.top, id: MS_TILE.Dirt };
-      cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
+      replaceTopTile(state.map.cells, actor.pos, { ...cell.top, id: MS_TILE.Dirt });
+      removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
       removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Water_Splash);
       state.soundEffects |= 1 << LYNX_SOUND.WaterSplash;
     } else if (cell.top.id === MS_TILE.Bomb) {
       promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
-      cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
+      removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
       removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Bomb_Explosion);
       state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
     } else if (cell.top.id === MS_TILE.Key_Blue) {
       promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
-      cell.top = { ...cell.top, state: cell.top.state | LYNX_CELL_FLAG.Claimed };
+      addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     }
     actor.deferPush = false;
     actor.deferPushArmed = false;
@@ -2069,7 +2076,7 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
   }
 
   if (cell.top.id === MS_TILE.Water && actor.id !== MS_TILE.Glider) {
-    cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
+    removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Water_Splash);
     state.soundEffects |= 1 << LYNX_SOUND.WaterSplash;
     state.map.hash = mapHash(state.map.cells);
@@ -2078,7 +2085,7 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
 
   if (cell.top.id === MS_TILE.Bomb) {
     promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
-    cell.top.state &= ~LYNX_CELL_FLAG.Claimed;
+    removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Bomb_Explosion);
     state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
     state.map.hash = mapHash(state.map.cells);
@@ -2087,7 +2094,7 @@ function finishLynxActorMovement(state: EngineState, level: LynxLevel, actors: L
 
   if (cell.top.id === MS_TILE.Key_Blue) {
     promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
-    cell.top = { ...cell.top, state: cell.top.state | LYNX_CELL_FLAG.Claimed };
+    addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     state.map.hash = mapHash(state.map.cells);
   }
 

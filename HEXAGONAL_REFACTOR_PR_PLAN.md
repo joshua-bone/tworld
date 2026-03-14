@@ -115,7 +115,7 @@ Scope:
 Changes:
 
 - [x] extract shared direction and board-position helpers into `domain/game/core`
-- [x] extract shared board cell clone, access, and layer-stack helpers into `domain/game/core`
+- [x] extract shared board cell clone, access, mutation, and layer-stack helpers into `domain/game/core`
 - [ ] extract board math, occupancy checks, movement primitives, actor storage, timer primitives, collision primitives, and effect queues into `domain/game/core`
 - [ ] keep all ruleset-specific policy outside this kernel
 

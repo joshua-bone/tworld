@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { boardCell, bottomTile, bottomTileId, cloneBoardCells, popBoardTile, promoteBottomTile, pushBoardTile, topTile, topTileId } from "@domain/game/core/board";
+import {
+  addBottomTileFlags,
+  addTopTileFlags,
+  boardCell,
+  bottomTile,
+  bottomTileId,
+  cloneBoardCells,
+  popBoardTile,
+  promoteBottomTile,
+  pushBoardTile,
+  removeBottomTileFlags,
+  removeTopTileFlags,
+  replaceBottomTile,
+  replaceTopTile,
+  topTile,
+  topTileId,
+} from "@domain/game/core/board";
 import type { EngineMapCell } from "@domain/game/model";
 
 function makeCell(): EngineMapCell {
@@ -41,6 +57,23 @@ describe("board core helpers", () => {
     expect(bottomTile(cells, 0)).toBe(cells[0]?.bottom);
     expect(topTileId(cells, 0)).toBe(10);
     expect(bottomTileId(cells, 0)).toBe(20);
+  });
+
+  it("replaces and mutates top and bottom layers through shared helpers", () => {
+    const cells = [makeCell()];
+
+    replaceTopTile(cells, 0, { id: 30, state: 1 });
+    replaceBottomTile(cells, 0, { id: 40, state: 2 });
+    addTopTileFlags(cells, 0, 4);
+    addBottomTileFlags(cells, 0, 8);
+    removeTopTileFlags(cells, 0, 1);
+    removeBottomTileFlags(cells, 0, 2);
+
+    expect(cells[0]).toEqual({
+      position: { x: 1, y: 2, pos: 65 },
+      top: { id: 30, state: 4 },
+      bottom: { id: 40, state: 8 },
+    });
   });
 
   it("promotes the bottom tile and clears the lower layer", () => {

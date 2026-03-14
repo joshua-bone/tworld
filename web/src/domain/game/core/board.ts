@@ -28,6 +28,30 @@ export function bottomTileId(cells: EngineMapCell[], pos: number): number {
   return bottomTile(cells, pos).id;
 }
 
+export function replaceTopTile(cells: EngineMapCell[], pos: number, tile: EngineTile): void {
+  boardCell(cells, pos).top = { ...tile };
+}
+
+export function replaceBottomTile(cells: EngineMapCell[], pos: number, tile: EngineTile): void {
+  boardCell(cells, pos).bottom = { ...tile };
+}
+
+export function addTopTileFlags(cells: EngineMapCell[], pos: number, flags: number): void {
+  boardCell(cells, pos).top.state |= flags;
+}
+
+export function removeTopTileFlags(cells: EngineMapCell[], pos: number, flags: number): void {
+  boardCell(cells, pos).top.state &= ~flags;
+}
+
+export function addBottomTileFlags(cells: EngineMapCell[], pos: number, flags: number): void {
+  boardCell(cells, pos).bottom.state |= flags;
+}
+
+export function removeBottomTileFlags(cells: EngineMapCell[], pos: number, flags: number): void {
+  boardCell(cells, pos).bottom.state &= ~flags;
+}
+
 export function pushBoardTile(cells: EngineMapCell[], pos: number, tile: EngineTile): void {
   const cell = boardCell(cells, pos);
   cell.bottom = { ...cell.top };

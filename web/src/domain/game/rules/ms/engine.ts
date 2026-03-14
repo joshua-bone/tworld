@@ -4,7 +4,21 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@domain/game/debug";
-import { boardCell, bottomTile, bottomTileId, cloneBoardCells, popBoardTile, pushBoardTile, topTile, topTileId } from "@domain/game/core/board";
+import {
+  addBottomTileFlags,
+  addTopTileFlags,
+  boardCell,
+  bottomTile,
+  bottomTileId,
+  cloneBoardCells,
+  popBoardTile,
+  pushBoardTile,
+  removeBottomTileFlags,
+  removeTopTileFlags,
+  replaceTopTile,
+  topTile,
+  topTileId,
+} from "@domain/game/core/board";
 import {
   directionName,
   nextPosition,
@@ -613,12 +627,11 @@ function updateChipTile(cells: EngineMapCell[], internal: MsInternalState): void
     return;
   }
 
-  const cell = cells[internal.chipPos]!;
   const chipBase = floorAt(cells, internal.chipPos) === MS_TILE.Water ? MS_TILE.Swimming_Chip : MS_TILE.Chip;
-  cell.top = {
+  replaceTopTile(cells, internal.chipPos, {
     id: msCreatureTile(chipBase, internal.chipDir),
     state: 0,
-  };
+  });
 }
 
 function refreshFloorMovement(
@@ -730,7 +743,7 @@ export function initializeMsGameState(
     if (cell.top.id === MS_TILE.Block_Static) {
       blocks.push(createTrackedBlockState(pos, MS_DIRECTION.none));
       trackedBlockPositions.add(pos);
-      cell.top.state |= MS_FLOOR_STATE.Marker;
+      addTopTileFlags(cells, pos, MS_FLOOR_STATE.Marker);
       continue;
     }
     if (!isMsCreature(cell.top.id)) {
@@ -762,12 +775,12 @@ export function initializeMsGameState(
         });
       }
     }
-    cell.top.state |= MS_FLOOR_STATE.Marker;
+    addTopTileFlags(cells, pos, MS_FLOOR_STATE.Marker);
   }
 
   for (const cell of cells) {
     if (cell.top.state & MS_FLOOR_STATE.Marker) {
-      cell.top.state &= ~MS_FLOOR_STATE.Marker;
+      removeTopTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.Marker);
     } else if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
       chipPos = cell.position.pos;
       // Native MS seeds Chip's runtime direction from the lower tile
@@ -1222,7 +1235,7 @@ function moveBlock(
     landedButtonFloor === MS_TILE.Button_Brown
   ) {
     if (deferButtons) {
-      cells[landingPos]!.bottom.state |= MS_FLOOR_STATE.ButtonDown;
+      addBottomTileFlags(cells, landingPos, MS_FLOOR_STATE.ButtonDown);
       if (landedButtonFloor !== MS_TILE.Button_Green) {
         internal.pendingSoundEffects |= 1 << MS_SOUND.ButtonPushed;
       }
@@ -1345,10 +1358,10 @@ function handleDeferredButtons(cells: EngineMapCell[], internal: MsInternalState
   for (const cell of cells) {
     let floor: number = MS_TILE.Empty;
     if ((cell.top.state & MS_FLOOR_STATE.ButtonDown) !== 0) {
-      cell.top.state &= ~MS_FLOOR_STATE.ButtonDown;
+      removeTopTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.ButtonDown);
       floor = cell.top.id;
     } else if ((cell.bottom.state & MS_FLOOR_STATE.ButtonDown) !== 0) {
-      cell.bottom.state &= ~MS_FLOOR_STATE.ButtonDown;
+      removeBottomTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.ButtonDown);
       floor = cell.bottom.id;
     }
 
@@ -1362,8 +1375,8 @@ function handleDeferredButtons(cells: EngineMapCell[], internal: MsInternalState
 
 function resetButtons(cells: EngineMapCell[]): void {
   for (const cell of cells) {
-    cell.top.state &= ~MS_FLOOR_STATE.ButtonDown;
-    cell.bottom.state &= ~MS_FLOOR_STATE.ButtonDown;
+    removeTopTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.ButtonDown);
+    removeBottomTileFlags(cells, cell.position.pos, MS_FLOOR_STATE.ButtonDown);
   }
 }
 
@@ -2001,7 +2014,7 @@ function activateCloner(cells: EngineMapCell[], internal: MsInternalState, butto
     return;
   }
 
-  sourceCell.bottom.state |= MS_FLOOR_STATE.Cloning;
+  addBottomTileFlags(cells, sourcePos, MS_FLOOR_STATE.Cloning);
   internal.creatures.push({
     serial: internal.nextCreatureSerial,
     id: sourceId,
