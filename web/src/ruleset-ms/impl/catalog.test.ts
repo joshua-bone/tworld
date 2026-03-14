@@ -36,12 +36,14 @@ describe("MS ruleset catalog", () => {
     expect(msTileHasTag(MS_TILE.Key_Green, "collectible")).toBe(true);
     expect(msTileHasTag(MS_TILE.Boots_Fire, "boots")).toBe(true);
     expect(msTileHasTag(MS_TILE.Teleport, "teleport")).toBe(true);
+    expect(msTileHasTag(MS_TILE.Air, "walkable")).toBe(true);
     expect(msTileHasTag(MS_TILE.Beartrap, "trap")).toBe(true);
     expect(msTileHasTag(MS_TILE.CloneMachine, "cloner")).toBe(true);
     expect(msTileHasTag(MS_TILE.Ice, "ice")).toBe(true);
     expect(msTileHasTag(MS_TILE.Slide_East, "slide")).toBe(true);
     expect(msTileHasCapability(MS_TILE.Key_Red, "collect-on-entry")).toBe(true);
     expect(msTileHasCapability(MS_TILE.Teleport, "forces-movement")).toBe(true);
+    expect(msTileHasCapability(MS_TILE.Air, "forces-movement")).toBe(true);
     expect(msTileHasCapability(MS_TILE.Bomb, "kills-on-entry")).toBe(true);
   });
 
@@ -96,6 +98,7 @@ describe("MS ruleset catalog", () => {
     expect(msTileForcedFloorKind(MS_TILE.Ice)).toBe("ice");
     expect(msTileForcedFloorKind(MS_TILE.Slide_Random)).toBe("slide");
     expect(msTileForcedFloorKind(MS_TILE.Teleport)).toBe("teleport");
+    expect(msTileForcedFloorKind(MS_TILE.Air)).toBe("air");
     expect(msSlideDirection(MS_TILE.Slide_East, MS_DIRECTION.north)).toBe(MS_DIRECTION.east);
     expect(msSlideDirection(MS_TILE.Slide_Random, MS_DIRECTION.west)).toBe(MS_DIRECTION.west);
     expect(msIceWallTurn(MS_TILE.IceWall_Northwest, MS_DIRECTION.south)).toBe(MS_DIRECTION.west);

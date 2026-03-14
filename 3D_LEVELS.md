@@ -404,7 +404,7 @@ Validation:
 
 ### PR3: Air Tile And Downward Movement
 
-- [ ] Remap DAT code `32` to `air` on `z > 1` only.
+- [x] Remap DAT code `32` to `air` on `z > 1` only.
 - [ ] Implement support checks from the immediately lower layer only.
 - [ ] Implement downward movement as force-floor-style movement toward lower `z`.
 - [ ] Limit vertical movement to one z-layer per tick.

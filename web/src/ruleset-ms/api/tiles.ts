@@ -73,7 +73,7 @@ export const MS_TILE = {
   Exit_Extra_1: 0x3b,
   Exit_Extra_2: 0x3c,
   Overlay_Buffer: 0x3d,
-  Floor_Reserved2: 0x3e,
+  Air: 0x3e,
   Floor_Reserved1: 0x3f,
   Chip: 0x40,
   Block: 0x44,

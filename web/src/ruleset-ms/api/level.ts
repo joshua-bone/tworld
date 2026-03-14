@@ -207,7 +207,22 @@ const FILE_IDS = [
   msCreatureTile(MS_TILE.Chip, 8),
 ] as const;
 
-function decodeLayer(target: EngineMapCell[], data: Uint8Array, startOffset: number, size: number, key: "top" | "bottom"): {
+function remapThreeDimensionalTileId(tileId: number, z: number): number {
+  if (z > 1 && tileId === MS_TILE.Overlay_Buffer) {
+    return MS_TILE.Air;
+  }
+
+  return tileId;
+}
+
+function decodeLayer(
+  target: EngineMapCell[],
+  data: Uint8Array,
+  startOffset: number,
+  size: number,
+  key: "top" | "bottom",
+  z: number,
+): {
   nextOffset: number;
   badTiles: boolean;
 } {
@@ -227,7 +242,7 @@ function decodeLayer(target: EngineMapCell[], data: Uint8Array, startOffset: num
     }
 
     const tileId = FILE_IDS[fileId];
-    const resolvedId = tileId ?? MS_TILE.Wall;
+    const resolvedId = remapThreeDimensionalTileId(tileId ?? MS_TILE.Wall, z);
     if (tileId === undefined) {
       badTiles = true;
     }
@@ -262,12 +277,12 @@ function decodeMsSingleLevelData(levelData: Uint8Array, z: number): DecodedMsLev
   let offset = 10;
 
   const upperSize = readUint16(levelData, 8);
-  const upperResult = decodeLayer(cells, levelData, offset, upperSize, "top");
+  const upperResult = decodeLayer(cells, levelData, offset, upperSize, "top", z);
   offset = upperResult.nextOffset;
 
   const lowerSize = readUint16(levelData, offset);
   offset += 2;
-  const lowerResult = decodeLayer(cells, levelData, offset, lowerSize, "bottom");
+  const lowerResult = decodeLayer(cells, levelData, offset, lowerSize, "bottom", z);
   offset = lowerResult.nextOffset;
 
   const metadataSize = readUint16(levelData, offset);

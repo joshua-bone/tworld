@@ -21,6 +21,19 @@ function createMinimalLevelData(levelNumber = 7): Uint8Array {
   ]);
 }
 
+function createSingleTopTileLevelData(fileCode: number, levelNumber = 7): Uint8Array {
+  return Uint8Array.from([
+    levelNumber, 0,
+    12, 0,
+    3, 0,
+    0, 0,
+    1, 0,
+    fileCode,
+    0, 0,
+    0, 0,
+  ]);
+}
+
 describe("ms level preparation", () => {
   it("decodes DAT bytes into raw level data", () => {
     const decoded = decodeMsLevelData(createMinimalLevelData());
@@ -44,6 +57,13 @@ describe("ms level preparation", () => {
     expect(decoded.layers?.[1]?.number).toBe(8);
     expect(decoded.layers?.[0]?.cells[0]?.position.z).toBe(1);
     expect(decoded.layers?.[1]?.cells[0]?.position.z).toBe(2);
+  });
+
+  it("remaps DAT file code 32 to air on z>1 only", () => {
+    const decoded = decodeMsLevelGroupData([createSingleTopTileLevelData(32, 7), createSingleTopTileLevelData(32, 8)]);
+
+    expect(decoded.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Overlay_Buffer);
+    expect(decoded.layers?.[1]?.cells[0]?.top.id).toBe(MS_TILE.Air);
   });
 
   it("collects z-aware connection and creature metadata in layer order", () => {

@@ -41,12 +41,14 @@ describe("Lynx ruleset catalog", () => {
     expect(lynxTileHasTag(MS_TILE.Key_Green, "collectible")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Boots_Fire, "boots")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Teleport, "teleport")).toBe(true);
+    expect(lynxTileHasTag(MS_TILE.Air, "walkable")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Beartrap, "trap")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Exit, "exit")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Ice, "ice")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Slide_East, "slide")).toBe(true);
     expect(lynxTileHasCapability(MS_TILE.Key_Red, "collect-on-entry")).toBe(true);
     expect(lynxTileHasCapability(MS_TILE.Teleport, "forces-movement")).toBe(true);
+    expect(lynxTileHasCapability(MS_TILE.Air, "forces-movement")).toBe(true);
     expect(lynxTileHasCapability(MS_TILE.Bomb, "kills-on-entry")).toBe(true);
   });
 
@@ -67,6 +69,7 @@ describe("Lynx ruleset catalog", () => {
     expect(lynxTileForcedFloorKind(MS_TILE.Ice)).toBe("ice");
     expect(lynxTileForcedFloorKind(MS_TILE.Slide_Random)).toBe("slide");
     expect(lynxTileForcedFloorKind(MS_TILE.Teleport)).toBe("teleport");
+    expect(lynxTileForcedFloorKind(MS_TILE.Air)).toBe("air");
     expect(lynxFixedSlideDirection(MS_TILE.Slide_East)).toBe(MS_DIRECTION.east);
     expect(lynxFixedSlideDirection(MS_TILE.Slide_Random)).toBe(MS_DIRECTION.none);
     expect(lynxIceWallTurn(MS_TILE.IceWall_Northwest, MS_DIRECTION.south)).toBe(MS_DIRECTION.west);

@@ -65,4 +65,59 @@ describe("lynx level preparation", () => {
     expect(prepared.cells[1]?.bottom.id).toBe(MS_TILE.Wall);
     expect(prepared.layers?.[0]?.cells[0]?.position.z).toBe(1);
   });
+
+  it("preserves air on upper layers during Lynx preparation", () => {
+    const prepared = prepareLynxLevel({
+      number: 12,
+      timeLimitSeconds: 20,
+      chipsNeeded: 0,
+      hintText: "",
+      cells: [],
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      badTiles: false,
+      layers: [
+        {
+          z: 1,
+          number: 12,
+          timeLimitSeconds: 20,
+          chipsNeeded: 0,
+          hintText: "",
+          cells: [
+            {
+              position: { x: 0, y: 0, z: 1, pos: 0 },
+              top: { id: MS_TILE.Overlay_Buffer, state: 0 },
+              bottom: { id: MS_TILE.Empty, state: 0 },
+            },
+          ],
+          traps: [],
+          cloners: [],
+          creaturePositions: [],
+          badTiles: false,
+        },
+        {
+          z: 2,
+          number: 13,
+          timeLimitSeconds: 20,
+          chipsNeeded: 0,
+          hintText: "",
+          cells: [
+            {
+              position: { x: 0, y: 0, z: 2, pos: 0 },
+              top: { id: MS_TILE.Air, state: 0 },
+              bottom: { id: MS_TILE.Empty, state: 0 },
+            },
+          ],
+          traps: [],
+          cloners: [],
+          creaturePositions: [],
+          badTiles: false,
+        },
+      ],
+    });
+
+    expect(prepared.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Wall);
+    expect(prepared.layers?.[1]?.cells[0]?.top.id).toBe(MS_TILE.Air);
+  });
 });

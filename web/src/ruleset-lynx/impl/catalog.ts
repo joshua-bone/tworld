@@ -10,7 +10,7 @@ import {
 import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 type InventorySlot = "keys" | "boots";
-type LynxForcedFloorKind = "none" | "slide" | "ice" | "teleport";
+type LynxForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air";
 type LynxCreatureFloorAction = "none" | "hold-direction";
 type LynxChipEnterAction =
   | "none"
@@ -126,6 +126,7 @@ const DEADLY_TILE_SET = new Set<number>(DEADLY_TILE_IDS);
 
 const CHIPPABLE_TILE_IDS = new Set<number>([
   MS_TILE.Empty,
+  MS_TILE.Air,
   ...SLIDE_TILE_IDS,
   MS_TILE.Ice,
   MS_TILE.Water,
@@ -221,6 +222,9 @@ function defaultLynxTileTags(id: number): TileTag[] {
   if (CHIPPABLE_TILE_IDS.has(id) || MOVEMENT_MASK_BY_TILE.has(id)) {
     tags.push("walkable");
   }
+  if (id === MS_TILE.Air) {
+    tags.push("walkable");
+  }
 
   if (DOOR_TILE_SET.has(id)) {
     tags.push("door");
@@ -300,7 +304,7 @@ function defaultLynxTileCapabilities(id: number): TileCapability[] {
   if (BUTTON_TILE_SET.has(id) || id === MS_TILE.Burglar || id === MS_TILE.Socket || id === MS_TILE.Exit) {
     capabilities.push("trigger-on-entry");
   }
-  if (id === MS_TILE.Teleport || SLIDE_TILE_SET.has(id) || ICE_TILE_SET.has(id)) {
+  if (id === MS_TILE.Teleport || id === MS_TILE.Air || SLIDE_TILE_SET.has(id) || ICE_TILE_SET.has(id)) {
     capabilities.push("forces-movement");
   }
   if (DEADLY_TILE_SET.has(id)) {
@@ -341,6 +345,9 @@ function defaultLynxTileHooks(id: number): TileHookName[] {
 function defaultLynxForcedFloorKind(id: number): LynxForcedFloorKind {
   if (id === MS_TILE.Teleport) {
     return "teleport";
+  }
+  if (id === MS_TILE.Air) {
+    return "air";
   }
   if (SLIDE_TILE_SET.has(id)) {
     return "slide";
