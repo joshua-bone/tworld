@@ -106,12 +106,15 @@ Exit criteria:
 
 ## PR 4: Board And Actor Kernel Extraction
 
+- [ ] Status: in progress
+
 Scope:
 
 - [ ] create the reusable simulation kernel shared by both rulesets
 
 Changes:
 
+- [x] extract shared direction and board-position helpers into `domain/game/core`
 - [ ] extract board math, occupancy checks, movement primitives, actor storage, timer primitives, collision primitives, and effect queues into `domain/game/core`
 - [ ] keep all ruleset-specific policy outside this kernel
 

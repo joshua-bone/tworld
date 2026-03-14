@@ -4,6 +4,12 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@domain/game/debug";
+import {
+  directionName,
+  nextPosition,
+  normalizeCardinalDirection as normalizeDirection,
+  reverseDirection as backDirection,
+} from "@domain/game/core/grid";
 import { mapHash } from "@domain/game/hash";
 import {
   createReplayPlan,
@@ -167,29 +173,6 @@ function cloneCells(cells: EngineMapCell[]): EngineMapCell[] {
   }));
 }
 
-function directionName(dir: number): string {
-  switch (dir) {
-    case MS_DIRECTION.north:
-      return "north";
-    case MS_DIRECTION.west:
-      return "west";
-    case MS_DIRECTION.south:
-      return "south";
-    case MS_DIRECTION.east:
-      return "east";
-    default:
-      return "none";
-  }
-}
-
-function normalizeDirection(dir: number): number {
-  let next = dir;
-  if ((next & (MS_DIRECTION.north | MS_DIRECTION.south)) !== 0 && (next & (MS_DIRECTION.east | MS_DIRECTION.west)) !== 0) {
-    next &= MS_DIRECTION.north | MS_DIRECTION.south;
-  }
-  return next;
-}
-
 function isRelativeMouseCommand(code: number): boolean {
   return code >= CMD_MOUSE_MOVE_FIRST && code <= CMD_MOUSE_MOVE_LAST;
 }
@@ -208,21 +191,6 @@ function makeMouseAbsolute(relPos: number, chipPos: number): number {
   const x = (relPos % MS_MOUSE_RANGE) + MS_MOUSE_RANGE_MIN;
   const y = Math.floor(relPos / MS_MOUSE_RANGE) + MS_MOUSE_RANGE_MIN;
   return chipPos + y * MS_GRID_WIDTH + x;
-}
-
-function backDirection(dir: number): number {
-  switch (dir) {
-    case MS_DIRECTION.north:
-      return MS_DIRECTION.south;
-    case MS_DIRECTION.west:
-      return MS_DIRECTION.east;
-    case MS_DIRECTION.south:
-      return MS_DIRECTION.north;
-    case MS_DIRECTION.east:
-      return MS_DIRECTION.west;
-    default:
-      return MS_DIRECTION.none;
-  }
 }
 
 function leftDirection(dir: number): number {
@@ -253,21 +221,6 @@ function rightDirection(dir: number): number {
     default:
       return MS_DIRECTION.none;
   }
-}
-
-function nextPosition(pos: number, dir: number): number {
-  return (
-    pos +
-    (dir === MS_DIRECTION.north
-      ? -MS_GRID_WIDTH
-      : dir === MS_DIRECTION.south
-        ? MS_GRID_WIDTH
-        : dir === MS_DIRECTION.west
-          ? -1
-          : dir === MS_DIRECTION.east
-            ? 1
-            : 0)
-  );
 }
 
 function nextRandomValue(value: bigint): bigint {
@@ -1088,7 +1041,7 @@ function teleportDestinationForCreature(
       continue;
     }
 
-    if (occupiedOriginPos >= 0 && nextPosition(destination, dir) === occupiedOriginPos) {
+    if (occupiedOriginPos >= 0 && nextPosition(destination, dir, MS_GRID_WIDTH) === occupiedOriginPos) {
       continue;
     }
 
@@ -1157,7 +1110,7 @@ function teleportDestinationForBlock(cells: EngineMapCell[], start: number, dir:
       continue;
     }
 
-    const exitPos = nextPosition(destination, dir);
+    const exitPos = nextPosition(destination, dir, MS_GRID_WIDTH);
     if (canMoveBlockInto(cells, exitPos, dir, occupiedOriginPos)) {
       return destination;
     }
@@ -2100,7 +2053,7 @@ function moveCreatureOnce(
   const oldPos = creature.pos;
   const oldTopCreatureId = msCreatureId(cells[oldPos]!.top.id);
   const oldWasCloneMachine = cells[oldPos]!.bottom.id === MS_TILE.CloneMachine;
-  let nextPos = nextPosition(oldPos, dir);
+  let nextPos = nextPosition(oldPos, dir, MS_GRID_WIDTH);
   const targetTop = cells[nextPos]!.top.id;
   const targetTopState = cells[nextPos]!.top.state;
   const targetBottom = cells[nextPos]!.bottom.id;
@@ -2709,7 +2662,7 @@ function runCreatureFloorMovements(cells: EngineMapCell[], internal: MsInternalS
           return false;
         }
 
-        const nextPos = nextPosition(block.pos, dir);
+        const nextPos = nextPosition(block.pos, dir, MS_GRID_WIDTH);
         if (!canMoveBlockInto(cells, nextPos, dir)) {
           return false;
         }

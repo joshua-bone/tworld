@@ -1,5 +1,17 @@
 import type { EngineMapCell, EngineState } from "@domain/game/model";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@domain/game/debug";
+import {
+  canAdvancePosition as canAdvanceLynxPosition,
+  directionCode,
+  directionDelta,
+  directionName,
+  isDiagonalInput,
+  isDirectionalInput,
+  isPositionInBounds as inBounds,
+  nextPosition,
+  reverseDirection as backDirection,
+  roundedBoardPosition,
+} from "@domain/game/core/grid";
 import { mapHash } from "@domain/game/hash";
 import { createReplayPlan, createRuntimeCommand, plannedReplayInput, recordManualMove, runtimeCommandName } from "@domain/game/playback";
 import { getGameInputNameFromCode } from "@domain/game/command";
@@ -348,7 +360,7 @@ function removeLynxActor(
   animationTileId: number = LYNX_ANIMATION_TILE.Entity_Explosion,
 ): void {
   if (actor.moving > 0) {
-    actor.pos -= directionDelta(actor.dir);
+    actor.pos -= directionDelta(actor.dir, MS_GRID_WIDTH);
     actor.moving = 0;
   }
 
@@ -420,7 +432,7 @@ function failLynxChip(
   }
 
   if (chipMoving > 0) {
-    chipPos -= directionDelta(chipDir);
+    chipPos -= directionDelta(chipDir, MS_GRID_WIDTH);
   }
 
   let animationTileId: number = LYNX_ANIMATION_TILE.Entity_Explosion;
@@ -502,21 +514,6 @@ function addLynxCantMove(state: EngineState): void {
 
   runtime.couldntMove = true;
   state.soundEffects |= 1 << LYNX_SOUND.CantMove;
-}
-
-function backDirection(dir: number): number {
-  switch (dir) {
-    case 1:
-      return 4;
-    case 2:
-      return 8;
-    case 4:
-      return 1;
-    case 8:
-      return 2;
-    default:
-      return 0;
-  }
 }
 
 function lynxChipEntryMask(tileId: number): number {
@@ -704,53 +701,6 @@ function advanceLynxPrng(state: EngineState): number {
   return (prng1 ^ prng2) & 0xff;
 }
 
-function directionDelta(inputCode: number): number {
-  switch (inputCode) {
-    case 1:
-      return -MS_GRID_WIDTH;
-    case 2:
-      return -1;
-    case 4:
-      return MS_GRID_WIDTH;
-    case 8:
-      return 1;
-    default:
-      return 0;
-  }
-}
-
-function canAdvanceLynxPosition(pos: number, dir: number): boolean {
-  if (isDiagonalInput(dir)) {
-    return (
-      ((dir & 1) === 0 || canAdvanceLynxPosition(pos, 1)) &&
-      ((dir & 2) === 0 || canAdvanceLynxPosition(pos, 2)) &&
-      ((dir & 4) === 0 || canAdvanceLynxPosition(pos, 4)) &&
-      ((dir & 8) === 0 || canAdvanceLynxPosition(pos, 8))
-    );
-  }
-
-  switch (dir) {
-    case 1:
-      return pos >= MS_GRID_WIDTH;
-    case 2:
-      return (pos % MS_GRID_WIDTH) !== 0;
-    case 4:
-      return pos < MS_GRID_WIDTH * (MS_GRID_HEIGHT - 1);
-    case 8:
-      return (pos % MS_GRID_WIDTH) !== MS_GRID_WIDTH - 1;
-    default:
-      return false;
-  }
-}
-
-function isDirectionalInput(inputCode: number): boolean {
-  return inputCode >= 1 && inputCode <= 15;
-}
-
-function isDiagonalInput(inputCode: number): boolean {
-  return (inputCode & (1 | 4)) !== 0 && (inputCode & (2 | 8)) !== 0;
-}
-
 function left(dir: number): number {
   switch (dir) {
     case 1:
@@ -796,52 +746,12 @@ function back(dir: number): number {
   }
 }
 
-function directionName(dir: number): string {
-  switch (dir) {
-    case 1:
-      return "north";
-    case 2:
-      return "west";
-    case 4:
-      return "south";
-    case 8:
-      return "east";
-    default:
-      return "none";
-  }
-}
-
-function directionCode(name: string): number {
-  switch (name) {
-    case "north":
-      return 1;
-    case "west":
-      return 2;
-    case "south":
-      return 4;
-    case "east":
-      return 8;
-    default:
-      return 0;
-  }
-}
-
-function roundedBoardPosition(viewX: number, viewY: number): { x: number; y: number; pos: number } {
-  const x = Math.max(0, Math.min(MS_GRID_WIDTH - 1, Math.round(viewX / 8)));
-  const y = Math.max(0, Math.min(MS_GRID_HEIGHT - 1, Math.round(viewY / 8)));
-  return {
-    x,
-    y,
-    pos: x + y * MS_GRID_WIDTH,
-  };
-}
-
 function updateLynxViewChip(state: EngineState): void {
   state.chip = {
     id: -1,
     layer: -1,
     dir: "none",
-    position: roundedBoardPosition(state.view.x, state.view.y),
+    position: roundedBoardPosition(state.view.x, state.view.y, MS_GRID_WIDTH, MS_GRID_HEIGHT, 8),
     state: 0,
     source: "view",
   };
@@ -998,11 +908,11 @@ function probeLynxChipMoveDirection(
   if (!canLynxExitTile(state, state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty, MS_TILE.Chip, dir, false)) {
     return { canMove: false, pushBlockPos: null };
   }
-  if (!canAdvanceLynxPosition(chipPos, dir)) {
+  if (!canAdvanceLynxPosition(chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
     return { canMove: false, pushBlockPos: null };
   }
 
-  const targetPos = chipPos + directionDelta(dir);
+  const targetPos = chipPos + directionDelta(dir, MS_GRID_WIDTH);
   const target = state.map.cells[targetPos];
   if (!target) {
     return { canMove: false, pushBlockPos: null };
@@ -1151,11 +1061,11 @@ function shouldPreviewLynxForcedSlidePush(
   chipPos: number,
   inputCode: number,
 ): boolean {
-  if (!isDirectionalInput(inputCode) || isDiagonalInput(inputCode) || !canAdvanceLynxPosition(chipPos, inputCode)) {
+  if (!isDirectionalInput(inputCode) || isDiagonalInput(inputCode) || !canAdvanceLynxPosition(chipPos, inputCode, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
     return false;
   }
 
-  const targetPos = chipPos + directionDelta(inputCode);
+  const targetPos = chipPos + directionDelta(inputCode, MS_GRID_WIDTH);
   if (!state.map.cells[targetPos]) {
     return false;
   }
@@ -1743,10 +1653,6 @@ function updateLynxViewFromMovement(state: EngineState, chipPos: number, chipDir
   updateLynxViewChip(state);
 }
 
-function inBounds(pos: number): boolean {
-  return pos >= 0 && pos < MS_GRID_WIDTH * MS_GRID_HEIGHT;
-}
-
 function findLynxTeleportDestination(
   state: EngineState,
   origin: number,
@@ -1793,11 +1699,11 @@ function canLynxChipExitTeleportThroughBlock(
 
 function resolveLynxChipTeleport(state: EngineState, actors: LynxRuntimeActor[], chipPos: number, chipDir: number): number {
   const destination = findLynxTeleportDestination(state, chipPos, (teleportPos) => {
-    if (!canAdvanceLynxPosition(teleportPos, chipDir)) {
+    if (!canAdvanceLynxPosition(teleportPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
       return false;
     }
-    const exitPos = teleportPos + directionDelta(chipDir);
-    const exitCell = inBounds(exitPos) ? state.map.cells[exitPos] : null;
+    const exitPos = teleportPos + directionDelta(chipDir, MS_GRID_WIDTH);
+    const exitCell = inBounds(exitPos, MS_GRID_WIDTH, MS_GRID_HEIGHT) ? state.map.cells[exitPos] : null;
     if (!exitCell) {
       return false;
     }
@@ -1849,15 +1755,15 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
     state.map.cells[actor.pos]!.top.state &= ~LYNX_CELL_FLAG.Claimed;
     actor.pos = pos;
 
-    if (!canAdvanceLynxPosition(pos, actor.dir)) {
+    if (!canAdvanceLynxPosition(pos, actor.dir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
       if (pos === origin) {
         state.map.cells[actor.pos]!.top.state |= LYNX_CELL_FLAG.Claimed;
         return;
       }
       continue;
     }
-    const exitPos = pos + directionDelta(actor.dir);
-    const exitCell = inBounds(exitPos) ? state.map.cells[exitPos] : null;
+    const exitPos = pos + directionDelta(actor.dir, MS_GRID_WIDTH);
+    const exitCell = inBounds(exitPos, MS_GRID_WIDTH, MS_GRID_HEIGHT) ? state.map.cells[exitPos] : null;
     if (!exitCell || !canLynxCreatureEnter(effectiveLynxTargetTileId(state, exitCell.top.id), actor.id, actor.dir)) {
       if (pos === origin) {
         state.map.cells[actor.pos]!.top.state |= LYNX_CELL_FLAG.Claimed;
@@ -1992,12 +1898,12 @@ function canLynxCreatureStartMovement(
   if (!canLynxExitTile(state, floorFrom, actor.id, dir, releasing)) {
     return false;
   }
-  if (!canAdvanceLynxPosition(actor.pos, dir)) {
+  if (!canAdvanceLynxPosition(actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
     return false;
   }
 
-  const targetPos = actor.pos + directionDelta(dir);
-  if (!inBounds(targetPos)) {
+  const targetPos = actor.pos + directionDelta(dir, MS_GRID_WIDTH);
+  if (!inBounds(targetPos, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
     return false;
   }
 
@@ -2116,7 +2022,7 @@ function startLynxCreatureMovement(
   actor.dir = dir;
   const floorFrom = state.map.cells[actor.pos]?.top.id ?? MS_TILE.Empty;
 
-  const targetPos = actor.pos + directionDelta(dir);
+  const targetPos = actor.pos + directionDelta(dir, MS_GRID_WIDTH);
   if (!canLynxCreatureStartMovement(state, actors, actor, dir, releasing, true)) {
     if (isLynxIce(floorFrom)) {
       actor.dir = applyLynxIceWallTurn(backDirection(dir), floorFrom);
@@ -2525,7 +2431,7 @@ function advanceLynxChipTrapRelease(
   }
 
   if (chipMoving <= 0) {
-    if (!canAdvanceLynxPosition(chipPos, chipDir)) {
+    if (!canAdvanceLynxPosition(chipPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
       lynxRuntimeState(state).trapReleaseCantMoveThisTick = true;
       addLynxCantMove(state);
       return {
@@ -2538,7 +2444,7 @@ function advanceLynxChipTrapRelease(
         endGameAnimationFrame,
       };
     }
-    const targetPos = chipPos + directionDelta(chipDir);
+    const targetPos = chipPos + directionDelta(chipDir, MS_GRID_WIDTH);
     const target = state.map.cells[targetPos];
     const targetBlock =
       target && (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 ? findLynxBlockActor(actors, targetPos) : null;
@@ -2750,7 +2656,7 @@ export function initializeLynxEngineState(
       id: -1,
       layer: -1,
       dir: "none",
-      position: roundedBoardPosition((chipPos % MS_GRID_WIDTH) * 8, Math.floor(chipPos / MS_GRID_HEIGHT) * 8),
+      position: roundedBoardPosition((chipPos % MS_GRID_WIDTH) * 8, Math.floor(chipPos / MS_GRID_HEIGHT) * 8, MS_GRID_WIDTH, MS_GRID_HEIGHT, 8),
       state: 0,
       source: "view",
     },
@@ -3062,12 +2968,12 @@ function advanceLynxInteractiveTick(
   if (chipMoving === 0 && startInputCode !== 0) {
     updateLynxChipStartMovementState(state, floorBeforeMove, chosenInputCode);
     if (canLynxExitTile(state, floorBeforeMove, MS_TILE.Chip, startInputCode, false)) {
-      if (!canAdvanceLynxPosition(chipPos, startInputCode)) {
+      if (!canAdvanceLynxPosition(chipPos, startInputCode, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
         chipPushing = true;
         chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
         addLynxCantMove(state);
       } else {
-        const targetPos = chipPos + directionDelta(startInputCode);
+        const targetPos = chipPos + directionDelta(startInputCode, MS_GRID_WIDTH);
         const target = state.map.cells[targetPos];
         const targetBlock =
           target && (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 ? findLynxBlockActor(actors, targetPos) : null;
@@ -3646,11 +3552,11 @@ function runLynxReplayTraceDebugInternal(
     if (chipMoving === 0 && startInputCode !== 0) {
       updateLynxChipStartMovementState(state, floorBeforeMove, chosenInputCode);
       if (canLynxExitTile(state, floorBeforeMove, MS_TILE.Chip, startInputCode, false)) {
-        if (!canAdvanceLynxPosition(chipPos, startInputCode)) {
+        if (!canAdvanceLynxPosition(chipPos, startInputCode, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
           chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
           addLynxCantMove(state);
         } else {
-        const targetPos = chipPos + directionDelta(startInputCode);
+        const targetPos = chipPos + directionDelta(startInputCode, MS_GRID_WIDTH);
         const target = state.map.cells[targetPos];
         const targetBlock =
           target && (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 ? findLynxBlockActor(actors, targetPos) : null;
