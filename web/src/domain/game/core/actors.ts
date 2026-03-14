@@ -11,6 +11,14 @@ export function findVisibleActorAtPosition<T extends HiddenPositionedActor>(
   return actors.find((actor) => !actor.hidden && actor.pos === pos && predicate(actor));
 }
 
+export function hasVisibleActorAtPosition<T extends HiddenPositionedActor>(
+  actors: T[],
+  pos: number,
+  predicate: (actor: T) => boolean = () => true,
+): boolean {
+  return findVisibleActorAtPosition(actors, pos, predicate) !== undefined;
+}
+
 export function findHiddenActorAtPosition<T extends HiddenPositionedActor>(
   actors: T[],
   pos: number,

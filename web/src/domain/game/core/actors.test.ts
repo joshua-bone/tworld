@@ -4,6 +4,7 @@ import {
   findHiddenActorAtPosition,
   findReusableHiddenActorIndex,
   findVisibleActorAtPosition,
+  hasVisibleActorAtPosition,
   storeActorInReusableHiddenSlot,
   type HiddenPositionedActor,
 } from "@domain/game/core/actors";
@@ -25,6 +26,8 @@ describe("actor core helpers", () => {
     expect(findVisibleActorAtPosition(actors, 5)?.id).toBe(1);
     expect(findVisibleActorAtPosition(actors, 8, (actor) => actor.id === 4)?.id).toBe(4);
     expect(findVisibleActorAtPosition(actors, 8, (actor) => actor.id === 3)).toBeUndefined();
+    expect(hasVisibleActorAtPosition(actors, 5)).toBe(true);
+    expect(hasVisibleActorAtPosition(actors, 5, (actor) => actor.id === 2)).toBe(false);
   });
 
   it("finds hidden actors at a position with optional filtering", () => {
