@@ -59,9 +59,10 @@ describe("exportInteractiveReplay", () => {
           creatures: [],
         },
         cells: [],
+        render: null,
       },
       recordedMoves: [{ when: 0, dir: 8 }],
-      token: null,
+      handle: null as never,
     } satisfies InteractiveGameSession;
 
     await exportInteractiveReplay(

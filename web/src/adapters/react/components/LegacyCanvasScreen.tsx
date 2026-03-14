@@ -3,6 +3,7 @@ import lynxTilesUrl from "../../../../../res/atiles.bmp?url";
 import msTilesUrl from "../../../../../res/tiles.bmp?url";
 import { buildLegacyTileset, type LegacyTileset } from "@adapters/react/legacyTileset";
 import type { InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
+import type { InteractiveGameRenderFrame } from "@domain/game/interactive";
 import type { SeriesCatalogEntry, SeriesLevel } from "@domain/series";
 import { MS_DIRECTION, MS_STATUS_FLAG, MS_TILE, msCreatureTile } from "@domain/game/rules/ms/tiles";
 import { TIME_NIL } from "@domain/score";
@@ -154,69 +155,6 @@ function drawSprite(
   context.drawImage(sprite.image, x + sprite.offsetX, y + sprite.offsetY);
 }
 
-interface LynxRenderableActor {
-  id: number;
-  pos: number;
-  dir: number;
-  moving: number;
-  frame: number;
-  hidden: boolean;
-  animationReserved?: boolean;
-}
-
-interface LynxRenderableAnimation {
-  pos: number;
-  frame: number;
-  tileId: number;
-}
-
-interface LynxRenderableRuntimeState {
-  animations: LynxRenderableAnimation[];
-  chipTeleported?: boolean;
-}
-
-interface LynxRenderableSession {
-  chipPos: number;
-  chipDir: number;
-  chipMoving: number;
-  chipPushing?: boolean;
-  endGameTicksElapsed: number | null;
-  endGameResult: "completed" | "failed" | null;
-  endGameAnimationTileId: number | null;
-  endGameAnimationFrame?: number | null;
-  actors: LynxRenderableActor[];
-  state: {
-    lynxRuntimeState?: LynxRenderableRuntimeState;
-    timer: {
-      currentTime: number;
-    };
-  };
-}
-
-function isLynxRenderableSession(token: unknown): token is LynxRenderableSession {
-  if (!token || typeof token !== "object") {
-    return false;
-  }
-
-  const candidate = token as Partial<LynxRenderableSession>;
-  return (
-    typeof candidate.chipPos === "number" &&
-    typeof candidate.chipDir === "number" &&
-    typeof candidate.chipMoving === "number" &&
-    ("endGameTicksElapsed" in candidate ? candidate.endGameTicksElapsed === null || typeof candidate.endGameTicksElapsed === "number" : true) &&
-    ("endGameResult" in candidate
-      ? candidate.endGameResult === null || candidate.endGameResult === "completed" || candidate.endGameResult === "failed"
-      : true) &&
-    ("endGameAnimationTileId" in candidate
-      ? candidate.endGameAnimationTileId === null || typeof candidate.endGameAnimationTileId === "number"
-      : true) &&
-    Array.isArray(candidate.actors) &&
-    "state" in candidate &&
-    !!candidate.state &&
-    typeof candidate.state === "object"
-  );
-}
-
 function drawLynxActorSprite(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
@@ -246,49 +184,61 @@ function drawLynxActorOverlays(
   xOrigin: number,
   yOrigin: number,
 ): void {
-  if (!isLynxRenderableSession(session.token)) {
+  const render = session.frame.render;
+  if (!render) {
     return;
   }
 
-  const token = session.token;
-  const chipX = xOrigin + (token.chipPos % 32) * LEGACY_TILE_SIZE;
-  const chipY = yOrigin + Math.floor(token.chipPos / 32) * LEGACY_TILE_SIZE;
-  const chipHidden = token.state.lynxRuntimeState?.chipTeleported === true;
-  const chipFailed = token.endGameResult === "failed";
+  drawProjectedLynxRender(context, tileset, render, xOrigin, yOrigin);
+}
+
+function drawProjectedLynxRender(
+  context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
+  render: InteractiveGameRenderFrame,
+  xOrigin: number,
+  yOrigin: number,
+): void {
+  const chip = render.chip;
+  if (!chip) {
+    return;
+  }
+
+  const chipX = xOrigin + (chip.pos % 32) * LEGACY_TILE_SIZE;
+  const chipY = yOrigin + Math.floor(chip.pos / 32) * LEGACY_TILE_SIZE;
   if (
-    chipFailed &&
-    token.endGameAnimationTileId !== null &&
-    token.endGameAnimationFrame !== null &&
-    token.endGameAnimationFrame !== undefined
+    chip.failed &&
+    chip.endGameAnimationTileId !== null &&
+    chip.endGameAnimationFrame !== null
   ) {
     drawLynxActorSprite(
       context,
       tileset,
-      token.endGameAnimationTileId,
+      chip.endGameAnimationTileId,
       MS_DIRECTION.north,
       0,
-      token.endGameAnimationFrame,
+      chip.endGameAnimationFrame,
       chipX,
       chipY,
     );
-  } else if (!chipHidden && !chipFailed) {
+  } else if (!chip.hidden && !chip.failed) {
     drawLynxActorSprite(
       context,
       tileset,
-      token.chipPushing ? MS_TILE.Pushing_Chip : MS_TILE.Chip,
-      token.chipDir,
-      token.chipMoving,
-      Math.trunc(token.chipMoving / 2),
+      chip.pushing ? MS_TILE.Pushing_Chip : MS_TILE.Chip,
+      chip.dir,
+      chip.moving,
+      Math.trunc(chip.moving / 2),
       chipX,
       chipY,
     );
   }
 
-  const animations = token.state.lynxRuntimeState?.animations ?? [];
+  const animations = render.animations;
   const animationsByPos = new Map(animations.map((animation) => [animation.pos, animation] as const));
   const drawnAnimations = new Set<number>();
 
-  for (const actor of token.actors) {
+  for (const actor of render.actors) {
     const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
     const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
 

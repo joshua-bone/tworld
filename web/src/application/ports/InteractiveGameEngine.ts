@@ -1,13 +1,14 @@
-import type { EngineMapCell } from "@domain/game/model";
 import type { GameInputName } from "@domain/game/command";
 import type { ReplaySolutionPayload } from "@domain/game/codec";
-import type { GameRequest, GameSnapshot } from "@domain/game/types";
+import type { InteractiveGameFrame } from "@domain/game/interactive";
+import type { GameRequest } from "@domain/game/types";
 import type { SolutionMove } from "@domain/solution-file";
 
-export interface InteractiveGameFrame {
-  snapshot: GameSnapshot;
-  cells: EngineMapCell[];
-}
+declare const interactiveGameSessionHandleBrand: unique symbol;
+
+export type InteractiveGameSessionHandle = {
+  readonly [interactiveGameSessionHandleBrand]: "InteractiveGameSessionHandle";
+};
 
 export interface InteractiveGameSession {
   request: GameRequest;
@@ -15,7 +16,7 @@ export interface InteractiveGameSession {
   hintText: string | null;
   frame: InteractiveGameFrame;
   recordedMoves: SolutionMove[];
-  token: unknown;
+  handle: InteractiveGameSessionHandle;
 }
 
 export interface InteractiveGameEnginePort {

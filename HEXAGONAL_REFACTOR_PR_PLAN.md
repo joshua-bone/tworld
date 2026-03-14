@@ -88,19 +88,21 @@ Exit criteria:
 
 ## PR 3: Interactive Session Shell Extraction
 
+- [x] Status: complete
+
 Scope:
 
-- [ ] stop exposing engine internals directly through interactive session tokens
+- [x] stop exposing engine internals directly through interactive session tokens
 
 Changes:
 
-- [ ] replace opaque adapter-owned session mutation with explicit session services and projectors
-- [ ] make interactive sessions consume projected frames instead of raw engine state
+- [x] replace opaque adapter-owned session mutation with explicit session services and projectors
+- [x] make interactive sessions consume projected frames instead of raw engine state
 
 Exit criteria:
 
-- [ ] browser player behavior is unchanged
-- [ ] replay import/export stays unchanged
+- [x] browser player behavior is unchanged
+- [x] replay import/export stays unchanged
 
 ## PR 4: Board And Actor Kernel Extraction
 

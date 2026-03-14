@@ -1,7 +1,12 @@
 import type { GameEnginePort } from "@application/ports/GameEngine";
 import type { DebugGameEnginePort } from "@application/ports/DebugGameEngine";
-import type { InteractiveGameEnginePort, InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
+import type {
+  InteractiveGameEnginePort,
+  InteractiveGameSession,
+  InteractiveGameSessionHandle,
+} from "@application/ports/InteractiveGameEngine";
 import type { LevelRepository } from "@application/ports/LevelRepository";
+import { projectInteractiveGameSession } from "@application/use-cases/projectInteractiveGameSession";
 import { getGameInputCode, type GameInputName } from "@domain/game/command";
 import { parseLynxLevel } from "@domain/game/rules/lynx/level";
 import {
@@ -15,15 +20,15 @@ import {
   runLynxReplayTraceDebugWindow,
   type LynxInteractiveSessionState,
 } from "@domain/game/rules/lynx/engine";
-import { engineStateToSnapshot } from "@domain/game/snapshot";
+import { projectLynxInteractiveFrame } from "@domain/game/rules/lynx/interactiveProjection";
 import type { ReplaySolutionPayload } from "@domain/game/codec";
 
-function cloneCells(token: LynxInteractiveSessionState) {
-  return token.state.map.cells.map((cell) => ({
-    position: { ...cell.position },
-    top: { ...cell.top },
-    bottom: { ...cell.bottom },
-  }));
+function toInteractiveHandle(token: LynxInteractiveSessionState): InteractiveGameSessionHandle {
+  return token as unknown as InteractiveGameSessionHandle;
+}
+
+function fromInteractiveHandle(handle: InteractiveGameSessionHandle): LynxInteractiveSessionState {
+  return handle as unknown as LynxInteractiveSessionState;
 }
 
 export class TsLynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePort, InteractiveGameEnginePort {
@@ -114,17 +119,14 @@ export class TsLynxGameEngineAdapter implements GameEnginePort, DebugGameEngineP
     const level = parseLynxLevel(loaded.levelData);
     const token = createLynxInteractiveSession(request, level);
 
-    return {
-      request: { ...request },
+    return projectInteractiveGameSession({
+      request,
       mode: "manual",
       hintText: level.hintText || null,
-      frame: {
-        snapshot: engineStateToSnapshot(token.state, "initial", token.lastInput),
-        cells: cloneCells(token),
-      },
-      recordedMoves: token.recordedMoves.map((move) => ({ ...move })),
-      token,
-    };
+      frame: projectLynxInteractiveFrame(token, "initial"),
+      recordedMoves: token.recordedMoves,
+      handle: toInteractiveHandle(token),
+    });
   }
 
   async startReplaySession(
@@ -139,17 +141,14 @@ export class TsLynxGameEngineAdapter implements GameEnginePort, DebugGameEngineP
     const level = parseLynxLevel(loaded.levelData);
     const token = createLynxReplaySession(request, level, replay);
 
-    return {
-      request: { ...request },
+    return projectInteractiveGameSession({
+      request,
       mode: "replay",
       hintText: level.hintText || null,
-      frame: {
-        snapshot: engineStateToSnapshot(token.state, "initial", token.lastInput),
-        cells: cloneCells(token),
-      },
-      recordedMoves: token.recordedMoves.map((move) => ({ ...move })),
-      token,
-    };
+      frame: projectLynxInteractiveFrame(token, "initial"),
+      recordedMoves: token.recordedMoves,
+      handle: toInteractiveHandle(token),
+    });
   }
 
   async advanceSession(session: InteractiveGameSession, input: GameInputName): Promise<InteractiveGameSession> {
@@ -158,16 +157,15 @@ export class TsLynxGameEngineAdapter implements GameEnginePort, DebugGameEngineP
       throw new Error(`TS Lynx engine does not support ruleset ${request.ruleset}`);
     }
 
-    const token = advanceLynxInteractiveSession(session.token as LynxInteractiveSessionState, getGameInputCode(input));
+    const token = advanceLynxInteractiveSession(fromInteractiveHandle(session.handle), getGameInputCode(input));
 
-    return {
-      ...session,
-      frame: {
-        snapshot: engineStateToSnapshot(token.state, "tick", token.lastInput),
-        cells: cloneCells(token),
-      },
-      recordedMoves: token.recordedMoves.map((move) => ({ ...move })),
-      token,
-    };
+    return projectInteractiveGameSession({
+      request: session.request,
+      mode: session.mode,
+      hintText: session.hintText,
+      frame: projectLynxInteractiveFrame(token, "tick"),
+      recordedMoves: token.recordedMoves,
+      handle: toInteractiveHandle(token),
+    });
   }
 }

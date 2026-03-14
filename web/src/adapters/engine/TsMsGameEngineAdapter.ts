@@ -1,7 +1,12 @@
 import type { GameEnginePort } from "@application/ports/GameEngine";
 import type { DebugGameEnginePort } from "@application/ports/DebugGameEngine";
-import type { InteractiveGameEnginePort, InteractiveGameSession } from "@application/ports/InteractiveGameEngine";
+import type {
+  InteractiveGameEnginePort,
+  InteractiveGameSession,
+  InteractiveGameSessionHandle,
+} from "@application/ports/InteractiveGameEngine";
 import type { LevelRepository } from "@application/ports/LevelRepository";
+import { projectInteractiveGameSession } from "@application/use-cases/projectInteractiveGameSession";
 import { getGameInputCode, type GameInputName } from "@domain/game/command";
 import { parseMsLevel } from "@domain/game/rules/ms/level";
 import {
@@ -15,8 +20,16 @@ import {
   runMsReplayTraceDebugWindow,
   type MsInteractiveSessionState,
 } from "@domain/game/rules/ms/engine";
-import { engineStateToSnapshot } from "@domain/game/snapshot";
+import { projectMsInteractiveFrame } from "@domain/game/rules/ms/interactiveProjection";
 import type { ReplaySolutionPayload } from "@domain/game/codec";
+
+function toInteractiveHandle(token: MsInteractiveSessionState): InteractiveGameSessionHandle {
+  return token as unknown as InteractiveGameSessionHandle;
+}
+
+function fromInteractiveHandle(handle: InteractiveGameSessionHandle): MsInteractiveSessionState {
+  return handle as unknown as MsInteractiveSessionState;
+}
 
 export class TsMsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort, InteractiveGameEnginePort {
   constructor(private readonly levels: LevelRepository) {}
@@ -106,21 +119,14 @@ export class TsMsGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     const level = parseMsLevel(loaded.levelData);
     const token = createMsInteractiveSession(request, level);
 
-    return {
-      request: { ...request },
+    return projectInteractiveGameSession({
+      request,
       mode: "manual",
       hintText: level.hintText || null,
-      frame: {
-        snapshot: engineStateToSnapshot(token.state.engine, "initial", token.lastInput),
-        cells: token.state.engine.map.cells.map((cell) => ({
-          position: { ...cell.position },
-          top: { ...cell.top },
-          bottom: { ...cell.bottom },
-        })),
-      },
-      recordedMoves: token.recordedMoves.map((move) => ({ ...move })),
-      token,
-    };
+      frame: projectMsInteractiveFrame(token, "initial"),
+      recordedMoves: token.recordedMoves,
+      handle: toInteractiveHandle(token),
+    });
   }
 
   async startReplaySession(
@@ -135,41 +141,29 @@ export class TsMsGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     const level = parseMsLevel(loaded.levelData);
     const token = createMsReplaySession(request, level, replay);
 
-    return {
-      request: { ...request },
+    return projectInteractiveGameSession({
+      request,
       mode: "replay",
       hintText: level.hintText || null,
-      frame: {
-        snapshot: engineStateToSnapshot(token.state.engine, "initial", token.lastInput),
-        cells: token.state.engine.map.cells.map((cell) => ({
-          position: { ...cell.position },
-          top: { ...cell.top },
-          bottom: { ...cell.bottom },
-        })),
-      },
-      recordedMoves: token.recordedMoves.map((move) => ({ ...move })),
-      token,
-    };
+      frame: projectMsInteractiveFrame(token, "initial"),
+      recordedMoves: token.recordedMoves,
+      handle: toInteractiveHandle(token),
+    });
   }
 
   async advanceSession(
     session: InteractiveGameSession,
     input: GameInputName,
   ): Promise<InteractiveGameSession> {
-    const token = advanceMsInteractiveSession(session.token as MsInteractiveSessionState, getGameInputCode(input));
+    const token = advanceMsInteractiveSession(fromInteractiveHandle(session.handle), getGameInputCode(input));
 
-    return {
-      ...session,
-      frame: {
-        snapshot: engineStateToSnapshot(token.state.engine, "tick", token.lastInput),
-        cells: token.state.engine.map.cells.map((cell) => ({
-          position: { ...cell.position },
-          top: { ...cell.top },
-          bottom: { ...cell.bottom },
-        })),
-      },
-      recordedMoves: token.recordedMoves.map((move) => ({ ...move })),
-      token,
-    };
+    return projectInteractiveGameSession({
+      request: session.request,
+      mode: session.mode,
+      hintText: session.hintText,
+      frame: projectMsInteractiveFrame(token, "tick"),
+      recordedMoves: token.recordedMoves,
+      handle: toInteractiveHandle(token),
+    });
   }
 }
