@@ -59,6 +59,14 @@ describe("exportInteractiveReplay", () => {
           creatures: [],
         },
         cells: [],
+        currentZ: 1,
+        visibleLayers: [
+          {
+            z: 1,
+            cells: [],
+          },
+        ],
+        tileOverlays: [],
         render: null,
       },
       history: {

@@ -3,7 +3,11 @@ import lynxTilesUrl from "@res/atiles.bmp?url";
 import msTilesUrl from "@res/tiles.bmp?url";
 import { buildLegacyTileset, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
-import type { InteractiveGameRenderFrame } from "@game-core/api/interactive";
+import type {
+  InteractiveGameRenderFrame,
+  InteractiveGameTileOverlay,
+  InteractiveGameVisibleLayer,
+} from "@game-core/api/interactive";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import { MS_DIRECTION, MS_STATUS_FLAG, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import { TIME_NIL } from "@content/api/score";
@@ -52,9 +56,25 @@ const LIST_FIRST_ROW_Y = LIST_HEADER_Y + 24;
 const LIST_ROW_HEIGHT = 18;
 const FILE_COLUMN_X = LEGACY_MARGIN;
 const RULESET_COLUMN_X = 520;
+const LOWER_LAYER_SCALE = 0.9;
+const LOWER_LAYER_BLUR_PX = 1;
+const LOWER_LAYER_BRIGHTNESS = 0.75;
+const SUPPORT_BORDER_COLOR = "#2c8cff";
+const ELEVATOR_FAILURE_BORDER_COLOR = "#ff4040";
+const ELEVATOR_BASE_COLOR = "#2f9f4a";
+const ELEVATOR_EDGE_COLOR = "#0e401d";
+const ELEVATOR_PANEL_COLOR = "#154d23";
+const ELEVATOR_TEXT_COLOR = "#d9ffd7";
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function createCanvas(width: number, height: number): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
 }
 
 function formatLevelTimeLeft(session: InteractiveGameSession): string {
@@ -180,7 +200,23 @@ function drawSprite(
   x: number,
   y: number,
 ): void {
-  if (tileId === MS_TILE.Nothing) {
+  if (tileId === MS_TILE.Nothing || tileId === MS_TILE.Air) {
+    return;
+  }
+
+  if (tileId === MS_TILE.Elevator) {
+    context.fillStyle = ELEVATOR_BASE_COLOR;
+    context.fillRect(x, y, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+    context.strokeStyle = ELEVATOR_EDGE_COLOR;
+    context.lineWidth = 2;
+    context.strokeRect(x + 1, y + 1, LEGACY_TILE_SIZE - 2, LEGACY_TILE_SIZE - 2);
+    context.fillStyle = ELEVATOR_PANEL_COLOR;
+    context.fillRect(x + 6, y + 14, LEGACY_TILE_SIZE - 12, LEGACY_TILE_SIZE - 28);
+    context.font = "bold 12px 'Courier New', monospace";
+    context.fillStyle = ELEVATOR_TEXT_COLOR;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText("UP", x + LEGACY_TILE_SIZE / 2, y + LEGACY_TILE_SIZE / 2);
     return;
   }
 
@@ -201,6 +237,7 @@ function drawLynxActorSprite(
   frame: number,
   x: number,
   y: number,
+  scale = 1,
 ): void {
   if (!tileset.getCreature) {
     return;
@@ -211,7 +248,18 @@ function drawLynxActorSprite(
     return;
   }
 
-  context.drawImage(sprite.image, x + sprite.offsetX, y + sprite.offsetY);
+  const drawX = x + sprite.offsetX;
+  const drawY = y + sprite.offsetY;
+  if (Math.abs(scale - 1) < 0.001) {
+    context.drawImage(sprite.image, drawX, drawY);
+    return;
+  }
+
+  context.save();
+  context.translate(drawX + sprite.image.width / 2, drawY + sprite.image.height / 2);
+  context.scale(scale, scale);
+  context.drawImage(sprite.image, -sprite.image.width / 2, -sprite.image.height / 2);
+  context.restore();
 }
 
 function drawLynxActorOverlays(
@@ -220,13 +268,14 @@ function drawLynxActorOverlays(
   session: InteractiveGameSession,
   xOrigin: number,
   yOrigin: number,
+  targetZ: number,
 ): void {
   const render = session.frame.render;
   if (!render) {
     return;
   }
 
-  drawProjectedLynxRender(context, tileset, render, xOrigin, yOrigin);
+  drawProjectedLynxRender(context, tileset, render, xOrigin, yOrigin, targetZ);
 }
 
 function drawProjectedLynxRender(
@@ -235,40 +284,42 @@ function drawProjectedLynxRender(
   render: InteractiveGameRenderFrame,
   xOrigin: number,
   yOrigin: number,
+  targetZ: number,
 ): void {
   const chip = render.chip;
-  if (!chip) {
-    return;
-  }
-
-  const chipX = xOrigin + (chip.pos % 32) * LEGACY_TILE_SIZE;
-  const chipY = yOrigin + Math.floor(chip.pos / 32) * LEGACY_TILE_SIZE;
-  if (
-    chip.failed &&
-    chip.endGameAnimationTileId !== null &&
-    chip.endGameAnimationFrame !== null
-  ) {
-    drawLynxActorSprite(
-      context,
-      tileset,
-      chip.endGameAnimationTileId,
-      MS_DIRECTION.north,
-      0,
-      chip.endGameAnimationFrame,
-      chipX,
-      chipY,
-    );
-  } else if (!chip.hidden && !chip.failed) {
-    drawLynxActorSprite(
-      context,
-      tileset,
-      chip.pushing ? MS_TILE.Pushing_Chip : MS_TILE.Chip,
-      chip.dir,
-      chip.moving,
-      Math.trunc(chip.moving / 2),
-      chipX,
-      chipY,
-    );
+  const chipZ = chip?.z ?? 1;
+  if (chip && chipZ === targetZ) {
+    const chipX = xOrigin + (chip.pos % 32) * LEGACY_TILE_SIZE;
+    const chipY = yOrigin + Math.floor(chip.pos / 32) * LEGACY_TILE_SIZE;
+    if (
+      chip.failed &&
+      chip.endGameAnimationTileId !== null &&
+      chip.endGameAnimationFrame !== null
+    ) {
+      drawLynxActorSprite(
+        context,
+        tileset,
+        chip.endGameAnimationTileId,
+        MS_DIRECTION.north,
+        0,
+        chip.endGameAnimationFrame,
+        chipX,
+        chipY,
+        chip.scale ?? 1,
+      );
+    } else if (!chip.hidden && !chip.failed) {
+      drawLynxActorSprite(
+        context,
+        tileset,
+        chip.pushing ? MS_TILE.Pushing_Chip : MS_TILE.Chip,
+        chip.dir,
+        chip.moving,
+        Math.trunc(chip.moving / 2),
+        chipX,
+        chipY,
+        chip.scale ?? 1,
+      );
+    }
   }
 
   const animations = render.animations;
@@ -276,6 +327,10 @@ function drawProjectedLynxRender(
   const drawnAnimations = new Set<number>();
 
   for (const actor of render.actors) {
+    const actorZ = actor.z ?? 1;
+    if (actorZ !== targetZ) {
+      continue;
+    }
     const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
     const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
 
@@ -290,10 +345,14 @@ function drawProjectedLynxRender(
       continue;
     }
 
-    drawLynxActorSprite(context, tileset, actor.id, actor.dir, actor.moving, actor.frame, x, y);
+    drawLynxActorSprite(context, tileset, actor.id, actor.dir, actor.moving, actor.frame, x, y, actor.scale ?? 1);
   }
 
   for (const animation of animations) {
+    const animationZ = animation.z ?? chipZ;
+    if (animationZ !== targetZ) {
+      continue;
+    }
     if (drawnAnimations.has(animation.pos)) {
       continue;
     }
@@ -312,7 +371,13 @@ function drawCompositedCell(
   x: number,
   y: number,
 ): void {
-  if (tileset.getCell) {
+  if (
+    topId !== MS_TILE.Air &&
+    bottomId !== MS_TILE.Air &&
+    topId !== MS_TILE.Elevator &&
+    bottomId !== MS_TILE.Elevator &&
+    tileset.getCell
+  ) {
     const sprite = tileset.getCell(topId, bottomId, timerval);
     if (sprite) {
       context.drawImage(sprite.image, x + sprite.offsetX, y + sprite.offsetY);
@@ -324,20 +389,36 @@ function drawCompositedCell(
   const bottom = bottomId || MS_TILE.Empty;
   const topSprite = tileset.get(top);
   const bottomSprite = tileset.get(bottom);
+  const topTransparent = top === MS_TILE.Air || top === MS_TILE.Nothing || topSprite?.transparent === true;
+  const bottomTransparent =
+    bottom === MS_TILE.Air || bottom === MS_TILE.Nothing || bottomSprite?.transparent === true;
+
+  if (top === MS_TILE.Air && (bottom === MS_TILE.Air || bottom === MS_TILE.Empty || bottom === MS_TILE.Nothing)) {
+    return;
+  }
+
+  if (top === MS_TILE.Empty && bottom === MS_TILE.Air) {
+    return;
+  }
 
   if (!topSprite) {
     drawSprite(context, tileset, bottom, x, y);
     return;
   }
 
-  if (!topSprite?.transparent) {
+  if (!topTransparent) {
     drawSprite(context, tileset, top, x, y);
     return;
   }
 
-  if (bottom === MS_TILE.Nothing || bottom === MS_TILE.Empty) {
+  if (bottom === MS_TILE.Nothing || bottom === MS_TILE.Air) {
+    drawSprite(context, tileset, top, x, y);
+    return;
+  }
+
+  if (bottom === MS_TILE.Empty) {
     drawSprite(context, tileset, MS_TILE.Empty, x, y);
-  } else if (bottomSprite?.transparent) {
+  } else if (bottomTransparent) {
     drawSprite(context, tileset, MS_TILE.Empty, x, y);
     drawSprite(context, tileset, bottom, x, y);
   } else {
@@ -345,6 +426,106 @@ function drawCompositedCell(
   }
 
   drawSprite(context, tileset, top, x, y);
+}
+
+function drawLayerOverlays(
+  context: CanvasRenderingContext2D,
+  overlays: ReadonlyArray<InteractiveGameTileOverlay>,
+  layerZ: number,
+  xOrigin: number,
+  yOrigin: number,
+): void {
+  for (const overlay of overlays) {
+    if (overlay.z !== layerZ) {
+      continue;
+    }
+
+    const x = xOrigin + (overlay.pos % 32) * LEGACY_TILE_SIZE;
+    const y = yOrigin + Math.floor(overlay.pos / 32) * LEGACY_TILE_SIZE;
+    if (x + LEGACY_TILE_SIZE <= 0 || x >= LEGACY_MAP_WIDTH || y + LEGACY_TILE_SIZE <= 0 || y >= LEGACY_MAP_HEIGHT) {
+      continue;
+    }
+
+    context.strokeStyle = overlay.kind === "support" ? SUPPORT_BORDER_COLOR : ELEVATOR_FAILURE_BORDER_COLOR;
+    context.lineWidth = 3;
+    context.strokeRect(x + 1.5, y + 1.5, LEGACY_TILE_SIZE - 3, LEGACY_TILE_SIZE - 3);
+  }
+}
+
+function renderMapLayerCanvas(
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  layer: InteractiveGameVisibleLayer,
+  timerval: number,
+  viewX: number,
+  viewY: number,
+): HTMLCanvasElement {
+  const canvas = createCanvas(LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  context.imageSmoothingEnabled = false;
+  const xOrigin = -(viewX * LEGACY_TILE_SIZE) / 4;
+  const yOrigin = -(viewY * LEGACY_TILE_SIZE) / 4;
+
+  for (const cell of layer.cells) {
+    const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
+    const y = yOrigin + cell.position.y * LEGACY_TILE_SIZE;
+    if (x + LEGACY_TILE_SIZE <= 0 || x >= LEGACY_MAP_WIDTH) {
+      continue;
+    }
+    if (y + LEGACY_TILE_SIZE <= 0 || y >= LEGACY_MAP_HEIGHT) {
+      continue;
+    }
+
+    drawCompositedCell(context, tileset, cell.top.id, cell.bottom.id, timerval, x, y);
+  }
+
+  if (ruleset === "Lynx") {
+    drawLynxActorOverlays(context, tileset, session, xOrigin, yOrigin, layer.z);
+  }
+
+  drawLayerOverlays(context, session.frame.tileOverlays, layer.z, xOrigin, yOrigin);
+  return canvas;
+}
+
+function drawVisibleLayerStack(
+  context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  timerval: number,
+  viewX: number,
+  viewY: number,
+): void {
+  const visibleLayers = session.frame.visibleLayers;
+  if (visibleLayers.length === 0) {
+    return;
+  }
+
+  const layerCanvases = visibleLayers.map((layer) =>
+    renderMapLayerCanvas(tileset, session, ruleset, layer, timerval, viewX, viewY),
+  );
+
+  for (let index = layerCanvases.length - 1; index >= 1; index -= 1) {
+    const layerCanvas = layerCanvases[index]!;
+    const depth = index;
+    const scale = LOWER_LAYER_SCALE ** depth;
+    const width = LEGACY_MAP_WIDTH * scale;
+    const height = LEGACY_MAP_HEIGHT * scale;
+    const x = LEGACY_MAP_X + (LEGACY_MAP_WIDTH - width) / 2;
+    const y = LEGACY_MAP_Y + (LEGACY_MAP_HEIGHT - height) / 2;
+
+    context.save();
+    context.filter = `blur(${LOWER_LAYER_BLUR_PX}px) brightness(${LOWER_LAYER_BRIGHTNESS})`;
+    context.drawImage(layerCanvas, x, y, width, height);
+    context.restore();
+  }
+
+  context.drawImage(layerCanvases[0]!, LEGACY_MAP_X, LEGACY_MAP_Y);
 }
 
 function drawInventoryTile(
@@ -412,33 +593,8 @@ function drawGameScreen(
   const snapshot = session.frame.snapshot;
   const viewX = clamp(snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
   const viewY = clamp(snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
-  const xOrigin = LEGACY_MAP_X - (viewX * LEGACY_TILE_SIZE) / 4;
-  const yOrigin = LEGACY_MAP_Y - (viewY * LEGACY_TILE_SIZE) / 4;
   const timerval = (snapshot.statusFlags & MS_STATUS_FLAG.NoAnimation) !== 0 ? -1 : snapshot.currentTime;
-
-  context.save();
-  context.beginPath();
-  context.rect(LEGACY_MAP_X, LEGACY_MAP_Y, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
-  context.clip();
-
-  for (const cell of session.frame.cells) {
-    const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
-    const y = yOrigin + cell.position.y * LEGACY_TILE_SIZE;
-    if (x + LEGACY_TILE_SIZE <= LEGACY_MAP_X || x >= LEGACY_MAP_X + LEGACY_MAP_WIDTH) {
-      continue;
-    }
-    if (y + LEGACY_TILE_SIZE <= LEGACY_MAP_Y || y >= LEGACY_MAP_Y + LEGACY_MAP_HEIGHT) {
-      continue;
-    }
-
-    drawCompositedCell(context, tileset, cell.top.id, cell.bottom.id, timerval, x, y);
-  }
-
-  if (ruleset === "Lynx") {
-    drawLynxActorOverlays(context, tileset, session, xOrigin, yOrigin);
-  }
-
-  context.restore();
+  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY);
 
   drawText(context, `Level ${level.number}`, LEGACY_INFO_X, LEGACY_MAP_Y, COLORS.text);
   drawText(context, `Password: ${level.password || "----"}`, LEGACY_INFO_X, LEGACY_MAP_Y + 18, COLORS.text);

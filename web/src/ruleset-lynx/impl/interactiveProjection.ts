@@ -13,6 +13,7 @@ interface LynxProjectedAnimationState {
 interface LynxProjectedRuntimeState {
   animations: LynxProjectedAnimationState[];
   chipTeleported: boolean;
+  tileOverlays: InteractiveGameFrame["tileOverlays"];
 }
 
 function lynxProjectedRuntimeState(state: EngineState): LynxProjectedRuntimeState | null {
@@ -32,6 +33,7 @@ export function projectLynxInteractiveFrame(
     {
       chip: {
         pos: session.chipPos,
+        z: session.chipZ,
         dir: session.chipDir,
         moving: session.chipMoving,
         pushing: session.chipPushing,
@@ -39,17 +41,25 @@ export function projectLynxInteractiveFrame(
         failed: session.endGameResult === "failed",
         endGameAnimationTileId: session.endGameAnimationTileId,
         endGameAnimationFrame: session.endGameAnimationFrame,
+        scale: session.chipMoveKind === "air" && session.chipMoving > 0 ? 0.9 + (session.chipMoving / 8) * 0.1 : 1,
       },
       actors: session.actors.map((actor) => ({
         id: actor.id,
         pos: actor.pos,
+        z: actor.z,
         dir: actor.dir,
         moving: actor.moving,
         frame: actor.frame,
         hidden: actor.hidden,
         animationReserved: actor.animationReserved,
+        scale: actor.moveKind === "air" && actor.moving > 0 ? 0.9 + (actor.moving / 8) * 0.1 : 1,
       })),
       animations: runtime?.animations.map((animation) => ({ ...animation })) ?? [],
+    },
+    {
+      currentZ: session.chipZ ?? 1,
+      layers: session.state.map.layers,
+      tileOverlays: runtime?.tileOverlays ?? [],
     },
   );
 }

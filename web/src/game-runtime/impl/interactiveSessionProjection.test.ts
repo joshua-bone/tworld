@@ -54,6 +54,8 @@ describe("interactive session projection", () => {
     });
 
     expect(session.frame.cells).toHaveLength(32 * 32);
+    expect(session.frame.currentZ).toBe(1);
+    expect(session.frame.visibleLayers.map((layer) => layer.z)).toEqual([1]);
     expect(session.frame.render).toBeNull();
     expect(session.history).toMatchObject({
       enabled: true,
@@ -82,6 +84,8 @@ describe("interactive session projection", () => {
     });
 
     expect(session.frame.cells).toHaveLength(32 * 32);
+    expect(session.frame.currentZ).toBe(1);
+    expect(session.frame.visibleLayers.map((layer) => layer.z)).toEqual([1]);
     expect(session.frame.render?.chip).toMatchObject({
       hidden: false,
       failed: false,
@@ -159,6 +163,8 @@ describe("interactive session projection", () => {
     });
 
     expect(session.hintText).toBe("upper-ms");
+    expect(session.frame.currentZ).toBe(2);
+    expect(session.frame.visibleLayers.map((layer) => layer.z)).toEqual([2, 1]);
   });
 
   it("projects the active Lynx hint text from the player's current z-layer", async () => {
@@ -186,6 +192,8 @@ describe("interactive session projection", () => {
     });
 
     expect(session.hintText).toBe("upper-lynx");
+    expect(session.frame.currentZ).toBe(2);
+    expect(session.frame.visibleLayers.map((layer) => layer.z)).toEqual([2, 1]);
   });
 
   it("updates the active MS hint text after Chip falls to a lower layer", async () => {
@@ -213,11 +221,126 @@ describe("interactive session projection", () => {
     });
 
     expect(session.hintText).toBe("upper-ms");
+    expect(session.frame.visibleLayers.map((layer) => layer.z)).toEqual([2, 1]);
 
     session = await adapter.advanceSession(session, MS_DIRECTION.none);
     session = await adapter.advanceSession(session, MS_DIRECTION.none);
     session = await adapter.advanceSession(session, MS_DIRECTION.none);
 
     expect(session.hintText).toBe("lower-ms");
+    expect(session.frame.currentZ).toBe(1);
+    expect(session.frame.visibleLayers.map((layer) => layer.z)).toEqual([1]);
+  });
+
+  it("projects MS support overlays for supported air checks", async () => {
+    const adapter = new MsGameEngineAdapter(
+      new StaticLevelRepository({
+        request: {
+          seriesFile: "3d-support-ms.dac",
+          levelNumber: 1,
+          ruleset: "MS",
+          randomSeed: 123456789,
+        },
+        levelData: new Uint8Array(),
+        layerData: [
+          createSingleCellLevelData(1, 0, ""),
+          createSingleCellLevelData(111, 32, ""),
+        ],
+      }),
+    );
+
+    let session = await adapter.startSession({
+      seriesFile: "3d-support-ms.dac",
+      levelNumber: 1,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+
+    expect(session.frame.currentZ).toBe(2);
+    expect(session.frame.tileOverlays).toContainEqual({
+      z: 1,
+      pos: 0,
+      kind: "support",
+    });
+
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+
+    expect(session.frame.tileOverlays).toEqual([]);
+  });
+
+  it("projects MS elevator-failure overlays on blocked upward movement", async () => {
+    const adapter = new MsGameEngineAdapter(
+      new StaticLevelRepository({
+        request: {
+          seriesFile: "3d-elevator-fail-ms.dac",
+          levelNumber: 1,
+          ruleset: "MS",
+          randomSeed: 123456789,
+        },
+        levelData: new Uint8Array(),
+        layerData: [
+          createSingleCellLevelData(0, 0, ""),
+          createSingleCellLevelData(111, 57, ""),
+          createSingleCellLevelData(3, 0, ""),
+        ],
+      }),
+    );
+
+    let session = await adapter.startSession({
+      seriesFile: "3d-elevator-fail-ms.dac",
+      levelNumber: 1,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+
+    expect(session.frame.currentZ).toBe(2);
+    expect(session.frame.tileOverlays).toContainEqual({
+      z: 2,
+      pos: 0,
+      kind: "elevator-failure",
+    });
+  });
+
+  it("projects Lynx elevator-failure overlays on blocked upward movement", async () => {
+    const adapter = new LynxGameEngineAdapter(
+      new StaticLevelRepository({
+        request: {
+          seriesFile: "3d-elevator-fail-lynx.dac",
+          levelNumber: 1,
+          ruleset: "Lynx",
+          randomSeed: 123456789,
+        },
+        levelData: new Uint8Array(),
+        layerData: [
+          createSingleCellLevelData(0, 0, ""),
+          createSingleCellLevelData(111, 57, ""),
+          createSingleCellLevelData(3, 0, ""),
+        ],
+      }),
+    );
+
+    const session = await adapter.startSession({
+      seriesFile: "3d-elevator-fail-lynx.dac",
+      levelNumber: 1,
+      ruleset: "Lynx",
+      randomSeed: 123456789,
+    });
+
+    const next = await adapter.advanceSession(session, MS_DIRECTION.none);
+
+    expect(next.frame.currentZ).toBe(2);
+    expect(next.frame.tileOverlays).toContainEqual({
+      z: 2,
+      pos: 0,
+      kind: "elevator-failure",
+    });
   });
 });

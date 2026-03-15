@@ -482,22 +482,22 @@ Validation:
 
 ### PR6: Renderer And Visual Stack
 
-- [ ] Render the current z-layer always.
-- [ ] Render up to the next three lower z-layers if present.
-- [ ] Render `air` as transparency.
-- [ ] Render lower layers with contiguous parallax presentation:
+- [x] Render the current z-layer always.
+- [x] Render up to the next three lower z-layers if present.
+- [x] Render `air` as transparency.
+- [x] Render lower layers with contiguous parallax presentation:
   - no gaps between adjacent lower-layer tiles
   - `0.9x` scale treatment
   - slight blur
   - `0.25` darkening
-- [ ] Procedurally render `elevator`.
-- [ ] Add blue support-border overlay for one tick after supported downward checks.
-- [ ] Add red failure-border overlay for one tick after failed upward elevator moves.
-- [ ] Add smooth Lynx falling scale toward `0.9x`.
+- [x] Procedurally render `elevator`.
+- [x] Add blue support-border overlay for one tick after supported downward checks.
+- [x] Add red failure-border overlay for one tick after failed upward elevator moves.
+- [x] Add smooth Lynx falling scale toward `0.9x`.
 
 Validation:
 
-- [ ] focused renderer/snapshot tests
+- [x] focused renderer/snapshot tests
 - [ ] manual visual smoke check in browser player
 
 ### PR7: Hand-Stitched Showcase Set

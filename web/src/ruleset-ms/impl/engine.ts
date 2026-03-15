@@ -1,5 +1,6 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
+import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
@@ -179,6 +180,14 @@ interface MsQueueTraceEvent {
 interface MsRuntimeLayer {
   z: number;
   cells: EngineMapCell[];
+}
+
+interface MsRuntimeState {
+  tileOverlays: Array<{
+    z: number;
+    pos: number;
+    kind: InteractiveGameTileOverlayKind;
+  }>;
 }
 
 interface ChipMoveOptions {
@@ -402,6 +411,7 @@ function promoteTopFloorToUnderlying(cells: EngineMapCell[], pos: number): void 
 }
 
 function resolveMsChipSupportBelow(
+  engine: EngineState,
   lowerCells: EngineMapCell[] | null,
   pos: number,
   inventory: EngineState["inventory"],
@@ -418,16 +428,20 @@ function resolveMsChipSupportBelow(
   const topId = cell.top.id;
   const bottomId = cell.bottom.id;
   const topActorId = topId === MS_TILE.Block_Static ? MS_TILE.Block : isMsCreature(topId) ? msCreatureId(topId) : null;
+  const supportZ = cell.position.z ?? 1;
 
   if (topActorId === MS_TILE.Block) {
+    addMsTileOverlay(engine, supportZ, pos, "support");
     return true;
   }
 
   if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
+    addMsTileOverlay(engine, supportZ, pos, "support");
     return true;
   }
 
   if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
+    addMsTileOverlay(engine, supportZ, pos, "support");
     return true;
   }
 
@@ -439,6 +453,7 @@ function resolveMsChipSupportBelow(
     if (topId === MS_TILE.BlueWall_Real) {
       replaceTopTile(lowerCells, pos, { ...cell.top, id: MS_TILE.Wall });
     }
+    addMsTileOverlay(engine, supportZ, pos, "support");
     return true;
   }
 
@@ -456,6 +471,7 @@ function resolveMsChipSupportBelow(
       promoteTopFloorToUnderlying(lowerCells, pos);
       return false;
     }
+    addMsTileOverlay(engine, supportZ, pos, "support");
     return true;
   }
 
@@ -464,13 +480,14 @@ function resolveMsChipSupportBelow(
       promoteTopFloorToUnderlying(lowerCells, pos);
       return false;
     }
+    addMsTileOverlay(engine, supportZ, pos, "support");
     return true;
   }
 
   return false;
 }
 
-function resolveMsNonChipSupportBelow(lowerCells: EngineMapCell[] | null, pos: number): boolean {
+function resolveMsNonChipSupportBelow(engine: EngineState, lowerCells: EngineMapCell[] | null, pos: number): boolean {
   if (!lowerCells) {
     return false;
   }
@@ -483,17 +500,24 @@ function resolveMsNonChipSupportBelow(lowerCells: EngineMapCell[] | null, pos: n
   const topId = cell.top.id;
   const bottomId = cell.bottom.id;
   const topActorId = topId === MS_TILE.Block_Static ? MS_TILE.Block : isMsCreature(topId) ? msCreatureId(topId) : null;
+  const supportZ = cell.position.z ?? 1;
 
   if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
+    addMsTileOverlay(engine, supportZ, pos, "support");
     return true;
   }
 
   if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
+    addMsTileOverlay(engine, supportZ, pos, "support");
     return true;
   }
 
   if (topActorId !== null) {
-    return topActorId !== MS_TILE.Chip && topActorId !== MS_TILE.Swimming_Chip;
+    const supported = topActorId !== MS_TILE.Chip && topActorId !== MS_TILE.Swimming_Chip;
+    if (supported) {
+      addMsTileOverlay(engine, supportZ, pos, "support");
+    }
+    return supported;
   }
 
   if (
@@ -502,6 +526,7 @@ function resolveMsNonChipSupportBelow(lowerCells: EngineMapCell[] | null, pos: n
     msTileHasTag(topId, "door") ||
     topId === MS_TILE.Socket
   ) {
+    addMsTileOverlay(engine, supportZ, pos, "support");
     return true;
   }
 
@@ -548,6 +573,28 @@ function cloneInventory(inventory: EngineState["inventory"]): EngineState["inven
     boots: [...inventory.boots] as EngineState["inventory"]["boots"],
     chipsNeeded: inventory.chipsNeeded,
   };
+}
+
+function msRuntimeState(engine: EngineState): MsRuntimeState {
+  const runtime = engine as EngineState & { msRuntimeState?: MsRuntimeState };
+  if (!runtime.msRuntimeState) {
+    runtime.msRuntimeState = {
+      tileOverlays: [],
+    };
+  }
+  return runtime.msRuntimeState;
+}
+
+function clearMsTileOverlays(engine: EngineState): void {
+  msRuntimeState(engine).tileOverlays = [];
+}
+
+function addMsTileOverlay(engine: EngineState, z: number, pos: number, kind: InteractiveGameTileOverlayKind): void {
+  const runtime = msRuntimeState(engine);
+  if (runtime.tileOverlays.some((overlay) => overlay.z === z && overlay.pos === pos && overlay.kind === kind)) {
+    return;
+  }
+  runtime.tileOverlays.push({ z, pos, kind });
 }
 
 function runtimeMapLayers(map: EngineState["map"]): MsRuntimeLayer[] {
@@ -1615,6 +1662,7 @@ function refreshCreatureSlidingFlag(creature: MsTrackedCreature): void {
 }
 
 function syncMsCreatureAirFloorMovement(
+  engine: EngineState,
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
   creature: MsTrackedCreature,
   internal: MsInternalState,
@@ -1635,7 +1683,7 @@ function syncMsCreatureAirFloorMovement(
   }
 
   const lowerCells = msLowerRuntimeCells(layerCellsByZ, creature.z);
-  if (resolveMsNonChipSupportBelow(lowerCells, creature.pos)) {
+  if (resolveMsNonChipSupportBelow(engine, lowerCells, creature.pos)) {
     if (creature.floorMovement === "air") {
       clearCreatureFloorMovement(creature, internal);
     }
@@ -1897,6 +1945,7 @@ function activateBlockSlipOrder(block: MsTrackedBlock, internal: MsInternalState
 }
 
 function syncMsBlockAirFloorMovement(
+  engine: EngineState,
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
   block: MsTrackedBlock,
   internal: MsInternalState,
@@ -1917,7 +1966,7 @@ function syncMsBlockAirFloorMovement(
   }
 
   const lowerCells = msLowerRuntimeCells(layerCellsByZ, block.z);
-  if (resolveMsNonChipSupportBelow(lowerCells, block.pos)) {
+  if (resolveMsNonChipSupportBelow(engine, lowerCells, block.pos)) {
     if (block.floorMovement === "air") {
       clearBlockFloorMovement(block);
     }
@@ -2465,6 +2514,7 @@ function moveCreatureOnce(
 }
 
 function moveCreatureDownOneLayer(
+  engine: EngineState,
   sourceCells: EngineMapCell[],
   targetCells: EngineMapCell[],
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
@@ -2584,12 +2634,13 @@ function moveCreatureDownOneLayer(
     clearCreatureFloorMovement(creature, internal);
   } else {
     syncCreatureFloorMovement(targetCells, creature, internal);
-    syncMsCreatureAirFloorMovement(layerCellsByZ, creature, internal);
+    syncMsCreatureAirFloorMovement(engine, layerCellsByZ, creature, internal);
   }
   return soundEffects;
 }
 
 function moveCreatureUpOneLayer(
+  engine: EngineState,
   sourceCells: EngineMapCell[],
   targetCells: EngineMapCell[],
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
@@ -2651,7 +2702,7 @@ function moveCreatureUpOneLayer(
   }
 
   syncCreatureFloorMovement(targetCells, creature, internal);
-  syncMsCreatureAirFloorMovement(layerCellsByZ, creature, internal);
+  syncMsCreatureAirFloorMovement(engine, layerCellsByZ, creature, internal);
   syncMsCreatureElevatorFloorMovement(layerCellsByZ, creature, internal);
   return { moved: true, soundEffects };
 }
@@ -2810,7 +2861,12 @@ function createClones(internal: MsInternalState): void {
   }
 }
 
-function runCreatureFloorMovements(layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>, internal: MsInternalState, currentTime: number): number {
+function runCreatureFloorMovements(
+  engine: EngineState,
+  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
+  internal: MsInternalState,
+  currentTime: number,
+): number {
   type ActiveNonChipSlip =
     | { kind: "creature"; serial: number; dir: number; slipOrder: number }
     | { kind: "block"; blockIndex: number; slipOrder: number };
@@ -2861,11 +2917,11 @@ function runCreatureFloorMovements(layerCellsByZ: ReadonlyMap<number, EngineMapC
   const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? fallbackCells ?? [];
 
   for (const creature of internal.creatures) {
-    syncMsCreatureAirFloorMovement(layerCellsByZ, creature, internal);
+    syncMsCreatureAirFloorMovement(engine, layerCellsByZ, creature, internal);
     syncMsCreatureElevatorFloorMovement(layerCellsByZ, creature, internal);
   }
   for (const block of internal.blocks) {
-    syncMsBlockAirFloorMovement(layerCellsByZ, block, internal);
+    syncMsBlockAirFloorMovement(engine, layerCellsByZ, block, internal);
     syncMsBlockElevatorFloorMovement(layerCellsByZ, block, internal);
   }
 
@@ -3077,17 +3133,17 @@ function runCreatureFloorMovements(layerCellsByZ: ReadonlyMap<number, EngineMapC
 
         if (creature.floorMovement === "air") {
           const lowerCells = msLowerRuntimeCells(layerCellsByZ, creature.z);
-          if (!lowerCells || resolveMsNonChipSupportBelow(lowerCells, creature.pos)) {
+          if (!lowerCells || resolveMsNonChipSupportBelow(engine, lowerCells, creature.pos)) {
             clearCreatureFloorMovement(creature, internal);
           } else {
-            soundEffects |= moveCreatureDownOneLayer(creatureCells, lowerCells, layerCellsByZ, creature, internal);
+            soundEffects |= moveCreatureDownOneLayer(engine, creatureCells, lowerCells, layerCellsByZ, creature, internal);
             refreshCreatureSlidingFlag(creature);
             moved = true;
           }
         } else if (creature.floorMovement === "elevator") {
           const upperCells = msUpperRuntimeCells(layerCellsByZ, creature.z);
           if (upperCells) {
-            const elevated = moveCreatureUpOneLayer(creatureCells, upperCells, layerCellsByZ, creature, internal);
+            const elevated = moveCreatureUpOneLayer(engine, creatureCells, upperCells, layerCellsByZ, creature, internal);
             soundEffects |= elevated.soundEffects;
             if (elevated.moved) {
               refreshCreatureSlidingFlag(creature);
@@ -3128,6 +3184,7 @@ function runCreatureFloorMovements(layerCellsByZ: ReadonlyMap<number, EngineMapC
         }
 
         if (!moved && creature.floorMovement === "elevator") {
+          addMsTileOverlay(engine, creature.z ?? 1, creature.pos, "elevator-failure");
           if (isQueueEntryActive(active)) {
             updateQueueEntry(active);
           } else {
@@ -3263,7 +3320,7 @@ function runCreatureFloorMovements(layerCellsByZ: ReadonlyMap<number, EngineMapC
 
       if (block.floorMovement === "air") {
         const lowerCells = msLowerRuntimeCells(layerCellsByZ, block.z);
-        if (!lowerCells || resolveMsNonChipSupportBelow(lowerCells, block.pos)) {
+        if (!lowerCells || resolveMsNonChipSupportBelow(engine, lowerCells, block.pos)) {
           clearBlockFloorMovement(block);
         } else {
           const sourceZ = block.z ?? runtimeCellZ(blockCells, block.pos);
@@ -3316,7 +3373,7 @@ function runCreatureFloorMovements(layerCellsByZ: ReadonlyMap<number, EngineMapC
                 previousFloorMovement,
                 previousSliding,
               );
-              syncMsBlockAirFloorMovement(layerCellsByZ, block, internal);
+              syncMsBlockAirFloorMovement(engine, layerCellsByZ, block, internal);
             }
             if (
               successfulFloor === MS_TILE.Button_Blue ||
@@ -3332,7 +3389,7 @@ function runCreatureFloorMovements(layerCellsByZ: ReadonlyMap<number, EngineMapC
       } else if (block.floorMovement === "elevator") {
         const upperCells = msUpperRuntimeCells(layerCellsByZ, block.z);
         if (upperCells) {
-          const elevated = moveBlockUpOneLayer(blockCells, upperCells, layerCellsByZ, block, internal);
+          const elevated = moveBlockUpOneLayer(engine, blockCells, upperCells, layerCellsByZ, block, internal);
           soundEffects |= elevated.soundEffects;
           moved = elevated.moved;
         }
@@ -3363,6 +3420,7 @@ function runCreatureFloorMovements(layerCellsByZ: ReadonlyMap<number, EngineMapC
       }
 
       if (!moved && block.floorMovement === "elevator" && internal.blocks.includes(block)) {
+        addMsTileOverlay(engine, block.z ?? 1, block.pos, "elevator-failure");
         if (!isQueueEntryActive(active)) {
           traceQueue("remove-block-post-elevator-inactive", slipIndex, advance, active);
           removeQueueEntry(slipIndex);
@@ -3403,7 +3461,13 @@ function runCreatureFloorMovements(layerCellsByZ: ReadonlyMap<number, EngineMapC
   return soundEffects;
 }
 
-function runCreatureMovements(layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>, internal: MsInternalState, currentTime: number, stepping: number): number {
+function runCreatureMovements(
+  engine: EngineState,
+  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
+  internal: MsInternalState,
+  currentTime: number,
+  stepping: number,
+): number {
   if (currentTime <= 0 || (currentTime & 1) !== 0) {
     return 0;
   }
@@ -3839,6 +3903,7 @@ function moveChipUpOneLayer(
 }
 
 function moveBlockUpOneLayer(
+  engine: EngineState,
   sourceCells: EngineMapCell[],
   targetCells: EngineMapCell[],
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
@@ -3887,12 +3952,13 @@ function moveBlockUpOneLayer(
     previousFloorMovement,
     previousSliding,
   );
-  syncMsBlockAirFloorMovement(layerCellsByZ, block, internal);
+  syncMsBlockAirFloorMovement(engine, layerCellsByZ, block, internal);
   syncMsBlockElevatorFloorMovement(layerCellsByZ, block, internal);
   return { moved: true, soundEffects };
 }
 
 function syncMsChipAirFloorMovement(
+  engine: EngineState,
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
   internal: MsInternalState,
   inventory: EngineState["inventory"],
@@ -3920,7 +3986,7 @@ function syncMsChipAirFloorMovement(
   }
 
   const lowerCells = msLowerRuntimeCells(layerCellsByZ, chipZ);
-  if (resolveMsChipSupportBelow(lowerCells, internal.chipPos, inventory)) {
+  if (resolveMsChipSupportBelow(engine, lowerCells, internal.chipPos, inventory)) {
     internal.floorMovement = "none";
     internal.floorMovementDir = MS_DIRECTION.none;
     return;
@@ -3961,6 +4027,7 @@ function syncMsChipElevatorFloorMovement(
 }
 
 function runFloorMovement(
+  engine: EngineState,
   cells: EngineMapCell[],
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
   internal: MsInternalState,
@@ -3979,7 +4046,7 @@ function runFloorMovement(
   let soundEffects = 0;
   if (internal.floorMovement === "air") {
     const lowerCells = msLowerRuntimeCells(layerCellsByZ, internal.chipZ);
-    if (!lowerCells || resolveMsChipSupportBelow(lowerCells, internal.chipPos, inventory)) {
+    if (!lowerCells || resolveMsChipSupportBelow(engine, lowerCells, internal.chipPos, inventory)) {
       internal.floorMovement = "none";
       internal.floorMovementDir = MS_DIRECTION.none;
       return 0;
@@ -3991,9 +4058,14 @@ function runFloorMovement(
   if (internal.floorMovement === "elevator") {
     const upperCells = msUpperRuntimeCells(layerCellsByZ, internal.chipZ);
     if (!upperCells) {
+      addMsTileOverlay(engine, internal.chipZ ?? 1, internal.chipPos, "elevator-failure");
       return 0;
     }
+    const previousZ = internal.chipZ ?? runtimeCellZ(cells, internal.chipPos);
     soundEffects |= moveChipUpOneLayer(cells, upperCells, internal, inventory);
+    if ((internal.chipZ ?? previousZ) === previousZ) {
+      addMsTileOverlay(engine, previousZ, internal.chipPos, "elevator-failure");
+    }
     internal.chipHasMoved = false;
     return soundEffects;
   }
@@ -4258,6 +4330,7 @@ function advanceMsTick(
   const nextTick = state.engine.timer.currentTime + 1;
   let timeOffset = -1;
   let soundEffects = 0;
+  clearMsTileOverlays(state.engine);
   internal.pendingSoundEffects = 0;
   const flushPendingSoundEffects = (): void => {
     if (internal.pendingSoundEffects === 0) {
@@ -4416,7 +4489,7 @@ function advanceMsTick(
     if (nextTick > 0 && (nextTick & 1) === 0) {
       internal.controllerDir = MS_DIRECTION.none;
     }
-    soundEffects |= runCreatureMovements(layerCellsByZ, internal, nextTick, state.engine.replay.stepping);
+    soundEffects |= runCreatureMovements(state.engine, layerCellsByZ, internal, nextTick, state.engine.replay.stepping);
     if (nextTick > 0 && (nextTick & 1) === 0) {
       recordPhase(TURN_DEBUG_PHASE.postCreatureMovement);
     }
@@ -4428,7 +4501,7 @@ function advanceMsTick(
     chipFloorMovementWasActive: boolean;
   } => {
     if (isPlayablePhase() && nextTick > 0 && (nextTick & 1) === 0) {
-      syncMsChipAirFloorMovement(layerCellsByZ, internal, inventory);
+      syncMsChipAirFloorMovement(state.engine, layerCellsByZ, internal, inventory);
       syncMsChipElevatorFloorMovement(layerCellsByZ, internal);
     }
 
@@ -4442,7 +4515,7 @@ function advanceMsTick(
       internal.floorMovementDir !== MS_DIRECTION.none;
 
     if (nextTick > 0 && (nextTick & 1) === 0) {
-      soundEffects |= runFloorMovement(cells, layerCellsByZ, internal, inventory);
+      soundEffects |= runFloorMovement(state.engine, cells, layerCellsByZ, internal, inventory);
       recordPhaseWithInternal(
         TURN_DEBUG_PHASE.postChipFloorMovement,
         cloneInternalState(internal),
@@ -4464,7 +4537,7 @@ function advanceMsTick(
     if (!isPlayablePhase() || nextTick <= 0 || (nextTick & 1) !== 0) {
       return;
     }
-    soundEffects |= runCreatureFloorMovements(layerCellsByZ, internal, nextTick);
+    soundEffects |= runCreatureFloorMovements(state.engine, layerCellsByZ, internal, nextTick);
     recordPhase(TURN_DEBUG_PHASE.postBlockFloorMovement);
   };
 
