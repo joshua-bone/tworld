@@ -1685,8 +1685,8 @@ function getLynxChipForcedMove(
       return { dir: 0, discardInput: true, moveKind: "air" };
     }
   }
-  if (isLynxElevator(floorId)) {
-    return { dir: 0, discardInput: false, moveKind: "elevator" };
+  if (isLynxElevator(floorId) && canLynxChipUseElevator(state, actors, chipPos, chipZ, chipDir)) {
+    return { dir: 0, discardInput: true, moveKind: "elevator" };
   }
   // Native Lynx does not apply forced-floor carry on the opening tick.
   if (state.timer.currentTime < 0) {
@@ -1807,6 +1807,32 @@ function startLynxChipAirMovement(
 
 function isValidLynxElevatorDestinationFloor(floorId: number): boolean {
   return isLynxAir(floorId) || isLynxSlide(floorId) || lynxTileHasTag(floorId, "exit");
+}
+
+function canLynxChipUseElevator(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  chipPos: number,
+  chipZ: number,
+  chipDir: number,
+): boolean {
+  const targetZ = chipZ + 1;
+  const upperCells = lynxUpperRuntimeCells(state, chipZ);
+  if (!upperCells || !isValidLynxElevatorDestinationFloor(topTileIdOr(upperCells, chipPos, MS_TILE.Empty))) {
+    return false;
+  }
+
+  const actorAbove = findLynxVisibleActorAt(actors, chipPos, targetZ);
+  if (!actorAbove || actorAbove.id !== MS_TILE.Block) {
+    return true;
+  }
+
+  const pushDir = normalizeDirection(chipDir);
+  if (pushDir === MS_DIRECTION.none) {
+    return false;
+  }
+
+  return withLynxLayer(state, targetZ, () => canLynxCreatureStartMovement(state, actors, actorAbove, pushDir));
 }
 
 function startLynxChipElevatorMovement(

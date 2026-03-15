@@ -424,6 +424,27 @@ describe("advanceLynxInteractiveSession", () => {
     expect(elevated.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
   });
 
+  it("forces a Lynx elevator rise when the upward move is possible even if lateral input is held", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 41;
+    const eastPos = 42;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Elevator);
+    upper[chipPos] = createCellAtZ(chipPos, 2, MS_TILE.Air, MS_TILE.Empty);
+    lower[eastPos] = createCell(eastPos, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { lowerCreaturePositions: [chipPos] }),
+    );
+
+    const elevated = advanceLynxTicks(session, 2, 8);
+
+    expect(elevated.chipZ).toBe(2);
+    expect(elevated.chipPos).toBe(chipPos);
+    expect(elevated.chipMoving).toBe(0);
+  });
+
   it("pushes a block on the upper layer before Chip rises into its elevator destination", () => {
     const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
     const upper = createBoardAtZ(2);
@@ -439,6 +460,29 @@ describe("advanceLynxInteractiveSession", () => {
     );
 
     const elevated = advanceLynxTicks(session, 2);
+    const block = elevated.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
+
+    expect(elevated.chipZ).toBe(2);
+    expect(elevated.chipPos).toBe(chipPos);
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(pushedBlockPos);
+  });
+
+  it("forces a Lynx elevator push before rising even if a different lateral input is held", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 43;
+    const pushedBlockPos = 44;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Elevator);
+    upper[chipPos] = createCellAtZ(chipPos, 2, MS_TILE.Block_Static, MS_TILE.Air);
+    upper[pushedBlockPos] = createCellAtZ(pushedBlockPos, 2, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const elevated = advanceLynxTicks(session, 2, 1);
     const block = elevated.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
 
     expect(elevated.chipZ).toBe(2);
