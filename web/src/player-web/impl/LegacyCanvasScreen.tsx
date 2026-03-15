@@ -55,6 +55,7 @@ const SMALL_FONT = "14px 'Courier New', monospace";
 const LIST_HEADER_Y = LEGACY_MARGIN + 8;
 const LIST_FIRST_ROW_Y = LIST_HEADER_Y + 24;
 const LIST_ROW_HEIGHT = 18;
+const LIST_VISIBLE_ROWS = Math.max(1, Math.floor((LEGACY_TITLE_Y - LIST_FIRST_ROW_Y - LEGACY_MARGIN) / LIST_ROW_HEIGHT));
 const FILE_COLUMN_X = LEGACY_MARGIN;
 const RULESET_COLUMN_X = 520;
 const LOWER_LAYER_SCALE = 0.9;
@@ -149,12 +150,35 @@ function drawWrappedText(
   });
 }
 
-function seriesIndexAt(y: number, itemCount: number): number {
+function clampSeriesScrollOffset(offset: number, itemCount: number): number {
+  return clamp(offset, 0, Math.max(0, itemCount - LIST_VISIBLE_ROWS));
+}
+
+function ensureSeriesVisible(offset: number, selectedIndex: number, itemCount: number): number {
+  const clampedOffset = clampSeriesScrollOffset(offset, itemCount);
+  if (selectedIndex < 0 || selectedIndex >= itemCount) {
+    return clampedOffset;
+  }
+  if (selectedIndex < clampedOffset) {
+    return selectedIndex;
+  }
+  if (selectedIndex >= clampedOffset + LIST_VISIBLE_ROWS) {
+    return clampSeriesScrollOffset(selectedIndex - LIST_VISIBLE_ROWS + 1, itemCount);
+  }
+  return clampedOffset;
+}
+
+function seriesIndexAt(y: number, itemCount: number, scrollOffset: number): number {
   if (y < LIST_FIRST_ROW_Y) {
     return -1;
   }
 
-  const index = Math.floor((y - LIST_FIRST_ROW_Y) / LIST_ROW_HEIGHT);
+  const visibleIndex = Math.floor((y - LIST_FIRST_ROW_Y) / LIST_ROW_HEIGHT);
+  if (visibleIndex < 0 || visibleIndex >= LIST_VISIBLE_ROWS) {
+    return -1;
+  }
+
+  const index = scrollOffset + visibleIndex;
   return index >= 0 && index < itemCount ? index : -1;
 }
 
@@ -561,19 +585,45 @@ function drawSeriesList(
   catalog: SeriesCatalogEntry[],
   selectedSeriesFile: string | null,
   message: string | null,
+  scrollOffset: number,
 ): void {
   context.fillStyle = COLORS.background;
   context.fillRect(0, 0, LEGACY_WINDOW_WIDTH, LEGACY_WINDOW_HEIGHT);
 
   drawText(context, "Filename", FILE_COLUMN_X, LIST_HEADER_Y, COLORS.text);
   drawText(context, "Ruleset", RULESET_COLUMN_X, LIST_HEADER_Y, COLORS.text, "center");
+  drawText(
+    context,
+    `${Math.min(catalog.length, scrollOffset + 1)}-${Math.min(catalog.length, scrollOffset + LIST_VISIBLE_ROWS)} / ${catalog.length}`,
+    LEGACY_WINDOW_WIDTH - LEGACY_MARGIN,
+    LIST_HEADER_Y,
+    COLORS.dim,
+    "right",
+    SMALL_FONT,
+  );
 
-  catalog.forEach((series, index) => {
-    const y = LIST_FIRST_ROW_Y + index * LIST_ROW_HEIGHT;
+  catalog.slice(scrollOffset, scrollOffset + LIST_VISIBLE_ROWS).forEach((series, visibleIndex) => {
+    const y = LIST_FIRST_ROW_Y + visibleIndex * LIST_ROW_HEIGHT;
     const color = series.filebase === selectedSeriesFile ? COLORS.highlight : COLORS.text;
     drawText(context, series.filebase, FILE_COLUMN_X, y, color);
     drawText(context, series.ruleset, RULESET_COLUMN_X, y, color, "center");
   });
+
+  if (scrollOffset > 0) {
+    drawText(context, "^^^", RULESET_COLUMN_X + 72, LIST_FIRST_ROW_Y, COLORS.dim, "right", SMALL_FONT);
+  }
+
+  if (scrollOffset + LIST_VISIBLE_ROWS < catalog.length) {
+    drawText(
+      context,
+      "vvv",
+      RULESET_COLUMN_X + 72,
+      LIST_FIRST_ROW_Y + (LIST_VISIBLE_ROWS - 1) * LIST_ROW_HEIGHT,
+      COLORS.dim,
+      "right",
+      SMALL_FONT,
+    );
+  }
 
   drawText(
     context,
@@ -742,12 +792,23 @@ export function LegacyCanvasScreen({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
   const [isDatDragActive, setIsDatDragActive] = useState(false);
+  const [seriesScrollOffset, setSeriesScrollOffset] = useState(0);
+
+  const selectedSeriesIndex = catalog.findIndex((series) => series.filebase === selectedSeriesFile);
 
   useEffect(() => {
     if (!onDatDrop) {
       setIsDatDragActive(false);
     }
   }, [onDatDrop]);
+
+  useEffect(() => {
+    if (mode !== "series-list") {
+      return;
+    }
+
+    setSeriesScrollOffset((current) => ensureSeriesVisible(current, selectedSeriesIndex, catalog.length));
+  }, [catalog.length, mode, selectedSeriesIndex]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -763,7 +824,7 @@ export function LegacyCanvasScreen({
     context.imageSmoothingEnabled = false;
 
     if (mode === "series-list") {
-      drawSeriesList(context, catalog, selectedSeriesFile, message);
+      drawSeriesList(context, catalog, selectedSeriesFile, message, seriesScrollOffset);
       return;
     }
 
@@ -775,7 +836,7 @@ export function LegacyCanvasScreen({
     }
 
     drawGameScreen(context, tileset, session, currentLevel, currentSeries, message, isLoading, currentRuleset);
-  }, [catalog, currentLevel, currentRuleset, currentSeries, isLoading, message, mode, selectedSeriesFile, session, tileset]);
+  }, [catalog, currentLevel, currentRuleset, currentSeries, isLoading, message, mode, selectedSeriesFile, seriesScrollOffset, session, tileset]);
 
   return (
     <canvas
@@ -801,7 +862,7 @@ export function LegacyCanvasScreen({
           return;
         }
 
-        const index = seriesIndexAt(y, catalog.length);
+        const index = seriesIndexAt(y, catalog.length, seriesScrollOffset);
         if (index < 0) {
           return;
         }
@@ -856,6 +917,24 @@ export function LegacyCanvasScreen({
         }
 
         onDatDrop(files);
+      }}
+      onWheel={(event) => {
+        if (mode !== "series-list" || catalog.length === 0) {
+          return;
+        }
+
+        event.preventDefault();
+        const currentIndex = selectedSeriesIndex >= 0 ? selectedSeriesIndex : 0;
+        const direction = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
+        if (direction === 0) {
+          return;
+        }
+
+        const nextIndex = clamp(currentIndex + direction, 0, catalog.length - 1);
+        const next = catalog[nextIndex];
+        if (next) {
+          onSelectSeries(next.filebase);
+        }
       }}
       ref={canvasRef}
       width={LEGACY_WINDOW_WIDTH}

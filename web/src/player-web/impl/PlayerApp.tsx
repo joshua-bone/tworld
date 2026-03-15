@@ -172,6 +172,7 @@ const SERIES_LIST_HELP: HelpSection[] = [
       { keys: "Home / End", action: "jump to the first or last series" },
       { keys: "Enter / Space", action: "start the selected series" },
       { keys: "Mouse click", action: "select a series; click the selected row again to start it" },
+      { keys: "Mouse wheel", action: "scroll the series list by moving the selection" },
       { keys: "Open button / drag DAT", action: "import a local DAT file as MS and Lynx playable entries" },
     ],
   },
