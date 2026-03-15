@@ -26,7 +26,7 @@ async function main(): Promise<void> {
     levelNumber,
     ruleset: "Lynx",
   });
-  const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData));
+  const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
 
   const positions = positionsText
     ? positionsText

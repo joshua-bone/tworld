@@ -271,34 +271,58 @@ function parseThreeDLevelTitle(name: string): ThreeDLevelTitleParts | null {
   };
 }
 
-function groupContiguousThreeDLevelRuns<T extends { name: string }>(entries: readonly T[]): Array<{ start: number; endExclusive: number; baseName: string | null }> {
-  const runs: Array<{ start: number; endExclusive: number; baseName: string | null }> = [];
+function groupContiguousThreeDLevelRuns<T extends { name: string }>(
+  entries: readonly T[],
+): Array<{ start: number; endExclusive: number; baseName: string | null; descending: boolean }> {
+  const runs: Array<{ start: number; endExclusive: number; baseName: string | null; descending: boolean }> = [];
 
   for (let index = 0; index < entries.length; ) {
     const first = parseThreeDLevelTitle(entries[index]?.name ?? "");
-    if (!first || first.layerNumber !== 1) {
-      runs.push({ start: index, endExclusive: index + 1, baseName: null });
+    if (!first) {
+      runs.push({ start: index, endExclusive: index + 1, baseName: null, descending: false });
       index += 1;
       continue;
     }
 
+    if (first.layerNumber === 1) {
+      let endExclusive = index + 1;
+      let expectedLayerNumber = 2;
+      while (endExclusive < entries.length) {
+        const next = parseThreeDLevelTitle(entries[endExclusive]?.name ?? "");
+        if (!next || next.baseName !== first.baseName || next.layerNumber !== expectedLayerNumber) {
+          break;
+        }
+        endExclusive += 1;
+        expectedLayerNumber += 1;
+      }
+
+      if (endExclusive - index > 1) {
+        runs.push({ start: index, endExclusive, baseName: first.baseName, descending: false });
+      } else {
+        runs.push({ start: index, endExclusive: index + 1, baseName: null, descending: false });
+      }
+      index = endExclusive;
+      continue;
+    }
+
     let endExclusive = index + 1;
-    let expectedLayerNumber = 2;
-    while (endExclusive < entries.length) {
+    let expectedLayerNumber = first.layerNumber - 1;
+    while (endExclusive < entries.length && expectedLayerNumber >= 1) {
       const next = parseThreeDLevelTitle(entries[endExclusive]?.name ?? "");
       if (!next || next.baseName !== first.baseName || next.layerNumber !== expectedLayerNumber) {
         break;
       }
       endExclusive += 1;
-      expectedLayerNumber += 1;
+      expectedLayerNumber -= 1;
     }
 
-    if (endExclusive - index > 1) {
-      runs.push({ start: index, endExclusive, baseName: first.baseName });
+    if (endExclusive - index > 1 && expectedLayerNumber === 0) {
+      runs.push({ start: index, endExclusive, baseName: first.baseName, descending: true });
+      index = endExclusive;
     } else {
-      runs.push({ start: index, endExclusive: index + 1, baseName: null });
+      runs.push({ start: index, endExclusive: index + 1, baseName: null, descending: false });
+      index += 1;
     }
-    index = endExclusive;
   }
 
   return runs;
@@ -379,12 +403,13 @@ export function extractGroupedDatLevels(data: Uint8Array): {
     levels: runs.map((run, groupedIndex) => {
       const layers = extracted.levels.slice(run.start, run.endExclusive);
       const first = layers[0]!;
+      const logicalLayers = run.descending ? [...layers].reverse() : layers;
       return {
         index: groupedIndex,
         number: first.number,
         levelData: first.levelData,
-        layerData: layers.map((layer) => layer.levelData),
-        layerNumbers: layers.map((layer) => layer.number),
+        layerData: logicalLayers.map((layer) => layer.levelData),
+        layerNumbers: logicalLayers.map((layer) => layer.number),
       };
     }),
   };

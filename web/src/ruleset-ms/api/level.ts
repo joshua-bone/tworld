@@ -359,20 +359,24 @@ function decodeMsSingleLevelData(levelData: Uint8Array, z: number, hasHigherLaye
   };
 }
 
-export function decodeMsLevelGroupData(levelDataLayers: readonly Uint8Array[]): DecodedMsLevelData {
+export function decodeMsLevelGroupData(
+  levelDataLayers: readonly Uint8Array[],
+  primaryLevelData: Uint8Array = levelDataLayers[0] ?? new Uint8Array(),
+): DecodedMsLevelData {
   if (levelDataLayers.length === 0) {
     throw new Error("level group must contain at least one layer");
   }
 
   const hasHigherLayers = levelDataLayers.length > 1;
   const layers = levelDataLayers.map((levelData, index) => decodeMsSingleLevelData(levelData, index + 1, hasHigherLayers));
+  const primary = decodeMsSingleLevelData(primaryLevelData, 1, hasHigherLayers);
   const first = layers[0]!;
 
   return {
-    number: first.number,
-    timeLimitSeconds: first.timeLimitSeconds,
-    chipsNeeded: first.chipsNeeded,
-    hintText: first.hintText,
+    number: primary.number,
+    timeLimitSeconds: primary.timeLimitSeconds,
+    chipsNeeded: primary.chipsNeeded,
+    hintText: primary.hintText,
     cells: first.cells,
     traps: first.traps,
     cloners: first.cloners,

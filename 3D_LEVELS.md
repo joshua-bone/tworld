@@ -4,12 +4,15 @@ This document captures the agreed engine-side and display-side rules for stacked
 
 ## Layer Grouping
 
-- A contiguous sequence of levels in a DAT file whose titles share the same base title and end in `\1`, `\2`, `\3`, ... is one logical 3D level.
-- The first level in the sequence is the bottom layer.
+- A contiguous sequence of levels in a DAT file whose titles share the same base title and end in sequential layer suffixes is one logical 3D level.
+- Accepted contiguous orders are:
+  - increasing: `\1`, `\2`, `\3`, ...
+  - decreasing down to the base layer: `\3`, `\2`, `\1`
 - Semantically:
   - `z = 1` is the base layer.
   - `z = 2`, `z = 3`, ... are upper layers.
-- The merged level title strips the trailing `\1` from the first layer title.
+- Layer order in gameplay is always normalized so `z = 1` is the base layer regardless of whether the DAT run is written upward or downward.
+- The merged level title strips the trailing layer suffix from the grouped title.
 
 ## Metadata
 
@@ -40,7 +43,7 @@ This document captures the agreed engine-side and display-side rules for stacked
 - 3D levels are first-class citizens at the engine level.
 - The engine should not branch into separate 2D and 3D gameplay modes.
 - The only special-case parsing behavior is at map assembly / DAT grouping time:
-  - title suffix grouping into `\1`, `\2`, `\3`, ...
+  - title suffix grouping into increasing or decreasing contiguous layer runs
   - remapping special DAT file codes for 3D layers
 - After parsing, gameplay systems should operate on one unified 3D model.
 - Existing non-3D levels should simply be levels whose cells all live on `z = 1`.

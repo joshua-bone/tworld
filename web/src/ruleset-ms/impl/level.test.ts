@@ -60,6 +60,13 @@ describe("ms level preparation", () => {
     expect(decoded.layers?.[1]?.cells[0]?.position.z).toBe(2);
   });
 
+  it("can preserve global metadata from a separate primary level while decoding normalized layer order", () => {
+    const decoded = decodeMsLevelGroupData([createMinimalLevelData(7), createMinimalLevelData(8)], createMinimalLevelData(42));
+
+    expect(decoded.number).toBe(42);
+    expect(decoded.layers?.map((layer) => layer.number)).toEqual([7, 8]);
+  });
+
   it("remaps DAT file code 32 to air on z>1 only", () => {
     const decoded = decodeMsLevelGroupData([createSingleTopTileLevelData(32, 7), createSingleTopTileLevelData(32, 8)]);
 

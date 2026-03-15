@@ -95,7 +95,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData));
+    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
     return runLynxInputTrace(loaded.request, level, commands, maxTicks);
   }
 
@@ -109,7 +109,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData));
+    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
     return runLynxReplayTrace(loaded.request, level, replay, maxTicks);
   }
 
@@ -123,7 +123,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData));
+    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
     return runLynxInputTraceDebug(loaded.request, level, commands, maxTicks);
   }
 
@@ -137,7 +137,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData));
+    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
     return runLynxReplayTraceDebug(loaded.request, level, replay, maxTicks);
   }
 
@@ -153,7 +153,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData));
+    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
     return runLynxReplayTraceDebugWindow(loaded.request, level, replay, maxTicks, windowStart, windowEndExclusive);
   }
 
@@ -166,7 +166,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData));
+    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
     const token = createLynxInteractiveSession(request, level);
     const runtime: LynxInteractiveRuntime = {
       token,
@@ -195,7 +195,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     }
 
     const loaded = await this.levels.loadLevel(request);
-    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData));
+    const level = prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
     const token = createLynxReplaySession(request, level, replay);
     const runtime: LynxInteractiveRuntime = {
       token,

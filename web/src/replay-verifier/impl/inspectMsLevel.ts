@@ -25,7 +25,7 @@ async function main(): Promise<void> {
     levelNumber,
     ruleset: "MS",
   });
-  const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData));
+  const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
 
   const positions = positionsText
     ? positionsText

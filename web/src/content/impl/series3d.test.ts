@@ -71,4 +71,40 @@ describe("3D DAT grouping", () => {
     expect(grouped.levels[1]?.number).toBe(3);
     expect(grouped.levels[1]?.layerNumbers).toEqual([3]);
   });
+
+  it("also groups contiguous title runs ending in decreasing order down to \\1", () => {
+    const dat = createDatFile([
+      createLevelData(1, "Descending\\3"),
+      createLevelData(2, "Descending\\2"),
+      createLevelData(3, "Descending\\1"),
+      createLevelData(4, "Solo"),
+    ]);
+
+    const parsed = parseDatFile(dat, { ruleset: "MS" });
+    const grouped = extractGroupedDatLevels(dat);
+
+    expect(parsed.levelCount).toBe(2);
+    expect(parsed.levels.map((level) => level.number)).toEqual([1, 4]);
+    expect(parsed.levels.map((level) => level.name)).toEqual(["Descending", "Solo"]);
+    expect(grouped.levels).toHaveLength(2);
+    expect(grouped.levels[0]?.number).toBe(1);
+    expect(grouped.levels[0]?.layerNumbers).toEqual([3, 2, 1]);
+    expect(grouped.levels[0]?.layerData).toHaveLength(3);
+    expect(grouped.levels[1]?.layerNumbers).toEqual([4]);
+  });
+
+  it("does not skip levels when a decreasing run stops before reaching \\1", () => {
+    const dat = createDatFile([
+      createLevelData(1, "Partial\\3"),
+      createLevelData(2, "Partial\\2"),
+      createLevelData(3, "Solo"),
+    ]);
+
+    const parsed = parseDatFile(dat, { ruleset: "MS" });
+    const grouped = extractGroupedDatLevels(dat);
+
+    expect(parsed.levelCount).toBe(3);
+    expect(parsed.levels.map((level) => level.name)).toEqual(["Partial\\3", "Partial\\2", "Solo"]);
+    expect(grouped.levels.map((level) => level.layerNumbers)).toEqual([[1], [2], [3]]);
+  });
 });
