@@ -259,6 +259,13 @@ interface ThreeDLevelTitleParts {
   layerNumber: number;
 }
 
+interface ThreeDLevelRun {
+  start: number;
+  endExclusive: number;
+  baseName: string | null;
+  descending: boolean;
+}
+
 function parseThreeDLevelTitle(name: string): ThreeDLevelTitleParts | null {
   const match = /^(.*)\\([1-9][0-9]*)$/.exec(name);
   if (!match) {
@@ -273,8 +280,8 @@ function parseThreeDLevelTitle(name: string): ThreeDLevelTitleParts | null {
 
 function groupContiguousThreeDLevelRuns<T extends { name: string }>(
   entries: readonly T[],
-): Array<{ start: number; endExclusive: number; baseName: string | null; descending: boolean }> {
-  const runs: Array<{ start: number; endExclusive: number; baseName: string | null; descending: boolean }> = [];
+): ThreeDLevelRun[] {
+  const runs: ThreeDLevelRun[] = [];
 
   for (let index = 0; index < entries.length; ) {
     const first = parseThreeDLevelTitle(entries[index]?.name ?? "");
@@ -328,12 +335,19 @@ function groupContiguousThreeDLevelRuns<T extends { name: string }>(
   return runs;
 }
 
+function primaryThreeDRunIndex(run: ThreeDLevelRun): number {
+  if (run.baseName === null) {
+    return run.start;
+  }
+  return run.descending ? run.endExclusive - 1 : run.start;
+}
+
 export function parseDatFile(data: Uint8Array, options: { ruleset?: RulesetName } = {}): ParsedDatFile {
   const extracted = extractDatLevels(data);
   const parsedLevels = extracted.levels.map((level, index) => parseLevel(level.levelData, index));
   const runs = groupContiguousThreeDLevelRuns(parsedLevels);
   const levels = runs.map((run, groupedIndex) => {
-    const level = { ...parsedLevels[run.start]! };
+    const level = { ...parsedLevels[primaryThreeDRunIndex(run)]! };
     if (run.baseName !== null) {
       level.name = run.baseName;
     }
@@ -402,12 +416,12 @@ export function extractGroupedDatLevels(data: Uint8Array): {
     headerRuleset: extracted.headerRuleset,
     levels: runs.map((run, groupedIndex) => {
       const layers = extracted.levels.slice(run.start, run.endExclusive);
-      const first = layers[0]!;
+      const primary = extracted.levels[primaryThreeDRunIndex(run)]!;
       const logicalLayers = run.descending ? [...layers].reverse() : layers;
       return {
         index: groupedIndex,
-        number: first.number,
-        levelData: first.levelData,
+        number: primary.number,
+        levelData: primary.levelData,
         layerData: logicalLayers.map((layer) => layer.levelData),
         layerNumbers: logicalLayers.map((layer) => layer.number),
       };

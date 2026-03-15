@@ -16,7 +16,7 @@ This document captures the agreed engine-side and display-side rules for stacked
 
 ## Metadata
 
-- Global level metadata comes from the first layer only.
+- Global level metadata comes from the `\1` base layer only.
 - This includes:
   - visible level title, with trailing `\1` stripped
   - level number
