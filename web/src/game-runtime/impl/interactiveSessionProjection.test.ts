@@ -1,7 +1,47 @@
 import { describe, expect, it } from "vitest";
 import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter";
 import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
+import type { GameRequest } from "@game-core/api/types";
+import { MS_DIRECTION } from "@ruleset-ms/api/tiles";
+import type { LoadedLevelData, LevelRepository } from "@level-catalog/ports/LevelRepository";
 import { NodeLevelRepository } from "@level-catalog/impl/NodeLevelRepository";
+
+function createSingleCellLevelData(topFileCode: number, bottomFileCode: number, hintText: string, levelNumber = 1): Uint8Array {
+  const hintBytes = Array.from(hintText, (character) => character.charCodeAt(0));
+  const metadataSize = hintBytes.length === 0 ? 0 : 2 + hintBytes.length;
+
+  return Uint8Array.from([
+    levelNumber,
+    0,
+    12,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    topFileCode,
+    1,
+    0,
+    bottomFileCode,
+    metadataSize & 0xff,
+    (metadataSize >> 8) & 0xff,
+    ...(hintBytes.length === 0 ? [] : [7, hintBytes.length, ...hintBytes]),
+  ]);
+}
+
+class StaticLevelRepository implements LevelRepository {
+  constructor(private readonly loaded: LoadedLevelData) {}
+
+  async loadLevel(request: GameRequest): Promise<LoadedLevelData> {
+    return {
+      request,
+      levelData: new Uint8Array(this.loaded.levelData),
+      layerData: this.loaded.layerData.map((entry) => new Uint8Array(entry)),
+    };
+  }
+}
 
 describe("interactive session projection", () => {
   it("projects MS sessions without exposing render overlays", async () => {
@@ -92,5 +132,92 @@ describe("interactive session projection", () => {
       previousCheckpointTick: null,
       restoreMode: "live",
     });
+  });
+
+  it("projects the active MS hint text from the player's current z-layer", async () => {
+    const adapter = new MsGameEngineAdapter(
+      new StaticLevelRepository({
+        request: {
+          seriesFile: "3d-hints-ms.dac",
+          levelNumber: 1,
+          ruleset: "MS",
+          randomSeed: 123456789,
+        },
+        levelData: new Uint8Array(),
+        layerData: [
+          createSingleCellLevelData(0, 0, "lower-ms"),
+          createSingleCellLevelData(111, 47, "upper-ms"),
+        ],
+      }),
+    );
+
+    const session = await adapter.startSession({
+      seriesFile: "3d-hints-ms.dac",
+      levelNumber: 1,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+
+    expect(session.hintText).toBe("upper-ms");
+  });
+
+  it("projects the active Lynx hint text from the player's current z-layer", async () => {
+    const adapter = new LynxGameEngineAdapter(
+      new StaticLevelRepository({
+        request: {
+          seriesFile: "3d-hints-lynx.dac",
+          levelNumber: 1,
+          ruleset: "Lynx",
+          randomSeed: 123456789,
+        },
+        levelData: new Uint8Array(),
+        layerData: [
+          createSingleCellLevelData(0, 0, "lower-lynx"),
+          createSingleCellLevelData(111, 47, "upper-lynx"),
+        ],
+      }),
+    );
+
+    const session = await adapter.startSession({
+      seriesFile: "3d-hints-lynx.dac",
+      levelNumber: 1,
+      ruleset: "Lynx",
+      randomSeed: 123456789,
+    });
+
+    expect(session.hintText).toBe("upper-lynx");
+  });
+
+  it("updates the active MS hint text after Chip falls to a lower layer", async () => {
+    const adapter = new MsGameEngineAdapter(
+      new StaticLevelRepository({
+        request: {
+          seriesFile: "3d-hints-ms-air.dac",
+          levelNumber: 1,
+          ruleset: "MS",
+          randomSeed: 123456789,
+        },
+        levelData: new Uint8Array(),
+        layerData: [
+          createSingleCellLevelData(47, 0, "lower-ms"),
+          createSingleCellLevelData(111, 32, "upper-ms"),
+        ],
+      }),
+    );
+
+    let session = await adapter.startSession({
+      seriesFile: "3d-hints-ms-air.dac",
+      levelNumber: 1,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+
+    expect(session.hintText).toBe("upper-ms");
+
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+    session = await adapter.advanceSession(session, MS_DIRECTION.none);
+
+    expect(session.hintText).toBe("lower-ms");
   });
 });

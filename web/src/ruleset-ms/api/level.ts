@@ -423,6 +423,15 @@ export function collectLevelCreaturePositions(
   );
 }
 
+export function levelHintTextAtZ(
+  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "hintText" | "layers">,
+  z: number | undefined,
+): string {
+  const layers = levelLayers(level);
+  const targetZ = z ?? 1;
+  return layers.find((layer) => layer.z === targetZ)?.hintText ?? layers[0]?.hintText ?? level.hintText;
+}
+
 export function prepareMsLevel(decoded: DecodedMsLevelData): MsLevel {
   const layers: MsLevelLayer[] = (decoded.layers ?? []).map((layer) => ({
     z: layer.z,

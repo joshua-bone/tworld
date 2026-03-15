@@ -4,6 +4,7 @@ import {
   collectLevelCreaturePositions,
   decodeMsLevelData,
   decodeMsLevelGroupData,
+  levelHintTextAtZ,
   prepareMsLevel,
 } from "@ruleset-ms/api/level";
 import { MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE } from "@ruleset-ms/api/tiles";
@@ -127,6 +128,50 @@ describe("ms level preparation", () => {
       { z: 2, pos: 20 },
       { z: 2, pos: 21 },
     ]);
+  });
+
+  it("resolves hint text by active z-layer", () => {
+    const prepared = prepareMsLevel({
+      number: 9,
+      timeLimitSeconds: 15,
+      chipsNeeded: 4,
+      hintText: "hint-1",
+      cells: [],
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      badTiles: false,
+      layers: [
+        {
+          z: 1,
+          number: 9,
+          timeLimitSeconds: 15,
+          chipsNeeded: 4,
+          hintText: "hint-1",
+          cells: [],
+          traps: [],
+          cloners: [],
+          creaturePositions: [],
+          badTiles: false,
+        },
+        {
+          z: 2,
+          number: 10,
+          timeLimitSeconds: 15,
+          chipsNeeded: 4,
+          hintText: "hint-2",
+          cells: [],
+          traps: [],
+          cloners: [],
+          creaturePositions: [],
+          badTiles: false,
+        },
+      ],
+    });
+
+    expect(levelHintTextAtZ(prepared, 1)).toBe("hint-1");
+    expect(levelHintTextAtZ(prepared, 2)).toBe("hint-2");
+    expect(levelHintTextAtZ(prepared, 3)).toBe("hint-1");
   });
 
   it("prepares decoded MS level data into runtime ticks and flags", () => {

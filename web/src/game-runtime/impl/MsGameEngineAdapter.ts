@@ -16,7 +16,7 @@ import {
 import { projectInteractiveGameSession } from "@game-runtime/impl/projectInteractiveGameSession";
 import { projectInteractiveSessionHistory } from "@game-runtime/impl/projectInteractiveSessionHistory";
 import { GAME_INPUT_CODES, resolveGameInputCode, type InteractiveInput } from "@game-core/api/command";
-import { decodeMsLevelGroupData, prepareMsLevel } from "@ruleset-ms/api/level";
+import { decodeMsLevelGroupData, levelHintTextAtZ, prepareMsLevel } from "@ruleset-ms/api/level";
 import {
   advanceMsInteractiveSession,
   createMsInteractiveSession,
@@ -39,17 +39,15 @@ import {
 import type { MsUndoHistory } from "@undo-runtime/impl/msHistory";
 import { latestUndoTick, nextUndoTickEvent } from "@undo-runtime/impl/history";
 
-type MsInteractiveRuntime = InteractiveSessionRuntimeState<MsInteractiveSessionState, MsUndoHistory>;
+type MsInteractiveRuntime = InteractiveSessionRuntimeState<MsInteractiveSessionState, MsUndoHistory> & {
+  level: ReturnType<typeof prepareMsLevel>;
+};
 
-function projectMsSession(
-  session: Pick<InteractiveGameSession, "request" | "mode" | "hintText">,
-  runtime: MsInteractiveRuntime,
-  phase: "initial" | "tick",
-): InteractiveGameSession {
+function projectMsSession(session: Pick<InteractiveGameSession, "request" | "mode">, runtime: MsInteractiveRuntime, phase: "initial" | "tick"): InteractiveGameSession {
   return projectInteractiveGameSession({
     request: session.request,
     mode: session.mode,
-    hintText: session.hintText,
+    hintText: levelHintTextAtZ(runtime.level, runtime.token.state.internal.chipZ) || null,
     frame: projectMsInteractiveFrame(runtime.token, phase),
     history: projectInteractiveSessionHistory(
       runtime.history,
@@ -69,6 +67,7 @@ function advanceLiveMsRuntime(
   const token = advanceMsInteractiveSession(runtime.token, inputCode);
   return {
     token,
+    level: runtime.level,
     history: recordMsUndoTick(runtime.history, token, token.lastInput.inputCode, source),
     restoreState: createLiveRestoreState(),
   };
@@ -166,6 +165,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     const token = createMsInteractiveSession(request, level);
     const runtime: MsInteractiveRuntime = {
       token,
+      level,
       history: createMsUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
@@ -174,7 +174,6 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
       {
         request,
         mode: "manual",
-        hintText: level.hintText || null,
       },
       runtime,
       "initial",
@@ -195,6 +194,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     const token = createMsReplaySession(request, level, replay);
     const runtime: MsInteractiveRuntime = {
       token,
+      level,
       history: createMsUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
@@ -203,7 +203,6 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
       {
         request,
         mode: "replay",
-        hintText: level.hintText || null,
       },
       runtime,
       "initial",
@@ -214,7 +213,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     session: InteractiveGameSession,
     input: InteractiveInput,
   ): Promise<InteractiveGameSession> {
-    const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle);
+    const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
     const inputCode = resolveGameInputCode(input);
     const currentTick = runtime.token.state.engine.timer.currentTime;
 
@@ -259,6 +258,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
         session,
         {
           token,
+          level: runtime.level,
           history: runtime.history,
           restoreState: hasMoreHistoricalTicks
             ? createHistoricalReplayRestoreState(runtime.restoreState.restoredFromTick ?? currentTick, replayTargetTick)
@@ -276,13 +276,14 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
   }
 
   async restoreSession(session: InteractiveGameSession, targetTick: number): Promise<InteractiveGameSession> {
-    const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle);
+    const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
     const restored = restoreMsUndoHistoryToTick(runtime.history, targetTick);
 
     return projectMsSession(
       session,
       {
         token: restored.session,
+        level: runtime.level,
         history: runtime.history,
         restoreState: createPausedRestoreState(targetTick),
       },
@@ -291,7 +292,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
   }
 
   async resumeSession(session: InteractiveGameSession): Promise<InteractiveGameSession> {
-    const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle);
+    const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
     const replayTargetTick = latestUndoTick(runtime.history);
     if (replayTargetTick <= runtime.token.state.engine.timer.currentTime) {
       return projectMsSession(

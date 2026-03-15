@@ -17,7 +17,7 @@ import { projectInteractiveGameSession } from "@game-runtime/impl/projectInterac
 import { projectInteractiveSessionHistory } from "@game-runtime/impl/projectInteractiveSessionHistory";
 import { GAME_INPUT_CODES, resolveGameInputCode, type InteractiveInput } from "@game-core/api/command";
 import { prepareLynxLevel } from "@ruleset-lynx/api/level";
-import { decodeMsLevelGroupData } from "@ruleset-ms/api/level";
+import { decodeMsLevelGroupData, levelHintTextAtZ } from "@ruleset-ms/api/level";
 import {
   advanceLynxInteractiveSession,
   createLynxInteractiveSession,
@@ -40,17 +40,19 @@ import {
 import type { LynxUndoHistory } from "@undo-runtime/impl/lynxHistory";
 import { latestUndoTick, nextUndoTickEvent } from "@undo-runtime/impl/history";
 
-type LynxInteractiveRuntime = InteractiveSessionRuntimeState<LynxInteractiveSessionState, LynxUndoHistory>;
+type LynxInteractiveRuntime = InteractiveSessionRuntimeState<LynxInteractiveSessionState, LynxUndoHistory> & {
+  level: ReturnType<typeof prepareLynxLevel>;
+};
 
 function projectLynxSession(
-  session: Pick<InteractiveGameSession, "request" | "mode" | "hintText">,
+  session: Pick<InteractiveGameSession, "request" | "mode">,
   runtime: LynxInteractiveRuntime,
   phase: "initial" | "tick",
 ): InteractiveGameSession {
   return projectInteractiveGameSession({
     request: session.request,
     mode: session.mode,
-    hintText: session.hintText,
+    hintText: levelHintTextAtZ(runtime.level, runtime.token.chipZ) || null,
     frame: projectLynxInteractiveFrame(runtime.token, phase),
     history: projectInteractiveSessionHistory(
       runtime.history,
@@ -70,6 +72,7 @@ function advanceLiveLynxRuntime(
   const token = advanceLynxInteractiveSession(runtime.token, inputCode);
   return {
     token,
+    level: runtime.level,
     history: recordLynxUndoTick(runtime.history, token, token.lastInput.inputCode, source),
     restoreState: createLiveRestoreState(),
   };
@@ -167,6 +170,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     const token = createLynxInteractiveSession(request, level);
     const runtime: LynxInteractiveRuntime = {
       token,
+      level,
       history: createLynxUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
@@ -175,7 +179,6 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
       {
         request,
         mode: "manual",
-        hintText: level.hintText || null,
       },
       runtime,
       "initial",
@@ -196,6 +199,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     const token = createLynxReplaySession(request, level, replay);
     const runtime: LynxInteractiveRuntime = {
       token,
+      level,
       history: createLynxUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
@@ -204,7 +208,6 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
       {
         request,
         mode: "replay",
-        hintText: level.hintText || null,
       },
       runtime,
       "initial",
@@ -217,7 +220,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
       throw new Error(`TS Lynx engine does not support ruleset ${request.ruleset}`);
     }
 
-    const runtime = fromInteractiveHandle<LynxInteractiveSessionState, LynxUndoHistory>(session.handle);
+    const runtime = fromInteractiveHandle<LynxInteractiveSessionState, LynxUndoHistory>(session.handle) as LynxInteractiveRuntime;
     const inputCode = resolveGameInputCode(input);
     const currentTick = runtime.token.state.timer.currentTime;
 
@@ -262,6 +265,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
         session,
         {
           token,
+          level: runtime.level,
           history: runtime.history,
           restoreState: hasMoreHistoricalTicks
             ? createHistoricalReplayRestoreState(runtime.restoreState.restoredFromTick ?? currentTick, replayTargetTick)
@@ -279,13 +283,14 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
   }
 
   async restoreSession(session: InteractiveGameSession, targetTick: number): Promise<InteractiveGameSession> {
-    const runtime = fromInteractiveHandle<LynxInteractiveSessionState, LynxUndoHistory>(session.handle);
+    const runtime = fromInteractiveHandle<LynxInteractiveSessionState, LynxUndoHistory>(session.handle) as LynxInteractiveRuntime;
     const restored = restoreLynxUndoHistoryToTick(runtime.history, targetTick);
 
     return projectLynxSession(
       session,
       {
         token: restored.session,
+        level: runtime.level,
         history: runtime.history,
         restoreState: createPausedRestoreState(targetTick),
       },
@@ -294,7 +299,7 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
   }
 
   async resumeSession(session: InteractiveGameSession): Promise<InteractiveGameSession> {
-    const runtime = fromInteractiveHandle<LynxInteractiveSessionState, LynxUndoHistory>(session.handle);
+    const runtime = fromInteractiveHandle<LynxInteractiveSessionState, LynxUndoHistory>(session.handle) as LynxInteractiveRuntime;
     const replayTargetTick = latestUndoTick(runtime.history);
     if (replayTargetTick <= runtime.token.state.timer.currentTime) {
       return projectLynxSession(

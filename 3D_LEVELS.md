@@ -470,15 +470,15 @@ Validation:
 
 ### PR5: Per-Layer Hints And Connected-Item Isolation
 
-- [ ] Make hint text layer-local.
-- [ ] Show the active hint for the player’s current `z`.
-- [ ] Lock teleport searches to the player or actor’s current z-layer.
-- [ ] Lock trap and cloner connections to their current z-layer only.
+- [x] Make hint text layer-local.
+- [x] Show the active hint for the player’s current `z`.
+- [x] Lock teleport searches to the player or actor’s current z-layer.
+- [x] Lock trap and cloner connections to their current z-layer only.
 
 Validation:
 
-- [ ] focused engine/use-case tests for per-layer hints and same-layer-only connections
-- [ ] bounded MS/Lynx replay subset
+- [x] focused engine/use-case tests for per-layer hints and same-layer-only connections
+- [x] bounded MS/Lynx replay subset
 
 ### PR6: Renderer And Visual Stack
 
