@@ -502,33 +502,33 @@ Validation:
 
 ### PR7: Hand-Stitched Showcase Set
 
-- [ ] Create a small hand-authored showcase level set named `3DINTRO`.
-- [ ] Place it alongside the existing intro data so it is visible in the startup console menu.
+- [x] Create a small hand-authored showcase level set named `3DINTRO`.
+- [x] Place it alongside the existing intro data so it is visible in the startup console menu.
 - [ ] Add corresponding MS and Lynx solution / replay files if needed for smoke verification.
-- [ ] Include levels demonstrating:
-  - air falling
-  - support from doors/socket
-  - real vs fake blue wall behavior
-  - nonplayer/nonplayer support
-  - player/monster/block vertical collisions
-  - elevator rise success and failure
-  - player-up-into-block push
-  - per-layer hints
-  - per-layer teleports
-  - per-layer traps/cloners
-  - ice landing exception
-  - force-floor landing
+- [x] Include levels demonstrating:
+  - [x] air falling
+  - [x] support from doors/socket
+  - [x] real vs fake blue wall behavior
+  - [x] nonplayer/nonplayer support
+  - [x] player/monster/block vertical collisions
+  - [x] elevator rise success and failure
+  - [x] player-up-into-block push
+  - [x] per-layer hints
+  - [x] per-layer teleports
+  - [x] per-layer traps/cloners
+  - [x] ice landing exception
+  - [x] force-floor landing
 
 Placement:
 
-- [ ] `data/3DINTRO.dat`
-- [ ] matching set entries alongside the intro sets in `sets/`
+- [x] `data/3DINTRO.dat`
+- [x] matching set entries alongside the intro sets in `sets/`
 - [ ] matching solution/replay assets in `save/` as needed
 
 Validation:
 
 - [ ] run the showcase set manually in both MS and Lynx modes
-- [ ] add focused smoke tests if practical
+- [x] add focused smoke tests if practical
 
 ### PR8: Replay/Undo/Editor Compatibility Sweep
 

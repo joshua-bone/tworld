@@ -27,6 +27,7 @@ import {
   previousInteractiveGameSessionTick,
 } from "@game-runtime/impl/interactiveHistoryNavigation";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
+import { loadBrowserSeriesCatalogEntries } from "@level-catalog/impl/loadBrowserSeriesCatalogEntries";
 import { loadSeriesCatalog } from "@level-catalog/impl/loadSeriesCatalog";
 import { restoreInteractiveGameSession } from "@game-runtime/impl/restoreInteractiveGameSession";
 import { resumeInteractiveGameSession } from "@game-runtime/impl/resumeInteractiveGameSession";
@@ -384,8 +385,14 @@ export function PlayerApp({ services }: PlayerAppProps) {
   useEffect(() => {
     let active = true;
 
-    Promise.all([loadSeriesCatalog(fixtureRepository), loadPlayableSelection(selectionStore)])
-      .then(([nextCatalog, storedSelection]) => {
+    Promise.all([loadBrowserSeriesCatalogEntries(), loadPlayableSelection(selectionStore)])
+      .then(([supplements, storedSelection]) => {
+        return loadSeriesCatalog(fixtureRepository, supplements).then((nextCatalog) => ({
+          nextCatalog,
+          storedSelection,
+        }));
+      })
+      .then(({ nextCatalog, storedSelection }) => {
         if (!active) {
           return;
         }
