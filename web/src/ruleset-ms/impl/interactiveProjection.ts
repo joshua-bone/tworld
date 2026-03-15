@@ -4,9 +4,11 @@ import type { EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
 
-function msProjectedRuntimeState(state: EngineState): { tileOverlays?: InteractiveGameFrame["tileOverlays"] } | null {
+type MsProjectedTileOverlay = InteractiveGameFrame["tileOverlays"][number] & { ttl?: number };
+
+function msProjectedRuntimeState(state: EngineState): { tileOverlays?: MsProjectedTileOverlay[] } | null {
   const runtime = state as EngineState & {
-    msRuntimeState?: { tileOverlays?: InteractiveGameFrame["tileOverlays"] };
+    msRuntimeState?: { tileOverlays?: MsProjectedTileOverlay[] };
   };
   return runtime.msRuntimeState ?? null;
 }
@@ -24,7 +26,7 @@ export function projectMsInteractiveFrame(
     {
       currentZ: session.state.internal.chipZ ?? 1,
       layers: session.state.engine.map.layers,
-      tileOverlays: runtime?.tileOverlays ?? [],
+      tileOverlays: runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? [],
     },
   );
 }

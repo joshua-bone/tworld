@@ -360,7 +360,7 @@ function defaultChipEnterAction(id: number): MsChipEnterAction {
     case MS_TILE.Teleport:
       return "teleport";
     default:
-      return ACTOR_TILE_SET.has(id) ? "collision" : "none";
+      return ACTOR_TILE_SET.has(id) || isMsCreature(id) || id === MS_TILE.Block_Static ? "collision" : "none";
   }
 }
 
@@ -499,19 +499,26 @@ function msActorDefinition(id: number): ActorDefinition<number> | undefined {
 }
 
 function msTilePolicy(id: number): MsTilePolicyDefinition {
-  return (
-    msTilePolicies.get(id) ?? {
-      tags: [],
-      capabilities: [],
-      hooks: [],
-      chipMovementMask: 0,
-      creatureMovementMask: 0,
-      blockMovementMask: 0,
-      forcedFloorKind: "none",
-      chipEnterAction: "none",
-      buttonAction: "none",
-    }
-  );
+  if (msTilePolicies.has(id)) {
+    return msTilePolicies.get(id)!;
+  }
+  if (id === MS_TILE.Block_Static) {
+    return msTilePolicies.get(MS_TILE.Block)!;
+  }
+  if (isMsCreature(id)) {
+    return msTilePolicies.get(msCreatureId(id))!;
+  }
+  return {
+    tags: [],
+    capabilities: [],
+    hooks: [],
+    chipMovementMask: 0,
+    creatureMovementMask: 0,
+    blockMovementMask: 0,
+    forcedFloorKind: "none",
+    chipEnterAction: "none",
+    buttonAction: "none",
+  };
 }
 
 export function msTileHasTag(id: number, tag: TileTag): boolean {

@@ -155,6 +155,7 @@ interface LynxRuntimeState {
     z: number;
     pos: number;
     kind: InteractiveGameTileOverlayKind;
+    ttl: number;
   }>;
   chipTeleported: boolean;
   chipSlideToken: boolean;
@@ -339,6 +340,7 @@ function resolveLynxChipSupportBelow(
   lowerCells: EngineMapCell[] | null,
   pos: number,
   z: number,
+  currentZ: number,
 ): boolean {
   if (!lowerCells) {
     return false;
@@ -348,13 +350,11 @@ function resolveLynxChipSupportBelow(
   if (!cell) {
     return false;
   }
-  const supportZ = cell.position.z ?? z;
-
   const actorBelow = findLynxVisibleActorAt(actors, pos, z);
   if (actorBelow) {
     const supported = actorBelow.id === MS_TILE.Block;
     if (supported) {
-      addLynxTileOverlay(state, supportZ, pos, "support");
+      addLynxTileOverlay(state, currentZ, pos, "support");
     }
     return supported;
   }
@@ -363,12 +363,12 @@ function resolveLynxChipSupportBelow(
   const bottomId = cell.bottom.id;
 
   if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
-    addLynxTileOverlay(state, supportZ, pos, "support");
+    addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
   if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
-    addLynxTileOverlay(state, supportZ, pos, "support");
+    addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
@@ -376,7 +376,7 @@ function resolveLynxChipSupportBelow(
     if (topId === MS_TILE.BlueWall_Real) {
       replaceTopTile(lowerCells, pos, { ...cell.top, id: MS_TILE.Wall });
     }
-    addLynxTileOverlay(state, supportZ, pos, "support");
+    addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
@@ -394,7 +394,7 @@ function resolveLynxChipSupportBelow(
       promoteBottomTile(lowerCells, pos, MS_TILE.Empty);
       return false;
     }
-    addLynxTileOverlay(state, supportZ, pos, "support");
+    addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
@@ -403,7 +403,7 @@ function resolveLynxChipSupportBelow(
       promoteBottomTile(lowerCells, pos, MS_TILE.Empty);
       return false;
     }
-    addLynxTileOverlay(state, supportZ, pos, "support");
+    addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
@@ -416,6 +416,7 @@ function resolveLynxNonChipSupportBelow(
   lowerCells: EngineMapCell[] | null,
   pos: number,
   z: number,
+  currentZ: number,
   chipPos: number,
   chipZ: number,
 ): boolean {
@@ -427,18 +428,16 @@ function resolveLynxNonChipSupportBelow(
   if (!cell) {
     return false;
   }
-  const supportZ = cell.position.z ?? z;
-
   const topId = cell.top.id;
   const bottomId = cell.bottom.id;
 
   if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
-    addLynxTileOverlay(state, supportZ, pos, "support");
+    addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
   if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
-    addLynxTileOverlay(state, supportZ, pos, "support");
+    addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
@@ -448,7 +447,7 @@ function resolveLynxNonChipSupportBelow(
 
   const actorBelow = findLynxVisibleActorAt(actors, pos, z);
   if (actorBelow) {
-    addLynxTileOverlay(state, supportZ, pos, "support");
+    addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
@@ -458,7 +457,7 @@ function resolveLynxNonChipSupportBelow(
     lynxTileHasTag(topId, "door") ||
     topId === MS_TILE.Socket
   ) {
-    addLynxTileOverlay(state, supportZ, pos, "support");
+    addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
@@ -578,15 +577,20 @@ function clearLynxAnimationAt(state: EngineState, actors: LynxRuntimeActor[], po
 }
 
 function clearLynxTileOverlays(state: EngineState): void {
-  lynxRuntimeState(state).tileOverlays = [];
+  const runtime = lynxRuntimeState(state);
+  runtime.tileOverlays = runtime.tileOverlays
+    .map((overlay) => ({ ...overlay, ttl: overlay.ttl - 1 }))
+    .filter((overlay) => overlay.ttl > 0);
 }
 
 function addLynxTileOverlay(state: EngineState, z: number, pos: number, kind: InteractiveGameTileOverlayKind): void {
   const runtime = lynxRuntimeState(state);
-  if (runtime.tileOverlays.some((overlay) => overlay.z === z && overlay.pos === pos && overlay.kind === kind)) {
+  const existing = runtime.tileOverlays.find((overlay) => overlay.z === z && overlay.pos === pos && overlay.kind === kind);
+  if (existing) {
+    existing.ttl = 2;
     return;
   }
-  runtime.tileOverlays.push({ z, pos, kind });
+  runtime.tileOverlays.push({ z, pos, kind, ttl: 2 });
 }
 
 function releaseReservedAnimationActorAt(actors: LynxRuntimeActor[], pos: number): void {
@@ -1677,7 +1681,7 @@ function getLynxChipForcedMove(
   if (isLynxAir(floorId)) {
     const lowerZ = Math.max(1, chipZ - 1);
     const lowerCells = lynxLowerRuntimeCells(state, chipZ);
-    if (!resolveLynxChipSupportBelow(state, actors, lowerCells, chipPos, lowerZ)) {
+    if (!resolveLynxChipSupportBelow(state, actors, lowerCells, chipPos, lowerZ, chipZ)) {
       return { dir: 0, discardInput: true, moveKind: "air" };
     }
   }
@@ -1699,7 +1703,6 @@ function getLynxChipForcedMove(
   }
   if (isLynxIce(floorId)) {
     if (runtime.chipIgnoreIceFromAir) {
-      runtime.chipIgnoreIceFromAir = false;
       return { dir: 0, discardInput: false };
     }
     return hasLynxBoots(state, MS_TILE.Boots_Ice)
@@ -1718,7 +1721,6 @@ function forcedLynxActorDirection(state: EngineState, actor: LynxRuntimeActor, f
   }
   if (isLynxIce(floorId)) {
     if (actor.ignoreIceFromAir) {
-      actor.ignoreIceFromAir = false;
       return 0;
     }
     return actor.dir;
@@ -1728,6 +1730,10 @@ function forcedLynxActorDirection(state: EngineState, actor: LynxRuntimeActor, f
 
 function updateLynxChipStartMovementState(state: EngineState, floorId: number, chosenInputCode: number): void {
   const runtime = lynxRuntimeState(state);
+
+  if (!isLynxIce(floorId) || chosenInputCode !== 0) {
+    runtime.chipIgnoreIceFromAir = false;
+  }
 
   if (!hasLynxBoots(state, MS_TILE.Boots_Slide)) {
     if (isLynxSlide(floorId) && chosenInputCode === 0) {
@@ -2499,7 +2505,7 @@ function advanceLynxCreature(
       if (isLynxAir(floorBeforeMove)) {
         const targetZ = Math.max(1, (actor.z ?? 1) - 1);
         const lowerCells = lynxLowerRuntimeCells(state, actor.z);
-        if (!resolveLynxNonChipSupportBelow(state, actors, lowerCells, actor.pos, targetZ, chipPos, chipZ)) {
+        if (!resolveLynxNonChipSupportBelow(state, actors, lowerCells, actor.pos, targetZ, actor.z ?? 1, chipPos, chipZ)) {
           if (!startLynxActorAirMovement(state, actor)) {
             return;
           }

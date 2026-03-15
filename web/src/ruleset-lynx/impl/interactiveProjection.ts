@@ -13,7 +13,7 @@ interface LynxProjectedAnimationState {
 interface LynxProjectedRuntimeState {
   animations: LynxProjectedAnimationState[];
   chipTeleported: boolean;
-  tileOverlays: InteractiveGameFrame["tileOverlays"];
+  tileOverlays: Array<InteractiveGameFrame["tileOverlays"][number] & { ttl?: number }>;
 }
 
 function lynxProjectedRuntimeState(state: EngineState): LynxProjectedRuntimeState | null {
@@ -26,6 +26,7 @@ export function projectLynxInteractiveFrame(
   phase: InteractiveProjectionPhase,
 ): InteractiveGameFrame {
   const runtime = lynxProjectedRuntimeState(session.state);
+  const chipVerticalMove = session.chipMoveKind === "air" || session.chipMoveKind === "elevator";
 
   return projectInteractiveFrame(
     engineStateToSnapshot(session.state, phase, session.lastInput),
@@ -35,7 +36,7 @@ export function projectLynxInteractiveFrame(
         pos: session.chipPos,
         z: session.chipZ,
         dir: session.chipDir,
-        moving: session.chipMoving,
+        moving: chipVerticalMove ? 0 : session.chipMoving,
         pushing: session.chipPushing,
         hidden: runtime?.chipTeleported === true,
         failed: session.endGameResult === "failed",
@@ -48,8 +49,8 @@ export function projectLynxInteractiveFrame(
         pos: actor.pos,
         z: actor.z,
         dir: actor.dir,
-        moving: actor.moving,
-        frame: actor.frame,
+        moving: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.moving,
+        frame: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.frame,
         hidden: actor.hidden,
         animationReserved: actor.animationReserved,
         scale: actor.moveKind === "air" && actor.moving > 0 ? 0.9 + (actor.moving / 8) * 0.1 : 1,
@@ -59,7 +60,7 @@ export function projectLynxInteractiveFrame(
     {
       currentZ: session.chipZ ?? 1,
       layers: session.state.map.layers,
-      tileOverlays: runtime?.tileOverlays ?? [],
+      tileOverlays: runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? [],
     },
   );
 }

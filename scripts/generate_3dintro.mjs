@@ -28,6 +28,7 @@ const FILE = {
   HintButton: 47,
   CloneMachine: 49,
   Block_Static: 10,
+  Block_East: 17,
   Elevator: 57,
   Ball_North: 72,
   Bug_West: 65,
@@ -37,6 +38,7 @@ const FILE = {
 
 const ACTOR_FILE_CODES = new Set([
   FILE.Block_Static,
+  FILE.Block_East,
   FILE.Ball_North,
   FILE.Bug_West,
   FILE.Chip_East,
@@ -394,7 +396,7 @@ function buildShowcaseLevels() {
         placeTop(lower, 5, 10, FILE.Button_Brown);
         placeActor(lower, 6, 10, FILE.Ball_North, FILE.Beartrap);
         placeTop(lower, 10, 10, FILE.Button_Red);
-        placeActor(lower, 12, 10, FILE.Block_Static, FILE.CloneMachine);
+        placeActor(lower, 12, 10, FILE.Block_East, FILE.CloneMachine);
         lower.traps.push({ fromX: 5, fromY: 10, toX: 6, toY: 10 });
         lower.cloners.push({ fromX: 10, fromY: 10, toX: 12, toY: 10 });
       },
@@ -406,7 +408,7 @@ function buildShowcaseLevels() {
         placeTop(upper, 5, 10, FILE.Button_Brown);
         placeActor(upper, 6, 10, FILE.Ball_North, FILE.Beartrap);
         placeTop(upper, 10, 10, FILE.Button_Red);
-        placeActor(upper, 12, 10, FILE.Block_Static, FILE.CloneMachine);
+        placeActor(upper, 12, 10, FILE.Block_East, FILE.CloneMachine);
         upper.traps.push({ fromX: 5, fromY: 10, toX: 6, toY: 10 });
         upper.cloners.push({ fromX: 10, fromY: 10, toX: 12, toY: 10 });
       },

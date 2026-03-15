@@ -434,6 +434,8 @@ function drawLayerOverlays(
   layerZ: number,
   xOrigin: number,
   yOrigin: number,
+  canvasWidth: number,
+  canvasHeight: number,
 ): void {
   for (const overlay of overlays) {
     if (overlay.z !== layerZ) {
@@ -442,7 +444,7 @@ function drawLayerOverlays(
 
     const x = xOrigin + (overlay.pos % 32) * LEGACY_TILE_SIZE;
     const y = yOrigin + Math.floor(overlay.pos / 32) * LEGACY_TILE_SIZE;
-    if (x + LEGACY_TILE_SIZE <= 0 || x >= LEGACY_MAP_WIDTH || y + LEGACY_TILE_SIZE <= 0 || y >= LEGACY_MAP_HEIGHT) {
+    if (x + LEGACY_TILE_SIZE <= 0 || x >= canvasWidth || y + LEGACY_TILE_SIZE <= 0 || y >= canvasHeight) {
       continue;
     }
 
@@ -450,6 +452,14 @@ function drawLayerOverlays(
     context.lineWidth = 3;
     context.strokeRect(x + 1.5, y + 1.5, LEGACY_TILE_SIZE - 3, LEGACY_TILE_SIZE - 3);
   }
+}
+
+function layerViewportTileWindow(depth: number): number {
+  if (depth <= 0) {
+    return LEGACY_MAP_TILES;
+  }
+
+  return Math.ceil(LEGACY_MAP_TILES / (LOWER_LAYER_SCALE ** depth));
 }
 
 function renderMapLayerCanvas(
@@ -460,24 +470,27 @@ function renderMapLayerCanvas(
   timerval: number,
   viewX: number,
   viewY: number,
+  depth: number,
 ): HTMLCanvasElement {
-  const canvas = createCanvas(LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+  const tileWindowSize = layerViewportTileWindow(depth);
+  const canvas = createCanvas(tileWindowSize * LEGACY_TILE_SIZE, tileWindowSize * LEGACY_TILE_SIZE);
   const context = canvas.getContext("2d");
   if (!context) {
     return canvas;
   }
 
   context.imageSmoothingEnabled = false;
-  const xOrigin = -(viewX * LEGACY_TILE_SIZE) / 4;
-  const yOrigin = -(viewY * LEGACY_TILE_SIZE) / 4;
+  const padding = ((tileWindowSize - LEGACY_MAP_TILES) * LEGACY_TILE_SIZE) / 2;
+  const xOrigin = padding - (viewX * LEGACY_TILE_SIZE) / 4;
+  const yOrigin = padding - (viewY * LEGACY_TILE_SIZE) / 4;
 
   for (const cell of layer.cells) {
     const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
     const y = yOrigin + cell.position.y * LEGACY_TILE_SIZE;
-    if (x + LEGACY_TILE_SIZE <= 0 || x >= LEGACY_MAP_WIDTH) {
+    if (x + LEGACY_TILE_SIZE <= 0 || x >= canvas.width) {
       continue;
     }
-    if (y + LEGACY_TILE_SIZE <= 0 || y >= LEGACY_MAP_HEIGHT) {
+    if (y + LEGACY_TILE_SIZE <= 0 || y >= canvas.height) {
       continue;
     }
 
@@ -488,7 +501,7 @@ function renderMapLayerCanvas(
     drawLynxActorOverlays(context, tileset, session, xOrigin, yOrigin, layer.z);
   }
 
-  drawLayerOverlays(context, session.frame.tileOverlays, layer.z, xOrigin, yOrigin);
+  drawLayerOverlays(context, session.frame.tileOverlays, layer.z, xOrigin, yOrigin, canvas.width, canvas.height);
   return canvas;
 }
 
@@ -506,16 +519,16 @@ function drawVisibleLayerStack(
     return;
   }
 
-  const layerCanvases = visibleLayers.map((layer) =>
-    renderMapLayerCanvas(tileset, session, ruleset, layer, timerval, viewX, viewY),
+  const layerCanvases = visibleLayers.map((layer, index) =>
+    renderMapLayerCanvas(tileset, session, ruleset, layer, timerval, viewX, viewY, index),
   );
 
   for (let index = layerCanvases.length - 1; index >= 1; index -= 1) {
     const layerCanvas = layerCanvases[index]!;
     const depth = index;
     const scale = LOWER_LAYER_SCALE ** depth;
-    const width = LEGACY_MAP_WIDTH * scale;
-    const height = LEGACY_MAP_HEIGHT * scale;
+    const width = layerCanvas.width * scale;
+    const height = layerCanvas.height * scale;
     const x = LEGACY_MAP_X + (LEGACY_MAP_WIDTH - width) / 2;
     const y = LEGACY_MAP_Y + (LEGACY_MAP_HEIGHT - height) / 2;
 

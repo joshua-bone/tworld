@@ -4,12 +4,24 @@ import { NodeLevelRepository } from "@level-catalog/impl/NodeLevelRepository";
 import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
 import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter";
 import { decodeMsLevelGroupData, prepareMsLevel } from "@ruleset-ms/api/level";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 
 async function advanceMany<TSession>(session: TSession, advance: (session: TSession) => Promise<TSession>, count: number): Promise<TSession> {
   let current = session;
   for (let index = 0; index < count; index += 1) {
     current = await advance(current);
+  }
+  return current;
+}
+
+async function advanceInputs<TSession>(
+  session: TSession,
+  advance: (session: TSession, input: "none" | "east") => Promise<TSession>,
+  inputs: ReadonlyArray<"none" | "east">,
+): Promise<TSession> {
+  let current = session;
+  for (const input of inputs) {
+    current = await advance(current, input);
   }
   return current;
 }
@@ -101,5 +113,58 @@ describe("3DINTRO showcase set", () => {
     const layerHints = prepareMsLevel(decodeMsLevelGroupData(layerHintsLoaded.layerData));
     expect(tileIdAtLevel(layerHints, 1, 8, 5)).toBe(MS_TILE.HintButton);
     expect(tileIdAtLevel(layerHints, 2, 8, 5)).toBe(MS_TILE.Air);
+
+    const layerWiringLoaded = await levels.loadLevel({
+      seriesFile: "3DINTRO-MS.dac",
+      levelNumber: levelNumberByName.get("Layer Wiring") ?? 0,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+    const layerWiring = prepareMsLevel(decodeMsLevelGroupData(layerWiringLoaded.layerData));
+    expect(tileIdAtLevel(layerWiring, 1, 12, 10)).toBe(msCreatureTile(MS_TILE.Block, MS_DIRECTION.east));
+    expect(tileIdAtLevel(layerWiring, 2, 12, 10)).toBe(msCreatureTile(MS_TILE.Block, MS_DIRECTION.east));
+  });
+
+  it("kills Chip when he falls vertically onto a monster in the MS showcase", async () => {
+    const adapter = new MsGameEngineAdapter(new NodeLevelRepository());
+    const [series] = await loadNodeSeriesCatalogEntries(["3DINTRO-MS.dac"]);
+    const levelNumber = series?.levels.find((level) => level.name === "Chip On Monster")?.number ?? 0;
+
+    const started = await adapter.startSession({
+      seriesFile: "3DINTRO-MS.dac",
+      levelNumber,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+    const finished = await advanceInputs(
+      started,
+      (current, input) => adapter.advanceSession(current, input),
+      Array.from({ length: 19 }, () => "east" as const),
+    );
+
+    expect(finished.frame.snapshot.status).toBe("failed");
+    expect(finished.frame.currentZ).toBe(1);
+  });
+
+  it("does not auto-slide after falling vertically onto ice in the Lynx showcase", async () => {
+    const adapter = new LynxGameEngineAdapter(new NodeLevelRepository());
+    const [series] = await loadNodeSeriesCatalogEntries(["3DINTRO-Lynx.dac"]);
+    const levelNumber = series?.levels.find((level) => level.name === "Ice Landing")?.number ?? 0;
+
+    const started = await adapter.startSession({
+      seriesFile: "3DINTRO-Lynx.dac",
+      levelNumber,
+      ruleset: "Lynx",
+      randomSeed: 123456789,
+    });
+    const settled = await advanceInputs(
+      started,
+      (current, input) => adapter.advanceSession(current, input),
+      Array.from({ length: 6 }, () => "none" as const),
+    );
+
+    expect(settled.frame.snapshot.status).toBe("playing");
+    expect(settled.frame.render?.chip?.z).toBe(1);
+    expect(settled.frame.render?.chip?.pos).toBe(5 + 5 * 32);
   });
 });
