@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { LegacyLynxTileShape, scanLynxLargeTileLayout } from "@player-web/impl/legacyTileset";
+import { LegacyLynxTileShape, LYNX_TILE_SPECS, scanLynxLargeTileLayout } from "@player-web/impl/legacyTileset";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 function createRaster(width: number, height: number, fill: readonly number[]): Uint8ClampedArray {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -21,6 +22,11 @@ function setPixel(data: Uint8ClampedArray, width: number, x: number, y: number, 
 }
 
 describe("scanLynxLargeTileLayout", () => {
+  it("keeps synthetic 3D tiles implicit so the legacy Lynx atlas scan order stays aligned", () => {
+    expect(LYNX_TILE_SPECS.find((spec) => spec.id === MS_TILE.Air)?.shape).toBe(LegacyLynxTileShape.Implicit);
+    expect(LYNX_TILE_SPECS.find((spec) => spec.id === MS_TILE.Elevator)?.shape).toBe(LegacyLynxTileShape.Implicit);
+  });
+
   it("detects tile size and skips implicit entries without advancing the large-format scan", () => {
     const transparent = [255, 0, 255, 255] as const;
     const marker = [0, 0, 0, 255] as const;

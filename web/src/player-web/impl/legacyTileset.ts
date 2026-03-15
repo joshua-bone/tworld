@@ -139,7 +139,7 @@ export const LYNX_TILE_SPECS: LegacyLynxTileSpec[] = [
   lynxImplicit(MS_TILE.Block_Static),
   lynxImplicit(MS_TILE.Overlay_Buffer),
   lynxImplicit(MS_TILE.Air),
-  lynxSingleOpaque(MS_TILE.Elevator),
+  lynxImplicit(MS_TILE.Elevator),
   lynxSingleOpaque(MS_TILE.Exit_Extra_1),
   lynxSingleOpaque(MS_TILE.Exit_Extra_2),
   lynxSingleOpaque(MS_TILE.Burned_Chip),
