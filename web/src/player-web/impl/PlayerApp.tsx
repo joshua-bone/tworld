@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
+import { isFastForwardModifierActive } from "@player-web/impl/fastForward";
 import {
   isFineUndoKey,
   hasBlockedMovementModifier,
@@ -968,12 +969,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Shift") {
-        if (mode === "game") {
-          setIsFastForwarding(true);
-        }
-        return;
-      }
+      setIsFastForwarding(isFastForwardModifierActive(mode, event));
 
       if (isSystemModifierKey(event.key)) {
         msInputBufferRef.current.reset();
@@ -1180,10 +1176,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      if (event.key === "Shift") {
-        setIsFastForwarding(false);
-        return;
-      }
+      setIsFastForwarding(isFastForwardModifierActive(mode, event));
 
       if (mode !== "game") {
         return;
@@ -1210,6 +1203,10 @@ export function PlayerApp({ services }: PlayerAppProps) {
       }
     };
 
+    const onPointerDown = (event: PointerEvent) => {
+      setIsFastForwarding(isFastForwardModifierActive(mode, event));
+    };
+
     const onWindowBlur = () => {
       setIsFastForwarding(false);
       stopHeldUndo();
@@ -1219,11 +1216,13 @@ export function PlayerApp({ services }: PlayerAppProps) {
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("blur", onWindowBlur);
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("blur", onWindowBlur);
     };
   }, [
