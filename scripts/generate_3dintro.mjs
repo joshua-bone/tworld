@@ -459,6 +459,22 @@ function buildShowcaseLevels() {
       },
     ),
     buildTwoLayerLevel(
+      "Monster Elevator Rise",
+      (lower) => {
+        placeActor(lower, 10, 5, FILE.Bug_West);
+        placeTop(lower, 11, 5, FILE.Elevator);
+        placeTop(lower, 14, 5, FILE.Exit);
+      },
+      (upper) => {
+        placeActor(upper, 3, 5, FILE.Chip_East);
+        placeTop(upper, 11, 5, FILE.Air);
+      },
+      {
+        upperHint: "Watch the monster below step onto the elevator and rise to this layer.",
+        lowerHint: "The monster starts on floor, walks onto the elevator, and rises into the air cell above.",
+      },
+    ),
+    buildTwoLayerLevel(
       "Monster Air Fall",
       (lower) => {
         placeActor(lower, 3, 5, FILE.Chip_East);
