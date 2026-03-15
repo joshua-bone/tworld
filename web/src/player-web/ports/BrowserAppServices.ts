@@ -7,4 +7,5 @@ export interface BrowserAppServices {
   fixtureRepository: CharacterizationFixtureRepository;
   selectionStore: PlayableSelectionStore;
   engines: Record<Exclude<SeriesCatalogEntry["ruleset"], "None">, InteractiveGameEnginePort>;
+  importDatFile: (file: File) => Promise<SeriesCatalogEntry[]>;
 }

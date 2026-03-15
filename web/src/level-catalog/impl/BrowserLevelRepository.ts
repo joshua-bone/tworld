@@ -1,5 +1,18 @@
-import { extractGroupedDatLevels, parseSeriesConfig } from "@content/api/series-file";
+import type { SeriesCatalogEntry } from "@content/api/series";
+import { extractGroupedDatLevels, parseDatFile, parseSeriesConfig, type RawDatLevelGroup } from "@content/api/series-file";
 import type { LevelRepository, LoadedLevelData } from "@level-catalog/ports/LevelRepository";
+
+const IMPORT_RULESETS = ["MS", "Lynx"] as const;
+
+interface ImportedDatSeries {
+  filename: string;
+  groupedLevels: RawDatLevelGroup[];
+}
+
+function importedSeriesFile(filename: string, ruleset: (typeof IMPORT_RULESETS)[number]): string {
+  const baseName = filename.replace(/\.[^.]+$/u, "") || filename;
+  return `${baseName} (${ruleset})`;
+}
 
 export class BrowserLevelRepository implements LevelRepository {
   private readonly seriesConfigs = import.meta.glob("@sets/*.dac", {
@@ -14,6 +27,7 @@ export class BrowserLevelRepository implements LevelRepository {
 
   private readonly configCache = new Map<string, Promise<string>>();
   private readonly dataCache = new Map<string, Promise<Uint8Array>>();
+  private readonly importedSeries = new Map<string, ImportedDatSeries>();
 
   private async loadBySuffix<T>(files: Record<string, () => Promise<T>>, suffix: string): Promise<T> {
     const match = Object.entries(files).find(([path]) => path.endsWith(suffix));
@@ -52,7 +66,53 @@ export class BrowserLevelRepository implements LevelRepository {
     return promise;
   }
 
+  async importDatFile(file: File): Promise<SeriesCatalogEntry[]> {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    return this.importDatBytes(file.name, bytes);
+  }
+
+  importDatBytes(filename: string, datBytes: Uint8Array): SeriesCatalogEntry[] {
+    const grouped = extractGroupedDatLevels(datBytes);
+
+    return IMPORT_RULESETS.map((ruleset) => {
+      const parsed = parseDatFile(datBytes, { ruleset });
+      const seriesFile = importedSeriesFile(filename, ruleset);
+
+      this.importedSeries.set(seriesFile, {
+        filename,
+        groupedLevels: grouped.levels.map((level) => ({
+          ...level,
+          levelData: new Uint8Array(level.levelData),
+          layerData: level.layerData.map((entry) => new Uint8Array(entry)),
+          layerNumbers: [...level.layerNumbers],
+        })),
+      });
+
+      return {
+        name: `${filename} (${ruleset})`,
+        filebase: seriesFile,
+        mapfilename: `local:${filename}`,
+        ruleset,
+        levels: parsed.levels,
+      } satisfies SeriesCatalogEntry;
+    });
+  }
+
   async loadLevel(request: LoadedLevelData["request"]): Promise<LoadedLevelData> {
+    const imported = this.importedSeries.get(request.seriesFile);
+    if (imported) {
+      const level = imported.groupedLevels.find((candidate) => candidate.number === request.levelNumber);
+      if (!level) {
+        throw new Error(`level ${request.levelNumber} not found in imported ${imported.filename}`);
+      }
+
+      return {
+        request: { ...request },
+        levelData: new Uint8Array(level.levelData),
+        layerData: level.layerData.map((entry) => new Uint8Array(entry)),
+      };
+    }
+
     const config = parseSeriesConfig(await this.loadSeriesConfig(request.seriesFile));
     const datFile = await this.loadDataFile(config.mapFile);
     const extracted = extractGroupedDatLevels(datFile);

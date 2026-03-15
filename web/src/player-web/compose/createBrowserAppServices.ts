@@ -15,5 +15,6 @@ export function createBrowserAppServices(): BrowserAppServices {
       MS: new MsGameEngineAdapter(levelRepository),
       Lynx: new LynxGameEngineAdapter(levelRepository),
     },
+    importDatFile: (file) => levelRepository.importDatFile(file),
   };
 }

@@ -140,6 +140,29 @@ function HistoryIcon() {
   );
 }
 
+function OpenIcon() {
+  return (
+    <svg aria-hidden="true" className="legacy-toolbar__icon" viewBox="0 0 16 16">
+      <path
+        d="M1.5 4.5h4l1.5 2h7v6.5h-12z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M8 9V2.5M5.5 5L8 2.5 10.5 5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
 const SERIES_LIST_HELP: HelpSection[] = [
   {
     title: "Series List",
@@ -149,6 +172,7 @@ const SERIES_LIST_HELP: HelpSection[] = [
       { keys: "Home / End", action: "jump to the first or last series" },
       { keys: "Enter / Space", action: "start the selected series" },
       { keys: "Mouse click", action: "select a series; click the selected row again to start it" },
+      { keys: "Open button / drag DAT", action: "import a local DAT file as MS and Lynx playable entries" },
     ],
   },
 ];
@@ -268,12 +292,37 @@ function pickLevelNumber(series: SeriesCatalogEntry | null, requested: number | 
   return series.levels[0]?.number ?? null;
 }
 
+function isDatFile(file: File): boolean {
+  return /\.dat$/iu.test(file.name);
+}
+
+function mergeSeriesCatalogEntries(
+  current: readonly SeriesCatalogEntry[],
+  additions: readonly SeriesCatalogEntry[],
+): SeriesCatalogEntry[] {
+  const next = [...current];
+  const indices = new Map(next.map((entry, index) => [entry.filebase, index] as const));
+
+  for (const addition of additions) {
+    const existingIndex = indices.get(addition.filebase);
+    if (existingIndex === undefined) {
+      indices.set(addition.filebase, next.length);
+      next.push(addition);
+      continue;
+    }
+
+    next[existingIndex] = addition;
+  }
+
+  return next;
+}
+
 interface PlayerAppProps {
   services: BrowserAppServices;
 }
 
 export function PlayerApp({ services }: PlayerAppProps) {
-  const { engines, fixtureRepository, selectionStore } = services;
+  const { engines, fixtureRepository, importDatFile, selectionStore } = services;
   const undoSettingsSeedRef = useRef<BrowserUndoSettings | null>(null);
   if (undoSettingsSeedRef.current === null) {
     undoSettingsSeedRef.current = loadStoredUndoSettings();
@@ -303,6 +352,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
+  const datFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
@@ -800,6 +850,69 @@ export function PlayerApp({ services }: PlayerAppProps) {
     setSoundMuted(true);
   });
 
+  const importLocalDatFiles = useEffectEvent(async (files: readonly File[]) => {
+    const candidates = files.filter(isDatFile);
+    if (candidates.length === 0) {
+      setMessage("Only .dat files can be imported from local storage.");
+      return;
+    }
+
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
+    setIsRunning(false);
+    setShowHelp(false);
+    setShowSoundControls(false);
+    setShowHistoryControls(false);
+
+    const results = await Promise.allSettled(
+      candidates.map(async (file) => ({
+        file,
+        entries: await importDatFile(file),
+      })),
+    );
+
+    const successes = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+    const failures = results.flatMap((result) =>
+      result.status === "rejected"
+        ? [result.reason instanceof Error ? result.reason.message : String(result.reason)]
+        : [],
+    );
+
+    if (successes.length === 0) {
+      setMessage(failures[0] ?? "Failed to import the selected DAT file.");
+      return;
+    }
+
+    const importedEntries = successes.flatMap(({ entries }) => entries);
+    const preferredRuleset =
+      currentRuleset ?? (currentSeries?.ruleset === "MS" || currentSeries?.ruleset === "Lynx" ? currentSeries.ruleset : "MS");
+    const selectedImport =
+      successes[0]?.entries.find((entry) => entry.ruleset === preferredRuleset) ?? successes[0]?.entries[0] ?? null;
+
+    startTransition(() => {
+      setCatalog((current) => mergeSeriesCatalogEntries(current, importedEntries));
+      setMode("series-list");
+      setSelectedSeriesFile(selectedImport?.filebase ?? null);
+      setSelectedLevelNumber(selectedImport?.levels[0]?.number ?? null);
+      if (failures.length === 0) {
+        setMessage(
+          successes.length === 1
+            ? `Imported ${successes[0]!.file.name}. MS and Lynx entries were added to the series list.`
+            : `Imported ${successes.length} DAT files. MS and Lynx entries were added to the series list.`,
+        );
+        return;
+      }
+
+      setMessage(
+        `Imported ${successes.length} DAT file${successes.length === 1 ? "" : "s"}; ${failures.length} failed. ${failures[0]}`,
+      );
+    });
+  });
+
+  const openDatPicker = useEffectEvent(() => {
+    datFileInputRef.current?.click();
+  });
+
   useEffect(() => {
     if (showHelp) {
       setShowSoundControls(false);
@@ -1142,7 +1255,31 @@ export function PlayerApp({ services }: PlayerAppProps) {
 
   return (
     <main className="legacy-shell">
+      <input
+        accept=".dat,.DAT"
+        hidden
+        multiple
+        onChange={(event) => {
+          const files = Array.from(event.currentTarget.files ?? []);
+          event.currentTarget.value = "";
+          if (files.length === 0) {
+            return;
+          }
+
+          void importLocalDatFiles(files);
+        }}
+        ref={datFileInputRef}
+        type="file"
+      />
       <div className="legacy-toolbar">
+        <button
+          aria-label="Import DAT files from local storage"
+          className="legacy-toolbar__button"
+          onClick={openDatPicker}
+          type="button"
+        >
+          <OpenIcon />
+        </button>
         <div className="legacy-sound">
           <button
             aria-expanded={showSoundControls}
@@ -1423,6 +1560,9 @@ export function PlayerApp({ services }: PlayerAppProps) {
           }
         }}
         onActivateSeries={activateSeries}
+        onDatDrop={(files) => {
+          void importLocalDatFiles(files);
+        }}
         onSelectSeries={selectSeries}
         selectedSeriesFile={selectedSeriesFile}
         session={session}

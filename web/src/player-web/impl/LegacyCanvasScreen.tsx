@@ -40,6 +40,7 @@ interface LegacyCanvasScreenProps {
   onSelectSeries: (seriesFile: string) => void;
   onActivateSeries: (seriesFile: string) => void;
   onMapClick?: (position: number) => void;
+  onDatDrop?: (files: File[]) => void;
 }
 
 const COLORS = {
@@ -736,9 +737,17 @@ export function LegacyCanvasScreen({
   onSelectSeries,
   onActivateSeries,
   onMapClick,
+  onDatDrop,
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
+  const [isDatDragActive, setIsDatDragActive] = useState(false);
+
+  useEffect(() => {
+    if (!onDatDrop) {
+      setIsDatDragActive(false);
+    }
+  }, [onDatDrop]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -770,7 +779,7 @@ export function LegacyCanvasScreen({
 
   return (
     <canvas
-      className="legacy-canvas"
+      className={`legacy-canvas${isDatDragActive ? " legacy-canvas--drop-active" : ""}`}
       height={LEGACY_WINDOW_HEIGHT}
       onClick={(event) => {
         const canvas = event.currentTarget;
@@ -807,6 +816,46 @@ export function LegacyCanvasScreen({
         } else {
           onSelectSeries(selected.filebase);
         }
+      }}
+      onDragEnter={(event) => {
+        if (!onDatDrop || !Array.from(event.dataTransfer.types).includes("Files")) {
+          return;
+        }
+
+        event.preventDefault();
+        setIsDatDragActive(true);
+      }}
+      onDragLeave={(event) => {
+        if (event.currentTarget !== event.target) {
+          return;
+        }
+
+        setIsDatDragActive(false);
+      }}
+      onDragOver={(event) => {
+        if (!onDatDrop || !Array.from(event.dataTransfer.types).includes("Files")) {
+          return;
+        }
+
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        if (!isDatDragActive) {
+          setIsDatDragActive(true);
+        }
+      }}
+      onDrop={(event) => {
+        if (!onDatDrop) {
+          return;
+        }
+
+        event.preventDefault();
+        setIsDatDragActive(false);
+        const files = Array.from(event.dataTransfer.files ?? []).filter((file) => /\.dat$/iu.test(file.name));
+        if (files.length === 0) {
+          return;
+        }
+
+        onDatDrop(files);
       }}
       ref={canvasRef}
       width={LEGACY_WINDOW_WIDTH}
