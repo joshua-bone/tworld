@@ -771,6 +771,65 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[chipPos]?.bottom.id).toBe(MS_TILE.Empty);
   });
 
+  it("does not duplicate Chip tiles when he falls onto a key and keeps moving", () => {
+    const chipPos = pos(14, 8);
+    const nextPos = pos(15, 8);
+    const runScenario = (inputs: number[]) => {
+      const lower = createEmptyCells();
+      const upper = createEmptyCellsAtZ(2);
+      lower[chipPos]!.top.id = MS_TILE.Key_Yellow;
+      lower[nextPos]!.top.id = MS_TILE.Empty;
+      upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+      upper[chipPos]!.bottom.id = MS_TILE.Air;
+      upper[nextPos]!.top.id = MS_TILE.Empty;
+
+      let session = createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells: lower,
+          creaturePositions: [],
+          layers: [
+            { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+            { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          ],
+        }),
+      );
+
+      for (const input of inputs) {
+        session = advanceMsInteractiveSession(session, input);
+      }
+
+      const chipLikeTiles = (session.state.engine.map.layers ?? [{ z: 1, cells: session.state.engine.map.cells }])
+        .flatMap((layer) => layer.cells)
+        .filter((cell) => {
+          const topBase = msCreatureId(cell.top.id);
+          const bottomBase = msCreatureId(cell.bottom.id);
+          return (
+            topBase === MS_TILE.Chip ||
+            topBase === MS_TILE.Swimming_Chip ||
+            bottomBase === MS_TILE.Chip ||
+            bottomBase === MS_TILE.Swimming_Chip
+          );
+        });
+
+      return { session, chipLikeTiles };
+    };
+
+    const scenarios = [
+      [MS_DIRECTION.none, MS_DIRECTION.none, MS_DIRECTION.none, MS_DIRECTION.east],
+      [MS_DIRECTION.none, MS_DIRECTION.none, MS_DIRECTION.east],
+    ];
+
+    for (const inputs of scenarios) {
+      const { session, chipLikeTiles } = runScenario(inputs);
+      expect(chipLikeTiles).toHaveLength(1);
+      expect(session.state.internal.chipPos).toBe(nextPos);
+      expect(chipLikeTiles[0]?.position.pos).toBe(session.state.internal.chipPos);
+      expect(chipLikeTiles[0]?.position.z ?? 1).toBe(session.state.internal.chipZ ?? 1);
+      expect(session.state.engine.map.cells[nextPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+    }
+  });
+
   it("does not arm ice movement when Chip falls from unsupported air onto ice", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);

@@ -4324,6 +4324,7 @@ function advanceMsTick(
   const layerCellsByZ = new Map<number, EngineMapCell[]>(mapLayers.map((layer) => [layer.z, layer.cells]));
   const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? mapLayers[0]!.cells;
   const cells = cellsForZ(state.internal.chipZ ?? 1);
+  const activeChipCells = (): EngineMapCell[] => cellsForZ(internal.chipZ ?? 1);
   const internal = cloneInternalState(state.internal);
   const inputLatchInternal = cloneInternalState(state.internal);
   const inventory = cloneInventory(state.engine.inventory);
@@ -4394,10 +4395,11 @@ function advanceMsTick(
     if (!debugPhases) {
       return;
     }
+    const phaseCells = activeChipCells();
     recordTurnDebugPhase(debugPhases, phase, (recordedPhase) =>
       projectMsDebugPhaseSnapshot(
         state,
-        cells,
+        phaseCells,
         internal,
         inventory,
         nextTick,
@@ -4417,10 +4419,11 @@ function advanceMsTick(
     if (!debugPhases) {
       return;
     }
+    const phaseCells = cellsForZ(snapshotInternal.chipZ ?? 1);
     recordTurnDebugPhase(debugPhases, phase, (recordedPhase) =>
       projectMsDebugPhaseSnapshot(
         state,
-        cells,
+        phaseCells,
         snapshotInternal,
         inventory,
         nextTick,
@@ -4472,7 +4475,7 @@ function advanceMsTick(
         internal.chipWait = 3;
         if (internal.chipDir !== MS_DIRECTION.none) {
           internal.chipDir = MS_DIRECTION.south;
-          updateChipTile(cells, internal);
+          updateChipTile(activeChipCells(), internal);
         }
       }
     }
@@ -4515,7 +4518,7 @@ function advanceMsTick(
       internal.floorMovementDir !== MS_DIRECTION.none;
 
     if (nextTick > 0 && (nextTick & 1) === 0) {
-      soundEffects |= runFloorMovement(state.engine, cells, layerCellsByZ, internal, inventory);
+      soundEffects |= runFloorMovement(state.engine, activeChipCells(), layerCellsByZ, internal, inventory);
       recordPhaseWithInternal(
         TURN_DEBUG_PHASE.postChipFloorMovement,
         cloneInternalState(internal),
@@ -4553,7 +4556,7 @@ function advanceMsTick(
     const replayLastMoveGoalPos = internal.goalPos;
     const replayLastMoveChipHasMoved = internal.chipHasMoved;
     const manualDir = isPlayablePhase()
-      ? chooseManualMovement(cells, internal, inventory, nextTick)
+      ? chooseManualMovement(activeChipCells(), internal, inventory, nextTick)
       : MS_DIRECTION.none;
     const chipPosBeforeManualMovement = internal.chipPos;
     const nextLastMove = resolveReplayLastMoveAfterChoose(
@@ -4595,7 +4598,7 @@ function advanceMsTick(
           },
           internal,
         },
-        cells,
+        activeChipCells(),
         soundEffects,
       );
     }
@@ -4620,7 +4623,7 @@ function advanceMsTick(
   ): MsGameState | null => {
     recordPhaseWithInternal(TURN_DEBUG_PHASE.postChipInput, cloneInternalState(internal), nextLastMove);
     if (isPlayablePhase()) {
-      soundEffects |= runManualMovement(cells, internal, inventory, manualDir);
+      soundEffects |= runManualMovement(activeChipCells(), internal, inventory, manualDir);
     }
     if (!isPlayablePhase()) {
       flushPendingSoundEffects();
