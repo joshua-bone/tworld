@@ -1686,7 +1686,7 @@ function getLynxChipForcedMove(
     }
   }
   if (isLynxElevator(floorId)) {
-    return { dir: 0, discardInput: true, moveKind: "elevator" };
+    return { dir: 0, discardInput: false, moveKind: "elevator" };
   }
   // Native Lynx does not apply forced-floor carry on the opening tick.
   if (state.timer.currentTime < 0) {
@@ -2512,13 +2512,18 @@ function advanceLynxCreature(
         } else {
           actor.moveKind = "planar";
           actor.ignoreIceFromAir = false;
-          return;
         }
-      } else if (isLynxElevator(floorBeforeMove)) {
-        if (!startLynxActorElevatorMovement(state, actors, actor)) {
-          return;
+      }
+
+      if (actor.moving <= 0 && isLynxElevator(floorBeforeMove)) {
+        if (startLynxActorElevatorMovement(state, actors, actor)) {
+          // Vertical move started; skip planar movement selection.
+        } else {
+          actor.moveKind = "planar";
         }
-      } else {
+      }
+
+      if (actor.moving <= 0) {
         const moveDir = actor.intentDir || actor.forcedDir || forcedLynxActorDirection(state, actor, floorBeforeMove, currentTime);
         actor.intentDir = 0;
         actor.forcedDir = 0;

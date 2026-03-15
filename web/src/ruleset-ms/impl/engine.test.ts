@@ -439,6 +439,69 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Wall);
   });
 
+  it("treats a blocked elevator as ordinary floor for Chip", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(12, 8);
+    const eastPos = pos(13, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[chipPos]!.bottom.id = MS_TILE.Elevator;
+    upper[chipPos]!.top.id = MS_TILE.Wall;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipZ).toBe(1);
+    expect(session.state.internal.chipPos).toBe(eastPos);
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+  });
+
+  it("treats supported air as ordinary floor for Chip", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(10, 8);
+    const eastPos = pos(11, 8);
+    lower[chipPos]!.top.id = MS_TILE.Elevator;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+    upper[eastPos]!.top.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.internal.chipPos).toBe(eastPos);
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+  });
+
   it("arms force-floor movement after an elevator rise onto a force floor", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);
