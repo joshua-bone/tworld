@@ -36,7 +36,7 @@ describe("3DINTRO showcase set", () => {
     const catalog = await loadNodeSeriesCatalogEntries(["3DINTRO-MS.dac", "3DINTRO-Lynx.dac"]);
 
     expect(catalog.map((entry) => entry.filebase)).toEqual(["3DINTRO-MS.dac", "3DINTRO-Lynx.dac"]);
-    expect(catalog.map((entry) => entry.levels.length)).toEqual([12, 12]);
+    expect(catalog.map((entry) => entry.levels.length)).toEqual([20, 20]);
     expect(catalog[0]?.levels.map((level) => level.name)).toEqual([
       "Air Key",
       "Ice Landing",
@@ -50,6 +50,14 @@ describe("3DINTRO showcase set", () => {
       "Elevator Push",
       "Layer Hints",
       "Layer Wiring",
+      "Block Over Air",
+      "Monster Over Air",
+      "Monster Air Fall",
+      "Monster Bomb Fall",
+      "Monster Water Fall",
+      "Block Bomb Fall",
+      "Block Water Fall",
+      "Block To Elevator",
     ]);
   });
 

@@ -417,6 +417,132 @@ function buildShowcaseLevels() {
         lowerHint: "Lower teleports, traps, and cloners are independent from the ones above.",
       },
     ),
+    buildTwoLayerLevel(
+      "Block Over Air",
+      (lower) => {
+        placeTop(lower, 5, 5, FILE.Elevator);
+        placeTop(lower, 6, 5, FILE.Elevator);
+        placeTop(lower, 7, 5, FILE.Elevator);
+        placeTop(lower, 8, 5, FILE.Elevator);
+      },
+      (upper) => {
+        placeActor(upper, 4, 5, FILE.Chip_East);
+        placeActor(upper, 5, 5, FILE.Block_Static, FILE.Air);
+        placeTop(upper, 6, 5, FILE.Air);
+        placeTop(upper, 7, 5, FILE.Air);
+        placeTop(upper, 8, 5, FILE.Air);
+        placeTop(upper, 10, 5, FILE.Exit);
+      },
+      {
+        upperHint: "Push the block east across multiple supported air tiles.",
+      },
+    ),
+    buildTwoLayerLevel(
+      "Monster Over Air",
+      (lower) => {
+        placeActor(lower, 3, 5, FILE.Chip_East);
+        placeTop(lower, 5, 5, FILE.Exit);
+        placeTop(lower, 8, 5, FILE.Elevator);
+        placeTop(lower, 9, 5, FILE.Elevator);
+        placeTop(lower, 10, 5, FILE.Elevator);
+        placeTop(lower, 11, 5, FILE.Elevator);
+      },
+      (upper) => {
+        placeTop(upper, 8, 5, FILE.Air);
+        placeTop(upper, 9, 5, FILE.Air);
+        placeTop(upper, 10, 5, FILE.Air);
+        placeActor(upper, 11, 5, FILE.Bug_West, FILE.Air);
+      },
+      {
+        upperHint: "The monster travels west across supported air tiles.",
+        lowerHint: "Take the short walk to the exit while the monster moves overhead.",
+      },
+    ),
+    buildTwoLayerLevel(
+      "Monster Air Fall",
+      (lower) => {
+        placeActor(lower, 3, 5, FILE.Chip_East);
+        placeTop(lower, 5, 5, FILE.Exit);
+      },
+      (upper) => {
+        placeTop(upper, 9, 5, FILE.Air);
+        placeActor(upper, 10, 5, FILE.Bug_West);
+      },
+      {
+        upperHint: "The monster walks from floor onto unsupported air and then falls.",
+      },
+    ),
+    buildTwoLayerLevel(
+      "Monster Bomb Fall",
+      (lower) => {
+        placeActor(lower, 3, 5, FILE.Chip_East);
+        placeTop(lower, 5, 5, FILE.Exit);
+        placeTop(lower, 10, 5, FILE.Bomb);
+      },
+      (upper) => {
+        placeActor(upper, 10, 5, FILE.Bug_West, FILE.Air);
+      },
+      {
+        upperHint: "An unsupported monster falls onto a bomb.",
+      },
+    ),
+    buildTwoLayerLevel(
+      "Monster Water Fall",
+      (lower) => {
+        placeActor(lower, 3, 5, FILE.Chip_East);
+        placeTop(lower, 5, 5, FILE.Exit);
+        placeTop(lower, 10, 5, FILE.Water);
+      },
+      (upper) => {
+        placeActor(upper, 10, 5, FILE.Bug_West, FILE.Air);
+      },
+      {
+        upperHint: "An unsupported monster falls into water.",
+      },
+    ),
+    buildTwoLayerLevel(
+      "Block Bomb Fall",
+      (lower) => {
+        placeActor(lower, 3, 5, FILE.Chip_East);
+        placeTop(lower, 5, 5, FILE.Exit);
+        placeTop(lower, 10, 5, FILE.Bomb);
+      },
+      (upper) => {
+        placeActor(upper, 10, 5, FILE.Block_Static, FILE.Air);
+      },
+      {
+        upperHint: "An unsupported block falls onto a bomb.",
+      },
+    ),
+    buildTwoLayerLevel(
+      "Block Water Fall",
+      (lower) => {
+        placeActor(lower, 3, 5, FILE.Chip_East);
+        placeTop(lower, 5, 5, FILE.Exit);
+        placeTop(lower, 10, 5, FILE.Water);
+      },
+      (upper) => {
+        placeActor(upper, 10, 5, FILE.Block_Static, FILE.Air);
+      },
+      {
+        upperHint: "An unsupported block falls into water.",
+      },
+    ),
+    buildTwoLayerLevel(
+      "Block To Elevator",
+      (lower) => {
+        placeActor(lower, 4, 5, FILE.Chip_East);
+        placeActor(lower, 5, 5, FILE.Block_Static);
+        placeTop(lower, 6, 5, FILE.Elevator);
+        placeTop(lower, 10, 5, FILE.Exit);
+      },
+      (upper) => {
+        placeTop(upper, 6, 5, FILE.Air);
+      },
+      {
+        upperHint: "Push the lower-layer block east onto the elevator so it rises into the air cell above.",
+      },
+    ),
   ];
 }
 
