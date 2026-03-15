@@ -930,6 +930,51 @@ describe("advanceLynxInteractiveSession", () => {
       expect.arrayContaining([expect.objectContaining({ pos: ballPos, tileId: 0x76 })]),
     );
   });
+
+  it("does not carry a tapped manual input into the next tile after Chip finishes moving", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.Empty, MS_TILE.Empty),
+        createCell(66, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+    );
+
+    let current = advanceLynxInteractiveSession(session, 8);
+    current = advanceLynxInteractiveSession(current, 4);
+    current = advanceLynxInteractiveSession(current, 0);
+    current = advanceLynxInteractiveSession(current, 0);
+    current = advanceLynxInteractiveSession(current, 0);
+
+    expect(current.chipPos).toBe(34);
+    expect(current.chipDir).toBe(8);
+    expect(current.chipMoving).toBe(0);
+    expect(current.currentInputCode).toBe(0);
+    expect(current.state.view).toEqual({ x: 16, y: 8 });
+  });
+
+  it("still allows held manual input to chain into the next move when it is polled again on later ticks", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.Empty, MS_TILE.Empty),
+        createCell(66, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+    );
+
+    let current = advanceLynxInteractiveSession(session, 8);
+    current = advanceLynxInteractiveSession(current, 4);
+    current = advanceLynxInteractiveSession(current, 4);
+    current = advanceLynxInteractiveSession(current, 4);
+    current = advanceLynxInteractiveSession(current, 4);
+
+    expect(current.chipPos).toBe(66);
+    expect(current.chipDir).toBe(4);
+    expect(current.chipMoving).toBe(6);
+    expect(current.currentInputCode).toBe(0);
+  });
 });
 
 describe("runLynxInputTrace", () => {

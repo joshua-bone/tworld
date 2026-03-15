@@ -3187,6 +3187,7 @@ function advanceLynxInteractiveTick(
   scheduledInputCode: number | null,
 ): LynxInteractiveSessionState {
   const replayMode = session.replayPlan !== null;
+  const carryCurrentInputAcrossTicks = replayMode;
   const state = session.state;
   const level = session.level;
   setLynxActiveLayer(state, session.chipZ ?? 1);
@@ -3207,7 +3208,7 @@ function advanceLynxInteractiveTick(
   let chipDir = session.chipDir;
   let chipMoving = session.chipMoving;
   let chipMoveKind = session.chipMoveKind ?? "planar";
-  let currentInputCode = session.currentInputCode;
+  let currentInputCode = carryCurrentInputAcrossTicks ? session.currentInputCode : 0;
   let queuedReplayInputCode = session.queuedReplayInputCode;
   let queuedChipInputCode = session.queuedChipInputCode;
   let chipPushing = false;
@@ -3622,7 +3623,7 @@ function advanceLynxInteractiveTick(
     chipDir,
     chipMoving,
     chipMoveKind,
-    currentInputCode,
+    currentInputCode: carryCurrentInputAcrossTicks ? currentInputCode : 0,
     queuedReplayInputCode,
     queuedChipInputCode,
     chipPushing,
