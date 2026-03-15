@@ -13,6 +13,10 @@ This document captures the agreed engine-side and display-side rules for stacked
   - `z = 2`, `z = 3`, ... are upper layers.
 - Layer order in gameplay is always normalized so `z = 1` is the base layer regardless of whether the DAT run is written upward or downward.
 - The merged level title strips the trailing layer suffix from the grouped title.
+- Grouped runs count as one logical level for selection and level numbering.
+- Public level numbering is the grouped ordinal within the DAT file:
+  - if levels 1-4 form one run, that logical level is level 1
+  - if the next run is levels 5-7, that logical level is level 2
 
 ## Metadata
 

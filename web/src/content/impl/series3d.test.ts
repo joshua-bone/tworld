@@ -62,13 +62,13 @@ describe("3D DAT grouping", () => {
     const grouped = extractGroupedDatLevels(dat);
 
     expect(parsed.levelCount).toBe(2);
-    expect(parsed.levels.map((level) => level.number)).toEqual([1, 3]);
+    expect(parsed.levels.map((level) => level.number)).toEqual([1, 2]);
     expect(parsed.levels.map((level) => level.name)).toEqual(["Stacked", "Solo"]);
     expect(grouped.levels).toHaveLength(2);
     expect(grouped.levels[0]?.number).toBe(1);
     expect(grouped.levels[0]?.layerNumbers).toEqual([1, 2]);
     expect(grouped.levels[0]?.layerData).toHaveLength(2);
-    expect(grouped.levels[1]?.number).toBe(3);
+    expect(grouped.levels[1]?.number).toBe(2);
     expect(grouped.levels[1]?.layerNumbers).toEqual([3]);
   });
 
@@ -84,14 +84,15 @@ describe("3D DAT grouping", () => {
     const grouped = extractGroupedDatLevels(dat);
 
     expect(parsed.levelCount).toBe(2);
-    expect(parsed.levels.map((level) => level.number)).toEqual([3, 4]);
+    expect(parsed.levels.map((level) => level.number)).toEqual([1, 2]);
     expect(parsed.levels.map((level) => level.name)).toEqual(["Descending", "Solo"]);
     expect(parsed.levels[0]?.password).toBe("WXYZ");
     expect(grouped.levels).toHaveLength(2);
-    expect(grouped.levels[0]?.number).toBe(3);
+    expect(grouped.levels[0]?.number).toBe(1);
     expect(grouped.levels[0]?.levelData).toEqual(createLevelData(3, "Descending\\1", "WXYZ"));
     expect(grouped.levels[0]?.layerNumbers).toEqual([3, 2, 1]);
     expect(grouped.levels[0]?.layerData).toHaveLength(3);
+    expect(grouped.levels[1]?.number).toBe(2);
     expect(grouped.levels[1]?.layerNumbers).toEqual([4]);
   });
 

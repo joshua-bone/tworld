@@ -67,7 +67,7 @@ describe("BrowserLevelRepository", () => {
     expect(msEntry?.filebase).toBe("Imported (MS)");
     expect(lynxEntry?.filebase).toBe("Imported (Lynx)");
     expect(msEntry?.levels.map((level) => level.name)).toEqual(["Imported Stack", "Imported Solo"]);
-    expect(lynxEntry?.levels.map((level) => level.number)).toEqual([1, 3]);
+    expect(lynxEntry?.levels.map((level) => level.number)).toEqual([1, 2]);
 
     const loaded = await repository.loadLevel({
       seriesFile: msEntry!.filebase,

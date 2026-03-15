@@ -351,6 +351,7 @@ export function parseDatFile(data: Uint8Array, options: { ruleset?: RulesetName 
     if (run.baseName !== null) {
       level.name = run.baseName;
     }
+    level.number = groupedIndex + 1;
     level.index = groupedIndex;
     return level;
   });
@@ -420,7 +421,7 @@ export function extractGroupedDatLevels(data: Uint8Array): {
       const logicalLayers = run.descending ? [...layers].reverse() : layers;
       return {
         index: groupedIndex,
-        number: primary.number,
+        number: groupedIndex + 1,
         levelData: primary.levelData,
         layerData: logicalLayers.map((layer) => layer.levelData),
         layerNumbers: logicalLayers.map((layer) => layer.number),
