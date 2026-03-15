@@ -271,7 +271,7 @@ function buildShowcaseLevels() {
       },
       (upper) => {
         placeActor(upper, 5, 5, FILE.Chip_East, FILE.Air);
-        placeBottom(upper, 10, 5, FILE.Air);
+        placeTop(upper, 10, 5, FILE.Air);
         placeTop(upper, 14, 5, FILE.Exit);
       },
       {
@@ -289,7 +289,7 @@ function buildShowcaseLevels() {
       },
       (upper) => {
         placeActor(upper, 5, 5, FILE.Chip_East, FILE.Air);
-        placeBottom(upper, 10, 5, FILE.Air);
+        placeTop(upper, 10, 5, FILE.Air);
         placeActor(upper, 16, 5, FILE.Block_Static, FILE.Air);
       },
       {
@@ -307,7 +307,7 @@ function buildShowcaseLevels() {
       },
       (upper) => {
         placeActor(upper, 5, 5, FILE.Chip_East);
-        placeBottom(upper, 10, 5, FILE.Air);
+        placeTop(upper, 10, 5, FILE.Air);
         placeTop(upper, 14, 5, FILE.Exit);
       },
       {
@@ -344,12 +344,12 @@ function buildShowcaseLevels() {
       "Elevator Rise",
       (lower) => {
         placeActor(lower, 3, 5, FILE.Chip_East);
-        placeBottom(lower, 5, 5, FILE.Elevator);
-        placeBottom(lower, 10, 5, FILE.Elevator);
+        placeTop(lower, 5, 5, FILE.Elevator);
+        placeTop(lower, 10, 5, FILE.Elevator);
       },
       (upper) => {
         placeTop(upper, 5, 5, FILE.Wall);
-        placeBottom(upper, 10, 5, FILE.Air);
+        placeTop(upper, 10, 5, FILE.Air);
         placeTop(upper, 12, 5, FILE.Exit);
       },
       {
@@ -360,7 +360,7 @@ function buildShowcaseLevels() {
       "Elevator Push",
       (lower) => {
         placeActor(lower, 3, 5, FILE.Chip_East);
-        placeBottom(lower, 10, 5, FILE.Elevator);
+        placeTop(lower, 10, 5, FILE.Elevator);
       },
       (upper) => {
         placeActor(upper, 10, 5, FILE.Block_Static, FILE.Air);
@@ -373,12 +373,12 @@ function buildShowcaseLevels() {
     buildTwoLayerLevel(
       "Layer Hints",
       (lower) => {
-        placeBottom(lower, 8, 5, FILE.HintButton);
+        placeTop(lower, 8, 5, FILE.HintButton);
         placeTop(lower, 12, 5, FILE.Exit);
       },
       (upper) => {
         placeActor(upper, 5, 5, FILE.Chip_East, FILE.HintButton);
-        placeBottom(upper, 8, 5, FILE.Air);
+        placeTop(upper, 8, 5, FILE.Air);
       },
       {
         upperHint: "This is the upper-layer hint. Fall through the air hole for a different hint below.",
@@ -402,7 +402,7 @@ function buildShowcaseLevels() {
         placeActor(upper, 3, 5, FILE.Chip_East);
         placeTop(upper, 10, 5, FILE.Teleport);
         placeTop(upper, 14, 5, FILE.Teleport);
-        placeBottom(upper, 22, 5, FILE.Air);
+        placeTop(upper, 22, 5, FILE.Air);
         placeTop(upper, 5, 10, FILE.Button_Brown);
         placeActor(upper, 6, 10, FILE.Ball_North, FILE.Beartrap);
         placeTop(upper, 10, 10, FILE.Button_Red);

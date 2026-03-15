@@ -3,6 +3,8 @@ import { loadNodeSeriesCatalogEntries } from "@level-catalog/impl/loadNodeSeries
 import { NodeLevelRepository } from "@level-catalog/impl/NodeLevelRepository";
 import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
 import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter";
+import { decodeMsLevelGroupData, prepareMsLevel } from "@ruleset-ms/api/level";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 async function advanceMany<TSession>(session: TSession, advance: (session: TSession) => Promise<TSession>, count: number): Promise<TSession> {
   let current = session;
@@ -10,6 +12,11 @@ async function advanceMany<TSession>(session: TSession, advance: (session: TSess
     current = await advance(current);
   }
   return current;
+}
+
+function tileIdAtLevel(level: ReturnType<typeof prepareMsLevel>, z: number, x: number, y: number): number | null {
+  const layer = (level.layers ?? [{ z: 1, cells: level.cells }]).find((entry) => entry.z === z);
+  return layer?.cells.find((cell) => cell.position.x === x && cell.position.y === y)?.top.id ?? null;
 }
 
 describe("3DINTRO showcase set", () => {
@@ -68,5 +75,31 @@ describe("3DINTRO showcase set", () => {
       expect(started.frame.visibleLayers.length).toBeGreaterThan(0);
       expect(advanced.frame.visibleLayers.length).toBeGreaterThan(0);
     }
+  });
+
+  it("keeps static 3D terrain on the top layer in the showcase data", async () => {
+    const levels = new NodeLevelRepository();
+    const [series] = await loadNodeSeriesCatalogEntries(["3DINTRO-MS.dac"]);
+    const levelNumberByName = new Map(series?.levels.map((level) => [level.name, level.number]) ?? []);
+
+    const elevatorRiseLoaded = await levels.loadLevel({
+      seriesFile: "3DINTRO-MS.dac",
+      levelNumber: levelNumberByName.get("Elevator Rise") ?? 0,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+    const elevatorRise = prepareMsLevel(decodeMsLevelGroupData(elevatorRiseLoaded.layerData));
+    expect(tileIdAtLevel(elevatorRise, 1, 5, 5)).toBe(MS_TILE.Elevator);
+    expect(tileIdAtLevel(elevatorRise, 2, 10, 5)).toBe(MS_TILE.Air);
+
+    const layerHintsLoaded = await levels.loadLevel({
+      seriesFile: "3DINTRO-MS.dac",
+      levelNumber: levelNumberByName.get("Layer Hints") ?? 0,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+    const layerHints = prepareMsLevel(decodeMsLevelGroupData(layerHintsLoaded.layerData));
+    expect(tileIdAtLevel(layerHints, 1, 8, 5)).toBe(MS_TILE.HintButton);
+    expect(tileIdAtLevel(layerHints, 2, 8, 5)).toBe(MS_TILE.Air);
   });
 });
