@@ -60,7 +60,7 @@ const FILE_COLUMN_X = LEGACY_MARGIN;
 const RULESET_COLUMN_X = 520;
 const LOWER_LAYER_SCALE = 0.9;
 const LOWER_LAYER_BLUR_PX = 1;
-const LOWER_LAYER_BRIGHTNESS = 0.75;
+const LOWER_LAYER_DARKEN_PER_DEPTH = 0.25;
 const SUPPORT_BORDER_COLOR = "#2c8cff";
 const ELEVATOR_FAILURE_BORDER_COLOR = "#ff4040";
 const ELEVATOR_BASE_COLOR = "#2f9f4a";
@@ -552,13 +552,14 @@ function drawVisibleLayerStack(
     const layerCanvas = layerCanvases[index]!;
     const depth = index;
     const scale = LOWER_LAYER_SCALE ** depth;
+    const brightness = Math.max(0, 1 - depth * LOWER_LAYER_DARKEN_PER_DEPTH);
     const width = layerCanvas.width * scale;
     const height = layerCanvas.height * scale;
     const x = LEGACY_MAP_X + (LEGACY_MAP_WIDTH - width) / 2;
     const y = LEGACY_MAP_Y + (LEGACY_MAP_HEIGHT - height) / 2;
 
     context.save();
-    context.filter = `blur(${LOWER_LAYER_BLUR_PX}px) brightness(${LOWER_LAYER_BRIGHTNESS})`;
+    context.filter = `blur(${LOWER_LAYER_BLUR_PX}px) brightness(${brightness})`;
     context.drawImage(layerCanvas, x, y, width, height);
     context.restore();
   }
