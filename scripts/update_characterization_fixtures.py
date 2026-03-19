@@ -28,6 +28,7 @@ ORACLE_COMMANDS = (
 TRACE_SPECS_PATH = Path("scripts/characterization_trace_specs.json")
 REPLAY_TRACE_SPECS_PATH = Path("scripts/characterization_replay_specs.json")
 SOLUTION_SPECS_PATH = Path("scripts/characterization_solution_specs.json")
+SERIES_LIST_PATH = Path("scripts/characterization_series.json")
 
 
 def run(cmd: list[str], cwd: Optional[Path] = None, capture_output: bool = True) -> subprocess.CompletedProcess[str]:
@@ -119,6 +120,18 @@ def write_json(path: Path, payload: dict) -> None:
     )
 
 
+def load_included_series(repo_root: Path) -> Optional[list[str]]:
+    series_list_path = repo_root / SERIES_LIST_PATH
+    if not series_list_path.exists():
+        return None
+
+    loaded = json.loads(series_list_path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, list) or any(not isinstance(item, str) for item in loaded):
+        raise SystemExit(f"invalid series allowlist in {series_list_path}")
+
+    return loaded
+
+
 def generate_fixtures(repo_root: Path, oracle: Path, fixture_root: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="tworld-characterization-") as temp_dir:
         workspace_root = Path(temp_dir)
@@ -129,6 +142,31 @@ def generate_fixtures(repo_root: Path, oracle: Path, fixture_root: Path) -> None
         fixture_root.mkdir(parents=True, exist_ok=True)
 
         series_list = parse_json_output(oracle, workspace_root, "series-list")
+        included_series = load_included_series(repo_root)
+        if included_series is not None:
+            available_series = {
+                entry["filebase"]: entry
+                for entry in series_list["series"]
+            }
+            missing_series = [series_name for series_name in included_series if series_name not in available_series]
+            if missing_series:
+                raise SystemExit(f"series missing from oracle export: {', '.join(missing_series)}")
+            series_list["series"] = [available_series[series_name] for series_name in included_series]
+            if "table" in series_list and isinstance(series_list["table"], dict):
+                table_data = series_list["table"].get("data")
+                if isinstance(table_data, list) and table_data:
+                    header_row = table_data[0]
+                    filtered_rows = [
+                        row
+                        for row in table_data[1:]
+                        if isinstance(row, list)
+                        and row
+                        and isinstance(row[0], dict)
+                        and row[0].get("text") in available_series
+                        and row[0].get("text") in included_series
+                    ]
+                    series_list["table"]["data"] = [header_row, *filtered_rows]
+                    series_list["table"]["rows"] = len(series_list["table"]["data"])
         write_json(fixture_root / "series-list.json", series_list)
         series = [entry["filebase"] for entry in series_list["series"]]
 

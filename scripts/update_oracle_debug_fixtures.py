@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import gzip
+import io
 import json
 import shutil
 import sys
@@ -25,9 +26,11 @@ DEBUG_SPECS_PATH = Path("scripts/oracle_debug_specs.json")
 
 def write_gzip_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with gzip.open(path, "wt", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2)
-        handle.write("\n")
+    with path.open("wb") as raw_handle:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=raw_handle, mtime=0) as gzip_handle:
+            with io.TextIOWrapper(gzip_handle, encoding="utf-8") as handle:
+                json.dump(payload, handle, indent=2)
+                handle.write("\n")
 
 
 def generate_debug_fixtures(repo_root: Path, oracle: Path, fixture_root: Path) -> None:
