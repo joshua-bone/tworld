@@ -4,6 +4,7 @@ import {
   listBrowserSeriesCatalogFiles,
   loadBrowserSeriesCatalogEntries,
 } from "@level-catalog/impl/loadBrowserSeriesCatalogEntries";
+import { listSetFamilyFilebasesForSeriesFile } from "@player-web/impl/modern/curatedCatalog";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 
@@ -26,9 +27,13 @@ export function resolveModernBootstrapCatalogOptions(
   }
 
   if (availableBrowserSeriesFiles.includes(selection.seriesFile)) {
+    const familySeriesFiles = listSetFamilyFilebasesForSeriesFile(selection.seriesFile)?.filter((seriesFile) =>
+      availableBrowserSeriesFiles.includes(seriesFile),
+    );
+
     return {
       includeImported: false,
-      seriesFiles: [selection.seriesFile],
+      seriesFiles: familySeriesFiles && familySeriesFiles.length > 0 ? familySeriesFiles : [selection.seriesFile],
     };
   }
 

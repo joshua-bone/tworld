@@ -13,11 +13,23 @@ describe("resolveModernBootstrapCatalogOptions", () => {
     expect(
       resolveModernBootstrapCatalogOptions(
         { seriesFile: "CCLP4-Lynx.dac", levelNumber: 12 },
-        ["CCLP1-MS.dac", "CCLP1-Lynx.dac", "CCLP4-Lynx.dac"],
+        ["CCLP1-MS.dac", "CCLP1-Lynx.dac", "CCLP4-MS.dac", "CCLP4-Lynx.dac"],
       ),
     ).toEqual({
       includeImported: false,
-      seriesFiles: ["CCLP4-Lynx.dac"],
+      seriesFiles: ["CCLP4-MS.dac", "CCLP4-Lynx.dac"],
+    });
+  });
+
+  it("bootstraps all wrappers in the saved family so a replaced DAT stays authoritative for both rulesets", () => {
+    expect(
+      resolveModernBootstrapCatalogOptions(
+        { seriesFile: "3DINTRO-MS.dac", levelNumber: 2 },
+        ["3DINTRO-MS.dac", "3DINTRO-Lynx.dac"],
+      ),
+    ).toEqual({
+      includeImported: false,
+      seriesFiles: ["3DINTRO-MS.dac", "3DINTRO-Lynx.dac"],
     });
   });
 

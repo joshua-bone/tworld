@@ -251,6 +251,11 @@ const FAMILY_DEFINITION_BY_FILEBASE = new Map(
   FAMILY_DEFINITIONS.flatMap((definition) => definition.filebases.map((filebase) => [filebase, definition] as const)),
 );
 
+export function listSetFamilyFilebasesForSeriesFile(seriesFile: string): string[] | null {
+  const definition = FAMILY_DEFINITION_BY_FILEBASE.get(seriesFile);
+  return definition ? [...definition.filebases] : null;
+}
+
 function basename(path: string): string {
   const parts = path.split("/");
   return parts[parts.length - 1] ?? path;
