@@ -148,9 +148,9 @@ describe("buildCuratedCatalogView", () => {
     );
 
     expect(view.officialFamilies.map((family) => family.title)).toEqual(["CCLP1"]);
-    expect(view.introFamilies).toEqual([]);
+    expect(view.introFamilies.map((family) => family.title)).toEqual(["3D_INTRO"]);
     expect(view.localFamilies.map((family) => family.title)).toEqual(["Imported"]);
-    expect(view.otherFamilies.map((family) => family.title)).toEqual(["Intro", "3DTESTCASES", "CCZoneTT"]);
+    expect(view.otherFamilies.map((family) => family.title)).toEqual(["Intro", "CCZoneTT"]);
   });
 
   it("recognizes curated custom sets with explicit titles and descriptions", () => {
@@ -160,13 +160,16 @@ describe("buildCuratedCatalogView", () => {
         createEntry("po100t-Lynx.dac", "./data/po100t.dat", "Lynx", 100),
         createEntry("TS0-MS.dac", "./data/TS0.dat", "MS", 2),
         createEntry("TS0-Lynx.dac", "./data/TS0.dat", "Lynx", 2),
+        createEntry("3DINTRO-MS.dac", "./data/3DINTRO.dat", "MS", 6),
+        createEntry("3DINTRO-Lynx.dac", "./data/3DINTRO.dat", "Lynx", 6),
       ],
       null,
     );
 
-    expect(view.introFamilies.map((family) => family.title)).toEqual(["The Pit Of 100 Tiles", "TS0"]);
+    expect(view.introFamilies.map((family) => family.title)).toEqual(["The Pit Of 100 Tiles", "TS0", "3D_INTRO"]);
     expect(listSetFamilyRulesets(view.introFamilies[0]!)).toEqual(["Lynx", "MS"]);
     expect(listSetFamilyRulesets(view.introFamilies[1]!)).toEqual(["Lynx", "MS"]);
+    expect(listSetFamilyRulesets(view.introFamilies[2]!)).toEqual(["Lynx", "MS"]);
     expect(view.introFamilies[0]).toMatchObject({
       sidebarSummary: "Andrew Menzies",
       description: "The Pit Of 100 Tiles by Andrew Menzies. Custom levelset used by author's permission.",
@@ -174,6 +177,10 @@ describe("buildCuratedCatalogView", () => {
     expect(view.introFamilies[1]).toMatchObject({
       sidebarSummary: "Tyler Sontag",
       description: "TS0 by Tyler Sontag. Custom levelset used by author's permission.",
+    });
+    expect(view.introFamilies[2]).toMatchObject({
+      sidebarSummary: "Joshua Bone",
+      description: "Introduction to 3D Tile World levels. Work in progress.",
     });
   });
 

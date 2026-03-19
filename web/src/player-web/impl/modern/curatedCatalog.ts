@@ -226,6 +226,16 @@ const FAMILY_DEFINITIONS: readonly CuratedFamilyDefinition[] = [
     order: 110,
   },
   {
+    id: "curated:3d-intro",
+    section: "intro",
+    title: "3D_INTRO",
+    badge: "Curated",
+    sidebarSummary: "Joshua Bone",
+    description: "Introduction to 3D Tile World levels. Work in progress.",
+    filebases: ["3DINTRO-MS.dac", "3DINTRO-Lynx.dac"],
+    order: 115,
+  },
+  {
     id: "intro",
     section: "other",
     title: "Intro",
@@ -234,16 +244,6 @@ const FAMILY_DEFINITIONS: readonly CuratedFamilyDefinition[] = [
     context: "A short tutorial-like pack for learning controls, timing, and ruleset differences without committing to a full official set.",
     filebases: ["intro-ms.dac", "intro-lynx.dac"],
     order: 120,
-  },
-  {
-    id: "other:3dtestcases",
-    section: "other",
-    title: "3DTESTCASES",
-    badge: "QA",
-    description: "Renderer smoke and regression cases.",
-    context: "Internal-looking 3D showcase and test content that should stay available without reading like a mainline pack.",
-    filebases: ["3DINTRO-MS.dac", "3DINTRO-Lynx.dac"],
-    order: 500,
   },
 ] as const;
 
@@ -262,9 +262,6 @@ function stripExtension(filename: string): string {
 
 function formatCatalogTitle(value: string): string {
   const normalized = value.replace(/^public_/u, "");
-  if (normalized === "3DINTRO") {
-    return "3DTESTCASES";
-  }
   return normalized;
 }
 
