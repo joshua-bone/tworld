@@ -73,12 +73,6 @@ const ABOUT_LINKS = {
   legacy: "/legacy",
 } as const;
 
-const ABOUT_REPLAY_STATUS = {
-  msPassing: 2825,
-  msLegacyExcluded: 12,
-  lynxPassing: 1007,
-} as const;
-
 const DASHBOARD_COLLAPSED_PANE_WIDTH = 44;
 const DASHBOARD_DEFAULT_SETS_PANE_WIDTH = 292;
 const DASHBOARD_DEFAULT_LEVELS_PANE_WIDTH = 276;
@@ -1565,24 +1559,32 @@ export function ModernPlayerApp({
               <section className="modern-about-modal__section">
                 <p className="modern-preference-block__label">Project</p>
                 <p className="modern-dashboard__copy">
-                  Tile World Online is a browser conversion of Tile World that keeps the legacy player intact while moving level browsing, replay tools, undo history, and ruleset switching into a modern web UI.
+                  Tile World Online is a Typescript port of Tile World that brings the classic MS and Lynx rulesets into a modern browser UI. It includes rich features like improved level browsing and progress tracking, undo history, replay tools, ruleset switching, and even 3D levels. Tile World Online is a static website; all progress, scores and replays are saved locally.
                 </p>
               </section>
 
               <section className="modern-about-modal__section">
-                <p className="modern-preference-block__label">Replay Status</p>
+                <p className="modern-preference-block__label">Engine Parity</p>
                 <p className="modern-dashboard__copy">
-                  The current MS conversion is green on {ABOUT_REPLAY_STATUS.msPassing.toLocaleString()} local replays, assuming the current {ABOUT_REPLAY_STATUS.msLegacyExcluded} native-invalid legacy failures stay excluded. The tracked local Lynx frontier is green on {ABOUT_REPLAY_STATUS.lynxPassing.toLocaleString()} replays.
+                  Core gameplay logic has been verified on over 2,500 replays per ruleset in an attempt to ensure exact behavior parity with legacy Tile World. That being said, the Typescript port runs in a fundamentally different runtime environment than the original C implementation, and there are likely to be subtle differences between the engines. There may also be outright bugs remaining in the code that may be uncovered as playtesting progresses.
                 </p>
               </section>
 
               <section className="modern-about-modal__section">
                 <p className="modern-preference-block__label">License And Credits</p>
                 <p className="modern-dashboard__copy">
-                  Tile World is free software under the GNU GPL, version 2 or later. Copyright © 2001-2025 Brian Raiter, Madhav Shanbhag, and Eric Schmidt.
+                  Tile World Online (TWO) is a browser based TypeScript port of Tile World / Tile World 2, and includes code derived from the original Tile World codebase.
                 </p>
                 <p className="modern-dashboard__copy">
-                  Original Tile World was written by Brian Raiter. Tile World 2 was developed by Madhav Shanbhag, with later releases and maintenance by Eric Schmidt, Michael Hansen (Zrax), ChosenID, David Stolp, A Sickly Silver Moon, G lander, and Eevee. Chip&apos;s Challenge itself was designed by Chuck Sommerville.
+                  Copyright © 2026 Joshua Bone
+                  <br />
+                  Portions Copyright © 2001-2025 Brian Raiter, Madhav Shanbhag, and Eric Schmidt
+                </p>
+                <p className="modern-dashboard__copy">
+                  Released under the GNU General Public License, version 2 or later.
+                </p>
+                <p className="modern-dashboard__copy">
+                  Original Tile World was written by Brian Raiter. Tile World 2 was developed by Madhav Shanbhag, with later releases and maintenance by Eric Schmidt, Michael Hansen (Zrax), ChosenID, David Stolp (pieguy), A Sickly Silver Moon, G lander, and Eevee. Chip&apos;s Challenge was designed by Chuck Sommerville.
                 </p>
               </section>
 
@@ -1590,20 +1592,25 @@ export function ModernPlayerApp({
                 <p className="modern-preference-block__label">Links</p>
                 <div className="modern-set-card__links modern-about-modal__links">
                   <a className="modern-inline-link" href={ABOUT_LINKS.browserPortRepo} rel="noreferrer" target="_blank">
-                    Browser conversion repo
+                    Tile World Online repo
                   </a>
+                  <span aria-hidden="true">|</span>
                   <a className="modern-inline-link" href={ABOUT_LINKS.tileWorldRepo} rel="noreferrer" target="_blank">
                     Tile World repo
                   </a>
+                  <span aria-hidden="true">|</span>
                   <a className="modern-inline-link" href={ABOUT_LINKS.bitbustersClub} rel="noreferrer" target="_blank">
                     Bit Busters Club
                   </a>
+                  <span aria-hidden="true">|</span>
                   <a className="modern-inline-link" href={ABOUT_LINKS.bitbustersWiki} rel="noreferrer" target="_blank">
                     Chip Wiki
                   </a>
+                  <span aria-hidden="true">|</span>
                   <a className="modern-inline-link" href={ABOUT_LINKS.discord} rel="noreferrer" target="_blank">
                     Discord server
                   </a>
+                  <span aria-hidden="true">|</span>
                   <a
                     className="modern-inline-link"
                     href={ABOUT_LINKS.legacy}
@@ -1613,7 +1620,7 @@ export function ModernPlayerApp({
                       onOpenClassic();
                     }}
                   >
-                    Legacy experience
+                    TWO Legacy UI
                   </a>
                 </div>
               </section>
