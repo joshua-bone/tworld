@@ -1271,7 +1271,58 @@ describe("MS engine regressions", () => {
     expect(afterClick.state.internal.goalPos).toBe(targetPos);
     expect(afterPreserve1.state.internal.goalPos).toBe(targetPos);
     expect(afterPreserve2.state.internal.chipPos).toBe(targetPos);
-    expect(afterPreserve2.recordedMoves).toEqual([{ when: 0, dir: absoluteMouseMoveCode(targetPos) }]);
+    expect(afterPreserve2.recordedMoves).toEqual([{ when: 0, dir: relativeMouseMoveCode(chipPos, targetPos) }]);
+  });
+
+  it("records each direct manual absolute mouse retarget on the tick it is consumed", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const eastTargetPos = pos(11, 10);
+    const westTargetPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, absoluteMouseMoveCode(eastTargetPos));
+    session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.preserve);
+    session = advanceMsInteractiveSession(session, absoluteMouseMoveCode(westTargetPos));
+    session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
+
+    expect(session.recordedMoves).toEqual([
+      { when: 0, dir: relativeMouseMoveCode(chipPos, eastTargetPos) },
+      { when: 2, dir: relativeMouseMoveCode(chipPos, westTargetPos) },
+    ]);
+  });
+
+  it("records a keyboard override after a mouse-goal on the consumed tick", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const targetPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, absoluteMouseMoveCode(targetPos));
+    session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.preserve);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.west);
+    session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
+
+    expect(session.recordedMoves).toEqual([
+      { when: 0, dir: relativeMouseMoveCode(chipPos, targetPos) },
+      { when: 2, dir: MS_DIRECTION.west },
+    ]);
   });
 
   it("moves Chip toward a replay mouse-goal on step-two cadence", () => {

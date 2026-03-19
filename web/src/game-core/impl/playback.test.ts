@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GAME_INPUT_CODES } from "@game-core/api/command";
 import {
+  appendRecordedReplayMove,
   createReplayPlan,
   plannedReplayInput,
   recordManualMove,
@@ -97,5 +98,15 @@ describe("game playback helpers", () => {
     expect(manual).toEqual([{ when: 8, dir: GAME_INPUT_CODES.east }]);
     expect(replay).toEqual(manual);
     expect(idle).toEqual(manual);
+  });
+
+  it("appends only ruleset-emitted replay move decisions", () => {
+    const appended = appendRecordedReplayMove([], -1, { when: 4, dir: 42 });
+    const replay = appendRecordedReplayMove(appended, 0, { when: 8, dir: GAME_INPUT_CODES.east });
+    const idle = appendRecordedReplayMove(appended, -1, null);
+
+    expect(appended).toEqual([{ when: 4, dir: 42 }]);
+    expect(replay).toEqual(appended);
+    expect(idle).toEqual(appended);
   });
 });

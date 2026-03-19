@@ -43,10 +43,11 @@ import {
 import { advanceTimer, createInitialEngineTimer } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
 import {
+  appendRecordedReplayMove,
   createReplayPlan,
   createRuntimeCommand,
   plannedReplayInput,
-  recordManualMove,
+  type RecordedReplayMoveDecision,
   resolveManualInput,
   scheduledInputForTick,
 } from "@game-core/api/playback";
@@ -214,7 +215,7 @@ export interface MsInteractiveSessionState {
 
 interface MsAdvanceTickResult {
   state: MsGameState;
-  recordedReplayInputCode: number;
+  recordedReplayMove: RecordedReplayMoveDecision | null;
 }
 
 const UINT31_MASK = 0x7fffffffn;
@@ -4388,6 +4389,61 @@ function resolveReplayLastMoveAfterChoose(
   };
 }
 
+function resolveRecordedReplayMoveAfterChoose(
+  state: MsGameState,
+  internal: MsInternalState,
+  currentTime: number,
+  inputCode: number,
+  chipHasMovedBeforeChoose: boolean,
+  goalPosBeforeChoose: number,
+  floorMovementBeforeChoose: MsInternalState["floorMovement"],
+  chipDirBeforeChoose: number,
+): RecordedReplayMoveDecision | null {
+  if (state.engine.replay.cursor >= 0 || inputCode === MS_DIRECTION.none) {
+    return null;
+  }
+
+  const chipHasMoved = (currentTime & 3) === 0 ? false : chipHasMovedBeforeChoose;
+  if (chipHasMoved) {
+    return goalPosBeforeChoose >= 0
+      ? {
+          when: currentTime,
+          dir: CMD_MOVE_NOP,
+        }
+      : null;
+  }
+
+  const discard =
+    floorMovementBeforeChoose === "ice" ||
+    floorMovementBeforeChoose === "air" ||
+    floorMovementBeforeChoose === "elevator" ||
+    floorMovementBeforeChoose === "teleport" ||
+    (floorMovementBeforeChoose === "slide" && inputCode === chipDirBeforeChoose);
+  if (discard) {
+    return null;
+  }
+
+  if (isAbsoluteMouseCommand(inputCode)) {
+    const goalPos = inputCode - CMD_ABS_MOUSE_MOVE_FIRST;
+    return {
+      when: currentTime,
+      dir: CMD_MOUSE_MOVE_FIRST + makeMouseRelative(goalPos, internal.chipPos),
+    };
+  }
+
+  if (isRelativeMouseCommand(inputCode)) {
+    return {
+      when: currentTime,
+      dir: inputCode,
+    };
+  }
+
+  return {
+    when: currentTime,
+    dir: normalizeDirection(inputCode),
+  };
+}
+
 function replayBestTimeTicks(replay: ReplaySolutionPayload): number | undefined {
   const replayWithBestTime = replay as ReplaySolutionPayload & {
     bestTimeTicks?: number;
@@ -4429,7 +4485,7 @@ function advanceMsTick(
   const nextTick = state.engine.timer.currentTime + 1;
   let timeOffset = -1;
   let soundEffects = 0;
-  let recordedReplayInputCode: number = GAME_INPUT_CODES.none;
+  let recordedReplayMove: RecordedReplayMoveDecision | null = null;
   clearMsTileOverlays(state.engine);
   internal.pendingSoundEffects = 0;
   const flushPendingSoundEffects = (): void => {
@@ -4480,7 +4536,7 @@ function advanceMsTick(
     }
     return {
       state: nextState,
-      recordedReplayInputCode,
+      recordedReplayMove,
     };
   };
 
@@ -4665,7 +4721,16 @@ function advanceMsTick(
           consumedInputCode: GAME_INPUT_CODES.none,
           dir: MS_DIRECTION.none,
         };
-    recordedReplayInputCode = manualChoice.consumedInputCode;
+    recordedReplayMove = resolveRecordedReplayMoveAfterChoose(
+      state,
+      internal,
+      nextTick,
+      manualChoice.consumedInputCode,
+      replayLastMoveChipHasMoved,
+      replayLastMoveGoalPos,
+      replayLastMoveFloorMovement,
+      replayLastMoveChipDir,
+    );
     const chipPosBeforeManualMovement = internal.chipPos;
     const nextLastMove = resolveReplayLastMoveAfterChoose(
       state,
@@ -4710,7 +4775,7 @@ function advanceMsTick(
           activeChipCells(),
           soundEffects,
         ),
-        recordedReplayInputCode,
+        recordedReplayMove,
       };
     }
     if (
@@ -5097,11 +5162,10 @@ export function advanceMsInteractiveSession(
   return {
     state: nextState,
     lastInput: input,
-    recordedMoves: recordManualMove(
+    recordedMoves: appendRecordedReplayMove(
       session.recordedMoves,
-      nextState.engine.timer.currentTime,
       nextState.engine.replay.cursor,
-      advanceResult.recordedReplayInputCode,
+      advanceResult.recordedReplayMove,
     ),
     replayPlan,
   };

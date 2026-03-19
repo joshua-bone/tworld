@@ -11,6 +11,8 @@ export interface ReplayPlan {
   randomSlideDirection: number;
 }
 
+export interface RecordedReplayMoveDecision extends SolutionMove {}
+
 const REPLAY_MOVE_TICK_MASK = 0x7fffff;
 
 function compareCommands(left: Pick<GameCommand, "tick" | "inputCode">, right: Pick<GameCommand, "tick" | "inputCode">): number {
@@ -101,15 +103,29 @@ export function recordManualMove(
   replayCursor: number,
   moveCode: number,
 ): SolutionMove[] {
-  if (replayCursor >= 0 || moveCode === GAME_INPUT_CODES.none) {
+  return appendRecordedReplayMove(
+    recordedMoves,
+    replayCursor,
+    moveCode === GAME_INPUT_CODES.none
+      ? null
+      : {
+          when: currentTime,
+          dir: moveCode,
+        },
+  );
+}
+
+export function appendRecordedReplayMove(
+  recordedMoves: SolutionMove[],
+  replayCursor: number,
+  move: RecordedReplayMoveDecision | null,
+): SolutionMove[] {
+  if (replayCursor >= 0 || move === null) {
     return recordedMoves;
   }
 
   return [
     ...recordedMoves,
-    {
-      when: currentTime,
-      dir: moveCode,
-    },
+    { ...move },
   ];
 }

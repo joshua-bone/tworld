@@ -13,6 +13,16 @@ import { LegacyMsInputBuffer } from "@player-web/impl/legacyInput";
 
 const fixtureRepository = new NodeCharacterizationFixtureRepository();
 
+function relativeMouseMoveCode(chipPos: number, targetPos: number): number {
+  const mouseRangeMin = -9;
+  const mouseRange = 19;
+  const mouseMoveFirst =
+    (GAME_INPUT_CODES.north | GAME_INPUT_CODES.west | GAME_INPUT_CODES.south | GAME_INPUT_CODES.east) + 1;
+  const x = (targetPos % 32) - (chipPos % 32);
+  const y = Math.floor(targetPos / 32) - Math.floor(chipPos / 32);
+  return mouseMoveFirst + (y - mouseRangeMin) * mouseRange + (x - mouseRangeMin);
+}
+
 async function runManualSession(
   adapter: MsGameEngineAdapter | LynxGameEngineAdapter,
   scenarioName: string,
@@ -143,6 +153,64 @@ async function expectMsReplayRoundTripMatchesExplicitInputs(
   for (let tick = 0; tick < maxTicks; tick += 1) {
     const nextTick = manual.frame.snapshot.currentTime + 1;
     manual = await adapter.advanceSession(manual, inputsByTick.get(nextTick) ?? GAME_INPUT_CODES.none);
+    sessionsByTick.set(manual.history.currentTick, manual);
+  }
+
+  const artifact = buildReplayExport(request.seriesFile, level!, manual);
+  expect(artifact).not.toBeNull();
+
+  const inspection = replaySolutionCodec.inspect(artifact!.bytes);
+  expect(inspection).not.toBeNull();
+
+  let replay = await adapter.startReplaySession(request, inspection!.payload);
+  expect(gameplayFrameSummary(replay)).toEqual(gameplayFrameSummary(sessionsByTick.get(replay.history.currentTick)!));
+
+  const latestTick = manual.history.currentTick;
+  let safety = 0;
+  while (replay.history.currentTick < latestTick && safety < latestTick + 10) {
+    replay = await adapter.advanceSession(replay, "none");
+    const expected = sessionsByTick.get(replay.history.currentTick);
+    expect(expected, `missing manual session at tick ${replay.history.currentTick}`).toBeDefined();
+    expect(gameplayFrameSummary(replay)).toEqual(gameplayFrameSummary(expected!));
+    safety += 1;
+  }
+
+  expect(replay.history.currentTick).toBe(latestTick);
+  expect(gameplayFrameSummary(replay)).toEqual(gameplayFrameSummary(manual));
+
+  return {
+    inspection: inspection!,
+  };
+}
+
+async function expectMsReplayRoundTripMatchesBufferedInputs(
+  request: {
+    seriesFile: string;
+    levelNumber: number;
+    ruleset: "MS";
+    randomSeed: number;
+  },
+  maxTicks: number,
+  driveBuffer: (
+    buffer: LegacyMsInputBuffer,
+    tick: number,
+    session: InteractiveGameSession,
+  ) => void,
+): Promise<{
+  inspection: NonNullable<ReturnType<typeof replaySolutionCodec.inspect>>;
+}> {
+  const adapter = new MsGameEngineAdapter(new NodeLevelRepository());
+  const levels = mapLevelInfoFixtureToSeriesLevels(await fixtureRepository.loadLevelInfo(request.seriesFile));
+  const level = levels.find((entry) => entry.number === request.levelNumber);
+  expect(level).toBeDefined();
+
+  const buffer = new LegacyMsInputBuffer();
+  let manual = await adapter.startSession(request);
+  const sessionsByTick = new Map<number, InteractiveGameSession>([[manual.history.currentTick, manual]]);
+
+  for (let tick = 0; tick < maxTicks; tick += 1) {
+    driveBuffer(buffer, tick, manual);
+    manual = await adapter.advanceSession(manual, buffer.nextTickInputCode());
     sessionsByTick.set(manual.history.currentTick, manual);
   }
 
@@ -313,6 +381,104 @@ describe("exported replay parity", () => {
       { when: 18, dir: 1 },
       { when: 20, dir: 1 },
       { when: 24, dir: 1 },
+    ]);
+  });
+
+  it("round-trips exported MS absolute mouse-goals from the legacy input buffer", async () => {
+    let targetPos = -1;
+
+    const { inspection } = await expectMsReplayRoundTripMatchesBufferedInputs(
+      {
+        seriesFile: "intro-ms.dac",
+        levelNumber: 1,
+        ruleset: "MS",
+        randomSeed: 123456789,
+      },
+      8,
+      (buffer, tick, session) => {
+        if (tick !== 0) {
+          return;
+        }
+        const chipPos = session.frame.snapshot.chip?.position.pos;
+        if (chipPos === undefined) {
+          throw new Error("expected interactive Chip position for MS mouse-goal parity test");
+        }
+        targetPos = chipPos + 1;
+        buffer.queueAbsoluteMouseMove(targetPos);
+      },
+    );
+
+    expect(inspection.payload.moves).toEqual([
+      { when: 0, dir: relativeMouseMoveCode(targetPos - 1, targetPos) },
+    ]);
+  });
+
+  it("round-trips exported MS mouse-goal retargets from the legacy input buffer", async () => {
+    let firstTargetPos = -1;
+    let secondTargetPos = -1;
+
+    const { inspection } = await expectMsReplayRoundTripMatchesBufferedInputs(
+      {
+        seriesFile: "intro-ms.dac",
+        levelNumber: 1,
+        ruleset: "MS",
+        randomSeed: 123456789,
+      },
+      10,
+      (buffer, tick, session) => {
+        const chipPos = session.frame.snapshot.chip?.position.pos;
+        if (chipPos === undefined) {
+          throw new Error("expected interactive Chip position for MS mouse-goal retarget parity test");
+        }
+        if (tick === 0) {
+          firstTargetPos = chipPos + 1;
+          secondTargetPos = chipPos;
+          buffer.queueAbsoluteMouseMove(firstTargetPos);
+          return;
+        }
+        if (tick === 4) {
+          buffer.queueAbsoluteMouseMove(secondTargetPos);
+        }
+      },
+    );
+
+    expect(inspection.payload.moves).toEqual([
+      { when: 0, dir: relativeMouseMoveCode(secondTargetPos, firstTargetPos) },
+      { when: 4, dir: relativeMouseMoveCode(firstTargetPos, secondTargetPos) },
+    ]);
+  });
+
+  it("round-trips exported MS keyboard overrides after mouse-goals from the legacy input buffer", async () => {
+    let targetPos = -1;
+
+    const { inspection } = await expectMsReplayRoundTripMatchesBufferedInputs(
+      {
+        seriesFile: "intro-ms.dac",
+        levelNumber: 1,
+        ruleset: "MS",
+        randomSeed: 123456789,
+      },
+      10,
+      (buffer, tick, session) => {
+        if (tick === 0) {
+          const chipPos = session.frame.snapshot.chip?.position.pos;
+          if (chipPos === undefined) {
+            throw new Error("expected interactive Chip position for MS mouse-goal override parity test");
+          }
+          targetPos = chipPos + 1;
+          buffer.queueAbsoluteMouseMove(targetPos);
+          return;
+        }
+        if (tick === 4) {
+          buffer.keyDown("west");
+          buffer.keyUp("west");
+        }
+      },
+    );
+
+    expect(inspection.payload.moves).toEqual([
+      { when: 0, dir: relativeMouseMoveCode(targetPos - 1, targetPos) },
+      { when: 4, dir: GAME_INPUT_CODES.west },
     ]);
   });
 

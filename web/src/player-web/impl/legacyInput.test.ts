@@ -51,6 +51,50 @@ describe("LegacyMsInputBuffer", () => {
     expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
     expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.none);
   });
+
+  it("drains queued mouse-goal polls before resuming keyboard input", () => {
+    const buffer = new LegacyMsInputBuffer();
+
+    buffer.queueAbsoluteMouseMove(123);
+    buffer.keyDown("east");
+
+    expect(buffer.nextTickInputCode()).toBe(absoluteMouseMoveCode(123));
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.east);
+  });
+
+  it("keeps a quick keyboard tap queued behind mouse-goal preserve polls", () => {
+    const buffer = new LegacyMsInputBuffer();
+
+    buffer.queueAbsoluteMouseMove(123);
+    buffer.keyDown("west");
+    buffer.keyUp("west");
+
+    expect(buffer.nextTickInputCode()).toBe(absoluteMouseMoveCode(123));
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.west);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.none);
+  });
+
+  it("preserves queued mouse retarget order exactly", () => {
+    const buffer = new LegacyMsInputBuffer();
+
+    buffer.queueAbsoluteMouseMove(123);
+    buffer.queueAbsoluteMouseMove(456);
+
+    expect(buffer.nextTickInputCode()).toBe(absoluteMouseMoveCode(123));
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(absoluteMouseMoveCode(456));
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+    expect(buffer.nextTickInputCode()).toBe(GAME_INPUT_CODES.preserve);
+  });
 });
 
 describe("LegacyLynxInputBuffer", () => {
