@@ -1075,7 +1075,7 @@ export function ModernPlayerApp({
                   <div className="modern-dashboard__brand-actions">
                     <button
                       aria-label="Replay and save settings"
-                      className="modern-dashboard__about-button"
+                      className="modern-dashboard__brand-action-button"
                       onClick={() => {
                         setIsAboutOpen(false);
                         setSetInfoFamilyId(null);
@@ -1083,13 +1083,16 @@ export function ModernPlayerApp({
                       }}
                       type="button"
                     >
-                      <svg aria-hidden="true" className="modern-dashboard__action-icon" viewBox="0 0 16 16">
-                        <path d="M6.1 1.7h3.8l.4 1.6c.3.1.7.3 1 .4l1.4-.9 2.7 2.7-.9 1.4c.2.3.3.7.4 1l1.6.4v3.8l-1.6.4c-.1.3-.3.7-.4 1l.9 1.4-2.7 2.7-1.4-.9c-.3.2-.7.3-1 .4l-.4 1.6H6.1l-.4-1.6c-.3-.1-.7-.3-1-.4l-1.4.9-2.7-2.7.9-1.4c-.2-.3-.3-.7-.4-1L.5 9.9V6.1l1.6-.4c.1-.3.3-.7.4-1l-.9-1.4 2.7-2.7 1.4.9c.3-.2.7-.3 1-.4zm1.9 4a2.3 2.3 0 1 0 0 4.6 2.3 2.3 0 0 0 0-4.6Z" fill="currentColor" />
+                      <svg aria-hidden="true" className="modern-dashboard__action-icon" viewBox="0 0 24 24">
+                        <path d="M20 7h-9" />
+                        <path d="M14 17H5" />
+                        <circle cx="17" cy="7" r="3" />
+                        <circle cx="8" cy="17" r="3" />
                       </svg>
                     </button>
                     <button
                       aria-label="About Tile World Online"
-                      className="modern-dashboard__about-button"
+                      className="modern-dashboard__brand-action-button"
                       onClick={() => {
                         setIsSettingsOpen(false);
                         setSetInfoFamilyId(null);
@@ -1097,7 +1100,11 @@ export function ModernPlayerApp({
                       }}
                       type="button"
                     >
-                      ?
+                      <svg aria-hidden="true" className="modern-dashboard__action-icon" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M9.09 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3" />
+                        <path d="M12 17h.01" />
+                      </svg>
                     </button>
                   </div>
                 </div>
