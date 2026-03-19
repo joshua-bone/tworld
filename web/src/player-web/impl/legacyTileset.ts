@@ -326,6 +326,18 @@ function extractMsSprite(sourceContext: CanvasRenderingContext2D, tileId: number
   return extractRawSprite(sourceContext, x, y, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE, false);
 }
 
+export function normalizeMsLegacyDisplayTileId(tileId: number): number {
+  switch (tileId) {
+    case MS_TILE.HiddenWall_Perm:
+    case MS_TILE.HiddenWall_Temp:
+      return MS_TILE.Empty;
+    case MS_TILE.BlueWall_Fake:
+      return MS_TILE.BlueWall_Real;
+    default:
+      return tileId;
+  }
+}
+
 function buildMsLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset {
   const sourceContext = sourceCanvas.getContext("2d");
   if (!sourceContext) {
@@ -342,7 +354,7 @@ function buildMsLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset {
 
   return {
     get(tileId: number): LegacyTileSprite | null {
-      return sprites.get(tileId) ?? null;
+      return sprites.get(normalizeMsLegacyDisplayTileId(tileId)) ?? null;
     },
   };
 }

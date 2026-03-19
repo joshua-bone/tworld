@@ -18,8 +18,17 @@ export function isProceedKey(key: string): boolean {
   return key === "Enter" || key === " " || key === "Spacebar";
 }
 
-export function isHelpToggleKey(key: string): boolean {
-  return key === "?" || key === "F1";
+export function isHelpToggleKey(event: LegacyKeyboardEventLike | string): boolean {
+  const key = typeof event === "string" ? event : event.key;
+  if (key === "?" || key === "F1") {
+    return true;
+  }
+
+  if (typeof event === "string") {
+    return key === "h" || key === "H";
+  }
+
+  return hasPlainModifiers(event) && !event.shiftKey && (key === "h" || key === "H");
 }
 
 export function isUndoKey(event: LegacyKeyboardEventLike): boolean {
@@ -36,6 +45,10 @@ export function isUndoCheckpointKey(event: LegacyKeyboardEventLike): boolean {
 
 export function isPrevLevelKey(event: LegacyKeyboardEventLike): boolean {
   return hasPlainModifiers(event) && (event.key === "PageUp" || event.key === "p" || event.key === "P");
+}
+
+export function isPauseToggleKey(event: LegacyKeyboardEventLike): boolean {
+  return hasPlainModifiers(event) && !event.shiftKey && (event.key === "Backspace" || event.key === "Delete");
 }
 
 export function isNextLevelKey(event: LegacyKeyboardEventLike): boolean {

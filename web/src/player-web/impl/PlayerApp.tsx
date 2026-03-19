@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
 import { isFastForwardModifierActive } from "@player-web/impl/fastForward";
 import {
@@ -9,6 +9,7 @@ import {
   isSystemModifierKey,
   isLastLevelKey,
   isNextLevelKey,
+  isPauseToggleKey,
   isPrevLevelKey,
   isProceedKey,
   isUndoCheckpointKey,
@@ -19,25 +20,49 @@ import {
   LegacyMsInputBuffer,
   type DirectionInput,
 } from "@player-web/impl/legacyInput";
-import { LegacyCanvasScreen, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
+import { LegacyCanvasScreen, LegacyInventoryStrip, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
+import {
+  buildCuratedCatalogView,
+  findSetFamilyForSelection,
+  listSetFamilyRulesets,
+  resolveSetFamilySelection,
+} from "@player-web/impl/modern/curatedCatalog";
+import {
+  activeGameplayHintOverlay,
+  describeGameplayStatus,
+  formatGameplayTimeLeft,
+} from "@player-web/impl/modern/gameplayShellModel";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import { advanceInteractiveGameSession } from "@game-runtime/impl/advanceInteractiveGameSession";
+import { buildReplayExport } from "@game-runtime/impl/buildReplayExport";
+import { importReplayForLevel } from "@game-runtime/impl/importReplayForLevel";
 import {
+  previousInteractiveGameSessionExponentialCheckpointTick,
   previousInteractiveGameSessionCheckpointTick,
   previousInteractiveGameSessionTickByCount,
   previousInteractiveGameSessionTick,
 } from "@game-runtime/impl/interactiveHistoryNavigation";
+import { formatInteractiveTickSeconds } from "@game-runtime/impl/interactiveSessionRun";
+import { loadBrowserPlayableCatalog } from "@player-web/impl/loadBrowserPlayableCatalog";
+import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
-import { loadBrowserSeriesCatalogEntries } from "@level-catalog/impl/loadBrowserSeriesCatalogEntries";
-import { loadSeriesCatalog } from "@level-catalog/impl/loadSeriesCatalog";
+import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
+import { resolveReplayActionContext } from "@player-web/impl/replayContext";
 import { restoreInteractiveGameSession } from "@game-runtime/impl/restoreInteractiveGameSession";
 import { resumeInteractiveGameSession } from "@game-runtime/impl/resumeInteractiveGameSession";
 import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
 import { startInteractiveGameSession } from "@game-runtime/impl/startInteractiveGameSession";
+import { startReplayInteractiveGameSession } from "@game-runtime/impl/startReplayInteractiveGameSession";
 import type { InteractiveGameEnginePort, InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 import type { InteractiveInput } from "@game-core/api/command";
+import { replaySolutionCodec, type ReplaySolutionPayload } from "@game-core/api/codec";
 import type { SeriesCatalogEntry } from "@content/api/series";
+import { describeReplayEntry, listReplaysForCurrentLevel, listReplaysForSeriesLevel } from "@player-web/impl/modern/replayLibrary";
+import {
+  type BrowserLevelProgressSummary,
+  type BrowserReplayEntry,
+} from "@player-web/ports/BrowserProfileStore";
 import {
   loadStoredUndoSettings,
   saveStoredUndoSettings,
@@ -50,8 +75,14 @@ const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";
 const SOUND_VOLUME_STORAGE_KEY = "tworld.sound-volume";
 const LEGACY_FAST_TICK_MS = 25;
 const LEGACY_NORMAL_TICK_MS = 50;
+const GAME_TICKS_PER_SECOND = 20;
 const UNDO_HOLD_REPEAT_DELAY_MS = 160;
 const UNDO_HOLD_REPEAT_INTERVAL_MS = 40;
+const MODERN_UNDO_STEP_TICK_COUNT = 4;
+const MODERN_UNDO_SMOOTH_LIMIT_SECONDS = 8;
+const MODERN_UNDO_SMOOTH_LIMIT_TICKS = MODERN_UNDO_SMOOTH_LIMIT_SECONDS * GAME_TICKS_PER_SECOND;
+const MODERN_UNDO_CHECKPOINT_BASE_TICKS = GAME_TICKS_PER_SECOND;
+const LOW_TIME_WARNING_TICKS = 10 * GAME_TICKS_PER_SECOND;
 
 interface HelpCommand {
   keys: string;
@@ -81,6 +112,98 @@ function loadStoredVolume(): number {
   } catch {
     return 0.7;
   }
+}
+
+function formatModernLevelTimerLabel(level: SeriesCatalogEntry["levels"][number] | null | undefined): string | null {
+  if (!level) {
+    return null;
+  }
+
+  return level.timeLimitSeconds > 0 ? `${level.timeLimitSeconds}s` : "Untimed";
+}
+
+const MODERN_SERIES_AUTHOR_FALLBACKS: Readonly<Record<string, string>> = {
+  "po100t-MS.dac": "Andrew Menzies",
+  "po100t-Lynx.dac": "Andrew Menzies",
+  "to100t-MS.dac": "Andrew Menzies",
+  "to100t-Lynx.dac": "Andrew Menzies",
+  "JBLP1-MS.dac": "J. B. Lewis",
+  "JBLP1-Lynx.dac": "J. B. Lewis",
+  "JCCLP3.1-MS.dac": "Josh Lee",
+  "JCCLP3.1-Lynx.dac": "Josh Lee",
+  "JoshL0-MS.dac": "Josh Lee",
+  "JoshL0-Lynx.dac": "Josh Lee",
+  "TS0-MS.dac": "Tyler Sontag",
+  "TS0-Lynx.dac": "Tyler Sontag",
+};
+
+interface ModernUndoTarget {
+  continueHolding: boolean;
+  mode: "checkpoint" | "smooth";
+  targetTick: number;
+}
+
+function gameplayTimeRemainingTicks(session: InteractiveGameSession): number {
+  return Math.max(0, session.frame.snapshot.timelimit - Math.max(session.frame.snapshot.currentTime, 0));
+}
+
+function nextModernUndoTarget(session: InteractiveGameSession): ModernUndoTarget | null {
+  if (!session.history.enabled) {
+    return null;
+  }
+
+  const currentAgeTicks = Math.max(0, session.history.latestTick - session.history.currentTick);
+  if (currentAgeTicks < MODERN_UNDO_SMOOTH_LIMIT_TICKS) {
+    const previousStepTick = previousInteractiveGameSessionTickByCount(session, MODERN_UNDO_STEP_TICK_COUNT);
+    if (previousStepTick === null) {
+      return null;
+    }
+
+    const smoothLimitTick = Math.max(
+      session.history.initialTick,
+      session.history.latestTick - MODERN_UNDO_SMOOTH_LIMIT_TICKS,
+    );
+    const targetTick = Math.max(previousStepTick, smoothLimitTick);
+    return {
+      continueHolding: targetTick > smoothLimitTick,
+      mode: "smooth",
+      targetTick,
+    };
+  }
+
+  const checkpointTick = previousInteractiveGameSessionExponentialCheckpointTick(
+    session,
+    MODERN_UNDO_CHECKPOINT_BASE_TICKS,
+  );
+  if (checkpointTick === null) {
+    return null;
+  }
+
+  return {
+    continueHolding: false,
+    mode: "checkpoint",
+    targetTick: checkpointTick,
+  };
+}
+
+function formatModernGameplaySubtitle(
+  seriesFile: string | null | undefined,
+  level: SeriesCatalogEntry["levels"][number] | null | undefined,
+): string {
+  const parts: string[] = [];
+
+  if (level?.author) {
+    parts.push(level.author);
+  } else if (seriesFile && MODERN_SERIES_AUTHOR_FALLBACKS[seriesFile]) {
+    parts.push(MODERN_SERIES_AUTHOR_FALLBACKS[seriesFile]);
+  }
+
+  const timerLabel = formatModernLevelTimerLabel(level);
+  if (timerLabel) {
+    parts.push(timerLabel);
+  }
+
+  return parts.length > 0 ? parts.join("  ·  ") : "Starting session";
 }
 
 function interactiveEngineForRuleset(
@@ -164,6 +287,36 @@ function OpenIcon() {
   );
 }
 
+function DownloadIcon() {
+  return (
+    <svg aria-hidden="true" className="modern-icon-button__icon" viewBox="0 0 16 16">
+      <path
+        d="M8 2.5v7M5.5 7.5 8 10l2.5-2.5M3 11.5h10"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" className="modern-icon-button__icon" viewBox="0 0 16 16">
+      <path
+        d="M3.5 4.5h9M6 4.5v7M10 4.5v7M5 2.5h6M4.5 4.5l.5 8h6l.5-8"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
 const SERIES_LIST_HELP: HelpSection[] = [
   {
     title: "Series List",
@@ -200,6 +353,27 @@ const GAME_PLAYING_HELP: HelpSection[] = [
   },
 ];
 
+const GAME_PLAYING_HELP_MODERN: HelpSection[] = [
+  {
+    title: "While Playing",
+    commands: [
+      { keys: "Arrow keys / WASD", action: "move Chip and start the clock" },
+      { keys: "Mouse click (MS)", action: "set a mouse goal on the clicked map tile" },
+      { keys: "Hold Shift", action: "run the game clock at 2x speed" },
+      { keys: "Space", action: "start the clock without moving, or resume the original timeline after a restore" },
+      { keys: "Z / hold Z", action: "rewind 4 ticks at a time, then jump through 1s/2s/4s/8s checkpoints" },
+      { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
+      { keys: "R", action: "restart the current level" },
+      { keys: "Bkspc / Delete", action: "pause or resume the modern play view" },
+      { keys: "P / PageUp", action: "go to the previous level" },
+      { keys: "N / PageDown", action: "go to the next level" },
+      { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
+      { keys: "Home / End", action: "also jump to the first or last level when available" },
+      { keys: "Escape", action: "return to the series list" },
+    ],
+  },
+];
+
 const GAME_ENDED_HELP: HelpSection[] = [
   {
     title: "After A Level Ends",
@@ -212,6 +386,24 @@ const GAME_ENDED_HELP: HelpSection[] = [
       { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
       { keys: "R", action: "restart the current level" },
       { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
+      { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
+      { keys: "Home / End", action: "also jump to the first or last level when available" },
+      { keys: "Escape", action: "return to the series list" },
+    ],
+  },
+];
+
+const GAME_ENDED_HELP_MODERN: HelpSection[] = [
+  {
+    title: "After A Level Ends",
+    commands: [
+      { keys: "Enter", action: "continue: next level after a win, retry after a loss" },
+      { keys: "Space", action: "resume the original timeline after a restore, or continue when no rewind is active" },
+      { keys: "Z / hold Z", action: "rewind 4 ticks at a time, then jump through 1s/2s/4s/8s checkpoints" },
+      { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
+      { keys: "R", action: "restart the current level" },
+      { keys: "PageUp", action: "go to the previous level" },
+      { keys: "N / PageDown", action: "go to the next level" },
       { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
       { keys: "Home / End", action: "also jump to the first or last level when available" },
       { keys: "Escape", action: "return to the series list" },
@@ -298,49 +490,65 @@ function isDatFile(file: File): boolean {
   return /\.dat$/iu.test(file.name);
 }
 
-function mergeSeriesCatalogEntries(
-  current: readonly SeriesCatalogEntry[],
-  additions: readonly SeriesCatalogEntry[],
-): SeriesCatalogEntry[] {
-  const next = [...current];
-  const indices = new Map(next.map((entry, index) => [entry.filebase, index] as const));
-
-  for (const addition of additions) {
-    const existingIndex = indices.get(addition.filebase);
-    if (existingIndex === undefined) {
-      indices.set(addition.filebase, next.length);
-      next.push(addition);
-      continue;
-    }
-
-    next[existingIndex] = addition;
+function isEditableKeyTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
   }
 
-  return next;
+  return (
+    target.isContentEditable ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
 }
 
 interface PlayerAppProps {
   services: BrowserAppServices;
+  chromeMode?: "legacy" | "modern" | "modern-embedded";
+  initialMode?: LegacyMode;
+  initialSelection?: PlayableSelection | null;
+  onExitGame?: () => void;
+  onLevelProgressSaved?: (summary: BrowserLevelProgressSummary) => void;
+  onSelectionChange?: (selection: PlayableSelection) => void;
 }
 
-export function PlayerApp({ services }: PlayerAppProps) {
-  const { engines, fixtureRepository, importDatFile, selectionStore } = services;
+export function PlayerApp({
+  services,
+  chromeMode = "legacy",
+  initialMode = "series-list",
+  initialSelection = null,
+  onExitGame,
+  onLevelProgressSaved,
+  onSelectionChange,
+}: PlayerAppProps) {
+  const { engines, importDatFile, profileStore, replayTransfer, selectionStore } = services;
+  const initialModeRef = useRef<LegacyMode>(initialMode);
+  const initialSelectionRef = useRef<PlayableSelection | null>(initialSelection);
   const undoSettingsSeedRef = useRef<BrowserUndoSettings | null>(null);
   if (undoSettingsSeedRef.current === null) {
     undoSettingsSeedRef.current = loadStoredUndoSettings();
   }
-  const [mode, setMode] = useState<LegacyMode>("series-list");
+  const [mode, setMode] = useState<LegacyMode>(initialModeRef.current);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
+  const [savedReplayEntries, setSavedReplayEntries] = useState<BrowserReplayEntry[]>([]);
   const [selectedSeriesFile, setSelectedSeriesFile] = useState<string | null>(null);
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number | null>(null);
   const [session, setSession] = useState<InteractiveGameSession | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [showReplayMenu, setShowReplayMenu] = useState(false);
   const [showSoundControls, setShowSoundControls] = useState(false);
   const [showHistoryControls, setShowHistoryControls] = useState(false);
+  const [showReplayDetails, setShowReplayDetails] = useState(false);
+  const [showManageReplays, setShowManageReplays] = useState(false);
+  const [pendingReplayEntryId, setPendingReplayEntryId] = useState<string | null>(null);
+  const [selectedManagedReplayId, setSelectedManagedReplayId] = useState<string | null>(null);
+  const [replaySaveNotice, setReplaySaveNotice] = useState<string | null>(null);
   const [soundMuted, setSoundMuted] = useState(() => loadStoredMuted());
   const [soundVolume, setSoundVolume] = useState(() => loadStoredVolume());
   const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
@@ -348,6 +556,13 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const [isFastForwarding, setIsFastForwarding] = useState(false);
   const [heldUndoMode, setHeldUndoMode] = useState<"coarse" | "fine" | "checkpoint" | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [replayLaunchRequest, setReplayLaunchRequest] = useState<{
+    levelNumber: number;
+    replay: ReplaySolutionPayload;
+    replayName: string;
+    seriesFile: string;
+    token: number;
+  } | null>(null);
   const tickingRef = useRef(false);
   const historyNavigationRef = useRef(false);
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
@@ -355,13 +570,43 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
+  const replayMenuRef = useRef<HTMLDivElement | null>(null);
+  const recordedTerminalSessionRef = useRef<string | null>(null);
+  const notifiedSelectionKeyRef = useRef<string | null>(null);
+  const appliedInitialSelectionKeyRef = useRef<string | null>(null);
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
+  const currentSelection =
+    selectedSeriesFile && selectedLevelNumber
+      ? {
+          seriesFile: selectedSeriesFile,
+          levelNumber: selectedLevelNumber,
+        }
+      : null;
+  const currentFamily = findSetFamilyForSelection(buildCuratedCatalogView(catalog, currentSelection), currentSelection);
+  const replayActionContext = resolveReplayActionContext(
+    catalog,
+    {
+      seriesFile: selectedSeriesFile,
+      levelNumber: selectedLevelNumber,
+    },
+    session
+      ? {
+          seriesFile: session.request.seriesFile,
+          levelNumber: session.request.levelNumber,
+        }
+      : null,
+  );
+  const replayContextSeries = replayActionContext.series;
+  const replayContextLevel = replayActionContext.level;
+  const familyRulesets = currentFamily ? listSetFamilyRulesets(currentFamily) : [];
   const previousHistoryTick = session ? previousInteractiveGameSessionTick(session) : null;
-  const previousCoarseHistoryTick = session ? previousInteractiveGameSessionTickByCount(session, 4) : null;
+  const previousCoarseHistoryTick = session ? previousInteractiveGameSessionTickByCount(session, MODERN_UNDO_STEP_TICK_COUNT) : null;
   const previousHistoryCheckpointTick = session ? previousInteractiveGameSessionCheckpointTick(session) : null;
+  const modernUndoTarget = session ? nextModernUndoTarget(session) : null;
+  const canUseModernUndo = Boolean(session?.history.enabled && modernUndoTarget !== null);
   const canUndoToPreviousTick = Boolean(session?.history.enabled && previousHistoryTick !== null);
   const canUndoToPreviousCheckpoint = Boolean(
     session?.history.enabled && previousHistoryCheckpointTick !== null,
@@ -376,22 +621,90 @@ export function PlayerApp({ services }: PlayerAppProps) {
     mode !== "game" || !session || !session.history.enabled || session.history.restoreMode === "live"
       ? null
       : session.history.restoreMode === "restored-paused"
-        ? `Restored to tick ${session.history.currentTick}. ${
+        ? `Restored to ${formatInteractiveTickSeconds(session.history.currentTick)}s. ${
             canResumeOriginalTimeline
-              ? `Press Space or use Resume Original Timeline to replay forward to tick ${session.history.latestTick}.`
-              : "Use Z, Cmd/Ctrl+Z, or Shift+Z to keep rewinding, or take over with a live move."
+              ? `Press Space or use Resume Original Timeline to replay forward to ${formatInteractiveTickSeconds(session.history.latestTick)}s.`
+              : chromeMode === "modern" || chromeMode === "modern-embedded"
+                ? "Use Z to keep rewinding, or take over with a live move."
+                : "Use Z, Cmd/Ctrl+Z, or Shift+Z to keep rewinding, or take over with a live move."
           }`
-        : `Replaying the original timeline from tick ${session.history.currentTick} to tick ${session.history.replayTargetTick}. ${
+        : `Replaying the original timeline from ${formatInteractiveTickSeconds(session.history.currentTick)}s to ${formatInteractiveTickSeconds(session.history.replayTargetTick ?? session.history.latestTick)}s. ${
             undoSettings.allowTakeoverDuringHistoricalReplay
               ? "Any live input will fork a new timeline."
               : "Live takeover is disabled in history settings."
           }`;
+  const modernStatusLabel = isPaused ? "Paused" : describeGameplayStatus(session, isSessionLoading);
+  const modernHintOverlayText = activeGameplayHintOverlay(session);
+  const runResult = session?.run.result ?? null;
+  const runResultTitle =
+    runResult?.outcome === "completed-clean"
+      ? "Level Cleared"
+      : runResult?.outcome === "completed-with-undo"
+        ? "Level Cleared With Undo"
+        : runResult?.outcome === "failed"
+          ? "Run Failed"
+          : null;
+  const runResultSubtitle =
+    runResult?.outcome === "failed"
+      ? runResult.cause?.message ?? "Chip died."
+      : runResult?.outcome === "completed-with-undo"
+        ? "Undo or rewind was used during this run, so the final score is halved."
+        : runResult?.outcome === "completed-clean"
+          ? "Clean clear recorded with no undo penalty."
+          : null;
+  const canSaveReplay = Boolean(session?.run.replayAvailable && replayContextLevel && replayContextSeries);
+  const currentLevelReplayEntries = session
+    ? listReplaysForSeriesLevel(
+        savedReplayEntries,
+        session.request.seriesFile,
+        session.request.levelNumber,
+        session.request.ruleset,
+      )
+    : listReplaysForCurrentLevel(
+        savedReplayEntries,
+        currentFamily,
+        currentLevel?.number ?? null,
+        currentRuleset,
+      );
+  const latestCurrentReplayEntry = currentLevelReplayEntries[0] ?? null;
+  const continueReplayEntry =
+    currentLevelReplayEntries.find((entry) => entry.id === pendingReplayEntryId) ?? latestCurrentReplayEntry;
+  const latestCurrentReplayDescription = latestCurrentReplayEntry ? describeReplayEntry(latestCurrentReplayEntry) : null;
+  const canContinueFromReplay = continueReplayEntry !== null;
+  const currentReplayCountLabel =
+    currentLevelReplayEntries.length === 1 ? "1 replay" : `${currentLevelReplayEntries.length} replays`;
+  const modernGameplaySubtitle = formatModernGameplaySubtitle(replayContextSeries?.filebase, replayContextLevel);
+  const currentLevelReplayRows = useMemo(
+    () =>
+      currentLevelReplayEntries.map((entry) => {
+        const replayDescription = describeReplayEntry(entry);
+        const inspection = replaySolutionCodec.inspect(entry.bytes);
+        return {
+          entry,
+          replayDescription,
+          moveCount: inspection?.payload.moves.length ?? null,
+          secondsLabel: inspection ? `${formatInteractiveTickSeconds(Math.max(inspection.bestTimeTicks, 0))}s` : "Unknown",
+        };
+      }),
+    [currentLevelReplayEntries],
+  );
+  const selectedManagedReplayRow =
+    currentLevelReplayRows.find((row) => row.entry.id === selectedManagedReplayId) ?? currentLevelReplayRows[0] ?? null;
+  const replayModeNote =
+    session?.mode === "replay"
+      ? "This session is replaying recorded moves. Restart returns to live play; rewinding and taking over can branch a new timeline where history settings allow it."
+      : session?.history.restoreMode === "replaying-history"
+        ? "The original timeline is replaying forward. Any live move can fork a new run when historical takeover is enabled."
+        : null;
+  const isModernChrome = chromeMode === "modern" || chromeMode === "modern-embedded";
+  const isEmbeddedModernChrome = chromeMode === "modern-embedded";
+  const canTogglePause = Boolean(session && !isSessionLoading && (isPaused || session.frame.snapshot.status === "playing"));
   const helpSections =
     mode === "series-list"
       ? [...SERIES_LIST_HELP, ...GLOBAL_HELP]
       : session?.frame.snapshot.status === "playing"
-        ? [...GAME_PLAYING_HELP, ...GLOBAL_HELP]
-        : [...GAME_ENDED_HELP, ...GLOBAL_HELP];
+        ? [...(isModernChrome ? GAME_PLAYING_HELP_MODERN : GAME_PLAYING_HELP), ...GLOBAL_HELP]
+        : [...(isModernChrome ? GAME_ENDED_HELP_MODERN : GAME_ENDED_HELP), ...GLOBAL_HELP];
 
   useEffect(() => {
     const player = new BrowserSoundEffectsPlayer();
@@ -437,23 +750,20 @@ export function PlayerApp({ services }: PlayerAppProps) {
   useEffect(() => {
     let active = true;
 
-    Promise.all([loadBrowserSeriesCatalogEntries(), loadPlayableSelection(selectionStore)])
-      .then(([supplements, storedSelection]) => {
-        return loadSeriesCatalog(fixtureRepository, supplements).then((nextCatalog) => ({
-          nextCatalog,
-          storedSelection,
-        }));
-      })
-      .then(({ nextCatalog, storedSelection }) => {
+    Promise.all([loadBrowserPlayableCatalog(services), loadPlayableSelection(selectionStore), profileStore.loadReplayEntries()])
+      .then(([nextCatalog, storedSelection, storedReplayEntries]) => {
         if (!active) {
           return;
         }
 
-        const initialSelection = resolveInitialSelection(nextCatalog, storedSelection);
+        const preferredSelection = initialSelectionRef.current ?? storedSelection;
+        const resolvedSelection = resolveInitialSelection(nextCatalog, preferredSelection);
         startTransition(() => {
           setCatalog(nextCatalog);
-          setSelectedSeriesFile(initialSelection?.seriesFile ?? null);
-          setSelectedLevelNumber(initialSelection?.levelNumber ?? null);
+          setSavedReplayEntries(storedReplayEntries);
+          setSelectedSeriesFile(resolvedSelection?.seriesFile ?? null);
+          setSelectedLevelNumber(resolvedSelection?.levelNumber ?? null);
+          setMode(initialModeRef.current === "game" && resolvedSelection ? "game" : "series-list");
           setMessage(null);
         });
       })
@@ -489,6 +799,73 @@ export function PlayerApp({ services }: PlayerAppProps) {
   }, [selectedLevelNumber, selectedSeriesFile]);
 
   useEffect(() => {
+    if (!selectedSeriesFile || !selectedLevelNumber || !onSelectionChange) {
+      return;
+    }
+
+    const nextSelectionKey = `${selectedSeriesFile}:${selectedLevelNumber}`;
+    if (notifiedSelectionKeyRef.current === nextSelectionKey) {
+      return;
+    }
+    notifiedSelectionKeyRef.current = nextSelectionKey;
+
+    onSelectionChange({
+      seriesFile: selectedSeriesFile,
+      levelNumber: selectedLevelNumber,
+    });
+  }, [onSelectionChange, selectedLevelNumber, selectedSeriesFile]);
+
+  useEffect(() => {
+    if (mode !== "game" || !session || session.frame.snapshot.status === "playing") {
+      recordedTerminalSessionRef.current = null;
+    }
+  }, [mode, session]);
+
+  useEffect(() => {
+    if (!runResult) {
+      setReplaySaveNotice(null);
+    }
+  }, [runResult]);
+
+  useEffect(() => {
+    if (mode !== "game" || !session || session.frame.snapshot.status === "playing") {
+      setShowReplayDetails(false);
+    }
+  }, [mode, session]);
+
+  useEffect(() => {
+    if (mode !== "game" || !session || session.mode === "replay") {
+      return;
+    }
+
+    const result = session.run.result;
+    if (!result) {
+      return;
+    }
+
+    const recordKey = `${session.request.seriesFile}:${session.request.levelNumber}:${result.outcome}:${session.frame.snapshot.tick}:${session.run.undoUsedCount}`;
+    if (recordedTerminalSessionRef.current === recordKey) {
+      return;
+    }
+    recordedTerminalSessionRef.current = recordKey;
+
+    const progressSummary: BrowserLevelProgressSummary = {
+      seriesFile: session.request.seriesFile,
+      levelNumber: session.request.levelNumber,
+      lastPlayedAtMs: Date.now(),
+      lastResult: result.outcome,
+      bestResult: result.outcome,
+      lastScore: result.score?.finalScore ?? 0,
+      bestScore: result.score?.finalScore ?? 0,
+      lastUndoUsedCount: session.run.undoUsedCount,
+      bestUndoUsedCount: session.run.undoUsedCount,
+    };
+
+    onLevelProgressSaved?.(progressSummary);
+    void profileStore.saveLevelProgressSummary(progressSummary);
+  }, [mode, onLevelProgressSaved, profileStore, session]);
+
+  useEffect(() => {
     if (mode !== "game" || !selectedSeriesFile || !selectedLevelNumber) {
       return;
     }
@@ -503,21 +880,48 @@ export function PlayerApp({ services }: PlayerAppProps) {
       return;
     }
     let active = true;
+    const queuedReplay =
+      replayLaunchRequest &&
+      replayLaunchRequest.seriesFile === selectedSeriesFile &&
+      replayLaunchRequest.levelNumber === selectedLevelNumber
+        ? replayLaunchRequest
+        : null;
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
     setIsRunning(false);
+    setIsPaused(false);
     setIsSessionLoading(true);
 
-    startInteractiveGameSession(interactiveEngineForRuleset(series.ruleset, engines), {
+    const request = {
       seriesFile: selectedSeriesFile,
       levelNumber: selectedLevelNumber,
       ruleset: series.ruleset,
       randomSeed: SESSION_SEED,
-    }, undoStartOptionsRef.current)
+    } as const;
+
+    const sessionPromise = queuedReplay
+      ? startReplayInteractiveGameSession(
+          interactiveEngineForRuleset(series.ruleset, engines),
+          request,
+          queuedReplay.replay,
+          undoStartOptionsRef.current,
+        )
+      : startInteractiveGameSession(
+          interactiveEngineForRuleset(series.ruleset, engines),
+          request,
+          undoStartOptionsRef.current,
+        );
+
+    sessionPromise
       .then((nextSession) => {
         if (!active) {
           return;
         }
+
+        void profileStore.recordRecentSelection({
+          seriesFile: selectedSeriesFile,
+          levelNumber: selectedLevelNumber,
+        });
 
         startTransition(() => {
           setSession(nextSession);
@@ -542,10 +946,10 @@ export function PlayerApp({ services }: PlayerAppProps) {
     return () => {
       active = false;
     };
-  }, [catalog, engines, mode, reloadToken, selectedLevelNumber, selectedSeriesFile]);
+  }, [catalog, engines, mode, replayLaunchRequest, reloadToken, selectedLevelNumber, selectedSeriesFile]);
 
   const advanceTick = useEffectEvent(async (input: InteractiveInput) => {
-    if (mode !== "game" || !session || tickingRef.current) {
+    if (mode !== "game" || !session || tickingRef.current || isPaused) {
       return;
     }
 
@@ -573,6 +977,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
   const syncSessionState = useEffectEvent((nextSession: InteractiveGameSession) => {
     startTransition(() => {
       setSession(nextSession);
+      setIsPaused(false);
       setIsRunning(
         nextSession.frame.snapshot.status === "playing" && nextSession.history.restoreMode !== "restored-paused",
       );
@@ -580,14 +985,153 @@ export function PlayerApp({ services }: PlayerAppProps) {
     });
   });
 
+  const addSavedReplayEntry = useEffectEvent((entry: BrowserReplayEntry) => {
+    startTransition(() => {
+      setSavedReplayEntries((current) =>
+        [entry, ...current.filter((existing) => existing.id !== entry.id)].sort((left, right) => right.savedAtMs - left.savedAtMs),
+      );
+    });
+  });
+
+  const dismissMessage = useEffectEvent(() => {
+    setMessage(null);
+  });
+
+  const saveReplayArtifactToLibrary = useEffectEvent(
+    async (
+      artifact: { bytes: Uint8Array; filename: string },
+      source: BrowserReplayEntry["source"],
+      options: {
+        finalScore?: number | null;
+        result?: BrowserReplayEntry["result"];
+        undoUsedCount?: number | null;
+      } = {},
+    ) => {
+      if (
+        !replayContextLevel ||
+        !replayContextSeries ||
+        (replayContextSeries.ruleset !== "MS" && replayContextSeries.ruleset !== "Lynx")
+      ) {
+        return null;
+      }
+
+      const storedEntry = await profileStore.saveReplayEntry({
+        fileName: artifact.filename,
+        seriesFile: replayContextSeries.filebase,
+        levelNumber: replayContextLevel.number,
+        levelName: replayContextLevel.name,
+        ruleset: replayContextSeries.ruleset,
+        source,
+        result: options.result ?? null,
+        finalScore: options.finalScore ?? null,
+        undoUsedCount: options.undoUsedCount ?? null,
+        bytes: artifact.bytes,
+      });
+      addSavedReplayEntry(storedEntry);
+      return storedEntry;
+    },
+  );
+
+  const launchReplayForSelection = useEffectEvent((selection: PlayableSelection, replay: ReplaySolutionPayload, replayName: string) => {
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
+    setIsRunning(false);
+    setIsPaused(false);
+    setShowHelp(false);
+    setShowSoundControls(false);
+    setShowHistoryControls(false);
+    stopHeldUndo();
+    setReplayLaunchRequest({
+      levelNumber: selection.levelNumber,
+      replay,
+      replayName,
+      seriesFile: selection.seriesFile,
+      token: Date.now(),
+    });
+    setSelectedSeriesFile(selection.seriesFile);
+    setSelectedLevelNumber(selection.levelNumber);
+    setMode("game");
+  });
+
+  const watchSavedReplayEntry = useEffectEvent((entry: BrowserReplayEntry) => {
+    const decodedReplay = replaySolutionCodec.inspect(entry.bytes);
+    if (!decodedReplay) {
+      setMessage(`${entry.fileName} is no longer a valid replay payload.`);
+      return;
+    }
+
+    launchReplayForSelection(
+      {
+        seriesFile: entry.seriesFile,
+        levelNumber: entry.levelNumber,
+      },
+      decodedReplay.payload,
+      entry.fileName,
+    );
+  });
+
+  const importReplayForCurrentLevel = useEffectEvent(async () => {
+    if (
+      !replayContextLevel ||
+      !replayContextSeries ||
+      (replayContextSeries.ruleset !== "MS" && replayContextSeries.ruleset !== "Lynx")
+    ) {
+      return;
+    }
+
+    try {
+      const imported = await importReplayForLevel(replayTransfer, replayContextLevel);
+      if (!imported) {
+        return;
+      }
+
+      const storedEntry = await saveReplayArtifactToLibrary(
+        {
+          bytes: imported.bytes,
+          filename: imported.fileName,
+        },
+        "imported-file",
+      );
+      setPendingReplayEntryId(storedEntry?.id ?? null);
+      setReplayLaunchRequest(null);
+      setIsPaused(false);
+      setReloadToken((value) => value + 1);
+      setMessage(
+        storedEntry
+          ? `Imported replay ${storedEntry.fileName}. Use Continue From Replay to watch it.`
+          : `Imported replay ${imported.fileName}. Use Continue From Replay to watch it.`,
+      );
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+  const continueFromReplay = useEffectEvent(() => {
+    if (continueReplayEntry) {
+      watchSavedReplayEntry(continueReplayEntry);
+      return;
+    }
+
+    if (canResumeOriginalTimeline) {
+      resumeOriginalTimeline();
+    }
+  });
+
   const restoreToTick = useEffectEvent((targetTick: number | null) => {
-    if (targetTick === null || mode !== "game" || !session || historyNavigationRef.current) {
+    if (
+      targetTick === null ||
+      mode !== "game" ||
+      !session ||
+      historyNavigationRef.current ||
+      targetTick === session.history.currentTick
+    ) {
       return;
     }
 
     historyNavigationRef.current = true;
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
+    setIsPaused(false);
 
     void restoreInteractiveGameSession(
       interactiveEngineForRuleset(session.request.ruleset, engines),
@@ -615,6 +1159,29 @@ export function PlayerApp({ services }: PlayerAppProps) {
     restoreToTick(previousHistoryCheckpointTick);
   });
 
+  const performModernUndo = useEffectEvent((forHeldRepeat = false): boolean => {
+    if (mode !== "game" || !session || historyNavigationRef.current) {
+      return false;
+    }
+
+    const nextTarget = nextModernUndoTarget(session);
+    if (!nextTarget) {
+      return false;
+    }
+
+    if (forHeldRepeat && nextTarget.mode !== "smooth") {
+      stopHeldUndo();
+      return false;
+    }
+
+    if (forHeldRepeat && !nextTarget.continueHolding) {
+      stopHeldUndo();
+    }
+
+    restoreToTick(nextTarget.targetTick);
+    return !forHeldRepeat && nextTarget.mode === "smooth" && nextTarget.continueHolding;
+  });
+
   const resumeOriginalTimeline = useEffectEvent(() => {
     if (!canResumeOriginalTimeline || mode !== "game" || !session || historyNavigationRef.current) {
       return;
@@ -623,6 +1190,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
     historyNavigationRef.current = true;
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
+    setIsPaused(false);
 
     void resumeInteractiveGameSession(
       interactiveEngineForRuleset(session.request.ruleset, engines),
@@ -642,6 +1210,11 @@ export function PlayerApp({ services }: PlayerAppProps) {
   });
 
   const stepHeldUndo = useEffectEvent((nextMode: "coarse" | "fine" | "checkpoint") => {
+    if (isModernChrome) {
+      performModernUndo(true);
+      return;
+    }
+
     if (nextMode === "checkpoint") {
       undoPreviousCheckpoint();
       return;
@@ -656,12 +1229,26 @@ export function PlayerApp({ services }: PlayerAppProps) {
   });
 
   const resumeOriginalTimelineFromSpace = useEffectEvent(() => {
+    setIsPaused(false);
     setIsRunning(true);
     resumeOriginalTimeline();
   });
 
   const resumeLivePlayFromRestore = useEffectEvent(() => {
+    setIsPaused(false);
     setIsRunning(true);
+  });
+
+  const toggleModernPause = useEffectEvent(() => {
+    if (!canTogglePause) {
+      return;
+    }
+
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
+    stopHeldUndo();
+    setIsFastForwarding(false);
+    setIsPaused((current) => !current);
   });
 
   useEffect(() => {
@@ -669,6 +1256,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
       mode !== "game" ||
       !session ||
       !isRunning ||
+      isPaused ||
       showHelp ||
       (session.mode === "manual" && !manualRunStarted)
     ) {
@@ -686,7 +1274,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [advanceTick, isFastForwarding, isRunning, manualRunStarted, mode, session, showHelp]);
+  }, [advanceTick, isFastForwarding, isPaused, isRunning, manualRunStarted, mode, session, showHelp]);
 
   useEffect(() => {
     if (mode !== "game" || heldUndoMode === null || showHelp) {
@@ -708,12 +1296,115 @@ export function PlayerApp({ services }: PlayerAppProps) {
     };
   }, [heldUndoMode, mode, showHelp, stepHeldUndo]);
 
+  useEffect(() => {
+    if (!isModernChrome || !message) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        dismissMessage();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [dismissMessage, isModernChrome, message]);
+
+  useEffect(() => {
+    if (!isModernChrome || !showManageReplays) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowManageReplays(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isModernChrome, showManageReplays]);
+
   const selectSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
+    setReplayLaunchRequest(null);
     setSelectedSeriesFile(seriesFile);
     setSelectedLevelNumber((current) => pickLevelNumber(series, current));
+    setIsPaused(false);
     setMessage(null);
   });
+
+  const exitCurrentGame = useEffectEvent(() => {
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
+    setIsRunning(false);
+    setIsPaused(false);
+    setShowHelp(false);
+    setShowSoundControls(false);
+    setShowHistoryControls(false);
+    stopHeldUndo();
+    setReplayLaunchRequest(null);
+
+    if (isEmbeddedModernChrome) {
+      setMessage(null);
+      return;
+    }
+
+    if (chromeMode === "modern" && onExitGame) {
+      onExitGame();
+      return;
+    }
+
+    setMode("series-list");
+  });
+
+  const launchSelection = useEffectEvent((selection: PlayableSelection) => {
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
+    setIsRunning(false);
+    setIsPaused(false);
+    setShowHelp(false);
+    setShowSoundControls(false);
+    setShowHistoryControls(false);
+    stopHeldUndo();
+    setReplayLaunchRequest(null);
+    setSelectedSeriesFile(selection.seriesFile);
+    setSelectedLevelNumber(selection.levelNumber);
+    setMode("game");
+    setMessage(null);
+  });
+
+  useEffect(() => {
+    if (isCatalogLoading || !initialSelection) {
+      return;
+    }
+
+    const resolvedSelection = resolveInitialSelection(catalog, initialSelection);
+    if (!resolvedSelection) {
+      return;
+    }
+
+    const nextSelectionKey = `${resolvedSelection.seriesFile}:${resolvedSelection.levelNumber}`;
+    const currentSelectionKey =
+      selectedSeriesFile && selectedLevelNumber ? `${selectedSeriesFile}:${selectedLevelNumber}` : null;
+
+    if (mode === "game" && currentSelectionKey === nextSelectionKey) {
+      appliedInitialSelectionKeyRef.current = nextSelectionKey;
+      return;
+    }
+
+    if (appliedInitialSelectionKeyRef.current === nextSelectionKey) {
+      return;
+    }
+
+    appliedInitialSelectionKeyRef.current = nextSelectionKey;
+    launchSelection(resolvedSelection);
+  }, [catalog, initialSelection, isCatalogLoading, launchSelection, mode, selectedLevelNumber, selectedSeriesFile]);
 
   const activateSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
@@ -760,6 +1451,8 @@ export function PlayerApp({ services }: PlayerAppProps) {
       return;
     }
 
+    setReplayLaunchRequest(null);
+    setIsPaused(false);
     setSelectedLevelNumber(nextLevel.number);
   });
 
@@ -773,7 +1466,15 @@ export function PlayerApp({ services }: PlayerAppProps) {
       return;
     }
 
+    setReplayLaunchRequest(null);
+    setIsPaused(false);
     setSelectedLevelNumber(nextLevel.number);
+  });
+
+  const restartCurrentLevel = useEffectEvent(() => {
+    setReplayLaunchRequest(null);
+    setIsPaused(false);
+    setReloadToken((value) => value + 1);
   });
 
   const proceedAfterLevelEnd = useEffectEvent(() => {
@@ -783,13 +1484,26 @@ export function PlayerApp({ services }: PlayerAppProps) {
 
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
+    setIsPaused(false);
 
     if (session.frame.snapshot.status === "completed") {
       const currentIndex = currentSeries.levels.findIndex((level) => level.number === currentLevel.number);
       const nextLevel = currentSeries.levels[currentIndex + 1];
       if (nextLevel) {
+        setReplayLaunchRequest(null);
         setSelectedLevelNumber(nextLevel.number);
         setMessage(null);
+        return;
+      }
+
+      if (isEmbeddedModernChrome) {
+        setMessage(`${currentSeries.filebase} completed.`);
+        return;
+      }
+
+      if (chromeMode === "modern" && onExitGame) {
+        setMessage(`${currentSeries.filebase} completed.`);
+        exitCurrentGame();
         return;
       }
 
@@ -799,13 +1513,136 @@ export function PlayerApp({ services }: PlayerAppProps) {
     }
 
     if (session.frame.snapshot.status === "failed") {
-      setReloadToken((value) => value + 1);
+      restartCurrentLevel();
+    }
+  });
+
+  const saveReplayForCurrentRun = useEffectEvent(async () => {
+    if (!session || !replayContextLevel || !replayContextSeries) {
+      return;
+    }
+
+    try {
+      const artifact = buildReplayExport(replayContextSeries.filebase, replayContextLevel, session);
+      if (!artifact) {
+        throw new Error("no replay data is available for export yet");
+      }
+
+      const storedEntry = await saveReplayArtifactToLibrary(artifact, "saved-run", {
+        finalScore: session.run.result?.score?.finalScore ?? null,
+        result: session.run.result?.outcome ?? null,
+        undoUsedCount: session.run.undoUsedCount,
+      });
+      await replayTransfer.exportReplay(artifact);
+      if (session.run.result) {
+        setReplaySaveNotice(
+          storedEntry
+            ? `Saved replay as ${storedEntry.fileName}. Added to the library and downloaded a copy.`
+            : `Saved replay as ${artifact.filename}.`,
+        );
+      } else {
+        setMessage(
+          storedEntry
+            ? `Saved replay ${storedEntry.fileName} to the library and downloaded a copy.`
+            : `Saved replay for Level ${replayContextLevel.number}.`,
+        );
+      }
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+  const saveReplayForCurrentRunFromMenu = useEffectEvent(async () => {
+    setShowReplayMenu(false);
+    await saveReplayForCurrentRun();
+  });
+
+  const importReplayForCurrentLevelFromMenu = useEffectEvent(async () => {
+    setShowReplayMenu(false);
+    await importReplayForCurrentLevel();
+  });
+
+  const watchLatestReplayFromMenu = useEffectEvent(() => {
+    setShowReplayMenu(false);
+    if (latestCurrentReplayEntry) {
+      watchSavedReplayEntry(latestCurrentReplayEntry);
+    }
+  });
+
+  const openManageReplays = useEffectEvent(() => {
+    if (currentLevelReplayEntries.length === 0) {
+      return;
+    }
+
+    setShowReplayMenu(false);
+    setSelectedManagedReplayId(continueReplayEntry?.id ?? currentLevelReplayEntries[0]?.id ?? null);
+    setShowManageReplays(true);
+  });
+
+  const closeManageReplays = useEffectEvent(() => {
+    setShowManageReplays(false);
+  });
+
+  useEffect(() => {
+    if (!showManageReplays) {
+      return;
+    }
+
+    if (currentLevelReplayEntries.length === 0) {
+      setShowManageReplays(false);
+      setSelectedManagedReplayId(null);
+      return;
+    }
+
+    if (!selectedManagedReplayId || !currentLevelReplayEntries.some((entry) => entry.id === selectedManagedReplayId)) {
+      setSelectedManagedReplayId(currentLevelReplayEntries[0]?.id ?? null);
+    }
+  }, [currentLevelReplayEntries, selectedManagedReplayId, showManageReplays]);
+
+  useEffect(() => {
+    if (pendingReplayEntryId && !currentLevelReplayEntries.some((entry) => entry.id === pendingReplayEntryId)) {
+      setPendingReplayEntryId(null);
+    }
+  }, [currentLevelReplayEntries, pendingReplayEntryId]);
+
+  const loadManagedReplay = useEffectEvent(() => {
+    if (!selectedManagedReplayRow) {
+      return;
+    }
+
+    setPendingReplayEntryId(selectedManagedReplayRow.entry.id);
+    setShowManageReplays(false);
+    setReplayLaunchRequest(null);
+    setIsPaused(false);
+    setReloadToken((value) => value + 1);
+  });
+
+  const downloadReplayEntry = useEffectEvent(async (entry: BrowserReplayEntry) => {
+    try {
+      await replayTransfer.exportReplay({
+        bytes: entry.bytes,
+        filename: entry.fileName,
+      });
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+  const deleteReplayEntryFromLibrary = useEffectEvent(async (entry: BrowserReplayEntry) => {
+    try {
+      await profileStore.deleteReplayEntry(entry.id);
+      startTransition(() => {
+        setSavedReplayEntries((current) => current.filter((existing) => existing.id !== entry.id));
+      });
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
     }
   });
 
   const toggleHelp = useEffectEvent(() => {
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
+    setShowReplayMenu(false);
     setShowSoundControls(false);
     setShowHistoryControls(false);
     setShowHelp((value) => !value);
@@ -858,6 +1695,11 @@ export function PlayerApp({ services }: PlayerAppProps) {
       setMessage("Only .dat files can be imported from local storage.");
       return;
     }
+    const existingFilenames = new Set(
+      catalog
+        .filter((entry) => entry.mapfilename.startsWith("local:"))
+        .map((entry) => entry.mapfilename.slice("local:".length)),
+    );
 
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
@@ -865,6 +1707,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
     setShowHelp(false);
     setShowSoundControls(false);
     setShowHistoryControls(false);
+    setReplayLaunchRequest(null);
 
     const results = await Promise.allSettled(
       candidates.map(async (file) => ({
@@ -896,17 +1739,13 @@ export function PlayerApp({ services }: PlayerAppProps) {
       setMode("series-list");
       setSelectedSeriesFile(selectedImport?.filebase ?? null);
       setSelectedLevelNumber(selectedImport?.levels[0]?.number ?? null);
-      if (failures.length === 0) {
-        setMessage(
-          successes.length === 1
-            ? `Imported ${successes[0]!.file.name}. MS and Lynx entries were added to the series list.`
-            : `Imported ${successes.length} DAT files. MS and Lynx entries were added to the series list.`,
-        );
-        return;
-      }
-
       setMessage(
-        `Imported ${successes.length} DAT file${successes.length === 1 ? "" : "s"}; ${failures.length} failed. ${failures[0]}`,
+        describeLocalDatImportMessage({
+          existingFilenames,
+          failureMessages: failures,
+          successfulFilenames: successes.map(({ file }) => file.name),
+          variant: "classic",
+        }),
       );
     });
   });
@@ -928,7 +1767,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
       return;
     }
 
-    if (mode !== "game" || !session || showHelp) {
+    if (mode !== "game" || !session || showHelp || isPaused) {
       player.reset();
       return;
     }
@@ -939,7 +1778,43 @@ export function PlayerApp({ services }: PlayerAppProps) {
       session.frame.snapshot.tick,
       session.frame.snapshot.soundEffects,
     );
-  }, [mode, session, showHelp]);
+  }, [isPaused, mode, session, showHelp]);
+
+  useEffect(() => {
+    if (mode !== "game" || !session || session.frame.snapshot.status !== "playing") {
+      setIsPaused(false);
+    }
+  }, [mode, session]);
+
+  useEffect(() => {
+    if (mode !== "game") {
+      setShowReplayMenu(false);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (!showReplayMenu) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (replayMenuRef.current?.contains(target)) {
+        return;
+      }
+
+      setShowReplayMenu(false);
+    };
+
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [showReplayMenu]);
 
   useEffect(() => {
     if (!showSoundControls && !showHistoryControls) {
@@ -976,7 +1851,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
         lynxInputBufferRef.current.reset();
       }
 
-      if (isHelpToggleKey(event.key)) {
+      if (isHelpToggleKey(event)) {
         event.preventDefault();
         toggleHelp();
         return;
@@ -1001,6 +1876,12 @@ export function PlayerApp({ services }: PlayerAppProps) {
       if (showHistoryControls && event.key === "Escape") {
         event.preventDefault();
         closeHistoryControls();
+        return;
+      }
+
+      if (showReplayMenu && event.key === "Escape") {
+        event.preventDefault();
+        setShowReplayMenu(false);
         return;
       }
 
@@ -1047,7 +1928,36 @@ export function PlayerApp({ services }: PlayerAppProps) {
         return;
       }
 
-      if (session?.history.enabled && isUndoCheckpointKey(event)) {
+      if (isModernChrome && !isEditableKeyTarget(event.target) && isPauseToggleKey(event)) {
+        event.preventDefault();
+        toggleModernPause();
+        return;
+      }
+
+      if (isPaused) {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          exitCurrentGame();
+          return;
+        }
+
+        if (event.key !== "Tab") {
+          event.preventDefault();
+        }
+        return;
+      }
+
+      if (isModernChrome && session?.history.enabled && isUndoKey(event)) {
+        event.preventDefault();
+        if (event.repeat) {
+          return;
+        }
+        const continueHolding = performModernUndo(false);
+        setHeldUndoMode(continueHolding ? "coarse" : null);
+        return;
+      }
+
+      if (!isModernChrome && session?.history.enabled && isUndoCheckpointKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -1057,7 +1967,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
         return;
       }
 
-      if (session?.history.enabled && isFineUndoKey(event)) {
+      if (!isModernChrome && session?.history.enabled && isFineUndoKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -1067,7 +1977,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
         return;
       }
 
-      if (session?.history.enabled && isUndoKey(event)) {
+      if (!isModernChrome && session?.history.enabled && isUndoKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -1100,16 +2010,13 @@ export function PlayerApp({ services }: PlayerAppProps) {
 
       if (event.key === "Escape") {
         event.preventDefault();
-        msInputBufferRef.current.reset();
-        lynxInputBufferRef.current.reset();
-        setIsRunning(false);
-        setMode("series-list");
+        exitCurrentGame();
         return;
       }
 
       if (event.key === "r" || event.key === "R") {
         event.preventDefault();
-        setReloadToken((value) => value + 1);
+        restartCurrentLevel();
         return;
       }
 
@@ -1188,6 +2095,10 @@ export function PlayerApp({ services }: PlayerAppProps) {
         return;
       }
 
+      if (isPaused) {
+        return;
+      }
+
       if (event.key === "z" || event.key === "Z") {
         stopHeldUndo();
       }
@@ -1227,13 +2138,17 @@ export function PlayerApp({ services }: PlayerAppProps) {
     };
   }, [
     activateSeries,
+    canTogglePause,
     canResumeOriginalTimeline,
     changeLevelBy,
     changeSelectedSeriesBy,
     closeHelp,
+    exitCurrentGame,
     closeHistoryControls,
     jumpLevel,
     jumpSelectedSeries,
+    isModernChrome,
+    isPaused,
     mode,
     proceedAfterLevelEnd,
     resumeLivePlayFromRestore,
@@ -1241,17 +2156,849 @@ export function PlayerApp({ services }: PlayerAppProps) {
     selectedSeriesFile,
     session,
     showHistoryControls,
+    showReplayMenu,
     showSoundControls,
     showHelp,
     closeSoundControls,
     stopHeldUndo,
     stepHeldUndo,
     toggleHelp,
+    toggleModernPause,
     undoPreviousCheckpoint,
     undoPreviousTickBurst,
     undoPreviousTick,
     undoSettings.allowTakeoverDuringHistoricalReplay,
   ]);
+
+  const helpOverlay = showHelp ? (
+    <div
+      className="legacy-help-backdrop"
+      onClick={closeHelp}
+      role="presentation"
+    >
+      <section
+        aria-label="Keyboard help"
+        className="legacy-help"
+        onClick={(event) => {
+          event.stopPropagation();
+        }}
+      >
+        <div className="legacy-help__header">
+          <h2 className="legacy-help__title">Controls</h2>
+          <button className="legacy-help__close" onClick={closeHelp} type="button">
+            Close
+          </button>
+        </div>
+        <p className="legacy-help__note">Listed commands are the ones currently wired in the browser build.</p>
+        {helpSections.map((section) => (
+          <section className="legacy-help__section" key={section.title}>
+            <h3 className="legacy-help__section-title">{section.title}</h3>
+            <div className="legacy-help__table">
+              {section.commands.map((command) => (
+                <div className="legacy-help__row" key={`${section.title}-${command.keys}`}>
+                  <span className="legacy-help__keys">{command.keys}</span>
+                  <span className="legacy-help__action">{command.action}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </section>
+    </div>
+  ) : null;
+
+  const modernResultSheet =
+    isModernChrome && session && currentLevel && currentSeries && runResult && runResultTitle ? (
+      <div className="modern-result-sheet__backdrop">
+        <section aria-label="Level result" className="modern-result-sheet">
+          <div className="modern-result-sheet__header">
+            <p className="modern-section__eyebrow">{runResultTitle}</p>
+            <h2 className="modern-result-sheet__title">
+              Level {currentLevel.number}: {currentLevel.name}
+            </h2>
+            {runResultSubtitle ? <p className="modern-result-sheet__subtitle">{runResultSubtitle}</p> : null}
+          </div>
+
+          <div className="modern-result-sheet__grid">
+            <section className="modern-result-sheet__panel">
+              <h3 className="modern-result-sheet__panel-title">Run Summary</h3>
+              <div className="modern-result-sheet__rows">
+                <div className="modern-result-sheet__row">
+                  <span>Ruleset</span>
+                  <strong>{session.request.ruleset}</strong>
+                </div>
+                <div className="modern-result-sheet__row">
+                  <span>Time</span>
+                  <strong>{formatInteractiveTickSeconds(session.frame.snapshot.tick)}s</strong>
+                </div>
+                <div className="modern-result-sheet__row">
+                  <span>Undo used</span>
+                  <strong>{session.run.undoUsedCount}</strong>
+                </div>
+                <div className="modern-result-sheet__row">
+                  <span>Result</span>
+                  <strong>
+                    {runResult.outcome === "completed-clean"
+                      ? "Cleared clean"
+                      : runResult.outcome === "completed-with-undo"
+                        ? "Cleared with undo"
+                        : "Failed"}
+                  </strong>
+                </div>
+                {runResult.endPosition ? (
+                  <div className="modern-result-sheet__row">
+                    <span>End position</span>
+                    <strong>
+                      ({runResult.endPosition.x}, {runResult.endPosition.y}
+                      {runResult.endPosition.z && runResult.endPosition.z > 1 ? `, z${runResult.endPosition.z}` : ""})
+                    </strong>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="modern-result-sheet__panel">
+              <h3 className="modern-result-sheet__panel-title">
+                {runResult.outcome === "failed" ? "Failure Cause" : "Score"}
+              </h3>
+              {runResult.score ? (
+                <div className="modern-result-sheet__rows">
+                  <div className="modern-result-sheet__row">
+                    <span>Base score</span>
+                    <strong>{runResult.score.baseScore}</strong>
+                  </div>
+                  <div className="modern-result-sheet__row">
+                    <span>Time bonus</span>
+                    <strong>{runResult.score.timeBonus}</strong>
+                  </div>
+                  <div className="modern-result-sheet__row">
+                    <span>Undo penalty</span>
+                    <strong>{runResult.score.undoPenaltyApplied ? "x0.5" : "None"}</strong>
+                  </div>
+                  <div className="modern-result-sheet__row modern-result-sheet__row--strong">
+                    <span>Final score</span>
+                    <strong>{runResult.score.finalScore}</strong>
+                  </div>
+                </div>
+              ) : (
+                <div className="modern-result-sheet__rows">
+                  <div className="modern-result-sheet__row">
+                    <span>Cause</span>
+                    <strong>{runResult.cause?.message ?? "Unknown failure"}</strong>
+                  </div>
+                  {runResult.cause?.actorName ? (
+                    <div className="modern-result-sheet__row">
+                      <span>Source</span>
+                      <strong>{runResult.cause.actorName}</strong>
+                    </div>
+                  ) : null}
+                  {runResult.cause?.tileId !== null && runResult.cause?.tileId !== undefined ? (
+                    <div className="modern-result-sheet__row">
+                      <span>Tile id</span>
+                      <strong>{runResult.cause.tileId}</strong>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </section>
+
+            <section className="modern-result-sheet__panel">
+              <h3 className="modern-result-sheet__panel-title">Replay</h3>
+              <div className="modern-result-sheet__rows">
+                <div className="modern-result-sheet__row">
+                  <span>Recorded replay</span>
+                  <strong>{session.run.replayAvailable ? "Ready to save" : "No recorded inputs yet"}</strong>
+                </div>
+                <div className="modern-result-sheet__row">
+                  <span>Official replay</span>
+                  <strong>{replayContextLevel?.hasSolution ? "Bundled with this level" : "None"}</strong>
+                </div>
+                <div className="modern-result-sheet__row">
+                  <span>Moves</span>
+                  <strong>{session.recordedMoves.length}</strong>
+                </div>
+                <div className="modern-result-sheet__row">
+                  <span>Saved replays</span>
+                  <strong>{currentLevelReplayEntries.length}</strong>
+                </div>
+              </div>
+              <div className="modern-result-sheet__replay-actions">
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!canSaveReplay}
+                  onClick={() => {
+                    void saveReplayForCurrentRun();
+                  }}
+                  type="button"
+                >
+                  Save Replay
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!replayContextLevel || !replayContextSeries}
+                  onClick={() => {
+                    void importReplayForCurrentLevel();
+                  }}
+                  type="button"
+                >
+                  Import Replay
+                </button>
+                <button
+                  className="modern-link-button"
+                  disabled={!latestCurrentReplayEntry}
+                  onClick={() => {
+                    if (latestCurrentReplayEntry) {
+                      watchSavedReplayEntry(latestCurrentReplayEntry);
+                    }
+                  }}
+                  type="button"
+                >
+                  Watch Latest Replay
+                </button>
+                <button
+                  className="modern-link-button"
+                  disabled={!session.run.replayAvailable}
+                  onClick={() => {
+                    setShowReplayDetails((current) => !current);
+                  }}
+                  type="button"
+                >
+                  {showReplayDetails ? "Hide Replay Details" : "View Replay Details"}
+                </button>
+              </div>
+              {replaySaveNotice ? <p className="modern-result-sheet__notice">{replaySaveNotice}</p> : null}
+              {showReplayDetails && session.run.replayAvailable ? (
+                <div className="modern-result-sheet__details">
+                  <p>Seed {session.frame.snapshot.randomState.main.initial}</p>
+                  <p>Recorded moves {session.recordedMoves.length}</p>
+                  <p>Status {session.mode === "replay" ? "Replay session" : "Manual session"}</p>
+                  {latestCurrentReplayDescription ? <p>Latest saved replay: {latestCurrentReplayDescription.summaryLabel}</p> : null}
+                  {replayModeNote ? <p>{replayModeNote}</p> : null}
+                </div>
+              ) : null}
+            </section>
+          </div>
+
+          <div className="modern-result-sheet__actions">
+            <button className="modern-button" onClick={proceedAfterLevelEnd} type="button">
+              {runResult.outcome === "failed"
+                ? "Retry"
+                : currentSeries.levels.findIndex((level) => level.number === currentLevel.number) < currentSeries.levels.length - 1
+                  ? "Next Level"
+                  : isEmbeddedModernChrome
+                    ? "Stay on Final Level"
+                    : "Back to Library"}
+            </button>
+            <button className="modern-button modern-button--secondary" onClick={restartCurrentLevel} type="button">
+              Restart Level
+            </button>
+            <button
+              className="modern-button modern-button--secondary"
+              disabled={!canUseModernUndo}
+              onClick={() => {
+                void performModernUndo(false);
+              }}
+              type="button"
+            >
+              Undo
+            </button>
+            <button className="modern-link-button" disabled={!canResumeOriginalTimeline} onClick={resumeOriginalTimeline} type="button">
+              Resume Original Timeline
+            </button>
+          </div>
+        </section>
+      </div>
+    ) : null;
+
+  const modernMessageModal =
+    isModernChrome && message ? (
+      <div
+        aria-hidden="true"
+        className="modern-message-modal"
+        onClick={dismissMessage}
+      >
+        <div
+          aria-labelledby="modern-message-title"
+          aria-modal="true"
+          className="modern-message-modal__dialog"
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          role="dialog"
+        >
+          <div className="modern-message-modal__header">
+            <div>
+              <p className="modern-section__eyebrow">Notice</p>
+              <h2 className="modern-dashboard__panel-title" id="modern-message-title">
+                Tile World Online
+              </h2>
+            </div>
+            <button
+              aria-label="Close notice"
+              className="modern-dashboard__about-button modern-dashboard__about-button--close"
+              onClick={dismissMessage}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+          <div className="modern-message-modal__body">
+            <p className="modern-dashboard__copy">{message}</p>
+          </div>
+          <div className="modern-message-modal__actions">
+            <button className="modern-button modern-button--secondary" onClick={dismissMessage} type="button">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  const manageReplaysModal =
+    isModernChrome && showManageReplays ? (
+      <div
+        aria-hidden="true"
+        className="modern-about-modal modern-replay-manager-modal"
+        onClick={closeManageReplays}
+      >
+        <div
+          aria-labelledby="modern-manage-replays-title"
+          aria-modal="true"
+          className="modern-about-modal__dialog modern-replay-manager-modal__dialog"
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          role="dialog"
+        >
+          <div className="modern-about-modal__header">
+            <div>
+              <p className="modern-section__eyebrow">Replay Library</p>
+              <h2 className="modern-dashboard__panel-title" id="modern-manage-replays-title">
+                {replayContextLevel ? `Manage Replays: Level ${replayContextLevel.number}` : "Manage Replays"}
+              </h2>
+              <p className="modern-dashboard__copy">
+                {[currentLevel?.name ?? null, currentRuleset ?? null, currentReplayCountLabel].filter(Boolean).join("  ·  ")}
+              </p>
+            </div>
+            <button
+              aria-label="Close replay manager"
+              className="modern-dashboard__about-button modern-dashboard__about-button--close"
+              onClick={closeManageReplays}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+          <div className="modern-about-modal__body">
+            <div className="modern-replay-manager">
+              {currentLevelReplayRows.map((row) => (
+                <div
+                  className={`modern-replay-manager__entry${
+                    selectedManagedReplayRow?.entry.id === row.entry.id ? " modern-replay-manager__entry--selected" : ""
+                  }`}
+                  key={row.entry.id}
+                >
+                  <button
+                    className="modern-replay-manager__select"
+                    onClick={() => {
+                      setSelectedManagedReplayId(row.entry.id);
+                    }}
+                    type="button"
+                  >
+                    <div className="modern-replay-manager__title-row">
+                      <strong className="modern-replay-manager__name">{row.entry.fileName}</strong>
+                      <span className="modern-replay-manager__result">{row.replayDescription.resultLabel}</span>
+                    </div>
+                    <p className="modern-replay-manager__meta">
+                      {row.secondsLabel}  ·  {row.moveCount ?? "?"} moves
+                      {row.entry.finalScore !== null ? `  ·  ${row.entry.finalScore} pts` : ""}
+                    </p>
+                  </button>
+                  <div className="modern-replay-manager__row-actions">
+                    <button
+                      aria-label={`Download ${row.entry.fileName}`}
+                      className="modern-icon-button"
+                      onClick={() => {
+                        void downloadReplayEntry(row.entry);
+                      }}
+                      type="button"
+                    >
+                      <DownloadIcon />
+                    </button>
+                    <button
+                      aria-label={`Delete ${row.entry.fileName}`}
+                      className="modern-icon-button modern-icon-button--danger"
+                      onClick={() => {
+                        void deleteReplayEntryFromLibrary(row.entry);
+                      }}
+                      type="button"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="modern-message-modal__actions modern-replay-manager__footer">
+            <button
+              className="modern-button"
+              disabled={!selectedManagedReplayRow}
+              onClick={loadManagedReplay}
+              type="button"
+            >
+              Load
+            </button>
+            <button className="modern-button modern-button--secondary" onClick={closeManageReplays} type="button">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  const selectedRulesetSelections =
+    currentFamily && currentLevel
+      ? {
+          MS: resolveSetFamilySelection(currentFamily, "MS", currentLevel.number),
+          Lynx: resolveSetFamilySelection(currentFamily, "Lynx", currentLevel.number),
+        }
+      : { MS: null, Lynx: null };
+  const handleModernMapClick = useEffectEvent((position: number) => {
+    if (
+      mode !== "game" ||
+      !session ||
+      isPaused ||
+      session.mode !== "manual" ||
+      session.request.ruleset !== "MS" ||
+      session.frame.snapshot.status !== "playing" ||
+      (session.history.restoreMode === "replaying-history" && !undoSettings.allowTakeoverDuringHistoricalReplay)
+    ) {
+      return;
+    }
+
+    msInputBufferRef.current.queueAbsoluteMouseMove(position);
+    if (!manualRunStarted) {
+      setManualRunStarted(true);
+    }
+    if (!isRunning) {
+      setIsRunning(true);
+    }
+  });
+  const renderModernRulesetToggle = (keyPrefix: string) => (
+    <div className="modern-ruleset-toggle modern-ruleset-toggle--stacked" role="group" aria-label="Ruleset">
+      {(["MS", "Lynx"] as const).map((ruleset) => {
+        const selection = selectedRulesetSelections[ruleset];
+        return (
+          <button
+            aria-pressed={currentRuleset === ruleset}
+            className={`modern-ruleset-toggle__button${currentRuleset === ruleset ? " modern-ruleset-toggle__button--active" : ""}`}
+            disabled={selection === null}
+            key={`${keyPrefix}:${ruleset}`}
+            onClick={() => {
+              if (selection) {
+                launchSelection(selection);
+              }
+            }}
+            type="button"
+          >
+            {ruleset}
+          </button>
+        );
+      })}
+    </div>
+  );
+  const renderModernGameplayRail = (keyPrefix: string) => (
+    <aside className="modern-game-rail modern-game-rail--left">
+      <section className="modern-game-rail__panel modern-game-rail__panel--ruleset">
+        {renderModernRulesetToggle(keyPrefix)}
+      </section>
+
+      <section className="modern-game-rail__panel">
+        <p className="modern-section__eyebrow">Runtime</p>
+        <div className="modern-game-rail__stats">
+          <div className="modern-game-stat">
+            <span className="modern-game-stat__label">Chips</span>
+            <strong
+              className={`modern-game-stat__value${
+                session && session.frame.snapshot.chipsNeeded === 0 ? " modern-game-stat__value--good" : ""
+              }`}
+            >
+              {session ? session.frame.snapshot.chipsNeeded : "---"}
+            </strong>
+          </div>
+          <div className="modern-game-stat">
+            <span className="modern-game-stat__label">Time</span>
+            <strong
+              className={`modern-game-stat__value${
+                session && session.frame.snapshot.timelimit > 0 && gameplayTimeRemainingTicks(session) < LOW_TIME_WARNING_TICKS
+                  ? " modern-game-stat__value--danger"
+                  : ""
+              }`}
+            >
+              {session ? formatGameplayTimeLeft(session) : "---"}
+            </strong>
+          </div>
+          <div className="modern-game-stat">
+            <span className="modern-game-stat__label">Undo Used</span>
+            <strong
+              className={`modern-game-stat__value ${
+                (session?.run.undoUsedCount ?? 0) > 0 ? "modern-game-stat__value--danger" : "modern-game-stat__value--good"
+              }`}
+            >
+              {session?.run.undoUsedCount ?? 0}
+            </strong>
+          </div>
+        </div>
+      </section>
+    </aside>
+  );
+  const renderModernInventoryRail = () => (
+    <aside className="modern-game-inventory-strip">
+      <div className="modern-game-inventory-strip__group">
+        <p className="modern-game-inventory-strip__label">Keys</p>
+        <LegacyInventoryStrip
+          className="modern-game-inventory-strip__canvas"
+          currentRuleset={currentRuleset}
+          inventory={session?.frame.snapshot.inventory ?? null}
+          kind="keys"
+        />
+      </div>
+      <div className="modern-game-inventory-strip__group">
+        <p className="modern-game-inventory-strip__label">Boots</p>
+        <LegacyInventoryStrip
+          className="modern-game-inventory-strip__canvas"
+          currentRuleset={currentRuleset}
+          inventory={session?.frame.snapshot.inventory ?? null}
+          kind="boots"
+        />
+      </div>
+    </aside>
+  );
+  const renderModernUndoPanel = () => (
+    <section className="modern-game-undo-panel">
+      {historyStatusMessage ? (
+        <div className="modern-game-undo-panel__status" role="status">
+          {historyStatusMessage}
+        </div>
+      ) : null}
+      <div className="modern-game-undo-panel__actions">
+        <button
+          className="modern-button modern-button--secondary modern-game-undo-panel__button"
+          disabled={!canUseModernUndo}
+          onClick={() => {
+            void performModernUndo(false);
+          }}
+          type="button"
+        >
+          Undo
+        </button>
+        <button
+          className="modern-button modern-button--secondary modern-game-undo-panel__button"
+          disabled={!canContinueFromReplay && !canResumeOriginalTimeline}
+          onClick={continueFromReplay}
+          type="button"
+        >
+          {canContinueFromReplay ? "Continue From Replay" : "Resume Original Timeline"}
+        </button>
+      </div>
+    </section>
+  );
+  const renderModernHeaderToolbar = () => (
+    <div className="modern-game-header__toolbar">
+      <div aria-label="Primary controls" className="modern-game-header__toolbar-group" role="group">
+        <button className="modern-button modern-button--secondary modern-button--compact" onClick={restartCurrentLevel} type="button">
+          <span>Restart</span>
+          <span className="modern-game-header__shortcut">R</span>
+        </button>
+        <button
+          className="modern-button modern-button--secondary modern-button--compact"
+          disabled={!canTogglePause}
+          onClick={toggleModernPause}
+          type="button"
+        >
+          <span>{isPaused ? "Resume" : "Pause"}</span>
+          <span className="modern-game-header__shortcut">Bksp</span>
+        </button>
+        <button className="modern-button modern-button--secondary modern-button--compact" onClick={() => changeLevelBy(-1)} type="button">
+          <span>Previous</span>
+          <span className="modern-game-header__shortcut">P</span>
+        </button>
+        <button className="modern-button modern-button--secondary modern-button--compact" onClick={() => changeLevelBy(1)} type="button">
+          <span>Next</span>
+          <span className="modern-game-header__shortcut">N</span>
+        </button>
+      </div>
+
+      <div aria-label="Replay and help" className="modern-game-header__toolbar-group modern-game-header__toolbar-group--right" role="group">
+        <div className="modern-toolbar-menu" ref={replayMenuRef}>
+          <button
+            aria-expanded={showReplayMenu}
+            aria-haspopup="menu"
+            className="modern-button modern-button--secondary modern-button--compact"
+            onClick={() => {
+              setShowReplayMenu((current) => !current);
+            }}
+            type="button"
+          >
+            <span>Replays</span>
+            <span aria-hidden="true" className="modern-toolbar-menu__caret">
+              {showReplayMenu ? "▴" : "▾"}
+            </span>
+          </button>
+          {showReplayMenu ? (
+            <div aria-label="Replay actions" className="modern-toolbar-menu__panel" role="menu">
+              <button className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item" disabled={!canSaveReplay} onClick={() => void saveReplayForCurrentRunFromMenu()} role="menuitem" type="button">
+                Save Replay
+              </button>
+              <button
+                className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item"
+                disabled={!currentLevel || !currentSeries}
+                onClick={() => {
+                  void importReplayForCurrentLevelFromMenu();
+                }}
+                role="menuitem"
+                type="button"
+              >
+                Import Replay
+              </button>
+              <button
+                className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item"
+                disabled={!latestCurrentReplayEntry}
+                onClick={watchLatestReplayFromMenu}
+                role="menuitem"
+                type="button"
+              >
+                Watch Latest
+              </button>
+              <button
+                className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item"
+                disabled={currentLevelReplayEntries.length === 0}
+                onClick={openManageReplays}
+                role="menuitem"
+                type="button"
+              >
+                Manage Replays
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <button className="modern-button modern-button--secondary modern-button--compact" onClick={toggleHelp} type="button">
+          <span>Help</span>
+          <span className="modern-game-header__shortcut">H</span>
+        </button>
+      </div>
+    </div>
+  );
+  const renderModernBoardPanel = (embedded: boolean, keyPrefix: string) => (
+    <section className="modern-game-board modern-game-board--with-rails">
+      <div className={`modern-game-board__frame${embedded ? " modern-game-board__frame--embedded" : ""}`}>
+        <div className={`modern-game-stage${embedded ? " modern-game-stage--embedded" : ""}`}>
+          {renderModernGameplayRail(keyPrefix)}
+          <div className="modern-game-board__viewport">
+            {isPaused ? (
+              <div
+                aria-live="polite"
+                aria-label="Paused"
+                className={`modern-game-board__paused${embedded ? " modern-game-board__paused--embedded" : ""}`}
+                role="status"
+              >
+                <p className="modern-game-board__paused-title">PAUSED</p>
+                <p className="modern-game-board__paused-copy">Press Backspace/Delete or use Resume to continue.</p>
+              </div>
+            ) : (
+              <LegacyCanvasScreen
+                catalog={catalog}
+                className={`modern-gameboard__canvas${embedded ? " modern-gameboard__canvas--embedded" : ""}`}
+                currentLevel={currentLevel}
+                currentSeries={currentSeries}
+                currentRuleset={currentRuleset}
+                isLoading={isCatalogLoading || isSessionLoading}
+                message={message}
+                mode="game"
+                onMapClick={handleModernMapClick}
+                onActivateSeries={activateSeries}
+                onSelectSeries={selectSeries}
+                presentation="map-only"
+                selectedSeriesFile={selectedSeriesFile}
+                session={session}
+              />
+            )}
+            {!isPaused && modernHintOverlayText ? (
+              <div className="modern-game-board__hint-overlay" role="status" aria-live="polite">
+                <p className="modern-game-board__hint-overlay-copy">{modernHintOverlayText}</p>
+              </div>
+            ) : null}
+          </div>
+          {renderModernInventoryRail()}
+          {renderModernUndoPanel()}
+        </div>
+      </div>
+    </section>
+  );
+
+  if (chromeMode === "modern-embedded") {
+    return (
+      <section className="modern-embedded-player">
+        <header className="modern-embedded-player__header">
+          <div className="modern-embedded-player__copy">
+            <div className="modern-game-header__meta modern-game-header__meta--status-only">
+              <p className="modern-section__eyebrow modern-game-header__state">{modernStatusLabel}</p>
+            </div>
+            <h1 className="modern-embedded-player__title">
+              {replayContextLevel
+                ? `Level ${replayContextLevel.number}: ${replayContextLevel.name}`
+                : replayContextSeries?.filebase ?? "Loading level"}
+            </h1>
+            <p className="modern-game-header__subtitle">
+              <span>{modernGameplaySubtitle}</span>
+              {currentLevelReplayEntries.length > 0 ? (
+                <>
+                  <span className="modern-game-header__subtitle-separator">·</span>
+                  <button className="modern-game-header__subtitle-link" onClick={openManageReplays} type="button">
+                    {currentReplayCountLabel}
+                  </button>
+                </>
+              ) : null}
+            </p>
+          </div>
+          {renderModernHeaderToolbar()}
+        </header>
+
+        <div className="modern-embedded-player__body">
+          {renderModernBoardPanel(true, "embedded")}
+        </div>
+        {modernResultSheet}
+        {modernMessageModal}
+        {manageReplaysModal}
+        {helpOverlay}
+      </section>
+    );
+  }
+
+  if (chromeMode === "modern") {
+    return (
+      <main className="modern-shell modern-shell--game">
+        <div className="modern-shell__inner modern-game-shell">
+          <header className="modern-game-header">
+            <div className="modern-game-header__copy">
+              <div className="modern-game-header__meta">
+                <div className="modern-set-hub__breadcrumbs">
+                  <button className="modern-link-button" onClick={exitCurrentGame} type="button">
+                    Back to Library
+                  </button>
+                  <span className="modern-set-hub__breadcrumb-separator">/</span>
+                  <span className="modern-set-hub__breadcrumb-current">{currentFamily?.title ?? replayContextSeries?.filebase ?? "Current Set"}</span>
+                </div>
+                <p className="modern-section__eyebrow modern-game-header__state">{modernStatusLabel}</p>
+              </div>
+              <h1 className="modern-game-header__title">
+                {replayContextLevel
+                  ? `Level ${replayContextLevel.number}: ${replayContextLevel.name}`
+                  : replayContextSeries?.filebase ?? "Loading level"}
+              </h1>
+              <p className="modern-game-header__subtitle">
+                <span>{modernGameplaySubtitle}</span>
+                {currentLevelReplayEntries.length > 0 ? (
+                  <>
+                    <span className="modern-game-header__subtitle-separator">·</span>
+                    <button className="modern-game-header__subtitle-link" onClick={openManageReplays} type="button">
+                      {currentReplayCountLabel}
+                    </button>
+                  </>
+                ) : null}
+              </p>
+            </div>
+            {renderModernHeaderToolbar()}
+          </header>
+
+          <div className="modern-game-layout">
+            {renderModernBoardPanel(false, "gameplay")}
+
+            <aside className="modern-game-sidebar">
+              <section className="modern-level-focus modern-level-focus--sidebar">
+                <div className="modern-level-focus__header">
+                  <div>
+                    <p className="modern-section__eyebrow">Audio</p>
+                    <h2 className="modern-level-focus__title">Sound</h2>
+                  </div>
+                </div>
+                <div className="modern-game-sound">
+                  <button className="modern-link-button" onClick={toggleMuted} type="button">
+                    {soundMuted || soundVolume <= 0 ? "Enable Sound" : "Mute Sound"}
+                  </button>
+                  <label className="modern-game-sound__label" htmlFor="modern-sound-volume">
+                    Volume {Math.round(soundVolume * 100)}%
+                  </label>
+                  <input
+                    className="modern-game-sound__slider"
+                    id="modern-sound-volume"
+                    max="1"
+                    min="0"
+                    onChange={(event) => {
+                      const nextVolume = Number(event.currentTarget.value);
+                      setSoundVolume(Number.isFinite(nextVolume) ? nextVolume : 0.7);
+                      if (nextVolume > 0 && soundMuted) {
+                        setSoundMuted(false);
+                      }
+                    }}
+                    step="0.05"
+                    type="range"
+                    value={soundVolume}
+                  />
+                </div>
+              </section>
+
+              <section className="modern-level-focus modern-level-focus--sidebar">
+                <div className="modern-level-focus__header">
+                  <div>
+                    <p className="modern-section__eyebrow">Replay Library</p>
+                    <h2 className="modern-level-focus__title">Current level and ruleset</h2>
+                  </div>
+                </div>
+                <p className="modern-level-focus__body">
+                  Saved and imported replay files for this level appear here.
+                </p>
+                {replayModeNote ? <p className="modern-level-focus__body">{replayModeNote}</p> : null}
+                {currentLevelReplayEntries.length > 0 ? (
+                  <div className="modern-replay-library">
+                    {currentLevelReplayEntries.slice(0, 5).map((entry) => {
+                      const replayDetails = describeReplayEntry(entry);
+                      return (
+                        <div className="modern-replay-library__entry" key={entry.id}>
+                          <div>
+                            <strong className="modern-replay-library__name">{entry.fileName}</strong>
+                            <p className="modern-replay-library__meta">{replayDetails.summaryLabel}</p>
+                          </div>
+                          <button
+                            className="modern-link-button"
+                            onClick={() => {
+                              watchSavedReplayEntry(entry);
+                            }}
+                            type="button"
+                          >
+                            Watch
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="modern-level-focus__body">
+                    No saved replays for this level in {currentRuleset ?? "the current ruleset"} yet.
+                  </p>
+                )}
+              </section>
+            </aside>
+          </div>
+          {modernResultSheet}
+          {modernMessageModal}
+          {manageReplaysModal}
+          {helpOverlay}
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="legacy-shell">
@@ -1359,9 +3106,9 @@ export function PlayerApp({ services }: PlayerAppProps) {
               {mode === "game" && session ? (
                 <div className="legacy-history__summary">
                   <div className="legacy-history__summary-row">
-                    <span>Tick</span>
+                    <span>Time</span>
                     <span>
-                      {session.history.currentTick} / {session.history.latestTick}
+                      {formatInteractiveTickSeconds(session.history.currentTick)}s / {formatInteractiveTickSeconds(session.history.latestTick)}s
                     </span>
                   </div>
                   <div className="legacy-history__summary-row">
@@ -1567,42 +3314,7 @@ export function PlayerApp({ services }: PlayerAppProps) {
         selectedSeriesFile={selectedSeriesFile}
         session={session}
       />
-      {showHelp ? (
-        <div
-          className="legacy-help-backdrop"
-          onClick={closeHelp}
-          role="presentation"
-        >
-          <section
-            aria-label="Keyboard help"
-            className="legacy-help"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-          >
-            <div className="legacy-help__header">
-              <h2 className="legacy-help__title">Controls</h2>
-              <button className="legacy-help__close" onClick={closeHelp} type="button">
-                Close
-              </button>
-            </div>
-            <p className="legacy-help__note">Listed commands are the ones currently wired in the browser build.</p>
-            {helpSections.map((section) => (
-              <section className="legacy-help__section" key={section.title}>
-                <h3 className="legacy-help__section-title">{section.title}</h3>
-                <div className="legacy-help__table">
-                  {section.commands.map((command) => (
-                    <div className="legacy-help__row" key={`${section.title}-${command.keys}`}>
-                      <span className="legacy-help__keys">{command.keys}</span>
-                      <span className="legacy-help__action">{command.action}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </section>
-        </div>
-      ) : null}
+      {helpOverlay}
     </main>
   );
 }

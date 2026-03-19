@@ -212,6 +212,11 @@ export interface MsInteractiveSessionState {
   replayPlan: ReturnType<typeof createReplayPlan> | null;
 }
 
+interface MsAdvanceTickResult {
+  state: MsGameState;
+  recordedReplayInputCode: number;
+}
+
 const UINT31_MASK = 0x7fffffffn;
 const RANDOM3_MASK = 0x3fffffffn;
 const RANDOM4_MASK = 0x0fffffffn;
@@ -4227,7 +4232,10 @@ function chooseManualMovement(
   internal: MsInternalState,
   inventory: EngineState["inventory"],
   currentTime: number,
-): number {
+): {
+  consumedInputCode: number;
+  dir: number;
+} {
   internal.chipTDir = MS_DIRECTION.none;
   if ((currentTime & 3) === 0) {
     internal.chipHasMoved = false;
@@ -4236,7 +4244,10 @@ function chooseManualMovement(
     if (internal.currentInput !== MS_DIRECTION.none && internal.goalPos >= 0) {
       internal.goalPos = -1;
     }
-    return MS_DIRECTION.none;
+    return {
+      consumedInputCode: GAME_INPUT_CODES.none,
+      dir: MS_DIRECTION.none,
+    };
   }
   const inputCode = internal.currentInput;
   internal.currentInput = MS_DIRECTION.none;
@@ -4250,7 +4261,10 @@ function chooseManualMovement(
     if (currentTime > 0 && (currentTime & 1) === 0) {
       internal.goalPos = -1;
     }
-    return MS_DIRECTION.none;
+    return {
+      consumedInputCode: GAME_INPUT_CODES.none,
+      dir: MS_DIRECTION.none,
+    };
   }
   if (inputCode === MS_DIRECTION.none) {
     let dir: number = MS_DIRECTION.none;
@@ -4258,7 +4272,10 @@ function chooseManualMovement(
       dir = chipMoveToGoalPos(cells, internal, inventory);
     }
     internal.chipTDir = dir;
-    return dir;
+    return {
+      consumedInputCode: GAME_INPUT_CODES.none,
+      dir,
+    };
   }
 
   let dir = normalizeDirection(inputCode);
@@ -4271,7 +4288,10 @@ function chooseManualMovement(
   }
 
   internal.chipTDir = dir;
-  return dir;
+  return {
+    consumedInputCode: inputCode,
+    dir,
+  };
 }
 
 function runManualMovement(
@@ -4397,7 +4417,7 @@ function advanceMsTick(
   state: MsGameState,
   input: GameRuntimeCommand,
   debugPhases: GameDebugPhaseSnapshot[] | null = null,
-): MsGameState {
+): MsAdvanceTickResult {
   const mapLayers = cloneRuntimeMapLayers(state.engine.map);
   const layerCellsByZ = new Map<number, EngineMapCell[]>(mapLayers.map((layer) => [layer.z, layer.cells]));
   const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? mapLayers[0]!.cells;
@@ -4409,6 +4429,7 @@ function advanceMsTick(
   const nextTick = state.engine.timer.currentTime + 1;
   let timeOffset = -1;
   let soundEffects = 0;
+  let recordedReplayInputCode: number = GAME_INPUT_CODES.none;
   clearMsTileOverlays(state.engine);
   internal.pendingSoundEffects = 0;
   const flushPendingSoundEffects = (): void => {
@@ -4423,7 +4444,7 @@ function advanceMsTick(
     lastMove: EngineState["lastMove"] = state.engine.lastMove,
     overrideTimeOffset = timeOffset,
     includeFinalPhase = true,
-  ): MsGameState => {
+  ): MsAdvanceTickResult => {
     const activeCells = cellsForZ(internal.chipZ ?? 1);
     const nextState = updateEngine(
       {
@@ -4457,7 +4478,10 @@ function advanceMsTick(
         ),
       );
     }
-    return nextState;
+    return {
+      state: nextState,
+      recordedReplayInputCode,
+    };
   };
 
   if (
@@ -4515,7 +4539,9 @@ function advanceMsTick(
 
   const isPlayablePhase = (): boolean => internal.chipStatus === "okay" && !internal.completed;
 
-  const maybeFinishEarly = (lastMove: EngineState["lastMove"] = state.engine.lastMove): MsGameState | null => {
+  const maybeFinishEarly = (
+    lastMove: EngineState["lastMove"] = state.engine.lastMove,
+  ): MsAdvanceTickResult | null => {
     if (isPlayablePhase()) {
       return null;
     }
@@ -4633,9 +4659,13 @@ function advanceMsTick(
     const replayLastMoveChipDir = internal.chipDir;
     const replayLastMoveGoalPos = internal.goalPos;
     const replayLastMoveChipHasMoved = internal.chipHasMoved;
-    const manualDir = isPlayablePhase()
+    const manualChoice: ReturnType<typeof chooseManualMovement> = isPlayablePhase()
       ? chooseManualMovement(activeChipCells(), internal, inventory, nextTick)
-      : MS_DIRECTION.none;
+      : {
+          consumedInputCode: GAME_INPUT_CODES.none,
+          dir: MS_DIRECTION.none,
+        };
+    recordedReplayInputCode = manualChoice.consumedInputCode;
     const chipPosBeforeManualMovement = internal.chipPos;
     const nextLastMove = resolveReplayLastMoveAfterChoose(
       state,
@@ -4650,12 +4680,12 @@ function advanceMsTick(
 
     return {
       chipPosBeforeManualMovement,
-      manualDir,
+      manualDir: manualChoice.dir,
       nextLastMove,
     };
   };
 
-  const runTimerPhase = (nextLastMove: EngineState["lastMove"]): MsGameState | null => {
+  const runTimerPhase = (nextLastMove: EngineState["lastMove"]): MsAdvanceTickResult | null => {
     if (!isPlayablePhase()) {
       return null;
     }
@@ -4663,22 +4693,25 @@ function advanceMsTick(
     if (state.engine.timer.timeLimit > 0 && nextTick >= state.engine.timer.timeLimit) {
       internal.chipStatus = "outoftime";
       soundEffects |= 1 << MS_SOUND.TimeOut;
-      return updateEngine(
-        {
-          engine: {
-            ...state.engine,
-            inventory,
-            lastMove: nextLastMove,
-            timer: {
-              ...state.engine.timer,
-              timeOffset,
+      return {
+        state: updateEngine(
+          {
+            engine: {
+              ...state.engine,
+              inventory,
+              lastMove: nextLastMove,
+              timer: {
+                ...state.engine.timer,
+                timeOffset,
+              },
             },
+            internal,
           },
-          internal,
-        },
-        activeChipCells(),
-        soundEffects,
-      );
+          activeChipCells(),
+          soundEffects,
+        ),
+        recordedReplayInputCode,
+      };
     }
     if (
       state.engine.timer.timeLimit > 0 &&
@@ -4698,7 +4731,7 @@ function advanceMsTick(
     chipFloorMovementWasActive: boolean,
     chipFloorMovementModeBeforeFloor: MsInternalState["floorMovement"],
     chipFloorMovementModeAfterFloor: MsInternalState["floorMovement"],
-  ): MsGameState | null => {
+  ): MsAdvanceTickResult | null => {
     recordPhaseWithInternal(TURN_DEBUG_PHASE.postChipInput, cloneInternalState(internal), nextLastMove);
     if (isPlayablePhase()) {
       soundEffects |= runManualMovement(activeChipCells(), internal, inventory, manualDir);
@@ -4727,7 +4760,7 @@ function advanceMsTick(
     return null;
   };
 
-  const runCloneReleasePhase = (nextLastMove: EngineState["lastMove"]): MsGameState => {
+  const runCloneReleasePhase = (nextLastMove: EngineState["lastMove"]): MsAdvanceTickResult => {
     forEachRuntimeLayer(mapLayers, (layerCells) => {
       soundEffects |= handleDeferredButtons(layerCells, internal);
     });
@@ -4745,7 +4778,7 @@ function advanceMsTick(
   let chipFloorMovementWasActive = false;
   let chipPosBeforeManualMovement = internal.chipPos;
   let manualDir: number = MS_DIRECTION.none;
-  const earlyResult = runTurnPhaseHandlers<MsGameState>([
+  const earlyResult = runTurnPhaseHandlers<MsAdvanceTickResult>([
     {
       name: TURN_PHASE.initialHousekeeping,
       run: () => {
@@ -4821,7 +4854,7 @@ export function runMsInputTrace(request: GameRequest, level: MsLevel, commands: 
   for (let tick = 0; tick < maxTicks; tick += 1) {
     const input = resolveManualInput(previousInput, scheduledInputForTick(commands, tick));
     previousInput = input;
-    state = advanceMsTick(state, input);
+    state = advanceMsTick(state, input).state;
     steps.push(engineStateToSnapshot(state.engine, "tick", input));
     if (state.engine.status !== "playing") {
       break;
@@ -4861,7 +4894,7 @@ export function runMsInputTraceDebug(
     const input = resolveManualInput(previousInput, scheduledInputForTick(commands, tick));
     previousInput = input;
     const phases: GameDebugPhaseSnapshot[] = [];
-    state = advanceMsTick(state, input, phases);
+    state = advanceMsTick(state, input, phases).state;
     steps.push({
       ...engineStateToSnapshot(state.engine, "tick", input),
       phases,
@@ -4911,7 +4944,7 @@ export function runMsReplayTrace(
         internal: state.internal,
       },
       replayTick.input,
-    );
+    ).state;
     steps.push(engineStateToSnapshot(state.engine, "tick", replayTick.input));
     if (state.engine.status !== "playing") {
       break;
@@ -4980,7 +5013,7 @@ export function runMsReplayTraceDebugWindow(
       },
       replayTick.input,
       phases,
-    );
+    ).state;
     if (includeStep(tick)) {
       steps.push({
         ...engineStateToSnapshot(state.engine, "tick", replayTick.input),
@@ -5044,8 +5077,22 @@ export function advanceMsInteractiveSession(
     replayPlan = replayTick.plan;
     input = replayTick.input;
   }
-  const nextState = advanceMsTick(session.state, input);
-  const recordedInputCode = scheduledInput.inputCode === GAME_INPUT_CODES.preserve ? GAME_INPUT_CODES.none : input.inputCode;
+  const advanceResult = advanceMsTick(
+    replayPlan
+      ? {
+          engine: {
+            ...session.state.engine,
+            replay: {
+              ...session.state.engine.replay,
+              cursor: replayPlan.cursor,
+            },
+          },
+          internal: session.state.internal,
+        }
+      : session.state,
+    input,
+  );
+  const nextState = advanceResult.state;
 
   return {
     state: nextState,
@@ -5054,7 +5101,7 @@ export function advanceMsInteractiveSession(
       session.recordedMoves,
       nextState.engine.timer.currentTime,
       nextState.engine.replay.cursor,
-      recordedInputCode,
+      advanceResult.recordedReplayInputCode,
     ),
     replayPlan,
   };

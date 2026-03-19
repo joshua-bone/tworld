@@ -26,6 +26,55 @@ export interface InteractiveGameSessionHistory {
   replayTargetTick: number | null;
 }
 
+export interface InteractiveGameGridPosition {
+  x: number;
+  y: number;
+  z: number | null;
+}
+
+export type InteractiveGameSessionResultOutcome =
+  | "failed"
+  | "completed-with-undo"
+  | "completed-clean";
+
+export type InteractiveGameSessionEndCauseKind =
+  | "monster"
+  | "fire"
+  | "water"
+  | "bomb"
+  | "timeout"
+  | "other";
+
+export interface InteractiveGameSessionEndCause {
+  kind: InteractiveGameSessionEndCauseKind;
+  message: string;
+  position: InteractiveGameGridPosition | null;
+  actorId: number | null;
+  actorName: string | null;
+  tileId: number | null;
+}
+
+export interface InteractiveGameSessionScoreSummary {
+  baseScore: number;
+  timeBonus: number;
+  undoPenaltyApplied: boolean;
+  undoPenaltyMultiplier: number;
+  finalScore: number;
+}
+
+export interface InteractiveGameSessionResultSummary {
+  outcome: InteractiveGameSessionResultOutcome;
+  endPosition: InteractiveGameGridPosition | null;
+  cause: InteractiveGameSessionEndCause | null;
+  score: InteractiveGameSessionScoreSummary | null;
+}
+
+export interface InteractiveGameSessionRunState {
+  undoUsedCount: number;
+  replayAvailable: boolean;
+  result: InteractiveGameSessionResultSummary | null;
+}
+
 export interface InteractiveGameSessionStartOptions {
   undoSettings?: Partial<UndoSettingsSnapshot>;
 }
@@ -36,6 +85,7 @@ export interface InteractiveGameSession {
   hintText: string | null;
   frame: InteractiveGameFrame;
   history: InteractiveGameSessionHistory;
+  run: InteractiveGameSessionRunState;
   recordedMoves: SolutionMove[];
   handle: InteractiveGameSessionHandle;
 }

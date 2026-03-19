@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { LegacyLynxTileShape, LYNX_TILE_SPECS, scanLynxLargeTileLayout } from "@player-web/impl/legacyTileset";
+import {
+  LegacyLynxTileShape,
+  LYNX_TILE_SPECS,
+  normalizeMsLegacyDisplayTileId,
+  scanLynxLargeTileLayout,
+} from "@player-web/impl/legacyTileset";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 function createRaster(width: number, height: number, fill: readonly number[]): Uint8ClampedArray {
@@ -52,5 +57,17 @@ describe("scanLynxLargeTileLayout", () => {
     expect(layout.positions[0]).toEqual({ x: 1, y: 1, w: 1, h: 1 });
     expect(layout.positions[1]).toBeNull();
     expect(layout.positions[2]).toEqual({ x: 5, y: 1, w: 2, h: 1 });
+  });
+});
+
+describe("normalizeMsLegacyDisplayTileId", () => {
+  it("renders permanent and temporary invisible walls as floor in MS mode", () => {
+    expect(normalizeMsLegacyDisplayTileId(MS_TILE.HiddenWall_Perm)).toBe(MS_TILE.Empty);
+    expect(normalizeMsLegacyDisplayTileId(MS_TILE.HiddenWall_Temp)).toBe(MS_TILE.Empty);
+  });
+
+  it("keeps blue walls visible while matching fake blue walls to the real blue wall art", () => {
+    expect(normalizeMsLegacyDisplayTileId(MS_TILE.BlueWall_Real)).toBe(MS_TILE.BlueWall_Real);
+    expect(normalizeMsLegacyDisplayTileId(MS_TILE.BlueWall_Fake)).toBe(MS_TILE.BlueWall_Real);
   });
 });

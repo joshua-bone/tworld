@@ -9,6 +9,7 @@ import type {
   InteractiveGameVisibleLayer,
 } from "@game-core/api/interactive";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
+import type { GameSnapshot } from "@game-core/api/types";
 import { MS_DIRECTION, MS_STATUS_FLAG, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import { TIME_NIL } from "@content/api/score";
 import {
@@ -26,9 +27,12 @@ import {
 } from "@player-web/impl/legacySprites";
 
 export type LegacyMode = "series-list" | "game";
+export type LegacyCanvasPresentation = "legacy" | "map-only";
 
 interface LegacyCanvasScreenProps {
+  className?: string;
   mode: LegacyMode;
+  presentation?: LegacyCanvasPresentation;
   catalog: SeriesCatalogEntry[];
   selectedSeriesFile: string | null;
   currentSeries: SeriesCatalogEntry | null;
@@ -52,6 +56,7 @@ const COLORS = {
 
 const FONT = "16px 'Courier New', monospace";
 const SMALL_FONT = "14px 'Courier New', monospace";
+const INVENTORY_COUNT_FONT = "bold 14px 'Courier New', monospace";
 const LIST_HEADER_Y = LEGACY_MARGIN + 8;
 const LIST_FIRST_ROW_Y = LIST_HEADER_Y + 24;
 const LIST_ROW_HEIGHT = 18;
@@ -487,6 +492,22 @@ function layerViewportTileWindow(depth: number): number {
   return Math.ceil(LEGACY_MAP_TILES / (LOWER_LAYER_SCALE ** depth));
 }
 
+export function withLegacyMapViewportClip(
+  context: Pick<CanvasRenderingContext2D, "save" | "beginPath" | "rect" | "clip" | "restore">,
+  draw: () => void,
+): void {
+  context.save();
+  context.beginPath();
+  context.rect(LEGACY_MAP_X, LEGACY_MAP_Y, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+  context.clip();
+
+  try {
+    draw();
+  } finally {
+    context.restore();
+  }
+}
+
 function renderMapLayerCanvas(
   tileset: LegacyTileset,
   session: InteractiveGameSession,
@@ -548,29 +569,32 @@ function drawVisibleLayerStack(
     renderMapLayerCanvas(tileset, session, ruleset, layer, timerval, viewX, viewY, index),
   );
 
-  for (let index = layerCanvases.length - 1; index >= 1; index -= 1) {
-    const layerCanvas = layerCanvases[index]!;
-    const depth = index;
-    const scale = LOWER_LAYER_SCALE ** depth;
-    const brightness = Math.max(0, 1 - depth * LOWER_LAYER_DARKEN_PER_DEPTH);
-    const width = layerCanvas.width * scale;
-    const height = layerCanvas.height * scale;
-    const x = LEGACY_MAP_X + (LEGACY_MAP_WIDTH - width) / 2;
-    const y = LEGACY_MAP_Y + (LEGACY_MAP_HEIGHT - height) / 2;
+  withLegacyMapViewportClip(context, () => {
+    for (let index = layerCanvases.length - 1; index >= 1; index -= 1) {
+      const layerCanvas = layerCanvases[index]!;
+      const depth = index;
+      const scale = LOWER_LAYER_SCALE ** depth;
+      const brightness = Math.max(0, 1 - depth * LOWER_LAYER_DARKEN_PER_DEPTH);
+      const width = layerCanvas.width * scale;
+      const height = layerCanvas.height * scale;
+      const x = LEGACY_MAP_X + (LEGACY_MAP_WIDTH - width) / 2;
+      const y = LEGACY_MAP_Y + (LEGACY_MAP_HEIGHT - height) / 2;
 
-    context.save();
-    context.filter = `blur(${LOWER_LAYER_BLUR_PX}px) brightness(${brightness})`;
-    context.drawImage(layerCanvas, x, y, width, height);
-    context.restore();
-  }
+      context.save();
+      context.filter = `blur(${LOWER_LAYER_BLUR_PX}px) brightness(${brightness})`;
+      context.drawImage(layerCanvas, x, y, width, height);
+      context.restore();
+    }
 
-  context.drawImage(layerCanvases[0]!, LEGACY_MAP_X, LEGACY_MAP_Y);
+    context.drawImage(layerCanvases[0]!, LEGACY_MAP_X, LEGACY_MAP_Y);
+  });
 }
 
 function drawInventoryTile(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
   overlayId: number,
+  countLabel: string | null,
   x: number,
   y: number,
 ): void {
@@ -579,6 +603,63 @@ function drawInventoryTile(
   if (overlayId !== MS_TILE.Empty && overlayId !== MS_TILE.Nothing) {
     drawSprite(context, tileset, overlayId, x, y);
   }
+
+  if (!countLabel) {
+    return;
+  }
+
+  context.save();
+  context.font = INVENTORY_COUNT_FONT;
+  context.textAlign = "right";
+  context.textBaseline = "bottom";
+  context.lineWidth = 3;
+  context.strokeStyle = COLORS.background;
+  context.fillStyle = COLORS.text;
+  context.strokeText(countLabel, x + LEGACY_TILE_SIZE - 4, y + LEGACY_TILE_SIZE - 3);
+  context.fillText(countLabel, x + LEGACY_TILE_SIZE - 4, y + LEGACY_TILE_SIZE - 3);
+  context.restore();
+}
+
+const LEGACY_INVENTORY_KEY_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
+const LEGACY_INVENTORY_BOOT_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
+type LegacyInventoryStripKind = "keys" | "boots";
+
+export function inventoryTileCountLabel(tileId: number, count: number): string | null {
+  if (count <= 1) {
+    return null;
+  }
+
+  switch (tileId) {
+    case MS_TILE.Key_Red:
+    case MS_TILE.Key_Blue:
+    case MS_TILE.Key_Yellow:
+      return String(count);
+    default:
+      return null;
+  }
+}
+
+function drawInventoryStrip(
+  context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
+  inventory: GameSnapshot["inventory"] | null,
+  kind: LegacyInventoryStripKind,
+): void {
+  const tileIds = kind === "keys" ? LEGACY_INVENTORY_KEY_IDS : LEGACY_INVENTORY_BOOT_IDS;
+  context.fillStyle = COLORS.background;
+  context.fillRect(0, 0, LEGACY_TILE_SIZE, tileIds.length * LEGACY_TILE_SIZE);
+
+  tileIds.forEach((tileId, index) => {
+    const count = kind === "keys" ? inventory?.keys[index] ?? 0 : inventory?.boots[index] ?? 0;
+    drawInventoryTile(
+      context,
+      tileset,
+      count > 0 ? tileId : MS_TILE.Empty,
+      kind === "keys" ? inventoryTileCountLabel(tileId, count) : null,
+      0,
+      index * LEGACY_TILE_SIZE,
+    );
+  });
 }
 
 function drawSeriesList(
@@ -676,22 +757,23 @@ function drawGameScreen(
 
   const inventoryX = LEGACY_INFO_X;
   const inventoryY = LEGACY_MAP_Y + 128;
-  const keyIds = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
-  const bootIds = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
-  keyIds.forEach((tileId, index) => {
+  LEGACY_INVENTORY_KEY_IDS.forEach((tileId, index) => {
+    const count = snapshot.inventory.keys[index] ?? 0;
     drawInventoryTile(
       context,
       tileset,
-      snapshot.inventory.keys[index] > 0 ? tileId : MS_TILE.Empty,
+      count > 0 ? tileId : MS_TILE.Empty,
+      inventoryTileCountLabel(tileId, count),
       inventoryX + index * LEGACY_TILE_SIZE,
       inventoryY,
     );
   });
-  bootIds.forEach((tileId, index) => {
+  LEGACY_INVENTORY_BOOT_IDS.forEach((tileId, index) => {
     drawInventoryTile(
       context,
       tileset,
       snapshot.inventory.boots[index] > 0 ? tileId : MS_TILE.Empty,
+      null,
       inventoryX + index * LEGACY_TILE_SIZE,
       inventoryY + LEGACY_TILE_SIZE,
     );
@@ -737,6 +819,34 @@ function drawGameScreen(
   );
 }
 
+function drawGameMapOnly(
+  context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
+  session: InteractiveGameSession | null,
+  level: SeriesLevel | null,
+  series: SeriesCatalogEntry | null,
+  isLoading: boolean,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+): void {
+  context.fillStyle = COLORS.background;
+  context.fillRect(0, 0, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+
+  if (!session || !level || !series) {
+    drawText(context, isLoading ? "Loading level..." : "No level loaded.", 12, 12, COLORS.text);
+    return;
+  }
+
+  const snapshot = session.frame.snapshot;
+  const viewX = clamp(snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
+  const viewY = clamp(snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
+  const timerval = (snapshot.statusFlags & MS_STATUS_FLAG.NoAnimation) !== 0 ? -1 : snapshot.currentTime;
+
+  context.save();
+  context.translate(-LEGACY_MAP_X, -LEGACY_MAP_Y);
+  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY);
+  context.restore();
+}
+
 function useLegacyTileset(ruleset: "MS" | "Lynx" | null): LegacyTileset | null {
   const [tileset, setTileset] = useState<LegacyTileset | null>(null);
   const tilesUrl = ruleset === "Lynx" ? lynxTilesUrl : msTilesUrl;
@@ -775,8 +885,54 @@ function useLegacyTileset(ruleset: "MS" | "Lynx" | null): LegacyTileset | null {
   return tileset;
 }
 
+interface LegacyInventoryStripProps {
+  className?: string;
+  currentRuleset: SeriesCatalogEntry["ruleset"] | null;
+  inventory: GameSnapshot["inventory"] | null;
+  kind: LegacyInventoryStripKind;
+}
+
+export function LegacyInventoryStrip({ className, currentRuleset, inventory, kind }: LegacyInventoryStripProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return;
+    }
+
+    context.imageSmoothingEnabled = false;
+    context.fillStyle = COLORS.background;
+    context.fillRect(0, 0, LEGACY_TILE_SIZE, LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE);
+
+    if (!tileset) {
+      return;
+    }
+
+    drawInventoryStrip(context, tileset, inventory, kind);
+  }, [inventory, kind, tileset]);
+
+  return (
+    <canvas
+      aria-label="Inventory"
+      className={className}
+      height={LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE}
+      ref={canvasRef}
+      width={LEGACY_TILE_SIZE}
+    />
+  );
+}
+
 export function LegacyCanvasScreen({
+  className,
   mode,
+  presentation = "legacy",
   catalog,
   selectedSeriesFile,
   currentSeries,
@@ -831,18 +987,28 @@ export function LegacyCanvasScreen({
 
     if (!tileset) {
       context.fillStyle = COLORS.background;
-      context.fillRect(0, 0, LEGACY_WINDOW_WIDTH, LEGACY_WINDOW_HEIGHT);
+      context.fillRect(
+        0,
+        0,
+        presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH,
+        presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT,
+      );
       drawText(context, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, COLORS.text);
       return;
     }
 
+    if (presentation === "map-only") {
+      drawGameMapOnly(context, tileset, session, currentLevel, currentSeries, isLoading, currentRuleset);
+      return;
+    }
+
     drawGameScreen(context, tileset, session, currentLevel, currentSeries, message, isLoading, currentRuleset);
-  }, [catalog, currentLevel, currentRuleset, currentSeries, isLoading, message, mode, selectedSeriesFile, seriesScrollOffset, session, tileset]);
+  }, [catalog, currentLevel, currentRuleset, currentSeries, isLoading, message, mode, presentation, selectedSeriesFile, seriesScrollOffset, session, tileset]);
 
   return (
     <canvas
-      className={`legacy-canvas${isDatDragActive ? " legacy-canvas--drop-active" : ""}`}
-      height={LEGACY_WINDOW_HEIGHT}
+      className={`${className ?? "legacy-canvas"}${isDatDragActive ? " legacy-canvas--drop-active" : ""}`}
+      height={presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT}
       onClick={(event) => {
         const canvas = event.currentTarget;
         const bounds = canvas.getBoundingClientRect();
@@ -856,7 +1022,11 @@ export function LegacyCanvasScreen({
             return;
           }
 
-          const position = mapPositionAtCanvasPoint(session, x, y);
+          const position = mapPositionAtCanvasPoint(
+            session,
+            presentation === "map-only" ? x + LEGACY_MAP_X : x,
+            presentation === "map-only" ? y + LEGACY_MAP_Y : y,
+          );
           if (position !== null) {
             onMapClick(position);
           }
@@ -938,7 +1108,7 @@ export function LegacyCanvasScreen({
         }
       }}
       ref={canvasRef}
-      width={LEGACY_WINDOW_WIDTH}
+      width={presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH}
     />
   );
 }

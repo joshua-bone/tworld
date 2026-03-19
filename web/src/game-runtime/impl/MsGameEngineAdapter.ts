@@ -3,6 +3,8 @@ import type { DebugGameEnginePort } from "@game-runtime/ports/DebugGameEngine";
 import type {
   InteractiveGameEnginePort,
   InteractiveGameSession,
+  InteractiveGameSessionEndCause,
+  InteractiveGameSessionRunState,
 } from "@game-runtime/ports/InteractiveGameEngine";
 import type { LevelRepository } from "@level-catalog/ports/LevelRepository";
 import {
@@ -13,6 +15,15 @@ import {
   toInteractiveHandle,
   type InteractiveSessionRuntimeState,
 } from "@game-runtime/impl/interactiveHandle";
+import {
+  boardPositionToGridPosition,
+  buildCompletedRunState,
+  buildFailedRunState,
+  buildInteractiveFailureCause,
+  buildLiveRunState,
+  describeMsActorName,
+  formatInteractiveTickSeconds,
+} from "@game-runtime/impl/interactiveSessionRun";
 import { projectInteractiveGameSession } from "@game-runtime/impl/projectInteractiveGameSession";
 import { projectInteractiveSessionHistory } from "@game-runtime/impl/projectInteractiveSessionHistory";
 import { GAME_INPUT_CODES, resolveGameInputCode, type InteractiveInput } from "@game-core/api/command";
@@ -38,22 +49,152 @@ import {
 } from "@undo-runtime/impl/msHistory";
 import type { MsUndoHistory } from "@undo-runtime/impl/msHistory";
 import { latestUndoTick, nextUndoTickEvent } from "@undo-runtime/impl/history";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 type MsInteractiveRuntime = InteractiveSessionRuntimeState<MsInteractiveSessionState, MsUndoHistory> & {
   level: ReturnType<typeof prepareMsLevel>;
+  undoUsedCount: number;
 };
 
-function projectMsSession(session: Pick<InteractiveGameSession, "request" | "mode">, runtime: MsInteractiveRuntime, phase: "initial" | "tick"): InteractiveGameSession {
+function findMsCollisionCause(state: MsInteractiveSessionState["state"]): InteractiveGameSessionEndCause {
+  const chipPos = boardPositionToGridPosition(state.internal.chipPos, state.internal.chipZ ?? 1);
+  const chipZ = state.internal.chipZ ?? 1;
+  const creature = state.internal.creatures.find(
+    (entry) => !entry.hidden && entry.pos === state.internal.chipPos && (entry.z ?? 1) === chipZ,
+  );
+  if (creature) {
+    const actorName = describeMsActorName(creature.id) ?? "monster";
+    return buildInteractiveFailureCause({
+      actorId: creature.id,
+      actorName,
+      kind: "monster",
+      message: `Killed by ${actorName} at (${chipPos.x}, ${chipPos.y})`,
+      position: chipPos,
+    });
+  }
+
+  const block = state.internal.blocks.find(
+    (entry) => !entry.hidden && entry.pos === state.internal.chipPos && (entry.z ?? 1) === chipZ,
+  );
+  if (block) {
+    return buildInteractiveFailureCause({
+      actorId: MS_TILE.Block,
+      actorName: "block",
+      kind: "other",
+      message: `Crushed by block at (${chipPos.x}, ${chipPos.y})`,
+      position: chipPos,
+    });
+  }
+
+  return buildInteractiveFailureCause({
+    kind: "monster",
+    message: `Killed by monster at (${chipPos.x}, ${chipPos.y})`,
+    position: chipPos,
+  });
+}
+
+function projectMsRunState(
+  request: InteractiveGameSession["request"],
+  runtime: MsInteractiveRuntime,
+  frame: ReturnType<typeof projectMsInteractiveFrame>,
+): InteractiveGameSessionRunState {
+  const replayAvailable = runtime.token.recordedMoves.length > 0;
+  const endPosition = boardPositionToGridPosition(
+    runtime.token.state.internal.chipPos,
+    runtime.token.state.internal.chipZ ?? 1,
+  );
+
+  switch (frame.snapshot.status) {
+    case "completed":
+      return buildCompletedRunState(
+        request.levelNumber,
+        frame.snapshot.timelimit,
+        frame.snapshot.currentTime,
+        runtime.undoUsedCount,
+        endPosition,
+        replayAvailable,
+      );
+    case "failed":
+      switch (runtime.token.state.internal.chipStatus) {
+        case "drowned":
+          return buildFailedRunState(
+            runtime.undoUsedCount,
+            buildInteractiveFailureCause({
+              kind: "water",
+              message: `Drowned at (${endPosition.x}, ${endPosition.y})`,
+              position: endPosition,
+              tileId: MS_TILE.Water,
+            }),
+            endPosition,
+            replayAvailable,
+          );
+        case "burned":
+          return buildFailedRunState(
+            runtime.undoUsedCount,
+            buildInteractiveFailureCause({
+              kind: "fire",
+              message: `Stepped in fire at (${endPosition.x}, ${endPosition.y})`,
+              position: endPosition,
+              tileId: MS_TILE.Fire,
+            }),
+            endPosition,
+            replayAvailable,
+          );
+        case "bombed":
+          return buildFailedRunState(
+            runtime.undoUsedCount,
+            buildInteractiveFailureCause({
+              kind: "bomb",
+              message: `Hit a bomb at (${endPosition.x}, ${endPosition.y})`,
+              position: endPosition,
+              tileId: MS_TILE.Bomb,
+            }),
+            endPosition,
+            replayAvailable,
+          );
+        case "outoftime":
+          return buildFailedRunState(
+            runtime.undoUsedCount,
+            buildInteractiveFailureCause({
+              kind: "timeout",
+              message: `Ran out of time at ${formatInteractiveTickSeconds(frame.snapshot.tick)}s`,
+              position: endPosition,
+            }),
+            endPosition,
+            replayAvailable,
+          );
+        case "collided":
+          return buildFailedRunState(
+            runtime.undoUsedCount,
+            findMsCollisionCause(runtime.token.state),
+            endPosition,
+            replayAvailable,
+          );
+        default:
+          return buildFailedRunState(runtime.undoUsedCount, null, endPosition, replayAvailable);
+      }
+    default:
+      return buildLiveRunState(runtime.undoUsedCount, replayAvailable);
+  }
+}
+
+function projectMsSession(
+  session: Pick<InteractiveGameSession, "request" | "mode">,
+  runtime: MsInteractiveRuntime,
+  phase: "initial" | "tick",
+): InteractiveGameSession {
+  const frame = projectMsInteractiveFrame(runtime.token, phase);
   return projectInteractiveGameSession({
     request: session.request,
     mode: session.mode,
     hintText: levelHintTextAtZ(runtime.level, runtime.token.state.internal.chipZ) || null,
-    frame: projectMsInteractiveFrame(runtime.token, phase),
+    frame,
     history: projectInteractiveSessionHistory(
       runtime.history,
       runtime.token.state.engine.timer.currentTime,
       runtime.restoreState,
     ),
+    run: projectMsRunState(session.request, runtime, frame),
     recordedMoves: runtime.token.recordedMoves,
     handle: toInteractiveHandle(runtime),
   });
@@ -68,6 +209,7 @@ function advanceLiveMsRuntime(
   return {
     token,
     level: runtime.level,
+    undoUsedCount: runtime.undoUsedCount,
     history: recordMsUndoTick(runtime.history, token, token.lastInput.inputCode, source),
     restoreState: createLiveRestoreState(),
   };
@@ -166,6 +308,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     const runtime: MsInteractiveRuntime = {
       token,
       level,
+      undoUsedCount: 0,
       history: createMsUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
@@ -195,6 +338,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     const runtime: MsInteractiveRuntime = {
       token,
       level,
+      undoUsedCount: 0,
       history: createMsUndoHistory(token, options?.undoSettings ?? 8),
       restoreState: createLiveRestoreState(),
     };
@@ -259,6 +403,7 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
         {
           token,
           level: runtime.level,
+          undoUsedCount: runtime.undoUsedCount,
           history: runtime.history,
           restoreState: hasMoreHistoricalTicks
             ? createHistoricalReplayRestoreState(runtime.restoreState.restoredFromTick ?? currentTick, replayTargetTick)
@@ -278,12 +423,14 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
   async restoreSession(session: InteractiveGameSession, targetTick: number): Promise<InteractiveGameSession> {
     const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
     const restored = restoreMsUndoHistoryToTick(runtime.history, targetTick);
+    const currentTick = runtime.token.state.engine.timer.currentTime;
 
     return projectMsSession(
       session,
       {
         token: restored.session,
         level: runtime.level,
+        undoUsedCount: targetTick < currentTick ? runtime.undoUsedCount + 1 : runtime.undoUsedCount,
         history: runtime.history,
         restoreState: createPausedRestoreState(targetTick),
       },

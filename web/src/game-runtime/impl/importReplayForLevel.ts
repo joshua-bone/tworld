@@ -4,6 +4,7 @@ import { replaySolutionCodec, type DecodedReplaySolution } from "@game-core/api/
 
 export interface ImportedReplay {
   fileName: string;
+  bytes: Uint8Array;
   replay: DecodedReplaySolution;
 }
 
@@ -27,6 +28,7 @@ export async function importReplayForLevel(
 
   return {
     fileName: imported.name,
+    bytes: imported.bytes,
     replay,
   };
 }

@@ -2,10 +2,28 @@ import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGame
 import type { SeriesLevel } from "@content/api/series";
 import { getGameInputCode, normalizeGameInputName } from "@game-core/api/command";
 import { replaySolutionCodec } from "@game-core/api/codec";
+import { formatInteractiveTickSeconds } from "@game-runtime/impl/interactiveSessionRun";
 
 export interface ReplayExportArtifact {
   bytes: Uint8Array;
   filename: string;
+}
+
+function buildReplaySetLabel(seriesFile: string): string {
+  return seriesFile.replace(/\.dac$/iu, "").replace(/(?:\.dat)?-(ms|lynx)$/iu, "");
+}
+
+function buildReplayOutcomeLabel(session: InteractiveGameSession): string {
+  const outcome = session.run.result?.outcome;
+  if (outcome === "completed-clean" || outcome === "completed-with-undo") {
+    return "win";
+  }
+
+  if (outcome === "failed") {
+    return "lose";
+  }
+
+  return "live";
 }
 
 export function buildReplayExport(
@@ -28,6 +46,6 @@ export function buildReplayExport(
 
   return {
     bytes,
-    filename: `${seriesFile.replace(/\.dac$/i, "")}-level-${level.number}.tws.bin`,
+    filename: `${buildReplaySetLabel(seriesFile)}-${session.request.ruleset}-${level.number}-${buildReplayOutcomeLabel(session)}-${formatInteractiveTickSeconds(Math.max(session.frame.snapshot.currentTime, 0))}.tws.bin`,
   };
 }

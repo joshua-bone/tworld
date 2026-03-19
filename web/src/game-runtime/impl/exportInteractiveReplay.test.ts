@@ -83,6 +83,11 @@ describe("exportInteractiveReplay", () => {
         restoredFromTick: null,
         replayTargetTick: null,
       },
+      run: {
+        undoUsedCount: 0,
+        replayAvailable: true,
+        result: null,
+      },
       recordedMoves: [{ when: 0, dir: 8 }],
       handle: null as never,
     } satisfies InteractiveGameSession;
@@ -113,7 +118,7 @@ describe("exportInteractiveReplay", () => {
     );
 
     expect(exported).toHaveLength(1);
-    expect(exported[0]?.filename).toBe("intro-ms-level-1.tws.bin");
+    expect(exported[0]?.filename).toBe("intro-MS-1-live-0.2.tws.bin");
     expect(exported[0]?.bytes.length).toBeGreaterThan(0);
   });
 });

@@ -7,6 +7,7 @@ import {
   isSystemModifierKey,
   isLastLevelKey,
   isNextLevelKey,
+  isPauseToggleKey,
   isPrevLevelKey,
   isProceedKey,
   isUndoCheckpointKey,
@@ -22,9 +23,11 @@ describe("legacy hotkeys", () => {
   });
 
   it("recognizes help toggle keys", () => {
-    expect(isHelpToggleKey("?")).toBe(true);
-    expect(isHelpToggleKey("F1")).toBe(true);
-    expect(isHelpToggleKey("h")).toBe(false);
+    expect(isHelpToggleKey({ key: "?" })).toBe(true);
+    expect(isHelpToggleKey({ key: "F1" })).toBe(true);
+    expect(isHelpToggleKey({ key: "h" })).toBe(true);
+    expect(isHelpToggleKey({ key: "H" })).toBe(true);
+    expect(isHelpToggleKey({ key: "h", ctrlKey: true })).toBe(false);
   });
 
   it("maps Z, Cmd/Ctrl+Z, and Shift+Z to the undo variants", () => {
@@ -57,6 +60,13 @@ describe("legacy hotkeys", () => {
   it("keeps PageUp/PageDown as previous and next level", () => {
     expect(isPrevLevelKey({ key: "PageUp" })).toBe(true);
     expect(isNextLevelKey({ key: "PageDown" })).toBe(true);
+  });
+
+  it("maps Backspace/Delete to pause without modifiers", () => {
+    expect(isPauseToggleKey({ key: "Backspace" })).toBe(true);
+    expect(isPauseToggleKey({ key: "Delete" })).toBe(true);
+    expect(isPauseToggleKey({ key: "Backspace", shiftKey: true })).toBe(false);
+    expect(isPauseToggleKey({ key: "Delete", ctrlKey: true })).toBe(false);
   });
 
   it("maps first and last level to Home/End or Cmd/Ctrl + comma/period", () => {

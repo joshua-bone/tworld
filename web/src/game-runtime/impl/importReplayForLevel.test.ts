@@ -31,6 +31,7 @@ describe("importReplayForLevel", () => {
     expect(imported?.replay.levelNumber).toBe(9);
     expect(imported?.replay.password).toBe("ABCD");
     expect(imported?.replay.payload.moves).toEqual([{ when: 0, dir: 8 }]);
+    expect(imported?.bytes).toEqual(bytes);
   });
 
   it("rejects a replay for a different selected level", async () => {

@@ -1,12 +1,22 @@
 import type { SeriesCatalogEntry } from "@content/api/series";
-import { extractGroupedDatLevels, parseDatFile, parseSeriesConfig, type RawDatLevelGroup } from "@content/api/series-file";
+import {
+  extractGroupedDatLevels,
+  parseDatFile,
+  parseSeriesConfig,
+  type RawDatLevelGroup,
+  type SeriesConfig,
+} from "@content/api/series-file";
 import type { LevelRepository, LoadedLevelData } from "@level-catalog/ports/LevelRepository";
+import type { ImportedDatCatalogStore } from "@level-catalog/ports/ImportedDatCatalogStore";
 
 const IMPORT_RULESETS = ["MS", "Lynx"] as const;
+
+type GroupedLevelIndex = Map<number, RawDatLevelGroup>;
 
 interface ImportedDatSeries {
   filename: string;
   groupedLevels: RawDatLevelGroup[];
+  entry: SeriesCatalogEntry;
 }
 
 function importedSeriesFile(filename: string, ruleset: (typeof IMPORT_RULESETS)[number]): string {
@@ -14,7 +24,22 @@ function importedSeriesFile(filename: string, ruleset: (typeof IMPORT_RULESETS)[
   return `${baseName} (${ruleset})`;
 }
 
+function cloneGroupedLevel(level: RawDatLevelGroup): RawDatLevelGroup {
+  return {
+    ...level,
+    levelData: new Uint8Array(level.levelData),
+    layerData: level.layerData.map((entry) => new Uint8Array(entry)),
+    layerNumbers: [...level.layerNumbers],
+  };
+}
+
+function createGroupedLevelIndex(levels: RawDatLevelGroup[]): GroupedLevelIndex {
+  return new Map(levels.map((level) => [level.number, level] satisfies [number, RawDatLevelGroup]));
+}
+
 export class BrowserLevelRepository implements LevelRepository {
+  constructor(private readonly importedDatStore: ImportedDatCatalogStore | null = null) {}
+
   private readonly seriesConfigs = import.meta.glob("@sets/*.dac", {
     import: "default",
     query: "?raw",
@@ -26,8 +51,11 @@ export class BrowserLevelRepository implements LevelRepository {
   }) as Record<string, () => Promise<string>>;
 
   private readonly configCache = new Map<string, Promise<string>>();
+  private readonly parsedConfigCache = new Map<string, Promise<SeriesConfig>>();
   private readonly dataCache = new Map<string, Promise<Uint8Array>>();
+  private readonly groupedLevelCache = new Map<string, Promise<GroupedLevelIndex>>();
   private readonly importedSeries = new Map<string, ImportedDatSeries>();
+  private importedSeriesHydration: Promise<void> | null = null;
 
   private async loadBySuffix<T>(files: Record<string, () => Promise<T>>, suffix: string): Promise<T> {
     const match = Object.entries(files).find(([path]) => path.endsWith(suffix));
@@ -45,6 +73,17 @@ export class BrowserLevelRepository implements LevelRepository {
 
     const promise = this.loadBySuffix(this.seriesConfigs, `/sets/${seriesFile}`);
     this.configCache.set(seriesFile, promise);
+    return promise;
+  }
+
+  private loadParsedSeriesConfig(seriesFile: string): Promise<SeriesConfig> {
+    const cached = this.parsedConfigCache.get(seriesFile);
+    if (cached) {
+      return cached;
+    }
+
+    const promise = this.loadSeriesConfig(seriesFile).then((configText) => parseSeriesConfig(configText));
+    this.parsedConfigCache.set(seriesFile, promise);
     return promise;
   }
 
@@ -66,9 +105,59 @@ export class BrowserLevelRepository implements LevelRepository {
     return promise;
   }
 
+  private loadGroupedLevels(filename: string): Promise<GroupedLevelIndex> {
+    const cached = this.groupedLevelCache.get(filename);
+    if (cached) {
+      return cached;
+    }
+
+    const promise = this.loadDataFile(filename).then((datBytes) => createGroupedLevelIndex(extractGroupedDatLevels(datBytes).levels));
+    this.groupedLevelCache.set(filename, promise);
+    return promise;
+  }
+
   async importDatFile(file: File): Promise<SeriesCatalogEntry[]> {
+    await this.ensureImportedSeriesHydrated();
     const bytes = new Uint8Array(await file.arrayBuffer());
-    return this.importDatBytes(file.name, bytes);
+    const entries = this.importDatBytes(file.name, bytes);
+    await this.importedDatStore?.saveImportedDatFile({
+      filename: file.name,
+      datBytes: new Uint8Array(bytes),
+    });
+    return entries;
+  }
+
+  async deleteImportedDatFile(filename: string): Promise<void> {
+    await this.ensureImportedSeriesHydrated();
+
+    for (const [seriesFile, imported] of this.importedSeries.entries()) {
+      if (imported.filename === filename) {
+        this.importedSeries.delete(seriesFile);
+      }
+    }
+
+    await this.importedDatStore?.deleteImportedDatFile(filename);
+  }
+
+  private async ensureImportedSeriesHydrated(): Promise<void> {
+    if (!this.importedDatStore) {
+      return;
+    }
+
+    const cached = this.importedSeriesHydration;
+    if (cached) {
+      await cached;
+      return;
+    }
+
+    const hydration = this.importedDatStore.listImportedDatFiles().then((entries) => {
+      for (const entry of entries) {
+        this.importDatBytes(entry.filename, entry.datBytes);
+      }
+    });
+
+    this.importedSeriesHydration = hydration;
+    await hydration;
   }
 
   importDatBytes(filename: string, datBytes: Uint8Array): SeriesCatalogEntry[] {
@@ -77,28 +166,31 @@ export class BrowserLevelRepository implements LevelRepository {
     return IMPORT_RULESETS.map((ruleset) => {
       const parsed = parseDatFile(datBytes, { ruleset });
       const seriesFile = importedSeriesFile(filename, ruleset);
-
-      this.importedSeries.set(seriesFile, {
-        filename,
-        groupedLevels: grouped.levels.map((level) => ({
-          ...level,
-          levelData: new Uint8Array(level.levelData),
-          layerData: level.layerData.map((entry) => new Uint8Array(entry)),
-          layerNumbers: [...level.layerNumbers],
-        })),
-      });
-
-      return {
+      const entry = {
         name: `${filename} (${ruleset})`,
         filebase: seriesFile,
         mapfilename: `local:${filename}`,
         ruleset,
         levels: parsed.levels,
       } satisfies SeriesCatalogEntry;
+
+      this.importedSeries.set(seriesFile, {
+        filename,
+        groupedLevels: grouped.levels.map(cloneGroupedLevel),
+        entry,
+      });
+
+      return entry;
     });
   }
 
+  async listImportedCatalogEntries(): Promise<SeriesCatalogEntry[]> {
+    await this.ensureImportedSeriesHydrated();
+    return [...this.importedSeries.values()].map(({ entry }) => entry);
+  }
+
   async loadLevel(request: LoadedLevelData["request"]): Promise<LoadedLevelData> {
+    await this.ensureImportedSeriesHydrated();
     const imported = this.importedSeries.get(request.seriesFile);
     if (imported) {
       const level = imported.groupedLevels.find((candidate) => candidate.number === request.levelNumber);
@@ -113,10 +205,9 @@ export class BrowserLevelRepository implements LevelRepository {
       };
     }
 
-    const config = parseSeriesConfig(await this.loadSeriesConfig(request.seriesFile));
-    const datFile = await this.loadDataFile(config.mapFile);
-    const extracted = extractGroupedDatLevels(datFile);
-    const level = extracted.levels.find((candidate) => candidate.number === request.levelNumber);
+    const config = await this.loadParsedSeriesConfig(request.seriesFile);
+    const levels = await this.loadGroupedLevels(config.mapFile);
+    const level = levels.get(request.levelNumber);
 
     if (!level) {
       throw new Error(`level ${request.levelNumber} not found in ${request.seriesFile}`);

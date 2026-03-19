@@ -3182,6 +3182,15 @@ function createLynxInteractiveToken(
   };
 }
 
+function recordLynxReplayMove(
+  recordedMoves: SolutionMove[],
+  currentTime: number,
+  replayCursor: number,
+  moveCode: number,
+): SolutionMove[] {
+  return recordManualMove(recordedMoves, currentTime, replayCursor, moveCode);
+}
+
 function advanceLynxInteractiveTick(
   session: LynxInteractiveSessionState,
   scheduledInputCode: number | null,
@@ -3219,6 +3228,7 @@ function advanceLynxInteractiveTick(
   let endGameAnimationFrame = session.endGameAnimationFrame;
   let chipArrivedOnHeldTrapThisTick = false;
   let latchedChipMoveSelection: ReturnType<typeof selectLynxChipMoveForTick> | null = null;
+  let recordedReplayInputCode = 0;
 
   const runInitialHousekeepingPhase = (): void => {
     if (scheduledInputCode !== null) {
@@ -3376,6 +3386,8 @@ function advanceLynxInteractiveTick(
             queuedChipInputCode = heldButton.deferredChipInputCode;
           }
           currentInputCode = 0;
+        } else if (!replayMode && heldButton.consumedReplayInput) {
+          recordedReplayInputCode = currentInputCode;
         }
       });
     }
@@ -3450,6 +3462,8 @@ function advanceLynxInteractiveTick(
         code: rawRequestedInputCode,
         name: runtimeCommandName(rawRequestedInputCode),
       };
+    } else if (!replayMode && requestedInputCode !== 0 && !heldButtonConsumedReplayInput) {
+      recordedReplayInputCode = rawRequestedInputCode;
     }
     const chosenInputCode = chipMoveSelection.chosenInputCode;
     queuedChipInputCode = 0;
@@ -3616,7 +3630,12 @@ function advanceLynxInteractiveTick(
     level,
     state,
     lastInput: runtimeInput,
-    recordedMoves: recordManualMove(session.recordedMoves, state.timer.currentTime, state.replay.cursor, runtimeInput.inputCode),
+    recordedMoves: recordLynxReplayMove(
+      session.recordedMoves,
+      state.timer.currentTime,
+      state.replay.cursor,
+      recordedReplayInputCode,
+    ),
     replayPlan,
     chipPos,
     chipZ,

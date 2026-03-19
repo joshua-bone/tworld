@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BrowserLevelRepository } from "@level-catalog/impl/BrowserLevelRepository";
+import type { ImportedDatCatalogStore, PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
 
 function encodePassword(password: string): number[] {
   return Array.from(password, (char) => char.charCodeAt(0) ^ 0x99);
@@ -50,6 +51,25 @@ function createDatFile(levels: Uint8Array[]): Uint8Array {
   return Uint8Array.from(bytes);
 }
 
+class MemoryImportedDatCatalogStore implements ImportedDatCatalogStore {
+  private readonly entries = new Map<string, Uint8Array>();
+
+  async listImportedDatFiles(): Promise<PersistedImportedDatFile[]> {
+    return [...this.entries.entries()].map(([filename, datBytes]) => ({
+      filename,
+      datBytes: new Uint8Array(datBytes),
+    }));
+  }
+
+  async saveImportedDatFile(entry: PersistedImportedDatFile): Promise<void> {
+    this.entries.set(entry.filename, new Uint8Array(entry.datBytes));
+  }
+
+  async deleteImportedDatFile(filename: string): Promise<void> {
+    this.entries.delete(filename);
+  }
+}
+
 describe("BrowserLevelRepository", () => {
   it("imports a local DAT file as playable MS and Lynx catalog entries", async () => {
     const repository = new BrowserLevelRepository();
@@ -77,5 +97,57 @@ describe("BrowserLevelRepository", () => {
 
     expect(loaded.levelData).toEqual(loaded.layerData[0]);
     expect(loaded.layerData).toHaveLength(2);
+    expect((await repository.listImportedCatalogEntries()).map((entry) => entry.filebase)).toEqual([
+      "Imported (MS)",
+      "Imported (Lynx)",
+    ]);
+  });
+
+  it("restores imported DAT sets from persistent storage on startup", async () => {
+    const store = new MemoryImportedDatCatalogStore();
+    const repository = new BrowserLevelRepository(store);
+    const dat = createDatFile([
+      createLevelData(1, "Imported Stack\\1", 1, 0),
+      createLevelData(2, "Imported Solo", 2, 0),
+    ]);
+
+    await repository.importDatFile({
+      name: "Imported.dat",
+      async arrayBuffer() {
+        return dat.buffer.slice(dat.byteOffset, dat.byteOffset + dat.byteLength);
+      },
+    } as File);
+
+    const restoredRepository = new BrowserLevelRepository(store);
+    const restoredEntries = await restoredRepository.listImportedCatalogEntries();
+
+    expect(restoredEntries.map((entry) => entry.filebase)).toEqual(["Imported (MS)", "Imported (Lynx)"]);
+
+    const loaded = await restoredRepository.loadLevel({
+      seriesFile: "Imported (MS)",
+      levelNumber: 1,
+      ruleset: "MS",
+    });
+
+    expect(loaded.layerData.length).toBeGreaterThan(0);
+    expect(loaded.levelData).toEqual(loaded.layerData[0]);
+  });
+
+  it("deletes imported DAT sets from memory and persistent storage", async () => {
+    const store = new MemoryImportedDatCatalogStore();
+    const repository = new BrowserLevelRepository(store);
+    const dat = createDatFile([createLevelData(1, "Imported Solo", 2, 0)]);
+
+    await repository.importDatFile({
+      name: "Imported.dat",
+      async arrayBuffer() {
+        return dat.buffer.slice(dat.byteOffset, dat.byteOffset + dat.byteLength);
+      },
+    } as File);
+
+    await repository.deleteImportedDatFile("Imported.dat");
+
+    expect(await repository.listImportedCatalogEntries()).toEqual([]);
+    expect(await store.listImportedDatFiles()).toEqual([]);
   });
 });
