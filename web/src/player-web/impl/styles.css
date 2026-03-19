@@ -700,9 +700,9 @@ body {
 }
 
 .modern-level-row__medal--attempted {
-  border-color: rgba(240, 177, 49, 0.48);
-  background: rgba(240, 177, 49, 0.12);
-  color: #f0b131;
+  border-color: rgba(235, 103, 103, 0.56);
+  background: rgba(235, 103, 103, 0.14);
+  color: #eb6767;
 }
 
 .modern-level-row__medal--unplayed {
@@ -1586,8 +1586,8 @@ body {
 }
 
 .modern-level-chip__badge--attempted {
-  border-color: rgba(240, 177, 49, 0.5);
-  color: #ffcb5f;
+  border-color: rgba(235, 103, 103, 0.52);
+  color: #eb6767;
 }
 
 .modern-level-chip__badge--unplayed,

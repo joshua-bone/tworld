@@ -52,6 +52,7 @@ import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMe
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
 import { resolveReplayActionContext } from "@player-web/impl/replayContext";
+import { selectResultHeadline } from "@player-web/impl/resultHeadlines";
 import { restoreInteractiveGameSession } from "@game-runtime/impl/restoreInteractiveGameSession";
 import { resumeInteractiveGameSession } from "@game-runtime/impl/resumeInteractiveGameSession";
 import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
@@ -528,6 +529,7 @@ export function PlayerApp({
   const { engines, importDatFile, profileStore, replayTransfer, selectionStore } = services;
   const initialModeRef = useRef<LegacyMode>(initialMode);
   const initialSelectionRef = useRef<PlayableSelection | null>(initialSelection);
+  const levelAttemptCountsRef = useRef<Map<string, number>>(new Map());
   const undoSettingsSeedRef = useRef<BrowserUndoSettings | null>(null);
   if (undoSettingsSeedRef.current === null) {
     undoSettingsSeedRef.current = loadStoredUndoSettings();
@@ -638,14 +640,37 @@ export function PlayerApp({
   const modernStatusLabel = isPaused ? "Paused" : describeGameplayStatus(session, isSessionLoading);
   const modernHintOverlayText = activeGameplayHintOverlay(session);
   const runResult = session?.run.result ?? null;
-  const runResultTitle =
-    runResult?.outcome === "completed-clean"
-      ? "Level Cleared"
-      : runResult?.outcome === "completed-with-undo"
-        ? "Level Cleared With Undo"
-        : runResult?.outcome === "failed"
-          ? "Run Failed"
-          : null;
+  const currentLevelAttemptKey =
+    session && runResult ? `${session.request.seriesFile}:${String(session.request.levelNumber)}` : null;
+  const currentTerminalRecordKey =
+    session && runResult && mode === "game" && session.mode !== "replay"
+      ? `${session.request.seriesFile}:${session.request.levelNumber}:${runResult.outcome}:${session.frame.snapshot.tick}:${session.run.undoUsedCount}`
+      : null;
+  const currentResultAttemptCount =
+    currentLevelAttemptKey === null
+      ? 1
+      : (levelAttemptCountsRef.current.get(currentLevelAttemptKey) ?? 0) +
+        (currentTerminalRecordKey !== null && recordedTerminalSessionRef.current !== currentTerminalRecordKey ? 1 : 0);
+  const runResultHeadline =
+    runResult && session
+      ? selectResultHeadline({
+          attemptCount: currentResultAttemptCount,
+          entropyKey: [
+            session.request.seriesFile,
+            String(session.request.levelNumber),
+            session.request.ruleset,
+            runResult.outcome,
+            String(session.frame.snapshot.tick),
+            String(session.run.undoUsedCount),
+            runResult.cause?.kind ?? "none",
+            runResult.cause?.actorName ?? "none",
+            String(runResult.cause?.position?.x ?? 0),
+            String(runResult.cause?.position?.y ?? 0),
+            String(currentResultAttemptCount),
+          ].join(":"),
+          result: runResult,
+        })
+      : null;
   const canSaveReplay = Boolean(session?.run.replayAvailable && replayContextLevel && replayContextSeries);
   const currentLevelReplayEntries = session
     ? listReplaysForSeriesLevel(
@@ -835,6 +860,8 @@ export function PlayerApp({
       return;
     }
     recordedTerminalSessionRef.current = recordKey;
+    const attemptKey = `${session.request.seriesFile}:${String(session.request.levelNumber)}`;
+    levelAttemptCountsRef.current.set(attemptKey, (levelAttemptCountsRef.current.get(attemptKey) ?? 0) + 1);
 
     const progressSummary: BrowserLevelProgressSummary = {
       seriesFile: session.request.seriesFile,
@@ -2208,14 +2235,12 @@ export function PlayerApp({
   ) : null;
 
   const modernResultSheet =
-    isModernChrome && session && currentLevel && currentSeries && runResult && runResultTitle ? (
+    isModernChrome && session && currentLevel && currentSeries && runResult && runResultHeadline ? (
       <div className="modern-result-sheet__backdrop">
         <section aria-label="Level result" className="modern-result-sheet">
           <div className="modern-result-sheet__header">
-            <p className="modern-section__eyebrow">{runResultTitle}</p>
-            <h2 className="modern-result-sheet__title">
-              Level {currentLevel.number}: {currentLevel.name}
-            </h2>
+            <p className="modern-section__eyebrow">Level {currentLevel.number}: {currentLevel.name}</p>
+            <h2 className="modern-result-sheet__title">{runResultHeadline}</h2>
           </div>
 
           <section className="modern-result-sheet__panel modern-result-sheet__panel--summary">
