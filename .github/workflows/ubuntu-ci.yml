@@ -47,3 +47,7 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=Debug -DOSHW=sdl \
             -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/dist-sdl ..
           make -j4 && make install
+      - name: Run characterization checks
+        run: |
+          cd build-sdl
+          ctest --output-on-failure

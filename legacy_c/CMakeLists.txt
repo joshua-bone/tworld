@@ -51,6 +51,7 @@ endif()
 file(GLOB TW_SETS "${CMAKE_SOURCE_DIR}/sets/*.dac")
 file(GLOB TW_DATA "${CMAKE_SOURCE_DIR}/data/*.dat"
                   "${CMAKE_SOURCE_DIR}/data/*.ccx")
+list(FILTER TW_DATA EXCLUDE REGEX ".*/CHIPS\\.dat$")
 file(GLOB TW_RES  "${CMAKE_SOURCE_DIR}/res/rc"
                   "${CMAKE_SOURCE_DIR}/res/*.bmp"
                   "${CMAKE_SOURCE_DIR}/res/*.txt"
@@ -180,3 +181,77 @@ endif()
 
 add_executable(mklynxcc EXCLUDE_FROM_ALL mklynxcc.c)
 target_include_directories(mklynxcc PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+
+add_executable(tworld-oracle
+    oracle/oracle_main.cpp
+    encoding.h
+    encoding.c
+    err.h
+    err.c
+    fileio.h
+    fileio.c
+    gen.h
+    defs.h
+    logic.h
+    lxlogic.c
+    oshw.h
+    play.h
+    play.c
+    random.h
+    random.c
+    res.h
+    score.h
+    score.cpp
+    series.h
+    series.c
+    state.h
+    mslogic.c
+    solution.h
+    solution.c
+    unslist.h
+    unslist.c
+)
+target_include_directories(tworld-oracle PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+add_custom_target(update-characterization-fixtures
+    COMMAND "${CMAKE_SOURCE_DIR}/scripts/update_characterization_fixtures.py"
+            --repo-root "${CMAKE_SOURCE_DIR}"
+            --oracle "$<TARGET_FILE:tworld-oracle>"
+            --skip-build
+    DEPENDS tworld-oracle
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    COMMENT "Regenerating characterization fixtures"
+)
+
+add_custom_target(update-oracle-debug-fixtures
+    COMMAND "${CMAKE_SOURCE_DIR}/scripts/update_oracle_debug_fixtures.py"
+            --repo-root "${CMAKE_SOURCE_DIR}"
+            --oracle "$<TARGET_FILE:tworld-oracle>"
+            --skip-build
+    DEPENDS tworld-oracle
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    COMMENT "Regenerating oracle debug fixtures"
+)
+
+if(BUILD_TESTING)
+    add_test(
+        NAME characterization-fixtures
+        COMMAND "${CMAKE_SOURCE_DIR}/scripts/check_characterization_fixtures.sh"
+                "${CMAKE_SOURCE_DIR}"
+                "$<TARGET_FILE:tworld-oracle>"
+    )
+    add_test(
+        NAME oracle-debug-fixtures
+        COMMAND "${CMAKE_SOURCE_DIR}/scripts/check_oracle_debug_fixtures.sh"
+                "${CMAKE_SOURCE_DIR}"
+                "$<TARGET_FILE:tworld-oracle>"
+    )
+    add_test(
+        NAME oracle-debug-window
+        COMMAND "${CMAKE_SOURCE_DIR}/scripts/check_oracle_debug_window.sh"
+                "${CMAKE_SOURCE_DIR}"
+                "$<TARGET_FILE:tworld-oracle>"
+    )
+endif()

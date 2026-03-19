@@ -1,0 +1,125 @@
+{
+  "command": "input-trace",
+  "series": "intro-ms.dac",
+  "levelNumber": 3,
+  "levelIndex": 2,
+  "ruleset": "MS",
+  "maxTicks": 0,
+  "timerSecondMs": 1100,
+  "randomSeed": "123456789",
+  "scheduledInputs": [],
+  "initialState": {
+    "phase": "initial",
+    "tick": -1,
+    "status": "playing",
+    "input": "none",
+    "inputCode": 0,
+    "replayCursor": -1,
+    "currentTime": -1,
+    "timeOffset": 0,
+    "secondsPlayed": 0,
+    "timelimit": 2000,
+    "chipsNeeded": 1,
+    "statusFlags": 16,
+    "lastMoveCode": 0,
+    "lastMove": "none",
+    "stepping": 0,
+    "initRandomSlideDir": "north",
+    "randomState": {
+      "main": {
+        "initial": "123456789",
+        "value": "123456789",
+        "shared": false
+      },
+      "lynx": {
+        "prng1": 0,
+        "prng2": 0
+      }
+    },
+    "soundEffects": 0,
+    "view": {
+      "x": 32,
+      "y": 56
+    },
+    "inventory": {
+      "keys": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "boots": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "chip": {
+      "id": 64,
+      "layer": 1,
+      "dir": "south",
+      "position": {
+        "x": 4,
+        "y": 7,
+        "pos": 228
+      },
+      "state": 0
+    },
+    "creatureCount": 4,
+    "creaturesHash": "d1541811199b3b05",
+    "mapHash": "1537ce3bae5f86b0",
+    "creatures": [
+      {
+        "id": 76,
+        "layer": 1,
+        "dir": "north",
+        "position": {
+          "x": 7,
+          "y": 4,
+          "pos": 135
+        },
+        "state": 0
+      },
+      {
+        "id": 100,
+        "layer": 1,
+        "dir": "north",
+        "position": {
+          "x": 15,
+          "y": 6,
+          "pos": 207
+        },
+        "state": 0
+      },
+      {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      {
+        "id": 80,
+        "layer": 1,
+        "dir": "north",
+        "position": {
+          "x": 24,
+          "y": 8,
+          "pos": 280
+        },
+        "state": 0
+      }
+    ]
+  },
+  "steps": [],
+  "result": {
+    "status": "playing",
+    "finalTick": -1,
+    "stepCount": 0
+  }
+}

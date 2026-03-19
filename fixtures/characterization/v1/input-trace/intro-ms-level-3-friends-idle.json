@@ -1,0 +1,990 @@
+{
+  "command": "input-trace",
+  "series": "intro-ms.dac",
+  "levelNumber": 3,
+  "levelIndex": 2,
+  "ruleset": "MS",
+  "maxTicks": 8,
+  "timerSecondMs": 1100,
+  "randomSeed": "123456789",
+  "scheduledInputs": [],
+  "initialState": {
+    "phase": "initial",
+    "tick": -1,
+    "status": "playing",
+    "input": "none",
+    "inputCode": 0,
+    "replayCursor": -1,
+    "currentTime": -1,
+    "timeOffset": 0,
+    "secondsPlayed": 0,
+    "timelimit": 2000,
+    "chipsNeeded": 1,
+    "statusFlags": 16,
+    "lastMoveCode": 0,
+    "lastMove": "none",
+    "stepping": 0,
+    "initRandomSlideDir": "north",
+    "randomState": {
+      "main": {
+        "initial": "123456789",
+        "value": "123456789",
+        "shared": false
+      },
+      "lynx": {
+        "prng1": 0,
+        "prng2": 0
+      }
+    },
+    "soundEffects": 0,
+    "view": {
+      "x": 32,
+      "y": 56
+    },
+    "inventory": {
+      "keys": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "boots": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "chip": {
+      "id": 64,
+      "layer": 1,
+      "dir": "south",
+      "position": {
+        "x": 4,
+        "y": 7,
+        "pos": 228
+      },
+      "state": 0
+    },
+    "creatureCount": 4,
+    "creaturesHash": "d1541811199b3b05",
+    "mapHash": "1537ce3bae5f86b0",
+    "creatures": [
+      {
+        "id": 76,
+        "layer": 1,
+        "dir": "north",
+        "position": {
+          "x": 7,
+          "y": 4,
+          "pos": 135
+        },
+        "state": 0
+      },
+      {
+        "id": 100,
+        "layer": 1,
+        "dir": "north",
+        "position": {
+          "x": 15,
+          "y": 6,
+          "pos": 207
+        },
+        "state": 0
+      },
+      {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      {
+        "id": 80,
+        "layer": 1,
+        "dir": "north",
+        "position": {
+          "x": 24,
+          "y": 8,
+          "pos": 280
+        },
+        "state": 0
+      }
+    ]
+  },
+  "steps": [
+    {
+      "phase": "tick",
+      "tick": 0,
+      "status": "playing",
+      "input": "none",
+      "inputCode": 0,
+      "replayCursor": -1,
+      "currentTime": 0,
+      "timeOffset": 0,
+      "secondsPlayed": 0,
+      "timelimit": 2000,
+      "chipsNeeded": 1,
+      "statusFlags": 16,
+      "lastMoveCode": 0,
+      "lastMove": "none",
+      "stepping": 0,
+      "initRandomSlideDir": "north",
+      "randomState": {
+        "main": {
+          "initial": "123456789",
+          "value": "123456789",
+          "shared": false
+        },
+        "lynx": {
+          "prng1": 0,
+          "prng2": 0
+        }
+      },
+      "soundEffects": 0,
+      "view": {
+        "x": 32,
+        "y": 56
+      },
+      "inventory": {
+        "keys": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "boots": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      "creatureCount": 4,
+      "creaturesHash": "d1541811199b3b05",
+      "mapHash": "1537ce3bae5f86b0",
+      "creatures": [
+        {
+          "id": 76,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 7,
+            "y": 4,
+            "pos": 135
+          },
+          "state": 0
+        },
+        {
+          "id": 100,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 15,
+            "y": 6,
+            "pos": 207
+          },
+          "state": 0
+        },
+        {
+          "id": 64,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 4,
+            "y": 7,
+            "pos": 228
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 24,
+            "y": 8,
+            "pos": 280
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "phase": "tick",
+      "tick": 1,
+      "status": "playing",
+      "input": "none",
+      "inputCode": 0,
+      "replayCursor": -1,
+      "currentTime": 1,
+      "timeOffset": 0,
+      "secondsPlayed": 0,
+      "timelimit": 2000,
+      "chipsNeeded": 1,
+      "statusFlags": 16,
+      "lastMoveCode": 0,
+      "lastMove": "none",
+      "stepping": 0,
+      "initRandomSlideDir": "north",
+      "randomState": {
+        "main": {
+          "initial": "123456789",
+          "value": "123456789",
+          "shared": false
+        },
+        "lynx": {
+          "prng1": 0,
+          "prng2": 0
+        }
+      },
+      "soundEffects": 0,
+      "view": {
+        "x": 32,
+        "y": 56
+      },
+      "inventory": {
+        "keys": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "boots": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      "creatureCount": 4,
+      "creaturesHash": "d1541811199b3b05",
+      "mapHash": "1537ce3bae5f86b0",
+      "creatures": [
+        {
+          "id": 76,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 7,
+            "y": 4,
+            "pos": 135
+          },
+          "state": 0
+        },
+        {
+          "id": 100,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 15,
+            "y": 6,
+            "pos": 207
+          },
+          "state": 0
+        },
+        {
+          "id": 64,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 4,
+            "y": 7,
+            "pos": 228
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 24,
+            "y": 8,
+            "pos": 280
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "phase": "tick",
+      "tick": 2,
+      "status": "playing",
+      "input": "none",
+      "inputCode": 0,
+      "replayCursor": -1,
+      "currentTime": 2,
+      "timeOffset": 0,
+      "secondsPlayed": 0,
+      "timelimit": 2000,
+      "chipsNeeded": 1,
+      "statusFlags": 16,
+      "lastMoveCode": 0,
+      "lastMove": "none",
+      "stepping": 0,
+      "initRandomSlideDir": "north",
+      "randomState": {
+        "main": {
+          "initial": "123456789",
+          "value": "123456789",
+          "shared": false
+        },
+        "lynx": {
+          "prng1": 0,
+          "prng2": 0
+        }
+      },
+      "soundEffects": 0,
+      "view": {
+        "x": 32,
+        "y": 56
+      },
+      "inventory": {
+        "keys": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "boots": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      "creatureCount": 4,
+      "creaturesHash": "d1541811199b3b05",
+      "mapHash": "1537ce3bae5f86b0",
+      "creatures": [
+        {
+          "id": 76,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 7,
+            "y": 4,
+            "pos": 135
+          },
+          "state": 0
+        },
+        {
+          "id": 100,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 15,
+            "y": 6,
+            "pos": 207
+          },
+          "state": 0
+        },
+        {
+          "id": 64,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 4,
+            "y": 7,
+            "pos": 228
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 24,
+            "y": 8,
+            "pos": 280
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "phase": "tick",
+      "tick": 3,
+      "status": "playing",
+      "input": "none",
+      "inputCode": 0,
+      "replayCursor": -1,
+      "currentTime": 3,
+      "timeOffset": 0,
+      "secondsPlayed": 0,
+      "timelimit": 2000,
+      "chipsNeeded": 1,
+      "statusFlags": 16,
+      "lastMoveCode": 0,
+      "lastMove": "none",
+      "stepping": 0,
+      "initRandomSlideDir": "north",
+      "randomState": {
+        "main": {
+          "initial": "123456789",
+          "value": "123456789",
+          "shared": false
+        },
+        "lynx": {
+          "prng1": 0,
+          "prng2": 0
+        }
+      },
+      "soundEffects": 0,
+      "view": {
+        "x": 32,
+        "y": 56
+      },
+      "inventory": {
+        "keys": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "boots": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      "creatureCount": 4,
+      "creaturesHash": "d1541811199b3b05",
+      "mapHash": "1537ce3bae5f86b0",
+      "creatures": [
+        {
+          "id": 76,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 7,
+            "y": 4,
+            "pos": 135
+          },
+          "state": 0
+        },
+        {
+          "id": 100,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 15,
+            "y": 6,
+            "pos": 207
+          },
+          "state": 0
+        },
+        {
+          "id": 64,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 4,
+            "y": 7,
+            "pos": 228
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 24,
+            "y": 8,
+            "pos": 280
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "phase": "tick",
+      "tick": 4,
+      "status": "playing",
+      "input": "none",
+      "inputCode": 0,
+      "replayCursor": -1,
+      "currentTime": 4,
+      "timeOffset": 0,
+      "secondsPlayed": 0,
+      "timelimit": 2000,
+      "chipsNeeded": 1,
+      "statusFlags": 16,
+      "lastMoveCode": 0,
+      "lastMove": "none",
+      "stepping": 0,
+      "initRandomSlideDir": "north",
+      "randomState": {
+        "main": {
+          "initial": "123456789",
+          "value": "123456789",
+          "shared": false
+        },
+        "lynx": {
+          "prng1": 0,
+          "prng2": 0
+        }
+      },
+      "soundEffects": 0,
+      "view": {
+        "x": 32,
+        "y": 56
+      },
+      "inventory": {
+        "keys": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "boots": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      "creatureCount": 4,
+      "creaturesHash": "276c2951cc35662f",
+      "mapHash": "f0bbd986dc497292",
+      "creatures": [
+        {
+          "id": 76,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 7,
+            "y": 5,
+            "pos": 167
+          },
+          "state": 0
+        },
+        {
+          "id": 100,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 15,
+            "y": 5,
+            "pos": 175
+          },
+          "state": 0
+        },
+        {
+          "id": 64,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 4,
+            "y": 7,
+            "pos": 228
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 24,
+            "y": 7,
+            "pos": 248
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "phase": "tick",
+      "tick": 5,
+      "status": "playing",
+      "input": "none",
+      "inputCode": 0,
+      "replayCursor": -1,
+      "currentTime": 5,
+      "timeOffset": 0,
+      "secondsPlayed": 0,
+      "timelimit": 2000,
+      "chipsNeeded": 1,
+      "statusFlags": 16,
+      "lastMoveCode": 0,
+      "lastMove": "none",
+      "stepping": 0,
+      "initRandomSlideDir": "north",
+      "randomState": {
+        "main": {
+          "initial": "123456789",
+          "value": "123456789",
+          "shared": false
+        },
+        "lynx": {
+          "prng1": 0,
+          "prng2": 0
+        }
+      },
+      "soundEffects": 0,
+      "view": {
+        "x": 32,
+        "y": 56
+      },
+      "inventory": {
+        "keys": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "boots": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      "creatureCount": 4,
+      "creaturesHash": "276c2951cc35662f",
+      "mapHash": "f0bbd986dc497292",
+      "creatures": [
+        {
+          "id": 76,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 7,
+            "y": 5,
+            "pos": 167
+          },
+          "state": 0
+        },
+        {
+          "id": 100,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 15,
+            "y": 5,
+            "pos": 175
+          },
+          "state": 0
+        },
+        {
+          "id": 64,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 4,
+            "y": 7,
+            "pos": 228
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 24,
+            "y": 7,
+            "pos": 248
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "phase": "tick",
+      "tick": 6,
+      "status": "playing",
+      "input": "none",
+      "inputCode": 0,
+      "replayCursor": -1,
+      "currentTime": 6,
+      "timeOffset": 0,
+      "secondsPlayed": 0,
+      "timelimit": 2000,
+      "chipsNeeded": 1,
+      "statusFlags": 16,
+      "lastMoveCode": 0,
+      "lastMove": "none",
+      "stepping": 0,
+      "initRandomSlideDir": "north",
+      "randomState": {
+        "main": {
+          "initial": "123456789",
+          "value": "123456789",
+          "shared": false
+        },
+        "lynx": {
+          "prng1": 0,
+          "prng2": 0
+        }
+      },
+      "soundEffects": 0,
+      "view": {
+        "x": 32,
+        "y": 56
+      },
+      "inventory": {
+        "keys": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "boots": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      "creatureCount": 4,
+      "creaturesHash": "276c2951cc35662f",
+      "mapHash": "f0bbd986dc497292",
+      "creatures": [
+        {
+          "id": 76,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 7,
+            "y": 5,
+            "pos": 167
+          },
+          "state": 0
+        },
+        {
+          "id": 100,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 15,
+            "y": 5,
+            "pos": 175
+          },
+          "state": 0
+        },
+        {
+          "id": 64,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 4,
+            "y": 7,
+            "pos": 228
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 24,
+            "y": 7,
+            "pos": 248
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "phase": "tick",
+      "tick": 7,
+      "status": "playing",
+      "input": "none",
+      "inputCode": 0,
+      "replayCursor": -1,
+      "currentTime": 7,
+      "timeOffset": 0,
+      "secondsPlayed": 0,
+      "timelimit": 2000,
+      "chipsNeeded": 1,
+      "statusFlags": 16,
+      "lastMoveCode": 0,
+      "lastMove": "none",
+      "stepping": 0,
+      "initRandomSlideDir": "north",
+      "randomState": {
+        "main": {
+          "initial": "123456789",
+          "value": "123456789",
+          "shared": false
+        },
+        "lynx": {
+          "prng1": 0,
+          "prng2": 0
+        }
+      },
+      "soundEffects": 0,
+      "view": {
+        "x": 32,
+        "y": 56
+      },
+      "inventory": {
+        "keys": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "boots": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 4,
+          "y": 7,
+          "pos": 228
+        },
+        "state": 0
+      },
+      "creatureCount": 4,
+      "creaturesHash": "276c2951cc35662f",
+      "mapHash": "f0bbd986dc497292",
+      "creatures": [
+        {
+          "id": 76,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 7,
+            "y": 5,
+            "pos": 167
+          },
+          "state": 0
+        },
+        {
+          "id": 100,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 15,
+            "y": 5,
+            "pos": 175
+          },
+          "state": 0
+        },
+        {
+          "id": 64,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 4,
+            "y": 7,
+            "pos": 228
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 24,
+            "y": 7,
+            "pos": 248
+          },
+          "state": 0
+        }
+      ]
+    }
+  ],
+  "result": {
+    "status": "playing",
+    "finalTick": 7,
+    "stepCount": 8
+  }
+}

@@ -12,6 +12,8 @@
 #include	"random.h"
 #include	"logic.h"
 
+extern void	tworldoraclerecordphase(char const* phase);
+
 /* A number well above the maximum number of creatures that could possibly
  * exist simultaneously.
  */
@@ -1932,6 +1934,7 @@ static int advancegame(gamelogic *logic)
     setstate(logic);
 
     initialhousekeeping();
+    tworldoraclerecordphase("post-initial-housekeeping");
 
     for (cr = creaturelistend() ; cr >= creaturelist() ; --cr) {
 	if (cr != getchip() && cr->hidden)
@@ -1947,6 +1950,7 @@ static int advancegame(gamelogic *logic)
 	if (cr->moving <= 0)
 	    choosemove(cr);
     }
+    tworldoraclerecordphase("post-creature-intent");
 
     cr = getchip();
     if (getfdir(cr) == NIL && cr->tdir == NIL)
@@ -1970,6 +1974,7 @@ static int advancegame(gamelogic *logic)
 	if (floorat(cr->pos) == Button_Brown && cr->moving <= 0)
 	    springtrap(trapfrombutton(cr->pos));
     }
+    tworldoraclerecordphase("post-creature-movement");
 
     for (cr = creaturelistend() ; cr >= creaturelist() ; --cr) {
 	if (cr->hidden)
@@ -1979,6 +1984,7 @@ static int advancegame(gamelogic *logic)
 	if (floorat(cr->pos) == Teleport)
 	    teleportcreature(cr);
     }
+    tworldoraclerecordphase("post-teleport-resolution");
 
     if (putwall() != -1)
     {
@@ -1989,10 +1995,12 @@ static int advancegame(gamelogic *logic)
 	}
 	putwall() = -1;
     }
+    tworldoraclerecordphase("post-putwall-resolution");
 
     finalhousekeeping();
 
     preparedisplay();
+    tworldoraclerecordphase("final");
 
     if (inendgame()) {
 	--timeoffset();

@@ -1,0 +1,36 @@
+{
+  "command": "times-table",
+  "series": "public_CCZoneTT.dac",
+  "showPartial": 10,
+  "rowLevelIndexes": [],
+  "table": {
+    "rows": 1,
+    "cols": 4,
+    "sep": 2,
+    "collapse": 1,
+    "data": [
+      [
+        {
+          "span": 1,
+          "align": "+",
+          "text": "Level"
+        },
+        {
+          "span": 1,
+          "align": "-",
+          "text": "Name"
+        },
+        {
+          "span": 1,
+          "align": "+",
+          "text": "Time"
+        },
+        {
+          "span": 1,
+          "align": "+",
+          "text": "Solution"
+        }
+      ]
+    ]
+  }
+}

@@ -27,6 +27,9 @@ static gamestate state;
  */
 static gamelogic* logic = NULL;
 
+typedef void (*tworldoraclephasecallback)(char const* phase, gamestate const* state);
+static tworldoraclephasecallback oraclephasecallback = NULL;
+
 /* TRUE if the program is running without a user interface.
  */
 int batchmode = FALSE;
@@ -58,6 +61,15 @@ int setmudsuckingfactor(int mud) {
 void toggleshowinitstate(void) {
     showinitstate = !showinitstate;
     setintsetting("showinitstate", showinitstate);
+}
+
+void tworldoraclesetphasecallback(tworldoraclephasecallback callback) {
+    oraclephasecallback = callback;
+}
+
+void tworldoraclerecordphase(char const* phase) {
+    if (oraclephasecallback)
+        oraclephasecallback(phase, &state);
 }
 
 /* Configure the game logic, and some of the OS/hardware layer, as
@@ -320,6 +332,8 @@ int doturn(int cmd) {
         }
     }
 
+    tworldoraclerecordphase("post-input-latch");
+
     n = (*logic->advancegame)(logic);
 
     if (state.replay < 0 && state.lastmove) {
@@ -401,6 +415,10 @@ void setenddisplay(void) {
     state.soundeffects = 0;
     getenddisplaysetup(&state);
     (*logic->initgame)(logic);
+}
+
+gamestate const* currentgamestate(void) {
+    return &state;
 }
 
 /*

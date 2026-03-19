@@ -1,0 +1,367 @@
+{
+  "command": "series-list",
+  "series": [
+    {
+      "name": "CCLP1-Lynx.dac",
+      "filebase": "CCLP1-Lynx.dac",
+      "mapfilename": "./data/CCLP1.dat",
+      "ruleset": "Lynx",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLP1-MS.dac",
+      "filebase": "CCLP1-MS.dac",
+      "mapfilename": "./data/CCLP1.dat",
+      "ruleset": "MS",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLP2.dac",
+      "filebase": "CCLP2.dac",
+      "mapfilename": "./data/CCLP2.dat",
+      "ruleset": "MS",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLP2.dat-lynx.dac",
+      "filebase": "CCLP2.dat-lynx.dac",
+      "mapfilename": "./data/CCLP2.dat",
+      "ruleset": "Lynx",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLP3-Lynx.dac",
+      "filebase": "CCLP3-Lynx.dac",
+      "mapfilename": "./data/CCLP3.dat",
+      "ruleset": "Lynx",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLP3-MS.dac",
+      "filebase": "CCLP3-MS.dac",
+      "mapfilename": "./data/CCLP3.dat",
+      "ruleset": "MS",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLP4-Lynx.dac",
+      "filebase": "CCLP4-Lynx.dac",
+      "mapfilename": "./data/CCLP4.dat",
+      "ruleset": "Lynx",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLP4-MS.dac",
+      "filebase": "CCLP4-MS.dac",
+      "mapfilename": "./data/CCLP4.dat",
+      "ruleset": "MS",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLP5-Lynx.dac",
+      "filebase": "CCLP5-Lynx.dac",
+      "mapfilename": "./data/CCLP5.dat",
+      "ruleset": "Lynx",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLP5-MS.dac",
+      "filebase": "CCLP5-MS.dac",
+      "mapfilename": "./data/CCLP5.dat",
+      "ruleset": "MS",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLXP2.dac",
+      "filebase": "CCLXP2.dac",
+      "mapfilename": "./data/CCLXP2.dat",
+      "ruleset": "Lynx",
+      "levelCount": 149
+    },
+    {
+      "name": "CCLXP2.dat-ms.dac",
+      "filebase": "CCLXP2.dat-ms.dac",
+      "mapfilename": "./data/CCLXP2.dat",
+      "ruleset": "MS",
+      "levelCount": 149
+    },
+    {
+      "name": "EvanD1.dat-lynx.dac",
+      "filebase": "EvanD1.dat-lynx.dac",
+      "mapfilename": "./data/EvanD1.dat",
+      "ruleset": "Lynx",
+      "levelCount": 144
+    },
+    {
+      "name": "intro-lynx.dac",
+      "filebase": "intro-lynx.dac",
+      "mapfilename": "./data/intro.dat",
+      "ruleset": "Lynx",
+      "levelCount": 9
+    },
+    {
+      "name": "intro-ms.dac",
+      "filebase": "intro-ms.dac",
+      "mapfilename": "./data/intro.dat",
+      "ruleset": "MS",
+      "levelCount": 9
+    },
+    {
+      "name": "public_CCZoneTT-lynx.dac",
+      "filebase": "public_CCZoneTT-lynx.dac",
+      "mapfilename": "./data/CCZoneTT.dat",
+      "ruleset": "Lynx",
+      "levelCount": 117
+    },
+    {
+      "name": "public_CCZoneTT.dac",
+      "filebase": "public_CCZoneTT.dac",
+      "mapfilename": "./data/CCZoneTT.dat",
+      "ruleset": "MS",
+      "levelCount": 117
+    },
+    {
+      "name": "public_EvanD1.dac",
+      "filebase": "public_EvanD1.dac",
+      "mapfilename": "./data/EvanD1.dat",
+      "ruleset": "MS",
+      "levelCount": 144
+    }
+  ],
+  "table": {
+    "rows": 19,
+    "cols": 2,
+    "sep": 2,
+    "collapse": 0,
+    "data": [
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "Filename"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Ruleset"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP1-Lynx.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Lynx"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP1-MS.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "MS"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP2.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "MS"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP2.dat-lynx.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Lynx"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP3-Lynx.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Lynx"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP3-MS.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "MS"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP4-Lynx.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Lynx"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP4-MS.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "MS"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP5-Lynx.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Lynx"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLP5-MS.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "MS"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLXP2.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Lynx"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "CCLXP2.dat-ms.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "MS"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "EvanD1.dat-lynx.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Lynx"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "intro-lynx.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Lynx"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "intro-ms.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "MS"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "public_CCZoneTT-lynx.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "Lynx"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "public_CCZoneTT.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "MS"
+        }
+      ],
+      [
+        {
+          "span": 1,
+          "align": "-",
+          "text": "public_EvanD1.dac"
+        },
+        {
+          "span": 1,
+          "align": ".",
+          "text": "MS"
+        }
+      ]
+    ]
+  }
+}

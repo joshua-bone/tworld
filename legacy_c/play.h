@@ -21,6 +21,8 @@ enum {
  */
 extern int batchmode;
 
+struct gamestate;
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -84,6 +86,10 @@ extern void shutdowngamestate(void);
  * the completion of a series.
  */
 extern void setenddisplay(void);
+
+/* Return the current game state.
+ */
+extern struct gamestate const* currentgamestate(void);
 
 /* Return TRUE if a solution exists for the given level.
  */
