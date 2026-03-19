@@ -71,6 +71,7 @@ const ABOUT_LINKS = {
   tileWorldRepo: "https://github.com/SicklySilverMoon/tworld",
   bitbustersClub: "https://bitbusters.club",
   bitbustersWiki: "https://wiki.bitbusters.club",
+  datTools: "https://joshua-bone.github.io/DATTools/",
   discord: "https://discord.gg/Xd4dUY9",
   legacy: buildAppHref("/legacy", import.meta.env.BASE_URL),
 } as const;
@@ -1611,6 +1612,10 @@ export function ModernPlayerApp({
                     Chip Wiki
                   </a>
                   <span aria-hidden="true">|</span>
+                  <a className="modern-inline-link" href={ABOUT_LINKS.datTools} rel="noreferrer" target="_blank">
+                    DATTools editor
+                  </a>
+                  <span aria-hidden="true">|</span>
                   <a className="modern-inline-link" href={ABOUT_LINKS.discord} rel="noreferrer" target="_blank">
                     Discord server
                   </a>
@@ -1639,6 +1644,13 @@ export function ModernPlayerApp({
                 <p className="modern-dashboard__copy">
                   Example: <code>?level=3&amp;ruleset=MS&amp;slot=3D_CHIPS.dat#dat=...</code>. The
                   <code>slot</code> name controls overwrite-by-name behavior for local work-in-progress packs.
+                </p>
+                <p className="modern-dashboard__copy">
+                  You can create and play custom DAT levels with{" "}
+                  <a className="modern-inline-link" href={ABOUT_LINKS.datTools} rel="noreferrer" target="_blank">
+                    DATTools
+                  </a>
+                  , a browser-based editor that works well with these URL launch flows.
                 </p>
               </section>
 

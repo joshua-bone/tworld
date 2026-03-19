@@ -58,6 +58,7 @@ Notes:
 - `ruleset` defaults to `Lynx`.
 - `slot` controls overwrite-by-name behavior for local work-in-progress packs.
 - Progress is still keyed by gameplay data, so unchanged levels keep their progress when a pack is replaced.
+- You can create and play custom DAT levels with [DATTools](https://joshua-bone.github.io/DATTools/), a browser-based editor that works well with these URL launch flows.
 
 ## Important note about CHIPS.dat
 
@@ -140,7 +141,11 @@ For browser-port bugs, report them to `jbone` in the Bit Busters Discord so they
 
 ## Making levels
 
-New levels for Tile World can be made using external level editors. Two popular editors are:
+New levels for Tile World can be made using external level editors. Recommended:
+
+- [DATTools](https://joshua-bone.github.io/DATTools/) for browser-based creation and playtesting of DAT levels
+
+Other popular editors:
 
 - CCEdit, part of [CCTools](https://cctools.zrax.net/)
 - [CCCreator](https://cccreator.bitbusters.club/)
