@@ -544,7 +544,6 @@ export function PlayerApp({
   const [showReplayMenu, setShowReplayMenu] = useState(false);
   const [showSoundControls, setShowSoundControls] = useState(false);
   const [showHistoryControls, setShowHistoryControls] = useState(false);
-  const [showReplayDetails, setShowReplayDetails] = useState(false);
   const [showManageReplays, setShowManageReplays] = useState(false);
   const [pendingReplayEntryId, setPendingReplayEntryId] = useState<string | null>(null);
   const [selectedManagedReplayId, setSelectedManagedReplayId] = useState<string | null>(null);
@@ -623,7 +622,7 @@ export function PlayerApp({
       : session.history.restoreMode === "restored-paused"
         ? `Restored to ${formatInteractiveTickSeconds(session.history.currentTick)}s. ${
             canResumeOriginalTimeline
-              ? `Press Space or use Resume Original Timeline to replay forward to ${formatInteractiveTickSeconds(session.history.latestTick)}s.`
+              ? `Press Space or use Continue with Replay to replay forward to ${formatInteractiveTickSeconds(session.history.latestTick)}s.`
               : chromeMode === "modern" || chromeMode === "modern-embedded"
                 ? "Use Z to keep rewinding, or take over with a live move."
                 : "Use Z, Cmd/Ctrl+Z, or Shift+Z to keep rewinding, or take over with a live move."
@@ -826,12 +825,6 @@ export function PlayerApp({
       setReplaySaveNotice(null);
     }
   }, [runResult]);
-
-  useEffect(() => {
-    if (mode !== "game" || !session || session.frame.snapshot.status === "playing") {
-      setShowReplayDetails(false);
-    }
-  }, [mode, session]);
 
   useEffect(() => {
     if (mode !== "game" || !session || session.mode === "replay") {
@@ -1098,8 +1091,8 @@ export function PlayerApp({
       setReloadToken((value) => value + 1);
       setMessage(
         storedEntry
-          ? `Imported replay ${storedEntry.fileName}. Use Continue From Replay to watch it.`
-          : `Imported replay ${imported.fileName}. Use Continue From Replay to watch it.`,
+          ? `Imported replay ${storedEntry.fileName}. Use Continue with Replay to watch it.`
+          : `Imported replay ${imported.fileName}. Use Continue with Replay to watch it.`,
       );
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -2271,10 +2264,12 @@ export function PlayerApp({
                     <span>Time bonus</span>
                     <strong>{runResult.score.timeBonus}</strong>
                   </div>
-                  <div className="modern-result-sheet__row">
-                    <span>Undo penalty</span>
-                    <strong>{runResult.score.undoPenaltyApplied ? "x0.5" : "None"}</strong>
-                  </div>
+                  {runResult.score.undoPenaltyApplied ? (
+                    <div className="modern-result-sheet__row">
+                      <span>Undo penalty</span>
+                      <strong>x0.5</strong>
+                    </div>
+                  ) : null}
                   <div className="modern-result-sheet__row modern-result-sheet__row--strong">
                     <span>Final score</span>
                     <strong>{runResult.score.finalScore}</strong>
@@ -2310,16 +2305,8 @@ export function PlayerApp({
                   <strong>{session.run.replayAvailable ? "Ready to save" : "No recorded inputs yet"}</strong>
                 </div>
                 <div className="modern-result-sheet__row">
-                  <span>Official replay</span>
-                  <strong>{replayContextLevel?.hasSolution ? "Bundled with this level" : "None"}</strong>
-                </div>
-                <div className="modern-result-sheet__row">
                   <span>Moves</span>
                   <strong>{session.recordedMoves.length}</strong>
-                </div>
-                <div className="modern-result-sheet__row">
-                  <span>Saved replays</span>
-                  <strong>{currentLevelReplayEntries.length}</strong>
                 </div>
               </div>
               <div className="modern-result-sheet__replay-actions">
@@ -2333,49 +2320,14 @@ export function PlayerApp({
                 >
                   Save Replay
                 </button>
-                <button
-                  className="modern-button modern-button--secondary"
-                  disabled={!replayContextLevel || !replayContextSeries}
-                  onClick={() => {
-                    void importReplayForCurrentLevel();
-                  }}
-                  type="button"
-                >
-                  Import Replay
-                </button>
-                <button
-                  className="modern-link-button"
-                  disabled={!latestCurrentReplayEntry}
-                  onClick={() => {
-                    if (latestCurrentReplayEntry) {
-                      watchSavedReplayEntry(latestCurrentReplayEntry);
-                    }
-                  }}
-                  type="button"
-                >
-                  Watch Latest Replay
-                </button>
-                <button
-                  className="modern-link-button"
-                  disabled={!session.run.replayAvailable}
-                  onClick={() => {
-                    setShowReplayDetails((current) => !current);
-                  }}
-                  type="button"
-                >
-                  {showReplayDetails ? "Hide Replay Details" : "View Replay Details"}
-                </button>
               </div>
               {replaySaveNotice ? <p className="modern-result-sheet__notice">{replaySaveNotice}</p> : null}
-              {showReplayDetails && session.run.replayAvailable ? (
-                <div className="modern-result-sheet__details">
-                  <p>Seed {session.frame.snapshot.randomState.main.initial}</p>
-                  <p>Recorded moves {session.recordedMoves.length}</p>
-                  <p>Status {session.mode === "replay" ? "Replay session" : "Manual session"}</p>
-                  {latestCurrentReplayDescription ? <p>Latest saved replay: {latestCurrentReplayDescription.summaryLabel}</p> : null}
-                  {replayModeNote ? <p>{replayModeNote}</p> : null}
-                </div>
-              ) : null}
+              <div className="modern-result-sheet__details">
+                <p>Seed {session.frame.snapshot.randomState.main.initial}</p>
+                <p>Status {session.mode === "replay" ? "Replay session" : "Manual session"}</p>
+                {latestCurrentReplayDescription ? <p>Latest saved replay: {latestCurrentReplayDescription.summaryLabel}</p> : null}
+                {replayModeNote ? <p>{replayModeNote}</p> : null}
+              </div>
             </section>
           </div>
 
@@ -2384,13 +2336,13 @@ export function PlayerApp({
               {runResult.outcome === "failed"
                 ? "Retry"
                 : currentSeries.levels.findIndex((level) => level.number === currentLevel.number) < currentSeries.levels.length - 1
-                  ? "Next Level"
+                  ? "Next Level (N)"
                   : isEmbeddedModernChrome
                     ? "Stay on Final Level"
                     : "Back to Library"}
             </button>
             <button className="modern-button modern-button--secondary" onClick={restartCurrentLevel} type="button">
-              Restart Level
+              Restart Level (R)
             </button>
             <button
               className="modern-button modern-button--secondary"
@@ -2400,10 +2352,7 @@ export function PlayerApp({
               }}
               type="button"
             >
-              Undo
-            </button>
-            <button className="modern-link-button" disabled={!canResumeOriginalTimeline} onClick={resumeOriginalTimeline} type="button">
-              Resume Original Timeline
+              Undo (Z)
             </button>
           </div>
         </section>
@@ -2699,7 +2648,7 @@ export function PlayerApp({
           onClick={continueFromReplay}
           type="button"
         >
-          {canContinueFromReplay ? "Continue From Replay" : "Resume Original Timeline"}
+          Continue with Replay
         </button>
       </div>
     </section>
@@ -3147,7 +3096,7 @@ export function PlayerApp({
                   onClick={resumeOriginalTimeline}
                   type="button"
                 >
-                  Resume Original Timeline
+                  Continue with Replay
                 </button>
               </div>
               <div className="legacy-history__settings">
