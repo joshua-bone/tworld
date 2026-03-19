@@ -165,8 +165,8 @@ describe("buildCuratedCatalogView", () => {
     );
 
     expect(view.introFamilies.map((family) => family.title)).toEqual(["The Pit Of 100 Tiles", "TS0"]);
-    expect(listSetFamilyRulesets(view.introFamilies[0]!)).toEqual(["MS", "Lynx"]);
-    expect(listSetFamilyRulesets(view.introFamilies[1]!)).toEqual(["MS", "Lynx"]);
+    expect(listSetFamilyRulesets(view.introFamilies[0]!)).toEqual(["Lynx", "MS"]);
+    expect(listSetFamilyRulesets(view.introFamilies[1]!)).toEqual(["Lynx", "MS"]);
     expect(view.introFamilies[0]).toMatchObject({
       sidebarSummary: "Andrew Menzies",
       description: "The Pit Of 100 Tiles by Andrew Menzies. Custom levelset used by author's permission.",
@@ -187,7 +187,7 @@ describe("buildCuratedCatalogView", () => {
     );
 
     expect(view.localFamilies).toHaveLength(1);
-    expect(listSetFamilyRulesets(view.localFamilies[0]!)).toEqual(["MS", "Lynx"]);
+    expect(listSetFamilyRulesets(view.localFamilies[0]!)).toEqual(["Lynx", "MS"]);
     expect(resolveSetFamilySelection(view.localFamilies[0]!, "MS", 9)).toEqual({
       seriesFile: "Imported.dat-ms.dac",
       levelNumber: 9,

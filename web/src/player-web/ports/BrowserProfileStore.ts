@@ -117,7 +117,7 @@ export interface BrowserProfileSnapshot {
 export function createDefaultBrowserProfilePreferences(): BrowserProfilePreferences {
   return {
     uiMode: "modern",
-    defaultRuleset: "MS",
+    defaultRuleset: "Lynx",
     autoSaveWinningHighScoreReplays: true,
     autoDownloadReplaysOnSave: false,
   };

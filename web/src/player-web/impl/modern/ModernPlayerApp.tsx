@@ -254,7 +254,7 @@ function formatFamilyClearedMeta(
   family: SetFamily,
   progressByKey: ReadonlyMap<string, BrowserLevelProgressSummary>,
 ): string {
-  const parts = (["MS", "Lynx"] as const).flatMap((ruleset) => {
+  const parts = (["Lynx", "MS"] as const).flatMap((ruleset) => {
     const entry = family.launchEntries[ruleset] ?? null;
     if (!entry) {
       return [];
@@ -282,7 +282,7 @@ function RulesetToggle({
 }) {
   return (
     <div aria-label="Ruleset" className="modern-ruleset-toggle" role="group">
-      {(["MS", "Lynx"] as const).map((ruleset) => {
+      {(["Lynx", "MS"] as const).map((ruleset) => {
         const isAvailable = family.launchEntries[ruleset] !== undefined;
         return (
           <button
@@ -553,7 +553,7 @@ export function ModernPlayerApp({
   const [isLevelsPaneCollapsed, setIsLevelsPaneCollapsed] = useState(false);
   const [setsPaneWidth, setSetsPaneWidth] = useState(DASHBOARD_DEFAULT_SETS_PANE_WIDTH);
   const [levelsPaneWidth, setLevelsPaneWidth] = useState(DASHBOARD_DEFAULT_LEVELS_PANE_WIDTH);
-  const [requestedRuleset, setRequestedRuleset] = useState<BrowserPreferredRuleset>("MS");
+  const [requestedRuleset, setRequestedRuleset] = useState<BrowserPreferredRuleset>("Lynx");
   const [requestedLevelsByFamily, setRequestedLevelsByFamily] = useState<Record<string, number>>({
     "official:cclp1": 1,
   });

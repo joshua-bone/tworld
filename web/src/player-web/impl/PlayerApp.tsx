@@ -1833,7 +1833,7 @@ export function PlayerApp({
 
     const importedEntries = successes.flatMap(({ entries }) => entries);
     const preferredRuleset =
-      currentRuleset ?? (currentSeries?.ruleset === "MS" || currentSeries?.ruleset === "Lynx" ? currentSeries.ruleset : "MS");
+      currentRuleset ?? (currentSeries?.ruleset === "MS" || currentSeries?.ruleset === "Lynx" ? currentSeries.ruleset : "Lynx");
     const selectedImport =
       successes[0]?.entries.find((entry) => entry.ruleset === preferredRuleset) ?? successes[0]?.entries[0] ?? null;
 
@@ -2586,7 +2586,7 @@ export function PlayerApp({
   });
   const renderModernRulesetToggle = (keyPrefix: string) => (
     <div className="modern-ruleset-toggle modern-ruleset-toggle--stacked" role="group" aria-label="Ruleset">
-      {(["MS", "Lynx"] as const).map((ruleset) => {
+      {(["Lynx", "MS"] as const).map((ruleset) => {
         const selection = selectedRulesetSelections[ruleset];
         return (
           <button

@@ -2,7 +2,7 @@ import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 
 export type SetFamilyRuleset = Exclude<SeriesCatalogEntry["ruleset"], "None">;
-const SET_FAMILY_RULESETS: readonly SetFamilyRuleset[] = ["MS", "Lynx"];
+const SET_FAMILY_RULESETS: readonly SetFamilyRuleset[] = ["Lynx", "MS"];
 
 export type CuratedCatalogSection = "official" | "intro" | "local" | "other";
 
