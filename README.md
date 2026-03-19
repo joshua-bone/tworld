@@ -1,183 +1,146 @@
-# Tile World
+# Tile World / Tile World Online
 
-Tile World is an emulation of the game "Chip's Challenge" for the Atari Lynx,
-created by Chuck Sommerville, and later ported to MS Windows by Microsoft (among
-other ports).
+This repository contains two closely related things:
 
-## Tile World Online URL Launches
+- The historical Tile World / Tile World 2 codebase and resources.
+- Tile World Online, a browser-based TypeScript port with a modern UI built on top of the same legacy rulesets.
 
-The browser UI supports direct level launch by URL.
+Tile World emulates the classic Chip's Challenge engines: the Atari Lynx ruleset and the Microsoft Windows ruleset. Tile World Online brings those same rulesets into a modern browser experience with improved level browsing, progress tracking, undo history, replay tools, ruleset switching, and support for 3D levels.
 
-- Built-in or curated packs can be opened with query parameters such as
-  `?set=CCLP1&level=3&ruleset=Lynx`.
-- Custom DAT packs can be embedded directly in the URL with
-  `#dat=<base64url(gzip(datBytes))>`, plus optional `level`, `ruleset`, and
-  `slot` parameters.
-- Example:
-  `?level=3&ruleset=MS&slot=3D_CHIPS.dat#dat=<base64url(gzip(datBytes))>`
+## Tile World Online
 
-`ruleset` defaults to `Lynx`. The `slot` parameter controls local overwrite by
-name, which is useful for work-in-progress packs that are updated regularly.
-Progress still follows gameplay hashes, so unchanged levels continue to carry
-their progress when a pack is replaced.
+Tile World Online is a static website. All progress, scores, imported sets, and replays are stored locally in the browser.
 
-## Important Note
+The modern browser UI lives under [`web/`](./web). It keeps the legacy interface available at `/legacy`, while the default experience is the modern dashboard and embedded player.
 
-Tile World is an emulation of the "Chip's Challenge" game engines only. It does
-not come with the CHIPS.dat file that contains the original level set. That
-file, which is copyrighted and cannot be freely distributed, was originally
-distributed with the MS version of "Chip's Challenge". If you have a copy of
-this version of the game, you can use that file to play the original games in
-Tile World. If you do not have a copy of this file, however, you can still play
-Tile World with the many freely available level files created by fans of the
-original game.
+### Browser UI development
 
-## Getting Tile World
+```sh
+cd web
+npm install
+npm run dev
+```
 
-### Prebuilt (Windows)
+Useful browser build commands:
 
-Extract the contents of the release archive into its own folder, eg.
-`C:\Users\you\Documents\tworld`. If you have a copy of CHIPS.dat, copy it into
-`data` subfolder. This will let you play the original Chip's Challenge levelset.
+```sh
+cd web
+npm run test
+npm run typecheck
+npm run build
+```
 
-If you have any other levelset (.dat) files you would like to play in Tile
-World, copy those to the `data` subfolder also. All sets in that folder should
-appear in the main menu.
+## Engine Parity
 
-To run the game, execute `tworld.exe` in the main Tile World directory, or make
-a shortcut for it.
+Core gameplay logic has been verified on over 2,500 replays per ruleset in an attempt to ensure exact behavior parity with legacy Tile World. That said, the TypeScript port runs in a fundamentally different runtime environment than the original C implementation, and there are likely to be subtle differences between the engines. There may also be outright bugs remaining in the code that will only be uncovered through further playtesting.
 
-### Building (Linux/Windows/macOS)
+## URL Launches
 
-Before building, ensure you have CMake, a C compiler, the SDL2 and Qt5/6
-libraries (with developement support).
+The browser UI supports direct play by URL.
 
-Build Tile World as a usual CMake program using the following commands:
+- Built-in or curated packs can be opened with query parameters such as:
+  - `?set=CCLP1&level=3&ruleset=Lynx`
+- Custom DAT packs can be embedded directly in the URL with:
+  - `#dat=<base64url(gzip(datBytes))>`
+- Optional parameters:
+  - `level`
+  - `ruleset`
+  - `slot`
+
+Example:
+
+```text
+?level=3&ruleset=MS&slot=3D_CHIPS.dat#dat=<base64url(gzip(datBytes))>
+```
+
+Notes:
+
+- `ruleset` defaults to `Lynx`.
+- `slot` controls overwrite-by-name behavior for local work-in-progress packs.
+- Progress is still keyed by gameplay data, so unchanged levels keep their progress when a pack is replaced.
+
+## Important note about CHIPS.dat
+
+Tile World does not ship with `CHIPS.dat`, the original Microsoft Chip's Challenge levelset. That file is copyrighted and cannot be freely redistributed. If you have your own copy, you can use it with the native build or import it into the browser UI locally.
+
+If you do not have a copy of `CHIPS.dat`, Tile World can still be used with freely available community levelsets.
+
+## Levelsets
+
+This repository includes official community sets such as the CCLP series, the Lynx-compatible CCLXP2 companion pack, curated browser-first content, and historical/supporting content used for testing and compatibility work.
+
+Tile World Online also supports:
+
+- importing local DAT files into browser storage
+- sharing custom DATs by URL
+- restoring browser progress across duplicated levels when gameplay data matches
+
+Community levelsets can be found at:
+
+- https://sets.bitbusters.club
+
+## Historical native build
+
+The original native Tile World / Tile World 2 codebase is still present in this repository.
+
+### Native build requirements
+
+Before building the native application, ensure you have:
+
+- CMake
+- a C compiler
+- SDL2
+- Qt5 or Qt6 development libraries
+
+### Native build steps
 
 ```sh
 mkdir build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Relase ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 cmake --build .
 ```
 
-Running `make install` (as root) will install a `tworld2` binary and all the
-necessary resources.
-
-On Unix-like systems, addings sets or changing any resources, unfortunately,
-requires root permission, as those are placed in `/usr/local/share/tworld`. This
-may be changed in a future release.
-
-## Levelsets
-
-As mentioned above, Tile World does not come with the original "Chip's
-Challenge" levels for copyright reasons. If you do have a copy of the original
-game, copy the CHIPS.dat file into the `data` folder to play it.
-
-This distribution/repository comes with six levelsets: intro, CCLP1, CCLP2,
-CCLP3, CCLP4, CCLP5. "intro" is a short introduction to the elements of the
-game. CCLPs (Chip's Challenge Level Packs) 1 through 5 are sets put together by
-the community, containing levels voted on by fans. CCLP1 is meant as a
-replacement for CHIPS.dat, while the others are considerably harder than the
-original set.
-
-Other user-made sets can be found on https://sets.bitbusters.club.
-
-## Making levels
-
-New levels for Tile World can be made using level editors. The two most popular
-editors are CCEdit (part of [CCTools](https://cctools.zrax.net/)), and
-[CCCreator](https://cccreator.bitbusters.club/).
+Running `make install` as root will install a `tworld2` binary and the required resources.
 
 ## Resources
 
-The community scoreboard for the original game and the CCLPs can be found on
-https://scores.bitbusters.club.
+- Bit Busters Club: https://bitbusters.club
+- Chip Wiki: https://wiki.bitbusters.club
+- Scores: https://scores.bitbusters.club
+- Legacy Tile World repo: https://github.com/SicklySilverMoon/tworld
+- Tile World 2 homepage: https://tw2.bitbusters.club
+- Original Tile World 1 homepage: http://muppetlabs.com/~breadbox/software/tworld
+- Optimized TWS solutions: https://davidstolp.com/old/chips/tws/
+- Tile World port list: https://wiki.bitbusters.club/Tile_World#Ports
 
-Most of the community resources can be found on https://bitbusters.club,
-including the [community Discord server](https://discord.gg/Xd4dUY9), the
-[Chip Wiki](https://wiki.bitbusters.club), the
-[Yahoo Groups archive](https://bitbusters.club/yahoo), and levelsets, editors,
-and emulators for the sequel, Chip's Challenge 2.
+## License and credits
 
-Optimized TWS solutions for CC1 and CCLPs can be found at https://davidstolp.com/old/chips/tws/.
+Tile World Online (TWO) is a browser-based TypeScript port of Tile World / Tile World 2, and includes code derived from the original Tile World codebase.
 
-A list of ports of Tile World to various can be found at https://wiki.bitbusters.club/Tile_World#Ports.
+Copyright (C) 2026 Joshua Bone  
+Portions Copyright (C) 2001-2025 Brian Raiter, Madhav Shanbhag, and Eric Schmidt
 
-The original Tile World 1 homepage is at
-http://muppetlabs.com/~breadbox/software/tworld.
+Released under the GNU General Public License, version 2 or later.
 
-The source code repository for the latest fork can be found at
-https://github.com/SicklySilverMoon/tworld.
+Original Tile World was written by Brian Raiter. Tile World 2 was developed by Madhav Shanbhag, with later releases and maintenance by Eric Schmidt, Michael Hansen (Zrax), ChosenID, David Stolp (pieguy), A Sickly Silver Moon, G lander, and Eevee. Chip's Challenge was designed by Chuck Sommerville.
 
-The Tile World 2 homepage is at https://tw2.bitbusters.club.
+Additional historical credits from the original project:
 
-## License
-
-Tile World is copyright (C) 2001-2025 by Brian Raiter, Madhav Shanbhag, and Eric
-Schmidt. This program is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the Free
-Software Foundation; either version 2 of the License, or (at your option) any
-later version. This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License,
-included in this distribution in the file COPYING, for more details.
-
-## Bugs
-
-Bug reports are always appreciated and can be submitted via GitHub Issues at
-https://github.com/SicklySilverMoon/tworld/issues/new. The list of known bugs
-can be found in the BUGS file in the source repository.
-
-## Credits
-
-Tile World was written by Brian Raiter.
-
-Tile World 2 - which simply improves upon the user interface of the original
-Tile World program - was developed by Madhav Shanbhag.
-
-Version 2.1 was produced by Eric Schmidt.
-
-Version 2.3 was produced by Michael Hansen (Zrax), ChosenID, David Stolp
-(pieguy), A Sickly Silver Moon, G lander, and Eevee.
-
-The sound effects included in this distribution were created by Brian Raiter,
-with assistance from SoX. Brian Raiter has explictly placed these files in the
-public domain.
-
-The tile images included in this distribution were created by Anders Kaseorg,
-with assistance from POV-Ray. Anders Kaseorg has explicitly placed these files
-in the public domain.
-
-The introductory set of levels included in this distribution were created by
-Brian Raiter. Brian Raiter has explictly placed these levels in the public
-domain.
-
-Thomas Harte and Michael Hansen have developed Mac OSX ports of Tile World and
-Tile World 2 respectively.
-
-Thanks to "The Architect" for his corrections to the font bitmap file.
-
-"Chip's Challenge" was designed by Chuck Sommerville, who is also the author of
-the original Lynx program.
+- sound effects were created by Brian Raiter with assistance from SoX, and were placed in the public domain
+- tile images were created by Anders Kaseorg with assistance from POV-Ray, and were placed in the public domain
+- the introductory native levelset was created by Brian Raiter and placed in the public domain
+- Thomas Harte and Michael Hansen developed macOS ports of Tile World and Tile World 2 respectively
 
 "Chip's Challenge" is a registered trademark of Alpha Omega Publications.
 
-Creating this program would have been flatly impossible without the help of
-several fans of "Chip's Challenge". The author would particularly like to
-acknowledge Anders Kaseorg for sharing the fruits of his investigations into the
-game logic of the MS version and for being an effective bug hunter, Chuck
-Sommerville for his pointers regarding the game logic of the Lynx version and
-his unfailing support of this project, and "CCExplore" for his in-depth
-investigations of esoteric game behavior.
+## Bug reports
 
-Many other regulars of the annexcafe.chips.challenge newsgroup assisted with bug
-reports, suggestions, and all-around encouragement. Their help is gratefully
-acknowledged.
+For browser-port bugs, report them to `jbone` in the Bit Busters Discord so they can be reproduced against the current modern UI and replay corpus.
 
-The anonymous author of the document describing the .dat file format, Don
-Gregory, the "Charter Chipsters", and the contributors to the CC AVI library all
-deserve mention as well -- this program would never have been written without
-the information they made freely available.
+## Making levels
 
-Last but not least, a tip of the hat to John K. Elion for writing ChipEdit.
+New levels for Tile World can be made using external level editors. Two popular editors are:
+
+- CCEdit, part of [CCTools](https://cctools.zrax.net/)
+- [CCCreator](https://cccreator.bitbusters.club/)
