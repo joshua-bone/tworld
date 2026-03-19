@@ -2473,7 +2473,7 @@ export function PlayerApp({
                       <span className="modern-replay-manager__result">{row.replayDescription.resultLabel}</span>
                     </div>
                     <p className="modern-replay-manager__meta">
-                      {row.secondsLabel}  ·  {row.moveCount ?? "?"} moves
+                      {row.replayDescription.savedAtLabel}  ·  {row.secondsLabel}  ·  {row.moveCount ?? "?"} moves
                       {row.entry.finalScore !== null ? `  ·  ${row.entry.finalScore} pts` : ""}
                     </p>
                   </button>

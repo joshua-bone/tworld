@@ -97,13 +97,24 @@ describe("replayLibrary", () => {
           result: "completed-clean",
           finalScore: 850,
           undoUsedCount: 0,
+          savedAtMs: Date.UTC(2026, 2, 18, 20, 0, 0),
         }),
       ),
-    ).toEqual({
+    ).toMatchObject({
       resultLabel: "Clean clear",
       sourceLabel: "Saved run",
       summaryLabel: "Saved run  ·  Clean clear  ·  850 pts  ·  No undo",
     });
+    expect(
+      describeReplayEntry(
+        createReplayEntry({
+          id: "saved",
+          seriesFile: "CCLP1-MS.dac",
+          ruleset: "MS",
+          savedAtMs: Date.UTC(2026, 2, 18, 20, 0, 0),
+        }),
+      ).savedAtLabel,
+    ).not.toHaveLength(0);
     expect(
       describeReplayEntry(
         createReplayEntry({

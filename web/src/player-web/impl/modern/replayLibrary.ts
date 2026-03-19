@@ -37,9 +37,14 @@ export function listReplaysForCurrentLevel(
 
 export function describeReplayEntry(entry: BrowserReplayEntry): {
   resultLabel: string;
+  savedAtLabel: string;
   sourceLabel: string;
   summaryLabel: string;
 } {
+  const savedAtLabel = new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(entry.savedAtMs);
   const resultLabel =
     entry.result === "completed-clean"
       ? "Clean clear"
@@ -60,6 +65,7 @@ export function describeReplayEntry(entry: BrowserReplayEntry): {
 
   return {
     resultLabel,
+    savedAtLabel,
     sourceLabel,
     summaryLabel: summaryParts.join("  ·  "),
   };
