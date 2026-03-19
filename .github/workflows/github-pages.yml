@@ -29,7 +29,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - uses: actions/configure-pages@v5
       - name: Install web dependencies
-        run: npm ci
+        run: npm install --include=optional
         working-directory: web
       - name: Build web app for GitHub Pages
         run: npm run build
