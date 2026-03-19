@@ -119,11 +119,11 @@ const FAMILY_DEFINITIONS: readonly CuratedFamilyDefinition[] = [
     section: "official",
     title: "CCLP3",
     badge: "Official",
-    sidebarSummary: "Sharper curation than CCLP2, extremely difficult endgame.",
+    sidebarSummary: "Higher quality than CCLP2, extremely difficult endgame.",
     yearLabel: "2010",
-    description: "Sharper curation than CCLP2, extremely difficult endgame.",
+    description: "Higher quality than CCLP2.",
     context:
-      "Sharper curation than CCLP2, with an extremely difficult endgame and a clear jump in craftsmanship.",
+      "A clear jump in craftsmanship over CCLP2, with an extremely difficult endgame.",
     links: [
       { label: "BitBusters wiki", href: "https://wiki.bitbusters.club/Chip%27s_Challenge_Level_Pack_3" },
       { label: "Fandom overview", href: "https://chipschallenge.fandom.com/wiki/Chip%27s_Challenge_Level_Pack_3" },
@@ -140,7 +140,7 @@ const FAMILY_DEFINITIONS: readonly CuratedFamilyDefinition[] = [
     yearLabel: "2017",
     description: "Moderate difficulty.",
     context:
-      "Designed as a modern Lynx-compatible mix of the earlier official packs, with strong variety and serious late-game challenge without pushing past late CCLP3 on purpose.",
+      "A modern Lynx-compatible official pack with strong variety and a serious late-game challenge.",
     links: [
       { label: "BitBusters wiki", href: "https://wiki.bitbusters.club/Chip%27s_Challenge_Level_Pack_4" },
       { label: "Fandom overview", href: "https://chipschallenge.fandom.com/wiki/Chip%27s_Challenge_Level_Pack_4" },

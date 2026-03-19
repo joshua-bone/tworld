@@ -122,11 +122,11 @@ describe("buildCuratedCatalogView", () => {
       "Easy difficulty.",
       "Moderate difficulty.",
       "Hard difficulty.",
-      "Sharper curation than CCLP2, extremely difficult endgame.",
+      "Higher quality than CCLP2, extremely difficult endgame.",
       "Rough early-community expansion",
     ]);
     expect(view.officialFamilies.find((family) => family.title === "CCLP3")).toMatchObject({
-      description: "Sharper curation than CCLP2, extremely difficult endgame.",
+      description: "Higher quality than CCLP2.",
     });
   });
 
