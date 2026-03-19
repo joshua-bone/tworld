@@ -1600,14 +1600,8 @@ export function PlayerApp({
         return;
       }
 
-      if (isEmbeddedModernChrome) {
-        setMessage(`${currentSeries.filebase} completed.`);
-        return;
-      }
-
-      if (chromeMode === "modern" && onExitGame) {
-        setMessage(`${currentSeries.filebase} completed.`);
-        exitCurrentGame();
+      if (isModernChrome) {
+        restartCurrentLevel();
         return;
       }
 
@@ -2114,6 +2108,12 @@ export function PlayerApp({
       if (session && session.frame.snapshot.status !== "playing" && isProceedKey(event.key)) {
         event.preventDefault();
         proceedAfterLevelEnd();
+        return;
+      }
+
+      if (isModernChrome && session && session.frame.snapshot.status !== "playing" && event.key === "Escape") {
+        event.preventDefault();
+        restartCurrentLevel();
         return;
       }
 
