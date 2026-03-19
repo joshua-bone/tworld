@@ -44,6 +44,10 @@ import {
 } from "@game-runtime/impl/interactiveHistoryNavigation";
 import { formatInteractiveTickSeconds } from "@game-runtime/impl/interactiveSessionRun";
 import { loadBrowserPlayableCatalog } from "@player-web/impl/loadBrowserPlayableCatalog";
+import {
+  observeLegacySharedRandomSeed,
+  resolveLegacySessionRandomSeed,
+} from "@player-web/impl/legacySharedRandomSeed";
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
@@ -70,7 +74,6 @@ import {
   type BrowserUndoSettings,
 } from "@player-web/impl/undoSettings";
 
-const SESSION_SEED = 123456789;
 const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";
 const SOUND_VOLUME_STORAGE_KEY = "tworld.sound-volume";
 const LEGACY_FAST_TICK_MS = 25;
@@ -643,14 +646,6 @@ export function PlayerApp({
         : runResult?.outcome === "failed"
           ? "Run Failed"
           : null;
-  const runResultSubtitle =
-    runResult?.outcome === "failed"
-      ? runResult.cause?.message ?? "Chip died."
-      : runResult?.outcome === "completed-with-undo"
-        ? "Undo or rewind was used during this run, so the final score is halved."
-        : runResult?.outcome === "completed-clean"
-          ? "Clean clear recorded with no undo penalty."
-          : null;
   const canSaveReplay = Boolean(session?.run.replayAvailable && replayContextLevel && replayContextSeries);
   const currentLevelReplayEntries = session
     ? listReplaysForSeriesLevel(
@@ -668,7 +663,6 @@ export function PlayerApp({
   const latestCurrentReplayEntry = currentLevelReplayEntries[0] ?? null;
   const continueReplayEntry =
     currentLevelReplayEntries.find((entry) => entry.id === pendingReplayEntryId) ?? latestCurrentReplayEntry;
-  const latestCurrentReplayDescription = latestCurrentReplayEntry ? describeReplayEntry(latestCurrentReplayEntry) : null;
   const canContinueFromReplay = continueReplayEntry !== null;
   const currentReplayCountLabel =
     currentLevelReplayEntries.length === 1 ? "1 replay" : `${currentLevelReplayEntries.length} replays`;
@@ -889,7 +883,7 @@ export function PlayerApp({
       seriesFile: selectedSeriesFile,
       levelNumber: selectedLevelNumber,
       ruleset: series.ruleset,
-      randomSeed: SESSION_SEED,
+      randomSeed: resolveLegacySessionRandomSeed(queuedReplay?.replay.randomSeed),
     } as const;
 
     const sessionPromise = queuedReplay
@@ -940,6 +934,19 @@ export function PlayerApp({
       active = false;
     };
   }, [catalog, engines, mode, replayLaunchRequest, reloadToken, selectedLevelNumber, selectedSeriesFile]);
+
+  useEffect(() => {
+    if (
+      mode !== "game" ||
+      !session ||
+      session.mode !== "manual" ||
+      session.history.restoreMode !== "live"
+    ) {
+      return;
+    }
+
+    observeLegacySharedRandomSeed(session.frame.snapshot.randomState.main.value);
+  }, [mode, session]);
 
   const advanceTick = useEffectEvent(async (input: InteractiveInput) => {
     if (mode !== "game" || !session || tickingRef.current || isPaused) {
@@ -2209,140 +2216,70 @@ export function PlayerApp({
             <h2 className="modern-result-sheet__title">
               Level {currentLevel.number}: {currentLevel.name}
             </h2>
-            {runResultSubtitle ? <p className="modern-result-sheet__subtitle">{runResultSubtitle}</p> : null}
           </div>
 
-          <div className="modern-result-sheet__grid">
-            <section className="modern-result-sheet__panel">
-              <h3 className="modern-result-sheet__panel-title">Run Summary</h3>
-              <div className="modern-result-sheet__rows">
-                <div className="modern-result-sheet__row">
-                  <span>Ruleset</span>
-                  <strong>{session.request.ruleset}</strong>
-                </div>
-                <div className="modern-result-sheet__row">
-                  <span>Time</span>
-                  <strong>{formatInteractiveTickSeconds(session.frame.snapshot.tick)}s</strong>
-                </div>
-                <div className="modern-result-sheet__row">
-                  <span>Undo used</span>
-                  <strong>{session.run.undoUsedCount}</strong>
-                </div>
-                <div className="modern-result-sheet__row">
-                  <span>Result</span>
-                  <strong>
-                    {runResult.outcome === "completed-clean"
-                      ? "Cleared clean"
-                      : runResult.outcome === "completed-with-undo"
-                        ? "Cleared with undo"
-                        : "Failed"}
-                  </strong>
-                </div>
-                {runResult.endPosition ? (
-                  <div className="modern-result-sheet__row">
-                    <span>End position</span>
-                    <strong>
-                      ({runResult.endPosition.x}, {runResult.endPosition.y}
-                      {runResult.endPosition.z && runResult.endPosition.z > 1 ? `, z${runResult.endPosition.z}` : ""})
-                    </strong>
-                  </div>
-                ) : null}
+          <section className="modern-result-sheet__panel modern-result-sheet__panel--summary">
+            <div className="modern-result-sheet__rows modern-result-sheet__rows--summary">
+              <div className="modern-result-sheet__row">
+                <span>Ruleset</span>
+                <strong>{session.request.ruleset}</strong>
               </div>
-            </section>
-
-            <section className="modern-result-sheet__panel">
-              <h3 className="modern-result-sheet__panel-title">
-                {runResult.outcome === "failed" ? "Failure Cause" : "Score"}
-              </h3>
-              {runResult.score ? (
-                <div className="modern-result-sheet__rows">
-                  <div className="modern-result-sheet__row">
-                    <span>Base score</span>
-                    <strong>{runResult.score.baseScore}</strong>
-                  </div>
-                  <div className="modern-result-sheet__row">
-                    <span>Time bonus</span>
-                    <strong>{runResult.score.timeBonus}</strong>
-                  </div>
-                  {runResult.score.undoPenaltyApplied ? (
-                    <div className="modern-result-sheet__row">
-                      <span>Undo penalty</span>
-                      <strong>x0.5</strong>
-                    </div>
-                  ) : null}
-                  <div className="modern-result-sheet__row modern-result-sheet__row--strong">
-                    <span>Final score</span>
-                    <strong>{runResult.score.finalScore}</strong>
-                  </div>
-                </div>
-              ) : (
-                <div className="modern-result-sheet__rows">
-                  <div className="modern-result-sheet__row">
-                    <span>Cause</span>
-                    <strong>{runResult.cause?.message ?? "Unknown failure"}</strong>
-                  </div>
-                  {runResult.cause?.actorName ? (
-                    <div className="modern-result-sheet__row">
-                      <span>Source</span>
-                      <strong>{runResult.cause.actorName}</strong>
-                    </div>
-                  ) : null}
-                  {runResult.cause?.tileId !== null && runResult.cause?.tileId !== undefined ? (
-                    <div className="modern-result-sheet__row">
-                      <span>Tile id</span>
-                      <strong>{runResult.cause.tileId}</strong>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </section>
-
-            <section className="modern-result-sheet__panel modern-result-sheet__panel--replay">
-              <h3 className="modern-result-sheet__panel-title">Replay</h3>
-              <div className="modern-result-sheet__rows">
+              <div className="modern-result-sheet__row">
+                <span>Time elapsed</span>
+                <strong>{formatInteractiveTickSeconds(Math.max(session.frame.snapshot.currentTime, 0))}s</strong>
+              </div>
+              <div className="modern-result-sheet__row">
+                <span>Time remaining</span>
+                <strong>
+                  {session.frame.snapshot.timelimit > 0
+                    ? `${formatInteractiveTickSeconds(gameplayTimeRemainingTicks(session))}s`
+                    : "Untimed"}
+                </strong>
+              </div>
+              <div className="modern-result-sheet__row">
+                <span>Undo used</span>
+                <strong>{session.run.undoUsedCount}</strong>
+              </div>
+              <div className="modern-result-sheet__row">
+                <span>Result</span>
+                <strong>
+                  {runResult.outcome === "completed-clean"
+                    ? "Cleared clean"
+                    : runResult.outcome === "completed-with-undo"
+                      ? "Cleared with undo"
+                      : "Failed"}
+                </strong>
+              </div>
+              <div className="modern-result-sheet__row">
+                <span>Cause</span>
+                <strong>{runResult.outcome === "failed" ? runResult.cause?.message ?? "Unknown failure" : "Cleared"}</strong>
+              </div>
+              <div className="modern-result-sheet__row">
+                <span>Moves</span>
+                <strong>{session.recordedMoves.length}</strong>
+              </div>
+              {runResult.score?.undoPenaltyApplied ? (
                 <div className="modern-result-sheet__row">
-                  <span>Recorded replay</span>
-                  <strong>{session.run.replayAvailable ? "Ready to save" : "No recorded inputs yet"}</strong>
+                  <span>Undo penalty</span>
+                  <strong>x0.5</strong>
                 </div>
-                <div className="modern-result-sheet__row">
-                  <span>Moves</span>
-                  <strong>{session.recordedMoves.length}</strong>
-                </div>
-              </div>
-              <div className="modern-result-sheet__replay-actions">
-                <button
-                  className="modern-button modern-button--secondary"
-                  disabled={!canSaveReplay}
-                  onClick={() => {
-                    void saveReplayForCurrentRun();
-                  }}
-                  type="button"
-                >
-                  Save Replay
-                </button>
-              </div>
-              {replaySaveNotice ? <p className="modern-result-sheet__notice">{replaySaveNotice}</p> : null}
-              <div className="modern-result-sheet__details">
-                <p>Seed {session.frame.snapshot.randomState.main.initial}</p>
-                <p>Status {session.mode === "replay" ? "Replay session" : "Manual session"}</p>
-                {latestCurrentReplayDescription ? <p>Latest saved replay: {latestCurrentReplayDescription.summaryLabel}</p> : null}
-                {replayModeNote ? <p>{replayModeNote}</p> : null}
-              </div>
-            </section>
-          </div>
+              ) : null}
+            </div>
+          </section>
 
           <div className="modern-result-sheet__actions">
-            <button className="modern-button" onClick={proceedAfterLevelEnd} type="button">
-              {runResult.outcome === "failed"
-                ? "Retry"
-                : currentSeries.levels.findIndex((level) => level.number === currentLevel.number) < currentSeries.levels.length - 1
-                  ? "Next Level (N)"
-                  : isEmbeddedModernChrome
-                    ? "Stay on Final Level"
-                    : "Back to Library"}
+            <button
+              className="modern-button modern-button--secondary"
+              disabled={!canSaveReplay}
+              onClick={() => {
+                void saveReplayForCurrentRun();
+              }}
+              type="button"
+            >
+              Save Replay
             </button>
             <button className="modern-button modern-button--secondary" onClick={restartCurrentLevel} type="button">
-              Restart Level (R)
+              Retry (R)
             </button>
             <button
               className="modern-button modern-button--secondary"
@@ -2354,7 +2291,13 @@ export function PlayerApp({
             >
               Undo (Z)
             </button>
+            {runResult.outcome !== "failed" ? (
+              <button className="modern-button" onClick={proceedAfterLevelEnd} type="button">
+                Next Level (N)
+              </button>
+            ) : null}
           </div>
+          {replaySaveNotice ? <p className="modern-result-sheet__notice">{replaySaveNotice}</p> : null}
         </section>
       </div>
     ) : null;
