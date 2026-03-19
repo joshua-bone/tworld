@@ -2302,7 +2302,7 @@ export function PlayerApp({
               )}
             </section>
 
-            <section className="modern-result-sheet__panel">
+            <section className="modern-result-sheet__panel modern-result-sheet__panel--replay">
               <h3 className="modern-result-sheet__panel-title">Replay</h3>
               <div className="modern-result-sheet__rows">
                 <div className="modern-result-sheet__row">
@@ -2829,6 +2829,7 @@ export function PlayerApp({
                 <p className="modern-game-board__hint-overlay-copy">{modernHintOverlayText}</p>
               </div>
             ) : null}
+            {modernResultSheet}
           </div>
           {renderModernInventoryRail()}
           {renderModernUndoPanel()}
@@ -2868,7 +2869,6 @@ export function PlayerApp({
         <div className="modern-embedded-player__body">
           {renderModernBoardPanel(true, "embedded")}
         </div>
-        {modernResultSheet}
         {modernMessageModal}
         {manageReplaysModal}
         {helpOverlay}
@@ -2991,7 +2991,6 @@ export function PlayerApp({
               </section>
             </aside>
           </div>
-          {modernResultSheet}
           {modernMessageModal}
           {manageReplaysModal}
           {helpOverlay}
