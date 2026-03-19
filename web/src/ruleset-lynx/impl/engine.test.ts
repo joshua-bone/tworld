@@ -382,6 +382,27 @@ describe("advanceLynxInteractiveSession", () => {
     expect(settled.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
   });
 
+  it("drops Chip from air when the immediately lower layer is only an ice corner", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 102;
+    lower[chipPos] = createCell(chipPos, MS_TILE.IceWall_Northwest);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const settled = advanceLynxTicks(session, 2);
+
+    expect(settled.chipZ).toBe(1);
+    expect(settled.chipPos).toBe(chipPos);
+    expect(settled.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.IceWall_Northwest);
+    expect(settled.state.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.IceWall_Northwest);
+    expect(settled.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
   it("does not drop Chip from air when an elevator is directly below", () => {
     const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
     const upper = createBoardAtZ(2);
@@ -639,6 +660,48 @@ describe("advanceLynxInteractiveSession", () => {
     expect(block?.hidden).toBe(true);
     expect(fallen.state.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Dirt);
     expect(fallen.state.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("keeps a non-player supported over a real blue wall without normalizing it", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const blockPos = 103;
+    lower[blockPos] = createCell(blockPos, MS_TILE.BlueWall_Real);
+    upper[blockPos] = createCellAtZ(blockPos, 2, MS_TILE.Block_Static, MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [blockPos] }),
+    );
+
+    const settled = advanceLynxTicks(session, 2);
+    const block = settled.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
+
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(blockPos);
+    expect(settled.state.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.BlueWall_Real);
+    expect(settled.state.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("keeps a non-player supported over a fake blue wall", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const blockPos = 104;
+    lower[blockPos] = createCell(blockPos, MS_TILE.BlueWall_Fake);
+    upper[blockPos] = createCellAtZ(blockPos, 2, MS_TILE.Block_Static, MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [blockPos] }),
+    );
+
+    const settled = advanceLynxTicks(session, 2);
+    const block = settled.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
+
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(blockPos);
+    expect(settled.state.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.BlueWall_Fake);
+    expect(settled.state.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Air);
   });
 
   it("drops a non-player from unsupported air onto Chip and collides on landing", () => {

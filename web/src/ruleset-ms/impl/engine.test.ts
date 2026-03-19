@@ -349,6 +349,37 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south));
   });
 
+  it("drops Chip from air when the immediately lower layer is only an ice corner", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(9, 9);
+    lower[chipPos]!.top.id = MS_TILE.IceWall_Northwest;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(1);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south));
+    expect(session.state.engine.map.layers?.[0]?.cells[chipPos]?.bottom.id).toBe(MS_TILE.IceWall_Northwest);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south));
+  });
+
   it("does not drop Chip from air when an elevator is directly below", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);
@@ -770,6 +801,70 @@ describe("MS engine regressions", () => {
     expect(block?.pos).toBe(blockPos);
     expect(session.state.engine.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
     expect(session.state.engine.map.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
+
+  it("keeps a non-player supported over a real blue wall without normalizing it", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const blockPos = pos(13, 8);
+    lower[blockPos]!.top.id = MS_TILE.BlueWall_Real;
+    upper[blockPos]!.top.id = MS_TILE.Block_Static;
+    upper[blockPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const block = session.state.internal.blocks.find((entry) => !entry.hidden);
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(blockPos);
+    expect(session.state.engine.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.BlueWall_Real);
+    expect(session.state.engine.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.engine.map.cells[blockPos]?.top.id).toBe(MS_TILE.BlueWall_Real);
+  });
+
+  it("keeps a non-player supported over a fake blue wall", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const blockPos = pos(14, 8);
+    lower[blockPos]!.top.id = MS_TILE.BlueWall_Fake;
+    upper[blockPos]!.top.id = MS_TILE.Block_Static;
+    upper[blockPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const block = session.state.internal.blocks.find((entry) => !entry.hidden);
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(blockPos);
+    expect(session.state.engine.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.BlueWall_Fake);
+    expect(session.state.engine.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.engine.map.cells[blockPos]?.top.id).toBe(MS_TILE.BlueWall_Fake);
   });
 
   it("drops a non-player from unsupported air onto Chip and collides on landing", () => {

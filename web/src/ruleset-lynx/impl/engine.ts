@@ -320,10 +320,6 @@ function lynxUpperRuntimeCells(state: EngineState, z: number | undefined): Engin
 function isLynxSupportingWallTile(id: number): boolean {
   switch (id) {
     case MS_TILE.Wall:
-    case MS_TILE.IceWall_Northwest:
-    case MS_TILE.IceWall_Northeast:
-    case MS_TILE.IceWall_Southwest:
-    case MS_TILE.IceWall_Southeast:
     case MS_TILE.HiddenWall_Perm:
     case MS_TILE.HiddenWall_Temp:
     case MS_TILE.BlueWall_Real:
