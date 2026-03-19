@@ -14,6 +14,7 @@ import {
   isPauseToggleKey,
   isPrevLevelKey,
   isProceedKey,
+  isRestartLevelKey,
   isUndoCheckpointKey,
   isUndoKey,
 } from "@player-web/impl/legacyHotkeys";
@@ -2032,6 +2033,12 @@ export function PlayerApp({
         lynxInputBufferRef.current.reset();
       }
 
+      const hasBrowserShortcutModifier = event.altKey || event.ctrlKey || event.metaKey;
+      const isReservedModifiedHotkey = isFineUndoKey(event) || isFirstLevelKey(event) || isLastLevelKey(event);
+      if (hasBrowserShortcutModifier && !isReservedModifiedHotkey) {
+        return;
+      }
+
       if (isHelpToggleKey(event)) {
         event.preventDefault();
         toggleHelp();
@@ -2109,7 +2116,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!isEditableKeyTarget(event.target) && isBrowserScrollKey(event.key)) {
+      if (!isEditableKeyTarget(event.target) && !hasBlockedMovementModifier(event) && isBrowserScrollKey(event.key)) {
         event.preventDefault();
       }
 
@@ -2181,6 +2188,7 @@ export function PlayerApp({
       const startClockKey =
         session?.mode === "manual" &&
         !manualRunStarted &&
+        !hasBlockedMovementModifier(event) &&
         (event.key === " " || event.key === "Spacebar" || keyToInput(event.key) !== null);
       if (startClockKey) {
         event.preventDefault();
@@ -2205,7 +2213,7 @@ export function PlayerApp({
         return;
       }
 
-      if (event.key === "r" || event.key === "R") {
+      if (isRestartLevelKey(event)) {
         event.preventDefault();
         restartCurrentLevel();
         return;

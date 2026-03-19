@@ -10,6 +10,7 @@ import {
   isPauseToggleKey,
   isPrevLevelKey,
   isProceedKey,
+  isRestartLevelKey,
   isUndoCheckpointKey,
   isUndoKey,
 } from "@player-web/impl/legacyHotkeys";
@@ -67,6 +68,14 @@ describe("legacy hotkeys", () => {
     expect(isPauseToggleKey({ key: "Delete" })).toBe(true);
     expect(isPauseToggleKey({ key: "Backspace", shiftKey: true })).toBe(false);
     expect(isPauseToggleKey({ key: "Delete", ctrlKey: true })).toBe(false);
+  });
+
+  it("maps plain R to restart without swallowing browser reload shortcuts", () => {
+    expect(isRestartLevelKey({ key: "r" })).toBe(true);
+    expect(isRestartLevelKey({ key: "R" })).toBe(true);
+    expect(isRestartLevelKey({ key: "r", ctrlKey: true })).toBe(false);
+    expect(isRestartLevelKey({ key: "R", ctrlKey: true, shiftKey: true })).toBe(false);
+    expect(isRestartLevelKey({ key: "r", metaKey: true })).toBe(false);
   });
 
   it("maps first and last level to Home/End or Cmd/Ctrl + comma/period", () => {

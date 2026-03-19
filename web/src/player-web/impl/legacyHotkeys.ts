@@ -51,6 +51,10 @@ export function isPauseToggleKey(event: LegacyKeyboardEventLike): boolean {
   return hasPlainModifiers(event) && !event.shiftKey && (event.key === "Backspace" || event.key === "Delete");
 }
 
+export function isRestartLevelKey(event: LegacyKeyboardEventLike): boolean {
+  return hasPlainModifiers(event) && (event.key === "r" || event.key === "R");
+}
+
 export function isNextLevelKey(event: LegacyKeyboardEventLike): boolean {
   return hasPlainModifiers(event) && (event.key === "PageDown" || event.key === "n" || event.key === "N");
 }
