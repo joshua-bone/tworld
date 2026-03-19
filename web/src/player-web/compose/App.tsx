@@ -1,24 +1,21 @@
 import { useEffect, useState } from "react";
 import { createBrowserAppServices } from "@player-web/compose/createBrowserAppServices";
 import type { LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
+import {
+  pathForShellMode,
+  resolveShellModeFromPathname,
+} from "@player-web/impl/appPaths";
 import { ModernPlayerApp } from "@player-web/impl/modern/ModernPlayerApp";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
 import type { BrowserUiMode } from "@player-web/ports/BrowserProfileStore";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 
 const services = createBrowserAppServices();
-
-function resolveShellModeFromPath(pathname: string): BrowserUiMode {
-  return pathname === "/legacy" || pathname.startsWith("/legacy/") ? "classic" : "modern";
-}
-
-function pathForShellMode(mode: BrowserUiMode): string {
-  return mode === "classic" ? "/legacy" : "/";
-}
+const APP_BASE_URL = import.meta.env.BASE_URL;
 
 export function App() {
   const [shellMode, setShellMode] = useState<BrowserUiMode>(() =>
-    resolveShellModeFromPath(window.location.pathname),
+    resolveShellModeFromPathname(window.location.pathname, APP_BASE_URL),
   );
   const [classicState, setClassicState] = useState<{
     initialMode: LegacyMode;
@@ -28,7 +25,7 @@ export function App() {
 
   useEffect(() => {
     const handlePopState = () => {
-      setShellMode(resolveShellModeFromPath(window.location.pathname));
+      setShellMode(resolveShellModeFromPathname(window.location.pathname, APP_BASE_URL));
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -38,7 +35,7 @@ export function App() {
   }, []);
 
   const navigateToShell = (nextMode: BrowserUiMode) => {
-    const nextPath = pathForShellMode(nextMode);
+    const nextPath = pathForShellMode(nextMode, APP_BASE_URL);
     if (window.location.pathname !== nextPath) {
       window.history.pushState({ shellMode: nextMode }, "", nextPath);
     }

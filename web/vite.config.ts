@@ -5,6 +5,7 @@ import react from "@vitejs/plugin-react";
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
 export default defineConfig({
+  base: process.env.BASE_PATH ?? "/",
   plugins: [react()],
   resolve: {
     alias: {

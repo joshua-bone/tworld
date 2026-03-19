@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
+import { buildAppHref } from "@player-web/impl/appPaths";
 import {
   loadBrowserPlayableCatalog,
   loadModernBootstrapPlayableCatalog,
@@ -71,7 +72,7 @@ const ABOUT_LINKS = {
   bitbustersClub: "https://bitbusters.club",
   bitbustersWiki: "https://wiki.bitbusters.club",
   discord: "https://discord.gg/Xd4dUY9",
-  legacy: "/legacy",
+  legacy: buildAppHref("/legacy", import.meta.env.BASE_URL),
 } as const;
 
 const DASHBOARD_COLLAPSED_PANE_WIDTH = 44;
