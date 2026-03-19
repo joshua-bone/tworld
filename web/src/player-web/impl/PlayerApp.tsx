@@ -53,6 +53,7 @@ import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
 import { resolveReplayActionContext } from "@player-web/impl/replayContext";
 import { selectResultHeadline } from "@player-web/impl/resultHeadlines";
+import { shouldPersistLevelProgress } from "@player-web/impl/sessionProgressPolicy";
 import { restoreInteractiveGameSession } from "@game-runtime/impl/restoreInteractiveGameSession";
 import { resumeInteractiveGameSession } from "@game-runtime/impl/resumeInteractiveGameSession";
 import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
@@ -510,7 +511,9 @@ function isEditableKeyTarget(target: EventTarget | null): boolean {
 interface PlayerAppProps {
   services: BrowserAppServices;
   chromeMode?: "legacy" | "modern" | "modern-embedded";
+  initialCatalog?: SeriesCatalogEntry[];
   initialMode?: LegacyMode;
+  initialReplayEntries?: BrowserReplayEntry[];
   initialSelection?: PlayableSelection | null;
   onExitGame?: () => void;
   onLevelProgressSaved?: (summary: BrowserLevelProgressSummary) => void;
@@ -520,14 +523,18 @@ interface PlayerAppProps {
 export function PlayerApp({
   services,
   chromeMode = "legacy",
+  initialCatalog = [],
   initialMode = "series-list",
+  initialReplayEntries = [],
   initialSelection = null,
   onExitGame,
   onLevelProgressSaved,
   onSelectionChange,
 }: PlayerAppProps) {
   const { engines, importDatFile, profileStore, replayTransfer, selectionStore } = services;
+  const initialCatalogRef = useRef<SeriesCatalogEntry[]>(initialCatalog);
   const initialModeRef = useRef<LegacyMode>(initialMode);
+  const initialReplayEntriesRef = useRef<BrowserReplayEntry[]>(initialReplayEntries);
   const initialSelectionRef = useRef<PlayableSelection | null>(initialSelection);
   const levelAttemptCountsRef = useRef<Map<string, number>>(new Map());
   const undoSettingsSeedRef = useRef<BrowserUndoSettings | null>(null);
@@ -578,6 +585,8 @@ export function PlayerApp({
   const recordedTerminalSessionRef = useRef<string | null>(null);
   const notifiedSelectionKeyRef = useRef<string | null>(null);
   const appliedInitialSelectionKeyRef = useRef<string | null>(null);
+  const currentSelectionRef = useRef<PlayableSelection | null>(initialSelection);
+  const sessionStartedFromReplayRef = useRef(false);
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
@@ -766,7 +775,30 @@ export function PlayerApp({
   }, [undoSettings]);
 
   useEffect(() => {
+    currentSelectionRef.current =
+      selectedSeriesFile && selectedLevelNumber
+        ? {
+            seriesFile: selectedSeriesFile,
+            levelNumber: selectedLevelNumber,
+          }
+        : null;
+  }, [selectedLevelNumber, selectedSeriesFile]);
+
+  useEffect(() => {
     let active = true;
+
+    if (initialCatalogRef.current.length > 0) {
+      const resolvedSelection = resolveInitialSelection(initialCatalogRef.current, initialSelectionRef.current);
+      startTransition(() => {
+        setCatalog(initialCatalogRef.current);
+        setSavedReplayEntries(initialReplayEntriesRef.current);
+        setSelectedSeriesFile(resolvedSelection?.seriesFile ?? null);
+        setSelectedLevelNumber(resolvedSelection?.levelNumber ?? null);
+        setMode(initialModeRef.current === "game" && resolvedSelection ? "game" : "series-list");
+        setMessage(null);
+        setIsCatalogLoading(false);
+      });
+    }
 
     Promise.all([loadBrowserPlayableCatalog(services), loadPlayableSelection(selectionStore), profileStore.loadReplayEntries()])
       .then(([nextCatalog, storedSelection, storedReplayEntries]) => {
@@ -774,7 +806,7 @@ export function PlayerApp({
           return;
         }
 
-        const preferredSelection = initialSelectionRef.current ?? storedSelection;
+        const preferredSelection = currentSelectionRef.current ?? initialSelectionRef.current ?? storedSelection;
         const resolvedSelection = resolveInitialSelection(nextCatalog, preferredSelection);
         startTransition(() => {
           setCatalog(nextCatalog);
@@ -846,14 +878,19 @@ export function PlayerApp({
   }, [runResult]);
 
   useEffect(() => {
-    if (mode !== "game" || !session || session.mode === "replay") {
+    if (
+      !shouldPersistLevelProgress({
+        hasResult: Boolean(session?.run.result),
+        mode,
+        sessionMode: session?.mode ?? null,
+        sessionStartedFromReplay: sessionStartedFromReplayRef.current,
+      }) ||
+      !session
+    ) {
       return;
     }
 
-    const result = session.run.result;
-    if (!result) {
-      return;
-    }
+    const result = session.run.result!;
 
     const recordKey = `${session.request.seriesFile}:${session.request.levelNumber}:${result.outcome}:${session.frame.snapshot.tick}:${session.run.undoUsedCount}`;
     if (recordedTerminalSessionRef.current === recordKey) {
@@ -936,6 +973,7 @@ export function PlayerApp({
           seriesFile: selectedSeriesFile,
           levelNumber: selectedLevelNumber,
         });
+        sessionStartedFromReplayRef.current = Boolean(queuedReplay) || nextSession.mode === "replay";
 
         startTransition(() => {
           setSession(nextSession);

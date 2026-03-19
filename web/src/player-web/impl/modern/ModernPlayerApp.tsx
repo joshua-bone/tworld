@@ -80,6 +80,7 @@ const DASHBOARD_MIN_SETS_PANE_WIDTH = 210;
 const DASHBOARD_MAX_SETS_PANE_WIDTH = 400;
 const DASHBOARD_MIN_LEVELS_PANE_WIDTH = 210;
 const DASHBOARD_MAX_LEVELS_PANE_WIDTH = 400;
+const MODERN_BOOTSTRAP_SERIES_FILES = ["CCLP1-MS.dac", "CCLP1-Lynx.dac"] as const;
 
 interface DashboardStyle extends CSSProperties {
   "--modern-dashboard-sets-min-width": string;
@@ -477,8 +478,11 @@ function LevelRow({
     <button
       aria-pressed={isActive}
       className={`modern-level-row${isActive ? " modern-level-row--active" : ""}`}
-      onClick={() => {
+      onClick={(event) => {
         onSelect(level.number);
+        if (event.detail > 0) {
+          event.currentTarget.blur();
+        }
       }}
       type="button"
     >
@@ -614,12 +618,39 @@ export function ModernPlayerApp({
     let active = true;
 
     Promise.all([
-      loadBrowserPlayableCatalog(services),
-      loadPlayableSelection(selectionStore),
+      loadBrowserPlayableCatalog(services, {
+        includeImported: false,
+        seriesFiles: [...MODERN_BOOTSTRAP_SERIES_FILES],
+      }),
       profileStore.loadPreferences(),
       profileStore.loadLevelProgressSummaries(),
     ])
-      .then(([nextCatalog, storedSelection, storedPreferences, storedLevelProgressSummaries]) => {
+      .then(([bootstrapCatalog, storedPreferences, storedLevelProgressSummaries]) => {
+        if (!active) {
+          return;
+        }
+
+        startTransition(() => {
+          setCatalog(bootstrapCatalog);
+          preferencesRef.current = storedPreferences;
+          setPreferences(storedPreferences);
+          setRequestedRuleset(storedPreferences.defaultRuleset);
+          setLevelProgressSummaries(storedLevelProgressSummaries);
+          setMessage(null);
+          setIsCatalogLoading(false);
+        });
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+
+        setMessage(error instanceof Error ? error.message : String(error));
+        setIsCatalogLoading(false);
+      });
+
+    Promise.all([loadBrowserPlayableCatalog(services), loadPlayableSelection(selectionStore)])
+      .then(([nextCatalog, storedSelection]) => {
         if (!active) {
           return;
         }
@@ -627,10 +658,6 @@ export function ModernPlayerApp({
         startTransition(() => {
           setCatalog(nextCatalog);
           setLastSelection(storedSelection);
-          preferencesRef.current = storedPreferences;
-          setPreferences(storedPreferences);
-          setRequestedRuleset(storedPreferences.defaultRuleset);
-          setLevelProgressSummaries(storedLevelProgressSummaries);
           setMessage(null);
         });
       })
@@ -640,11 +667,6 @@ export function ModernPlayerApp({
         }
 
         setMessage(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (active) {
-          setIsCatalogLoading(false);
-        }
       });
 
     return () => {
@@ -1268,6 +1290,7 @@ export function ModernPlayerApp({
           {activeSelection ? (
             <PlayerApp
               chromeMode="modern-embedded"
+              initialCatalog={catalog}
               initialMode="game"
               initialSelection={activeSelection}
               onLevelProgressSaved={handleLevelProgressSaved}
