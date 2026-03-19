@@ -468,6 +468,21 @@ function keyToInput(key: string): DirectionInput | null {
   }
 }
 
+function isBrowserScrollKey(key: string): boolean {
+  return (
+    key === "ArrowUp" ||
+    key === "ArrowDown" ||
+    key === "ArrowLeft" ||
+    key === "ArrowRight" ||
+    key === "PageUp" ||
+    key === "PageDown" ||
+    key === "Home" ||
+    key === "End" ||
+    key === " " ||
+    key === "Spacebar"
+  );
+}
+
 function clampIndex(value: number, count: number): number {
   if (count <= 0) {
     return 0;
@@ -1987,6 +2002,7 @@ export function PlayerApp({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      soundPlayerRef.current?.unlock();
       setIsFastForwarding(isFastForwardModifierActive(mode, event));
 
       if (isSystemModifierKey(event.key)) {
@@ -2069,6 +2085,10 @@ export function PlayerApp({
 
       if (mode !== "game") {
         return;
+      }
+
+      if (!isEditableKeyTarget(event.target) && isBrowserScrollKey(event.key)) {
+        event.preventDefault();
       }
 
       if (isModernChrome && !isEditableKeyTarget(event.target) && isPauseToggleKey(event)) {
@@ -2264,6 +2284,7 @@ export function PlayerApp({
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      soundPlayerRef.current?.unlock();
       setIsFastForwarding(isFastForwardModifierActive(mode, event));
     };
 
@@ -2274,13 +2295,13 @@ export function PlayerApp({
       lynxInputBufferRef.current.reset();
     };
 
-    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, { capture: true });
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("blur", onWindowBlur);
 
     return () => {
-      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keydown", onKeyDown, true);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("blur", onWindowBlur);

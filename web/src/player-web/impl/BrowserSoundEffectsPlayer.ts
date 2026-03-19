@@ -36,6 +36,7 @@ interface SoundDefinition {
 }
 
 const LYNX_LOOP_MASK = LYNX_FLOOR_SOUND_MASK | (1 << LYNX_SOUND.BlockMoving);
+const SOUND_UNLOCK_URL = buttonUrl;
 
 const SOUND_DEFINITIONS: Record<Ruleset, SoundDefinition[]> = {
   MS: [
@@ -91,6 +92,9 @@ export class BrowserSoundEffectsPlayer {
   private previousMask = 0;
   private muted = false;
   private volume = 0.7;
+  private audioUnlocked = false;
+  private audioUnlocking = false;
+  private unlockAudio: HTMLAudioElement | null = null;
   private readonly loopingAudio = new Map<number, HTMLAudioElement>();
 
   setMuted(muted: boolean): void {
@@ -146,7 +150,37 @@ export class BrowserSoundEffectsPlayer {
   dispose(): void {
     this.reset();
     this.levelKey = null;
+    this.unlockAudio?.pause();
+    this.unlockAudio = null;
     this.loopingAudio.clear();
+  }
+
+  unlock(): void {
+    if (this.audioUnlocked || this.audioUnlocking) {
+      return;
+    }
+
+    const audio = this.unlockAudio ?? new Audio(SOUND_UNLOCK_URL);
+    this.unlockAudio = audio;
+    this.audioUnlocking = true;
+    audio.preload = "auto";
+    audio.muted = true;
+    audio.setAttribute("playsinline", "true");
+    audio.currentTime = 0;
+
+    void audio
+      .play()
+      .then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = false;
+        audio.volume = this.effectiveVolume();
+        this.audioUnlocked = true;
+        this.audioUnlocking = false;
+      })
+      .catch(() => {
+        this.audioUnlocking = false;
+      });
   }
 
   private effectiveVolume(): number {
