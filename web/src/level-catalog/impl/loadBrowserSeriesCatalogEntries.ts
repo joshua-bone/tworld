@@ -16,13 +16,19 @@ function basename(path: string): string {
   return parts[parts.length - 1] ?? path;
 }
 
+export function listBrowserSeriesCatalogFiles(): string[] {
+  return Object.keys(seriesConfigs)
+    .map((path) => basename(path))
+    .sort((left, right) => left.localeCompare(right));
+}
+
 async function loadBySuffix<T>(files: Record<string, () => Promise<T>>, suffix: string): Promise<T | null> {
   const match = Object.entries(files).find(([path]) => path.endsWith(suffix));
   return match ? match[1]() : null;
 }
 
 export async function loadBrowserSeriesCatalogEntries(seriesFiles?: string[]): Promise<SeriesCatalogEntry[]> {
-  const targets = seriesFiles ?? Object.keys(seriesConfigs).map((path) => basename(path)).sort((left, right) => left.localeCompare(right));
+  const targets = seriesFiles ?? listBrowserSeriesCatalogFiles();
   const catalog: SeriesCatalogEntry[] = [];
 
   for (const seriesFile of targets) {

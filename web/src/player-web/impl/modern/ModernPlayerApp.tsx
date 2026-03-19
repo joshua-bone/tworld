@@ -12,7 +12,10 @@ import {
 } from "react";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
-import { loadBrowserPlayableCatalog } from "@player-web/impl/loadBrowserPlayableCatalog";
+import {
+  loadBrowserPlayableCatalog,
+  loadModernBootstrapPlayableCatalog,
+} from "@player-web/impl/loadBrowserPlayableCatalog";
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
@@ -83,8 +86,6 @@ const DASHBOARD_MIN_SETS_PANE_WIDTH = 210;
 const DASHBOARD_MAX_SETS_PANE_WIDTH = 400;
 const DASHBOARD_MIN_LEVELS_PANE_WIDTH = 210;
 const DASHBOARD_MAX_LEVELS_PANE_WIDTH = 400;
-const MODERN_BOOTSTRAP_SERIES_FILES = ["CCLP1-MS.dac", "CCLP1-Lynx.dac"] as const;
-
 interface DashboardStyle extends CSSProperties {
   "--modern-dashboard-sets-min-width": string;
   "--modern-dashboard-sets-width": string;
@@ -538,7 +539,7 @@ export function ModernPlayerApp({
   const setsPaneWidthRef = useRef(DASHBOARD_DEFAULT_SETS_PANE_WIDTH);
   const levelsPaneWidthRef = useRef(DASHBOARD_DEFAULT_LEVELS_PANE_WIDTH);
   const [activeTab, setActiveTab] = useState<LibrarySidebarTab>("official");
-  const [activeFamilyId, setActiveFamilyId] = useState<string | null>("official:cclp1");
+  const [activeFamilyId, setActiveFamilyId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
   const [lastSelection, setLastSelection] = useState<PlayableSelection | null>(null);
   const [levelProgressSummaries, setLevelProgressSummaries] = useState<BrowserLevelProgressSummary[]>([]);
@@ -554,9 +555,7 @@ export function ModernPlayerApp({
   const [setsPaneWidth, setSetsPaneWidth] = useState(DASHBOARD_DEFAULT_SETS_PANE_WIDTH);
   const [levelsPaneWidth, setLevelsPaneWidth] = useState(DASHBOARD_DEFAULT_LEVELS_PANE_WIDTH);
   const [requestedRuleset, setRequestedRuleset] = useState<BrowserPreferredRuleset>("Lynx");
-  const [requestedLevelsByFamily, setRequestedLevelsByFamily] = useState<Record<string, number>>({
-    "official:cclp1": 1,
-  });
+  const [requestedLevelsByFamily, setRequestedLevelsByFamily] = useState<Record<string, number>>({});
   const [preferences, setPreferences] = useState<BrowserProfilePreferences>(
     createDefaultBrowserProfilePreferences(),
   );
@@ -592,23 +591,41 @@ export function ModernPlayerApp({
     let active = true;
 
     Promise.all([
-      loadBrowserPlayableCatalog(services, {
-        includeImported: false,
-        seriesFiles: [...MODERN_BOOTSTRAP_SERIES_FILES],
-      }),
+      loadPlayableSelection(selectionStore),
       profileStore.loadPreferences(),
       profileStore.loadLevelProgressSummaries(),
     ])
-      .then(([bootstrapCatalog, storedPreferences, storedLevelProgressSummaries]) => {
+      .then(async ([storedSelection, storedPreferences, storedLevelProgressSummaries]) => {
+        const bootstrapCatalog = await loadModernBootstrapPlayableCatalog(services, storedSelection);
         if (!active) {
           return;
         }
 
+        const bootstrapCurated = buildCuratedCatalogView(bootstrapCatalog, storedSelection);
+        const bootstrapFamily = storedSelection
+          ? findSetFamilyForSelection(bootstrapCurated, storedSelection)
+          : null;
+        const bootstrapTab = bootstrapFamily ? tabForFamily(bootstrapFamily) ?? "official" : "official";
+        const bootstrapRuleset =
+          bootstrapFamily && storedSelection
+            ? resolveSetFamilyRuleset(bootstrapFamily, storedSelection) ?? storedPreferences.defaultRuleset
+            : storedPreferences.defaultRuleset;
+
         startTransition(() => {
           setCatalog(bootstrapCatalog);
+          setLastSelection(storedSelection);
           preferencesRef.current = storedPreferences;
           setPreferences(storedPreferences);
-          setRequestedRuleset(storedPreferences.defaultRuleset);
+          setRequestedRuleset(bootstrapRuleset);
+          setActiveFamilyId(bootstrapFamily?.id ?? null);
+          setActiveTab(bootstrapTab);
+          setRequestedLevelsByFamily(
+            bootstrapFamily && storedSelection
+              ? {
+                  [bootstrapFamily.id]: storedSelection.levelNumber,
+                }
+              : {},
+          );
           setLevelProgressSummaries(storedLevelProgressSummaries);
           setMessage(null);
           setIsCatalogLoading(false);
@@ -623,15 +640,14 @@ export function ModernPlayerApp({
         setIsCatalogLoading(false);
       });
 
-    Promise.all([loadBrowserPlayableCatalog(services), loadPlayableSelection(selectionStore)])
-      .then(([nextCatalog, storedSelection]) => {
+    loadBrowserPlayableCatalog(services)
+      .then((nextCatalog) => {
         if (!active) {
           return;
         }
 
         startTransition(() => {
           setCatalog(nextCatalog);
-          setLastSelection(storedSelection);
           setMessage(null);
         });
       })
