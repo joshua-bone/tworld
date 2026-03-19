@@ -1099,7 +1099,7 @@ export function ModernPlayerApp({
               }}
             />
           ) : (
-            <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--sets">
+            <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--sets" tabIndex={-1}>
               <section className="modern-dashboard__panel modern-dashboard__panel--brand">
                 <div className="modern-dashboard__brand-bar">
                   <div className="modern-dashboard__brand-lockup">
@@ -1157,7 +1157,7 @@ export function ModernPlayerApp({
                 />
 
                 {visibleFamilies.length > 0 ? (
-                  <div className="modern-library__family-list">
+                  <div className="modern-library__family-list" tabIndex={-1}>
                     {visibleFamilies.map((family) => {
                       return (
                         <SidebarFamilyButton
@@ -1271,7 +1271,7 @@ export function ModernPlayerApp({
               }}
             />
           ) : (
-            <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--levels">
+            <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--levels" tabIndex={-1}>
               <section className="modern-dashboard__panel modern-dashboard__panel--compact modern-dashboard__panel--level-summary">
                 <div className="modern-dashboard__section-header">
                   <p className="modern-section__eyebrow">Level Selector</p>
@@ -1312,7 +1312,7 @@ export function ModernPlayerApp({
                 </div>
 
                 {activeEntry ? (
-                  <div className="modern-level-sidebar" role="list">
+                  <div className="modern-level-sidebar" role="list" tabIndex={-1}>
                     {activeEntry.levels.map((level) => {
                       const progress =
                         activeEntry.ruleset === "MS" || activeEntry.ruleset === "Lynx"

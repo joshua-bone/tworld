@@ -631,6 +631,7 @@ export function PlayerApp({
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
+  const gameplayFocusRef = useRef<HTMLElement | null>(null);
   const replayMenuRef = useRef<HTMLDivElement | null>(null);
   const recordedTerminalSessionRef = useRef<string | null>(null);
   const notifiedSelectionKeyRef = useRef<string | null>(null);
@@ -851,6 +852,14 @@ export function PlayerApp({
       document.body.style.overflow = bodyOverflow;
     };
   }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "game") {
+      return;
+    }
+
+    gameplayFocusRef.current?.focus({ preventScroll: true });
+  }, [mode, selectedLevelNumber, selectedSeriesFile]);
 
   useEffect(() => {
     undoStartOptionsRef.current = toUndoSessionStartOptions(undoSettings);
@@ -2132,6 +2141,19 @@ export function PlayerApp({
         return;
       }
 
+      if (!isEditableKeyTarget(event.target) && !hasBlockedMovementModifier(event) && (isBrowserScrollKey(event.key) || keyToInput(event.key) !== null)) {
+        const activeElement = document.activeElement;
+        if (
+          activeElement instanceof HTMLElement &&
+          activeElement !== document.body &&
+          activeElement !== document.documentElement &&
+          !isEditableKeyTarget(activeElement)
+        ) {
+          activeElement.blur();
+        }
+        gameplayFocusRef.current?.focus({ preventScroll: true });
+      }
+
       if (!isEditableKeyTarget(event.target) && !hasBlockedMovementModifier(event) && isBrowserScrollKey(event.key)) {
         event.preventDefault();
       }
@@ -2329,6 +2351,16 @@ export function PlayerApp({
       }
     };
 
+    const onKeyPress = (event: KeyboardEvent) => {
+      if (mode !== "game") {
+        return;
+      }
+
+      if (!isEditableKeyTarget(event.target) && !hasBlockedMovementModifier(event) && isBrowserScrollKey(event.key)) {
+        event.preventDefault();
+      }
+    };
+
     const onPointerDown = (event: PointerEvent) => {
       soundPlayerRef.current?.unlock();
       setIsFastForwarding(isFastForwardModifierActive(mode, event));
@@ -2342,12 +2374,14 @@ export function PlayerApp({
     };
 
     window.addEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener("keypress", onKeyPress, { capture: true });
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("blur", onWindowBlur);
 
     return () => {
       window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("keypress", onKeyPress, true);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("blur", onWindowBlur);
@@ -2897,7 +2931,11 @@ export function PlayerApp({
     </div>
   );
   const renderModernBoardPanel = (embedded: boolean, keyPrefix: string) => (
-    <section className="modern-game-board modern-game-board--with-rails">
+    <section
+      className="modern-game-board modern-game-board--with-rails"
+      ref={gameplayFocusRef}
+      tabIndex={-1}
+    >
       <div className={`modern-game-board__frame${embedded ? " modern-game-board__frame--embedded" : ""}`}>
         <div className={`modern-game-stage${embedded ? " modern-game-stage--embedded" : ""}`}>
           {renderModernGameplayRail(keyPrefix)}
