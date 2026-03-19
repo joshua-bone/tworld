@@ -246,6 +246,14 @@ export function parseStoredBrowserProfilePreferences(value: unknown): BrowserPro
   return {
     uiMode: value.uiMode === "classic" ? "classic" : defaults.uiMode,
     defaultRuleset: value.defaultRuleset === "Lynx" ? "Lynx" : defaults.defaultRuleset,
+    autoSaveWinningHighScoreReplays:
+      typeof value.autoSaveWinningHighScoreReplays === "boolean"
+        ? value.autoSaveWinningHighScoreReplays
+        : defaults.autoSaveWinningHighScoreReplays,
+    autoDownloadReplaysOnSave:
+      typeof value.autoDownloadReplaysOnSave === "boolean"
+        ? value.autoDownloadReplaysOnSave
+        : defaults.autoDownloadReplaysOnSave,
   };
 }
 

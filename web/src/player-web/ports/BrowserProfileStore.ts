@@ -11,6 +11,8 @@ export type BrowserReplaySource = "saved-run" | "imported-file";
 export interface BrowserProfilePreferences {
   uiMode: BrowserUiMode;
   defaultRuleset: BrowserPreferredRuleset;
+  autoSaveWinningHighScoreReplays: boolean;
+  autoDownloadReplaysOnSave: boolean;
 }
 
 export interface BrowserRecentSelectionRecord {
@@ -102,6 +104,8 @@ export function createDefaultBrowserProfilePreferences(): BrowserProfilePreferen
   return {
     uiMode: "modern",
     defaultRuleset: "MS",
+    autoSaveWinningHighScoreReplays: true,
+    autoDownloadReplaysOnSave: false,
   };
 }
 

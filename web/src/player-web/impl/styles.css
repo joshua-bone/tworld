@@ -201,6 +201,11 @@ body {
   gap: 16px;
 }
 
+.modern-dashboard__brand-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .modern-dashboard__brand-lockup {
   display: grid;
   gap: 14px;
@@ -262,6 +267,11 @@ body {
   width: 36px;
   height: 36px;
   font-size: 1.3rem;
+}
+
+.modern-dashboard__action-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .modern-dashboard__panel--compact {
@@ -526,6 +536,37 @@ body {
 
 .modern-about-modal__section .modern-dashboard__copy {
   line-height: 1.55;
+}
+
+.modern-settings-modal {
+  gap: 14px;
+}
+
+.modern-settings-modal__dialog {
+  width: min(620px, 100%);
+}
+
+.modern-settings-modal__option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid rgba(243, 236, 221, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.modern-settings-modal__option input {
+  margin: 2px 0 0;
+  width: 16px;
+  height: 16px;
+  accent-color: #f0b131;
+}
+
+.modern-settings-modal__option strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #f3ecdd;
 }
 
 .modern-about-modal__links {

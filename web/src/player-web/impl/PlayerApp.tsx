@@ -1,5 +1,6 @@
 import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
+import { shouldAutoSaveWinningHighScoreReplay } from "@player-web/impl/autoSaveReplayPolicy";
 import { isFastForwardModifierActive } from "@player-web/impl/fastForward";
 import {
   isFineUndoKey,
@@ -68,6 +69,7 @@ import { describeReplayEntry, listReplaysForCurrentLevel, listReplaysForSeriesLe
 import {
   type BrowserLevelProgressSummary,
   type BrowserReplayEntry,
+  createDefaultBrowserProfilePreferences,
 } from "@player-web/ports/BrowserProfileStore";
 import {
   loadStoredUndoSettings,
@@ -509,24 +511,30 @@ function isEditableKeyTarget(target: EventTarget | null): boolean {
 }
 
 interface PlayerAppProps {
+  autoDownloadReplaysOnSave?: boolean;
+  autoSaveWinningHighScoreReplays?: boolean;
   services: BrowserAppServices;
   chromeMode?: "legacy" | "modern" | "modern-embedded";
   initialCatalog?: SeriesCatalogEntry[];
   initialMode?: LegacyMode;
   initialReplayEntries?: BrowserReplayEntry[];
   initialSelection?: PlayableSelection | null;
+  knownLevelProgressSummary?: BrowserLevelProgressSummary | null;
   onExitGame?: () => void;
   onLevelProgressSaved?: (summary: BrowserLevelProgressSummary) => void;
   onSelectionChange?: (selection: PlayableSelection) => void;
 }
 
 export function PlayerApp({
+  autoDownloadReplaysOnSave = createDefaultBrowserProfilePreferences().autoDownloadReplaysOnSave,
+  autoSaveWinningHighScoreReplays = createDefaultBrowserProfilePreferences().autoSaveWinningHighScoreReplays,
   services,
   chromeMode = "legacy",
   initialCatalog = [],
   initialMode = "series-list",
   initialReplayEntries = [],
   initialSelection = null,
+  knownLevelProgressSummary = null,
   onExitGame,
   onLevelProgressSaved,
   onSelectionChange,
@@ -687,6 +695,11 @@ export function PlayerApp({
           ].join(":"),
           result: runResult,
         })
+      : null;
+  const previousKnownLevelProgress =
+    session && knownLevelProgressSummary && knownLevelProgressSummary.seriesFile === session.request.seriesFile &&
+      knownLevelProgressSummary.levelNumber === session.request.levelNumber
+      ? knownLevelProgressSummary
       : null;
   const canSaveReplay = Boolean(session?.run.replayAvailable && replayContextLevel && replayContextSeries);
   const currentLevelReplayEntries = session
@@ -922,7 +935,25 @@ export function PlayerApp({
 
     onLevelProgressSaved?.(progressSummary);
     void profileStore.saveLevelProgressSummary(progressSummary);
-  }, [mode, onLevelProgressSaved, profileStore, session]);
+
+    if (
+      shouldAutoSaveWinningHighScoreReplay({
+        enabled: autoSaveWinningHighScoreReplays,
+        previousProgress: previousKnownLevelProgress,
+        result: result.outcome,
+        score: result.score?.finalScore ?? null,
+      })
+    ) {
+      void saveReplayForCurrentRun({ autoTriggered: true });
+    }
+  }, [
+    autoSaveWinningHighScoreReplays,
+    mode,
+    onLevelProgressSaved,
+    previousKnownLevelProgress,
+    profileStore,
+    session,
+  ]);
 
   useEffect(() => {
     if (mode !== "game" || !selectedSeriesFile || !selectedLevelNumber) {
@@ -1590,7 +1621,7 @@ export function PlayerApp({
     }
   });
 
-  const saveReplayForCurrentRun = useEffectEvent(async () => {
+  const saveReplayForCurrentRun = useEffectEvent(async (options: { autoTriggered?: boolean } = {}) => {
     if (!session || !replayContextLevel || !replayContextSeries) {
       return;
     }
@@ -1606,17 +1637,22 @@ export function PlayerApp({
         result: session.run.result?.outcome ?? null,
         undoUsedCount: session.run.undoUsedCount,
       });
-      await replayTransfer.exportReplay(artifact);
+      const downloadedCopy = autoDownloadReplaysOnSave;
+      if (downloadedCopy) {
+        await replayTransfer.exportReplay(artifact);
+      }
       if (session.run.result) {
         setReplaySaveNotice(
           storedEntry
-            ? `Saved replay as ${storedEntry.fileName}. Added to the library and downloaded a copy.`
+            ? `${
+                options.autoTriggered ? "Auto-saved" : "Saved"
+              } replay as ${storedEntry.fileName}. Added to the library${downloadedCopy ? " and downloaded a copy" : ""}.`
             : `Saved replay as ${artifact.filename}.`,
         );
       } else {
         setMessage(
           storedEntry
-            ? `Saved replay ${storedEntry.fileName} to the library and downloaded a copy.`
+            ? `Saved replay ${storedEntry.fileName} to the library${downloadedCopy ? " and downloaded a copy" : ""}.`
             : `Saved replay for Level ${replayContextLevel.number}.`,
         );
       }

@@ -578,6 +578,7 @@ export function ModernPlayerApp({
   const [isImporting, setIsImporting] = useState(false);
   const [isDropTargetActive, setIsDropTargetActive] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [setInfoFamilyId, setSetInfoFamilyId] = useState<string | null>(null);
   const [isSetsPaneCollapsed, setIsSetsPaneCollapsed] = useState(false);
   const [isLevelsPaneCollapsed, setIsLevelsPaneCollapsed] = useState(false);
@@ -587,7 +588,7 @@ export function ModernPlayerApp({
   const [requestedLevelsByFamily, setRequestedLevelsByFamily] = useState<Record<string, number>>({
     "official:cclp1": 1,
   });
-  const [, setPreferences] = useState<BrowserProfilePreferences>(
+  const [preferences, setPreferences] = useState<BrowserProfilePreferences>(
     createDefaultBrowserProfilePreferences(),
   );
   const preferencesRef = useRef<BrowserProfilePreferences>(createDefaultBrowserProfilePreferences());
@@ -679,13 +680,14 @@ export function ModernPlayerApp({
   }, []);
 
   useEffect(() => {
-    if (!isAboutOpen && !setInfoFamilyId) {
+    if (!isAboutOpen && !isSettingsOpen && !setInfoFamilyId) {
       return;
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsAboutOpen(false);
+        setIsSettingsOpen(false);
         setSetInfoFamilyId(null);
       }
     };
@@ -694,7 +696,7 @@ export function ModernPlayerApp({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isAboutOpen, setInfoFamilyId]);
+  }, [isAboutOpen, isSettingsOpen, setInfoFamilyId]);
 
   useEffect(() => {
     if (!message) {
@@ -1070,17 +1072,34 @@ export function ModernPlayerApp({
                     </div>
                     <h1 className="modern-dashboard__title modern-dashboard__title--brand">TILE WORLD ONLINE</h1>
                   </div>
-                  <button
-                    aria-label="About Tile World Online"
-                    className="modern-dashboard__about-button"
-                    onClick={() => {
-                      setSetInfoFamilyId(null);
-                      setIsAboutOpen(true);
-                    }}
-                    type="button"
-                  >
-                    ?
-                  </button>
+                  <div className="modern-dashboard__brand-actions">
+                    <button
+                      aria-label="Replay and save settings"
+                      className="modern-dashboard__about-button"
+                      onClick={() => {
+                        setIsAboutOpen(false);
+                        setSetInfoFamilyId(null);
+                        setIsSettingsOpen(true);
+                      }}
+                      type="button"
+                    >
+                      <svg aria-hidden="true" className="modern-dashboard__action-icon" viewBox="0 0 16 16">
+                        <path d="M6.1 1.7h3.8l.4 1.6c.3.1.7.3 1 .4l1.4-.9 2.7 2.7-.9 1.4c.2.3.3.7.4 1l1.6.4v3.8l-1.6.4c-.1.3-.3.7-.4 1l.9 1.4-2.7 2.7-1.4-.9c-.3.2-.7.3-1 .4l-.4 1.6H6.1l-.4-1.6c-.3-.1-.7-.3-1-.4l-1.4.9-2.7-2.7.9-1.4c-.2-.3-.3-.7-.4-1L.5 9.9V6.1l1.6-.4c.1-.3.3-.7.4-1l-.9-1.4 2.7-2.7 1.4.9c.3-.2.7-.3 1-.4zm1.9 4a2.3 2.3 0 1 0 0 4.6 2.3 2.3 0 0 0 0-4.6Z" fill="currentColor" />
+                      </svg>
+                    </button>
+                    <button
+                      aria-label="About Tile World Online"
+                      className="modern-dashboard__about-button"
+                      onClick={() => {
+                        setIsSettingsOpen(false);
+                        setSetInfoFamilyId(null);
+                        setIsAboutOpen(true);
+                      }}
+                      type="button"
+                    >
+                      ?
+                    </button>
+                  </div>
                 </div>
               </section>
 
@@ -1301,10 +1320,13 @@ export function ModernPlayerApp({
         <section className="modern-dashboard__player">
           {activeSelection ? (
             <PlayerApp
+              autoDownloadReplaysOnSave={preferences.autoDownloadReplaysOnSave}
+              autoSaveWinningHighScoreReplays={preferences.autoSaveWinningHighScoreReplays}
               chromeMode="modern-embedded"
               initialCatalog={catalog}
               initialMode="game"
               initialSelection={activeSelection}
+              knownLevelProgressSummary={activeLevelProgress}
               onLevelProgressSaved={handleLevelProgressSaved}
               onSelectionChange={handleEmbeddedSelectionChange}
               services={services}
@@ -1424,6 +1446,83 @@ export function ModernPlayerApp({
                   </div>
                 </section>
               ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isSettingsOpen ? (
+        <div
+          aria-hidden="true"
+          className="modern-about-modal"
+          onClick={() => {
+            setIsSettingsOpen(false);
+          }}
+        >
+          <div
+            aria-labelledby="modern-settings-title"
+            aria-modal="true"
+            className="modern-about-modal__dialog modern-settings-modal__dialog"
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+            role="dialog"
+          >
+            <div className="modern-about-modal__header">
+              <div>
+                <p className="modern-section__eyebrow">Settings</p>
+                <h2 className="modern-dashboard__panel-title" id="modern-settings-title">
+                  Replay Saving
+                </h2>
+              </div>
+              <button
+                aria-label="Close settings dialog"
+                className="modern-dashboard__about-button modern-dashboard__about-button--close"
+                onClick={() => {
+                  setIsSettingsOpen(false);
+                }}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="modern-about-modal__body modern-settings-modal">
+              <label className="modern-settings-modal__option">
+                <input
+                  checked={preferences.autoSaveWinningHighScoreReplays}
+                  onChange={(event) => {
+                    persistPreferences({
+                      autoSaveWinningHighScoreReplays: event.currentTarget.checked,
+                    });
+                  }}
+                  type="checkbox"
+                />
+                <div>
+                  <strong>Auto save winning high scores</strong>
+                  <p className="modern-dashboard__copy">
+                    Automatically save winning replays when they match or beat the current best score for that level.
+                  </p>
+                </div>
+              </label>
+
+              <label className="modern-settings-modal__option">
+                <input
+                  checked={preferences.autoDownloadReplaysOnSave}
+                  onChange={(event) => {
+                    persistPreferences({
+                      autoDownloadReplaysOnSave: event.currentTarget.checked,
+                    });
+                  }}
+                  type="checkbox"
+                />
+                <div>
+                  <strong>Auto-download replays on save</strong>
+                  <p className="modern-dashboard__copy">
+                    Download a local `.tws.bin` copy whenever a replay is saved to the browser library.
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
         </div>

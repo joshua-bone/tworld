@@ -72,12 +72,22 @@ describe("IndexedDbBrowserProfileStore", () => {
     const datBytes = Uint8Array.from([1, 2, 3, 4]);
 
     await store.saveSelection({ seriesFile: "CCLP1-MS.dac", levelNumber: 7 });
-    await store.savePreferences({ uiMode: "classic", defaultRuleset: "Lynx" });
+    await store.savePreferences({
+      uiMode: "classic",
+      defaultRuleset: "Lynx",
+      autoSaveWinningHighScoreReplays: false,
+      autoDownloadReplaysOnSave: true,
+    });
     await store.recordRecentSelection({ seriesFile: "CCLP1-MS.dac", levelNumber: 7 });
     await store.saveImportedDatFile({ filename: "Imported.dat", datBytes });
 
     expect(await store.loadSelection()).toEqual({ seriesFile: "CCLP1-MS.dac", levelNumber: 7 });
-    expect(await store.loadPreferences()).toEqual({ uiMode: "classic", defaultRuleset: "Lynx" });
+    expect(await store.loadPreferences()).toEqual({
+      uiMode: "classic",
+      defaultRuleset: "Lynx",
+      autoSaveWinningHighScoreReplays: false,
+      autoDownloadReplaysOnSave: true,
+    });
     expect(await store.listImportedDatFiles()).toEqual([{ filename: "Imported.dat", datBytes }]);
     expect(await store.loadRecentSelections()).toEqual([
       {
@@ -105,9 +115,18 @@ describe("IndexedDbBrowserProfileStore", () => {
 
     expect(await store.loadSelection()).toBeNull();
     expect(await store.loadPreferences()).toEqual(createDefaultBrowserProfilePreferences());
-    expect(parseStoredBrowserProfilePreferences({ uiMode: "classic", defaultRuleset: "Lynx" })).toEqual({
+    expect(
+      parseStoredBrowserProfilePreferences({
+        uiMode: "classic",
+        defaultRuleset: "Lynx",
+        autoSaveWinningHighScoreReplays: false,
+        autoDownloadReplaysOnSave: true,
+      }),
+    ).toEqual({
       uiMode: "classic",
       defaultRuleset: "Lynx",
+      autoSaveWinningHighScoreReplays: false,
+      autoDownloadReplaysOnSave: true,
     });
   });
 
@@ -116,7 +135,12 @@ describe("IndexedDbBrowserProfileStore", () => {
     const store = new IndexedDbBrowserProfileStore(backend);
 
     await store.saveSelection({ seriesFile: "CCLP2.dac", levelNumber: 11 });
-    await store.savePreferences({ uiMode: "classic", defaultRuleset: "Lynx" });
+    await store.savePreferences({
+      uiMode: "classic",
+      defaultRuleset: "Lynx",
+      autoSaveWinningHighScoreReplays: false,
+      autoDownloadReplaysOnSave: true,
+    });
     await store.recordRecentSelection({ seriesFile: "CCLP2.dac", levelNumber: 11 });
     await store.saveLevelProgressSummary({
       seriesFile: "CCLP2.dac",
@@ -148,7 +172,12 @@ describe("IndexedDbBrowserProfileStore", () => {
     expect(snapshot).toMatchObject({
       version: 1,
       selection: { seriesFile: "CCLP2.dac", levelNumber: 11 },
-      preferences: { uiMode: "classic", defaultRuleset: "Lynx" },
+      preferences: {
+        uiMode: "classic",
+        defaultRuleset: "Lynx",
+        autoSaveWinningHighScoreReplays: false,
+        autoDownloadReplaysOnSave: true,
+      },
       recentSelections: [
         {
           selection: { seriesFile: "CCLP2.dac", levelNumber: 11 },
@@ -192,7 +221,12 @@ describe("IndexedDbBrowserProfileStore", () => {
     await restoredStore.importProfileSnapshot(snapshot);
 
     expect(await restoredStore.loadSelection()).toEqual({ seriesFile: "CCLP2.dac", levelNumber: 11 });
-    expect(await restoredStore.loadPreferences()).toEqual({ uiMode: "classic", defaultRuleset: "Lynx" });
+    expect(await restoredStore.loadPreferences()).toEqual({
+      uiMode: "classic",
+      defaultRuleset: "Lynx",
+      autoSaveWinningHighScoreReplays: false,
+      autoDownloadReplaysOnSave: true,
+    });
     expect(await restoredStore.loadRecentSelections()).toEqual([
       {
         selection: { seriesFile: "CCLP2.dac", levelNumber: 11 },
