@@ -83,6 +83,8 @@ import {
 
 const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";
 const SOUND_VOLUME_STORAGE_KEY = "tworld.sound-volume";
+const SOUND_SETTINGS_VERSION_STORAGE_KEY = "tworld.sound-settings-version";
+const SOUND_SETTINGS_VERSION = "2";
 const LEGACY_FAST_TICK_MS = 25;
 const LEGACY_NORMAL_TICK_MS = 50;
 const GAME_TICKS_PER_SECOND = 20;
@@ -106,6 +108,9 @@ interface HelpSection {
 
 function loadStoredMuted(): boolean {
   try {
+    if (window.localStorage.getItem(SOUND_SETTINGS_VERSION_STORAGE_KEY) !== SOUND_SETTINGS_VERSION) {
+      return false;
+    }
     return window.localStorage.getItem(SOUND_MUTED_STORAGE_KEY) === "1";
   } catch {
     return false;
@@ -114,6 +119,9 @@ function loadStoredMuted(): boolean {
 
 function loadStoredVolume(): number {
   try {
+    if (window.localStorage.getItem(SOUND_SETTINGS_VERSION_STORAGE_KEY) !== SOUND_SETTINGS_VERSION) {
+      return 0.7;
+    }
     const stored = Number(window.localStorage.getItem(SOUND_VOLUME_STORAGE_KEY));
     if (!Number.isFinite(stored)) {
       return 0.7;
@@ -801,6 +809,7 @@ export function PlayerApp({
 
   useEffect(() => {
     try {
+      window.localStorage.setItem(SOUND_SETTINGS_VERSION_STORAGE_KEY, SOUND_SETTINGS_VERSION);
       window.localStorage.setItem(SOUND_MUTED_STORAGE_KEY, soundMuted ? "1" : "0");
     } catch {
       // Ignore storage failures and keep in-memory settings.
@@ -810,6 +819,7 @@ export function PlayerApp({
 
   useEffect(() => {
     try {
+      window.localStorage.setItem(SOUND_SETTINGS_VERSION_STORAGE_KEY, SOUND_SETTINGS_VERSION);
       window.localStorage.setItem(SOUND_VOLUME_STORAGE_KEY, String(soundVolume));
     } catch {
       // Ignore storage failures and keep in-memory settings.

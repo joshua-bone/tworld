@@ -114,6 +114,10 @@ export class BrowserSoundEffectsPlayer {
       this.levelKey = levelKey;
     }
 
+    if (soundEffects !== 0 && (this.muted || this.volume <= 0)) {
+      this.logSoundSuppressed(this.muted ? "muted" : "zero-volume");
+    }
+
     const definitions = SOUND_DEFINITIONS[ruleset];
     const risingMask = soundEffects & ~this.previousMask;
 
@@ -271,6 +275,19 @@ export class BrowserSoundEffectsPlayer {
       kind,
       pageUrl: window.location.href,
       url,
+    });
+  }
+
+  private logSoundSuppressed(reason: "muted" | "zero-volume"): void {
+    const key = `suppressed:${reason}`;
+    if (this.loggedFailures.has(key)) {
+      return;
+    }
+    this.loggedFailures.add(key);
+    console.warn("[tworld:sound]", {
+      kind: "suppressed-by-settings",
+      pageUrl: window.location.href,
+      reason,
     });
   }
 }
