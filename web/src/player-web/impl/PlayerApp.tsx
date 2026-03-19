@@ -639,6 +639,8 @@ export function PlayerApp({
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
+  const currentSeriesRuleset = currentSeries?.ruleset ?? null;
+  const currentLevelExists = currentLevel !== null;
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
   const currentSelection =
     selectedSeriesFile && selectedLevelNumber
@@ -1006,13 +1008,14 @@ export function PlayerApp({
       return;
     }
 
-    const series = catalog.find((candidate) => candidate.filebase === selectedSeriesFile);
-    if (!series) {
+    // Do not restart an in-progress session just because the surrounding catalog
+    // finished hydrating. Only the selected series/ruleset/level should matter here.
+    if (!currentSeriesRuleset || !currentLevelExists) {
       return;
     }
-    if (series.ruleset === "None") {
+    if (currentSeriesRuleset === "None") {
       setMode("series-list");
-      setMessage(`${series.filebase} does not declare a playable ruleset.`);
+      setMessage(`${selectedSeriesFile} does not declare a playable ruleset.`);
       return;
     }
     let active = true;
@@ -1031,19 +1034,19 @@ export function PlayerApp({
     const request = {
       seriesFile: selectedSeriesFile,
       levelNumber: selectedLevelNumber,
-      ruleset: series.ruleset,
+      ruleset: currentSeriesRuleset,
       randomSeed: resolveLegacySessionRandomSeed(queuedReplay?.replay.randomSeed),
     } as const;
 
     const sessionPromise = queuedReplay
       ? startReplayInteractiveGameSession(
-          interactiveEngineForRuleset(series.ruleset, engines),
+          interactiveEngineForRuleset(currentSeriesRuleset, engines),
           request,
           queuedReplay.replay,
           undoStartOptionsRef.current,
         )
       : startInteractiveGameSession(
-          interactiveEngineForRuleset(series.ruleset, engines),
+          interactiveEngineForRuleset(currentSeriesRuleset, engines),
           request,
           undoStartOptionsRef.current,
         );
@@ -1083,7 +1086,16 @@ export function PlayerApp({
     return () => {
       active = false;
     };
-  }, [catalog, engines, mode, replayLaunchRequest, reloadToken, selectedLevelNumber, selectedSeriesFile]);
+  }, [
+    currentSeriesRuleset,
+    currentLevelExists,
+    engines,
+    mode,
+    replayLaunchRequest,
+    reloadToken,
+    selectedLevelNumber,
+    selectedSeriesFile,
+  ]);
 
   useEffect(() => {
     if (
