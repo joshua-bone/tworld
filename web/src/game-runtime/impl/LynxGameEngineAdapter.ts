@@ -411,13 +411,19 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     const runtime = fromInteractiveHandle<LynxInteractiveSessionState, LynxUndoHistory>(session.handle) as LynxInteractiveRuntime;
     const restored = restoreLynxUndoHistoryToTick(runtime.history, targetTick);
     const currentTick = runtime.token.state.timer.currentTime;
+    const undoUsedCount =
+      targetTick <= session.history.initialTick
+        ? 0
+        : targetTick < currentTick
+          ? runtime.undoUsedCount + 1
+          : runtime.undoUsedCount;
 
     return projectLynxSession(
       session,
       {
         token: restored.session,
         level: runtime.level,
-        undoUsedCount: targetTick < currentTick ? runtime.undoUsedCount + 1 : runtime.undoUsedCount,
+        undoUsedCount,
         history: runtime.history,
         restoreState: createPausedRestoreState(targetTick),
       },

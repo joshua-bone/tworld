@@ -424,13 +424,19 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
     const restored = restoreMsUndoHistoryToTick(runtime.history, targetTick);
     const currentTick = runtime.token.state.engine.timer.currentTime;
+    const undoUsedCount =
+      targetTick <= session.history.initialTick
+        ? 0
+        : targetTick < currentTick
+          ? runtime.undoUsedCount + 1
+          : runtime.undoUsedCount;
 
     return projectMsSession(
       session,
       {
         token: restored.session,
         level: runtime.level,
-        undoUsedCount: targetTick < currentTick ? runtime.undoUsedCount + 1 : runtime.undoUsedCount,
+        undoUsedCount,
         history: runtime.history,
         restoreState: createPausedRestoreState(targetTick),
       },

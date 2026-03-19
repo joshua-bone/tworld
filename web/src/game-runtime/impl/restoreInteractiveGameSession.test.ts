@@ -39,6 +39,7 @@ describe("restoreInteractiveGameSession", () => {
     const restored = await restoreInteractiveGameSession(adapter, session, 7);
 
     expect(restored.frame.snapshot.tick).toBe(7);
+    expect(restored.run.undoUsedCount).toBe(1);
     expect(restored.history).toMatchObject({
       currentTick: 7,
       latestTick: 8,
@@ -84,6 +85,29 @@ describe("restoreInteractiveGameSession", () => {
     });
   });
 
+  it("resets MS undo usage after rewinding all the way back to the starting tick", async () => {
+    const adapter = new MsGameEngineAdapter(new NodeLevelRepository());
+    const started = await adapter.startSession({
+      seriesFile: "intro-ms.dac",
+      levelNumber: 1,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+    const session = await advanceMany(started, (current) => adapter.advanceSession(current, "none"), 9);
+
+    const rewound = await restoreInteractiveGameSession(adapter, session, 7);
+    expect(rewound.run.undoUsedCount).toBe(1);
+
+    const backToStart = await restoreInteractiveGameSession(adapter, rewound, -1);
+    expect(backToStart.run.undoUsedCount).toBe(0);
+    expect(backToStart.history).toMatchObject({
+      currentTick: -1,
+      latestTick: 8,
+      restoreMode: "restored-paused",
+      restoredFromTick: -1,
+    });
+  });
+
   it("restores Lynx sessions to prior ticks and pauses there", async () => {
     const adapter = new LynxGameEngineAdapter(new NodeLevelRepository());
     const started = await adapter.startSession({
@@ -103,6 +127,7 @@ describe("restoreInteractiveGameSession", () => {
     const restored = await restoreInteractiveGameSession(adapter, session, 7);
 
     expect(restored.frame.snapshot.tick).toBe(7);
+    expect(restored.run.undoUsedCount).toBe(1);
     expect(restored.history).toMatchObject({
       currentTick: 7,
       latestTick: 8,
@@ -145,6 +170,29 @@ describe("restoreInteractiveGameSession", () => {
       restoreMode: "live",
       restoredFromTick: null,
       replayTargetTick: null,
+    });
+  });
+
+  it("resets Lynx undo usage after rewinding all the way back to the starting tick", async () => {
+    const adapter = new LynxGameEngineAdapter(new NodeLevelRepository());
+    const started = await adapter.startSession({
+      seriesFile: "intro-lynx.dac",
+      levelNumber: 1,
+      ruleset: "Lynx",
+      randomSeed: 123456789,
+    });
+    const session = await advanceMany(started, (current) => adapter.advanceSession(current, "none"), 9);
+
+    const rewound = await restoreInteractiveGameSession(adapter, session, 7);
+    expect(rewound.run.undoUsedCount).toBe(1);
+
+    const backToStart = await restoreInteractiveGameSession(adapter, rewound, -1);
+    expect(backToStart.run.undoUsedCount).toBe(0);
+    expect(backToStart.history).toMatchObject({
+      currentTick: -1,
+      latestTick: 8,
+      restoreMode: "restored-paused",
+      restoredFromTick: -1,
     });
   });
 
