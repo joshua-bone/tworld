@@ -95,6 +95,7 @@ export class BrowserSoundEffectsPlayer {
   private audioUnlocked = false;
   private audioUnlocking = false;
   private unlockAudio: HTMLAudioElement | null = null;
+  private readonly loggedFailures = new Set<string>();
   private readonly loopingAudio = new Map<number, HTMLAudioElement>();
 
   setMuted(muted: boolean): void {
@@ -152,6 +153,7 @@ export class BrowserSoundEffectsPlayer {
     this.levelKey = null;
     this.unlockAudio?.pause();
     this.unlockAudio = null;
+    this.loggedFailures.clear();
     this.loopingAudio.clear();
   }
 
@@ -178,7 +180,8 @@ export class BrowserSoundEffectsPlayer {
         this.audioUnlocked = true;
         this.audioUnlocking = false;
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        this.logSoundFailure("unlock-play", SOUND_UNLOCK_URL, error);
         this.audioUnlocking = false;
       });
   }
@@ -199,16 +202,18 @@ export class BrowserSoundEffectsPlayer {
       return;
     }
 
-    const audio = new Audio(url);
+    const audio = this.createAudio(url);
     audio.preload = "auto";
     audio.volume = this.volume;
-    playSafely(audio);
+    void audio.play().catch((error: unknown) => {
+      this.logSoundFailure("one-shot-play", url, error);
+    });
   }
 
   private ensureLoop(bit: number, url: string): void {
     let audio = this.loopingAudio.get(bit);
     if (!audio) {
-      audio = new Audio(url);
+      audio = this.createAudio(url);
       audio.loop = true;
       audio.preload = "auto";
       this.loopingAudio.set(bit, audio);
@@ -216,7 +221,9 @@ export class BrowserSoundEffectsPlayer {
 
     audio.volume = this.effectiveVolume();
     if (audio.paused) {
-      playSafely(audio);
+      void audio.play().catch((error: unknown) => {
+        this.logSoundFailure("loop-play", url, error);
+      });
     }
   }
 
@@ -235,5 +242,35 @@ export class BrowserSoundEffectsPlayer {
       audio.pause();
       audio.currentTime = 0;
     }
+  }
+
+  private createAudio(url: string): HTMLAudioElement {
+    const audio = new Audio(url);
+    audio.setAttribute("playsinline", "true");
+    audio.addEventListener("error", () => {
+      this.logSoundFailure(
+        "audio-error",
+        url,
+        audio.error
+          ? new Error(`MediaError code=${audio.error.code} message=${audio.error.message}`)
+          : new Error("Unknown audio error"),
+      );
+    });
+    return audio;
+  }
+
+  private logSoundFailure(kind: string, url: string, error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    const key = `${kind}:${url}:${message}`;
+    if (this.loggedFailures.has(key)) {
+      return;
+    }
+    this.loggedFailures.add(key);
+    console.warn("[tworld:sound]", {
+      error,
+      kind,
+      pageUrl: window.location.href,
+      url,
+    });
   }
 }
