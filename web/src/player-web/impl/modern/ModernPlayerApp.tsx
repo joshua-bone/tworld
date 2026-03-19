@@ -8,6 +8,7 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
+  type Ref,
 } from "react";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
@@ -462,12 +463,14 @@ function SidebarFamilyButton({
 
 function LevelRow({
   animatedBadge,
+  buttonRef,
   isActive,
   level,
   onSelect,
   progress,
 }: {
   animatedBadge: boolean;
+  buttonRef?: Ref<HTMLButtonElement>;
   isActive: boolean;
   level: SeriesLevel;
   onSelect: (levelNumber: number) => void;
@@ -478,6 +481,7 @@ function LevelRow({
     <button
       aria-pressed={isActive}
       className={`modern-level-row${isActive ? " modern-level-row--active" : ""}`}
+      ref={buttonRef}
       onClick={(event) => {
         onSelect(level.number);
         if (event.detail > 0) {
@@ -728,6 +732,7 @@ export function ModernPlayerApp({
   const visibleFamilies = useMemo(() => listFamiliesForTab(curated, activeTab), [curated, activeTab]);
   const setInfoFamily = setInfoFamilyId ? findSetFamilyById(curated, setInfoFamilyId) : null;
   const [animatedLevelBadgeKey, setAnimatedLevelBadgeKey] = useState<string | null>(null);
+  const activeLevelRowRef = useRef<HTMLButtonElement | null>(null);
 
   const triggerCompletedLevelBadgeAnimation = useEffectEvent((summary: BrowserLevelProgressSummary) => {
     const key = buildLevelProgressKey(summary.seriesFile, summary.levelNumber);
@@ -780,6 +785,12 @@ export function ModernPlayerApp({
       };
     });
   }, [activeFamily, activeLevel]);
+
+  useEffect(() => {
+    activeLevelRowRef.current?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [activeEntry?.filebase, activeLevel?.number]);
 
   useLayoutEffect(() => {
     if (isCatalogLoading) {
@@ -1243,6 +1254,7 @@ export function ModernPlayerApp({
                       return (
                         <LevelRow
                           animatedBadge={animatedLevelBadgeKey === buildLevelProgressKey(activeEntry.filebase, level.number)}
+                          buttonRef={activeLevel?.number === level.number ? activeLevelRowRef : undefined}
                           isActive={activeLevel?.number === level.number}
                           key={`${activeEntry.filebase}:${level.number}`}
                           level={level}

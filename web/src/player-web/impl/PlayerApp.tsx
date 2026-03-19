@@ -646,7 +646,15 @@ export function PlayerApp({
               ? "Any live input will fork a new timeline."
               : "Live takeover is disabled in history settings."
           }`;
-  const modernStatusLabel = isPaused ? "Paused" : describeGameplayStatus(session, isSessionLoading);
+  const modernStatusLabel =
+    isPaused
+      ? "Paused"
+      : session?.mode === "manual" &&
+          session.frame.snapshot.status === "playing" &&
+          !manualRunStarted &&
+          !isSessionLoading
+        ? "Ready"
+        : describeGameplayStatus(session, isSessionLoading);
   const modernHintOverlayText = activeGameplayHintOverlay(session);
   const runResult = session?.run.result ?? null;
   const currentLevelAttemptKey =
