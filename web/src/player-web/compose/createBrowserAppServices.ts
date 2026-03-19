@@ -20,6 +20,7 @@ export function createBrowserAppServices(): BrowserAppServices {
       Lynx: new LynxGameEngineAdapter(levelRepository),
     },
     importDatFile: (file) => levelRepository.importDatFile(file),
+    importDatBytes: (filename, datBytes) => levelRepository.importDatBytes(filename, datBytes),
     deleteImportedDatFile: (filename) => levelRepository.deleteImportedDatFile(filename),
     listImportedCatalogEntries: async () => levelRepository.listImportedCatalogEntries(),
   };

@@ -10,7 +10,7 @@ import { createDefaultBrowserProfilePreferences } from "@player-web/ports/Browse
 
 class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePersistenceBackend {
   readonly values = new Map<string, unknown>();
-  readonly importedFiles = new Map<string, Uint8Array>();
+  readonly importedFiles = new Map<string, PersistedImportedDatFile>();
   readonly replayEntries = new Map<string, BrowserReplayEntry>();
 
   async getValue(key: "selection" | "preferences" | "recentSelections" | "levelProgress"): Promise<unknown> {
@@ -22,14 +22,19 @@ class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePersistenc
   }
 
   async listImportedDatFiles(): Promise<PersistedImportedDatFile[]> {
-    return [...this.importedFiles.entries()].map(([filename, datBytes]) => ({
-      filename,
-      datBytes: new Uint8Array(datBytes),
+    return [...this.importedFiles.values()].map((entry) => ({
+      filename: entry.filename,
+      datHash: entry.datHash,
+      datBytes: new Uint8Array(entry.datBytes),
     }));
   }
 
   async saveImportedDatFile(entry: PersistedImportedDatFile): Promise<void> {
-    this.importedFiles.set(entry.filename, new Uint8Array(entry.datBytes));
+    this.importedFiles.set(entry.filename, {
+      filename: entry.filename,
+      datHash: entry.datHash,
+      datBytes: new Uint8Array(entry.datBytes),
+    });
   }
 
   async deleteImportedDatFile(filename: string): Promise<void> {
@@ -79,7 +84,7 @@ describe("IndexedDbBrowserProfileStore", () => {
       autoDownloadReplaysOnSave: true,
     });
     await store.recordRecentSelection({ seriesFile: "CCLP1-MS.dac", levelNumber: 7 });
-    await store.saveImportedDatFile({ filename: "Imported.dat", datBytes });
+    await store.saveImportedDatFile({ filename: "Imported.dat", datHash: "hash:imported", datBytes });
 
     expect(await store.loadSelection()).toEqual({ seriesFile: "CCLP1-MS.dac", levelNumber: 7 });
     expect(await store.loadPreferences()).toEqual({
@@ -88,7 +93,7 @@ describe("IndexedDbBrowserProfileStore", () => {
       autoSaveWinningHighScoreReplays: false,
       autoDownloadReplaysOnSave: true,
     });
-    expect(await store.listImportedDatFiles()).toEqual([{ filename: "Imported.dat", datBytes }]);
+    expect(await store.listImportedDatFiles()).toEqual([{ filename: "Imported.dat", datHash: "hash:imported", datBytes }]);
     expect(await store.loadRecentSelections()).toEqual([
       {
         selection: { seriesFile: "CCLP1-MS.dac", levelNumber: 7 },
@@ -101,7 +106,7 @@ describe("IndexedDbBrowserProfileStore", () => {
     const backend = new MemoryBrowserProfilePersistenceBackend();
     const store = new IndexedDbBrowserProfileStore(backend);
 
-    await store.saveImportedDatFile({ filename: "Imported.dat", datBytes: Uint8Array.from([1, 2, 3]) });
+    await store.saveImportedDatFile({ filename: "Imported.dat", datHash: "hash:imported", datBytes: Uint8Array.from([1, 2, 3]) });
     await store.deleteImportedDatFile("Imported.dat");
 
     expect(await store.listImportedDatFiles()).toEqual([]);
@@ -165,7 +170,7 @@ describe("IndexedDbBrowserProfileStore", () => {
       undoUsedCount: 0,
       bytes: Uint8Array.from([4, 5, 6]),
     });
-    await store.saveImportedDatFile({ filename: "Imported.dat", datBytes: Uint8Array.from([9, 8, 7]) });
+    await store.saveImportedDatFile({ filename: "Imported.dat", datHash: "hash:imported", datBytes: Uint8Array.from([9, 8, 7]) });
 
     const snapshot = await store.exportProfileSnapshot();
 
@@ -213,7 +218,7 @@ describe("IndexedDbBrowserProfileStore", () => {
           bytes: [4, 5, 6],
         },
       ],
-      importedDatFiles: [{ filename: "Imported.dat", datBytes: [9, 8, 7] }],
+      importedDatFiles: [{ filename: "Imported.dat", datHash: "hash:imported", datBytes: [9, 8, 7] }],
     });
 
     const restoredBackend = new MemoryBrowserProfilePersistenceBackend();
@@ -247,7 +252,7 @@ describe("IndexedDbBrowserProfileStore", () => {
       },
     ]);
     expect(await restoredStore.listImportedDatFiles()).toEqual([
-      { filename: "Imported.dat", datBytes: Uint8Array.from([9, 8, 7]) },
+      { filename: "Imported.dat", datHash: "hash:imported", datBytes: Uint8Array.from([9, 8, 7]) },
     ]);
     expect(await restoredStore.loadReplayEntries()).toEqual([
       {

@@ -8,20 +8,19 @@ import {
 } from "@content/api/series-file";
 import type { LevelRepository, LoadedLevelData } from "@level-catalog/ports/LevelRepository";
 import type { ImportedDatCatalogStore } from "@level-catalog/ports/ImportedDatCatalogStore";
-
-const IMPORT_RULESETS = ["MS", "Lynx"] as const;
+import {
+  computeDatContentHash,
+  importedSeriesFile,
+  IMPORT_RULESETS,
+} from "@player-web/impl/importedDatIdentity";
 
 type GroupedLevelIndex = Map<number, RawDatLevelGroup>;
 
 interface ImportedDatSeries {
   filename: string;
+  datHash: string;
   groupedLevels: RawDatLevelGroup[];
   entry: SeriesCatalogEntry;
-}
-
-function importedSeriesFile(filename: string, ruleset: (typeof IMPORT_RULESETS)[number]): string {
-  const baseName = filename.replace(/\.[^.]+$/u, "") || filename;
-  return `${baseName} (${ruleset})`;
 }
 
 function cloneGroupedLevel(level: RawDatLevelGroup): RawDatLevelGroup {
@@ -119,12 +118,7 @@ export class BrowserLevelRepository implements LevelRepository {
   async importDatFile(file: File): Promise<SeriesCatalogEntry[]> {
     await this.ensureImportedSeriesHydrated();
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const entries = this.importDatBytes(file.name, bytes);
-    await this.importedDatStore?.saveImportedDatFile({
-      filename: file.name,
-      datBytes: new Uint8Array(bytes),
-    });
-    return entries;
+    return this.importDatBytes(file.name, bytes);
   }
 
   async deleteImportedDatFile(filename: string): Promise<void> {
@@ -150,20 +144,34 @@ export class BrowserLevelRepository implements LevelRepository {
       return;
     }
 
-    const hydration = this.importedDatStore.listImportedDatFiles().then((entries) => {
-      for (const entry of entries) {
-        this.importDatBytes(entry.filename, entry.datBytes);
-      }
+    const hydration = this.importedDatStore.listImportedDatFiles().then(async (entries) => {
+      await Promise.all(
+        entries.map(async (entry) => {
+          await this.importDatBytes(entry.filename, entry.datBytes, entry.datHash, false);
+        }),
+      );
     });
 
     this.importedSeriesHydration = hydration;
     await hydration;
   }
 
-  importDatBytes(filename: string, datBytes: Uint8Array): SeriesCatalogEntry[] {
+  async importDatBytes(
+    filename: string,
+    datBytes: Uint8Array,
+    persistedDatHash?: string,
+    persistStore = true,
+  ): Promise<SeriesCatalogEntry[]> {
     const grouped = extractGroupedDatLevels(datBytes);
+    const datHash = persistedDatHash ?? (await computeDatContentHash(datBytes));
 
-    return IMPORT_RULESETS.map((ruleset) => {
+    for (const [seriesFile, imported] of this.importedSeries.entries()) {
+      if (imported.filename === filename) {
+        this.importedSeries.delete(seriesFile);
+      }
+    }
+
+    const entries = IMPORT_RULESETS.map((ruleset) => {
       const parsed = parseDatFile(datBytes, { ruleset });
       const seriesFile = importedSeriesFile(filename, ruleset);
       const entry = {
@@ -176,12 +184,23 @@ export class BrowserLevelRepository implements LevelRepository {
 
       this.importedSeries.set(seriesFile, {
         filename,
+        datHash,
         groupedLevels: grouped.levels.map(cloneGroupedLevel),
         entry,
       });
 
       return entry;
     });
+
+    if (persistStore) {
+      await this.importedDatStore?.saveImportedDatFile({
+        filename,
+        datHash,
+        datBytes: new Uint8Array(datBytes),
+      });
+    }
+
+    return entries;
   }
 
   async listImportedCatalogEntries(): Promise<SeriesCatalogEntry[]> {

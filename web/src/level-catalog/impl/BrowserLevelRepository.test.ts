@@ -52,17 +52,22 @@ function createDatFile(levels: Uint8Array[]): Uint8Array {
 }
 
 class MemoryImportedDatCatalogStore implements ImportedDatCatalogStore {
-  private readonly entries = new Map<string, Uint8Array>();
+  private readonly entries = new Map<string, PersistedImportedDatFile>();
 
   async listImportedDatFiles(): Promise<PersistedImportedDatFile[]> {
-    return [...this.entries.entries()].map(([filename, datBytes]) => ({
-      filename,
-      datBytes: new Uint8Array(datBytes),
+    return [...this.entries.values()].map((entry) => ({
+      filename: entry.filename,
+      datHash: entry.datHash,
+      datBytes: new Uint8Array(entry.datBytes),
     }));
   }
 
   async saveImportedDatFile(entry: PersistedImportedDatFile): Promise<void> {
-    this.entries.set(entry.filename, new Uint8Array(entry.datBytes));
+    this.entries.set(entry.filename, {
+      filename: entry.filename,
+      datHash: entry.datHash,
+      datBytes: new Uint8Array(entry.datBytes),
+    });
   }
 
   async deleteImportedDatFile(filename: string): Promise<void> {
@@ -79,7 +84,7 @@ describe("BrowserLevelRepository", () => {
       createLevelData(3, "Imported Solo", 3, 0),
     ]);
 
-    const entries = repository.importDatBytes("Imported.dat", dat);
+    const entries = await repository.importDatBytes("Imported.dat", dat);
     const msEntry = entries.find((entry) => entry.ruleset === "MS");
     const lynxEntry = entries.find((entry) => entry.ruleset === "Lynx");
 
@@ -149,5 +154,18 @@ describe("BrowserLevelRepository", () => {
 
     expect(await repository.listImportedCatalogEntries()).toEqual([]);
     expect(await store.listImportedDatFiles()).toEqual([]);
+  });
+
+  it("replaces an imported slot when the DAT content changes", async () => {
+    const repository = new BrowserLevelRepository();
+    const firstDat = createDatFile([createLevelData(1, "Original Level", 1, 0)]);
+    const secondDat = createDatFile([createLevelData(1, "Updated Level", 2, 0)]);
+
+    await repository.importDatBytes("MyPack.dat", firstDat);
+    await repository.importDatBytes("MyPack.dat", secondDat);
+
+    const entries = await repository.listImportedCatalogEntries();
+    expect(entries.map((entry) => entry.filebase)).toEqual(["MyPack (MS)", "MyPack (Lynx)"]);
+    expect(entries.find((entry) => entry.ruleset === "MS")?.levels.map((level) => level.name)).toEqual(["Updated Level"]);
   });
 });

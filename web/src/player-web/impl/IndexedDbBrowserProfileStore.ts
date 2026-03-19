@@ -39,6 +39,7 @@ interface BrowserProfileKvRecord {
 
 interface BrowserProfileImportRecord {
   filename: string;
+  datHash?: string;
   datBytes: ArrayBuffer;
 }
 
@@ -383,6 +384,7 @@ class IndexedDbBrowserProfileBackend implements BrowserProfilePersistenceBackend
         resolve(
           records.map((record) => ({
             filename: record.filename,
+            datHash: typeof record.datHash === "string" ? record.datHash : undefined,
             datBytes: cloneBytes(new Uint8Array(record.datBytes)),
           })),
         );
@@ -397,6 +399,7 @@ class IndexedDbBrowserProfileBackend implements BrowserProfilePersistenceBackend
     await this.transact<void>(IMPORTS_STORE_NAME, "readwrite", (store, resolve, reject) => {
       const request = store.put({
         filename: entry.filename,
+        datHash: entry.datHash,
         datBytes: datBuffer,
       } satisfies BrowserProfileImportRecord);
       request.onerror = () => {
@@ -692,6 +695,7 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
       })),
       importedDatFiles: importedDatFiles.map((entry) => ({
         filename: entry.filename,
+        datHash: entry.datHash,
         datBytes: [...entry.datBytes],
       })),
     };
@@ -733,6 +737,7 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
     for (const entry of snapshot.importedDatFiles) {
       await this.saveImportedDatFile({
         filename: entry.filename,
+        datHash: entry.datHash,
         datBytes: Uint8Array.from(entry.datBytes),
       });
     }

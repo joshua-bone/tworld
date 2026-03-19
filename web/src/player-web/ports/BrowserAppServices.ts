@@ -12,6 +12,7 @@ export interface BrowserAppServices {
   replayTransfer: ReplayTransferPort;
   engines: Record<Exclude<SeriesCatalogEntry["ruleset"], "None">, InteractiveGameEnginePort>;
   importDatFile: (file: File) => Promise<SeriesCatalogEntry[]>;
+  importDatBytes: (filename: string, datBytes: Uint8Array) => Promise<SeriesCatalogEntry[]>;
   deleteImportedDatFile: (filename: string) => Promise<void>;
   listImportedCatalogEntries: () => Promise<SeriesCatalogEntry[]>;
 }

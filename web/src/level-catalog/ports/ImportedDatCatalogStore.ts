@@ -1,5 +1,6 @@
 export interface PersistedImportedDatFile {
   filename: string;
+  datHash?: string;
   datBytes: Uint8Array;
 }
 

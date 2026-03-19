@@ -4,6 +4,23 @@ Tile World is an emulation of the game "Chip's Challenge" for the Atari Lynx,
 created by Chuck Sommerville, and later ported to MS Windows by Microsoft (among
 other ports).
 
+## Tile World Online URL Launches
+
+The browser UI supports direct level launch by URL.
+
+- Built-in or curated packs can be opened with query parameters such as
+  `?set=CCLP1&level=3&ruleset=Lynx`.
+- Custom DAT packs can be embedded directly in the URL with
+  `#dat=<base64url(gzip(datBytes))>`, plus optional `level`, `ruleset`, and
+  `slot` parameters.
+- Example:
+  `?level=3&ruleset=MS&slot=3D_CHIPS.dat#dat=<base64url(gzip(datBytes))>`
+
+`ruleset` defaults to `Lynx`. The `slot` parameter controls local overwrite by
+name, which is useful for work-in-progress packs that are updated regularly.
+Progress still follows gameplay hashes, so unchanged levels continue to carry
+their progress when a pack is replaced.
+
 ## Important Note
 
 Tile World is an emulation of the "Chip's Challenge" game engines only. It does

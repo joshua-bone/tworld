@@ -19,6 +19,7 @@ import {
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
+import { resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
 import {
   buildLevelProgressIndex,
   buildStoredLevelProgressKey,
@@ -590,40 +591,61 @@ export function ModernPlayerApp({
       profileStore.loadLevelProgressSummaries(),
     ])
       .then(async ([storedSelection, storedPreferences, storedLevelProgressSummaries]) => {
-        const bootstrapCatalog = await loadModernBootstrapPlayableCatalog(services, storedSelection);
+        const launch = await resolveUrlLaunchSelection(services, storedSelection);
+        const initialSelection = launch.selection;
+        const bootstrapCatalog = await loadModernBootstrapPlayableCatalog(services, initialSelection);
         if (!active) {
           return;
         }
 
-        const bootstrapCurated = buildCuratedCatalogView(bootstrapCatalog, storedSelection);
-        const bootstrapFamily = storedSelection
-          ? findSetFamilyForSelection(bootstrapCurated, storedSelection)
+        const bootstrapCurated = buildCuratedCatalogView(bootstrapCatalog, initialSelection);
+        const bootstrapFamily = initialSelection
+          ? findSetFamilyForSelection(bootstrapCurated, initialSelection)
           : null;
         const bootstrapTab = bootstrapFamily ? tabForFamily(bootstrapFamily) ?? "official" : "official";
         const bootstrapRuleset =
-          bootstrapFamily && storedSelection
-            ? resolveSetFamilyRuleset(bootstrapFamily, storedSelection) ?? storedPreferences.defaultRuleset
+          bootstrapFamily && initialSelection
+            ? resolveSetFamilyRuleset(bootstrapFamily, initialSelection) ?? storedPreferences.defaultRuleset
             : storedPreferences.defaultRuleset;
 
         startTransition(() => {
           setCatalog(bootstrapCatalog);
-          setLastSelection(storedSelection);
+          setLastSelection(initialSelection);
           preferencesRef.current = storedPreferences;
           setPreferences(storedPreferences);
           setRequestedRuleset(bootstrapRuleset);
           setActiveFamilyId(bootstrapFamily?.id ?? null);
           setActiveTab(bootstrapTab);
           setRequestedLevelsByFamily(
-            bootstrapFamily && storedSelection
+            bootstrapFamily && initialSelection
               ? {
-                  [bootstrapFamily.id]: storedSelection.levelNumber,
+                  [bootstrapFamily.id]: initialSelection.levelNumber,
                 }
               : {},
           );
           setLevelProgressSummaries(storedLevelProgressSummaries);
-          setMessage(null);
+          setMessage(launch.message);
           setIsCatalogLoading(false);
         });
+
+        void loadBrowserPlayableCatalog(services)
+          .then((nextCatalog) => {
+            if (!active) {
+              return;
+            }
+
+            startTransition(() => {
+              setCatalog(nextCatalog);
+              setMessage((current) => current ?? launch.message);
+            });
+          })
+          .catch((error: unknown) => {
+            if (!active) {
+              return;
+            }
+
+            setMessage((current) => current ?? (error instanceof Error ? error.message : String(error)));
+          });
       })
       .catch((error: unknown) => {
         if (!active) {
@@ -632,25 +654,6 @@ export function ModernPlayerApp({
 
         setMessage(error instanceof Error ? error.message : String(error));
         setIsCatalogLoading(false);
-      });
-
-    loadBrowserPlayableCatalog(services)
-      .then((nextCatalog) => {
-        if (!active) {
-          return;
-        }
-
-        startTransition(() => {
-          setCatalog(nextCatalog);
-          setMessage(null);
-        });
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
-
-        setMessage(error instanceof Error ? error.message : String(error));
       });
 
     return () => {
@@ -1623,6 +1626,19 @@ export function ModernPlayerApp({
                     TWO Legacy UI
                   </a>
                 </div>
+              </section>
+
+              <section className="modern-about-modal__section">
+                <p className="modern-preference-block__label">URL Launches</p>
+                <p className="modern-dashboard__copy">
+                  Built-in sets can be opened with URLs like <code>?set=CCLP1&amp;level=3&amp;ruleset=Lynx</code>.
+                  Custom DAT packs can be embedded directly with <code>#dat=&lt;base64url-gzip-dat&gt;</code>,
+                  plus optional <code>level</code>, <code>ruleset</code>, and <code>slot</code> parameters.
+                </p>
+                <p className="modern-dashboard__copy">
+                  Example: <code>?level=3&amp;ruleset=MS&amp;slot=3D_CHIPS.dat#dat=...</code>. The
+                  <code>slot</code> name controls overwrite-by-name behavior for local work-in-progress packs.
+                </p>
               </section>
 
               <section className="modern-about-modal__section">

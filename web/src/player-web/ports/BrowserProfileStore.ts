@@ -110,6 +110,7 @@ export interface BrowserProfileSnapshot {
   }>;
   importedDatFiles: Array<{
     filename: string;
+    datHash?: string;
     datBytes: number[];
   }>;
 }
