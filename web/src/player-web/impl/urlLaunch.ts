@@ -1,11 +1,12 @@
 import { listBrowserSeriesCatalogFiles } from "@level-catalog/impl/loadBrowserSeriesCatalogEntries";
 import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
+import { buildAppHref } from "@player-web/impl/appPaths";
 import {
   computeDatContentHash,
   importedSeriesFile,
   sanitizeImportedDatSlotName,
 } from "@player-web/impl/importedDatIdentity";
-import { decodeDatUrlPayload } from "@player-web/impl/urlDatCodec";
+import { decodeDatUrlPayload, encodeDatUrlPayload } from "@player-web/impl/urlDatCodec";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import type { BrowserPreferredRuleset } from "@player-web/ports/BrowserProfileStore";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
@@ -22,6 +23,15 @@ export interface UrlLaunchResolution {
   message: string | null;
   overrideApplied: boolean;
   selection: PlayableSelection | null;
+}
+
+export interface UrlLaunchHrefRequest {
+  baseUrl?: string;
+  importedDatFiles: readonly PersistedImportedDatFile[];
+  levelNumber: number;
+  origin?: string;
+  ruleset: BrowserPreferredRuleset;
+  seriesFile: string;
 }
 
 function parseLevelNumber(value: string | null): number {
@@ -58,6 +68,11 @@ function parseUrlLaunchRequest(location: Pick<Location, "hash" | "search">): Par
 
 function normalizeSetToken(value: string): string {
   return value.toLowerCase().replace(/\.[^.]+$/u, "").replace(/[^a-z0-9]/gu, "");
+}
+
+function stripSeriesRulesetSuffix(seriesFile: string): string {
+  const raw = seriesFile.replace(/\.dac$/iu, "");
+  return raw.replace(/(?:-lynx|-ms|\.dat-lynx|\.dat-ms)$/iu, "");
 }
 
 function buildSeriesFileCandidates(seriesFile: string): string[] {
@@ -113,6 +128,39 @@ async function findImportedSlotByHash(
 
 function defaultImportedSlotName(datHash: string): string {
   return `Imported-${datHash.slice(0, 8)}.dat`;
+}
+
+function findImportedDatEntry(
+  seriesFile: string,
+  ruleset: BrowserPreferredRuleset,
+  importedDatFiles: readonly PersistedImportedDatFile[],
+): PersistedImportedDatFile | null {
+  return (
+    importedDatFiles.find((entry) => importedSeriesFile(entry.filename, ruleset) === seriesFile) ?? null
+  );
+}
+
+export async function buildUrlLaunchHref({
+  baseUrl = import.meta.env.BASE_URL,
+  importedDatFiles,
+  levelNumber,
+  origin = window.location.origin,
+  ruleset,
+  seriesFile,
+}: UrlLaunchHrefRequest): Promise<string> {
+  const url = new URL(buildAppHref("/", baseUrl), origin);
+  url.searchParams.set("level", String(levelNumber));
+  url.searchParams.set("ruleset", ruleset);
+
+  const importedDatEntry = findImportedDatEntry(seriesFile, ruleset, importedDatFiles);
+  if (importedDatEntry) {
+    url.searchParams.set("slot", importedDatEntry.filename);
+    url.hash = `dat=${await encodeDatUrlPayload(importedDatEntry.datBytes)}`;
+    return url.toString();
+  }
+
+  url.searchParams.set("set", stripSeriesRulesetSuffix(seriesFile));
+  return url.toString();
 }
 
 export async function resolveUrlLaunchSelection(

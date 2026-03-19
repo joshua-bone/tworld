@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
 import { shouldAutoSaveWinningHighScoreReplay } from "@player-web/impl/autoSaveReplayPolicy";
+import { copyTextToClipboard } from "@player-web/impl/clipboard";
 import { isFastForwardModifierActive } from "@player-web/impl/fastForward";
 import {
   isFineUndoKey,
@@ -55,6 +56,7 @@ import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEn
 import { resolveReplayActionContext } from "@player-web/impl/replayContext";
 import { selectResultHeadline } from "@player-web/impl/resultHeadlines";
 import { shouldPersistLevelProgress } from "@player-web/impl/sessionProgressPolicy";
+import { buildUrlLaunchHref } from "@player-web/impl/urlLaunch";
 import { restoreInteractiveGameSession } from "@game-runtime/impl/restoreInteractiveGameSession";
 import { resumeInteractiveGameSession } from "@game-runtime/impl/resumeInteractiveGameSession";
 import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
@@ -319,6 +321,21 @@ function TrashIcon() {
         stroke="currentColor"
         strokeLinecap="square"
         strokeLinejoin="miter"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+function ChainLinkIcon() {
+  return (
+    <svg aria-hidden="true" className="modern-link-icon-button__icon" viewBox="0 0 16 16">
+      <path
+        d="M6.2 9.8 4.6 11.4a2.2 2.2 0 1 1-3.1-3.1L3.8 6M9.8 6.2l1.6-1.6a2.2 2.2 0 1 1 3.1 3.1L12.2 10M5.6 10.4l4.8-4.8"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
         strokeWidth="1.5"
       />
     </svg>
@@ -719,6 +736,10 @@ export function PlayerApp({
   const currentReplayCountLabel =
     currentLevelReplayEntries.length === 1 ? "1 replay" : `${currentLevelReplayEntries.length} replays`;
   const modernGameplaySubtitle = formatModernGameplaySubtitle(replayContextSeries?.filebase, replayContextLevel);
+  const canCopyCurrentLevelLink = Boolean(currentSeries && currentLevel && currentRuleset);
+  const modernLevelTitle = replayContextLevel
+    ? `Level ${replayContextLevel.number}: ${replayContextLevel.name}`
+    : replayContextSeries?.filebase ?? "Loading level";
   const currentLevelReplayRows = useMemo(
     () =>
       currentLevelReplayEntries.map((entry) => {
@@ -1680,6 +1701,25 @@ export function PlayerApp({
     setShowReplayMenu(false);
     setSelectedManagedReplayId(continueReplayEntry?.id ?? currentLevelReplayEntries[0]?.id ?? null);
     setShowManageReplays(true);
+  });
+
+  const copyCurrentLevelLink = useEffectEvent(async () => {
+    if (!currentSeries || !currentLevel || !currentRuleset) {
+      return;
+    }
+
+    try {
+      const importedDatFiles = await profileStore.listImportedDatFiles();
+      const href = await buildUrlLaunchHref({
+        importedDatFiles,
+        levelNumber: currentLevel.number,
+        ruleset: currentRuleset,
+        seriesFile: currentSeries.filebase,
+      });
+      await copyTextToClipboard(href);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
   });
 
   const closeManageReplays = useEffectEvent(() => {
@@ -2845,11 +2885,21 @@ export function PlayerApp({
             <div className="modern-game-header__meta modern-game-header__meta--status-only">
               <p className="modern-section__eyebrow modern-game-header__state">{modernStatusLabel}</p>
             </div>
-            <h1 className="modern-embedded-player__title">
-              {replayContextLevel
-                ? `Level ${replayContextLevel.number}: ${replayContextLevel.name}`
-                : replayContextSeries?.filebase ?? "Loading level"}
-            </h1>
+            <div className="modern-game-header__title-row">
+              <h1 className="modern-embedded-player__title">{modernLevelTitle}</h1>
+              <button
+                aria-label="Copy link to this level"
+                className="modern-link-icon-button"
+                disabled={!canCopyCurrentLevelLink}
+                onClick={() => {
+                  void copyCurrentLevelLink();
+                }}
+                title="Copy link to this level"
+                type="button"
+              >
+                <ChainLinkIcon />
+              </button>
+            </div>
             <p className="modern-game-header__subtitle">
               <span>{modernGameplaySubtitle}</span>
               {currentLevelReplayEntries.length > 0 ? (
@@ -2891,11 +2941,21 @@ export function PlayerApp({
                 </div>
                 <p className="modern-section__eyebrow modern-game-header__state">{modernStatusLabel}</p>
               </div>
-              <h1 className="modern-game-header__title">
-                {replayContextLevel
-                  ? `Level ${replayContextLevel.number}: ${replayContextLevel.name}`
-                  : replayContextSeries?.filebase ?? "Loading level"}
-              </h1>
+              <div className="modern-game-header__title-row">
+                <h1 className="modern-game-header__title">{modernLevelTitle}</h1>
+                <button
+                  aria-label="Copy link to this level"
+                  className="modern-link-icon-button"
+                  disabled={!canCopyCurrentLevelLink}
+                  onClick={() => {
+                    void copyCurrentLevelLink();
+                  }}
+                  title="Copy link to this level"
+                  type="button"
+                >
+                  <ChainLinkIcon />
+                </button>
+              </div>
               <p className="modern-game-header__subtitle">
                 <span>{modernGameplaySubtitle}</span>
                 {currentLevelReplayEntries.length > 0 ? (

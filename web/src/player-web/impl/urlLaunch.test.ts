@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
-import { encodeDatUrlPayload } from "@player-web/impl/urlDatCodec";
-import { resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
+import { decodeDatUrlPayload, encodeDatUrlPayload } from "@player-web/impl/urlDatCodec";
+import { buildUrlLaunchHref, resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
 import { importedSeriesFile } from "@player-web/impl/importedDatIdentity";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import type { BrowserProfileStore } from "@player-web/ports/BrowserProfileStore";
@@ -131,5 +131,41 @@ describe("resolveUrlLaunchSelection", () => {
     expect(result.overrideApplied).toBe(false);
     expect(result.selection).toEqual({ seriesFile: "CCLP1-Lynx.dac", levelNumber: 1 });
     expect(result.message).toBe("Set missing-pack was not found.");
+  });
+});
+
+describe("buildUrlLaunchHref", () => {
+  it("builds canonical built-in set links", async () => {
+    const href = await buildUrlLaunchHref({
+      baseUrl: "/tworld/",
+      importedDatFiles: [],
+      levelNumber: 3,
+      origin: "https://example.test",
+      ruleset: "MS",
+      seriesFile: "CCLP1-MS.dac",
+    });
+
+    expect(href).toBe("https://example.test/tworld/?level=3&ruleset=MS&set=CCLP1");
+  });
+
+  it("embeds imported DAT payloads for uploaded sets", async () => {
+    const datBytes = createDatBytes();
+    const href = await buildUrlLaunchHref({
+      baseUrl: "/tworld/",
+      importedDatFiles: [{ filename: "SharedPack.dat", datBytes }],
+      levelNumber: 4,
+      origin: "https://example.test",
+      ruleset: "Lynx",
+      seriesFile: importedSeriesFile("SharedPack.dat", "Lynx"),
+    });
+
+    const url = new URL(href);
+    expect(url.origin).toBe("https://example.test");
+    expect(url.pathname).toBe("/tworld/");
+    expect(url.searchParams.get("level")).toBe("4");
+    expect(url.searchParams.get("ruleset")).toBe("Lynx");
+    expect(url.searchParams.get("slot")).toBe("SharedPack.dat");
+    expect(url.hash.startsWith("#dat=")).toBe(true);
+    await expect(decodeDatUrlPayload(url.hash.slice("#dat=".length))).resolves.toEqual(datBytes);
   });
 });

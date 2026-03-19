@@ -8,6 +8,7 @@
 /build-*
 /node_modules
 /web/node_modules
+/web/.vite
 /web/dist
 /scripts/__pycache__/
 *.pyc

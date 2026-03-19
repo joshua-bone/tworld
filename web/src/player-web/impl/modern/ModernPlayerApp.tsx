@@ -7,12 +7,14 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type Ref,
 } from "react";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
 import { buildAppHref } from "@player-web/impl/appPaths";
+import { copyTextToClipboard } from "@player-web/impl/clipboard";
 import {
   loadBrowserPlayableCatalog,
   loadModernBootstrapPlayableCatalog,
@@ -20,7 +22,7 @@ import {
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
-import { resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
+import { buildUrlLaunchHref, resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
 import {
   buildLevelProgressIndex,
   buildStoredLevelProgressKey,
@@ -64,6 +66,14 @@ const LIBRARY_SIDEBAR_TABS: readonly { id: LibrarySidebarTab; label: string }[] 
 interface ModernPlayerAppProps {
   services: BrowserAppServices;
   onOpenClassic: () => void;
+}
+
+interface LevelContextMenuState {
+  levelNumber: number;
+  ruleset: BrowserPreferredRuleset;
+  seriesFile: string;
+  x: number;
+  y: number;
 }
 
 const ABOUT_LINKS = {
@@ -432,6 +442,7 @@ function LevelRow({
   buttonRef,
   isActive,
   level,
+  onContextMenu,
   onSelect,
   progress,
 }: {
@@ -439,6 +450,7 @@ function LevelRow({
   buttonRef?: Ref<HTMLButtonElement>;
   isActive: boolean;
   level: SeriesLevel;
+  onContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>, levelNumber: number) => void;
   onSelect: (levelNumber: number) => void;
   progress: BrowserResolvedLevelProgressSummary | null;
 }) {
@@ -453,6 +465,9 @@ function LevelRow({
         if (event.detail > 0) {
           event.currentTarget.blur();
         }
+      }}
+      onContextMenu={(event) => {
+        onContextMenu?.(event, level.number);
       }}
       type="button"
     >
@@ -552,6 +567,7 @@ export function ModernPlayerApp({
   const [levelsPaneWidth, setLevelsPaneWidth] = useState(DASHBOARD_DEFAULT_LEVELS_PANE_WIDTH);
   const [requestedRuleset, setRequestedRuleset] = useState<BrowserPreferredRuleset>("Lynx");
   const [requestedLevelsByFamily, setRequestedLevelsByFamily] = useState<Record<string, number>>({});
+  const [levelContextMenu, setLevelContextMenu] = useState<LevelContextMenuState | null>(null);
   const [preferences, setPreferences] = useState<BrowserProfilePreferences>(
     createDefaultBrowserProfilePreferences(),
   );
@@ -697,6 +713,30 @@ export function ModernPlayerApp({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [dismissMessage, message]);
+
+  useEffect(() => {
+    if (!levelContextMenu) {
+      return;
+    }
+
+    const dismiss = () => {
+      setLevelContextMenu(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        dismiss();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [levelContextMenu]);
 
   const curated = useMemo(() => buildCuratedCatalogView(catalog, lastSelection), [catalog, lastSelection]);
   const fallbackFamily = resolveDefaultLandingFamily(curated);
@@ -902,6 +942,21 @@ export function ModernPlayerApp({
         }
         setMessage(`Discarded local set ${filename}.`);
       });
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  });
+
+  const copyLevelLink = useEffectEvent(async (seriesFile: string, ruleset: BrowserPreferredRuleset, levelNumber: number) => {
+    try {
+      const importedDatFiles = await profileStore.listImportedDatFiles();
+      const href = await buildUrlLaunchHref({
+        importedDatFiles,
+        levelNumber,
+        ruleset,
+        seriesFile,
+      });
+      await copyTextToClipboard(href);
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
@@ -1272,6 +1327,20 @@ export function ModernPlayerApp({
                           isActive={activeLevel?.number === level.number}
                           key={`${activeEntry.filebase}:${level.number}`}
                           level={level}
+                          onContextMenu={(event, levelNumber) => {
+                            if (activeEntry.ruleset !== "MS" && activeEntry.ruleset !== "Lynx") {
+                              return;
+                            }
+
+                            event.preventDefault();
+                            setLevelContextMenu({
+                              levelNumber,
+                              ruleset: activeEntry.ruleset,
+                              seriesFile: activeEntry.filebase,
+                              x: event.clientX,
+                              y: event.clientY,
+                            });
+                          }}
                           onSelect={(levelNumber) => {
                             if (!activeFamily) {
                               return;
@@ -1333,6 +1402,45 @@ export function ModernPlayerApp({
           )}
         </section>
       </div>
+
+      {levelContextMenu ? (
+        <div
+          aria-hidden="true"
+          className="modern-context-menu-backdrop"
+          onClick={() => {
+            setLevelContextMenu(null);
+          }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setLevelContextMenu(null);
+          }}
+        >
+          <div
+            className="modern-context-menu"
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+            role="menu"
+            style={{ left: levelContextMenu.x, top: levelContextMenu.y }}
+          >
+            <button
+              className="modern-context-menu__item"
+              onClick={() => {
+                void copyLevelLink(
+                  levelContextMenu.seriesFile,
+                  levelContextMenu.ruleset,
+                  levelContextMenu.levelNumber,
+                );
+                setLevelContextMenu(null);
+              }}
+              role="menuitem"
+              type="button"
+            >
+              Copy Link
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {message ? (
         <div
