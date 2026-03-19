@@ -32,7 +32,7 @@ jobs:
         run: npm install --include=optional
         working-directory: web
       - name: Ensure Rollup native package on Linux
-        run: 'npm install --no-save "@rollup/rollup-linux-x64-gnu@$(node -p "require(''"'"'./package-lock.json'"'"''"'"').packages[''"'"''"'"'node_modules/rollup'"'"''"'"'].version")"'
+        run: npm install --no-save @rollup/rollup-linux-x64-gnu@4.59.0
         working-directory: web
       - name: Build web app for GitHub Pages
         run: npm run build
