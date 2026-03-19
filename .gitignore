@@ -9,6 +9,7 @@
 /node_modules
 /web/node_modules
 /web/dist
+/web/.vite/
 /scripts/__pycache__/
 *.pyc
 *.tsbuildinfo
