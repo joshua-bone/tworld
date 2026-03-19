@@ -228,12 +228,12 @@ const FAMILY_DEFINITIONS: readonly CuratedFamilyDefinition[] = [
   {
     id: "curated:3d-intro",
     section: "intro",
-    title: "3D_INTRO",
+    title: "3D Tile World Intro",
     badge: "Curated",
     sidebarSummary: "Joshua Bone",
     description: "Introduction to 3D Tile World levels. Work in progress.",
     filebases: ["3DINTRO-MS.dac", "3DINTRO-Lynx.dac"],
-    order: 115,
+    order: 55,
   },
   {
     id: "intro",

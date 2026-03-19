@@ -148,7 +148,7 @@ describe("buildCuratedCatalogView", () => {
     );
 
     expect(view.officialFamilies.map((family) => family.title)).toEqual(["CCLP1"]);
-    expect(view.introFamilies.map((family) => family.title)).toEqual(["3D_INTRO"]);
+    expect(view.introFamilies.map((family) => family.title)).toEqual(["3D Tile World Intro"]);
     expect(view.localFamilies.map((family) => family.title)).toEqual(["Imported"]);
     expect(view.otherFamilies.map((family) => family.title)).toEqual(["Intro", "CCZoneTT"]);
   });
@@ -166,21 +166,25 @@ describe("buildCuratedCatalogView", () => {
       null,
     );
 
-    expect(view.introFamilies.map((family) => family.title)).toEqual(["The Pit Of 100 Tiles", "TS0", "3D_INTRO"]);
+    expect(view.introFamilies.map((family) => family.title)).toEqual([
+      "3D Tile World Intro",
+      "The Pit Of 100 Tiles",
+      "TS0",
+    ]);
     expect(listSetFamilyRulesets(view.introFamilies[0]!)).toEqual(["Lynx", "MS"]);
     expect(listSetFamilyRulesets(view.introFamilies[1]!)).toEqual(["Lynx", "MS"]);
     expect(listSetFamilyRulesets(view.introFamilies[2]!)).toEqual(["Lynx", "MS"]);
     expect(view.introFamilies[0]).toMatchObject({
+      sidebarSummary: "Joshua Bone",
+      description: "Introduction to 3D Tile World levels. Work in progress.",
+    });
+    expect(view.introFamilies[1]).toMatchObject({
       sidebarSummary: "Andrew Menzies",
       description: "The Pit Of 100 Tiles by Andrew Menzies. Custom levelset used by author's permission.",
     });
-    expect(view.introFamilies[1]).toMatchObject({
+    expect(view.introFamilies[2]).toMatchObject({
       sidebarSummary: "Tyler Sontag",
       description: "TS0 by Tyler Sontag. Custom levelset used by author's permission.",
-    });
-    expect(view.introFamilies[2]).toMatchObject({
-      sidebarSummary: "Joshua Bone",
-      description: "Introduction to 3D Tile World levels. Work in progress.",
     });
   });
 
