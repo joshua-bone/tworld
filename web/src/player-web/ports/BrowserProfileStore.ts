@@ -21,11 +21,25 @@ export interface BrowserRecentSelectionRecord {
 }
 
 export interface BrowserLevelProgressSummary {
-  seriesFile: string;
-  levelNumber: number;
+  ruleset: BrowserPreferredRuleset;
+  gameplayHash: string;
   lastPlayedAtMs: number;
   lastResult: BrowserLevelRunResult;
   bestResult: BrowserLevelRunResult;
+  lastElapsedTicks: number;
+  bestElapsedTicks: number;
+  lastUndoUsedCount: number;
+  bestUndoUsedCount: number;
+}
+
+export interface BrowserResolvedLevelProgressSummary {
+  ruleset: BrowserPreferredRuleset;
+  gameplayHash: string;
+  lastPlayedAtMs: number;
+  lastResult: BrowserLevelRunResult;
+  bestResult: BrowserLevelRunResult;
+  lastElapsedTicks: number;
+  bestElapsedTicks: number;
   lastScore: number;
   bestScore: number;
   lastUndoUsedCount: number;

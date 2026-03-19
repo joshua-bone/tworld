@@ -1,4 +1,4 @@
-import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
+import type { SeriesLevel } from "@content/api/series";
 import {
   findSetFamilyForSelection,
   resolveSetFamilyLevel,
@@ -7,10 +7,12 @@ import {
   type SetFamilyRuleset,
 } from "@player-web/impl/modern/curatedCatalog";
 import type {
-  BrowserLevelProgressSummary,
+  BrowserResolvedLevelProgressSummary,
   BrowserRecentSelectionRecord,
 } from "@player-web/ports/BrowserProfileStore";
 import { isCompletedBrowserLevelRunResult } from "@player-web/ports/BrowserProfileStore";
+
+export { buildLevelProgressIndex, summarizeEntryProgress } from "@player-web/impl/levelProgress";
 
 export interface FamilyProgressSummary {
   completedLevels: number;
@@ -33,51 +35,9 @@ export interface LevelDisplayStatus {
   replayAvailabilityLabel: string;
 }
 
-export function buildLevelProgressKey(seriesFile: string, levelNumber: number): string {
-  return `${seriesFile}#${String(levelNumber)}`;
-}
-
-export function buildLevelProgressIndex(
-  summaries: readonly BrowserLevelProgressSummary[],
-): ReadonlyMap<string, BrowserLevelProgressSummary> {
-  return new Map(summaries.map((summary) => [buildLevelProgressKey(summary.seriesFile, summary.levelNumber), summary] as const));
-}
-
-export function summarizeEntryProgress(
-  entry: SeriesCatalogEntry | null,
-  progressByKey: ReadonlyMap<string, BrowserLevelProgressSummary>,
-): FamilyProgressSummary {
-  if (!entry) {
-    return {
-      completedLevels: 0,
-      playedLevels: 0,
-    };
-  }
-
-  let playedLevels = 0;
-  let completedLevels = 0;
-
-  for (const level of entry.levels) {
-    const progress = progressByKey.get(buildLevelProgressKey(entry.filebase, level.number));
-    if (!progress) {
-      continue;
-    }
-
-    playedLevels += 1;
-    if (isCompletedBrowserLevelRunResult(progress.bestResult)) {
-      completedLevels += 1;
-    }
-  }
-
-  return {
-    completedLevels,
-    playedLevels,
-  };
-}
-
 export function describeLevelDisplayStatus(
   level: SeriesLevel,
-  progress: BrowserLevelProgressSummary | null,
+  progress: BrowserResolvedLevelProgressSummary | null,
 ): LevelDisplayStatus {
   if (!progress) {
     return {

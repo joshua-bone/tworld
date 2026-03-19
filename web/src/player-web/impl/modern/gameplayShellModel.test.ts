@@ -100,11 +100,11 @@ describe("gameplayShellModel", () => {
     const session = createSession();
 
     expect(buildHistoryJumpOptions(session)).toEqual([
-      { label: "Checkpoint 32", targetTick: 32 },
-      { label: "Checkpoint 24", targetTick: 24 },
-      { label: "Checkpoint 16", targetTick: 16 },
-      { label: "Checkpoint 8", targetTick: 8 },
-      { label: "Start (tick 0)", targetTick: 0 },
+      { label: "Checkpoint 1.6s", targetTick: 32 },
+      { label: "Checkpoint 1.2s", targetTick: 24 },
+      { label: "Checkpoint 0.8s", targetTick: 16 },
+      { label: "Checkpoint 0.4s", targetTick: 8 },
+      { label: "Start (0.0s)", targetTick: 0 },
     ]);
     expect(parseHistoryTickInput("17", 40)).toBe(17);
     expect(parseHistoryTickInput("99", 40)).toBe(40);
@@ -118,11 +118,13 @@ describe("gameplayShellModel", () => {
       author: "Author",
       password: "ABCD",
       timeLimitSeconds: 10,
+      chipsRequired: 0,
       bestTimeTicks: 0,
       index: 0,
       levelSize: 0,
       solutionSize: 0,
       levelHash: "hash",
+      gameplayHash: "gameplay-hash",
       hasSolution: false,
       sgflags: 0,
       unsolvable: "broken",

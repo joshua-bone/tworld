@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { shouldAutoSaveWinningHighScoreReplay } from "@player-web/impl/autoSaveReplayPolicy";
-import type { BrowserLevelProgressSummary } from "@player-web/ports/BrowserProfileStore";
+import type { BrowserResolvedLevelProgressSummary } from "@player-web/ports/BrowserProfileStore";
 
-function makeProgress(overrides: Partial<BrowserLevelProgressSummary> = {}): BrowserLevelProgressSummary {
+function makeProgress(overrides: Partial<BrowserResolvedLevelProgressSummary> = {}): BrowserResolvedLevelProgressSummary {
   return {
-    seriesFile: "CCLP1-MS.dac",
-    levelNumber: 1,
+    ruleset: "MS",
+    gameplayHash: "gameplay-hash",
     lastPlayedAtMs: 0,
     lastResult: "completed-clean",
     bestResult: "completed-clean",
+    lastElapsedTicks: 1800,
+    bestElapsedTicks: 1800,
     lastScore: 900,
     bestScore: 900,
     lastUndoUsedCount: 0,

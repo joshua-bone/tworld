@@ -179,16 +179,30 @@ export function computeLegacyLevelHash(levelData: Uint8Array): string {
   return ((accum ^ 0xffffffffn) & UINT64_MASK).toString();
 }
 
-function parseLevel(levelData: Uint8Array, index: number): SeriesLevel {
+interface ParsedLegacyLevelMetadata {
+  author: string;
+  chipsRequired: number;
+  gameplayFields: Array<{
+    bytes: Uint8Array;
+    id: number;
+  }>;
+  name: string;
+  password: string;
+  timeLimitSeconds: number;
+}
+
+function parseLegacyLevelMetadata(levelData: Uint8Array): ParsedLegacyLevelMetadata {
   if (levelData.length < 10) {
     throw new Error("invalid level data");
   }
 
   const number = readUint16(levelData, 0);
   let timeLimitSeconds = readUint16(levelData, 2);
+  let chipsRequired = readUint16(levelData, 4);
   let name = "";
   let author = "";
   let password = "";
+  const gameplayFields: ParsedLegacyLevelMetadata["gameplayFields"] = [];
 
   let cursor = 10 + readUint16(levelData, 8);
   if (cursor + 2 >= levelData.length) {
@@ -217,8 +231,21 @@ function parseLevel(levelData: Uint8Array, index: number): SeriesLevel {
           timeLimitSeconds = readUint16(field, 0);
         }
         break;
+      case 2:
+        if (field.length > 1) {
+          chipsRequired = readUint16(field, 0);
+        }
+        break;
       case 3:
         name = trimNulls(decodeLatin1(field));
+        break;
+      case 4:
+      case 5:
+      case 10:
+        gameplayFields.push({
+          id: fieldId,
+          bytes: levelData.slice(cursor, fieldStart + fieldSize),
+        });
         break;
       case 6:
         password = decodePasswordField(field);
@@ -238,16 +265,83 @@ function parseLevel(levelData: Uint8Array, index: number): SeriesLevel {
   }
 
   return {
-    index,
-    number,
-    name,
     author,
+    chipsRequired,
+    gameplayFields,
+    name,
     password,
     timeLimitSeconds,
+  };
+}
+
+export function computeLegacyLevelGameplayHash(levelData: Uint8Array): string {
+  if (levelData.length < 10) {
+    throw new Error("invalid level data");
+  }
+
+  const { chipsRequired, gameplayFields } = parseLegacyLevelMetadata(levelData);
+  const upperSize = readUint16(levelData, 8);
+  const upperStart = 10;
+  const upperEnd = upperStart + upperSize;
+  if (upperEnd + 2 > levelData.length) {
+    throw new Error("invalid level data");
+  }
+
+  const lowerSize = readUint16(levelData, upperEnd);
+  const lowerStart = upperEnd + 2;
+  const lowerEnd = lowerStart + lowerSize;
+  if (lowerEnd + 2 > levelData.length) {
+    throw new Error("invalid level data");
+  }
+
+  const normalizedGameplayFields = [...gameplayFields].sort((left, right) => left.id - right.id);
+  const metadataSize = normalizedGameplayFields.reduce((total, field) => total + field.bytes.length, 0);
+  const normalized = new Uint8Array(10 + upperSize + 2 + lowerSize + 2 + metadataSize);
+
+  normalized[4] = chipsRequired & 0xff;
+  normalized[5] = (chipsRequired >> 8) & 0xff;
+  normalized[8] = upperSize & 0xff;
+  normalized[9] = (upperSize >> 8) & 0xff;
+  normalized.set(levelData.slice(upperStart, upperEnd), upperStart);
+
+  let cursor = upperEnd;
+  normalized[cursor] = lowerSize & 0xff;
+  normalized[cursor + 1] = (lowerSize >> 8) & 0xff;
+  cursor += 2;
+  normalized.set(levelData.slice(lowerStart, lowerEnd), cursor);
+  cursor += lowerSize;
+  normalized[cursor] = metadataSize & 0xff;
+  normalized[cursor + 1] = (metadataSize >> 8) & 0xff;
+  cursor += 2;
+  for (const field of normalizedGameplayFields) {
+    normalized.set(field.bytes, cursor);
+    cursor += field.bytes.length;
+  }
+
+  return computeLegacyLevelHash(normalized);
+}
+
+function parseLevel(levelData: Uint8Array, index: number): SeriesLevel {
+  if (levelData.length < 10) {
+    throw new Error("invalid level data");
+  }
+
+  const number = readUint16(levelData, 0);
+  const metadata = parseLegacyLevelMetadata(levelData);
+
+  return {
+    index,
+    number,
+    name: metadata.name,
+    author: metadata.author,
+    password: metadata.password,
+    timeLimitSeconds: metadata.timeLimitSeconds,
+    chipsRequired: metadata.chipsRequired,
     bestTimeTicks: TIME_NIL,
     levelSize: levelData.length,
     solutionSize: 0,
     levelHash: computeLegacyLevelHash(levelData),
+    gameplayHash: computeLegacyLevelGameplayHash(levelData),
     hasSolution: false,
     sgflags: 0,
     unsolvable: null,

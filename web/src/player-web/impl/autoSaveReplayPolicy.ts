@@ -1,11 +1,11 @@
 import type {
-  BrowserLevelProgressSummary,
   BrowserLevelRunResult,
+  BrowserResolvedLevelProgressSummary,
 } from "@player-web/ports/BrowserProfileStore";
 
 export function shouldAutoSaveWinningHighScoreReplay(args: {
   enabled: boolean;
-  previousProgress: BrowserLevelProgressSummary | null;
+  previousProgress: BrowserResolvedLevelProgressSummary | null;
   result: BrowserLevelRunResult;
   score: number | null;
 }): boolean {

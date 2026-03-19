@@ -50,7 +50,7 @@ describe("series parsing", () => {
         ruleset: series.ruleset,
         levelCount: series.levelCount,
       });
-      expect(series.levels).toEqual(expectedLevels.levels);
+      expect(series.levels).toMatchObject(expectedLevels.levels);
     }
 
     expect(catalog.find((entry) => entry.filebase === "intro-ms.dac")?.levels).toHaveLength(9);

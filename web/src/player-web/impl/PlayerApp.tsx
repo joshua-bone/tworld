@@ -68,6 +68,7 @@ import type { SeriesCatalogEntry } from "@content/api/series";
 import { describeReplayEntry, listReplaysForCurrentLevel, listReplaysForSeriesLevel } from "@player-web/impl/modern/replayLibrary";
 import {
   type BrowserLevelProgressSummary,
+  type BrowserResolvedLevelProgressSummary,
   type BrowserReplayEntry,
   createDefaultBrowserProfilePreferences,
 } from "@player-web/ports/BrowserProfileStore";
@@ -519,7 +520,7 @@ interface PlayerAppProps {
   initialMode?: LegacyMode;
   initialReplayEntries?: BrowserReplayEntry[];
   initialSelection?: PlayableSelection | null;
-  knownLevelProgressSummary?: BrowserLevelProgressSummary | null;
+  knownLevelProgressSummary?: BrowserResolvedLevelProgressSummary | null;
   onExitGame?: () => void;
   onLevelProgressSaved?: (summary: BrowserLevelProgressSummary) => void;
   onSelectionChange?: (selection: PlayableSelection) => void;
@@ -696,11 +697,7 @@ export function PlayerApp({
           result: runResult,
         })
       : null;
-  const previousKnownLevelProgress =
-    session && knownLevelProgressSummary && knownLevelProgressSummary.seriesFile === session.request.seriesFile &&
-      knownLevelProgressSummary.levelNumber === session.request.levelNumber
-      ? knownLevelProgressSummary
-      : null;
+  const previousKnownLevelProgress = knownLevelProgressSummary;
   const canSaveReplay = Boolean(session?.run.replayAvailable && replayContextLevel && replayContextSeries);
   const currentLevelReplayEntries = session
     ? listReplaysForSeriesLevel(
@@ -906,7 +903,9 @@ export function PlayerApp({
         sessionMode: session?.mode ?? null,
         sessionStartedFromReplay: sessionStartedFromReplayRef.current,
       }) ||
-      !session
+      !session ||
+      !currentLevel ||
+      (session.request.ruleset !== "MS" && session.request.ruleset !== "Lynx")
     ) {
       return;
     }
@@ -922,13 +921,13 @@ export function PlayerApp({
     levelAttemptCountsRef.current.set(attemptKey, (levelAttemptCountsRef.current.get(attemptKey) ?? 0) + 1);
 
     const progressSummary: BrowserLevelProgressSummary = {
-      seriesFile: session.request.seriesFile,
-      levelNumber: session.request.levelNumber,
+      ruleset: session.request.ruleset,
+      gameplayHash: currentLevel.gameplayHash,
       lastPlayedAtMs: Date.now(),
       lastResult: result.outcome,
       bestResult: result.outcome,
-      lastScore: result.score?.finalScore ?? 0,
-      bestScore: result.score?.finalScore ?? 0,
+      lastElapsedTicks: Math.max(session.frame.snapshot.currentTime, 0),
+      bestElapsedTicks: Math.max(session.frame.snapshot.currentTime, 0),
       lastUndoUsedCount: session.run.undoUsedCount,
       bestUndoUsedCount: session.run.undoUsedCount,
     };
@@ -952,6 +951,7 @@ export function PlayerApp({
     onLevelProgressSaved,
     previousKnownLevelProgress,
     profileStore,
+    currentLevel,
     session,
   ]);
 

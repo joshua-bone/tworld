@@ -23,10 +23,12 @@ export interface SeriesLevel {
   author: string;
   password: string;
   timeLimitSeconds: number;
+  chipsRequired: number;
   bestTimeTicks: number;
   levelSize: number;
   solutionSize: number;
   levelHash: string;
+  gameplayHash: string;
   hasSolution: boolean;
   sgflags: number;
   unsolvable: string | null;

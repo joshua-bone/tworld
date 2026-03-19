@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import { buildCuratedCatalogView } from "@player-web/impl/modern/curatedCatalog";
+import { buildRecentFamilyActivities, describeLevelDisplayStatus } from "@player-web/impl/modern/familyActivity";
+import { buildLevelProgressIndex, resolveLevelProgressSummary, summarizeEntryProgress } from "@player-web/impl/levelProgress";
 import type { BrowserLevelProgressSummary } from "@player-web/ports/BrowserProfileStore";
-import {
-  buildLevelProgressIndex,
-  buildRecentFamilyActivities,
-  describeLevelDisplayStatus,
-  summarizeEntryProgress,
-} from "@player-web/impl/modern/familyActivity";
+import type { BrowserResolvedLevelProgressSummary } from "@player-web/ports/BrowserProfileStore";
 
 function createLevels(levelCount: number, prefix: string, withSolutions = false): SeriesLevel[] {
   return Array.from({ length: levelCount }, (_, index) => ({
@@ -17,10 +14,12 @@ function createLevels(levelCount: number, prefix: string, withSolutions = false)
     author: "Test",
     password: `P${String(index + 1).padStart(3, "0")}`,
     timeLimitSeconds: 100,
+    chipsRequired: 0,
     bestTimeTicks: 0,
     levelSize: 0,
     solutionSize: 0,
     levelHash: `${prefix}:${index + 1}`,
+    gameplayHash: `${prefix}:gameplay:${index + 1}`,
     hasSolution: withSolutions && index % 2 === 0,
     sgflags: 0,
     unsolvable: null,
@@ -44,19 +43,27 @@ function createEntry(
 }
 
 function createProgressSummary(
-  overrides: Partial<BrowserLevelProgressSummary> & Pick<BrowserLevelProgressSummary, "seriesFile" | "levelNumber">,
+  overrides: Partial<BrowserLevelProgressSummary> & Pick<BrowserLevelProgressSummary, "ruleset" | "gameplayHash">,
 ): BrowserLevelProgressSummary {
   return {
-    seriesFile: overrides.seriesFile,
-    levelNumber: overrides.levelNumber,
+    ruleset: overrides.ruleset,
+    gameplayHash: overrides.gameplayHash,
     lastPlayedAtMs: overrides.lastPlayedAtMs ?? 0,
     lastResult: overrides.lastResult ?? "failed",
     bestResult: overrides.bestResult ?? "failed",
-    lastScore: overrides.lastScore ?? 0,
-    bestScore: overrides.bestScore ?? 0,
+    lastElapsedTicks: overrides.lastElapsedTicks ?? 100,
+    bestElapsedTicks: overrides.bestElapsedTicks ?? 100,
     lastUndoUsedCount: overrides.lastUndoUsedCount ?? 0,
     bestUndoUsedCount: overrides.bestUndoUsedCount ?? 0,
   };
+}
+
+function resolveProgress(
+  level: SeriesLevel,
+  ruleset: "MS" | "Lynx",
+  progress: BrowserLevelProgressSummary | null,
+): BrowserResolvedLevelProgressSummary | null {
+  return resolveLevelProgressSummary(level, ruleset, buildLevelProgressIndex(progress ? [progress] : []));
 }
 
 describe("familyActivity", () => {
@@ -70,17 +77,17 @@ describe("familyActivity", () => {
     ).officialFamilies[0]!;
     const progressByKey = buildLevelProgressIndex([
       createProgressSummary({
-        seriesFile: "CCLP1-MS.dac",
-        levelNumber: 1,
+        ruleset: "MS",
+        gameplayHash: "CCLP1-MS.dac:gameplay:1",
         lastPlayedAtMs: 100,
         lastResult: "completed-clean",
         bestResult: "completed-clean",
-        lastScore: 850,
-        bestScore: 850,
+        lastElapsedTicks: 50,
+        bestElapsedTicks: 50,
       }),
       createProgressSummary({
-        seriesFile: "CCLP1-Lynx.dac",
-        levelNumber: 2,
+        ruleset: "Lynx",
+        gameplayHash: "CCLP1-Lynx.dac:gameplay:2",
         lastPlayedAtMs: 200,
         lastResult: "failed",
         bestResult: "failed",
@@ -137,13 +144,17 @@ describe("familyActivity", () => {
     expect(
       describeLevelDisplayStatus(
         levels[1]!,
-        createProgressSummary({
-          seriesFile: "Test.dac",
-          levelNumber: 2,
-          lastPlayedAtMs: 50,
-          lastResult: "failed",
-          bestResult: "failed",
-        }),
+        resolveProgress(
+          levels[1]!,
+          "MS",
+          createProgressSummary({
+            ruleset: "MS",
+            gameplayHash: "Test:gameplay:2",
+            lastPlayedAtMs: 50,
+            lastResult: "failed",
+            bestResult: "failed",
+          }),
+        ),
       ),
     ).toEqual({
       completionState: "Attempted",
@@ -158,14 +169,18 @@ describe("familyActivity", () => {
     expect(
       describeLevelDisplayStatus(
         level,
-        createProgressSummary({
-          seriesFile: "Status.dac",
-          levelNumber: 1,
-          bestResult: "completed-clean",
-          lastResult: "completed-clean",
-          bestScore: 900,
-          lastScore: 900,
-        }),
+        resolveProgress(
+          level,
+          "MS",
+          createProgressSummary({
+            ruleset: "MS",
+            gameplayHash: "Status:gameplay:1",
+            bestResult: "completed-clean",
+            lastResult: "completed-clean",
+            bestElapsedTicks: 50,
+            lastElapsedTicks: 50,
+          }),
+        ),
       ),
     ).toEqual({
       completionState: "Completed",
@@ -175,16 +190,20 @@ describe("familyActivity", () => {
     expect(
       describeLevelDisplayStatus(
         level,
-        createProgressSummary({
-          seriesFile: "Status.dac",
-          levelNumber: 1,
-          bestResult: "completed-with-undo",
-          lastResult: "completed-with-undo",
-          bestScore: 450,
-          lastScore: 450,
-          bestUndoUsedCount: 2,
-          lastUndoUsedCount: 2,
-        }),
+        resolveProgress(
+          level,
+          "MS",
+          createProgressSummary({
+            ruleset: "MS",
+            gameplayHash: "Status:gameplay:1",
+            bestResult: "completed-with-undo",
+            lastResult: "completed-with-undo",
+            bestElapsedTicks: 50,
+            lastElapsedTicks: 50,
+            bestUndoUsedCount: 2,
+            lastUndoUsedCount: 2,
+          }),
+        ),
       ),
     ).toEqual({
       completionState: "Completed",

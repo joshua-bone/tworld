@@ -1,7 +1,7 @@
 import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
+import { mergeLevelProgressSummaries } from "@player-web/impl/levelProgress";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 import {
-  browserLevelRunResultRank,
   type BrowserLevelProgressSummary,
   type BrowserReplayEntry,
   type BrowserReplaySaveRequest,
@@ -158,24 +158,26 @@ function parseStoredLevelProgressSummaries(value: unknown): BrowserLevelProgress
     .flatMap((entry) => {
       if (
         !isRecord(entry) ||
-        typeof entry.seriesFile !== "string" ||
-        !Number.isInteger(entry.levelNumber) ||
+        !isBrowserPreferredRuleset(entry.ruleset) ||
+        typeof entry.gameplayHash !== "string" ||
         !Number.isFinite(entry.lastPlayedAtMs) ||
         !isLevelRunResult(entry.lastResult) ||
-        !isLevelRunResult(entry.bestResult)
+        !isLevelRunResult(entry.bestResult) ||
+        !Number.isFinite(entry.lastElapsedTicks) ||
+        !Number.isFinite(entry.bestElapsedTicks)
       ) {
         return [];
       }
 
       return [
         {
-          seriesFile: entry.seriesFile,
-          levelNumber: entry.levelNumber as number,
+          ruleset: entry.ruleset,
+          gameplayHash: entry.gameplayHash,
           lastPlayedAtMs: entry.lastPlayedAtMs as number,
           lastResult: normalizeLevelRunResult(entry.lastResult),
           bestResult: normalizeLevelRunResult(entry.bestResult),
-          lastScore: Number.isFinite(entry.lastScore) ? Number(entry.lastScore) : 0,
-          bestScore: Number.isFinite(entry.bestScore) ? Number(entry.bestScore) : 0,
+          lastElapsedTicks: Number(entry.lastElapsedTicks),
+          bestElapsedTicks: Number(entry.bestElapsedTicks),
           lastUndoUsedCount: Number.isInteger(entry.lastUndoUsedCount) ? Number(entry.lastUndoUsedCount) : 0,
           bestUndoUsedCount: Number.isInteger(entry.bestUndoUsedCount) ? Number(entry.bestUndoUsedCount) : 0,
         } satisfies BrowserLevelProgressSummary,
@@ -287,39 +289,6 @@ function mergeRecentSelections(
   ]
     .sort(compareRecentSelections)
     .slice(0, MAX_RECENT_SELECTIONS);
-}
-
-function levelProgressKey(summary: Pick<BrowserLevelProgressSummary, "seriesFile" | "levelNumber">): string {
-  return `${summary.seriesFile}#${String(summary.levelNumber)}`;
-}
-
-function mergeLevelProgressSummaries(
-  existing: readonly BrowserLevelProgressSummary[],
-  incoming: BrowserLevelProgressSummary,
-): BrowserLevelProgressSummary[] {
-  const byKey = new Map(existing.map((summary) => [levelProgressKey(summary), summary] as const));
-  const current = byKey.get(levelProgressKey(incoming));
-  const currentBestRank = current ? browserLevelRunResultRank(current.bestResult) : -1;
-  const incomingBestRank = browserLevelRunResultRank(incoming.bestResult);
-  const shouldReplaceBest =
-    incomingBestRank > currentBestRank ||
-    (incomingBestRank === currentBestRank && incoming.bestScore >= (current?.bestScore ?? Number.NEGATIVE_INFINITY));
-
-  byKey.set(levelProgressKey(incoming), {
-    seriesFile: incoming.seriesFile,
-    levelNumber: incoming.levelNumber,
-    lastPlayedAtMs: Math.max(current?.lastPlayedAtMs ?? 0, incoming.lastPlayedAtMs),
-    lastResult: incoming.lastResult,
-    bestResult: shouldReplaceBest ? incoming.bestResult : (current?.bestResult ?? incoming.bestResult),
-    lastScore: incoming.lastScore,
-    bestScore: shouldReplaceBest ? incoming.bestScore : (current?.bestScore ?? incoming.bestScore),
-    lastUndoUsedCount: incoming.lastUndoUsedCount,
-    bestUndoUsedCount: shouldReplaceBest
-      ? incoming.bestUndoUsedCount
-      : (current?.bestUndoUsedCount ?? incoming.bestUndoUsedCount),
-  });
-
-  return [...byKey.values()].sort((left, right) => right.lastPlayedAtMs - left.lastPlayedAtMs);
 }
 
 class IndexedDbBrowserProfileBackend implements BrowserProfilePersistenceBackend {

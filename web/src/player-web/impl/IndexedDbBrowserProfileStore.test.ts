@@ -143,13 +143,13 @@ describe("IndexedDbBrowserProfileStore", () => {
     });
     await store.recordRecentSelection({ seriesFile: "CCLP2.dac", levelNumber: 11 });
     await store.saveLevelProgressSummary({
-      seriesFile: "CCLP2.dac",
-      levelNumber: 11,
+      ruleset: "MS",
+      gameplayHash: "gameplay-hash:11",
       lastPlayedAtMs: 1234,
       lastResult: "completed-clean",
       bestResult: "completed-clean",
-      lastScore: 6000,
-      bestScore: 6000,
+      lastElapsedTicks: 120,
+      bestElapsedTicks: 120,
       lastUndoUsedCount: 0,
       bestUndoUsedCount: 0,
     });
@@ -186,13 +186,13 @@ describe("IndexedDbBrowserProfileStore", () => {
       ],
       levelProgressSummaries: [
         {
-          seriesFile: "CCLP2.dac",
-          levelNumber: 11,
+          ruleset: "MS",
+          gameplayHash: "gameplay-hash:11",
           lastPlayedAtMs: 1234,
           lastResult: "completed-clean",
           bestResult: "completed-clean",
-          lastScore: 6000,
-          bestScore: 6000,
+          lastElapsedTicks: 120,
+          bestElapsedTicks: 120,
           lastUndoUsedCount: 0,
           bestUndoUsedCount: 0,
         },
@@ -235,13 +235,13 @@ describe("IndexedDbBrowserProfileStore", () => {
     ]);
     expect(await restoredStore.loadLevelProgressSummaries()).toEqual([
       {
-        seriesFile: "CCLP2.dac",
-        levelNumber: 11,
+        ruleset: "MS",
+        gameplayHash: "gameplay-hash:11",
         lastPlayedAtMs: 1234,
         lastResult: "completed-clean",
         bestResult: "completed-clean",
-        lastScore: 6000,
-        bestScore: 6000,
+        lastElapsedTicks: 120,
+        bestElapsedTicks: 120,
         lastUndoUsedCount: 0,
         bestUndoUsedCount: 0,
       },
@@ -280,35 +280,35 @@ describe("IndexedDbBrowserProfileStore", () => {
       await store.recordRecentSelection({ seriesFile: "CCLP1-MS.dac", levelNumber: 3 });
       await store.recordRecentSelection({ seriesFile: "CCLP1-MS.dac", levelNumber: 2 });
       await store.saveLevelProgressSummary({
-        seriesFile: "CCLP1-MS.dac",
-        levelNumber: 2,
+        ruleset: "MS",
+        gameplayHash: "shared-hash",
         lastPlayedAtMs: 100,
         lastResult: "completed-clean",
         bestResult: "completed-clean",
-        lastScore: 900,
-        bestScore: 900,
+        lastElapsedTicks: 100,
+        bestElapsedTicks: 100,
         lastUndoUsedCount: 0,
         bestUndoUsedCount: 0,
       });
       await store.saveLevelProgressSummary({
-        seriesFile: "CCLP1-MS.dac",
-        levelNumber: 2,
+        ruleset: "MS",
+        gameplayHash: "shared-hash",
         lastPlayedAtMs: 150,
         lastResult: "completed-with-undo",
         bestResult: "completed-with-undo",
-        lastScore: 450,
-        bestScore: 450,
+        lastElapsedTicks: 150,
+        bestElapsedTicks: 150,
         lastUndoUsedCount: 2,
         bestUndoUsedCount: 2,
       });
       await store.saveLevelProgressSummary({
-        seriesFile: "CCLP1-MS.dac",
-        levelNumber: 2,
+        ruleset: "MS",
+        gameplayHash: "shared-hash",
         lastPlayedAtMs: 200,
         lastResult: "failed",
         bestResult: "failed",
-        lastScore: 0,
-        bestScore: 0,
+        lastElapsedTicks: 200,
+        bestElapsedTicks: 200,
         lastUndoUsedCount: 0,
         bestUndoUsedCount: 0,
       });
@@ -325,13 +325,13 @@ describe("IndexedDbBrowserProfileStore", () => {
       ]);
       expect(await store.loadLevelProgressSummaries()).toEqual([
         {
-          seriesFile: "CCLP1-MS.dac",
-          levelNumber: 2,
+          ruleset: "MS",
+          gameplayHash: "shared-hash",
           lastPlayedAtMs: 200,
           lastResult: "failed",
           bestResult: "completed-clean",
-          lastScore: 0,
-          bestScore: 900,
+          lastElapsedTicks: 200,
+          bestElapsedTicks: 100,
           lastUndoUsedCount: 0,
           bestUndoUsedCount: 0,
         },

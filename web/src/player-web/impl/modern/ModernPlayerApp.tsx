@@ -17,6 +17,13 @@ import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMe
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
 import {
+  buildLevelProgressIndex,
+  buildStoredLevelProgressKey,
+  mergeLevelProgressSummaries,
+  resolveLevelProgressSummary,
+  summarizeEntryProgress,
+} from "@player-web/impl/levelProgress";
+import {
   buildCuratedCatalogView,
   findSetFamilyById,
   findSetFamilyForSelection,
@@ -28,17 +35,12 @@ import {
   type SetFamily,
   type SetFamilyRuleset,
 } from "@player-web/impl/modern/curatedCatalog";
-import {
-  buildLevelProgressKey,
-  buildLevelProgressIndex,
-  describeLevelDisplayStatus,
-  summarizeEntryProgress,
-} from "@player-web/impl/modern/familyActivity";
+import { describeLevelDisplayStatus } from "@player-web/impl/modern/familyActivity";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import {
-  browserLevelRunResultRank,
   isCompletedBrowserLevelRunResult,
   type BrowserLevelProgressSummary,
+  type BrowserResolvedLevelProgressSummary,
   createDefaultBrowserProfilePreferences,
   type BrowserPreferredRuleset,
   type BrowserProfilePreferences,
@@ -189,7 +191,7 @@ function resolveFamilyRuleset(
 }
 
 function levelStatusTone(
-  progress: BrowserLevelProgressSummary | null,
+  progress: BrowserResolvedLevelProgressSummary | null,
 ): "clean" | "undo" | "attempted" | "unplayed" {
   if (!progress) {
     return "unplayed";
@@ -206,7 +208,7 @@ function levelStatusTone(
   return "attempted";
 }
 
-function levelStatusShortLabel(progress: BrowserLevelProgressSummary | null): string {
+function levelStatusShortLabel(progress: BrowserResolvedLevelProgressSummary | null): string {
   switch (levelStatusTone(progress)) {
     case "clean":
       return "✓";
@@ -219,7 +221,7 @@ function levelStatusShortLabel(progress: BrowserLevelProgressSummary | null): st
   }
 }
 
-function levelStatusLongLabel(progress: BrowserLevelProgressSummary | null): string {
+function levelStatusLongLabel(progress: BrowserResolvedLevelProgressSummary | null): string {
   switch (levelStatusTone(progress)) {
     case "clean":
       return "Cleared clean";
@@ -267,39 +269,6 @@ function formatFamilyClearedMeta(
   }
 
   return `Cleared: ${parts.join(" ")}`;
-}
-
-function levelProgressSummaryKey(summary: Pick<BrowserLevelProgressSummary, "seriesFile" | "levelNumber">): string {
-  return `${summary.seriesFile}#${String(summary.levelNumber)}`;
-}
-
-function mergeLevelProgressSummaries(
-  existing: readonly BrowserLevelProgressSummary[],
-  incoming: BrowserLevelProgressSummary,
-): BrowserLevelProgressSummary[] {
-  const byKey = new Map(existing.map((summary) => [levelProgressSummaryKey(summary), summary] as const));
-  const current = byKey.get(levelProgressSummaryKey(incoming));
-  const currentBestRank = current ? browserLevelRunResultRank(current.bestResult) : -1;
-  const incomingBestRank = browserLevelRunResultRank(incoming.bestResult);
-  const shouldReplaceBest =
-    incomingBestRank > currentBestRank ||
-    (incomingBestRank === currentBestRank && incoming.bestScore >= (current?.bestScore ?? Number.NEGATIVE_INFINITY));
-
-  byKey.set(levelProgressSummaryKey(incoming), {
-    seriesFile: incoming.seriesFile,
-    levelNumber: incoming.levelNumber,
-    lastPlayedAtMs: Math.max(current?.lastPlayedAtMs ?? 0, incoming.lastPlayedAtMs),
-    lastResult: incoming.lastResult,
-    bestResult: shouldReplaceBest ? incoming.bestResult : (current?.bestResult ?? incoming.bestResult),
-    lastScore: incoming.lastScore,
-    bestScore: shouldReplaceBest ? incoming.bestScore : (current?.bestScore ?? incoming.bestScore),
-    lastUndoUsedCount: incoming.lastUndoUsedCount,
-    bestUndoUsedCount: shouldReplaceBest
-      ? incoming.bestUndoUsedCount
-      : (current?.bestUndoUsedCount ?? incoming.bestUndoUsedCount),
-  });
-
-  return [...byKey.values()].sort((left, right) => right.lastPlayedAtMs - left.lastPlayedAtMs);
 }
 
 function RulesetToggle({
@@ -474,7 +443,7 @@ function LevelRow({
   isActive: boolean;
   level: SeriesLevel;
   onSelect: (levelNumber: number) => void;
-  progress: BrowserLevelProgressSummary | null;
+  progress: BrowserResolvedLevelProgressSummary | null;
 }) {
   const medalTone = levelStatusTone(progress);
   return (
@@ -728,7 +697,7 @@ export function ModernPlayerApp({
     activeFamily && activeRuleset && activeLevel ? resolveSetFamilySelection(activeFamily, activeRuleset, activeLevel.number) : null;
   const progressByKey = useMemo(() => buildLevelProgressIndex(levelProgressSummaries), [levelProgressSummaries]);
   const activeLevelProgress =
-    activeEntry && activeLevel ? progressByKey.get(buildLevelProgressKey(activeEntry.filebase, activeLevel.number)) ?? null : null;
+    activeLevel && activeRuleset ? resolveLevelProgressSummary(activeLevel, activeRuleset, progressByKey) : null;
   const activeLevelStatus = activeLevel ? describeLevelDisplayStatus(activeLevel, activeLevelProgress) : null;
   const activeEntryProgress = summarizeEntryProgress(activeEntry, progressByKey);
   const visibleFamilies = useMemo(() => listFamiliesForTab(curated, activeTab), [curated, activeTab]);
@@ -737,7 +706,7 @@ export function ModernPlayerApp({
   const activeLevelRowRef = useRef<HTMLButtonElement | null>(null);
 
   const triggerCompletedLevelBadgeAnimation = useEffectEvent((summary: BrowserLevelProgressSummary) => {
-    const key = buildLevelProgressKey(summary.seriesFile, summary.levelNumber);
+    const key = buildStoredLevelProgressKey(summary);
     setAnimatedLevelBadgeKey(key);
     if (badgeAnimationTimeoutRef.current !== null) {
       window.clearTimeout(badgeAnimationTimeoutRef.current);
@@ -1276,10 +1245,15 @@ export function ModernPlayerApp({
                 {activeEntry ? (
                   <div className="modern-level-sidebar" role="list">
                     {activeEntry.levels.map((level) => {
-                      const progress = progressByKey.get(buildLevelProgressKey(activeEntry.filebase, level.number)) ?? null;
+                      const progress =
+                        activeEntry.ruleset === "MS" || activeEntry.ruleset === "Lynx"
+                          ? resolveLevelProgressSummary(level, activeEntry.ruleset, progressByKey)
+                          : null;
                       return (
                         <LevelRow
-                          animatedBadge={animatedLevelBadgeKey === buildLevelProgressKey(activeEntry.filebase, level.number)}
+                          animatedBadge={
+                            progress !== null && animatedLevelBadgeKey === buildStoredLevelProgressKey(progress)
+                          }
                           buttonRef={activeLevel?.number === level.number ? activeLevelRowRef : undefined}
                           isActive={activeLevel?.number === level.number}
                           key={`${activeEntry.filebase}:${level.number}`}
