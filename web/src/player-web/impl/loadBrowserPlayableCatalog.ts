@@ -1,9 +1,9 @@
 import type { SeriesCatalogEntry } from "@content/api/series";
-import { loadSeriesCatalog } from "@level-catalog/impl/loadSeriesCatalog";
 import {
   listBrowserSeriesCatalogFiles,
   loadBrowserSeriesCatalogEntries,
 } from "@level-catalog/impl/loadBrowserSeriesCatalogEntries";
+import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
 import { listSetFamilyFilebasesForSeriesFile } from "@player-web/impl/modern/curatedCatalog";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
@@ -44,7 +44,7 @@ export function resolveModernBootstrapCatalogOptions(
 }
 
 export async function loadBrowserPlayableCatalog(
-  services: Pick<BrowserAppServices, "fixtureRepository" | "listImportedCatalogEntries">,
+  services: Pick<BrowserAppServices, "listImportedCatalogEntries">,
   options: LoadBrowserPlayableCatalogOptions = {},
 ): Promise<SeriesCatalogEntry[]> {
   const { includeImported = true, seriesFiles } = options;
@@ -53,11 +53,11 @@ export async function loadBrowserPlayableCatalog(
     includeImported ? services.listImportedCatalogEntries() : Promise.resolve([]),
   ]);
 
-  return loadSeriesCatalog(services.fixtureRepository, [...browserEntries, ...importedEntries]);
+  return mergeSeriesCatalogEntries(browserEntries, importedEntries);
 }
 
 export async function loadModernBootstrapPlayableCatalog(
-  services: Pick<BrowserAppServices, "fixtureRepository" | "listImportedCatalogEntries">,
+  services: Pick<BrowserAppServices, "listImportedCatalogEntries">,
   selection: PlayableSelection | null,
 ): Promise<SeriesCatalogEntry[]> {
   const bootstrapCatalog = await loadBrowserPlayableCatalog(
