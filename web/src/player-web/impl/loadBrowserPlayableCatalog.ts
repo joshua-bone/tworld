@@ -14,6 +14,7 @@ interface LoadBrowserPlayableCatalogOptions {
 }
 
 export const DEFAULT_MODERN_BOOTSTRAP_SERIES_FILES = ["CCLP1-MS.dac", "CCLP1-Lynx.dac"] as const;
+export const MODERN_DEFERRED_CATALOG_BATCH_SIZE = 1;
 
 export function resolveModernBootstrapCatalogOptions(
   selection: PlayableSelection | null,
@@ -41,6 +42,24 @@ export function resolveModernBootstrapCatalogOptions(
     includeImported: true,
     seriesFiles: [],
   };
+}
+
+export function resolveModernDeferredCatalogBatches(
+  selection: PlayableSelection | null,
+  availableBrowserSeriesFiles: readonly string[] = listBrowserSeriesCatalogFiles(),
+  batchSize = MODERN_DEFERRED_CATALOG_BATCH_SIZE,
+): string[][] {
+  const bootstrapSeriesFiles = new Set(
+    resolveModernBootstrapCatalogOptions(selection, availableBrowserSeriesFiles).seriesFiles ?? [],
+  );
+  const deferredSeriesFiles = availableBrowserSeriesFiles.filter((seriesFile) => !bootstrapSeriesFiles.has(seriesFile));
+  const batches: string[][] = [];
+
+  for (let index = 0; index < deferredSeriesFiles.length; index += batchSize) {
+    batches.push(deferredSeriesFiles.slice(index, index + batchSize));
+  }
+
+  return batches;
 }
 
 export async function loadBrowserPlayableCatalog(

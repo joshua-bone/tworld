@@ -18,6 +18,8 @@ import { copyTextToClipboard } from "@player-web/impl/clipboard";
 import {
   loadBrowserPlayableCatalog,
   loadModernBootstrapPlayableCatalog,
+  resolveModernBootstrapCatalogOptions,
+  resolveModernDeferredCatalogBatches,
 } from "@player-web/impl/loadBrowserPlayableCatalog";
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
@@ -101,6 +103,38 @@ interface DashboardStyle extends CSSProperties {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+type IdleCallbackHandle = number;
+type IdleDeadline = {
+  didTimeout: boolean;
+  timeRemaining: () => number;
+};
+
+function waitForBrowserIdle(timeoutMs = 120): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.resolve();
+  }
+
+  const windowWithIdleCallback = window as Window & {
+    cancelIdleCallback?: (handle: IdleCallbackHandle) => void;
+    requestIdleCallback?: (
+      callback: (deadline: IdleDeadline) => void,
+      options?: { timeout: number },
+    ) => IdleCallbackHandle;
+  };
+
+  if (typeof windowWithIdleCallback.requestIdleCallback === "function") {
+    return new Promise((resolve) => {
+      windowWithIdleCallback.requestIdleCallback?.(() => {
+        resolve();
+      }, { timeout: timeoutMs });
+    });
+  }
+
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, 16);
+  });
 }
 
 function estimateSetsPaneWidth(activeFamily: SetFamily | null, visibleFamilies: readonly SetFamily[]): number {
@@ -610,6 +644,8 @@ export function ModernPlayerApp({
       .then(async ([storedSelection, storedPreferences, storedLevelProgressSummaries]) => {
         const launch = await resolveUrlLaunchSelection(services, storedSelection);
         const initialSelection = launch.selection;
+        const bootstrapOptions = resolveModernBootstrapCatalogOptions(initialSelection);
+        const deferredCatalogBatches = resolveModernDeferredCatalogBatches(initialSelection);
         const bootstrapCatalog = await loadModernBootstrapPlayableCatalog(services, initialSelection);
         if (!active) {
           return;
@@ -645,24 +681,54 @@ export function ModernPlayerApp({
           setIsCatalogLoading(false);
         });
 
-        void loadBrowserPlayableCatalog(services)
-          .then((nextCatalog) => {
-            if (!active) {
-              return;
+        void (async () => {
+          try {
+            if (!bootstrapOptions.includeImported) {
+              await waitForBrowserIdle();
+              if (!active) {
+                return;
+              }
+
+              const importedEntries = await loadBrowserPlayableCatalog(services, {
+                includeImported: true,
+                seriesFiles: [],
+              });
+              if (!active) {
+                return;
+              }
+              if (importedEntries.length > 0) {
+                startTransition(() => {
+                  setCatalog((current) => mergeSeriesCatalogEntries(current, importedEntries));
+                });
+              }
             }
 
-            startTransition(() => {
-              setCatalog(nextCatalog);
-              setMessage((current) => current ?? launch.message);
-            });
-          })
-          .catch((error: unknown) => {
+            for (const batch of deferredCatalogBatches) {
+              await waitForBrowserIdle();
+              if (!active) {
+                return;
+              }
+
+              const nextCatalogBatch = await loadBrowserPlayableCatalog(services, {
+                includeImported: false,
+                seriesFiles: batch,
+              });
+              if (!active || nextCatalogBatch.length === 0) {
+                continue;
+              }
+
+              startTransition(() => {
+                setCatalog((current) => mergeSeriesCatalogEntries(current, nextCatalogBatch));
+              });
+            }
+          } catch (error: unknown) {
             if (!active) {
               return;
             }
 
             setMessage((current) => current ?? (error instanceof Error ? error.message : String(error)));
-          });
+          }
+        })();
       })
       .catch((error: unknown) => {
         if (!active) {

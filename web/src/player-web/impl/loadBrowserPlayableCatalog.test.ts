@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveModernBootstrapCatalogOptions } from "@player-web/impl/loadBrowserPlayableCatalog";
+import {
+  resolveModernBootstrapCatalogOptions,
+  resolveModernDeferredCatalogBatches,
+} from "@player-web/impl/loadBrowserPlayableCatalog";
 
 describe("resolveModernBootstrapCatalogOptions", () => {
   it("falls back to the default bootstrap set when no prior selection exists", () => {
@@ -43,5 +46,34 @@ describe("resolveModernBootstrapCatalogOptions", () => {
       includeImported: true,
       seriesFiles: [],
     });
+  });
+});
+
+describe("resolveModernDeferredCatalogBatches", () => {
+  it("defers every non-bootstrap built-in wrapper when starting from the default set", () => {
+    expect(
+      resolveModernDeferredCatalogBatches(
+        null,
+        ["CCLP1-MS.dac", "CCLP1-Lynx.dac", "CCLP4-MS.dac", "CCLP4-Lynx.dac"],
+      ),
+    ).toEqual([["CCLP4-MS.dac"], ["CCLP4-Lynx.dac"]]);
+  });
+
+  it("defers every non-family wrapper when bootstrapping a specific built-in family", () => {
+    expect(
+      resolveModernDeferredCatalogBatches(
+        { seriesFile: "CCLP4-Lynx.dac", levelNumber: 12 },
+        ["CCLP1-MS.dac", "CCLP1-Lynx.dac", "CCLP4-MS.dac", "CCLP4-Lynx.dac"],
+      ),
+    ).toEqual([["CCLP1-MS.dac"], ["CCLP1-Lynx.dac"]]);
+  });
+
+  it("defers all built-in wrappers when bootstrapping an uploaded set", () => {
+    expect(
+      resolveModernDeferredCatalogBatches(
+        { seriesFile: "MyPack (Lynx)", levelNumber: 3 },
+        ["CCLP1-MS.dac", "CCLP1-Lynx.dac", "CCLP4-Lynx.dac"],
+      ),
+    ).toEqual([["CCLP1-MS.dac"], ["CCLP1-Lynx.dac"], ["CCLP4-Lynx.dac"]]);
   });
 });
