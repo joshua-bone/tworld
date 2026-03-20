@@ -98,6 +98,15 @@ export class WorkerBackedInteractiveGameEngine implements InteractiveGameEngineP
     return requestId;
   }
 
+  warmup(): void {
+    void this.request({
+      id: this.nextId(),
+      type: "ping",
+    }).catch(() => {
+      // Ignore warmup failures; gameplay will surface real worker issues later.
+    });
+  }
+
   private sessionId(session: InteractiveGameSession): number {
     const sessionId = readWorkerInteractiveGameSessionId(session.handle);
     if (sessionId === null) {

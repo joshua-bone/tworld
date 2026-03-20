@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createBrowserAppServices } from "@player-web/compose/createBrowserAppServices";
-import type { LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
+import { prewarmLegacyTileset, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import {
   pathForShellMode,
   resolveShellModeFromPathname,
@@ -31,6 +31,26 @@ export function App() {
     window.addEventListener("popstate", handlePopState);
     return () => {
       window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    prewarmLegacyTileset("Lynx");
+
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(() => {
+        prewarmLegacyTileset("MS");
+      });
+      return () => {
+        window.cancelIdleCallback(idleId);
+      };
+    }
+
+    const timeoutId = globalThis.setTimeout(() => {
+      prewarmLegacyTileset("MS");
+    }, 500);
+    return () => {
+      globalThis.clearTimeout(timeoutId);
     };
   }, []);
 

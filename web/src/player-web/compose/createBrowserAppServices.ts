@@ -22,6 +22,7 @@ export function createBrowserAppServices(): BrowserAppServices {
         Lynx: workerEngine,
       }
     : directEngines;
+  workerEngine?.warmup();
 
   const importDatBytes = async (filename: string, datBytes: Uint8Array) => {
     const datHash = await computeDatContentHash(datBytes);

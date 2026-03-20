@@ -39,6 +39,8 @@ function toClientSession(sessionId: number, session: InteractiveGameSession): In
 
 async function handleRequest(request: InteractiveGameWorkerRequest): Promise<InteractiveGameWorkerResponse> {
   switch (request.type) {
+    case "ping":
+      return { id: request.id };
     case "start-session": {
       const engine = engines[request.request.ruleset];
       const session = await engine.startSession(request.request, request.options);

@@ -31,6 +31,10 @@ export function readWorkerInteractiveGameSessionId(handle: InteractiveGameSessio
 export type InteractiveGameWorkerRequest =
   | {
       id: number;
+      type: "ping";
+    }
+  | {
+      id: number;
       type: "start-session";
       request: GameRequest;
       options?: InteractiveGameSessionStartOptions;

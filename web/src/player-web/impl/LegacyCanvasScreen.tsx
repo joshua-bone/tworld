@@ -79,6 +79,15 @@ const ELEVATOR_BASE_COLOR = "#2f9f4a";
 const ELEVATOR_EDGE_COLOR = "#0e401d";
 const ELEVATOR_PANEL_COLOR = "#154d23";
 const ELEVATOR_TEXT_COLOR = "#d9ffd7";
+type LegacyTilesetRuleset = "MS" | "Lynx";
+
+const LEGACY_TILESET_URLS: Record<LegacyTilesetRuleset, string> = {
+  MS: msTilesUrl,
+  Lynx: lynxTilesUrl,
+};
+
+const legacyTilesetCache = new Map<LegacyTilesetRuleset, LegacyTileset>();
+const legacyTilesetPromiseCache = new Map<LegacyTilesetRuleset, Promise<LegacyTileset>>();
 
 interface LegacyLayerCanvasCacheEntry {
   key: string;
@@ -98,6 +107,56 @@ function createCanvas(width: number, height: number): HTMLCanvasElement {
   canvas.width = width;
   canvas.height = height;
   return canvas;
+}
+
+function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset> {
+  const cached = legacyTilesetCache.get(ruleset);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
+
+  const pending = legacyTilesetPromiseCache.get(ruleset);
+  if (pending) {
+    return pending;
+  }
+
+  const nextPromise = new Promise<LegacyTileset>((resolve, reject) => {
+    const image = new Image();
+    image.src = LEGACY_TILESET_URLS[ruleset];
+    image.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          throw new Error("Unable to create legacy tileset canvas");
+        }
+
+        context.drawImage(image, 0, 0);
+        const tileset = buildLegacyTileset(canvas, ruleset);
+        legacyTilesetCache.set(ruleset, tileset);
+        resolve(tileset);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    image.onerror = () => {
+      reject(new Error(`Failed to load ${ruleset} legacy tileset image.`));
+    };
+  });
+
+  legacyTilesetPromiseCache.set(ruleset, nextPromise);
+  void nextPromise.catch(() => {
+    legacyTilesetPromiseCache.delete(ruleset);
+  });
+  return nextPromise;
+}
+
+export function prewarmLegacyTileset(ruleset: LegacyTilesetRuleset): void {
+  void loadLegacyTileset(ruleset).catch((error) => {
+    console.error(`Failed to prewarm ${ruleset} legacy tileset`, error);
+  });
 }
 
 function createLayerCanvasCache(): LegacyLayerCanvasCache {
@@ -1093,39 +1152,40 @@ function buildGameDrawStateKey(
 }
 
 function useLegacyTileset(ruleset: "MS" | "Lynx" | null): LegacyTileset | null {
-  const [tileset, setTileset] = useState<LegacyTileset | null>(null);
-  const tilesUrl = ruleset === "Lynx" ? lynxTilesUrl : msTilesUrl;
+  const [tileset, setTileset] = useState<LegacyTileset | null>(() =>
+    ruleset ? legacyTilesetCache.get(ruleset) ?? null : null,
+  );
 
   useEffect(() => {
+    if (!ruleset) {
+      setTileset(null);
+      return;
+    }
+
     let active = true;
-    const image = new Image();
+    const cached = legacyTilesetCache.get(ruleset);
+    if (cached) {
+      setTileset(cached);
+      return;
+    }
+
     setTileset(null);
-    image.src = tilesUrl;
-    image.onload = () => {
-      if (!active) {
-        return;
-      }
+    void loadLegacyTileset(ruleset)
+      .then((nextTileset) => {
+        if (!active) {
+          return;
+        }
 
-      const canvas = document.createElement("canvas");
-      canvas.width = image.width;
-      canvas.height = image.height;
-      const context = canvas.getContext("2d");
-      if (!context) {
-        return;
-      }
-
-      context.drawImage(image, 0, 0);
-      try {
-        setTileset(buildLegacyTileset(canvas, ruleset === "Lynx" ? "Lynx" : "MS"));
-      } catch (error) {
+        setTileset(nextTileset);
+      })
+      .catch((error) => {
         console.error("Failed to decode legacy tileset", error);
-      }
-    };
+      });
 
     return () => {
       active = false;
     };
-  }, [ruleset, tilesUrl]);
+  }, [ruleset]);
 
   return tileset;
 }
