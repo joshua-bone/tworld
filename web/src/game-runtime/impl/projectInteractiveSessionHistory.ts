@@ -5,8 +5,11 @@ import {
   latestUndoTick,
   previousUndoCheckpointTick,
   previousUndoTick,
+  previousUndoTicks,
 } from "@undo-runtime/impl/history";
 import type { InteractiveSessionRestoreState } from "@game-runtime/impl/interactiveHandle";
+
+const INTERACTIVE_SESSION_RECENT_TICK_COUNT = 8;
 
 export function projectInteractiveSessionHistory<TSession>(
   history: UndoHistory<TSession>,
@@ -19,6 +22,7 @@ export function projectInteractiveSessionHistory<TSession>(
     currentTick,
     latestTick: latestUndoTick(history),
     checkpointTicks: checkpointsForTimeline(history).map((checkpoint) => checkpoint.tick),
+    recentTicks: previousUndoTicks(history, currentTick, INTERACTIVE_SESSION_RECENT_TICK_COUNT),
     previousTick: previousUndoTick(history, currentTick),
     previousCheckpointTick: previousUndoCheckpointTick(history, currentTick),
     timelineId: history.branchMetadata.currentTimelineId,

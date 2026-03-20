@@ -37,6 +37,7 @@ export function projectInteractiveGameSession({
     history: {
       ...history,
       checkpointTicks: [...history.checkpointTicks],
+      recentTicks: [...(history.recentTicks ?? [])],
     },
     run: {
       ...run,

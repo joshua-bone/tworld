@@ -147,6 +147,22 @@ export function previousUndoTick<TSession>(
   return recordedTicksForTimeline(history, timelineId).filter((tick) => tick < currentTick).at(-1) ?? null;
 }
 
+export function previousUndoTicks<TSession>(
+  history: UndoHistory<TSession>,
+  currentTick: number,
+  count: number,
+  timelineId = history.branchMetadata.currentTimelineId,
+): number[] {
+  if (!history.settingsSnapshot.enabled || count <= 0) {
+    return [];
+  }
+
+  return recordedTicksForTimeline(history, timelineId)
+    .filter((tick) => tick < currentTick)
+    .slice(-count)
+    .reverse();
+}
+
 export function previousUndoCheckpointTick<TSession>(
   history: UndoHistory<TSession>,
   currentTick: number,

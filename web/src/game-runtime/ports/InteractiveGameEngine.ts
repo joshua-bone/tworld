@@ -17,6 +17,7 @@ export interface InteractiveGameSessionHistory {
   currentTick: number;
   latestTick: number;
   checkpointTicks: number[];
+  recentTicks?: number[];
   previousTick: number | null;
   previousCheckpointTick: number | null;
   timelineId: string;

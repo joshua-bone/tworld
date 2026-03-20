@@ -10,6 +10,7 @@ function makeSession(currentTick: number, latestTick = 400, initialTick = -1): I
       currentTick,
       latestTick,
       checkpointTicks: [initialTick, 20, 40, 80, 160, 320, latestTick],
+      recentTicks: currentTick > initialTick ? [currentTick - 1] : [],
       previousTick: currentTick > initialTick ? currentTick - 1 : null,
       previousCheckpointTick: currentTick > initialTick ? currentTick - 20 : null,
       timelineId: "main",
