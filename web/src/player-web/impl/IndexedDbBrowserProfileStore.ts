@@ -301,12 +301,18 @@ class IndexedDbBrowserProfileBackend implements BrowserProfilePersistenceBackend
     }
 
     this.databasePromise = new Promise<IDBDatabase>((resolve, reject) => {
-      if (typeof window === "undefined" || !("indexedDB" in window)) {
+      const indexedDbApi =
+        typeof indexedDB !== "undefined"
+          ? indexedDB
+          : typeof window !== "undefined" && "indexedDB" in window
+            ? window.indexedDB
+            : null;
+      if (!indexedDbApi) {
         reject(new Error("IndexedDB is unavailable in this environment."));
         return;
       }
 
-      const request = window.indexedDB.open(PROFILE_DB_NAME, PROFILE_DB_VERSION);
+      const request = indexedDbApi.open(PROFILE_DB_NAME, PROFILE_DB_VERSION);
       request.onerror = () => {
         reject(request.error ?? new Error("Failed to open browser profile database."));
       };

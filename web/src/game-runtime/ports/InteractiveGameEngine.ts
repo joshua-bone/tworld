@@ -100,4 +100,5 @@ export interface InteractiveGameEnginePort {
   advanceSession(session: InteractiveGameSession, input: InteractiveInput): Promise<InteractiveGameSession>;
   restoreSession(session: InteractiveGameSession, targetTick: number): Promise<InteractiveGameSession>;
   resumeSession(session: InteractiveGameSession): Promise<InteractiveGameSession>;
+  disposeSession?(session: InteractiveGameSession): Promise<void>;
 }

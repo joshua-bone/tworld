@@ -644,6 +644,17 @@ export function PlayerApp({
   const pendingSessionUiSyncRef = useRef<number | null>(null);
   const lastSessionUiSyncAtRef = useRef(0);
 
+  const disposeSessionIfOwned = useEffectEvent((sessionToDispose: InteractiveGameSession | null) => {
+    if (!sessionToDispose) {
+      return;
+    }
+
+    const engine = interactiveEngineForRuleset(sessionToDispose.request.ruleset, engines);
+    void engine.disposeSession?.(sessionToDispose).catch(() => {
+      // Ignore disposal failures; session lifetime should not block gameplay.
+    });
+  });
+
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
   const currentSeriesRuleset = currentSeries?.ruleset ?? null;
@@ -861,8 +872,10 @@ export function PlayerApp({
         window.clearTimeout(pendingSessionUiSyncRef.current);
         pendingSessionUiSyncRef.current = null;
       }
+
+      disposeSessionIfOwned(liveSessionRef.current);
     };
-  }, []);
+  }, [disposeSessionIfOwned]);
 
   useEffect(() => {
     try {
@@ -1156,6 +1169,7 @@ export function PlayerApp({
     sessionPromise
       .then((nextSession) => {
         if (!active) {
+          disposeSessionIfOwned(nextSession);
           return;
         }
 
@@ -1164,6 +1178,7 @@ export function PlayerApp({
           levelNumber: selectedLevelNumber,
         });
         sessionStartedFromReplayRef.current = Boolean(queuedReplay) || nextSession.mode === "replay";
+        disposeSessionIfOwned(liveSessionRef.current);
         scheduleSessionUiSync(nextSession, { immediate: true });
         syncSoundForSession(nextSession);
 
