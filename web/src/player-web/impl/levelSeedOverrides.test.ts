@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildLevelSeedOverrideKey,
+  createRandomLegacyRandomSeed,
   findLevelSeedOverride,
   normalizeLegacyRandomSeed,
 } from "@player-web/impl/levelSeedOverrides";
@@ -26,5 +27,13 @@ describe("levelSeedOverrides", () => {
       }),
     ).toEqual(overrides[0]);
     expect(buildLevelSeedOverrideKey(overrides[1])).toBe("CCLP1-MS.dac:5:MS");
+  });
+
+  it("creates a random seed in the native 31-bit range", () => {
+    const seed = createRandomLegacyRandomSeed();
+
+    expect(Number.isInteger(seed)).toBe(true);
+    expect(seed).toBeGreaterThanOrEqual(0);
+    expect(seed).toBeLessThanOrEqual(2147483647);
   });
 });

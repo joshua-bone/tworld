@@ -21,6 +21,7 @@ const engines = {
 
 let nextSessionId = 1;
 const sessions = new Map<number, InteractiveGameSession>();
+let requestQueue: Promise<void> = Promise.resolve();
 
 function sessionForId(sessionId: number): InteractiveGameSession {
   const session = sessions.get(sessionId);
@@ -106,17 +107,24 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
   }
 }
 
-workerScope.onmessage = async (event: MessageEvent<InteractiveGameWorkerRequest>) => {
-  try {
-    const response = await handleRequest(event.data);
-    workerScope.postMessage(response);
-  } catch (error: unknown) {
-    const response: InteractiveGameWorkerResponse = {
-      id: event.data.id,
-      error: error instanceof Error ? error.message : String(error),
-    };
-    workerScope.postMessage(response);
-  }
+workerScope.onmessage = (event: MessageEvent<InteractiveGameWorkerRequest>) => {
+  const request = event.data;
+  requestQueue = requestQueue
+    .catch(() => {
+      // Keep the worker request pipeline alive after a failed request.
+    })
+    .then(async () => {
+      try {
+        const response = await handleRequest(request);
+        workerScope.postMessage(response);
+      } catch (error: unknown) {
+        const response: InteractiveGameWorkerResponse = {
+          id: request.id,
+          error: error instanceof Error ? error.message : String(error),
+        };
+        workerScope.postMessage(response);
+      }
+    });
 };
 
 export {};

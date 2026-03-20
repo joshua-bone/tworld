@@ -15,6 +15,16 @@ export function normalizeLegacyRandomSeed(seed: number): number {
   return Number(BigInt(Math.trunc(seed)) & UINT31_MASK);
 }
 
+export function createRandomLegacyRandomSeed(): number {
+  if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.getRandomValues === "function") {
+    const values = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(values);
+    return normalizeLegacyRandomSeed(values[0] ?? 0);
+  }
+
+  return normalizeLegacyRandomSeed(Math.floor(Math.random() * 0x80000000));
+}
+
 export function buildLevelSeedOverrideKey(target: BrowserLevelSeedOverrideTarget): string {
   return `${target.seriesFile}:${target.levelNumber}:${target.ruleset}`;
 }

@@ -52,6 +52,7 @@ import {
   resolveLegacySessionRandomSeed,
 } from "@player-web/impl/legacySharedRandomSeed";
 import {
+  createRandomLegacyRandomSeed,
   findLevelSeedOverride,
   normalizeLegacyRandomSeed,
 } from "@player-web/impl/levelSeedOverrides";
@@ -322,6 +323,21 @@ function ChainLinkIcon() {
     <svg aria-hidden="true" className="modern-link-icon-button__icon" viewBox="0 0 16 16">
       <path
         d="M6.2 9.8 4.6 11.4a2.2 2.2 0 1 1-3.1-3.1L3.8 6M9.8 6.2l1.6-1.6a2.2 2.2 0 1 1 3.1 3.1L12.2 10M5.6 10.4l4.8-4.8"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg aria-hidden="true" className="modern-icon-button__icon" viewBox="0 0 16 16">
+      <path
+        d="M13 5.5V2.8m0 0H10.3m2.7 0A5.5 5.5 0 1 0 13.6 10M3 10.5v2.7m0 0h2.7m-2.7 0A5.5 5.5 0 0 0 12.7 6"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -3214,19 +3230,35 @@ export function PlayerApp({
                 </div>
               </div>
               <label className="modern-toolbar-menu__field">
-                <span className="modern-toolbar-menu__field-label">Manual seed lock</span>
-                <input
-                  className="modern-toolbar-menu__input"
-                  inputMode="numeric"
-                  max={LEGACY_RANDOM_SEED_MAX}
-                  min={0}
-                  onChange={(event) => {
-                    setSeedInputValue(event.currentTarget.value);
-                  }}
-                  placeholder="0-2147483647"
-                  type="text"
-                  value={seedInputValue}
-                />
+                <span className="modern-toolbar-menu__field-label">
+                  Manual Seed{currentLevelSeedOverride ? " (Locked)" : ""}
+                </span>
+                <div className="modern-toolbar-menu__input-row">
+                  <input
+                    className="modern-toolbar-menu__input"
+                    disabled={currentLevelSeedOverride !== null}
+                    inputMode="numeric"
+                    max={LEGACY_RANDOM_SEED_MAX}
+                    min={0}
+                    onChange={(event) => {
+                      setSeedInputValue(event.currentTarget.value);
+                    }}
+                    placeholder="0-2147483647"
+                    type="text"
+                    value={seedInputValue}
+                  />
+                  <button
+                    aria-label="Generate a random seed"
+                    className="modern-icon-button modern-toolbar-menu__refresh"
+                    disabled={currentLevelSeedOverride !== null}
+                    onClick={() => {
+                      setSeedInputValue(String(createRandomLegacyRandomSeed()));
+                    }}
+                    type="button"
+                  >
+                    <RefreshIcon />
+                  </button>
+                </div>
               </label>
               <p className="modern-toolbar-menu__copy">
                 Locks manual restarts for this set, level, and ruleset. Replay playback still uses the replay&apos;s recorded seed.
