@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import lynxTilesUrl from "@res/atiles.bmp?url";
 import msTilesUrl from "@res/tiles.bmp?url";
 import { buildLegacyTileset, type LegacyTileset } from "@player-web/impl/legacyTileset";
+import { measurePerfSync } from "@player-web/impl/runtimePerf";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type {
   InteractiveGameRenderFrame,
@@ -980,29 +981,38 @@ export function LegacyCanvasScreen({
 
     context.imageSmoothingEnabled = false;
 
-    if (mode === "series-list") {
-      drawSeriesList(context, catalog, selectedSeriesFile, message, seriesScrollOffset);
+    const drawFrame = () => {
+      if (mode === "series-list") {
+        drawSeriesList(context, catalog, selectedSeriesFile, message, seriesScrollOffset);
+        return;
+      }
+
+      if (!tileset) {
+        context.fillStyle = COLORS.background;
+        context.fillRect(
+          0,
+          0,
+          presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH,
+          presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT,
+        );
+        drawText(context, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, COLORS.text);
+        return;
+      }
+
+      if (presentation === "map-only") {
+        drawGameMapOnly(context, tileset, session, currentLevel, currentSeries, isLoading, currentRuleset);
+        return;
+      }
+
+      drawGameScreen(context, tileset, session, currentLevel, currentSeries, message, isLoading, currentRuleset);
+    };
+
+    if (mode === "game") {
+      measurePerfSync("renderMs", drawFrame);
       return;
     }
 
-    if (!tileset) {
-      context.fillStyle = COLORS.background;
-      context.fillRect(
-        0,
-        0,
-        presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH,
-        presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT,
-      );
-      drawText(context, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, COLORS.text);
-      return;
-    }
-
-    if (presentation === "map-only") {
-      drawGameMapOnly(context, tileset, session, currentLevel, currentSeries, isLoading, currentRuleset);
-      return;
-    }
-
-    drawGameScreen(context, tileset, session, currentLevel, currentSeries, message, isLoading, currentRuleset);
+    drawFrame();
   }, [catalog, currentLevel, currentRuleset, currentSeries, isLoading, message, mode, presentation, selectedSeriesFile, seriesScrollOffset, session, tileset]);
 
   return (

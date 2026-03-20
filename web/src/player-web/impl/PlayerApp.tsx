@@ -56,6 +56,7 @@ import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
 import { resolveReplayActionContext } from "@player-web/impl/replayContext";
 import { selectResultHeadline } from "@player-web/impl/resultHeadlines";
+import { measurePerfAsync, recordPerfMeasurement } from "@player-web/impl/runtimePerf";
 import { shouldPersistLevelProgress } from "@player-web/impl/sessionProgressPolicy";
 import { buildUrlLaunchHref } from "@player-web/impl/urlLaunch";
 import { restoreInteractiveGameSession } from "@game-runtime/impl/restoreInteractiveGameSession";
@@ -1065,16 +1066,20 @@ export function PlayerApp({
     } as const;
 
     const sessionPromise = queuedReplay
-      ? startReplayInteractiveGameSession(
-          interactiveEngineForRuleset(currentSeriesRuleset, engines),
-          request,
-          queuedReplay.replay,
-          undoStartOptionsRef.current,
+      ? measurePerfAsync("sessionLoadMs", () =>
+          startReplayInteractiveGameSession(
+            interactiveEngineForRuleset(currentSeriesRuleset, engines),
+            request,
+            queuedReplay.replay,
+            undoStartOptionsRef.current,
+          ),
         )
-      : startInteractiveGameSession(
-          interactiveEngineForRuleset(currentSeriesRuleset, engines),
-          request,
-          undoStartOptionsRef.current,
+      : measurePerfAsync("sessionLoadMs", () =>
+          startInteractiveGameSession(
+            interactiveEngineForRuleset(currentSeriesRuleset, engines),
+            request,
+            undoStartOptionsRef.current,
+          ),
         );
 
     sessionPromise
@@ -1143,10 +1148,12 @@ export function PlayerApp({
 
     tickingRef.current = true;
     try {
-      const nextSession = await advanceInteractiveGameSession(
-        interactiveEngineForRuleset(session.request.ruleset, engines),
-        session,
-        input,
+      const nextSession = await measurePerfAsync("tickMs", () =>
+        advanceInteractiveGameSession(
+          interactiveEngineForRuleset(session.request.ruleset, engines),
+          session,
+          input,
+        ),
       );
       startTransition(() => {
         setSession(nextSession);
@@ -1451,13 +1458,24 @@ export function PlayerApp({
       return;
     }
 
+    const tickIntervalMs = isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
+    let nextExpectedTickAtMs = performance.now() + tickIntervalMs;
+
     const intervalId = window.setInterval(() => {
+      const now = performance.now();
+      const driftMs = Math.max(0, now - nextExpectedTickAtMs);
+      recordPerfMeasurement("loopDriftMs", driftMs);
+      nextExpectedTickAtMs += tickIntervalMs;
+      if (driftMs > tickIntervalMs * 4) {
+        nextExpectedTickAtMs = now + tickIntervalMs;
+      }
+
       const inputCode =
         session.request.ruleset === "Lynx"
           ? lynxInputBufferRef.current.nextTickInputCode()
           : msInputBufferRef.current.nextTickInputCode();
       void advanceTick(inputCode);
-    }, isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS);
+    }, tickIntervalMs);
 
     return () => {
       window.clearInterval(intervalId);

@@ -24,6 +24,7 @@ import {
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
+import { measurePerfAsync } from "@player-web/impl/runtimePerf";
 import { buildUrlLaunchHref, resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
 import {
   buildLevelProgressIndex,
@@ -646,7 +647,9 @@ export function ModernPlayerApp({
         const initialSelection = launch.selection;
         const bootstrapOptions = resolveModernBootstrapCatalogOptions(initialSelection);
         const deferredCatalogBatches = resolveModernDeferredCatalogBatches(initialSelection);
-        const bootstrapCatalog = await loadModernBootstrapPlayableCatalog(services, initialSelection);
+        const bootstrapCatalog = await measurePerfAsync("catalogBootstrapMs", () =>
+          loadModernBootstrapPlayableCatalog(services, initialSelection),
+        );
         if (!active) {
           return;
         }
@@ -689,10 +692,12 @@ export function ModernPlayerApp({
                 return;
               }
 
-              const importedEntries = await loadBrowserPlayableCatalog(services, {
-                includeImported: true,
-                seriesFiles: [],
-              });
+              const importedEntries = await measurePerfAsync("catalogImportedMs", () =>
+                loadBrowserPlayableCatalog(services, {
+                  includeImported: true,
+                  seriesFiles: [],
+                }),
+              );
               if (!active) {
                 return;
               }
@@ -709,10 +714,12 @@ export function ModernPlayerApp({
                 return;
               }
 
-              const nextCatalogBatch = await loadBrowserPlayableCatalog(services, {
-                includeImported: false,
-                seriesFiles: batch,
-              });
+              const nextCatalogBatch = await measurePerfAsync("catalogHydrationBatchMs", () =>
+                loadBrowserPlayableCatalog(services, {
+                  includeImported: false,
+                  seriesFiles: batch,
+                }),
+              );
               if (!active || nextCatalogBatch.length === 0) {
                 continue;
               }
