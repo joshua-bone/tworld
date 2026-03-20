@@ -873,9 +873,17 @@ export function PlayerApp({
         pendingSessionUiSyncRef.current = null;
       }
 
-      disposeSessionIfOwned(liveSessionRef.current);
+      const activeSession = liveSessionRef.current;
+      if (!activeSession) {
+        return;
+      }
+
+      const engine = interactiveEngineForRuleset(activeSession.request.ruleset, engines);
+      void engine.disposeSession?.(activeSession).catch(() => {
+        // Ignore disposal failures during teardown.
+      });
     };
-  }, [disposeSessionIfOwned]);
+  }, [engines]);
 
   useEffect(() => {
     try {
