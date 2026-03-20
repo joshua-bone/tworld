@@ -69,6 +69,7 @@ const LOWER_LAYER_SCALE = 0.9;
 const LOWER_LAYER_BLUR_PX = 1;
 const LOWER_LAYER_DARKEN_PER_DEPTH = 0.25;
 const MAX_CACHED_LOWER_LAYER_DEPTH = 3;
+const INITIAL_RENDER_PREWARM_TICK_COUNT = 4;
 const LAYER_CANVAS_PADDING_TILES = Math.ceil((layerViewportTileWindow(MAX_CACHED_LOWER_LAYER_DEPTH) - LEGACY_MAP_TILES) / 2);
 const LAYER_CANVAS_PADDING_PX = LAYER_CANVAS_PADDING_TILES * LEGACY_TILE_SIZE;
 const LAYER_CANVAS_BOARD_SIZE = 32 * LEGACY_TILE_SIZE + LAYER_CANVAS_PADDING_PX * 2;
@@ -852,6 +853,47 @@ function drawVisibleLayerStack(
   });
 }
 
+function collectInitialWarmupTimervals(session: InteractiveGameSession): number[] {
+  const snapshot = session.frame.snapshot;
+  const timerval = (snapshot.statusFlags & MS_STATUS_FLAG.NoAnimation) !== 0 ? -1 : snapshot.currentTime;
+  const values = new Set<number>();
+  values.add(timerval);
+
+  const start = Math.max(timerval, -1);
+  for (let offset = 0; offset <= INITIAL_RENDER_PREWARM_TICK_COUNT; offset += 1) {
+    values.add(start + offset);
+  }
+
+  return [...values];
+}
+
+function prewarmVisibleLayerCaches(
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  lowerLayerCache: LegacyLayerCanvasCache,
+): void {
+  const snapshot = session.frame.snapshot;
+  const visibleLayers = session.frame.visibleLayers;
+  if (visibleLayers.length === 0) {
+    return;
+  }
+
+  const viewX = clamp(snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
+  const viewY = clamp(snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
+
+  for (const timerval of collectInitialWarmupTimervals(session)) {
+    // Warm the hot top-layer render path once so the first live movement does not
+    // pay its setup cost on the visible tick.
+    renderMapLayerCanvas(tileset, session, ruleset, visibleLayers[0]!, timerval, viewX, viewY, 0);
+
+    for (let index = visibleLayers.length - 1; index >= 1; index -= 1) {
+      const layer = visibleLayers[index]!;
+      getOrRenderCachedLowerLayerCanvas(lowerLayerCache, tileset, session, ruleset, layer, timerval);
+    }
+  }
+}
+
 function drawInventoryTile(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
@@ -1277,6 +1319,21 @@ export function LegacyCanvasScreen({
   useEffect(() => {
     clearLayerCanvasCache(lowerLayerCacheRef.current);
   }, [currentRuleset, currentSeries?.filebase, currentLevel?.number, tileset]);
+
+  useEffect(() => {
+    if (mode !== "game" || !tileset) {
+      return;
+    }
+
+    const activeSession = liveSessionRef?.current ?? session;
+    if (!activeSession) {
+      return;
+    }
+
+    measurePerfSync("initialRenderWarmupMs", () => {
+      prewarmVisibleLayerCaches(tileset, activeSession, currentRuleset, lowerLayerCacheRef.current);
+    });
+  }, [currentLevel?.number, currentRuleset, currentSeries?.filebase, liveSessionRef, mode, session, tileset]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

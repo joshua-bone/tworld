@@ -2,6 +2,7 @@ type PerfMetricName =
   | "catalogBootstrapMs"
   | "catalogHydrationBatchMs"
   | "catalogImportedMs"
+  | "initialRenderWarmupMs"
   | "loopDriftMs"
   | "renderMs"
   | "sessionLoadMs"
@@ -55,6 +56,11 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
   catalogImportedMs: {
     budgetMs: 30,
     label: "catalog imported batch",
+    warnMultiplier: 2,
+  },
+  initialRenderWarmupMs: {
+    budgetMs: 40,
+    label: "initial render warmup",
     warnMultiplier: 2,
   },
   loopDriftMs: {
@@ -124,6 +130,7 @@ export function snapshotPerfMetrics(): Record<PerfMetricName, PerfMetricSnapshot
     catalogBootstrapMs: snapshotMetric("catalogBootstrapMs", getPerfMetricState("catalogBootstrapMs")),
     catalogHydrationBatchMs: snapshotMetric("catalogHydrationBatchMs", getPerfMetricState("catalogHydrationBatchMs")),
     catalogImportedMs: snapshotMetric("catalogImportedMs", getPerfMetricState("catalogImportedMs")),
+    initialRenderWarmupMs: snapshotMetric("initialRenderWarmupMs", getPerfMetricState("initialRenderWarmupMs")),
     loopDriftMs: snapshotMetric("loopDriftMs", getPerfMetricState("loopDriftMs")),
     renderMs: snapshotMetric("renderMs", getPerfMetricState("renderMs")),
     sessionLoadMs: snapshotMetric("sessionLoadMs", getPerfMetricState("sessionLoadMs")),
