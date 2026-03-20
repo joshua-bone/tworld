@@ -51,6 +51,10 @@ import {
   observeLegacySharedRandomSeed,
   resolveLegacySessionRandomSeed,
 } from "@player-web/impl/legacySharedRandomSeed";
+import {
+  findLevelSeedOverride,
+  normalizeLegacyRandomSeed,
+} from "@player-web/impl/levelSeedOverrides";
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
@@ -71,6 +75,7 @@ import { replaySolutionCodec, type ReplaySolutionPayload } from "@game-core/api/
 import type { SeriesCatalogEntry } from "@content/api/series";
 import { describeReplayEntry, listReplaysForCurrentLevel, listReplaysForSeriesLevel } from "@player-web/impl/modern/replayLibrary";
 import {
+  type BrowserLevelSeedOverride,
   type BrowserLevelProgressSummary,
   type BrowserResolvedLevelProgressSummary,
   type BrowserReplayEntry,
@@ -97,6 +102,7 @@ const MODERN_UNDO_SMOOTH_LIMIT_TICKS = MODERN_UNDO_SMOOTH_LIMIT_SECONDS * GAME_T
 const MODERN_UNDO_CHECKPOINT_BASE_TICKS = GAME_TICKS_PER_SECOND;
 const LOW_TIME_WARNING_TICKS = 10 * GAME_TICKS_PER_SECOND;
 const SESSION_UI_SYNC_INTERVAL_MS = 125;
+const LEGACY_RANDOM_SEED_MAX = 0x7fffffff;
 
 interface HelpCommand {
   keys: string;
@@ -533,6 +539,7 @@ interface PlayerAppProps {
   services: BrowserAppServices;
   chromeMode?: "legacy" | "modern" | "modern-embedded";
   initialCatalog?: SeriesCatalogEntry[];
+  initialLevelSeedOverrides?: BrowserLevelSeedOverride[];
   initialMode?: LegacyMode;
   initialReplayEntries?: BrowserReplayEntry[];
   initialSelection?: PlayableSelection | null;
@@ -548,6 +555,7 @@ export function PlayerApp({
   services,
   chromeMode = "legacy",
   initialCatalog = [],
+  initialLevelSeedOverrides = [],
   initialMode = "series-list",
   initialReplayEntries = [],
   initialSelection = null,
@@ -558,6 +566,7 @@ export function PlayerApp({
 }: PlayerAppProps) {
   const { engines, importDatFile, profileStore, replayTransfer, selectionStore } = services;
   const initialCatalogRef = useRef<SeriesCatalogEntry[]>(initialCatalog);
+  const initialLevelSeedOverridesRef = useRef<BrowserLevelSeedOverride[]>(initialLevelSeedOverrides);
   const initialModeRef = useRef<LegacyMode>(initialMode);
   const initialReplayEntriesRef = useRef<BrowserReplayEntry[]>(initialReplayEntries);
   const initialSelectionRef = useRef<PlayableSelection | null>(initialSelection);
@@ -569,6 +578,7 @@ export function PlayerApp({
   const [mode, setMode] = useState<LegacyMode>(initialModeRef.current);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
   const [savedReplayEntries, setSavedReplayEntries] = useState<BrowserReplayEntry[]>([]);
+  const [levelSeedOverrides, setLevelSeedOverrides] = useState<BrowserLevelSeedOverride[]>(initialLevelSeedOverridesRef.current);
   const [selectedSeriesFile, setSelectedSeriesFile] = useState<string | null>(null);
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number | null>(null);
   const [session, setSession] = useState<InteractiveGameSession | null>(null);
@@ -579,12 +589,14 @@ export function PlayerApp({
   const [message, setMessage] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const [showReplayMenu, setShowReplayMenu] = useState(false);
+  const [showAdvancedMenu, setShowAdvancedMenu] = useState(false);
   const [showSoundControls, setShowSoundControls] = useState(false);
   const [showHistoryControls, setShowHistoryControls] = useState(false);
   const [showManageReplays, setShowManageReplays] = useState(false);
   const [pendingReplayEntryId, setPendingReplayEntryId] = useState<string | null>(null);
   const [selectedManagedReplayId, setSelectedManagedReplayId] = useState<string | null>(null);
   const [replaySaveNotice, setReplaySaveNotice] = useState<string | null>(null);
+  const [seedInputValue, setSeedInputValue] = useState("");
   const [soundMuted, setSoundMuted] = useState(() => loadStoredSoundSettings().muted);
   const [soundVolume, setSoundVolume] = useState(() => loadStoredSoundSettings().volume);
   const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
@@ -608,11 +620,13 @@ export function PlayerApp({
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
   const gameplayFocusRef = useRef<HTMLElement | null>(null);
   const replayMenuRef = useRef<HTMLDivElement | null>(null);
+  const advancedMenuRef = useRef<HTMLDivElement | null>(null);
   const recordedTerminalSessionRef = useRef<string | null>(null);
   const notifiedSelectionKeyRef = useRef<string | null>(null);
   const appliedInitialSelectionKeyRef = useRef<string | null>(null);
   const currentSelectionRef = useRef<PlayableSelection | null>(initialSelection);
   const sessionStartedFromReplayRef = useRef(false);
+  const levelSeedOverridesRef = useRef<BrowserLevelSeedOverride[]>(initialLevelSeedOverridesRef.current);
   const liveSessionRef = useRef<InteractiveGameSession | null>(null);
   const pendingSessionUiSyncRef = useRef<number | null>(null);
   const lastSessionUiSyncAtRef = useRef(0);
@@ -628,11 +642,37 @@ export function PlayerApp({
     });
   });
 
+  const commitLevelSeedOverrides = useEffectEvent((nextOverrides: BrowserLevelSeedOverride[]) => {
+    levelSeedOverridesRef.current = nextOverrides;
+    setLevelSeedOverrides(nextOverrides);
+  });
+
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
   const currentSeriesRuleset = currentSeries?.ruleset ?? null;
   const currentLevelExists = currentLevel !== null;
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
+  const currentLevelSeedTarget =
+    selectedSeriesFile && selectedLevelNumber && currentRuleset
+      ? {
+          seriesFile: selectedSeriesFile,
+          levelNumber: selectedLevelNumber,
+          ruleset: currentRuleset,
+        }
+      : null;
+  const currentLevelSeedOverride = findLevelSeedOverride(levelSeedOverrides, currentLevelSeedTarget);
+  const activeRandomSeed = session ? Number.parseInt(session.frame.snapshot.randomState.main.initial, 10) : null;
+  const parsedSeedInput = seedInputValue.trim() === "" ? null : Number.parseInt(seedInputValue.trim(), 10);
+  const isSeedInputValid =
+    parsedSeedInput !== null &&
+    Number.isInteger(parsedSeedInput) &&
+    parsedSeedInput >= 0 &&
+    parsedSeedInput <= LEGACY_RANDOM_SEED_MAX;
+  const canApplyLevelSeedOverride =
+    Boolean(currentLevelSeedTarget) &&
+    isSeedInputValid &&
+    normalizeLegacyRandomSeed(parsedSeedInput!) !== currentLevelSeedOverride?.randomSeed;
+  const canClearLevelSeedOverride = currentLevelSeedOverride !== null;
   const currentSelection =
     selectedSeriesFile && selectedLevelNumber
       ? {
@@ -938,6 +978,7 @@ export function PlayerApp({
       const resolvedSelection = resolveInitialSelection(initialCatalogRef.current, initialSelectionRef.current);
       startTransition(() => {
         setCatalog(initialCatalogRef.current);
+        commitLevelSeedOverrides(initialLevelSeedOverridesRef.current);
         setSavedReplayEntries(initialReplayEntriesRef.current);
         setSelectedSeriesFile(resolvedSelection?.seriesFile ?? null);
         setSelectedLevelNumber(resolvedSelection?.levelNumber ?? null);
@@ -947,8 +988,13 @@ export function PlayerApp({
       });
     }
 
-    Promise.all([loadBrowserPlayableCatalog(services), loadPlayableSelection(selectionStore), profileStore.loadReplayEntries()])
-      .then(([nextCatalog, storedSelection, storedReplayEntries]) => {
+    Promise.all([
+      loadBrowserPlayableCatalog(services),
+      loadPlayableSelection(selectionStore),
+      profileStore.loadReplayEntries(),
+      profileStore.loadLevelSeedOverrides(),
+    ])
+      .then(([nextCatalog, storedSelection, storedReplayEntries, storedLevelSeedOverrides]) => {
         if (!active) {
           return;
         }
@@ -957,6 +1003,7 @@ export function PlayerApp({
         const resolvedSelection = resolveInitialSelection(nextCatalog, preferredSelection);
         startTransition(() => {
           setCatalog(nextCatalog);
+          commitLevelSeedOverrides(storedLevelSeedOverrides);
           setSavedReplayEntries(storedReplayEntries);
           setSelectedSeriesFile(resolvedSelection?.seriesFile ?? null);
           setSelectedLevelNumber(resolvedSelection?.levelNumber ?? null);
@@ -1112,11 +1159,20 @@ export function PlayerApp({
     setIsPaused(false);
     setIsSessionLoading(true);
 
+    const manualSeedOverride =
+      queuedReplay
+        ? null
+        : findLevelSeedOverride(levelSeedOverridesRef.current, {
+            seriesFile: selectedSeriesFile,
+            levelNumber: selectedLevelNumber,
+            ruleset: currentSeriesRuleset,
+          })?.randomSeed ?? null;
+
     const request = {
       seriesFile: selectedSeriesFile,
       levelNumber: selectedLevelNumber,
       ruleset: currentSeriesRuleset,
-      randomSeed: resolveLegacySessionRandomSeed(queuedReplay?.replay.randomSeed),
+      randomSeed: resolveLegacySessionRandomSeed(queuedReplay?.replay.randomSeed, Date.now(), manualSeedOverride),
     } as const;
 
     const sessionPromise = queuedReplay
@@ -1876,8 +1932,56 @@ export function PlayerApp({
     }
 
     setShowReplayMenu(false);
+    setShowAdvancedMenu(false);
     setSelectedManagedReplayId(continueReplayEntry?.id ?? currentLevelReplayEntries[0]?.id ?? null);
     setShowManageReplays(true);
+  });
+
+  const applyLevelSeedOverride = useEffectEvent(async () => {
+    if (!currentLevelSeedTarget || !isSeedInputValid) {
+      return;
+    }
+
+    const nextOverride = {
+      ...currentLevelSeedTarget,
+      randomSeed: normalizeLegacyRandomSeed(parsedSeedInput!),
+    } satisfies BrowserLevelSeedOverride;
+    const nextOverrides = [
+      nextOverride,
+      ...levelSeedOverridesRef.current.filter(
+        (entry) =>
+          !(
+            entry.seriesFile === nextOverride.seriesFile &&
+            entry.levelNumber === nextOverride.levelNumber &&
+            entry.ruleset === nextOverride.ruleset
+          ),
+      ),
+    ];
+
+    commitLevelSeedOverrides(nextOverrides);
+    await profileStore.saveLevelSeedOverride(nextOverride);
+    setShowAdvancedMenu(false);
+    restartCurrentLevel();
+  });
+
+  const clearLevelSeedOverride = useEffectEvent(async () => {
+    if (!currentLevelSeedTarget || !currentLevelSeedOverride) {
+      return;
+    }
+
+    const nextOverrides = levelSeedOverridesRef.current.filter(
+      (entry) =>
+        !(
+          entry.seriesFile === currentLevelSeedTarget.seriesFile &&
+          entry.levelNumber === currentLevelSeedTarget.levelNumber &&
+          entry.ruleset === currentLevelSeedTarget.ruleset
+        ),
+    );
+
+    commitLevelSeedOverrides(nextOverrides);
+    await profileStore.deleteLevelSeedOverride(currentLevelSeedTarget);
+    setShowAdvancedMenu(false);
+    restartCurrentLevel();
   });
 
   const copyCurrentLevelLink = useEffectEvent(async () => {
@@ -2078,6 +2182,8 @@ export function PlayerApp({
     if (showHelp) {
       setShowSoundControls(false);
       setShowHistoryControls(false);
+      setShowReplayMenu(false);
+      setShowAdvancedMenu(false);
     }
   }, [showHelp]);
 
@@ -2099,6 +2205,7 @@ export function PlayerApp({
   useEffect(() => {
     if (mode !== "game") {
       setShowReplayMenu(false);
+      setShowAdvancedMenu(false);
     }
   }, [mode]);
 
@@ -2125,6 +2232,48 @@ export function PlayerApp({
       window.removeEventListener("pointerdown", onPointerDown);
     };
   }, [showReplayMenu]);
+
+  useEffect(() => {
+    if (!showAdvancedMenu) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (advancedMenuRef.current?.contains(target)) {
+        return;
+      }
+
+      setShowAdvancedMenu(false);
+    };
+
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [showAdvancedMenu]);
+
+  useEffect(() => {
+    if (!showAdvancedMenu) {
+      return;
+    }
+
+    if (currentLevelSeedOverride) {
+      setSeedInputValue(String(currentLevelSeedOverride.randomSeed));
+      return;
+    }
+
+    if (activeRandomSeed !== null && Number.isFinite(activeRandomSeed)) {
+      setSeedInputValue(String(activeRandomSeed));
+      return;
+    }
+
+    setSeedInputValue("");
+  }, [activeRandomSeed, currentLevelSeedOverride, showAdvancedMenu]);
 
   useEffect(() => {
     if (!showSoundControls && !showHistoryControls) {
@@ -2200,6 +2349,12 @@ export function PlayerApp({
       if (showReplayMenu && event.key === "Escape") {
         event.preventDefault();
         setShowReplayMenu(false);
+        return;
+      }
+
+      if (showAdvancedMenu && event.key === "Escape") {
+        event.preventDefault();
+        setShowAdvancedMenu(false);
         return;
       }
 
@@ -2510,6 +2665,7 @@ export function PlayerApp({
     resumeLivePlayFromRestore,
     resumeOriginalTimelineFromSpace,
     selectedSeriesFile,
+    showAdvancedMenu,
     showHistoryControls,
     showReplayMenu,
     showSoundControls,
@@ -2975,13 +3131,14 @@ export function PlayerApp({
         </button>
       </div>
 
-      <div aria-label="Replay and help" className="modern-game-header__toolbar-group modern-game-header__toolbar-group--right" role="group">
+      <div aria-label="Replay, advanced, and help" className="modern-game-header__toolbar-group modern-game-header__toolbar-group--right" role="group">
         <div className="modern-toolbar-menu" ref={replayMenuRef}>
           <button
             aria-expanded={showReplayMenu}
             aria-haspopup="menu"
             className="modern-button modern-button--secondary modern-button--compact"
             onClick={() => {
+              setShowAdvancedMenu(false);
               setShowReplayMenu((current) => !current);
             }}
             type="button"
@@ -3025,6 +3182,82 @@ export function PlayerApp({
               >
                 Manage Replays
               </button>
+            </div>
+          ) : null}
+        </div>
+        <div className="modern-toolbar-menu" ref={advancedMenuRef}>
+          <button
+            aria-expanded={showAdvancedMenu}
+            aria-haspopup="dialog"
+            className="modern-button modern-button--secondary modern-button--compact"
+            onClick={() => {
+              setShowReplayMenu(false);
+              setShowAdvancedMenu((current) => !current);
+            }}
+            type="button"
+          >
+            <span>Advanced</span>
+            <span aria-hidden="true" className="modern-toolbar-menu__caret">
+              {showAdvancedMenu ? "▴" : "▾"}
+            </span>
+          </button>
+          {showAdvancedMenu ? (
+            <div aria-label="Advanced gameplay options" className="modern-toolbar-menu__panel modern-toolbar-menu__panel--form" role="dialog">
+              <div className="modern-toolbar-menu__section">
+                <div className="modern-toolbar-menu__row">
+                  <span>Current seed</span>
+                  <strong>{activeRandomSeed !== null && Number.isFinite(activeRandomSeed) ? activeRandomSeed : "Loading..."}</strong>
+                </div>
+                <div className="modern-toolbar-menu__row">
+                  <span>Seed lock</span>
+                  <strong>{currentLevelSeedOverride ? currentLevelSeedOverride.randomSeed : "Off"}</strong>
+                </div>
+              </div>
+              <label className="modern-toolbar-menu__field">
+                <span className="modern-toolbar-menu__field-label">Manual seed lock</span>
+                <input
+                  className="modern-toolbar-menu__input"
+                  inputMode="numeric"
+                  max={LEGACY_RANDOM_SEED_MAX}
+                  min={0}
+                  onChange={(event) => {
+                    setSeedInputValue(event.currentTarget.value);
+                  }}
+                  placeholder="0-2147483647"
+                  type="text"
+                  value={seedInputValue}
+                />
+              </label>
+              <p className="modern-toolbar-menu__copy">
+                Locks manual restarts for this set, level, and ruleset. Replay playback still uses the replay&apos;s recorded seed.
+              </p>
+              {!isSeedInputValid && seedInputValue.trim() !== "" ? (
+                <p className="modern-toolbar-menu__copy modern-toolbar-menu__copy--danger">
+                  Seed must be an integer from 0 to 2147483647.
+                </p>
+              ) : null}
+              <div className="modern-toolbar-menu__actions">
+                <button
+                  className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item"
+                  disabled={!canApplyLevelSeedOverride}
+                  onClick={() => {
+                    void applyLevelSeedOverride();
+                  }}
+                  type="button"
+                >
+                  Lock & Restart
+                </button>
+                <button
+                  className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item"
+                  disabled={!canClearLevelSeedOverride}
+                  onClick={() => {
+                    void clearLevelSeedOverride();
+                  }}
+                  type="button"
+                >
+                  Clear Lock
+                </button>
+              </div>
             </div>
           ) : null}
         </div>

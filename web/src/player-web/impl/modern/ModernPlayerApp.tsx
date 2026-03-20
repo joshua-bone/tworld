@@ -56,6 +56,7 @@ import { describeLevelDisplayStatus } from "@player-web/impl/modern/familyActivi
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import {
   isCompletedBrowserLevelRunResult,
+  type BrowserLevelSeedOverride,
   type BrowserLevelProgressSummary,
   type BrowserResolvedLevelProgressSummary,
   createDefaultBrowserProfilePreferences,
@@ -597,6 +598,7 @@ export function ModernPlayerApp({
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
   const [lastSelection, setLastSelection] = useState<PlayableSelection | null>(null);
   const [levelProgressSummaries, setLevelProgressSummaries] = useState<BrowserLevelProgressSummary[]>([]);
+  const [levelSeedOverrides, setLevelSeedOverrides] = useState<BrowserLevelSeedOverride[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
@@ -650,8 +652,9 @@ export function ModernPlayerApp({
       loadPlayableSelection(selectionStore),
       profileStore.loadPreferences(),
       profileStore.loadLevelProgressSummaries(),
+      profileStore.loadLevelSeedOverrides(),
     ])
-      .then(async ([storedSelection, storedPreferences, storedLevelProgressSummaries]) => {
+      .then(async ([storedSelection, storedPreferences, storedLevelProgressSummaries, storedLevelSeedOverrides]) => {
         const launch = await resolveUrlLaunchSelection(services, storedSelection);
         const initialSelection = launch.selection;
         const bootstrapOptions = resolveModernBootstrapCatalogOptions(initialSelection);
@@ -689,6 +692,7 @@ export function ModernPlayerApp({
               : {},
           );
           setLevelProgressSummaries(storedLevelProgressSummaries);
+          setLevelSeedOverrides(storedLevelSeedOverrides);
           setMessage(launch.message);
           setIsCatalogLoading(false);
         });
@@ -1524,6 +1528,7 @@ export function ModernPlayerApp({
               autoSaveWinningHighScoreReplays={preferences.autoSaveWinningHighScoreReplays}
               chromeMode="modern-embedded"
               initialCatalog={catalog}
+              initialLevelSeedOverrides={levelSeedOverrides}
               initialMode="game"
               initialSelection={activeSelection}
               knownLevelProgressSummary={activeLevelProgress}

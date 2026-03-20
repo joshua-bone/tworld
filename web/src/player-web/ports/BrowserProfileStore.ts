@@ -74,6 +74,13 @@ export interface BrowserReplaySaveRequest {
   bytes: Uint8Array;
 }
 
+export interface BrowserLevelSeedOverride {
+  seriesFile: string;
+  levelNumber: number;
+  ruleset: BrowserPreferredRuleset;
+  randomSeed: number;
+}
+
 export interface BrowserProfileStore extends PlayableSelectionStore, ImportedDatCatalogStore {
   loadPreferences(): Promise<BrowserProfilePreferences>;
   savePreferences(preferences: BrowserProfilePreferences): Promise<void>;
@@ -81,6 +88,11 @@ export interface BrowserProfileStore extends PlayableSelectionStore, ImportedDat
   loadRecentSelections(): Promise<BrowserRecentSelectionRecord[]>;
   loadLevelProgressSummaries(): Promise<BrowserLevelProgressSummary[]>;
   saveLevelProgressSummary(summary: BrowserLevelProgressSummary): Promise<void>;
+  loadLevelSeedOverrides(): Promise<BrowserLevelSeedOverride[]>;
+  saveLevelSeedOverride(override: BrowserLevelSeedOverride): Promise<void>;
+  deleteLevelSeedOverride(
+    target: Pick<BrowserLevelSeedOverride, "seriesFile" | "levelNumber" | "ruleset">,
+  ): Promise<void>;
   loadReplayEntries(): Promise<BrowserReplayEntry[]>;
   saveReplayEntry(entry: BrowserReplaySaveRequest): Promise<BrowserReplayEntry>;
   deleteReplayEntry(id: string): Promise<void>;
@@ -94,6 +106,7 @@ export interface BrowserProfileSnapshot {
   preferences: BrowserProfilePreferences;
   recentSelections?: BrowserRecentSelectionRecord[];
   levelProgressSummaries?: BrowserLevelProgressSummary[];
+  levelSeedOverrides?: BrowserLevelSeedOverride[];
   replayEntries?: Array<{
     id: string;
     fileName: string;

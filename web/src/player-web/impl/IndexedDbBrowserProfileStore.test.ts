@@ -13,11 +13,16 @@ class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePersistenc
   readonly importedFiles = new Map<string, PersistedImportedDatFile>();
   readonly replayEntries = new Map<string, BrowserReplayEntry>();
 
-  async getValue(key: "selection" | "preferences" | "recentSelections" | "levelProgress"): Promise<unknown> {
+  async getValue(
+    key: "selection" | "preferences" | "recentSelections" | "levelProgress" | "levelSeedOverrides",
+  ): Promise<unknown> {
     return this.values.get(key);
   }
 
-  async putValue(key: "selection" | "preferences" | "recentSelections" | "levelProgress", value: unknown): Promise<void> {
+  async putValue(
+    key: "selection" | "preferences" | "recentSelections" | "levelProgress" | "levelSeedOverrides",
+    value: unknown,
+  ): Promise<void> {
     this.values.set(key, value);
   }
 
@@ -83,6 +88,12 @@ describe("IndexedDbBrowserProfileStore", () => {
       autoSaveWinningHighScoreReplays: false,
       autoDownloadReplaysOnSave: true,
     });
+    await store.saveLevelSeedOverride({
+      seriesFile: "CCLP1-MS.dac",
+      levelNumber: 7,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
     await store.recordRecentSelection({ seriesFile: "CCLP1-MS.dac", levelNumber: 7 });
     await store.saveImportedDatFile({ filename: "Imported.dat", datHash: "hash:imported", datBytes });
 
@@ -94,6 +105,14 @@ describe("IndexedDbBrowserProfileStore", () => {
       autoDownloadReplaysOnSave: true,
     });
     expect(await store.listImportedDatFiles()).toEqual([{ filename: "Imported.dat", datHash: "hash:imported", datBytes }]);
+    expect(await store.loadLevelSeedOverrides()).toEqual([
+      {
+        seriesFile: "CCLP1-MS.dac",
+        levelNumber: 7,
+        ruleset: "MS",
+        randomSeed: 123456789,
+      },
+    ]);
     expect(await store.loadRecentSelections()).toEqual([
       {
         selection: { seriesFile: "CCLP1-MS.dac", levelNumber: 7 },
@@ -158,6 +177,12 @@ describe("IndexedDbBrowserProfileStore", () => {
       lastUndoUsedCount: 0,
       bestUndoUsedCount: 0,
     });
+    await store.saveLevelSeedOverride({
+      seriesFile: "CCLP2.dac",
+      levelNumber: 11,
+      ruleset: "MS",
+      randomSeed: 777,
+    });
     const replayEntry = await store.saveReplayEntry({
       fileName: "CCLP2-level-11.tws.bin",
       seriesFile: "CCLP2.dac",
@@ -183,6 +208,14 @@ describe("IndexedDbBrowserProfileStore", () => {
         autoSaveWinningHighScoreReplays: false,
         autoDownloadReplaysOnSave: true,
       },
+      levelSeedOverrides: [
+        {
+          seriesFile: "CCLP2.dac",
+          levelNumber: 11,
+          ruleset: "MS",
+          randomSeed: 777,
+        },
+      ],
       recentSelections: [
         {
           selection: { seriesFile: "CCLP2.dac", levelNumber: 11 },
@@ -236,6 +269,14 @@ describe("IndexedDbBrowserProfileStore", () => {
       {
         selection: { seriesFile: "CCLP2.dac", levelNumber: 11 },
         savedAtMs: expect.any(Number),
+      },
+    ]);
+    expect(await restoredStore.loadLevelSeedOverrides()).toEqual([
+      {
+        seriesFile: "CCLP2.dac",
+        levelNumber: 11,
+        ruleset: "MS",
+        randomSeed: 777,
       },
     ]);
     expect(await restoredStore.loadLevelProgressSummaries()).toEqual([
@@ -433,5 +474,40 @@ describe("IndexedDbBrowserProfileStore", () => {
     await store.deleteReplayEntry(entry.id);
 
     expect(await store.loadReplayEntries()).toEqual([]);
+  });
+
+  it("replaces and deletes persisted level seed overrides", async () => {
+    const backend = new MemoryBrowserProfilePersistenceBackend();
+    const store = new IndexedDbBrowserProfileStore(backend);
+
+    await store.saveLevelSeedOverride({
+      seriesFile: "CCLP1-Lynx.dac",
+      levelNumber: 5,
+      ruleset: "Lynx",
+      randomSeed: 1,
+    });
+    await store.saveLevelSeedOverride({
+      seriesFile: "CCLP1-Lynx.dac",
+      levelNumber: 5,
+      ruleset: "Lynx",
+      randomSeed: 2,
+    });
+
+    expect(await store.loadLevelSeedOverrides()).toEqual([
+      {
+        seriesFile: "CCLP1-Lynx.dac",
+        levelNumber: 5,
+        ruleset: "Lynx",
+        randomSeed: 2,
+      },
+    ]);
+
+    await store.deleteLevelSeedOverride({
+      seriesFile: "CCLP1-Lynx.dac",
+      levelNumber: 5,
+      ruleset: "Lynx",
+    });
+
+    expect(await store.loadLevelSeedOverrides()).toEqual([]);
   });
 });

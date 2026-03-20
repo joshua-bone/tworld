@@ -43,4 +43,9 @@ describe("legacySharedRandomSeed", () => {
     expect(resolveLegacySessionRandomSeed(777, 1710781200000)).toBe(777);
     expect(resolveLegacySessionRandomSeed(null, 1710781200000)).toBe(1868148796);
   });
+
+  it("uses a manual override seed for live starts when no replay seed is present", () => {
+    expect(resolveLegacySessionRandomSeed(null, 1710781200000, 555)).toBe(555);
+    expect(resolveLegacySessionRandomSeed(777, 1710781200000, 555)).toBe(777);
+  });
 });

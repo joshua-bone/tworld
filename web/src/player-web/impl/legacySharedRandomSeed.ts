@@ -24,8 +24,12 @@ export function acquireLegacySharedRandomSeed(nowMs = Date.now()): number {
   return sharedLegacyRandomSeed;
 }
 
-export function resolveLegacySessionRandomSeed(replayRandomSeed: number | null | undefined, nowMs = Date.now()): number {
-  return replayRandomSeed ?? acquireLegacySharedRandomSeed(nowMs);
+export function resolveLegacySessionRandomSeed(
+  replayRandomSeed: number | null | undefined,
+  nowMs = Date.now(),
+  manualOverrideSeed: number | null | undefined = null,
+): number {
+  return replayRandomSeed ?? manualOverrideSeed ?? acquireLegacySharedRandomSeed(nowMs);
 }
 
 export function observeLegacySharedRandomSeed(seed: number | string | null | undefined): void {

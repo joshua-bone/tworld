@@ -1976,6 +1976,73 @@ body {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
+.modern-toolbar-menu__panel--form {
+  min-width: 18rem;
+}
+
+.modern-toolbar-menu__section {
+  display: grid;
+  gap: 8px;
+}
+
+.modern-toolbar-menu__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: #cdc6b8;
+  font-size: 0.92rem;
+}
+
+.modern-toolbar-menu__row strong {
+  color: #f3ecdd;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.9rem;
+}
+
+.modern-toolbar-menu__field {
+  display: grid;
+  gap: 6px;
+}
+
+.modern-toolbar-menu__field-label {
+  color: #ffcb5f;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.modern-toolbar-menu__input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid rgba(243, 236, 221, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f3ecdd;
+  font: inherit;
+}
+
+.modern-toolbar-menu__input:focus-visible {
+  outline: 1px solid rgba(240, 177, 49, 0.8);
+  outline-offset: 1px;
+}
+
+.modern-toolbar-menu__copy {
+  margin: 0;
+  color: #cdc6b8;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.modern-toolbar-menu__copy--danger {
+  color: #ef8a77;
+}
+
+.modern-toolbar-menu__actions {
+  display: grid;
+  gap: 8px;
+}
+
 .modern-toolbar-menu__item {
   width: 100%;
   justify-content: flex-start;

@@ -1,7 +1,9 @@
 import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
+import { normalizeLegacyRandomSeed } from "@player-web/impl/levelSeedOverrides";
 import { mergeLevelProgressSummaries } from "@player-web/impl/levelProgress";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 import {
+  type BrowserLevelSeedOverride,
   type BrowserLevelProgressSummary,
   type BrowserReplayEntry,
   type BrowserReplaySaveRequest,
@@ -23,6 +25,7 @@ const SELECTION_KEY = "selection";
 const PREFERENCES_KEY = "preferences";
 const RECENT_SELECTIONS_KEY = "recentSelections";
 const LEVEL_PROGRESS_KEY = "levelProgress";
+const LEVEL_SEED_OVERRIDES_KEY = "levelSeedOverrides";
 const LEGACY_SELECTION_STORAGE_KEY = "tworld:web:selection";
 const MAX_RECENT_SELECTIONS = 6;
 
@@ -30,7 +33,8 @@ type ProfileKvKey =
   | typeof SELECTION_KEY
   | typeof PREFERENCES_KEY
   | typeof RECENT_SELECTIONS_KEY
-  | typeof LEVEL_PROGRESS_KEY;
+  | typeof LEVEL_PROGRESS_KEY
+  | typeof LEVEL_SEED_OVERRIDES_KEY;
 
 interface BrowserProfileKvRecord {
   key: ProfileKvKey;
@@ -185,6 +189,33 @@ function parseStoredLevelProgressSummaries(value: unknown): BrowserLevelProgress
       ];
     })
     .sort((left, right) => right.lastPlayedAtMs - left.lastPlayedAtMs);
+}
+
+function parseStoredLevelSeedOverrides(value: unknown): BrowserLevelSeedOverride[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    if (
+      !isRecord(entry) ||
+      typeof entry.seriesFile !== "string" ||
+      !Number.isInteger(entry.levelNumber) ||
+      !isBrowserPreferredRuleset(entry.ruleset) ||
+      !Number.isFinite(entry.randomSeed)
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        seriesFile: entry.seriesFile,
+        levelNumber: Number(entry.levelNumber),
+        ruleset: entry.ruleset,
+        randomSeed: normalizeLegacyRandomSeed(Number(entry.randomSeed)),
+      } satisfies BrowserLevelSeedOverride,
+    ];
+  });
 }
 
 function parseStoredReplayEntries(value: unknown): BrowserReplayEntry[] {
@@ -611,6 +642,59 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
     }
   }
 
+  async loadLevelSeedOverrides(): Promise<BrowserLevelSeedOverride[]> {
+    try {
+      return parseStoredLevelSeedOverrides(await this.backend.getValue(LEVEL_SEED_OVERRIDES_KEY));
+    } catch {
+      return [];
+    }
+  }
+
+  async saveLevelSeedOverride(override: BrowserLevelSeedOverride): Promise<void> {
+    try {
+      const existing = parseStoredLevelSeedOverrides(await this.backend.getValue(LEVEL_SEED_OVERRIDES_KEY));
+      const nextOverride = {
+        ...override,
+        randomSeed: normalizeLegacyRandomSeed(override.randomSeed),
+      } satisfies BrowserLevelSeedOverride;
+      const nextOverrides = [
+        nextOverride,
+        ...existing.filter(
+          (entry) =>
+            !(
+              entry.seriesFile === nextOverride.seriesFile &&
+              entry.levelNumber === nextOverride.levelNumber &&
+              entry.ruleset === nextOverride.ruleset
+            ),
+        ),
+      ];
+      await this.backend.putValue(LEVEL_SEED_OVERRIDES_KEY, nextOverrides);
+    } catch {
+      // Ignore persistence failures and keep gameplay flow uninterrupted.
+    }
+  }
+
+  async deleteLevelSeedOverride(
+    target: Pick<BrowserLevelSeedOverride, "seriesFile" | "levelNumber" | "ruleset">,
+  ): Promise<void> {
+    try {
+      const existing = parseStoredLevelSeedOverrides(await this.backend.getValue(LEVEL_SEED_OVERRIDES_KEY));
+      await this.backend.putValue(
+        LEVEL_SEED_OVERRIDES_KEY,
+        existing.filter(
+          (entry) =>
+            !(
+              entry.seriesFile === target.seriesFile &&
+              entry.levelNumber === target.levelNumber &&
+              entry.ruleset === target.ruleset
+            ),
+        ),
+      );
+    } catch {
+      // Ignore persistence failures and keep gameplay flow uninterrupted.
+    }
+  }
+
   async listImportedDatFiles(): Promise<PersistedImportedDatFile[]> {
     try {
       return await this.backend.listImportedDatFiles();
@@ -669,12 +753,13 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
   }
 
   async exportProfileSnapshot(): Promise<BrowserProfileSnapshot> {
-    const [selection, preferences, recentSelections, levelProgressSummaries, replayEntries, importedDatFiles] =
+    const [selection, preferences, recentSelections, levelProgressSummaries, levelSeedOverrides, replayEntries, importedDatFiles] =
       await Promise.all([
       this.loadSelection(),
       this.loadPreferences(),
       this.loadRecentSelections(),
       this.loadLevelProgressSummaries(),
+      this.loadLevelSeedOverrides(),
       this.loadReplayEntries(),
       this.listImportedDatFiles(),
     ]);
@@ -685,6 +770,7 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
       preferences,
       recentSelections,
       levelProgressSummaries,
+      levelSeedOverrides,
       replayEntries: replayEntries.map((entry) => ({
         id: entry.id,
         fileName: entry.fileName,
@@ -723,9 +809,13 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
     try {
       await this.backend.putValue(RECENT_SELECTIONS_KEY, parseStoredRecentSelections(snapshot.recentSelections));
       await this.backend.putValue(LEVEL_PROGRESS_KEY, parseStoredLevelProgressSummaries(snapshot.levelProgressSummaries));
+      await this.backend.putValue(LEVEL_SEED_OVERRIDES_KEY, parseStoredLevelSeedOverrides(snapshot.levelSeedOverrides));
     } catch {
       for (const entry of parseStoredLevelProgressSummaries(snapshot.levelProgressSummaries)) {
         await this.saveLevelProgressSummary(entry);
+      }
+      for (const entry of parseStoredLevelSeedOverrides(snapshot.levelSeedOverrides)) {
+        await this.saveLevelSeedOverride(entry);
       }
     }
 
