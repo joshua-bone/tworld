@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFile } from "node:fs/promises";
 import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
 import { decodeDatUrlPayload, encodeDatUrlPayload } from "@player-web/impl/urlDatCodec";
 import { buildUrlLaunchHref, resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
@@ -21,9 +22,11 @@ function createDatBytes(): Uint8Array {
 function createServices(overrides?: {
   importedDatFiles?: PersistedImportedDatFile[];
 }): Pick<BrowserAppServices, "importDatBytes" | "profileStore" | "selectionStore"> & {
+  __imports: { datBytes: Uint8Array; filename: string }[];
   __savedSelections: { seriesFile: string; levelNumber: number }[];
 } {
   const importedDatFiles = overrides?.importedDatFiles ?? [];
+  const imports: { datBytes: Uint8Array; filename: string }[] = [];
   const savedSelections: { seriesFile: string; levelNumber: number }[] = [];
 
   const profileStore = {
@@ -40,6 +43,10 @@ function createServices(overrides?: {
 
   return {
     async importDatBytes(filename, datBytes) {
+      imports.push({
+        filename,
+        datBytes: new Uint8Array(datBytes),
+      });
       importedDatFiles.push({
         filename,
         datBytes: new Uint8Array(datBytes),
@@ -48,11 +55,26 @@ function createServices(overrides?: {
     },
     profileStore: profileStore as BrowserAppServices["profileStore"],
     selectionStore: selectionStore as BrowserAppServices["selectionStore"],
+    get __imports() {
+      return imports;
+    },
     get __savedSelections() {
       return savedSelections;
     },
   };
 }
+
+function createFetchResponse(bytes: Uint8Array, ok = true, status = 200): Response {
+  return {
+    ok,
+    status,
+    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  } as Response;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("resolveUrlLaunchSelection", () => {
   it("imports gzip+base64url DAT payloads into the requested slot and defaults to Lynx", async () => {
@@ -103,6 +125,106 @@ describe("resolveUrlLaunchSelection", () => {
       seriesFile: importedSeriesFile("Existing.dat", "MS"),
       levelNumber: 2,
     });
+  });
+
+  it("downloads gb pack links as DAT bytes and opens the requested ruleset and level", async () => {
+    const services = createServices();
+    const datBytes = createDatBytes();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toBe("https://bitbusters.club/gliderbot/sets/cc1/custompack.dat");
+      return createFetchResponse(datBytes);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolveUrlLaunchSelection(
+      services,
+      null,
+      new URL("https://example.test/?pack=gb:cc1/custompack&level=4&ruleset=MS"),
+    );
+
+    expect(result).toEqual({
+      message: null,
+      overrideApplied: true,
+      selection: {
+        seriesFile: importedSeriesFile("custompack.dat", "MS"),
+        levelNumber: 4,
+      },
+    });
+    expect(services.__imports).toEqual([
+      {
+        filename: "custompack.dat",
+        datBytes,
+      },
+    ]);
+  });
+
+  it("canonicalizes gb pack paths before downloading", async () => {
+    const services = createServices();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      expect(String(input)).toBe("https://bitbusters.club/gliderbot/sets/cc1/custompack.dat");
+      return createFetchResponse(createDatBytes());
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await resolveUrlLaunchSelection(
+      services,
+      null,
+      new URL("https://example.test/?pack=gb:cc1/./foo/../custompack/&ruleset=Lynx"),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(services.__imports[0]?.filename).toBe("custompack.dat");
+  });
+
+  it("reuses an existing imported pack when the downloaded gb bytes already match", async () => {
+    const datBytes = createDatBytes();
+    const services = createServices({
+      importedDatFiles: [
+        {
+          filename: "CustomPack.dat",
+          datBytes,
+        },
+      ],
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => createFetchResponse(datBytes)));
+
+    const result = await resolveUrlLaunchSelection(
+      services,
+      null,
+      new URL("https://example.test/?pack=gb:cc1/custompack&ruleset=Lynx"),
+    );
+
+    expect(result.selection).toEqual({
+      seriesFile: importedSeriesFile("CustomPack.dat", "Lynx"),
+      levelNumber: 1,
+    });
+    expect(services.__imports).toEqual([]);
+  });
+
+  it("reuses a built-in pack when the downloaded gb bytes match local content", async () => {
+    const services = createServices();
+    const datBytes = new Uint8Array(await readFile(new URL("../../../../data/JBLP1.dat", import.meta.url)));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://bitbusters.club/gliderbot/sets/cc1/jblp1.dat" || url.includes("JBLP1.dat")) {
+        return createFetchResponse(datBytes);
+      }
+
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolveUrlLaunchSelection(
+      services,
+      null,
+      new URL("https://example.test/?pack=gb:cc1/jblp1&level=2&ruleset=MS"),
+    );
+
+    expect(result.selection).toEqual({
+      seriesFile: "JBLP1-MS.dac",
+      levelNumber: 2,
+    });
+    expect(services.__imports).toEqual([]);
   });
 
   it("resolves built-in short links by set token and ruleset", async () => {

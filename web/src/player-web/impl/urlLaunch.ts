@@ -1,4 +1,6 @@
 import { listBrowserSeriesCatalogFiles } from "@level-catalog/impl/loadBrowserSeriesCatalogEntries";
+import { loadBySuffix, type BrowserSeriesLoaderMap } from "@level-catalog/impl/browserSeriesCatalogEntries.shared";
+import { parseSeriesConfig } from "@content/api/series-file";
 import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
 import { buildAppHref } from "@player-web/impl/appPaths";
 import {
@@ -13,6 +15,7 @@ import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore
 
 interface ParsedUrlLaunchRequest {
   datPayload: string | null;
+  packToken: string | null;
   setToken: string | null;
   levelNumber: number;
   ruleset: BrowserPreferredRuleset;
@@ -34,6 +37,17 @@ export interface UrlLaunchHrefRequest {
   seriesFile: string;
 }
 
+const GLIDERBOT_PACK_BASE_URL = "https://bitbusters.club/gliderbot/sets/";
+const builtInSeriesConfigs = import.meta.glob("@sets/*.dac", {
+  import: "default",
+  query: "?raw",
+}) as BrowserSeriesLoaderMap<string>;
+const builtInDataFiles = import.meta.glob(["@data/*.dat", "@data/*.ccx", "!@data/CHIPS.dat"], {
+  import: "default",
+  query: "?url",
+}) as BrowserSeriesLoaderMap<string>;
+const builtInDatHashCache = new Map<string, Promise<{ datHash: string; ruleset: BrowserPreferredRuleset } | null>>();
+
 function parseLevelNumber(value: string | null): number {
   if (!value) {
     return 1;
@@ -51,14 +65,16 @@ function parseUrlLaunchRequest(location: Pick<Location, "hash" | "search">): Par
   const searchParams = new URLSearchParams(location.search);
   const hashParams = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : location.hash);
   const datPayload = hashParams.get("dat") ?? searchParams.get("dat") ?? searchParams.get("levelset");
+  const packToken = searchParams.get("pack") ?? hashParams.get("pack");
   const setToken = searchParams.get("set") ?? hashParams.get("set");
 
-  if (!datPayload && !setToken) {
+  if (!datPayload && !packToken && !setToken) {
     return null;
   }
 
   return {
     datPayload,
+    packToken,
     setToken,
     levelNumber: parseLevelNumber(searchParams.get("level") ?? hashParams.get("level")),
     ruleset: parseRuleset(searchParams.get("ruleset") ?? hashParams.get("ruleset")),
@@ -140,6 +156,121 @@ function findImportedDatEntry(
   );
 }
 
+function canonicalizePackPathSegments(value: string): string[] {
+  const raw = value.trim().replace(/\/+$/u, "");
+  const segments: string[] = [];
+
+  for (const segment of raw.split("/")) {
+    if (segment === "" || segment === ".") {
+      continue;
+    }
+    if (segment === "..") {
+      segments.pop();
+      continue;
+    }
+
+    segments.push(segment);
+  }
+
+  return segments;
+}
+
+function canonicalizeGliderBotPackPath(value: string): string {
+  const rawPath = value.startsWith("gb:") ? value.slice("gb:".length) : value;
+  const segments = canonicalizePackPathSegments(rawPath);
+  if (segments.length === 0) {
+    throw new Error("Pack path is empty.");
+  }
+
+  if (segments[0] === "cc1" && !/\.dat$/iu.test(segments[segments.length - 1] ?? "")) {
+    segments[segments.length - 1] = `${segments[segments.length - 1]}.dat`;
+  }
+
+  return segments.join("/");
+}
+
+function buildGliderBotPackUrl(canonicalPath: string): string {
+  const url = new URL(GLIDERBOT_PACK_BASE_URL);
+  const basePath = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
+  url.pathname = `${basePath}${canonicalPath.split("/").map((segment) => encodeURIComponent(segment)).join("/")}`;
+  return url.toString();
+}
+
+function packSlotNameFromCanonicalPath(canonicalPath: string): string {
+  const basename = canonicalPath.split("/").at(-1);
+  if (!basename) {
+    throw new Error("Pack path is empty.");
+  }
+
+  return sanitizeImportedDatSlotName(basename);
+}
+
+async function loadBuiltInSeriesDatHash(
+  seriesFile: string,
+): Promise<{ datHash: string; ruleset: BrowserPreferredRuleset } | null> {
+  const cached = builtInDatHashCache.get(seriesFile);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = (async () => {
+    const configText = await loadBySuffix(builtInSeriesConfigs, `/sets/${seriesFile}`);
+    if (!configText) {
+      return null;
+    }
+
+    const config = parseSeriesConfig(configText);
+    if (config.ruleset !== "MS" && config.ruleset !== "Lynx") {
+      return null;
+    }
+
+    const dataUrl = await loadBySuffix(builtInDataFiles, `/data/${config.mapFile}`);
+    if (!dataUrl) {
+      return null;
+    }
+
+    const response = await fetch(dataUrl);
+    if (!response.ok) {
+      return null;
+    }
+
+    return {
+      datHash: await computeDatContentHash(new Uint8Array(await response.arrayBuffer())),
+      ruleset: config.ruleset,
+    };
+  })();
+
+  builtInDatHashCache.set(seriesFile, promise);
+  return promise;
+}
+
+async function findMatchingBuiltInSeriesFile(
+  setToken: string,
+  ruleset: BrowserPreferredRuleset,
+  datHash: string,
+): Promise<string | null> {
+  const builtInSeriesFile = resolveBuiltInSeriesFile(setToken, ruleset, listBrowserSeriesCatalogFiles());
+  if (!builtInSeriesFile) {
+    return null;
+  }
+
+  const metadata = await loadBuiltInSeriesDatHash(builtInSeriesFile);
+  if (!metadata || metadata.ruleset !== ruleset || metadata.datHash !== datHash) {
+    return null;
+  }
+
+  return builtInSeriesFile;
+}
+
+async function fetchDatBytes(url: string): Promise<Uint8Array> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  }
+
+  return new Uint8Array(await response.arrayBuffer());
+}
+
 export async function buildUrlLaunchHref({
   baseUrl = import.meta.env.BASE_URL,
   importedDatFiles,
@@ -190,6 +321,94 @@ export async function resolveUrlLaunchSelection(
       await services.importDatBytes(selectedSlotName, datBytes);
       const selection = {
         seriesFile: importedSeriesFile(selectedSlotName, request.ruleset),
+        levelNumber: request.levelNumber,
+      } satisfies PlayableSelection;
+      await services.selectionStore.saveSelection(selection);
+      return {
+        message: null,
+        overrideApplied: true,
+        selection,
+      };
+    }
+
+    if (request.packToken) {
+      if (!request.packToken.startsWith("gb:")) {
+        return {
+          message: `Pack ${request.packToken} is not supported.`,
+          overrideApplied: false,
+          selection: fallbackSelection,
+        };
+      }
+
+      const canonicalPackPath = canonicalizeGliderBotPackPath(request.packToken);
+      const packUrl = buildGliderBotPackUrl(canonicalPackPath);
+      const datBytes = await fetchDatBytes(packUrl);
+      const datHash = await computeDatContentHash(datBytes);
+      const packSlotName = packSlotNameFromCanonicalPath(canonicalPackPath);
+      const packToken = packSlotName.replace(/\.[^.]+$/u, "");
+      const importedDatFiles = await services.profileStore.listImportedDatFiles();
+      const matchingBuiltInSeriesFile = await findMatchingBuiltInSeriesFile(packToken, request.ruleset, datHash);
+
+      if (matchingBuiltInSeriesFile) {
+        const selection = {
+          seriesFile: matchingBuiltInSeriesFile,
+          levelNumber: request.levelNumber,
+        } satisfies PlayableSelection;
+        await services.selectionStore.saveSelection(selection);
+        return {
+          message: null,
+          overrideApplied: true,
+          selection,
+        };
+      }
+
+      const importedSlotByToken = findImportedSlotByToken(packToken, importedDatFiles);
+      if (importedSlotByToken) {
+        const importedEntry = importedDatFiles.find((entry) => entry.filename === importedSlotByToken) ?? null;
+        const importedHash = importedEntry?.datHash ?? (importedEntry ? await computeDatContentHash(importedEntry.datBytes) : null);
+        if (importedHash === datHash) {
+          const selection = {
+            seriesFile: importedSeriesFile(importedSlotByToken, request.ruleset),
+            levelNumber: request.levelNumber,
+          } satisfies PlayableSelection;
+          await services.selectionStore.saveSelection(selection);
+          return {
+            message: null,
+            overrideApplied: true,
+            selection,
+          };
+        }
+
+        await services.importDatBytes(importedSlotByToken, datBytes);
+        const selection = {
+          seriesFile: importedSeriesFile(importedSlotByToken, request.ruleset),
+          levelNumber: request.levelNumber,
+        } satisfies PlayableSelection;
+        await services.selectionStore.saveSelection(selection);
+        return {
+          message: null,
+          overrideApplied: true,
+          selection,
+        };
+      }
+
+      const importedSlotByHash = await findImportedSlotByHash(datHash, importedDatFiles);
+      if (importedSlotByHash) {
+        const selection = {
+          seriesFile: importedSeriesFile(importedSlotByHash, request.ruleset),
+          levelNumber: request.levelNumber,
+        } satisfies PlayableSelection;
+        await services.selectionStore.saveSelection(selection);
+        return {
+          message: null,
+          overrideApplied: true,
+          selection,
+        };
+      }
+
+      await services.importDatBytes(packSlotName, datBytes);
+      const selection = {
+        seriesFile: importedSeriesFile(packSlotName, request.ruleset),
         levelNumber: request.levelNumber,
       } satisfies PlayableSelection;
       await services.selectionStore.saveSelection(selection);
