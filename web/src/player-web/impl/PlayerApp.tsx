@@ -48,7 +48,6 @@ import {
 import { formatInteractiveTickSeconds } from "@game-runtime/impl/interactiveSessionRun";
 import { loadBrowserPlayableCatalog } from "@player-web/impl/loadBrowserPlayableCatalog";
 import {
-  observeLegacySharedRandomSeed,
   resolveLegacySessionRandomSeed,
 } from "@player-web/impl/legacySharedRandomSeed";
 import {
@@ -1274,19 +1273,6 @@ export function PlayerApp({
     selectedLevelNumber,
     selectedSeriesFile,
   ]);
-
-  useEffect(() => {
-    if (
-      mode !== "game" ||
-      !session ||
-      session.mode !== "manual" ||
-      session.history.restoreMode !== "live"
-    ) {
-      return;
-    }
-
-    observeLegacySharedRandomSeed(session.frame.snapshot.randomState.main.value);
-  }, [mode, session]);
 
   const advanceTick = useEffectEvent(async (input: InteractiveInput) => {
     const activeSession = liveSessionRef.current;

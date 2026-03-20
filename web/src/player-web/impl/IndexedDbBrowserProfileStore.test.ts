@@ -76,6 +76,12 @@ class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePersistenc
 }
 
 describe("IndexedDbBrowserProfileStore", () => {
+  it("starts with no persisted seed locks by default", async () => {
+    const store = new IndexedDbBrowserProfileStore(new MemoryBrowserProfilePersistenceBackend());
+
+    expect(await store.loadLevelSeedOverrides()).toEqual([]);
+  });
+
   it("persists selection, preferences, and imported DAT files through the profile backend", async () => {
     const backend = new MemoryBrowserProfilePersistenceBackend();
     const store = new IndexedDbBrowserProfileStore(backend);
