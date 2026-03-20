@@ -1243,6 +1243,9 @@ export function PlayerApp({
           input,
         ),
       );
+      if (liveSessionRef.current !== activeSession) {
+        return;
+      }
       scheduleSessionUiSync(nextSession, {
         immediate:
           nextSession.frame.snapshot.status !== "playing" || nextSession.history.restoreMode !== "live",
@@ -1252,6 +1255,9 @@ export function PlayerApp({
         setIsRunning(false);
       }
     } catch (error: unknown) {
+      if (liveSessionRef.current !== activeSession) {
+        return;
+      }
       setIsRunning(false);
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -1425,8 +1431,18 @@ export function PlayerApp({
       activeSession,
       targetTick,
     )
-      .then(syncSessionState)
+      .then((nextSession) => {
+        if (liveSessionRef.current !== activeSession) {
+          return;
+        }
+
+        syncSessionState(nextSession);
+      })
       .catch((error: unknown) => {
+        if (liveSessionRef.current !== activeSession) {
+          return;
+        }
+
         setMessage(error instanceof Error ? error.message : String(error));
       })
       .finally(() => {
@@ -1485,8 +1501,18 @@ export function PlayerApp({
       interactiveEngineForRuleset(activeSession.request.ruleset, engines),
       activeSession,
     )
-      .then(syncSessionState)
+      .then((nextSession) => {
+        if (liveSessionRef.current !== activeSession) {
+          return;
+        }
+
+        syncSessionState(nextSession);
+      })
       .catch((error: unknown) => {
+        if (liveSessionRef.current !== activeSession) {
+          return;
+        }
+
         setMessage(error instanceof Error ? error.message : String(error));
       })
       .finally(() => {
