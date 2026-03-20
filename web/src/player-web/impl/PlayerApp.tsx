@@ -337,7 +337,15 @@ function RefreshIcon() {
   return (
     <svg aria-hidden="true" className="modern-icon-button__icon" viewBox="0 0 16 16">
       <path
-        d="M13 5.5V2.8m0 0H10.3m2.7 0A5.5 5.5 0 1 0 13.6 10M3 10.5v2.7m0 0h2.7m-2.7 0A5.5 5.5 0 0 0 12.7 6"
+        d="M12.5 4.5V2.5h-2"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M12.5 2.5a5.5 5.5 0 1 0 1 5"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
