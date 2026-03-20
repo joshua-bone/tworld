@@ -2029,6 +2029,14 @@ body {
   font: inherit;
 }
 
+.modern-toolbar-menu__input:disabled {
+  border-color: rgba(243, 236, 221, 0.1);
+  background: rgba(255, 255, 255, 0.015);
+  color: rgba(243, 236, 221, 0.58);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
 .modern-toolbar-menu__input:focus-visible {
   outline: 1px solid rgba(240, 177, 49, 0.8);
   outline-offset: 1px;
@@ -2037,6 +2045,13 @@ body {
 .modern-toolbar-menu__refresh {
   width: 2.4rem;
   height: 2.4rem;
+}
+
+.modern-toolbar-menu__refresh:disabled {
+  border-color: rgba(243, 236, 221, 0.1);
+  background: rgba(255, 255, 255, 0.015);
+  color: rgba(143, 177, 194, 0.45);
+  cursor: not-allowed;
 }
 
 .modern-toolbar-menu__copy {

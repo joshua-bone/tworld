@@ -337,15 +337,23 @@ function RefreshIcon() {
   return (
     <svg aria-hidden="true" className="modern-icon-button__icon" viewBox="0 0 16 16">
       <path
-        d="M12.5 4.5V2.5h-2"
+        d="M10 2.75h2.75"
         fill="none"
         stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
         strokeWidth="1.5"
       />
       <path
-        d="M12.5 2.5a5.5 5.5 0 1 0 1 5"
+        d="M12.75 2.75 9.9 5.6"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M12.75 2.75a5.5 5.5 0 1 0 1.05 5.2"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -685,6 +693,7 @@ export function PlayerApp({
         }
       : null;
   const currentLevelSeedOverride = findLevelSeedOverride(levelSeedOverrides, currentLevelSeedTarget);
+  const isLevelSeedLocked = currentLevelSeedOverride !== null;
   const activeRandomSeed = session ? Number.parseInt(session.frame.snapshot.randomState.main.initial, 10) : null;
   const parsedSeedInput = seedInputValue.trim() === "" ? null : Number.parseInt(seedInputValue.trim(), 10);
   const isSeedInputValid =
@@ -696,7 +705,8 @@ export function PlayerApp({
     Boolean(currentLevelSeedTarget) &&
     isSeedInputValid &&
     normalizeLegacyRandomSeed(parsedSeedInput!) !== currentLevelSeedOverride?.randomSeed;
-  const canClearLevelSeedOverride = currentLevelSeedOverride !== null;
+  const canClearLevelSeedOverride = isLevelSeedLocked;
+  const canToggleLevelSeedOverride = isLevelSeedLocked ? canClearLevelSeedOverride : canApplyLevelSeedOverride;
   const currentSelection =
     selectedSeriesFile && selectedLevelNumber
       ? {
@@ -3239,12 +3249,12 @@ export function PlayerApp({
               </div>
               <label className="modern-toolbar-menu__field">
                 <span className="modern-toolbar-menu__field-label">
-                  Manual Seed{currentLevelSeedOverride ? " (Locked)" : ""}
+                  Manual Seed{isLevelSeedLocked ? " (Locked)" : ""}
                 </span>
                 <div className="modern-toolbar-menu__input-row">
                   <input
                     className="modern-toolbar-menu__input"
-                    disabled={currentLevelSeedOverride !== null}
+                    disabled={isLevelSeedLocked}
                     inputMode="numeric"
                     max={LEGACY_RANDOM_SEED_MAX}
                     min={0}
@@ -3258,7 +3268,7 @@ export function PlayerApp({
                   <button
                     aria-label="Generate a random seed"
                     className="modern-icon-button modern-toolbar-menu__refresh"
-                    disabled={currentLevelSeedOverride !== null}
+                    disabled={isLevelSeedLocked}
                     onClick={() => {
                       setSeedInputValue(String(createRandomLegacyRandomSeed()));
                     }}
@@ -3269,7 +3279,7 @@ export function PlayerApp({
                 </div>
               </label>
               <p className="modern-toolbar-menu__copy">
-                Locks manual restarts for this set, level, and ruleset. Replay playback still uses the replay&apos;s recorded seed.
+                The lock applies to this set, level, and ruleset, and toggling it restarts the current level. Replay playback still uses the replay&apos;s recorded seed.
               </p>
               {!isSeedInputValid && seedInputValue.trim() !== "" ? (
                 <p className="modern-toolbar-menu__copy modern-toolbar-menu__copy--danger">
@@ -3279,23 +3289,13 @@ export function PlayerApp({
               <div className="modern-toolbar-menu__actions">
                 <button
                   className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item"
-                  disabled={!canApplyLevelSeedOverride}
+                  disabled={!canToggleLevelSeedOverride}
                   onClick={() => {
-                    void applyLevelSeedOverride();
+                    void (isLevelSeedLocked ? clearLevelSeedOverride() : applyLevelSeedOverride());
                   }}
                   type="button"
                 >
-                  Lock & Restart
-                </button>
-                <button
-                  className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item"
-                  disabled={!canClearLevelSeedOverride}
-                  onClick={() => {
-                    void clearLevelSeedOverride();
-                  }}
-                  type="button"
-                >
-                  Clear Lock
+                  {isLevelSeedLocked ? "Unlock" : "Lock"}
                 </button>
               </div>
             </div>
