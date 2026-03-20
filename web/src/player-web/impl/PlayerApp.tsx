@@ -82,11 +82,10 @@ import {
   toUndoSessionStartOptions,
   type BrowserUndoSettings,
 } from "@player-web/impl/undoSettings";
-
-const SOUND_MUTED_STORAGE_KEY = "tworld.sound-muted";
-const SOUND_VOLUME_STORAGE_KEY = "tworld.sound-volume";
-const SOUND_SETTINGS_VERSION_STORAGE_KEY = "tworld.sound-settings-version";
-const SOUND_SETTINGS_VERSION = "2";
+import {
+  loadStoredSoundSettings,
+  saveStoredSoundSettings,
+} from "@player-web/impl/soundSettings";
 const LEGACY_FAST_TICK_MS = 25;
 const LEGACY_NORMAL_TICK_MS = 50;
 const GAME_TICKS_PER_SECOND = 20;
@@ -107,32 +106,6 @@ interface HelpCommand {
 interface HelpSection {
   title: string;
   commands: HelpCommand[];
-}
-
-function loadStoredMuted(): boolean {
-  try {
-    if (window.localStorage.getItem(SOUND_SETTINGS_VERSION_STORAGE_KEY) !== SOUND_SETTINGS_VERSION) {
-      return false;
-    }
-    return window.localStorage.getItem(SOUND_MUTED_STORAGE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function loadStoredVolume(): number {
-  try {
-    if (window.localStorage.getItem(SOUND_SETTINGS_VERSION_STORAGE_KEY) !== SOUND_SETTINGS_VERSION) {
-      return 0.7;
-    }
-    const stored = Number(window.localStorage.getItem(SOUND_VOLUME_STORAGE_KEY));
-    if (!Number.isFinite(stored)) {
-      return 0.7;
-    }
-    return Math.max(0, Math.min(1, stored));
-  } catch {
-    return 0.7;
-  }
 }
 
 function formatModernLevelTimerLabel(level: SeriesCatalogEntry["levels"][number] | null | undefined): string | null {
@@ -612,8 +585,8 @@ export function PlayerApp({
   const [pendingReplayEntryId, setPendingReplayEntryId] = useState<string | null>(null);
   const [selectedManagedReplayId, setSelectedManagedReplayId] = useState<string | null>(null);
   const [replaySaveNotice, setReplaySaveNotice] = useState<string | null>(null);
-  const [soundMuted, setSoundMuted] = useState(() => loadStoredMuted());
-  const [soundVolume, setSoundVolume] = useState(() => loadStoredVolume());
+  const [soundMuted, setSoundMuted] = useState(() => loadStoredSoundSettings().muted);
+  const [soundVolume, setSoundVolume] = useState(() => loadStoredSoundSettings().volume);
   const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
   const [manualRunStarted, setManualRunStarted] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
@@ -886,24 +859,13 @@ export function PlayerApp({
   }, [engines]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(SOUND_SETTINGS_VERSION_STORAGE_KEY, SOUND_SETTINGS_VERSION);
-      window.localStorage.setItem(SOUND_MUTED_STORAGE_KEY, soundMuted ? "1" : "0");
-    } catch {
-      // Ignore storage failures and keep in-memory settings.
-    }
+    saveStoredSoundSettings({
+      muted: soundMuted,
+      volume: soundVolume,
+    });
     soundPlayerRef.current?.setMuted(soundMuted);
-  }, [soundMuted]);
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(SOUND_SETTINGS_VERSION_STORAGE_KEY, SOUND_SETTINGS_VERSION);
-      window.localStorage.setItem(SOUND_VOLUME_STORAGE_KEY, String(soundVolume));
-    } catch {
-      // Ignore storage failures and keep in-memory settings.
-    }
     soundPlayerRef.current?.setVolume(soundVolume);
-  }, [soundVolume]);
+  }, [soundMuted, soundVolume]);
 
   useEffect(() => {
     if (mode !== "game") {

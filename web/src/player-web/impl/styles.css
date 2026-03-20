@@ -588,6 +588,12 @@ body {
   width: min(620px, 100%);
 }
 
+.modern-settings-modal__section {
+  padding: 12px 14px;
+  border: 1px solid rgba(243, 236, 221, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .modern-settings-modal__option {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -609,6 +615,12 @@ body {
   display: block;
   margin-bottom: 4px;
   color: #f3ecdd;
+}
+
+.modern-settings-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .modern-about-modal__links {

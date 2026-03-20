@@ -59,6 +59,14 @@ Notes:
 - `slot` controls overwrite-by-name behavior for local work-in-progress packs.
 - Progress is still keyed by gameplay data, so unchanged levels keep their progress when a pack is replaced.
 
+## Profile backup
+
+The modern Settings dialog can download and upload a full browser profile backup.
+
+- Backups include imported sets, replays, progress, recent selections, preferences, and local browser gameplay settings.
+- Uploading a backup replaces the current local browser profile for Tile World Online and reloads the page.
+- The backup file uses a structured versioned JSON wrapper so it can be extended over time without guessing at raw storage internals.
+
 ## Important note about CHIPS.dat
 
 Tile World does not ship with `CHIPS.dat`, the original Microsoft Chip's Challenge levelset. That file is copyrighted and cannot be freely redistributed. If you have your own copy, you can use it with the native build or import it into the browser UI locally.

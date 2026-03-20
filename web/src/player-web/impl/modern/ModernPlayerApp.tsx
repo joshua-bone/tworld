@@ -14,6 +14,13 @@ import {
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
 import { buildAppHref } from "@player-web/impl/appPaths";
+import {
+  applyBrowserLocalSettingsSnapshot,
+  buildBrowserProfileBackupFilename,
+  createBrowserProfileBackup,
+  parseBrowserProfileBackup,
+  serializeBrowserProfileBackup,
+} from "@player-web/impl/browserProfileBackup";
 import { copyTextToClipboard } from "@player-web/impl/clipboard";
 import {
   loadBrowserPlayableCatalog,
@@ -579,6 +586,7 @@ export function ModernPlayerApp({
 }: ModernPlayerAppProps) {
   const { deleteImportedDatFile, importDatFile, profileStore, selectionStore } = services;
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
+  const profileFileInputRef = useRef<HTMLInputElement | null>(null);
   const dragDepthRef = useRef(0);
   const setsPaneManualRef = useRef(false);
   const levelsPaneManualRef = useRef(false);
@@ -595,6 +603,7 @@ export function ModernPlayerApp({
   const [isDropTargetActive, setIsDropTargetActive] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isProfileTransferBusy, setIsProfileTransferBusy] = useState(false);
   const [setInfoFamilyId, setSetInfoFamilyId] = useState<string | null>(null);
   const [isSetsPaneCollapsed, setIsSetsPaneCollapsed] = useState(false);
   const [isLevelsPaneCollapsed, setIsLevelsPaneCollapsed] = useState(false);
@@ -1035,6 +1044,47 @@ export function ModernPlayerApp({
     }
   });
 
+  const downloadProfileBackup = useEffectEvent(async () => {
+    if (typeof document === "undefined") {
+      setMessage("Profile download requires a browser document context.");
+      return;
+    }
+
+    setIsProfileTransferBusy(true);
+    try {
+      const snapshot = await profileStore.exportProfileSnapshot();
+      const backup = createBrowserProfileBackup(snapshot);
+      const payload = serializeBrowserProfileBackup(backup);
+      const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = buildBrowserProfileBackupFilename(backup.exportedAtMs);
+      anchor.rel = "noopener";
+      anchor.click();
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 0);
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsProfileTransferBusy(false);
+    }
+  });
+
+  const importProfileBackupFile = useEffectEvent(async (file: File) => {
+    setIsProfileTransferBusy(true);
+    try {
+      const backup = parseBrowserProfileBackup(await file.text());
+      await profileStore.importProfileSnapshot(backup.profile);
+      applyBrowserLocalSettingsSnapshot(backup.localSettings);
+      setIsSettingsOpen(false);
+      window.location.reload();
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      setIsProfileTransferBusy(false);
+    }
+  });
+
   const handleSelectFamily = useEffectEvent((familyId: string) => {
     const family = findSetFamilyById(curated, familyId);
     setActiveFamilyId(familyId);
@@ -1159,6 +1209,19 @@ export function ModernPlayerApp({
           }
         }}
         ref={datFileInputRef}
+        type="file"
+      />
+      <input
+        accept=".json,application/json"
+        hidden
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0] ?? null;
+          event.currentTarget.value = "";
+          if (file) {
+            void importProfileBackupFile(file);
+          }
+        }}
+        ref={profileFileInputRef}
         type="file"
       />
 
@@ -1648,7 +1711,7 @@ export function ModernPlayerApp({
               <div>
                 <p className="modern-section__eyebrow">Settings</p>
                 <h2 className="modern-dashboard__panel-title" id="modern-settings-title">
-                  Replay Saving
+                  Settings
                 </h2>
               </div>
               <button
@@ -1699,6 +1762,35 @@ export function ModernPlayerApp({
                   </p>
                 </div>
               </label>
+
+              <section className="modern-about-modal__section modern-settings-modal__section">
+                <p className="modern-preference-block__label">Profile Backup</p>
+                <p className="modern-dashboard__copy">
+                  Download a structured backup of local sets, replays, progress, selection, and browser settings. Uploading a backup replaces the current local profile and reloads the page.
+                </p>
+                <div className="modern-settings-modal__actions">
+                  <button
+                    className="modern-button modern-button--secondary"
+                    disabled={isProfileTransferBusy}
+                    onClick={() => {
+                      void downloadProfileBackup();
+                    }}
+                    type="button"
+                  >
+                    Download Profile
+                  </button>
+                  <button
+                    className="modern-button modern-button--secondary"
+                    disabled={isProfileTransferBusy}
+                    onClick={() => {
+                      profileFileInputRef.current?.click();
+                    }}
+                    type="button"
+                  >
+                    Upload Profile
+                  </button>
+                </div>
+              </section>
             </div>
           </div>
         </div>
