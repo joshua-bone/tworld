@@ -1,63 +1,107 @@
-import { parseDatFile, parseSeriesConfig } from "@content/api/series-file";
 import type { SeriesCatalogEntry } from "@content/api/series";
+import {
+  listBrowserSeriesCatalogFilesFromLoaders,
+  loadBrowserSeriesCatalogEntriesFromLoaders,
+  type BrowserSeriesLoaderMap,
+} from "@level-catalog/impl/browserSeriesCatalogEntries.shared";
+import type {
+  BrowserSeriesCatalogWorkerRequest,
+  BrowserSeriesCatalogWorkerResponse,
+} from "@level-catalog/impl/browserSeriesCatalog.worker.protocol";
 
 const seriesConfigs = import.meta.glob("@sets/*.dac", {
   import: "default",
   query: "?raw",
-}) as Record<string, () => Promise<string>>;
+}) as BrowserSeriesLoaderMap<string>;
 
 const dataFiles = import.meta.glob(["@data/*.dat", "!@data/CHIPS.dat"], {
   import: "default",
   query: "?url",
-}) as Record<string, () => Promise<string>>;
+}) as BrowserSeriesLoaderMap<string>;
 
-function basename(path: string): string {
-  const parts = path.split("/");
-  return parts[parts.length - 1] ?? path;
+interface PendingCatalogRequest {
+  reject: (error: unknown) => void;
+  resolve: (entries: SeriesCatalogEntry[]) => void;
+}
+
+let browserSeriesCatalogWorker: Worker | null = null;
+let nextCatalogRequestId = 1;
+const pendingCatalogRequests = new Map<number, PendingCatalogRequest>();
+
+function rejectPendingCatalogRequests(error: unknown): void {
+  for (const { reject } of pendingCatalogRequests.values()) {
+    reject(error);
+  }
+  pendingCatalogRequests.clear();
+}
+
+function getBrowserSeriesCatalogWorker(): Worker | null {
+  if (typeof window === "undefined" || typeof Worker === "undefined") {
+    return null;
+  }
+
+  if (browserSeriesCatalogWorker) {
+    return browserSeriesCatalogWorker;
+  }
+
+  const worker = new Worker(new URL("./browserSeriesCatalog.worker.ts", import.meta.url), {
+    type: "module",
+  });
+
+  worker.onmessage = (event: MessageEvent<BrowserSeriesCatalogWorkerResponse>) => {
+    const { id, entries, error } = event.data;
+    const pending = pendingCatalogRequests.get(id);
+    if (!pending) {
+      return;
+    }
+
+    pendingCatalogRequests.delete(id);
+    if (error) {
+      pending.reject(new Error(error));
+      return;
+    }
+
+    pending.resolve(entries ?? []);
+  };
+
+  worker.onerror = (event) => {
+    rejectPendingCatalogRequests(event.error ?? new Error(event.message));
+    worker.terminate();
+    if (browserSeriesCatalogWorker === worker) {
+      browserSeriesCatalogWorker = null;
+    }
+  };
+
+  browserSeriesCatalogWorker = worker;
+  return worker;
 }
 
 export function listBrowserSeriesCatalogFiles(): string[] {
-  return Object.keys(seriesConfigs)
-    .map((path) => basename(path))
-    .sort((left, right) => left.localeCompare(right));
-}
-
-async function loadBySuffix<T>(files: Record<string, () => Promise<T>>, suffix: string): Promise<T | null> {
-  const match = Object.entries(files).find(([path]) => path.endsWith(suffix));
-  return match ? match[1]() : null;
+  return listBrowserSeriesCatalogFilesFromLoaders(seriesConfigs);
 }
 
 export async function loadBrowserSeriesCatalogEntries(seriesFiles?: string[]): Promise<SeriesCatalogEntry[]> {
   const targets = seriesFiles ?? listBrowserSeriesCatalogFiles();
-  const catalog: SeriesCatalogEntry[] = [];
-
-  for (const seriesFile of targets) {
-    const configText = await loadBySuffix(seriesConfigs, `/sets/${seriesFile}`);
-    if (!configText) {
-      continue;
-    }
-
-    const config = parseSeriesConfig(configText);
-    const dataUrl = await loadBySuffix(dataFiles, `/data/${config.mapFile}`);
-    if (!dataUrl) {
-      continue;
-    }
-
-    const response = await fetch(dataUrl);
-    if (!response.ok) {
-      continue;
-    }
-
-    const datBytes = new Uint8Array(await response.arrayBuffer());
-    const parsed = parseDatFile(datBytes, { ruleset: config.ruleset });
-    catalog.push({
-      name: seriesFile,
-      filebase: seriesFile,
-      mapfilename: `./data/${config.mapFile}`,
-      ruleset: parsed.ruleset,
-      levels: parsed.levels,
-    });
+  const worker = getBrowserSeriesCatalogWorker();
+  if (!worker) {
+    return loadBrowserSeriesCatalogEntriesFromLoaders(seriesConfigs, dataFiles, targets);
   }
 
-  return catalog;
+  const requestId = nextCatalogRequestId;
+  nextCatalogRequestId += 1;
+
+  return new Promise<SeriesCatalogEntry[]>((resolve, reject) => {
+    pendingCatalogRequests.set(requestId, { resolve, reject });
+
+    try {
+      const request: BrowserSeriesCatalogWorkerRequest = {
+        id: requestId,
+        seriesFiles: targets,
+      };
+      worker.postMessage(request);
+    } catch (error: unknown) {
+      pendingCatalogRequests.delete(requestId);
+      reject(error);
+    }
+  });
 }
