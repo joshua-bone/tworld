@@ -12,6 +12,7 @@ export interface LegacyTileset {
   get(tileId: number): LegacyTileSprite | null;
   getCell?: (topId: number, bottomId: number, timerval: number) => LegacyTileSprite | null;
   getCreature?: (id: number, dir: number, moving: number, frame: number) => LegacyTileSprite | null;
+  getCellAnimationPeriod?: (topId: number, bottomId: number) => number;
 }
 
 interface RasterImage {
@@ -355,6 +356,9 @@ function buildMsLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset {
   return {
     get(tileId: number): LegacyTileSprite | null {
       return sprites.get(normalizeMsLegacyDisplayTileId(tileId)) ?? null;
+    },
+    getCellAnimationPeriod(): number {
+      return 1;
     },
   };
 }
@@ -953,6 +957,26 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
       const sprite = createLegacyTileSprite(canvas, false);
       cellCache.set(cacheKey, sprite);
       return sprite;
+    },
+    getCellAnimationPeriod(topId: number, bottomId: number): number {
+      const topPeriod = entries.get(topId)?.celCount ?? 1;
+      const bottomPeriod = entries.get(bottomId)?.celCount ?? 1;
+      if (topPeriod <= 1 && bottomPeriod <= 1) {
+        return 1;
+      }
+
+      const gcd = (left: number, right: number): number => {
+        let a = Math.max(1, left);
+        let b = Math.max(1, right);
+        while (b !== 0) {
+          const next = a % b;
+          a = b;
+          b = next;
+        }
+        return a;
+      };
+
+      return (topPeriod * bottomPeriod) / gcd(topPeriod, bottomPeriod);
     },
     getCreature(id: number, dir: number, moving: number, frame: number): LegacyTileSprite | null {
       const tileId = isLynxAnimationTile(id) ? id : msCreatureTile(id, dir || NORTH);

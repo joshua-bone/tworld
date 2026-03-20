@@ -67,12 +67,26 @@ const RULESET_COLUMN_X = 520;
 const LOWER_LAYER_SCALE = 0.9;
 const LOWER_LAYER_BLUR_PX = 1;
 const LOWER_LAYER_DARKEN_PER_DEPTH = 0.25;
+const MAX_CACHED_LOWER_LAYER_DEPTH = 3;
+const LAYER_CANVAS_PADDING_TILES = Math.ceil((layerViewportTileWindow(MAX_CACHED_LOWER_LAYER_DEPTH) - LEGACY_MAP_TILES) / 2);
+const LAYER_CANVAS_PADDING_PX = LAYER_CANVAS_PADDING_TILES * LEGACY_TILE_SIZE;
+const LAYER_CANVAS_BOARD_SIZE = 32 * LEGACY_TILE_SIZE + LAYER_CANVAS_PADDING_PX * 2;
+const MAX_LAYER_CANVAS_CACHE_ENTRIES = 16;
 const SUPPORT_BORDER_COLOR = "#2c8cff";
 const ELEVATOR_FAILURE_BORDER_COLOR = "#ff4040";
 const ELEVATOR_BASE_COLOR = "#2f9f4a";
 const ELEVATOR_EDGE_COLOR = "#0e401d";
 const ELEVATOR_PANEL_COLOR = "#154d23";
 const ELEVATOR_TEXT_COLOR = "#d9ffd7";
+
+interface LegacyLayerCanvasCacheEntry {
+  key: string;
+  canvas: HTMLCanvasElement;
+}
+
+interface LegacyLayerCanvasCache {
+  entries: Map<string, LegacyLayerCanvasCacheEntry>;
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -83,6 +97,140 @@ function createCanvas(width: number, height: number): HTMLCanvasElement {
   canvas.width = width;
   canvas.height = height;
   return canvas;
+}
+
+function createLayerCanvasCache(): LegacyLayerCanvasCache {
+  return {
+    entries: new Map(),
+  };
+}
+
+function clearLayerCanvasCache(cache: LegacyLayerCanvasCache): void {
+  cache.entries.clear();
+}
+
+function getCachedLayerCanvas(cache: LegacyLayerCanvasCache, key: string): HTMLCanvasElement | null {
+  const cached = cache.entries.get(key);
+  if (!cached) {
+    return null;
+  }
+
+  cache.entries.delete(key);
+  cache.entries.set(key, cached);
+  return cached.canvas;
+}
+
+function storeCachedLayerCanvas(cache: LegacyLayerCanvasCache, key: string, canvas: HTMLCanvasElement): HTMLCanvasElement {
+  cache.entries.set(key, { key, canvas });
+  while (cache.entries.size > MAX_LAYER_CANVAS_CACHE_ENTRIES) {
+    const oldestKey = cache.entries.keys().next().value;
+    if (typeof oldestKey !== "string") {
+      break;
+    }
+    cache.entries.delete(oldestKey);
+  }
+  return canvas;
+}
+
+function hashLayerValue(hash: number, value: number): number {
+  let next = hash ^ (value & 0xff_ff_ff_ff);
+  next = Math.imul(next, 0x01_00_01_93);
+  return next >>> 0;
+}
+
+function buildVisibleLayerCellsSummary(
+  tileset: LegacyTileset,
+  layer: InteractiveGameVisibleLayer,
+): { hash: number; animationPeriod: number } {
+  let hash = 0x81_1c_9d_c5;
+  let animationPeriod = 1;
+
+  for (const cell of layer.cells) {
+    hash = hashLayerValue(hash, cell.top.id);
+    hash = hashLayerValue(hash, cell.bottom.id);
+    animationPeriod = Math.max(animationPeriod, tileset.getCellAnimationPeriod?.(cell.top.id, cell.bottom.id) ?? 1);
+  }
+
+  return { hash, animationPeriod };
+}
+
+function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverlay>, targetZ: number): number {
+  let hash = 0x81_1c_9d_c5;
+  for (const overlay of overlays) {
+    if (overlay.z !== targetZ) {
+      continue;
+    }
+    hash = hashLayerValue(hash, overlay.pos);
+    hash = hashLayerValue(hash, overlay.kind === "support" ? 1 : 2);
+  }
+  return hash >>> 0;
+}
+
+function buildLynxRenderLayerHash(session: InteractiveGameSession, targetZ: number): number {
+  const render = session.frame.render;
+  if (!render) {
+    return 0;
+  }
+
+  let hash = 0x81_1c_9d_c5;
+  const chip = render.chip;
+  if (chip && (chip.z ?? 1) === targetZ) {
+    hash = hashLayerValue(hash, chip.pos);
+    hash = hashLayerValue(hash, chip.dir);
+    hash = hashLayerValue(hash, chip.moving);
+    hash = hashLayerValue(hash, chip.pushing ? 1 : 0);
+    hash = hashLayerValue(hash, chip.hidden ? 1 : 0);
+    hash = hashLayerValue(hash, chip.failed ? 1 : 0);
+    hash = hashLayerValue(hash, chip.endGameAnimationTileId ?? 0);
+    hash = hashLayerValue(hash, chip.endGameAnimationFrame ?? 0);
+    hash = hashLayerValue(hash, Math.round((chip.scale ?? 1) * 1000));
+  }
+
+  for (const actor of render.actors) {
+    if ((actor.z ?? 1) !== targetZ) {
+      continue;
+    }
+    hash = hashLayerValue(hash, actor.id);
+    hash = hashLayerValue(hash, actor.pos);
+    hash = hashLayerValue(hash, actor.dir);
+    hash = hashLayerValue(hash, actor.moving);
+    hash = hashLayerValue(hash, actor.frame);
+    hash = hashLayerValue(hash, actor.hidden ? 1 : 0);
+    hash = hashLayerValue(hash, actor.animationReserved ? 1 : 0);
+    hash = hashLayerValue(hash, Math.round((actor.scale ?? 1) * 1000));
+  }
+
+  for (const animation of render.animations) {
+    if ((animation.z ?? chip?.z ?? 1) !== targetZ) {
+      continue;
+    }
+    hash = hashLayerValue(hash, animation.pos);
+    hash = hashLayerValue(hash, animation.frame);
+    hash = hashLayerValue(hash, animation.tileId);
+  }
+
+  return hash >>> 0;
+}
+
+function animationFrameToken(animationPeriod: number, timerval: number): number {
+  if (animationPeriod <= 1 || timerval < 0) {
+    return 0;
+  }
+  return (timerval + 1) % animationPeriod;
+}
+
+function buildCachedLowerLayerKey(
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  layer: InteractiveGameVisibleLayer,
+  timerval: number,
+): string {
+  const cellsSummary = buildVisibleLayerCellsSummary(tileset, layer);
+  const overlayHash = buildLayerOverlayHash(session.frame.tileOverlays, layer.z);
+  const renderHash = ruleset === "Lynx" ? buildLynxRenderLayerHash(session, layer.z) : 0;
+  const timeToken = animationFrameToken(cellsSummary.animationPeriod, timerval);
+  return `${ruleset ?? "None"}:${layer.z}:${cellsSummary.hash.toString(16)}:${timeToken}:${overlayHash.toString(16)}:${renderHash.toString(16)}`;
 }
 
 function formatLevelTimeLeft(session: InteractiveGameSession): string {
@@ -552,6 +700,54 @@ function renderMapLayerCanvas(
   return canvas;
 }
 
+function renderCachedLowerLayerCanvas(
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  layer: InteractiveGameVisibleLayer,
+  timerval: number,
+): HTMLCanvasElement {
+  const canvas = createCanvas(LAYER_CANVAS_BOARD_SIZE, LAYER_CANVAS_BOARD_SIZE);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  context.imageSmoothingEnabled = false;
+  const xOrigin = LAYER_CANVAS_PADDING_PX;
+  const yOrigin = LAYER_CANVAS_PADDING_PX;
+
+  for (const cell of layer.cells) {
+    const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
+    const y = yOrigin + cell.position.y * LEGACY_TILE_SIZE;
+    drawCompositedCell(context, tileset, cell.top.id, cell.bottom.id, timerval, x, y);
+  }
+
+  if (ruleset === "Lynx") {
+    drawLynxActorOverlays(context, tileset, session, xOrigin, yOrigin, layer.z);
+  }
+
+  drawLayerOverlays(context, session.frame.tileOverlays, layer.z, xOrigin, yOrigin, canvas.width, canvas.height);
+  return canvas;
+}
+
+function getOrRenderCachedLowerLayerCanvas(
+  cache: LegacyLayerCanvasCache,
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  layer: InteractiveGameVisibleLayer,
+  timerval: number,
+): HTMLCanvasElement {
+  const key = buildCachedLowerLayerKey(tileset, session, ruleset, layer, timerval);
+  const cached = getCachedLayerCanvas(cache, key);
+  if (cached) {
+    return cached;
+  }
+
+  return storeCachedLayerCanvas(cache, key, renderCachedLowerLayerCanvas(tileset, session, ruleset, layer, timerval));
+}
+
 function drawVisibleLayerStack(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
@@ -560,34 +756,39 @@ function drawVisibleLayerStack(
   timerval: number,
   viewX: number,
   viewY: number,
+  lowerLayerCache: LegacyLayerCanvasCache,
 ): void {
   const visibleLayers = session.frame.visibleLayers;
   if (visibleLayers.length === 0) {
     return;
   }
 
-  const layerCanvases = visibleLayers.map((layer, index) =>
-    renderMapLayerCanvas(tileset, session, ruleset, layer, timerval, viewX, viewY, index),
-  );
+  const topLayerCanvas = renderMapLayerCanvas(tileset, session, ruleset, visibleLayers[0]!, timerval, viewX, viewY, 0);
 
   withLegacyMapViewportClip(context, () => {
-    for (let index = layerCanvases.length - 1; index >= 1; index -= 1) {
-      const layerCanvas = layerCanvases[index]!;
+    for (let index = visibleLayers.length - 1; index >= 1; index -= 1) {
+      const layer = visibleLayers[index]!;
+      const layerCanvas = getOrRenderCachedLowerLayerCanvas(lowerLayerCache, tileset, session, ruleset, layer, timerval);
       const depth = index;
       const scale = LOWER_LAYER_SCALE ** depth;
       const brightness = Math.max(0, 1 - depth * LOWER_LAYER_DARKEN_PER_DEPTH);
-      const width = layerCanvas.width * scale;
-      const height = layerCanvas.height * scale;
+      const tileWindowSize = layerViewportTileWindow(depth);
+      const sourceSize = tileWindowSize * LEGACY_TILE_SIZE;
+      const layerPadding = ((tileWindowSize - LEGACY_MAP_TILES) * LEGACY_TILE_SIZE) / 2;
+      const sourceX = LAYER_CANVAS_PADDING_PX + (viewX * LEGACY_TILE_SIZE) / 4 - layerPadding;
+      const sourceY = LAYER_CANVAS_PADDING_PX + (viewY * LEGACY_TILE_SIZE) / 4 - layerPadding;
+      const width = sourceSize * scale;
+      const height = sourceSize * scale;
       const x = LEGACY_MAP_X + (LEGACY_MAP_WIDTH - width) / 2;
       const y = LEGACY_MAP_Y + (LEGACY_MAP_HEIGHT - height) / 2;
 
       context.save();
       context.filter = `blur(${LOWER_LAYER_BLUR_PX}px) brightness(${brightness})`;
-      context.drawImage(layerCanvas, x, y, width, height);
+      context.drawImage(layerCanvas, sourceX, sourceY, sourceSize, sourceSize, x, y, width, height);
       context.restore();
     }
 
-    context.drawImage(layerCanvases[0]!, LEGACY_MAP_X, LEGACY_MAP_Y);
+    context.drawImage(topLayerCanvas, LEGACY_MAP_X, LEGACY_MAP_Y);
   });
 }
 
@@ -728,6 +929,7 @@ function drawGameScreen(
   message: string | null,
   isLoading: boolean,
   ruleset: SeriesCatalogEntry["ruleset"] | null,
+  lowerLayerCache: LegacyLayerCanvasCache,
 ): void {
   context.fillStyle = COLORS.background;
   context.fillRect(0, 0, LEGACY_WINDOW_WIDTH, LEGACY_WINDOW_HEIGHT);
@@ -741,7 +943,7 @@ function drawGameScreen(
   const viewX = clamp(snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
   const viewY = clamp(snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
   const timerval = (snapshot.statusFlags & MS_STATUS_FLAG.NoAnimation) !== 0 ? -1 : snapshot.currentTime;
-  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY);
+  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY, lowerLayerCache);
 
   drawText(context, `Level ${level.number}`, LEGACY_INFO_X, LEGACY_MAP_Y, COLORS.text);
   drawText(context, `Password: ${level.password || "----"}`, LEGACY_INFO_X, LEGACY_MAP_Y + 18, COLORS.text);
@@ -828,6 +1030,7 @@ function drawGameMapOnly(
   series: SeriesCatalogEntry | null,
   isLoading: boolean,
   ruleset: SeriesCatalogEntry["ruleset"] | null,
+  lowerLayerCache: LegacyLayerCanvasCache,
 ): void {
   context.fillStyle = COLORS.background;
   context.fillRect(0, 0, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
@@ -844,7 +1047,7 @@ function drawGameMapOnly(
 
   context.save();
   context.translate(-LEGACY_MAP_X, -LEGACY_MAP_Y);
-  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY);
+  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY, lowerLayerCache);
   context.restore();
 }
 
@@ -948,6 +1151,7 @@ export function LegacyCanvasScreen({
   onDatDrop,
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lowerLayerCacheRef = useRef<LegacyLayerCanvasCache>(createLayerCanvasCache());
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
   const [isDatDragActive, setIsDatDragActive] = useState(false);
   const [seriesScrollOffset, setSeriesScrollOffset] = useState(0);
@@ -967,6 +1171,10 @@ export function LegacyCanvasScreen({
 
     setSeriesScrollOffset((current) => ensureSeriesVisible(current, selectedSeriesIndex, catalog.length));
   }, [catalog.length, mode, selectedSeriesIndex]);
+
+  useEffect(() => {
+    clearLayerCanvasCache(lowerLayerCacheRef.current);
+  }, [currentRuleset, currentSeries?.filebase, currentLevel?.number, tileset]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1000,11 +1208,30 @@ export function LegacyCanvasScreen({
       }
 
       if (presentation === "map-only") {
-        drawGameMapOnly(context, tileset, session, currentLevel, currentSeries, isLoading, currentRuleset);
+        drawGameMapOnly(
+          context,
+          tileset,
+          session,
+          currentLevel,
+          currentSeries,
+          isLoading,
+          currentRuleset,
+          lowerLayerCacheRef.current,
+        );
         return;
       }
 
-      drawGameScreen(context, tileset, session, currentLevel, currentSeries, message, isLoading, currentRuleset);
+      drawGameScreen(
+        context,
+        tileset,
+        session,
+        currentLevel,
+        currentSeries,
+        message,
+        isLoading,
+        currentRuleset,
+        lowerLayerCacheRef.current,
+      );
     };
 
     if (mode === "game") {
