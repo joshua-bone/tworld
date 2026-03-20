@@ -47,6 +47,7 @@ const builtInDataFiles = import.meta.glob(["@data/*.dat", "@data/*.ccx", "!@data
   query: "?url",
 }) as BrowserSeriesLoaderMap<string>;
 const builtInDatHashCache = new Map<string, Promise<{ datHash: string; ruleset: BrowserPreferredRuleset } | null>>();
+const gliderBotDirectoryEntriesCache = new Map<string, Promise<string[]>>();
 
 function parseLevelNumber(value: string | null): number {
   if (!value) {
@@ -196,6 +197,17 @@ function buildGliderBotPackUrl(canonicalPath: string): string {
   return url.toString();
 }
 
+function buildGliderBotDirectoryUrl(directoryPath: string): string {
+  const url = new URL(GLIDERBOT_PACK_BASE_URL);
+  const basePath = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
+  const normalizedDirectory = directoryPath === "" ? "" : `${directoryPath.replace(/\/+$/u, "")}/`;
+  url.pathname = `${basePath}${normalizedDirectory.split("/").filter((segment) => segment !== "").map((segment) => encodeURIComponent(segment)).join("/")}`;
+  if (!url.pathname.endsWith("/")) {
+    url.pathname = `${url.pathname}/`;
+  }
+  return url.toString();
+}
+
 function packSlotNameFromCanonicalPath(canonicalPath: string): string {
   const basename = canonicalPath.split("/").at(-1);
   if (!basename) {
@@ -262,6 +274,74 @@ async function findMatchingBuiltInSeriesFile(
   return builtInSeriesFile;
 }
 
+function decodeHtmlHref(value: string): string {
+  return value
+    .replace(/&amp;/gu, "&")
+    .replace(/&quot;/gu, "\"")
+    .replace(/&#39;/gu, "'")
+    .replace(/&lt;/gu, "<")
+    .replace(/&gt;/gu, ">");
+}
+
+function parseDirectoryListingHrefs(html: string): string[] {
+  const matches = html.matchAll(/href="([^"]+)"/giu);
+  const hrefs: string[] = [];
+
+  for (const match of matches) {
+    const href = match[1];
+    if (!href) {
+      continue;
+    }
+    hrefs.push(decodeHtmlHref(href));
+  }
+
+  return hrefs;
+}
+
+async function loadGliderBotDirectoryEntries(directoryPath: string): Promise<string[]> {
+  const cached = gliderBotDirectoryEntriesCache.get(directoryPath);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = (async () => {
+    const response = await fetch(buildGliderBotDirectoryUrl(directoryPath));
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${buildGliderBotDirectoryUrl(directoryPath)}: ${response.status}`);
+    }
+
+    return parseDirectoryListingHrefs(await response.text());
+  })();
+
+  gliderBotDirectoryEntriesCache.set(directoryPath, promise);
+  return promise;
+}
+
+async function resolveGliderBotCaseSensitivePath(canonicalPath: string): Promise<string> {
+  const segments = canonicalPath.split("/").filter((segment) => segment !== "");
+  if (segments.length === 0) {
+    throw new Error("Pack path is empty.");
+  }
+
+  const directorySegments = segments.slice(0, -1);
+  const requestedFile = segments[segments.length - 1]!;
+  const directoryPath = directorySegments.join("/");
+  const entries = await loadGliderBotDirectoryEntries(directoryPath);
+  const matchingEntry = entries.find((href) => {
+    if (href === "../" || href.endsWith("/")) {
+      return false;
+    }
+
+    return href.toLowerCase() === requestedFile.toLowerCase();
+  });
+
+  if (!matchingEntry) {
+    return canonicalPath;
+  }
+
+  return [...directorySegments, matchingEntry].join("/");
+}
+
 async function fetchDatBytes(url: string): Promise<Uint8Array> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -269,6 +349,11 @@ async function fetchDatBytes(url: string): Promise<Uint8Array> {
   }
 
   return new Uint8Array(await response.arrayBuffer());
+}
+
+export function resetUrlLaunchCachesForTest(): void {
+  builtInDatHashCache.clear();
+  gliderBotDirectoryEntriesCache.clear();
 }
 
 export async function buildUrlLaunchHref({
@@ -341,10 +426,11 @@ export async function resolveUrlLaunchSelection(
       }
 
       const canonicalPackPath = canonicalizeGliderBotPackPath(request.packToken);
-      const packUrl = buildGliderBotPackUrl(canonicalPackPath);
+      const resolvedPackPath = await resolveGliderBotCaseSensitivePath(canonicalPackPath);
+      const packUrl = buildGliderBotPackUrl(resolvedPackPath);
       const datBytes = await fetchDatBytes(packUrl);
       const datHash = await computeDatContentHash(datBytes);
-      const packSlotName = packSlotNameFromCanonicalPath(canonicalPackPath);
+      const packSlotName = packSlotNameFromCanonicalPath(resolvedPackPath);
       const packToken = packSlotName.replace(/\.[^.]+$/u, "");
       const importedDatFiles = await services.profileStore.listImportedDatFiles();
       const matchingBuiltInSeriesFile = await findMatchingBuiltInSeriesFile(packToken, request.ruleset, datHash);

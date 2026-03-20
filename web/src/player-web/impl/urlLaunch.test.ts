@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFile } from "node:fs/promises";
 import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
 import { decodeDatUrlPayload, encodeDatUrlPayload } from "@player-web/impl/urlDatCodec";
-import { buildUrlLaunchHref, resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
+import { buildUrlLaunchHref, resolveUrlLaunchSelection, resetUrlLaunchCachesForTest } from "@player-web/impl/urlLaunch";
 import { importedSeriesFile } from "@player-web/impl/importedDatIdentity";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import type { BrowserProfileStore } from "@player-web/ports/BrowserProfileStore";
@@ -74,6 +74,7 @@ function createFetchResponse(bytes: Uint8Array, ok = true, status = 200): Respon
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  resetUrlLaunchCachesForTest();
 });
 
 describe("resolveUrlLaunchSelection", () => {
@@ -131,7 +132,14 @@ describe("resolveUrlLaunchSelection", () => {
     const services = createServices();
     const datBytes = createDatBytes();
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      expect(String(input)).toBe("https://bitbusters.club/gliderbot/sets/cc1/custompack.dat");
+      if (String(input) === "https://bitbusters.club/gliderbot/sets/cc1/") {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => '<a href="CustomPack.dat">CustomPack.dat</a>',
+        } as Response;
+      }
+      expect(String(input)).toBe("https://bitbusters.club/gliderbot/sets/cc1/CustomPack.dat");
       return createFetchResponse(datBytes);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -146,13 +154,13 @@ describe("resolveUrlLaunchSelection", () => {
       message: null,
       overrideApplied: true,
       selection: {
-        seriesFile: importedSeriesFile("custompack.dat", "MS"),
+        seriesFile: importedSeriesFile("CustomPack.dat", "MS"),
         levelNumber: 4,
       },
     });
     expect(services.__imports).toEqual([
       {
-        filename: "custompack.dat",
+        filename: "CustomPack.dat",
         datBytes,
       },
     ]);
@@ -161,7 +169,14 @@ describe("resolveUrlLaunchSelection", () => {
   it("canonicalizes gb pack paths before downloading", async () => {
     const services = createServices();
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      expect(String(input)).toBe("https://bitbusters.club/gliderbot/sets/cc1/custompack.dat");
+      if (String(input) === "https://bitbusters.club/gliderbot/sets/cc1/") {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => '<a href="CustomPack.dat">CustomPack.dat</a>',
+        } as Response;
+      }
+      expect(String(input)).toBe("https://bitbusters.club/gliderbot/sets/cc1/CustomPack.dat");
       return createFetchResponse(createDatBytes());
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -172,8 +187,8 @@ describe("resolveUrlLaunchSelection", () => {
       new URL("https://example.test/?pack=gb:cc1/./foo/../custompack/&ruleset=Lynx"),
     );
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(services.__imports[0]?.filename).toBe("custompack.dat");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(services.__imports[0]?.filename).toBe("CustomPack.dat");
   });
 
   it("reuses an existing imported pack when the downloaded gb bytes already match", async () => {
@@ -186,7 +201,16 @@ describe("resolveUrlLaunchSelection", () => {
         },
       ],
     });
-    vi.stubGlobal("fetch", vi.fn(async () => createFetchResponse(datBytes)));
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === "https://bitbusters.club/gliderbot/sets/cc1/") {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => '<a href="CustomPack.dat">CustomPack.dat</a>',
+        } as Response;
+      }
+      return createFetchResponse(datBytes);
+    }));
 
     const result = await resolveUrlLaunchSelection(
       services,
@@ -206,7 +230,14 @@ describe("resolveUrlLaunchSelection", () => {
     const datBytes = new Uint8Array(await readFile(new URL("../../../../data/JBLP1.dat", import.meta.url)));
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
-      if (url === "https://bitbusters.club/gliderbot/sets/cc1/jblp1.dat" || url.includes("JBLP1.dat")) {
+      if (url === "https://bitbusters.club/gliderbot/sets/cc1/") {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => '<a href="JBLP1.dat">JBLP1.dat</a>',
+        } as Response;
+      }
+      if (url === "https://bitbusters.club/gliderbot/sets/cc1/JBLP1.dat" || url.includes("JBLP1.dat")) {
         return createFetchResponse(datBytes);
       }
 
