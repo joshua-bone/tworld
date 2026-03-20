@@ -97,6 +97,7 @@ const MODERN_UNDO_SMOOTH_LIMIT_SECONDS = 8;
 const MODERN_UNDO_SMOOTH_LIMIT_TICKS = MODERN_UNDO_SMOOTH_LIMIT_SECONDS * GAME_TICKS_PER_SECOND;
 const MODERN_UNDO_CHECKPOINT_BASE_TICKS = GAME_TICKS_PER_SECOND;
 const LOW_TIME_WARNING_TICKS = 10 * GAME_TICKS_PER_SECOND;
+const SESSION_UI_SYNC_INTERVAL_MS = 125;
 
 interface HelpCommand {
   keys: string;
@@ -639,6 +640,9 @@ export function PlayerApp({
   const appliedInitialSelectionKeyRef = useRef<string | null>(null);
   const currentSelectionRef = useRef<PlayableSelection | null>(initialSelection);
   const sessionStartedFromReplayRef = useRef(false);
+  const liveSessionRef = useRef<InteractiveGameSession | null>(null);
+  const pendingSessionUiSyncRef = useRef<number | null>(null);
+  const lastSessionUiSyncAtRef = useRef(0);
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
@@ -800,6 +804,45 @@ export function PlayerApp({
         ? [...(isModernChrome ? GAME_PLAYING_HELP_MODERN : GAME_PLAYING_HELP), ...GLOBAL_HELP]
         : [...(isModernChrome ? GAME_ENDED_HELP_MODERN : GAME_ENDED_HELP), ...GLOBAL_HELP];
 
+  const flushSessionUiSync = (nextSession: InteractiveGameSession | null) => {
+    if (pendingSessionUiSyncRef.current !== null) {
+      window.clearTimeout(pendingSessionUiSyncRef.current);
+      pendingSessionUiSyncRef.current = null;
+    }
+    lastSessionUiSyncAtRef.current = performance.now();
+    startTransition(() => {
+      setSession(nextSession);
+    });
+  };
+
+  const scheduleSessionUiSync = (
+    nextSession: InteractiveGameSession | null,
+    options: { immediate?: boolean } = {},
+  ) => {
+    liveSessionRef.current = nextSession;
+
+    if (!nextSession || options.immediate) {
+      flushSessionUiSync(nextSession);
+      return;
+    }
+
+    const now = performance.now();
+    const dueAt = lastSessionUiSyncAtRef.current + SESSION_UI_SYNC_INTERVAL_MS;
+    if (now >= dueAt) {
+      flushSessionUiSync(nextSession);
+      return;
+    }
+
+    if (pendingSessionUiSyncRef.current !== null) {
+      return;
+    }
+
+    pendingSessionUiSyncRef.current = window.setTimeout(() => {
+      pendingSessionUiSyncRef.current = null;
+      flushSessionUiSync(liveSessionRef.current);
+    }, Math.max(0, dueAt - now));
+  };
+
   useEffect(() => {
     const player = new BrowserSoundEffectsPlayer();
     soundPlayerRef.current = player;
@@ -809,6 +852,15 @@ export function PlayerApp({
     return () => {
       player.dispose();
       soundPlayerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (pendingSessionUiSyncRef.current !== null) {
+        window.clearTimeout(pendingSessionUiSyncRef.current);
+        pendingSessionUiSyncRef.current = null;
+      }
     };
   }, []);
 
@@ -837,6 +889,25 @@ export function PlayerApp({
       setIsFastForwarding(false);
     }
   }, [mode]);
+
+  const syncSoundForSession = useEffectEvent((nextSession: InteractiveGameSession | null) => {
+    const player = soundPlayerRef.current;
+    if (!player) {
+      return;
+    }
+
+    if (mode !== "game" || !nextSession || showHelp || isPaused) {
+      player.reset();
+      return;
+    }
+
+    player.syncFrame(
+      `${nextSession.request.seriesFile}:${nextSession.request.levelNumber}:${nextSession.request.ruleset}`,
+      nextSession.request.ruleset,
+      nextSession.frame.snapshot.tick,
+      nextSession.frame.snapshot.soundEffects,
+    );
+  });
 
   useEffect(() => {
     if (mode !== "game") {
@@ -1093,9 +1164,10 @@ export function PlayerApp({
           levelNumber: selectedLevelNumber,
         });
         sessionStartedFromReplayRef.current = Boolean(queuedReplay) || nextSession.mode === "replay";
+        scheduleSessionUiSync(nextSession, { immediate: true });
+        syncSoundForSession(nextSession);
 
         startTransition(() => {
-          setSession(nextSession);
           setManualRunStarted(nextSession.mode === "replay");
           setIsRunning(nextSession.frame.snapshot.status === "playing");
           setMessage(null);
@@ -1142,7 +1214,8 @@ export function PlayerApp({
   }, [mode, session]);
 
   const advanceTick = useEffectEvent(async (input: InteractiveInput) => {
-    if (mode !== "game" || !session || tickingRef.current || isPaused) {
+    const activeSession = liveSessionRef.current;
+    if (mode !== "game" || !activeSession || tickingRef.current || isPaused) {
       return;
     }
 
@@ -1150,14 +1223,16 @@ export function PlayerApp({
     try {
       const nextSession = await measurePerfAsync("tickMs", () =>
         advanceInteractiveGameSession(
-          interactiveEngineForRuleset(session.request.ruleset, engines),
-          session,
+          interactiveEngineForRuleset(activeSession.request.ruleset, engines),
+          activeSession,
           input,
         ),
       );
-      startTransition(() => {
-        setSession(nextSession);
+      scheduleSessionUiSync(nextSession, {
+        immediate:
+          nextSession.frame.snapshot.status !== "playing" || nextSession.history.restoreMode !== "live",
       });
+      syncSoundForSession(nextSession);
       if (nextSession.frame.snapshot.status !== "playing") {
         setIsRunning(false);
       }
@@ -1170,8 +1245,9 @@ export function PlayerApp({
   });
 
   const syncSessionState = useEffectEvent((nextSession: InteractiveGameSession) => {
+    scheduleSessionUiSync(nextSession, { immediate: true });
+    syncSoundForSession(nextSession);
     startTransition(() => {
-      setSession(nextSession);
       setIsPaused(false);
       setIsRunning(
         nextSession.frame.snapshot.status === "playing" && nextSession.history.restoreMode !== "restored-paused",
@@ -1313,12 +1389,13 @@ export function PlayerApp({
   });
 
   const restoreToTick = useEffectEvent((targetTick: number | null) => {
+    const activeSession = liveSessionRef.current;
     if (
       targetTick === null ||
       mode !== "game" ||
-      !session ||
+      !activeSession ||
       historyNavigationRef.current ||
-      targetTick === session.history.currentTick
+      targetTick === activeSession.history.currentTick
     ) {
       return;
     }
@@ -1329,8 +1406,8 @@ export function PlayerApp({
     setIsPaused(false);
 
     void restoreInteractiveGameSession(
-      interactiveEngineForRuleset(session.request.ruleset, engines),
-      session,
+      interactiveEngineForRuleset(activeSession.request.ruleset, engines),
+      activeSession,
       targetTick,
     )
       .then(syncSessionState)
@@ -1355,11 +1432,12 @@ export function PlayerApp({
   });
 
   const performModernUndo = useEffectEvent((forHeldRepeat = false): boolean => {
-    if (mode !== "game" || !session || historyNavigationRef.current) {
+    const activeSession = liveSessionRef.current;
+    if (mode !== "game" || !activeSession || historyNavigationRef.current) {
       return false;
     }
 
-    const nextTarget = nextModernUndoTarget(session);
+    const nextTarget = nextModernUndoTarget(activeSession);
     if (!nextTarget) {
       return false;
     }
@@ -1378,7 +1456,8 @@ export function PlayerApp({
   });
 
   const resumeOriginalTimeline = useEffectEvent(() => {
-    if (!canResumeOriginalTimeline || mode !== "game" || !session || historyNavigationRef.current) {
+    const activeSession = liveSessionRef.current;
+    if (!canResumeOriginalTimeline || mode !== "game" || !activeSession || historyNavigationRef.current) {
       return;
     }
 
@@ -1388,8 +1467,8 @@ export function PlayerApp({
     setIsPaused(false);
 
     void resumeInteractiveGameSession(
-      interactiveEngineForRuleset(session.request.ruleset, engines),
-      session,
+      interactiveEngineForRuleset(activeSession.request.ruleset, engines),
+      activeSession,
     )
       .then(syncSessionState)
       .catch((error: unknown) => {
@@ -1435,7 +1514,8 @@ export function PlayerApp({
   });
 
   const toggleModernPause = useEffectEvent(() => {
-    if (!canTogglePause) {
+    const activeSession = liveSessionRef.current;
+    if (!activeSession || isSessionLoading || (!isPaused && activeSession.frame.snapshot.status !== "playing")) {
       return;
     }
 
@@ -1449,11 +1529,11 @@ export function PlayerApp({
   useEffect(() => {
     if (
       mode !== "game" ||
-      !session ||
+      !liveSessionRef.current ||
       !isRunning ||
       isPaused ||
       showHelp ||
-      (session.mode === "manual" && !manualRunStarted)
+      (liveSessionRef.current.mode === "manual" && !manualRunStarted)
     ) {
       return;
     }
@@ -1470,8 +1550,13 @@ export function PlayerApp({
         nextExpectedTickAtMs = now + tickIntervalMs;
       }
 
+      const activeSession = liveSessionRef.current;
+      if (!activeSession) {
+        return;
+      }
+
       const inputCode =
-        session.request.ruleset === "Lynx"
+        activeSession.request.ruleset === "Lynx"
           ? lynxInputBufferRef.current.nextTickInputCode()
           : msInputBufferRef.current.nextTickInputCode();
       void advanceTick(inputCode);
@@ -1480,7 +1565,7 @@ export function PlayerApp({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [advanceTick, isFastForwarding, isPaused, isRunning, manualRunStarted, mode, session, showHelp]);
+  }, [advanceTick, isFastForwarding, isPaused, isRunning, manualRunStarted, mode, showHelp]);
 
   useEffect(() => {
     if (mode !== "game" || heldUndoMode === null || showHelp) {
@@ -1986,23 +2071,13 @@ export function PlayerApp({
   }, [showHelp]);
 
   useEffect(() => {
-    const player = soundPlayerRef.current;
-    if (!player) {
+    if (mode !== "game" || showHelp || isPaused) {
+      soundPlayerRef.current?.reset();
       return;
     }
 
-    if (mode !== "game" || !session || showHelp || isPaused) {
-      player.reset();
-      return;
-    }
-
-    player.syncFrame(
-      `${session.request.seriesFile}:${session.request.levelNumber}:${session.request.ruleset}`,
-      session.request.ruleset,
-      session.frame.snapshot.tick,
-      session.frame.snapshot.soundEffects,
-    );
-  }, [isPaused, mode, session, showHelp]);
+    syncSoundForSession(liveSessionRef.current);
+  }, [isPaused, mode, showHelp, syncSoundForSession]);
 
   useEffect(() => {
     if (mode !== "game" || !session || session.frame.snapshot.status !== "playing") {
@@ -2068,6 +2143,7 @@ export function PlayerApp({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const activeSession = liveSessionRef.current;
       soundPlayerRef.current?.unlock();
       setIsFastForwarding(isFastForwardModifierActive(mode, event));
 
@@ -2195,7 +2271,7 @@ export function PlayerApp({
         return;
       }
 
-      if (isModernChrome && session?.history.enabled && isUndoKey(event)) {
+      if (isModernChrome && activeSession?.history.enabled && isUndoKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2205,7 +2281,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!isModernChrome && session?.history.enabled && isUndoCheckpointKey(event)) {
+      if (!isModernChrome && activeSession?.history.enabled && isUndoCheckpointKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2215,7 +2291,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!isModernChrome && session?.history.enabled && isFineUndoKey(event)) {
+      if (!isModernChrome && activeSession?.history.enabled && isFineUndoKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2225,7 +2301,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!isModernChrome && session?.history.enabled && isUndoKey(event)) {
+      if (!isModernChrome && activeSession?.history.enabled && isUndoKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2242,7 +2318,7 @@ export function PlayerApp({
       }
 
       const startClockKey =
-        session?.mode === "manual" &&
+        activeSession?.mode === "manual" &&
         !manualRunStarted &&
         !hasBlockedMovementModifier(event) &&
         (event.key === " " || event.key === "Spacebar" || keyToInput(event.key) !== null);
@@ -2251,13 +2327,13 @@ export function PlayerApp({
         setManualRunStarted(true);
       }
 
-      if (session && session.frame.snapshot.status !== "playing" && isProceedKey(event.key)) {
+      if (activeSession && activeSession.frame.snapshot.status !== "playing" && isProceedKey(event.key)) {
         event.preventDefault();
         proceedAfterLevelEnd();
         return;
       }
 
-      if (isModernChrome && session && session.frame.snapshot.status !== "playing" && event.key === "Escape") {
+      if (isModernChrome && activeSession && activeSession.frame.snapshot.status !== "playing" && event.key === "Escape") {
         event.preventDefault();
         restartCurrentLevel();
         return;
@@ -2301,16 +2377,16 @@ export function PlayerApp({
 
       const input = keyToInput(event.key);
       if (
-        session?.history.restoreMode === "replaying-history" &&
+        activeSession?.history.restoreMode === "replaying-history" &&
         !undoSettings.allowTakeoverDuringHistoricalReplay &&
         (input !== null || event.key === " " || event.key === "Spacebar")
       ) {
         event.preventDefault();
         return;
       }
-      if ((event.key === " " || event.key === "Spacebar") && session?.mode === "manual") {
+      if ((event.key === " " || event.key === "Spacebar") && activeSession?.mode === "manual") {
         event.preventDefault();
-        if (session.history.restoreMode === "restored-paused") {
+        if (activeSession.history.restoreMode === "restored-paused") {
           resumeLivePlayFromRestore();
         }
         return;
@@ -2327,17 +2403,18 @@ export function PlayerApp({
       }
 
       event.preventDefault();
-      if (session?.request.ruleset === "Lynx") {
+      if (activeSession?.request.ruleset === "Lynx") {
         lynxInputBufferRef.current.keyDown(input);
       } else {
         msInputBufferRef.current.keyDown(input);
       }
-      if (session?.history.restoreMode === "restored-paused") {
+      if (activeSession?.history.restoreMode === "restored-paused") {
         resumeLivePlayFromRestore();
       }
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
+      const activeSession = liveSessionRef.current;
       setIsFastForwarding(isFastForwardModifierActive(mode, event));
 
       if (mode !== "game") {
@@ -2361,7 +2438,7 @@ export function PlayerApp({
       const input = keyToInput(event.key);
       if (input) {
         event.preventDefault();
-        if (session?.request.ruleset === "Lynx") {
+        if (activeSession?.request.ruleset === "Lynx") {
           lynxInputBufferRef.current.keyUp(input);
         } else {
           msInputBufferRef.current.keyUp(input);
@@ -2422,7 +2499,6 @@ export function PlayerApp({
     resumeLivePlayFromRestore,
     resumeOriginalTimelineFromSpace,
     selectedSeriesFile,
-    session,
     showHistoryControls,
     showReplayMenu,
     showSoundControls,
@@ -2976,6 +3052,7 @@ export function PlayerApp({
                 currentSeries={currentSeries}
                 currentRuleset={currentRuleset}
                 isLoading={isCatalogLoading || isSessionLoading}
+                liveSessionRef={liveSessionRef}
                 message={message}
                 mode="game"
                 onMapClick={handleModernMapClick}
@@ -3464,6 +3541,7 @@ export function PlayerApp({
         currentSeries={currentSeries}
         currentRuleset={currentRuleset}
         isLoading={isCatalogLoading || isSessionLoading}
+        liveSessionRef={liveSessionRef}
         message={message}
         mode={mode}
         onMapClick={(position) => {

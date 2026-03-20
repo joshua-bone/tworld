@@ -40,6 +40,7 @@ interface LegacyCanvasScreenProps {
   currentLevel: SeriesLevel | null;
   currentRuleset: SeriesCatalogEntry["ruleset"] | null;
   session: InteractiveGameSession | null;
+  liveSessionRef?: Readonly<{ current: InteractiveGameSession | null }>;
   isLoading: boolean;
   message: string | null;
   onSelectSeries: (seriesFile: string) => void;
@@ -1051,6 +1052,46 @@ function drawGameMapOnly(
   context.restore();
 }
 
+function buildGameDrawStateKey(
+  session: InteractiveGameSession | null,
+  currentSeries: SeriesCatalogEntry | null,
+  currentLevel: SeriesLevel | null,
+  currentRuleset: SeriesCatalogEntry["ruleset"] | null,
+  isLoading: boolean,
+  message: string | null,
+  presentation: LegacyCanvasPresentation,
+  hasTileset: boolean,
+): string {
+  if (!hasTileset) {
+    return `no-tileset:${presentation}:${isLoading ? 1 : 0}:${message ?? ""}:${currentSeries?.filebase ?? ""}:${currentLevel?.number ?? 0}:${currentRuleset ?? "None"}`;
+  }
+
+  if (!session) {
+    return `no-session:${presentation}:${isLoading ? 1 : 0}:${message ?? ""}:${currentSeries?.filebase ?? ""}:${currentLevel?.number ?? 0}:${currentRuleset ?? "None"}`;
+  }
+
+  const snapshot = session.frame.snapshot;
+  return [
+    presentation,
+    session.request.seriesFile,
+    session.request.levelNumber,
+    session.request.ruleset,
+    snapshot.tick,
+    snapshot.currentTime,
+    snapshot.status,
+    snapshot.statusFlags,
+    snapshot.view.x,
+    snapshot.view.y,
+    session.history.currentTick,
+    session.history.restoreMode,
+    session.frame.visibleLayers.length,
+    session.frame.tileOverlays.length,
+    snapshot.chipsNeeded,
+    message ?? "",
+    isLoading ? 1 : 0,
+  ].join(":");
+}
+
 function useLegacyTileset(ruleset: "MS" | "Lynx" | null): LegacyTileset | null {
   const [tileset, setTileset] = useState<LegacyTileset | null>(null);
   const tilesUrl = ruleset === "Lynx" ? lynxTilesUrl : msTilesUrl;
@@ -1143,6 +1184,7 @@ export function LegacyCanvasScreen({
   currentLevel,
   currentRuleset,
   session,
+  liveSessionRef,
   isLoading,
   message,
   onSelectSeries,
@@ -1189,7 +1231,13 @@ export function LegacyCanvasScreen({
 
     context.imageSmoothingEnabled = false;
 
+    if (mode === "game") {
+      return;
+    }
+
     const drawFrame = () => {
+      const activeSession = liveSessionRef?.current ?? session;
+
       if (mode === "series-list") {
         drawSeriesList(context, catalog, selectedSeriesFile, message, seriesScrollOffset);
         return;
@@ -1211,7 +1259,7 @@ export function LegacyCanvasScreen({
         drawGameMapOnly(
           context,
           tileset,
-          session,
+          activeSession,
           currentLevel,
           currentSeries,
           isLoading,
@@ -1224,7 +1272,7 @@ export function LegacyCanvasScreen({
       drawGameScreen(
         context,
         tileset,
-        session,
+        activeSession,
         currentLevel,
         currentSeries,
         message,
@@ -1234,13 +1282,109 @@ export function LegacyCanvasScreen({
       );
     };
 
-    if (mode === "game") {
-      measurePerfSync("renderMs", drawFrame);
+    drawFrame();
+  }, [
+    catalog,
+    currentLevel,
+    currentRuleset,
+    currentSeries,
+    isLoading,
+    liveSessionRef,
+    message,
+    mode,
+    presentation,
+    selectedSeriesFile,
+    seriesScrollOffset,
+    session,
+    tileset,
+  ]);
+
+  useEffect(() => {
+    if (mode !== "game") {
       return;
     }
 
-    drawFrame();
-  }, [catalog, currentLevel, currentRuleset, currentSeries, isLoading, message, mode, presentation, selectedSeriesFile, seriesScrollOffset, session, tileset]);
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return;
+    }
+
+    context.imageSmoothingEnabled = false;
+    let animationFrameId = 0;
+    let lastDrawStateKey = "";
+
+    const drawLiveFrame = () => {
+      const activeSession = liveSessionRef?.current ?? session;
+      const drawStateKey = buildGameDrawStateKey(
+        activeSession,
+        currentSeries,
+        currentLevel,
+        currentRuleset,
+        isLoading,
+        message,
+        presentation,
+        tileset !== null,
+      );
+
+      if (drawStateKey !== lastDrawStateKey) {
+        const drawFrame = () => {
+          if (!tileset) {
+            context.fillStyle = COLORS.background;
+            context.fillRect(
+              0,
+              0,
+              presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH,
+              presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT,
+            );
+            drawText(context, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, COLORS.text);
+            return;
+          }
+
+          if (presentation === "map-only") {
+            drawGameMapOnly(
+              context,
+              tileset,
+              activeSession,
+              currentLevel,
+              currentSeries,
+              isLoading,
+              currentRuleset,
+              lowerLayerCacheRef.current,
+            );
+            return;
+          }
+
+          drawGameScreen(
+            context,
+            tileset,
+            activeSession,
+            currentLevel,
+            currentSeries,
+            message,
+            isLoading,
+            currentRuleset,
+            lowerLayerCacheRef.current,
+          );
+        };
+
+        measurePerfSync("renderMs", drawFrame);
+        lastDrawStateKey = drawStateKey;
+      }
+
+      animationFrameId = window.requestAnimationFrame(drawLiveFrame);
+    };
+
+    drawLiveFrame();
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+    };
+  }, [currentLevel, currentRuleset, currentSeries, isLoading, liveSessionRef, message, mode, presentation, session, tileset]);
 
   return (
     <canvas
