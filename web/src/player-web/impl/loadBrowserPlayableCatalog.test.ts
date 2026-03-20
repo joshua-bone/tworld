@@ -68,6 +68,31 @@ describe("resolveModernDeferredCatalogBatches", () => {
     ).toEqual([["CCLP1-MS.dac"], ["CCLP1-Lynx.dac"]]);
   });
 
+  it("prioritizes the restored family category before other categories", () => {
+    expect(
+      resolveModernDeferredCatalogBatches(
+        { seriesFile: "3DINTRO-Lynx.dac", levelNumber: 2 },
+        [
+          "CCLP1-MS.dac",
+          "CCLP1-Lynx.dac",
+          "3DINTRO-MS.dac",
+          "3DINTRO-Lynx.dac",
+          "po100t-MS.dac",
+          "po100t-Lynx.dac",
+          "to100t-MS.dac",
+          "to100t-Lynx.dac",
+        ],
+      ),
+    ).toEqual([
+      ["po100t-MS.dac"],
+      ["po100t-Lynx.dac"],
+      ["to100t-MS.dac"],
+      ["to100t-Lynx.dac"],
+      ["CCLP1-MS.dac"],
+      ["CCLP1-Lynx.dac"],
+    ]);
+  });
+
   it("defers all built-in wrappers when bootstrapping an uploaded set", () => {
     expect(
       resolveModernDeferredCatalogBatches(

@@ -251,9 +251,30 @@ const FAMILY_DEFINITION_BY_FILEBASE = new Map(
   FAMILY_DEFINITIONS.flatMap((definition) => definition.filebases.map((filebase) => [filebase, definition] as const)),
 );
 
+export interface SetFamilySeriesMetadata {
+  familyId: string;
+  filebaseOrder: number;
+  order: number;
+  section: CuratedCatalogSection;
+}
+
 export function listSetFamilyFilebasesForSeriesFile(seriesFile: string): string[] | null {
   const definition = FAMILY_DEFINITION_BY_FILEBASE.get(seriesFile);
   return definition ? [...definition.filebases] : null;
+}
+
+export function getSetFamilySeriesMetadata(seriesFile: string): SetFamilySeriesMetadata | null {
+  const definition = FAMILY_DEFINITION_BY_FILEBASE.get(seriesFile);
+  if (!definition) {
+    return null;
+  }
+
+  return {
+    familyId: definition.id,
+    filebaseOrder: definition.filebases.indexOf(seriesFile),
+    order: definition.order,
+    section: definition.section,
+  };
 }
 
 function basename(path: string): string {
