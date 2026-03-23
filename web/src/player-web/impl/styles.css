@@ -2161,20 +2161,61 @@ body {
   min-width: 0;
   padding: 9px 10px;
   border: 1px solid rgba(243, 236, 221, 0.12);
-  background: rgba(255, 255, 255, 0.02);
+  background-color: rgba(255, 255, 255, 0.02);
 }
 
-.modern-game-stat strong,
+.modern-game-stat {
+  justify-items: center;
+  text-align: center;
+}
+
+.modern-game-stat__value {
+  font-size: 2rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
 .modern-history-dock__item strong {
   font-size: 1rem;
 }
 
-.modern-game-stat__value--good {
-  color: #69d38b;
+.modern-game-stat--good {
+  border-color: rgba(110, 228, 163, 0.38);
+  animation: modern-game-stat-pulse-good 2.2s ease-in-out infinite;
 }
 
-.modern-game-stat__value--danger {
-  color: #ff7272;
+.modern-game-stat--danger {
+  border-color: rgba(255, 114, 114, 0.42);
+  animation: modern-game-stat-pulse-danger 2.2s ease-in-out infinite;
+}
+
+@keyframes modern-game-stat-pulse-good {
+  0%,
+  100% {
+    background-color: rgba(29, 64, 41, 0.34);
+  }
+
+  50% {
+    background-color: rgba(43, 95, 58, 0.68);
+  }
+}
+
+@keyframes modern-game-stat-pulse-danger {
+  0%,
+  100% {
+    background-color: rgba(92, 28, 28, 0.34);
+  }
+
+  50% {
+    background-color: rgba(132, 39, 39, 0.68);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modern-game-stat--good,
+  .modern-game-stat--danger {
+    animation: none;
+  }
 }
 
 .modern-game-stat__label {

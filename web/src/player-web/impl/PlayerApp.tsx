@@ -3109,37 +3109,23 @@ export function PlayerApp({
       <section className="modern-game-rail__panel">
         <p className="modern-section__eyebrow">Runtime</p>
         <div className="modern-game-rail__stats">
-          <div className="modern-game-stat">
+          <div className={`modern-game-stat${session && session.frame.snapshot.chipsNeeded === 0 ? " modern-game-stat--good" : ""}`}>
             <span className="modern-game-stat__label">Chips</span>
-            <strong
-              className={`modern-game-stat__value${
-                session && session.frame.snapshot.chipsNeeded === 0 ? " modern-game-stat__value--good" : ""
-              }`}
-            >
-              {session ? session.frame.snapshot.chipsNeeded : "---"}
-            </strong>
+            <strong className="modern-game-stat__value">{session ? session.frame.snapshot.chipsNeeded : "---"}</strong>
           </div>
-          <div className="modern-game-stat">
+          <div
+            className={`modern-game-stat${
+              session && session.frame.snapshot.timelimit > 0 && gameplayTimeRemainingTicks(session) < LOW_TIME_WARNING_TICKS
+                ? " modern-game-stat--danger"
+                : ""
+            }`}
+          >
             <span className="modern-game-stat__label">Time</span>
-            <strong
-              className={`modern-game-stat__value${
-                session && session.frame.snapshot.timelimit > 0 && gameplayTimeRemainingTicks(session) < LOW_TIME_WARNING_TICKS
-                  ? " modern-game-stat__value--danger"
-                  : ""
-              }`}
-            >
-              {session ? formatGameplayTimeLeft(session) : "---"}
-            </strong>
+            <strong className="modern-game-stat__value">{session ? formatGameplayTimeLeft(session) : "---"}</strong>
           </div>
           <div className="modern-game-stat">
             <span className="modern-game-stat__label">Undo Used</span>
-            <strong
-              className={`modern-game-stat__value ${
-                (session?.run.undoUsedCount ?? 0) > 0 ? "modern-game-stat__value--danger" : "modern-game-stat__value--good"
-              }`}
-            >
-              {session?.run.undoUsedCount ?? 0}
-            </strong>
+            <strong className="modern-game-stat__value">{session?.run.undoUsedCount ?? 0}</strong>
           </div>
         </div>
       </section>
