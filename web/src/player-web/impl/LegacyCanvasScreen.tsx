@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import lynxTilesUrl from "@res/atiles.bmp?url";
 import msTilesUrl from "@res/tiles.bmp?url";
-import { buildLegacyTileset, type LegacyTileset } from "@player-web/impl/legacyTileset";
+import { buildLegacyTileset, type LegacyTileSprite, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import { measurePerfSync } from "@player-web/impl/runtimePerf";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type {
@@ -81,6 +81,7 @@ const ELEVATOR_BASE_COLOR = "#2f9f4a";
 const ELEVATOR_EDGE_COLOR = "#0e401d";
 const ELEVATOR_PANEL_COLOR = "#154d23";
 const ELEVATOR_TEXT_COLOR = "#d9ffd7";
+const HELD_TRAP_ALPHA = 0.5;
 type LegacyTilesetRuleset = "MS" | "Lynx";
 
 const LEGACY_TILESET_URLS: Record<LegacyTilesetRuleset, string> = {
@@ -90,6 +91,13 @@ const LEGACY_TILESET_URLS: Record<LegacyTilesetRuleset, string> = {
 
 const legacyTilesetCache = new Map<LegacyTilesetRuleset, LegacyTileset>();
 const legacyTilesetPromiseCache = new Map<LegacyTilesetRuleset, Promise<LegacyTileset>>();
+
+interface LegacyDerivedSpriteCache {
+  elevator?: LegacyTileSprite | null;
+  heldTrap?: LegacyTileSprite | null;
+}
+
+const legacyDerivedSpriteCache = new WeakMap<LegacyTileset, LegacyDerivedSpriteCache>();
 
 interface LegacyLayerCanvasCacheEntry {
   key: string;
@@ -109,6 +117,97 @@ function createCanvas(width: number, height: number): HTMLCanvasElement {
   canvas.width = width;
   canvas.height = height;
   return canvas;
+}
+
+function drawLegacySpriteImage(
+  context: CanvasRenderingContext2D,
+  sprite: LegacyTileSprite,
+  x: number,
+  y: number,
+): void {
+  context.drawImage(sprite.image, x + sprite.offsetX, y + sprite.offsetY);
+}
+
+function legacyDerivedSpritesFor(tileset: LegacyTileset): LegacyDerivedSpriteCache {
+  const cached = legacyDerivedSpriteCache.get(tileset);
+  if (cached) {
+    return cached;
+  }
+
+  const next: LegacyDerivedSpriteCache = {};
+  legacyDerivedSpriteCache.set(tileset, next);
+  return next;
+}
+
+function createElevatorSprite(): LegacyTileSprite | null {
+  const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  context.fillStyle = ELEVATOR_BASE_COLOR;
+  context.fillRect(0, 0, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  context.strokeStyle = ELEVATOR_EDGE_COLOR;
+  context.lineWidth = 2;
+  context.strokeRect(1, 1, LEGACY_TILE_SIZE - 2, LEGACY_TILE_SIZE - 2);
+  context.fillStyle = ELEVATOR_PANEL_COLOR;
+  context.fillRect(6, 14, LEGACY_TILE_SIZE - 12, LEGACY_TILE_SIZE - 28);
+  context.font = "bold 12px 'Courier New', monospace";
+  context.fillStyle = ELEVATOR_TEXT_COLOR;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText("UP", LEGACY_TILE_SIZE / 2, LEGACY_TILE_SIZE / 2);
+
+  return {
+    image: canvas,
+    offsetX: 0,
+    offsetY: 0,
+    transparent: false,
+  };
+}
+
+function getOrCreateElevatorSprite(tileset: LegacyTileset): LegacyTileSprite | null {
+  const cache = legacyDerivedSpritesFor(tileset);
+  if (cache.elevator === undefined) {
+    cache.elevator = createElevatorSprite();
+  }
+  return cache.elevator;
+}
+
+function createHeldTrapSprite(tileset: LegacyTileset): LegacyTileSprite | null {
+  const floorSprite = tileset.get(MS_TILE.Empty);
+  const trapSprite = tileset.get(MS_TILE.Beartrap);
+  if (!floorSprite || !trapSprite) {
+    return null;
+  }
+
+  const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  drawLegacySpriteImage(context, floorSprite, 0, 0);
+  context.save();
+  context.globalAlpha = HELD_TRAP_ALPHA;
+  drawLegacySpriteImage(context, trapSprite, 0, 0);
+  context.restore();
+
+  return {
+    image: canvas,
+    offsetX: 0,
+    offsetY: 0,
+    transparent: false,
+  };
+}
+
+function getOrCreateHeldTrapSprite(tileset: LegacyTileset): LegacyTileSprite | null {
+  const cache = legacyDerivedSpritesFor(tileset);
+  if (cache.heldTrap === undefined) {
+    cache.heldTrap = createHeldTrapSprite(tileset);
+  }
+  return cache.heldTrap;
 }
 
 function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset> {
@@ -448,18 +547,10 @@ function drawSprite(
   }
 
   if (tileId === MS_TILE.Elevator) {
-    context.fillStyle = ELEVATOR_BASE_COLOR;
-    context.fillRect(x, y, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
-    context.strokeStyle = ELEVATOR_EDGE_COLOR;
-    context.lineWidth = 2;
-    context.strokeRect(x + 1, y + 1, LEGACY_TILE_SIZE - 2, LEGACY_TILE_SIZE - 2);
-    context.fillStyle = ELEVATOR_PANEL_COLOR;
-    context.fillRect(x + 6, y + 14, LEGACY_TILE_SIZE - 12, LEGACY_TILE_SIZE - 28);
-    context.font = "bold 12px 'Courier New', monospace";
-    context.fillStyle = ELEVATOR_TEXT_COLOR;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText("UP", x + LEGACY_TILE_SIZE / 2, y + LEGACY_TILE_SIZE / 2);
+    const elevatorSprite = getOrCreateElevatorSprite(tileset);
+    if (elevatorSprite) {
+      drawLegacySpriteImage(context, elevatorSprite, x, y);
+    }
     return;
   }
 
@@ -468,7 +559,7 @@ function drawSprite(
     return;
   }
 
-  context.drawImage(sprite.image, x + sprite.offsetX, y + sprite.offsetY);
+  drawLegacySpriteImage(context, sprite, x, y);
 }
 
 function drawLynxActorSprite(
@@ -624,11 +715,16 @@ function drawCompositedCell(
     (((bottomState & MS_FLOOR_STATE.TrapOpen) !== 0) || ((bottomState & LYNX_CELL_FLAG.TrapOpen) !== 0));
 
   if (topTrapOpen || bottomTrapOpen) {
-    drawSprite(context, tileset, MS_TILE.Empty, x, y);
-    context.save();
-    context.globalAlpha = 0.5;
-    drawSprite(context, tileset, MS_TILE.Beartrap, x, y);
-    context.restore();
+    const heldTrapSprite = getOrCreateHeldTrapSprite(tileset);
+    if (heldTrapSprite) {
+      drawLegacySpriteImage(context, heldTrapSprite, x, y);
+    } else {
+      drawSprite(context, tileset, MS_TILE.Empty, x, y);
+      context.save();
+      context.globalAlpha = HELD_TRAP_ALPHA;
+      drawSprite(context, tileset, MS_TILE.Beartrap, x, y);
+      context.restore();
+    }
 
     if (bottomTrapOpen && topId !== MS_TILE.Air && topId !== MS_TILE.Nothing && topId !== MS_TILE.Empty) {
       drawSprite(context, tileset, topId, x, y);
