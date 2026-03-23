@@ -103,6 +103,7 @@ const MODERN_UNDO_CHECKPOINT_BASE_TICKS = GAME_TICKS_PER_SECOND;
 const LOW_TIME_WARNING_TICKS = 10 * GAME_TICKS_PER_SECOND;
 const SESSION_UI_SYNC_INTERVAL_MS = 125;
 const LEGACY_RANDOM_SEED_MAX = 0x7fffffff;
+const CURRENT_LEVEL_LINK_COPY_FEEDBACK_MS = 2800;
 
 interface HelpCommand {
   keys: string;
@@ -618,6 +619,7 @@ export function PlayerApp({
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
   const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [showCurrentLevelLinkCopied, setShowCurrentLevelLinkCopied] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showReplayMenu, setShowReplayMenu] = useState(false);
   const [showAdvancedMenu, setShowAdvancedMenu] = useState(false);
@@ -661,6 +663,9 @@ export function PlayerApp({
   const liveSessionRef = useRef<InteractiveGameSession | null>(null);
   const pendingSessionUiSyncRef = useRef<number | null>(null);
   const lastSessionUiSyncAtRef = useRef(0);
+  const currentLevelLinkCopyButtonRef = useRef<HTMLButtonElement | null>(null);
+  const currentLevelLinkCopyTimeoutRef = useRef<number | null>(null);
+  const currentLevelLinkTargetKeyRef = useRef<string | null>(null);
 
   const disposeSessionIfOwned = useEffectEvent((sessionToDispose: InteractiveGameSession | null) => {
     if (!sessionToDispose) {
@@ -826,9 +831,14 @@ export function PlayerApp({
     currentLevelReplayEntries.length === 1 ? "1 replay" : `${currentLevelReplayEntries.length} replays`;
   const modernGameplaySubtitle = formatModernGameplaySubtitle(replayContextSeries?.filebase, replayContextLevel);
   const canCopyCurrentLevelLink = Boolean(currentSeries && currentLevel && currentRuleset);
+  const currentLevelLinkTargetKey =
+    currentSeries !== null && currentLevel !== null && currentRuleset !== null
+      ? `${currentSeries.filebase}:${currentLevel.number}:${currentRuleset}`
+      : null;
   const modernLevelTitle = replayContextLevel
     ? `Level ${replayContextLevel.number}: ${replayContextLevel.name}`
     : replayContextSeries?.filebase ?? "Loading level";
+  currentLevelLinkTargetKeyRef.current = currentLevelLinkTargetKey;
   const currentLevelReplayRows = useMemo(
     () =>
       currentLevelReplayEntries.map((entry) => {
@@ -900,6 +910,13 @@ export function PlayerApp({
     }, Math.max(0, dueAt - now));
   };
 
+  const clearCurrentLevelLinkCopyFeedback = () => {
+    if (currentLevelLinkCopyTimeoutRef.current !== null) {
+      window.clearTimeout(currentLevelLinkCopyTimeoutRef.current);
+      currentLevelLinkCopyTimeoutRef.current = null;
+    }
+  };
+
   useEffect(() => {
     const player = new BrowserSoundEffectsPlayer();
     soundPlayerRef.current = player;
@@ -914,6 +931,8 @@ export function PlayerApp({
 
   useEffect(() => {
     return () => {
+      clearCurrentLevelLinkCopyFeedback();
+
       if (pendingSessionUiSyncRef.current !== null) {
         window.clearTimeout(pendingSessionUiSyncRef.current);
         pendingSessionUiSyncRef.current = null;
@@ -930,6 +949,11 @@ export function PlayerApp({
       });
     };
   }, [engines]);
+
+  useEffect(() => {
+    clearCurrentLevelLinkCopyFeedback();
+    setShowCurrentLevelLinkCopied(false);
+  }, [currentLevelLinkTargetKey]);
 
   useEffect(() => {
     saveStoredSoundSettings({
@@ -2009,6 +2033,7 @@ export function PlayerApp({
       return;
     }
 
+    const copiedTargetKey = currentLevelLinkTargetKeyRef.current;
     try {
       const importedDatFiles = await profileStore.listImportedDatFiles();
       const href = await buildUrlLaunchHref({
@@ -2018,10 +2043,56 @@ export function PlayerApp({
         seriesFile: currentSeries.filebase,
       });
       await copyTextToClipboard(href);
+      if (!copiedTargetKey || currentLevelLinkTargetKeyRef.current !== copiedTargetKey) {
+        return;
+      }
+      clearCurrentLevelLinkCopyFeedback();
+      setShowCurrentLevelLinkCopied(true);
+      currentLevelLinkCopyTimeoutRef.current = window.setTimeout(() => {
+        currentLevelLinkCopyTimeoutRef.current = null;
+        setShowCurrentLevelLinkCopied(false);
+      }, CURRENT_LEVEL_LINK_COPY_FEEDBACK_MS);
+      currentLevelLinkCopyButtonRef.current?.animate?.(
+        [
+          { transform: "scale(1)" },
+          { transform: "scale(0.9)" },
+          { transform: "scale(1.14)" },
+          { transform: "scale(1)" },
+        ],
+        {
+          duration: 380,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        },
+      );
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
   });
+
+  const renderCurrentLevelLinkButton = () => (
+    <div className="modern-game-header__title-action">
+      <button
+        aria-label="Copy link to this level"
+        className={`modern-link-icon-button${showCurrentLevelLinkCopied ? " modern-link-icon-button--copied" : ""}`}
+        disabled={!canCopyCurrentLevelLink}
+        onClick={() => {
+          void copyCurrentLevelLink();
+        }}
+        ref={currentLevelLinkCopyButtonRef}
+        title="Copy link to this level"
+        type="button"
+      >
+        <ChainLinkIcon />
+      </button>
+      <span
+        aria-live="polite"
+        className={`modern-link-copy-feedback${showCurrentLevelLinkCopied ? " modern-link-copy-feedback--visible" : ""}`}
+        role="status"
+      >
+        {showCurrentLevelLinkCopied ? "Copied URL" : ""}
+      </span>
+    </div>
+  );
 
   const closeManageReplays = useEffectEvent(() => {
     setShowManageReplays(false);
@@ -3357,18 +3428,7 @@ export function PlayerApp({
             </div>
             <div className="modern-game-header__title-row">
               <h1 className="modern-embedded-player__title">{modernLevelTitle}</h1>
-              <button
-                aria-label="Copy link to this level"
-                className="modern-link-icon-button"
-                disabled={!canCopyCurrentLevelLink}
-                onClick={() => {
-                  void copyCurrentLevelLink();
-                }}
-                title="Copy link to this level"
-                type="button"
-              >
-                <ChainLinkIcon />
-              </button>
+              {renderCurrentLevelLinkButton()}
             </div>
             <p className="modern-game-header__subtitle">
               <span>{modernGameplaySubtitle}</span>
@@ -3413,18 +3473,7 @@ export function PlayerApp({
               </div>
               <div className="modern-game-header__title-row">
                 <h1 className="modern-game-header__title">{modernLevelTitle}</h1>
-                <button
-                  aria-label="Copy link to this level"
-                  className="modern-link-icon-button"
-                  disabled={!canCopyCurrentLevelLink}
-                  onClick={() => {
-                    void copyCurrentLevelLink();
-                  }}
-                  title="Copy link to this level"
-                  type="button"
-                >
-                  <ChainLinkIcon />
-                </button>
+                {renderCurrentLevelLinkButton()}
               </div>
               <p className="modern-game-header__subtitle">
                 <span>{modernGameplaySubtitle}</span>

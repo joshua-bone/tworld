@@ -1771,9 +1771,11 @@ body {
 
 .modern-embedded-player__title {
   margin: 0;
+  flex: 1 1 auto;
   font-size: clamp(1.7rem, 3vw, 2.35rem);
   line-height: 1;
   letter-spacing: -0.03em;
+  min-width: 0;
 }
 
 .modern-embedded-player__stats {
@@ -1838,15 +1840,25 @@ body {
 
 .modern-game-header__title {
   margin: 0;
+  flex: 1 1 auto;
   font-size: clamp(1.8rem, 3.8vw, 2.6rem);
   line-height: 1;
   letter-spacing: -0.03em;
+  min-width: 0;
 }
 
 .modern-game-header__title-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.modern-game-header__title-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
 }
 
 .modern-game-header__subtitle {
@@ -1947,9 +1959,39 @@ body {
   transform: none;
 }
 
+.modern-link-icon-button--copied {
+  border-color: rgba(110, 228, 163, 0.78);
+  color: #f3ecdd;
+  background: rgba(52, 133, 90, 0.24);
+  box-shadow: 0 0 0 1px rgba(110, 228, 163, 0.24);
+}
+
 .modern-link-icon-button__icon {
   width: 1rem;
   height: 1rem;
+}
+
+.modern-link-copy-feedback {
+  max-width: 0;
+  overflow: hidden;
+  color: #9ce4bb;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition:
+    max-width 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+  white-space: nowrap;
+}
+
+.modern-link-copy-feedback--visible {
+  max-width: 12rem;
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .modern-toolbar-menu {
