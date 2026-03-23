@@ -666,6 +666,7 @@ export function PlayerApp({
   const currentLevelLinkCopyButtonRef = useRef<HTMLButtonElement | null>(null);
   const currentLevelLinkCopyTimeoutRef = useRef<number | null>(null);
   const currentLevelLinkTargetKeyRef = useRef<string | null>(null);
+  const resultSheetBestScoreSnapshotRef = useRef<{ bestScore: number | null; recordKey: string } | null>(null);
 
   const disposeSessionIfOwned = useEffectEvent((sessionToDispose: InteractiveGameSession | null) => {
     if (!sessionToDispose) {
@@ -783,6 +784,14 @@ export function PlayerApp({
     session && runResult && mode === "game" && session.mode !== "replay"
       ? `${session.request.seriesFile}:${session.request.levelNumber}:${runResult.outcome}:${session.frame.snapshot.tick}:${session.run.undoUsedCount}`
       : null;
+  if (currentTerminalRecordKey === null) {
+    resultSheetBestScoreSnapshotRef.current = null;
+  } else if (resultSheetBestScoreSnapshotRef.current?.recordKey !== currentTerminalRecordKey) {
+    resultSheetBestScoreSnapshotRef.current = {
+      bestScore: knownLevelProgressSummary?.bestScore ?? null,
+      recordKey: currentTerminalRecordKey,
+    };
+  }
   const currentResultAttemptCount =
     currentLevelAttemptKey === null
       ? 1
@@ -809,6 +818,24 @@ export function PlayerApp({
         })
       : null;
   const runResultScore = runResult?.score ?? null;
+  const previousBestScoreBeforeCurrentResult = resultSheetBestScoreSnapshotRef.current?.bestScore ?? null;
+  const runResultScoreRecordMeta =
+    runResultScore === null
+      ? null
+      : previousBestScoreBeforeCurrentResult === null || runResultScore.finalScore > previousBestScoreBeforeCurrentResult
+        ? {
+            detail: "New record!",
+            kind: "new-record" as const,
+          }
+        : runResultScore.finalScore === previousBestScoreBeforeCurrentResult
+          ? {
+              detail: "Tied record!",
+              kind: "tied-record" as const,
+            }
+          : {
+              detail: `Record: ${previousBestScoreBeforeCurrentResult} pts`,
+              kind: "below-record" as const,
+            };
   const previousKnownLevelProgress = knownLevelProgressSummary;
   const canSaveReplay = Boolean(session?.run.replayAvailable && replayContextLevel && replayContextSeries);
   const currentLevelReplayEntries = session
@@ -2845,9 +2872,18 @@ export function PlayerApp({
                 <span aria-hidden="true" className="modern-result-sheet__score-operator">
                   =
                 </span>
-                <div className="modern-result-sheet__score-term modern-result-sheet__score-term--final">
+                <div
+                  className={`modern-result-sheet__score-term modern-result-sheet__score-term--final${
+                    runResultScoreRecordMeta ? ` modern-result-sheet__score-term--${runResultScoreRecordMeta.kind}` : ""
+                  }`}
+                >
                   <span className="modern-result-sheet__score-term-label">Final</span>
-                  <strong>{runResultScore.finalScore} pts</strong>
+                  <div className="modern-result-sheet__score-final-line">
+                    <strong>{runResultScore.finalScore} pts</strong>
+                    {runResultScoreRecordMeta ? (
+                      <span className="modern-result-sheet__score-record-note">({runResultScoreRecordMeta.detail})</span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             </section>

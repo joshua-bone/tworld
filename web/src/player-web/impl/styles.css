@@ -2632,8 +2632,51 @@ body {
   line-height: 1;
 }
 
+.modern-result-sheet__score-final-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.modern-result-sheet__score-record-note {
+  color: #cdc6b8;
+  font-size: 0.76rem;
+  line-height: 1.1;
+}
+
 .modern-result-sheet__score-term--final strong {
   color: #ffcb5f;
+}
+
+.modern-result-sheet__score-term--new-record strong,
+.modern-result-sheet__score-term--new-record .modern-result-sheet__score-record-note {
+  color: #69d38b;
+}
+
+.modern-result-sheet__score-term--tied-record .modern-result-sheet__score-record-note {
+  color: #ffcb5f;
+}
+
+.modern-result-sheet__score-term--new-record .modern-result-sheet__score-final-line {
+  animation: modern-result-sheet-record-pop 720ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+
+@keyframes modern-result-sheet-record-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.94);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .modern-result-sheet__score-operator {
@@ -2692,6 +2735,12 @@ body {
   background: rgba(110, 214, 149, 0.08);
   color: #b8efc9;
   font-size: 0.82rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modern-result-sheet__score-term--new-record .modern-result-sheet__score-final-line {
+    animation: none;
+  }
 }
 
 .modern-disclosure__summary {
