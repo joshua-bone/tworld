@@ -1771,11 +1771,9 @@ body {
 
 .modern-embedded-player__title {
   margin: 0;
-  flex: 1 1 auto;
   font-size: clamp(1.7rem, 3vw, 2.35rem);
   line-height: 1;
   letter-spacing: -0.03em;
-  min-width: 0;
 }
 
 .modern-embedded-player__stats {
@@ -1840,11 +1838,9 @@ body {
 
 .modern-game-header__title {
   margin: 0;
-  flex: 1 1 auto;
   font-size: clamp(1.8rem, 3.8vw, 2.6rem);
   line-height: 1;
   letter-spacing: -0.03em;
-  min-width: 0;
 }
 
 .modern-game-header__title-row {
