@@ -808,6 +808,7 @@ export function PlayerApp({
           result: runResult,
         })
       : null;
+  const runResultScore = runResult?.score ?? null;
   const previousKnownLevelProgress = knownLevelProgressSummary;
   const canSaveReplay = Boolean(session?.run.replayAvailable && replayContextLevel && replayContextSeries);
   const currentLevelReplayEntries = session
@@ -2817,6 +2818,40 @@ export function PlayerApp({
             <p className="modern-section__eyebrow">Level {currentLevel.number}: {currentLevel.name}</p>
             <h2 className="modern-result-sheet__title">{runResultHeadline}</h2>
           </div>
+          {runResultScore ? (
+            <section aria-label="Score calculation" className="modern-result-sheet__score">
+              <p className="modern-result-sheet__score-title">Score</p>
+              <div className="modern-result-sheet__score-equation">
+                <div className="modern-result-sheet__score-term">
+                  <span className="modern-result-sheet__score-term-label">Base</span>
+                  <strong>{runResultScore.baseScore}</strong>
+                </div>
+                <span aria-hidden="true" className="modern-result-sheet__score-operator">
+                  +
+                </span>
+                <div className="modern-result-sheet__score-term">
+                  <span className="modern-result-sheet__score-term-label">Time bonus</span>
+                  <strong>{runResultScore.timeBonus}</strong>
+                </div>
+                <span aria-hidden="true" className="modern-result-sheet__score-operator">
+                  x
+                </span>
+                <div className="modern-result-sheet__score-term">
+                  <span className="modern-result-sheet__score-term-label">
+                    {runResultScore.undoPenaltyApplied ? "Undo penalty" : "Clean run"}
+                  </span>
+                  <strong>{runResultScore.undoPenaltyMultiplier.toFixed(1)}</strong>
+                </div>
+                <span aria-hidden="true" className="modern-result-sheet__score-operator">
+                  =
+                </span>
+                <div className="modern-result-sheet__score-term modern-result-sheet__score-term--final">
+                  <span className="modern-result-sheet__score-term-label">Final</span>
+                  <strong>{runResultScore.finalScore} pts</strong>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="modern-result-sheet__panel modern-result-sheet__panel--summary">
             <div className="modern-result-sheet__rows modern-result-sheet__rows--summary">
@@ -2858,12 +2893,6 @@ export function PlayerApp({
                 <span>Moves</span>
                 <strong>{session.recordedMoves.length}</strong>
               </div>
-              {runResult.score?.undoPenaltyApplied ? (
-                <div className="modern-result-sheet__row">
-                  <span>Undo penalty</span>
-                  <strong>x0.5</strong>
-                </div>
-              ) : null}
             </div>
           </section>
 

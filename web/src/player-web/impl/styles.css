@@ -2590,6 +2590,59 @@ body {
   line-height: 1;
 }
 
+.modern-result-sheet__score {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(240, 177, 49, 0.16);
+  background: rgba(240, 177, 49, 0.06);
+}
+
+.modern-result-sheet__score-title {
+  margin: 0;
+  color: #ffcb5f;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.modern-result-sheet__score-equation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.modern-result-sheet__score-term {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.modern-result-sheet__score-term-label {
+  color: #cdc6b8;
+  font-size: 0.74rem;
+  line-height: 1.1;
+}
+
+.modern-result-sheet__score-term strong {
+  color: #f3ecdd;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.modern-result-sheet__score-term--final strong {
+  color: #ffcb5f;
+}
+
+.modern-result-sheet__score-operator {
+  color: #8fb1c2;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .modern-result-sheet__panel {
   display: grid;
   gap: 8px;
