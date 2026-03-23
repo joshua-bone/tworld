@@ -96,6 +96,7 @@ export const MS_FLOOR_STATE = {
   Broken: 0x04,
   HasMutant: 0x08,
   Marker: 0x10,
+  TrapOpen: 0x20,
 } as const;
 
 export const MS_STATUS_FLAG = {

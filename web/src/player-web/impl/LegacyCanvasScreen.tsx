@@ -11,7 +11,8 @@ import type {
 } from "@game-core/api/interactive";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import type { GameSnapshot } from "@game-core/api/types";
-import { MS_DIRECTION, MS_STATUS_FLAG, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
+import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
+import { MS_DIRECTION, MS_FLOOR_STATE, MS_STATUS_FLAG, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import { TIME_NIL } from "@content/api/score";
 import {
   LEGACY_INFO_X,
@@ -208,7 +209,9 @@ function buildVisibleLayerCellsSummary(
 
   for (const cell of layer.cells) {
     hash = hashLayerValue(hash, cell.top.id);
+    hash = hashLayerValue(hash, cell.top.state);
     hash = hashLayerValue(hash, cell.bottom.id);
+    hash = hashLayerValue(hash, cell.bottom.state);
     animationPeriod = Math.max(animationPeriod, tileset.getCellAnimationPeriod?.(cell.top.id, cell.bottom.id) ?? 1);
   }
 
@@ -606,11 +609,33 @@ function drawCompositedCell(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
   topId: number,
+  topState: number,
   bottomId: number,
+  bottomState: number,
   timerval: number,
   x: number,
   y: number,
 ): void {
+  const topTrapOpen =
+    topId === MS_TILE.Beartrap &&
+    (((topState & MS_FLOOR_STATE.TrapOpen) !== 0) || ((topState & LYNX_CELL_FLAG.TrapOpen) !== 0));
+  const bottomTrapOpen =
+    bottomId === MS_TILE.Beartrap &&
+    (((bottomState & MS_FLOOR_STATE.TrapOpen) !== 0) || ((bottomState & LYNX_CELL_FLAG.TrapOpen) !== 0));
+
+  if (topTrapOpen || bottomTrapOpen) {
+    drawSprite(context, tileset, MS_TILE.Empty, x, y);
+    context.save();
+    context.globalAlpha = 0.5;
+    drawSprite(context, tileset, MS_TILE.Beartrap, x, y);
+    context.restore();
+
+    if (bottomTrapOpen && topId !== MS_TILE.Air && topId !== MS_TILE.Nothing && topId !== MS_TILE.Empty) {
+      drawSprite(context, tileset, topId, x, y);
+    }
+    return;
+  }
+
   if (
     topId !== MS_TILE.Air &&
     bottomId !== MS_TILE.Air &&
@@ -750,7 +775,7 @@ function renderMapLayerCanvas(
       continue;
     }
 
-    drawCompositedCell(context, tileset, cell.top.id, cell.bottom.id, timerval, x, y);
+    drawCompositedCell(context, tileset, cell.top.id, cell.top.state, cell.bottom.id, cell.bottom.state, timerval, x, y);
   }
 
   if (ruleset === "Lynx") {
@@ -781,7 +806,7 @@ function renderCachedLowerLayerCanvas(
   for (const cell of layer.cells) {
     const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
     const y = yOrigin + cell.position.y * LEGACY_TILE_SIZE;
-    drawCompositedCell(context, tileset, cell.top.id, cell.bottom.id, timerval, x, y);
+    drawCompositedCell(context, tileset, cell.top.id, cell.top.state, cell.bottom.id, cell.bottom.state, timerval, x, y);
   }
 
   if (ruleset === "Lynx") {

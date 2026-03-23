@@ -2,7 +2,10 @@ import type { InteractiveGameFrame } from "@game-core/api/interactive";
 import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-core/impl/interactiveProjection";
 import type { EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
+import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import type { LynxInteractiveSessionState } from "@ruleset-lynx/impl/engine";
+import { collectLevelConnections } from "@ruleset-ms/api/level";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 interface LynxProjectedAnimationState {
   pos: number;
@@ -21,6 +24,57 @@ function lynxProjectedRuntimeState(state: EngineState): LynxProjectedRuntimeStat
   return runtime ?? null;
 }
 
+function applyLynxTrapRenderState(frame: InteractiveGameFrame, session: LynxInteractiveSessionState): void {
+  const visibleLayersByZ = new Map(frame.visibleLayers.map((layer) => [layer.z, layer.cells] as const));
+  const heldButtonsByZ = new Map<number, Set<number>>();
+
+  const trackHeldButton = (z: number, pos: number): void => {
+    const cells = visibleLayersByZ.get(z);
+    if (!cells || cells[pos]?.top.id !== MS_TILE.Button_Brown) {
+      return;
+    }
+
+    let heldButtons = heldButtonsByZ.get(z);
+    if (!heldButtons) {
+      heldButtons = new Set<number>();
+      heldButtonsByZ.set(z, heldButtons);
+    }
+    heldButtons.add(pos);
+  };
+
+  if (session.chipMoving <= 0) {
+    trackHeldButton(session.chipZ ?? 1, session.chipPos);
+  }
+
+  for (const actor of session.actors) {
+    if (actor.hidden || actor.moving > 0) {
+      continue;
+    }
+    trackHeldButton(actor.z ?? 1, actor.pos);
+  }
+
+  for (const connection of collectLevelConnections(session.level, "traps")) {
+    const z = connection.toZ ?? connection.fromZ ?? 1;
+    if ((connection.fromZ ?? z) !== z || (connection.toZ ?? z) !== z) {
+      continue;
+    }
+    if (!heldButtonsByZ.get(z)?.has(connection.from)) {
+      continue;
+    }
+
+    const trapCell = visibleLayersByZ.get(z)?.[connection.to];
+    if (!trapCell) {
+      continue;
+    }
+
+    if (trapCell.top.id === MS_TILE.Beartrap) {
+      trapCell.top.state |= LYNX_CELL_FLAG.TrapOpen;
+    } else if (trapCell.bottom.id === MS_TILE.Beartrap) {
+      trapCell.bottom.state |= LYNX_CELL_FLAG.TrapOpen;
+    }
+  }
+}
+
 export function projectLynxInteractiveFrame(
   session: LynxInteractiveSessionState,
   phase: InteractiveProjectionPhase,
@@ -28,7 +82,7 @@ export function projectLynxInteractiveFrame(
   const runtime = lynxProjectedRuntimeState(session.state);
   const chipVerticalMove = session.chipMoveKind === "air" || session.chipMoveKind === "elevator";
 
-  return projectInteractiveFrame(
+  const frame = projectInteractiveFrame(
     engineStateToSnapshot(session.state, phase, session.lastInput),
     session.state.map.cells,
     {
@@ -63,4 +117,7 @@ export function projectLynxInteractiveFrame(
       tileOverlays: runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? [],
     },
   );
+
+  applyLynxTrapRenderState(frame, session);
+  return frame;
 }

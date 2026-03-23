@@ -72,6 +72,7 @@ import {
 import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
+import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { collectLevelConnections, collectLevelCreaturePositions, levelLayers } from "@ruleset-ms/api/level";
 import type { GameRuntimeCommand } from "@game-core/api/types";
 import type { SolutionMove } from "@content/api/solution-file";
@@ -169,13 +170,6 @@ interface LynxRuntimeLayer {
   z: number;
   cells: EngineMapCell[];
 }
-
-const LYNX_CELL_FLAG = {
-  Beartrap: 0x01,
-  Teleport: 0x02,
-  Animated: 0x20,
-  Claimed: 0x40,
-} as const;
 
 function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
   const stripped = cells.map((cell) => {
