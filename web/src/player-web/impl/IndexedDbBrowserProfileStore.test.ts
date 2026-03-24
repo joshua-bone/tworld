@@ -77,6 +77,12 @@ class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePersistenc
   }
 }
 
+class FailingReplaySaveBackend extends MemoryBrowserProfilePersistenceBackend {
+  override async saveReplayEntry(_entry: BrowserReplayEntry): Promise<void> {
+    throw new Error("IndexedDB write failed.");
+  }
+}
+
 describe("IndexedDbBrowserProfileStore", () => {
   it("starts with no persisted seed locks by default", async () => {
     const store = new IndexedDbBrowserProfileStore(new MemoryBrowserProfilePersistenceBackend());
@@ -511,6 +517,25 @@ describe("IndexedDbBrowserProfileStore", () => {
     await store.deleteReplayEntry(entry.id);
 
     expect(await store.loadReplayEntries()).toEqual([]);
+  });
+
+  it("surfaces replay persistence failures instead of pretending the save succeeded", async () => {
+    const store = new IndexedDbBrowserProfileStore(new FailingReplaySaveBackend());
+
+    await expect(
+      store.saveReplayEntry({
+        fileName: "broken.tws.bin",
+        seriesFile: "CCLP1-MS.dac",
+        levelNumber: 1,
+        levelName: "One",
+        ruleset: "MS",
+        source: "saved-run",
+        result: "completed-clean",
+        finalScore: 500,
+        undoUsedCount: 0,
+        bytes: Uint8Array.from([1, 2, 3]),
+      }),
+    ).rejects.toThrow("Failed to save replay broken.tws.bin to the browser library. IndexedDB write failed.");
   });
 
   it("replaces and deletes persisted level seed overrides", async () => {

@@ -59,4 +59,33 @@ describe("importReplayForLevel", () => {
       ),
     ).rejects.toThrow("wrong-level.bin does not match level 9: Lesson 9");
   });
+
+  it("rejects an exported replay whose filename ruleset hint mismatches the current level", async () => {
+    const bytes = replaySolutionCodec.encode(9, "ABCD", 88, {
+      flags: 0,
+      randomSlideDirection: 1,
+      stepping: 0,
+      randomSeed: 123456789,
+      moves: [{ when: 0, dir: 8 }],
+    });
+
+    await expect(
+      importReplayForLevel(
+        {
+          importReplay: async () => ({
+            name: "intro-MS-9-live-4.4.tws.bin",
+            bytes,
+          }),
+        },
+        {
+          name: "Lesson 9",
+          number: 9,
+          password: "ABCD",
+        },
+        {
+          ruleset: "Lynx",
+        },
+      ),
+    ).rejects.toThrow("intro-MS-9-live-4.4.tws.bin was exported for MS, but the current level is Lynx");
+  });
 });

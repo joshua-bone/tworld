@@ -770,8 +770,9 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
 
     try {
       await this.backend.saveReplayEntry(storedEntry);
-    } catch {
-      // Ignore persistence failures and return the in-memory entry so the current UI flow can continue.
+    } catch (error: unknown) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to save replay ${entry.fileName} to the browser library. ${reason}`, { cause: error });
     }
 
     return storedEntry;

@@ -1,5 +1,6 @@
 import { parseDatFile, parseSeriesConfig } from "@content/api/series-file";
 import type { SeriesCatalogEntry } from "@content/api/series";
+import { normalizeBrowserAssetLoadError } from "@level-catalog/impl/browserAssetLoadError";
 
 export type BrowserSeriesLoaderMap<T> = Record<string, () => Promise<T>>;
 
@@ -19,7 +20,15 @@ export async function loadBySuffix<T>(
   suffix: string,
 ): Promise<T | null> {
   const match = Object.entries(files).find(([path]) => path.endsWith(suffix));
-  return match ? match[1]() : null;
+  if (!match) {
+    return null;
+  }
+
+  try {
+    return await match[1]();
+  } catch (error: unknown) {
+    throw normalizeBrowserAssetLoadError(error, suffix);
+  }
 }
 
 export async function loadBrowserSeriesCatalogEntriesFromLoaders(

@@ -1471,7 +1471,9 @@ export function PlayerApp({
     }
 
     try {
-      const imported = await importReplayForLevel(replayTransfer, replayContextLevel);
+      const imported = await importReplayForLevel(replayTransfer, replayContextLevel, {
+        ruleset: replayContextSeries.ruleset,
+      });
       if (!imported) {
         return;
       }

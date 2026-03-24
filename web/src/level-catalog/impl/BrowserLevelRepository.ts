@@ -13,6 +13,7 @@ import {
   importedSeriesFile,
   IMPORT_RULESETS,
 } from "@player-web/impl/importedDatIdentity";
+import { normalizeBrowserAssetLoadError } from "@level-catalog/impl/browserAssetLoadError";
 
 type GroupedLevelIndex = Map<number, RawDatLevelGroup>;
 
@@ -62,7 +63,11 @@ export class BrowserLevelRepository implements LevelRepository {
     if (!match) {
       throw new Error(`browser asset not found: ${suffix}`);
     }
-    return match[1]();
+    try {
+      return await match[1]();
+    } catch (error: unknown) {
+      throw normalizeBrowserAssetLoadError(error, suffix);
+    }
   }
 
   private loadSeriesConfig(seriesFile: string): Promise<string> {
