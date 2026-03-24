@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
-import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import { projectMsInteractiveFrame } from "@ruleset-ms/impl/interactiveProjection";
 
 function createCell(pos: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
@@ -188,6 +188,77 @@ describe("projectMsInteractiveFrame", () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: MS_TILE.Blob,
+          pos: 0,
+          dir: MS_DIRECTION.east,
+          hidden: false,
+        }),
+        expect.objectContaining({
+          id: MS_TILE.Block,
+          pos: 1,
+          dir: MS_DIRECTION.south,
+          hidden: false,
+        }),
+      ]),
+    );
+  });
+
+  it("falls back to engine actors for stationary cloner occupants", () => {
+    const cells = [
+      createCell(0, msCreatureTile(MS_TILE.Ball, MS_DIRECTION.east), MS_TILE.CloneMachine),
+      createCell(1, msCreatureTile(MS_TILE.Block, MS_DIRECTION.south), MS_TILE.CloneMachine),
+    ];
+    const engine = createEngineState(cells);
+    engine.actors = [
+      {
+        id: MS_TILE.Ball,
+        layer: 1,
+        dir: "east",
+        position: {
+          x: 0,
+          y: 0,
+          z: 1,
+          pos: 0,
+        },
+        state: 0,
+      },
+      {
+        id: MS_TILE.Block,
+        layer: 1,
+        dir: "south",
+        position: {
+          x: 1,
+          y: 0,
+          z: 1,
+          pos: 1,
+        },
+        state: 0,
+      },
+    ];
+    const session = {
+      state: {
+        engine,
+        internal: {
+          chipZ: 1,
+          traps: [],
+          creatures: [],
+          blocks: [],
+        },
+      },
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+    } as unknown as MsInteractiveSessionState;
+
+    const frame = projectMsInteractiveFrame(session, "tick");
+
+    expect(frame.render?.actors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: MS_TILE.Ball,
           pos: 0,
           dir: MS_DIRECTION.east,
           hidden: false,

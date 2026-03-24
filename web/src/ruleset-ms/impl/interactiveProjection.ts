@@ -3,7 +3,7 @@ import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-
 import type { EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
-import { MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
 
 type MsProjectedTileOverlay = InteractiveGameFrame["tileOverlays"][number] & { ttl?: number };
 
@@ -46,32 +46,79 @@ function applyMsTrapRenderState(frame: InteractiveGameFrame, session: MsInteract
   }
 }
 
+function msDirectionFromActorName(dir: string): number {
+  switch (dir) {
+    case "north":
+      return MS_DIRECTION.north;
+    case "west":
+      return MS_DIRECTION.west;
+    case "south":
+      return MS_DIRECTION.south;
+    case "east":
+      return MS_DIRECTION.east;
+    default:
+      return MS_DIRECTION.none;
+  }
+}
+
 function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<InteractiveGameFrame["render"]> {
   const creatures = session.state.internal.creatures ?? [];
   const blocks = session.state.internal.blocks ?? [];
+  const actors: NonNullable<InteractiveGameFrame["render"]>["actors"] = [];
+  const seen = new Set<string>();
+  const actorKey = (z: number, pos: number) => `${z}:${pos}`;
+
+  const addActor = (actor: NonNullable<InteractiveGameFrame["render"]>["actors"][number]): void => {
+    const key = actorKey(actor.z ?? 1, actor.pos);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    actors.push(actor);
+  };
+
+  for (const creature of creatures) {
+    addActor({
+      id: creature.id,
+      pos: creature.pos,
+      z: creature.z,
+      dir: creature.dir,
+      moving: creature.moving,
+      frame: creature.frame,
+      hidden: creature.hidden,
+    });
+  }
+
+  for (const block of blocks) {
+    addActor({
+      id: MS_TILE.Block,
+      pos: block.pos,
+      z: block.z,
+      dir: block.dir,
+      moving: 0,
+      frame: 0,
+      hidden: block.hidden,
+    });
+  }
+
+  for (const actor of session.state.engine.actors) {
+    if (actor.id === MS_TILE.Chip || actor.id === MS_TILE.Swimming_Chip) {
+      continue;
+    }
+    addActor({
+      id: actor.id,
+      pos: actor.position.pos,
+      z: actor.position.z,
+      dir: msDirectionFromActorName(actor.dir),
+      moving: 0,
+      frame: 0,
+      hidden: false,
+    });
+  }
 
   return {
     chip: null,
-    actors: [
-      ...creatures.map((creature) => ({
-        id: creature.id,
-        pos: creature.pos,
-        z: creature.z,
-        dir: creature.dir,
-        moving: creature.moving,
-        frame: creature.frame,
-        hidden: creature.hidden,
-      })),
-      ...blocks.map((block) => ({
-        id: MS_TILE.Block,
-        pos: block.pos,
-        z: block.z,
-        dir: block.dir,
-        moving: 0,
-        frame: 0,
-        hidden: block.hidden,
-      })),
-    ],
+    actors,
     animations: [],
   };
 }
