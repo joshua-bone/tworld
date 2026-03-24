@@ -1,5 +1,6 @@
 import {
   startTransition,
+  useDeferredValue,
   useEffect,
   useEffectEvent,
   useLayoutEffect,
@@ -48,6 +49,7 @@ import {
   resolveSetFamilyLevel,
   resolveSetFamilyRuleset,
   resolveSetFamilySelection,
+  searchSetFamilies,
   type CuratedCatalogView,
   type SetFamily,
   type SetFamilyRuleset,
@@ -416,6 +418,38 @@ function SidebarCategoryPicker({
   );
 }
 
+function SidebarSearchField({
+  query,
+  onChange,
+}: {
+  query: string;
+  onChange: (query: string) => void;
+}) {
+  return (
+    <label className="modern-dashboard__search">
+      <span aria-hidden="true" className="modern-dashboard__search-icon">
+        <svg className="modern-dashboard__action-icon" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="m16 16 4 4" />
+        </svg>
+      </span>
+      <input
+        aria-label="Search sets"
+        autoCapitalize="off"
+        autoCorrect="off"
+        className="modern-dashboard__search-input"
+        onChange={(event) => {
+          onChange(event.currentTarget.value);
+        }}
+        placeholder="Search..."
+        spellCheck={false}
+        type="search"
+        value={query}
+      />
+    </label>
+  );
+}
+
 function SidebarFamilyButton({
   actionKind,
   family,
@@ -614,6 +648,7 @@ export function ModernPlayerApp({
   const [requestedRuleset, setRequestedRuleset] = useState<BrowserPreferredRuleset>("Lynx");
   const [requestedLevelsByFamily, setRequestedLevelsByFamily] = useState<Record<string, number>>({});
   const [levelContextMenu, setLevelContextMenu] = useState<LevelContextMenuState | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [preferences, setPreferences] = useState<BrowserProfilePreferences>(
     createDefaultBrowserProfilePreferences(),
   );
@@ -840,7 +875,15 @@ export function ModernPlayerApp({
     activeLevel && activeRuleset ? resolveLevelProgressSummary(activeLevel, activeRuleset, progressByKey) : null;
   const activeLevelStatus = activeLevel ? describeLevelDisplayStatus(activeLevel, activeLevelProgress) : null;
   const activeEntryProgress = summarizeEntryProgress(activeEntry, progressByKey);
-  const visibleFamilies = useMemo(() => listFamiliesForTab(curated, activeTab), [curated, activeTab]);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const searchResults = useMemo(
+    () => searchSetFamilies(listFamiliesForTab(curated, activeTab), deferredSearchQuery),
+    [activeTab, curated, deferredSearchQuery],
+  );
+  const visibleFamilies = useMemo(
+    () => (deferredSearchQuery.trim() === "" ? listFamiliesForTab(curated, activeTab) : searchResults),
+    [activeTab, curated, deferredSearchQuery, searchResults],
+  );
   const setInfoFamily = setInfoFamilyId ? findSetFamilyById(curated, setInfoFamilyId) : null;
   const [animatedLevelBadgeKey, setAnimatedLevelBadgeKey] = useState<string | null>(null);
   const activeLevelRowRef = useRef<HTMLButtonElement | null>(null);
@@ -1289,12 +1332,18 @@ export function ModernPlayerApp({
               </section>
 
               <section className="modern-dashboard__panel modern-dashboard__panel--fill">
-                <SidebarCategoryPicker
-                  activeTab={activeTab}
-                  onSelect={(tab) => {
-                    setActiveTab(tab);
-                  }}
-                />
+                <div className="modern-dashboard__library-tools">
+                  <SidebarSearchField
+                    onChange={setSearchQuery}
+                    query={searchQuery}
+                  />
+                  <SidebarCategoryPicker
+                    activeTab={activeTab}
+                    onSelect={(tab) => {
+                      setActiveTab(tab);
+                    }}
+                  />
+                </div>
 
                 {visibleFamilies.length > 0 ? (
                   <div className="modern-library__family-list" tabIndex={-1}>
@@ -1318,11 +1367,13 @@ export function ModernPlayerApp({
                   </div>
                 ) : (
                   <div className="modern-empty-state modern-dashboard__empty-panel">
-                    {activeTab === "uploads"
-                      ? "No uploaded sets yet. Open a DAT file and it will stay available in this browser."
-                      : activeTab === "curated"
-                        ? "No curated sets are available right now."
-                        : "No official sets are available right now."}
+                    {deferredSearchQuery.trim() !== ""
+                      ? `No ${activeTab} sets match "${deferredSearchQuery.trim()}".`
+                      : activeTab === "uploads"
+                        ? "No uploaded sets yet. Open a DAT file and it will stay available in this browser."
+                        : activeTab === "curated"
+                          ? "No curated sets are available right now."
+                          : "No official sets are available right now."}
                   </div>
                 )}
 

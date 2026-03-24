@@ -373,6 +373,50 @@ body {
   font-size: 0.78rem;
 }
 
+.modern-dashboard__library-tools {
+  display: grid;
+  gap: 8px;
+}
+
+.modern-dashboard__search {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.modern-dashboard__search-icon {
+  position: absolute;
+  top: 50%;
+  left: 11px;
+  transform: translateY(-50%);
+  color: #8fb1c2;
+  pointer-events: none;
+}
+
+.modern-dashboard__search-input {
+  width: 100%;
+  border: 1px solid rgba(243, 236, 221, 0.16);
+  background: rgba(255, 255, 255, 0.02);
+  color: #f3ecdd;
+  font: inherit;
+  padding: 9px 12px 9px 36px;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.modern-dashboard__search-input::placeholder {
+  color: #8fb1c2;
+}
+
+.modern-dashboard__search-input:hover,
+.modern-dashboard__search-input:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(143, 208, 241, 0.5);
+  outline: none;
+}
+
 .modern-dashboard__category-picker {
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) 40px;

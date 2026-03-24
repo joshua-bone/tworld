@@ -5,6 +5,7 @@ import {
   findSetFamilyForSelection,
   listSetFamilyRulesets,
   resolveSetFamilySelection,
+  searchSetFamilies,
 } from "@player-web/impl/modern/curatedCatalog";
 
 function createLevels(levelCount: number, prefix: string): SeriesLevel[] {
@@ -214,5 +215,55 @@ describe("buildCuratedCatalogView", () => {
 
     expect(listSetFamilyRulesets(view.localFamilies[0]!)).toEqual(["MS"]);
     expect(resolveSetFamilySelection(view.localFamilies[0]!, "Lynx", 4)).toBeNull();
+  });
+});
+
+describe("searchSetFamilies", () => {
+  it("ranks title matches ahead of metadata and level-title matches", () => {
+    const view = buildCuratedCatalogView(
+      [
+        createEntry("VaultRunner-MS.dac", "local:VaultRunner.dat", "MS", 2),
+        {
+          ...createEntry("MetadataOnly-MS.dac", "local:MetadataOnly.dat", "MS", 2),
+          levels: createLevels(2, "Metadata"),
+        },
+        {
+          ...createEntry("LevelOnly-MS.dac", "local:LevelOnly.dat", "MS", 2),
+          levels: [
+            { ...createLevels(1, "Unused")[0]!, name: "Vault Door" },
+            { ...createLevels(1, "Unused")[0]!, index: 1, number: 2, name: "Unused 2" },
+          ],
+        },
+      ],
+      null,
+    );
+    const metadataOnlyFamily = view.localFamilies.find((family) => family.title === "MetadataOnly");
+    if (!metadataOnlyFamily) {
+      throw new Error("Expected MetadataOnly family to exist.");
+    }
+    metadataOnlyFamily.description = "Imported from this browser session by Vault Curator.";
+
+    const results = searchSetFamilies(view.localFamilies, "vault");
+
+    expect(results.map((family) => family.title)).toEqual(["VaultRunner", "MetadataOnly", "LevelOnly"]);
+  });
+
+  it("matches curated packs by author metadata and internal filebase text", () => {
+    const view = buildCuratedCatalogView(
+      [
+        createEntry("po100t-MS.dac", "./data/po100t.dat", "MS", 100),
+        createEntry("po100t-Lynx.dac", "./data/po100t.dat", "Lynx", 100),
+        createEntry("TS0-MS.dac", "./data/TS0.dat", "MS", 2),
+        createEntry("TS0-Lynx.dac", "./data/TS0.dat", "Lynx", 2),
+      ],
+      null,
+    );
+
+    expect(searchSetFamilies(view.introFamilies, "Andrew Menzies").map((family) => family.title)).toEqual([
+      "The Pit Of 100 Tiles",
+    ]);
+    expect(searchSetFamilies(view.introFamilies, "po100t").map((family) => family.title)).toEqual([
+      "The Pit Of 100 Tiles",
+    ]);
   });
 });

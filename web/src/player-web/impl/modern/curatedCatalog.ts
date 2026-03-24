@@ -352,6 +352,71 @@ export function listSetFamilies(view: CuratedCatalogView): SetFamily[] {
   return [...view.officialFamilies, ...view.introFamilies, ...view.localFamilies, ...view.otherFamilies];
 }
 
+function normalizeSearchText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/giu, " ").trim();
+}
+
+function matchesSearchText(haystack: string, normalizedQuery: string, queryTokens: readonly string[]): boolean {
+  if (!haystack || !normalizedQuery) {
+    return false;
+  }
+
+  if (haystack.includes(normalizedQuery)) {
+    return true;
+  }
+
+  return queryTokens.every((token) => haystack.includes(token));
+}
+
+function buildFamilyMetadataText(family: SetFamily): string {
+  return normalizeSearchText([
+    family.badge,
+    family.sidebarSummary,
+    family.yearLabel,
+    family.description,
+    family.context,
+    ...family.entries.map((entry) => entry.filebase),
+    ...family.entries.map((entry) => entry.mapfilename),
+  ].filter((value): value is string => Boolean(value)).join(" "));
+}
+
+function buildFamilyLevelTitleText(family: SetFamily): string {
+  return normalizeSearchText(
+    [...new Set(family.entries.flatMap((entry) => entry.levels.map((level) => level.name)))].join(" "),
+  );
+}
+
+export function searchSetFamilies(
+  families: readonly SetFamily[],
+  query: string,
+): SetFamily[] {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) {
+    return [...families];
+  }
+
+  const queryTokens = normalizedQuery.split(/\s+/u).filter((token) => token !== "");
+  return families
+    .flatMap((family, index) => {
+      const normalizedTitle = normalizeSearchText(family.title);
+      if (matchesSearchText(normalizedTitle, normalizedQuery, queryTokens)) {
+        return [{ family, priority: 0, index }];
+      }
+
+      if (matchesSearchText(buildFamilyMetadataText(family), normalizedQuery, queryTokens)) {
+        return [{ family, priority: 1, index }];
+      }
+
+      if (matchesSearchText(buildFamilyLevelTitleText(family), normalizedQuery, queryTokens)) {
+        return [{ family, priority: 2, index }];
+      }
+
+      return [];
+    })
+    .sort((left, right) => left.priority - right.priority || left.index - right.index)
+    .map((entry) => entry.family);
+}
+
 export function findSetFamilyById(view: CuratedCatalogView, familyId: string): SetFamily | null {
   return listSetFamilies(view).find((family) => family.id === familyId) ?? null;
 }
