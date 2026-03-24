@@ -83,6 +83,9 @@ const ELEVATOR_EDGE_COLOR = "#0e401d";
 const ELEVATOR_PANEL_COLOR = "#154d23";
 const ELEVATOR_TEXT_COLOR = "#d9ffd7";
 const HELD_TRAP_ALPHA = 0.5;
+const VISUAL_ENHANCEMENT_ARROW_COLOR = "#000000";
+const VISUAL_ENHANCEMENT_SUPPORT_WINDOW_ALPHA = 0.55;
+const VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE = 14;
 type LegacyTilesetRuleset = "MS" | "Lynx";
 
 const LEGACY_TILESET_URLS: Record<LegacyTilesetRuleset, string> = {
@@ -330,7 +333,7 @@ function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverla
   return hash >>> 0;
 }
 
-function buildLynxRenderLayerHash(session: InteractiveGameSession, targetZ: number): number {
+function buildRenderLayerHash(session: InteractiveGameSession, targetZ: number): number {
   const render = session.frame.render;
   if (!render) {
     return 0;
@@ -393,7 +396,7 @@ function buildCachedLowerLayerKey(
 ): string {
   const cellsSummary = buildVisibleLayerCellsSummary(tileset, layer);
   const overlayHash = buildLayerOverlayHash(session.frame.tileOverlays, layer.z);
-  const renderHash = ruleset === "Lynx" ? buildLynxRenderLayerHash(session, layer.z) : 0;
+  const renderHash = buildRenderLayerHash(session, layer.z);
   const timeToken = animationFrameToken(cellsSummary.animationPeriod, timerval);
   return `${ruleset ?? "None"}:${visualEnhancementsEnabled ? 1 : 0}:${layer.z}:${cellsSummary.hash.toString(16)}:${timeToken}:${overlayHash.toString(16)}:${renderHash.toString(16)}`;
 }
@@ -612,6 +615,160 @@ function drawLynxActorOverlays(
   }
 
   drawProjectedLynxRender(context, tileset, render, xOrigin, yOrigin, targetZ);
+}
+
+function visualEnhancementSupportFloorId(topId: number, bottomId: number): number | null {
+  if (topId === MS_TILE.Beartrap || topId === MS_TILE.CloneMachine) {
+    return topId;
+  }
+  if (bottomId === MS_TILE.Beartrap || bottomId === MS_TILE.CloneMachine) {
+    return bottomId;
+  }
+  return null;
+}
+
+export function visualEnhancementActorMarker(
+  actorId: number,
+  topId: number,
+  bottomId: number,
+): { floorId: number; showBlockWindow: boolean } | null {
+  if (
+    actorId !== MS_TILE.Block &&
+    actorId !== MS_TILE.Blob &&
+    actorId !== MS_TILE.Ball &&
+    actorId !== MS_TILE.Walker &&
+    actorId !== MS_TILE.Paramecium
+  ) {
+    return null;
+  }
+
+  const floorId = visualEnhancementSupportFloorId(topId, bottomId);
+  if (floorId === null) {
+    return null;
+  }
+
+  return {
+    floorId,
+    showBlockWindow: actorId === MS_TILE.Block,
+  };
+}
+
+function drawVisualEnhancementArrow(
+  context: Pick<CanvasRenderingContext2D, "beginPath" | "moveTo" | "lineTo" | "closePath" | "fill" | "fillStyle">,
+  dir: number,
+  x: number,
+  y: number,
+): void {
+  const centerX = x + LEGACY_TILE_SIZE / 2;
+  const centerY = y + LEGACY_TILE_SIZE / 2;
+  const tipInset = 4;
+  const baseInset = 11;
+  const halfBase = 4;
+
+  switch (dir) {
+    case MS_DIRECTION.north:
+      context.beginPath();
+      context.moveTo(centerX, y + tipInset);
+      context.lineTo(centerX - halfBase, y + baseInset);
+      context.lineTo(centerX + halfBase, y + baseInset);
+      break;
+    case MS_DIRECTION.south:
+      context.beginPath();
+      context.moveTo(centerX, y + LEGACY_TILE_SIZE - tipInset);
+      context.lineTo(centerX - halfBase, y + LEGACY_TILE_SIZE - baseInset);
+      context.lineTo(centerX + halfBase, y + LEGACY_TILE_SIZE - baseInset);
+      break;
+    case MS_DIRECTION.west:
+      context.beginPath();
+      context.moveTo(x + tipInset, centerY);
+      context.lineTo(x + baseInset, centerY - halfBase);
+      context.lineTo(x + baseInset, centerY + halfBase);
+      break;
+    case MS_DIRECTION.east:
+      context.beginPath();
+      context.moveTo(x + LEGACY_TILE_SIZE - tipInset, centerY);
+      context.lineTo(x + LEGACY_TILE_SIZE - baseInset, centerY - halfBase);
+      context.lineTo(x + LEGACY_TILE_SIZE - baseInset, centerY + halfBase);
+      break;
+    default:
+      return;
+  }
+
+  context.closePath();
+  context.fillStyle = VISUAL_ENHANCEMENT_ARROW_COLOR;
+  context.fill();
+}
+
+function drawVisualEnhancementSupportWindow(
+  context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
+  floorId: number,
+  x: number,
+  y: number,
+): void {
+  const inset = (LEGACY_TILE_SIZE - VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE) / 2;
+
+  context.save();
+  context.globalAlpha = VISUAL_ENHANCEMENT_SUPPORT_WINDOW_ALPHA;
+  context.beginPath();
+  context.rect(
+    x + inset,
+    y + inset,
+    VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE,
+    VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE,
+  );
+  context.clip();
+  drawSprite(context, tileset, floorId, x, y);
+  context.restore();
+
+  context.save();
+  context.strokeStyle = "rgba(0, 0, 0, 0.45)";
+  context.lineWidth = 1;
+  context.strokeRect(
+    x + inset + 0.5,
+    y + inset + 0.5,
+    VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE - 1,
+    VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE - 1,
+  );
+  context.restore();
+}
+
+function drawActorVisualEnhancements(
+  context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
+  render: InteractiveGameRenderFrame | null,
+  cells: ReadonlyArray<InteractiveGameVisibleLayer["cells"][number]>,
+  xOrigin: number,
+  yOrigin: number,
+  targetZ: number,
+  visualEnhancementsEnabled: boolean,
+): void {
+  if (!visualEnhancementsEnabled || !render) {
+    return;
+  }
+
+  for (const actor of render.actors) {
+    if ((actor.z ?? 1) !== targetZ || actor.hidden) {
+      continue;
+    }
+
+    const cell = cells[actor.pos];
+    if (!cell) {
+      continue;
+    }
+
+    const marker = visualEnhancementActorMarker(actor.id, cell.top.id, cell.bottom.id);
+    if (!marker) {
+      continue;
+    }
+
+    const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
+    const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
+    if (marker.showBlockWindow) {
+      drawVisualEnhancementSupportWindow(context, tileset, marker.floorId, x, y);
+    }
+    drawVisualEnhancementArrow(context, actor.dir, x, y);
+  }
 }
 
 function drawProjectedLynxRender(
@@ -904,6 +1061,17 @@ function renderMapLayerCanvas(
     drawLynxActorOverlays(context, tileset, session, xOrigin, yOrigin, layer.z);
   }
 
+  drawActorVisualEnhancements(
+    context,
+    tileset,
+    session.frame.render,
+    layer.cells,
+    xOrigin,
+    yOrigin,
+    layer.z,
+    visualEnhancementsEnabled,
+  );
+
   drawLayerOverlays(
     context,
     tileset,
@@ -956,6 +1124,17 @@ function renderCachedLowerLayerCanvas(
   if (ruleset === "Lynx") {
     drawLynxActorOverlays(context, tileset, session, xOrigin, yOrigin, layer.z);
   }
+
+  drawActorVisualEnhancements(
+    context,
+    tileset,
+    session.frame.render,
+    layer.cells,
+    xOrigin,
+    yOrigin,
+    layer.z,
+    visualEnhancementsEnabled,
+  );
 
   drawLayerOverlays(
     context,

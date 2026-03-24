@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
-import { MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
 import { projectMsInteractiveFrame } from "@ruleset-ms/impl/interactiveProjection";
 
 function createCell(pos: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
@@ -141,5 +141,64 @@ describe("projectMsInteractiveFrame", () => {
       pos: 1,
       kind: "hidden-wall-reveal",
     });
+  });
+
+  it("projects tracked creature and block directions into render actors", () => {
+    const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.Empty)];
+    const session = {
+      state: {
+        engine: createEngineState(cells),
+        internal: {
+          chipZ: 1,
+          traps: [],
+          creatures: [
+            {
+              id: MS_TILE.Blob,
+              pos: 0,
+              z: 1,
+              dir: MS_DIRECTION.east,
+              moving: 0,
+              frame: 0,
+              hidden: false,
+            },
+          ],
+          blocks: [
+            {
+              pos: 1,
+              z: 1,
+              dir: MS_DIRECTION.south,
+              hidden: false,
+            },
+          ],
+        },
+      },
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+    } as unknown as MsInteractiveSessionState;
+
+    const frame = projectMsInteractiveFrame(session, "tick");
+
+    expect(frame.render?.chip).toBeNull();
+    expect(frame.render?.actors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: MS_TILE.Blob,
+          pos: 0,
+          dir: MS_DIRECTION.east,
+          hidden: false,
+        }),
+        expect.objectContaining({
+          id: MS_TILE.Block,
+          pos: 1,
+          dir: MS_DIRECTION.south,
+          hidden: false,
+        }),
+      ]),
+    );
   });
 });

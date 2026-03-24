@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { inventoryTileCountLabel, withLegacyMapViewportClip } from "@player-web/impl/LegacyCanvasScreen";
+import {
+  inventoryTileCountLabel,
+  visualEnhancementActorMarker,
+  withLegacyMapViewportClip,
+} from "@player-web/impl/LegacyCanvasScreen";
 import { LEGACY_MAP_HEIGHT, LEGACY_MAP_WIDTH, LEGACY_MAP_X, LEGACY_MAP_Y } from "@player-web/impl/legacySprites";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -59,5 +63,27 @@ describe("inventoryTileCountLabel", () => {
     expect(inventoryTileCountLabel(MS_TILE.Key_Red, 1)).toBeNull();
     expect(inventoryTileCountLabel(MS_TILE.Key_Green, 2)).toBeNull();
     expect(inventoryTileCountLabel(MS_TILE.Boots_Water, 2)).toBeNull();
+  });
+});
+
+describe("visualEnhancementActorMarker", () => {
+  it("marks supported mobs on traps and cloners", () => {
+    expect(visualEnhancementActorMarker(MS_TILE.Block, MS_TILE.Empty, MS_TILE.CloneMachine)).toEqual({
+      floorId: MS_TILE.CloneMachine,
+      showBlockWindow: true,
+    });
+    expect(visualEnhancementActorMarker(MS_TILE.Blob, MS_TILE.Beartrap, MS_TILE.Empty)).toEqual({
+      floorId: MS_TILE.Beartrap,
+      showBlockWindow: false,
+    });
+    expect(visualEnhancementActorMarker(MS_TILE.Paramecium, MS_TILE.Empty, MS_TILE.Beartrap)).toEqual({
+      floorId: MS_TILE.Beartrap,
+      showBlockWindow: false,
+    });
+  });
+
+  it("ignores other actors and non-support floors", () => {
+    expect(visualEnhancementActorMarker(MS_TILE.Glider, MS_TILE.Empty, MS_TILE.CloneMachine)).toBeNull();
+    expect(visualEnhancementActorMarker(MS_TILE.Block, MS_TILE.Empty, MS_TILE.Empty)).toBeNull();
   });
 });

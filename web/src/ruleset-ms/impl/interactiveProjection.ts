@@ -46,6 +46,36 @@ function applyMsTrapRenderState(frame: InteractiveGameFrame, session: MsInteract
   }
 }
 
+function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<InteractiveGameFrame["render"]> {
+  const creatures = session.state.internal.creatures ?? [];
+  const blocks = session.state.internal.blocks ?? [];
+
+  return {
+    chip: null,
+    actors: [
+      ...creatures.map((creature) => ({
+        id: creature.id,
+        pos: creature.pos,
+        z: creature.z,
+        dir: creature.dir,
+        moving: creature.moving,
+        frame: creature.frame,
+        hidden: creature.hidden,
+      })),
+      ...blocks.map((block) => ({
+        id: MS_TILE.Block,
+        pos: block.pos,
+        z: block.z,
+        dir: block.dir,
+        moving: 0,
+        frame: 0,
+        hidden: block.hidden,
+      })),
+    ],
+    animations: [],
+  };
+}
+
 export function projectMsInteractiveFrame(
   session: MsInteractiveSessionState,
   phase: InteractiveProjectionPhase,
@@ -55,7 +85,7 @@ export function projectMsInteractiveFrame(
   const frame = projectInteractiveFrame(
     engineStateToSnapshot(session.state.engine, phase, session.lastInput),
     session.state.engine.map.cells,
-    null,
+    projectMsRenderFrame(session),
     {
       currentZ: session.state.internal.chipZ ?? 1,
       layers: session.state.engine.map.layers,

@@ -44,7 +44,7 @@ class StaticLevelRepository implements LevelRepository {
 }
 
 describe("interactive session projection", () => {
-  it("projects MS sessions without exposing render overlays", async () => {
+  it("projects MS sessions with actor render metadata", async () => {
     const adapter = new MsGameEngineAdapter(new NodeLevelRepository());
     const session = await adapter.startSession({
       seriesFile: "intro-ms.dac",
@@ -56,7 +56,8 @@ describe("interactive session projection", () => {
     expect(session.frame.cells).toHaveLength(32 * 32);
     expect(session.frame.currentZ).toBe(1);
     expect(session.frame.visibleLayers.map((layer) => layer.z)).toEqual([1]);
-    expect(session.frame.render).toBeNull();
+    expect(session.frame.render?.chip).toBeNull();
+    expect(Array.isArray(session.frame.render?.actors)).toBe(true);
     expect(session.history).toMatchObject({
       enabled: true,
       initialTick: -1,
