@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   inventoryTileCountLabel,
   visualEnhancementActorMarker,
+  visualEnhancementBlockWindowOpacity,
   withLegacyMapViewportClip,
 } from "@player-web/impl/LegacyCanvasScreen";
 import { LEGACY_MAP_HEIGHT, LEGACY_MAP_WIDTH, LEGACY_MAP_X, LEGACY_MAP_Y } from "@player-web/impl/legacySprites";
@@ -85,5 +86,18 @@ describe("visualEnhancementActorMarker", () => {
   it("ignores other actors and non-support floors", () => {
     expect(visualEnhancementActorMarker(MS_TILE.Glider, MS_TILE.Empty, MS_TILE.CloneMachine)).toBeNull();
     expect(visualEnhancementActorMarker(MS_TILE.Block, MS_TILE.Empty, MS_TILE.Empty)).toBeNull();
+  });
+});
+
+describe("visualEnhancementBlockWindowOpacity", () => {
+  it("keeps the border opaque and the center transparent with a quadratic falloff", () => {
+    expect(visualEnhancementBlockWindowOpacity(0)).toBe(0);
+    expect(visualEnhancementBlockWindowOpacity(0.5)).toBe(0.75);
+    expect(visualEnhancementBlockWindowOpacity(1)).toBe(1);
+  });
+
+  it("clamps distances outside the window domain", () => {
+    expect(visualEnhancementBlockWindowOpacity(-1)).toBe(0);
+    expect(visualEnhancementBlockWindowOpacity(2)).toBe(1);
   });
 });

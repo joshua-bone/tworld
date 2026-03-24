@@ -12,7 +12,7 @@ import type {
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import type { GameSnapshot } from "@game-core/api/types";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import { MS_DIRECTION, MS_FLOOR_STATE, MS_STATUS_FLAG, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_FLOOR_STATE, MS_STATUS_FLAG, MS_TILE, isMsCreature, msCreatureId, msCreatureTile } from "@ruleset-ms/api/tiles";
 import { TIME_NIL } from "@content/api/score";
 import {
   LEGACY_INFO_X,
@@ -84,7 +84,6 @@ const ELEVATOR_PANEL_COLOR = "#154d23";
 const ELEVATOR_TEXT_COLOR = "#d9ffd7";
 const HELD_TRAP_ALPHA = 0.5;
 const VISUAL_ENHANCEMENT_ARROW_COLOR = "#000000";
-const VISUAL_ENHANCEMENT_SUPPORT_WINDOW_ALPHA = 0.55;
 const VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE = 14;
 type LegacyTilesetRuleset = "MS" | "Lynx";
 
@@ -95,6 +94,7 @@ const LEGACY_TILESET_URLS: Record<LegacyTilesetRuleset, string> = {
 
 const legacyTilesetCache = new Map<LegacyTilesetRuleset, LegacyTileset>();
 const legacyTilesetPromiseCache = new Map<LegacyTilesetRuleset, Promise<LegacyTileset>>();
+let blockSupportWindowMaskCanvas: HTMLCanvasElement | null | undefined;
 
 interface LegacyDerivedSpriteCache {
   elevator?: LegacyTileSprite | null;
@@ -617,6 +617,23 @@ function drawLynxActorOverlays(
   drawProjectedLynxRender(context, tileset, render, xOrigin, yOrigin, targetZ);
 }
 
+function visualEnhancementActorId(tileId: number): number | null {
+  if (tileId === MS_TILE.Block_Static) {
+    return MS_TILE.Block;
+  }
+  return isMsCreature(tileId) ? msCreatureId(tileId) : null;
+}
+
+function visualEnhancementActorTileId(actorId: number, topId: number, bottomId: number): number {
+  if (visualEnhancementActorId(topId) === actorId) {
+    return topId;
+  }
+  if (visualEnhancementActorId(bottomId) === actorId) {
+    return bottomId;
+  }
+  return actorId;
+}
+
 function visualEnhancementSupportFloorId(topId: number, bottomId: number): number | null {
   if (topId === MS_TILE.Beartrap || topId === MS_TILE.CloneMachine) {
     return topId;
@@ -651,6 +668,44 @@ export function visualEnhancementActorMarker(
     floorId,
     showBlockWindow: actorId === MS_TILE.Block,
   };
+}
+
+export function visualEnhancementBlockWindowOpacity(squareDistanceFromCenter: number): number {
+  const clampedDistance = clamp(squareDistanceFromCenter, 0, 1);
+  return clampedDistance * (2 - clampedDistance);
+}
+
+function createBlockSupportWindowMask(): HTMLCanvasElement | null {
+  const canvas = createCanvas(VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE, VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  const imageData = context.createImageData(VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE, VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE);
+  const halfSize = VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE / 2;
+
+  for (let y = 0; y < VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE; y += 1) {
+    for (let x = 0; x < VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE; x += 1) {
+      const normalizedX = Math.abs(x + 0.5 - halfSize) / halfSize;
+      const normalizedY = Math.abs(y + 0.5 - halfSize) / halfSize;
+      const squareDistance = Math.max(normalizedX, normalizedY);
+      const blockOpacity = visualEnhancementBlockWindowOpacity(squareDistance);
+      const eraseAlpha = 1 - blockOpacity;
+      const pixelIndex = (y * VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE + x) * 4;
+      imageData.data[pixelIndex + 3] = Math.round(eraseAlpha * 255);
+    }
+  }
+
+  context.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+function getOrCreateBlockSupportWindowMask(): HTMLCanvasElement | null {
+  if (blockSupportWindowMaskCanvas === undefined) {
+    blockSupportWindowMaskCanvas = createBlockSupportWindowMask();
+  }
+  return blockSupportWindowMaskCanvas;
 }
 
 function drawVisualEnhancementArrow(
@@ -702,35 +757,29 @@ function drawVisualEnhancementArrow(
 function drawVisualEnhancementSupportWindow(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
+  actorTileId: number,
   floorId: number,
   x: number,
   y: number,
 ): void {
   const inset = (LEGACY_TILE_SIZE - VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE) / 2;
+  const maskCanvas = getOrCreateBlockSupportWindowMask();
+  const blockCanvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  const blockContext = blockCanvas.getContext("2d");
+  if (!blockContext || !maskCanvas) {
+    drawSprite(context, tileset, floorId, x, y);
+    drawSprite(context, tileset, actorTileId, x, y);
+    return;
+  }
 
-  context.save();
-  context.globalAlpha = VISUAL_ENHANCEMENT_SUPPORT_WINDOW_ALPHA;
-  context.beginPath();
-  context.rect(
-    x + inset,
-    y + inset,
-    VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE,
-    VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE,
-  );
-  context.clip();
+  drawSprite(blockContext, tileset, actorTileId, 0, 0);
+  blockContext.save();
+  blockContext.globalCompositeOperation = "destination-out";
+  blockContext.drawImage(maskCanvas, inset, inset);
+  blockContext.restore();
+
   drawSprite(context, tileset, floorId, x, y);
-  context.restore();
-
-  context.save();
-  context.strokeStyle = "rgba(0, 0, 0, 0.45)";
-  context.lineWidth = 1;
-  context.strokeRect(
-    x + inset + 0.5,
-    y + inset + 0.5,
-    VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE - 1,
-    VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE - 1,
-  );
-  context.restore();
+  context.drawImage(blockCanvas, x, y);
 }
 
 function drawActorVisualEnhancements(
@@ -765,7 +814,14 @@ function drawActorVisualEnhancements(
     const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
     const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
     if (marker.showBlockWindow) {
-      drawVisualEnhancementSupportWindow(context, tileset, marker.floorId, x, y);
+      drawVisualEnhancementSupportWindow(
+        context,
+        tileset,
+        visualEnhancementActorTileId(actor.id, cell.top.id, cell.bottom.id),
+        marker.floorId,
+        x,
+        y,
+      );
     }
     drawVisualEnhancementArrow(context, actor.dir, x, y);
   }
