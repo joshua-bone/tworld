@@ -35,6 +35,10 @@ import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEn
 import { measurePerfAsync } from "@player-web/impl/runtimePerf";
 import { buildUrlLaunchHref, resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
 import {
+  loadStoredVisualEnhancementsSettings,
+  saveStoredVisualEnhancementsSettings,
+} from "@player-web/impl/visualEnhancementsSettings";
+import {
   buildLevelProgressIndex,
   buildStoredLevelProgressKey,
   mergeLevelProgressSummaries,
@@ -651,6 +655,9 @@ export function ModernPlayerApp({
   const [requestedLevelsByFamily, setRequestedLevelsByFamily] = useState<Record<string, number>>({});
   const [levelContextMenu, setLevelContextMenu] = useState<LevelContextMenuState | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [visualEnhancementsEnabled, setVisualEnhancementsEnabled] = useState(
+    () => loadStoredVisualEnhancementsSettings().enabled,
+  );
   const [preferences, setPreferences] = useState<BrowserProfilePreferences>(
     createDefaultBrowserProfilePreferences(),
   );
@@ -1612,6 +1619,7 @@ export function ModernPlayerApp({
               onLevelProgressSaved={handleLevelProgressSaved}
               onSelectionChange={handleEmbeddedSelectionChange}
               services={services}
+              visualEnhancementsEnabled={visualEnhancementsEnabled}
             />
           ) : (
             <div className="modern-empty-state modern-dashboard__player-empty">
@@ -1809,6 +1817,24 @@ export function ModernPlayerApp({
             </div>
 
             <div className="modern-about-modal__body modern-settings-modal">
+              <label className="modern-settings-modal__option">
+                <input
+                  checked={visualEnhancementsEnabled}
+                  onChange={(event) => {
+                    const enabled = event.currentTarget.checked;
+                    setVisualEnhancementsEnabled(enabled);
+                    saveStoredVisualEnhancementsSettings({ enabled });
+                  }}
+                  type="checkbox"
+                />
+                <div>
+                  <strong>Enable Visual Enhancements</strong>
+                  <p className="modern-dashboard__copy">
+                    E.g. visual aids for trap state, key count, etc. which may not be scoreboard legal
+                  </p>
+                </div>
+              </label>
+
               <label className="modern-settings-modal__option">
                 <input
                   checked={preferences.autoSaveWinningHighScoreReplays}

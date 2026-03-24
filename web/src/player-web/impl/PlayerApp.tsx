@@ -93,6 +93,7 @@ import {
   loadStoredSoundSettings,
   saveStoredSoundSettings,
 } from "@player-web/impl/soundSettings";
+import { loadStoredVisualEnhancementsSettings } from "@player-web/impl/visualEnhancementsSettings";
 const LEGACY_FAST_TICK_MS = 25;
 const LEGACY_NORMAL_TICK_MS = 50;
 const GAME_TICKS_PER_SECOND = 20;
@@ -568,6 +569,7 @@ interface PlayerAppProps {
   onExitGame?: () => void;
   onLevelProgressSaved?: (summary: BrowserLevelProgressSummary) => void;
   onSelectionChange?: (selection: PlayableSelection) => void;
+  visualEnhancementsEnabled?: boolean;
 }
 
 export function PlayerApp({
@@ -584,6 +586,7 @@ export function PlayerApp({
   onExitGame,
   onLevelProgressSaved,
   onSelectionChange,
+  visualEnhancementsEnabled: visualEnhancementsEnabledProp,
 }: PlayerAppProps) {
   const { engines, importDatFile, profileStore, replayTransfer, selectionStore } = services;
   const initialCatalogRef = useRef<SeriesCatalogEntry[]>(initialCatalog);
@@ -596,6 +599,7 @@ export function PlayerApp({
   if (undoSettingsSeedRef.current === null) {
     undoSettingsSeedRef.current = loadStoredUndoSettings();
   }
+  const visualEnhancementsEnabledSeedRef = useRef(loadStoredVisualEnhancementsSettings().enabled);
   const [mode, setMode] = useState<LegacyMode>(initialModeRef.current);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
   const [savedReplayEntries, setSavedReplayEntries] = useState<BrowserReplayEntry[]>([]);
@@ -688,6 +692,7 @@ export function PlayerApp({
       : null;
   const currentLevelSeedOverride = findLevelSeedOverride(levelSeedOverrides, currentLevelSeedTarget);
   const isLevelSeedLocked = currentLevelSeedOverride !== null;
+  const visualEnhancementsEnabled = visualEnhancementsEnabledProp ?? visualEnhancementsEnabledSeedRef.current;
   const activeRandomSeed = session ? Number.parseInt(session.frame.snapshot.randomState.main.initial, 10) : null;
   const parsedSeedInput = seedInputValue.trim() === "" ? null : Number.parseInt(seedInputValue.trim(), 10);
   const isSeedInputValid =
@@ -3224,6 +3229,7 @@ export function PlayerApp({
           currentRuleset={currentRuleset}
           inventory={session?.frame.snapshot.inventory ?? null}
           kind="keys"
+          visualEnhancementsEnabled={visualEnhancementsEnabled}
         />
       </div>
       <div className="modern-game-inventory-strip__group">
@@ -3233,6 +3239,7 @@ export function PlayerApp({
           currentRuleset={currentRuleset}
           inventory={session?.frame.snapshot.inventory ?? null}
           kind="boots"
+          visualEnhancementsEnabled={visualEnhancementsEnabled}
         />
       </div>
     </aside>
@@ -3472,6 +3479,7 @@ export function PlayerApp({
                 presentation="map-only"
                 selectedSeriesFile={selectedSeriesFile}
                 session={session}
+                visualEnhancementsEnabled={visualEnhancementsEnabled}
               />
             )}
             {!isPaused && modernHintOverlayText ? (
@@ -3961,6 +3969,7 @@ export function PlayerApp({
         onSelectSeries={selectSeries}
         selectedSeriesFile={selectedSeriesFile}
         session={session}
+        visualEnhancementsEnabled={visualEnhancementsEnabled}
       />
       {helpOverlay}
     </main>

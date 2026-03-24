@@ -48,6 +48,7 @@ interface LegacyCanvasScreenProps {
   onActivateSeries: (seriesFile: string) => void;
   onMapClick?: (position: number) => void;
   onDatDrop?: (files: File[]) => void;
+  visualEnhancementsEnabled?: boolean;
 }
 
 const COLORS = {
@@ -388,12 +389,13 @@ function buildCachedLowerLayerKey(
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   layer: InteractiveGameVisibleLayer,
   timerval: number,
+  visualEnhancementsEnabled: boolean,
 ): string {
   const cellsSummary = buildVisibleLayerCellsSummary(tileset, layer);
   const overlayHash = buildLayerOverlayHash(session.frame.tileOverlays, layer.z);
   const renderHash = ruleset === "Lynx" ? buildLynxRenderLayerHash(session, layer.z) : 0;
   const timeToken = animationFrameToken(cellsSummary.animationPeriod, timerval);
-  return `${ruleset ?? "None"}:${layer.z}:${cellsSummary.hash.toString(16)}:${timeToken}:${overlayHash.toString(16)}:${renderHash.toString(16)}`;
+  return `${ruleset ?? "None"}:${visualEnhancementsEnabled ? 1 : 0}:${layer.z}:${cellsSummary.hash.toString(16)}:${timeToken}:${overlayHash.toString(16)}:${renderHash.toString(16)}`;
 }
 
 function formatLevelTimeLeft(session: InteractiveGameSession): string {
@@ -706,11 +708,14 @@ function drawCompositedCell(
   timerval: number,
   x: number,
   y: number,
+  visualEnhancementsEnabled: boolean,
 ): void {
   const topTrapOpen =
+    visualEnhancementsEnabled &&
     topId === MS_TILE.Beartrap &&
     (((topState & MS_FLOOR_STATE.TrapOpen) !== 0) || ((topState & LYNX_CELL_FLAG.TrapOpen) !== 0));
   const bottomTrapOpen =
+    visualEnhancementsEnabled &&
     bottomId === MS_TILE.Beartrap &&
     (((bottomState & MS_FLOOR_STATE.TrapOpen) !== 0) || ((bottomState & LYNX_CELL_FLAG.TrapOpen) !== 0));
 
@@ -848,6 +853,7 @@ function renderMapLayerCanvas(
   viewX: number,
   viewY: number,
   depth: number,
+  visualEnhancementsEnabled: boolean,
 ): HTMLCanvasElement {
   const tileWindowSize = layerViewportTileWindow(depth);
   const canvas = createCanvas(tileWindowSize * LEGACY_TILE_SIZE, tileWindowSize * LEGACY_TILE_SIZE);
@@ -871,7 +877,18 @@ function renderMapLayerCanvas(
       continue;
     }
 
-    drawCompositedCell(context, tileset, cell.top.id, cell.top.state, cell.bottom.id, cell.bottom.state, timerval, x, y);
+    drawCompositedCell(
+      context,
+      tileset,
+      cell.top.id,
+      cell.top.state,
+      cell.bottom.id,
+      cell.bottom.state,
+      timerval,
+      x,
+      y,
+      visualEnhancementsEnabled,
+    );
   }
 
   if (ruleset === "Lynx") {
@@ -888,6 +905,7 @@ function renderCachedLowerLayerCanvas(
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   layer: InteractiveGameVisibleLayer,
   timerval: number,
+  visualEnhancementsEnabled: boolean,
 ): HTMLCanvasElement {
   const canvas = createCanvas(LAYER_CANVAS_BOARD_SIZE, LAYER_CANVAS_BOARD_SIZE);
   const context = canvas.getContext("2d");
@@ -902,7 +920,18 @@ function renderCachedLowerLayerCanvas(
   for (const cell of layer.cells) {
     const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
     const y = yOrigin + cell.position.y * LEGACY_TILE_SIZE;
-    drawCompositedCell(context, tileset, cell.top.id, cell.top.state, cell.bottom.id, cell.bottom.state, timerval, x, y);
+    drawCompositedCell(
+      context,
+      tileset,
+      cell.top.id,
+      cell.top.state,
+      cell.bottom.id,
+      cell.bottom.state,
+      timerval,
+      x,
+      y,
+      visualEnhancementsEnabled,
+    );
   }
 
   if (ruleset === "Lynx") {
@@ -920,14 +949,19 @@ function getOrRenderCachedLowerLayerCanvas(
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   layer: InteractiveGameVisibleLayer,
   timerval: number,
+  visualEnhancementsEnabled: boolean,
 ): HTMLCanvasElement {
-  const key = buildCachedLowerLayerKey(tileset, session, ruleset, layer, timerval);
+  const key = buildCachedLowerLayerKey(tileset, session, ruleset, layer, timerval, visualEnhancementsEnabled);
   const cached = getCachedLayerCanvas(cache, key);
   if (cached) {
     return cached;
   }
 
-  return storeCachedLayerCanvas(cache, key, renderCachedLowerLayerCanvas(tileset, session, ruleset, layer, timerval));
+  return storeCachedLayerCanvas(
+    cache,
+    key,
+    renderCachedLowerLayerCanvas(tileset, session, ruleset, layer, timerval, visualEnhancementsEnabled),
+  );
 }
 
 function drawVisibleLayerStack(
@@ -939,18 +973,37 @@ function drawVisibleLayerStack(
   viewX: number,
   viewY: number,
   lowerLayerCache: LegacyLayerCanvasCache,
+  visualEnhancementsEnabled: boolean,
 ): void {
   const visibleLayers = session.frame.visibleLayers;
   if (visibleLayers.length === 0) {
     return;
   }
 
-  const topLayerCanvas = renderMapLayerCanvas(tileset, session, ruleset, visibleLayers[0]!, timerval, viewX, viewY, 0);
+  const topLayerCanvas = renderMapLayerCanvas(
+    tileset,
+    session,
+    ruleset,
+    visibleLayers[0]!,
+    timerval,
+    viewX,
+    viewY,
+    0,
+    visualEnhancementsEnabled,
+  );
 
   withLegacyMapViewportClip(context, () => {
     for (let index = visibleLayers.length - 1; index >= 1; index -= 1) {
       const layer = visibleLayers[index]!;
-      const layerCanvas = getOrRenderCachedLowerLayerCanvas(lowerLayerCache, tileset, session, ruleset, layer, timerval);
+      const layerCanvas = getOrRenderCachedLowerLayerCanvas(
+        lowerLayerCache,
+        tileset,
+        session,
+        ruleset,
+        layer,
+        timerval,
+        visualEnhancementsEnabled,
+      );
       const depth = index;
       const scale = LOWER_LAYER_SCALE ** depth;
       const brightness = Math.max(0, 1 - depth * LOWER_LAYER_DARKEN_PER_DEPTH);
@@ -993,6 +1046,7 @@ function prewarmVisibleLayerCaches(
   session: InteractiveGameSession,
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   lowerLayerCache: LegacyLayerCanvasCache,
+  visualEnhancementsEnabled: boolean,
 ): void {
   const snapshot = session.frame.snapshot;
   const visibleLayers = session.frame.visibleLayers;
@@ -1006,11 +1060,11 @@ function prewarmVisibleLayerCaches(
   for (const timerval of collectInitialWarmupTimervals(session)) {
     // Warm the hot top-layer render path once so the first live movement does not
     // pay its setup cost on the visible tick.
-    renderMapLayerCanvas(tileset, session, ruleset, visibleLayers[0]!, timerval, viewX, viewY, 0);
+    renderMapLayerCanvas(tileset, session, ruleset, visibleLayers[0]!, timerval, viewX, viewY, 0, visualEnhancementsEnabled);
 
     for (let index = visibleLayers.length - 1; index >= 1; index -= 1) {
       const layer = visibleLayers[index]!;
-      getOrRenderCachedLowerLayerCanvas(lowerLayerCache, tileset, session, ruleset, layer, timerval);
+      getOrRenderCachedLowerLayerCanvas(lowerLayerCache, tileset, session, ruleset, layer, timerval, visualEnhancementsEnabled);
     }
   }
 }
@@ -1069,6 +1123,7 @@ function drawInventoryStrip(
   tileset: LegacyTileset,
   inventory: GameSnapshot["inventory"] | null,
   kind: LegacyInventoryStripKind,
+  visualEnhancementsEnabled: boolean,
 ): void {
   const tileIds = kind === "keys" ? LEGACY_INVENTORY_KEY_IDS : LEGACY_INVENTORY_BOOT_IDS;
   context.fillStyle = COLORS.background;
@@ -1080,7 +1135,7 @@ function drawInventoryStrip(
       context,
       tileset,
       count > 0 ? tileId : MS_TILE.Empty,
-      kind === "keys" ? inventoryTileCountLabel(tileId, count) : null,
+      kind === "keys" && visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
       0,
       index * LEGACY_TILE_SIZE,
     );
@@ -1153,6 +1208,7 @@ function drawGameScreen(
   isLoading: boolean,
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   lowerLayerCache: LegacyLayerCanvasCache,
+  visualEnhancementsEnabled: boolean,
 ): void {
   context.fillStyle = COLORS.background;
   context.fillRect(0, 0, LEGACY_WINDOW_WIDTH, LEGACY_WINDOW_HEIGHT);
@@ -1166,7 +1222,7 @@ function drawGameScreen(
   const viewX = clamp(snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
   const viewY = clamp(snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
   const timerval = (snapshot.statusFlags & MS_STATUS_FLAG.NoAnimation) !== 0 ? -1 : snapshot.currentTime;
-  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY, lowerLayerCache);
+  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY, lowerLayerCache, visualEnhancementsEnabled);
 
   drawText(context, `Level ${level.number}`, LEGACY_INFO_X, LEGACY_MAP_Y, COLORS.text);
   drawText(context, `Password: ${level.password || "----"}`, LEGACY_INFO_X, LEGACY_MAP_Y + 18, COLORS.text);
@@ -1189,7 +1245,7 @@ function drawGameScreen(
       context,
       tileset,
       count > 0 ? tileId : MS_TILE.Empty,
-      inventoryTileCountLabel(tileId, count),
+      visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
       inventoryX + index * LEGACY_TILE_SIZE,
       inventoryY,
     );
@@ -1254,6 +1310,7 @@ function drawGameMapOnly(
   isLoading: boolean,
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   lowerLayerCache: LegacyLayerCanvasCache,
+  visualEnhancementsEnabled: boolean,
 ): void {
   context.fillStyle = COLORS.background;
   context.fillRect(0, 0, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
@@ -1270,7 +1327,7 @@ function drawGameMapOnly(
 
   context.save();
   context.translate(-LEGACY_MAP_X, -LEGACY_MAP_Y);
-  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY, lowerLayerCache);
+  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY, lowerLayerCache, visualEnhancementsEnabled);
   context.restore();
 }
 
@@ -1283,13 +1340,14 @@ function buildGameDrawStateKey(
   message: string | null,
   presentation: LegacyCanvasPresentation,
   hasTileset: boolean,
+  visualEnhancementsEnabled: boolean,
 ): string {
   if (!hasTileset) {
-    return `no-tileset:${presentation}:${isLoading ? 1 : 0}:${message ?? ""}:${currentSeries?.filebase ?? ""}:${currentLevel?.number ?? 0}:${currentRuleset ?? "None"}`;
+    return `no-tileset:${presentation}:${visualEnhancementsEnabled ? 1 : 0}:${isLoading ? 1 : 0}:${message ?? ""}:${currentSeries?.filebase ?? ""}:${currentLevel?.number ?? 0}:${currentRuleset ?? "None"}`;
   }
 
   if (!session) {
-    return `no-session:${presentation}:${isLoading ? 1 : 0}:${message ?? ""}:${currentSeries?.filebase ?? ""}:${currentLevel?.number ?? 0}:${currentRuleset ?? "None"}`;
+    return `no-session:${presentation}:${visualEnhancementsEnabled ? 1 : 0}:${isLoading ? 1 : 0}:${message ?? ""}:${currentSeries?.filebase ?? ""}:${currentLevel?.number ?? 0}:${currentRuleset ?? "None"}`;
   }
 
   const snapshot = session.frame.snapshot;
@@ -1309,6 +1367,7 @@ function buildGameDrawStateKey(
     session.frame.visibleLayers.length,
     session.frame.tileOverlays.length,
     snapshot.chipsNeeded,
+    visualEnhancementsEnabled ? 1 : 0,
     message ?? "",
     isLoading ? 1 : 0,
   ].join(":");
@@ -1358,9 +1417,16 @@ interface LegacyInventoryStripProps {
   currentRuleset: SeriesCatalogEntry["ruleset"] | null;
   inventory: GameSnapshot["inventory"] | null;
   kind: LegacyInventoryStripKind;
+  visualEnhancementsEnabled?: boolean;
 }
 
-export function LegacyInventoryStrip({ className, currentRuleset, inventory, kind }: LegacyInventoryStripProps) {
+export function LegacyInventoryStrip({
+  className,
+  currentRuleset,
+  inventory,
+  kind,
+  visualEnhancementsEnabled = true,
+}: LegacyInventoryStripProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
 
@@ -1383,8 +1449,8 @@ export function LegacyInventoryStrip({ className, currentRuleset, inventory, kin
       return;
     }
 
-    drawInventoryStrip(context, tileset, inventory, kind);
-  }, [inventory, kind, tileset]);
+    drawInventoryStrip(context, tileset, inventory, kind, visualEnhancementsEnabled);
+  }, [inventory, kind, tileset, visualEnhancementsEnabled]);
 
   return (
     <canvas
@@ -1414,6 +1480,7 @@ export function LegacyCanvasScreen({
   onActivateSeries,
   onMapClick,
   onDatDrop,
+  visualEnhancementsEnabled = true,
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const lowerLayerCacheRef = useRef<LegacyLayerCanvasCache>(createLayerCanvasCache());
@@ -1439,7 +1506,7 @@ export function LegacyCanvasScreen({
 
   useEffect(() => {
     clearLayerCanvasCache(lowerLayerCacheRef.current);
-  }, [currentRuleset, currentSeries?.filebase, currentLevel?.number, tileset]);
+  }, [currentRuleset, currentSeries?.filebase, currentLevel?.number, tileset, visualEnhancementsEnabled]);
 
   useEffect(() => {
     if (mode !== "game" || !tileset) {
@@ -1452,9 +1519,9 @@ export function LegacyCanvasScreen({
     }
 
     measurePerfSync("initialRenderWarmupMs", () => {
-      prewarmVisibleLayerCaches(tileset, activeSession, currentRuleset, lowerLayerCacheRef.current);
+      prewarmVisibleLayerCaches(tileset, activeSession, currentRuleset, lowerLayerCacheRef.current, visualEnhancementsEnabled);
     });
-  }, [currentLevel?.number, currentRuleset, currentSeries?.filebase, liveSessionRef, mode, session, tileset]);
+  }, [currentLevel?.number, currentRuleset, currentSeries?.filebase, liveSessionRef, mode, session, tileset, visualEnhancementsEnabled]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1503,6 +1570,7 @@ export function LegacyCanvasScreen({
           isLoading,
           currentRuleset,
           lowerLayerCacheRef.current,
+          visualEnhancementsEnabled,
         );
         return;
       }
@@ -1517,6 +1585,7 @@ export function LegacyCanvasScreen({
         isLoading,
         currentRuleset,
         lowerLayerCacheRef.current,
+        visualEnhancementsEnabled,
       );
     };
 
@@ -1535,6 +1604,7 @@ export function LegacyCanvasScreen({
     seriesScrollOffset,
     session,
     tileset,
+    visualEnhancementsEnabled,
   ]);
 
   useEffect(() => {
@@ -1567,6 +1637,7 @@ export function LegacyCanvasScreen({
         message,
         presentation,
         tileset !== null,
+        visualEnhancementsEnabled,
       );
 
       if (drawStateKey !== lastDrawStateKey) {
@@ -1593,6 +1664,7 @@ export function LegacyCanvasScreen({
               isLoading,
               currentRuleset,
               lowerLayerCacheRef.current,
+              visualEnhancementsEnabled,
             );
             return;
           }
@@ -1607,6 +1679,7 @@ export function LegacyCanvasScreen({
             isLoading,
             currentRuleset,
             lowerLayerCacheRef.current,
+            visualEnhancementsEnabled,
           );
         };
 
@@ -1622,7 +1695,7 @@ export function LegacyCanvasScreen({
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [currentLevel, currentRuleset, currentSeries, isLoading, liveSessionRef, message, mode, presentation, session, tileset]);
+  }, [currentLevel, currentRuleset, currentSeries, isLoading, liveSessionRef, message, mode, presentation, session, tileset, visualEnhancementsEnabled]);
 
   return (
     <canvas

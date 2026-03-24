@@ -13,6 +13,12 @@ import {
   parseStoredSoundSettings,
   saveStoredSoundSettings,
 } from "@player-web/impl/soundSettings";
+import {
+  type BrowserVisualEnhancementsSettings,
+  loadStoredVisualEnhancementsSettings,
+  parseStoredVisualEnhancementsSettings,
+  saveStoredVisualEnhancementsSettings,
+} from "@player-web/impl/visualEnhancementsSettings";
 
 const PROFILE_BACKUP_KIND = "tworld-browser-profile-backup";
 const PROFILE_BACKUP_FORMAT_VERSION = 1;
@@ -20,6 +26,7 @@ const PROFILE_BACKUP_FORMAT_VERSION = 1;
 export interface BrowserProfileLocalSettingsSnapshot {
   sound?: BrowserSoundSettings;
   undo?: BrowserUndoSettings;
+  visualEnhancements?: BrowserVisualEnhancementsSettings;
 }
 
 export interface BrowserProfileBackup {
@@ -39,6 +46,7 @@ export function exportBrowserLocalSettingsSnapshot(): BrowserProfileLocalSetting
   return {
     sound: loadStoredSoundSettings(),
     undo: loadStoredUndoSettings(),
+    visualEnhancements: loadStoredVisualEnhancementsSettings(),
   };
 }
 
@@ -52,6 +60,9 @@ export function applyBrowserLocalSettingsSnapshot(snapshot: BrowserProfileLocalS
   }
   if (snapshot.undo !== undefined) {
     saveStoredUndoSettings(parseStoredUndoSettings(snapshot.undo));
+  }
+  if (snapshot.visualEnhancements !== undefined) {
+    saveStoredVisualEnhancementsSettings(parseStoredVisualEnhancementsSettings(snapshot.visualEnhancements));
   }
 }
 
@@ -99,6 +110,9 @@ export function parseBrowserProfileBackup(raw: string): BrowserProfileBackup {
           : undefined,
         undo: parsed.localSettings.undo !== undefined
           ? parseStoredUndoSettings(parsed.localSettings.undo)
+          : undefined,
+        visualEnhancements: parsed.localSettings.visualEnhancements !== undefined
+          ? parseStoredVisualEnhancementsSettings(parsed.localSettings.visualEnhancements)
           : undefined,
       } satisfies BrowserProfileLocalSettingsSnapshot
     : undefined;

@@ -42,6 +42,9 @@ describe("browserProfileBackup", () => {
         enabled: true,
         checkpointDensity: "standard",
       },
+      visualEnhancements: {
+        enabled: true,
+      },
     });
   });
 
