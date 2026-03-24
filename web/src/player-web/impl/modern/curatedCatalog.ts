@@ -352,6 +352,10 @@ export function listSetFamilies(view: CuratedCatalogView): SetFamily[] {
   return [...view.officialFamilies, ...view.introFamilies, ...view.localFamilies, ...view.otherFamilies];
 }
 
+export function listSearchableSetFamilies(view: CuratedCatalogView): SetFamily[] {
+  return [...view.officialFamilies, ...view.introFamilies, ...view.localFamilies];
+}
+
 function normalizeSearchText(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/giu, " ").trim();
 }

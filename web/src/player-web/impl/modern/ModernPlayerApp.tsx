@@ -45,6 +45,7 @@ import {
   buildCuratedCatalogView,
   findSetFamilyById,
   findSetFamilyForSelection,
+  listSearchableSetFamilies,
   listSetFamilyRulesets,
   resolveSetFamilyLevel,
   resolveSetFamilyRuleset,
@@ -876,13 +877,15 @@ export function ModernPlayerApp({
   const activeLevelStatus = activeLevel ? describeLevelDisplayStatus(activeLevel, activeLevelProgress) : null;
   const activeEntryProgress = summarizeEntryProgress(activeEntry, progressByKey);
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const isSearchActive = deferredSearchQuery.trim() !== "";
+  const searchableFamilies = useMemo(() => listSearchableSetFamilies(curated), [curated]);
   const searchResults = useMemo(
-    () => searchSetFamilies(listFamiliesForTab(curated, activeTab), deferredSearchQuery),
-    [activeTab, curated, deferredSearchQuery],
+    () => searchSetFamilies(searchableFamilies, deferredSearchQuery),
+    [deferredSearchQuery, searchableFamilies],
   );
   const visibleFamilies = useMemo(
-    () => (deferredSearchQuery.trim() === "" ? listFamiliesForTab(curated, activeTab) : searchResults),
-    [activeTab, curated, deferredSearchQuery, searchResults],
+    () => (isSearchActive ? searchResults : listFamiliesForTab(curated, activeTab)),
+    [activeTab, curated, isSearchActive, searchResults],
   );
   const setInfoFamily = setInfoFamilyId ? findSetFamilyById(curated, setInfoFamilyId) : null;
   const [animatedLevelBadgeKey, setAnimatedLevelBadgeKey] = useState<string | null>(null);
@@ -1337,12 +1340,14 @@ export function ModernPlayerApp({
                     onChange={setSearchQuery}
                     query={searchQuery}
                   />
-                  <SidebarCategoryPicker
-                    activeTab={activeTab}
-                    onSelect={(tab) => {
-                      setActiveTab(tab);
-                    }}
-                  />
+                  {!isSearchActive ? (
+                    <SidebarCategoryPicker
+                      activeTab={activeTab}
+                      onSelect={(tab) => {
+                        setActiveTab(tab);
+                      }}
+                    />
+                  ) : null}
                 </div>
 
                 {visibleFamilies.length > 0 ? (
@@ -1367,8 +1372,8 @@ export function ModernPlayerApp({
                   </div>
                 ) : (
                   <div className="modern-empty-state modern-dashboard__empty-panel">
-                    {deferredSearchQuery.trim() !== ""
-                      ? `No ${activeTab} sets match "${deferredSearchQuery.trim()}".`
+                    {isSearchActive
+                      ? `No sets match "${deferredSearchQuery.trim()}".`
                       : activeTab === "uploads"
                         ? "No uploaded sets yet. Open a DAT file and it will stay available in this browser."
                         : activeTab === "curated"

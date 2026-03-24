@@ -3,6 +3,7 @@ import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import {
   buildCuratedCatalogView,
   findSetFamilyForSelection,
+  listSearchableSetFamilies,
   listSetFamilyRulesets,
   resolveSetFamilySelection,
   searchSetFamilies,
@@ -265,5 +266,34 @@ describe("searchSetFamilies", () => {
     expect(searchSetFamilies(view.introFamilies, "po100t").map((family) => family.title)).toEqual([
       "The Pit Of 100 Tiles",
     ]);
+  });
+
+  it("searches across official, curated, and uploaded families but excludes hidden other sets", () => {
+    const view = buildCuratedCatalogView(
+      [
+        createEntry("CCLP1-MS.dac", "./data/CCLP1.dat", "MS"),
+        createEntry("CCLP1-Lynx.dac", "./data/CCLP1.dat", "Lynx"),
+        createEntry("po100t-MS.dac", "./data/po100t.dat", "MS", 100),
+        createEntry("po100t-Lynx.dac", "./data/po100t.dat", "Lynx", 100),
+        createEntry("Imported.dat-ms.dac", "local:Imported.dat", "MS", 9),
+        createEntry("Imported.dat-lynx.dac", "local:Imported.dat", "Lynx", 9),
+        createEntry("public_CCZoneTT.dac", "./data/CCZoneTT.dat", "MS", 117),
+        createEntry("public_CCZoneTT-lynx.dac", "./data/CCZoneTT.dat", "Lynx", 117),
+      ],
+      null,
+    );
+
+    const searchableFamilies = listSearchableSetFamilies(view);
+
+    expect(searchableFamilies.map((family) => family.title)).toEqual([
+      "CCLP1",
+      "The Pit Of 100 Tiles",
+      "Imported",
+    ]);
+    expect(searchSetFamilies(searchableFamilies, "Imported").map((family) => family.title)).toEqual(["Imported"]);
+    expect(searchSetFamilies(searchableFamilies, "Pit Of 100 Tiles").map((family) => family.title)).toEqual([
+      "The Pit Of 100 Tiles",
+    ]);
+    expect(searchSetFamilies(searchableFamilies, "CCZoneTT")).toEqual([]);
   });
 });
