@@ -47,6 +47,7 @@ import {
   findSetFamilyForSelection,
   listSearchableSetFamilies,
   listSetFamilyRulesets,
+  resolveSearchMatchedLevelNumber,
   resolveSetFamilyLevel,
   resolveSetFamilyRuleset,
   resolveSetFamilySelection,
@@ -1147,7 +1148,24 @@ export function ModernPlayerApp({
       setActiveTab(familyTab);
     }
 
+    const matchedRuleset = resolveFamilyRuleset(family, requestedRuleset);
+    const matchedLevelNumber =
+      isSearchActive && matchedRuleset
+        ? resolveSearchMatchedLevelNumber(family, deferredSearchQuery, matchedRuleset)
+        : null;
+
     setRequestedLevelsByFamily((current) => {
+      if (matchedLevelNumber !== null) {
+        if (current[familyId] === matchedLevelNumber) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [familyId]: matchedLevelNumber,
+        };
+      }
+
       if (current[familyId]) {
         return current;
       }

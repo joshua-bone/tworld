@@ -5,6 +5,7 @@ import {
   findSetFamilyForSelection,
   listSearchableSetFamilies,
   listSetFamilyRulesets,
+  resolveSearchMatchedLevelNumber,
   resolveSetFamilySelection,
   searchSetFamilies,
 } from "@player-web/impl/modern/curatedCatalog";
@@ -295,5 +296,64 @@ describe("searchSetFamilies", () => {
       "The Pit Of 100 Tiles",
     ]);
     expect(searchSetFamilies(searchableFamilies, "CCZoneTT")).toEqual([]);
+  });
+
+  it("returns the matched level number when the family only matches on a level title", () => {
+    const view = buildCuratedCatalogView(
+      [
+        {
+          ...createEntry("Moon-MS.dac", "local:Moon.dat", "MS", 3),
+          levels: [
+            { ...createLevels(1, "Moon")[0]!, name: "North Hall" },
+            { ...createLevels(1, "Moon")[0]!, index: 1, number: 2, name: "South Hall" },
+            { ...createLevels(1, "Moon")[0]!, index: 2, number: 3, name: "Red Moon" },
+          ],
+        },
+        {
+          ...createEntry("Moon-Lynx.dac", "local:Moon.dat", "Lynx", 3),
+          levels: [
+            { ...createLevels(1, "Moon")[0]!, name: "North Hall" },
+            { ...createLevels(1, "Moon")[0]!, index: 1, number: 2, name: "Silver Moon" },
+            { ...createLevels(1, "Moon")[0]!, index: 2, number: 3, name: "West Hall" },
+          ],
+        },
+      ],
+      null,
+    );
+
+    const family = view.localFamilies[0]!;
+    expect(resolveSearchMatchedLevelNumber(family, "silver moon", "Lynx")).toBe(2);
+    expect(resolveSearchMatchedLevelNumber(family, "red moon", "MS")).toBe(3);
+  });
+
+  it("does not return a matched level number when title or metadata already match first", () => {
+    const titleView = buildCuratedCatalogView(
+      [
+        {
+          ...createEntry("Moon-MS.dac", "local:Moon.dat", "MS", 2),
+          levels: [
+            { ...createLevels(1, "Moon")[0]!, name: "Moon Door" },
+            { ...createLevels(1, "Moon")[0]!, index: 1, number: 2, name: "Unused 2" },
+          ],
+        },
+      ],
+      null,
+    );
+    expect(resolveSearchMatchedLevelNumber(titleView.localFamilies[0]!, "moon", "MS")).toBeNull();
+
+    const metadataView = buildCuratedCatalogView(
+      [
+        {
+          ...createEntry("Archive-MS.dac", "local:Archive.dat", "MS", 2),
+          levels: [
+            { ...createLevels(1, "Archive")[0]!, name: "Vault Door" },
+            { ...createLevels(1, "Archive")[0]!, index: 1, number: 2, name: "Unused 2" },
+          ],
+        },
+      ],
+      null,
+    );
+    metadataView.localFamilies[0]!.description = "Imported from this browser session by Vault Curator.";
+    expect(resolveSearchMatchedLevelNumber(metadataView.localFamilies[0]!, "vault", "MS")).toBeNull();
   });
 });

@@ -360,6 +360,14 @@ function normalizeSearchText(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/giu, " ").trim();
 }
 
+function tokenizeSearchQuery(query: string): { normalizedQuery: string; queryTokens: string[] } {
+  const normalizedQuery = normalizeSearchText(query);
+  return {
+    normalizedQuery,
+    queryTokens: normalizedQuery.split(/\s+/u).filter((token) => token !== ""),
+  };
+}
+
 function matchesSearchText(haystack: string, normalizedQuery: string, queryTokens: readonly string[]): boolean {
   if (!haystack || !normalizedQuery) {
     return false;
@@ -390,16 +398,33 @@ function buildFamilyLevelTitleText(family: SetFamily): string {
   );
 }
 
+function findMatchedLevelNumber(
+  entry: SeriesCatalogEntry | undefined,
+  normalizedQuery: string,
+  queryTokens: readonly string[],
+): number | null {
+  if (!entry) {
+    return null;
+  }
+
+  for (const level of entry.levels) {
+    if (matchesSearchText(normalizeSearchText(level.name), normalizedQuery, queryTokens)) {
+      return level.number;
+    }
+  }
+
+  return null;
+}
+
 export function searchSetFamilies(
   families: readonly SetFamily[],
   query: string,
 ): SetFamily[] {
-  const normalizedQuery = normalizeSearchText(query);
+  const { normalizedQuery, queryTokens } = tokenizeSearchQuery(query);
   if (!normalizedQuery) {
     return [...families];
   }
 
-  const queryTokens = normalizedQuery.split(/\s+/u).filter((token) => token !== "");
   return families
     .flatMap((family, index) => {
       const normalizedTitle = normalizeSearchText(family.title);
@@ -419,6 +444,44 @@ export function searchSetFamilies(
     })
     .sort((left, right) => left.priority - right.priority || left.index - right.index)
     .map((entry) => entry.family);
+}
+
+export function resolveSearchMatchedLevelNumber(
+  family: SetFamily,
+  query: string,
+  preferredRuleset: SetFamilyRuleset,
+): number | null {
+  const { normalizedQuery, queryTokens } = tokenizeSearchQuery(query);
+  if (!normalizedQuery) {
+    return null;
+  }
+
+  if (matchesSearchText(normalizeSearchText(family.title), normalizedQuery, queryTokens)) {
+    return null;
+  }
+
+  if (matchesSearchText(buildFamilyMetadataText(family), normalizedQuery, queryTokens)) {
+    return null;
+  }
+
+  const preferredEntry = family.launchEntries[preferredRuleset];
+  const preferredMatch = findMatchedLevelNumber(preferredEntry, normalizedQuery, queryTokens);
+  if (preferredMatch !== null) {
+    return preferredMatch;
+  }
+
+  for (const entry of family.entries) {
+    if (entry === preferredEntry) {
+      continue;
+    }
+
+    const fallbackMatch = findMatchedLevelNumber(entry, normalizedQuery, queryTokens);
+    if (fallbackMatch !== null) {
+      return fallbackMatch;
+    }
+  }
+
+  return null;
 }
 
 export function findSetFamilyById(view: CuratedCatalogView, familyId: string): SetFamily | null {
