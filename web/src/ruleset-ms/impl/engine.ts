@@ -233,6 +233,7 @@ const CMD_ABS_MOUSE_MOVE_FIRST = 512;
 const CMD_ABS_MOUSE_MOVE_LAST = CMD_ABS_MOUSE_MOVE_FIRST + MS_GRID_WIDTH * MS_GRID_HEIGHT - 1;
 const MS_AIR_MOVEMENT_DIR = MS_DIRECTION.north;
 const MS_ELEVATOR_MOVEMENT_DIR = MS_DIRECTION.south;
+const HIDDEN_WALL_REVEAL_TTL = MS_TICKS_PER_SECOND / 2;
 
 let msQueueTraceHook: ((event: MsQueueTraceEvent) => void) | null = null;
 
@@ -592,14 +593,29 @@ function clearMsTileOverlays(engine: EngineState): void {
     .filter((overlay) => overlay.ttl > 0);
 }
 
-function addMsTileOverlay(engine: EngineState, z: number, pos: number, kind: InteractiveGameTileOverlayKind): void {
+function addMsTileOverlay(
+  engine: EngineState,
+  z: number,
+  pos: number,
+  kind: InteractiveGameTileOverlayKind,
+  ttl = 2,
+): void {
   const runtime = msRuntimeState(engine);
   const existing = runtime.tileOverlays.find((overlay) => overlay.z === z && overlay.pos === pos && overlay.kind === kind);
   if (existing) {
-    existing.ttl = 2;
+    existing.ttl = ttl;
     return;
   }
-  runtime.tileOverlays.push({ z, pos, kind, ttl: 2 });
+  runtime.tileOverlays.push({ z, pos, kind, ttl });
+}
+
+function findPressedMsPermanentHiddenWallPos(cells: EngineMapCell[], chipPos: number, dir: number): number | null {
+  const targetStep = advanceToCell(cells, chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return null;
+  }
+
+  return floorAt(cells, targetStep.pos) === MS_TILE.HiddenWall_Perm ? targetStep.pos : null;
 }
 
 function runtimeMapLayers(map: EngineState["map"]): MsRuntimeLayer[] {
@@ -4292,6 +4308,7 @@ function chooseManualMovement(
 }
 
 function runManualMovement(
+  engine: EngineState,
   cells: EngineMapCell[],
   internal: MsInternalState,
   inventory: EngineState["inventory"],
@@ -4302,7 +4319,11 @@ function runManualMovement(
   }
 
   internal.chipWait = 0;
+  const pressedPermanentHiddenWallPos = findPressedMsPermanentHiddenWallPos(cells, internal.chipPos, dir);
   if (!canMoveChip(cells, internal, inventory, dir)) {
+    if (pressedPermanentHiddenWallPos !== null) {
+      addMsTileOverlay(engine, internal.chipZ ?? 1, pressedPermanentHiddenWallPos, "hidden-wall-reveal", HIDDEN_WALL_REVEAL_TTL);
+    }
     resetButtons(cells);
     internal.chipDir = dir;
     internal.chipHasMoved = internal.chipStatus === "okay";
@@ -4795,7 +4816,7 @@ function advanceMsTick(
   ): MsAdvanceTickResult | null => {
     recordPhaseWithInternal(TURN_DEBUG_PHASE.postChipInput, cloneInternalState(internal), nextLastMove);
     if (isPlayablePhase()) {
-      soundEffects |= runManualMovement(activeChipCells(), internal, inventory, manualDir);
+      soundEffects |= runManualMovement(state.engine, activeChipCells(), internal, inventory, manualDir);
     }
     if (!isPlayablePhase()) {
       flushPendingSoundEffects();

@@ -3182,6 +3182,64 @@ describe("MS engine regressions", () => {
     expect(next.state.internal.chipPos).toBe(chipPos);
   });
 
+  it("queues a temporary reveal overlay when Chip presses a permanent invisible wall", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const wallPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[wallPos]!.top.id = MS_TILE.HiddenWall_Perm;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    const runtime = session.state.engine as typeof session.state.engine & {
+      msRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: string;
+          ttl: number;
+        }>;
+      };
+    };
+
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(runtime.msRuntimeState?.tileOverlays).toContainEqual({
+      z: 1,
+      pos: wallPos,
+      kind: "hidden-wall-reveal",
+      ttl: 10,
+    });
+
+    for (let tick = 0; tick < 10; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const settledRuntime = session.state.engine as typeof session.state.engine & {
+      msRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: string;
+          ttl: number;
+        }>;
+      };
+    };
+
+    expect(
+      settledRuntime.msRuntimeState?.tileOverlays?.some(
+        (overlay) => overlay.kind === "hidden-wall-reveal" && overlay.pos === wallPos && overlay.z === 1,
+      ) ?? false,
+    ).toBe(false);
+  });
+
   it("allows a perpendicular manual move after a blocked slide push on the same even tick", () => {
     const cells = createEmptyCells();
     const chipPos = pos(3, 4);

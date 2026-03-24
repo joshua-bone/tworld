@@ -796,12 +796,14 @@ function drawCompositedCell(
 
 function drawLayerOverlays(
   context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
   overlays: ReadonlyArray<InteractiveGameTileOverlay>,
   layerZ: number,
   xOrigin: number,
   yOrigin: number,
   canvasWidth: number,
   canvasHeight: number,
+  visualEnhancementsEnabled: boolean,
 ): void {
   for (const overlay of overlays) {
     if (overlay.z !== layerZ) {
@@ -811,6 +813,13 @@ function drawLayerOverlays(
     const x = xOrigin + (overlay.pos % 32) * LEGACY_TILE_SIZE;
     const y = yOrigin + Math.floor(overlay.pos / 32) * LEGACY_TILE_SIZE;
     if (x + LEGACY_TILE_SIZE <= 0 || x >= canvasWidth || y + LEGACY_TILE_SIZE <= 0 || y >= canvasHeight) {
+      continue;
+    }
+
+    if (overlay.kind === "hidden-wall-reveal") {
+      if (visualEnhancementsEnabled) {
+        drawSprite(context, tileset, MS_TILE.Wall, x, y);
+      }
       continue;
     }
 
@@ -895,7 +904,17 @@ function renderMapLayerCanvas(
     drawLynxActorOverlays(context, tileset, session, xOrigin, yOrigin, layer.z);
   }
 
-  drawLayerOverlays(context, session.frame.tileOverlays, layer.z, xOrigin, yOrigin, canvas.width, canvas.height);
+  drawLayerOverlays(
+    context,
+    tileset,
+    session.frame.tileOverlays,
+    layer.z,
+    xOrigin,
+    yOrigin,
+    canvas.width,
+    canvas.height,
+    visualEnhancementsEnabled,
+  );
   return canvas;
 }
 
@@ -938,7 +957,17 @@ function renderCachedLowerLayerCanvas(
     drawLynxActorOverlays(context, tileset, session, xOrigin, yOrigin, layer.z);
   }
 
-  drawLayerOverlays(context, session.frame.tileOverlays, layer.z, xOrigin, yOrigin, canvas.width, canvas.height);
+  drawLayerOverlays(
+    context,
+    tileset,
+    session.frame.tileOverlays,
+    layer.z,
+    xOrigin,
+    yOrigin,
+    canvas.width,
+    canvas.height,
+    visualEnhancementsEnabled,
+  );
   return canvas;
 }
 

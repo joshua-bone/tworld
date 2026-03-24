@@ -101,4 +101,45 @@ describe("projectMsInteractiveFrame", () => {
     expect(frame.cells[1]?.top.state & MS_FLOOR_STATE.TrapOpen).not.toBe(0);
     expect(session.state.engine.map.cells[1]?.top.state & MS_FLOOR_STATE.TrapOpen).toBe(0);
   });
+
+  it("projects hidden-wall reveal overlays from runtime state", () => {
+    const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.HiddenWall_Perm)];
+    const engine = createEngineState(cells) as EngineState & {
+      msRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: "hidden-wall-reveal";
+          ttl: number;
+        }>;
+      };
+    };
+    engine.msRuntimeState = {
+      tileOverlays: [{ z: 1, pos: 1, kind: "hidden-wall-reveal", ttl: 10 }],
+    };
+    const session = {
+      state: {
+        engine,
+        internal: {
+          chipZ: 1,
+          traps: [],
+        },
+      },
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+    } as unknown as MsInteractiveSessionState;
+
+    const frame = projectMsInteractiveFrame(session, "tick");
+
+    expect(frame.tileOverlays).toContainEqual({
+      z: 1,
+      pos: 1,
+      kind: "hidden-wall-reveal",
+    });
+  });
 });

@@ -38,7 +38,7 @@ export interface InteractiveGameVisibleLayer {
   cells: EngineMapCell[];
 }
 
-export type InteractiveGameTileOverlayKind = "support" | "elevator-failure";
+export type InteractiveGameTileOverlayKind = "support" | "elevator-failure" | "hidden-wall-reveal";
 
 export interface InteractiveGameTileOverlay {
   z: number;

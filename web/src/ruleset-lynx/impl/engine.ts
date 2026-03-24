@@ -79,6 +79,7 @@ import type { SolutionMove } from "@content/api/solution-file";
 
 const LYNX_DEBUG_SCHEMA_VERSION = 2;
 const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
+const HIDDEN_WALL_REVEAL_TTL = MS_TICKS_PER_SECOND / 2;
 type LynxMoveKind = "planar" | "air" | "elevator";
 
 export interface LynxInteractiveSessionState {
@@ -573,14 +574,33 @@ function clearLynxTileOverlays(state: EngineState): void {
     .filter((overlay) => overlay.ttl > 0);
 }
 
-function addLynxTileOverlay(state: EngineState, z: number, pos: number, kind: InteractiveGameTileOverlayKind): void {
+function addLynxTileOverlay(
+  state: EngineState,
+  z: number,
+  pos: number,
+  kind: InteractiveGameTileOverlayKind,
+  ttl = 2,
+): void {
   const runtime = lynxRuntimeState(state);
   const existing = runtime.tileOverlays.find((overlay) => overlay.z === z && overlay.pos === pos && overlay.kind === kind);
   if (existing) {
-    existing.ttl = 2;
+    existing.ttl = ttl;
     return;
   }
-  runtime.tileOverlays.push({ z, pos, kind, ttl: 2 });
+  runtime.tileOverlays.push({ z, pos, kind, ttl });
+}
+
+function findPressedLynxPermanentHiddenWallPos(state: EngineState, chipPos: number, dir: number): number | null {
+  const targetStep = advanceToCell(state.map.cells, chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return null;
+  }
+
+  if (hasTopTileFlags(state.map.cells, targetStep.pos, LYNX_CELL_FLAG.Claimed)) {
+    return null;
+  }
+
+  return effectiveLynxTargetTileId(state, targetStep.cell.top.id) === MS_TILE.HiddenWall_Perm ? targetStep.pos : null;
 }
 
 function releaseReservedAnimationActorAt(actors: LynxRuntimeActor[], pos: number): void {
@@ -3503,6 +3523,8 @@ function advanceLynxInteractiveTick(
             targetBlock && canPushIntoClaimedCell
               ? tryPushLynxBlock(state, level, actors, targetPos, startInputCode)
               : false;
+          const pressedPermanentHiddenWallPos =
+            targetBlock === null ? findPressedLynxPermanentHiddenWallPos(state, chipPos, startInputCode) : null;
           const canEnterTarget =
             !!target &&
             (targetBlock
@@ -3520,6 +3542,9 @@ function advanceLynxInteractiveTick(
             chipMoving = 8;
             chipMoveKind = "planar";
           } else {
+            if (pressedPermanentHiddenWallPos !== null) {
+              addLynxTileOverlay(state, chipZ, pressedPermanentHiddenWallPos, "hidden-wall-reveal", HIDDEN_WALL_REVEAL_TTL);
+            }
             chipPushing = true;
             chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
             addLynxCantMove(state);

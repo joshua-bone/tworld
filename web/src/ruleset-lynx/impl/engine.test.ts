@@ -947,6 +947,60 @@ describe("advanceLynxInteractiveSession", () => {
     expect(settled.chipPushing).toBe(false);
   });
 
+  it("queues a temporary reveal overlay when Chip presses a permanent invisible wall", () => {
+    const chipPos = 33;
+    const wallPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+        createCell(wallPos, MS_TILE.HiddenWall_Perm),
+      ]),
+    );
+
+    session = advanceLynxInteractiveSession(session, 8);
+
+    const runtime = session.state as typeof session.state & {
+      lynxRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: string;
+          ttl: number;
+        }>;
+      };
+    };
+
+    expect(session.chipPos).toBe(chipPos);
+    expect(runtime.lynxRuntimeState?.tileOverlays).toContainEqual({
+      z: 1,
+      pos: wallPos,
+      kind: "hidden-wall-reveal",
+      ttl: 10,
+    });
+
+    for (let tick = 0; tick < 10; tick += 1) {
+      session = advanceLynxInteractiveSession(session, 0);
+    }
+
+    const settledRuntime = session.state as typeof session.state & {
+      lynxRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: string;
+          ttl: number;
+        }>;
+      };
+    };
+
+    expect(
+      settledRuntime.lynxRuntimeState?.tileOverlays?.some(
+        (overlay) => overlay.kind === "hidden-wall-reveal" && overlay.pos === wallPos && overlay.z === 1,
+      ) ?? false,
+    ).toBe(false);
+  });
+
   it("keeps Chip's death animation on the in-progress destination tile when a death starts mid-step", () => {
     const chipPos = 33;
     const targetPos = 34;
