@@ -208,7 +208,7 @@ body {
 
 .modern-dashboard__brand-lockup {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .modern-dashboard__brand-logo {
@@ -340,9 +340,14 @@ body {
 }
 
 .modern-dashboard__title--brand {
-  font-size: clamp(2.9rem, 4.2vw, 4.5rem);
-  line-height: 0.88;
+  font-size: clamp(2.55rem, 3.85vw, 3.95rem);
+  line-height: 0.84;
   letter-spacing: -0.05em;
+}
+
+.modern-dashboard__title-line {
+  display: block;
+  white-space: nowrap;
 }
 
 .modern-dashboard__panel-title {
@@ -3141,7 +3146,7 @@ body {
   }
 
   .modern-dashboard__brand-lockup {
-    gap: 10px;
+    gap: 8px;
   }
 
   .modern-dashboard__brand-logo {
@@ -3156,7 +3161,7 @@ body {
   }
 
   .modern-dashboard__title--brand {
-    font-size: clamp(2.2rem, 3.6vw, 3.2rem);
+    font-size: clamp(2rem, 3.2vw, 2.85rem);
   }
 
   .modern-library__family {

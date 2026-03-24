@@ -1294,7 +1294,10 @@ export function ModernPlayerApp({
                       <span className="modern-dashboard__brand-logo-letter">W</span>
                       <span className="modern-dashboard__brand-logo-letter">O</span>
                     </div>
-                    <h1 className="modern-dashboard__title modern-dashboard__title--brand">TILE WORLD ONLINE</h1>
+                    <h1 className="modern-dashboard__title modern-dashboard__title--brand">
+                      <span className="modern-dashboard__title-line">TILE WORLD</span>
+                      <span className="modern-dashboard__title-line">ONLINE</span>
+                    </h1>
                   </div>
                   <div className="modern-dashboard__brand-actions">
                     <button
