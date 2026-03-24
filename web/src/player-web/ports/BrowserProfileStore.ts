@@ -1,5 +1,5 @@
 import type { RulesetName } from "@content/api/ruleset";
-import type { ImportedDatCatalogStore } from "@level-catalog/ports/ImportedDatCatalogStore";
+import type { ImportedDatCatalogStore, PersistedImportedDatSource } from "@level-catalog/ports/ImportedDatCatalogStore";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 import type { PlayableSelectionStore } from "@player-web/ports/PlayableSelectionStore";
 
@@ -125,6 +125,7 @@ export interface BrowserProfileSnapshot {
     filename: string;
     datHash?: string;
     datBytes: number[];
+    source?: PersistedImportedDatSource;
   }>;
 }
 

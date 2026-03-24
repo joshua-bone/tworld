@@ -22,11 +22,11 @@ function createDatBytes(): Uint8Array {
 function createServices(overrides?: {
   importedDatFiles?: PersistedImportedDatFile[];
 }): Pick<BrowserAppServices, "importDatBytes" | "profileStore" | "selectionStore"> & {
-  __imports: { datBytes: Uint8Array; filename: string }[];
+  __imports: PersistedImportedDatFile[];
   __savedSelections: { seriesFile: string; levelNumber: number }[];
 } {
   const importedDatFiles = overrides?.importedDatFiles ?? [];
-  const imports: { datBytes: Uint8Array; filename: string }[] = [];
+  const imports: PersistedImportedDatFile[] = [];
   const savedSelections: { seriesFile: string; levelNumber: number }[] = [];
 
   const profileStore = {
@@ -42,15 +42,19 @@ function createServices(overrides?: {
   } as PlayableSelectionStore;
 
   return {
-    async importDatBytes(filename, datBytes) {
-      imports.push({
+    async importDatBytes(filename, datBytes, source) {
+      const importedEntry = {
         filename,
         datBytes: new Uint8Array(datBytes),
-      });
-      importedDatFiles.push({
-        filename,
-        datBytes: new Uint8Array(datBytes),
-      });
+        ...(source ? { source } : {}),
+      } satisfies PersistedImportedDatFile;
+      imports.push(importedEntry);
+      const existingIndex = importedDatFiles.findIndex((entry) => entry.filename === filename);
+      if (existingIndex >= 0) {
+        importedDatFiles.splice(existingIndex, 1, importedEntry);
+      } else {
+        importedDatFiles.push(importedEntry);
+      }
       return [];
     },
     profileStore: profileStore as BrowserAppServices["profileStore"],
@@ -69,6 +73,14 @@ function createFetchResponse(bytes: Uint8Array, ok = true, status = 200): Respon
     ok,
     status,
     arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  } as Response;
+}
+
+function createJsonResponse(value: unknown, ok = true, status = 200): Response {
+  return {
+    ok,
+    status,
+    json: async () => value,
   } as Response;
 }
 
@@ -258,6 +270,77 @@ describe("resolveUrlLaunchSelection", () => {
     expect(services.__imports).toEqual([]);
   });
 
+  it("downloads bb pack links from the Bit Busters API and records their source metadata", async () => {
+    const services = createServices();
+    const datBytes = createDatBytes();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://api.bitbusters.club/custom-packs/cc1/577") {
+        return createJsonResponse([
+          {
+            id: 577,
+            pack_name: "custompack",
+            display_name: "Custom Pack",
+            game: "CC1",
+            file_name: "CustomPack.dat",
+            download_url: "https://downloads.example.test/CustomPack.dat",
+          },
+        ]);
+      }
+      if (url === "https://downloads.example.test/CustomPack.dat") {
+        return createFetchResponse(datBytes);
+      }
+
+      throw new Error(`Unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await resolveUrlLaunchSelection(
+      services,
+      null,
+      new URL("https://example.test/?pack=bb:cc1/577&level=4&ruleset=MS"),
+    );
+
+    expect(result).toEqual({
+      message: null,
+      overrideApplied: true,
+      selection: {
+        seriesFile: importedSeriesFile("CustomPack.dat", "MS"),
+        levelNumber: 4,
+      },
+    });
+    expect(services.__imports).toEqual([
+      {
+        filename: "CustomPack.dat",
+        datBytes,
+        source: {
+          kind: "bitbusters-custom-pack",
+          game: "CC1",
+          packId: 577,
+        },
+      },
+    ]);
+  });
+
+  it("rejects unsupported CC2 bb pack links", async () => {
+    const services = createServices();
+
+    const result = await resolveUrlLaunchSelection(
+      services,
+      { seriesFile: "CCLP1-Lynx.dac", levelNumber: 1 },
+      new URL("https://example.test/?pack=bb:cc2/669"),
+    );
+
+    expect(result).toEqual({
+      message: "CC2 custom packs are ZIP-based and not yet supported.",
+      overrideApplied: false,
+      selection: {
+        seriesFile: "CCLP1-Lynx.dac",
+        levelNumber: 1,
+      },
+    });
+  });
+
   it("resolves built-in short links by set token and ruleset", async () => {
     const services = createServices();
 
@@ -320,5 +403,29 @@ describe("buildUrlLaunchHref", () => {
     expect(url.searchParams.get("slot")).toBe("SharedPack.dat");
     expect(url.hash.startsWith("#dat=")).toBe(true);
     await expect(decodeDatUrlPayload(url.hash.slice("#dat=".length))).resolves.toEqual(datBytes);
+  });
+
+  it("builds canonical bb links for Bit Busters API-backed imports", async () => {
+    const datBytes = createDatBytes();
+    const href = await buildUrlLaunchHref({
+      baseUrl: "/tworld/",
+      importedDatFiles: [
+        {
+          filename: "CustomPack.dat",
+          datBytes,
+          source: {
+            kind: "bitbusters-custom-pack",
+            game: "CC1",
+            packId: 577,
+          },
+        },
+      ],
+      levelNumber: 4,
+      origin: "https://example.test",
+      ruleset: "Lynx",
+      seriesFile: importedSeriesFile("CustomPack.dat", "Lynx"),
+    });
+
+    expect(href).toBe("https://example.test/tworld/?level=4&ruleset=Lynx&pack=bb%3Acc1%2F577");
   });
 });

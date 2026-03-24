@@ -7,7 +7,7 @@ import {
   type SeriesConfig,
 } from "@content/api/series-file";
 import type { LevelRepository, LoadedLevelData } from "@level-catalog/ports/LevelRepository";
-import type { ImportedDatCatalogStore } from "@level-catalog/ports/ImportedDatCatalogStore";
+import type { ImportedDatCatalogStore, PersistedImportedDatSource } from "@level-catalog/ports/ImportedDatCatalogStore";
 import {
   computeDatContentHash,
   importedSeriesFile,
@@ -21,6 +21,7 @@ interface ImportedDatSeries {
   datHash: string;
   groupedLevels: RawDatLevelGroup[];
   entry: SeriesCatalogEntry;
+  source?: PersistedImportedDatSource;
 }
 
 function cloneGroupedLevel(level: RawDatLevelGroup): RawDatLevelGroup {
@@ -147,7 +148,7 @@ export class BrowserLevelRepository implements LevelRepository {
     const hydration = this.importedDatStore.listImportedDatFiles().then(async (entries) => {
       await Promise.all(
         entries.map(async (entry) => {
-          await this.importDatBytes(entry.filename, entry.datBytes, entry.datHash, false);
+          await this.importDatBytes(entry.filename, entry.datBytes, entry.datHash, false, entry.source);
         }),
       );
     });
@@ -161,6 +162,7 @@ export class BrowserLevelRepository implements LevelRepository {
     datBytes: Uint8Array,
     persistedDatHash?: string,
     persistStore = true,
+    source?: PersistedImportedDatSource,
   ): Promise<SeriesCatalogEntry[]> {
     const grouped = extractGroupedDatLevels(datBytes);
     const datHash = persistedDatHash ?? (await computeDatContentHash(datBytes));
@@ -187,6 +189,7 @@ export class BrowserLevelRepository implements LevelRepository {
         datHash,
         groupedLevels: grouped.levels.map(cloneGroupedLevel),
         entry,
+        source,
       });
 
       return entry;
@@ -197,6 +200,7 @@ export class BrowserLevelRepository implements LevelRepository {
         filename,
         datHash,
         datBytes: new Uint8Array(datBytes),
+        source,
       });
     }
 

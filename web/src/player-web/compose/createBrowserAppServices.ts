@@ -3,6 +3,7 @@ import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter"
 import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
 import { StaticCharacterizationFixtureRepository } from "@oracle-fixtures/impl/StaticCharacterizationFixtureRepository";
 import { BrowserLevelRepository } from "@level-catalog/impl/BrowserLevelRepository";
+import type { PersistedImportedDatSource } from "@level-catalog/ports/ImportedDatCatalogStore";
 import { computeDatContentHash } from "@player-web/impl/importedDatIdentity";
 import { IndexedDbBrowserProfileStore } from "@player-web/impl/IndexedDbBrowserProfileStore";
 import { BrowserReplayTransfer } from "@player-web/impl/BrowserReplayTransfer";
@@ -24,9 +25,9 @@ export function createBrowserAppServices(): BrowserAppServices {
     : directEngines;
   workerEngine?.warmup();
 
-  const importDatBytes = async (filename: string, datBytes: Uint8Array) => {
+  const importDatBytes = async (filename: string, datBytes: Uint8Array, source?: PersistedImportedDatSource) => {
     const datHash = await computeDatContentHash(datBytes);
-    const entries = await levelRepository.importDatBytes(filename, datBytes, datHash);
+    const entries = await levelRepository.importDatBytes(filename, datBytes, datHash, true, source);
     await workerEngine?.syncImportedDatFile({
       filename,
       datHash,

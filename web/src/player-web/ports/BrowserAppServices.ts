@@ -4,6 +4,7 @@ import type { BrowserProfileStore } from "@player-web/ports/BrowserProfileStore"
 import type { PlayableSelectionStore } from "@player-web/ports/PlayableSelectionStore";
 import type { ReplayTransferPort } from "@player-web/ports/ReplayTransfer";
 import type { SeriesCatalogEntry } from "@content/api/series";
+import type { PersistedImportedDatSource } from "@level-catalog/ports/ImportedDatCatalogStore";
 
 export interface BrowserAppServices {
   fixtureRepository: CharacterizationFixtureRepository;
@@ -12,7 +13,11 @@ export interface BrowserAppServices {
   replayTransfer: ReplayTransferPort;
   engines: Record<Exclude<SeriesCatalogEntry["ruleset"], "None">, InteractiveGameEnginePort>;
   importDatFile: (file: File) => Promise<SeriesCatalogEntry[]>;
-  importDatBytes: (filename: string, datBytes: Uint8Array) => Promise<SeriesCatalogEntry[]>;
+  importDatBytes: (
+    filename: string,
+    datBytes: Uint8Array,
+    source?: PersistedImportedDatSource,
+  ) => Promise<SeriesCatalogEntry[]>;
   deleteImportedDatFile: (filename: string) => Promise<void>;
   listImportedCatalogEntries: () => Promise<SeriesCatalogEntry[]>;
 }

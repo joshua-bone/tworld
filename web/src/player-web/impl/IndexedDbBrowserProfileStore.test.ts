@@ -31,6 +31,7 @@ class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePersistenc
       filename: entry.filename,
       datHash: entry.datHash,
       datBytes: new Uint8Array(entry.datBytes),
+      source: entry.source,
     }));
   }
 
@@ -39,6 +40,7 @@ class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePersistenc
       filename: entry.filename,
       datHash: entry.datHash,
       datBytes: new Uint8Array(entry.datBytes),
+      source: entry.source,
     });
   }
 
@@ -101,7 +103,12 @@ describe("IndexedDbBrowserProfileStore", () => {
       randomSeed: 123456789,
     });
     await store.recordRecentSelection({ seriesFile: "CCLP1-MS.dac", levelNumber: 7 });
-    await store.saveImportedDatFile({ filename: "Imported.dat", datHash: "hash:imported", datBytes });
+    await store.saveImportedDatFile({
+      filename: "Imported.dat",
+      datHash: "hash:imported",
+      datBytes,
+      source: { kind: "bitbusters-custom-pack", game: "CC1", packId: 577 },
+    });
 
     expect(await store.loadSelection()).toEqual({ seriesFile: "CCLP1-MS.dac", levelNumber: 7 });
     expect(await store.loadPreferences()).toEqual({
@@ -110,7 +117,14 @@ describe("IndexedDbBrowserProfileStore", () => {
       autoSaveWinningHighScoreReplays: false,
       autoDownloadReplaysOnSave: true,
     });
-    expect(await store.listImportedDatFiles()).toEqual([{ filename: "Imported.dat", datHash: "hash:imported", datBytes }]);
+    expect(await store.listImportedDatFiles()).toEqual([
+      {
+        filename: "Imported.dat",
+        datHash: "hash:imported",
+        datBytes,
+        source: { kind: "bitbusters-custom-pack", game: "CC1", packId: 577 },
+      },
+    ]);
     expect(await store.loadLevelSeedOverrides()).toEqual([
       {
         seriesFile: "CCLP1-MS.dac",
@@ -201,7 +215,12 @@ describe("IndexedDbBrowserProfileStore", () => {
       undoUsedCount: 0,
       bytes: Uint8Array.from([4, 5, 6]),
     });
-    await store.saveImportedDatFile({ filename: "Imported.dat", datHash: "hash:imported", datBytes: Uint8Array.from([9, 8, 7]) });
+    await store.saveImportedDatFile({
+      filename: "Imported.dat",
+      datHash: "hash:imported",
+      datBytes: Uint8Array.from([9, 8, 7]),
+      source: { kind: "bitbusters-custom-pack", game: "CC1", packId: 577 },
+    });
 
     const snapshot = await store.exportProfileSnapshot();
 
@@ -257,7 +276,14 @@ describe("IndexedDbBrowserProfileStore", () => {
           bytes: [4, 5, 6],
         },
       ],
-      importedDatFiles: [{ filename: "Imported.dat", datHash: "hash:imported", datBytes: [9, 8, 7] }],
+      importedDatFiles: [
+        {
+          filename: "Imported.dat",
+          datHash: "hash:imported",
+          datBytes: [9, 8, 7],
+          source: { kind: "bitbusters-custom-pack", game: "CC1", packId: 577 },
+        },
+      ],
     });
 
     const restoredBackend = new MemoryBrowserProfilePersistenceBackend();
@@ -299,7 +325,12 @@ describe("IndexedDbBrowserProfileStore", () => {
       },
     ]);
     expect(await restoredStore.listImportedDatFiles()).toEqual([
-      { filename: "Imported.dat", datHash: "hash:imported", datBytes: Uint8Array.from([9, 8, 7]) },
+      {
+        filename: "Imported.dat",
+        datHash: "hash:imported",
+        datBytes: Uint8Array.from([9, 8, 7]),
+        source: { kind: "bitbusters-custom-pack", game: "CC1", packId: 577 },
+      },
     ]);
     expect(await restoredStore.loadReplayEntries()).toEqual([
       {

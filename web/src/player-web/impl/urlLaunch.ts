@@ -1,12 +1,22 @@
+import {
+  bitbustersCustomPackGameSlug,
+  fetchBitbustersCustomPack,
+  type BitbustersCustomPackGameSlug,
+} from "@player-web/impl/bitbustersCustomPacksApi";
 import { listBrowserSeriesCatalogFiles } from "@level-catalog/impl/loadBrowserSeriesCatalogEntries";
 import { loadBySuffix, type BrowserSeriesLoaderMap } from "@level-catalog/impl/browserSeriesCatalogEntries.shared";
 import { parseSeriesConfig } from "@content/api/series-file";
-import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
+import type {
+  BitbustersCustomPackGame,
+  PersistedImportedDatFile,
+  PersistedImportedDatSource,
+} from "@level-catalog/ports/ImportedDatCatalogStore";
 import { buildAppHref } from "@player-web/impl/appPaths";
 import {
   computeDatContentHash,
   importedSeriesFile,
   sanitizeImportedDatSlotName,
+  stripImportedDatExtension,
 } from "@player-web/impl/importedDatIdentity";
 import { decodeDatUrlPayload, encodeDatUrlPayload } from "@player-web/impl/urlDatCodec";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
@@ -155,6 +165,40 @@ function findImportedDatEntry(
   return (
     importedDatFiles.find((entry) => importedSeriesFile(entry.filename, ruleset) === seriesFile) ?? null
   );
+}
+
+function findImportedDatEntryBySource(
+  source: PersistedImportedDatSource,
+  importedDatFiles: readonly PersistedImportedDatFile[],
+): PersistedImportedDatFile | null {
+  return (
+    importedDatFiles.find(
+      (entry) =>
+        entry.source?.kind === source.kind &&
+        entry.source.game === source.game &&
+        entry.source.packId === source.packId,
+    ) ?? null
+  );
+}
+
+function buildBitbustersPackToken(source: Extract<PersistedImportedDatSource, { kind: "bitbusters-custom-pack" }>): string {
+  return `bb:${bitbustersCustomPackGameSlug(source.game)}/${source.packId}`;
+}
+
+function parseBitbustersPackToken(
+  value: string,
+): { game: BitbustersCustomPackGame; gameSlug: BitbustersCustomPackGameSlug; packId: number } | null {
+  const match = /^bb:(cc1|cc2)\/([1-9][0-9]*)$/iu.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+
+  const gameSlug = match[1].toLowerCase() as BitbustersCustomPackGameSlug;
+  return {
+    game: gameSlug === "cc1" ? "CC1" : "CC2",
+    gameSlug,
+    packId: Number.parseInt(match[2]!, 10),
+  };
 }
 
 function canonicalizePackPathSegments(value: string): string[] {
@@ -370,6 +414,11 @@ export async function buildUrlLaunchHref({
 
   const importedDatEntry = findImportedDatEntry(seriesFile, ruleset, importedDatFiles);
   if (importedDatEntry) {
+    if (importedDatEntry.source?.kind === "bitbusters-custom-pack") {
+      url.searchParams.set("pack", buildBitbustersPackToken(importedDatEntry.source));
+      return url.toString();
+    }
+
     url.searchParams.set("slot", importedDatEntry.filename);
     url.hash = `dat=${await encodeDatUrlPayload(importedDatEntry.datBytes)}`;
     return url.toString();
@@ -417,6 +466,158 @@ export async function resolveUrlLaunchSelection(
     }
 
     if (request.packToken) {
+      const bitbustersPackToken = parseBitbustersPackToken(request.packToken);
+      if (bitbustersPackToken) {
+        if (bitbustersPackToken.game === "CC2") {
+          throw new Error("CC2 custom packs are ZIP-based and not yet supported.");
+        }
+
+        const pack = await fetchBitbustersCustomPack(bitbustersPackToken.gameSlug, bitbustersPackToken.packId);
+        if (!pack) {
+          throw new Error(`Custom pack ${request.packToken} was not found.`);
+        }
+        if (!pack.downloadUrl) {
+          throw new Error(`Custom pack ${pack.fileName} is not available for download.`);
+        }
+        if (!/\.dat$/iu.test(pack.fileName)) {
+          throw new Error(`Custom pack ${pack.fileName} is not a supported DAT download.`);
+        }
+
+        const datBytes = await fetchDatBytes(pack.downloadUrl);
+        const datHash = await computeDatContentHash(datBytes);
+        const packSlotName = sanitizeImportedDatSlotName(pack.fileName);
+        const packSetToken = stripImportedDatExtension(pack.fileName);
+        const importedSource = {
+          kind: "bitbusters-custom-pack",
+          game: pack.game,
+          packId: pack.id,
+        } satisfies PersistedImportedDatSource;
+        const importedDatFiles = await services.profileStore.listImportedDatFiles();
+        const matchingBuiltInSeriesFile = await findMatchingBuiltInSeriesFile(packSetToken, request.ruleset, datHash);
+
+        if (matchingBuiltInSeriesFile) {
+          const selection = {
+            seriesFile: matchingBuiltInSeriesFile,
+            levelNumber: request.levelNumber,
+          } satisfies PlayableSelection;
+          await services.selectionStore.saveSelection(selection);
+          return {
+            message: null,
+            overrideApplied: true,
+            selection,
+          };
+        }
+
+        const importedEntryBySource = findImportedDatEntryBySource(importedSource, importedDatFiles);
+        if (importedEntryBySource) {
+          const importedHash = importedEntryBySource.datHash ?? (await computeDatContentHash(importedEntryBySource.datBytes));
+          if (importedHash === datHash) {
+            const selection = {
+              seriesFile: importedSeriesFile(importedEntryBySource.filename, request.ruleset),
+              levelNumber: request.levelNumber,
+            } satisfies PlayableSelection;
+            await services.selectionStore.saveSelection(selection);
+            return {
+              message: null,
+              overrideApplied: true,
+              selection,
+            };
+          }
+
+          await services.importDatBytes(importedEntryBySource.filename, datBytes, importedSource);
+          const selection = {
+            seriesFile: importedSeriesFile(importedEntryBySource.filename, request.ruleset),
+            levelNumber: request.levelNumber,
+          } satisfies PlayableSelection;
+          await services.selectionStore.saveSelection(selection);
+          return {
+            message: null,
+            overrideApplied: true,
+            selection,
+          };
+        }
+
+        const importedSlotByToken = findImportedSlotByToken(packSetToken, importedDatFiles);
+        if (importedSlotByToken) {
+          const importedEntry = importedDatFiles.find((entry) => entry.filename === importedSlotByToken) ?? null;
+          const importedHash = importedEntry?.datHash ?? (importedEntry ? await computeDatContentHash(importedEntry.datBytes) : null);
+          if (
+            importedHash === datHash &&
+            importedEntry?.source?.kind === importedSource.kind &&
+            importedEntry.source.game === importedSource.game &&
+            importedEntry.source.packId === importedSource.packId
+          ) {
+            const selection = {
+              seriesFile: importedSeriesFile(importedSlotByToken, request.ruleset),
+              levelNumber: request.levelNumber,
+            } satisfies PlayableSelection;
+            await services.selectionStore.saveSelection(selection);
+            return {
+              message: null,
+              overrideApplied: true,
+              selection,
+            };
+          }
+
+          await services.importDatBytes(importedSlotByToken, datBytes, importedSource);
+          const selection = {
+            seriesFile: importedSeriesFile(importedSlotByToken, request.ruleset),
+            levelNumber: request.levelNumber,
+          } satisfies PlayableSelection;
+          await services.selectionStore.saveSelection(selection);
+          return {
+            message: null,
+            overrideApplied: true,
+            selection,
+          };
+        }
+
+        const importedSlotByHash = await findImportedSlotByHash(datHash, importedDatFiles);
+        if (importedSlotByHash) {
+          const importedEntry = importedDatFiles.find((entry) => entry.filename === importedSlotByHash) ?? null;
+          if (
+            importedEntry?.source?.kind === importedSource.kind &&
+            importedEntry.source.game === importedSource.game &&
+            importedEntry.source.packId === importedSource.packId
+          ) {
+            const selection = {
+              seriesFile: importedSeriesFile(importedSlotByHash, request.ruleset),
+              levelNumber: request.levelNumber,
+            } satisfies PlayableSelection;
+            await services.selectionStore.saveSelection(selection);
+            return {
+              message: null,
+              overrideApplied: true,
+              selection,
+            };
+          }
+
+          await services.importDatBytes(importedSlotByHash, datBytes, importedSource);
+          const selection = {
+            seriesFile: importedSeriesFile(importedSlotByHash, request.ruleset),
+            levelNumber: request.levelNumber,
+          } satisfies PlayableSelection;
+          await services.selectionStore.saveSelection(selection);
+          return {
+            message: null,
+            overrideApplied: true,
+            selection,
+          };
+        }
+
+        await services.importDatBytes(packSlotName, datBytes, importedSource);
+        const selection = {
+          seriesFile: importedSeriesFile(packSlotName, request.ruleset),
+          levelNumber: request.levelNumber,
+        } satisfies PlayableSelection;
+        await services.selectionStore.saveSelection(selection);
+        return {
+          message: null,
+          overrideApplied: true,
+          selection,
+        };
+      }
+
       if (!request.packToken.startsWith("gb:")) {
         return {
           message: `Pack ${request.packToken} is not supported.`,

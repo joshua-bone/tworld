@@ -1,4 +1,8 @@
-import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
+import type {
+  BitbustersCustomPackGame,
+  PersistedImportedDatFile,
+  PersistedImportedDatSource,
+} from "@level-catalog/ports/ImportedDatCatalogStore";
 import { normalizeLegacyRandomSeed } from "@player-web/impl/levelSeedOverrides";
 import { mergeLevelProgressSummaries } from "@player-web/impl/levelProgress";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
@@ -45,6 +49,7 @@ interface BrowserProfileImportRecord {
   filename: string;
   datHash?: string;
   datBytes: ArrayBuffer;
+  source?: PersistedImportedDatSource;
 }
 
 interface BrowserProfileReplayRecord {
@@ -77,6 +82,28 @@ export interface BrowserProfilePersistenceBackend {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isBitbustersCustomPackGame(value: unknown): value is BitbustersCustomPackGame {
+  return value === "CC1" || value === "CC2";
+}
+
+function parseStoredImportedDatSource(value: unknown): PersistedImportedDatSource | undefined {
+  if (
+    !isRecord(value) ||
+    value.kind !== "bitbusters-custom-pack" ||
+    !isBitbustersCustomPackGame(value.game) ||
+    !Number.isInteger(value.packId) ||
+    Number(value.packId) <= 0
+  ) {
+    return undefined;
+  }
+
+  return {
+    kind: "bitbusters-custom-pack",
+    game: value.game,
+    packId: Number(value.packId),
+  };
 }
 
 function parseStoredSelection(value: unknown): PlayableSelection | null {
@@ -423,6 +450,7 @@ class IndexedDbBrowserProfileBackend implements BrowserProfilePersistenceBackend
             filename: record.filename,
             datHash: typeof record.datHash === "string" ? record.datHash : undefined,
             datBytes: cloneBytes(new Uint8Array(record.datBytes)),
+            source: parseStoredImportedDatSource(record.source),
           })),
         );
       };
@@ -438,6 +466,7 @@ class IndexedDbBrowserProfileBackend implements BrowserProfilePersistenceBackend
         filename: entry.filename,
         datHash: entry.datHash,
         datBytes: datBuffer,
+        source: entry.source,
       } satisfies BrowserProfileImportRecord);
       request.onerror = () => {
         reject(request.error ?? new Error(`Failed to persist imported DAT file ${entry.filename}.`));
@@ -789,6 +818,7 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
         filename: entry.filename,
         datHash: entry.datHash,
         datBytes: [...entry.datBytes],
+        source: entry.source,
       })),
     };
   }
@@ -835,6 +865,7 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
         filename: entry.filename,
         datHash: entry.datHash,
         datBytes: Uint8Array.from(entry.datBytes),
+        source: parseStoredImportedDatSource(entry.source),
       });
     }
 
