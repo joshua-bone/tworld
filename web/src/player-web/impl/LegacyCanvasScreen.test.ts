@@ -90,14 +90,15 @@ describe("visualEnhancementActorMarker", () => {
 });
 
 describe("visualEnhancementBlockWindowOpacity", () => {
-  it("keeps the border opaque and the center transparent with a quadratic falloff", () => {
+  it("keeps a transparent 8x8 center, a solid 4px border, and a linear fade between them", () => {
     expect(visualEnhancementBlockWindowOpacity(0)).toBe(0);
-    expect(visualEnhancementBlockWindowOpacity(0.5)).toBe(0.75);
-    expect(visualEnhancementBlockWindowOpacity(1)).toBe(1);
+    expect(visualEnhancementBlockWindowOpacity(4)).toBe(0);
+    expect(visualEnhancementBlockWindowOpacity(12)).toBe(0.5);
+    expect(visualEnhancementBlockWindowOpacity(20)).toBe(1);
   });
 
   it("clamps distances outside the window domain", () => {
     expect(visualEnhancementBlockWindowOpacity(-1)).toBe(0);
-    expect(visualEnhancementBlockWindowOpacity(2)).toBe(1);
+    expect(visualEnhancementBlockWindowOpacity(20)).toBe(1);
   });
 });

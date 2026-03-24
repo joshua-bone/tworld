@@ -84,7 +84,8 @@ const ELEVATOR_PANEL_COLOR = "#154d23";
 const ELEVATOR_TEXT_COLOR = "#d9ffd7";
 const HELD_TRAP_ALPHA = 0.5;
 const VISUAL_ENHANCEMENT_ARROW_COLOR = "#000000";
-const VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE = 14;
+const BLOCK_SUPPORT_WINDOW_SOLID_BORDER_PX = 4;
+const BLOCK_SUPPORT_WINDOW_TRANSPARENT_CENTER_SIZE = 8;
 type LegacyTilesetRuleset = "MS" | "Lynx";
 
 const LEGACY_TILESET_URLS: Record<LegacyTilesetRuleset, string> = {
@@ -670,29 +671,29 @@ export function visualEnhancementActorMarker(
   };
 }
 
-export function visualEnhancementBlockWindowOpacity(squareDistanceFromCenter: number): number {
-  const clampedDistance = clamp(squareDistanceFromCenter, 0, 1);
-  return clampedDistance * (2 - clampedDistance);
+export function visualEnhancementBlockWindowOpacity(squareDistanceFromCenterPx: number): number {
+  const transparentHalfSize = BLOCK_SUPPORT_WINDOW_TRANSPARENT_CENTER_SIZE / 2;
+  const solidStartDistance = LEGACY_TILE_SIZE / 2 - BLOCK_SUPPORT_WINDOW_SOLID_BORDER_PX;
+  const clampedDistance = clamp(squareDistanceFromCenterPx, transparentHalfSize, solidStartDistance);
+  return (clampedDistance - transparentHalfSize) / (solidStartDistance - transparentHalfSize);
 }
 
 function createBlockSupportWindowMask(): HTMLCanvasElement | null {
-  const canvas = createCanvas(VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE, VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE);
+  const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
   const context = canvas.getContext("2d");
   if (!context) {
     return null;
   }
 
-  const imageData = context.createImageData(VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE, VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE);
-  const halfSize = VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE / 2;
+  const imageData = context.createImageData(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  const halfSize = LEGACY_TILE_SIZE / 2;
 
-  for (let y = 0; y < VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE; y += 1) {
-    for (let x = 0; x < VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE; x += 1) {
-      const normalizedX = Math.abs(x + 0.5 - halfSize) / halfSize;
-      const normalizedY = Math.abs(y + 0.5 - halfSize) / halfSize;
-      const squareDistance = Math.max(normalizedX, normalizedY);
+  for (let y = 0; y < LEGACY_TILE_SIZE; y += 1) {
+    for (let x = 0; x < LEGACY_TILE_SIZE; x += 1) {
+      const squareDistance = Math.max(Math.abs(x + 0.5 - halfSize), Math.abs(y + 0.5 - halfSize));
       const blockOpacity = visualEnhancementBlockWindowOpacity(squareDistance);
       const eraseAlpha = 1 - blockOpacity;
-      const pixelIndex = (y * VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE + x) * 4;
+      const pixelIndex = (y * LEGACY_TILE_SIZE + x) * 4;
       imageData.data[pixelIndex + 3] = Math.round(eraseAlpha * 255);
     }
   }
@@ -762,7 +763,6 @@ function drawVisualEnhancementSupportWindow(
   x: number,
   y: number,
 ): void {
-  const inset = (LEGACY_TILE_SIZE - VISUAL_ENHANCEMENT_SUPPORT_WINDOW_SIZE) / 2;
   const maskCanvas = getOrCreateBlockSupportWindowMask();
   const blockCanvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
   const blockContext = blockCanvas.getContext("2d");
@@ -775,7 +775,7 @@ function drawVisualEnhancementSupportWindow(
   drawSprite(blockContext, tileset, actorTileId, 0, 0);
   blockContext.save();
   blockContext.globalCompositeOperation = "destination-out";
-  blockContext.drawImage(maskCanvas, inset, inset);
+  blockContext.drawImage(maskCanvas, 0, 0);
   blockContext.restore();
 
   drawSprite(context, tileset, floorId, x, y);
