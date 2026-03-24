@@ -340,7 +340,7 @@ body {
 }
 
 .modern-dashboard__title--brand {
-  font-size: clamp(2.55rem, 3.85vw, 3.95rem);
+  font-size: clamp(1.275rem, 1.925vw, 1.975rem);
   line-height: 0.84;
   letter-spacing: -0.05em;
 }
@@ -3161,7 +3161,7 @@ body {
   }
 
   .modern-dashboard__title--brand {
-    font-size: clamp(2rem, 3.2vw, 2.85rem);
+    font-size: clamp(1rem, 1.6vw, 1.425rem);
   }
 
   .modern-library__family {
