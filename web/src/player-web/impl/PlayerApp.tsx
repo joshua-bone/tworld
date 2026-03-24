@@ -58,6 +58,7 @@ import {
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
+import { shouldSyncEmbeddedPlayerCatalog } from "@player-web/impl/playerAppCatalogSync";
 import { resolveReplayActionContext } from "@player-web/impl/replayContext";
 import { selectResultHeadline } from "@player-web/impl/resultHeadlines";
 import { measurePerfAsync, recordPerfMeasurement } from "@player-web/impl/runtimePerf";
@@ -898,6 +899,18 @@ export function PlayerApp({
       : session?.frame.snapshot.status === "playing"
         ? [...(isModernChrome ? GAME_PLAYING_HELP_MODERN : GAME_PLAYING_HELP), ...GLOBAL_HELP]
         : [...(isModernChrome ? GAME_ENDED_HELP_MODERN : GAME_ENDED_HELP), ...GLOBAL_HELP];
+
+  useEffect(() => {
+    if (!isEmbeddedModernChrome) {
+      return;
+    }
+
+    setCatalog((current) => (
+      shouldSyncEmbeddedPlayerCatalog(current, initialCatalog)
+        ? initialCatalog
+        : current
+    ));
+  }, [initialCatalog, isEmbeddedModernChrome]);
 
   const flushSessionUiSync = (nextSession: InteractiveGameSession | null) => {
     if (pendingSessionUiSyncRef.current !== null) {
