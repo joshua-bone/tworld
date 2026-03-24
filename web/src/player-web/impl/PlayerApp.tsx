@@ -23,6 +23,7 @@ import {
   LegacyMsInputBuffer,
   type DirectionInput,
 } from "@player-web/impl/legacyInput";
+import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
 import { LegacyCanvasScreen, LegacyInventoryStrip, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import {
   buildCuratedCatalogView,
@@ -551,19 +552,6 @@ function pickLevelNumber(series: SeriesCatalogEntry | null, requested: number | 
 
 function isDatFile(file: File): boolean {
   return /\.dat$/iu.test(file.name);
-}
-
-function isEditableKeyTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  return (
-    target.isContentEditable ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
-  );
 }
 
 interface PlayerAppProps {
@@ -2436,8 +2424,16 @@ export function PlayerApp({
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const activeSession = liveSessionRef.current;
+      const editableKeyboardFocus = shouldBypassPlayerHotkeys(event.target, document.activeElement);
       soundPlayerRef.current?.unlock();
       setIsFastForwarding(isFastForwardModifierActive(mode, event));
+
+      if (editableKeyboardFocus) {
+        stopHeldUndo();
+        msInputBufferRef.current.reset();
+        lynxInputBufferRef.current.reset();
+        return;
+      }
 
       if (isSystemModifierKey(event.key)) {
         msInputBufferRef.current.reset();
@@ -2713,9 +2709,17 @@ export function PlayerApp({
 
     const onKeyUp = (event: KeyboardEvent) => {
       const activeSession = liveSessionRef.current;
+      const editableKeyboardFocus = shouldBypassPlayerHotkeys(event.target, document.activeElement);
       setIsFastForwarding(isFastForwardModifierActive(mode, event));
 
       if (mode !== "game") {
+        return;
+      }
+
+      if (editableKeyboardFocus) {
+        stopHeldUndo();
+        msInputBufferRef.current.reset();
+        lynxInputBufferRef.current.reset();
         return;
       }
 
@@ -2749,7 +2753,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!isEditableKeyTarget(event.target) && !hasBlockedMovementModifier(event) && isBrowserScrollKey(event.key)) {
+      if (!shouldBypassPlayerHotkeys(event.target, document.activeElement) && !hasBlockedMovementModifier(event) && isBrowserScrollKey(event.key)) {
         event.preventDefault();
       }
     };
