@@ -1816,6 +1816,90 @@ body {
   padding: 10px 14px;
 }
 
+.mobile-game-shell__nav {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobile-game-shell__nav-actions {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mobile-game-shell__nav-button,
+.mobile-game-shell__menu-button {
+  border: 1px solid rgba(243, 236, 221, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f3ecdd;
+  font: inherit;
+}
+
+.mobile-game-shell__nav-button {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  padding: 9px 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-game-shell__nav-button--level {
+  min-width: 132px;
+}
+
+.mobile-game-shell__nav-label {
+  color: #ffcb5f;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mobile-game-shell__nav-value {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-game-shell__menu-button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 52px;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+.mobile-game-shell__menu-button span[aria-hidden="true"] {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.mobile-game-shell__menu-button-copy {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mobile-game-shell__nav-button:hover,
+.mobile-game-shell__nav-button:focus-visible,
+.mobile-game-shell__menu-button:hover,
+.mobile-game-shell__menu-button:focus-visible {
+  border-color: rgba(143, 208, 241, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .mobile-game-shell__header-copy {
   display: grid;
   gap: 4px;
@@ -1991,6 +2075,118 @@ body {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
+}
+
+.mobile-sheet {
+  z-index: 32;
+}
+
+.mobile-sheet__dialog {
+  width: min(720px, 100%);
+  max-height: min(84vh, 820px);
+}
+
+.mobile-sheet__body {
+  gap: 12px;
+}
+
+.mobile-sheet__list {
+  display: grid;
+  gap: 8px;
+  max-height: min(58vh, 520px);
+  overflow: auto;
+}
+
+.mobile-sheet__list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(243, 236, 221, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-sheet__list-item--selected {
+  border-color: rgba(240, 177, 49, 0.75);
+  background:
+    linear-gradient(180deg, rgba(240, 177, 49, 0.12), rgba(255, 255, 255, 0.03)),
+    rgba(255, 255, 255, 0.03);
+}
+
+.mobile-sheet__list-copy,
+.mobile-sheet__section {
+  display: grid;
+  gap: 6px;
+}
+
+.mobile-sheet__list-title {
+  color: #f3ecdd;
+}
+
+.mobile-sheet__list-meta,
+.mobile-sheet__section-copy {
+  margin: 0;
+  color: #8fb1c2;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.mobile-sheet__list-badge {
+  color: #ffcb5f;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mobile-sheet__section-header {
+  display: grid;
+  gap: 4px;
+}
+
+.mobile-sheet__button-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobile-sheet__button-grid--compact {
+  grid-template-columns: 1fr;
+}
+
+.mobile-sheet__settings,
+.mobile-sheet__settings-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.mobile-sheet__checkbox {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  color: #f3ecdd;
+}
+
+.mobile-sheet__checkbox input {
+  margin: 2px 0 0;
+  width: 16px;
+  height: 16px;
+  accent-color: #f0b131;
+}
+
+.mobile-sheet__field {
+  display: grid;
+  gap: 8px;
+  color: #cdc6b8;
+  font-size: 0.86rem;
 }
 
 .modern-embedded-player {
@@ -3578,6 +3774,19 @@ body {
     justify-content: stretch;
   }
 
+  .mobile-game-shell__nav {
+    flex-direction: column;
+  }
+
+  .mobile-game-shell__nav-actions {
+    width: 100%;
+  }
+
+  .mobile-game-shell__nav-button--level {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .mobile-game-shell__runtime {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3592,6 +3801,10 @@ body {
 
   .mobile-game-shell__actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mobile-sheet__button-grid {
+    grid-template-columns: 1fr;
   }
 
   .legacy-shell {

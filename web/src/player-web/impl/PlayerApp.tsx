@@ -619,6 +619,7 @@ export function PlayerApp({
   const [showSoundControls, setShowSoundControls] = useState(false);
   const [showHistoryControls, setShowHistoryControls] = useState(false);
   const [showManageReplays, setShowManageReplays] = useState(false);
+  const [mobileSheet, setMobileSheet] = useState<"levels" | "menu" | "sets" | null>(null);
   const [pendingReplayEntryId, setPendingReplayEntryId] = useState<string | null>(null);
   const [selectedManagedReplayId, setSelectedManagedReplayId] = useState<string | null>(null);
   const [replaySaveNotice, setReplaySaveNotice] = useState<string | null>(null);
@@ -1815,6 +1816,23 @@ export function PlayerApp({
     };
   }, [showManageReplays, usesModernGameUi]);
 
+  useEffect(() => {
+    if (!isMobileChrome || mobileSheet === null) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileSheet(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileChrome, mobileSheet]);
+
   const selectSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
     setReplayLaunchRequest(null);
@@ -1822,6 +1840,29 @@ export function PlayerApp({
     setSelectedLevelNumber((current) => pickLevelNumber(series, current));
     setIsPaused(false);
     setMessage(null);
+  });
+
+  const selectLevel = useEffectEvent((levelNumber: number) => {
+    if (!currentSeries || !currentSeries.levels.some((level) => level.number === levelNumber)) {
+      return;
+    }
+
+    setReplayLaunchRequest(null);
+    setIsPaused(false);
+    setSelectedLevelNumber(levelNumber);
+    setMessage(null);
+  });
+
+  const toggleMobileSheet = useEffectEvent((nextSheet: "levels" | "menu" | "sets") => {
+    setShowReplayMenu(false);
+    setShowAdvancedMenu(false);
+    setShowSoundControls(false);
+    setShowHistoryControls(false);
+    setMobileSheet((current) => (current === nextSheet ? null : nextSheet));
+  });
+
+  const closeMobileSheet = useEffectEvent(() => {
+    setMobileSheet(null);
   });
 
   const exitCurrentGame = useEffectEvent(() => {
@@ -2058,6 +2099,7 @@ export function PlayerApp({
       return;
     }
 
+    setMobileSheet(null);
     setShowReplayMenu(false);
     setShowAdvancedMenu(false);
     setSelectedManagedReplayId(continueReplayEntry?.id ?? currentLevelReplayEntries[0]?.id ?? null);
@@ -2240,6 +2282,7 @@ export function PlayerApp({
   const toggleHelp = useEffectEvent(() => {
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
+    setMobileSheet(null);
     setShowReplayMenu(false);
     setShowSoundControls(false);
     setShowHistoryControls(false);
@@ -3185,6 +3228,425 @@ export function PlayerApp({
       </div>
     ) : null;
 
+  const mobileSetSelectorSheet =
+    isMobileChrome && mobileSheet === "sets" ? (
+      <div className="modern-about-modal mobile-sheet" onClick={closeMobileSheet}>
+        <div
+          aria-labelledby="mobile-set-selector-title"
+          aria-modal="true"
+          className="modern-about-modal__dialog mobile-sheet__dialog"
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          role="dialog"
+        >
+          <div className="modern-about-modal__header">
+            <div>
+              <p className="modern-section__eyebrow">Set Selector</p>
+              <h2 className="modern-dashboard__panel-title" id="mobile-set-selector-title">
+                Choose a set
+              </h2>
+            </div>
+            <button
+              aria-label="Close set selector"
+              className="modern-dashboard__about-button modern-dashboard__about-button--close"
+              onClick={closeMobileSheet}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+          <div className="modern-about-modal__body mobile-sheet__body">
+            <div className="mobile-sheet__list">
+              {catalog.map((series) => (
+                <button
+                  className={`mobile-sheet__list-item${series.filebase === selectedSeriesFile ? " mobile-sheet__list-item--selected" : ""}`}
+                  key={series.filebase}
+                  onClick={() => {
+                    selectSeries(series.filebase);
+                    closeMobileSheet();
+                  }}
+                  type="button"
+                >
+                  <div className="mobile-sheet__list-copy">
+                    <strong className="mobile-sheet__list-title">{series.name}</strong>
+                    <p className="mobile-sheet__list-meta">
+                      {series.filebase}  ·  {series.ruleset}  ·  {series.levels.length} levels
+                    </p>
+                  </div>
+                  {series.filebase === selectedSeriesFile ? (
+                    <span className="mobile-sheet__list-badge">Current</span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  const mobileLevelSelectorSheet =
+    isMobileChrome && mobileSheet === "levels" ? (
+      <div className="modern-about-modal mobile-sheet" onClick={closeMobileSheet}>
+        <div
+          aria-labelledby="mobile-level-selector-title"
+          aria-modal="true"
+          className="modern-about-modal__dialog mobile-sheet__dialog"
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          role="dialog"
+        >
+          <div className="modern-about-modal__header">
+            <div>
+              <p className="modern-section__eyebrow">Level Selector</p>
+              <h2 className="modern-dashboard__panel-title" id="mobile-level-selector-title">
+                {currentSeries ? currentSeries.name : "Choose a level"}
+              </h2>
+            </div>
+            <button
+              aria-label="Close level selector"
+              className="modern-dashboard__about-button modern-dashboard__about-button--close"
+              onClick={closeMobileSheet}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+          <div className="modern-about-modal__body mobile-sheet__body">
+            {currentSeries ? (
+              <div className="mobile-sheet__list">
+                {currentSeries.levels.map((level) => (
+                  <button
+                    className={`mobile-sheet__list-item${level.number === currentLevel?.number ? " mobile-sheet__list-item--selected" : ""}`}
+                    key={level.number}
+                    onClick={() => {
+                      selectLevel(level.number);
+                      closeMobileSheet();
+                    }}
+                    type="button"
+                  >
+                    <div className="mobile-sheet__list-copy">
+                      <strong className="mobile-sheet__list-title">Level {level.number}</strong>
+                      <p className="mobile-sheet__list-meta">{level.name}</p>
+                    </div>
+                    {level.number === currentLevel?.number ? (
+                      <span className="mobile-sheet__list-badge">Current</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="modern-dashboard__copy">Load a set to browse levels.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    ) : null;
+
+  const mobileOverflowSheet =
+    isMobileChrome && mobileSheet === "menu" ? (
+      <div className="modern-about-modal mobile-sheet" onClick={closeMobileSheet}>
+        <div
+          aria-labelledby="mobile-overflow-title"
+          aria-modal="true"
+          className="modern-about-modal__dialog mobile-sheet__dialog"
+          onClick={(event) => {
+            event.stopPropagation();
+          }}
+          role="dialog"
+        >
+          <div className="modern-about-modal__header">
+            <div>
+              <p className="modern-section__eyebrow">Mobile Menu</p>
+              <h2 className="modern-dashboard__panel-title" id="mobile-overflow-title">
+                Game controls
+              </h2>
+            </div>
+            <button
+              aria-label="Close mobile menu"
+              className="modern-dashboard__about-button modern-dashboard__about-button--close"
+              onClick={closeMobileSheet}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+          <div className="modern-about-modal__body mobile-sheet__body">
+            <section className="modern-settings-modal__section mobile-sheet__section">
+              <div className="mobile-sheet__section-header">
+                <p className="modern-section__eyebrow">Gameplay</p>
+                <p className="mobile-sheet__section-copy">
+                  Quick actions that used to live in the desktop header.
+                </p>
+              </div>
+              <div className="mobile-sheet__button-grid">
+                <button
+                  className="modern-button modern-button--secondary"
+                  onClick={() => {
+                    closeMobileSheet();
+                    restartCurrentLevel();
+                  }}
+                  type="button"
+                >
+                  Restart
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!canTogglePause}
+                  onClick={() => {
+                    closeMobileSheet();
+                    toggleModernPause();
+                  }}
+                  type="button"
+                >
+                  {isPaused ? "Resume" : "Pause"}
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!canUseModernUndo}
+                  onClick={() => {
+                    closeMobileSheet();
+                    void performModernUndo(false);
+                  }}
+                  type="button"
+                >
+                  Undo
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!currentSeries || !currentLevel}
+                  onClick={() => {
+                    closeMobileSheet();
+                    changeLevelBy(-1);
+                  }}
+                  type="button"
+                >
+                  Previous
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!currentSeries || !currentLevel}
+                  onClick={() => {
+                    closeMobileSheet();
+                    changeLevelBy(1);
+                  }}
+                  type="button"
+                >
+                  Next
+                </button>
+                <button className="modern-button modern-button--secondary" onClick={toggleHelp} type="button">
+                  Help
+                </button>
+              </div>
+            </section>
+
+            <section className="modern-settings-modal__section mobile-sheet__section">
+              <div className="mobile-sheet__section-header">
+                <p className="modern-section__eyebrow">Replays</p>
+                <p className="mobile-sheet__section-copy">Save, import, or inspect the current level&apos;s replay library.</p>
+              </div>
+              <div className="mobile-sheet__button-grid">
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!canSaveReplay}
+                  onClick={() => {
+                    closeMobileSheet();
+                    void saveReplayForCurrentRun();
+                  }}
+                  type="button"
+                >
+                  Save Replay
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!currentLevel || !currentSeries}
+                  onClick={() => {
+                    closeMobileSheet();
+                    void importReplayForCurrentLevel();
+                  }}
+                  type="button"
+                >
+                  Import Replay
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!latestCurrentReplayEntry}
+                  onClick={() => {
+                    closeMobileSheet();
+                    watchLatestReplayFromMenu();
+                  }}
+                  type="button"
+                >
+                  Watch Latest
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={currentLevelReplayEntries.length === 0}
+                  onClick={() => {
+                    closeMobileSheet();
+                    openManageReplays();
+                  }}
+                  type="button"
+                >
+                  Manage Replays
+                </button>
+              </div>
+            </section>
+
+            <section className="modern-settings-modal__section mobile-sheet__section">
+              <div className="mobile-sheet__section-header">
+                <p className="modern-section__eyebrow">Sound</p>
+                <p className="mobile-sheet__section-copy">Adjust audio without leaving the board.</p>
+              </div>
+              <div className="mobile-sheet__button-grid mobile-sheet__button-grid--compact">
+                <button className="modern-button modern-button--secondary" onClick={toggleMuted} type="button">
+                  {soundMuted || soundVolume <= 0 ? "Enable Sound" : "Mute Sound"}
+                </button>
+              </div>
+              <label className="mobile-sheet__field" htmlFor="mobile-sound-volume">
+                <span>Volume {Math.round(soundVolume * 100)}%</span>
+                <input
+                  className="modern-game-sound__slider"
+                  id="mobile-sound-volume"
+                  max="1"
+                  min="0"
+                  onChange={(event) => {
+                    const nextVolume = Number(event.currentTarget.value);
+                    setSoundVolume(Number.isFinite(nextVolume) ? nextVolume : 0.7);
+                    if (nextVolume > 0 && soundMuted) {
+                      setSoundMuted(false);
+                    }
+                  }}
+                  step="0.05"
+                  type="range"
+                  value={soundVolume}
+                />
+              </label>
+            </section>
+
+            <section className="modern-settings-modal__section mobile-sheet__section">
+              <div className="mobile-sheet__section-header">
+                <p className="modern-section__eyebrow">History Settings</p>
+                <p className="mobile-sheet__section-copy">These settings apply on the next level load or restart.</p>
+              </div>
+              <div className="mobile-sheet__settings">
+                <label className="mobile-sheet__checkbox">
+                  <input
+                    checked={undoSettings.enabled}
+                    onChange={(event) => {
+                      setUndoSettings((current) => ({
+                        ...current,
+                        enabled: event.currentTarget.checked,
+                      }));
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Enable Undo History</span>
+                </label>
+                <label className="mobile-sheet__checkbox">
+                  <input
+                    checked={undoSettings.enableRewindAndResume}
+                    onChange={(event) => {
+                      setUndoSettings((current) => ({
+                        ...current,
+                        enableRewindAndResume: event.currentTarget.checked,
+                      }));
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Enable Rewind And Resume</span>
+                </label>
+                <label className="mobile-sheet__checkbox">
+                  <input
+                    checked={undoSettings.allowTakeoverDuringHistoricalReplay}
+                    onChange={(event) => {
+                      setUndoSettings((current) => ({
+                        ...current,
+                        allowTakeoverDuringHistoricalReplay: event.currentTarget.checked,
+                      }));
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Allow Takeover During Historical Replay</span>
+                </label>
+                <label className="mobile-sheet__checkbox">
+                  <input
+                    checked={undoSettings.retainUnlimitedHistory}
+                    onChange={(event) => {
+                      setUndoSettings((current) => ({
+                        ...current,
+                        retainUnlimitedHistory: event.currentTarget.checked,
+                      }));
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Keep Unlimited History</span>
+                </label>
+              </div>
+              <div className="mobile-sheet__settings-fields">
+                <label className="mobile-sheet__field">
+                  <span>Checkpoint Density</span>
+                  <select
+                    className="modern-history-dock__select"
+                    onChange={(event) => {
+                      const nextDensity = event.currentTarget.value as BrowserUndoSettings["checkpointDensity"];
+                      setUndoSettings((current) => ({
+                        ...current,
+                        checkpointDensity: nextDensity,
+                      }));
+                    }}
+                    value={undoSettings.checkpointDensity}
+                  >
+                    <option value="dense">Dense</option>
+                    <option value="standard">Standard</option>
+                    <option value="sparse">Sparse</option>
+                  </select>
+                </label>
+                <label className="mobile-sheet__field">
+                  <span>History Retention Mode</span>
+                  <select
+                    className="modern-history-dock__select"
+                    onChange={(event) => {
+                      const nextMode = event.currentTarget.value as BrowserUndoSettings["checkpointRetentionMode"];
+                      setUndoSettings((current) => ({
+                        ...current,
+                        checkpointRetentionMode: nextMode,
+                      }));
+                    }}
+                    value={undoSettings.checkpointRetentionMode}
+                  >
+                    <option value="dense-recent-exponential">Dense recent + exponential</option>
+                    <option value="dense-recent">Dense recent only</option>
+                  </select>
+                </label>
+                <label className="mobile-sheet__field">
+                  <span>Bounded History Window</span>
+                  <select
+                    className="modern-history-dock__select"
+                    disabled={undoSettings.retainUnlimitedHistory}
+                    onChange={(event) => {
+                      const nextWindow = Number(event.currentTarget.value) as BrowserUndoSettings["maximumRetainedHistoryMinutes"];
+                      setUndoSettings((current) => ({
+                        ...current,
+                        maximumRetainedHistoryMinutes: nextWindow,
+                      }));
+                    }}
+                    value={undoSettings.maximumRetainedHistoryMinutes}
+                  >
+                    <option value="5">5 minutes</option>
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="60">60 minutes</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
   const selectedRulesetSelections =
     currentFamily && currentLevel
       ? {
@@ -3662,6 +4124,43 @@ export function PlayerApp({
     return (
       <section className="mobile-game-shell">
         <header className="mobile-game-shell__header">
+          <div className="mobile-game-shell__nav">
+            <button
+              className="mobile-game-shell__nav-button"
+              onClick={() => {
+                toggleMobileSheet("sets");
+              }}
+              type="button"
+            >
+              <span className="mobile-game-shell__nav-label">Set</span>
+              <strong className="mobile-game-shell__nav-value">{currentSeries?.name ?? "Choose set"}</strong>
+            </button>
+            <div className="mobile-game-shell__nav-actions">
+              <button
+                className="mobile-game-shell__nav-button mobile-game-shell__nav-button--level"
+                onClick={() => {
+                  toggleMobileSheet("levels");
+                }}
+                type="button"
+              >
+                <span className="mobile-game-shell__nav-label">Level</span>
+                <strong className="mobile-game-shell__nav-value">
+                  {currentLevel ? `Level ${currentLevel.number}` : "Choose level"}
+                </strong>
+              </button>
+              <button
+                aria-haspopup="dialog"
+                className="mobile-game-shell__menu-button"
+                onClick={() => {
+                  toggleMobileSheet("menu");
+                }}
+                type="button"
+              >
+                <span aria-hidden="true">⋯</span>
+                <span className="mobile-game-shell__menu-button-copy">Menu</span>
+              </button>
+            </div>
+          </div>
           <div className="mobile-game-shell__header-copy">
             <p className="modern-section__eyebrow modern-game-header__state">{modernStatusLabel}</p>
             <div className="mobile-game-shell__title-row">
@@ -3754,6 +4253,9 @@ export function PlayerApp({
 
         {modernMessageModal}
         {manageReplaysModal}
+        {mobileSetSelectorSheet}
+        {mobileLevelSelectorSheet}
+        {mobileOverflowSheet}
         {helpOverlay}
       </section>
     );
