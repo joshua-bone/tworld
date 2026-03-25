@@ -179,6 +179,14 @@ function printSummaryLine(prefix: string, counts: SummaryCounts): void {
   );
 }
 
+function printAnomalousOutcome(outcome: ReplayOutcome): void {
+  const label = outcome.kind === "legacy-fail" ? yellow("legacy-fail") : red("ts-fail");
+  const mismatchSuffix = outcome.firstMismatchPath ? ` | first mismatch ${outcome.firstMismatchPath}` : "";
+  console.log(
+    `${label} L${String(outcome.levelNumber).padStart(3, "0")} ${outcome.scenarioName} | ${outcome.detail}${mismatchSuffix}`,
+  );
+}
+
 async function main(): Promise<void> {
   const solutionFiles = discoverSolutionFiles().filter((path) =>
     matchesFilter(basename(path), solutionFileFilter),
@@ -212,6 +220,7 @@ async function main(): Promise<void> {
   ]);
   const totalMismatchPaths: string[] = [];
   const totalLegacyStatuses: string[] = [];
+  const anomalyOutcomes: ReplayOutcome[] = [];
   const unsupportedFiles: string[] = [];
   let supportedFileCount = 0;
 
@@ -263,6 +272,12 @@ async function main(): Promise<void> {
         rulesetTotals.legacyFailed += 1;
         fileLegacyStatuses.push("$error");
         totalLegacyStatuses.push("$error");
+        anomalyOutcomes.push({
+          kind: "legacy-fail",
+          scenarioName: scenario.name,
+          levelNumber: scenario.request.levelNumber,
+          detail: `legacy $error: ${detail}`,
+        });
         console.log(
           `${formatOutcomeLabel("legacy-fail")} L${String(scenario.request.levelNumber).padStart(3, "0")} ${scenario.name} | legacy $error: ${detail}`,
         );
@@ -275,6 +290,12 @@ async function main(): Promise<void> {
         rulesetTotals.legacyFailed += 1;
         fileLegacyStatuses.push(expected.result.status);
         totalLegacyStatuses.push(expected.result.status);
+        anomalyOutcomes.push({
+          kind: "legacy-fail",
+          scenarioName: scenario.name,
+          levelNumber: scenario.request.levelNumber,
+          detail: `legacy ${expected.result.status} at tick ${expected.result.finalTick}`,
+        });
         console.log(
           `${formatOutcomeLabel("legacy-fail")} L${String(scenario.request.levelNumber).padStart(3, "0")} ${scenario.name} | legacy ${expected.result.status} at tick ${expected.result.finalTick}`,
         );
@@ -305,6 +326,13 @@ async function main(): Promise<void> {
         rulesetTotals.tsFailed += 1;
         fileMismatchPaths.push(mismatch.path);
         totalMismatchPaths.push(mismatch.path);
+        anomalyOutcomes.push({
+          kind: "ts-fail",
+          scenarioName: scenario.name,
+          levelNumber: scenario.request.levelNumber,
+          detail: summarizeMismatchShort(mismatch),
+          firstMismatchPath: mismatch.path,
+        });
         console.log(
           `${formatOutcomeLabel("ts-fail")} L${String(scenario.request.levelNumber).padStart(3, "0")} ${scenario.name} | ${summarizeMismatchShort(mismatch)}`,
         );
@@ -319,6 +347,13 @@ async function main(): Promise<void> {
         rulesetTotals.tsFailed += 1;
         fileMismatchPaths.push(mismatch.path);
         totalMismatchPaths.push(mismatch.path);
+        anomalyOutcomes.push({
+          kind: "ts-fail",
+          scenarioName: scenario.name,
+          levelNumber: scenario.request.levelNumber,
+          detail: summarizeMismatchShort(mismatch),
+          firstMismatchPath: mismatch.path,
+        });
         console.log(
           `${formatOutcomeLabel("ts-fail")} L${String(scenario.request.levelNumber).padStart(3, "0")} ${scenario.name} | ${summarizeMismatchShort(mismatch)}`,
         );
@@ -351,6 +386,12 @@ async function main(): Promise<void> {
   if (totalLegacyStatuses.length > 0) {
     const topStatuses = rankCounts(totalLegacyStatuses);
     console.log(`legacy statuses: ${topStatuses.map((item) => `${item.key} (${item.count})`).join(", ")}`);
+  }
+  if (anomalyOutcomes.length > 0) {
+    console.log("anomalous levels:");
+    for (const outcome of anomalyOutcomes) {
+      printAnomalousOutcome(outcome);
+    }
   }
 
   if (failOnErrors && (totalCounts.legacyFailed > 0 || totalCounts.tsFailed > 0)) {
