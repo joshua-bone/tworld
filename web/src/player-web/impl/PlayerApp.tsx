@@ -35,7 +35,6 @@ import {
 import { MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
 import {
   legacyMapPixelsForTileSize,
-  pickLegacyRenderTileSize,
 } from "@player-web/impl/legacyRenderPresets";
 import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
 import { LegacyCanvasScreen, LegacyInventoryStrip, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
@@ -123,7 +122,6 @@ const LEGACY_RANDOM_SEED_MAX = 0x7fffffff;
 const CURRENT_LEVEL_LINK_COPY_FEEDBACK_MS = 2800;
 const MOBILE_PORTRAIT_MARGIN_PX = 132;
 const MOBILE_LANDSCAPE_MARGIN_PX = 216;
-const MOBILE_EDGE_CONTROL_GUTTER_PX = 84;
 const MS_MANUAL_STEP_STEPPING = {
   even: 0,
   odd: 4,
@@ -841,7 +839,7 @@ export function PlayerApp({
   const isMobileChrome = chromeMode === "mobile";
   const isModernChrome = chromeMode === "modern" || chromeMode === "modern-embedded";
   const usesModernGameUi = isModernChrome || isMobileChrome;
-  const mobileRenderTileSize = mobileBoardSizePx > 0 ? pickLegacyRenderTileSize(mobileBoardSizePx) : 48;
+  const mobileRenderTileSize = 48;
   const mobileRenderedBoardSizePx = legacyMapPixelsForTileSize(mobileRenderTileSize);
   const mobileCanvasFrameSizePx = mobileBoardSizePx > 0
     ? Math.min(mobileBoardSizePx, mobileRenderedBoardSizePx)
@@ -1179,11 +1177,11 @@ export function PlayerApp({
       const isLandscape = bounds.width > bounds.height;
       const availableWidth = Math.max(
         0,
-        bounds.width - (isLandscape ? MOBILE_LANDSCAPE_MARGIN_PX * 2 : MOBILE_EDGE_CONTROL_GUTTER_PX * 2),
+        bounds.width - (isLandscape ? MOBILE_LANDSCAPE_MARGIN_PX * 2 : 0),
       );
       const availableHeight = Math.max(
         0,
-        bounds.height - (isLandscape ? MOBILE_EDGE_CONTROL_GUTTER_PX * 2 : MOBILE_PORTRAIT_MARGIN_PX * 2),
+        bounds.height - (isLandscape ? 0 : MOBILE_PORTRAIT_MARGIN_PX * 2),
       );
       const nextSize = Math.max(0, Math.floor(Math.min(availableWidth, availableHeight)));
       setMobileBoardSizePx((current) => (current === nextSize ? current : nextSize));
