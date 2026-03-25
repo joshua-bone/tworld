@@ -1,4 +1,13 @@
-import { startTransition, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  startTransition,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
 import { shouldAutoSaveWinningHighScoreReplay } from "@player-web/impl/autoSaveReplayPolicy";
 import { copyTextToClipboard } from "@player-web/impl/clipboard";
@@ -23,6 +32,7 @@ import {
   LegacyMsInputBuffer,
   type DirectionInput,
 } from "@player-web/impl/legacyInput";
+import { MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
 import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
 import { LegacyCanvasScreen, LegacyInventoryStrip, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import {
@@ -643,6 +653,7 @@ export function PlayerApp({
   const historyNavigationRef = useRef(false);
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
   const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
+  const mobileDirectionalInputRef = useRef(new MobileDirectionalInputTracker());
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -678,6 +689,63 @@ export function PlayerApp({
   const commitLevelSeedOverrides = useEffectEvent((nextOverrides: BrowserLevelSeedOverride[]) => {
     levelSeedOverridesRef.current = nextOverrides;
     setLevelSeedOverrides(nextOverrides);
+  });
+
+  const applyDirectionalInputPress = useEffectEvent((input: DirectionInput) => {
+    const activeSession = liveSessionRef.current;
+    if (!activeSession || mode !== "game" || isPaused) {
+      return;
+    }
+
+    if (
+      activeSession.history.restoreMode === "replaying-history" &&
+      !undoSettings.allowTakeoverDuringHistoricalReplay
+    ) {
+      return;
+    }
+
+    if (activeSession.request.ruleset === "Lynx") {
+      lynxInputBufferRef.current.keyDown(input);
+    } else {
+      msInputBufferRef.current.keyDown(input);
+    }
+
+    if (activeSession.mode === "manual" && !manualRunStarted) {
+      setManualRunStarted(true);
+    }
+
+    if (activeSession.history.restoreMode === "restored-paused") {
+      resumeLivePlayFromRestore();
+    }
+  });
+
+  const applyDirectionalInputRelease = useEffectEvent((input: DirectionInput) => {
+    const activeSession = liveSessionRef.current;
+    if (!activeSession || mode !== "game") {
+      return;
+    }
+
+    if (activeSession.request.ruleset === "Lynx") {
+      lynxInputBufferRef.current.keyUp(input);
+    } else {
+      msInputBufferRef.current.keyUp(input);
+    }
+  });
+
+  const applyMobileDirectionalInputChanges = useEffectEvent(
+    (changes: { pressed: DirectionInput[]; released: DirectionInput[] }) => {
+      for (const input of changes.released) {
+        applyDirectionalInputRelease(input);
+      }
+
+      for (const input of changes.pressed) {
+        applyDirectionalInputPress(input);
+      }
+    },
+  );
+
+  const resetMobileDirectionalInputState = useEffectEvent(() => {
+    applyMobileDirectionalInputChanges(mobileDirectionalInputRef.current.reset());
   });
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
@@ -891,6 +959,21 @@ export function PlayerApp({
         : null;
   const isEmbeddedModernChrome = chromeMode === "modern-embedded";
   const canTogglePause = Boolean(session && !isSessionLoading && (isPaused || session.frame.snapshot.status === "playing"));
+  const mobileMovementControlsDisabled =
+    !isMobileChrome ||
+    mode !== "game" ||
+    !session ||
+    isSessionLoading ||
+    isPaused ||
+    showHelp ||
+    showManageReplays ||
+    mobileSheet !== null ||
+    message !== null ||
+    session.frame.snapshot.status !== "playing" ||
+    (
+      session.history.restoreMode === "replaying-history" &&
+      !undoSettings.allowTakeoverDuringHistoricalReplay
+    );
   const helpSections =
     mode === "series-list"
       ? [...SERIES_LIST_HELP, ...GLOBAL_HELP]
@@ -2427,6 +2510,35 @@ export function PlayerApp({
   }, [mode]);
 
   useEffect(() => {
+    if (
+      !isMobileChrome ||
+      (
+        mode === "game" &&
+        !isPaused &&
+        !showHelp &&
+        !showManageReplays &&
+        mobileSheet === null &&
+        message === null &&
+        session?.frame.snapshot.status === "playing"
+      )
+    ) {
+      return;
+    }
+
+    resetMobileDirectionalInputState();
+  }, [
+    isMobileChrome,
+    isPaused,
+    message,
+    mobileSheet,
+    mode,
+    resetMobileDirectionalInputState,
+    session?.frame.snapshot.status,
+    showHelp,
+    showManageReplays,
+  ]);
+
+  useEffect(() => {
     if (!showReplayMenu) {
       return;
     }
@@ -2794,18 +2906,10 @@ export function PlayerApp({
       }
 
       event.preventDefault();
-      if (activeSession?.request.ruleset === "Lynx") {
-        lynxInputBufferRef.current.keyDown(input);
-      } else {
-        msInputBufferRef.current.keyDown(input);
-      }
-      if (activeSession?.history.restoreMode === "restored-paused") {
-        resumeLivePlayFromRestore();
-      }
+      applyDirectionalInputPress(input);
     };
 
     const onKeyUp = (event: KeyboardEvent) => {
-      const activeSession = liveSessionRef.current;
       const editableKeyboardFocus = shouldBypassPlayerHotkeys(event.target, document.activeElement);
       setIsFastForwarding(isFastForwardModifierActive(mode, event));
 
@@ -2837,11 +2941,7 @@ export function PlayerApp({
       const input = keyToInput(event.key);
       if (input) {
         event.preventDefault();
-        if (activeSession?.request.ruleset === "Lynx") {
-          lynxInputBufferRef.current.keyUp(input);
-        } else {
-          msInputBufferRef.current.keyUp(input);
-        }
+        applyDirectionalInputRelease(input);
       }
     };
 
@@ -2863,6 +2963,7 @@ export function PlayerApp({
     const onWindowBlur = () => {
       setIsFastForwarding(false);
       stopHeldUndo();
+      resetMobileDirectionalInputState();
       msInputBufferRef.current.reset();
       lynxInputBufferRef.current.reset();
     };
@@ -2886,6 +2987,8 @@ export function PlayerApp({
     canResumeOriginalTimeline,
     changeLevelBy,
     changeSelectedSeriesBy,
+    applyDirectionalInputPress,
+    applyDirectionalInputRelease,
     closeHelp,
     exitCurrentGame,
     closeHistoryControls,
@@ -2895,6 +2998,7 @@ export function PlayerApp({
     isPaused,
     mode,
     proceedAfterLevelEnd,
+    resetMobileDirectionalInputState,
     resumeLivePlayFromRestore,
     resumeOriginalTimelineFromSpace,
     selectedSeriesFile,
@@ -3782,6 +3886,91 @@ export function PlayerApp({
       </div>
     </section>
   );
+  const handleMobileDirectionPointerDown = useEffectEvent((
+    direction: DirectionInput,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
+    if (mobileMovementControlsDisabled) {
+      return;
+    }
+
+    event.preventDefault();
+    gameplayFocusRef.current?.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    applyMobileDirectionalInputChanges(
+      mobileDirectionalInputRef.current.assignPointer(event.pointerId, direction),
+    );
+  });
+  const handleMobileDirectionPointerEnd = useEffectEvent((event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    applyMobileDirectionalInputChanges(
+      mobileDirectionalInputRef.current.releasePointer(event.pointerId),
+    );
+  });
+  const renderMobileTouchControls = () => (
+    <div aria-label="Touch movement controls" className="mobile-game-shell__touch-controls" role="group">
+      <div className="mobile-game-shell__touch-column mobile-game-shell__touch-column--left">
+        <button
+          aria-label="Move up"
+          className="mobile-game-shell__touch-button"
+          disabled={mobileMovementControlsDisabled}
+          onLostPointerCapture={handleMobileDirectionPointerEnd}
+          onPointerCancel={handleMobileDirectionPointerEnd}
+          onPointerDown={(event) => {
+            handleMobileDirectionPointerDown("north", event);
+          }}
+          onPointerUp={handleMobileDirectionPointerEnd}
+          type="button"
+        >
+          <span className="mobile-game-shell__touch-button-arrow">▲</span>
+        </button>
+        <button
+          aria-label="Move down"
+          className="mobile-game-shell__touch-button"
+          disabled={mobileMovementControlsDisabled}
+          onLostPointerCapture={handleMobileDirectionPointerEnd}
+          onPointerCancel={handleMobileDirectionPointerEnd}
+          onPointerDown={(event) => {
+            handleMobileDirectionPointerDown("south", event);
+          }}
+          onPointerUp={handleMobileDirectionPointerEnd}
+          type="button"
+        >
+          <span className="mobile-game-shell__touch-button-arrow">▼</span>
+        </button>
+      </div>
+      <div className="mobile-game-shell__touch-column mobile-game-shell__touch-column--right">
+        <button
+          aria-label="Move left"
+          className="mobile-game-shell__touch-button"
+          disabled={mobileMovementControlsDisabled}
+          onLostPointerCapture={handleMobileDirectionPointerEnd}
+          onPointerCancel={handleMobileDirectionPointerEnd}
+          onPointerDown={(event) => {
+            handleMobileDirectionPointerDown("west", event);
+          }}
+          onPointerUp={handleMobileDirectionPointerEnd}
+          type="button"
+        >
+          <span className="mobile-game-shell__touch-button-arrow">◀</span>
+        </button>
+        <button
+          aria-label="Move right"
+          className="mobile-game-shell__touch-button"
+          disabled={mobileMovementControlsDisabled}
+          onLostPointerCapture={handleMobileDirectionPointerEnd}
+          onPointerCancel={handleMobileDirectionPointerEnd}
+          onPointerDown={(event) => {
+            handleMobileDirectionPointerDown("east", event);
+          }}
+          onPointerUp={handleMobileDirectionPointerEnd}
+          type="button"
+        >
+          <span className="mobile-game-shell__touch-button-arrow">▶</span>
+        </button>
+      </div>
+    </div>
+  );
   const renderMobileRuntimeBar = () => (
     <section className="mobile-game-shell__runtime" aria-label="Runtime">
       <div className={`mobile-game-shell__stat${session && session.frame.snapshot.chipsNeeded === 0 ? " mobile-game-shell__stat--good" : ""}`}>
@@ -4236,6 +4425,7 @@ export function PlayerApp({
               </div>
             ) : null}
             {modernResultSheet}
+            {renderMobileTouchControls()}
           </div>
         </section>
 

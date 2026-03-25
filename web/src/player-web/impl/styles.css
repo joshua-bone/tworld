@@ -1988,6 +1988,74 @@ body {
   aspect-ratio: 1 / 1;
 }
 
+.mobile-game-shell__touch-controls {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.mobile-game-shell__touch-column {
+  display: grid;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  width: clamp(68px, 18vw, 112px);
+  height: 100%;
+  pointer-events: none;
+}
+
+.mobile-game-shell__touch-button {
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  color: rgba(255, 255, 255, 0.76);
+  font: inherit;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mobile-game-shell__touch-column--left .mobile-game-shell__touch-button:first-child {
+  border-top-left-radius: 18px;
+}
+
+.mobile-game-shell__touch-column--left .mobile-game-shell__touch-button:last-child {
+  border-bottom-left-radius: 18px;
+}
+
+.mobile-game-shell__touch-column--right .mobile-game-shell__touch-button:first-child {
+  border-top-right-radius: 18px;
+}
+
+.mobile-game-shell__touch-column--right .mobile-game-shell__touch-button:last-child {
+  border-bottom-right-radius: 18px;
+}
+
+.mobile-game-shell__touch-button:hover,
+.mobile-game-shell__touch-button:focus-visible,
+.mobile-game-shell__touch-button:active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.mobile-game-shell__touch-button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.mobile-game-shell__touch-button-arrow {
+  font-size: clamp(1.3rem, 5vw, 2rem);
+  line-height: 1;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
+}
+
 .mobile-gameboard__canvas {
   display: block;
   width: 100%;
