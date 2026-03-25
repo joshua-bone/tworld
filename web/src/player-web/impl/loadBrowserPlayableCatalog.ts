@@ -59,7 +59,7 @@ export function resolveModernBootstrapCatalogOptions(
 
   return {
     includeImported: true,
-    seriesFiles: [],
+    seriesFiles: [...DEFAULT_MODERN_BOOTSTRAP_SERIES_FILES],
   };
 }
 

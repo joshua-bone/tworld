@@ -3568,11 +3568,17 @@ export function PlayerApp({
                 </div>
               ) : (
                 <p className="modern-dashboard__copy">
-                  {mobileSetSection === "uploads"
-                    ? "No uploaded sets yet."
-                    : mobileSetSection === "curated"
-                      ? "No curated sets are available right now."
-                      : "No official sets are available right now."}
+                  {isCatalogLoading
+                    ? mobileSetSection === "uploads"
+                      ? "Loading uploaded sets..."
+                      : mobileSetSection === "curated"
+                        ? "Loading curated sets..."
+                        : "Loading official sets..."
+                    : mobileSetSection === "uploads"
+                      ? "No uploaded sets yet."
+                      : mobileSetSection === "curated"
+                        ? "No curated sets are available right now."
+                        : "No official sets are available right now."}
                 </p>
               )}
             </div>

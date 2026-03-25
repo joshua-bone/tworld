@@ -44,7 +44,7 @@ describe("resolveModernBootstrapCatalogOptions", () => {
       ),
     ).toEqual({
       includeImported: true,
-      seriesFiles: [],
+      seriesFiles: ["CCLP1-MS.dac", "CCLP1-Lynx.dac"],
     });
   });
 });
@@ -93,12 +93,12 @@ describe("resolveModernDeferredCatalogBatches", () => {
     ]);
   });
 
-  it("defers all built-in wrappers when bootstrapping an uploaded set", () => {
+  it("keeps the default official bootstrap family live when bootstrapping an uploaded set", () => {
     expect(
       resolveModernDeferredCatalogBatches(
         { seriesFile: "MyPack (Lynx)", levelNumber: 3 },
         ["CCLP1-MS.dac", "CCLP1-Lynx.dac", "CCLP4-Lynx.dac"],
       ),
-    ).toEqual([["CCLP1-MS.dac"], ["CCLP1-Lynx.dac"], ["CCLP4-Lynx.dac"]]);
+    ).toEqual([["CCLP4-Lynx.dac"]]);
   });
 });
