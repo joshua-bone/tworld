@@ -3247,7 +3247,11 @@ export function PlayerApp({
                 >
                   Save Replay
                 </button>
-                <button className="modern-button modern-button--secondary" onClick={restartCurrentLevel} type="button">
+                <button
+                  className={runResult.outcome === "failed" ? "modern-button" : "modern-button modern-button--secondary"}
+                  onClick={restartCurrentLevel}
+                  type="button"
+                >
                   Retry
                 </button>
                 <button
@@ -3371,7 +3375,11 @@ export function PlayerApp({
                 >
                   Save Replay
                 </button>
-                <button className="modern-button modern-button--secondary" onClick={restartCurrentLevel} type="button">
+                <button
+                  className={runResult.outcome === "failed" ? "modern-button" : "modern-button modern-button--secondary"}
+                  onClick={restartCurrentLevel}
+                  type="button"
+                >
                   Retry (R)
                 </button>
                 <button
@@ -4317,6 +4325,9 @@ export function PlayerApp({
       mobileDirectionalInputRef.current.releasePointer(event.pointerId),
     );
   });
+  const preventMobileTouchDefault = useEffectEvent((event: ReactTouchEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+  });
   const renderMobileTouchControls = () => (
     <div
       aria-label="Touch movement controls"
@@ -4330,12 +4341,23 @@ export function PlayerApp({
         aria-label="Move up"
         className="mobile-game-shell__touch-button mobile-game-shell__touch-button--north"
         disabled={mobileMovementControlsDisabled}
+        draggable={false}
+        onContextMenu={(event) => {
+          event.preventDefault();
+        }}
+        onDragStart={(event) => {
+          event.preventDefault();
+        }}
         onLostPointerCapture={handleMobileDirectionPointerEnd}
         onPointerCancel={handleMobileDirectionPointerEnd}
         onPointerDown={(event) => {
           handleMobileDirectionPointerDown("north", event);
         }}
         onPointerUp={handleMobileDirectionPointerEnd}
+        onTouchCancel={preventMobileTouchDefault}
+        onTouchEnd={preventMobileTouchDefault}
+        onTouchMove={preventMobileTouchDefault}
+        onTouchStart={preventMobileTouchDefault}
         type="button"
       >
         <span className="mobile-game-shell__touch-button-arrow">▲</span>
@@ -4344,12 +4366,23 @@ export function PlayerApp({
         aria-label="Move left"
         className="mobile-game-shell__touch-button mobile-game-shell__touch-button--west"
         disabled={mobileMovementControlsDisabled}
+        draggable={false}
+        onContextMenu={(event) => {
+          event.preventDefault();
+        }}
+        onDragStart={(event) => {
+          event.preventDefault();
+        }}
         onLostPointerCapture={handleMobileDirectionPointerEnd}
         onPointerCancel={handleMobileDirectionPointerEnd}
         onPointerDown={(event) => {
           handleMobileDirectionPointerDown("west", event);
         }}
         onPointerUp={handleMobileDirectionPointerEnd}
+        onTouchCancel={preventMobileTouchDefault}
+        onTouchEnd={preventMobileTouchDefault}
+        onTouchMove={preventMobileTouchDefault}
+        onTouchStart={preventMobileTouchDefault}
         type="button"
       >
         <span className="mobile-game-shell__touch-button-arrow">◀</span>
@@ -4358,12 +4391,23 @@ export function PlayerApp({
         aria-label="Move down"
         className="mobile-game-shell__touch-button mobile-game-shell__touch-button--south"
         disabled={mobileMovementControlsDisabled}
+        draggable={false}
+        onContextMenu={(event) => {
+          event.preventDefault();
+        }}
+        onDragStart={(event) => {
+          event.preventDefault();
+        }}
         onLostPointerCapture={handleMobileDirectionPointerEnd}
         onPointerCancel={handleMobileDirectionPointerEnd}
         onPointerDown={(event) => {
           handleMobileDirectionPointerDown("south", event);
         }}
         onPointerUp={handleMobileDirectionPointerEnd}
+        onTouchCancel={preventMobileTouchDefault}
+        onTouchEnd={preventMobileTouchDefault}
+        onTouchMove={preventMobileTouchDefault}
+        onTouchStart={preventMobileTouchDefault}
         type="button"
       >
         <span className="mobile-game-shell__touch-button-arrow">▼</span>
@@ -4372,12 +4416,23 @@ export function PlayerApp({
         aria-label="Move right"
         className="mobile-game-shell__touch-button mobile-game-shell__touch-button--east"
         disabled={mobileMovementControlsDisabled}
+        draggable={false}
+        onContextMenu={(event) => {
+          event.preventDefault();
+        }}
+        onDragStart={(event) => {
+          event.preventDefault();
+        }}
         onLostPointerCapture={handleMobileDirectionPointerEnd}
         onPointerCancel={handleMobileDirectionPointerEnd}
         onPointerDown={(event) => {
           handleMobileDirectionPointerDown("east", event);
         }}
         onPointerUp={handleMobileDirectionPointerEnd}
+        onTouchCancel={preventMobileTouchDefault}
+        onTouchEnd={preventMobileTouchDefault}
+        onTouchMove={preventMobileTouchDefault}
+        onTouchStart={preventMobileTouchDefault}
         type="button"
       >
         <span className="mobile-game-shell__touch-button-arrow">▶</span>
