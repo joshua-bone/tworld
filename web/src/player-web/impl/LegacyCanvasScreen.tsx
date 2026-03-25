@@ -806,10 +806,23 @@ export function visualEnhancementThinWallOverlayTileId(
 
 export function visualEnhancementThinWallActorPassTileId(
   ruleset: SeriesCatalogEntry["ruleset"] | null,
+  actorId: number,
   topId: number,
   bottomId: number,
 ): number | null {
-  return ruleset === "Lynx" ? visualEnhancementThinWallOverlayTileId(ruleset, topId, bottomId) : null;
+  if (ruleset !== "Lynx" || actorId !== MS_TILE.Block) {
+    return null;
+  }
+
+  if (isThinWallTileId(topId)) {
+    return topId;
+  }
+
+  if (isThinWallTileId(bottomId)) {
+    return bottomId;
+  }
+
+  return null;
 }
 
 export function shouldUseLegacyCombinedCellSprite(
@@ -966,7 +979,7 @@ function drawActorVisualEnhancements(
 
     const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
     const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
-    const thinWallActorOverlayTileId = visualEnhancementThinWallActorPassTileId(ruleset, cell.top.id, cell.bottom.id);
+    const thinWallActorOverlayTileId = visualEnhancementThinWallActorPassTileId(ruleset, actor.id, cell.top.id, cell.bottom.id);
     if (thinWallActorOverlayTileId !== null) {
       const overlaySprite = getOrCreateThinWallOverlaySprite(tileset, thinWallActorOverlayTileId);
       if (overlaySprite) {

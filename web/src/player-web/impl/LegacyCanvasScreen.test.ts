@@ -143,10 +143,14 @@ describe("shouldUseLegacyCombinedCellSprite", () => {
 
 describe("visualEnhancementThinWallActorPassTileId", () => {
   it("moves Lynx block thin-wall overlays into the actor pass", () => {
-    expect(visualEnhancementThinWallActorPassTileId("Lynx", MS_TILE.Block_Static, MS_TILE.Wall_South)).toBe(MS_TILE.Wall_South);
+    expect(visualEnhancementThinWallActorPassTileId("Lynx", MS_TILE.Block, MS_TILE.Wall_South, MS_TILE.Empty)).toBe(MS_TILE.Wall_South);
   });
 
   it("keeps MS using the cell compositor path", () => {
-    expect(visualEnhancementThinWallActorPassTileId("MS", MS_TILE.Block_Static, MS_TILE.Wall_South)).toBeNull();
+    expect(visualEnhancementThinWallActorPassTileId("MS", MS_TILE.Block, MS_TILE.Wall_South, MS_TILE.Empty)).toBeNull();
+  });
+
+  it("ignores non-block Lynx actors even on thin walls", () => {
+    expect(visualEnhancementThinWallActorPassTileId("Lynx", MS_TILE.Ball, MS_TILE.Wall_South, MS_TILE.Empty)).toBeNull();
   });
 });
