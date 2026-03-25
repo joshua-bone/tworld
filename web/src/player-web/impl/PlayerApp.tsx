@@ -121,6 +121,9 @@ const LOW_TIME_WARNING_TICKS = 10 * GAME_TICKS_PER_SECOND;
 const SESSION_UI_SYNC_INTERVAL_MS = 125;
 const LEGACY_RANDOM_SEED_MAX = 0x7fffffff;
 const CURRENT_LEVEL_LINK_COPY_FEEDBACK_MS = 2800;
+const MOBILE_PORTRAIT_MARGIN_PX = 132;
+const MOBILE_LANDSCAPE_MARGIN_PX = 216;
+const MOBILE_EDGE_CONTROL_GUTTER_PX = 84;
 const MS_MANUAL_STEP_STEPPING = {
   even: 0,
   odd: 4,
@@ -667,6 +670,7 @@ export function PlayerApp({
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
   const gameplayFocusRef = useRef<HTMLElement | null>(null);
+  const mobileShellRef = useRef<HTMLElement | null>(null);
   const mobileBoardViewportRef = useRef<HTMLDivElement | null>(null);
   const replayMenuRef = useRef<HTMLDivElement | null>(null);
   const advancedMenuRef = useRef<HTMLDivElement | null>(null);
@@ -1159,16 +1163,25 @@ export function PlayerApp({
       return;
     }
 
-    const viewport = mobileBoardViewportRef.current;
-    if (!viewport) {
+    const shell = mobileShellRef.current;
+    if (!shell) {
       return;
     }
 
     let animationFrameId = 0;
     const measure = () => {
       animationFrameId = 0;
-      const bounds = viewport.getBoundingClientRect();
-      const nextSize = Math.max(0, Math.floor(Math.min(bounds.width, bounds.height)));
+      const bounds = shell.getBoundingClientRect();
+      const isLandscape = bounds.width > bounds.height;
+      const availableWidth = Math.max(
+        0,
+        bounds.width - (isLandscape ? MOBILE_LANDSCAPE_MARGIN_PX * 2 : MOBILE_EDGE_CONTROL_GUTTER_PX * 2),
+      );
+      const availableHeight = Math.max(
+        0,
+        bounds.height - (isLandscape ? MOBILE_EDGE_CONTROL_GUTTER_PX * 2 : MOBILE_PORTRAIT_MARGIN_PX * 2),
+      );
+      const nextSize = Math.max(0, Math.floor(Math.min(availableWidth, availableHeight)));
       setMobileBoardSizePx((current) => (current === nextSize ? current : nextSize));
     };
     const scheduleMeasure = () => {
@@ -1184,7 +1197,7 @@ export function PlayerApp({
       resizeObserver = new ResizeObserver(() => {
         scheduleMeasure();
       });
-      resizeObserver.observe(viewport);
+      resizeObserver.observe(shell);
     }
     window.addEventListener("resize", scheduleMeasure);
 
@@ -2287,6 +2300,9 @@ export function PlayerApp({
         currentLevelLinkCopyTimeoutRef.current = null;
         setShowCurrentLevelLinkCopied(false);
       }, CURRENT_LEVEL_LINK_COPY_FEEDBACK_MS);
+      if (!currentLevelLinkCopyButtonRef.current) {
+        setMessage("Copied current level URL.");
+      }
       currentLevelLinkCopyButtonRef.current?.animate?.(
         [
           { transform: "scale(1)" },
@@ -3506,6 +3522,70 @@ export function PlayerApp({
           <div className="modern-about-modal__body mobile-sheet__body">
             <section className="modern-settings-modal__section mobile-sheet__section">
               <div className="mobile-sheet__section-header">
+                <p className="modern-section__eyebrow">Navigation</p>
+                <p className="mobile-sheet__section-copy">Browse sets and levels without cluttering the board.</p>
+              </div>
+              <div className="mobile-sheet__button-grid">
+                <button
+                  className="modern-button modern-button--secondary"
+                  onClick={() => {
+                    setMobileSheet("sets");
+                  }}
+                  type="button"
+                >
+                  Choose Set
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!currentSeries}
+                  onClick={() => {
+                    setMobileSheet("levels");
+                  }}
+                  type="button"
+                >
+                  Choose Level
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!currentLevel || !currentSeries}
+                  onClick={() => {
+                    closeMobileSheet();
+                    changeLevelBy(-1);
+                  }}
+                  type="button"
+                >
+                  Previous
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!currentLevel || !currentSeries}
+                  onClick={() => {
+                    closeMobileSheet();
+                    changeLevelBy(1);
+                  }}
+                  type="button"
+                >
+                  Next
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!canCopyCurrentLevelLink}
+                  onClick={() => {
+                    closeMobileSheet();
+                    void copyCurrentLevelLink();
+                  }}
+                  type="button"
+                >
+                  Copy Link
+                </button>
+                <button className="modern-button modern-button--secondary" onClick={toggleHelp} type="button">
+                  Help
+                </button>
+              </div>
+            </section>
+
+            <section className="modern-settings-modal__section mobile-sheet__section">
+              <div className="mobile-sheet__section-header">
                 <p className="modern-section__eyebrow">Gameplay</p>
                 <p className="mobile-sheet__section-copy">
                   Quick actions that used to live in the desktop header.
@@ -3543,31 +3623,6 @@ export function PlayerApp({
                   type="button"
                 >
                   Undo
-                </button>
-                <button
-                  className="modern-button modern-button--secondary"
-                  disabled={!currentSeries || !currentLevel}
-                  onClick={() => {
-                    closeMobileSheet();
-                    changeLevelBy(-1);
-                  }}
-                  type="button"
-                >
-                  Previous
-                </button>
-                <button
-                  className="modern-button modern-button--secondary"
-                  disabled={!currentSeries || !currentLevel}
-                  onClick={() => {
-                    closeMobileSheet();
-                    changeLevelBy(1);
-                  }}
-                  type="button"
-                >
-                  Next
-                </button>
-                <button className="modern-button modern-button--secondary" onClick={toggleHelp} type="button">
-                  Help
                 </button>
               </div>
             </section>
@@ -3936,69 +3991,65 @@ export function PlayerApp({
   });
   const renderMobileTouchControls = () => (
     <div aria-label="Touch movement controls" className="mobile-game-shell__touch-controls" role="group">
-      <div className="mobile-game-shell__touch-column mobile-game-shell__touch-column--left">
-        <button
-          aria-label="Move up"
-          className="mobile-game-shell__touch-button"
-          disabled={mobileMovementControlsDisabled}
-          onLostPointerCapture={handleMobileDirectionPointerEnd}
-          onPointerCancel={handleMobileDirectionPointerEnd}
-          onPointerDown={(event) => {
-            handleMobileDirectionPointerDown("north", event);
-          }}
-          onPointerUp={handleMobileDirectionPointerEnd}
-          type="button"
-        >
-          <span className="mobile-game-shell__touch-button-arrow">▲</span>
-        </button>
-        <button
-          aria-label="Move down"
-          className="mobile-game-shell__touch-button"
-          disabled={mobileMovementControlsDisabled}
-          onLostPointerCapture={handleMobileDirectionPointerEnd}
-          onPointerCancel={handleMobileDirectionPointerEnd}
-          onPointerDown={(event) => {
-            handleMobileDirectionPointerDown("south", event);
-          }}
-          onPointerUp={handleMobileDirectionPointerEnd}
-          type="button"
-        >
-          <span className="mobile-game-shell__touch-button-arrow">▼</span>
-        </button>
-      </div>
-      <div className="mobile-game-shell__touch-column mobile-game-shell__touch-column--right">
-        <button
-          aria-label="Move left"
-          className="mobile-game-shell__touch-button"
-          disabled={mobileMovementControlsDisabled}
-          onLostPointerCapture={handleMobileDirectionPointerEnd}
-          onPointerCancel={handleMobileDirectionPointerEnd}
-          onPointerDown={(event) => {
-            handleMobileDirectionPointerDown("west", event);
-          }}
-          onPointerUp={handleMobileDirectionPointerEnd}
-          type="button"
-        >
-          <span className="mobile-game-shell__touch-button-arrow">◀</span>
-        </button>
-        <button
-          aria-label="Move right"
-          className="mobile-game-shell__touch-button"
-          disabled={mobileMovementControlsDisabled}
-          onLostPointerCapture={handleMobileDirectionPointerEnd}
-          onPointerCancel={handleMobileDirectionPointerEnd}
-          onPointerDown={(event) => {
-            handleMobileDirectionPointerDown("east", event);
-          }}
-          onPointerUp={handleMobileDirectionPointerEnd}
-          type="button"
-        >
-          <span className="mobile-game-shell__touch-button-arrow">▶</span>
-        </button>
-      </div>
+      <button
+        aria-label="Move up"
+        className="mobile-game-shell__touch-button mobile-game-shell__touch-button--north"
+        disabled={mobileMovementControlsDisabled}
+        onLostPointerCapture={handleMobileDirectionPointerEnd}
+        onPointerCancel={handleMobileDirectionPointerEnd}
+        onPointerDown={(event) => {
+          handleMobileDirectionPointerDown("north", event);
+        }}
+        onPointerUp={handleMobileDirectionPointerEnd}
+        type="button"
+      >
+        <span className="mobile-game-shell__touch-button-arrow">▲</span>
+      </button>
+      <button
+        aria-label="Move left"
+        className="mobile-game-shell__touch-button mobile-game-shell__touch-button--west"
+        disabled={mobileMovementControlsDisabled}
+        onLostPointerCapture={handleMobileDirectionPointerEnd}
+        onPointerCancel={handleMobileDirectionPointerEnd}
+        onPointerDown={(event) => {
+          handleMobileDirectionPointerDown("west", event);
+        }}
+        onPointerUp={handleMobileDirectionPointerEnd}
+        type="button"
+      >
+        <span className="mobile-game-shell__touch-button-arrow">◀</span>
+      </button>
+      <button
+        aria-label="Move down"
+        className="mobile-game-shell__touch-button mobile-game-shell__touch-button--south"
+        disabled={mobileMovementControlsDisabled}
+        onLostPointerCapture={handleMobileDirectionPointerEnd}
+        onPointerCancel={handleMobileDirectionPointerEnd}
+        onPointerDown={(event) => {
+          handleMobileDirectionPointerDown("south", event);
+        }}
+        onPointerUp={handleMobileDirectionPointerEnd}
+        type="button"
+      >
+        <span className="mobile-game-shell__touch-button-arrow">▼</span>
+      </button>
+      <button
+        aria-label="Move right"
+        className="mobile-game-shell__touch-button mobile-game-shell__touch-button--east"
+        disabled={mobileMovementControlsDisabled}
+        onLostPointerCapture={handleMobileDirectionPointerEnd}
+        onPointerCancel={handleMobileDirectionPointerEnd}
+        onPointerDown={(event) => {
+          handleMobileDirectionPointerDown("east", event);
+        }}
+        onPointerUp={handleMobileDirectionPointerEnd}
+        type="button"
+      >
+        <span className="mobile-game-shell__touch-button-arrow">▶</span>
+      </button>
     </div>
   );
-  const renderMobileRuntimeBar = () => (
+  const renderMobileRuntimePanel = () => (
     <section className="mobile-game-shell__runtime" aria-label="Runtime">
       <div className={`mobile-game-shell__stat${session && session.frame.snapshot.chipsNeeded === 0 ? " mobile-game-shell__stat--good" : ""}`}>
         <span className="mobile-game-shell__stat-label">Chips</span>
@@ -4050,33 +4101,51 @@ export function PlayerApp({
       </div>
     </section>
   );
-  const renderMobileActionBar = () => (
-    <section className="mobile-game-shell__actions" aria-label="Gameplay controls">
-      <button className="modern-button modern-button--secondary modern-button--compact" onClick={restartCurrentLevel} type="button">
-        Restart
-      </button>
-      <button
-        className="modern-button modern-button--secondary modern-button--compact"
-        disabled={!canTogglePause}
-        onClick={toggleModernPause}
-        type="button"
-      >
-        {isPaused ? "Resume" : "Pause"}
-      </button>
-      <button
-        className="modern-button modern-button--secondary modern-button--compact"
-        disabled={!canUseModernUndo}
-        onClick={() => {
-          void performModernUndo(false);
-        }}
-        type="button"
-      >
-        Undo
-      </button>
-      <button className="modern-button modern-button--secondary modern-button--compact" onClick={toggleHelp} type="button">
-        Help
-      </button>
-    </section>
+  const renderMobilePrimaryMargin = () => (
+    <aside className="mobile-game-shell__margin mobile-game-shell__margin--primary">
+      <section className="mobile-game-shell__meta" aria-label="Level information">
+        <div className="mobile-game-shell__meta-header">
+          <div className="mobile-game-shell__meta-copy">
+            <h1 className="mobile-game-shell__title">{modernLevelTitle}</h1>
+            <p className="mobile-game-shell__subtitle">
+              {[currentSeries?.name ?? null, modernGameplaySubtitle].filter(Boolean).join("  ·  ")}
+            </p>
+          </div>
+          <button
+            aria-haspopup="dialog"
+            className="mobile-game-shell__menu-button"
+            onClick={() => {
+              toggleMobileSheet("menu");
+            }}
+            type="button"
+          >
+            <span aria-hidden="true">⋯</span>
+            <span className="mobile-game-shell__menu-button-copy">Menu</span>
+          </button>
+        </div>
+      </section>
+      {renderMobileRuntimePanel()}
+      <section className="mobile-game-shell__actions" aria-label="Gameplay controls">
+        <button className="modern-button modern-button--secondary modern-button--compact" onClick={restartCurrentLevel} type="button">
+          Restart
+        </button>
+        <button
+          className="modern-button modern-button--secondary modern-button--compact"
+          disabled={!canUseModernUndo}
+          onClick={() => {
+            void performModernUndo(false);
+          }}
+          type="button"
+        >
+          Undo
+        </button>
+      </section>
+    </aside>
+  );
+  const renderMobileSecondaryMargin = () => (
+    <aside className="mobile-game-shell__margin mobile-game-shell__margin--secondary">
+      {renderMobileInventoryPanel()}
+    </aside>
   );
   const renderModernHeaderToolbar = () => (
     <div className="modern-game-header__toolbar">
@@ -4356,67 +4425,8 @@ export function PlayerApp({
 
   if (chromeMode === "mobile") {
     return (
-      <section className="mobile-game-shell">
-        <header className="mobile-game-shell__header">
-          <div className="mobile-game-shell__nav">
-            <button
-              className="mobile-game-shell__nav-button"
-              onClick={() => {
-                toggleMobileSheet("sets");
-              }}
-              type="button"
-            >
-              <span className="mobile-game-shell__nav-label">Set</span>
-              <strong className="mobile-game-shell__nav-value">{currentSeries?.name ?? "Choose set"}</strong>
-            </button>
-            <div className="mobile-game-shell__nav-actions">
-              <button
-                className="mobile-game-shell__nav-button mobile-game-shell__nav-button--level"
-                onClick={() => {
-                  toggleMobileSheet("levels");
-                }}
-                type="button"
-              >
-                <span className="mobile-game-shell__nav-label">Level</span>
-                <strong className="mobile-game-shell__nav-value">
-                  {currentLevel ? `Level ${currentLevel.number}` : "Choose level"}
-                </strong>
-              </button>
-              <button
-                aria-haspopup="dialog"
-                className="mobile-game-shell__menu-button"
-                onClick={() => {
-                  toggleMobileSheet("menu");
-                }}
-                type="button"
-              >
-                <span aria-hidden="true">⋯</span>
-                <span className="mobile-game-shell__menu-button-copy">Menu</span>
-              </button>
-            </div>
-          </div>
-          <div className="mobile-game-shell__header-copy">
-            <p className="modern-section__eyebrow modern-game-header__state">{modernStatusLabel}</p>
-            <div className="mobile-game-shell__title-row">
-              <h1 className="mobile-game-shell__title">{modernLevelTitle}</h1>
-              {renderCurrentLevelLinkButton()}
-            </div>
-            <p className="mobile-game-shell__subtitle">
-              <span>{modernGameplaySubtitle}</span>
-              {currentLevelReplayEntries.length > 0 ? (
-                <>
-                  <span className="modern-game-header__subtitle-separator">·</span>
-                  <button className="modern-game-header__subtitle-link" onClick={openManageReplays} type="button">
-                    {currentReplayCountLabel}
-                  </button>
-                </>
-              ) : null}
-            </p>
-          </div>
-        </header>
-
-        {renderMobileRuntimeBar()}
-
+      <section className="mobile-game-shell" ref={mobileShellRef}>
+        {renderMobilePrimaryMargin()}
         <section
           className="mobile-game-shell__board"
           ref={gameplayFocusRef}
@@ -4470,18 +4480,7 @@ export function PlayerApp({
             {renderMobileTouchControls()}
           </div>
         </section>
-
-        <footer className="mobile-game-shell__footer">
-          {historyStatusMessage ? (
-            <div className="mobile-game-shell__history" role="status">
-              {historyStatusMessage}
-            </div>
-          ) : null}
-          <div className="mobile-game-shell__footer-row">
-            {renderMobileInventoryPanel()}
-            {renderMobileActionBar()}
-          </div>
-        </footer>
+        {renderMobileSecondaryMargin()}
 
         {modernMessageModal}
         {manageReplaysModal}
