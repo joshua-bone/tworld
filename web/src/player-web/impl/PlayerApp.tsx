@@ -4278,6 +4278,9 @@ export function PlayerApp({
     <div
       aria-label="Touch movement controls"
       className={`mobile-game-shell__touch-controls mobile-game-shell__touch-controls--${mobileControlProfile}`}
+      onContextMenu={(event) => {
+        event.preventDefault();
+      }}
       role="group"
     >
       <button

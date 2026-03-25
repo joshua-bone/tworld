@@ -2149,6 +2149,23 @@ body {
   z-index: 32;
 }
 
+.mobile-game-shell,
+.mobile-game-shell *,
+.mobile-sheet,
+.mobile-sheet * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-game-shell img,
+.mobile-game-shell canvas,
+.mobile-sheet img,
+.mobile-sheet canvas {
+  -webkit-user-drag: none;
+}
+
 .mobile-sheet__dialog {
   width: min(720px, 100%);
   max-height: min(84vh, 820px);
@@ -2552,6 +2569,8 @@ body {
   pointer-events: auto;
   display: grid;
   place-items: center;
+  appearance: none;
+  -webkit-appearance: none;
   padding: 0;
   border: 0;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
@@ -2561,6 +2580,8 @@ body {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .mobile-game-shell__touch-controls--wasd-cluster {
@@ -2726,7 +2747,7 @@ body {
 @media (orientation: landscape) {
   .mobile-game-shell {
     grid-template-areas: "primary board secondary";
-    grid-template-columns: minmax(216px, 1fr) auto minmax(216px, 1fr);
+    grid-template-columns: minmax(168px, 0.72fr) auto minmax(264px, 1.28fr);
     grid-template-rows: minmax(0, 1fr);
   }
 
@@ -2760,6 +2781,15 @@ body {
   .mobile-game-shell--landscape .mobile-game-shell__inventory--vertical .mobile-game-shell__inventory-group {
     flex: 0 0 auto;
   }
+}
+
+.mobile-game-shell--portrait .mobile-game-shell__touch-controls--wasd-cluster {
+  width: min(100%, 420px);
+  gap: 12px;
+}
+
+.mobile-game-shell--portrait .mobile-game-shell__touch-controls--wasd-cluster .mobile-game-shell__touch-button {
+  aspect-ratio: 1.2 / 1;
 }
 
 .modern-embedded-player {
