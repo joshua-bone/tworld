@@ -33,6 +33,10 @@ import {
   type DirectionInput,
 } from "@player-web/impl/legacyInput";
 import { MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
+import {
+  legacyMapPixelsForTileSize,
+  pickLegacyRenderTileSize,
+} from "@player-web/impl/legacyRenderPresets";
 import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
 import { LegacyCanvasScreen, LegacyInventoryStrip, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import {
@@ -819,6 +823,11 @@ export function PlayerApp({
   const isMobileChrome = chromeMode === "mobile";
   const isModernChrome = chromeMode === "modern" || chromeMode === "modern-embedded";
   const usesModernGameUi = isModernChrome || isMobileChrome;
+  const mobileRenderTileSize = mobileBoardSizePx > 0 ? pickLegacyRenderTileSize(mobileBoardSizePx) : 48;
+  const mobileRenderedBoardSizePx = legacyMapPixelsForTileSize(mobileRenderTileSize);
+  const mobileCanvasFrameSizePx = mobileBoardSizePx > 0
+    ? Math.min(mobileBoardSizePx, mobileRenderedBoardSizePx)
+    : mobileRenderedBoardSizePx;
   const historyStatusMessage =
     mode !== "game" || !session || !session.history.enabled || session.history.restoreMode === "live"
       ? null
@@ -4006,6 +4015,7 @@ export function PlayerApp({
           currentRuleset={currentRuleset}
           inventory={session?.frame.snapshot.inventory ?? null}
           kind="keys"
+          renderTileSize={mobileRenderTileSize}
           visualEnhancementsEnabled={visualEnhancementsEnabled}
         />
       </div>
@@ -4016,6 +4026,7 @@ export function PlayerApp({
           currentRuleset={currentRuleset}
           inventory={session?.frame.snapshot.inventory ?? null}
           kind="boots"
+          renderTileSize={mobileRenderTileSize}
           visualEnhancementsEnabled={visualEnhancementsEnabled}
         />
       </div>
@@ -4391,14 +4402,10 @@ export function PlayerApp({
             ) : (
               <div
                 className="mobile-game-shell__canvas-frame"
-                style={
-                  mobileBoardSizePx > 0
-                    ? {
-                        height: `${mobileBoardSizePx}px`,
-                        width: `${mobileBoardSizePx}px`,
-                      }
-                    : undefined
-                }
+                style={{
+                  height: `${mobileCanvasFrameSizePx}px`,
+                  width: `${mobileCanvasFrameSizePx}px`,
+                }}
               >
                 <LegacyCanvasScreen
                   catalog={catalog}
@@ -4413,6 +4420,7 @@ export function PlayerApp({
                   onActivateSeries={activateSeries}
                   onSelectSeries={selectSeries}
                   presentation="map-only"
+                  renderTileSize={mobileRenderTileSize}
                   selectedSeriesFile={selectedSeriesFile}
                   session={session}
                   visualEnhancementsEnabled={visualEnhancementsEnabled}

@@ -2130,7 +2130,7 @@ body {
 
 .mobile-game-shell__inventory-strip {
   display: block;
-  width: 32px;
+  width: auto;
   height: auto;
   background: #000000;
   border: 1px solid #202020;

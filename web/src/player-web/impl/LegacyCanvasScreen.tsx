@@ -1,6 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import lynxTilesUrl from "@res/atiles.bmp?url";
 import msTilesUrl from "@res/tiles.bmp?url";
+import {
+  isDefaultLegacyRenderTileSize,
+  legacyMapPixelsForTileSize,
+  type LegacyRenderTileSize,
+} from "@player-web/impl/legacyRenderPresets";
 import { buildLegacyTileset, type LegacyTileSprite, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import { measurePerfSync } from "@player-web/impl/runtimePerf";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
@@ -48,6 +53,7 @@ interface LegacyCanvasScreenProps {
   onActivateSeries: (seriesFile: string) => void;
   onMapClick?: (position: number) => void;
   onDatDrop?: (files: File[]) => void;
+  renderTileSize?: LegacyRenderTileSize;
   visualEnhancementsEnabled?: boolean;
 }
 
@@ -122,6 +128,15 @@ function createCanvas(width: number, height: number): HTMLCanvasElement {
   canvas.width = width;
   canvas.height = height;
   return canvas;
+}
+
+function ensureCanvasSize(canvas: HTMLCanvasElement, width: number, height: number): void {
+  if (canvas.width !== width) {
+    canvas.width = width;
+  }
+  if (canvas.height !== height) {
+    canvas.height = height;
+  }
 }
 
 function drawLegacySpriteImage(
@@ -1736,6 +1751,7 @@ interface LegacyInventoryStripProps {
   currentRuleset: SeriesCatalogEntry["ruleset"] | null;
   inventory: GameSnapshot["inventory"] | null;
   kind: LegacyInventoryStripKind;
+  renderTileSize?: LegacyRenderTileSize;
   visualEnhancementsEnabled?: boolean;
 }
 
@@ -1744,10 +1760,16 @@ export function LegacyInventoryStrip({
   currentRuleset,
   inventory,
   kind,
+  renderTileSize = LEGACY_TILE_SIZE,
   visualEnhancementsEnabled = true,
 }: LegacyInventoryStripProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const scaledCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
+  const targetTileSize = renderTileSize;
+  const targetWidth = targetTileSize;
+  const targetHeight = LEGACY_INVENTORY_KEY_IDS.length * targetTileSize;
+  const usesDefaultTileSize = isDefaultLegacyRenderTileSize(targetTileSize);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1761,23 +1783,45 @@ export function LegacyInventoryStrip({
     }
 
     context.imageSmoothingEnabled = false;
-    context.fillStyle = COLORS.background;
-    context.fillRect(0, 0, LEGACY_TILE_SIZE, LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE);
+    if (usesDefaultTileSize) {
+      context.fillStyle = COLORS.background;
+      context.fillRect(0, 0, LEGACY_TILE_SIZE, LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE);
 
-    if (!tileset) {
+      if (!tileset) {
+        return;
+      }
+
+      drawInventoryStrip(context, tileset, inventory, kind, visualEnhancementsEnabled);
       return;
     }
 
-    drawInventoryStrip(context, tileset, inventory, kind, visualEnhancementsEnabled);
-  }, [inventory, kind, tileset, visualEnhancementsEnabled]);
+    const scaledCanvas = scaledCanvasRef.current ?? createCanvas(LEGACY_TILE_SIZE, LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE);
+    scaledCanvasRef.current = scaledCanvas;
+    ensureCanvasSize(scaledCanvas, LEGACY_TILE_SIZE, LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE);
+    const scaledContext = scaledCanvas.getContext("2d");
+    if (!scaledContext) {
+      return;
+    }
+
+    scaledContext.imageSmoothingEnabled = false;
+    scaledContext.fillStyle = COLORS.background;
+    scaledContext.fillRect(0, 0, scaledCanvas.width, scaledCanvas.height);
+
+    if (tileset) {
+      drawInventoryStrip(scaledContext, tileset, inventory, kind, visualEnhancementsEnabled);
+    }
+
+    context.clearRect(0, 0, targetWidth, targetHeight);
+    context.drawImage(scaledCanvas, 0, 0, targetWidth, targetHeight);
+  }, [inventory, kind, targetHeight, targetWidth, tileset, usesDefaultTileSize, visualEnhancementsEnabled]);
 
   return (
     <canvas
       aria-label="Inventory"
       className={className}
-      height={LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE}
+      height={targetHeight}
       ref={canvasRef}
-      width={LEGACY_TILE_SIZE}
+      width={targetWidth}
     />
   );
 }
@@ -1799,15 +1843,103 @@ export function LegacyCanvasScreen({
   onActivateSeries,
   onMapClick,
   onDatDrop,
+  renderTileSize = LEGACY_TILE_SIZE,
   visualEnhancementsEnabled = true,
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const scaledMapCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lowerLayerCacheRef = useRef<LegacyLayerCanvasCache>(createLayerCanvasCache());
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
   const [isDatDragActive, setIsDatDragActive] = useState(false);
   const [seriesScrollOffset, setSeriesScrollOffset] = useState(0);
+  const targetMapWidth = legacyMapPixelsForTileSize(renderTileSize);
+  const targetMapHeight = legacyMapPixelsForTileSize(renderTileSize);
+  const usesDefaultMapTileSize = isDefaultLegacyRenderTileSize(renderTileSize);
 
   const selectedSeriesIndex = catalog.findIndex((series) => series.filebase === selectedSeriesFile);
+
+  const drawFrame = useEffectEvent((
+    targetContext: CanvasRenderingContext2D,
+    activeSession: InteractiveGameSession | null,
+  ) => {
+    if (mode === "series-list") {
+      drawSeriesList(targetContext, catalog, selectedSeriesFile, message, seriesScrollOffset);
+      return;
+    }
+
+    if (presentation === "map-only" && !usesDefaultMapTileSize) {
+      const scaledMapCanvas = scaledMapCanvasRef.current ?? createCanvas(LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+      scaledMapCanvasRef.current = scaledMapCanvas;
+      ensureCanvasSize(scaledMapCanvas, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+      const scaledMapContext = scaledMapCanvas.getContext("2d");
+      if (!scaledMapContext) {
+        return;
+      }
+
+      scaledMapContext.imageSmoothingEnabled = false;
+      if (!tileset) {
+        scaledMapContext.fillStyle = COLORS.background;
+        scaledMapContext.fillRect(0, 0, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+        drawText(scaledMapContext, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, COLORS.text);
+      } else {
+        drawGameMapOnly(
+          scaledMapContext,
+          tileset,
+          activeSession,
+          currentLevel,
+          currentSeries,
+          isLoading,
+          currentRuleset,
+          lowerLayerCacheRef.current,
+          visualEnhancementsEnabled,
+        );
+      }
+
+      targetContext.clearRect(0, 0, targetMapWidth, targetMapHeight);
+      targetContext.drawImage(scaledMapCanvas, 0, 0, targetMapWidth, targetMapHeight);
+      return;
+    }
+
+    if (!tileset) {
+      targetContext.fillStyle = COLORS.background;
+      targetContext.fillRect(
+        0,
+        0,
+        presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH,
+        presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT,
+      );
+      drawText(targetContext, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, COLORS.text);
+      return;
+    }
+
+    if (presentation === "map-only") {
+      drawGameMapOnly(
+        targetContext,
+        tileset,
+        activeSession,
+        currentLevel,
+        currentSeries,
+        isLoading,
+        currentRuleset,
+        lowerLayerCacheRef.current,
+        visualEnhancementsEnabled,
+      );
+      return;
+    }
+
+    drawGameScreen(
+      targetContext,
+      tileset,
+      activeSession,
+      currentLevel,
+      currentSeries,
+      message,
+      isLoading,
+      currentRuleset,
+      lowerLayerCacheRef.current,
+      visualEnhancementsEnabled,
+    );
+  });
 
   useEffect(() => {
     if (!onDatDrop) {
@@ -1858,57 +1990,7 @@ export function LegacyCanvasScreen({
     if (mode === "game") {
       return;
     }
-
-    const drawFrame = () => {
-      const activeSession = liveSessionRef?.current ?? session;
-
-      if (mode === "series-list") {
-        drawSeriesList(context, catalog, selectedSeriesFile, message, seriesScrollOffset);
-        return;
-      }
-
-      if (!tileset) {
-        context.fillStyle = COLORS.background;
-        context.fillRect(
-          0,
-          0,
-          presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH,
-          presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT,
-        );
-        drawText(context, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, COLORS.text);
-        return;
-      }
-
-      if (presentation === "map-only") {
-        drawGameMapOnly(
-          context,
-          tileset,
-          activeSession,
-          currentLevel,
-          currentSeries,
-          isLoading,
-          currentRuleset,
-          lowerLayerCacheRef.current,
-          visualEnhancementsEnabled,
-        );
-        return;
-      }
-
-      drawGameScreen(
-        context,
-        tileset,
-        activeSession,
-        currentLevel,
-        currentSeries,
-        message,
-        isLoading,
-        currentRuleset,
-        lowerLayerCacheRef.current,
-        visualEnhancementsEnabled,
-      );
-    };
-
-    drawFrame();
+    drawFrame(context, liveSessionRef?.current ?? session);
   }, [
     catalog,
     currentLevel,
@@ -1919,10 +2001,14 @@ export function LegacyCanvasScreen({
     message,
     mode,
     presentation,
+    renderTileSize,
     selectedSeriesFile,
     seriesScrollOffset,
     session,
+    targetMapHeight,
+    targetMapWidth,
     tileset,
+    usesDefaultMapTileSize,
     visualEnhancementsEnabled,
   ]);
 
@@ -1960,49 +2046,9 @@ export function LegacyCanvasScreen({
       );
 
       if (drawStateKey !== lastDrawStateKey) {
-        const drawFrame = () => {
-          if (!tileset) {
-            context.fillStyle = COLORS.background;
-            context.fillRect(
-              0,
-              0,
-              presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH,
-              presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT,
-            );
-            drawText(context, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, COLORS.text);
-            return;
-          }
-
-          if (presentation === "map-only") {
-            drawGameMapOnly(
-              context,
-              tileset,
-              activeSession,
-              currentLevel,
-              currentSeries,
-              isLoading,
-              currentRuleset,
-              lowerLayerCacheRef.current,
-              visualEnhancementsEnabled,
-            );
-            return;
-          }
-
-          drawGameScreen(
-            context,
-            tileset,
-            activeSession,
-            currentLevel,
-            currentSeries,
-            message,
-            isLoading,
-            currentRuleset,
-            lowerLayerCacheRef.current,
-            visualEnhancementsEnabled,
-          );
-        };
-
-        measurePerfSync("renderMs", drawFrame);
+        measurePerfSync("renderMs", () => {
+          drawFrame(context, activeSession);
+        });
         lastDrawStateKey = drawStateKey;
       }
 
@@ -2014,12 +2060,28 @@ export function LegacyCanvasScreen({
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [currentLevel, currentRuleset, currentSeries, isLoading, liveSessionRef, message, mode, presentation, session, tileset, visualEnhancementsEnabled]);
+  }, [
+    currentLevel,
+    currentRuleset,
+    currentSeries,
+    isLoading,
+    liveSessionRef,
+    message,
+    mode,
+    presentation,
+    renderTileSize,
+    session,
+    targetMapHeight,
+    targetMapWidth,
+    tileset,
+    usesDefaultMapTileSize,
+    visualEnhancementsEnabled,
+  ]);
 
   return (
     <canvas
       className={`${className ?? "legacy-canvas"}${isDatDragActive ? " legacy-canvas--drop-active" : ""}`}
-      height={presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT}
+      height={presentation === "map-only" ? targetMapHeight : LEGACY_WINDOW_HEIGHT}
       onClick={(event) => {
         const canvas = event.currentTarget;
         const bounds = canvas.getBoundingClientRect();
@@ -2033,10 +2095,11 @@ export function LegacyCanvasScreen({
             return;
           }
 
+          const mapScale = presentation === "map-only" ? LEGACY_TILE_SIZE / renderTileSize : 1;
           const position = mapPositionAtCanvasPoint(
             session,
-            presentation === "map-only" ? x + LEGACY_MAP_X : x,
-            presentation === "map-only" ? y + LEGACY_MAP_Y : y,
+            presentation === "map-only" ? x * mapScale + LEGACY_MAP_X : x,
+            presentation === "map-only" ? y * mapScale + LEGACY_MAP_Y : y,
           );
           if (position !== null) {
             onMapClick(position);
@@ -2119,7 +2182,7 @@ export function LegacyCanvasScreen({
         }
       }}
       ref={canvasRef}
-      width={presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH}
+      width={presentation === "map-only" ? targetMapWidth : LEGACY_WINDOW_WIDTH}
     />
   );
 }
