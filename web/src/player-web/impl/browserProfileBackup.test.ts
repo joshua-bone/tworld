@@ -34,6 +34,9 @@ describe("browserProfileBackup", () => {
     expect(parsed.exportedAtMs).toBe(1_700_000_000_000);
     expect(parsed.profile).toEqual(snapshot);
     expect(parsed.localSettings).toMatchObject({
+      mobileControls: {
+        profile: "right-bottom",
+      },
       sound: {
         muted: false,
         volume: 0.7,

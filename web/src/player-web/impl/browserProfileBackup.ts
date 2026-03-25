@@ -19,11 +19,18 @@ import {
   parseStoredVisualEnhancementsSettings,
   saveStoredVisualEnhancementsSettings,
 } from "@player-web/impl/visualEnhancementsSettings";
+import {
+  type BrowserMobileControlsSettings,
+  loadStoredMobileControlsSettings,
+  parseStoredMobileControlsSettings,
+  saveStoredMobileControlsSettings,
+} from "@player-web/impl/mobileControlsSettings";
 
 const PROFILE_BACKUP_KIND = "tworld-browser-profile-backup";
 const PROFILE_BACKUP_FORMAT_VERSION = 1;
 
 export interface BrowserProfileLocalSettingsSnapshot {
+  mobileControls?: BrowserMobileControlsSettings;
   sound?: BrowserSoundSettings;
   undo?: BrowserUndoSettings;
   visualEnhancements?: BrowserVisualEnhancementsSettings;
@@ -44,6 +51,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function exportBrowserLocalSettingsSnapshot(): BrowserProfileLocalSettingsSnapshot {
   return {
+    mobileControls: loadStoredMobileControlsSettings(),
     sound: loadStoredSoundSettings(),
     undo: loadStoredUndoSettings(),
     visualEnhancements: loadStoredVisualEnhancementsSettings(),
@@ -55,6 +63,9 @@ export function applyBrowserLocalSettingsSnapshot(snapshot: BrowserProfileLocalS
     return;
   }
 
+  if (snapshot.mobileControls !== undefined) {
+    saveStoredMobileControlsSettings(parseStoredMobileControlsSettings(snapshot.mobileControls));
+  }
   if (snapshot.sound !== undefined) {
     saveStoredSoundSettings(parseStoredSoundSettings(snapshot.sound));
   }
@@ -105,6 +116,9 @@ export function parseBrowserProfileBackup(raw: string): BrowserProfileBackup {
 
   const localSettings = isRecord(parsed.localSettings)
     ? {
+        mobileControls: parsed.localSettings.mobileControls !== undefined
+          ? parseStoredMobileControlsSettings(parsed.localSettings.mobileControls)
+          : undefined,
         sound: parsed.localSettings.sound !== undefined
           ? parseStoredSoundSettings(parsed.localSettings.sound)
           : undefined,

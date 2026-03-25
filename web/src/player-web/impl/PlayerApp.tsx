@@ -65,6 +65,11 @@ import {
   type MobileLibrarySection,
 } from "@player-web/impl/mobile/mobileCatalog";
 import {
+  loadStoredMobileControlsSettings,
+  saveStoredMobileControlsSettings,
+  type BrowserMobileControlProfile,
+} from "@player-web/impl/mobileControlsSettings";
+import {
   activeGameplayHintOverlay,
   describeGameplayStatus,
   formatGameplayTimeLeft,
@@ -672,6 +677,9 @@ export function PlayerApp({
   const [soundMuted, setSoundMuted] = useState(() => loadStoredSoundSettings().muted);
   const [soundVolume, setSoundVolume] = useState(() => loadStoredSoundSettings().volume);
   const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
+  const [mobileControlProfile, setMobileControlProfile] = useState<BrowserMobileControlProfile>(
+    () => loadStoredMobileControlsSettings().profile,
+  );
   const [manualMsStepParity, setManualMsStepParity] = useState<"even" | "odd">("even");
   const [manualRunStarted, setManualRunStarted] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
@@ -1155,6 +1163,12 @@ export function PlayerApp({
     soundPlayerRef.current?.setMuted(soundMuted);
     soundPlayerRef.current?.setVolume(soundVolume);
   }, [soundMuted, soundVolume]);
+
+  useEffect(() => {
+    saveStoredMobileControlsSettings({
+      profile: mobileControlProfile,
+    });
+  }, [mobileControlProfile]);
 
   useEffect(() => {
     if (mode !== "game") {
@@ -3862,6 +3876,35 @@ export function PlayerApp({
 
             <section className="modern-settings-modal__section mobile-sheet__section">
               <div className="mobile-sheet__section-header">
+                <p className="modern-section__eyebrow">Controls</p>
+                <p className="mobile-sheet__section-copy">
+                  Choose how touch arrows wrap around the viewport.
+                </p>
+              </div>
+              <div className="mobile-sheet__button-grid">
+                <button
+                  className={mobileControlProfile === "right-bottom" ? "modern-button" : "modern-button modern-button--secondary"}
+                  onClick={() => {
+                    setMobileControlProfile("right-bottom");
+                  }}
+                  type="button"
+                >
+                  Right + Bottom
+                </button>
+                <button
+                  className={mobileControlProfile === "screen-edges" ? "modern-button" : "modern-button modern-button--secondary"}
+                  onClick={() => {
+                    setMobileControlProfile("screen-edges");
+                  }}
+                  type="button"
+                >
+                  Screen Edges
+                </button>
+              </div>
+            </section>
+
+            <section className="modern-settings-modal__section mobile-sheet__section">
+              <div className="mobile-sheet__section-header">
                 <p className="modern-section__eyebrow">Replays</p>
                 <p className="mobile-sheet__section-copy">Save, import, or inspect the current level&apos;s replay library.</p>
               </div>
@@ -4223,7 +4266,11 @@ export function PlayerApp({
     );
   });
   const renderMobileTouchControls = () => (
-    <div aria-label="Touch movement controls" className="mobile-game-shell__touch-controls" role="group">
+    <div
+      aria-label="Touch movement controls"
+      className={`mobile-game-shell__touch-controls mobile-game-shell__touch-controls--${mobileControlProfile}`}
+      role="group"
+    >
       <button
         aria-label="Move up"
         className="mobile-game-shell__touch-button mobile-game-shell__touch-button--north"
