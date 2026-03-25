@@ -3,6 +3,7 @@ import {
   inventoryStripPixelDimensions,
   inventoryTileCountLabel,
   isThinWallTileId,
+  shouldUseLegacyCombinedCellSprite,
   visualEnhancementActorMarker,
   visualEnhancementBlockWindowOpacity,
   visualEnhancementThinWallOverlayTileId,
@@ -126,5 +127,15 @@ describe("visualEnhancementThinWallOverlayTileId", () => {
     expect(visualEnhancementThinWallOverlayTileId(null, MS_TILE.Block_Static, MS_TILE.Wall_South)).toBeNull();
     expect(visualEnhancementThinWallOverlayTileId("MS", MS_TILE.Paramecium, MS_TILE.Wall_South)).toBeNull();
     expect(visualEnhancementThinWallOverlayTileId("MS", MS_TILE.Block_Static, MS_TILE.Empty)).toBeNull();
+  });
+});
+
+describe("shouldUseLegacyCombinedCellSprite", () => {
+  it("bypasses the combined cell fast path when a thin-wall overlay needs a separate pass", () => {
+    expect(shouldUseLegacyCombinedCellSprite(MS_TILE.Block_Static, MS_TILE.Wall_South, null, MS_TILE.Wall_South)).toBe(false);
+  });
+
+  it("still allows the combined cell fast path for ordinary composited cells", () => {
+    expect(shouldUseLegacyCombinedCellSprite(MS_TILE.Chip, MS_TILE.Ice, null, null)).toBe(true);
   });
 });

@@ -804,6 +804,22 @@ export function visualEnhancementThinWallOverlayTileId(
   return bottomId;
 }
 
+export function shouldUseLegacyCombinedCellSprite(
+  topId: number,
+  bottomId: number,
+  pickupRevealTileId: number | null,
+  thinWallOverlayTileId: number | null,
+): boolean {
+  return (
+    thinWallOverlayTileId === null &&
+    pickupRevealTileId === null &&
+    topId !== MS_TILE.Air &&
+    bottomId !== MS_TILE.Air &&
+    topId !== MS_TILE.Elevator &&
+    bottomId !== MS_TILE.Elevator
+  );
+}
+
 export function visualEnhancementBlockWindowOpacity(squareDistanceFromCenterPx: number): number {
   const transparentHalfSize = BLOCK_SUPPORT_WINDOW_TRANSPARENT_CENTER_SIZE / 2;
   const solidStartDistance = LEGACY_TILE_SIZE / 2 - BLOCK_SUPPORT_WINDOW_SOLID_BORDER_PX;
@@ -1066,6 +1082,7 @@ function drawCompositedCell(
     visualEnhancementsEnabled &&
     bottomId === MS_TILE.Beartrap &&
     (((bottomState & MS_FLOOR_STATE.TrapOpen) !== 0) || ((bottomState & LYNX_CELL_FLAG.TrapOpen) !== 0));
+  const thinWallOverlayTileId = visualEnhancementThinWallOverlayTileId(ruleset, topId, bottomId);
 
   if (topTrapOpen || bottomTrapOpen) {
     const heldTrapSprite = getOrCreateHeldTrapSprite(tileset);
@@ -1086,11 +1103,7 @@ function drawCompositedCell(
   }
 
   if (
-    pickupRevealTileId === null &&
-    topId !== MS_TILE.Air &&
-    bottomId !== MS_TILE.Air &&
-    topId !== MS_TILE.Elevator &&
-    bottomId !== MS_TILE.Elevator &&
+    shouldUseLegacyCombinedCellSprite(topId, bottomId, pickupRevealTileId, thinWallOverlayTileId) &&
     tileset.getCell
   ) {
     const sprite = tileset.getCell(topId, bottomId, timerval);
@@ -1104,7 +1117,6 @@ function drawCompositedCell(
   const bottom = bottomId || MS_TILE.Empty;
   const topSprite = tileset.get(top);
   const bottomSprite = tileset.get(bottom);
-  const thinWallOverlayTileId = visualEnhancementThinWallOverlayTileId(ruleset, topId, bottomId);
   const topTransparent = top === MS_TILE.Air || top === MS_TILE.Nothing || topSprite?.transparent === true;
   const bottomTransparent =
     bottom === MS_TILE.Air || bottom === MS_TILE.Nothing || bottomSprite?.transparent === true;
