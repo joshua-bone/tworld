@@ -27,10 +27,12 @@ export function mobileLibrarySectionForFamily(family: SetFamily | null): MobileL
   switch (family.section) {
     case "official":
       return "official";
+    case "intro":
+      return "curated";
     case "local":
       return "uploads";
     default:
-      return "curated";
+      return "official";
   }
 }
 
@@ -41,19 +43,13 @@ export function listMobileLibraryFamilies(
   switch (section) {
     case "official":
       return view.officialFamilies;
+    case "curated":
+      return view.introFamilies;
     case "uploads":
       return view.localFamilies;
     default:
-      return [...view.introFamilies, ...view.otherFamilies];
+      return view.officialFamilies;
   }
-}
-
-export function mobileFamilyDisplayTitle(family: SetFamily): string {
-  if ((family.section === "local" || family.section === "other") && family.entries[0]?.name.trim()) {
-    return family.entries[0].name.trim();
-  }
-
-  return family.title;
 }
 
 export function resolveMobileFamilyRuleset(
@@ -135,28 +131,21 @@ export function mobileLevelStatusDescription(progress: BrowserResolvedLevelProgr
 
 export function formatMobileFamilyBrowseMeta(
   family: SetFamily,
-  preferredRuleset: BrowserPreferredRuleset | null,
   progressByKey: ReadonlyMap<string, BrowserLevelProgressSummary>,
 ): string {
-  const activeRuleset = resolveMobileFamilyRuleset(family, preferredRuleset);
-  const activeEntry = activeRuleset ? family.launchEntries[activeRuleset] ?? null : null;
-  const availableRulesets = listSetFamilyRulesets(family);
-  const parts: string[] = [];
+  const parts = (["Lynx", "MS"] as const).flatMap((ruleset) => {
+    const entry = family.launchEntries[ruleset] ?? null;
+    if (!entry) {
+      return [];
+    }
 
-  if (family.sidebarSummary) {
-    parts.push(family.sidebarSummary);
+    const progress = summarizeEntryProgress(entry, progressByKey);
+    return [`${progress.completedLevels}/${entry.levels.length} (${ruleset})`];
+  });
+
+  if (parts.length === 0) {
+    return `Cleared: 0/${family.levelCount}`;
   }
 
-  if (availableRulesets.length > 0) {
-    parts.push(availableRulesets.join(" / "));
-  }
-
-  parts.push(`${activeEntry?.levels.length ?? family.levelCount} levels`);
-
-  if (activeEntry && activeRuleset) {
-    const progress = summarizeEntryProgress(activeEntry, progressByKey);
-    parts.push(`${progress.completedLevels}/${activeEntry.levels.length} cleared (${activeRuleset})`);
-  }
-
-  return parts.join("  ·  ");
+  return `Cleared: ${parts.join(" ")}`;
 }

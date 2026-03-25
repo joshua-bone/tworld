@@ -54,7 +54,6 @@ import {
 import {
   formatMobileFamilyBrowseMeta,
   listMobileLibraryFamilies,
-  mobileFamilyDisplayTitle,
   mobileLibrarySectionForFamily,
   mobileLevelStatusClassName,
   mobileLevelStatusDescription,
@@ -3510,10 +3509,14 @@ export function PlayerApp({
                     type="button"
                   >
                     <div className="mobile-sheet__list-copy">
-                      <strong className="mobile-sheet__list-title">{mobileFamilyDisplayTitle(family)}</strong>
-                      <p className="mobile-sheet__list-meta">
-                        {formatMobileFamilyBrowseMeta(family, currentPreferredRuleset, progressByKey)}
-                      </p>
+                      <strong className="mobile-sheet__list-title">{family.title}</strong>
+                      {family.sidebarSummary ? (
+                        <p className="mobile-sheet__list-meta">
+                          {family.sidebarSummary}
+                          {family.yearLabel ? ` (${family.yearLabel})` : ""}
+                        </p>
+                      ) : null}
+                      <p className="mobile-sheet__list-meta">{formatMobileFamilyBrowseMeta(family, progressByKey)}</p>
                     </div>
                     {family.id === currentFamily?.id ? (
                       <span className="mobile-sheet__list-badge">Current</span>
@@ -3551,7 +3554,7 @@ export function PlayerApp({
             <div>
               <p className="modern-section__eyebrow">Level Selector</p>
               <h2 className="modern-dashboard__panel-title" id="mobile-level-selector-title">
-                {currentFamily ? mobileFamilyDisplayTitle(currentFamily) : currentSeries?.name ?? "Choose a level"}
+                {currentFamily?.title ?? currentSeries?.name ?? "Choose a level"}
               </h2>
             </div>
             <button

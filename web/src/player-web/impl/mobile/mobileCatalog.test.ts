@@ -4,7 +4,6 @@ import {
   MOBILE_LIBRARY_SECTIONS,
   formatMobileFamilyBrowseMeta,
   listMobileLibraryFamilies,
-  mobileFamilyDisplayTitle,
   mobileLibrarySectionForFamily,
   mobileLevelStatusClassName,
   mobileLevelStatusDescription,
@@ -77,33 +76,9 @@ describe("mobileCatalog", () => {
   it("maps curated catalog sections onto mobile library sections", () => {
     expect(mobileLibrarySectionForFamily(createFamily({ section: "official" }))).toBe("official");
     expect(mobileLibrarySectionForFamily(createFamily({ section: "intro" }))).toBe("curated");
-    expect(mobileLibrarySectionForFamily(createFamily({ section: "other" }))).toBe("curated");
+    expect(mobileLibrarySectionForFamily(createFamily({ section: "other" }))).toBe("official");
     expect(mobileLibrarySectionForFamily(createFamily({ section: "local" }))).toBe("uploads");
     expect(mobileLibrarySectionForFamily(null)).toBe("official");
-  });
-
-  it("prefers series names for local and other fallback families", () => {
-    expect(
-      mobileFamilyDisplayTitle(createFamily({
-        entries: [createEntry({ name: "My Upload Set" })],
-        section: "local",
-        title: "my-upload-set.dac",
-      })),
-    ).toBe("My Upload Set");
-    expect(
-      mobileFamilyDisplayTitle(createFamily({
-        entries: [createEntry({ name: "Supplemental Pack" })],
-        section: "other",
-        title: "supplemental-pack.dac",
-      })),
-    ).toBe("Supplemental Pack");
-    expect(
-      mobileFamilyDisplayTitle(createFamily({
-        entries: [createEntry({ name: "CCLP1-Lynx" })],
-        section: "official",
-        title: "CCLP1",
-      })),
-    ).toBe("CCLP1");
   });
 
   it("collects families for each mobile library section", () => {
@@ -119,7 +94,7 @@ describe("mobileCatalog", () => {
     };
 
     expect(listMobileLibraryFamilies(view, "official")).toEqual([official]);
-    expect(listMobileLibraryFamilies(view, "curated")).toEqual([intro, other]);
+    expect(listMobileLibraryFamilies(view, "curated")).toEqual([intro]);
     expect(listMobileLibraryFamilies(view, "uploads")).toEqual([local]);
   });
 
@@ -172,7 +147,7 @@ describe("mobileCatalog", () => {
     expect(mobileLevelStatusClassName(null)).toBe("unplayed");
   });
 
-  it("formats family browse metadata without exposing filebase names", () => {
+  it("formats family browse metadata like the desktop cleared summary", () => {
     const family = createFamily({
       launchEntries: {
         Lynx: createEntry({
@@ -207,8 +182,8 @@ describe("mobileCatalog", () => {
       },
     ]);
 
-    expect(formatMobileFamilyBrowseMeta(family, "Lynx", progressByKey)).toBe(
-      "Easy difficulty  ·  Lynx / MS  ·  1 levels  ·  1/1 cleared (Lynx)",
+    expect(formatMobileFamilyBrowseMeta(family, progressByKey)).toBe(
+      "Cleared: 1/1 (Lynx) 0/1 (MS)",
     );
   });
 });
