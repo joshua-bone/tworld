@@ -81,23 +81,28 @@ describe("inventoryStripPixelDimensions", () => {
 
 describe("visualEnhancementActorMarker", () => {
   it("marks supported mobs on traps and cloners", () => {
-    expect(visualEnhancementActorMarker(MS_TILE.Block, MS_TILE.Empty, MS_TILE.CloneMachine)).toEqual({
+    expect(visualEnhancementActorMarker("MS", MS_TILE.Block, MS_TILE.Empty, MS_TILE.CloneMachine)).toEqual({
       floorId: MS_TILE.CloneMachine,
       showBlockWindow: true,
     });
-    expect(visualEnhancementActorMarker(MS_TILE.Blob, MS_TILE.Beartrap, MS_TILE.Empty)).toEqual({
+    expect(visualEnhancementActorMarker("Lynx", MS_TILE.Blob, MS_TILE.Beartrap, MS_TILE.Empty)).toEqual({
       floorId: MS_TILE.Beartrap,
       showBlockWindow: false,
     });
-    expect(visualEnhancementActorMarker(MS_TILE.Paramecium, MS_TILE.Empty, MS_TILE.Beartrap)).toEqual({
+    expect(visualEnhancementActorMarker("Lynx", MS_TILE.Paramecium, MS_TILE.Empty, MS_TILE.Beartrap)).toEqual({
       floorId: MS_TILE.Beartrap,
       showBlockWindow: false,
     });
   });
 
+  it("skips blob and paramecium markers in MS", () => {
+    expect(visualEnhancementActorMarker("MS", MS_TILE.Blob, MS_TILE.Beartrap, MS_TILE.Empty)).toBeNull();
+    expect(visualEnhancementActorMarker("MS", MS_TILE.Paramecium, MS_TILE.Empty, MS_TILE.Beartrap)).toBeNull();
+  });
+
   it("ignores other actors and non-support floors", () => {
-    expect(visualEnhancementActorMarker(MS_TILE.Glider, MS_TILE.Empty, MS_TILE.CloneMachine)).toBeNull();
-    expect(visualEnhancementActorMarker(MS_TILE.Block, MS_TILE.Empty, MS_TILE.Empty)).toBeNull();
+    expect(visualEnhancementActorMarker("MS", MS_TILE.Glider, MS_TILE.Empty, MS_TILE.CloneMachine)).toBeNull();
+    expect(visualEnhancementActorMarker("MS", MS_TILE.Block, MS_TILE.Empty, MS_TILE.Empty)).toBeNull();
   });
 });
 

@@ -763,6 +763,7 @@ export function isThinWallTileId(tileId: number): boolean {
 }
 
 export function visualEnhancementActorMarker(
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
   actorId: number,
   topId: number,
   bottomId: number,
@@ -779,6 +780,10 @@ export function visualEnhancementActorMarker(
 
   const floorId = visualEnhancementSupportFloorId(topId, bottomId);
   if (floorId === null) {
+    return null;
+  }
+
+  if (ruleset === "MS" && (actorId === MS_TILE.Blob || actorId === MS_TILE.Paramecium)) {
     return null;
   }
 
@@ -987,7 +992,7 @@ function drawActorVisualEnhancements(
       }
     }
 
-    const marker = visualEnhancementActorMarker(actor.id, cell.top.id, cell.bottom.id);
+    const marker = visualEnhancementActorMarker(ruleset, actor.id, cell.top.id, cell.bottom.id);
     if (!marker) {
       continue;
     }
