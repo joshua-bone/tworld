@@ -189,6 +189,7 @@ interface MsRuntimeState {
     pos: number;
     kind: InteractiveGameTileOverlayKind;
     ttl: number;
+    tileId?: number;
   }>;
 }
 
@@ -234,6 +235,7 @@ const CMD_ABS_MOUSE_MOVE_LAST = CMD_ABS_MOUSE_MOVE_FIRST + MS_GRID_WIDTH * MS_GR
 const MS_AIR_MOVEMENT_DIR = MS_DIRECTION.north;
 const MS_ELEVATOR_MOVEMENT_DIR = MS_DIRECTION.south;
 const HIDDEN_WALL_REVEAL_TTL = MS_TICKS_PER_SECOND / 2;
+const PUSH_BLOCK_PICKUP_REVEAL_TTL = 3;
 
 let msQueueTraceHook: ((event: MsQueueTraceEvent) => void) | null = null;
 
@@ -599,14 +601,16 @@ function addMsTileOverlay(
   pos: number,
   kind: InteractiveGameTileOverlayKind,
   ttl = 2,
+  tileId?: number,
 ): void {
   const runtime = msRuntimeState(engine);
   const existing = runtime.tileOverlays.find((overlay) => overlay.z === z && overlay.pos === pos && overlay.kind === kind);
   if (existing) {
     existing.ttl = ttl;
+    existing.tileId = tileId;
     return;
   }
-  runtime.tileOverlays.push({ z, pos, kind, ttl });
+  runtime.tileOverlays.push({ z, pos, kind, ttl, tileId });
 }
 
 function findPressedMsPermanentHiddenWallPos(cells: EngineMapCell[], chipPos: number, dir: number): number | null {
@@ -616,6 +620,28 @@ function findPressedMsPermanentHiddenWallPos(cells: EngineMapCell[], chipPos: nu
   }
 
   return floorAt(cells, targetStep.pos) === MS_TILE.HiddenWall_Perm ? targetStep.pos : null;
+}
+
+function isMsPushPickupRevealTile(id: number): boolean {
+  return (
+    id === MS_TILE.ICChip ||
+    (id >= MS_TILE.Key_Red && id <= MS_TILE.Key_Green) ||
+    (id >= MS_TILE.Boots_Ice && id <= MS_TILE.Boots_Water)
+  );
+}
+
+function findPushedMsBlockPickupRevealTileId(cells: EngineMapCell[], chipPos: number, dir: number): number | null {
+  const targetStep = advanceToCell(cells, chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return null;
+  }
+
+  const targetCell = cells[targetStep.pos];
+  if (!targetCell || targetCell.top.id !== MS_TILE.Block_Static) {
+    return null;
+  }
+
+  return isMsPushPickupRevealTile(targetCell.bottom.id) ? targetCell.bottom.id : null;
 }
 
 function runtimeMapLayers(map: EngineState["map"]): MsRuntimeLayer[] {
@@ -4165,8 +4191,16 @@ function runFloorMovement(
     internal.chipHasMoved = false;
     return soundEffects;
   }
+  const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, internal.floorMovementDir);
   if (canMoveChip(cells, internal, inventory, internal.floorMovementDir)) {
-    soundEffects |= moveChipOnce(cells, internal, inventory, internal.floorMovementDir);
+    soundEffects |= moveChipWithPushPickupReveal(
+      engine,
+      cells,
+      internal,
+      inventory,
+      internal.floorMovementDir,
+      pushedBlockPickupRevealTileId,
+    );
     internal.chipHasMoved = false;
     return soundEffects;
   }
@@ -4307,6 +4341,31 @@ function chooseManualMovement(
   };
 }
 
+function moveChipWithPushPickupReveal(
+  engine: EngineState,
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  dir: number,
+  pushedBlockPickupRevealTileId: number | null,
+): number {
+  const soundEffects = moveChipOnce(cells, internal, inventory, dir);
+  if (
+    pushedBlockPickupRevealTileId !== null &&
+    (soundEffects & ((1 << MS_SOUND.IcCollected) | (1 << MS_SOUND.ItemCollected))) !== 0
+  ) {
+    addMsTileOverlay(
+      engine,
+      internal.chipZ ?? 1,
+      internal.chipPos,
+      "push-pickup-reveal",
+      PUSH_BLOCK_PICKUP_REVEAL_TTL,
+      pushedBlockPickupRevealTileId,
+    );
+  }
+  return soundEffects;
+}
+
 function runManualMovement(
   engine: EngineState,
   cells: EngineMapCell[],
@@ -4320,6 +4379,7 @@ function runManualMovement(
 
   internal.chipWait = 0;
   const pressedPermanentHiddenWallPos = findPressedMsPermanentHiddenWallPos(cells, internal.chipPos, dir);
+  const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, dir);
   if (!canMoveChip(cells, internal, inventory, dir)) {
     if (pressedPermanentHiddenWallPos !== null) {
       addMsTileOverlay(engine, internal.chipZ ?? 1, pressedPermanentHiddenWallPos, "hidden-wall-reveal", HIDDEN_WALL_REVEAL_TTL);
@@ -4332,7 +4392,14 @@ function runManualMovement(
     return 1 << MS_SOUND.CantMove;
   }
 
-  const soundEffects = moveChipOnce(cells, internal, inventory, dir);
+  const soundEffects = moveChipWithPushPickupReveal(
+    engine,
+    cells,
+    internal,
+    inventory,
+    dir,
+    pushedBlockPickupRevealTileId,
+  );
   internal.chipHasMoved = internal.chipStatus === "okay";
   return soundEffects;
 }

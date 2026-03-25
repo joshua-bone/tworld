@@ -38,12 +38,17 @@ export interface InteractiveGameVisibleLayer {
   cells: EngineMapCell[];
 }
 
-export type InteractiveGameTileOverlayKind = "support" | "elevator-failure" | "hidden-wall-reveal";
+export type InteractiveGameTileOverlayKind =
+  | "support"
+  | "elevator-failure"
+  | "hidden-wall-reveal"
+  | "push-pickup-reveal";
 
 export interface InteractiveGameTileOverlay {
   z: number;
   pos: number;
   kind: InteractiveGameTileOverlayKind;
+  tileId?: number;
 }
 
 export interface InteractiveGameRenderFrame {

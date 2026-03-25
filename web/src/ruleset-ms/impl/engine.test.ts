@@ -3240,6 +3240,90 @@ describe("MS engine regressions", () => {
     ).toBe(false);
   });
 
+  it("shows pushed-under pickups beneath Chip for two extra ticks in MS mode", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const blockPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[blockPos]!.top.id = MS_TILE.Block_Static;
+    cells[blockPos]!.bottom.id = MS_TILE.Key_Yellow;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    const runtime = session.state.engine as typeof session.state.engine & {
+      msRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: string;
+          ttl: number;
+          tileId?: number;
+        }>;
+      };
+    };
+
+    expect(session.state.internal.chipPos).toBe(blockPos);
+    expect(session.state.engine.inventory.keys[2]).toBe(1);
+    expect(runtime.msRuntimeState?.tileOverlays).toContainEqual({
+      z: 1,
+      pos: blockPos,
+      kind: "push-pickup-reveal",
+      ttl: 3,
+      tileId: MS_TILE.Key_Yellow,
+    });
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const lingerRuntime = session.state.engine as typeof session.state.engine & {
+      msRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: string;
+          ttl: number;
+          tileId?: number;
+        }>;
+      };
+    };
+
+    expect(lingerRuntime.msRuntimeState?.tileOverlays).toContainEqual({
+      z: 1,
+      pos: blockPos,
+      kind: "push-pickup-reveal",
+      ttl: 1,
+      tileId: MS_TILE.Key_Yellow,
+    });
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const settledRuntime = session.state.engine as typeof session.state.engine & {
+      msRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: string;
+          ttl: number;
+          tileId?: number;
+        }>;
+      };
+    };
+
+    expect(
+      settledRuntime.msRuntimeState?.tileOverlays?.some(
+        (overlay) => overlay.kind === "push-pickup-reveal" && overlay.pos === blockPos && overlay.z === 1,
+      ) ?? false,
+    ).toBe(false);
+  });
+
   it("allows a perpendicular manual move after a blocked slide push on the same even tick", () => {
     const cells = createEmptyCells();
     const chipPos = pos(3, 4);

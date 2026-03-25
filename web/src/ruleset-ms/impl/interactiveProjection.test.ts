@@ -143,6 +143,49 @@ describe("projectMsInteractiveFrame", () => {
     });
   });
 
+  it("projects push-pickup reveal overlays with tile ids from runtime state", () => {
+    const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.Empty)];
+    const engine = createEngineState(cells) as EngineState & {
+      msRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: "push-pickup-reveal";
+          ttl: number;
+          tileId: number;
+        }>;
+      };
+    };
+    engine.msRuntimeState = {
+      tileOverlays: [{ z: 1, pos: 1, kind: "push-pickup-reveal", ttl: 3, tileId: MS_TILE.Key_Yellow }],
+    };
+    const session = {
+      state: {
+        engine,
+        internal: {
+          chipZ: 1,
+          traps: [],
+        },
+      },
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+    } as unknown as MsInteractiveSessionState;
+
+    const frame = projectMsInteractiveFrame(session, "tick");
+
+    expect(frame.tileOverlays).toContainEqual({
+      z: 1,
+      pos: 1,
+      kind: "push-pickup-reveal",
+      tileId: MS_TILE.Key_Yellow,
+    });
+  });
+
   it("projects tracked creature and block directions into render actors", () => {
     const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.Empty)];
     const session = {

@@ -328,10 +328,39 @@ function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverla
     if (overlay.z !== targetZ) {
       continue;
     }
+    const kindCode =
+      overlay.kind === "support"
+        ? 1
+        : overlay.kind === "elevator-failure"
+          ? 2
+          : overlay.kind === "hidden-wall-reveal"
+            ? 3
+            : 4;
     hash = hashLayerValue(hash, overlay.pos);
-    hash = hashLayerValue(hash, overlay.kind === "support" ? 1 : 2);
+    hash = hashLayerValue(hash, kindCode);
+    hash = hashLayerValue(hash, overlay.tileId ?? 0);
   }
   return hash >>> 0;
+}
+
+function buildPickupRevealOverlayTileIds(
+  overlays: ReadonlyArray<InteractiveGameTileOverlay>,
+  targetZ: number,
+  visualEnhancementsEnabled: boolean,
+): Map<number, number> {
+  const pickupRevealTileIds = new Map<number, number>();
+  if (!visualEnhancementsEnabled) {
+    return pickupRevealTileIds;
+  }
+
+  for (const overlay of overlays) {
+    if (overlay.z !== targetZ || overlay.kind !== "push-pickup-reveal" || typeof overlay.tileId !== "number") {
+      continue;
+    }
+    pickupRevealTileIds.set(overlay.pos, overlay.tileId);
+  }
+
+  return pickupRevealTileIds;
 }
 
 function buildRenderLayerHash(session: InteractiveGameSession, targetZ: number): number {
@@ -922,6 +951,7 @@ function drawCompositedCell(
   x: number,
   y: number,
   visualEnhancementsEnabled: boolean,
+  pickupRevealTileId: number | null,
 ): void {
   const topTrapOpen =
     visualEnhancementsEnabled &&
@@ -951,6 +981,7 @@ function drawCompositedCell(
   }
 
   if (
+    pickupRevealTileId === null &&
     topId !== MS_TILE.Air &&
     bottomId !== MS_TILE.Air &&
     topId !== MS_TILE.Elevator &&
@@ -982,15 +1013,21 @@ function drawCompositedCell(
 
   if (!topSprite) {
     drawSprite(context, tileset, bottom, x, y);
+    if (pickupRevealTileId !== null) {
+      drawSprite(context, tileset, pickupRevealTileId, x, y);
+    }
     return;
   }
 
-  if (!topTransparent) {
+  if (!topTransparent && pickupRevealTileId === null) {
     drawSprite(context, tileset, top, x, y);
     return;
   }
 
   if (bottom === MS_TILE.Nothing || bottom === MS_TILE.Air) {
+    if (pickupRevealTileId !== null) {
+      drawSprite(context, tileset, pickupRevealTileId, x, y);
+    }
     drawSprite(context, tileset, top, x, y);
     return;
   }
@@ -1004,6 +1041,9 @@ function drawCompositedCell(
     drawSprite(context, tileset, bottom, x, y);
   }
 
+  if (pickupRevealTileId !== null) {
+    drawSprite(context, tileset, pickupRevealTileId, x, y);
+  }
   drawSprite(context, tileset, top, x, y);
 }
 
@@ -1033,6 +1073,9 @@ function drawLayerOverlays(
       if (visualEnhancementsEnabled) {
         drawSprite(context, tileset, MS_TILE.Wall, x, y);
       }
+      continue;
+    }
+    if (overlay.kind === "push-pickup-reveal") {
       continue;
     }
 
@@ -1088,6 +1131,11 @@ function renderMapLayerCanvas(
   const padding = ((tileWindowSize - LEGACY_MAP_TILES) * LEGACY_TILE_SIZE) / 2;
   const xOrigin = padding - (viewX * LEGACY_TILE_SIZE) / 4;
   const yOrigin = padding - (viewY * LEGACY_TILE_SIZE) / 4;
+  const pickupRevealTileIds = buildPickupRevealOverlayTileIds(
+    session.frame.tileOverlays,
+    layer.z,
+    visualEnhancementsEnabled,
+  );
 
   for (const cell of layer.cells) {
     const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
@@ -1110,6 +1158,7 @@ function renderMapLayerCanvas(
       x,
       y,
       visualEnhancementsEnabled,
+      pickupRevealTileIds.get(cell.position.pos) ?? null,
     );
   }
 
@@ -1159,6 +1208,11 @@ function renderCachedLowerLayerCanvas(
   context.imageSmoothingEnabled = false;
   const xOrigin = LAYER_CANVAS_PADDING_PX;
   const yOrigin = LAYER_CANVAS_PADDING_PX;
+  const pickupRevealTileIds = buildPickupRevealOverlayTileIds(
+    session.frame.tileOverlays,
+    layer.z,
+    visualEnhancementsEnabled,
+  );
 
   for (const cell of layer.cells) {
     const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
@@ -1174,6 +1228,7 @@ function renderCachedLowerLayerCanvas(
       x,
       y,
       visualEnhancementsEnabled,
+      pickupRevealTileIds.get(cell.position.pos) ?? null,
     );
   }
 
