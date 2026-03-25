@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  inventoryStripPixelDimensions,
   inventoryTileCountLabel,
   isThinWallTileId,
   visualEnhancementActorMarker,
@@ -66,6 +67,13 @@ describe("inventoryTileCountLabel", () => {
     expect(inventoryTileCountLabel(MS_TILE.Key_Red, 1)).toBeNull();
     expect(inventoryTileCountLabel(MS_TILE.Key_Green, 2)).toBeNull();
     expect(inventoryTileCountLabel(MS_TILE.Boots_Water, 2)).toBeNull();
+  });
+});
+
+describe("inventoryStripPixelDimensions", () => {
+  it("supports both vertical and horizontal strip layouts", () => {
+    expect(inventoryStripPixelDimensions(48, "vertical")).toEqual({ height: 192, width: 48 });
+    expect(inventoryStripPixelDimensions(48, "horizontal")).toEqual({ height: 48, width: 192 });
   });
 });
 

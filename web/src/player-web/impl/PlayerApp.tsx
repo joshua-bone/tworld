@@ -654,6 +654,9 @@ export function PlayerApp({
   const [manualRunStarted, setManualRunStarted] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
   const [heldUndoMode, setHeldUndoMode] = useState<"coarse" | "fine" | "checkpoint" | null>(null);
+  const [isMobileLandscape, setIsMobileLandscape] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth > window.innerHeight : false,
+  );
   const [mobileBoardSizePx, setMobileBoardSizePx] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
   const [replayLaunchRequest, setReplayLaunchRequest] = useState<{
@@ -1175,6 +1178,7 @@ export function PlayerApp({
       animationFrameId = 0;
       const bounds = shell.getBoundingClientRect();
       const isLandscape = bounds.width > bounds.height;
+      setIsMobileLandscape((current) => (current === isLandscape ? current : isLandscape));
       const availableWidth = Math.max(
         0,
         bounds.width - (isLandscape ? MOBILE_LANDSCAPE_MARGIN_PX * 2 : 0),
@@ -4113,12 +4117,18 @@ export function PlayerApp({
     </section>
   );
   const renderMobileInventoryPanel = () => (
-    <section className="mobile-game-shell__inventory" aria-label="Inventory">
+    <section
+      className={`mobile-game-shell__inventory${
+        isMobileLandscape ? " mobile-game-shell__inventory--vertical" : " mobile-game-shell__inventory--horizontal"
+      }`}
+      aria-label="Inventory"
+    >
       <div className="mobile-game-shell__inventory-group">
         <p className="mobile-game-shell__inventory-label">Keys</p>
         <LegacyInventoryStrip
           className="mobile-game-shell__inventory-strip"
           currentRuleset={currentRuleset}
+          direction={isMobileLandscape ? "vertical" : "horizontal"}
           inventory={session?.frame.snapshot.inventory ?? null}
           kind="keys"
           renderTileSize={mobileRenderTileSize}
@@ -4130,6 +4140,7 @@ export function PlayerApp({
         <LegacyInventoryStrip
           className="mobile-game-shell__inventory-strip"
           currentRuleset={currentRuleset}
+          direction={isMobileLandscape ? "vertical" : "horizontal"}
           inventory={session?.frame.snapshot.inventory ?? null}
           kind="boots"
           renderTileSize={mobileRenderTileSize}
@@ -4137,6 +4148,26 @@ export function PlayerApp({
         />
       </div>
     </section>
+  );
+  const renderMobileHud = () => (
+    <div className="mobile-game-shell__hud">
+      <section className="mobile-game-shell__actions" aria-label="Gameplay controls">
+        <button className="modern-button modern-button--secondary modern-button--compact" onClick={restartCurrentLevel} type="button">
+          Restart
+        </button>
+        <button
+          className="modern-button modern-button--secondary modern-button--compact"
+          disabled={!canUseModernUndo}
+          onClick={() => {
+            void performModernUndo(false);
+          }}
+          type="button"
+        >
+          Undo
+        </button>
+      </section>
+      {renderMobileRuntimePanel()}
+    </div>
   );
   const renderMobilePrimaryMargin = () => (
     <aside className="mobile-game-shell__margin mobile-game-shell__margin--primary">
@@ -4161,22 +4192,7 @@ export function PlayerApp({
           </button>
         </div>
       </section>
-      {renderMobileRuntimePanel()}
-      <section className="mobile-game-shell__actions" aria-label="Gameplay controls">
-        <button className="modern-button modern-button--secondary modern-button--compact" onClick={restartCurrentLevel} type="button">
-          Restart
-        </button>
-        <button
-          className="modern-button modern-button--secondary modern-button--compact"
-          disabled={!canUseModernUndo}
-          onClick={() => {
-            void performModernUndo(false);
-          }}
-          type="button"
-        >
-          Undo
-        </button>
-      </section>
+      {renderMobileHud()}
     </aside>
   );
   const renderMobileSecondaryMargin = () => (
@@ -4462,7 +4478,10 @@ export function PlayerApp({
 
   if (chromeMode === "mobile") {
     return (
-      <section className="mobile-game-shell" ref={mobileShellRef}>
+      <section
+        className={`mobile-game-shell${isMobileLandscape ? " mobile-game-shell--landscape" : " mobile-game-shell--portrait"}`}
+        ref={mobileShellRef}
+      >
         {renderMobilePrimaryMargin()}
         <section
           className="mobile-game-shell__board"

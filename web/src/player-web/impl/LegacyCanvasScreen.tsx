@@ -1537,6 +1537,7 @@ function drawInventoryTile(
 const LEGACY_INVENTORY_KEY_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
 const LEGACY_INVENTORY_BOOT_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
 type LegacyInventoryStripKind = "keys" | "boots";
+type LegacyInventoryStripDirection = "horizontal" | "vertical";
 
 export function inventoryTileCountLabel(tileId: number, count: number): string | null {
   if (count <= 1) {
@@ -1553,16 +1554,29 @@ export function inventoryTileCountLabel(tileId: number, count: number): string |
   }
 }
 
+export function inventoryStripPixelDimensions(tileSize: number, direction: LegacyInventoryStripDirection): {
+  height: number;
+  width: number;
+} {
+  const tileCount = LEGACY_INVENTORY_KEY_IDS.length;
+  return direction === "horizontal"
+    ? { height: tileSize, width: tileCount * tileSize }
+    : { height: tileCount * tileSize, width: tileSize };
+}
+
 function drawInventoryStrip(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
   inventory: GameSnapshot["inventory"] | null,
   kind: LegacyInventoryStripKind,
+  direction: LegacyInventoryStripDirection,
   visualEnhancementsEnabled: boolean,
 ): void {
   const tileIds = kind === "keys" ? LEGACY_INVENTORY_KEY_IDS : LEGACY_INVENTORY_BOOT_IDS;
+  const stripWidth = direction === "horizontal" ? tileIds.length * LEGACY_TILE_SIZE : LEGACY_TILE_SIZE;
+  const stripHeight = direction === "horizontal" ? LEGACY_TILE_SIZE : tileIds.length * LEGACY_TILE_SIZE;
   context.fillStyle = COLORS.background;
-  context.fillRect(0, 0, LEGACY_TILE_SIZE, tileIds.length * LEGACY_TILE_SIZE);
+  context.fillRect(0, 0, stripWidth, stripHeight);
 
   tileIds.forEach((tileId, index) => {
     const count = kind === "keys" ? inventory?.keys[index] ?? 0 : inventory?.boots[index] ?? 0;
@@ -1571,8 +1585,8 @@ function drawInventoryStrip(
       tileset,
       count > 0 ? tileId : MS_TILE.Empty,
       kind === "keys" && visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
-      0,
-      index * LEGACY_TILE_SIZE,
+      direction === "horizontal" ? index * LEGACY_TILE_SIZE : 0,
+      direction === "horizontal" ? 0 : index * LEGACY_TILE_SIZE,
     );
   });
 }
@@ -1850,6 +1864,7 @@ function useLegacyTileset(ruleset: "MS" | "Lynx" | null): LegacyTileset | null {
 interface LegacyInventoryStripProps {
   className?: string;
   currentRuleset: SeriesCatalogEntry["ruleset"] | null;
+  direction?: LegacyInventoryStripDirection;
   inventory: GameSnapshot["inventory"] | null;
   kind: LegacyInventoryStripKind;
   renderTileSize?: LegacyRenderTileSize;
@@ -1859,6 +1874,7 @@ interface LegacyInventoryStripProps {
 export function LegacyInventoryStrip({
   className,
   currentRuleset,
+  direction = "vertical",
   inventory,
   kind,
   renderTileSize = LEGACY_TILE_SIZE,
@@ -1868,8 +1884,8 @@ export function LegacyInventoryStrip({
   const scaledCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
   const targetTileSize = renderTileSize;
-  const targetWidth = targetTileSize;
-  const targetHeight = LEGACY_INVENTORY_KEY_IDS.length * targetTileSize;
+  const { height: sourceHeight, width: sourceWidth } = inventoryStripPixelDimensions(LEGACY_TILE_SIZE, direction);
+  const { height: targetHeight, width: targetWidth } = inventoryStripPixelDimensions(targetTileSize, direction);
   const usesDefaultTileSize = isDefaultLegacyRenderTileSize(targetTileSize);
 
   useEffect(() => {
@@ -1886,19 +1902,19 @@ export function LegacyInventoryStrip({
     context.imageSmoothingEnabled = false;
     if (usesDefaultTileSize) {
       context.fillStyle = COLORS.background;
-      context.fillRect(0, 0, LEGACY_TILE_SIZE, LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE);
+      context.fillRect(0, 0, sourceWidth, sourceHeight);
 
       if (!tileset) {
         return;
       }
 
-      drawInventoryStrip(context, tileset, inventory, kind, visualEnhancementsEnabled);
+      drawInventoryStrip(context, tileset, inventory, kind, direction, visualEnhancementsEnabled);
       return;
     }
 
-    const scaledCanvas = scaledCanvasRef.current ?? createCanvas(LEGACY_TILE_SIZE, LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE);
+    const scaledCanvas = scaledCanvasRef.current ?? createCanvas(sourceWidth, sourceHeight);
     scaledCanvasRef.current = scaledCanvas;
-    ensureCanvasSize(scaledCanvas, LEGACY_TILE_SIZE, LEGACY_INVENTORY_KEY_IDS.length * LEGACY_TILE_SIZE);
+    ensureCanvasSize(scaledCanvas, sourceWidth, sourceHeight);
     const scaledContext = scaledCanvas.getContext("2d");
     if (!scaledContext) {
       return;
@@ -1909,12 +1925,12 @@ export function LegacyInventoryStrip({
     scaledContext.fillRect(0, 0, scaledCanvas.width, scaledCanvas.height);
 
     if (tileset) {
-      drawInventoryStrip(scaledContext, tileset, inventory, kind, visualEnhancementsEnabled);
+      drawInventoryStrip(scaledContext, tileset, inventory, kind, direction, visualEnhancementsEnabled);
     }
 
     context.clearRect(0, 0, targetWidth, targetHeight);
     context.drawImage(scaledCanvas, 0, 0, targetWidth, targetHeight);
-  }, [inventory, kind, targetHeight, targetWidth, tileset, usesDefaultTileSize, visualEnhancementsEnabled]);
+  }, [direction, inventory, kind, sourceHeight, sourceWidth, targetHeight, targetWidth, tileset, usesDefaultTileSize, visualEnhancementsEnabled]);
 
   return (
     <canvas

@@ -2266,7 +2266,7 @@ body {
     "board"
     "secondary";
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(132px, 1fr) auto minmax(132px, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 12px;
   padding:
     max(12px, env(safe-area-inset-top))
@@ -2281,19 +2281,19 @@ body {
   min-height: 0;
   display: grid;
   gap: 10px;
-  align-content: center;
+  align-content: stretch;
   overflow: auto;
   z-index: 1;
 }
 
 .mobile-game-shell__margin--primary {
   grid-area: primary;
-  padding-top: 84px;
+  grid-template-rows: auto 1fr;
 }
 
 .mobile-game-shell__margin--secondary {
   grid-area: secondary;
-  padding-bottom: 84px;
+  align-content: start;
 }
 
 .mobile-game-shell__meta,
@@ -2309,7 +2309,7 @@ body {
 .mobile-game-shell__meta {
   display: grid;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 8px 12px;
 }
 
 .mobile-game-shell__meta-header {
@@ -2353,7 +2353,7 @@ body {
 .mobile-game-shell__title {
   margin: 0;
   min-width: 0;
-  font-size: clamp(1.15rem, 4.2vw, 1.7rem);
+  font-size: clamp(1rem, 3.8vw, 1.35rem);
   line-height: 1.05;
   letter-spacing: -0.03em;
 }
@@ -2361,22 +2361,28 @@ body {
 .mobile-game-shell__subtitle {
   margin: 0;
   color: #cdc6b8;
-  font-size: 0.86rem;
+  font-size: 0.78rem;
   line-height: 1.35;
+}
+
+.mobile-game-shell__hud {
+  display: grid;
+  gap: 8px;
+  align-self: end;
 }
 
 .mobile-game-shell__runtime {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  padding: 8px;
+  gap: 6px;
+  padding: 6px;
 }
 
 .mobile-game-shell__stat {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   justify-items: center;
-  padding: 8px 6px;
+  padding: 6px 4px;
   border: 1px solid rgba(243, 236, 221, 0.12);
   background: rgba(255, 255, 255, 0.03);
   text-align: center;
@@ -2395,13 +2401,13 @@ body {
   margin: 0;
   color: #ffcb5f;
   font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
-  font-size: 0.68rem;
+  font-size: 0.6rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .mobile-game-shell__stat-value {
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -2410,14 +2416,12 @@ body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  padding: 8px;
+  padding: 6px;
 }
 
 .mobile-game-shell__inventory {
   display: flex;
   gap: 10px;
-  justify-content: center;
-  align-items: flex-start;
   padding: 10px;
 }
 
@@ -2425,6 +2429,27 @@ body {
   display: grid;
   gap: 6px;
   justify-items: center;
+}
+
+.mobile-game-shell__inventory--horizontal {
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.mobile-game-shell__inventory--horizontal .mobile-game-shell__inventory-group {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.mobile-game-shell__inventory--horizontal .mobile-game-shell__inventory-strip {
+  width: 100%;
+  height: auto;
+}
+
+.mobile-game-shell__inventory--vertical {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .mobile-game-shell__inventory-strip {
@@ -2577,19 +2602,24 @@ body {
   }
 
   .mobile-game-shell__margin--primary {
-    padding-top: 0;
-    padding-left: 84px;
+    grid-template-rows: auto auto;
+    align-content: center;
   }
 
   .mobile-game-shell__margin--secondary {
-    padding-bottom: 0;
-    padding-right: 84px;
+    align-content: center;
   }
 
-  .mobile-game-shell__inventory {
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+  .mobile-game-shell__hud {
+    align-self: auto;
+  }
+
+  .mobile-game-shell__runtime {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-game-shell__actions {
+    grid-template-columns: 1fr;
   }
 }
 
