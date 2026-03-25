@@ -3878,10 +3878,19 @@ export function PlayerApp({
               <div className="mobile-sheet__section-header">
                 <p className="modern-section__eyebrow">Controls</p>
                 <p className="mobile-sheet__section-copy">
-                  Choose how touch arrows wrap around the viewport.
+                  Choose how touch arrows are arranged on mobile.
                 </p>
               </div>
               <div className="mobile-sheet__button-grid">
+                <button
+                  className={mobileControlProfile === "wasd-cluster" ? "modern-button" : "modern-button modern-button--secondary"}
+                  onClick={() => {
+                    setMobileControlProfile("wasd-cluster");
+                  }}
+                  type="button"
+                >
+                  WASD Cluster
+                </button>
                 <button
                   className={mobileControlProfile === "right-bottom" ? "modern-button" : "modern-button modern-button--secondary"}
                   onClick={() => {
@@ -4462,6 +4471,7 @@ export function PlayerApp({
   const renderMobileSecondaryMargin = () => (
     <aside className="mobile-game-shell__margin mobile-game-shell__margin--secondary">
       {renderMobileInventoryPanel()}
+      {mobileControlProfile === "wasd-cluster" ? renderMobileTouchControls() : null}
     </aside>
   );
   const renderModernHeaderToolbar = () => (
@@ -4797,7 +4807,7 @@ export function PlayerApp({
               </div>
             ) : null}
             {modernResultSheet}
-            {renderMobileTouchControls()}
+            {mobileControlProfile === "wasd-cluster" ? null : renderMobileTouchControls()}
           </div>
         </section>
         {renderMobileSecondaryMargin()}

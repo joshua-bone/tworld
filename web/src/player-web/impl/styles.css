@@ -2330,7 +2330,8 @@ body {
 
 .mobile-game-shell__margin--secondary {
   grid-area: secondary;
-  align-content: start;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-content: stretch;
 }
 
 .mobile-game-shell__meta,
@@ -2562,6 +2563,44 @@ body {
   -webkit-user-select: none;
 }
 
+.mobile-game-shell__touch-controls--wasd-cluster {
+  position: relative;
+  inset: auto;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    ". north ."
+    "west south east";
+  gap: 10px;
+  width: clamp(204px, 36vw, 312px);
+  justify-self: end;
+  align-self: end;
+}
+
+.mobile-game-shell__touch-controls--wasd-cluster .mobile-game-shell__touch-button {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+}
+
+.mobile-game-shell__touch-controls--wasd-cluster .mobile-game-shell__touch-button--north {
+  grid-area: north;
+}
+
+.mobile-game-shell__touch-controls--wasd-cluster .mobile-game-shell__touch-button--west {
+  grid-area: west;
+}
+
+.mobile-game-shell__touch-controls--wasd-cluster .mobile-game-shell__touch-button--south {
+  grid-area: south;
+}
+
+.mobile-game-shell__touch-controls--wasd-cluster .mobile-game-shell__touch-button--east {
+  grid-area: east;
+}
+
 .mobile-game-shell__touch-controls--screen-edges .mobile-game-shell__touch-button--north,
 .mobile-game-shell__touch-controls--screen-edges .mobile-game-shell__touch-button--south {
   left: 50%;
@@ -2697,7 +2736,7 @@ body {
   }
 
   .mobile-game-shell__margin--secondary {
-    align-content: start;
+    align-content: stretch;
   }
 
   .mobile-game-shell__hud {

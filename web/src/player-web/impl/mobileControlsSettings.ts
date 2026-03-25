@@ -1,6 +1,6 @@
 export const MOBILE_CONTROLS_SETTINGS_STORAGE_KEY = "tworld.mobile-controls-settings";
 
-export type BrowserMobileControlProfile = "right-bottom" | "screen-edges";
+export type BrowserMobileControlProfile = "wasd-cluster" | "right-bottom" | "screen-edges";
 
 export interface BrowserMobileControlsSettings {
   profile: BrowserMobileControlProfile;
@@ -12,7 +12,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function createDefaultBrowserMobileControlsSettings(): BrowserMobileControlsSettings {
   return {
-    profile: "right-bottom",
+    profile: "wasd-cluster",
   };
 }
 
@@ -23,7 +23,10 @@ export function parseStoredMobileControlsSettings(value: unknown): BrowserMobile
   }
 
   return {
-    profile: value.profile === "screen-edges" ? "screen-edges" : defaults.profile,
+    profile:
+      value.profile === "wasd-cluster" || value.profile === "right-bottom" || value.profile === "screen-edges"
+        ? value.profile
+        : defaults.profile,
   };
 }
 

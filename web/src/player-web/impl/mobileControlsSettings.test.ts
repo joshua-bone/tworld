@@ -5,13 +5,19 @@ import {
 } from "@player-web/impl/mobileControlsSettings";
 
 describe("mobileControlsSettings", () => {
-  it("defaults to the right-bottom profile", () => {
+  it("defaults to the wasd-cluster profile", () => {
     expect(createDefaultBrowserMobileControlsSettings()).toEqual({
-      profile: "right-bottom",
+      profile: "wasd-cluster",
     });
   });
 
-  it("parses a stored legacy screen-edge profile", () => {
+  it("parses the alternate stored profiles", () => {
+    expect(parseStoredMobileControlsSettings({ profile: "wasd-cluster" })).toEqual({
+      profile: "wasd-cluster",
+    });
+    expect(parseStoredMobileControlsSettings({ profile: "right-bottom" })).toEqual({
+      profile: "right-bottom",
+    });
     expect(parseStoredMobileControlsSettings({ profile: "screen-edges" })).toEqual({
       profile: "screen-edges",
     });
@@ -19,10 +25,10 @@ describe("mobileControlsSettings", () => {
 
   it("falls back to the default profile for invalid data", () => {
     expect(parseStoredMobileControlsSettings({ profile: "unknown" })).toEqual({
-      profile: "right-bottom",
+      profile: "wasd-cluster",
     });
     expect(parseStoredMobileControlsSettings(null)).toEqual({
-      profile: "right-bottom",
+      profile: "wasd-cluster",
     });
   });
 });

@@ -35,7 +35,7 @@ describe("browserProfileBackup", () => {
     expect(parsed.profile).toEqual(snapshot);
     expect(parsed.localSettings).toMatchObject({
       mobileControls: {
-        profile: "right-bottom",
+        profile: "wasd-cluster",
       },
       sound: {
         muted: false,
