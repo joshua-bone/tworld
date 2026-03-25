@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   advanceLynxInteractiveSession,
   createLynxInteractiveSession,
@@ -2752,6 +2752,79 @@ describe("runLynxInputTrace", () => {
     expect(finalPhase?.activeCreatures[0]?.moving).toBe(6);
     expect(movedBlock?.dir).toBe("west");
     expect(movedBlock?.moving).toBe(6);
+  });
+
+  it("queues a persistent visual wall reveal when a diagonal slap hits a real blue wall", () => {
+    const chipPos = 340;
+    const targetPos = 308;
+    const wallPos = 341;
+    const session = advanceLynxInteractiveSession(
+      createLynxInteractiveSession(
+        createRequest(),
+        createLevel([
+          createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.north), MS_TILE.Empty),
+          createCell(targetPos, MS_TILE.Empty, MS_TILE.Empty),
+          createCell(wallPos, MS_TILE.BlueWall_Real, MS_TILE.Empty),
+        ]),
+      ),
+      MS_DIRECTION.north | MS_DIRECTION.east,
+    );
+
+    const runtime = session.state as typeof session.state & {
+      lynxRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: string;
+          ttl: number;
+        }>;
+      };
+    };
+
+    expect(session.chipPos).toBe(targetPos);
+    expect(session.state.map.cells[wallPos]?.top.id).toBe(MS_TILE.BlueWall_Real);
+    expect(runtime.lynxRuntimeState?.tileOverlays).toContainEqual({
+      z: 1,
+      pos: wallPos,
+      kind: "blue-wall-reveal",
+      ttl: 0x7fff_ffff,
+    });
+  });
+
+  it("does not queue a diagonal slap reveal for a fake blue wall", () => {
+    const chipPos = 340;
+    const targetPos = 308;
+    const wallPos = 341;
+    const session = advanceLynxInteractiveSession(
+      createLynxInteractiveSession(
+        createRequest(),
+        createLevel([
+          createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.north), MS_TILE.Empty),
+          createCell(targetPos, MS_TILE.Empty, MS_TILE.Empty),
+          createCell(wallPos, MS_TILE.BlueWall_Fake, MS_TILE.Empty),
+        ]),
+      ),
+      MS_DIRECTION.north | MS_DIRECTION.east,
+    );
+
+    const runtime = session.state as typeof session.state & {
+      lynxRuntimeState?: {
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: string;
+          ttl: number;
+        }>;
+      };
+    };
+
+    expect(session.chipPos).toBe(targetPos);
+    expect(session.state.map.cells[wallPos]?.top.id).toBe(MS_TILE.BlueWall_Fake);
+    expect(
+      runtime.lynxRuntimeState?.tileOverlays?.some(
+        (overlay) => overlay.kind === "blue-wall-reveal" && overlay.pos === wallPos && overlay.z === 1,
+      ) ?? false,
+    ).toBe(false);
   });
 
   it("resolves a diagonal replay command to the alternate direction when the current facing is blocked", () => {

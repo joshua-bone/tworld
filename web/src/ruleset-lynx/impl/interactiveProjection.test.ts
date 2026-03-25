@@ -207,4 +207,69 @@ describe("projectLynxInteractiveFrame", () => {
       kind: "hidden-wall-reveal",
     });
   });
+
+  it("projects blue-wall reveal overlays from runtime state", () => {
+    const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.BlueWall_Real)];
+    const engine = createEngineState(cells) as EngineState & {
+      lynxRuntimeState?: {
+        animations: [];
+        chipTeleported: boolean;
+        tileOverlays?: Array<{
+          z: number;
+          pos: number;
+          kind: "blue-wall-reveal";
+          ttl: number;
+        }>;
+      };
+    };
+    engine.lynxRuntimeState = {
+      animations: [],
+      chipTeleported: false,
+      tileOverlays: [{ z: 1, pos: 1, kind: "blue-wall-reveal", ttl: 0x7fff_ffff }],
+    };
+    const level = {
+      number: 1,
+      timeLimitTicks: 0,
+      chipsNeeded: 0,
+      hintText: "",
+      cells,
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      statusFlags: 0,
+    } satisfies LynxLevel;
+    const session = {
+      level,
+      state: engine,
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+      chipPos: 0,
+      chipZ: 1,
+      chipDir: 0,
+      chipMoving: 0,
+      chipMoveKind: "planar",
+      currentInputCode: 0,
+      queuedReplayInputCode: 0,
+      queuedChipInputCode: 0,
+      chipPushing: false,
+      actors: [],
+      endGameTicksElapsed: null,
+      endGameResult: null,
+      endGameAnimationTileId: null,
+      endGameAnimationFrame: null,
+    } as unknown as LynxInteractiveSessionState;
+
+    const frame = projectLynxInteractiveFrame(session, "tick");
+
+    expect(frame.tileOverlays).toContainEqual({
+      z: 1,
+      pos: 1,
+      kind: "blue-wall-reveal",
+    });
+  });
 });

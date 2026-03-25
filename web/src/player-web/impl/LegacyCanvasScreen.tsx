@@ -106,6 +106,7 @@ let blockSupportWindowMaskCanvas: HTMLCanvasElement | null | undefined;
 interface LegacyDerivedSpriteCache {
   elevator?: LegacyTileSprite | null;
   heldTrap?: LegacyTileSprite | null;
+  thinWallOverlays?: Map<number, LegacyTileSprite | null>;
 }
 
 const legacyDerivedSpriteCache = new WeakMap<LegacyTileset, LegacyDerivedSpriteCache>();
@@ -230,6 +231,66 @@ function getOrCreateHeldTrapSprite(tileset: LegacyTileset): LegacyTileSprite | n
   return cache.heldTrap;
 }
 
+function renderSpriteToCanvas(sprite: LegacyTileSprite): HTMLCanvasElement {
+  const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return canvas;
+  }
+
+  drawLegacySpriteImage(context, sprite, 0, 0);
+  return canvas;
+}
+
+function createThinWallOverlaySprite(tileset: LegacyTileset, tileId: number): LegacyTileSprite | null {
+  const floorSprite = tileset.get(MS_TILE.Empty);
+  const wallSprite = tileset.get(tileId);
+  if (!floorSprite || !wallSprite) {
+    return null;
+  }
+
+  const floorCanvas = renderSpriteToCanvas(floorSprite);
+  const wallCanvas = renderSpriteToCanvas(wallSprite);
+  const floorContext = floorCanvas.getContext("2d");
+  const wallContext = wallCanvas.getContext("2d");
+  if (!floorContext || !wallContext) {
+    return null;
+  }
+
+  const floorData = floorContext.getImageData(0, 0, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  const wallData = wallContext.getImageData(0, 0, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  for (let index = 0; index < wallData.data.length; index += 4) {
+    if (
+      wallData.data[index] === floorData.data[index] &&
+      wallData.data[index + 1] === floorData.data[index + 1] &&
+      wallData.data[index + 2] === floorData.data[index + 2] &&
+      wallData.data[index + 3] === floorData.data[index + 3]
+    ) {
+      wallData.data[index + 3] = 0;
+    }
+  }
+
+  wallContext.clearRect(0, 0, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  wallContext.putImageData(wallData, 0, 0);
+  return {
+    image: wallCanvas,
+    offsetX: 0,
+    offsetY: 0,
+    transparent: true,
+  };
+}
+
+function getOrCreateThinWallOverlaySprite(tileset: LegacyTileset, tileId: number): LegacyTileSprite | null {
+  const cache = legacyDerivedSpritesFor(tileset);
+  if (!cache.thinWallOverlays) {
+    cache.thinWallOverlays = new Map();
+  }
+  if (!cache.thinWallOverlays.has(tileId)) {
+    cache.thinWallOverlays.set(tileId, createThinWallOverlaySprite(tileset, tileId));
+  }
+  return cache.thinWallOverlays.get(tileId) ?? null;
+}
+
 function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset> {
   const cached = legacyTilesetCache.get(ruleset);
   if (cached) {
@@ -350,7 +411,9 @@ function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverla
           ? 2
           : overlay.kind === "hidden-wall-reveal"
             ? 3
-            : 4;
+            : overlay.kind === "blue-wall-reveal"
+              ? 4
+              : 5;
     hash = hashLayerValue(hash, overlay.pos);
     hash = hashLayerValue(hash, kindCode);
     hash = hashLayerValue(hash, overlay.tileId ?? 0);
@@ -689,6 +752,16 @@ function visualEnhancementSupportFloorId(topId: number, bottomId: number): numbe
   return null;
 }
 
+export function isThinWallTileId(tileId: number): boolean {
+  return (
+    tileId === MS_TILE.Wall_North ||
+    tileId === MS_TILE.Wall_West ||
+    tileId === MS_TILE.Wall_South ||
+    tileId === MS_TILE.Wall_East ||
+    tileId === MS_TILE.Wall_Southeast
+  );
+}
+
 export function visualEnhancementActorMarker(
   actorId: number,
   topId: number,
@@ -713,6 +786,18 @@ export function visualEnhancementActorMarker(
     floorId,
     showBlockWindow: actorId === MS_TILE.Block,
   };
+}
+
+export function visualEnhancementThinWallOverlayTileId(
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  topId: number,
+  bottomId: number,
+): number | null {
+  if (ruleset !== "MS" || visualEnhancementActorId(topId) !== MS_TILE.Block || !isThinWallTileId(bottomId)) {
+    return null;
+  }
+
+  return bottomId;
 }
 
 export function visualEnhancementBlockWindowOpacity(squareDistanceFromCenterPx: number): number {
@@ -958,6 +1043,7 @@ function drawProjectedLynxRender(
 function drawCompositedCell(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
   topId: number,
   topState: number,
   bottomId: number,
@@ -1014,6 +1100,7 @@ function drawCompositedCell(
   const bottom = bottomId || MS_TILE.Empty;
   const topSprite = tileset.get(top);
   const bottomSprite = tileset.get(bottom);
+  const thinWallOverlayTileId = visualEnhancementThinWallOverlayTileId(ruleset, topId, bottomId);
   const topTransparent = top === MS_TILE.Air || top === MS_TILE.Nothing || topSprite?.transparent === true;
   const bottomTransparent =
     bottom === MS_TILE.Air || bottom === MS_TILE.Nothing || bottomSprite?.transparent === true;
@@ -1036,6 +1123,12 @@ function drawCompositedCell(
 
   if (!topTransparent && pickupRevealTileId === null) {
     drawSprite(context, tileset, top, x, y);
+    if (thinWallOverlayTileId !== null) {
+      const overlaySprite = getOrCreateThinWallOverlaySprite(tileset, thinWallOverlayTileId);
+      if (overlaySprite) {
+        drawLegacySpriteImage(context, overlaySprite, x, y);
+      }
+    }
     return;
   }
 
@@ -1060,6 +1153,12 @@ function drawCompositedCell(
     drawSprite(context, tileset, pickupRevealTileId, x, y);
   }
   drawSprite(context, tileset, top, x, y);
+  if (thinWallOverlayTileId !== null) {
+    const overlaySprite = getOrCreateThinWallOverlaySprite(tileset, thinWallOverlayTileId);
+    if (overlaySprite) {
+      drawLegacySpriteImage(context, overlaySprite, x, y);
+    }
+  }
 }
 
 function drawLayerOverlays(
@@ -1084,7 +1183,7 @@ function drawLayerOverlays(
       continue;
     }
 
-    if (overlay.kind === "hidden-wall-reveal") {
+    if (overlay.kind === "hidden-wall-reveal" || overlay.kind === "blue-wall-reveal") {
       if (visualEnhancementsEnabled) {
         drawSprite(context, tileset, MS_TILE.Wall, x, y);
       }
@@ -1165,6 +1264,7 @@ function renderMapLayerCanvas(
     drawCompositedCell(
       context,
       tileset,
+      ruleset,
       cell.top.id,
       cell.top.state,
       cell.bottom.id,
@@ -1235,6 +1335,7 @@ function renderCachedLowerLayerCanvas(
     drawCompositedCell(
       context,
       tileset,
+      ruleset,
       cell.top.id,
       cell.top.state,
       cell.bottom.id,

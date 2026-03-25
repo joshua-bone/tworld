@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   inventoryTileCountLabel,
+  isThinWallTileId,
   visualEnhancementActorMarker,
   visualEnhancementBlockWindowOpacity,
+  visualEnhancementThinWallOverlayTileId,
   withLegacyMapViewportClip,
 } from "@player-web/impl/LegacyCanvasScreen";
 import { LEGACY_MAP_HEIGHT, LEGACY_MAP_WIDTH, LEGACY_MAP_X, LEGACY_MAP_Y } from "@player-web/impl/legacySprites";
@@ -100,5 +102,20 @@ describe("visualEnhancementBlockWindowOpacity", () => {
   it("clamps distances outside the window domain", () => {
     expect(visualEnhancementBlockWindowOpacity(-1)).toBe(0);
     expect(visualEnhancementBlockWindowOpacity(20)).toBe(1);
+  });
+});
+
+describe("visualEnhancementThinWallOverlayTileId", () => {
+  it("marks MS blocks on thin walls for an overlaid wall-edge pass", () => {
+    expect(isThinWallTileId(MS_TILE.Wall_North)).toBe(true);
+    expect(isThinWallTileId(MS_TILE.Wall_Southeast)).toBe(true);
+    expect(visualEnhancementThinWallOverlayTileId("MS", MS_TILE.Block_Static, MS_TILE.Wall_South)).toBe(MS_TILE.Wall_South);
+  });
+
+  it("ignores non-MS rulesets, non-block actors, and non-thin walls", () => {
+    expect(isThinWallTileId(MS_TILE.Wall)).toBe(false);
+    expect(visualEnhancementThinWallOverlayTileId("Lynx", MS_TILE.Block_Static, MS_TILE.Wall_South)).toBeNull();
+    expect(visualEnhancementThinWallOverlayTileId("MS", MS_TILE.Paramecium, MS_TILE.Wall_South)).toBeNull();
+    expect(visualEnhancementThinWallOverlayTileId("MS", MS_TILE.Block_Static, MS_TILE.Empty)).toBeNull();
   });
 });

@@ -42,6 +42,7 @@ export type InteractiveGameTileOverlayKind =
   | "support"
   | "elevator-failure"
   | "hidden-wall-reveal"
+  | "blue-wall-reveal"
   | "push-pickup-reveal";
 
 export interface InteractiveGameTileOverlay {

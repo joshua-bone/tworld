@@ -80,6 +80,7 @@ import type { SolutionMove } from "@content/api/solution-file";
 const LYNX_DEBUG_SCHEMA_VERSION = 2;
 const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
 const HIDDEN_WALL_REVEAL_TTL = MS_TICKS_PER_SECOND / 2;
+const BLUE_WALL_VISUAL_REVEAL_TTL = 0x7fff_ffff;
 type LynxMoveKind = "planar" | "air" | "elevator";
 
 export interface LynxInteractiveSessionState {
@@ -603,6 +604,19 @@ function findPressedLynxPermanentHiddenWallPos(state: EngineState, chipPos: numb
   return effectiveLynxTargetTileId(state, targetStep.cell.top.id) === MS_TILE.HiddenWall_Perm ? targetStep.pos : null;
 }
 
+function findSlappedLynxBlueWallRevealPos(state: EngineState, chipPos: number, dir: number): number | null {
+  const targetStep = advanceToCell(state.map.cells, chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return null;
+  }
+
+  if (hasTopTileFlags(state.map.cells, targetStep.pos, LYNX_CELL_FLAG.Claimed)) {
+    return null;
+  }
+
+  return effectiveLynxTargetTileId(state, targetStep.cell.top.id) === MS_TILE.BlueWall_Real ? targetStep.pos : null;
+}
+
 function releaseReservedAnimationActorAt(actors: LynxRuntimeActor[], pos: number): void {
   const actor = findHiddenActorAtPosition(actors, pos, (entry) => entry.animationReserved);
   if (!actor) {
@@ -1116,12 +1130,28 @@ function markPendingLynxChipPush(
       const horizontalDir = inputCode & (2 | 8);
       if (horizontalDir !== 0) {
         const horizontalProbe = probeLynxChipMoveDirection(state, actors, chipPos, horizontalDir);
+        const verticalDir = inputCode & (1 | 4);
+        const verticalProbe =
+          verticalDir !== 0 ? probeLynxChipMoveDirection(state, actors, chipPos, verticalDir) : { canMove: false, pushBlockPos: null };
         const horizontalBlock =
           horizontalProbe.pushBlockPos !== null
             ? findLynxBlockActor(actors, horizontalProbe.pushBlockPos, activeLynxLayerZ(state))
             : null;
         if ((!horizontalProbe.canMove || horizontalBlock?.dormant) && horizontalProbe.pushBlockPos !== null) {
           queuePendingLynxBlockPush(state, actors, horizontalProbe.pushBlockPos, horizontalDir);
+        }
+        const slappedBlueWallPos =
+          !horizontalProbe.canMove && verticalProbe.canMove
+            ? findSlappedLynxBlueWallRevealPos(state, chipPos, horizontalDir)
+            : null;
+        if (slappedBlueWallPos !== null) {
+          addLynxTileOverlay(
+            state,
+            activeLynxLayerZ(state),
+            slappedBlueWallPos,
+            "blue-wall-reveal",
+            BLUE_WALL_VISUAL_REVEAL_TTL,
+          );
         }
       }
       return;
@@ -1137,6 +1167,16 @@ function markPendingLynxChipPush(
     const otherProbe = probeLynxChipMoveDirection(state, actors, chipPos, otherDir);
     if (sameProbe.canMove && otherProbe.pushBlockPos !== null) {
       queuePendingLynxBlockPush(state, actors, otherProbe.pushBlockPos, otherDir);
+    }
+    const slappedBlueWallPos = sameProbe.canMove ? findSlappedLynxBlueWallRevealPos(state, chipPos, otherDir) : null;
+    if (slappedBlueWallPos !== null) {
+      addLynxTileOverlay(
+        state,
+        activeLynxLayerZ(state),
+        slappedBlueWallPos,
+        "blue-wall-reveal",
+        BLUE_WALL_VISUAL_REVEAL_TTL,
+      );
     }
     return;
   }
