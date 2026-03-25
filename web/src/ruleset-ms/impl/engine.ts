@@ -215,6 +215,11 @@ export interface MsInteractiveSessionState {
   replayPlan: ReturnType<typeof createReplayPlan> | null;
 }
 
+type MsSessionReplayOptions = Partial<Pick<ReplaySolutionPayload, "randomSeed" | "stepping" | "randomSlideDirection">> & {
+  moveCount?: number;
+  bestTimeTicks?: number;
+};
+
 interface MsAdvanceTickResult {
   state: MsGameState;
   recordedReplayMove: RecordedReplayMoveDecision | null;
@@ -938,12 +943,7 @@ function refreshFloorMovementFromEnteredTile(
 export function initializeMsGameState(
   request: GameRequest,
   level: MsLevel,
-  replay:
-    | (Pick<ReplaySolutionPayload, "randomSeed" | "stepping" | "randomSlideDirection"> & {
-        moveCount?: number;
-        bestTimeTicks?: number;
-      })
-    | null = null,
+  replay: MsSessionReplayOptions | null = null,
 ): MsGameState {
   const cells = cloneBoardCells(level.cells);
   initializeBrokenFloors(cells);
@@ -5212,9 +5212,13 @@ export function runMsReplayTraceDebugWindow(
   });
 }
 
-export function createMsInteractiveSession(request: GameRequest, level: MsLevel): MsInteractiveSessionState {
+export function createMsInteractiveSession(
+  request: GameRequest,
+  level: MsLevel,
+  options: MsSessionReplayOptions | null = null,
+): MsInteractiveSessionState {
   return {
-    state: initializeMsGameState(request, level),
+    state: initializeMsGameState(request, level, options),
     lastInput: createRuntimeCommand(0, -1),
     recordedMoves: [],
     replayPlan: null,

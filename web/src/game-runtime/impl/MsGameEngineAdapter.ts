@@ -304,7 +304,11 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
 
     const loaded = await this.levels.loadLevel(request);
     const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-    const token = createMsInteractiveSession(request, level);
+    const token = createMsInteractiveSession(
+      request,
+      level,
+      options?.msStepping === undefined ? null : { stepping: options.msStepping },
+    );
     const runtime: MsInteractiveRuntime = {
       token,
       level,

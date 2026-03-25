@@ -78,6 +78,7 @@ export interface InteractiveGameSessionRunState {
 
 export interface InteractiveGameSessionStartOptions {
   undoSettings?: Partial<UndoSettingsSnapshot>;
+  msStepping?: 0 | 4;
 }
 
 export interface InteractiveGameSession {

@@ -139,6 +139,23 @@ describe("interactive session projection", () => {
     });
   });
 
+  it("projects the manual MS stepping override onto the initial snapshot", async () => {
+    const adapter = new MsGameEngineAdapter(new NodeLevelRepository());
+    const session = await adapter.startSession(
+      {
+        seriesFile: "intro-ms.dac",
+        levelNumber: 1,
+        ruleset: "MS",
+        randomSeed: 123456789,
+      },
+      {
+        msStepping: 4,
+      },
+    );
+
+    expect(session.frame.snapshot.stepping).toBe(4);
+  });
+
   it("projects the active MS hint text from the player's current z-layer", async () => {
     const adapter = new MsGameEngineAdapter(
       new StaticLevelRepository({

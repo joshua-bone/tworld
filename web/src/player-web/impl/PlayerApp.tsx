@@ -121,6 +121,10 @@ const LOW_TIME_WARNING_TICKS = 10 * GAME_TICKS_PER_SECOND;
 const SESSION_UI_SYNC_INTERVAL_MS = 125;
 const LEGACY_RANDOM_SEED_MAX = 0x7fffffff;
 const CURRENT_LEVEL_LINK_COPY_FEEDBACK_MS = 2800;
+const MS_MANUAL_STEP_STEPPING = {
+  even: 0,
+  odd: 4,
+} as const;
 
 interface HelpCommand {
   keys: string;
@@ -641,6 +645,7 @@ export function PlayerApp({
   const [soundMuted, setSoundMuted] = useState(() => loadStoredSoundSettings().muted);
   const [soundVolume, setSoundVolume] = useState(() => loadStoredSoundSettings().volume);
   const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
+  const [manualMsStepParity, setManualMsStepParity] = useState<"even" | "odd">("even");
   const [manualRunStarted, setManualRunStarted] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
   const [heldUndoMode, setHeldUndoMode] = useState<"coarse" | "fine" | "checkpoint" | null>(null);
@@ -755,8 +760,13 @@ export function PlayerApp({
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
   const currentSeriesRuleset = currentSeries?.ruleset ?? null;
+  const currentManualMsStepping = MS_MANUAL_STEP_STEPPING[manualMsStepParity];
   const currentLevelExists = currentLevel !== null;
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
+  const showManualMsStepToggle =
+    currentSeriesRuleset === "MS" &&
+    replayLaunchRequest === null &&
+    session?.mode !== "replay";
   const currentLevelSeedTarget =
     selectedSeriesFile && selectedLevelNumber && currentRuleset
       ? {
@@ -1405,6 +1415,13 @@ export function PlayerApp({
       ruleset: currentSeriesRuleset,
       randomSeed: resolveLegacySessionRandomSeed(queuedReplay?.replay.randomSeed, Date.now(), manualSeedOverride),
     } as const;
+    const manualSessionStartOptions =
+      currentSeriesRuleset === "MS"
+        ? {
+            ...undoStartOptionsRef.current,
+            msStepping: currentManualMsStepping,
+          }
+        : undoStartOptionsRef.current;
 
     const sessionPromise = queuedReplay
       ? measurePerfAsync("sessionLoadMs", () =>
@@ -1419,7 +1436,7 @@ export function PlayerApp({
           startInteractiveGameSession(
             interactiveEngineForRuleset(currentSeriesRuleset, engines),
             request,
-            undoStartOptionsRef.current,
+            manualSessionStartOptions,
           ),
         );
 
@@ -1464,6 +1481,7 @@ export function PlayerApp({
   }, [
     currentSeriesRuleset,
     currentLevelExists,
+    currentManualMsStepping,
     engines,
     mode,
     replayLaunchRequest,
@@ -4159,6 +4177,17 @@ export function PlayerApp({
           {showAdvancedMenu ? (
             <div aria-label="Advanced gameplay options" className="modern-toolbar-menu__panel modern-toolbar-menu__panel--form" role="dialog">
               <div className="modern-toolbar-menu__section">
+                {showManualMsStepToggle ? (
+                  <button
+                    className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item"
+                    onClick={() => {
+                      setManualMsStepParity((current) => (current === "even" ? "odd" : "even"));
+                    }}
+                    type="button"
+                  >
+                    Step: {manualMsStepParity === "even" ? "Even" : "Odd"}
+                  </button>
+                ) : null}
                 <div className="modern-toolbar-menu__row">
                   <span>Current seed</span>
                   <strong>{activeRandomSeed !== null && Number.isFinite(activeRandomSeed) ? activeRandomSeed : "Loading..."}</strong>
@@ -4168,6 +4197,11 @@ export function PlayerApp({
                   <strong>{currentLevelSeedOverride ? currentLevelSeedOverride.randomSeed : "Off"}</strong>
                 </div>
               </div>
+              {showManualMsStepToggle ? (
+                <p className="modern-toolbar-menu__copy">
+                  Applies only to manual MS play and restarts the current level. Replay playback still uses the replay&apos;s recorded step.
+                </p>
+              ) : null}
               <label className="modern-toolbar-menu__field">
                 <span className="modern-toolbar-menu__field-label">
                   Manual Seed{isLevelSeedLocked ? " (Locked)" : ""}
