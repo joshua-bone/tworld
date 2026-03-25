@@ -4,6 +4,7 @@ import {
   parseMobileShellQueryOverride,
   readBrowserMobileShellHeuristics,
   resolveMobileShellRedirect,
+  stripMobileShellQueryOverride,
 } from "@player-web/impl/mobileShell";
 
 describe("mobileShell", () => {
@@ -12,6 +13,13 @@ describe("mobileShell", () => {
     expect(parseMobileShellQueryOverride("?ui=desktop")).toBe("desktop");
     expect(parseMobileShellQueryOverride("?ui=legacy")).toBeNull();
     expect(parseMobileShellQueryOverride("")).toBeNull();
+  });
+
+  it("strips the ui override parameter while preserving other launch params", () => {
+    expect(stripMobileShellQueryOverride("?ui=mobile&set=CCLP1&level=3")).toBe("?set=CCLP1&level=3");
+    expect(stripMobileShellQueryOverride("?set=CCLP1&ui=desktop")).toBe("?set=CCLP1");
+    expect(stripMobileShellQueryOverride("?ui=desktop")).toBe("");
+    expect(stripMobileShellQueryOverride("")).toBe("");
   });
 
   it("recognizes likely mobile heuristic profiles", () => {

@@ -1791,6 +1791,208 @@ body {
   gap: 20px;
 }
 
+.mobile-game-shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 0;
+  padding: 8px 0 0;
+}
+
+.mobile-game-shell__header,
+.mobile-game-shell__runtime,
+.mobile-game-shell__history,
+.mobile-game-shell__inventory,
+.mobile-game-shell__actions {
+  border: 1px solid rgba(243, 236, 221, 0.16);
+  background: rgba(13, 16, 20, 0.9);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+  color: #f3ecdd;
+}
+
+.mobile-game-shell__header {
+  display: grid;
+  gap: 6px;
+  padding: 10px 14px;
+}
+
+.mobile-game-shell__header-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.mobile-game-shell__title-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mobile-game-shell__title {
+  margin: 0;
+  min-width: 0;
+  font-size: clamp(1.35rem, 5vw, 2rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.mobile-game-shell__subtitle {
+  margin: 0;
+  color: #cdc6b8;
+  font-size: 0.92rem;
+}
+
+.mobile-game-shell__runtime {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px;
+}
+
+.mobile-game-shell__stat {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 8px 6px;
+  border: 1px solid rgba(243, 236, 221, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  text-align: center;
+}
+
+.mobile-game-shell__stat--good {
+  border-color: rgba(110, 228, 163, 0.38);
+}
+
+.mobile-game-shell__stat--danger {
+  border-color: rgba(255, 114, 114, 0.42);
+}
+
+.mobile-game-shell__stat-label,
+.mobile-game-shell__inventory-label {
+  margin: 0;
+  color: #ffcb5f;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mobile-game-shell__stat-value {
+  font-size: 1.2rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-game-shell__board {
+  min-height: 0;
+  display: grid;
+}
+
+.mobile-game-shell__viewport {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+
+.mobile-game-shell__canvas-frame {
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.mobile-gameboard__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #000000;
+  border: 1px solid #202020;
+  box-shadow: 0 0 0 2px #000000, 0 18px 60px rgba(0, 0, 0, 0.65);
+  image-rendering: pixelated;
+}
+
+.mobile-game-shell__paused {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  width: min(100%, 100vw - 24px);
+  aspect-ratio: 1 / 1;
+  max-height: 100%;
+  padding: 20px;
+  background: #000000;
+  border: 1px solid #202020;
+  box-shadow: 0 0 0 2px #000000, 0 18px 60px rgba(0, 0, 0, 0.65);
+  text-align: center;
+}
+
+.mobile-game-shell__paused-title,
+.mobile-game-shell__paused-copy {
+  margin: 0;
+}
+
+.mobile-game-shell__paused-title {
+  color: #ffffff;
+  font-size: clamp(2rem, 10vw, 3rem);
+  letter-spacing: 0.12em;
+}
+
+.mobile-game-shell__paused-copy {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.92rem;
+}
+
+.mobile-game-shell__footer {
+  display: grid;
+  gap: 10px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+.mobile-game-shell__history {
+  padding: 10px 12px;
+  color: #cdc6b8;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.mobile-game-shell__footer-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.mobile-game-shell__inventory {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.mobile-game-shell__inventory-group {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.mobile-game-shell__inventory-strip {
+  display: block;
+  width: 32px;
+  height: auto;
+  background: #000000;
+  border: 1px solid #202020;
+  box-shadow: 0 0 0 2px #000000, 0 10px 30px rgba(0, 0, 0, 0.4);
+  image-rendering: pixelated;
+}
+
+.mobile-game-shell__actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
 .modern-embedded-player {
   min-height: 0;
   display: grid;
@@ -2813,7 +3015,10 @@ body {
 }
 
 .mobile-route-shell {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   min-height: 100vh;
+  padding: 12px;
   background: #000000;
 }
 
@@ -2821,28 +3026,70 @@ body {
   padding: 24px 20px 0;
 }
 
-.mobile-route-banner {
-  width: min(1160px, 100%);
-  margin: 0 auto;
-  padding: 24px 20px 0;
-  display: grid;
-  gap: 12px;
-}
-
 .modern-classic-banner__body,
 .modern-classic-banner__label {
   margin: 12px 0 0;
 }
 
-.mobile-route-banner__copy {
-  display: grid;
+.mobile-route-shell__header,
+.mobile-route-shell__notice,
+.mobile-route-shell__loading {
+  width: min(1160px, 100%);
+  margin: 0 auto;
+  border: 1px solid rgba(243, 236, 221, 0.16);
+  background: rgba(13, 16, 20, 0.9);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+  color: #f3ecdd;
 }
 
 .modern-classic-banner__controls,
-.mobile-route-banner__controls,
 .modern-classic-banner__preference {
   display: grid;
   gap: 12px;
+}
+
+.mobile-route-shell__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+}
+
+.mobile-route-shell__header-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mobile-route-shell__title {
+  margin: 0;
+  font-size: clamp(1.25rem, 5vw, 1.8rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.mobile-route-shell__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.mobile-route-shell__controls .modern-link-button {
+  padding: 10px 12px;
+}
+
+.mobile-route-shell__notice,
+.mobile-route-shell__loading {
+  padding: 10px 14px;
+}
+
+.mobile-route-shell__player {
+  min-height: 0;
+  display: grid;
+  width: min(1160px, 100%);
+  margin: 0 auto;
 }
 
 .legacy-shell {
@@ -3316,6 +3563,35 @@ body {
 
   .modern-level-row {
     grid-template-columns: 26px 18px minmax(0, 1fr);
+  }
+
+  .mobile-route-shell {
+    padding: 10px;
+  }
+
+  .mobile-route-shell__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .mobile-route-shell__controls {
+    justify-content: stretch;
+  }
+
+  .mobile-game-shell__runtime {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mobile-game-shell__footer-row {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-game-shell__inventory {
+    justify-content: center;
+  }
+
+  .mobile-game-shell__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .legacy-shell {

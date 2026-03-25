@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
 import { shouldAutoSaveWinningHighScoreReplay } from "@player-web/impl/autoSaveReplayPolicy";
 import { copyTextToClipboard } from "@player-web/impl/clipboard";
@@ -559,7 +559,7 @@ interface PlayerAppProps {
   autoDownloadReplaysOnSave?: boolean;
   autoSaveWinningHighScoreReplays?: boolean;
   services: BrowserAppServices;
-  chromeMode?: "legacy" | "modern" | "modern-embedded";
+  chromeMode?: "legacy" | "modern" | "modern-embedded" | "mobile";
   initialCatalog?: SeriesCatalogEntry[];
   initialLevelSeedOverrides?: BrowserLevelSeedOverride[];
   initialMode?: LegacyMode;
@@ -629,6 +629,7 @@ export function PlayerApp({
   const [manualRunStarted, setManualRunStarted] = useState(false);
   const [isFastForwarding, setIsFastForwarding] = useState(false);
   const [heldUndoMode, setHeldUndoMode] = useState<"coarse" | "fine" | "checkpoint" | null>(null);
+  const [mobileBoardSizePx, setMobileBoardSizePx] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
   const [replayLaunchRequest, setReplayLaunchRequest] = useState<{
     levelNumber: number;
@@ -645,6 +646,7 @@ export function PlayerApp({
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
   const gameplayFocusRef = useRef<HTMLElement | null>(null);
+  const mobileBoardViewportRef = useRef<HTMLDivElement | null>(null);
   const replayMenuRef = useRef<HTMLDivElement | null>(null);
   const advancedMenuRef = useRef<HTMLDivElement | null>(null);
   const recordedTerminalSessionRef = useRef<string | null>(null);
@@ -745,6 +747,9 @@ export function PlayerApp({
       session?.history.restoreMode === "restored-paused" &&
       session.history.latestTick > session.history.currentTick,
   );
+  const isMobileChrome = chromeMode === "mobile";
+  const isModernChrome = chromeMode === "modern" || chromeMode === "modern-embedded";
+  const usesModernGameUi = isModernChrome || isMobileChrome;
   const historyStatusMessage =
     mode !== "game" || !session || !session.history.enabled || session.history.restoreMode === "live"
       ? null
@@ -752,7 +757,7 @@ export function PlayerApp({
         ? `Restored to ${formatInteractiveTickSeconds(session.history.currentTick)}s. ${
             canResumeOriginalTimeline
               ? `Press Space or use Continue with Replay to replay forward to ${formatInteractiveTickSeconds(session.history.latestTick)}s.`
-              : chromeMode === "modern" || chromeMode === "modern-embedded"
+              : usesModernGameUi
                 ? "Use Z to keep rewinding, or take over with a live move."
                 : "Use Z, Cmd/Ctrl+Z, or Shift+Z to keep rewinding, or take over with a live move."
           }`
@@ -883,15 +888,14 @@ export function PlayerApp({
       : session?.history.restoreMode === "replaying-history"
         ? "The original timeline is replaying forward. Any live move can fork a new run when historical takeover is enabled."
         : null;
-  const isModernChrome = chromeMode === "modern" || chromeMode === "modern-embedded";
   const isEmbeddedModernChrome = chromeMode === "modern-embedded";
   const canTogglePause = Boolean(session && !isSessionLoading && (isPaused || session.frame.snapshot.status === "playing"));
   const helpSections =
     mode === "series-list"
       ? [...SERIES_LIST_HELP, ...GLOBAL_HELP]
       : session?.frame.snapshot.status === "playing"
-        ? [...(isModernChrome ? GAME_PLAYING_HELP_MODERN : GAME_PLAYING_HELP), ...GLOBAL_HELP]
-        : [...(isModernChrome ? GAME_ENDED_HELP_MODERN : GAME_ENDED_HELP), ...GLOBAL_HELP];
+        ? [...(usesModernGameUi ? GAME_PLAYING_HELP_MODERN : GAME_PLAYING_HELP), ...GLOBAL_HELP]
+        : [...(usesModernGameUi ? GAME_ENDED_HELP_MODERN : GAME_ENDED_HELP), ...GLOBAL_HELP];
 
   useEffect(() => {
     if (!isEmbeddedModernChrome) {
@@ -1046,6 +1050,49 @@ export function PlayerApp({
 
     gameplayFocusRef.current?.focus({ preventScroll: true });
   }, [mode, selectedLevelNumber, selectedSeriesFile]);
+
+  useLayoutEffect(() => {
+    if (!isMobileChrome || mode !== "game") {
+      return;
+    }
+
+    const viewport = mobileBoardViewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    let animationFrameId = 0;
+    const measure = () => {
+      animationFrameId = 0;
+      const bounds = viewport.getBoundingClientRect();
+      const nextSize = Math.max(0, Math.floor(Math.min(bounds.width, bounds.height)));
+      setMobileBoardSizePx((current) => (current === nextSize ? current : nextSize));
+    };
+    const scheduleMeasure = () => {
+      if (animationFrameId !== 0) {
+        return;
+      }
+      animationFrameId = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+    let resizeObserver: ResizeObserver | null = null;
+    if ("ResizeObserver" in window) {
+      resizeObserver = new ResizeObserver(() => {
+        scheduleMeasure();
+      });
+      resizeObserver.observe(viewport);
+    }
+    window.addEventListener("resize", scheduleMeasure);
+
+    return () => {
+      window.removeEventListener("resize", scheduleMeasure);
+      resizeObserver?.disconnect();
+      if (animationFrameId !== 0) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [isMobileChrome, mode]);
 
   useEffect(() => {
     undoStartOptionsRef.current = toUndoSessionStartOptions(undoSettings);
@@ -1631,7 +1678,7 @@ export function PlayerApp({
   });
 
   const stepHeldUndo = useEffectEvent((nextMode: "coarse" | "fine" | "checkpoint") => {
-    if (isModernChrome) {
+    if (usesModernGameUi) {
       performModernUndo(true);
       return;
     }
@@ -1735,7 +1782,7 @@ export function PlayerApp({
   }, [heldUndoMode, mode, showHelp, stepHeldUndo]);
 
   useEffect(() => {
-    if (!isModernChrome || !message) {
+    if (!usesModernGameUi || !message) {
       return;
     }
 
@@ -1749,10 +1796,10 @@ export function PlayerApp({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [dismissMessage, isModernChrome, message]);
+  }, [dismissMessage, message, usesModernGameUi]);
 
   useEffect(() => {
-    if (!isModernChrome || !showManageReplays) {
+    if (!usesModernGameUi || !showManageReplays) {
       return;
     }
 
@@ -1766,7 +1813,7 @@ export function PlayerApp({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isModernChrome, showManageReplays]);
+  }, [showManageReplays, usesModernGameUi]);
 
   const selectSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
@@ -1934,7 +1981,7 @@ export function PlayerApp({
         return;
       }
 
-      if (isModernChrome) {
+      if (usesModernGameUi) {
         restartCurrentLevel();
         return;
       }
@@ -2553,7 +2600,7 @@ export function PlayerApp({
         event.preventDefault();
       }
 
-      if (isModernChrome && !isEditableKeyTarget(event.target) && isPauseToggleKey(event)) {
+      if (usesModernGameUi && !isEditableKeyTarget(event.target) && isPauseToggleKey(event)) {
         event.preventDefault();
         toggleModernPause();
         return;
@@ -2572,7 +2619,7 @@ export function PlayerApp({
         return;
       }
 
-      if (isModernChrome && activeSession?.history.enabled && isUndoKey(event)) {
+      if (usesModernGameUi && activeSession?.history.enabled && isUndoKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2582,7 +2629,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!isModernChrome && activeSession?.history.enabled && isUndoCheckpointKey(event)) {
+      if (!usesModernGameUi && activeSession?.history.enabled && isUndoCheckpointKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2592,7 +2639,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!isModernChrome && activeSession?.history.enabled && isFineUndoKey(event)) {
+      if (!usesModernGameUi && activeSession?.history.enabled && isFineUndoKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2602,7 +2649,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!isModernChrome && activeSession?.history.enabled && isUndoKey(event)) {
+      if (!usesModernGameUi && activeSession?.history.enabled && isUndoKey(event)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2634,7 +2681,7 @@ export function PlayerApp({
         return;
       }
 
-      if (isModernChrome && activeSession && activeSession.frame.snapshot.status !== "playing" && event.key === "Escape") {
+      if (usesModernGameUi && activeSession && activeSession.frame.snapshot.status !== "playing" && event.key === "Escape") {
         event.preventDefault();
         restartCurrentLevel();
         return;
@@ -2801,7 +2848,7 @@ export function PlayerApp({
     closeHistoryControls,
     jumpLevel,
     jumpSelectedSeries,
-    isModernChrome,
+    usesModernGameUi,
     isPaused,
     mode,
     proceedAfterLevelEnd,
@@ -2862,7 +2909,7 @@ export function PlayerApp({
   ) : null;
 
   const modernResultSheet =
-    isModernChrome && session && currentLevel && currentSeries && runResult && runResultHeadline ? (
+    usesModernGameUi && session && currentLevel && currentSeries && runResult && runResultHeadline ? (
       <div className="modern-result-sheet__backdrop">
         <section aria-label="Level result" className="modern-result-sheet">
           <div className="modern-result-sheet__header">
@@ -2992,7 +3039,7 @@ export function PlayerApp({
     ) : null;
 
   const modernMessageModal =
-    isModernChrome && message ? (
+    usesModernGameUi && message ? (
       <div
         aria-hidden="true"
         className="modern-message-modal"
@@ -3036,7 +3083,7 @@ export function PlayerApp({
     ) : null;
 
   const manageReplaysModal =
-    isModernChrome && showManageReplays ? (
+    usesModernGameUi && showManageReplays ? (
       <div
         aria-hidden="true"
         className="modern-about-modal modern-replay-manager-modal"
@@ -3271,6 +3318,84 @@ export function PlayerApp({
           Continue with Replay
         </button>
       </div>
+    </section>
+  );
+  const renderMobileRuntimeBar = () => (
+    <section className="mobile-game-shell__runtime" aria-label="Runtime">
+      <div className={`mobile-game-shell__stat${session && session.frame.snapshot.chipsNeeded === 0 ? " mobile-game-shell__stat--good" : ""}`}>
+        <span className="mobile-game-shell__stat-label">Chips</span>
+        <strong className="mobile-game-shell__stat-value">{session ? session.frame.snapshot.chipsNeeded : "---"}</strong>
+      </div>
+      <div
+        className={`mobile-game-shell__stat${
+          session && session.frame.snapshot.timelimit > 0 && gameplayTimeRemainingTicks(session) < LOW_TIME_WARNING_TICKS
+            ? " mobile-game-shell__stat--danger"
+            : ""
+        }`}
+      >
+        <span className="mobile-game-shell__stat-label">Time</span>
+        <strong className="mobile-game-shell__stat-value">{session ? formatGameplayTimeLeft(session) : "---"}</strong>
+      </div>
+      <div className="mobile-game-shell__stat">
+        <span className="mobile-game-shell__stat-label">Undo</span>
+        <strong className="mobile-game-shell__stat-value">{session?.run.undoUsedCount ?? 0}</strong>
+      </div>
+      <div className="mobile-game-shell__stat">
+        <span className="mobile-game-shell__stat-label">Ruleset</span>
+        <strong className="mobile-game-shell__stat-value">{currentRuleset ?? "---"}</strong>
+      </div>
+    </section>
+  );
+  const renderMobileInventoryPanel = () => (
+    <section className="mobile-game-shell__inventory" aria-label="Inventory">
+      <div className="mobile-game-shell__inventory-group">
+        <p className="mobile-game-shell__inventory-label">Keys</p>
+        <LegacyInventoryStrip
+          className="mobile-game-shell__inventory-strip"
+          currentRuleset={currentRuleset}
+          inventory={session?.frame.snapshot.inventory ?? null}
+          kind="keys"
+          visualEnhancementsEnabled={visualEnhancementsEnabled}
+        />
+      </div>
+      <div className="mobile-game-shell__inventory-group">
+        <p className="mobile-game-shell__inventory-label">Boots</p>
+        <LegacyInventoryStrip
+          className="mobile-game-shell__inventory-strip"
+          currentRuleset={currentRuleset}
+          inventory={session?.frame.snapshot.inventory ?? null}
+          kind="boots"
+          visualEnhancementsEnabled={visualEnhancementsEnabled}
+        />
+      </div>
+    </section>
+  );
+  const renderMobileActionBar = () => (
+    <section className="mobile-game-shell__actions" aria-label="Gameplay controls">
+      <button className="modern-button modern-button--secondary modern-button--compact" onClick={restartCurrentLevel} type="button">
+        Restart
+      </button>
+      <button
+        className="modern-button modern-button--secondary modern-button--compact"
+        disabled={!canTogglePause}
+        onClick={toggleModernPause}
+        type="button"
+      >
+        {isPaused ? "Resume" : "Pause"}
+      </button>
+      <button
+        className="modern-button modern-button--secondary modern-button--compact"
+        disabled={!canUseModernUndo}
+        onClick={() => {
+          void performModernUndo(false);
+        }}
+        type="button"
+      >
+        Undo
+      </button>
+      <button className="modern-button modern-button--secondary modern-button--compact" onClick={toggleHelp} type="button">
+        Help
+      </button>
     </section>
   );
   const renderModernHeaderToolbar = () => (
@@ -3526,6 +3651,107 @@ export function PlayerApp({
         <div className="modern-embedded-player__body">
           {renderModernBoardPanel(true, "embedded")}
         </div>
+        {modernMessageModal}
+        {manageReplaysModal}
+        {helpOverlay}
+      </section>
+    );
+  }
+
+  if (chromeMode === "mobile") {
+    return (
+      <section className="mobile-game-shell">
+        <header className="mobile-game-shell__header">
+          <div className="mobile-game-shell__header-copy">
+            <p className="modern-section__eyebrow modern-game-header__state">{modernStatusLabel}</p>
+            <div className="mobile-game-shell__title-row">
+              <h1 className="mobile-game-shell__title">{modernLevelTitle}</h1>
+              {renderCurrentLevelLinkButton()}
+            </div>
+            <p className="mobile-game-shell__subtitle">
+              <span>{modernGameplaySubtitle}</span>
+              {currentLevelReplayEntries.length > 0 ? (
+                <>
+                  <span className="modern-game-header__subtitle-separator">·</span>
+                  <button className="modern-game-header__subtitle-link" onClick={openManageReplays} type="button">
+                    {currentReplayCountLabel}
+                  </button>
+                </>
+              ) : null}
+            </p>
+          </div>
+        </header>
+
+        {renderMobileRuntimeBar()}
+
+        <section
+          className="mobile-game-shell__board"
+          ref={gameplayFocusRef}
+          tabIndex={-1}
+        >
+          <div className="mobile-game-shell__viewport" ref={mobileBoardViewportRef}>
+            {isPaused ? (
+              <div
+                aria-live="polite"
+                aria-label="Paused"
+                className="mobile-game-shell__paused"
+                role="status"
+              >
+                <p className="mobile-game-shell__paused-title">PAUSED</p>
+                <p className="mobile-game-shell__paused-copy">Use Resume to continue.</p>
+              </div>
+            ) : (
+              <div
+                className="mobile-game-shell__canvas-frame"
+                style={
+                  mobileBoardSizePx > 0
+                    ? {
+                        height: `${mobileBoardSizePx}px`,
+                        width: `${mobileBoardSizePx}px`,
+                      }
+                    : undefined
+                }
+              >
+                <LegacyCanvasScreen
+                  catalog={catalog}
+                  className="mobile-gameboard__canvas"
+                  currentLevel={currentLevel}
+                  currentSeries={currentSeries}
+                  currentRuleset={currentRuleset}
+                  isLoading={isCatalogLoading || isSessionLoading}
+                  liveSessionRef={liveSessionRef}
+                  message={message}
+                  mode="game"
+                  onActivateSeries={activateSeries}
+                  onSelectSeries={selectSeries}
+                  presentation="map-only"
+                  selectedSeriesFile={selectedSeriesFile}
+                  session={session}
+                  visualEnhancementsEnabled={visualEnhancementsEnabled}
+                />
+              </div>
+            )}
+            {!isPaused && modernHintOverlayText ? (
+              <div className="modern-game-board__hint-overlay" role="status" aria-live="polite">
+                <p className="modern-game-board__hint-overlay-copy">{modernHintOverlayText}</p>
+              </div>
+            ) : null}
+            {modernResultSheet}
+          </div>
+        </section>
+
+        <footer className="mobile-game-shell__footer">
+          {historyStatusMessage ? (
+            <div className="mobile-game-shell__history" role="status">
+              {historyStatusMessage}
+            </div>
+          ) : null}
+          <div className="mobile-game-shell__footer-row">
+            {renderMobileInventoryPanel()}
+            {renderMobileActionBar()}
+          </div>
+        </footer>
+
         {modernMessageModal}
         {manageReplaysModal}
         {helpOverlay}

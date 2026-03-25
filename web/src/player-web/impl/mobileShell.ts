@@ -50,6 +50,13 @@ export function parseMobileShellQueryOverride(search: string): MobileShellQueryO
   return null;
 }
 
+export function stripMobileShellQueryOverride(search: string): string {
+  const params = new URLSearchParams(search);
+  params.delete("ui");
+  const serialized = params.toString();
+  return serialized.length > 0 ? `?${serialized}` : "";
+}
+
 export function isLikelyMobileShellDevice(heuristics: MobileShellHeuristics): boolean {
   if (heuristics.userAgentMobile) {
     return true;

@@ -10,6 +10,7 @@ import {
   MOBILE_UI_DESKTOP_OVERRIDE_STORAGE_KEY,
   readBrowserMobileShellHeuristics,
   resolveMobileShellRedirect,
+  stripMobileShellQueryOverride,
 } from "@player-web/impl/mobileShell";
 import { MobilePlayerApp } from "@player-web/impl/mobile/MobilePlayerApp";
 import { ModernPlayerApp } from "@player-web/impl/modern/ModernPlayerApp";
@@ -20,6 +21,7 @@ const services = createBrowserAppServices();
 const APP_BASE_URL = import.meta.env.BASE_URL;
 
 interface AppRouteState {
+  hash: string;
   pathname: string;
   search: string;
   shellMode: AppShellMode;
@@ -27,6 +29,7 @@ interface AppRouteState {
 
 function currentRouteState(): AppRouteState {
   return {
+    hash: window.location.hash,
     pathname: window.location.pathname,
     search: window.location.search,
     shellMode: resolveShellModeFromPathname(window.location.pathname, APP_BASE_URL),
@@ -94,11 +97,18 @@ export function App() {
 
   const navigateToShell = (nextMode: AppShellMode, options: { replace?: boolean } = {}) => {
     const nextPath = pathForShellMode(nextMode, APP_BASE_URL);
-    if (window.location.pathname !== nextPath || window.location.search !== "") {
+    const nextSearch = stripMobileShellQueryOverride(window.location.search);
+    const nextHash = window.location.hash;
+    if (
+      window.location.pathname !== nextPath ||
+      window.location.search !== nextSearch ||
+      window.location.hash !== nextHash
+    ) {
+      const nextUrl = `${nextPath}${nextSearch}${nextHash}`;
       if (options.replace) {
-        window.history.replaceState({ shellMode: nextMode }, "", nextPath);
+        window.history.replaceState({ shellMode: nextMode }, "", nextUrl);
       } else {
-        window.history.pushState({ shellMode: nextMode }, "", nextPath);
+        window.history.pushState({ shellMode: nextMode }, "", nextUrl);
       }
     }
     setRouteState(currentRouteState());
@@ -117,7 +127,11 @@ export function App() {
     }
 
     const nextPath = pathForShellMode(redirect.mode, APP_BASE_URL);
-    if (window.location.pathname === nextPath && window.location.search === "") {
+    const nextSearch = stripMobileShellQueryOverride(window.location.search);
+    if (
+      window.location.pathname === nextPath &&
+      window.location.search === nextSearch
+    ) {
       return;
     }
 
@@ -125,7 +139,7 @@ export function App() {
       setClassicState(null);
     }
     navigateToShell(redirect.mode, { replace: true });
-  }, [routeState.pathname, routeState.search]);
+  }, [routeState.hash, routeState.pathname, routeState.search]);
 
   const openClassicShell = () => {
     setClassicState((current) => ({
