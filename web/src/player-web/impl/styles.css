@@ -2120,16 +2120,24 @@ body {
   display: flex;
   gap: 10px;
   padding: 10px;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
 }
 
 .mobile-game-shell__inventory-group {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 6px;
   justify-items: center;
+  min-width: 0;
+  min-height: 0;
 }
 
 .mobile-game-shell__inventory-strip {
   display: block;
+  max-width: 100%;
+  max-height: 100%;
   width: auto;
   height: auto;
   background: #000000;
@@ -2774,12 +2782,12 @@ body {
 
   .mobile-game-shell--landscape .mobile-game-shell__inventory--vertical {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: center;
   }
 
   .mobile-game-shell--landscape .mobile-game-shell__inventory--vertical .mobile-game-shell__inventory-group {
-    flex: 0 0 auto;
+    flex: 1 1 0;
   }
 }
 

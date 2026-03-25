@@ -254,6 +254,19 @@ function formatModernGameplaySubtitle(
   return parts.length > 0 ? parts.join("  ·  ") : "Starting session";
 }
 
+function formatSeriesDisplayTitle(seriesFile: string | null | undefined): string | null {
+  if (!seriesFile) {
+    return null;
+  }
+
+  let next = seriesFile.trim().replace(/^public_/u, "");
+  next = next.replace(/\.dac$/iu, "");
+  next = next.replace(/\.dat$/iu, "");
+  next = next.replace(/(?:\.dat)?[-_. ](?:ms|lynx)\s*$/iu, "");
+  next = next.replace(/[-_. ]+$/u, "").trim();
+  return next === "" ? null : next;
+}
+
 function interactiveEngineForRuleset(
   ruleset: SeriesCatalogEntry["ruleset"],
   engines: BrowserAppServices["engines"],
@@ -1005,6 +1018,7 @@ export function PlayerApp({
     currentLevelReplayEntries.length === 1 ? "1 replay" : `${currentLevelReplayEntries.length} replays`;
   const modernGameplaySubtitle = formatModernGameplaySubtitle(replayContextSeries?.filebase, replayContextLevel);
   const canCopyCurrentLevelLink = Boolean(currentSeries && currentLevel && currentRuleset);
+  const mobileSeriesLabel = currentFamily?.title ?? formatSeriesDisplayTitle(currentSeries?.filebase ?? currentSeries?.name ?? replayContextSeries?.filebase);
   const currentLevelLinkTargetKey =
     currentSeries !== null && currentLevel !== null && currentRuleset !== null
       ? `${currentSeries.filebase}:${currentLevel.number}:${currentRuleset}`
@@ -4555,7 +4569,7 @@ export function PlayerApp({
           <div className="mobile-game-shell__meta-copy">
             <h1 className="mobile-game-shell__title">{modernLevelTitle}</h1>
             <p className="mobile-game-shell__subtitle">
-              {[currentSeries?.name ?? null, modernGameplaySubtitle].filter(Boolean).join("  ·  ")}
+              {[mobileSeriesLabel, modernGameplaySubtitle].filter(Boolean).join("  ·  ")}
             </p>
           </div>
           <button
