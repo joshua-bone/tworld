@@ -2812,8 +2812,21 @@ body {
   background: #000000;
 }
 
+.mobile-route-shell {
+  min-height: 100vh;
+  background: #000000;
+}
+
 .modern-classic-banner {
   padding: 24px 20px 0;
+}
+
+.mobile-route-banner {
+  width: min(1160px, 100%);
+  margin: 0 auto;
+  padding: 24px 20px 0;
+  display: grid;
+  gap: 12px;
 }
 
 .modern-classic-banner__body,
@@ -2821,7 +2834,12 @@ body {
   margin: 12px 0 0;
 }
 
+.mobile-route-banner__copy {
+  display: grid;
+}
+
 .modern-classic-banner__controls,
+.mobile-route-banner__controls,
 .modern-classic-banner__preference {
   display: grid;
   gap: 12px;

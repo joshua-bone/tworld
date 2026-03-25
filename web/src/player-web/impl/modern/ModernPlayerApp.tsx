@@ -85,6 +85,7 @@ const LIBRARY_SIDEBAR_TABS: readonly { id: LibrarySidebarTab; label: string }[] 
 interface ModernPlayerAppProps {
   services: BrowserAppServices;
   onOpenClassic: () => void;
+  onOpenMobile?: (() => void) | undefined;
 }
 
 interface LevelContextMenuState {
@@ -102,6 +103,7 @@ const ABOUT_LINKS = {
   bitbustersWiki: "https://wiki.bitbusters.club",
   discord: "https://discord.gg/Xd4dUY9",
   legacy: buildAppHref("/legacy", import.meta.env.BASE_URL),
+  mobile: buildAppHref("/mobile", import.meta.env.BASE_URL),
 } as const;
 
 const DASHBOARD_COLLAPSED_PANE_WIDTH = 44;
@@ -624,6 +626,7 @@ function DashboardSplitter({
 export function ModernPlayerApp({
   services,
   onOpenClassic,
+  onOpenMobile,
 }: ModernPlayerAppProps) {
   const { deleteImportedDatFile, importDatFile, profileStore, selectionStore } = services;
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -2007,6 +2010,22 @@ export function ModernPlayerApp({
                   >
                     TWO Legacy UI
                   </a>
+                  {onOpenMobile ? (
+                    <>
+                      <span aria-hidden="true">|</span>
+                      <a
+                        className="modern-inline-link"
+                        href={ABOUT_LINKS.mobile}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setIsAboutOpen(false);
+                          onOpenMobile();
+                        }}
+                      >
+                        TWO Mobile UI
+                      </a>
+                    </>
+                  ) : null}
                 </div>
               </section>
 

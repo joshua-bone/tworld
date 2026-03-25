@@ -4,19 +4,57 @@ import { prewarmLegacyTileset, type LegacyMode } from "@player-web/impl/LegacyCa
 import {
   pathForShellMode,
   resolveShellModeFromPathname,
+  type AppShellMode,
 } from "@player-web/impl/appPaths";
+import {
+  MOBILE_UI_DESKTOP_OVERRIDE_STORAGE_KEY,
+  readBrowserMobileShellHeuristics,
+  resolveMobileShellRedirect,
+} from "@player-web/impl/mobileShell";
+import { MobilePlayerApp } from "@player-web/impl/mobile/MobilePlayerApp";
 import { ModernPlayerApp } from "@player-web/impl/modern/ModernPlayerApp";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
-import type { BrowserUiMode } from "@player-web/ports/BrowserProfileStore";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 
 const services = createBrowserAppServices();
 const APP_BASE_URL = import.meta.env.BASE_URL;
 
+interface AppRouteState {
+  pathname: string;
+  search: string;
+  shellMode: AppShellMode;
+}
+
+function currentRouteState(): AppRouteState {
+  return {
+    pathname: window.location.pathname,
+    search: window.location.search,
+    shellMode: resolveShellModeFromPathname(window.location.pathname, APP_BASE_URL),
+  };
+}
+
+function hasDesktopMobileRedirectOverride(): boolean {
+  try {
+    return window.localStorage.getItem(MOBILE_UI_DESKTOP_OVERRIDE_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveDesktopMobileRedirectOverride(enabled: boolean): void {
+  try {
+    if (enabled) {
+      window.localStorage.setItem(MOBILE_UI_DESKTOP_OVERRIDE_STORAGE_KEY, "1");
+      return;
+    }
+    window.localStorage.removeItem(MOBILE_UI_DESKTOP_OVERRIDE_STORAGE_KEY);
+  } catch {
+    // Ignore storage failures; the shell should still navigate.
+  }
+}
+
 export function App() {
-  const [shellMode, setShellMode] = useState<BrowserUiMode>(() =>
-    resolveShellModeFromPathname(window.location.pathname, APP_BASE_URL),
-  );
+  const [routeState, setRouteState] = useState<AppRouteState>(() => currentRouteState());
   const [classicState, setClassicState] = useState<{
     initialMode: LegacyMode;
     initialSelection: PlayableSelection | null;
@@ -25,7 +63,7 @@ export function App() {
 
   useEffect(() => {
     const handlePopState = () => {
-      setShellMode(resolveShellModeFromPathname(window.location.pathname, APP_BASE_URL));
+      setRouteState(currentRouteState());
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -54,25 +92,82 @@ export function App() {
     };
   }, []);
 
-  const navigateToShell = (nextMode: BrowserUiMode) => {
+  const navigateToShell = (nextMode: AppShellMode, options: { replace?: boolean } = {}) => {
     const nextPath = pathForShellMode(nextMode, APP_BASE_URL);
-    if (window.location.pathname !== nextPath) {
-      window.history.pushState({ shellMode: nextMode }, "", nextPath);
+    if (window.location.pathname !== nextPath || window.location.search !== "") {
+      if (options.replace) {
+        window.history.replaceState({ shellMode: nextMode }, "", nextPath);
+      } else {
+        window.history.pushState({ shellMode: nextMode }, "", nextPath);
+      }
     }
-    setShellMode(nextMode);
+    setRouteState(currentRouteState());
   };
 
-  if (shellMode === "modern") {
+  useEffect(() => {
+    const redirect = resolveMobileShellRedirect({
+      baseUrl: APP_BASE_URL,
+      desktopOverride: hasDesktopMobileRedirectOverride(),
+      heuristics: readBrowserMobileShellHeuristics(window),
+      pathname: routeState.pathname,
+      search: routeState.search,
+    });
+    if (!redirect) {
+      return;
+    }
+
+    const nextPath = pathForShellMode(redirect.mode, APP_BASE_URL);
+    if (window.location.pathname === nextPath && window.location.search === "") {
+      return;
+    }
+
+    if (redirect.mode === "modern") {
+      setClassicState(null);
+    }
+    navigateToShell(redirect.mode, { replace: true });
+  }, [routeState.pathname, routeState.search]);
+
+  const openClassicShell = () => {
+    setClassicState((current) => ({
+      initialMode: "series-list",
+      initialSelection: null,
+      token: (current?.token ?? 0) + 1,
+    }));
+    navigateToShell("classic");
+  };
+
+  const openMobileShell = () => {
+    saveDesktopMobileRedirectOverride(false);
+    setClassicState(null);
+    navigateToShell("mobile");
+  };
+
+  const openDesktopShell = () => {
+    saveDesktopMobileRedirectOverride(true);
+    setClassicState(null);
+    navigateToShell("modern");
+  };
+
+  const openClassicShellFromMobile = () => {
+    saveDesktopMobileRedirectOverride(true);
+    openClassicShell();
+  };
+
+  if (routeState.shellMode === "modern") {
     return (
       <ModernPlayerApp
-        onOpenClassic={() => {
-          setClassicState((current) => ({
-            initialMode: "series-list",
-            initialSelection: null,
-            token: (current?.token ?? 0) + 1,
-          }));
-          navigateToShell("classic");
-        }}
+        onOpenClassic={openClassicShell}
+        onOpenMobile={openMobileShell}
+        services={services}
+      />
+    );
+  }
+
+  if (routeState.shellMode === "mobile") {
+    return (
+      <MobilePlayerApp
+        onOpenClassic={openClassicShellFromMobile}
+        onOpenDesktop={openDesktopShell}
         services={services}
       />
     );
@@ -96,10 +191,16 @@ export function App() {
         </div>
         <div className="modern-classic-banner__controls">
           <button
+            className="modern-link-button"
+            onClick={openMobileShell}
+            type="button"
+          >
+            Open Mobile UI
+          </button>
+          <button
             className="modern-link-button modern-link-button--light"
             onClick={() => {
-              setClassicState(null);
-              navigateToShell("modern");
+              openDesktopShell();
             }}
             type="button"
           >

@@ -1,5 +1,7 @@
 import type { BrowserUiMode } from "@player-web/ports/BrowserProfileStore";
 
+export type AppShellMode = BrowserUiMode | "mobile";
+
 function normalizeBaseUrl(baseUrl: string): string {
   if (!baseUrl) {
     return "/";
@@ -31,12 +33,18 @@ export function appRelativePathname(pathname: string, baseUrl: string): string {
   return pathname;
 }
 
-export function resolveShellModeFromPathname(pathname: string, baseUrl: string): BrowserUiMode {
+export function resolveShellModeFromPathname(pathname: string, baseUrl: string): AppShellMode {
   const appPath = appRelativePathname(pathname, baseUrl);
-  return appPath === "/legacy" || appPath.startsWith("/legacy/") ? "classic" : "modern";
+  if (appPath === "/legacy" || appPath.startsWith("/legacy/")) {
+    return "classic";
+  }
+  if (appPath === "/mobile" || appPath.startsWith("/mobile/")) {
+    return "mobile";
+  }
+  return "modern";
 }
 
-export function buildAppHref(appPath: "/" | "/legacy", baseUrl: string): string {
+export function buildAppHref(appPath: "/" | "/legacy" | "/mobile", baseUrl: string): string {
   const basePath = basePathFromBaseUrl(baseUrl);
   if (appPath === "/") {
     return basePath ? `${basePath}/` : "/";
@@ -45,6 +53,13 @@ export function buildAppHref(appPath: "/" | "/legacy", baseUrl: string): string 
   return `${basePath}${appPath}`;
 }
 
-export function pathForShellMode(mode: BrowserUiMode, baseUrl: string): string {
-  return buildAppHref(mode === "classic" ? "/legacy" : "/", baseUrl);
+export function pathForShellMode(mode: AppShellMode, baseUrl: string): string {
+  switch (mode) {
+    case "classic":
+      return buildAppHref("/legacy", baseUrl);
+    case "mobile":
+      return buildAppHref("/mobile", baseUrl);
+    default:
+      return buildAppHref("/", baseUrl);
+  }
 }
