@@ -181,50 +181,137 @@ Recommended staging:
 
 If the team wants the tile presets in the first PR, expect a materially larger PR and more renderer risk.
 
-## Implementation Plan
+## PR Sequence
 
-### Phase 1: Route and Redirect Infrastructure
+### PR 1: Route, Detection, and Entry Points
 
-- Extend `appPaths.ts` and tests for `/mobile`
-- Add mobile route handling in `App.tsx`
-- Add mobile detection helper and redirect logic
-- Add manual cross-links between desktop and mobile shells
-- Add local/query overrides so redirect mistakes are recoverable
+Purpose:
 
-### Phase 2: Mobile Shell Skeleton
+- land the `/mobile` route and mobile redirect behavior without changing desktop gameplay
 
-- Add `MobilePlayerApp.tsx`
-- Reuse existing catalog/profile services
-- Reuse existing selection state and embedded gameplay flow where practical
-- Render a full-screen mobile shell without affecting desktop CSS/layout
+Checklist:
 
-### Phase 3: Touch Gameplay Controls
+- [ ] Extend `appPaths.ts` and `appPaths.test.ts` to support `/mobile`
+- [ ] Update `App.tsx` to render a mobile shell route
+- [ ] Add a mobile-detection helper based on coarse pointer, hover, and bounded viewport size
+- [ ] Add first-visit auto-redirect from `/` to `/mobile` for likely-mobile devices
+- [ ] Add query-string overrides such as `?ui=mobile` and `?ui=desktop`
+- [ ] Add a local override so a user can opt out of future redirects
+- [ ] Add a visible "Mobile UI" entry point from desktop branding and/or help
+- [ ] Add a visible "Desktop UI" exit point from the mobile route
+- [ ] Keep `/` and `/legacy` unchanged for non-mobile users
 
-- Add pointer-driven directional overlays
-- Support held directions and multi-touch
-- Route touch presses into the existing MS/Lynx input buffers
-- Do not wire MS map-click movement in mobile mode
-- Ensure overlays do not block intended non-control interactions
+Acceptance criteria:
 
-### Phase 4: Mobile Navigation Chrome
+- desktop and laptop users notice no change on normal entry paths
+- likely-mobile users can reach `/mobile` automatically
+- redirect mistakes are recoverable without clearing browser state
 
-- Add set selector sheet
-- Add level selector sheet
-- Add overflow sheet for settings/help/sound/replays
-- Add desktop/mobile switch links
+### PR 2: Mobile Shell Skeleton and Full-Screen Viewport
 
-### Phase 5: Viewport Sizing
+Purpose:
 
-Minimum first-PR target:
+- introduce a dedicated mobile shell with a viewport-first layout while reusing existing gameplay/session code
 
-- make the viewport full-screen and stable on phone/tablet
-- center the board and scale it to fit
+Checklist:
 
-Preferred follow-up:
+- [ ] Add `web/src/player-web/impl/mobile/MobilePlayerApp.tsx`
+- [ ] Keep mobile-specific CSS and helpers under a mobile-specific namespace
+- [ ] Reuse catalog/profile/selection services from the existing modern shell
+- [ ] Reuse `PlayerApp` gameplay/session logic rather than duplicating orchestration
+- [ ] Add a mobile presentation mode or mobile-facing props on `PlayerApp`
+- [ ] Render the gameplay viewport as the visual focus in portrait and landscape
+- [ ] Make the board area stable and full-screen on phone/tablet
+- [ ] Scale the current board to fit the viewport without touching true tile-size rendering yet
+- [ ] Add compact inventory/status presentation suitable for mobile
 
-- add true `48 / 32 / 24` render presets
-- choose preset automatically from viewport size
-- allow user override if needed
+Acceptance criteria:
+
+- `/mobile` is a usable dedicated shell rather than a desktop page shrunk by media queries
+- desktop layout code remains separate enough that desktop behavior is unaffected
+
+### PR 3: Mobile Navigation Chrome
+
+Purpose:
+
+- make the mobile shell self-contained and navigable without depending on desktop controls
+
+Checklist:
+
+- [ ] Add set selector UI in one corner
+- [ ] Add level selector UI in the opposite corner
+- [ ] Add an overflow sheet or drawer for settings/help/sound/replays
+- [ ] Add a desktop/mobile switch link in the overflow or header
+- [ ] Ensure selectors and overflow are reachable in portrait and landscape
+- [ ] Keep always-visible chrome minimal so the board remains dominant
+
+Acceptance criteria:
+
+- a mobile user can choose a set, change level, open settings, and open help without desktop UI
+- the viewport remains the primary focus of the screen
+
+### PR 4: Touch Controls and Mobile Input Rules
+
+Purpose:
+
+- make levels fully playable on phone and tablet using touch
+
+Checklist:
+
+- [ ] Add large, mostly transparent directional control surfaces at the screen edges
+- [ ] Use pointer events rather than click events
+- [ ] Track active pointers per direction for held movement
+- [ ] Support simultaneous orthogonal presses so Lynx diagonals work
+- [ ] Route touch presses through the existing MS/Lynx input buffers
+- [ ] Add `touch-action: none` where needed to prevent browser scroll/zoom conflicts
+- [ ] Do not wire MS absolute mouse-goal movement in mobile mode
+- [ ] Ensure touch overlays do not break intended taps on mobile chrome
+- [ ] Add tests around any new touch-to-input helper logic
+
+Acceptance criteria:
+
+- both MS and Lynx are playable by touch
+- Lynx diagonals work with multi-touch
+- MS mouse-goal moves remain available on desktop but absent in mobile UI
+
+### PR 5: True Tile-Size Presets and Viewport Preset Selection
+
+Purpose:
+
+- replace prototype CSS fitting with real `48 / 32 / 24` render presets
+
+Checklist:
+
+- [ ] Refactor render math so tile size is configurable instead of fixed at `48`
+- [ ] Thread render size through the relevant legacy sprite, tileset, and canvas code
+- [ ] Add true `48`, `32`, and `24` render presets
+- [ ] Choose a default preset automatically from viewport size
+- [ ] Add an override if we decide users should be able to change the preset manually
+- [ ] Update renderer tests impacted by size-dependent math
+- [ ] Verify overlays, inventory strips, and hit-testing still align correctly
+
+Acceptance criteria:
+
+- `48 / 32 / 24` are real render presets, not just CSS downscales
+- overlay alignment and input hit regions remain correct at all supported presets
+
+### Optional PR 6: Mobile Polish and Cleanup
+
+Purpose:
+
+- reduce coupling and clean up any temporary scaffolding left from earlier PRs
+
+Checklist:
+
+- [ ] Remove any temporary mobile-only hacks used to land earlier slices
+- [ ] Simplify any `PlayerApp` conditionals that became awkward during rollout
+- [ ] Tighten CSS ownership between desktop and mobile shells
+- [ ] Revisit whether mobile shell choice should become a persisted preference
+- [ ] Document final mobile routing and override behavior in user-facing docs if needed
+
+Acceptance criteria:
+
+- the mobile shell is maintainable without spreading mobile-specific logic across unrelated desktop code paths
 
 ## Likely Files
 
