@@ -793,7 +793,11 @@ export function visualEnhancementThinWallOverlayTileId(
   topId: number,
   bottomId: number,
 ): number | null {
-  if (ruleset !== "MS" || visualEnhancementActorId(topId) !== MS_TILE.Block || !isThinWallTileId(bottomId)) {
+  if (
+    (ruleset !== "MS" && ruleset !== "Lynx") ||
+    visualEnhancementActorId(topId) !== MS_TILE.Block ||
+    !isThinWallTileId(bottomId)
+  ) {
     return null;
   }
 

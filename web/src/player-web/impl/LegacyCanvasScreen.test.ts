@@ -114,15 +114,16 @@ describe("visualEnhancementBlockWindowOpacity", () => {
 });
 
 describe("visualEnhancementThinWallOverlayTileId", () => {
-  it("marks MS blocks on thin walls for an overlaid wall-edge pass", () => {
+  it("marks MS and Lynx blocks on thin walls for an overlaid wall-edge pass", () => {
     expect(isThinWallTileId(MS_TILE.Wall_North)).toBe(true);
     expect(isThinWallTileId(MS_TILE.Wall_Southeast)).toBe(true);
     expect(visualEnhancementThinWallOverlayTileId("MS", MS_TILE.Block_Static, MS_TILE.Wall_South)).toBe(MS_TILE.Wall_South);
+    expect(visualEnhancementThinWallOverlayTileId("Lynx", MS_TILE.Block_Static, MS_TILE.Wall_South)).toBe(MS_TILE.Wall_South);
   });
 
-  it("ignores non-MS rulesets, non-block actors, and non-thin walls", () => {
+  it("ignores unsupported rulesets, non-block actors, and non-thin walls", () => {
     expect(isThinWallTileId(MS_TILE.Wall)).toBe(false);
-    expect(visualEnhancementThinWallOverlayTileId("Lynx", MS_TILE.Block_Static, MS_TILE.Wall_South)).toBeNull();
+    expect(visualEnhancementThinWallOverlayTileId(null, MS_TILE.Block_Static, MS_TILE.Wall_South)).toBeNull();
     expect(visualEnhancementThinWallOverlayTileId("MS", MS_TILE.Paramecium, MS_TILE.Wall_South)).toBeNull();
     expect(visualEnhancementThinWallOverlayTileId("MS", MS_TILE.Block_Static, MS_TILE.Empty)).toBeNull();
   });
