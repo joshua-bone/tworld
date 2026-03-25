@@ -4,6 +4,7 @@ import {
   inventoryTileCountLabel,
   isThinWallTileId,
   shouldUseLegacyCombinedCellSprite,
+  visualEnhancementThinWallActorPassTileId,
   visualEnhancementActorMarker,
   visualEnhancementBlockWindowOpacity,
   visualEnhancementThinWallOverlayTileId,
@@ -137,5 +138,15 @@ describe("shouldUseLegacyCombinedCellSprite", () => {
 
   it("still allows the combined cell fast path for ordinary composited cells", () => {
     expect(shouldUseLegacyCombinedCellSprite(MS_TILE.Chip, MS_TILE.Ice, null, null)).toBe(true);
+  });
+});
+
+describe("visualEnhancementThinWallActorPassTileId", () => {
+  it("moves Lynx block thin-wall overlays into the actor pass", () => {
+    expect(visualEnhancementThinWallActorPassTileId("Lynx", MS_TILE.Block_Static, MS_TILE.Wall_South)).toBe(MS_TILE.Wall_South);
+  });
+
+  it("keeps MS using the cell compositor path", () => {
+    expect(visualEnhancementThinWallActorPassTileId("MS", MS_TILE.Block_Static, MS_TILE.Wall_South)).toBeNull();
   });
 });

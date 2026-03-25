@@ -804,6 +804,14 @@ export function visualEnhancementThinWallOverlayTileId(
   return bottomId;
 }
 
+export function visualEnhancementThinWallActorPassTileId(
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  topId: number,
+  bottomId: number,
+): number | null {
+  return ruleset === "Lynx" ? visualEnhancementThinWallOverlayTileId(ruleset, topId, bottomId) : null;
+}
+
 export function shouldUseLegacyCombinedCellSprite(
   topId: number,
   bottomId: number,
@@ -934,6 +942,7 @@ function drawVisualEnhancementSupportWindow(
 function drawActorVisualEnhancements(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
   render: InteractiveGameRenderFrame | null,
   cells: ReadonlyArray<InteractiveGameVisibleLayer["cells"][number]>,
   xOrigin: number,
@@ -955,13 +964,21 @@ function drawActorVisualEnhancements(
       continue;
     }
 
+    const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
+    const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
+    const thinWallActorOverlayTileId = visualEnhancementThinWallActorPassTileId(ruleset, cell.top.id, cell.bottom.id);
+    if (thinWallActorOverlayTileId !== null) {
+      const overlaySprite = getOrCreateThinWallOverlaySprite(tileset, thinWallActorOverlayTileId);
+      if (overlaySprite) {
+        drawLegacySpriteImage(context, overlaySprite, x, y);
+      }
+    }
+
     const marker = visualEnhancementActorMarker(actor.id, cell.top.id, cell.bottom.id);
     if (!marker) {
       continue;
     }
 
-    const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
-    const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
     if (marker.showBlockWindow) {
       drawVisualEnhancementSupportWindow(
         context,
@@ -1300,6 +1317,7 @@ function renderMapLayerCanvas(
   drawActorVisualEnhancements(
     context,
     tileset,
+    ruleset,
     session.frame.render,
     layer.cells,
     xOrigin,
@@ -1371,6 +1389,7 @@ function renderCachedLowerLayerCanvas(
   drawActorVisualEnhancements(
     context,
     tileset,
+    ruleset,
     session.frame.render,
     layer.cells,
     xOrigin,
