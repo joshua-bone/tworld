@@ -2017,8 +2017,13 @@ export function PlayerApp({
 
   const selectSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
+    const levelNumber = pickLevelNumber(series, selectedLevelNumber);
+    if (levelNumber === null) {
+      return;
+    }
+
     applySelection({
-      levelNumber: pickLevelNumber(series, selectedLevelNumber),
+      levelNumber,
       seriesFile,
     });
   });
@@ -2499,6 +2504,35 @@ export function PlayerApp({
     lynxInputBufferRef.current.reset();
     stopHeldUndo();
     setShowHelp(false);
+  });
+
+  const handleMobileSetSheetTouchStart = useEffectEvent((event: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = event.changedTouches[0];
+    if (!touch) {
+      return;
+    }
+
+    mobileSetSheetSwipeStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  });
+
+  const handleMobileSetSheetTouchEnd = useEffectEvent((event: ReactTouchEvent<HTMLDivElement>) => {
+    const start = mobileSetSheetSwipeStartRef.current;
+    const touch = event.changedTouches[0];
+    mobileSetSheetSwipeStartRef.current = null;
+    if (!start || !touch) {
+      return;
+    }
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+      return;
+    }
+
+    setMobileSetSection((current) => shiftMobileLibrarySection(current, deltaX > 0 ? -1 : 1));
   });
 
   const toggleSoundControls = useEffectEvent(() => {
@@ -4181,33 +4215,6 @@ export function PlayerApp({
     applyMobileDirectionalInputChanges(
       mobileDirectionalInputRef.current.releasePointer(event.pointerId),
     );
-  });
-  const handleMobileSetSheetTouchStart = useEffectEvent((event: ReactTouchEvent<HTMLDivElement>) => {
-    const touch = event.changedTouches[0];
-    if (!touch) {
-      return;
-    }
-
-    mobileSetSheetSwipeStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-    };
-  });
-  const handleMobileSetSheetTouchEnd = useEffectEvent((event: ReactTouchEvent<HTMLDivElement>) => {
-    const start = mobileSetSheetSwipeStartRef.current;
-    const touch = event.changedTouches[0];
-    mobileSetSheetSwipeStartRef.current = null;
-    if (!start || !touch) {
-      return;
-    }
-
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) {
-      return;
-    }
-
-    setMobileSetSection((current) => shiftMobileLibrarySection(current, deltaX > 0 ? -1 : 1));
   });
   const renderMobileTouchControls = () => (
     <div aria-label="Touch movement controls" className="mobile-game-shell__touch-controls" role="group">
