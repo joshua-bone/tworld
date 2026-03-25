@@ -4332,6 +4332,7 @@ export function PlayerApp({
     }
 
     event.preventDefault();
+    event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     applyMobileDirectionalInputChanges(
       mobileDirectionalInputRef.current.assignPointer(event.pointerId, direction),
@@ -4339,24 +4340,28 @@ export function PlayerApp({
   });
   const handleMobileDirectionPointerEnd = useEffectEvent((event: ReactPointerEvent<HTMLElement>) => {
     event.preventDefault();
+    event.stopPropagation();
     applyMobileDirectionalInputChanges(
       mobileDirectionalInputRef.current.releasePointer(event.pointerId),
     );
   });
   const preventMobileTouchDefault = useEffectEvent((event: ReactTouchEvent<HTMLElement>) => {
     event.preventDefault();
+    event.stopPropagation();
   });
   const renderMobileTouchButton = (direction: DirectionInput, label: string, modifierClassName: string, arrow: string) => (
     <div
-      aria-disabled={mobileMovementControlsDisabled}
-      aria-label={label}
+      aria-hidden="true"
       className={`mobile-game-shell__touch-button ${modifierClassName}${mobileMovementControlsDisabled ? " mobile-game-shell__touch-button--disabled" : ""}`}
+      data-label={label}
       draggable={false}
       onContextMenu={(event) => {
         event.preventDefault();
+        event.stopPropagation();
       }}
       onDragStart={(event) => {
         event.preventDefault();
+        event.stopPropagation();
       }}
       onLostPointerCapture={handleMobileDirectionPointerEnd}
       onPointerCancel={handleMobileDirectionPointerEnd}
@@ -4368,7 +4373,7 @@ export function PlayerApp({
       onTouchEnd={preventMobileTouchDefault}
       onTouchMove={preventMobileTouchDefault}
       onTouchStart={preventMobileTouchDefault}
-      role="button"
+      tabIndex={-1}
     >
       <span className="mobile-game-shell__touch-button-arrow">{arrow}</span>
     </div>
@@ -4521,7 +4526,11 @@ export function PlayerApp({
   const renderMobileSecondaryMargin = () => (
     <aside className="mobile-game-shell__margin mobile-game-shell__margin--secondary">
       {renderMobileInventoryPanel()}
-      {mobileControlProfile === "wasd-cluster" ? renderMobileTouchControls() : null}
+      {mobileControlProfile === "wasd-cluster" ? (
+        <div className="mobile-game-shell__controls-slot">
+          {renderMobileTouchControls()}
+        </div>
+      ) : null}
     </aside>
   );
   const renderModernHeaderToolbar = () => (

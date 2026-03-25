@@ -2357,6 +2357,8 @@ body {
   grid-area: secondary;
   grid-template-rows: minmax(0, 1fr) auto;
   align-content: stretch;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .mobile-game-shell__meta,
@@ -2547,6 +2549,20 @@ body {
   image-rendering: pixelated;
 }
 
+.mobile-game-shell__controls-slot {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  align-items: end;
+  justify-items: end;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .mobile-game-shell__board {
   grid-area: board;
   min-width: 0;
@@ -2595,6 +2611,7 @@ body {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-user-drag: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
@@ -2727,6 +2744,7 @@ body {
   font-size: clamp(1.3rem, 4.6vw, 2rem);
   line-height: 1;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
 }
 
 .mobile-game-shell__paused {
