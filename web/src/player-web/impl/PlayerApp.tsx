@@ -1399,7 +1399,8 @@ export function PlayerApp({
       }) ||
       !session ||
       !currentLevel ||
-      (session.request.ruleset !== "MS" && session.request.ruleset !== "Lynx")
+      (session.request.ruleset !== "MS" && session.request.ruleset !== "Lynx") ||
+      session.mode !== "manual"
     ) {
       return;
     }
@@ -1431,6 +1432,7 @@ export function PlayerApp({
     void profileStore.saveLevelProgressSummary(progressSummary);
 
     if (
+      session.run.replayAvailable &&
       shouldAutoSaveWinningHighScoreReplay({
         enabled: autoSaveWinningHighScoreReplays,
         previousProgress: previousKnownLevelProgress,
@@ -2266,6 +2268,9 @@ export function PlayerApp({
     try {
       const artifact = buildReplayExport(replayContextSeries.filebase, replayContextLevel, session);
       if (!artifact) {
+        if (options.autoTriggered) {
+          return;
+        }
         throw new Error("no replay data is available for export yet");
       }
 
