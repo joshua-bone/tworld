@@ -39,11 +39,31 @@ import {
 import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
 import { LegacyCanvasScreen, LegacyInventoryStrip, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import {
+  buildLevelProgressIndex,
+  mergeLevelProgressSummaries,
+  resolveLevelProgressSummary,
+  summarizeEntryProgress,
+} from "@player-web/impl/levelProgress";
+import {
   buildCuratedCatalogView,
   findSetFamilyForSelection,
   listSetFamilyRulesets,
+  resolveSetFamilyRuleset,
   resolveSetFamilySelection,
+  type SetFamily,
 } from "@player-web/impl/modern/curatedCatalog";
+import {
+  formatMobileFamilyBrowseMeta,
+  listMobileLibraryFamilies,
+  mobileLibrarySectionForFamily,
+  mobileLevelStatusClassName,
+  mobileLevelStatusDescription,
+  mobileLevelStatusLabel,
+  MOBILE_LIBRARY_SECTIONS,
+  resolveMobileFamilyRuleset,
+  resolveToggledMobileFamilyRuleset,
+  type MobileLibrarySection,
+} from "@player-web/impl/mobile/mobileCatalog";
 import {
   activeGameplayHintOverlay,
   describeGameplayStatus,
@@ -625,6 +645,7 @@ export function PlayerApp({
   const visualEnhancementsEnabledSeedRef = useRef(loadStoredVisualEnhancementsSettings().enabled);
   const [mode, setMode] = useState<LegacyMode>(initialModeRef.current);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
+  const [levelProgressSummaries, setLevelProgressSummaries] = useState<BrowserLevelProgressSummary[]>([]);
   const [savedReplayEntries, setSavedReplayEntries] = useState<BrowserReplayEntry[]>([]);
   const [levelSeedOverrides, setLevelSeedOverrides] = useState<BrowserLevelSeedOverride[]>(initialLevelSeedOverridesRef.current);
   const [selectedSeriesFile, setSelectedSeriesFile] = useState<string | null>(null);
@@ -642,6 +663,7 @@ export function PlayerApp({
   const [showSoundControls, setShowSoundControls] = useState(false);
   const [showHistoryControls, setShowHistoryControls] = useState(false);
   const [showManageReplays, setShowManageReplays] = useState(false);
+  const [mobileSetSection, setMobileSetSection] = useState<MobileLibrarySection>("official");
   const [mobileSheet, setMobileSheet] = useState<"levels" | "menu" | "sets" | null>(null);
   const [pendingReplayEntryId, setPendingReplayEntryId] = useState<string | null>(null);
   const [selectedManagedReplayId, setSelectedManagedReplayId] = useState<string | null>(null);
@@ -807,7 +829,27 @@ export function PlayerApp({
           levelNumber: selectedLevelNumber,
         }
       : null;
-  const currentFamily = findSetFamilyForSelection(buildCuratedCatalogView(catalog, currentSelection), currentSelection);
+  const curatedCatalogView = useMemo(
+    () => buildCuratedCatalogView(catalog, currentSelection),
+    [catalog, currentSelection],
+  );
+  const progressByKey = useMemo(
+    () => buildLevelProgressIndex(levelProgressSummaries),
+    [levelProgressSummaries],
+  );
+  const currentFamily = findSetFamilyForSelection(curatedCatalogView, currentSelection);
+  const currentFamilyRuleset = currentFamily ? resolveSetFamilyRuleset(currentFamily, currentSelection) : null;
+  const currentPreferredRuleset =
+    currentRuleset === "MS" || currentRuleset === "Lynx" ? currentRuleset : currentFamilyRuleset;
+  const currentFamilyEntry =
+    currentFamily && currentFamilyRuleset ? currentFamily.launchEntries[currentFamilyRuleset] ?? null : currentSeries;
+  const currentFamilyProgress = currentFamilyEntry ? summarizeEntryProgress(currentFamilyEntry, progressByKey) : null;
+  const currentResolvedLevelProgressSummary =
+    knownLevelProgressSummary ?? resolveLevelProgressSummary(currentLevel, currentPreferredRuleset, progressByKey);
+  const mobileVisibleFamilies = useMemo(
+    () => listMobileLibraryFamilies(curatedCatalogView, mobileSetSection),
+    [curatedCatalogView, mobileSetSection],
+  );
   const replayActionContext = resolveReplayActionContext(
     catalog,
     {
@@ -884,7 +926,7 @@ export function PlayerApp({
     resultSheetBestScoreSnapshotRef.current = null;
   } else if (resultSheetBestScoreSnapshotRef.current?.recordKey !== currentTerminalRecordKey) {
     resultSheetBestScoreSnapshotRef.current = {
-      bestScore: knownLevelProgressSummary?.bestScore ?? null,
+      bestScore: currentResolvedLevelProgressSummary?.bestScore ?? null,
       recordKey: currentTerminalRecordKey,
     };
   }
@@ -932,7 +974,7 @@ export function PlayerApp({
               detail: `Record: ${previousBestScoreBeforeCurrentResult} pts`,
               kind: "below-record" as const,
             };
-  const previousKnownLevelProgress = knownLevelProgressSummary;
+  const previousKnownLevelProgress = currentResolvedLevelProgressSummary;
   const canSaveReplay = Boolean(session?.run.replayAvailable && replayContextLevel && replayContextSeries);
   const currentLevelReplayEntries = session
     ? listReplaysForSeriesLevel(
@@ -1251,10 +1293,11 @@ export function PlayerApp({
     Promise.all([
       loadBrowserPlayableCatalog(services),
       loadPlayableSelection(selectionStore),
+      profileStore.loadLevelProgressSummaries(),
       profileStore.loadReplayEntries(),
       profileStore.loadLevelSeedOverrides(),
     ])
-      .then(([nextCatalog, storedSelection, storedReplayEntries, storedLevelSeedOverrides]) => {
+      .then(([nextCatalog, storedSelection, storedLevelProgressSummaries, storedReplayEntries, storedLevelSeedOverrides]) => {
         if (!active) {
           return;
         }
@@ -1263,6 +1306,7 @@ export function PlayerApp({
         const resolvedSelection = resolveInitialSelection(nextCatalog, preferredSelection);
         startTransition(() => {
           setCatalog(nextCatalog);
+          setLevelProgressSummaries(storedLevelProgressSummaries);
           commitLevelSeedOverrides(storedLevelSeedOverrides);
           setSavedReplayEntries(storedReplayEntries);
           setSelectedSeriesFile(resolvedSelection?.seriesFile ?? null);
@@ -1369,6 +1413,7 @@ export function PlayerApp({
     };
 
     onLevelProgressSaved?.(progressSummary);
+    setLevelProgressSummaries((current) => mergeLevelProgressSummaries(current, progressSummary));
     void profileStore.saveLevelProgressSummary(progressSummary);
 
     if (
@@ -1962,13 +2007,20 @@ export function PlayerApp({
     };
   }, [isMobileChrome, mobileSheet]);
 
-  const selectSeries = useEffectEvent((seriesFile: string) => {
-    const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
+  const applySelection = useEffectEvent((selection: PlayableSelection) => {
     setReplayLaunchRequest(null);
-    setSelectedSeriesFile(seriesFile);
-    setSelectedLevelNumber((current) => pickLevelNumber(series, current));
+    setSelectedSeriesFile(selection.seriesFile);
+    setSelectedLevelNumber(selection.levelNumber);
     setIsPaused(false);
     setMessage(null);
+  });
+
+  const selectSeries = useEffectEvent((seriesFile: string) => {
+    const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
+    applySelection({
+      levelNumber: pickLevelNumber(series, selectedLevelNumber),
+      seriesFile,
+    });
   });
 
   const selectLevel = useEffectEvent((levelNumber: number) => {
@@ -1976,10 +2028,50 @@ export function PlayerApp({
       return;
     }
 
-    setReplayLaunchRequest(null);
-    setIsPaused(false);
-    setSelectedLevelNumber(levelNumber);
-    setMessage(null);
+    applySelection({
+      levelNumber,
+      seriesFile: currentSeries.filebase,
+    });
+  });
+
+  const selectSetFamily = useEffectEvent((family: SetFamily) => {
+    const preferredRuleset = resolveMobileFamilyRuleset(family, currentPreferredRuleset);
+    if (!preferredRuleset) {
+      return;
+    }
+
+    const requestedLevelNumber =
+      family.id === currentFamily?.id
+        ? currentLevel?.number ?? family.continueSelection?.levelNumber ?? 1
+        : family.continueSelection?.levelNumber ?? currentLevel?.number ?? 1;
+    const nextSelection = resolveSetFamilySelection(family, preferredRuleset, requestedLevelNumber);
+    if (!nextSelection) {
+      return;
+    }
+
+    applySelection(nextSelection);
+  });
+
+  const toggleCurrentFamilyRuleset = useEffectEvent(() => {
+    if (!currentFamily) {
+      return;
+    }
+
+    const nextRuleset = resolveToggledMobileFamilyRuleset(currentFamily, currentPreferredRuleset);
+    if (!nextRuleset || nextRuleset === currentFamilyRuleset) {
+      return;
+    }
+
+    const nextSelection = resolveSetFamilySelection(
+      currentFamily,
+      nextRuleset,
+      currentLevel?.number ?? currentFamily.continueSelection?.levelNumber ?? 1,
+    );
+    if (!nextSelection) {
+      return;
+    }
+
+    applySelection(nextSelection);
   });
 
   const toggleMobileSheet = useEffectEvent((nextSheet: "levels" | "menu" | "sets") => {
@@ -1987,6 +2079,9 @@ export function PlayerApp({
     setShowAdvancedMenu(false);
     setShowSoundControls(false);
     setShowHistoryControls(false);
+    if (nextSheet === "sets") {
+      setMobileSetSection(mobileLibrarySectionForFamily(currentFamily));
+    }
     setMobileSheet((current) => (current === nextSheet ? null : nextSheet));
   });
 
@@ -3410,29 +3505,55 @@ export function PlayerApp({
             </button>
           </div>
           <div className="modern-about-modal__body mobile-sheet__body">
-            <div className="mobile-sheet__list">
-              {catalog.map((series) => (
+            <div aria-label="Set categories" className="mobile-sheet__tabs" role="tablist">
+              {MOBILE_LIBRARY_SECTIONS.map((section) => (
                 <button
-                  className={`mobile-sheet__list-item${series.filebase === selectedSeriesFile ? " mobile-sheet__list-item--selected" : ""}`}
-                  key={series.filebase}
+                  aria-selected={mobileSetSection === section.id}
+                  className={`mobile-sheet__tab${mobileSetSection === section.id ? " mobile-sheet__tab--active" : ""}`}
+                  key={section.id}
                   onClick={() => {
-                    selectSeries(series.filebase);
-                    closeMobileSheet();
+                    setMobileSetSection(section.id);
                   }}
+                  role="tab"
                   type="button"
                 >
-                  <div className="mobile-sheet__list-copy">
-                    <strong className="mobile-sheet__list-title">{series.name}</strong>
-                    <p className="mobile-sheet__list-meta">
-                      {series.filebase}  ·  {series.ruleset}  ·  {series.levels.length} levels
-                    </p>
-                  </div>
-                  {series.filebase === selectedSeriesFile ? (
-                    <span className="mobile-sheet__list-badge">Current</span>
-                  ) : null}
+                  {section.label}
                 </button>
               ))}
             </div>
+            {mobileVisibleFamilies.length > 0 ? (
+              <div className="mobile-sheet__list">
+                {mobileVisibleFamilies.map((family) => (
+                  <button
+                    className={`mobile-sheet__list-item${family.id === currentFamily?.id ? " mobile-sheet__list-item--selected" : ""}`}
+                    key={family.id}
+                    onClick={() => {
+                      selectSetFamily(family);
+                      closeMobileSheet();
+                    }}
+                    type="button"
+                  >
+                    <div className="mobile-sheet__list-copy">
+                      <strong className="mobile-sheet__list-title">{family.title}</strong>
+                      <p className="mobile-sheet__list-meta">
+                        {formatMobileFamilyBrowseMeta(family, currentPreferredRuleset, progressByKey)}
+                      </p>
+                    </div>
+                    {family.id === currentFamily?.id ? (
+                      <span className="mobile-sheet__list-badge">Current</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="modern-dashboard__copy">
+                {mobileSetSection === "uploads"
+                  ? "No uploaded sets yet."
+                  : mobileSetSection === "curated"
+                    ? "No curated sets are available right now."
+                    : "No official sets are available right now."}
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -3454,7 +3575,7 @@ export function PlayerApp({
             <div>
               <p className="modern-section__eyebrow">Level Selector</p>
               <h2 className="modern-dashboard__panel-title" id="mobile-level-selector-title">
-                {currentSeries ? currentSeries.name : "Choose a level"}
+                {currentFamily?.title ?? currentSeries?.name ?? "Choose a level"}
               </h2>
             </div>
             <button
@@ -3467,7 +3588,49 @@ export function PlayerApp({
             </button>
           </div>
           <div className="modern-about-modal__body mobile-sheet__body">
-            {currentSeries ? (
+            {currentFamilyEntry && currentFamilyRuleset ? (
+              <>
+                <p className="mobile-sheet__section-copy">
+                  {`${currentFamilyRuleset}  ·  ${currentFamilyEntry.levels.length} levels  ·  ${currentFamilyProgress?.completedLevels ?? 0}/${currentFamilyEntry.levels.length} cleared`}
+                </p>
+                <div className="mobile-sheet__list">
+                  {currentFamilyEntry.levels.map((level) => {
+                    const progress = resolveLevelProgressSummary(level, currentFamilyRuleset, progressByKey);
+                    const statusLabel = mobileLevelStatusLabel(progress);
+                    return (
+                      <button
+                        className={`mobile-sheet__list-item${level.number === currentLevel?.number ? " mobile-sheet__list-item--selected" : ""}`}
+                        key={level.number}
+                        onClick={() => {
+                          selectLevel(level.number);
+                          closeMobileSheet();
+                        }}
+                        type="button"
+                      >
+                        <div className="mobile-sheet__list-copy">
+                          <strong className="mobile-sheet__list-title">Level {level.number}</strong>
+                          <p className="mobile-sheet__list-meta">{level.name}</p>
+                        </div>
+                        <div className="mobile-sheet__list-side">
+                          {statusLabel ? (
+                            <span
+                              aria-label={mobileLevelStatusDescription(progress)}
+                              className={`modern-level-chip__badge modern-level-chip__badge--${mobileLevelStatusClassName(progress)}`}
+                              title={mobileLevelStatusDescription(progress)}
+                            >
+                              {statusLabel}
+                            </span>
+                          ) : null}
+                          {level.number === currentLevel?.number ? (
+                            <span className="mobile-sheet__list-badge">Current</span>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : currentSeries ? (
               <div className="mobile-sheet__list">
                 {currentSeries.levels.map((level) => (
                   <button
@@ -3535,6 +3698,7 @@ export function PlayerApp({
                 <button
                   className="modern-button modern-button--secondary"
                   onClick={() => {
+                    setMobileSetSection(mobileLibrarySectionForFamily(currentFamily));
                     setMobileSheet("sets");
                   }}
                   type="button"
@@ -4090,32 +4254,50 @@ export function PlayerApp({
       </button>
     </div>
   );
-  const renderMobileRuntimePanel = () => (
-    <section className="mobile-game-shell__runtime" aria-label="Runtime">
-      <div className={`mobile-game-shell__stat${session && session.frame.snapshot.chipsNeeded === 0 ? " mobile-game-shell__stat--good" : ""}`}>
-        <span className="mobile-game-shell__stat-label">Chips</span>
-        <strong className="mobile-game-shell__stat-value">{session ? session.frame.snapshot.chipsNeeded : "---"}</strong>
-      </div>
-      <div
-        className={`mobile-game-shell__stat${
-          session && session.frame.snapshot.timelimit > 0 && gameplayTimeRemainingTicks(session) < LOW_TIME_WARNING_TICKS
-            ? " mobile-game-shell__stat--danger"
-            : ""
-        }`}
-      >
-        <span className="mobile-game-shell__stat-label">Time</span>
-        <strong className="mobile-game-shell__stat-value">{session ? formatGameplayTimeLeft(session) : "---"}</strong>
-      </div>
-      <div className="mobile-game-shell__stat">
-        <span className="mobile-game-shell__stat-label">Undo</span>
-        <strong className="mobile-game-shell__stat-value">{session?.run.undoUsedCount ?? 0}</strong>
-      </div>
-      <div className="mobile-game-shell__stat">
-        <span className="mobile-game-shell__stat-label">Ruleset</span>
-        <strong className="mobile-game-shell__stat-value">{currentRuleset ?? "---"}</strong>
-      </div>
-    </section>
-  );
+  const renderMobileRuntimePanel = () => {
+    const canToggleRuleset = currentFamily !== null && familyRulesets.length > 1;
+    const nextRuleset = currentFamily ? resolveToggledMobileFamilyRuleset(currentFamily, currentPreferredRuleset) : null;
+
+    return (
+      <section className="mobile-game-shell__runtime" aria-label="Runtime">
+        <div className={`mobile-game-shell__stat${session && session.frame.snapshot.chipsNeeded === 0 ? " mobile-game-shell__stat--good" : ""}`}>
+          <span className="mobile-game-shell__stat-label">Chips</span>
+          <strong className="mobile-game-shell__stat-value">{session ? session.frame.snapshot.chipsNeeded : "---"}</strong>
+        </div>
+        <div
+          className={`mobile-game-shell__stat${
+            session && session.frame.snapshot.timelimit > 0 && gameplayTimeRemainingTicks(session) < LOW_TIME_WARNING_TICKS
+              ? " mobile-game-shell__stat--danger"
+              : ""
+          }`}
+        >
+          <span className="mobile-game-shell__stat-label">Time</span>
+          <strong className="mobile-game-shell__stat-value">{session ? formatGameplayTimeLeft(session) : "---"}</strong>
+        </div>
+        <div className="mobile-game-shell__stat">
+          <span className="mobile-game-shell__stat-label">Undo</span>
+          <strong className="mobile-game-shell__stat-value">{session?.run.undoUsedCount ?? 0}</strong>
+        </div>
+        {canToggleRuleset ? (
+          <button
+            aria-label={`Switch ruleset from ${currentRuleset ?? "---"} to ${nextRuleset ?? "---"}`}
+            className="mobile-game-shell__stat mobile-game-shell__stat--button"
+            onClick={toggleCurrentFamilyRuleset}
+            title={nextRuleset ? `Tap to switch to ${nextRuleset}` : undefined}
+            type="button"
+          >
+            <span className="mobile-game-shell__stat-label">Ruleset</span>
+            <strong className="mobile-game-shell__stat-value">{currentRuleset ?? "---"}</strong>
+          </button>
+        ) : (
+          <div className="mobile-game-shell__stat">
+            <span className="mobile-game-shell__stat-label">Ruleset</span>
+            <strong className="mobile-game-shell__stat-value">{currentRuleset ?? "---"}</strong>
+          </div>
+        )}
+      </section>
+    );
+  };
   const renderMobileInventoryPanel = () => (
     <section
       className={`mobile-game-shell__inventory${

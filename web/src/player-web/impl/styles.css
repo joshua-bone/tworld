@@ -2158,6 +2158,28 @@ body {
   gap: 12px;
 }
 
+.mobile-sheet__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mobile-sheet__tab {
+  border: 1px solid rgba(243, 236, 221, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f3ecdd;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 12px;
+}
+
+.mobile-sheet__tab--active {
+  border-color: #f0b131;
+  background: #f0b131;
+  color: #111418;
+}
+
 .mobile-sheet__list {
   display: grid;
   gap: 8px;
@@ -2191,6 +2213,12 @@ body {
 .mobile-sheet__section {
   display: grid;
   gap: 6px;
+}
+
+.mobile-sheet__list-side {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
 }
 
 .mobile-sheet__list-title {
@@ -2392,6 +2420,15 @@ body {
   text-align: center;
 }
 
+.mobile-game-shell__stat--button {
+  appearance: none;
+  width: 100%;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
 .mobile-game-shell__stat--good {
   border-color: rgba(110, 228, 163, 0.38);
 }
@@ -2414,6 +2451,12 @@ body {
   font-size: 0.95rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+}
+
+.mobile-game-shell__stat--button:hover,
+.mobile-game-shell__stat--button:focus-visible {
+  border-color: rgba(240, 177, 49, 0.58);
+  background: rgba(240, 177, 49, 0.08);
 }
 
 .mobile-game-shell__actions {
