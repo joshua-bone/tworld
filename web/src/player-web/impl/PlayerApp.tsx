@@ -4325,28 +4325,54 @@ export function PlayerApp({
   );
   const handleMobileDirectionPointerDown = useEffectEvent((
     direction: DirectionInput,
-    event: ReactPointerEvent<HTMLButtonElement>,
+    event: ReactPointerEvent<HTMLElement>,
   ) => {
     if (mobileMovementControlsDisabled) {
       return;
     }
 
     event.preventDefault();
-    gameplayFocusRef.current?.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
     applyMobileDirectionalInputChanges(
       mobileDirectionalInputRef.current.assignPointer(event.pointerId, direction),
     );
   });
-  const handleMobileDirectionPointerEnd = useEffectEvent((event: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleMobileDirectionPointerEnd = useEffectEvent((event: ReactPointerEvent<HTMLElement>) => {
     event.preventDefault();
     applyMobileDirectionalInputChanges(
       mobileDirectionalInputRef.current.releasePointer(event.pointerId),
     );
   });
-  const preventMobileTouchDefault = useEffectEvent((event: ReactTouchEvent<HTMLButtonElement>) => {
+  const preventMobileTouchDefault = useEffectEvent((event: ReactTouchEvent<HTMLElement>) => {
     event.preventDefault();
   });
+  const renderMobileTouchButton = (direction: DirectionInput, label: string, modifierClassName: string, arrow: string) => (
+    <div
+      aria-disabled={mobileMovementControlsDisabled}
+      aria-label={label}
+      className={`mobile-game-shell__touch-button ${modifierClassName}${mobileMovementControlsDisabled ? " mobile-game-shell__touch-button--disabled" : ""}`}
+      draggable={false}
+      onContextMenu={(event) => {
+        event.preventDefault();
+      }}
+      onDragStart={(event) => {
+        event.preventDefault();
+      }}
+      onLostPointerCapture={handleMobileDirectionPointerEnd}
+      onPointerCancel={handleMobileDirectionPointerEnd}
+      onPointerDown={(event) => {
+        handleMobileDirectionPointerDown(direction, event);
+      }}
+      onPointerUp={handleMobileDirectionPointerEnd}
+      onTouchCancel={preventMobileTouchDefault}
+      onTouchEnd={preventMobileTouchDefault}
+      onTouchMove={preventMobileTouchDefault}
+      onTouchStart={preventMobileTouchDefault}
+      role="button"
+    >
+      <span className="mobile-game-shell__touch-button-arrow">{arrow}</span>
+    </div>
+  );
   const renderMobileTouchControls = () => (
     <div
       aria-label="Touch movement controls"
@@ -4356,106 +4382,10 @@ export function PlayerApp({
       }}
       role="group"
     >
-      <button
-        aria-label="Move up"
-        className="mobile-game-shell__touch-button mobile-game-shell__touch-button--north"
-        disabled={mobileMovementControlsDisabled}
-        draggable={false}
-        onContextMenu={(event) => {
-          event.preventDefault();
-        }}
-        onDragStart={(event) => {
-          event.preventDefault();
-        }}
-        onLostPointerCapture={handleMobileDirectionPointerEnd}
-        onPointerCancel={handleMobileDirectionPointerEnd}
-        onPointerDown={(event) => {
-          handleMobileDirectionPointerDown("north", event);
-        }}
-        onPointerUp={handleMobileDirectionPointerEnd}
-        onTouchCancel={preventMobileTouchDefault}
-        onTouchEnd={preventMobileTouchDefault}
-        onTouchMove={preventMobileTouchDefault}
-        onTouchStart={preventMobileTouchDefault}
-        type="button"
-      >
-        <span className="mobile-game-shell__touch-button-arrow">▲</span>
-      </button>
-      <button
-        aria-label="Move left"
-        className="mobile-game-shell__touch-button mobile-game-shell__touch-button--west"
-        disabled={mobileMovementControlsDisabled}
-        draggable={false}
-        onContextMenu={(event) => {
-          event.preventDefault();
-        }}
-        onDragStart={(event) => {
-          event.preventDefault();
-        }}
-        onLostPointerCapture={handleMobileDirectionPointerEnd}
-        onPointerCancel={handleMobileDirectionPointerEnd}
-        onPointerDown={(event) => {
-          handleMobileDirectionPointerDown("west", event);
-        }}
-        onPointerUp={handleMobileDirectionPointerEnd}
-        onTouchCancel={preventMobileTouchDefault}
-        onTouchEnd={preventMobileTouchDefault}
-        onTouchMove={preventMobileTouchDefault}
-        onTouchStart={preventMobileTouchDefault}
-        type="button"
-      >
-        <span className="mobile-game-shell__touch-button-arrow">◀</span>
-      </button>
-      <button
-        aria-label="Move down"
-        className="mobile-game-shell__touch-button mobile-game-shell__touch-button--south"
-        disabled={mobileMovementControlsDisabled}
-        draggable={false}
-        onContextMenu={(event) => {
-          event.preventDefault();
-        }}
-        onDragStart={(event) => {
-          event.preventDefault();
-        }}
-        onLostPointerCapture={handleMobileDirectionPointerEnd}
-        onPointerCancel={handleMobileDirectionPointerEnd}
-        onPointerDown={(event) => {
-          handleMobileDirectionPointerDown("south", event);
-        }}
-        onPointerUp={handleMobileDirectionPointerEnd}
-        onTouchCancel={preventMobileTouchDefault}
-        onTouchEnd={preventMobileTouchDefault}
-        onTouchMove={preventMobileTouchDefault}
-        onTouchStart={preventMobileTouchDefault}
-        type="button"
-      >
-        <span className="mobile-game-shell__touch-button-arrow">▼</span>
-      </button>
-      <button
-        aria-label="Move right"
-        className="mobile-game-shell__touch-button mobile-game-shell__touch-button--east"
-        disabled={mobileMovementControlsDisabled}
-        draggable={false}
-        onContextMenu={(event) => {
-          event.preventDefault();
-        }}
-        onDragStart={(event) => {
-          event.preventDefault();
-        }}
-        onLostPointerCapture={handleMobileDirectionPointerEnd}
-        onPointerCancel={handleMobileDirectionPointerEnd}
-        onPointerDown={(event) => {
-          handleMobileDirectionPointerDown("east", event);
-        }}
-        onPointerUp={handleMobileDirectionPointerEnd}
-        onTouchCancel={preventMobileTouchDefault}
-        onTouchEnd={preventMobileTouchDefault}
-        onTouchMove={preventMobileTouchDefault}
-        onTouchStart={preventMobileTouchDefault}
-        type="button"
-      >
-        <span className="mobile-game-shell__touch-button-arrow">▶</span>
-      </button>
+      {renderMobileTouchButton("north", "Move up", "mobile-game-shell__touch-button--north", "▲")}
+      {renderMobileTouchButton("west", "Move left", "mobile-game-shell__touch-button--west", "◀")}
+      {renderMobileTouchButton("south", "Move down", "mobile-game-shell__touch-button--south", "▼")}
+      {renderMobileTouchButton("east", "Move right", "mobile-game-shell__touch-button--east", "▶")}
     </div>
   );
   const renderMobileRuntimePanel = () => {
