@@ -286,16 +286,23 @@ function stripExtension(filename: string): string {
   return filename.replace(/\.[^.]+$/u, "");
 }
 
-function stripDisplayExtensions(filename: string): string {
-  let next = filename;
+function normalizeLocalFamilyTitle(filename: string): string {
+  let next = basename(filename).trim();
   let previous = "";
 
-  while (next !== previous && /\.(?:dac|dat|ccx)$/iu.test(next)) {
+  while (next !== previous) {
     previous = next;
-    next = stripExtension(next);
+
+    while (/\.(?:dac|dat|ccx)$/iu.test(next)) {
+      next = stripExtension(next);
+    }
+
+    next = next.replace(/\s*\((?:ms|lynx)\)\s*$/iu, "").trim();
+    next = next.replace(/(?:\.dat)?[-_. ](?:ms|lynx)\s*$/iu, "").trim();
+    next = next.replace(/[-_. ]+$/u, "").trim();
   }
 
-  return next;
+  return formatCatalogTitle(next);
 }
 
 function formatCatalogTitle(value: string): string {
@@ -307,6 +314,13 @@ function familyKeyForEntry(entry: SeriesCatalogEntry): string {
   const explicit = FAMILY_DEFINITION_BY_FILEBASE.get(entry.filebase);
   if (explicit) {
     return explicit.id;
+  }
+
+  if (entry.mapfilename.startsWith("local:")) {
+    const normalizedTitle = normalizeLocalFamilyTitle(entry.mapfilename.slice("local:".length));
+    if (normalizedTitle !== "") {
+      return `local:${normalizedTitle.toLowerCase()}`;
+    }
   }
 
   return `${entry.mapfilename.startsWith("local:") ? "local" : "other"}:${entry.mapfilename}`;
@@ -334,7 +348,7 @@ function createDraft(entry: SeriesCatalogEntry): FamilyDraft {
 
   const isLocal = entry.mapfilename.startsWith("local:");
   const rawName = isLocal
-    ? stripDisplayExtensions(entry.mapfilename.slice("local:".length))
+    ? normalizeLocalFamilyTitle(entry.mapfilename.slice("local:".length))
     : stripExtension(basename(entry.mapfilename));
 
   return {

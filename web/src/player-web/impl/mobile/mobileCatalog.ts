@@ -19,6 +19,18 @@ export const MOBILE_LIBRARY_SECTIONS: readonly { id: MobileLibrarySection; label
   { id: "uploads", label: "Uploads" },
 ];
 
+export function shiftMobileLibrarySection(
+  section: MobileLibrarySection,
+  direction: -1 | 1,
+): MobileLibrarySection {
+  const currentIndex = MOBILE_LIBRARY_SECTIONS.findIndex((candidate) => candidate.id === section);
+  const nextIndex = Math.min(
+    MOBILE_LIBRARY_SECTIONS.length - 1,
+    Math.max(0, currentIndex + direction),
+  );
+  return MOBILE_LIBRARY_SECTIONS[nextIndex]?.id ?? section;
+}
+
 export function mobileLibrarySectionForFamily(family: SetFamily | null): MobileLibrarySection {
   if (!family) {
     return "official";

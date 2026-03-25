@@ -2158,6 +2158,11 @@ body {
   gap: 12px;
 }
 
+.mobile-sheet__swipe-surface {
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+
 .mobile-sheet__tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

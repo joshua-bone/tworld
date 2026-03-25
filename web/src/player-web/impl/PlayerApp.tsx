@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
 } from "react";
 import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
 import { shouldAutoSaveWinningHighScoreReplay } from "@player-web/impl/autoSaveReplayPolicy";
@@ -60,6 +61,7 @@ import {
   mobileLevelStatusLabel,
   MOBILE_LIBRARY_SECTIONS,
   resolveMobileFamilyRuleset,
+  shiftMobileLibrarySection,
   type MobileLibrarySection,
 } from "@player-web/impl/mobile/mobileCatalog";
 import {
@@ -712,6 +714,7 @@ export function PlayerApp({
   const currentLevelLinkCopyTimeoutRef = useRef<number | null>(null);
   const currentLevelLinkTargetKeyRef = useRef<string | null>(null);
   const resultSheetBestScoreSnapshotRef = useRef<{ bestScore: number | null; recordKey: string } | null>(null);
+  const mobileSetSheetSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const disposeSessionIfOwned = useEffectEvent((sessionToDispose: InteractiveGameSession | null) => {
     if (!sessionToDispose) {
@@ -3496,43 +3499,49 @@ export function PlayerApp({
                 </button>
               ))}
             </div>
-            {mobileVisibleFamilies.length > 0 ? (
-              <div className="mobile-sheet__list">
-                {mobileVisibleFamilies.map((family) => (
-                  <button
-                    className={`mobile-sheet__list-item${family.id === currentFamily?.id ? " mobile-sheet__list-item--selected" : ""}`}
-                    key={family.id}
-                    onClick={() => {
-                      selectSetFamily(family);
-                      closeMobileSheet();
-                    }}
-                    type="button"
-                  >
-                    <div className="mobile-sheet__list-copy">
-                      <strong className="mobile-sheet__list-title">{family.title}</strong>
-                      {family.sidebarSummary ? (
-                        <p className="mobile-sheet__list-meta">
-                          {family.sidebarSummary}
-                          {family.yearLabel ? ` (${family.yearLabel})` : ""}
-                        </p>
+            <div
+              className="mobile-sheet__swipe-surface"
+              onTouchEnd={handleMobileSetSheetTouchEnd}
+              onTouchStart={handleMobileSetSheetTouchStart}
+            >
+              {mobileVisibleFamilies.length > 0 ? (
+                <div className="mobile-sheet__list">
+                  {mobileVisibleFamilies.map((family) => (
+                    <button
+                      className={`mobile-sheet__list-item${family.id === currentFamily?.id ? " mobile-sheet__list-item--selected" : ""}`}
+                      key={family.id}
+                      onClick={() => {
+                        selectSetFamily(family);
+                        closeMobileSheet();
+                      }}
+                      type="button"
+                    >
+                      <div className="mobile-sheet__list-copy">
+                        <strong className="mobile-sheet__list-title">{family.title}</strong>
+                        {family.sidebarSummary ? (
+                          <p className="mobile-sheet__list-meta">
+                            {family.sidebarSummary}
+                            {family.yearLabel ? ` (${family.yearLabel})` : ""}
+                          </p>
+                        ) : null}
+                        <p className="mobile-sheet__list-meta">{formatMobileFamilyBrowseMeta(family, progressByKey)}</p>
+                      </div>
+                      {family.id === currentFamily?.id ? (
+                        <span className="mobile-sheet__list-badge">Current</span>
                       ) : null}
-                      <p className="mobile-sheet__list-meta">{formatMobileFamilyBrowseMeta(family, progressByKey)}</p>
-                    </div>
-                    {family.id === currentFamily?.id ? (
-                      <span className="mobile-sheet__list-badge">Current</span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="modern-dashboard__copy">
-                {mobileSetSection === "uploads"
-                  ? "No uploaded sets yet."
-                  : mobileSetSection === "curated"
-                    ? "No curated sets are available right now."
-                    : "No official sets are available right now."}
-              </p>
-            )}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="modern-dashboard__copy">
+                  {mobileSetSection === "uploads"
+                    ? "No uploaded sets yet."
+                    : mobileSetSection === "curated"
+                      ? "No curated sets are available right now."
+                      : "No official sets are available right now."}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -4172,6 +4181,33 @@ export function PlayerApp({
     applyMobileDirectionalInputChanges(
       mobileDirectionalInputRef.current.releasePointer(event.pointerId),
     );
+  });
+  const handleMobileSetSheetTouchStart = useEffectEvent((event: ReactTouchEvent<HTMLDivElement>) => {
+    const touch = event.changedTouches[0];
+    if (!touch) {
+      return;
+    }
+
+    mobileSetSheetSwipeStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  });
+  const handleMobileSetSheetTouchEnd = useEffectEvent((event: ReactTouchEvent<HTMLDivElement>) => {
+    const start = mobileSetSheetSwipeStartRef.current;
+    const touch = event.changedTouches[0];
+    mobileSetSheetSwipeStartRef.current = null;
+    if (!start || !touch) {
+      return;
+    }
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) {
+      return;
+    }
+
+    setMobileSetSection((current) => shiftMobileLibrarySection(current, deltaX > 0 ? -1 : 1));
   });
   const renderMobileTouchControls = () => (
     <div aria-label="Touch movement controls" className="mobile-game-shell__touch-controls" role="group">

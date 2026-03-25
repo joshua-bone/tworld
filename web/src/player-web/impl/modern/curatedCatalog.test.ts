@@ -224,6 +224,20 @@ describe("buildCuratedCatalogView", () => {
     expect(view.localFamilies.map((family) => family.title)).toEqual(["VaultRunner"]);
   });
 
+  it("groups local ruleset-suffixed slot names into one upload family with a clean title", () => {
+    const view = buildCuratedCatalogView(
+      [
+        createEntry("VaultRunner.dat-ms.dac", "local:VaultRunner.dat-ms.dat", "MS", 12),
+        createEntry("VaultRunner.dat-lynx.dac", "local:VaultRunner.dat-lynx.dat", "Lynx", 12),
+      ],
+      null,
+    );
+
+    expect(view.localFamilies).toHaveLength(1);
+    expect(view.localFamilies.map((family) => family.title)).toEqual(["VaultRunner"]);
+    expect(listSetFamilyRulesets(view.localFamilies[0]!)).toEqual(["Lynx", "MS"]);
+  });
+
   it("disables a missing ruleset by leaving that side unresolved", () => {
     const view = buildCuratedCatalogView([createEntry("Solo.dat-ms.dac", "local:Solo.dat", "MS", 9)], null);
 

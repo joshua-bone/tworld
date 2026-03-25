@@ -10,6 +10,7 @@ import {
   mobileLevelStatusLabel,
   resolveMobileFamilyRuleset,
   resolveToggledMobileFamilyRuleset,
+  shiftMobileLibrarySection,
 } from "@player-web/impl/mobile/mobileCatalog";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import type { CuratedCatalogView, SetFamily } from "@player-web/impl/modern/curatedCatalog";
@@ -96,6 +97,15 @@ describe("mobileCatalog", () => {
     expect(listMobileLibraryFamilies(view, "official")).toEqual([official]);
     expect(listMobileLibraryFamilies(view, "curated")).toEqual([intro]);
     expect(listMobileLibraryFamilies(view, "uploads")).toEqual([local]);
+  });
+
+  it("shifts mobile library sections in tab order for swipe navigation", () => {
+    expect(shiftMobileLibrarySection("official", 1)).toBe("curated");
+    expect(shiftMobileLibrarySection("curated", 1)).toBe("uploads");
+    expect(shiftMobileLibrarySection("uploads", 1)).toBe("uploads");
+    expect(shiftMobileLibrarySection("uploads", -1)).toBe("curated");
+    expect(shiftMobileLibrarySection("curated", -1)).toBe("official");
+    expect(shiftMobileLibrarySection("official", -1)).toBe("official");
   });
 
   it("resolves the preferred family ruleset and toggles between available rulesets", () => {
