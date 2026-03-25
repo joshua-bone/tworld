@@ -440,6 +440,39 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Elevator);
   });
 
+  it("lifts Chip through another elevator when a higher layer elevator is directly above", () => {
+    const lower = createEmptyCells();
+    const middle = createEmptyCellsAtZ(2);
+    const upper = createEmptyCellsAtZ(3);
+    const chipPos = pos(11, 9);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[chipPos]!.bottom.id = MS_TILE.Elevator;
+    middle[chipPos]!.top.id = MS_TILE.Elevator;
+    upper[chipPos]!.top.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: middle, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 3, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      }),
+    );
+
+    for (let tick = 0; tick < 6; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.internal.chipZ).toBe(3);
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+    expect(session.state.engine.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Elevator);
+  });
+
   it("denies an elevator rise into non-air terrain", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);
@@ -2234,6 +2267,66 @@ describe("MS engine regressions", () => {
     expect(next.state.engine.actors.find((actor) => actor.id === MS_TILE.Tank)?.dir).toBe("east");
     expect(next.state.engine.map.cells[socketPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
     expect(next.state.engine.map.cells[socketPos]?.bottom.id).toBe(MS_TILE.Button_Blue);
+  });
+
+  it("toggles switch walls across z-layers when Chip presses a green button", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(2, 2);
+    const buttonPos = pos(3, 2);
+    const switchWallPos = pos(7, 7);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[buttonPos]!.top.id = MS_TILE.Button_Green;
+    upper[switchWallPos]!.top.id = MS_TILE.SwitchWall_Closed;
+
+    const next = advanceMsInteractiveSession(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells: lower,
+          creaturePositions: [chipPos],
+          layers: [
+            { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+            { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          ],
+        }),
+      ),
+      MS_DIRECTION.east,
+    );
+
+    expect(next.state.engine.map.layers?.[1]?.cells[switchWallPos]?.top.id).toBe(MS_TILE.SwitchWall_Open);
+  });
+
+  it("reverses tanks across z-layers when Chip presses a blue button", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(2, 2);
+    const buttonPos = pos(3, 2);
+    const tankPos = pos(8, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[buttonPos]!.top.id = MS_TILE.Button_Blue;
+    upper[tankPos]!.top.id = msCreatureTile(MS_TILE.Tank, MS_DIRECTION.east);
+
+    const next = advanceMsInteractiveSession(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells: lower,
+          creaturePositions: [chipPos],
+          layers: [
+            { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+            { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [tankPos], hintText: "" },
+          ],
+        }),
+      ),
+      MS_DIRECTION.east,
+    );
+
+    expect(next.state.internal.creatures.find((creature) => creature.id === MS_TILE.Tank)).toMatchObject({
+      dir: MS_DIRECTION.west,
+      turning: true,
+      hasMoved: true,
+    });
   });
 
   it("makes fireballs explode bombs", () => {

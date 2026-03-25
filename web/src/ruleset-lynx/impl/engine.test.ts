@@ -445,6 +445,37 @@ describe("advanceLynxInteractiveSession", () => {
     expect(elevated.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
   });
 
+  it("lifts Chip through another elevator when a higher layer elevator is directly above", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const middle = createBoardAtZ(2);
+    const upper = Array.from({ length: 32 * 32 }, (_, pos) => createCellAtZ(pos, 3, MS_TILE.Empty));
+    const chipPos = 41;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Elevator);
+    middle[chipPos] = createCellAtZ(chipPos, 2, MS_TILE.Elevator, MS_TILE.Empty);
+    upper[chipPos] = createCellAtZ(chipPos, 3, MS_TILE.Air, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      {
+        ...createLevel([]),
+        cells: lower,
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: middle, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 3, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+        ],
+      },
+    );
+
+    const elevated = advanceLynxTicks(session, 4);
+
+    expect(elevated.chipZ).toBe(3);
+    expect(elevated.chipPos).toBe(chipPos);
+    expect(elevated.chipMoving).toBe(0);
+    expect(elevated.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Elevator);
+    expect(elevated.state.map.layers?.[2]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
   it("forces a Lynx elevator rise when the upward move is possible even if lateral input is held", () => {
     const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
     const upper = createBoardAtZ(2);
@@ -2437,6 +2468,60 @@ describe("runLynxInputTrace", () => {
     expect(chip?.position.pos).toBe(33);
     expect(chip?.moving).toBe(6);
     expect(chip?.floor.id).toBe(MS_TILE.SwitchWall_Closed);
+  });
+
+  it("toggles switch walls across z-layers when Chip presses a green button", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 33;
+    const buttonPos = 34;
+    const switchWallPos = 66;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty);
+    lower[buttonPos] = createCell(buttonPos, MS_TILE.Button_Green, MS_TILE.Empty);
+    upper[switchWallPos] = createCellAtZ(switchWallPos, 2, MS_TILE.SwitchWall_Closed, MS_TILE.Empty);
+
+    const toggled = advanceLynxTicks(
+      createLynxInteractiveSession(
+        createRequest(),
+        createTwoLayerLevel(lower, upper, { lowerCreaturePositions: [chipPos] }),
+      ),
+      5,
+      8,
+    );
+
+    expect(toggled.state.map.layers?.[1]?.cells[switchWallPos]?.top.id).toBe(MS_TILE.SwitchWall_Open);
+  });
+
+  it("queues tank reversals across z-layers when Chip presses a blue button", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 33;
+    const buttonPos = 34;
+    const tankPos = 70;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty);
+    lower[buttonPos] = createCell(buttonPos, MS_TILE.Button_Blue, MS_TILE.Empty);
+    upper[tankPos] = createCellAtZ(tankPos, 2, msCreatureTile(MS_TILE.Tank, 8), MS_TILE.Empty);
+    upper[tankPos - 1] = createCellAtZ(tankPos - 1, 2, MS_TILE.Wall, MS_TILE.Empty);
+    upper[tankPos + 1] = createCellAtZ(tankPos + 1, 2, MS_TILE.Wall, MS_TILE.Empty);
+    upper[tankPos - 32] = createCellAtZ(tankPos - 32, 2, MS_TILE.Wall, MS_TILE.Empty);
+    upper[tankPos + 32] = createCellAtZ(tankPos + 32, 2, MS_TILE.Wall, MS_TILE.Empty);
+
+    const pressed = advanceLynxTicks(
+      createLynxInteractiveSession(
+        createRequest(),
+        createTwoLayerLevel(lower, upper, {
+          lowerCreaturePositions: [chipPos],
+          upperCreaturePositions: [tankPos],
+        }),
+      ),
+      4,
+      8,
+    );
+    const turned = advanceLynxTicks(pressed, 1);
+    const turnedTank = turned.actors.find((actor) => actor.id === MS_TILE.Tank && !actor.hidden);
+
+    expect(turnedTank?.dir).toBe(2);
+    expect(turnedTank?.pos).toBe(tankPos);
   });
 
   it("preserves queued replay input until chip can choose the next lynx move", () => {

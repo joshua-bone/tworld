@@ -166,6 +166,7 @@ export interface MsInternalState {
   randomMainInitial: bigint;
   randomMainValue: bigint;
   lastSlipDir: number;
+  runtimeLayers: MsRuntimeLayer[];
 }
 
 interface MsQueueTraceEvent {
@@ -700,6 +701,10 @@ function cloneInternalState(internal: MsInternalState): MsInternalState {
     pendingSoundEffects: internal.pendingSoundEffects,
     lastSlipDir: internal.lastSlipDir,
     goalPos: internal.goalPos,
+    runtimeLayers: internal.runtimeLayers.map((layer) => ({
+      z: layer.z,
+      cells: layer.cells,
+    })),
   };
 }
 
@@ -733,6 +738,10 @@ function updateEngine(
       z: layer.z,
       cells: layer.cells === state.engine.map.cells ? cells : layer.cells,
     }));
+  const persistedRuntimeLayers = mapLayers.map((layer) => ({
+    z: layer.z,
+    cells: layer.cells === cells ? cells : cloneBoardCells(layer.cells),
+  }));
   const actors = collectMsActorsFromLayers(mapLayers);
   const chip = actors.find((actor) => actor.id === MS_TILE.Chip || actor.id === MS_TILE.Swimming_Chip) ?? null;
   const timer = advanceTimer(state.engine.timer, advanceTick ? 1 : 0, MS_TICKS_PER_SECOND);
@@ -773,10 +782,7 @@ function updateEngine(
         creaturesHash: hashMsCreaturesFromLayers(mapLayers),
         creatureCount: actors.length,
         cells,
-        layers: mapLayers.map((layer) => ({
-          z: layer.z,
-          cells: layer.cells === cells ? cells : cloneBoardCells(layer.cells),
-        })),
+        layers: persistedRuntimeLayers,
       },
       view: {
         x: (state.internal.chipPos % MS_GRID_WIDTH) * 8,
@@ -786,7 +792,13 @@ function updateEngine(
       statusFlags,
       lastMove: { ...state.engine.lastMove },
     },
-    internal: cloneInternalState(state.internal),
+    internal: {
+      ...cloneInternalState(state.internal),
+      runtimeLayers: persistedRuntimeLayers.map((layer) => ({
+        z: layer.z,
+        cells: layer.cells,
+      })),
+    },
   };
 }
 
@@ -1038,11 +1050,16 @@ export function initializeMsGameState(
     randomMainInitial: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
     randomMainValue: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
     lastSlipDir: MS_DIRECTION.none,
+    runtimeLayers: [],
   };
   const normalizedRandomSeed = normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed);
   const runtimeLayers = (level.layers ?? [{ z: 1, cells, traps: [], cloners: [], creaturePositions: [], hintText: "" }]).map((layer) => ({
     z: layer.z,
     cells: layer.z === 1 ? cells : cloneBoardCells(layer.cells),
+  }));
+  internal.runtimeLayers = runtimeLayers.map((layer) => ({
+    z: layer.z,
+    cells: layer.cells,
   }));
 
   for (const connection of internal.traps) {
@@ -1584,7 +1601,7 @@ function resolveButtonFloorEffects(
       turnTanks(cells, internal, inMidMove);
       return 1 << MS_SOUND.ButtonPushed;
     case "toggle-walls":
-      toggleWalls(cells);
+      toggleWalls(internal.runtimeLayers);
       return 0;
     case "activate-cloner":
       activateCloner(cells, internal, buttonPos, buttonZ);
@@ -2293,6 +2310,7 @@ function turnTanks(cells: EngineMapCell[], internal: MsInternalState, inMidMove:
     if (creature.hidden || creature.id !== MS_TILE.Tank) {
       continue;
     }
+    const creatureCells = runtimeCellsForZ(internal.runtimeLayers, creature.z ?? runtimeCellZ(cells, creature.pos));
     creature.dir = backDirection(creature.dir);
     if (
       creature.floorMovement !== "none" &&
@@ -2309,12 +2327,15 @@ function turnTanks(cells: EngineMapCell[], internal: MsInternalState, inMidMove:
     if (creature === inMidMove) {
       continue;
     }
-    if (isMsCreature(cells[creature.pos]!.top.id) && msCreatureId(cells[creature.pos]!.top.id) === MS_TILE.Tank) {
-      updateCreatureTile(cells, creature);
+    if (
+      isMsCreature(creatureCells[creature.pos]!.top.id) &&
+      msCreatureId(creatureCells[creature.pos]!.top.id) === MS_TILE.Tank
+    ) {
+      updateCreatureTile(creatureCells, creature);
     } else if (creature.moving !== 0) {
       if (creature.turning) {
         creature.turning = false;
-        updateCreatureTileWithForce(cells, creature, true);
+        updateCreatureTileWithForce(creatureCells, creature, true);
         creature.turning = true;
       }
       creature.dir = backDirection(creature.dir);
@@ -2322,21 +2343,23 @@ function turnTanks(cells: EngineMapCell[], internal: MsInternalState, inMidMove:
   }
 }
 
-function toggleWalls(cells: EngineMapCell[]): void {
-  for (const cell of cells) {
-    if (
-      (cell.top.id === MS_TILE.SwitchWall_Open || cell.top.id === MS_TILE.SwitchWall_Closed) &&
-      (cell.top.state & MS_FLOOR_STATE.Broken) === 0
-    ) {
-      cell.top.id ^= MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed;
+function toggleWalls(layers: ReadonlyArray<MsRuntimeLayer>): void {
+  forEachRuntimeLayer(layers, (cells) => {
+    for (const cell of cells) {
+      if (
+        (cell.top.id === MS_TILE.SwitchWall_Open || cell.top.id === MS_TILE.SwitchWall_Closed) &&
+        (cell.top.state & MS_FLOOR_STATE.Broken) === 0
+      ) {
+        cell.top.id ^= MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed;
+      }
+      if (
+        (cell.bottom.id === MS_TILE.SwitchWall_Open || cell.bottom.id === MS_TILE.SwitchWall_Closed) &&
+        (cell.bottom.state & MS_FLOOR_STATE.Broken) === 0
+      ) {
+        cell.bottom.id ^= MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed;
+      }
     }
-    if (
-      (cell.bottom.id === MS_TILE.SwitchWall_Open || cell.bottom.id === MS_TILE.SwitchWall_Closed) &&
-      (cell.bottom.state & MS_FLOOR_STATE.Broken) === 0
-    ) {
-      cell.bottom.id ^= MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed;
-    }
-  }
+  });
 }
 
 function activateCloner(cells: EngineMapCell[], internal: MsInternalState, buttonPos: number, buttonZ = runtimeCellZ(cells, buttonPos)): void {
@@ -3886,7 +3909,7 @@ function elevatorDestinationFloor(cell: EngineMapCell): number {
 }
 
 function isValidElevatorDestinationFloor(floor: number): boolean {
-  return isAirFloor(floor) || isSlideFloor(floor) || floor === MS_TILE.Exit;
+  return isAirFloor(floor) || isSlideFloor(floor) || isElevatorFloor(floor) || floor === MS_TILE.Exit;
 }
 
 function canChipUseElevator(targetCells: EngineMapCell[] | null, pos: number, dir: number): boolean {
@@ -4565,6 +4588,11 @@ function advanceMsTick(
   const activeChipCells = (): EngineMapCell[] => cellsForZ(internal.chipZ ?? 1);
   const internal = cloneInternalState(state.internal);
   const inputLatchInternal = cloneInternalState(state.internal);
+  internal.runtimeLayers = mapLayers.map((layer) => ({
+    z: layer.z,
+    cells: layer.cells,
+  }));
+  inputLatchInternal.runtimeLayers = internal.runtimeLayers;
   const inventory = cloneInventory(state.engine.inventory);
   const nextTick = state.engine.timer.currentTime + 1;
   let timeOffset = -1;

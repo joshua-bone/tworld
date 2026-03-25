@@ -1678,12 +1678,14 @@ function resetLynxFloorSounds(state: EngineState): void {
 }
 
 function toggleLynxWalls(state: EngineState): void {
-  for (const cell of state.map.cells) {
-    if (lynxTileHasTag(cell.top.id, "toggleable")) {
-      cell.top.id = lynxToggledWallTileId(cell.top.id);
-    }
-    if (lynxTileHasTag(cell.bottom.id, "toggleable")) {
-      cell.bottom.id = lynxToggledWallTileId(cell.bottom.id);
+  for (const layer of state.map.layers ?? [{ z: state.map.cells[0]?.position.z ?? 1, cells: state.map.cells }]) {
+    for (const cell of layer.cells) {
+      if (lynxTileHasTag(cell.top.id, "toggleable")) {
+        cell.top.id = lynxToggledWallTileId(cell.top.id);
+      }
+      if (lynxTileHasTag(cell.bottom.id, "toggleable")) {
+        cell.bottom.id = lynxToggledWallTileId(cell.bottom.id);
+      }
     }
   }
 }
@@ -1856,7 +1858,7 @@ function startLynxChipAirMovement(
 }
 
 function isValidLynxElevatorDestinationFloor(floorId: number): boolean {
-  return isLynxAir(floorId) || isLynxSlide(floorId) || lynxTileHasTag(floorId, "exit");
+  return isLynxAir(floorId) || isLynxSlide(floorId) || isLynxElevator(floorId) || lynxTileHasTag(floorId, "exit");
 }
 
 function canLynxChipUseElevator(
