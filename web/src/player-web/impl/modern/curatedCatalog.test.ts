@@ -212,6 +212,18 @@ describe("buildCuratedCatalogView", () => {
     });
   });
 
+  it("strips leftover technical extensions from imported local family titles", () => {
+    const view = buildCuratedCatalogView(
+      [
+        createEntry("VaultRunner.dac.dat-ms.dac", "local:VaultRunner.dac.dat", "MS", 12),
+        createEntry("VaultRunner.dac.dat-lynx.dac", "local:VaultRunner.dac.dat", "Lynx", 12),
+      ],
+      null,
+    );
+
+    expect(view.localFamilies.map((family) => family.title)).toEqual(["VaultRunner"]);
+  });
+
   it("disables a missing ruleset by leaving that side unresolved", () => {
     const view = buildCuratedCatalogView([createEntry("Solo.dat-ms.dac", "local:Solo.dat", "MS", 9)], null);
 

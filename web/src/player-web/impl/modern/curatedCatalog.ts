@@ -286,6 +286,18 @@ function stripExtension(filename: string): string {
   return filename.replace(/\.[^.]+$/u, "");
 }
 
+function stripDisplayExtensions(filename: string): string {
+  let next = filename;
+  let previous = "";
+
+  while (next !== previous && /\.(?:dac|dat|ccx)$/iu.test(next)) {
+    previous = next;
+    next = stripExtension(next);
+  }
+
+  return next;
+}
+
 function formatCatalogTitle(value: string): string {
   const normalized = value.replace(/^public_/u, "");
   return normalized;
@@ -322,7 +334,7 @@ function createDraft(entry: SeriesCatalogEntry): FamilyDraft {
 
   const isLocal = entry.mapfilename.startsWith("local:");
   const rawName = isLocal
-    ? stripExtension(entry.mapfilename.slice("local:".length))
+    ? stripDisplayExtensions(entry.mapfilename.slice("local:".length))
     : stripExtension(basename(entry.mapfilename));
 
   return {
