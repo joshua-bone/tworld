@@ -4,6 +4,7 @@ import {
   MOBILE_LIBRARY_SECTIONS,
   formatMobileFamilyBrowseMeta,
   listMobileLibraryFamilies,
+  mobileFamilyDisplayTitle,
   mobileLibrarySectionForFamily,
   mobileLevelStatusClassName,
   mobileLevelStatusDescription,
@@ -79,6 +80,30 @@ describe("mobileCatalog", () => {
     expect(mobileLibrarySectionForFamily(createFamily({ section: "other" }))).toBe("curated");
     expect(mobileLibrarySectionForFamily(createFamily({ section: "local" }))).toBe("uploads");
     expect(mobileLibrarySectionForFamily(null)).toBe("official");
+  });
+
+  it("prefers series names for local and other fallback families", () => {
+    expect(
+      mobileFamilyDisplayTitle(createFamily({
+        entries: [createEntry({ name: "My Upload Set" })],
+        section: "local",
+        title: "my-upload-set.dac",
+      })),
+    ).toBe("My Upload Set");
+    expect(
+      mobileFamilyDisplayTitle(createFamily({
+        entries: [createEntry({ name: "Supplemental Pack" })],
+        section: "other",
+        title: "supplemental-pack.dac",
+      })),
+    ).toBe("Supplemental Pack");
+    expect(
+      mobileFamilyDisplayTitle(createFamily({
+        entries: [createEntry({ name: "CCLP1-Lynx" })],
+        section: "official",
+        title: "CCLP1",
+      })),
+    ).toBe("CCLP1");
   });
 
   it("collects families for each mobile library section", () => {

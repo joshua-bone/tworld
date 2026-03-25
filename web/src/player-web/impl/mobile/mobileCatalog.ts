@@ -48,6 +48,14 @@ export function listMobileLibraryFamilies(
   }
 }
 
+export function mobileFamilyDisplayTitle(family: SetFamily): string {
+  if ((family.section === "local" || family.section === "other") && family.entries[0]?.name.trim()) {
+    return family.entries[0].name.trim();
+  }
+
+  return family.title;
+}
+
 export function resolveMobileFamilyRuleset(
   family: SetFamily,
   preferredRuleset: BrowserPreferredRuleset | null,

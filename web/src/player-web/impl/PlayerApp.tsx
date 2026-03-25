@@ -47,7 +47,6 @@ import {
 import {
   buildCuratedCatalogView,
   findSetFamilyForSelection,
-  listSetFamilyRulesets,
   resolveSetFamilyRuleset,
   resolveSetFamilySelection,
   type SetFamily,
@@ -55,13 +54,13 @@ import {
 import {
   formatMobileFamilyBrowseMeta,
   listMobileLibraryFamilies,
+  mobileFamilyDisplayTitle,
   mobileLibrarySectionForFamily,
   mobileLevelStatusClassName,
   mobileLevelStatusDescription,
   mobileLevelStatusLabel,
   MOBILE_LIBRARY_SECTIONS,
   resolveMobileFamilyRuleset,
-  resolveToggledMobileFamilyRuleset,
   type MobileLibrarySection,
 } from "@player-web/impl/mobile/mobileCatalog";
 import {
@@ -865,7 +864,6 @@ export function PlayerApp({
   );
   const replayContextSeries = replayActionContext.series;
   const replayContextLevel = replayActionContext.level;
-  const familyRulesets = currentFamily ? listSetFamilyRulesets(currentFamily) : [];
   const previousHistoryTick = session ? previousInteractiveGameSessionTick(session) : null;
   const previousCoarseHistoryTick = session ? previousInteractiveGameSessionTickByCount(session, MODERN_UNDO_STEP_TICK_COUNT) : null;
   const previousHistoryCheckpointTick = session ? previousInteractiveGameSessionCheckpointTick(session) : null;
@@ -2045,28 +2043,6 @@ export function PlayerApp({
         ? currentLevel?.number ?? family.continueSelection?.levelNumber ?? 1
         : family.continueSelection?.levelNumber ?? currentLevel?.number ?? 1;
     const nextSelection = resolveSetFamilySelection(family, preferredRuleset, requestedLevelNumber);
-    if (!nextSelection) {
-      return;
-    }
-
-    applySelection(nextSelection);
-  });
-
-  const toggleCurrentFamilyRuleset = useEffectEvent(() => {
-    if (!currentFamily) {
-      return;
-    }
-
-    const nextRuleset = resolveToggledMobileFamilyRuleset(currentFamily, currentPreferredRuleset);
-    if (!nextRuleset || nextRuleset === currentFamilyRuleset) {
-      return;
-    }
-
-    const nextSelection = resolveSetFamilySelection(
-      currentFamily,
-      nextRuleset,
-      currentLevel?.number ?? currentFamily.continueSelection?.levelNumber ?? 1,
-    );
     if (!nextSelection) {
       return;
     }
@@ -3534,7 +3510,7 @@ export function PlayerApp({
                     type="button"
                   >
                     <div className="mobile-sheet__list-copy">
-                      <strong className="mobile-sheet__list-title">{family.title}</strong>
+                      <strong className="mobile-sheet__list-title">{mobileFamilyDisplayTitle(family)}</strong>
                       <p className="mobile-sheet__list-meta">
                         {formatMobileFamilyBrowseMeta(family, currentPreferredRuleset, progressByKey)}
                       </p>
@@ -3575,7 +3551,7 @@ export function PlayerApp({
             <div>
               <p className="modern-section__eyebrow">Level Selector</p>
               <h2 className="modern-dashboard__panel-title" id="mobile-level-selector-title">
-                {currentFamily?.title ?? currentSeries?.name ?? "Choose a level"}
+                {currentFamily ? mobileFamilyDisplayTitle(currentFamily) : currentSeries?.name ?? "Choose a level"}
               </h2>
             </div>
             <button
@@ -4255,8 +4231,13 @@ export function PlayerApp({
     </div>
   );
   const renderMobileRuntimePanel = () => {
-    const canToggleRuleset = currentFamily !== null && familyRulesets.length > 1;
-    const nextRuleset = currentFamily ? resolveToggledMobileFamilyRuleset(currentFamily, currentPreferredRuleset) : null;
+    const nextRulesetSelection =
+      currentRuleset === "MS"
+        ? selectedRulesetSelections.Lynx
+        : currentRuleset === "Lynx"
+          ? selectedRulesetSelections.MS
+          : selectedRulesetSelections.Lynx ?? selectedRulesetSelections.MS;
+    const nextRuleset = nextRulesetSelection ? currentRuleset === "MS" ? "Lynx" : "MS" : null;
 
     return (
       <section className="mobile-game-shell__runtime" aria-label="Runtime">
@@ -4278,11 +4259,13 @@ export function PlayerApp({
           <span className="mobile-game-shell__stat-label">Undo</span>
           <strong className="mobile-game-shell__stat-value">{session?.run.undoUsedCount ?? 0}</strong>
         </div>
-        {canToggleRuleset ? (
+        {nextRulesetSelection ? (
           <button
             aria-label={`Switch ruleset from ${currentRuleset ?? "---"} to ${nextRuleset ?? "---"}`}
             className="mobile-game-shell__stat mobile-game-shell__stat--button"
-            onClick={toggleCurrentFamilyRuleset}
+            onClick={() => {
+              launchSelection(nextRulesetSelection);
+            }}
             title={nextRuleset ? `Tap to switch to ${nextRuleset}` : undefined}
             type="button"
           >
