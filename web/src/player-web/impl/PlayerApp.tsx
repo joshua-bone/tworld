@@ -3233,6 +3233,44 @@ export function PlayerApp({
             <p className="modern-section__eyebrow">Level {currentLevel.number}: {currentLevel.name}</p>
             <h2 className="modern-result-sheet__title">{runResultHeadline}</h2>
           </div>
+
+          {isMobileChrome ? (
+            <>
+              <div className="modern-result-sheet__actions">
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!canSaveReplay}
+                  onClick={() => {
+                    void saveReplayForCurrentRun();
+                  }}
+                  type="button"
+                >
+                  Save Replay
+                </button>
+                <button className="modern-button modern-button--secondary" onClick={restartCurrentLevel} type="button">
+                  Retry
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!canUseModernUndo}
+                  onClick={() => {
+                    void performModernUndo(false);
+                  }}
+                  type="button"
+                >
+                  Undo
+                </button>
+                {runResult.outcome !== "failed" ? (
+                  <button className="modern-button" onClick={proceedAfterLevelEnd} type="button">
+                    Next Level
+                  </button>
+                ) : null}
+              </div>
+
+              {replaySaveNotice ? <p className="modern-result-sheet__notice">{replaySaveNotice}</p> : null}
+            </>
+          ) : null}
+
           {runResultScore ? (
             <section aria-label="Score calculation" className="modern-result-sheet__score">
               <p className="modern-result-sheet__score-title">Score</p>
@@ -3320,37 +3358,42 @@ export function PlayerApp({
             </div>
           </section>
 
-          <div className="modern-result-sheet__actions">
-            <button
-              className="modern-button modern-button--secondary"
-              disabled={!canSaveReplay}
-              onClick={() => {
-                void saveReplayForCurrentRun();
-              }}
-              type="button"
-            >
-              Save Replay
-            </button>
-            <button className="modern-button modern-button--secondary" onClick={restartCurrentLevel} type="button">
-              Retry (R)
-            </button>
-            <button
-              className="modern-button modern-button--secondary"
-              disabled={!canUseModernUndo}
-              onClick={() => {
-                void performModernUndo(false);
-              }}
-              type="button"
-            >
-              Undo (Z)
-            </button>
-            {runResult.outcome !== "failed" ? (
-              <button className="modern-button" onClick={proceedAfterLevelEnd} type="button">
-                Next Level (N)
-              </button>
-            ) : null}
-          </div>
-          {replaySaveNotice ? <p className="modern-result-sheet__notice">{replaySaveNotice}</p> : null}
+          {!isMobileChrome ? (
+            <>
+              <div className="modern-result-sheet__actions">
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!canSaveReplay}
+                  onClick={() => {
+                    void saveReplayForCurrentRun();
+                  }}
+                  type="button"
+                >
+                  Save Replay
+                </button>
+                <button className="modern-button modern-button--secondary" onClick={restartCurrentLevel} type="button">
+                  Retry (R)
+                </button>
+                <button
+                  className="modern-button modern-button--secondary"
+                  disabled={!canUseModernUndo}
+                  onClick={() => {
+                    void performModernUndo(false);
+                  }}
+                  type="button"
+                >
+                  Undo (Z)
+                </button>
+                {runResult.outcome !== "failed" ? (
+                  <button className="modern-button" onClick={proceedAfterLevelEnd} type="button">
+                    Next Level (N)
+                  </button>
+                ) : null}
+              </div>
+
+              {replaySaveNotice ? <p className="modern-result-sheet__notice">{replaySaveNotice}</p> : null}
+            </>
+          ) : null}
         </section>
       </div>
     ) : null;
