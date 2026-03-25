@@ -72,21 +72,6 @@ export function MobilePlayerApp({
 
   return (
     <main className="mobile-route-shell">
-      <header className="mobile-route-shell__header">
-        <div className="mobile-route-shell__header-copy">
-          <p className="modern-classic-banner__eyebrow">Mobile</p>
-          <h1 className="mobile-route-shell__title">Tile World Online</h1>
-        </div>
-        <div className="mobile-route-shell__controls">
-          <button className="modern-link-button modern-link-button--light" onClick={onOpenDesktop} type="button">
-            Desktop UI
-          </button>
-          <button className="modern-link-button modern-link-button--light" onClick={onOpenClassic} type="button">
-            Legacy UI
-          </button>
-        </div>
-      </header>
-
       {bootstrapState.message ? (
         <section className="mobile-route-shell__notice" role="status">
           {bootstrapState.message}
@@ -100,6 +85,8 @@ export function MobilePlayerApp({
             initialCatalog={bootstrapState.catalog}
             initialMode="game"
             initialSelection={bootstrapState.selection}
+            onOpenClassicShell={onOpenClassic}
+            onOpenDesktopShell={onOpenDesktop}
             services={services}
           />
         ) : (

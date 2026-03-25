@@ -587,6 +587,8 @@ interface PlayerAppProps {
   initialReplayEntries?: BrowserReplayEntry[];
   initialSelection?: PlayableSelection | null;
   knownLevelProgressSummary?: BrowserResolvedLevelProgressSummary | null;
+  onOpenClassicShell?: () => void;
+  onOpenDesktopShell?: () => void;
   onExitGame?: () => void;
   onLevelProgressSaved?: (summary: BrowserLevelProgressSummary) => void;
   onSelectionChange?: (selection: PlayableSelection) => void;
@@ -604,6 +606,8 @@ export function PlayerApp({
   initialReplayEntries = [],
   initialSelection = null,
   knownLevelProgressSummary = null,
+  onOpenClassicShell,
+  onOpenDesktopShell,
   onExitGame,
   onLevelProgressSaved,
   onSelectionChange,
@@ -3583,6 +3587,41 @@ export function PlayerApp({
                 </button>
               </div>
             </section>
+
+            {onOpenDesktopShell || onOpenClassicShell ? (
+              <section className="modern-settings-modal__section mobile-sheet__section">
+                <div className="mobile-sheet__section-header">
+                  <p className="modern-section__eyebrow">Shell</p>
+                  <p className="mobile-sheet__section-copy">Switch to the desktop or legacy interface.</p>
+                </div>
+                <div className="mobile-sheet__button-grid">
+                  {onOpenDesktopShell ? (
+                    <button
+                      className="modern-button modern-button--secondary"
+                      onClick={() => {
+                        closeMobileSheet();
+                        onOpenDesktopShell();
+                      }}
+                      type="button"
+                    >
+                      Desktop UI
+                    </button>
+                  ) : null}
+                  {onOpenClassicShell ? (
+                    <button
+                      className="modern-button modern-button--secondary"
+                      onClick={() => {
+                        closeMobileSheet();
+                        onOpenClassicShell();
+                      }}
+                      type="button"
+                    >
+                      Legacy UI
+                    </button>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
 
             <section className="modern-settings-modal__section mobile-sheet__section">
               <div className="mobile-sheet__section-header">

@@ -3616,7 +3616,7 @@ body {
 
 .mobile-route-shell {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
   min-height: 100vh;
   padding: 12px;
   background: #000000;
@@ -3631,7 +3631,6 @@ body {
   margin: 12px 0 0;
 }
 
-.mobile-route-shell__header,
 .mobile-route-shell__notice,
 .mobile-route-shell__loading {
   width: min(1160px, 100%);
@@ -3646,38 +3645,6 @@ body {
 .modern-classic-banner__preference {
   display: grid;
   gap: 12px;
-}
-
-.mobile-route-shell__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 14px;
-}
-
-.mobile-route-shell__header-copy {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.mobile-route-shell__title {
-  margin: 0;
-  font-size: clamp(1.25rem, 5vw, 1.8rem);
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-
-.mobile-route-shell__controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.mobile-route-shell__controls .modern-link-button {
-  padding: 10px 12px;
 }
 
 .mobile-route-shell__notice,
@@ -4167,15 +4134,6 @@ body {
 
   .mobile-route-shell {
     padding: 10px;
-  }
-
-  .mobile-route-shell__header {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .mobile-route-shell__controls {
-    justify-content: stretch;
   }
 
   .mobile-game-shell__nav {
