@@ -205,6 +205,7 @@ const FILE_IDS = [
   msCreatureTile(MS_TILE.Chip, 2),
   msCreatureTile(MS_TILE.Chip, 4),
   msCreatureTile(MS_TILE.Chip, 8),
+  MS_TILE.Sandbag,
 ] as const;
 
 function remapThreeDimensionalTileId(tileId: number, z: number, hasHigherLayers: boolean): number {

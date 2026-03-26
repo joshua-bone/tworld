@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import lynxTilesUrl from "@res/atiles.bmp?url";
 import msTilesUrl from "@res/tiles.bmp?url";
+import sandbagUrl from "@res/expansion_artwork/sandbag.png?url";
 import {
   isDefaultLegacyRenderTileSize,
   legacyMapPixelsForTileSize,
@@ -89,6 +90,7 @@ const ELEVATOR_EDGE_COLOR = "#0e401d";
 const ELEVATOR_PANEL_COLOR = "#154d23";
 const ELEVATOR_TEXT_COLOR = "#d9ffd7";
 const HELD_TRAP_ALPHA = 0.5;
+const CARRIED_TOOL_ALPHA = 0.5;
 const VISUAL_ENHANCEMENT_ARROW_COLOR = "#000000";
 const BLOCK_SUPPORT_WINDOW_SOLID_BORDER_PX = 4;
 const BLOCK_SUPPORT_WINDOW_TRANSPARENT_CENTER_SIZE = 8;
@@ -291,6 +293,47 @@ function getOrCreateThinWallOverlaySprite(tileset: LegacyTileset, tileId: number
   return cache.thinWallOverlays.get(tileId) ?? null;
 }
 
+function loadLegacyImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.src = url;
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Failed to load image asset: ${url}`));
+  });
+}
+
+function createLegacyArtworkSprite(image: CanvasImageSource): LegacyTileSprite | null {
+  const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  context.drawImage(image, 0, 0, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  return {
+    image: canvas,
+    offsetX: 0,
+    offsetY: 0,
+    transparent: true,
+  };
+}
+
+function applyLegacyTileOverrides(
+  tileset: LegacyTileset,
+  overrides: ReadonlyMap<number, LegacyTileSprite>,
+): LegacyTileset {
+  if (overrides.size === 0) {
+    return tileset;
+  }
+
+  return {
+    ...tileset,
+    get(tileId: number): LegacyTileSprite | null {
+      return overrides.get(tileId) ?? tileset.get(tileId);
+    },
+  };
+}
+
 function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset> {
   const cached = legacyTilesetCache.get(ruleset);
   if (cached) {
@@ -303,9 +346,8 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
   }
 
   const nextPromise = new Promise<LegacyTileset>((resolve, reject) => {
-    const image = new Image();
-    image.src = LEGACY_TILESET_URLS[ruleset];
-    image.onload = () => {
+    void Promise.all([loadLegacyImage(LEGACY_TILESET_URLS[ruleset]), loadLegacyImage(sandbagUrl)])
+      .then(([image, sandbagImage]) => {
       try {
         const canvas = document.createElement("canvas");
         canvas.width = image.width;
@@ -316,16 +358,18 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
         }
 
         context.drawImage(image, 0, 0);
-        const tileset = buildLegacyTileset(canvas, ruleset);
+        const sandbagSprite = createLegacyArtworkSprite(sandbagImage);
+        const tileset = applyLegacyTileOverrides(
+          buildLegacyTileset(canvas, ruleset),
+          sandbagSprite ? new Map([[MS_TILE.Sandbag, sandbagSprite]]) : new Map(),
+        );
         legacyTilesetCache.set(ruleset, tileset);
         resolve(tileset);
       } catch (error) {
         reject(error);
       }
-    };
-    image.onerror = () => {
-      reject(new Error(`Failed to load ${ruleset} legacy tileset image.`));
-    };
+      })
+      .catch(reject);
   });
 
   legacyTilesetPromiseCache.set(ruleset, nextPromise);
@@ -413,7 +457,9 @@ function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverla
             ? 3
             : overlay.kind === "blue-wall-reveal"
               ? 4
-              : 5;
+              : overlay.kind === "push-pickup-reveal"
+                ? 5
+                : 6;
     hash = hashLayerValue(hash, overlay.pos);
     hash = hashLayerValue(hash, kindCode);
     hash = hashLayerValue(hash, overlay.tileId ?? 0);
@@ -1235,6 +1281,17 @@ function drawLayerOverlays(
       }
       continue;
     }
+    if (overlay.kind === "carried-tool") {
+      if (typeof overlay.tileId !== "number") {
+        continue;
+      }
+
+      context.save();
+      context.globalAlpha = CARRIED_TOOL_ALPHA;
+      drawSprite(context, tileset, overlay.tileId, x, y);
+      context.restore();
+      continue;
+    }
     if (overlay.kind === "push-pickup-reveal") {
       continue;
     }
@@ -1584,8 +1641,35 @@ function drawInventoryTile(
 
 const LEGACY_INVENTORY_KEY_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
 const LEGACY_INVENTORY_BOOT_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
-type LegacyInventoryStripKind = "keys" | "boots";
+const LEGACY_INVENTORY_TOOL_IDS = [MS_TILE.Sandbag] as const;
+type LegacyInventoryStripKind = "keys" | "boots" | "tools";
 type LegacyInventoryStripDirection = "horizontal" | "vertical";
+
+function inventoryStripTileIds(kind: LegacyInventoryStripKind): readonly number[] {
+  switch (kind) {
+    case "keys":
+      return LEGACY_INVENTORY_KEY_IDS;
+    case "boots":
+      return LEGACY_INVENTORY_BOOT_IDS;
+    case "tools":
+      return LEGACY_INVENTORY_TOOL_IDS;
+  }
+}
+
+function inventoryStripOverlayTileId(
+  inventory: GameSnapshot["inventory"] | null,
+  kind: LegacyInventoryStripKind,
+  index: number,
+): number {
+  switch (kind) {
+    case "keys":
+      return (inventory?.keys[index] ?? 0) > 0 ? LEGACY_INVENTORY_KEY_IDS[index] ?? MS_TILE.Empty : MS_TILE.Empty;
+    case "boots":
+      return (inventory?.boots[index] ?? 0) > 0 ? LEGACY_INVENTORY_BOOT_IDS[index] ?? MS_TILE.Empty : MS_TILE.Empty;
+    case "tools":
+      return inventory?.tools[index] ?? MS_TILE.Empty;
+  }
+}
 
 export function inventoryTileCountLabel(tileId: number, count: number): string | null {
   if (count <= 1) {
@@ -1606,7 +1690,21 @@ export function inventoryStripPixelDimensions(tileSize: number, direction: Legac
   height: number;
   width: number;
 } {
-  const tileCount = LEGACY_INVENTORY_KEY_IDS.length;
+  const tileCount = inventoryStripTileIds("keys").length;
+  return direction === "horizontal"
+    ? { height: tileSize, width: tileCount * tileSize }
+    : { height: tileCount * tileSize, width: tileSize };
+}
+
+export function inventoryStripPixelDimensionsForKind(
+  tileSize: number,
+  direction: LegacyInventoryStripDirection,
+  kind: LegacyInventoryStripKind,
+): {
+  height: number;
+  width: number;
+} {
+  const tileCount = inventoryStripTileIds(kind).length;
   return direction === "horizontal"
     ? { height: tileSize, width: tileCount * tileSize }
     : { height: tileCount * tileSize, width: tileSize };
@@ -1620,18 +1718,18 @@ function drawInventoryStrip(
   direction: LegacyInventoryStripDirection,
   visualEnhancementsEnabled: boolean,
 ): void {
-  const tileIds = kind === "keys" ? LEGACY_INVENTORY_KEY_IDS : LEGACY_INVENTORY_BOOT_IDS;
+  const tileIds = inventoryStripTileIds(kind);
   const stripWidth = direction === "horizontal" ? tileIds.length * LEGACY_TILE_SIZE : LEGACY_TILE_SIZE;
   const stripHeight = direction === "horizontal" ? LEGACY_TILE_SIZE : tileIds.length * LEGACY_TILE_SIZE;
   context.fillStyle = COLORS.background;
   context.fillRect(0, 0, stripWidth, stripHeight);
 
   tileIds.forEach((tileId, index) => {
-    const count = kind === "keys" ? inventory?.keys[index] ?? 0 : inventory?.boots[index] ?? 0;
+    const count = kind === "keys" ? inventory?.keys[index] ?? 0 : kind === "boots" ? inventory?.boots[index] ?? 0 : 0;
     drawInventoryTile(
       context,
       tileset,
-      count > 0 ? tileId : MS_TILE.Empty,
+      inventoryStripOverlayTileId(inventory, kind, index),
       kind === "keys" && visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
       direction === "horizontal" ? index * LEGACY_TILE_SIZE : 0,
       direction === "horizontal" ? 0 : index * LEGACY_TILE_SIZE,
@@ -1736,26 +1834,18 @@ function drawGameScreen(
 
   const inventoryX = LEGACY_INFO_X;
   const inventoryY = LEGACY_MAP_Y + 128;
-  LEGACY_INVENTORY_KEY_IDS.forEach((tileId, index) => {
-    const count = snapshot.inventory.keys[index] ?? 0;
-    drawInventoryTile(
-      context,
-      tileset,
-      count > 0 ? tileId : MS_TILE.Empty,
-      visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
-      inventoryX + index * LEGACY_TILE_SIZE,
-      inventoryY,
-    );
-  });
-  LEGACY_INVENTORY_BOOT_IDS.forEach((tileId, index) => {
-    drawInventoryTile(
-      context,
-      tileset,
-      snapshot.inventory.boots[index] > 0 ? tileId : MS_TILE.Empty,
-      null,
-      inventoryX + index * LEGACY_TILE_SIZE,
-      inventoryY + LEGACY_TILE_SIZE,
-    );
+  (["keys", "boots", "tools"] as const).forEach((kind, rowIndex) => {
+    inventoryStripTileIds(kind).forEach((tileId, columnIndex) => {
+      const count = kind === "keys" ? snapshot.inventory.keys[columnIndex] ?? 0 : 0;
+      drawInventoryTile(
+        context,
+        tileset,
+        inventoryStripOverlayTileId(snapshot.inventory, kind, columnIndex),
+        kind === "keys" && visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
+        inventoryX + columnIndex * LEGACY_TILE_SIZE,
+        inventoryY + rowIndex * LEGACY_TILE_SIZE,
+      );
+    });
   });
 
   let hintText = "";
@@ -1779,7 +1869,7 @@ function drawGameScreen(
       context,
       hintText,
       LEGACY_INFO_X,
-      inventoryY + LEGACY_TILE_SIZE * 2 + LEGACY_MARGIN,
+      inventoryY + LEGACY_TILE_SIZE * 3 + LEGACY_MARGIN,
       LEGACY_WINDOW_WIDTH - LEGACY_MARGIN - LEGACY_INFO_X,
       COLORS.text,
       (snapshot.statusFlags & MS_STATUS_FLAG.ShowHint) !== 0 || snapshot.status !== "playing",
@@ -1932,8 +2022,8 @@ export function LegacyInventoryStrip({
   const scaledCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
   const targetTileSize = renderTileSize;
-  const { height: sourceHeight, width: sourceWidth } = inventoryStripPixelDimensions(LEGACY_TILE_SIZE, direction);
-  const { height: targetHeight, width: targetWidth } = inventoryStripPixelDimensions(targetTileSize, direction);
+  const { height: sourceHeight, width: sourceWidth } = inventoryStripPixelDimensionsForKind(LEGACY_TILE_SIZE, direction, kind);
+  const { height: targetHeight, width: targetWidth } = inventoryStripPixelDimensionsForKind(targetTileSize, direction, kind);
   const usesDefaultTileSize = isDefaultLegacyRenderTileSize(targetTileSize);
 
   useEffect(() => {

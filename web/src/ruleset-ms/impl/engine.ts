@@ -52,7 +52,13 @@ import {
   scheduledInputForTick,
   runtimeCommandName,
 } from "@game-core/api/playback";
-import { decodeRuntimeInputCode, encodeRuntimeInputCode, GAME_INPUT_CODES, stripRuntimeInputModifiers } from "@game-core/api/command";
+import {
+  decodeRuntimeInputCode,
+  encodeRuntimeInputCode,
+  GAME_INPUT_CODES,
+  GAME_INPUT_MODIFIER_MASKS,
+  stripRuntimeInputModifiers,
+} from "@game-core/api/command";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
 import { collectMsActorsFromLayers, hashMsCreaturesFromLayers, projectMsDebugPhaseSnapshot } from "@ruleset-ms/impl/debugProjection";
@@ -124,6 +130,12 @@ interface MsCreatureSlipEntry {
   slipOrder: number;
 }
 
+interface MsPrimedToolDrop {
+  tileId: number;
+  pos: number;
+  z: number;
+}
+
 export interface MsTrackedBlock {
   pos: number;
   z?: number;
@@ -166,6 +178,7 @@ export interface MsInternalState {
   randomMainInitial: bigint;
   randomMainValue: bigint;
   lastSlipDir: number;
+  primedToolDrop: MsPrimedToolDrop | null;
   runtimeLayers: MsRuntimeLayer[];
 }
 
@@ -532,6 +545,7 @@ function resolveMsNonChipSupportBelow(engine: EngineState, lowerCells: EngineMap
   }
 
   if (
+    topId === MS_TILE.Sandbag ||
     isMsSupportingWallTile(topId) ||
     topId === MS_TILE.BlueWall_Fake ||
     msTileHasTag(topId, "door") ||
@@ -582,6 +596,7 @@ function cloneInventory(inventory: EngineState["inventory"]): EngineState["inven
   return {
     keys: [...inventory.keys] as EngineState["inventory"]["keys"],
     boots: [...inventory.boots] as EngineState["inventory"]["boots"],
+    tools: [...inventory.tools] as EngineState["inventory"]["tools"],
     chipsNeeded: inventory.chipsNeeded,
   };
 }
@@ -707,6 +722,7 @@ function cloneInternalState(internal: MsInternalState): MsInternalState {
     pendingCloners: [...internal.pendingCloners],
     pendingSoundEffects: internal.pendingSoundEffects,
     lastSlipDir: internal.lastSlipDir,
+    primedToolDrop: internal.primedToolDrop ? { ...internal.primedToolDrop } : null,
     goalPos: internal.goalPos,
     runtimeLayers: internal.runtimeLayers.map((layer) => ({
       z: layer.z,
@@ -834,6 +850,87 @@ function updateChipTile(cells: EngineMapCell[], internal: MsInternalState): void
     id: msCreatureTile(chipBase, internal.chipDir),
     state: 0,
   });
+}
+
+function clearMsToolInventory(inventory: EngineState["inventory"]): void {
+  inventory.tools = [0] as EngineState["inventory"]["tools"];
+}
+
+function setMsToolInventoryTile(inventory: EngineState["inventory"], tileId: number): void {
+  inventory.tools = [tileId] as EngineState["inventory"]["tools"];
+}
+
+function primeMsToolDrop(
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  pos: number,
+  z: number,
+): boolean {
+  const tileId = inventory.tools[0] ?? 0;
+  if (tileId === 0 || internal.primedToolDrop !== null) {
+    return false;
+  }
+
+  clearMsToolInventory(inventory);
+  internal.primedToolDrop = {
+    tileId,
+    pos,
+    z,
+  };
+  return true;
+}
+
+function queueMsToolInventoryReplacement(
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  tileId: number,
+  pos: number,
+  z: number,
+): void {
+  const displacedTileId = inventory.tools[0] ?? 0;
+  setMsToolInventoryTile(inventory, tileId);
+  if (displacedTileId === 0) {
+    return;
+  }
+
+  internal.primedToolDrop = {
+    tileId: displacedTileId,
+    pos,
+    z,
+  };
+}
+
+function replaceMsSettledSandbagWater(cells: EngineMapCell[], pos: number): boolean {
+  const cell = cells[pos];
+  if (!cell || floorAt(cells, pos) !== MS_TILE.Water) {
+    return false;
+  }
+
+  if (cell.top.id === MS_TILE.Water) {
+    replaceTopTile(cells, pos, { ...cell.top, id: MS_TILE.Dirt });
+    return true;
+  }
+
+  if (cell.bottom.id === MS_TILE.Water) {
+    cell.bottom = { ...cell.bottom, id: MS_TILE.Dirt };
+    return true;
+  }
+
+  return false;
+}
+
+function settleMsPrimedToolDrop(cells: EngineMapCell[], internal: MsInternalState, pos: number, z: number): void {
+  const primed = internal.primedToolDrop;
+  if (!primed || primed.pos !== pos || primed.z !== z) {
+    return;
+  }
+
+  internal.primedToolDrop = null;
+  if (primed.tileId === MS_TILE.Sandbag && replaceMsSettledSandbagWater(cells, pos)) {
+    return;
+  }
+
+  pushTile(cells, pos, { id: primed.tileId, state: 0 });
 }
 
 function refreshFloorMovement(
@@ -1052,6 +1149,7 @@ export function initializeMsGameState(
     randomMainInitial: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
     randomMainValue: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
     lastSlipDir: MS_DIRECTION.none,
+    primedToolDrop: null,
     runtimeLayers: [],
   };
   const normalizedRandomSeed = normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed);
@@ -1085,6 +1183,7 @@ export function initializeMsGameState(
     inventory: {
       keys: [0, 0, 0, 0],
       boots: [0, 0, 0, 0],
+      tools: [0],
       chipsNeeded: level.chipsNeeded,
     },
     replay: {
@@ -3698,7 +3797,11 @@ function applyMsChipEntryEffects(
       const slot = msInventorySlot(floor);
       const index = msInventoryIndex(floor);
       if (slot !== null && index !== null) {
-        inventory[slot][index] += 1;
+        if (slot === "tools") {
+          queueMsToolInventoryReplacement(internal, inventory, floor, nextPos, runtimeCellZ(cells, nextPos));
+        } else {
+          inventory[slot][index] += 1;
+        }
         popTile(cells, nextPos);
         soundEffects |= 1 << MS_SOUND.ItemCollected;
       }
@@ -3710,6 +3813,7 @@ function applyMsChipEntryEffects(
       break;
     case "steal-boots":
       inventory.boots = [0, 0, 0, 0] as EngineState["inventory"]["boots"];
+      clearMsToolInventory(inventory);
       soundEffects |= 1 << MS_SOUND.BootsStolen;
       break;
     case "explode-bomb":
@@ -3754,6 +3858,7 @@ function moveChipOnce(
   dir: number,
 ): number {
   const oldPos = internal.chipPos;
+  const oldZ = internal.chipZ ?? runtimeCellZ(cells, oldPos);
   let nextPos =
     oldPos +
     (dir === MS_DIRECTION.north
@@ -3776,6 +3881,7 @@ function moveChipOnce(
   soundEffects |= enteredEffects.soundEffects;
 
   popTile(cells, oldPos);
+  settleMsPrimedToolDrop(cells, internal, oldPos, oldZ);
 
   if (enteredTeleport) {
     const teleported = teleportDestination(cells, internal, inventory, nextPos, dir);
@@ -3834,6 +3940,7 @@ function moveChipDownOneLayer(
   inventory: EngineState["inventory"],
 ): number {
   const oldPos = internal.chipPos;
+  const oldZ = internal.chipZ ?? runtimeCellZ(sourceCells, oldPos);
   const targetZ = Math.max(1, (internal.chipZ ?? runtimeCellZ(sourceCells, oldPos)) - 1);
   let nextPos = oldPos;
   let nextCell = targetCells[nextPos]!;
@@ -3849,6 +3956,7 @@ function moveChipDownOneLayer(
   soundEffects |= enteredEffects.soundEffects;
 
   popTile(sourceCells, oldPos);
+  settleMsPrimedToolDrop(sourceCells, internal, oldPos, oldZ);
   internal.chipZ = targetZ;
 
   if (enteredTeleport) {
@@ -3974,6 +4082,7 @@ function moveChipUpOneLayer(
   inventory: EngineState["inventory"],
 ): number {
   const oldPos = internal.chipPos;
+  const oldZ = internal.chipZ ?? runtimeCellZ(sourceCells, oldPos);
   const targetZ = (internal.chipZ ?? runtimeCellZ(sourceCells, oldPos)) + 1;
   let nextPos = oldPos;
   let nextCell = targetCells[nextPos]!;
@@ -4005,6 +4114,7 @@ function moveChipUpOneLayer(
   soundEffects |= enteredEffects.soundEffects;
 
   popTile(sourceCells, oldPos);
+  settleMsPrimedToolDrop(sourceCells, internal, oldPos, oldZ);
   internal.chipZ = targetZ;
 
   const landingCell = targetCells[nextPos]!;
@@ -4439,6 +4549,7 @@ function resolveReplayLastMoveAfterChoose(
   goalPosBeforeChoose: number,
   floorMovementBeforeChoose: MsInternalState["floorMovement"],
   chipDirBeforeChoose: number,
+  toolActionTriggered: boolean,
 ): EngineState["lastMove"] {
   const previous = state.engine.lastMove;
   const { baseCode, modifierMask } = decodeRuntimeInputCode(inputCode);
@@ -4451,7 +4562,7 @@ function resolveReplayLastMoveAfterChoose(
   const discardFloorMovement = floorMovementBeforeChoose;
   const discardChipDir = chipDirBeforeChoose;
 
-  if (chipHasMoved) {
+  if (chipHasMoved && !toolActionTriggered) {
     if (inputCode !== MS_DIRECTION.none && goalPosBeforeChoose >= 0) {
       const runtimeMove = createRuntimeCommand(CMD_MOVE_NOP, state.engine.timer.currentTime + 1);
       return {
@@ -4468,7 +4579,7 @@ function resolveReplayLastMoveAfterChoose(
     discardFloorMovement === "elevator" ||
     discardFloorMovement === "teleport" ||
     (discardFloorMovement === "slide" && baseCode === discardChipDir);
-  if (discard) {
+  if (discard && !toolActionTriggered) {
     return previous;
   }
 
@@ -4509,6 +4620,7 @@ function resolveRecordedReplayMoveAfterChoose(
   goalPosBeforeChoose: number,
   floorMovementBeforeChoose: MsInternalState["floorMovement"],
   chipDirBeforeChoose: number,
+  toolActionTriggered: boolean,
 ): RecordedReplayMoveDecision | null {
   const { baseCode, modifierMask } = decodeRuntimeInputCode(inputCode);
   if (state.engine.replay.cursor >= 0 || baseCode === MS_DIRECTION.none) {
@@ -4516,7 +4628,7 @@ function resolveRecordedReplayMoveAfterChoose(
   }
 
   const chipHasMoved = (currentTime & 3) === 0 ? false : chipHasMovedBeforeChoose;
-  if (chipHasMoved) {
+  if (chipHasMoved && !toolActionTriggered) {
     return goalPosBeforeChoose >= 0
       ? {
           when: currentTime,
@@ -4532,7 +4644,7 @@ function resolveRecordedReplayMoveAfterChoose(
     floorMovementBeforeChoose === "elevator" ||
     floorMovementBeforeChoose === "teleport" ||
     (floorMovementBeforeChoose === "slide" && baseCode === chipDirBeforeChoose);
-  if (discard) {
+  if (discard && !toolActionTriggered) {
     return null;
   }
 
@@ -4609,6 +4721,7 @@ function advanceMsTick(
   let timeOffset = -1;
   let soundEffects = 0;
   let recordedReplayMove: RecordedReplayMoveDecision | null = null;
+  let toolActionTriggeredThisTick = false;
   clearMsTileOverlays(state.engine);
   internal.pendingSoundEffects = 0;
   const flushPendingSoundEffects = (): void => {
@@ -4764,6 +4877,14 @@ function advanceMsTick(
     }
 
     latchCurrentInput(state, internal, input);
+    const { modifierMask } = decodeRuntimeInputCode(internal.currentInput);
+    if (
+      isPlayablePhase() &&
+      (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
+      primeMsToolDrop(internal, inventory, internal.chipPos, internal.chipZ ?? 1)
+    ) {
+      toolActionTriggeredThisTick = true;
+    }
     recordPhase(TURN_DEBUG_PHASE.postInitialHousekeeping);
     return internal.currentInput;
   };
@@ -4844,15 +4965,20 @@ function advanceMsTick(
           consumedInputCode: GAME_INPUT_CODES.none,
           dir: MS_DIRECTION.none,
         };
+    const recordedInputCode =
+      toolActionTriggeredThisTick && manualChoice.consumedInputCode === GAME_INPUT_CODES.none
+        ? replayLastMoveInputCode
+        : manualChoice.consumedInputCode;
     recordedReplayMove = resolveRecordedReplayMoveAfterChoose(
       state,
       internal,
       nextTick,
-      manualChoice.consumedInputCode,
+      recordedInputCode,
       replayLastMoveChipHasMoved,
       replayLastMoveGoalPos,
       replayLastMoveFloorMovement,
       replayLastMoveChipDir,
+      toolActionTriggeredThisTick,
     );
     const chipPosBeforeManualMovement = internal.chipPos;
     const nextLastMove = resolveReplayLastMoveAfterChoose(
@@ -4864,6 +4990,7 @@ function advanceMsTick(
       replayLastMoveGoalPos,
       replayLastMoveFloorMovement,
       replayLastMoveChipDir,
+      toolActionTriggeredThisTick,
     );
 
     return {

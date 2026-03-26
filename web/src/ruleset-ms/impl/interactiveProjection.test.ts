@@ -35,6 +35,7 @@ function createEngineState(cells: EngineMapCell[]): EngineState {
     inventory: {
       keys: [0, 0, 0, 0],
       boots: [0, 0, 0, 0],
+      tools: [0],
       chipsNeeded: 0,
     },
     replay: {
@@ -183,6 +184,40 @@ describe("projectMsInteractiveFrame", () => {
       pos: 1,
       kind: "push-pickup-reveal",
       tileId: MS_TILE.Key_Yellow,
+    });
+  });
+
+  it("projects carried tool overlays from the primed drop state", () => {
+    const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.Empty)];
+    const session = {
+      state: {
+        engine: createEngineState(cells),
+        internal: {
+          chipZ: 1,
+          traps: [],
+          primedToolDrop: {
+            tileId: MS_TILE.Sandbag,
+            pos: 1,
+            z: 1,
+          },
+        },
+      },
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+    } as unknown as MsInteractiveSessionState;
+
+    const frame = projectMsInteractiveFrame(session, "tick");
+
+    expect(frame.tileOverlays).toContainEqual({
+      z: 1,
+      pos: 1,
+      kind: "carried-tool",
+      tileId: MS_TILE.Sandbag,
     });
   });
 

@@ -54,6 +54,7 @@ export function engineStateToSnapshot(
     inventory: {
       keys: [...state.inventory.keys],
       boots: [...state.inventory.boots],
+      tools: [...state.inventory.tools],
     },
     chip: state.chip ? cloneActor(state.chip) : fallbackChip,
     creatureCount: state.map.creatureCount,

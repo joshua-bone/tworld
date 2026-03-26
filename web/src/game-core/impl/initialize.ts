@@ -1,4 +1,4 @@
-import type { EngineLevelSeed, EngineMapCell, EngineState, InventorySlots } from "@game-core/api/model";
+import type { EngineLevelSeed, EngineMapCell, EngineState, InventorySlots, ToolInventorySlots } from "@game-core/api/model";
 import type { GameActor, GameSnapshot } from "@game-core/api/types";
 import { snapshotToEngineTimer } from "@game-core/impl/timer";
 
@@ -22,6 +22,12 @@ function toInventorySlots(values: number[]): InventorySlots {
   ];
 }
 
+function toToolInventorySlots(values: number[] | undefined): ToolInventorySlots {
+  return [
+    values?.[0] ?? 0,
+  ];
+}
+
 function cloneCells(cells: EngineMapCell[] | undefined): EngineMapCell[] {
   return (cells ?? []).map((cell) => ({
     position: { ...cell.position },
@@ -42,6 +48,7 @@ export function snapshotToEngineState(
     inventory: {
       keys: toInventorySlots(snapshot.inventory.keys),
       boots: toInventorySlots(snapshot.inventory.boots),
+      tools: toToolInventorySlots(snapshot.inventory.tools),
       chipsNeeded: snapshot.chipsNeeded,
     },
     replay: {

@@ -88,6 +88,7 @@ export const MS_TILE = {
   Paramecium: 0x68,
   Swimming_Chip: 0x6c,
   Pushing_Chip: 0x70,
+  Sandbag: 0x80,
 } as const;
 
 export const MS_FLOOR_STATE = {

@@ -43,7 +43,8 @@ export type InteractiveGameTileOverlayKind =
   | "elevator-failure"
   | "hidden-wall-reveal"
   | "blue-wall-reveal"
-  | "push-pickup-reveal";
+  | "push-pickup-reveal"
+  | "carried-tool";
 
 export interface InteractiveGameTileOverlay {
   z: number;

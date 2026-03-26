@@ -4407,6 +4407,16 @@ export function PlayerApp({
           visualEnhancementsEnabled={visualEnhancementsEnabled}
         />
       </div>
+      <div className="modern-game-inventory-strip__group">
+        <p className="modern-game-inventory-strip__label">Tools</p>
+        <LegacyInventoryStrip
+          className="modern-game-inventory-strip__canvas"
+          currentRuleset={currentRuleset}
+          inventory={session?.frame.snapshot.inventory ?? null}
+          kind="tools"
+          visualEnhancementsEnabled={visualEnhancementsEnabled}
+        />
+      </div>
     </aside>
   );
   const renderModernUndoPanel = () => (
@@ -4586,6 +4596,18 @@ export function PlayerApp({
           direction={isMobileLandscape ? "vertical" : "horizontal"}
           inventory={session?.frame.snapshot.inventory ?? null}
           kind="boots"
+          renderTileSize={mobileRenderTileSize}
+          visualEnhancementsEnabled={visualEnhancementsEnabled}
+        />
+      </div>
+      <div className="mobile-game-shell__inventory-group">
+        <p className="mobile-game-shell__inventory-label">Tools</p>
+        <LegacyInventoryStrip
+          className="mobile-game-shell__inventory-strip"
+          currentRuleset={currentRuleset}
+          direction={isMobileLandscape ? "vertical" : "horizontal"}
+          inventory={session?.frame.snapshot.inventory ?? null}
+          kind="tools"
           renderTileSize={mobileRenderTileSize}
           visualEnhancementsEnabled={visualEnhancementsEnabled}
         />

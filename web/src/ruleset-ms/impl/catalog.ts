@@ -9,7 +9,7 @@ import {
 } from "@game-core/api/ruleset";
 import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
-type InventorySlot = "keys" | "boots";
+type InventorySlot = "keys" | "boots" | "tools";
 type MsForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air" | "elevator";
 type MsChipEnterAction =
   | "none"
@@ -47,6 +47,7 @@ const FULL_MOVEMENT_MASK =
 
 const KEY_TILE_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
 const BOOT_TILE_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
+const TOOL_TILE_IDS = [MS_TILE.Sandbag] as const;
 const DOOR_TILE_IDS = [MS_TILE.Door_Red, MS_TILE.Door_Blue, MS_TILE.Door_Yellow, MS_TILE.Door_Green] as const;
 const BUTTON_TILE_IDS = [
   MS_TILE.Button_Blue,
@@ -87,6 +88,7 @@ const ACTOR_TILE_IDS = [
 
 const KEY_TILE_SET = new Set<number>(KEY_TILE_IDS);
 const BOOT_TILE_SET = new Set<number>(BOOT_TILE_IDS);
+const TOOL_TILE_SET = new Set<number>(TOOL_TILE_IDS);
 const DOOR_TILE_SET = new Set<number>(DOOR_TILE_IDS);
 const BUTTON_TILE_SET = new Set<number>(BUTTON_TILE_IDS);
 const SLIDE_TILE_SET = new Set<number>(SLIDE_TILE_IDS);
@@ -121,6 +123,7 @@ const CHIPPABLE_TILE_IDS = new Set<number>([
   MS_TILE.ICChip,
   ...KEY_TILE_IDS,
   ...BOOT_TILE_IDS,
+  ...TOOL_TILE_IDS,
   MS_TILE.Block_Static,
 ]);
 
@@ -140,6 +143,7 @@ const CREATURE_BLOCKED_TILE_IDS = new Set<number>([
   MS_TILE.Exit,
   MS_TILE.ICChip,
   ...BOOT_TILE_IDS,
+  ...TOOL_TILE_IDS,
   MS_TILE.Block_Static,
 ]);
 
@@ -155,6 +159,7 @@ const BLOCK_BLOCKED_TILE_IDS = new Set<number>([
   ...DOOR_TILE_IDS,
   MS_TILE.Socket,
   MS_TILE.ICChip,
+  ...TOOL_TILE_IDS,
   MS_TILE.Block_Static,
 ]);
 
@@ -202,6 +207,9 @@ function defaultMsTileTags(id: number): TileTag[] {
   }
   if (BOOT_TILE_SET.has(id)) {
     tags.push("boots", "collectible");
+  }
+  if (TOOL_TILE_SET.has(id)) {
+    tags.push("collectible");
   }
   if (BUTTON_TILE_SET.has(id)) {
     tags.push("button");
@@ -262,7 +270,7 @@ function defaultMsTileTags(id: number): TileTag[] {
 
 function defaultMsTileCapabilities(id: number): TileCapability[] {
   const capabilities: TileCapability[] = [];
-  if (KEY_TILE_SET.has(id) || BOOT_TILE_SET.has(id) || id === MS_TILE.ICChip) {
+  if (KEY_TILE_SET.has(id) || BOOT_TILE_SET.has(id) || TOOL_TILE_SET.has(id) || id === MS_TILE.ICChip) {
     capabilities.push("collect-on-entry");
   }
   if (BUTTON_TILE_SET.has(id) || id === MS_TILE.Burglar || id === MS_TILE.Socket || id === MS_TILE.Exit) {
@@ -346,6 +354,7 @@ function defaultChipEnterAction(id: number): MsChipEnterAction {
     case MS_TILE.Boots_Slide:
     case MS_TILE.Boots_Fire:
     case MS_TILE.Boots_Water:
+    case MS_TILE.Sandbag:
       return "collect-item";
     case MS_TILE.Socket:
       return "open-socket";
@@ -411,6 +420,12 @@ function inventoryPolicy(id: number): Pick<MsTilePolicyDefinition, "inventorySlo
     return {
       inventorySlot: "boots",
       inventoryIndex: id - MS_TILE.Boots_Ice,
+    };
+  }
+  if (TOOL_TILE_SET.has(id)) {
+    return {
+      inventorySlot: "tools",
+      inventoryIndex: 0,
     };
   }
   if (DOOR_TILE_SET.has(id)) {

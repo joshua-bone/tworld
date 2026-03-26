@@ -16,6 +16,11 @@ interface LynxProjectedAnimationState {
 interface LynxProjectedRuntimeState {
   animations: LynxProjectedAnimationState[];
   chipTeleported: boolean;
+  primedToolDrop?: {
+    tileId: number;
+    pos: number;
+    z: number;
+  } | null;
   tileOverlays: Array<InteractiveGameFrame["tileOverlays"][number] & { ttl?: number }>;
 }
 
@@ -28,18 +33,22 @@ function applyLynxTrapRenderState(frame: InteractiveGameFrame, session: LynxInte
   const visibleLayersByZ = new Map(frame.visibleLayers.map((layer) => [layer.z, layer.cells] as const));
   const heldButtonsByZ = new Map<number, Set<number>>();
 
-  const trackHeldButton = (z: number, pos: number): void => {
-    const cells = visibleLayersByZ.get(z);
-    if (!cells || cells[pos]?.top.id !== MS_TILE.Button_Brown) {
-      return;
-    }
-
+  const markHeldButton = (z: number, pos: number): void => {
     let heldButtons = heldButtonsByZ.get(z);
     if (!heldButtons) {
       heldButtons = new Set<number>();
       heldButtonsByZ.set(z, heldButtons);
     }
     heldButtons.add(pos);
+  };
+
+  const trackHeldButton = (z: number, pos: number): void => {
+    const cells = visibleLayersByZ.get(z);
+    if (!cells || cells[pos]?.top.id !== MS_TILE.Button_Brown) {
+      return;
+    }
+
+    markHeldButton(z, pos);
   };
 
   if (session.chipMoving <= 0) {
@@ -51,6 +60,14 @@ function applyLynxTrapRenderState(frame: InteractiveGameFrame, session: LynxInte
       continue;
     }
     trackHeldButton(actor.z ?? 1, actor.pos);
+  }
+
+  for (const layer of frame.visibleLayers) {
+    for (const cell of layer.cells) {
+      if (cell.top.id === MS_TILE.Sandbag && cell.bottom.id === MS_TILE.Button_Brown) {
+        markHeldButton(layer.z, cell.position.pos);
+      }
+    }
   }
 
   for (const connection of collectLevelConnections(session.level, "traps")) {
@@ -114,7 +131,19 @@ export function projectLynxInteractiveFrame(
     {
       currentZ: session.chipZ ?? 1,
       layers: session.state.map.layers,
-      tileOverlays: runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? [],
+      tileOverlays: [
+        ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? []),
+        ...(runtime?.primedToolDrop
+          ? [
+              {
+                z: runtime.primedToolDrop.z,
+                pos: runtime.primedToolDrop.pos,
+                kind: "carried-tool" as const,
+                tileId: runtime.primedToolDrop.tileId,
+              },
+            ]
+          : []),
+      ],
     },
   );
 

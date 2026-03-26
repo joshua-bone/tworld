@@ -8,6 +8,7 @@ import type {
 } from "@game-core/api/types";
 
 export type InventorySlots = [number, number, number, number];
+export type ToolInventorySlots = [number];
 
 export interface EngineTile {
   id: number;
@@ -23,6 +24,7 @@ export interface EngineMapCell {
 export interface EngineInventory {
   keys: InventorySlots;
   boots: InventorySlots;
+  tools: ToolInventorySlots;
   chipsNeeded: number;
 }
 

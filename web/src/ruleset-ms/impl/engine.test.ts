@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell } from "@game-core/api/model";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
-import { GAME_INPUT_CODES } from "@game-core/api/command";
+import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
 import {
   advanceMsInteractiveSession,
   createMsInteractiveSession,
@@ -1399,7 +1399,9 @@ describe("MS engine regressions", () => {
     expect(afterClick.state.internal.goalPos).toBe(targetPos);
     expect(afterPreserve1.state.internal.goalPos).toBe(targetPos);
     expect(afterPreserve2.state.internal.chipPos).toBe(targetPos);
-    expect(afterPreserve2.recordedMoves).toEqual([{ when: 0, dir: relativeMouseMoveCode(chipPos, targetPos) }]);
+    expect(afterPreserve2.recordedMoves).toEqual([
+      { when: 0, dir: relativeMouseMoveCode(chipPos, targetPos), modifierMask: 0 },
+    ]);
   });
 
   it("records each direct manual absolute mouse retarget on the tick it is consumed", () => {
@@ -1423,8 +1425,8 @@ describe("MS engine regressions", () => {
     session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
 
     expect(session.recordedMoves).toEqual([
-      { when: 0, dir: relativeMouseMoveCode(chipPos, eastTargetPos) },
-      { when: 2, dir: relativeMouseMoveCode(chipPos, westTargetPos) },
+      { when: 0, dir: relativeMouseMoveCode(chipPos, eastTargetPos), modifierMask: 0 },
+      { when: 2, dir: relativeMouseMoveCode(chipPos, westTargetPos), modifierMask: 0 },
     ]);
   });
 
@@ -1448,8 +1450,8 @@ describe("MS engine regressions", () => {
     session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
 
     expect(session.recordedMoves).toEqual([
-      { when: 0, dir: relativeMouseMoveCode(chipPos, targetPos) },
-      { when: 2, dir: MS_DIRECTION.west },
+      { when: 0, dir: relativeMouseMoveCode(chipPos, targetPos), modifierMask: 0 },
+      { when: 2, dir: MS_DIRECTION.west, modifierMask: 0 },
     ]);
   });
 
@@ -5585,5 +5587,133 @@ describe("MS engine regressions", () => {
     expect(postChipFloorMovement?.activeCreatures[0]?.floor.id).toBe(MS_TILE.Empty);
     expect(postChipFloorMovement?.chipFloor.movementMode).toBe("none");
     expect(postChipFloorMovement?.lastSlipDir).toBe("south");
+  });
+
+  it("drops a sandbag during forced slide movement and still records the Action1 input", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const eastPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[chipPos]!.bottom.id = MS_TILE.Slide_East;
+    cells[eastPos]!.top.id = MS_TILE.Slide_East;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.internal.floorMovement = "slide";
+    session.state.internal.floorMovementDir = MS_DIRECTION.east;
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.east, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.internal.chipPos).toBe(eastPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Sandbag);
+    expect(session.state.engine.map.cells[chipPos]?.bottom.id).toBe(MS_TILE.Slide_East);
+    expect(session.state.engine.inventory.tools).toEqual([0]);
+    expect(session.recordedMoves).toContainEqual({
+      when: 2,
+      dir: MS_DIRECTION.east,
+      modifierMask: GAME_INPUT_MODIFIER_MASKS.action1,
+    });
+  });
+
+  it("consumes a dropped sandbag into dirt when Chip leaves water", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(12, 12);
+    const eastPos = pos(13, 12);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[chipPos]!.bottom.id = MS_TILE.Water;
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.boots[3] = 1;
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    const next = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.east, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(next.state.internal.chipPos).toBe(eastPos);
+    expect(next.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Dirt);
+    expect(next.state.engine.inventory.tools).toEqual([0]);
+  });
+
+  it("drops the replaced sandbag on the pickup tile after collecting another one", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(9, 9);
+    const pickupPos = pos(10, 9);
+    const exitPos = pos(11, 9);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[pickupPos]!.top.id = MS_TILE.Sandbag;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+    expect(session.state.internal.chipPos).toBe(pickupPos);
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
+    expect(session.state.internal.primedToolDrop).toMatchObject({
+      tileId: MS_TILE.Sandbag,
+      pos: pickupPos,
+      z: 1,
+    });
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipPos).toBe(exitPos);
+    expect(session.state.engine.map.cells[pickupPos]?.top.id).toBe(MS_TILE.Sandbag);
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
+  });
+
+  it("collects a sandbag when Chip falls from unsupported air", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(8, 8);
+    lower[chipPos]!.top.id = MS_TILE.Sandbag;
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(session.state.internal.chipZ).toBe(1);
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
   });
 });

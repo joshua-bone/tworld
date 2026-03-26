@@ -74,6 +74,7 @@ export interface GameSnapshot {
   inventory: {
     keys: number[];
     boots: number[];
+    tools: number[];
   };
   chip: GameActor | null;
   creatureCount: number;

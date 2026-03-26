@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   inventoryStripPixelDimensions,
+  inventoryStripPixelDimensionsForKind,
   inventoryTileCountLabel,
   isThinWallTileId,
   shouldUseLegacyCombinedCellSprite,
@@ -76,6 +77,13 @@ describe("inventoryStripPixelDimensions", () => {
   it("supports both vertical and horizontal strip layouts", () => {
     expect(inventoryStripPixelDimensions(48, "vertical")).toEqual({ height: 192, width: 48 });
     expect(inventoryStripPixelDimensions(48, "horizontal")).toEqual({ height: 48, width: 192 });
+  });
+});
+
+describe("inventoryStripPixelDimensionsForKind", () => {
+  it("supports the single-slot tools strip", () => {
+    expect(inventoryStripPixelDimensionsForKind(48, "vertical", "tools")).toEqual({ height: 48, width: 48 });
+    expect(inventoryStripPixelDimensionsForKind(48, "horizontal", "tools")).toEqual({ height: 48, width: 48 });
   });
 });
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { encodeRuntimeInputCode, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   advanceLynxInteractiveSession,
@@ -2961,5 +2962,70 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[0]?.replayCursor).toBe(1);
     expect(trace.steps[0]?.lastMove).toBe("east");
     expect(trace.scheduledInputs).toEqual([]);
+  });
+
+  it("keeps a dropped sandbag on the source teleport tile while Chip teleports away", () => {
+    const chipPos = 33;
+    const blockedEastPos = 34;
+    const exitTeleportPos = 96;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Teleport),
+        createCell(blockedEastPos, MS_TILE.Wall),
+        createCell(exitTeleportPos, MS_TILE.Teleport),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Sandbag];
+
+    const next = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.east, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(next.chipPos).toBe(exitTeleportPos);
+    expect(next.state.inventory.tools).toEqual([0]);
+    expect(next.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Sandbag);
+    expect(next.state.map.cells[chipPos]?.bottom.id).toBe(MS_TILE.Teleport);
+  });
+
+  it("collects a sandbag when Chip falls from unsupported air", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 37;
+    lower[chipPos] = createCell(chipPos, MS_TILE.Sandbag);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const fallen = advanceLynxTicks(session, 2);
+
+    expect(fallen.chipZ).toBe(1);
+    expect(fallen.state.inventory.tools).toEqual([MS_TILE.Sandbag]);
+    expect(fallen.state.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("keeps a block supported over a sandbag in air", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const blockPos = 103;
+    lower[blockPos] = createCell(blockPos, MS_TILE.Sandbag);
+    upper[blockPos] = createCellAtZ(blockPos, 2, MS_TILE.Block_Static, MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [blockPos] }),
+    );
+
+    const supported = advanceLynxTicks(session, 2);
+    const block = supported.actors.find((actor) => actor.id === MS_TILE.Block);
+
+    expect(block?.hidden).toBe(false);
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(blockPos);
+    expect(supported.state.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Sandbag);
   });
 });

@@ -136,7 +136,19 @@ export function projectMsInteractiveFrame(
     {
       currentZ: session.state.internal.chipZ ?? 1,
       layers: session.state.engine.map.layers,
-      tileOverlays: runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? [],
+      tileOverlays: [
+        ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? []),
+        ...(session.state.internal.primedToolDrop
+          ? [
+              {
+                z: session.state.internal.primedToolDrop.z,
+                pos: session.state.internal.primedToolDrop.pos,
+                kind: "carried-tool" as const,
+                tileId: session.state.internal.primedToolDrop.tileId,
+              },
+            ]
+          : []),
+      ],
     },
   );
 
