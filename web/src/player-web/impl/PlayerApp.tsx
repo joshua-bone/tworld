@@ -14,6 +14,7 @@ import { shouldAutoSaveWinningHighScoreReplay } from "@player-web/impl/autoSaveR
 import { copyTextToClipboard } from "@player-web/impl/clipboard";
 import { isFastForwardModifierActive } from "@player-web/impl/fastForward";
 import {
+  isAction1Key,
   isFineUndoKey,
   hasBlockedMovementModifier,
   isFirstLevelKey,
@@ -70,6 +71,13 @@ import {
   type BrowserMobileControlProfile,
 } from "@player-web/impl/mobileControlsSettings";
 import {
+  PLAYER_BINDABLE_KEYS,
+  loadStoredPlayerKeyBindingsSettings,
+  saveStoredPlayerKeyBindingsSettings,
+  type BrowserPlayerKeyBindingsSettings,
+  type PlayerBindableKey,
+} from "@player-web/impl/playerKeyBindingsSettings";
+import {
   activeGameplayHintOverlay,
   describeGameplayStatus,
   formatGameplayTimeLeft,
@@ -110,8 +118,13 @@ import { startInteractiveGameSession } from "@game-runtime/impl/startInteractive
 import { startReplayInteractiveGameSession } from "@game-runtime/impl/startReplayInteractiveGameSession";
 import type { InteractiveGameEnginePort, InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
-import type { InteractiveInput } from "@game-core/api/command";
-import { replaySolutionCodec, type ReplaySolutionPayload } from "@game-core/api/codec";
+import {
+  encodeRuntimeInputCode,
+  GAME_INPUT_MODIFIER_MASKS,
+  type InteractiveInput,
+} from "@game-core/api/command";
+import type { ReplaySolutionPayload } from "@game-core/api/codec";
+import { replayTransferCodec } from "@game-core/api/replayTransferCodec";
 import type { SeriesCatalogEntry } from "@content/api/series";
 import { describeReplayEntry, listReplaysForCurrentLevel, listReplaysForSeriesLevel } from "@player-web/impl/modern/replayLibrary";
 import {
@@ -439,84 +452,80 @@ const SERIES_LIST_HELP: HelpSection[] = [
   },
 ];
 
-const GAME_PLAYING_HELP: HelpSection[] = [
-  {
-    title: "While Playing",
-    commands: [
-      { keys: "Arrow keys / WASD", action: "move Chip and start the clock" },
-      { keys: "Mouse click (MS)", action: "set a mouse goal on the clicked map tile" },
-      { keys: "Hold Shift", action: "run the game clock at 2x speed" },
-      { keys: "Space", action: "start the clock without moving, or resume the original timeline after a restore" },
-      { keys: "Z / hold Z", action: "rewind 4 ticks at a time and keep rewinding while held when undo history is enabled" },
-      { keys: "Cmd/Ctrl + Z", action: "rewind 1 tick at a time" },
-      { keys: "Shift + Z", action: "rewind to the previous checkpoint and keep rewinding checkpoints while held" },
-      { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
-      { keys: "R", action: "restart the current level" },
-      { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
-      { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
-      { keys: "Home / End", action: "also jump to the first or last level when available" },
-      { keys: "Escape", action: "return to the series list" },
-    ],
-  },
-];
+function undoHoldHelpKeys(undoKey: PlayerBindableKey): string {
+  return `${undoKey} / hold ${undoKey}`;
+}
 
-const GAME_PLAYING_HELP_MODERN: HelpSection[] = [
-  {
-    title: "While Playing",
-    commands: [
-      { keys: "Arrow keys / WASD", action: "move Chip and start the clock" },
-      { keys: "Mouse click (MS)", action: "set a mouse goal on the clicked map tile" },
-      { keys: "Hold Shift", action: "run the game clock at 2x speed" },
-      { keys: "Space", action: "start the clock without moving, or resume the original timeline after a restore" },
-      { keys: "Z / hold Z", action: "rewind 4 ticks at a time, then jump through 1s/2s/4s/8s checkpoints" },
-      { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
-      { keys: "R", action: "restart the current level" },
-      { keys: "Bkspc / Delete", action: "pause or resume the modern play view" },
-      { keys: "P / PageUp", action: "go to the previous level" },
-      { keys: "N / PageDown", action: "go to the next level" },
-      { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
-      { keys: "Home / End", action: "also jump to the first or last level when available" },
-      { keys: "Escape", action: "return to the series list" },
-    ],
-  },
-];
+function buildGamePlayingHelp(undoKey: PlayerBindableKey, action1Key: PlayerBindableKey, modern: boolean): HelpSection[] {
+  return [
+    {
+      title: "While Playing",
+      commands: [
+        { keys: "Arrow keys / WASD", action: "move Chip and start the clock" },
+        { keys: "Mouse click (MS)", action: "set a mouse goal on the clicked map tile" },
+        { keys: `Hold ${action1Key}`, action: "apply Action 1 to movement or mouse-goal inputs while held" },
+        { keys: "Hold Shift", action: "run the game clock at 2x speed" },
+        { keys: "Space", action: "start the clock without moving, or resume the original timeline after a restore" },
+        {
+          keys: undoHoldHelpKeys(undoKey),
+          action: modern
+            ? "rewind 4 ticks at a time, then jump through 1s/2s/4s/8s checkpoints"
+            : "rewind 4 ticks at a time and keep rewinding while held when undo history is enabled",
+        },
+        ...(modern ? [] : [
+          { keys: `Cmd/Ctrl + ${undoKey}`, action: "rewind 1 tick at a time" },
+          { keys: `Shift + ${undoKey}`, action: "rewind to the previous checkpoint and keep rewinding checkpoints while held" },
+        ]),
+        { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
+        { keys: "R", action: "restart the current level" },
+        ...(modern
+          ? [
+              { keys: "Bkspc / Delete", action: "pause or resume the modern play view" },
+              { keys: "P / PageUp", action: "go to the previous level" },
+              { keys: "N / PageDown", action: "go to the next level" },
+            ]
+          : [{ keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" }]),
+        { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
+        { keys: "Home / End", action: "also jump to the first or last level when available" },
+        { keys: "Escape", action: "return to the series list" },
+      ],
+    },
+  ];
+}
 
-const GAME_ENDED_HELP: HelpSection[] = [
-  {
-    title: "After A Level Ends",
-    commands: [
-      { keys: "Enter", action: "continue: next level after a win, retry after a loss" },
-      { keys: "Space", action: "resume the original timeline after a restore, or continue when no rewind is active" },
-      { keys: "Z / hold Z", action: "rewind 4 ticks at a time and keep rewinding while held when undo history is enabled" },
-      { keys: "Cmd/Ctrl + Z", action: "rewind 1 tick at a time" },
-      { keys: "Shift + Z", action: "rewind to the previous checkpoint and keep rewinding checkpoints while held" },
-      { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
-      { keys: "R", action: "restart the current level" },
-      { keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" },
-      { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
-      { keys: "Home / End", action: "also jump to the first or last level when available" },
-      { keys: "Escape", action: "return to the series list" },
-    ],
-  },
-];
-
-const GAME_ENDED_HELP_MODERN: HelpSection[] = [
-  {
-    title: "After A Level Ends",
-    commands: [
-      { keys: "Enter", action: "continue: next level after a win, retry after a loss" },
-      { keys: "Space", action: "resume the original timeline after a restore, or continue when no rewind is active" },
-      { keys: "Z / hold Z", action: "rewind 4 ticks at a time, then jump through 1s/2s/4s/8s checkpoints" },
-      { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
-      { keys: "R", action: "restart the current level" },
-      { keys: "PageUp", action: "go to the previous level" },
-      { keys: "N / PageDown", action: "go to the next level" },
-      { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
-      { keys: "Home / End", action: "also jump to the first or last level when available" },
-      { keys: "Escape", action: "return to the series list" },
-    ],
-  },
-];
+function buildGameEndedHelp(undoKey: PlayerBindableKey, action1Key: PlayerBindableKey, modern: boolean): HelpSection[] {
+  return [
+    {
+      title: "After A Level Ends",
+      commands: [
+        { keys: "Enter", action: "continue: next level after a win, retry after a loss" },
+        { keys: "Space", action: "resume the original timeline after a restore, or continue when no rewind is active" },
+        { keys: `Hold ${action1Key}`, action: "apply Action 1 to movement or mouse-goal inputs while held" },
+        {
+          keys: undoHoldHelpKeys(undoKey),
+          action: modern
+            ? "rewind 4 ticks at a time, then jump through 1s/2s/4s/8s checkpoints"
+            : "rewind 4 ticks at a time and keep rewinding while held when undo history is enabled",
+        },
+        ...(modern ? [] : [
+          { keys: `Cmd/Ctrl + ${undoKey}`, action: "rewind 1 tick at a time" },
+          { keys: `Shift + ${undoKey}`, action: "rewind to the previous checkpoint and keep rewinding checkpoints while held" },
+        ]),
+        { keys: "History button", action: "open undo settings and resume the original timeline after a restore" },
+        { keys: "R", action: "restart the current level" },
+        ...(modern
+          ? [
+              { keys: "PageUp", action: "go to the previous level" },
+              { keys: "N / PageDown", action: "go to the next level" },
+            ]
+          : [{ keys: "P / N or PageUp / PageDown", action: "go to the previous or next level" }]),
+        { keys: "Cmd/Ctrl + < / >", action: "jump to the first or last level in the current set" },
+        { keys: "Home / End", action: "also jump to the first or last level when available" },
+        { keys: "Escape", action: "return to the series list" },
+      ],
+    },
+  ];
+}
 
 const GLOBAL_HELP: HelpSection[] = [
   {
@@ -627,7 +636,9 @@ interface PlayerAppProps {
   onOpenDesktopShell?: () => void;
   onExitGame?: () => void;
   onLevelProgressSaved?: (summary: BrowserLevelProgressSummary) => void;
+  onPlayerKeyBindingsChange?: (settings: BrowserPlayerKeyBindingsSettings) => void;
   onSelectionChange?: (selection: PlayableSelection) => void;
+  playerKeyBindings?: BrowserPlayerKeyBindingsSettings;
   visualEnhancementsEnabled?: boolean;
 }
 
@@ -646,7 +657,9 @@ export function PlayerApp({
   onOpenDesktopShell,
   onExitGame,
   onLevelProgressSaved,
+  onPlayerKeyBindingsChange,
   onSelectionChange,
+  playerKeyBindings: playerKeyBindingsProp,
   visualEnhancementsEnabled: visualEnhancementsEnabledProp,
 }: PlayerAppProps) {
   const { engines, importDatFile, profileStore, replayTransfer, selectionStore } = services;
@@ -659,6 +672,10 @@ export function PlayerApp({
   const undoSettingsSeedRef = useRef<BrowserUndoSettings | null>(null);
   if (undoSettingsSeedRef.current === null) {
     undoSettingsSeedRef.current = loadStoredUndoSettings();
+  }
+  const playerKeyBindingsSeedRef = useRef<BrowserPlayerKeyBindingsSettings | null>(null);
+  if (playerKeyBindingsSeedRef.current === null) {
+    playerKeyBindingsSeedRef.current = playerKeyBindingsProp ?? loadStoredPlayerKeyBindingsSettings();
   }
   const visualEnhancementsEnabledSeedRef = useRef(loadStoredVisualEnhancementsSettings().enabled);
   const [mode, setMode] = useState<LegacyMode>(initialModeRef.current);
@@ -690,6 +707,9 @@ export function PlayerApp({
   const [soundMuted, setSoundMuted] = useState(() => loadStoredSoundSettings().muted);
   const [soundVolume, setSoundVolume] = useState(() => loadStoredSoundSettings().volume);
   const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
+  const [playerKeyBindingsState, setPlayerKeyBindingsState] = useState<BrowserPlayerKeyBindingsSettings>(
+    playerKeyBindingsSeedRef.current,
+  );
   const [mobileControlProfile, setMobileControlProfile] = useState<BrowserMobileControlProfile>(
     () => loadStoredMobileControlsSettings().profile,
   );
@@ -714,6 +734,7 @@ export function PlayerApp({
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
   const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
   const mobileDirectionalInputRef = useRef(new MobileDirectionalInputTracker());
+  const action1ActiveRef = useRef(false);
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -736,6 +757,11 @@ export function PlayerApp({
   const currentLevelLinkTargetKeyRef = useRef<string | null>(null);
   const resultSheetBestScoreSnapshotRef = useRef<{ bestScore: number | null; recordKey: string } | null>(null);
   const mobileSetSheetSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const playerKeyBindings = playerKeyBindingsProp ?? playerKeyBindingsState;
+  const undoKeyBinding = playerKeyBindings.undoKey;
+  const action1KeyBinding = playerKeyBindings.action1Key;
+  const availableAction1BindingKeys = PLAYER_BINDABLE_KEYS.filter((key) => key !== undoKeyBinding);
+  const availableUndoBindingKeys = PLAYER_BINDABLE_KEYS.filter((key) => key !== action1KeyBinding);
 
   const disposeSessionIfOwned = useEffectEvent((sessionToDispose: InteractiveGameSession | null) => {
     if (!sessionToDispose) {
@@ -918,8 +944,8 @@ export function PlayerApp({
             canResumeOriginalTimeline
               ? `Press Space or use Continue with Replay to replay forward to ${formatInteractiveTickSeconds(session.history.latestTick)}s.`
               : usesModernGameUi
-                ? "Use Z to keep rewinding, or take over with a live move."
-                : "Use Z, Cmd/Ctrl+Z, or Shift+Z to keep rewinding, or take over with a live move."
+                ? `Use ${undoKeyBinding} to keep rewinding, or take over with a live move.`
+                : `Use ${undoKeyBinding}, Cmd/Ctrl+${undoKeyBinding}, or Shift+${undoKeyBinding} to keep rewinding, or take over with a live move.`
           }`
         : `Replaying the original timeline from ${formatInteractiveTickSeconds(session.history.currentTick)}s to ${formatInteractiveTickSeconds(session.history.replayTargetTick ?? session.history.latestTick)}s. ${
             undoSettings.allowTakeoverDuringHistoricalReplay
@@ -1031,7 +1057,7 @@ export function PlayerApp({
     () =>
       currentLevelReplayEntries.map((entry) => {
         const replayDescription = describeReplayEntry(entry);
-        const inspection = replaySolutionCodec.inspect(entry.bytes);
+        const inspection = replayTransferCodec.inspect(entry.bytes);
         return {
           entry,
           replayDescription,
@@ -1070,8 +1096,8 @@ export function PlayerApp({
     mode === "series-list"
       ? [...SERIES_LIST_HELP, ...GLOBAL_HELP]
       : session?.frame.snapshot.status === "playing"
-        ? [...(usesModernGameUi ? GAME_PLAYING_HELP_MODERN : GAME_PLAYING_HELP), ...GLOBAL_HELP]
-        : [...(usesModernGameUi ? GAME_ENDED_HELP_MODERN : GAME_ENDED_HELP), ...GLOBAL_HELP];
+        ? [...buildGamePlayingHelp(undoKeyBinding, action1KeyBinding, usesModernGameUi), ...GLOBAL_HELP]
+        : [...buildGameEndedHelp(undoKeyBinding, action1KeyBinding, usesModernGameUi), ...GLOBAL_HELP];
 
   useEffect(() => {
     if (!isEmbeddedModernChrome) {
@@ -1184,11 +1210,26 @@ export function PlayerApp({
     });
   }, [mobileControlProfile]);
 
+  const applyPlayerKeyBindings = useEffectEvent((settings: BrowserPlayerKeyBindingsSettings) => {
+    saveStoredPlayerKeyBindingsSettings(settings);
+    setPlayerKeyBindingsState(settings);
+    onPlayerKeyBindingsChange?.(settings);
+  });
+
+  const currentActionModifierMask = useEffectEvent(() =>
+    action1ActiveRef.current ? GAME_INPUT_MODIFIER_MASKS.action1 : 0,
+  );
+
+  const resetAction1Input = useEffectEvent(() => {
+    action1ActiveRef.current = false;
+  });
+
   useEffect(() => {
     if (mode !== "game") {
       setIsFastForwarding(false);
+      resetAction1Input();
     }
-  }, [mode]);
+  }, [mode, resetAction1Input]);
 
   const syncSoundForSession = useEffectEvent((nextSession: InteractiveGameSession | null) => {
     const player = soundPlayerRef.current;
@@ -1702,7 +1743,7 @@ export function PlayerApp({
   });
 
   const watchSavedReplayEntry = useEffectEvent((entry: BrowserReplayEntry) => {
-    const decodedReplay = replaySolutionCodec.inspect(entry.bytes);
+    const decodedReplay = replayTransferCodec.inspect(entry.bytes);
     if (!decodedReplay) {
       setMessage(`${entry.fileName} is no longer a valid replay payload.`);
       return;
@@ -1956,8 +1997,8 @@ export function PlayerApp({
 
       const inputCode =
         activeSession.request.ruleset === "Lynx"
-          ? lynxInputBufferRef.current.nextTickInputCode()
-          : msInputBufferRef.current.nextTickInputCode();
+          ? lynxInputBufferRef.current.nextTickInputCode(currentActionModifierMask())
+          : msInputBufferRef.current.nextTickInputCode(currentActionModifierMask());
       void advanceTick(inputCode);
     }, tickIntervalMs);
 
@@ -2828,18 +2869,21 @@ export function PlayerApp({
 
       if (editableKeyboardFocus) {
         stopHeldUndo();
+        resetAction1Input();
         msInputBufferRef.current.reset();
         lynxInputBufferRef.current.reset();
         return;
       }
 
       if (isSystemModifierKey(event.key)) {
+        resetAction1Input();
         msInputBufferRef.current.reset();
         lynxInputBufferRef.current.reset();
       }
 
       const hasBrowserShortcutModifier = event.altKey || event.ctrlKey || event.metaKey;
-      const isReservedModifiedHotkey = isFineUndoKey(event) || isFirstLevelKey(event) || isLastLevelKey(event);
+      const isReservedModifiedHotkey =
+        isFineUndoKey(event, undoKeyBinding) || isFirstLevelKey(event) || isLastLevelKey(event);
       if (hasBrowserShortcutModifier && !isReservedModifiedHotkey) {
         return;
       }
@@ -2957,13 +3001,19 @@ export function PlayerApp({
           return;
         }
 
+        if (isAction1Key(event, action1KeyBinding)) {
+          event.preventDefault();
+          action1ActiveRef.current = true;
+          return;
+        }
+
         if (event.key !== "Tab") {
           event.preventDefault();
         }
         return;
       }
 
-      if (usesModernGameUi && activeSession?.history.enabled && isUndoKey(event)) {
+      if (usesModernGameUi && activeSession?.history.enabled && isUndoKey(event, undoKeyBinding)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2973,7 +3023,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!usesModernGameUi && activeSession?.history.enabled && isUndoCheckpointKey(event)) {
+      if (!usesModernGameUi && activeSession?.history.enabled && isUndoCheckpointKey(event, undoKeyBinding)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2983,7 +3033,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!usesModernGameUi && activeSession?.history.enabled && isFineUndoKey(event)) {
+      if (!usesModernGameUi && activeSession?.history.enabled && isFineUndoKey(event, undoKeyBinding)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -2993,7 +3043,7 @@ export function PlayerApp({
         return;
       }
 
-      if (!usesModernGameUi && activeSession?.history.enabled && isUndoKey(event)) {
+      if (!usesModernGameUi && activeSession?.history.enabled && isUndoKey(event, undoKeyBinding)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -3083,12 +3133,20 @@ export function PlayerApp({
         }
         return;
       }
+
+      if (isAction1Key(event, action1KeyBinding)) {
+        event.preventDefault();
+        action1ActiveRef.current = true;
+        return;
+      }
+
       if (!input) {
         return;
       }
 
       if (hasBlockedMovementModifier(event)) {
         event.preventDefault();
+        resetAction1Input();
         msInputBufferRef.current.reset();
         lynxInputBufferRef.current.reset();
         return;
@@ -3108,22 +3166,28 @@ export function PlayerApp({
 
       if (editableKeyboardFocus) {
         stopHeldUndo();
+        resetAction1Input();
         msInputBufferRef.current.reset();
         lynxInputBufferRef.current.reset();
         return;
       }
 
       if (isSystemModifierKey(event.key)) {
+        resetAction1Input();
         msInputBufferRef.current.reset();
         lynxInputBufferRef.current.reset();
         return;
+      }
+
+      if (isAction1Key(event, action1KeyBinding)) {
+        action1ActiveRef.current = false;
       }
 
       if (isPaused) {
         return;
       }
 
-      if (event.key === "z" || event.key === "Z") {
+      if (isUndoKey(event, undoKeyBinding) || isUndoCheckpointKey(event, undoKeyBinding) || isFineUndoKey(event, undoKeyBinding)) {
         stopHeldUndo();
       }
 
@@ -3152,6 +3216,7 @@ export function PlayerApp({
     const onWindowBlur = () => {
       setIsFastForwarding(false);
       stopHeldUndo();
+      resetAction1Input();
       resetMobileDirectionalInputState();
       msInputBufferRef.current.reset();
       lynxInputBufferRef.current.reset();
@@ -3197,6 +3262,9 @@ export function PlayerApp({
     showSoundControls,
     showHelp,
     closeSoundControls,
+    action1KeyBinding,
+    undoKeyBinding,
+    resetAction1Input,
     stopHeldUndo,
     stepHeldUndo,
     toggleHelp,
@@ -3409,7 +3477,7 @@ export function PlayerApp({
                   }}
                   type="button"
                 >
-                  Undo (Z)
+                  {`Undo (${undoKeyBinding})`}
                 </button>
                 {runResult.outcome !== "failed" ? (
                   <button className="modern-button" onClick={proceedAfterLevelEnd} type="button">
@@ -3984,6 +4052,53 @@ export function PlayerApp({
 
             <section className="modern-settings-modal__section mobile-sheet__section">
               <div className="mobile-sheet__section-header">
+                <p className="modern-section__eyebrow">Keyboard</p>
+                <p className="mobile-sheet__section-copy">Choose the Action 1 and Undo keys without conflicting with other controls.</p>
+              </div>
+              <div className="mobile-sheet__settings-fields">
+                <label className="mobile-sheet__field">
+                  <span>Action 1 Key</span>
+                  <select
+                    className="modern-history-dock__select"
+                    onChange={(event) => {
+                      applyPlayerKeyBindings({
+                        ...playerKeyBindings,
+                        action1Key: event.currentTarget.value as PlayerBindableKey,
+                      });
+                    }}
+                    value={action1KeyBinding}
+                  >
+                    {availableAction1BindingKeys.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="mobile-sheet__field">
+                  <span>Undo Key</span>
+                  <select
+                    className="modern-history-dock__select"
+                    onChange={(event) => {
+                      applyPlayerKeyBindings({
+                        ...playerKeyBindings,
+                        undoKey: event.currentTarget.value as PlayerBindableKey,
+                      });
+                    }}
+                    value={undoKeyBinding}
+                  >
+                    {availableUndoBindingKeys.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section className="modern-settings-modal__section mobile-sheet__section">
+              <div className="mobile-sheet__section-header">
                 <p className="modern-section__eyebrow">Replays</p>
                 <p className="mobile-sheet__section-copy">Save, import, or inspect the current level&apos;s replay library.</p>
               </div>
@@ -4208,7 +4323,7 @@ export function PlayerApp({
       return;
     }
 
-    msInputBufferRef.current.queueAbsoluteMouseMove(position);
+    msInputBufferRef.current.queueAbsoluteMouseMove(position, currentActionModifierMask());
     if (!manualRunStarted) {
       setManualRunStarted(true);
     }
@@ -5135,7 +5250,7 @@ export function PlayerApp({
                   onClick={undoPreviousTick}
                   type="button"
                 >
-                  Undo (Z)
+                  {`Undo (${undoKeyBinding})`}
                 </button>
                 <button
                   className="legacy-history__action"
@@ -5143,7 +5258,7 @@ export function PlayerApp({
                   onClick={undoPreviousCheckpoint}
                   type="button"
                 >
-                  Rewind (Shift+Z)
+                  {`Rewind (Shift+${undoKeyBinding})`}
                 </button>
                 <button
                   className="legacy-history__action"
@@ -5206,6 +5321,42 @@ export function PlayerApp({
                     type="checkbox"
                   />
                   <span>Keep Unlimited History</span>
+                </label>
+                <label className="legacy-history__field">
+                  <span>Action 1 Key</span>
+                  <select
+                    onChange={(event) => {
+                      applyPlayerKeyBindings({
+                        ...playerKeyBindings,
+                        action1Key: event.currentTarget.value as PlayerBindableKey,
+                      });
+                    }}
+                    value={action1KeyBinding}
+                  >
+                    {availableAction1BindingKeys.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="legacy-history__field">
+                  <span>Undo Key</span>
+                  <select
+                    onChange={(event) => {
+                      applyPlayerKeyBindings({
+                        ...playerKeyBindings,
+                        undoKey: event.currentTarget.value as PlayerBindableKey,
+                      });
+                    }}
+                    value={undoKeyBinding}
+                  >
+                    {availableUndoBindingKeys.map((key) => (
+                      <option key={key} value={key}>
+                        {key}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="legacy-history__field">
                   <span>Checkpoint Density</span>
@@ -5302,7 +5453,7 @@ export function PlayerApp({
             return;
           }
 
-          msInputBufferRef.current.queueAbsoluteMouseMove(position);
+          msInputBufferRef.current.queueAbsoluteMouseMove(position, currentActionModifierMask());
           if (!manualRunStarted) {
             setManualRunStarted(true);
           }

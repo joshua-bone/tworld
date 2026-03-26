@@ -7,8 +7,22 @@ export const GAME_INPUT_CODES = {
   preserve: 1568,
 } as const;
 
+export const GAME_INPUT_MODIFIER_MASKS = {
+  action1: 1 << 0,
+} as const;
+
+export const GAME_INPUT_RUNTIME_MODIFIER_FLAGS = {
+  action1: 1 << 12,
+} as const;
+
 export type GameInputName = keyof typeof GAME_INPUT_CODES;
+export type GameInputModifierName = keyof typeof GAME_INPUT_MODIFIER_MASKS;
 export type InteractiveInput = GameInputName | number;
+
+const GAME_INPUT_RUNTIME_MODIFIER_FLAG_MASK = Object.values(GAME_INPUT_RUNTIME_MODIFIER_FLAGS).reduce(
+  (mask, value) => mask | value,
+  0,
+);
 
 const GAME_INPUT_NAMES_BY_CODE = new Map<number, GameInputName>(
   Object.entries(GAME_INPUT_CODES).map(([name, code]) => [code, name as GameInputName]),
@@ -45,6 +59,41 @@ export function normalizeGameInputName(value: string): GameInputName | null {
 
 export function getGameInputCode(name: GameInputName): number {
   return GAME_INPUT_CODES[name];
+}
+
+export function normalizeGameInputModifierMask(mask: number): number {
+  let normalized = 0;
+  if ((mask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0) {
+    normalized |= GAME_INPUT_MODIFIER_MASKS.action1;
+  }
+  return normalized;
+}
+
+export function encodeRuntimeInputCode(baseCode: number, modifierMask = 0): number {
+  let nextCode = stripRuntimeInputModifiers(baseCode);
+  if (nextCode === GAME_INPUT_CODES.none || nextCode === GAME_INPUT_CODES.preserve) {
+    return nextCode;
+  }
+  const normalizedMask = normalizeGameInputModifierMask(modifierMask);
+  if ((normalizedMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0) {
+    nextCode |= GAME_INPUT_RUNTIME_MODIFIER_FLAGS.action1;
+  }
+  return nextCode;
+}
+
+export function stripRuntimeInputModifiers(code: number): number {
+  return code & ~GAME_INPUT_RUNTIME_MODIFIER_FLAG_MASK;
+}
+
+export function decodeRuntimeInputCode(code: number): { baseCode: number; modifierMask: number } {
+  let modifierMask = 0;
+  if ((code & GAME_INPUT_RUNTIME_MODIFIER_FLAGS.action1) !== 0) {
+    modifierMask |= GAME_INPUT_MODIFIER_MASKS.action1;
+  }
+  return {
+    baseCode: stripRuntimeInputModifiers(code),
+    modifierMask,
+  };
 }
 
 export function resolveGameInputCode(input: InteractiveInput): number {

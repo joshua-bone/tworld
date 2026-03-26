@@ -4,6 +4,11 @@ import {
   type ExpandedSolutionData,
   type SolutionMove,
 } from "@content/api/solution-file";
+import { normalizeGameInputModifierMask } from "@game-core/api/command";
+
+export interface ReplayRecordedMove extends SolutionMove {
+  modifierMask?: number;
+}
 
 export interface ReplaySolutionPayload {
   flags: number;
@@ -11,6 +16,7 @@ export interface ReplaySolutionPayload {
   stepping: number;
   randomSeed: number;
   moves: SolutionMove[];
+  modifierMasks?: number[];
 }
 
 export interface DecodedReplaySolution {
@@ -24,6 +30,20 @@ export interface ReplaySolutionCodec {
   decode(payload: Uint8Array): ReplaySolutionPayload | null;
   inspect(payload: Uint8Array): DecodedReplaySolution | null;
   encode(levelNumber: number, password: string, bestTimeTicks: number, payload: ReplaySolutionPayload): Uint8Array;
+}
+
+export function normalizeReplayModifierMasks(moveCount: number, modifierMasks: readonly number[] | null | undefined): number[] {
+  const normalized = Array.from({ length: moveCount }, (_, index) =>
+    normalizeGameInputModifierMask(modifierMasks?.[index] ?? 0),
+  );
+  let lastNonZeroIndex = -1;
+  for (let index = normalized.length - 1; index >= 0; index -= 1) {
+    if (normalized[index] !== 0) {
+      lastNonZeroIndex = index;
+      break;
+    }
+  }
+  return lastNonZeroIndex < 0 ? [] : normalized.slice(0, lastNonZeroIndex + 1);
 }
 
 function readUint16(data: Uint8Array, offset: number): number {
@@ -51,7 +71,14 @@ function decodeLatin1(data: Uint8Array): string {
 
 export const replaySolutionCodec: ReplaySolutionCodec = {
   decode(payload: Uint8Array): ReplaySolutionPayload | null {
-    return expandSolutionData(payload);
+    const expanded = expandSolutionData(payload);
+    if (!expanded) {
+      return null;
+    }
+    return {
+      ...expanded,
+      modifierMasks: [],
+    };
   },
 
   inspect(payload: Uint8Array): DecodedReplaySolution | null {
@@ -64,7 +91,10 @@ export const replaySolutionCodec: ReplaySolutionCodec = {
       levelNumber: readUint16(payload, 0),
       password: decodeLatin1(payload.slice(2, 6)),
       bestTimeTicks: readUint32(payload, 12),
-      payload: expanded,
+      payload: {
+        ...expanded,
+        modifierMasks: [],
+      },
     };
   },
 

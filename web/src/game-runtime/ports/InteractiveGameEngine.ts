@@ -1,8 +1,7 @@
 import type { InteractiveInput } from "@game-core/api/command";
-import type { ReplaySolutionPayload } from "@game-core/api/codec";
+import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { InteractiveGameFrame } from "@game-core/api/interactive";
 import type { GameRequest } from "@game-core/api/types";
-import type { SolutionMove } from "@content/api/solution-file";
 import type { UndoSettingsSnapshot } from "@undo-runtime/api/history";
 
 declare const interactiveGameSessionHandleBrand: unique symbol;
@@ -88,7 +87,7 @@ export interface InteractiveGameSession {
   frame: InteractiveGameFrame;
   history: InteractiveGameSessionHistory;
   run: InteractiveGameSessionRunState;
-  recordedMoves: SolutionMove[];
+  recordedMoves: ReplayRecordedMove[];
   handle: InteractiveGameSessionHandle;
 }
 

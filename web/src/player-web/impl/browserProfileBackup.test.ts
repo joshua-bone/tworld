@@ -37,6 +37,10 @@ describe("browserProfileBackup", () => {
       mobileControls: {
         profile: "wasd-cluster",
       },
+      playerKeyBindings: {
+        action1Key: "C",
+        undoKey: "Z",
+      },
       sound: {
         muted: false,
         volume: 0.7,

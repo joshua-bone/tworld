@@ -1,4 +1,9 @@
-import { GAME_INPUT_CODES, getGameInputCode, type GameInputName } from "@game-core/api/command";
+import {
+  encodeRuntimeInputCode,
+  GAME_INPUT_CODES,
+  getGameInputCode,
+  type GameInputName,
+} from "@game-core/api/command";
 
 export type DirectionInput = Exclude<GameInputName, "none" | "preserve">;
 
@@ -62,18 +67,18 @@ export class LegacyMsInputBuffer {
     return this.nextKeyboardInput();
   }
 
-  nextTickInputCode(): number {
+  nextTickInputCode(modifierMask = 0): number {
     const queued = this.queuedCodes.shift();
     if (queued !== undefined) {
       return queued;
     }
 
-    return getGameInputCode(this.nextKeyboardInput());
+    return encodeRuntimeInputCode(getGameInputCode(this.nextKeyboardInput()), modifierMask);
   }
 
-  queueAbsoluteMouseMove(position: number): void {
+  queueAbsoluteMouseMove(position: number, modifierMask = 0): void {
     this.queuedCodes.push(
-      absoluteMouseMoveCode(position),
+      encodeRuntimeInputCode(absoluteMouseMoveCode(position), modifierMask),
       GAME_INPUT_CODES.preserve,
       GAME_INPUT_CODES.preserve,
       GAME_INPUT_CODES.preserve,
@@ -156,7 +161,7 @@ export class LegacyLynxInputBuffer {
     this.states.delete(input);
   }
 
-  nextTickInputCode(): number {
+  nextTickInputCode(modifierMask = 0): number {
     const code = this.composePolledInputCode();
 
     for (const [input, state] of this.states) {
@@ -169,7 +174,7 @@ export class LegacyLynxInputBuffer {
       }
     }
 
-    return code;
+    return encodeRuntimeInputCode(code, modifierMask);
   }
 
   reset(): void {

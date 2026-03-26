@@ -25,7 +25,7 @@ export class BrowserReplayTransfer implements ReplayTransferPort {
     return new Promise<ImportedReplayFile | null>((resolve, reject) => {
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = ".bin,.tws,.dat,application/octet-stream";
+      input.accept = ".bin,.tws,.twsx,.dat,application/octet-stream";
       input.style.display = "none";
 
       let settled = false;

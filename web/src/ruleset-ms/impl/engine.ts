@@ -1,5 +1,5 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
-import type { ReplaySolutionPayload } from "@game-core/api/codec";
+import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import type {
   GameDebugPhaseSnapshot,
@@ -50,8 +50,9 @@ import {
   type RecordedReplayMoveDecision,
   resolveManualInput,
   scheduledInputForTick,
+  runtimeCommandName,
 } from "@game-core/api/playback";
-import { GAME_INPUT_CODES } from "@game-core/api/command";
+import { decodeRuntimeInputCode, encodeRuntimeInputCode, GAME_INPUT_CODES, stripRuntimeInputModifiers } from "@game-core/api/command";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
 import { collectMsActorsFromLayers, hashMsCreaturesFromLayers, projectMsDebugPhaseSnapshot } from "@ruleset-ms/impl/debugProjection";
@@ -63,7 +64,6 @@ import {
   type MsConnection,
   type MsLevel,
 } from "@ruleset-ms/api/level";
-import type { SolutionMove } from "@content/api/solution-file";
 import {
   msBlockMovementMask,
   msButtonAction,
@@ -211,7 +211,7 @@ export interface MsGameState {
 export interface MsInteractiveSessionState {
   state: MsGameState;
   lastInput: GameRuntimeCommand;
-  recordedMoves: SolutionMove[];
+  recordedMoves: ReplayRecordedMove[];
   replayPlan: ReturnType<typeof createReplayPlan> | null;
 }
 
@@ -254,11 +254,13 @@ function normalizeRandomSeed(seed: number | undefined): bigint {
 }
 
 function isRelativeMouseCommand(code: number): boolean {
-  return code >= CMD_MOUSE_MOVE_FIRST && code <= CMD_MOUSE_MOVE_LAST;
+  const normalized = stripRuntimeInputModifiers(code);
+  return normalized >= CMD_MOUSE_MOVE_FIRST && normalized <= CMD_MOUSE_MOVE_LAST;
 }
 
 function isAbsoluteMouseCommand(code: number): boolean {
-  return code >= CMD_ABS_MOUSE_MOVE_FIRST && code <= CMD_ABS_MOUSE_MOVE_LAST;
+  const normalized = stripRuntimeInputModifiers(code);
+  return normalized >= CMD_ABS_MOUSE_MOVE_FIRST && normalized <= CMD_ABS_MOUSE_MOVE_LAST;
 }
 
 function makeMouseRelative(absPos: number, chipPos: number): number {
@@ -4320,13 +4322,14 @@ function chooseManualMovement(
     };
   }
   const inputCode = internal.currentInput;
+  const { baseCode: decodedInputCode } = decodeRuntimeInputCode(inputCode);
   internal.currentInput = MS_DIRECTION.none;
   if (
     internal.floorMovement === "ice" ||
     internal.floorMovement === "air" ||
     internal.floorMovement === "elevator" ||
     internal.floorMovement === "teleport" ||
-    (internal.floorMovement === "slide" && inputCode === internal.chipDir)
+    (internal.floorMovement === "slide" && decodedInputCode === internal.chipDir)
   ) {
     if (currentTime > 0 && (currentTime & 1) === 0) {
       internal.goalPos = -1;
@@ -4336,7 +4339,7 @@ function chooseManualMovement(
       dir: MS_DIRECTION.none,
     };
   }
-  if (inputCode === MS_DIRECTION.none) {
+  if (decodedInputCode === MS_DIRECTION.none) {
     let dir: number = MS_DIRECTION.none;
     if (internal.goalPos >= 0 && (currentTime & 3) === 2) {
       dir = chipMoveToGoalPos(cells, internal, inventory);
@@ -4348,12 +4351,12 @@ function chooseManualMovement(
     };
   }
 
-  let dir = normalizeDirection(inputCode);
-  if (isAbsoluteMouseCommand(inputCode)) {
-    internal.goalPos = inputCode - CMD_ABS_MOUSE_MOVE_FIRST;
+  let dir = normalizeDirection(decodedInputCode);
+  if (isAbsoluteMouseCommand(decodedInputCode)) {
+    internal.goalPos = decodedInputCode - CMD_ABS_MOUSE_MOVE_FIRST;
     dir = (currentTime & 3) === 2 ? chipMoveToGoalPos(cells, internal, inventory) : MS_DIRECTION.none;
-  } else if (isRelativeMouseCommand(inputCode)) {
-    internal.goalPos = makeMouseAbsolute(inputCode - CMD_MOUSE_MOVE_FIRST, internal.chipPos);
+  } else if (isRelativeMouseCommand(decodedInputCode)) {
+    internal.goalPos = makeMouseAbsolute(decodedInputCode - CMD_MOUSE_MOVE_FIRST, internal.chipPos);
     dir = (currentTime & 3) === 2 ? chipMoveToGoalPos(cells, internal, inventory) : MS_DIRECTION.none;
   }
 
@@ -4438,6 +4441,7 @@ function resolveReplayLastMoveAfterChoose(
   chipDirBeforeChoose: number,
 ): EngineState["lastMove"] {
   const previous = state.engine.lastMove;
+  const { baseCode, modifierMask } = decodeRuntimeInputCode(inputCode);
 
   if (state.engine.replay.cursor < 0) {
     return { code: MS_DIRECTION.none, name: "none" };
@@ -4463,15 +4467,15 @@ function resolveReplayLastMoveAfterChoose(
     discardFloorMovement === "air" ||
     discardFloorMovement === "elevator" ||
     discardFloorMovement === "teleport" ||
-    (discardFloorMovement === "slide" && inputCode === discardChipDir);
+    (discardFloorMovement === "slide" && baseCode === discardChipDir);
   if (discard) {
     return previous;
   }
 
-  if (isAbsoluteMouseCommand(inputCode)) {
-    const goalPos = inputCode - CMD_ABS_MOUSE_MOVE_FIRST;
+  if (isAbsoluteMouseCommand(baseCode)) {
+    const goalPos = baseCode - CMD_ABS_MOUSE_MOVE_FIRST;
     const move = createRuntimeCommand(
-      CMD_MOUSE_MOVE_FIRST + makeMouseRelative(goalPos, internal.chipPos),
+      encodeRuntimeInputCode(CMD_MOUSE_MOVE_FIRST + makeMouseRelative(goalPos, internal.chipPos), modifierMask),
       state.engine.timer.currentTime + 1,
     );
     return {
@@ -4480,19 +4484,19 @@ function resolveReplayLastMoveAfterChoose(
     };
   }
 
-  if (isRelativeMouseCommand(inputCode)) {
-    const move = createRuntimeCommand(inputCode, state.engine.timer.currentTime + 1);
+  if (isRelativeMouseCommand(baseCode)) {
+    const move = createRuntimeCommand(encodeRuntimeInputCode(baseCode, modifierMask), state.engine.timer.currentTime + 1);
     return {
       code: move.inputCode,
       name: move.inputName,
     };
   }
 
-  const dir = normalizeDirection(inputCode);
+  const dir = normalizeDirection(baseCode);
   const runtimeMove = createRuntimeCommand(dir, state.engine.timer.currentTime + 1);
   return {
-    code: runtimeMove.inputCode,
-    name: runtimeMove.inputName,
+    code: encodeRuntimeInputCode(runtimeMove.inputCode, modifierMask),
+    name: runtimeCommandName(encodeRuntimeInputCode(runtimeMove.inputCode, modifierMask)),
   };
 }
 
@@ -4506,7 +4510,8 @@ function resolveRecordedReplayMoveAfterChoose(
   floorMovementBeforeChoose: MsInternalState["floorMovement"],
   chipDirBeforeChoose: number,
 ): RecordedReplayMoveDecision | null {
-  if (state.engine.replay.cursor >= 0 || inputCode === MS_DIRECTION.none) {
+  const { baseCode, modifierMask } = decodeRuntimeInputCode(inputCode);
+  if (state.engine.replay.cursor >= 0 || baseCode === MS_DIRECTION.none) {
     return null;
   }
 
@@ -4516,6 +4521,7 @@ function resolveRecordedReplayMoveAfterChoose(
       ? {
           when: currentTime,
           dir: CMD_MOVE_NOP,
+          modifierMask,
         }
       : null;
   }
@@ -4525,29 +4531,32 @@ function resolveRecordedReplayMoveAfterChoose(
     floorMovementBeforeChoose === "air" ||
     floorMovementBeforeChoose === "elevator" ||
     floorMovementBeforeChoose === "teleport" ||
-    (floorMovementBeforeChoose === "slide" && inputCode === chipDirBeforeChoose);
+    (floorMovementBeforeChoose === "slide" && baseCode === chipDirBeforeChoose);
   if (discard) {
     return null;
   }
 
-  if (isAbsoluteMouseCommand(inputCode)) {
-    const goalPos = inputCode - CMD_ABS_MOUSE_MOVE_FIRST;
+  if (isAbsoluteMouseCommand(baseCode)) {
+    const goalPos = baseCode - CMD_ABS_MOUSE_MOVE_FIRST;
     return {
       when: currentTime,
       dir: CMD_MOUSE_MOVE_FIRST + makeMouseRelative(goalPos, internal.chipPos),
+      modifierMask,
     };
   }
 
-  if (isRelativeMouseCommand(inputCode)) {
+  if (isRelativeMouseCommand(baseCode)) {
     return {
       when: currentTime,
-      dir: inputCode,
+      dir: baseCode,
+      modifierMask,
     };
   }
 
   return {
     when: currentTime,
-    dir: normalizeDirection(inputCode),
+    dir: normalizeDirection(baseCode),
+    modifierMask,
   };
 }
 
@@ -4559,7 +4568,8 @@ function replayBestTimeTicks(replay: ReplaySolutionPayload): number | undefined 
 }
 
 function isMouseGoalInputCode(inputCode: number): boolean {
-  return inputCode === CMD_MOVE_NOP || isAbsoluteMouseCommand(inputCode) || isRelativeMouseCommand(inputCode);
+  const normalized = stripRuntimeInputModifiers(inputCode);
+  return normalized === CMD_MOVE_NOP || isAbsoluteMouseCommand(normalized) || isRelativeMouseCommand(normalized);
 }
 
 function latchCurrentInput(state: MsGameState, internal: MsInternalState, input: GameRuntimeCommand): void {
@@ -4570,9 +4580,10 @@ function latchCurrentInput(state: MsGameState, internal: MsInternalState, input:
     return;
   }
 
+  const { baseCode, modifierMask } = decodeRuntimeInputCode(input.inputCode);
   internal.currentInput = isMouseGoalInputCode(input.inputCode)
     ? input.inputCode
-    : normalizeDirection(input.inputCode);
+    : encodeRuntimeInputCode(normalizeDirection(baseCode), modifierMask);
 }
 
 // MS runs Chip floor movement on even ticks before normal input handling.
@@ -5237,7 +5248,10 @@ export function createMsReplaySession(
       bestTimeTicks: replayBestTimeTicks(replay),
     }),
     lastInput: createRuntimeCommand(0, -1),
-    recordedMoves: replay.moves.map((move) => ({ ...move })),
+    recordedMoves: replay.moves.map((move, index) => ({
+      ...move,
+      modifierMask: replay.modifierMasks?.[index] ?? 0,
+    })),
     replayPlan: createReplayPlan(replay),
   };
 }

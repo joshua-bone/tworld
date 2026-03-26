@@ -39,6 +39,13 @@ import {
   saveStoredVisualEnhancementsSettings,
 } from "@player-web/impl/visualEnhancementsSettings";
 import {
+  loadStoredPlayerKeyBindingsSettings,
+  saveStoredPlayerKeyBindingsSettings,
+  type BrowserPlayerKeyBindingsSettings,
+  type PlayerBindableKey,
+  PLAYER_BINDABLE_KEYS,
+} from "@player-web/impl/playerKeyBindingsSettings";
+import {
   buildLevelProgressIndex,
   buildStoredLevelProgressKey,
   mergeLevelProgressSummaries,
@@ -661,6 +668,9 @@ export function ModernPlayerApp({
   const [visualEnhancementsEnabled, setVisualEnhancementsEnabled] = useState(
     () => loadStoredVisualEnhancementsSettings().enabled,
   );
+  const [playerKeyBindings, setPlayerKeyBindings] = useState<BrowserPlayerKeyBindingsSettings>(
+    () => loadStoredPlayerKeyBindingsSettings(),
+  );
   const [preferences, setPreferences] = useState<BrowserProfilePreferences>(
     createDefaultBrowserProfilePreferences(),
   );
@@ -669,6 +679,11 @@ export function ModernPlayerApp({
 
   const dismissMessage = useEffectEvent(() => {
     setMessage(null);
+  });
+
+  const applyPlayerKeyBindings = useEffectEvent((settings: BrowserPlayerKeyBindingsSettings) => {
+    setPlayerKeyBindings(settings);
+    saveStoredPlayerKeyBindingsSettings(settings);
   });
 
   const persistPreferences = useEffectEvent((patch: Partial<BrowserProfilePreferences>) => {
@@ -1620,7 +1635,9 @@ export function ModernPlayerApp({
               initialSelection={activeSelection}
               knownLevelProgressSummary={activeLevelProgress}
               onLevelProgressSaved={handleLevelProgressSaved}
+              onPlayerKeyBindingsChange={applyPlayerKeyBindings}
               onSelectionChange={handleEmbeddedSelectionChange}
+              playerKeyBindings={playerKeyBindings}
               services={services}
               visualEnhancementsEnabled={visualEnhancementsEnabled}
             />
@@ -1838,6 +1855,53 @@ export function ModernPlayerApp({
                 </div>
               </label>
 
+              <section className="modern-about-modal__section modern-settings-modal__section">
+                <p className="modern-preference-block__label">Keyboard</p>
+                <p className="modern-dashboard__copy">
+                  Remap Action 1 and Undo without colliding with movement or other keyboard controls.
+                </p>
+                <div className="modern-settings-modal__actions">
+                  <label className="modern-settings-modal__field">
+                    <span>Action 1 Key</span>
+                    <select
+                      className="modern-history-dock__select"
+                      onChange={(event) => {
+                        applyPlayerKeyBindings({
+                          ...playerKeyBindings,
+                          action1Key: event.currentTarget.value as PlayerBindableKey,
+                        });
+                      }}
+                      value={playerKeyBindings.action1Key}
+                    >
+                      {PLAYER_BINDABLE_KEYS.filter((key) => key !== playerKeyBindings.undoKey).map((key) => (
+                        <option key={key} value={key}>
+                          {key}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="modern-settings-modal__field">
+                    <span>Undo Key</span>
+                    <select
+                      className="modern-history-dock__select"
+                      onChange={(event) => {
+                        applyPlayerKeyBindings({
+                          ...playerKeyBindings,
+                          undoKey: event.currentTarget.value as PlayerBindableKey,
+                        });
+                      }}
+                      value={playerKeyBindings.undoKey}
+                    >
+                      {PLAYER_BINDABLE_KEYS.filter((key) => key !== playerKeyBindings.action1Key).map((key) => (
+                        <option key={key} value={key}>
+                          {key}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </section>
+
               <label className="modern-settings-modal__option">
                 <input
                   checked={preferences.autoSaveWinningHighScoreReplays}
@@ -1869,7 +1933,7 @@ export function ModernPlayerApp({
                 <div>
                   <strong>Auto-download replays on save</strong>
                   <p className="modern-dashboard__copy">
-                    Download a local `.tws.bin` copy whenever a replay is saved to the browser library.
+                    Download a local `.tws` or `.twsx` copy whenever a replay is saved to the browser library.
                   </p>
                 </div>
               </label>

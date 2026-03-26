@@ -1,17 +1,27 @@
-import { GAME_INPUT_CODES, getGameInputNameFromCode } from "@game-core/api/command";
-import type { ReplaySolutionPayload } from "@game-core/api/codec";
+import {
+  GAME_INPUT_CODES,
+  decodeRuntimeInputCode,
+  encodeRuntimeInputCode,
+  getGameInputNameFromCode,
+} from "@game-core/api/command";
+import {
+  normalizeReplayModifierMasks,
+  type ReplayRecordedMove,
+  type ReplaySolutionPayload,
+} from "@game-core/api/codec";
 import type { GameCommand, GameRuntimeCommand } from "@game-core/api/types";
 import type { SolutionMove } from "@content/api/solution-file";
 
 export interface ReplayPlan {
   cursor: number;
   moves: SolutionMove[];
+  modifierMasks: number[];
   randomSeed: number;
   stepping: number;
   randomSlideDirection: number;
 }
 
-export interface RecordedReplayMoveDecision extends SolutionMove {}
+export interface RecordedReplayMoveDecision extends ReplayRecordedMove {}
 
 const REPLAY_MOVE_TICK_MASK = 0x7fffff;
 
@@ -24,7 +34,18 @@ function compareCommands(left: Pick<GameCommand, "tick" | "inputCode">, right: P
 }
 
 export function runtimeCommandName(code: number): string {
-  return getGameInputNameFromCode(code) ?? `cmd-${code}`;
+  const { baseCode, modifierMask } = decodeRuntimeInputCode(code);
+  const baseName = getGameInputNameFromCode(baseCode) ?? `cmd-${baseCode}`;
+  if (modifierMask === 0) {
+    return baseName;
+  }
+
+  const modifiers: string[] = [];
+  if ((modifierMask & 1) !== 0) {
+    modifiers.push("action1");
+  }
+
+  return `${modifiers.join("+")}+${baseName}`;
 }
 
 export function createRuntimeCommand(inputCode: number, tick: number): GameRuntimeCommand {
@@ -70,6 +91,7 @@ export function createReplayPlan(payload: ReplaySolutionPayload): ReplayPlan {
       ...move,
       when: move.when & REPLAY_MOVE_TICK_MASK,
     })),
+    modifierMasks: normalizeReplayModifierMasks(payload.moves.length, payload.modifierMasks),
     randomSeed: payload.randomSeed,
     stepping: payload.stepping,
     randomSlideDirection: payload.randomSlideDirection,
@@ -89,7 +111,10 @@ export function plannedReplayInput(plan: ReplayPlan, tick: number): {
   }
 
   return {
-    input: createRuntimeCommand(currentMove.dir, tick),
+    input: createRuntimeCommand(
+      encodeRuntimeInputCode(currentMove.dir, plan.modifierMasks[plan.cursor] ?? 0),
+      tick,
+    ),
     plan: {
       ...plan,
       cursor: plan.cursor + 1,
@@ -98,28 +123,30 @@ export function plannedReplayInput(plan: ReplayPlan, tick: number): {
 }
 
 export function recordManualMove(
-  recordedMoves: SolutionMove[],
+  recordedMoves: ReplayRecordedMove[],
   currentTime: number,
   replayCursor: number,
   moveCode: number,
-): SolutionMove[] {
+): ReplayRecordedMove[] {
+  const { baseCode, modifierMask } = decodeRuntimeInputCode(moveCode);
   return appendRecordedReplayMove(
     recordedMoves,
     replayCursor,
-    moveCode === GAME_INPUT_CODES.none
+    baseCode === GAME_INPUT_CODES.none
       ? null
       : {
           when: currentTime,
-          dir: moveCode,
+          dir: baseCode,
+          modifierMask,
         },
   );
 }
 
 export function appendRecordedReplayMove(
-  recordedMoves: SolutionMove[],
+  recordedMoves: ReplayRecordedMove[],
   replayCursor: number,
   move: RecordedReplayMoveDecision | null,
-): SolutionMove[] {
+): ReplayRecordedMove[] {
   if (replayCursor >= 0 || move === null) {
     return recordedMoves;
   }

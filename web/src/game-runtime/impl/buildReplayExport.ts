@@ -1,7 +1,7 @@
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type { SeriesLevel } from "@content/api/series";
 import { getGameInputCode, normalizeGameInputName } from "@game-core/api/command";
-import { replaySolutionCodec } from "@game-core/api/codec";
+import { replayTransferCodec } from "@game-core/api/replayTransferCodec";
 import { formatInteractiveTickSeconds } from "@game-runtime/impl/interactiveSessionRun";
 
 export interface ReplayExportArtifact {
@@ -36,16 +36,17 @@ export function buildReplayExport(
   }
 
   const randomSlideInput = normalizeGameInputName(session.frame.snapshot.initRandomSlideDir) ?? "north";
-  const bytes = replaySolutionCodec.encode(level.number, level.password, Math.max(session.frame.snapshot.currentTime, 0), {
+  const encoded = replayTransferCodec.encode(level.number, level.password, Math.max(session.frame.snapshot.currentTime, 0), {
     flags: 0,
     randomSlideDirection: getGameInputCode(randomSlideInput),
     stepping: session.frame.snapshot.stepping,
     randomSeed: Number(session.frame.snapshot.randomState.main.initial),
-    moves: session.recordedMoves.map((move) => ({ ...move })),
+    moves: session.recordedMoves.map((move) => ({ when: move.when, dir: move.dir })),
+    modifierMasks: session.recordedMoves.map((move) => move.modifierMask ?? 0),
   });
 
   return {
-    bytes,
-    filename: `${buildReplaySetLabel(seriesFile)}-${session.request.ruleset}-${level.number}-${buildReplayOutcomeLabel(session)}-${formatInteractiveTickSeconds(Math.max(session.frame.snapshot.currentTime, 0))}.tws.bin`,
+    bytes: encoded.bytes,
+    filename: `${buildReplaySetLabel(seriesFile)}-${session.request.ruleset}-${level.number}-${buildReplayOutcomeLabel(session)}-${formatInteractiveTickSeconds(Math.max(session.frame.snapshot.currentTime, 0))}.${encoded.extension}`,
   };
 }

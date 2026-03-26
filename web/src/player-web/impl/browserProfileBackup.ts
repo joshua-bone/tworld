@@ -25,12 +25,19 @@ import {
   parseStoredMobileControlsSettings,
   saveStoredMobileControlsSettings,
 } from "@player-web/impl/mobileControlsSettings";
+import {
+  type BrowserPlayerKeyBindingsSettings,
+  loadStoredPlayerKeyBindingsSettings,
+  parseStoredPlayerKeyBindingsSettings,
+  saveStoredPlayerKeyBindingsSettings,
+} from "@player-web/impl/playerKeyBindingsSettings";
 
 const PROFILE_BACKUP_KIND = "tworld-browser-profile-backup";
 const PROFILE_BACKUP_FORMAT_VERSION = 1;
 
 export interface BrowserProfileLocalSettingsSnapshot {
   mobileControls?: BrowserMobileControlsSettings;
+  playerKeyBindings?: BrowserPlayerKeyBindingsSettings;
   sound?: BrowserSoundSettings;
   undo?: BrowserUndoSettings;
   visualEnhancements?: BrowserVisualEnhancementsSettings;
@@ -52,6 +59,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function exportBrowserLocalSettingsSnapshot(): BrowserProfileLocalSettingsSnapshot {
   return {
     mobileControls: loadStoredMobileControlsSettings(),
+    playerKeyBindings: loadStoredPlayerKeyBindingsSettings(),
     sound: loadStoredSoundSettings(),
     undo: loadStoredUndoSettings(),
     visualEnhancements: loadStoredVisualEnhancementsSettings(),
@@ -65,6 +73,9 @@ export function applyBrowserLocalSettingsSnapshot(snapshot: BrowserProfileLocalS
 
   if (snapshot.mobileControls !== undefined) {
     saveStoredMobileControlsSettings(parseStoredMobileControlsSettings(snapshot.mobileControls));
+  }
+  if (snapshot.playerKeyBindings !== undefined) {
+    saveStoredPlayerKeyBindingsSettings(parseStoredPlayerKeyBindingsSettings(snapshot.playerKeyBindings));
   }
   if (snapshot.sound !== undefined) {
     saveStoredSoundSettings(parseStoredSoundSettings(snapshot.sound));
@@ -118,6 +129,9 @@ export function parseBrowserProfileBackup(raw: string): BrowserProfileBackup {
     ? {
         mobileControls: parsed.localSettings.mobileControls !== undefined
           ? parseStoredMobileControlsSettings(parsed.localSettings.mobileControls)
+          : undefined,
+        playerKeyBindings: parsed.localSettings.playerKeyBindings !== undefined
+          ? parseStoredPlayerKeyBindingsSettings(parsed.localSettings.playerKeyBindings)
           : undefined,
         sound: parsed.localSettings.sound !== undefined
           ? parseStoredSoundSettings(parsed.localSettings.sound)

@@ -1,3 +1,5 @@
+import { stripRuntimeInputModifiers } from "@game-core/api/command";
+
 export interface BoardPosition {
   x: number;
   y: number;
@@ -6,7 +8,7 @@ export interface BoardPosition {
 }
 
 export function directionName(dir: number): string {
-  switch (dir) {
+  switch (stripRuntimeInputModifiers(dir)) {
     case 1:
       return "north";
     case 2:
@@ -36,7 +38,7 @@ export function directionCode(name: string): number {
 }
 
 export function normalizeCardinalDirection(dir: number): number {
-  let next = dir;
+  let next = stripRuntimeInputModifiers(dir);
   if ((next & (1 | 4)) !== 0 && (next & (2 | 8)) !== 0) {
     next &= 1 | 4;
   }
@@ -44,7 +46,7 @@ export function normalizeCardinalDirection(dir: number): number {
 }
 
 export function reverseDirection(dir: number): number {
-  switch (dir) {
+  switch (stripRuntimeInputModifiers(dir)) {
     case 1:
       return 4;
     case 2:
@@ -59,7 +61,7 @@ export function reverseDirection(dir: number): number {
 }
 
 export function directionDelta(dir: number, width: number): number {
-  switch (dir) {
+  switch (stripRuntimeInputModifiers(dir)) {
     case 1:
       return -width;
     case 2:
@@ -102,24 +104,27 @@ export function advanceToCell<T>(
 }
 
 export function isDirectionalInput(inputCode: number): boolean {
-  return inputCode >= 1 && inputCode <= 15;
+  const normalized = stripRuntimeInputModifiers(inputCode);
+  return normalized >= 1 && normalized <= 15;
 }
 
 export function isDiagonalInput(inputCode: number): boolean {
-  return (inputCode & (1 | 4)) !== 0 && (inputCode & (2 | 8)) !== 0;
+  const normalized = stripRuntimeInputModifiers(inputCode);
+  return (normalized & (1 | 4)) !== 0 && (normalized & (2 | 8)) !== 0;
 }
 
 export function canAdvancePosition(pos: number, dir: number, width: number, height: number): boolean {
-  if (isDiagonalInput(dir)) {
+  const normalized = stripRuntimeInputModifiers(dir);
+  if (isDiagonalInput(normalized)) {
     return (
-      ((dir & 1) === 0 || canAdvancePosition(pos, 1, width, height)) &&
-      ((dir & 2) === 0 || canAdvancePosition(pos, 2, width, height)) &&
-      ((dir & 4) === 0 || canAdvancePosition(pos, 4, width, height)) &&
-      ((dir & 8) === 0 || canAdvancePosition(pos, 8, width, height))
+      ((normalized & 1) === 0 || canAdvancePosition(pos, 1, width, height)) &&
+      ((normalized & 2) === 0 || canAdvancePosition(pos, 2, width, height)) &&
+      ((normalized & 4) === 0 || canAdvancePosition(pos, 4, width, height)) &&
+      ((normalized & 8) === 0 || canAdvancePosition(pos, 8, width, height))
     );
   }
 
-  switch (dir) {
+  switch (normalized) {
     case 1:
       return pos >= width;
     case 2:

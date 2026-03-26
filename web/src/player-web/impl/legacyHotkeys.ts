@@ -6,12 +6,18 @@ export interface LegacyKeyboardEventLike {
   metaKey?: boolean;
 }
 
+export type LegacyBindableKey = string;
+
 function hasCommandModifier(event: LegacyKeyboardEventLike): boolean {
   return Boolean(event.metaKey || event.ctrlKey);
 }
 
 function hasPlainModifiers(event: LegacyKeyboardEventLike): boolean {
   return !event.altKey && !event.ctrlKey && !event.metaKey;
+}
+
+function matchesBoundKey(event: LegacyKeyboardEventLike, bindingKey: LegacyBindableKey): boolean {
+  return event.key.length === 1 && event.key.toUpperCase() === bindingKey.toUpperCase();
 }
 
 export function isProceedKey(key: string): boolean {
@@ -31,16 +37,20 @@ export function isHelpToggleKey(event: LegacyKeyboardEventLike | string): boolea
   return hasPlainModifiers(event) && !event.shiftKey && (key === "h" || key === "H");
 }
 
-export function isUndoKey(event: LegacyKeyboardEventLike): boolean {
-  return hasPlainModifiers(event) && !event.shiftKey && (event.key === "z" || event.key === "Z");
+export function isUndoKey(event: LegacyKeyboardEventLike, bindingKey = "Z"): boolean {
+  return hasPlainModifiers(event) && !event.shiftKey && matchesBoundKey(event, bindingKey);
 }
 
-export function isFineUndoKey(event: LegacyKeyboardEventLike): boolean {
-  return !event.altKey && !event.shiftKey && hasCommandModifier(event) && (event.key === "z" || event.key === "Z");
+export function isFineUndoKey(event: LegacyKeyboardEventLike, bindingKey = "Z"): boolean {
+  return !event.altKey && !event.shiftKey && hasCommandModifier(event) && matchesBoundKey(event, bindingKey);
 }
 
-export function isUndoCheckpointKey(event: LegacyKeyboardEventLike): boolean {
-  return !event.altKey && !event.ctrlKey && !event.metaKey && Boolean(event.shiftKey) && (event.key === "z" || event.key === "Z");
+export function isUndoCheckpointKey(event: LegacyKeyboardEventLike, bindingKey = "Z"): boolean {
+  return !event.altKey && !event.ctrlKey && !event.metaKey && Boolean(event.shiftKey) && matchesBoundKey(event, bindingKey);
+}
+
+export function isAction1Key(event: LegacyKeyboardEventLike, bindingKey = "C"): boolean {
+  return !event.altKey && !event.ctrlKey && !event.metaKey && matchesBoundKey(event, bindingKey);
 }
 
 export function isPrevLevelKey(event: LegacyKeyboardEventLike): boolean {

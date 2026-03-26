@@ -6,7 +6,7 @@ import type {
 } from "@game-runtime/ports/InteractiveGameEngine";
 import type { InteractiveGameFrame } from "@game-core/api/interactive";
 import type { GameRequest } from "@game-core/api/types";
-import type { SolutionMove } from "@content/api/solution-file";
+import type { ReplayRecordedMove } from "@game-core/api/codec";
 
 interface ProjectInteractiveGameSessionParams {
   request: GameRequest;
@@ -15,7 +15,7 @@ interface ProjectInteractiveGameSessionParams {
   frame: InteractiveGameFrame;
   history: InteractiveGameSessionHistory;
   run: InteractiveGameSessionRunState;
-  recordedMoves: SolutionMove[];
+  recordedMoves: ReplayRecordedMove[];
   handle: InteractiveGameSessionHandle;
 }
 

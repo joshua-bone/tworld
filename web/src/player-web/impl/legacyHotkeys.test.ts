@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   hasBlockedMovementModifier,
+  isAction1Key,
   isFineUndoKey,
   isFirstLevelKey,
   isHelpToggleKey,
@@ -47,6 +48,14 @@ describe("legacy hotkeys", () => {
     expect(isUndoCheckpointKey({ key: "Z", shiftKey: true })).toBe(true);
     expect(isUndoCheckpointKey({ key: "z" })).toBe(false);
     expect(isUndoCheckpointKey({ key: "z", shiftKey: true, metaKey: true })).toBe(false);
+  });
+
+  it("supports remapped plain letter bindings for undo and Action 1", () => {
+    expect(isUndoKey({ key: "x" }, "X")).toBe(true);
+    expect(isFineUndoKey({ key: "x", ctrlKey: true }, "X")).toBe(true);
+    expect(isUndoCheckpointKey({ key: "x", shiftKey: true }, "X")).toBe(true);
+    expect(isAction1Key({ key: "c" }, "C")).toBe(true);
+    expect(isAction1Key({ key: "x", ctrlKey: true }, "X")).toBe(false);
   });
 
   it("maps plain P/N to previous and next level", () => {

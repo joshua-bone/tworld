@@ -32,7 +32,7 @@ import { TURN_DEBUG_PHASE, TURN_PHASE, recordTurnDebugPhase, runTurnPhaseHandler
 import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
 import { createReplayPlan, createRuntimeCommand, plannedReplayInput, recordManualMove, runtimeCommandName } from "@game-core/api/playback";
-import { getGameInputNameFromCode } from "@game-core/api/command";
+import { decodeRuntimeInputCode, getGameInputNameFromCode } from "@game-core/api/command";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
 import { projectLynxDebugPhaseSnapshot } from "@ruleset-lynx/impl/debugProjection";
@@ -70,13 +70,11 @@ import {
   msCreatureId,
 } from "@ruleset-ms/api/tiles";
 import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
-import type { ReplaySolutionPayload } from "@game-core/api/codec";
+import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { collectLevelConnections, collectLevelCreaturePositions, levelLayers } from "@ruleset-ms/api/level";
 import type { GameRuntimeCommand } from "@game-core/api/types";
-import type { SolutionMove } from "@content/api/solution-file";
-
 const LYNX_DEBUG_SCHEMA_VERSION = 2;
 const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
 const HIDDEN_WALL_REVEAL_TTL = MS_TICKS_PER_SECOND / 2;
@@ -87,7 +85,7 @@ export interface LynxInteractiveSessionState {
   level: LynxLevel;
   state: EngineState;
   lastInput: GameRuntimeCommand;
-  recordedMoves: SolutionMove[];
+  recordedMoves: ReplayRecordedMove[];
   replayPlan: ReturnType<typeof createReplayPlan> | null;
   chipPos: number;
   chipZ?: number;
@@ -1260,17 +1258,18 @@ function resolveLynxChipInputDirection(
   chipDir: number,
   inputCode: number,
 ): number {
-  if (!isDirectionalInput(inputCode)) {
+  const { baseCode } = decodeRuntimeInputCode(inputCode);
+  if (!isDirectionalInput(baseCode)) {
     return 0;
   }
 
-  if (!isDiagonalInput(inputCode)) {
-    return inputCode;
+  if (!isDiagonalInput(baseCode)) {
+    return baseCode;
   }
 
-  if ((chipDir & inputCode) !== 0) {
+  if ((chipDir & baseCode) !== 0) {
     const sameDir = chipDir;
-    const otherDir = inputCode ^ chipDir;
+    const otherDir = baseCode ^ chipDir;
     const sameProbe = probeLynxChipMoveDirection(state, actors, chipPos, sameDir);
     const otherProbe = probeLynxChipMoveDirection(state, actors, chipPos, otherDir);
     if (!sameProbe.canMove && otherProbe.canMove) {
@@ -1279,7 +1278,7 @@ function resolveLynxChipInputDirection(
     return sameDir;
   }
 
-  const horizontalDir = inputCode & (2 | 8);
+  const horizontalDir = baseCode & (2 | 8);
   if (horizontalDir !== 0) {
     const horizontalProbe = probeLynxChipMoveDirection(state, actors, chipPos, horizontalDir);
     const horizontalBlock =
@@ -1294,7 +1293,7 @@ function resolveLynxChipInputDirection(
     }
   }
 
-  return inputCode & (1 | 4);
+  return baseCode & (1 | 4);
 }
 
 type LynxChipMoveSelection = {
@@ -3215,7 +3214,12 @@ function createLynxInteractiveToken(
     level,
     state: initializeLynxEngineState(request, level, replay),
     lastInput: createRuntimeCommand(0, -1),
-    recordedMoves: replay ? replay.moves.map((move) => ({ ...move })) : [],
+    recordedMoves: replay
+      ? replay.moves.map((move, index) => ({
+          ...move,
+          modifierMask: replay.modifierMasks?.[index] ?? 0,
+        }))
+      : [],
     replayPlan: replay ? createReplayPlan(replay) : null,
     chipPos: chipSeed.pos,
     chipZ: chipSeed.z,
@@ -3235,11 +3239,11 @@ function createLynxInteractiveToken(
 }
 
 function recordLynxReplayMove(
-  recordedMoves: SolutionMove[],
+  recordedMoves: ReplayRecordedMove[],
   currentTime: number,
   replayCursor: number,
   moveCode: number,
-): SolutionMove[] {
+): ReplayRecordedMove[] {
   return recordManualMove(recordedMoves, currentTime, replayCursor, moveCode);
 }
 

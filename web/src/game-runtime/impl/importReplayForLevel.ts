@@ -1,6 +1,7 @@
 import type { ReplayTransferPort } from "@player-web/ports/ReplayTransfer";
 import type { SeriesLevel } from "@content/api/series";
-import { replaySolutionCodec, type DecodedReplaySolution } from "@game-core/api/codec";
+import type { DecodedReplaySolution } from "@game-core/api/codec";
+import { replayTransferCodec } from "@game-core/api/replayTransferCodec";
 
 export interface ImportedReplay {
   fileName: string;
@@ -9,7 +10,7 @@ export interface ImportedReplay {
 }
 
 function exportedReplayRulesetHint(fileName: string): "MS" | "Lynx" | null {
-  const match = fileName.match(/-(MS|Lynx)-\d+(?:-|\.tws\.bin$)/u);
+  const match = fileName.match(/-(MS|Lynx)-\d+(?:-|\.tws(?:\.bin)?$|\.twsx$)/u);
   const ruleset = match?.[1];
   return ruleset === "MS" || ruleset === "Lynx" ? ruleset : null;
 }
@@ -26,9 +27,9 @@ export async function importReplayForLevel(
     return null;
   }
 
-  const replay = replaySolutionCodec.inspect(imported.bytes);
+  const replay = replayTransferCodec.inspect(imported.bytes);
   if (!replay) {
-    throw new Error(`${imported.name} is not a valid raw replay payload`);
+    throw new Error(`${imported.name} is not a valid replay payload`);
   }
 
   const rulesetHint = exportedReplayRulesetHint(imported.name);
