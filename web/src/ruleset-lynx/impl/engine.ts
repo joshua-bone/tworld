@@ -171,6 +171,8 @@ interface LynxRuntimeState {
   couldntMove: boolean;
   trapReleaseCantMoveThisTick: boolean;
   lastRandomSlideDir: number;
+  chipPos: number;
+  chipZ: number;
 }
 
 interface LynxRuntimeLayer {
@@ -439,6 +441,10 @@ function resolveLynxNonChipSupportBelow(
   }
 
   if (chipZ === z && chipPos === pos) {
+    if (lynxRuntimeState(state).primedToolDrop !== null) {
+      addLynxTileOverlay(state, currentZ, pos, "support");
+      return true;
+    }
     return false;
   }
 
@@ -557,9 +563,22 @@ function lynxRuntimeState(state: EngineState): LynxRuntimeState {
       couldntMove: false,
       trapReleaseCantMoveThisTick: false,
       lastRandomSlideDir: directionCode(state.replay.initialRandomSlideDirection),
+      chipPos: -1,
+      chipZ: 1,
     };
   }
   return runtimeState.lynxRuntimeState;
+}
+
+function setLynxRuntimeChipState(state: EngineState, chipPos: number, chipZ: number): void {
+  const runtime = lynxRuntimeState(state);
+  runtime.chipPos = chipPos;
+  runtime.chipZ = chipZ;
+}
+
+function lynxChipActsWallForMobs(state: EngineState, pos: number, z: number): boolean {
+  const runtime = lynxRuntimeState(state);
+  return runtime.primedToolDrop !== null && runtime.chipPos === pos && runtime.chipZ === z;
 }
 
 function clearLynxAnimationAt(state: EngineState, actors: LynxRuntimeActor[], pos: number): boolean {
@@ -2045,6 +2064,10 @@ function startLynxActorElevatorMovement(
     addLynxTileOverlay(state, currentZ, actor.pos, "elevator-failure");
     return false;
   }
+  if (lynxChipActsWallForMobs(state, actor.pos, targetZ)) {
+    addLynxTileOverlay(state, currentZ, actor.pos, "elevator-failure");
+    return false;
+  }
   const actorAbove = findLynxVisibleActorAt(actors, actor.pos, targetZ);
   if (actorAbove && actorAbove.id !== MS_TILE.Chip) {
     addLynxTileOverlay(state, currentZ, actor.pos, "elevator-failure");
@@ -2158,6 +2181,13 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
       }
       continue;
     }
+    if (lynxChipActsWallForMobs(state, pos, actor.z ?? activeLynxLayerZ(state))) {
+      if (pos === origin) {
+        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+        return;
+      }
+      continue;
+    }
 
     removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     actor.pos = pos;
@@ -2171,6 +2201,13 @@ function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): 
       continue;
     }
     const { pos: exitPos, cell: exitCell } = exitStep;
+    if (lynxChipActsWallForMobs(state, exitPos, actor.z ?? activeLynxLayerZ(state))) {
+      if (pos === origin) {
+        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+        return;
+      }
+      continue;
+    }
     if (!canLynxCreatureEnter(effectiveLynxTargetTileId(state, exitCell.top.id), actor.id, actor.dir)) {
       if (pos === origin) {
         addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
@@ -2454,6 +2491,9 @@ function canLynxCreatureStartMovement(
     return false;
   }
   const { pos: targetPos, cell: target } = targetStep;
+  if (lynxChipActsWallForMobs(state, targetPos, actor.z ?? activeLynxLayerZ(state))) {
+    return false;
+  }
   if (
     (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 ||
     !canLynxCreatureEnter(effectiveLynxTargetTileId(state, target.top.id), actor.id, dir)
@@ -3334,7 +3374,7 @@ export function initializeLynxEngineState(
     (lynxTileHasTag(topTileIdOr(cells, chipPos, MS_TILE.Empty), "hint") ? MS_STATUS_FLAG.ShowHint : 0);
   const randomSeed = normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed);
 
-  return {
+  const state: EngineState = {
     request: { ...request },
     status: "playing",
     timer: createInitialEngineTimer(level.timeLimitTicks),
@@ -3386,6 +3426,9 @@ export function initializeLynxEngineState(
     statusFlags: initialStatusFlags,
     lastMove: { code: 0, name: "none" },
   };
+
+  setLynxRuntimeChipState(state, chipPos, chipSeed.z);
+  return state;
 }
 
 function createLynxInteractiveToken(
@@ -3474,6 +3517,8 @@ function advanceLynxInteractiveTick(
   let chipArrivedOnHeldTrapThisTick = false;
   let latchedChipMoveSelection: ReturnType<typeof selectLynxChipMoveForTick> | null = null;
   let recordedReplayInputCode = 0;
+
+  setLynxRuntimeChipState(state, chipPos, chipZ);
 
   const runInitialHousekeepingPhase = (): void => {
     if (scheduledInputCode !== null) {
@@ -3930,6 +3975,8 @@ function advanceLynxInteractiveTick(
     },
   ]);
 
+  setLynxRuntimeChipState(state, chipPos, chipZ);
+
   return {
     level,
     state,
@@ -4158,6 +4205,7 @@ function runLynxReplayTraceDebugInternal(
   let endGameAnimationFrame: number | null = null;
 
   for (let tick = 0; tick < maxTicks; tick += 1) {
+    setLynxRuntimeChipState(state, chipPos, chipZ);
     const scheduled = scheduledInputForTick(commands, tick);
     if (scheduled) {
       currentInputCode = scheduled.inputCode;

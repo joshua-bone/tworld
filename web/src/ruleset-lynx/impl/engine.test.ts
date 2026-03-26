@@ -3061,4 +3061,58 @@ describe("runLynxInputTrace", () => {
     expect(block?.pos).toBe(blockPos);
     expect(supported.state.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Sandbag);
   });
+
+  it("treats a primed tool drop as a wall to adjacent Lynx creatures", () => {
+    const chipPos = 33;
+    const tankPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+          createCell(tankPos, msCreatureTile(MS_TILE.Tank, 2)),
+        ],
+        [chipPos, tankPos],
+      ),
+    );
+    session.state.inventory.tools = [MS_TILE.Sandbag];
+
+    const primed = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    const tank = primed.actors.find((actor) => actor.id === MS_TILE.Tank && !actor.hidden);
+
+    expect(primed.endGameResult).toBeNull();
+    expect(tank?.pos).toBe(tankPos);
+    expect(primed.state.inventory.tools).toEqual([0]);
+  });
+
+  it("supports a Lynx block above Chip while a tool drop is primed", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 104;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty);
+    upper[chipPos] = createCellAtZ(chipPos, 2, MS_TILE.Block_Static, MS_TILE.Air);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, {
+        lowerCreaturePositions: [chipPos],
+        upperCreaturePositions: [chipPos],
+      }),
+    );
+    session.state.inventory.tools = [MS_TILE.Sandbag];
+
+    const primed = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    const supported = advanceLynxTicks(primed, 2);
+    const block = supported.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
+
+    expect(supported.endGameResult).toBeNull();
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(chipPos);
+  });
 });

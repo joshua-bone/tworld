@@ -5835,4 +5835,71 @@ describe("MS engine regressions", () => {
     expect(session.state.internal.chipZ).toBe(1);
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
   });
+
+  it("treats a primed tool drop as a wall to adjacent MS creatures", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const tankPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[tankPos]!.top.id = msCreatureTile(MS_TILE.Tank, MS_DIRECTION.west);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, tankPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const tank = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Tank && !creature.hidden);
+    expect(session.state.internal.chipStatus).toBe("okay");
+    expect(tank?.pos).toBe(tankPos);
+    expect(session.state.internal.primedToolDrop).toMatchObject({
+      tileId: MS_TILE.Sandbag,
+      pos: chipPos,
+      z: 1,
+    });
+  });
+
+  it("supports an MS block above Chip while a tool drop is primed", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(11, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    upper[chipPos]!.top.id = MS_TILE.Block_Static;
+    upper[chipPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const block = session.state.internal.blocks.find((entry) => !entry.hidden && entry.pos === chipPos);
+    expect(session.state.internal.chipStatus).toBe("okay");
+    expect(block?.z).toBe(2);
+    expect(session.state.engine.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
 });
