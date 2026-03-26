@@ -73,7 +73,8 @@ export function scheduledInputForTick(commands: GameCommand[], tick: number): Ga
 }
 
 export function resolveManualInput(previous: GameRuntimeCommand, scheduled: GameRuntimeCommand): GameRuntimeCommand {
-  if (scheduled.inputCode === GAME_INPUT_CODES.preserve) {
+  const { baseCode } = decodeRuntimeInputCode(scheduled.inputCode);
+  if (baseCode === GAME_INPUT_CODES.preserve) {
     return {
       ...previous,
       tick: scheduled.tick,
@@ -132,12 +133,12 @@ export function recordManualMove(
   return appendRecordedReplayMove(
     recordedMoves,
     replayCursor,
-    baseCode === GAME_INPUT_CODES.none
+    baseCode === GAME_INPUT_CODES.none && modifierMask === 0
       ? null
       : {
           when: currentTime,
           dir: baseCode,
-          modifierMask,
+          ...(modifierMask === 0 ? {} : { modifierMask }),
         },
   );
 }

@@ -71,9 +71,6 @@ export function normalizeGameInputModifierMask(mask: number): number {
 
 export function encodeRuntimeInputCode(baseCode: number, modifierMask = 0): number {
   let nextCode = stripRuntimeInputModifiers(baseCode);
-  if (nextCode === GAME_INPUT_CODES.none || nextCode === GAME_INPUT_CODES.preserve) {
-    return nextCode;
-  }
   const normalizedMask = normalizeGameInputModifierMask(modifierMask);
   if ((normalizedMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0) {
     nextCode |= GAME_INPUT_RUNTIME_MODIFIER_FLAGS.action1;

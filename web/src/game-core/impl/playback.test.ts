@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GAME_INPUT_CODES } from "@game-core/api/command";
+import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
 import {
   appendRecordedReplayMove,
   createReplayPlan,
@@ -98,6 +98,23 @@ describe("game playback helpers", () => {
     expect(manual).toEqual([{ when: 8, dir: GAME_INPUT_CODES.east }]);
     expect(replay).toEqual(manual);
     expect(idle).toEqual(manual);
+  });
+
+  it("records standalone modifier-only moves for replay export", () => {
+    const manual = recordManualMove(
+      [],
+      8,
+      -1,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(manual).toEqual([
+      {
+        when: 8,
+        dir: GAME_INPUT_CODES.none,
+        modifierMask: GAME_INPUT_MODIFIER_MASKS.action1,
+      },
+    ]);
   });
 
   it("appends only ruleset-emitted replay move decisions", () => {

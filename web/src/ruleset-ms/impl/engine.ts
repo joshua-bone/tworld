@@ -3762,8 +3762,14 @@ function applyMsChipEntryEffects(
   inventory: EngineState["inventory"],
   nextPos: number,
   nextCell: EngineMapCell,
-): { enteredTeleport: boolean; soundEffects: number; floorTileBeforeMove: EngineMapCell["top"] } {
+): {
+  enteredTeleport: boolean;
+  soundEffects: number;
+  floorTileBeforeMove: EngineMapCell["top"];
+  movementFloorTile: EngineMapCell["top"];
+} {
   let floorTileBeforeMove = nextCell.top;
+  let movementFloorTile = floorTileBeforeMove;
   const floor = floorTileBeforeMove.id;
   let enteredTeleport = false;
   let soundEffects = 0;
@@ -3803,6 +3809,9 @@ function applyMsChipEntryEffects(
           inventory[slot][index] += 1;
         }
         popTile(cells, nextPos);
+        if (slot === "tools") {
+          movementFloorTile = nextCell.top;
+        }
         soundEffects |= 1 << MS_SOUND.ItemCollected;
       }
       break;
@@ -3848,6 +3857,7 @@ function applyMsChipEntryEffects(
     enteredTeleport,
     soundEffects,
     floorTileBeforeMove,
+    movementFloorTile,
   };
 }
 
@@ -3869,13 +3879,12 @@ function moveChipOnce(
           ? -1
           : 1);
   let nextCell = cells[nextPos]!;
-  const enteredFloor = nextCell.top.id;
-  const enteredFloorState = nextCell.top.state;
   let soundEffects = 0;
   internal.chipReleased = false;
 
   const enteredEffects = applyMsChipEntryEffects(cells, internal, inventory, nextPos, nextCell);
   let floorTileBeforeMove = enteredEffects.floorTileBeforeMove;
+  const movementFloorTile = enteredEffects.movementFloorTile;
   let floor = floorTileBeforeMove.id;
   const enteredTeleport = enteredEffects.enteredTeleport;
   soundEffects |= enteredEffects.soundEffects;
@@ -3928,7 +3937,7 @@ function moveChipOnce(
     internal.completed = true;
   }
 
-  refreshFloorMovementFromEnteredTile(cells, internal, inventory, enteredFloor, enteredFloorState);
+  refreshFloorMovementFromEnteredTile(cells, internal, inventory, movementFloorTile.id, movementFloorTile.state);
   soundEffects |= handleDeferredButtons(cells, internal);
   return soundEffects;
 }
@@ -4103,13 +4112,12 @@ function moveChipUpOneLayer(
     }
   }
 
-  const enteredFloor = nextCell.top.id;
-  const enteredFloorState = nextCell.top.state;
   let soundEffects = 0;
   internal.chipReleased = false;
 
   const enteredEffects = applyMsChipEntryEffects(targetCells, internal, inventory, nextPos, nextCell);
   const floorTileBeforeMove = enteredEffects.floorTileBeforeMove;
+  const movementFloorTile = enteredEffects.movementFloorTile;
   const floor = floorTileBeforeMove.id;
   soundEffects |= enteredEffects.soundEffects;
 
@@ -4146,7 +4154,7 @@ function moveChipUpOneLayer(
     internal.completed = true;
   }
 
-  refreshFloorMovementFromEnteredTile(targetCells, internal, inventory, enteredFloor, enteredFloorState);
+  refreshFloorMovementFromEnteredTile(targetCells, internal, inventory, movementFloorTile.id, movementFloorTile.state);
   soundEffects |= handleDeferredButtons(targetCells, internal);
   return soundEffects;
 }
@@ -4623,7 +4631,7 @@ function resolveRecordedReplayMoveAfterChoose(
   toolActionTriggered: boolean,
 ): RecordedReplayMoveDecision | null {
   const { baseCode, modifierMask } = decodeRuntimeInputCode(inputCode);
-  if (state.engine.replay.cursor >= 0 || baseCode === MS_DIRECTION.none) {
+  if (state.engine.replay.cursor >= 0 || (baseCode === MS_DIRECTION.none && (!toolActionTriggered || modifierMask === 0))) {
     return null;
   }
 
@@ -5389,8 +5397,9 @@ export function advanceMsInteractiveSession(
 ): MsInteractiveSessionState {
   const tick = session.state.engine.timer.currentTime + 1;
   const scheduledInput = createRuntimeCommand(inputCode, tick);
+  const { baseCode: scheduledBaseCode } = decodeRuntimeInputCode(scheduledInput.inputCode);
   let input =
-    scheduledInput.inputCode === GAME_INPUT_CODES.preserve
+    scheduledBaseCode === GAME_INPUT_CODES.preserve
       ? createRuntimeCommand(session.state.internal.currentInput, tick)
       : scheduledInput;
   let replayPlan = session.replayPlan;

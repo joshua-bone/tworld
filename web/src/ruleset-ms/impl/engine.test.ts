@@ -4255,6 +4255,36 @@ describe("MS engine regressions", () => {
     expect(session.state.internal.floorMovementDir).toBe(MS_DIRECTION.none);
   });
 
+  it("slides through a sandbag sitting on ice in MS", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(11, 15);
+    const targetPos = pos(12, 15);
+    const exitPos = pos(13, 15);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[targetPos]!.top.id = MS_TILE.Sandbag;
+    cells[targetPos]!.bottom.id = MS_TILE.Ice;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.engine.chip?.position.pos).toBe(targetPos);
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
+    expect(session.state.internal.floorMovement).toBe("ice");
+    expect(session.state.internal.floorMovementDir).toBe(MS_DIRECTION.east);
+
+    session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
+    session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
+
+    expect(session.state.engine.chip?.position.pos).toBe(exitPos);
+  });
+
   it("plays ButtonPushed when a sliding block lands on a brown button during block floor movement", () => {
     const cells = createEmptyCells();
     const chipPos = pos(2, 2);
@@ -5624,6 +5654,46 @@ describe("MS engine regressions", () => {
       dir: MS_DIRECTION.east,
       modifierMask: GAME_INPUT_MODIFIER_MASKS.action1,
     });
+  });
+
+  it("primes a sandbag drop from a standalone Action1 press and settles it after Chip exits", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.engine.chip?.position.pos).toBe(chipPos);
+    expect(session.state.engine.inventory.tools).toEqual([0]);
+    expect(session.state.internal.primedToolDrop).toMatchObject({
+      tileId: MS_TILE.Sandbag,
+      pos: chipPos,
+      z: 1,
+    });
+    expect(session.recordedMoves).toContainEqual({
+      when: 0,
+      dir: GAME_INPUT_CODES.none,
+      modifierMask: GAME_INPUT_MODIFIER_MASKS.action1,
+    });
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.engine.chip?.position.pos).toBe(eastPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Sandbag);
+    expect(session.state.internal.primedToolDrop).toBeNull();
   });
 
   it("consumes a dropped sandbag into dirt when Chip leaves water", () => {

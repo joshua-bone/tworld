@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodeRuntimeInputCode, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
+import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   advanceLynxInteractiveSession,
@@ -2987,6 +2987,39 @@ describe("runLynxInputTrace", () => {
     expect(next.state.inventory.tools).toEqual([0]);
     expect(next.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Sandbag);
     expect(next.state.map.cells[chipPos]?.bottom.id).toBe(MS_TILE.Teleport);
+  });
+
+  it("primes a sandbag drop from a standalone Action1 press and settles it after Chip exits", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Sandbag];
+
+    const primed = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(primed.chipPos).toBe(chipPos);
+    expect(primed.state.inventory.tools).toEqual([0]);
+    expect(primed.recordedMoves).toEqual([
+      {
+        when: 0,
+        dir: GAME_INPUT_CODES.none,
+        modifierMask: GAME_INPUT_MODIFIER_MASKS.action1,
+      },
+    ]);
+
+    const moved = advanceLynxTicks(primed, 4, MS_DIRECTION.east);
+
+    expect(moved.chipPos).toBe(eastPos);
+    expect(moved.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Sandbag);
   });
 
   it("collects a sandbag when Chip falls from unsupported air", () => {
