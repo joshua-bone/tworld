@@ -318,7 +318,7 @@ function createLegacyArtworkSprite(image: CanvasImageSource): LegacyTileSprite |
   };
 }
 
-function applyLegacyTileOverrides(
+export function applyLegacyTileOverrides(
   tileset: LegacyTileset,
   overrides: ReadonlyMap<number, LegacyTileSprite>,
 ): LegacyTileset {
@@ -326,10 +326,61 @@ function applyLegacyTileOverrides(
     return tileset;
   }
 
+  const overriddenCellCache = new Map<string, LegacyTileSprite>();
+  const baseGetCell = tileset.getCell?.bind(tileset);
+  const baseGetCellAnimationPeriod = tileset.getCellAnimationPeriod?.bind(tileset);
+
   return {
     ...tileset,
     get(tileId: number): LegacyTileSprite | null {
       return overrides.get(tileId) ?? tileset.get(tileId);
+    },
+    getCell(topId: number, bottomId: number, timerval: number): LegacyTileSprite | null {
+      const overrideTop = overrides.get(topId);
+      if (!overrideTop) {
+        return baseGetCell?.(topId, bottomId, timerval) ?? null;
+      }
+
+      if (!overrideTop.transparent || bottomId === MS_TILE.Nothing || bottomId === MS_TILE.Air) {
+        return overrideTop;
+      }
+
+      const animationPeriod = baseGetCellAnimationPeriod?.(MS_TILE.Empty, bottomId) ?? 1;
+      const timeToken = animationPeriod <= 1 || timerval < 0 ? 0 : (timerval + 1) % animationPeriod;
+      const cacheKey = `${topId}|${bottomId}|${timeToken}`;
+      const cached = overriddenCellCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
+      const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+      const context = canvas.getContext("2d");
+      if (!context) {
+        return overrideTop;
+      }
+
+      const bottomSprite =
+        baseGetCell?.(bottomId, MS_TILE.Empty, timerval) ??
+        (bottomId === MS_TILE.Empty ? tileset.get(MS_TILE.Empty) : tileset.get(bottomId));
+      if (bottomSprite) {
+        drawLegacySpriteImage(context, bottomSprite, 0, 0);
+      }
+      drawLegacySpriteImage(context, overrideTop, 0, 0);
+
+      const sprite = {
+        image: canvas,
+        offsetX: 0,
+        offsetY: 0,
+        transparent: false,
+      } satisfies LegacyTileSprite;
+      overriddenCellCache.set(cacheKey, sprite);
+      return sprite;
+    },
+    getCellAnimationPeriod(topId: number, bottomId: number): number {
+      if (overrides.has(topId)) {
+        return baseGetCellAnimationPeriod?.(MS_TILE.Empty, bottomId) ?? 1;
+      }
+      return baseGetCellAnimationPeriod?.(topId, bottomId) ?? 1;
     },
   };
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  applyLegacyTileOverrides,
   inventoryStripPixelDimensions,
   inventoryStripPixelDimensionsForKind,
   inventoryTileCountLabel,
@@ -12,6 +13,7 @@ import {
   withLegacyMapViewportClip,
 } from "@player-web/impl/LegacyCanvasScreen";
 import { LEGACY_MAP_HEIGHT, LEGACY_MAP_WIDTH, LEGACY_MAP_X, LEGACY_MAP_Y } from "@player-web/impl/legacySprites";
+import type { LegacyTileSprite, LegacyTileset } from "@player-web/impl/legacyTileset";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 describe("withLegacyMapViewportClip", () => {
@@ -146,6 +148,57 @@ describe("shouldUseLegacyCombinedCellSprite", () => {
 
   it("still allows the combined cell fast path for ordinary composited cells", () => {
     expect(shouldUseLegacyCombinedCellSprite(MS_TILE.Chip, MS_TILE.Ice, null, null)).toBe(true);
+  });
+});
+
+describe("applyLegacyTileOverrides", () => {
+  it("keeps bottom-tile animation available under a transparent overridden top tile", () => {
+    const baseCanvas = { width: 32, height: 32 } as HTMLCanvasElement;
+    const fakeDrawImage = vi.fn();
+    const fakeContext = {
+      drawImage: fakeDrawImage,
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeContext),
+    } as unknown as HTMLCanvasElement;
+
+    const emptySprite: LegacyTileSprite = { image: baseCanvas, offsetX: 0, offsetY: 0, transparent: false };
+    const animatedFloorSprite: LegacyTileSprite = { image: baseCanvas, offsetX: 0, offsetY: 0, transparent: false };
+    const sandbagSprite: LegacyTileSprite = { image: baseCanvas, offsetX: 0, offsetY: 0, transparent: true };
+    const baseTileset: LegacyTileset = {
+      get: vi.fn((tileId: number) => (tileId === MS_TILE.Empty ? emptySprite : null)),
+      getCell: vi.fn((topId: number, bottomId: number, timerval: number) =>
+        topId === MS_TILE.Slide_East && bottomId === MS_TILE.Empty && timerval === 7 ? animatedFloorSprite : null,
+      ),
+      getCellAnimationPeriod: vi.fn((topId: number, bottomId: number) =>
+        topId === MS_TILE.Empty && bottomId === MS_TILE.Slide_East ? 4 : 1,
+      ),
+    };
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCanvas;
+        }),
+      });
+      const overridden = applyLegacyTileOverrides(baseTileset, new Map([[MS_TILE.Sandbag, sandbagSprite]]));
+
+      expect(overridden.getCellAnimationPeriod?.(MS_TILE.Sandbag, MS_TILE.Slide_East)).toBe(4);
+      expect(overridden.getCell?.(MS_TILE.Sandbag, MS_TILE.Slide_East, 7)).toMatchObject({
+        transparent: false,
+        offsetX: 0,
+        offsetY: 0,
+      });
+      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Slide_East, MS_TILE.Empty, 7);
+      expect(fakeDrawImage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
