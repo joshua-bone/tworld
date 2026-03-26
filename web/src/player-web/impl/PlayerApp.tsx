@@ -838,6 +838,7 @@ export function PlayerApp({
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
   const currentLevel = currentSeries?.levels.find((level) => level.number === selectedLevelNumber) ?? null;
+  const showToolsInventory = currentLevel?.hasSpecialTools === true;
   const currentSeriesRuleset = currentSeries?.ruleset ?? null;
   const currentManualMsStepping = MS_MANUAL_STEP_STEPPING[manualMsStepParity];
   const currentLevelExists = currentLevel !== null;
@@ -4407,16 +4408,18 @@ export function PlayerApp({
           visualEnhancementsEnabled={visualEnhancementsEnabled}
         />
       </div>
-      <div className="modern-game-inventory-strip__group">
-        <p className="modern-game-inventory-strip__label">Tools</p>
-        <LegacyInventoryStrip
-          className="modern-game-inventory-strip__canvas"
-          currentRuleset={currentRuleset}
-          inventory={session?.frame.snapshot.inventory ?? null}
-          kind="tools"
-          visualEnhancementsEnabled={visualEnhancementsEnabled}
-        />
-      </div>
+      {showToolsInventory ? (
+        <div className="modern-game-inventory-strip__group">
+          <p className="modern-game-inventory-strip__label">Tools</p>
+          <LegacyInventoryStrip
+            className="modern-game-inventory-strip__canvas"
+            currentRuleset={currentRuleset}
+            inventory={session?.frame.snapshot.inventory ?? null}
+            kind="tools"
+            visualEnhancementsEnabled={visualEnhancementsEnabled}
+          />
+        </div>
+      ) : null}
     </aside>
   );
   const renderModernUndoPanel = () => (
@@ -4600,18 +4603,20 @@ export function PlayerApp({
           visualEnhancementsEnabled={visualEnhancementsEnabled}
         />
       </div>
-      <div className="mobile-game-shell__inventory-group">
-        <p className="mobile-game-shell__inventory-label">Tools</p>
-        <LegacyInventoryStrip
-          className="mobile-game-shell__inventory-strip"
-          currentRuleset={currentRuleset}
-          direction={isMobileLandscape ? "vertical" : "horizontal"}
-          inventory={session?.frame.snapshot.inventory ?? null}
-          kind="tools"
-          renderTileSize={mobileRenderTileSize}
-          visualEnhancementsEnabled={visualEnhancementsEnabled}
-        />
-      </div>
+      {showToolsInventory ? (
+        <div className="mobile-game-shell__inventory-group">
+          <p className="mobile-game-shell__inventory-label">Tools</p>
+          <LegacyInventoryStrip
+            className="mobile-game-shell__inventory-strip"
+            currentRuleset={currentRuleset}
+            direction={isMobileLandscape ? "vertical" : "horizontal"}
+            inventory={session?.frame.snapshot.inventory ?? null}
+            kind="tools"
+            renderTileSize={mobileRenderTileSize}
+            visualEnhancementsEnabled={visualEnhancementsEnabled}
+          />
+        </div>
+      ) : null}
     </section>
   );
   const renderMobileHud = () => (

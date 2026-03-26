@@ -191,6 +191,50 @@ interface ParsedLegacyLevelMetadata {
   timeLimitSeconds: number;
 }
 
+const SPECIAL_TOOL_FILE_ID_FIRST = 0x70;
+
+function layerContainsSpecialToolFileId(levelData: Uint8Array, startOffset: number, size: number): boolean {
+  const endOffset = Math.min(levelData.length, startOffset + size);
+  let offset = startOffset;
+
+  while (offset < endOffset) {
+    let fileId = levelData[offset] ?? 0;
+    offset += 1;
+
+    if (fileId === 0xff) {
+      offset += 1;
+      fileId = levelData[offset] ?? 0;
+      offset += 1;
+    }
+
+    if (fileId >= SPECIAL_TOOL_FILE_ID_FIRST) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function levelContainsSpecialToolFileId(levelData: Uint8Array): boolean {
+  if (levelData.length < 10) {
+    return false;
+  }
+
+  const upperSize = readUint16(levelData, 8);
+  const upperOffset = 10;
+  if (layerContainsSpecialToolFileId(levelData, upperOffset, upperSize)) {
+    return true;
+  }
+
+  const lowerSizeOffset = upperOffset + upperSize;
+  if (lowerSizeOffset + 2 > levelData.length) {
+    return false;
+  }
+
+  const lowerSize = readUint16(levelData, lowerSizeOffset);
+  return layerContainsSpecialToolFileId(levelData, lowerSizeOffset + 2, lowerSize);
+}
+
 function parseLegacyLevelMetadata(levelData: Uint8Array): ParsedLegacyLevelMetadata {
   if (levelData.length < 10) {
     throw new Error("invalid level data");
@@ -345,6 +389,7 @@ function parseLevel(levelData: Uint8Array, index: number): SeriesLevel {
     hasSolution: false,
     sgflags: 0,
     unsolvable: null,
+    hasSpecialTools: levelContainsSpecialToolFileId(levelData),
   };
 }
 
@@ -447,6 +492,9 @@ export function parseDatFile(data: Uint8Array, options: { ruleset?: RulesetName 
     }
     level.number = groupedIndex + 1;
     level.index = groupedIndex;
+    level.hasSpecialTools = parsedLevels
+      .slice(run.start, run.endExclusive)
+      .some((entry) => entry.hasSpecialTools === true);
     return level;
   });
 

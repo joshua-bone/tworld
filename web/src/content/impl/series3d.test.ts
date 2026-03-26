@@ -9,8 +9,7 @@ function encodeLatin1(text: string): number[] {
   return Array.from(text, (char) => char.charCodeAt(0));
 }
 
-function createLevelData(number: number, name: string, password = "ABCD"): Uint8Array {
-  const upperLayer = Uint8Array.from([1]);
+function createLevelData(number: number, name: string, password = "ABCD", upperLayer = Uint8Array.from([1])): Uint8Array {
   const lowerLayer = Uint8Array.from([]);
   const metadata = Uint8Array.from([
     3,
@@ -109,5 +108,18 @@ describe("3D DAT grouping", () => {
     expect(parsed.levelCount).toBe(3);
     expect(parsed.levels.map((level) => level.name)).toEqual(["Partial\\3", "Partial\\2", "Solo"]);
     expect(grouped.levels.map((level) => level.layerNumbers)).toEqual([[1], [2], [3]]);
+  });
+
+  it("marks grouped levels when any constituent DAT layer contains a special-tool byte", () => {
+    const dat = createDatFile([
+      createLevelData(1, "Stacked\\1"),
+      createLevelData(2, "Stacked\\2", "ABCD", Uint8Array.from([0x70])),
+      createLevelData(3, "Solo"),
+    ]);
+
+    const parsed = parseDatFile(dat, { ruleset: "MS" });
+
+    expect(parsed.levels[0]?.hasSpecialTools).toBe(true);
+    expect(parsed.levels[1]?.hasSpecialTools).toBe(false);
   });
 });

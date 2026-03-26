@@ -32,6 +32,7 @@ export interface SeriesLevel {
   hasSolution: boolean;
   sgflags: number;
   unsolvable: string | null;
+  hasSpecialTools?: boolean;
 }
 
 export function buildSeriesCatalog(seriesList: SeriesDefinition[], levelInfoBySeries: Record<string, SeriesLevel[]>): SeriesCatalogEntry[] {

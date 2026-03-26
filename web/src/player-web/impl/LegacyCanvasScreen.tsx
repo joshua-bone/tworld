@@ -1885,7 +1885,10 @@ function drawGameScreen(
 
   const inventoryX = LEGACY_INFO_X;
   const inventoryY = LEGACY_MAP_Y + 128;
-  (["keys", "boots", "tools"] as const).forEach((kind, rowIndex) => {
+  const inventoryKinds = level?.hasSpecialTools === true
+    ? (["keys", "boots", "tools"] as const)
+    : (["keys", "boots"] as const);
+  inventoryKinds.forEach((kind, rowIndex) => {
     inventoryStripTileIds(kind).forEach((tileId, columnIndex) => {
       const count = kind === "keys" ? snapshot.inventory.keys[columnIndex] ?? 0 : 0;
       drawInventoryTile(
@@ -1920,7 +1923,7 @@ function drawGameScreen(
       context,
       hintText,
       LEGACY_INFO_X,
-      inventoryY + LEGACY_TILE_SIZE * 3 + LEGACY_MARGIN,
+      inventoryY + LEGACY_TILE_SIZE * inventoryKinds.length + LEGACY_MARGIN,
       LEGACY_WINDOW_WIDTH - LEGACY_MARGIN - LEGACY_INFO_X,
       COLORS.text,
       (snapshot.statusFlags & MS_STATUS_FLAG.ShowHint) !== 0 || snapshot.status !== "playing",
