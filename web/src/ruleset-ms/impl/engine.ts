@@ -179,6 +179,7 @@ export interface MsInternalState {
   randomMainValue: bigint;
   lastSlipDir: number;
   primedToolDrop: MsPrimedToolDrop | null;
+  pendingToolDropAfterSettle: MsPrimedToolDrop | null;
   runtimeLayers: MsRuntimeLayer[];
 }
 
@@ -723,6 +724,7 @@ function cloneInternalState(internal: MsInternalState): MsInternalState {
     pendingSoundEffects: internal.pendingSoundEffects,
     lastSlipDir: internal.lastSlipDir,
     primedToolDrop: internal.primedToolDrop ? { ...internal.primedToolDrop } : null,
+    pendingToolDropAfterSettle: internal.pendingToolDropAfterSettle ? { ...internal.pendingToolDropAfterSettle } : null,
     goalPos: internal.goalPos,
     runtimeLayers: internal.runtimeLayers.map((layer) => ({
       z: layer.z,
@@ -893,11 +895,17 @@ function queueMsToolInventoryReplacement(
     return;
   }
 
-  internal.primedToolDrop = {
+  const replacementDrop = {
     tileId: displacedTileId,
     pos,
     z,
   };
+  if (internal.primedToolDrop !== null) {
+    internal.pendingToolDropAfterSettle = replacementDrop;
+    return;
+  }
+
+  internal.primedToolDrop = replacementDrop;
 }
 
 function replaceMsSettledSandbagWater(cells: EngineMapCell[], pos: number): boolean {
@@ -926,11 +934,19 @@ function settleMsPrimedToolDrop(cells: EngineMapCell[], internal: MsInternalStat
   }
 
   internal.primedToolDrop = null;
+  const pendingReplacement = internal.pendingToolDropAfterSettle;
+  internal.pendingToolDropAfterSettle = null;
   if (primed.tileId === MS_TILE.Sandbag && replaceMsSettledSandbagWater(cells, pos)) {
+    if (pendingReplacement) {
+      internal.primedToolDrop = pendingReplacement;
+    }
     return;
   }
 
   pushTile(cells, pos, { id: primed.tileId, state: 0 });
+  if (pendingReplacement) {
+    internal.primedToolDrop = pendingReplacement;
+  }
 }
 
 function refreshFloorMovement(
@@ -1150,6 +1166,7 @@ export function initializeMsGameState(
     randomMainValue: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
     lastSlipDir: MS_DIRECTION.none,
     primedToolDrop: null,
+    pendingToolDropAfterSettle: null,
     runtimeLayers: [],
   };
   const normalizedRandomSeed = normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed);
