@@ -1,4 +1,4 @@
-import type { ReplayTransferPort } from "@player-web/ports/ReplayTransfer";
+import type { ReplayTransferPort } from "@game-runtime/ports/ReplayTransfer";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type { SeriesLevel } from "@content/api/series";
 import { buildReplayExport } from "@game-runtime/impl/buildReplayExport";

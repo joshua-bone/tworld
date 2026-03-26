@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.project-base.json",
+  "compilerOptions": {
+    "outDir": "./.tsbuild/browser-support",
+    "tsBuildInfoFile": "./.tsbuild/browser-support.tsbuildinfo"
+  },
+  "include": [
+    "src/oracle-fixtures/ports/**/*.ts",
+    "src/oracle-fixtures/impl/contracts/characterizationContract.ts",
+    "src/oracle-fixtures/impl/mappers/characterizationMapper.ts",
+    "src/oracle-fixtures/impl/StaticCharacterizationFixtureRepository.ts",
+    "src/level-catalog/ports/**/*.ts",
+    "src/level-catalog/impl/browserAssetLoadError.ts",
+    "src/level-catalog/impl/browserSeriesCatalog.worker.protocol.ts",
+    "src/level-catalog/impl/browserSeriesCatalog.worker.ts",
+    "src/level-catalog/impl/browserSeriesCatalogEntries.shared.ts",
+    "src/level-catalog/impl/loadBrowserSeriesCatalogEntries.ts",
+    "src/level-catalog/impl/BrowserLevelRepository.ts",
+    "src/level-catalog/impl/importedDatIdentity.ts",
+    "src/level-catalog/impl/IndexedDbImportedDatCatalogStore.ts"
+  ],
+  "references": [
+    { "path": "./tsconfig.project.content.json" },
+    { "path": "./tsconfig.project.game-core.json" }
+  ]
+}

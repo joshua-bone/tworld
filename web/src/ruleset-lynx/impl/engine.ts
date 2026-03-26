@@ -3203,7 +3203,7 @@ function createLynxInteractiveToken(
   request: GameRequest,
   level: LynxLevel,
   replay:
-    | (Pick<ReplaySolutionPayload, "moves" | "randomSeed" | "randomSlideDirection" | "stepping" | "flags"> & {
+    | (Pick<ReplaySolutionPayload, "moves" | "modifierMasks" | "randomSeed" | "randomSlideDirection" | "stepping" | "flags"> & {
         moveCount?: number;
         bestTimeTicks?: number;
       })

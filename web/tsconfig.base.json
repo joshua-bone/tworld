@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@bootstrap/*": ["src/bootstrap/*"],
+      "@content/*": ["src/content/*"],
+      "@data/*": ["../data/*"],
+      "@game-core/*": ["src/game-core/*"],
+      "@game-runtime/*": ["src/game-runtime/*"],
+      "@level-catalog/*": ["src/level-catalog/*"],
+      "@oracle-fixtures/*": ["src/oracle-fixtures/*"],
+      "@player-web/*": ["src/player-web/*"],
+      "@replay-verifier/*": ["src/replay-verifier/*"],
+      "@res/*": ["../res/*"],
+      "@ruleset-lynx/*": ["src/ruleset-lynx/*"],
+      "@ruleset-ms/*": ["src/ruleset-ms/*"],
+      "@undo-runtime/*": ["src/undo-runtime/*"],
+      "@sets/*": ["../sets/*"],
+      "@fixtures/*": ["../fixtures/characterization/v1/*"]
+    }
+  }
+}

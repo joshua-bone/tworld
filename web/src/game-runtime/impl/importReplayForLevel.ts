@@ -1,4 +1,4 @@
-import type { ReplayTransferPort } from "@player-web/ports/ReplayTransfer";
+import type { ReplayTransferPort } from "@game-runtime/ports/ReplayTransfer";
 import type { SeriesLevel } from "@content/api/series";
 import type { DecodedReplaySolution } from "@game-core/api/codec";
 import { replayTransferCodec } from "@game-core/api/replayTransferCodec";

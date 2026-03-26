@@ -1,0 +1,31 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsbuildinfo/app.tsbuildinfo",
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "src/bootstrap/browser/main.tsx",
+    "src/game-runtime/impl/interactiveGame.worker.ts",
+    "src/level-catalog/impl/browserSeriesCatalog.worker.ts",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/bootstrap/architecture/**",
+    "src/replay-verifier/**",
+    "src/level-catalog/impl/NodeLevelRepository.ts",
+    "src/level-catalog/impl/loadDashboardSummary.ts",
+    "src/level-catalog/impl/loadNodeReplaySweepSeriesCatalog.ts",
+    "src/level-catalog/impl/loadNodeSeriesCatalogEntries.ts",
+    "src/level-catalog/impl/loadSolutionCatalog.ts",
+    "src/oracle-fixtures/impl/CanonicalTraceGameEngineAdapter.ts",
+    "src/oracle-fixtures/impl/FixtureBackedGameEngineAdapter.ts",
+    "src/oracle-fixtures/impl/NativeOracleGameEngineAdapter.ts",
+    "src/oracle-fixtures/impl/NodeCharacterizationFixtureRepository.ts",
+    "src/oracle-fixtures/impl/NodeOracleDebugFixtureRepository.ts",
+    "src/oracle-fixtures/impl/contracts/oracleDebugContract.ts",
+    "src/oracle-fixtures/impl/mappers/oracleDebug.ts"
+  ]
+}

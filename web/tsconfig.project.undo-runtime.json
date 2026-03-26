@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.project-base.json",
+  "compilerOptions": {
+    "outDir": "./.tsbuild/undo-runtime",
+    "tsBuildInfoFile": "./.tsbuild/undo-runtime.tsbuildinfo"
+  },
+  "include": [
+    "src/undo-runtime/api/**/*.ts",
+    "src/undo-runtime/impl/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ],
+  "references": [
+    { "path": "./tsconfig.project.content.json" },
+    { "path": "./tsconfig.project.game-core.json" },
+    { "path": "./tsconfig.project.ruleset-ms.json" },
+    { "path": "./tsconfig.project.ruleset-lynx.json" }
+  ]
+}

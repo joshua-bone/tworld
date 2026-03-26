@@ -10,10 +10,10 @@ import {
 } from "@game-runtime/impl/interactiveGame.worker.protocol";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import { BrowserLevelRepository } from "@level-catalog/impl/BrowserLevelRepository";
-import { IndexedDbBrowserProfileStore } from "@player-web/impl/IndexedDbBrowserProfileStore";
+import { IndexedDbImportedDatCatalogStore } from "@level-catalog/impl/IndexedDbImportedDatCatalogStore";
 
 const workerScope = self as DedicatedWorkerGlobalScope;
-const levelRepository = new BrowserLevelRepository(new IndexedDbBrowserProfileStore());
+const levelRepository = new BrowserLevelRepository(new IndexedDbImportedDatCatalogStore());
 const engines = {
   MS: new MsGameEngineAdapter(levelRepository),
   Lynx: new LynxGameEngineAdapter(levelRepository),

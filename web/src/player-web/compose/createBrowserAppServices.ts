@@ -3,8 +3,8 @@ import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter"
 import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
 import { StaticCharacterizationFixtureRepository } from "@oracle-fixtures/impl/StaticCharacterizationFixtureRepository";
 import { BrowserLevelRepository } from "@level-catalog/impl/BrowserLevelRepository";
+import { computeDatContentHash } from "@level-catalog/impl/importedDatIdentity";
 import type { PersistedImportedDatSource } from "@level-catalog/ports/ImportedDatCatalogStore";
-import { computeDatContentHash } from "@player-web/impl/importedDatIdentity";
 import { IndexedDbBrowserProfileStore } from "@player-web/impl/IndexedDbBrowserProfileStore";
 import { BrowserReplayTransfer } from "@player-web/impl/BrowserReplayTransfer";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";

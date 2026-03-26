@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.project-base.json",
+  "compilerOptions": {
+    "outDir": "./.tsbuild/content",
+    "tsBuildInfoFile": "./.tsbuild/content.tsbuildinfo"
+  },
+  "include": [
+    "src/content/api/**/*.ts"
+  ]
+}

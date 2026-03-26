@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsbuildinfo/tools.tsbuildinfo",
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "src/replay-verifier",
+    "src/oracle-fixtures",
+    "src/level-catalog/impl/NodeLevelRepository.ts",
+    "src/level-catalog/impl/loadDashboardSummary.ts",
+    "src/level-catalog/impl/loadNodeReplaySweepSeriesCatalog.ts",
+    "src/level-catalog/impl/loadNodeSeriesCatalogEntries.ts",
+    "src/level-catalog/impl/loadSolutionCatalog.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ]
+}

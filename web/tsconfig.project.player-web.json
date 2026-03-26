@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.project-base.json",
+  "compilerOptions": {
+    "outDir": "./.tsbuild/player-web",
+    "tsBuildInfoFile": "./.tsbuild/player-web.tsbuildinfo"
+  },
+  "include": [
+    "src/player-web/compose/**/*.ts",
+    "src/player-web/compose/**/*.tsx",
+    "src/player-web/impl/**/*.ts",
+    "src/player-web/impl/**/*.tsx",
+    "src/player-web/ports/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ],
+  "references": [
+    { "path": "./tsconfig.project.content.json" },
+    { "path": "./tsconfig.project.game-core.json" },
+    { "path": "./tsconfig.project.ruleset-ms.json" },
+    { "path": "./tsconfig.project.ruleset-lynx.json" },
+    { "path": "./tsconfig.project.undo-runtime.json" },
+    { "path": "./tsconfig.project.browser-support.json" },
+    { "path": "./tsconfig.project.game-runtime.json" }
+  ]
+}

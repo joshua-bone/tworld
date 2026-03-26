@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.project-base.json",
+  "compilerOptions": {
+    "outDir": "./.tsbuild/ruleset-lynx",
+    "tsBuildInfoFile": "./.tsbuild/ruleset-lynx.tsbuildinfo"
+  },
+  "include": [
+    "src/ruleset-lynx/api/**/*.ts",
+    "src/ruleset-lynx/impl/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ],
+  "references": [
+    { "path": "./tsconfig.project.game-core.json" },
+    { "path": "./tsconfig.project.ruleset-ms.json" }
+  ]
+}

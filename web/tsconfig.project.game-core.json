@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.project-base.json",
+  "compilerOptions": {
+    "outDir": "./.tsbuild/game-core",
+    "tsBuildInfoFile": "./.tsbuild/game-core.tsbuildinfo"
+  },
+  "include": [
+    "src/game-core/api/**/*.ts",
+    "src/game-core/impl/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ],
+  "references": [
+    { "path": "./tsconfig.project.content.json" }
+  ]
+}

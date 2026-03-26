@@ -12,7 +12,7 @@ import {
   computeDatContentHash,
   importedSeriesFile,
   IMPORT_RULESETS,
-} from "@player-web/impl/importedDatIdentity";
+} from "@level-catalog/impl/importedDatIdentity";
 import { normalizeBrowserAssetLoadError } from "@level-catalog/impl/browserAssetLoadError";
 
 type GroupedLevelIndex = Map<number, RawDatLevelGroup>;

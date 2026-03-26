@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.project-base.json",
+  "compilerOptions": {
+    "outDir": "./.tsbuild/app",
+    "tsBuildInfoFile": "./.tsbuild/app.tsbuildinfo"
+  },
+  "files": [
+    "src/bootstrap/browser/main.tsx",
+    "vite.config.ts"
+  ],
+  "references": [
+    { "path": "./tsconfig.project.player-web.json" }
+  ]
+}
