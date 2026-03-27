@@ -26,6 +26,13 @@ type MsChipEnterAction =
   | "teleport"
   | "collision";
 type MsButtonAction = "none" | "turn-tanks" | "toggle-walls" | "activate-cloner" | "spring-trap";
+type MsActorArrivalAction =
+  | "none"
+  | "block-water"
+  | "block-bomb"
+  | "creature-water"
+  | "creature-fire"
+  | "creature-bomb";
 
 interface MsTilePolicyDefinition {
   readonly tags: readonly TileTag[];
@@ -34,6 +41,8 @@ interface MsTilePolicyDefinition {
   readonly chipMovementMask: number;
   readonly creatureMovementMask: number;
   readonly blockMovementMask: number;
+  readonly exitMovementMask: number;
+  readonly requiresReleaseToExit: boolean;
   readonly inventorySlot?: InventorySlot;
   readonly inventoryIndex?: number;
   readonly doorKeyIndex?: number;
@@ -409,6 +418,27 @@ function defaultBlockMovementMask(id: number): number {
   return defaultChipMovementMask(id);
 }
 
+function defaultMsExitMovementMask(id: number): number {
+  switch (id) {
+    case MS_TILE.Wall_North:
+      return MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
+    case MS_TILE.Wall_West:
+      return MS_DIRECTION.north | MS_DIRECTION.south | MS_DIRECTION.east;
+    case MS_TILE.Wall_South:
+      return MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.east;
+    case MS_TILE.Wall_East:
+      return MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south;
+    case MS_TILE.Wall_Southeast:
+      return MS_DIRECTION.north | MS_DIRECTION.west;
+    default:
+      return FULL_MOVEMENT_MASK;
+  }
+}
+
+function defaultMsRequiresReleaseToExit(id: number): boolean {
+  return id === MS_TILE.Beartrap;
+}
+
 function inventoryPolicy(id: number): Pick<MsTilePolicyDefinition, "inventorySlot" | "inventoryIndex" | "doorKeyIndex"> {
   if (KEY_TILE_SET.has(id)) {
     return {
@@ -444,6 +474,8 @@ function createMsTilePolicyDefinition(id: number): MsTilePolicyDefinition {
     chipMovementMask: defaultChipMovementMask(id),
     creatureMovementMask: defaultCreatureMovementMask(id),
     blockMovementMask: defaultBlockMovementMask(id),
+    exitMovementMask: defaultMsExitMovementMask(id),
+    requiresReleaseToExit: defaultMsRequiresReleaseToExit(id),
     forcedFloorKind: defaultForcedFloorKind(id),
     chipEnterAction: defaultChipEnterAction(id),
     buttonAction: defaultButtonAction(id),
@@ -530,6 +562,8 @@ function msTilePolicy(id: number): MsTilePolicyDefinition {
     chipMovementMask: 0,
     creatureMovementMask: 0,
     blockMovementMask: 0,
+    exitMovementMask: FULL_MOVEMENT_MASK,
+    requiresReleaseToExit: false,
     forcedFloorKind: "none",
     chipEnterAction: "none",
     buttonAction: "none",
@@ -554,6 +588,14 @@ export function msCreatureMovementMask(id: number): number {
 
 export function msBlockMovementMask(id: number): number {
   return msTilePolicy(id).blockMovementMask;
+}
+
+export function msExitMovementMask(id: number): number {
+  return msTilePolicy(id).exitMovementMask;
+}
+
+export function msRequiresReleaseToExit(id: number): boolean {
+  return msTilePolicy(id).requiresReleaseToExit;
 }
 
 export function msInventorySlot(id: number): InventorySlot | null {
@@ -582,6 +624,23 @@ export function msButtonAction(id: number): MsButtonAction {
 
 export function msActorHasTag(id: number, tag: ActorTag): boolean {
   return msActorDefinition(id)?.tags.includes(tag) ?? false;
+}
+
+export function msActorArrivalAction(tileId: number, actorId: number): MsActorArrivalAction {
+  if (tileId === MS_TILE.Water) {
+    return actorId === MS_TILE.Block
+      ? "block-water"
+      : msActorHasTag(actorId, "water-immune")
+        ? "none"
+        : "creature-water";
+  }
+  if (tileId === MS_TILE.Fire) {
+    return actorId === MS_TILE.Block || msActorHasTag(actorId, "fire-immune") ? "none" : "creature-fire";
+  }
+  if (tileId === MS_TILE.Bomb) {
+    return actorId === MS_TILE.Block ? "block-bomb" : "creature-bomb";
+  }
+  return "none";
 }
 
 export function msIsActorTile(id: number): boolean {

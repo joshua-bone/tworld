@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  msActorArrivalAction,
   msActorHasTag,
   msBlockMovementMask,
   msButtonAction,
@@ -7,11 +8,13 @@ import {
   msChipEnterAction,
   msCreatureMovementMask,
   msDoorKeyIndex,
+  msExitMovementMask,
   msIceWallTurn,
   msInventoryIndex,
   msInventorySlot,
   msIsOverlayFloorTile,
   msPreservesUnderlyingFloor,
+  msRequiresReleaseToExit,
   msSlideDirection,
   msTileForcedFloorKind,
   msRulesetCatalog,
@@ -102,5 +105,23 @@ describe("MS ruleset catalog", () => {
     expect(msSlideDirection(MS_TILE.Slide_East, MS_DIRECTION.north)).toBe(MS_DIRECTION.east);
     expect(msSlideDirection(MS_TILE.Slide_Random, MS_DIRECTION.west)).toBe(MS_DIRECTION.west);
     expect(msIceWallTurn(MS_TILE.IceWall_Northwest, MS_DIRECTION.south)).toBe(MS_DIRECTION.west);
+  });
+
+  it("provides exit and arrival policy helpers", () => {
+    expect(msExitMovementMask(MS_TILE.Wall_North)).toBe(
+      MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east,
+    );
+    expect(msExitMovementMask(MS_TILE.Wall_Southeast)).toBe(
+      MS_DIRECTION.north | MS_DIRECTION.west,
+    );
+    expect(msRequiresReleaseToExit(MS_TILE.Beartrap)).toBe(true);
+    expect(msRequiresReleaseToExit(MS_TILE.Empty)).toBe(false);
+    expect(msActorArrivalAction(MS_TILE.Water, MS_TILE.Block)).toBe("block-water");
+    expect(msActorArrivalAction(MS_TILE.Water, MS_TILE.Glider)).toBe("none");
+    expect(msActorArrivalAction(MS_TILE.Water, MS_TILE.Bug)).toBe("creature-water");
+    expect(msActorArrivalAction(MS_TILE.Fire, MS_TILE.Fireball)).toBe("none");
+    expect(msActorArrivalAction(MS_TILE.Fire, MS_TILE.Glider)).toBe("creature-fire");
+    expect(msActorArrivalAction(MS_TILE.Bomb, MS_TILE.Block)).toBe("block-bomb");
+    expect(msActorArrivalAction(MS_TILE.Bomb, MS_TILE.Ball)).toBe("creature-bomb");
   });
 });
