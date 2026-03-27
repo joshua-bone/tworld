@@ -1,0 +1,27 @@
+{
+  "image": "expanded.png",
+  "slice": {
+    "mode": "grid",
+    "tileWidth": 48,
+    "tileHeight": 48,
+    "columns": 3,
+    "rows": 1
+  },
+  "sprites": {
+    "sandbag": {
+      "column": 0,
+      "row": 0,
+      "transparent": true
+    },
+    "bowling_ball_moving": {
+      "column": 1,
+      "row": 0,
+      "transparent": true
+    },
+    "bowling_ball_still": {
+      "column": 2,
+      "row": 0,
+      "transparent": true
+    }
+  }
+}

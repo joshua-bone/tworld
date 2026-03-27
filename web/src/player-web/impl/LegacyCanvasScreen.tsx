@@ -1,12 +1,13 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import lynxTilesUrl from "@res/atiles.bmp?url";
 import msTilesUrl from "@res/tiles.bmp?url";
-import sandbagUrl from "@res/expansion_artwork/sandbag.png?url";
+import expandedArtworkUrl from "@res/expansion_artwork/expanded.png?url";
 import {
   isDefaultLegacyRenderTileSize,
   legacyMapPixelsForTileSize,
   type LegacyRenderTileSize,
 } from "@player-web/impl/legacyRenderPresets";
+import { expansionArtworkFrameRect, type ExpansionArtworkFrameRect } from "@player-web/impl/expansionArtwork";
 import { buildLegacyTileset, type LegacyTileSprite, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import { measurePerfSync } from "@player-web/impl/runtimePerf";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
@@ -302,19 +303,23 @@ function loadLegacyImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-function createLegacyArtworkSprite(image: CanvasImageSource): LegacyTileSprite | null {
+export function createLegacyArtworkSpriteFromFrame(
+  image: CanvasImageSource,
+  frame: Readonly<ExpansionArtworkFrameRect>,
+): LegacyTileSprite | null {
   const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
   const context = canvas.getContext("2d");
   if (!context) {
     return null;
   }
 
-  context.drawImage(image, 0, 0, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  context.imageSmoothingEnabled = false;
+  context.drawImage(image, frame.x, frame.y, frame.width, frame.height, 0, 0, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
   return {
     image: canvas,
     offsetX: 0,
     offsetY: 0,
-    transparent: true,
+    transparent: frame.transparent,
   };
 }
 
@@ -397,28 +402,32 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
   }
 
   const nextPromise = new Promise<LegacyTileset>((resolve, reject) => {
-    void Promise.all([loadLegacyImage(LEGACY_TILESET_URLS[ruleset]), loadLegacyImage(sandbagUrl)])
-      .then(([image, sandbagImage]) => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = image.width;
-        canvas.height = image.height;
-        const context = canvas.getContext("2d");
-        if (!context) {
-          throw new Error("Unable to create legacy tileset canvas");
-        }
+    void Promise.all([loadLegacyImage(LEGACY_TILESET_URLS[ruleset]), loadLegacyImage(expandedArtworkUrl)])
+      .then(([image, expandedArtworkImage]) => {
+        try {
+          const sandbagFrame = expansionArtworkFrameRect("sandbag");
+          if (!sandbagFrame) {
+            throw new Error("Missing sandbag frame in expansion artwork sheet");
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = image.width;
+          canvas.height = image.height;
+          const context = canvas.getContext("2d");
+          if (!context) {
+            throw new Error("Unable to create legacy tileset canvas");
+          }
 
-        context.drawImage(image, 0, 0);
-        const sandbagSprite = createLegacyArtworkSprite(sandbagImage);
-        const tileset = applyLegacyTileOverrides(
-          buildLegacyTileset(canvas, ruleset),
-          sandbagSprite ? new Map([[MS_TILE.Sandbag, sandbagSprite]]) : new Map(),
-        );
-        legacyTilesetCache.set(ruleset, tileset);
-        resolve(tileset);
-      } catch (error) {
-        reject(error);
-      }
+          context.drawImage(image, 0, 0);
+          const sandbagSprite = createLegacyArtworkSpriteFromFrame(expandedArtworkImage, sandbagFrame);
+          const tileset = applyLegacyTileOverrides(
+            buildLegacyTileset(canvas, ruleset),
+            sandbagSprite ? new Map([[MS_TILE.Sandbag, sandbagSprite]]) : new Map(),
+          );
+          legacyTilesetCache.set(ruleset, tileset);
+          resolve(tileset);
+        } catch (error) {
+          reject(error);
+        }
       })
       .catch(reject);
   });

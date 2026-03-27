@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   applyLegacyTileOverrides,
+  createLegacyArtworkSpriteFromFrame,
   inventoryStripPixelDimensions,
   inventoryStripPixelDimensionsForKind,
   inventoryTileCountLabel,
@@ -148,6 +149,52 @@ describe("shouldUseLegacyCombinedCellSprite", () => {
 
   it("still allows the combined cell fast path for ordinary composited cells", () => {
     expect(shouldUseLegacyCombinedCellSprite(MS_TILE.Chip, MS_TILE.Ice, null, null)).toBe(true);
+  });
+});
+
+describe("createLegacyArtworkSpriteFromFrame", () => {
+  it("crops a sprite from the expansion artwork sheet", () => {
+    const spriteSheet = { width: 144, height: 48 } as CanvasImageSource;
+    const fakeDrawImage = vi.fn();
+    const fakeContext = {
+      drawImage: fakeDrawImage,
+      imageSmoothingEnabled: true,
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeContext),
+    } as unknown as HTMLCanvasElement;
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCanvas;
+        }),
+      });
+
+      const sprite = createLegacyArtworkSpriteFromFrame(spriteSheet, {
+        x: 48,
+        y: 0,
+        width: 48,
+        height: 48,
+        transparent: true,
+      });
+
+      expect(sprite).toMatchObject({
+        image: fakeCanvas,
+        offsetX: 0,
+        offsetY: 0,
+        transparent: true,
+      });
+      expect(fakeContext.imageSmoothingEnabled).toBe(false);
+      expect(fakeDrawImage).toHaveBeenCalledWith(spriteSheet, 48, 0, 48, 48, 0, 0, 48, 48);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 
