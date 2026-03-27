@@ -22,6 +22,7 @@ describe("engineStateToSnapshot", () => {
       inventory: {
         keys: [0, 0, 0, 0],
         boots: [0, 0, 0, 0],
+        tools: [0],
         chipsNeeded: 0,
       },
       replay: {

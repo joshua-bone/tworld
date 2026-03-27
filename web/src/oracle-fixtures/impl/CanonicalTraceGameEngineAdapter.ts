@@ -1,4 +1,5 @@
 import { runCanonicalTrace } from "@game-core/impl/run";
+import { normalizeTraceSnapshot } from "@oracle-fixtures/impl/mappers/characterizationMapper";
 import { formatTraceCommandSpec } from "@replay-verifier/impl/traceScenario";
 import type { CharacterizationFixtureRepository } from "@oracle-fixtures/ports/CharacterizationFixtureRepository";
 import type { GameEnginePort, GameEngineTrace } from "@game-runtime/ports/GameEngine";
@@ -37,12 +38,12 @@ export class CanonicalTraceGameEngineAdapter implements GameEnginePort {
     return runCanonicalTrace(
       {
         request,
-        initialSnapshot: fixture.initialState,
+        initialSnapshot: normalizeTraceSnapshot(fixture.initialState),
       },
       {
         scheduledInputs: commands,
         maxTicks,
-        stepSnapshots: fixture.steps,
+        stepSnapshots: fixture.steps.map(normalizeTraceSnapshot),
       },
     ).trace;
   }

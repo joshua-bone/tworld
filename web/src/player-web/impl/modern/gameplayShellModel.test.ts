@@ -47,7 +47,7 @@ function createSession(
         },
         soundEffects: 0,
         view: { x: 0, y: 0 },
-        inventory: { keys: [0, 0, 0, 0], boots: [0, 0, 0, 0] },
+        inventory: { keys: [0, 0, 0, 0], boots: [0, 0, 0, 0], tools: [0] },
         chip: null,
         creatureCount: 0,
         creaturesHash: "",

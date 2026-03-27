@@ -27,6 +27,7 @@ function makeSnapshot(): GameSnapshot {
     inventory: {
       keys: [0, 0, 0, 0],
       boots: [0, 0, 0, 0],
+      tools: [0],
     },
     chip: null,
     creatures: [],
