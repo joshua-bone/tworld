@@ -174,7 +174,7 @@ export interface TraceSnapshot {
   inventory: {
     keys: number[];
     boots: number[];
-    tools: number[];
+    tools?: number[];
   };
   chip: {
     id: number;

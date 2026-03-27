@@ -10,6 +10,17 @@ import type { ScoreLevelRecord } from "@content/api/score";
 import type { SeriesDefinition, SeriesLevel } from "@content/api/series";
 import type { SolutionCatalogSource } from "@content/api/solution";
 
+export function normalizeTraceSnapshot(snapshot: InputTraceFixture["initialState"]): GameTrace["initialState"] {
+  return {
+    ...snapshot,
+    inventory: {
+      keys: [...snapshot.inventory.keys],
+      boots: [...snapshot.inventory.boots],
+      tools: [...(snapshot.inventory.tools ?? [0])],
+    },
+  };
+}
+
 export function mapLevelInfoEntryToScoreLevel(entry: LevelInfoEntry): ScoreLevelRecord {
   return {
     index: entry.index,
@@ -76,8 +87,8 @@ export function mapInputTraceFixtureToGameTrace(fixture: InputTraceFixture): Gam
       inputCode: command.inputCode,
       inputName: command.input,
     })),
-    initialState: fixture.initialState,
-    steps: fixture.steps,
+    initialState: normalizeTraceSnapshot(fixture.initialState),
+    steps: fixture.steps.map(normalizeTraceSnapshot),
     result: fixture.result,
   };
 }
