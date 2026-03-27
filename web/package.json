@@ -20,8 +20,8 @@
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "typecheck:tools": "tsc -p tsconfig.tools.json --noEmit",
     "typecheck:all": "tsc -b tsconfig.project.app.json && tsc -p tsconfig.tools.json --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "verify:ms-replays": "vitest run src/replay-verifier/impl/compareMsSolutionFileReplaySweep.test.ts",
-    "verify:lynx-replays": "TWORLD_ENABLE_LYNX_REPLAY_SWEEP=1 vitest run src/replay-verifier/impl/compareLynxSolutionFileReplaySweep.test.ts",
+    "verify:ms-replays": "vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts MS",
+    "verify:lynx-replays": "vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts Lynx",
     "verify:all-replays": "vite-node src/replay-verifier/compose/verifyAllSolutionReplays.ts"
   },
   "dependencies": {

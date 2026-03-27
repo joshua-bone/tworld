@@ -6,10 +6,13 @@ import type { TraceOracle } from "@replay-verifier/ports/TraceOracle";
 import {
   buildReplayTraceScenariosFromSolutionFile,
   isUnsupportedReplaySeries,
+  type SolutionReplaySweepPlan,
 } from "@replay-verifier/impl/buildReplayTraceScenariosFromSolutionFile";
 import { loadSeriesCatalog } from "@level-catalog/impl/loadSeriesCatalog";
 import type { SeriesCatalogEntry } from "@content/api/series";
 import type { RulesetName } from "@content/api/ruleset";
+import type { ReplayTraceScenario } from "@replay-verifier/impl/scenario";
+import type { LoadedSolutionFile } from "@replay-verifier/ports/SolutionFileRepository";
 
 export interface SolutionFileReplaySweepFailure {
   scenarioName: string;
@@ -47,6 +50,36 @@ export interface SolutionFileReplaySweepDependencies {
 export interface SolutionFileReplaySweepOptions {
   scenarioNameIncludes?: string | null;
   seriesCatalog?: SeriesCatalogEntry[] | null;
+  progress?: SolutionFileReplaySweepProgressReporter | null;
+}
+
+export interface SolutionFileReplaySweepUnsupportedFileProgress {
+  solutionFile: LoadedSolutionFile;
+}
+
+export interface SolutionFileReplaySweepFileProgress {
+  solutionFile: LoadedSolutionFile;
+  plan: SolutionReplaySweepPlan;
+  scenarios: ReplayTraceScenario[];
+}
+
+export interface SolutionFileReplaySweepScenarioProgress {
+  solutionFile: LoadedSolutionFile;
+  plan: SolutionReplaySweepPlan;
+  scenario: ReplayTraceScenario;
+  failure: SolutionFileReplaySweepFailure | null;
+}
+
+export interface SolutionFileReplaySweepFileCompleteProgress extends SolutionFileReplaySweepFileProgress {
+  replayCount: number;
+  failures: SolutionFileReplaySweepFailure[];
+}
+
+export interface SolutionFileReplaySweepProgressReporter {
+  onUnsupportedFile?(progress: SolutionFileReplaySweepUnsupportedFileProgress): void | Promise<void>;
+  onSolutionFileStart?(progress: SolutionFileReplaySweepFileProgress): void | Promise<void>;
+  onScenarioComplete?(progress: SolutionFileReplaySweepScenarioProgress): void | Promise<void>;
+  onSolutionFileComplete?(progress: SolutionFileReplaySweepFileCompleteProgress): void | Promise<void>;
 }
 
 function matchesScenarioFilter(scenarioName: string, filter: string | null | undefined): boolean {
@@ -87,6 +120,7 @@ export async function runSolutionFileReplaySweep(
   const failures: SolutionFileReplaySweepFailure[] = [];
   const unsupportedFiles: string[] = [];
   let replayCount = 0;
+  const progress = options.progress;
 
   for (const path of solutionPaths) {
     const loaded = await dependencies.solutionRepository.loadSolutionFile(path);
@@ -96,16 +130,24 @@ export async function runSolutionFileReplaySweep(
 
     if (isUnsupportedReplaySeries(loaded, seriesCatalog)) {
       unsupportedFiles.push(loaded.label);
+      await progress?.onUnsupportedFile?.({ solutionFile: loaded });
       continue;
     }
 
     const plan = buildReplayTraceScenariosFromSolutionFile(loaded, seriesCatalog);
     const scenarios = plan.scenarios.filter((scenario) => matchesScenarioFilter(scenario.name, options.scenarioNameIncludes));
+    const fileFailures: SolutionFileReplaySweepFailure[] = [];
+    await progress?.onSolutionFileStart?.({
+      solutionFile: loaded,
+      plan,
+      scenarios,
+    });
     for (const scenario of scenarios) {
       replayCount += 1;
+      let failure: SolutionFileReplaySweepFailure | null = null;
 
       if (!engineSupportsRuleset(dependencies.candidate, ruleset)) {
-        failures.push({
+        failure = {
           scenarioName: scenario.name,
           solutionFile: loaded.path,
           seriesFile: scenario.request.seriesFile,
@@ -118,12 +160,15 @@ export async function runSolutionFileReplaySweep(
               actual: `candidate engine does not support ruleset ${ruleset}`,
             },
           ],
-        });
+        };
+        failures.push(failure);
+        fileFailures.push(failure);
+        await progress?.onScenarioComplete?.({ solutionFile: loaded, plan, scenario, failure });
         continue;
       }
 
       if (!engineSupportsRuleset(dependencies.oracle, ruleset)) {
-        failures.push({
+        failure = {
           scenarioName: scenario.name,
           solutionFile: loaded.path,
           seriesFile: scenario.request.seriesFile,
@@ -136,7 +181,10 @@ export async function runSolutionFileReplaySweep(
               actual: `trace oracle does not support ruleset ${ruleset}`,
             },
           ],
-        });
+        };
+        failures.push(failure);
+        fileFailures.push(failure);
+        await progress?.onScenarioComplete?.({ solutionFile: loaded, plan, scenario, failure });
         continue;
       }
 
@@ -144,10 +192,11 @@ export async function runSolutionFileReplaySweep(
         const comparison = await compareReplayTraceScenario(dependencies.candidate, dependencies.oracle, scenario);
 
         if (comparison.mismatches.length === 0) {
+          await progress?.onScenarioComplete?.({ solutionFile: loaded, plan, scenario, failure: null });
           continue;
         }
 
-        failures.push({
+        failure = {
           scenarioName: scenario.name,
           solutionFile: loaded.path,
           seriesFile: scenario.request.seriesFile,
@@ -158,10 +207,13 @@ export async function runSolutionFileReplaySweep(
             expected: mismatch.expected,
             actual: mismatch.actual,
           })),
-        });
+        };
+        failures.push(failure);
+        fileFailures.push(failure);
+        await progress?.onScenarioComplete?.({ solutionFile: loaded, plan, scenario, failure });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        failures.push({
+        failure = {
           scenarioName: scenario.name,
           solutionFile: loaded.path,
           seriesFile: scenario.request.seriesFile,
@@ -174,9 +226,20 @@ export async function runSolutionFileReplaySweep(
               actual: message,
             },
           ],
-        });
+        };
+        failures.push(failure);
+        fileFailures.push(failure);
+        await progress?.onScenarioComplete?.({ solutionFile: loaded, plan, scenario, failure });
       }
     }
+
+    await progress?.onSolutionFileComplete?.({
+      solutionFile: loaded,
+      plan,
+      scenarios,
+      replayCount: scenarios.length,
+      failures: fileFailures,
+    });
   }
 
   return {
