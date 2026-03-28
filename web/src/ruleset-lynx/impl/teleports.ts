@@ -81,7 +81,7 @@ export function resolveLynxChipTeleport(
     }
 
     if (hasTopTileFlags(context.state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
-      return context.canChipExitTeleportThroughBlock(exitPos, chipDir) || context.canChipEnter(exitPos, chipDir);
+      return context.canChipExitTeleportThroughBlock(exitPos, chipDir);
     }
 
     return context.canChipEnter(exitPos, chipDir);
