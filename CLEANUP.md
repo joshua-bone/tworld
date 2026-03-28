@@ -71,7 +71,7 @@ Highest-value cleanup targets:
 - [x] PR8: Replay Verifier Orchestration Split
 - [x] PR9: Engine Phase 2 Cleanup
 - [x] PR10: Test DSL Expansion
-- [ ] PR11: Naming And Value Objects Pass
+- [x] PR11: Naming And Value Objects Pass
 - [ ] PR12: Docs And Workflow Refresh
 
 ### PR1: Safety Net For Structural Cleanup
@@ -301,6 +301,11 @@ Examples:
 Goal:
 
 - improve readability after the structural seams exist
+
+Progress:
+
+- [x] replace raw inventory-owner prefix strings with a branded inventory-owner identifier helper
+- [x] rename Chip-enter and Chip-arrival helpers from `resolve...` to `apply...` where they mutate state
 
 ### PR12: Docs And Workflow Refresh
 

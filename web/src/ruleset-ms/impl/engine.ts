@@ -125,7 +125,7 @@ import {
   settleMsPrimedToolDrop,
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
-import { resolveMsChipEnteredTile } from "@ruleset-ms/impl/chipArrival";
+import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
 import {
   moveMsChipDownOneLayer as moveMsChipDownOneLayerWithContext,
   moveMsChipPlanar as moveMsChipPlanarWithContext,
@@ -3131,8 +3131,8 @@ function createMsChipMovementContext(
   return {
     internal,
     runtimeCellZ,
-    resolveEnteredTile: (cells: EngineMapCell[], nextPos: number) =>
-      resolveMsChipEnteredTile(
+    applyEnterEffects: (cells: EngineMapCell[], nextPos: number) =>
+      applyMsChipEnterEffects(
         cells,
         internal,
         {

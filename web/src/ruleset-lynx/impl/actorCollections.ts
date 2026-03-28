@@ -5,6 +5,7 @@ import {
   type ActorItemCollectionResolution,
 } from "@game-core/impl/actorCollection";
 import {
+  createActorInventoryOwnerId,
   projectActorLocalInventoryOwner,
   type ActorKeysBootsInventory,
   type ActorKeysBootsToolsInventory,
@@ -34,7 +35,7 @@ export function projectLynxActorInventoryOwner(
   localInventory: LynxActorLocalInventoryState = null,
 ): ActorLocalInventoryOwner {
   const projectedInventory = actorId === MS_TILE.Chip ? inventory : localInventory;
-  return projectActorLocalInventoryOwner(`lynx:${actorId}`, lynxActorLocalInventoryMode(actorId), projectedInventory);
+  return projectActorLocalInventoryOwner(createActorInventoryOwnerId("lynx", actorId), lynxActorLocalInventoryMode(actorId), projectedInventory);
 }
 
 export function collectLynxActorTile(

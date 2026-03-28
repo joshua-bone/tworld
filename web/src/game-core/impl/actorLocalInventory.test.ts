@@ -6,6 +6,7 @@ import {
   actorInventoryHasBoot,
   actorInventoryHasKey,
   actorInventoryUseKey,
+  createActorInventoryOwnerId,
   createActorLocalInventory,
   createKeysBootsActorLocalInventoryOwner,
   createKeysBootsToolsActorLocalInventoryOwner,
@@ -28,7 +29,7 @@ describe("actorLocalInventory", () => {
   });
 
   it("treats a no-inventory owner as unable to collect or use items", () => {
-    const owner = createNoActorLocalInventoryOwner("ghost");
+    const owner = createNoActorLocalInventoryOwner(createActorInventoryOwnerId("test", "ghost"));
 
     expect(actorInventoryHasKey(owner, 0)).toBe(false);
     expect(actorInventoryHasBoot(owner, 1)).toBe(false);
@@ -39,7 +40,10 @@ describe("actorLocalInventory", () => {
   });
 
   it("supports keys and boots for a keys-boots owner", () => {
-    const owner = createKeysBootsActorLocalInventoryOwner("fake-player", createActorLocalInventory("keys-boots"));
+    const owner = createKeysBootsActorLocalInventoryOwner(
+      createActorInventoryOwnerId("test", "fake-player"),
+      createActorLocalInventory("keys-boots"),
+    );
 
     expect(actorInventoryCollectIndexedItem(owner, "keys", 3)).toBe(true);
     expect(actorInventoryCollectIndexedItem(owner, "boots", 2)).toBe(true);
@@ -57,7 +61,10 @@ describe("actorLocalInventory", () => {
   });
 
   it("supports tools clearing for a keys-boots-tools owner", () => {
-    const owner = createKeysBootsToolsActorLocalInventoryOwner("chip", createActorLocalInventory("keys-boots-tools"));
+    const owner = createKeysBootsToolsActorLocalInventoryOwner(
+      createActorInventoryOwnerId("test", "chip"),
+      createActorLocalInventory("keys-boots-tools"),
+    );
 
     owner.inventory.tools = [71];
     expect(actorInventoryClearTools(owner)).toBe(true);
@@ -65,15 +72,24 @@ describe("actorLocalInventory", () => {
   });
 
   it("projects owner wrappers from a mode plus backing inventory", () => {
-    const noInventory = projectActorLocalInventoryOwner("ghost", "none", null);
+    const noInventory = projectActorLocalInventoryOwner(createActorInventoryOwnerId("test", "ghost"), "none", null);
     expect(noInventory.mode).toBe("none");
 
     const keysBoots = createActorLocalInventory("keys-boots");
-    const keysBootsOwner = projectActorLocalInventoryOwner("fake-player", "keys-boots", keysBoots);
+    const keysBootsOwner = projectActorLocalInventoryOwner(createActorInventoryOwnerId("test", "fake-player"), "keys-boots", keysBoots);
     expect(keysBootsOwner.mode).toBe("keys-boots");
 
     const keysBootsTools = createActorLocalInventory("keys-boots-tools");
-    const keysBootsToolsOwner = projectActorLocalInventoryOwner("chip", "keys-boots-tools", keysBootsTools);
+    const keysBootsToolsOwner = projectActorLocalInventoryOwner(
+      createActorInventoryOwnerId("test", "chip"),
+      "keys-boots-tools",
+      keysBootsTools,
+    );
     expect(keysBootsToolsOwner.mode).toBe("keys-boots-tools");
+  });
+
+  it("brands inventory owner identifiers instead of open-coding ruleset prefixes", () => {
+    expect(createActorInventoryOwnerId("ms", 67)).toBe("ms:67");
+    expect(createActorInventoryOwnerId("lynx", "chip")).toBe("lynx:chip");
   });
 });

@@ -1,6 +1,13 @@
 import type { ActorLocalInventoryMode } from "@game-core/api/actorCapabilities";
 import type { InventorySlots, ToolInventorySlots } from "@game-core/api/model";
 
+declare const actorInventoryOwnerIdBrand: unique symbol;
+export type ActorInventoryOwnerId = string & { readonly [actorInventoryOwnerIdBrand]: "ActorInventoryOwnerId" };
+
+export function createActorInventoryOwnerId(scope: string, actorId: number | string): ActorInventoryOwnerId {
+  return `${scope}:${actorId}` as ActorInventoryOwnerId;
+}
+
 export interface ActorKeysBootsInventory {
   keys: InventorySlots;
   boots: InventorySlots;
@@ -11,19 +18,19 @@ export interface ActorKeysBootsToolsInventory extends ActorKeysBootsInventory {
 }
 
 export interface NoActorLocalInventoryOwner {
-  ownerId: string;
+  ownerId: ActorInventoryOwnerId;
   mode: "none";
   inventory: null;
 }
 
 export interface KeysBootsActorLocalInventoryOwner {
-  ownerId: string;
+  ownerId: ActorInventoryOwnerId;
   mode: "keys-boots";
   inventory: ActorKeysBootsInventory;
 }
 
 export interface KeysBootsToolsActorLocalInventoryOwner {
-  ownerId: string;
+  ownerId: ActorInventoryOwnerId;
   mode: "keys-boots-tools";
   inventory: ActorKeysBootsToolsInventory;
 }
@@ -34,7 +41,7 @@ export type ActorLocalInventoryOwner =
   | KeysBootsToolsActorLocalInventoryOwner;
 
 export function projectActorLocalInventoryOwner(
-  ownerId: string,
+  ownerId: ActorInventoryOwnerId,
   mode: ActorLocalInventoryMode,
   inventory: ActorKeysBootsInventory | ActorKeysBootsToolsInventory | null,
 ): ActorLocalInventoryOwner {
@@ -69,7 +76,7 @@ export function createActorLocalInventory(mode: ActorLocalInventoryMode): ActorK
   };
 }
 
-export function createNoActorLocalInventoryOwner(ownerId: string): NoActorLocalInventoryOwner {
+export function createNoActorLocalInventoryOwner(ownerId: ActorInventoryOwnerId): NoActorLocalInventoryOwner {
   return {
     ownerId,
     mode: "none",
@@ -78,7 +85,7 @@ export function createNoActorLocalInventoryOwner(ownerId: string): NoActorLocalI
 }
 
 export function createKeysBootsActorLocalInventoryOwner(
-  ownerId: string,
+  ownerId: ActorInventoryOwnerId,
   inventory: ActorKeysBootsInventory,
 ): KeysBootsActorLocalInventoryOwner {
   return {
@@ -89,7 +96,7 @@ export function createKeysBootsActorLocalInventoryOwner(
 }
 
 export function createKeysBootsToolsActorLocalInventoryOwner(
-  ownerId: string,
+  ownerId: ActorInventoryOwnerId,
   inventory: ActorKeysBootsToolsInventory,
 ): KeysBootsToolsActorLocalInventoryOwner {
   return {

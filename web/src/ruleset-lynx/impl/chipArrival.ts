@@ -60,7 +60,7 @@ function isLynxIce(tileId: number): boolean {
   return lynxTileForcedFloorKind(tileId) === "ice";
 }
 
-export function resolveLynxChipArrival(
+export function applyLynxChipArrivalEffects(
   context: Pick<
     LynxCompletedChipMoveContext,
     "state" | "soundBits" | "resolveButtonEffects" | "applyThiefHook"
@@ -109,7 +109,7 @@ export function resolveLynxChipArrival(
   return noArrival();
 }
 
-export function resolveCompletedLynxChipMove(
+export function applyCompletedLynxChipMove(
   context: LynxCompletedChipMoveContext,
   chipPos: number,
   chipDir: number,
@@ -171,7 +171,7 @@ export function resolveCompletedLynxChipMove(
       };
   }
 
-  const arrival = resolveLynxChipArrival(context, chipPos);
+  const arrival = applyLynxChipArrivalEffects(context, chipPos);
   context.state.soundEffects |= arrival.soundEffects;
   if (arrival.status === "completed" && endGameTicksElapsed === null) {
     const endGame = context.startCompletedEndGame(

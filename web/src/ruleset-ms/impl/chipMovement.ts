@@ -23,7 +23,7 @@ export interface MsChipMovementInternal {
 export interface MsChipMovementContext {
   internal: MsChipMovementInternal;
   runtimeCellZ(cells: EngineMapCell[], pos: number): number;
-  resolveEnteredTile(cells: EngineMapCell[], nextPos: number): MsChipEnteredTileResolution;
+  applyEnterEffects(cells: EngineMapCell[], nextPos: number): MsChipEnteredTileResolution;
   teleportDestination(cells: EngineMapCell[], start: number, dir: number): { destination: number; soundEffects: number };
   popTile(cells: EngineMapCell[], pos: number): void;
   pushTile(cells: EngineMapCell[], pos: number, tile: EngineMapCell["top"]): void;
@@ -124,7 +124,7 @@ export function moveMsChipPlanar(
   let soundEffects = 0;
   context.internal.chipReleased = false;
 
-  const enteredEffects = context.resolveEnteredTile(cells, nextPos);
+  const enteredEffects = context.applyEnterEffects(cells, nextPos);
   const floor = enteredEffects.floorTileBeforeMove.id;
   const movementFloorTile = enteredEffects.movementFloorTile;
   soundEffects |= enteredEffects.soundEffects;
@@ -169,7 +169,7 @@ export function moveMsChipDownOneLayer(
 
   const enteredFloor = targetCells[nextPos]!.top.id;
   const enteredFloorState = targetCells[nextPos]!.top.state;
-  const enteredEffects = context.resolveEnteredTile(targetCells, nextPos);
+  const enteredEffects = context.applyEnterEffects(targetCells, nextPos);
   const floor = enteredEffects.floorTileBeforeMove.id;
   const suppressIceRefresh = isIceFloor(enteredFloor) && !context.hasIceBoot();
   soundEffects |= enteredEffects.soundEffects;
@@ -236,7 +236,7 @@ export function moveMsChipUpOneLayer(
 
   let soundEffects = 0;
   context.internal.chipReleased = false;
-  const enteredEffects = context.resolveEnteredTile(targetCells, nextPos);
+  const enteredEffects = context.applyEnterEffects(targetCells, nextPos);
   const floor = enteredEffects.floorTileBeforeMove.id;
   const movementFloorTile = enteredEffects.movementFloorTile;
   soundEffects |= enteredEffects.soundEffects;

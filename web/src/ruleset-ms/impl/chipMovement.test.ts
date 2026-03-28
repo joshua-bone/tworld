@@ -36,7 +36,7 @@ function createContext(
   return {
     internal,
     runtimeCellZ: (cells: EngineMapCell[], position: number) => cells[position]!.position.z ?? 1,
-    resolveEnteredTile: () => createEnteredTileResolution(MS_TILE.IceWall_Southeast),
+    applyEnterEffects: () => createEnteredTileResolution(MS_TILE.IceWall_Southeast),
     teleportDestination: () => ({ destination: internal.chipPos, soundEffects: 0 }),
     popTile: () => {},
     pushTile: () => {},

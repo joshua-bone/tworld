@@ -15,7 +15,7 @@ function createPostMoveContext(overrides: Partial<LynxPostMoveResolutionContext>
   const state = createEngineState(cells);
   return {
     state,
-    resolveCompletedMove: (
+    applyCompletedMove: (
       chipPos,
       chipDir,
       _chipMoveKind,
@@ -56,7 +56,7 @@ function createTrapReleaseContext(overrides: Partial<LynxTrapReleaseContext> = {
     settlePrimedToolDrop: () => {},
     activeLayerZ: () => 1,
     chipMovementSpeed: () => 4,
-    resolveCompletedMove: (
+    applyCompletedMove: (
       chipPos,
       chipDir,
       _chipMoveKind,

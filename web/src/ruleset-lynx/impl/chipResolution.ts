@@ -14,7 +14,7 @@ import { MS_DIRECTION, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_STATUS_FLAG, MS_TICKS_P
 
 export interface LynxPostMoveResolutionContext {
   state: EngineState;
-  resolveCompletedMove(
+  applyCompletedMove(
     chipPos: number,
     chipDir: number,
     chipMoveKind: LynxMoveKind,
@@ -47,7 +47,7 @@ export interface LynxTrapReleaseContext {
   settlePrimedToolDrop(originPos: number, originZ: number): void;
   activeLayerZ(): number;
   chipMovementSpeed(floorId: number, moveKind?: LynxMoveKind): number;
-  resolveCompletedMove(
+  applyCompletedMove(
     chipPos: number,
     chipDir: number,
     chipMoveKind: LynxMoveKind,
@@ -102,7 +102,7 @@ export function resolveLynxPostChipMovement(
     chipMoving = Math.max(0, chipMoving - speed);
     if (chipMoving === 0) {
       chipArrivedThisTick = true;
-      const completed = context.resolveCompletedMove(
+      const completed = context.applyCompletedMove(
         chipPos,
         chipDir,
         chipMoveKind,
@@ -229,7 +229,7 @@ export function advanceLynxChipTrapRelease(
   const speed = context.chipMovementSpeed(floor);
   chipMoving = Math.max(0, chipMoving - speed);
   if (chipMoving === 0) {
-    const completed = context.resolveCompletedMove(
+    const completed = context.applyCompletedMove(
       chipPos,
       chipDir,
       "planar",

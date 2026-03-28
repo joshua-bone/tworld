@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  resolveCompletedLynxChipMove,
-  resolveLynxChipArrival,
+  applyCompletedLynxChipMove,
+  applyLynxChipArrivalEffects,
   type LynxCompletedChipMoveContext,
 } from "@ruleset-lynx/impl/chipArrival";
 import { createBoardAtZ, createCell, createEngineState } from "@ruleset-lynx/impl/testSupport";
@@ -50,7 +50,7 @@ describe("lynx chip arrival", () => {
     context.state.inventory.keys[3] = 1;
     context.state.map.cells[34] = createCell(34, MS_TILE.Door_Green, MS_TILE.Empty);
 
-    const arrival = resolveLynxChipArrival(context, 34);
+    const arrival = applyLynxChipArrivalEffects(context, 34);
 
     expect(arrival.status).toBe("resolved");
     expect(arrival.soundEffects).toBe(1);
@@ -62,7 +62,7 @@ describe("lynx chip arrival", () => {
     const context = createContext();
     context.state.map.cells[34] = createCell(34, MS_TILE.Exit, MS_TILE.Empty);
 
-    const completed = resolveCompletedLynxChipMove(context, 34, MS_DIRECTION.east, "planar", null, null, null, null);
+    const completed = applyCompletedLynxChipMove(context, 34, MS_DIRECTION.east, "planar", null, null, null, null);
 
     expect(completed.endGameResult).toBe("completed");
     expect(completed.endGameTicksElapsed).toBe(0);

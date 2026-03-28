@@ -35,7 +35,7 @@ export interface MsChipEnteredTileResolution {
   movementFloorTile: EngineMapCell["top"];
 }
 
-export function resolveMsChipEnteredTile(
+export function applyMsChipEnterEffects(
   cells: EngineMapCell[],
   chip: MsChipEntryState,
   context: MsChipEntryContext,

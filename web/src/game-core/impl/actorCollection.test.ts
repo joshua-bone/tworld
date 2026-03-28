@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { collectActorChipProgress, collectActorInventoryItem } from "@game-core/impl/actorCollection";
 import {
+  createActorInventoryOwnerId,
   createActorLocalInventory,
   createKeysBootsToolsActorLocalInventoryOwner,
   createNoActorLocalInventoryOwner,
@@ -17,7 +18,10 @@ describe("actorCollection", () => {
   });
 
   it("collects key and boot items into actor-owned inventory", () => {
-    const owner = createKeysBootsToolsActorLocalInventoryOwner("chip", createActorLocalInventory("keys-boots-tools"));
+    const owner = createKeysBootsToolsActorLocalInventoryOwner(
+      createActorInventoryOwnerId("test", "chip"),
+      createActorLocalInventory("keys-boots-tools"),
+    );
 
     expect(collectActorInventoryItem(owner, "keys-boots-tools", "keys", 1)).toEqual({
       collected: true,
@@ -35,7 +39,10 @@ describe("actorCollection", () => {
   });
 
   it("treats tool collection as a queued actor capability instead of mutating inventory immediately", () => {
-    const owner = createKeysBootsToolsActorLocalInventoryOwner("chip", createActorLocalInventory("keys-boots-tools"));
+    const owner = createKeysBootsToolsActorLocalInventoryOwner(
+      createActorInventoryOwnerId("test", "chip"),
+      createActorLocalInventory("keys-boots-tools"),
+    );
 
     expect(collectActorInventoryItem(owner, "keys-boots-tools", "tools", 0)).toEqual({
       collected: true,
@@ -46,7 +53,7 @@ describe("actorCollection", () => {
   });
 
   it("rejects collection when actor policy or owner inventory does not support it", () => {
-    const noOwner = createNoActorLocalInventoryOwner("ghost");
+    const noOwner = createNoActorLocalInventoryOwner(createActorInventoryOwnerId("test", "ghost"));
 
     expect(collectActorInventoryItem(noOwner, "none", "keys", 0)).toEqual({
       collected: false,

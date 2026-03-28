@@ -77,7 +77,7 @@ import {
   type LynxChipMoveSelection,
 } from "@ruleset-lynx/impl/chipInput";
 import {
-  resolveCompletedLynxChipMove as resolveCompletedLynxChipMoveWithContext,
+  applyCompletedLynxChipMove as applyCompletedLynxChipMoveWithContext,
 } from "@ruleset-lynx/impl/chipArrival";
 import {
   advanceLynxChipTrapRelease as advanceLynxChipTrapReleaseWithContext,
@@ -1049,7 +1049,7 @@ function createLynxPostMoveContext(
 ) {
   return {
     state,
-    resolveCompletedMove: (
+    applyCompletedMove: (
       chipPos: number,
       chipDir: number,
       chipMoveKind: LynxMoveKind,
@@ -1058,7 +1058,7 @@ function createLynxPostMoveContext(
       endGameAnimationTileId: number | null,
       endGameAnimationFrame: number | null,
     ) =>
-      resolveCompletedLynxChipMove(
+      applyCompletedLynxChipMove(
         state,
         level,
         actors,
@@ -1124,7 +1124,7 @@ function createLynxTrapReleaseContext(
     activeLayerZ: () => activeLynxLayerZ(state),
     chipMovementSpeed: (floorId: number, moveKind: LynxMoveKind = "planar") =>
       lynxChipMovementSpeed(state, floorId, moveKind),
-    resolveCompletedMove: (
+    applyCompletedMove: (
       chipPos: number,
       chipDir: number,
       chipMoveKind: LynxMoveKind,
@@ -1133,7 +1133,7 @@ function createLynxTrapReleaseContext(
       endGameAnimationTileId: number | null,
       endGameAnimationFrame: number | null,
     ) =>
-      resolveCompletedLynxChipMove(
+      applyCompletedLynxChipMove(
         state,
         level,
         actors,
@@ -1574,7 +1574,7 @@ function canLynxChipEnterAfterPushingBlock(
   return lynxChipTargetCellAllowsEntry(probeLynxChipTargetCellForState(state, targetPos, dir));
 }
 
-function resolveCompletedLynxChipMove(
+function applyCompletedLynxChipMove(
   state: EngineState,
   level: LynxLevel,
   actors: LynxRuntimeActor[],
@@ -1587,7 +1587,7 @@ function resolveCompletedLynxChipMove(
   endGameAnimationFrame: number | null,
 ): LynxEndGameState & { chipPos: number; chipDir: number } {
   clearLynxCouldntMove(state);
-  const completed = resolveCompletedLynxChipMoveWithContext(
+  const completed = applyCompletedLynxChipMoveWithContext(
     createLynxCompletedChipMoveContext(state, level, actors),
     chipPos,
     chipDir,

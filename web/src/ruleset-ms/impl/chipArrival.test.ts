@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { MS_SOUND, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  resolveMsChipEnteredTile,
+  applyMsChipEnterEffects,
   type MsChipEntryContext,
   type MsChipEntryState,
 } from "@ruleset-ms/impl/chipArrival";
@@ -49,13 +49,13 @@ function makeContext(
   };
 }
 
-describe("resolveMsChipEnteredTile", () => {
+describe("applyMsChipEnterEffects", () => {
   it("collects chips through global progress", () => {
     const cells = [makeCell(MS_TILE.ICChip)];
     const inventory = makeInventory();
     inventory.chipsNeeded = 3;
 
-    const result = resolveMsChipEnteredTile(cells, makeChipState(), makeContext(inventory, makePortableTools()), 0);
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, makePortableTools()), 0);
 
     expect(inventory.chipsNeeded).toBe(2);
     expect(cells[0]!.top.id).toBe(MS_TILE.Empty);
@@ -67,7 +67,7 @@ describe("resolveMsChipEnteredTile", () => {
     const inventory = makeInventory();
     const portableTools = makePortableTools();
 
-    const result = resolveMsChipEnteredTile(cells, makeChipState(), makeContext(inventory, portableTools), 0);
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, portableTools), 0);
 
     expect(inventory.tools[0]).toBe(MS_TILE.Sandbag);
     expect(portableTools.portableItems).toEqual([
@@ -85,7 +85,7 @@ describe("resolveMsChipEnteredTile", () => {
   it("marks water death when Chip lacks water boots", () => {
     const chip = makeChipState();
 
-    resolveMsChipEnteredTile([makeCell(MS_TILE.Water)], chip, makeContext(makeInventory(), makePortableTools()), 0);
+    applyMsChipEnterEffects([makeCell(MS_TILE.Water)], chip, makeContext(makeInventory(), makePortableTools()), 0);
 
     expect(chip.chipStatus).toBe("drowned");
   });
@@ -103,7 +103,7 @@ describe("resolveMsChipEnteredTile", () => {
       state: { mode: "carried" },
     });
 
-    const result = resolveMsChipEnteredTile(cells, makeChipState(), makeContext(inventory, portableTools), 0);
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, portableTools), 0);
 
     expect(inventory.boots).toEqual([0, 0, 0, 0]);
     expect(inventory.tools).toEqual([0]);
