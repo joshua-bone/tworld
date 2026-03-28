@@ -192,16 +192,16 @@ Goal:
 
 Checklist:
 
-- [ ] define an occupancy query layer per ruleset
-- [ ] support typed targets:
-- [ ] empty
-- [ ] runtime actor
-- [ ] static block
-- [ ] portable item
-- [ ] chip
-- [ ] animation-reserved / blocked visual cell when relevant
-- [ ] make actor movement, chip probing, and trap/cloner checks all use that query layer
-- [ ] stop special-casing “tools on top tile” inside movement logic
+- [x] define an occupancy query layer per ruleset
+- [x] support typed targets:
+- [x] empty
+- [x] runtime actor
+- [x] static block
+- [x] portable item
+- [x] chip
+- [x] animation-reserved / blocked visual cell when relevant
+- [x] make actor movement, chip probing, and trap/cloner checks all use that query layer
+- [x] stop special-casing “tools on top tile” inside movement logic
 
 Success condition:
 

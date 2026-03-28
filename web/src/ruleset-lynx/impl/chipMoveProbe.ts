@@ -1,9 +1,9 @@
 import type { EngineState } from "@game-core/api/model";
-import { hasBoardCell, topTile } from "@game-core/impl/board";
+import { hasBoardCell } from "@game-core/impl/board";
 import { actorInventoryHasKey } from "@game-core/impl/actorLocalInventory";
-import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { lynxChipMovementMask, lynxDoorKeyIndex, lynxToggledWallTileId } from "@ruleset-lynx/impl/catalog";
 import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
+import { queryLynxOccupancyTarget } from "@ruleset-lynx/impl/occupancy";
 import { isLynxBlockedChipEnterRevealTile } from "@ruleset-lynx/impl/tileEffects";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -36,12 +36,17 @@ export function probeLynxChipTargetCell(
     return { status: LYNX_CHIP_TARGET_CELL_PROBE.blocked, tileId: MS_TILE.Empty };
   }
 
-  const tile = topTile(state.map.cells, pos);
-  if ((tile.state & LYNX_CELL_FLAG.Animated) !== 0) {
-    return { status: LYNX_CHIP_TARGET_CELL_PROBE.blocked, tileId: tile.id };
+  const occupancy = queryLynxOccupancyTarget(
+    {
+      cells: state.map.cells,
+    },
+    pos,
+  );
+  if (occupancy.kind === "blocked-visual") {
+    return { status: LYNX_CHIP_TARGET_CELL_PROBE.blocked, tileId: occupancy.tileId };
   }
 
-  const tileId = options.toggleWallsPending ? lynxToggledWallTileId(tile.id) : tile.id;
+  const tileId = options.toggleWallsPending ? lynxToggledWallTileId(occupancy.tileId) : occupancy.tileId;
   const revealWall = isLynxBlockedChipEnterRevealTile(tileId);
   if (options.claimedCell && revealWall) {
     return { status: LYNX_CHIP_TARGET_CELL_PROBE.pushOnly, tileId };

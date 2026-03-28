@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { OCCUPANCY_TARGET_KIND } from "@game-core/impl/occupancy";
 import {
   finishLynxActorMovement,
   startLynxActorMovement,
@@ -42,6 +43,13 @@ function createContext(overrides: Partial<LynxActorMovementContext> = {}): LynxA
     activeLayerZ: () => 1,
     canExitTile: () => true,
     chipActsWallForMobs: () => false,
+    queryTargetOccupancy: (pos, z) => ({
+      kind: OCCUPANCY_TARGET_KIND.empty,
+      pos,
+      z,
+      tileId: MS_TILE.Empty,
+      claimed: false,
+    }),
     clearAnimationAt: () => {},
     canActorEnter: () => true,
     arrivalOutcome: () => "none",

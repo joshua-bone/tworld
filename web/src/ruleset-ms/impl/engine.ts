@@ -149,6 +149,7 @@ import {
   seedMsStatefulActorRuntime,
   type MsStatefulActorRuntimeEntry,
 } from "@ruleset-ms/impl/statefulActors";
+import { queryMsOccupancyTarget } from "@ruleset-ms/impl/occupancy";
 import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
 import {
   moveMsChipDownOneLayer as moveMsChipDownOneLayerWithContext,
@@ -275,6 +276,27 @@ function projectMsRuntimeActorInventoryOwner(
     actorSerial,
     runtimeEntry,
   });
+}
+
+function queryMsTargetOccupancy(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  pos: number,
+  z?: number,
+) {
+  return queryMsOccupancyTarget(
+    {
+      cells,
+      chipPos: internal.chipPos,
+      chipZ: internal.chipZ,
+      creatures: internal.creatures,
+      blocks: internal.blocks,
+      portableItems: internal.portableTools.portableItems,
+      runtimeCellZ,
+    },
+    pos,
+    z,
+  );
 }
 
 function applyMsChipCollisionOutcome(internal: MsInternalState, outcome: ReturnType<typeof msActorCollisionOutcome>): void {
@@ -1270,7 +1292,8 @@ function canMoveChip(
       return false;
     }
   }
-  if (isMsCreature(cells[to]!.top.id)) {
+  const targetOccupancy = queryMsTargetOccupancy(cells, internal, to);
+  if (targetOccupancy.kind === "runtime-actor" || targetOccupancy.kind === "chip") {
     const targetId = msCreatureId(cells[to]!.top.id);
     if (targetId === MS_TILE.Block) {
       return false;
@@ -1281,7 +1304,7 @@ function canMoveChip(
   if (applyMsBlockedChipEnterEffect(cells, to, exposeWalls)) {
     return false;
   }
-  if (floor === MS_TILE.Block_Static) {
+  if (targetOccupancy.kind === "static-block") {
     if (!pushBlock(cells, internal, to, dir, teleportPush, deferButtons, occupiedOriginPos)) {
       return false;
     }
@@ -1405,12 +1428,15 @@ function canMoveBlockInto(
     return false;
   }
 
-  const targetTop = cells[to]!.top.id;
-  if (isMsCreature(targetTop)) {
-    const targetId = msCreatureId(targetTop);
-    return targetId === MS_TILE.Chip || targetId === MS_TILE.Swimming_Chip;
+  const targetOccupancy = internal ? queryMsTargetOccupancy(cells, internal, to) : null;
+  if (targetOccupancy?.kind === "chip") {
+    return true;
+  }
+  if (targetOccupancy?.kind === "runtime-actor" || targetOccupancy?.kind === "static-block") {
+    return false;
   }
 
+  const targetTop = cells[to]!.top.id;
   if ((msBlockMovementMask(targetTop) & dir) === 0) {
     return false;
   }

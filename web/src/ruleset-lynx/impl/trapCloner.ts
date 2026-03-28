@@ -4,6 +4,7 @@ import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { collectLevelConnections } from "@ruleset-ms/api/level";
 import { topTileIdOr } from "@game-core/impl/board";
 import { lynxTileHasTag } from "@ruleset-lynx/impl/catalog";
+import { queryLynxOccupancyTarget, type LynxOccupancyPortableItemRef } from "@ruleset-lynx/impl/occupancy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxTrapClonerActor {
@@ -17,6 +18,7 @@ export interface LynxTrapClonerActor {
 }
 
 export interface LynxTrapHeldActor {
+  id: number;
   pos: number;
   z?: number;
   moving: number;
@@ -61,6 +63,7 @@ export function isLynxTrapHeldOpen<TActor extends LynxTrapHeldActor>(
   state: EngineState,
   level: LynxLevel,
   actors: TActor[],
+  portableItems: readonly LynxOccupancyPortableItemRef[],
   trapPos: number,
   z = 1,
 ): boolean {
@@ -76,10 +79,16 @@ export function isLynxTrapHeldOpen<TActor extends LynxTrapHeldActor>(
       return false;
     }
 
-    if (
-      buttonCell.top.id === MS_TILE.Sandbag &&
-      buttonCell.bottom.id === MS_TILE.Button_Brown
-    ) {
+    const buttonOccupancy = queryLynxOccupancyTarget(
+      {
+        cells: state.map.cells,
+        actors,
+        portableItems,
+      },
+      connection.from,
+      z,
+    );
+    if (buttonOccupancy.kind === "portable-item") {
       return true;
     }
 
@@ -87,13 +96,8 @@ export function isLynxTrapHeldOpen<TActor extends LynxTrapHeldActor>(
       return false;
     }
 
-    return actors.some(
-      (actor) =>
-        !actor.hidden &&
-        actor.moving <= 0 &&
-        actor.pos === connection.from &&
-        (actor.z ?? 1) === z,
-    );
+    const occupant = buttonOccupancy.runtimeActor;
+    return buttonOccupancy.kind === "runtime-actor" && occupant !== undefined && occupant.moving <= 0;
   });
 }
 

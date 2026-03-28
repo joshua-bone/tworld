@@ -13,7 +13,7 @@ import {
   topTile,
   topTileIdOr,
 } from "@game-core/impl/board";
-import { findVisibleActorOnFlaggedTopCell } from "@game-core/impl/occupancy";
+import { OCCUPANCY_TARGET_KIND } from "@game-core/impl/occupancy";
 import {
   advanceToCell,
   advancePositionIfPossible,
@@ -149,6 +149,7 @@ import {
   seedLynxStatefulActorRuntime,
   type LynxStatefulActorRuntimeEntry,
 } from "@ruleset-lynx/impl/statefulActors";
+import { queryLynxOccupancyTarget } from "@ruleset-lynx/impl/occupancy";
 import {
   resolveLynxTeleports as resolveLynxTeleportsWithContext,
   type LynxTeleportContext,
@@ -303,6 +304,26 @@ function projectLynxRuntimeActorInventoryOwner(
     actorSerial: actor.serial,
     runtimeEntry,
   });
+}
+
+function queryLynxOccupancyOnLayer(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  pos: number,
+  z = activeLynxLayerZ(state),
+) {
+  const runtime = lynxRuntimeState(state);
+  return queryLynxOccupancyTarget(
+    {
+      cells: state.map.cells,
+      chipPos: runtime.chipPos,
+      chipZ: runtime.chipZ,
+      actors,
+      portableItems: runtime.portableTools.portableItems,
+    },
+    pos,
+    z,
+  );
 }
 
 export interface LynxRuntimeActor {
@@ -1048,6 +1069,7 @@ function createLynxActorMovementContext(
     activeLayerZ: () => activeLynxLayerZ(state),
     canExitTile: (tileId, actorId, dir, releasing) => canLynxExitTile(state, tileId, actorId, dir, releasing),
     chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
+    queryTargetOccupancy: (pos, z) => queryLynxOccupancyOnLayer(state, actors, pos, z),
     clearAnimationAt: (pos) => {
       clearLynxAnimationAt(state, actors, pos);
     },
@@ -1205,9 +1227,14 @@ function createLynxTrapReleaseContext(
     addCantMove: () => {
       addLynxCantMove(state);
     },
-    findTargetBlock: (targetPos: number) =>
-      findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) !==
-      undefined,
+    findTargetBlock: (targetPos: number) => {
+      const target = queryLynxOccupancyOnLayer(state, actors, targetPos);
+      return (
+        target.claimed &&
+        target.kind === OCCUPANCY_TARGET_KIND.runtimeActor &&
+        target.runtimeActor?.id === MS_TILE.Block
+      );
+    },
     probeTargetCell: (targetPos: number, dir: number, claimedCell: boolean) =>
       probeLynxChipTargetCellForState(state, targetPos, dir, claimedCell),
     targetCellAllowsPush: (probe: ReturnType<typeof probeLynxChipTargetCellForState>) => lynxChipTargetCellAllowsPush(probe),
@@ -1423,7 +1450,17 @@ function isLynxHeldOpenTrapBlock(
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
 ): boolean {
-  return actor.id === MS_TILE.Block && isLynxTrapHeldOpen(state, level, actors, actor.pos, actor.z ?? activeLynxLayerZ(state));
+  return (
+    actor.id === MS_TILE.Block &&
+    isLynxTrapHeldOpen(
+      state,
+      level,
+      actors,
+      lynxPortableToolRuntime(state).portableItems,
+      actor.pos,
+      actor.z ?? activeLynxLayerZ(state),
+    )
+  );
 }
 
 function probeLynxChipMoveDirection(
@@ -1441,9 +1478,13 @@ function probeLynxChipMoveDirection(
     return { canMove: false, pushBlockPos: null };
   }
   const { pos: targetPos, cell: target } = targetStep;
+  const targetOccupancy = queryLynxOccupancyOnLayer(state, actors, targetPos);
 
-  if (hasTopTileFlags(state.map.cells, targetPos, LYNX_CELL_FLAG.Claimed)) {
-    const block = findClaimedLynxBlockOnActiveLayer(state, actors, targetPos);
+  if (targetOccupancy.claimed) {
+    const block =
+      targetOccupancy.kind === OCCUPANCY_TARGET_KIND.runtimeActor && targetOccupancy.runtimeActor?.id === MS_TILE.Block
+        ? targetOccupancy.runtimeActor
+        : null;
     if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
       return { canMove: false, pushBlockPos: null };
     }
@@ -1946,7 +1987,11 @@ function canLynxChipExitTeleportThroughBlock(
   exitPos: number,
   dir: number,
 ): boolean {
-  const block = findLynxBlockActor(actors, exitPos, activeLynxLayerZ(state));
+  const target = queryLynxOccupancyOnLayer(state, actors, exitPos);
+  const block =
+    target.claimed && target.kind === OCCUPANCY_TARGET_KIND.runtimeActor && target.runtimeActor?.id === MS_TILE.Block
+      ? target.runtimeActor
+      : null;
   if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return false;
   }
@@ -2252,16 +2297,10 @@ function detectLynxChipCollision(actors: LynxRuntimeActor[], chipPos: number, ch
 }
 
 function findClaimedLynxBlockOnActiveLayer(state: EngineState, actors: LynxRuntimeActor[], pos: number): LynxRuntimeActor | null {
-  const activeZ = activeLynxLayerZ(state);
-  return (
-    findVisibleActorOnFlaggedTopCell(
-      state.map.cells,
-      actors,
-      pos,
-      LYNX_CELL_FLAG.Claimed,
-      (actor) => actor.id === MS_TILE.Block && (actor.z ?? 1) === activeZ,
-    ) ?? null
-  );
+  const target = queryLynxOccupancyOnLayer(state, actors, pos);
+  return target.claimed && target.kind === OCCUPANCY_TARGET_KIND.runtimeActor && target.runtimeActor?.id === MS_TILE.Block
+    ? target.runtimeActor
+    : null;
 }
 
 function resolveLynxChipCollision(

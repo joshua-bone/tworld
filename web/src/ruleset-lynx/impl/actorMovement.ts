@@ -18,6 +18,7 @@ import {
   type ArrivalResult,
   type MovementAttemptResult,
 } from "@game-core/api/movementOutcomes";
+import type { OccupancyTarget } from "@game-core/impl/occupancy";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
   lynxArrivalAnimationKind,
@@ -56,6 +57,7 @@ export interface LynxActorMovementContext {
   activeLayerZ(): number;
   canExitTile(tileId: number, actorId: number, dir: number, releasing: boolean): boolean;
   chipActsWallForMobs(pos: number, z: number): boolean;
+  queryTargetOccupancy(pos: number, z: number): OccupancyTarget<LynxActorMovementActor>;
   clearAnimationAt(pos: number): void;
   canActorEnter(actor: LynxActorMovementActor, tileId: number, dir: number): boolean;
   arrivalOutcome(actor: LynxActorMovementActor, floorId: number): ActorArrivalOutcome;
@@ -115,14 +117,15 @@ export function canLynxActorStartMovement(
     return false;
   }
 
+  const targetOccupancy = context.queryTargetOccupancy(targetPos, actor.z ?? context.activeLayerZ());
   if (
-    (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 ||
+    targetOccupancy.claimed ||
     !context.canActorEnter(actor, context.effectiveTargetTileId(target.top.id), dir)
   ) {
     return false;
   }
 
-  if (clearAnimations && (target.top.state & LYNX_CELL_FLAG.Animated) !== 0) {
+  if (clearAnimations && targetOccupancy.kind === "blocked-visual") {
     context.clearAnimationAt(targetPos);
   }
 
