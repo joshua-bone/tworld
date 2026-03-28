@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { getOrCreateHeldTrapSprite } from "@player-web/impl/legacyCanvasTileset";
+import {
+  createLegacyExpansionArtworkOverrides,
+  getOrCreateHeldTrapSprite,
+} from "@player-web/impl/legacyCanvasTileset";
 import { LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import type { LegacyTileSprite, LegacyTileset } from "@player-web/impl/legacyTileset";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
@@ -52,6 +55,41 @@ describe("getOrCreateHeldTrapSprite", () => {
       });
       expect(fakeCanvas.width).toBe(LEGACY_TILE_SIZE);
       expect(fakeCanvas.height).toBe(LEGACY_TILE_SIZE);
+      expect(fakeContext.drawImage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe("createLegacyExpansionArtworkOverrides", () => {
+  it("maps expansion artwork sprites onto the registered portable-item and bowling-ball ids", () => {
+    const fakeImage = { width: LEGACY_TILE_SIZE * 3, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
+    const fakeContext = {
+      imageSmoothingEnabled: true,
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeContext),
+    } as unknown as HTMLCanvasElement;
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCanvas;
+        }),
+      });
+
+      const overrides = createLegacyExpansionArtworkOverrides(fakeImage);
+
+      expect(overrides.get(MS_TILE.Sandbag)).toMatchObject({ transparent: true });
+      expect(overrides.get(MS_TILE.Hook)).toMatchObject({ transparent: true });
+      expect(overrides.get(MS_TILE.BowlingBall)).toMatchObject({ transparent: true });
       expect(fakeContext.drawImage).toHaveBeenCalledTimes(2);
     } finally {
       vi.unstubAllGlobals();

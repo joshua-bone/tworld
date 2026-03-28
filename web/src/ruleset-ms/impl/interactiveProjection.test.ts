@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EngineState } from "@game-core/api/model";
+import { createStatefulActorRuntimeStore, setStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { expectOverlayPresent } from "@game-core/impl/testOverlays";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
 import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
@@ -298,5 +299,52 @@ describe("projectMsInteractiveFrame", () => {
         }),
       ]),
     );
+  });
+
+  it("projects bowling ball visuals from stateful actor runtime kind", () => {
+    const cells = [createCell(0, MS_TILE.Empty)];
+    const runtimeActors = createStatefulActorRuntimeStore();
+    setStatefulActorRuntime(runtimeActors, {
+      actorSerial: 17,
+      kind: "bowling-ball",
+      state: { mode: "moving" },
+    });
+    const session = {
+      state: {
+        engine: createEngineState(cells),
+        internal: {
+          chipZ: 1,
+          traps: [],
+          statefulActors: runtimeActors,
+          creatures: [
+            {
+              serial: 17,
+              id: MS_TILE.Ball,
+              pos: 0,
+              z: 1,
+              dir: MS_DIRECTION.east,
+              moving: 0,
+              frame: 0,
+              hidden: false,
+            },
+          ],
+          blocks: [],
+        },
+      },
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+    } as unknown as MsInteractiveSessionState;
+
+    const frame = projectMsInteractiveFrame(session, "tick");
+
+    expect(frame.render?.actors[0]?.visual).toMatchObject({
+      kind: "creature",
+      tileId: MS_TILE.BowlingBall,
+    });
   });
 });

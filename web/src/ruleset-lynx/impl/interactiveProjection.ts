@@ -2,6 +2,8 @@ import type { InteractiveGameFrame } from "@game-core/api/interactive";
 import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-core/impl/interactiveProjection";
 import type { EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
+import type { StatefulActorRuntimeStore, StatefulActorRuntimeEntry } from "@game-core/impl/statefulActorRuntime";
+import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import type { LynxInteractiveSessionState } from "@ruleset-lynx/impl/engine";
 import {
@@ -34,6 +36,7 @@ interface LynxProjectedRuntimeState {
       z: number;
     } | null;
   };
+  statefulActors?: StatefulActorRuntimeStore<StatefulActorRuntimeEntry>;
 }
 
 function lynxProjectedRuntimeState(state: EngineState): LynxProjectedRuntimeState | null {
@@ -143,6 +146,7 @@ export function projectLynxInteractiveFrame(
           },
           session.state.map.cells[actor.pos]?.top.id ?? MS_TILE.Empty,
           session.state.map.cells[actor.pos]?.bottom.id ?? MS_TILE.Empty,
+          findStatefulActorRuntime(runtime?.statefulActors ?? { byActorSerial: new Map() }, actor.serial)?.kind ?? null,
         ),
       ),
       animations: runtime?.visuals?.animations?.map((animation) => projectLynxRenderableAnimation({ ...animation })) ?? [],

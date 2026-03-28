@@ -194,6 +194,28 @@ export function createLegacyArtworkSpriteFromFrame(
   };
 }
 
+export function createLegacyExpansionArtworkOverrides(
+  image: CanvasImageSource,
+): ReadonlyMap<number, LegacyTileSprite> {
+  const overrides = new Map<number, LegacyTileSprite>();
+  const sandbagFrame = expansionArtworkFrameRect("sandbag");
+  const bowlingBallMovingFrame = expansionArtworkFrameRect("bowling_ball_moving");
+  const sandbagSprite = sandbagFrame ? createLegacyArtworkSpriteFromFrame(image, sandbagFrame) : null;
+  const bowlingBallMovingSprite = bowlingBallMovingFrame
+    ? createLegacyArtworkSpriteFromFrame(image, bowlingBallMovingFrame)
+    : null;
+
+  if (sandbagSprite) {
+    overrides.set(MS_TILE.Sandbag, sandbagSprite);
+    overrides.set(MS_TILE.Hook, sandbagSprite);
+  }
+  if (bowlingBallMovingSprite) {
+    overrides.set(MS_TILE.BowlingBall, bowlingBallMovingSprite);
+  }
+
+  return overrides;
+}
+
 export function applyLegacyTileOverrides(
   tileset: LegacyTileset,
   overrides: ReadonlyMap<number, LegacyTileSprite>,
@@ -276,11 +298,6 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
     void Promise.all([loadLegacyImage(LEGACY_TILESET_URLS[ruleset]), loadLegacyImage(expandedArtworkUrl)])
       .then(([image, expandedArtworkImage]) => {
         try {
-          const sandbagFrame = expansionArtworkFrameRect("sandbag");
-          if (!sandbagFrame) {
-            throw new Error("Missing sandbag frame in expansion artwork sheet");
-          }
-
           const canvas = document.createElement("canvas");
           canvas.width = image.width;
           canvas.height = image.height;
@@ -290,15 +307,9 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
           }
 
           context.drawImage(image, 0, 0);
-          const sandbagSprite = createLegacyArtworkSpriteFromFrame(expandedArtworkImage, sandbagFrame);
           const tileset = applyLegacyTileOverrides(
             buildLegacyTileset(canvas, ruleset),
-            sandbagSprite
-              ? new Map([
-                  [MS_TILE.Sandbag, sandbagSprite],
-                  [MS_TILE.Hook, sandbagSprite],
-                ])
-              : new Map(),
+            createLegacyExpansionArtworkOverrides(expandedArtworkImage),
           );
           legacyTilesetCache.set(ruleset, tileset);
           resolve(tileset);

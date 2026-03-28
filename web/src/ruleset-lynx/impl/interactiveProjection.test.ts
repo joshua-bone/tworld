@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EngineState } from "@game-core/api/model";
+import { createStatefulActorRuntimeStore, setStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { expectOverlayPresent } from "@game-core/impl/testOverlays";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
@@ -434,6 +435,98 @@ describe("projectLynxInteractiveFrame", () => {
           tileId: MS_TILE.Wall_South,
         }),
       ]),
+    });
+  });
+
+  it("projects bowling ball visuals from stateful actor runtime kind", () => {
+    const cells = [createCell(0, MS_TILE.Empty)];
+    const engine = createEngineState(cells) as EngineState & {
+      lynxRuntimeState?: {
+        visuals?: {
+          animations: [];
+          tileOverlays?: [];
+        };
+        chipRuntime?: {
+          chipTeleported: boolean;
+        };
+        portableTools?: {
+          primedToolDrop?: null;
+        };
+        statefulActors?: ReturnType<typeof createStatefulActorRuntimeStore>;
+      };
+    };
+    engine.lynxRuntimeState = {
+      visuals: {
+        animations: [],
+        tileOverlays: [],
+      },
+      portableTools: {
+        primedToolDrop: null,
+      },
+      chipRuntime: {
+        chipTeleported: false,
+      },
+      statefulActors: createStatefulActorRuntimeStore(),
+    };
+    setStatefulActorRuntime(engine.lynxRuntimeState.statefulActors!, {
+      actorSerial: 17,
+      kind: "bowling-ball",
+      state: { mode: "moving" },
+    });
+    const level = {
+      number: 1,
+      timeLimitTicks: 0,
+      chipsNeeded: 0,
+      hintText: "",
+      cells,
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      statusFlags: 0,
+    } satisfies LynxLevel;
+    const session = {
+      level,
+      state: engine,
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+      chipPos: 1,
+      chipZ: 1,
+      chipDir: 0,
+      chipMoving: 0,
+      chipMoveKind: "planar",
+      currentInputCode: 0,
+      queuedReplayInputCode: 0,
+      queuedChipInputCode: 0,
+      chipPushing: false,
+      actors: [
+        {
+          serial: 17,
+          id: MS_TILE.Ball,
+          pos: 0,
+          z: 1,
+          dir: MS_DIRECTION.east,
+          moving: 0,
+          frame: 0,
+          hidden: false,
+          animationReserved: false,
+        },
+      ],
+      endGameTicksElapsed: null,
+      endGameResult: null,
+      endGameAnimationTileId: null,
+      endGameAnimationFrame: null,
+    } as unknown as LynxInteractiveSessionState;
+
+    const frame = projectLynxInteractiveFrame(session, "tick");
+
+    expect(frame.render?.actors[0]?.visual).toMatchObject({
+      kind: "creature",
+      tileId: MS_TILE.BowlingBall,
     });
   });
 });

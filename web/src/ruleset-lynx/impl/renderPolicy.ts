@@ -43,17 +43,19 @@ export function projectLynxRenderableActor(
   actor: Omit<InteractiveGameRenderableActor, "visual" | "decorations">,
   topId: number,
   bottomId: number,
+  statefulKind: string | null = null,
 ): InteractiveGameRenderableActor {
   const decorations = [
     projectThinWallActorDecoration(actor.id, topId, bottomId),
     projectActorSupportDecoration(actor.id, topId, bottomId),
   ].filter((decoration): decoration is NonNullable<typeof decoration> => decoration !== null);
+  const visualTileId = statefulKind === "bowling-ball" ? MS_TILE.BowlingBall : actor.id;
 
   return {
     ...actor,
     visual: {
       kind: "creature",
-      tileId: actor.id,
+      tileId: visualTileId,
       dir: actor.dir,
       moving: actor.moving,
       frame: actor.frame,

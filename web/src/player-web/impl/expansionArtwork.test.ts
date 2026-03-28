@@ -27,6 +27,23 @@ describe("expansionArtworkFrameRect", () => {
     });
   });
 
+  it("returns the bowling ball frames from the second and third sheet cells", () => {
+    expect(expansionArtworkFrameRect("bowling_ball_moving")).toEqual({
+      x: 48,
+      y: 0,
+      width: 48,
+      height: 48,
+      transparent: true,
+    });
+    expect(expansionArtworkFrameRect("bowling_ball_still")).toEqual({
+      x: 96,
+      y: 0,
+      width: 48,
+      height: 48,
+      transparent: true,
+    });
+  });
+
   it("returns null for unknown sprites", () => {
     expect(expansionArtworkFrameRect("missing")).toBeNull();
   });

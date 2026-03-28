@@ -2,6 +2,7 @@ import type { InteractiveGameFrame } from "@game-core/api/interactive";
 import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-core/impl/interactiveProjection";
 import type { EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
+import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
 import {
   projectMsRenderableActor,
@@ -83,6 +84,9 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
 
   for (const creature of creatures) {
     const cells = session.state.engine.map.cells;
+    const statefulKind = creature.serial
+      ? findStatefulActorRuntime(session.state.internal.statefulActors, creature.serial)?.kind ?? null
+      : null;
     addActor(projectMsRenderableActor({
       serial: creature.serial,
       id: creature.id,
@@ -92,7 +96,7 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
       moving: creature.moving,
       frame: creature.frame,
       hidden: creature.hidden,
-    }, cells[creature.pos]?.top.id ?? MS_TILE.Empty, cells[creature.pos]?.bottom.id ?? MS_TILE.Empty));
+    }, cells[creature.pos]?.top.id ?? MS_TILE.Empty, cells[creature.pos]?.bottom.id ?? MS_TILE.Empty, statefulKind));
   }
 
   for (const block of blocks) {
