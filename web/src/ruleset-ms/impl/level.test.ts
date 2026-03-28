@@ -7,6 +7,8 @@ import {
   levelHintTextAtZ,
   prepareMsLevel,
 } from "@ruleset-ms/api/level";
+import { prepareLoadedMsLevel } from "@ruleset-ms/api/levelLoader";
+import { createMsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE } from "@ruleset-ms/api/tiles";
 
 function createMinimalLevelData(levelNumber = 7): Uint8Array {
@@ -81,6 +83,29 @@ describe("ms level preparation", () => {
     expect(grouped.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Elevator);
     expect(grouped.layers?.[1]?.cells[0]?.top.id).toBe(MS_TILE.Elevator);
     expect(single.cells[0]?.top.id).toBe(MS_TILE.Exited_Chip);
+  });
+
+  it("routes DAT decoding through the decode registration seam", () => {
+    const decoded = decodeMsLevelGroupData(
+      [createSingleTopTileLevelData(1, 7)],
+      undefined,
+      createMsLevelDecodeRegistration([{ fileCode: 1, tileId: MS_TILE.Fire }]),
+    );
+
+    expect(decoded.cells[0]?.top.id).toBe(MS_TILE.Fire);
+  });
+
+  it("prepares loaded MS levels through the ruleset-local load registration seam", () => {
+    const levelData = createSingleTopTileLevelData(1, 7);
+    const prepared = prepareLoadedMsLevel(
+      {
+        levelData,
+        layerData: [levelData],
+      },
+      createMsLevelDecodeRegistration([{ fileCode: 1, tileId: MS_TILE.Fire }]),
+    );
+
+    expect(prepared.cells[0]?.top.id).toBe(MS_TILE.Fire);
   });
 
   it("collects z-aware connection and creature metadata in layer order", () => {

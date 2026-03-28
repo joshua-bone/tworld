@@ -1,5 +1,9 @@
 import type { EngineMapCell } from "@game-core/api/model";
-import { MS_FLOOR_STATE, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
+import {
+  msBuiltinLevelDecodeRegistration,
+  type MsLevelDecodeRegistration,
+} from "@ruleset-ms/api/levelRegistration";
+import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface MsConnection {
   from: number;
@@ -92,134 +96,6 @@ function createEmptyCells(z = 1): EngineMapCell[] {
   }));
 }
 
-const FILE_IDS = [
-  MS_TILE.Empty,
-  MS_TILE.Wall,
-  MS_TILE.ICChip,
-  MS_TILE.Water,
-  MS_TILE.Fire,
-  MS_TILE.HiddenWall_Perm,
-  MS_TILE.Wall_North,
-  MS_TILE.Wall_West,
-  MS_TILE.Wall_South,
-  MS_TILE.Wall_East,
-  MS_TILE.Block_Static,
-  MS_TILE.Dirt,
-  MS_TILE.Ice,
-  MS_TILE.Slide_South,
-  msCreatureTile(MS_TILE.Block, 1),
-  msCreatureTile(MS_TILE.Block, 2),
-  msCreatureTile(MS_TILE.Block, 4),
-  msCreatureTile(MS_TILE.Block, 8),
-  MS_TILE.Slide_North,
-  MS_TILE.Slide_East,
-  MS_TILE.Slide_West,
-  MS_TILE.Exit,
-  MS_TILE.Door_Blue,
-  MS_TILE.Door_Red,
-  MS_TILE.Door_Green,
-  MS_TILE.Door_Yellow,
-  MS_TILE.IceWall_Southeast,
-  MS_TILE.IceWall_Southwest,
-  MS_TILE.IceWall_Northwest,
-  MS_TILE.IceWall_Northeast,
-  MS_TILE.BlueWall_Fake,
-  MS_TILE.BlueWall_Real,
-  MS_TILE.Overlay_Buffer,
-  MS_TILE.Burglar,
-  MS_TILE.Socket,
-  MS_TILE.Button_Green,
-  MS_TILE.Button_Red,
-  MS_TILE.SwitchWall_Closed,
-  MS_TILE.SwitchWall_Open,
-  MS_TILE.Button_Brown,
-  MS_TILE.Button_Blue,
-  MS_TILE.Teleport,
-  MS_TILE.Bomb,
-  MS_TILE.Beartrap,
-  MS_TILE.HiddenWall_Temp,
-  MS_TILE.Gravel,
-  MS_TILE.PopupWall,
-  MS_TILE.HintButton,
-  MS_TILE.Wall_Southeast,
-  MS_TILE.CloneMachine,
-  MS_TILE.Slide_Random,
-  MS_TILE.Drowned_Chip,
-  MS_TILE.Burned_Chip,
-  MS_TILE.Bombed_Chip,
-  MS_TILE.HiddenWall_Perm,
-  MS_TILE.HiddenWall_Perm,
-  MS_TILE.HiddenWall_Perm,
-  MS_TILE.Exited_Chip,
-  MS_TILE.Exit_Extra_1,
-  MS_TILE.Exit_Extra_2,
-  msCreatureTile(MS_TILE.Swimming_Chip, 1),
-  msCreatureTile(MS_TILE.Swimming_Chip, 2),
-  msCreatureTile(MS_TILE.Swimming_Chip, 4),
-  msCreatureTile(MS_TILE.Swimming_Chip, 8),
-  msCreatureTile(MS_TILE.Bug, 1),
-  msCreatureTile(MS_TILE.Bug, 2),
-  msCreatureTile(MS_TILE.Bug, 4),
-  msCreatureTile(MS_TILE.Bug, 8),
-  msCreatureTile(MS_TILE.Fireball, 1),
-  msCreatureTile(MS_TILE.Fireball, 2),
-  msCreatureTile(MS_TILE.Fireball, 4),
-  msCreatureTile(MS_TILE.Fireball, 8),
-  msCreatureTile(MS_TILE.Ball, 1),
-  msCreatureTile(MS_TILE.Ball, 2),
-  msCreatureTile(MS_TILE.Ball, 4),
-  msCreatureTile(MS_TILE.Ball, 8),
-  msCreatureTile(MS_TILE.Tank, 1),
-  msCreatureTile(MS_TILE.Tank, 2),
-  msCreatureTile(MS_TILE.Tank, 4),
-  msCreatureTile(MS_TILE.Tank, 8),
-  msCreatureTile(MS_TILE.Glider, 1),
-  msCreatureTile(MS_TILE.Glider, 2),
-  msCreatureTile(MS_TILE.Glider, 4),
-  msCreatureTile(MS_TILE.Glider, 8),
-  msCreatureTile(MS_TILE.Teeth, 1),
-  msCreatureTile(MS_TILE.Teeth, 2),
-  msCreatureTile(MS_TILE.Teeth, 4),
-  msCreatureTile(MS_TILE.Teeth, 8),
-  msCreatureTile(MS_TILE.Walker, 1),
-  msCreatureTile(MS_TILE.Walker, 2),
-  msCreatureTile(MS_TILE.Walker, 4),
-  msCreatureTile(MS_TILE.Walker, 8),
-  msCreatureTile(MS_TILE.Blob, 1),
-  msCreatureTile(MS_TILE.Blob, 2),
-  msCreatureTile(MS_TILE.Blob, 4),
-  msCreatureTile(MS_TILE.Blob, 8),
-  msCreatureTile(MS_TILE.Paramecium, 1),
-  msCreatureTile(MS_TILE.Paramecium, 2),
-  msCreatureTile(MS_TILE.Paramecium, 4),
-  msCreatureTile(MS_TILE.Paramecium, 8),
-  MS_TILE.Key_Blue,
-  MS_TILE.Key_Red,
-  MS_TILE.Key_Green,
-  MS_TILE.Key_Yellow,
-  MS_TILE.Boots_Water,
-  MS_TILE.Boots_Fire,
-  MS_TILE.Boots_Ice,
-  MS_TILE.Boots_Slide,
-  msCreatureTile(MS_TILE.Chip, 1),
-  msCreatureTile(MS_TILE.Chip, 2),
-  msCreatureTile(MS_TILE.Chip, 4),
-  msCreatureTile(MS_TILE.Chip, 8),
-  MS_TILE.Sandbag,
-] as const;
-
-function remapThreeDimensionalTileId(tileId: number, z: number, hasHigherLayers: boolean): number {
-  if (z > 1 && tileId === MS_TILE.Overlay_Buffer) {
-    return MS_TILE.Air;
-  }
-
-  if (hasHigherLayers && tileId === MS_TILE.Exited_Chip) {
-    return MS_TILE.Elevator;
-  }
-
-  return tileId;
-}
-
 function decodeLayer(
   target: EngineMapCell[],
   data: Uint8Array,
@@ -228,6 +104,7 @@ function decodeLayer(
   key: "top" | "bottom",
   z: number,
   hasHigherLayers: boolean,
+  registration: MsLevelDecodeRegistration,
 ): {
   nextOffset: number;
   badTiles: boolean;
@@ -247,8 +124,11 @@ function decodeLayer(
       offset += 2;
     }
 
-    const tileId = FILE_IDS[fileId];
-    const resolvedId = remapThreeDimensionalTileId(tileId ?? MS_TILE.Wall, z, hasHigherLayers);
+    const tileId = registration.resolveTileId(fileId, {
+      z,
+      hasHigherLayers,
+    });
+    const resolvedId = tileId ?? MS_TILE.Wall;
     if (tileId === undefined) {
       badTiles = true;
     }
@@ -266,7 +146,12 @@ function decodeLayer(
   };
 }
 
-function decodeMsSingleLevelData(levelData: Uint8Array, z: number, hasHigherLayers: boolean): DecodedMsLevelLayerData {
+function decodeMsSingleLevelData(
+  levelData: Uint8Array,
+  z: number,
+  hasHigherLayers: boolean,
+  registration: MsLevelDecodeRegistration,
+): DecodedMsLevelLayerData {
   if (levelData.length < 10) {
     throw new Error("invalid level data");
   }
@@ -283,12 +168,12 @@ function decodeMsSingleLevelData(levelData: Uint8Array, z: number, hasHigherLaye
   let offset = 10;
 
   const upperSize = readUint16(levelData, 8);
-  const upperResult = decodeLayer(cells, levelData, offset, upperSize, "top", z, hasHigherLayers);
+  const upperResult = decodeLayer(cells, levelData, offset, upperSize, "top", z, hasHigherLayers, registration);
   offset = upperResult.nextOffset;
 
   const lowerSize = readUint16(levelData, offset);
   offset += 2;
-  const lowerResult = decodeLayer(cells, levelData, offset, lowerSize, "bottom", z, hasHigherLayers);
+  const lowerResult = decodeLayer(cells, levelData, offset, lowerSize, "bottom", z, hasHigherLayers, registration);
   offset = lowerResult.nextOffset;
 
   const metadataSize = readUint16(levelData, offset);
@@ -363,14 +248,17 @@ function decodeMsSingleLevelData(levelData: Uint8Array, z: number, hasHigherLaye
 export function decodeMsLevelGroupData(
   levelDataLayers: readonly Uint8Array[],
   primaryLevelData: Uint8Array = levelDataLayers[0] ?? new Uint8Array(),
+  registration: MsLevelDecodeRegistration = msBuiltinLevelDecodeRegistration,
 ): DecodedMsLevelData {
   if (levelDataLayers.length === 0) {
     throw new Error("level group must contain at least one layer");
   }
 
   const hasHigherLayers = levelDataLayers.length > 1;
-  const layers = levelDataLayers.map((levelData, index) => decodeMsSingleLevelData(levelData, index + 1, hasHigherLayers));
-  const primary = decodeMsSingleLevelData(primaryLevelData, 1, hasHigherLayers);
+  const layers = levelDataLayers.map((levelData, index) =>
+    decodeMsSingleLevelData(levelData, index + 1, hasHigherLayers, registration),
+  );
+  const primary = decodeMsSingleLevelData(primaryLevelData, 1, hasHigherLayers, registration);
   const first = layers[0]!;
 
   return {
@@ -387,8 +275,11 @@ export function decodeMsLevelGroupData(
   };
 }
 
-export function decodeMsLevelData(levelData: Uint8Array): DecodedMsLevelData {
-  return decodeMsLevelGroupData([levelData]);
+export function decodeMsLevelData(
+  levelData: Uint8Array,
+  registration: MsLevelDecodeRegistration = msBuiltinLevelDecodeRegistration,
+): DecodedMsLevelData {
+  return decodeMsLevelGroupData([levelData], undefined, registration);
 }
 
 export function levelLayers(level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "hintText" | "layers">): MsLevelLayer[] {

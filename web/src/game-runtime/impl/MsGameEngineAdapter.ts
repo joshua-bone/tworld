@@ -20,7 +20,8 @@ import {
   formatInteractiveTickSeconds,
 } from "@game-runtime/impl/interactiveSessionRun";
 import type { InteractiveInput } from "@game-core/api/command";
-import { decodeMsLevelGroupData, levelHintTextAtZ, prepareMsLevel } from "@ruleset-ms/api/level";
+import { levelHintTextAtZ, type MsLevel } from "@ruleset-ms/api/level";
+import { prepareLoadedMsLevel } from "@ruleset-ms/api/levelLoader";
 import {
   advanceMsInteractiveSession,
   createMsInteractiveSession,
@@ -57,13 +58,9 @@ import {
 
 type MsInteractiveRuntime = InteractiveAdapterRuntime<
   MsInteractiveSessionState,
-  ReturnType<typeof prepareMsLevel>,
+  MsLevel,
   MsUndoHistory
 >;
-
-function prepareLoadedMsLevel(loaded: Awaited<ReturnType<LevelRepository["loadLevel"]>>) {
-  return prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-}
 
 function findMsCollisionCause(state: MsInteractiveSessionState["state"]): InteractiveGameSessionEndCause {
   const chipPos = boardPositionToGridPosition(state.internal.chipPos, state.internal.chipZ ?? 1);
@@ -189,7 +186,7 @@ function projectMsRunState(
 
 const msProjectionConfig: InteractiveAdapterProjectionConfig<
   MsInteractiveSessionState,
-  ReturnType<typeof prepareMsLevel>,
+  MsLevel,
   MsUndoHistory
 > = {
   getCurrentTick: (token) => token.state.engine.timer.currentTime,
@@ -208,7 +205,7 @@ function projectMsSession(
 
 const msHistoryConfig: InteractiveAdapterHistoryConfig<
   MsInteractiveSessionState,
-  ReturnType<typeof prepareMsLevel>,
+  MsLevel,
   MsUndoHistory
 > = {
   advanceToken: (token, inputCode) => advanceMsInteractiveSession(token, inputCode),

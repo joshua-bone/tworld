@@ -20,8 +20,9 @@ import {
   formatInteractiveTickSeconds,
 } from "@game-runtime/impl/interactiveSessionRun";
 import type { InteractiveInput } from "@game-core/api/command";
-import { prepareLynxLevel } from "@ruleset-lynx/api/level";
-import { decodeMsLevelGroupData, levelHintTextAtZ } from "@ruleset-ms/api/level";
+import type { LynxLevel } from "@ruleset-lynx/api/level";
+import { prepareLoadedLynxLevel } from "@ruleset-lynx/api/levelLoader";
+import { levelHintTextAtZ } from "@ruleset-ms/api/level";
 import {
   advanceLynxInteractiveSession,
   createLynxInteractiveSession,
@@ -58,13 +59,9 @@ import {
 
 type LynxInteractiveRuntime = InteractiveAdapterRuntime<
   LynxInteractiveSessionState,
-  ReturnType<typeof prepareLynxLevel>,
+  LynxLevel,
   LynxUndoHistory
 >;
-
-function prepareLoadedLynxLevel(loaded: Awaited<ReturnType<LevelRepository["loadLevel"]>>) {
-  return prepareLynxLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-}
 
 function findLynxCollisionCause(runtime: LynxInteractiveRuntime): InteractiveGameSessionEndCause {
   const chipPos = boardPositionToGridPosition(runtime.token.chipPos, runtime.token.chipZ ?? 1);
@@ -174,7 +171,7 @@ function projectLynxRunState(
 
 const lynxProjectionConfig: InteractiveAdapterProjectionConfig<
   LynxInteractiveSessionState,
-  ReturnType<typeof prepareLynxLevel>,
+  LynxLevel,
   LynxUndoHistory
 > = {
   getCurrentTick: (token) => token.state.timer.currentTime,
@@ -193,7 +190,7 @@ function projectLynxSession(
 
 const lynxHistoryConfig: InteractiveAdapterHistoryConfig<
   LynxInteractiveSessionState,
-  ReturnType<typeof prepareLynxLevel>,
+  LynxLevel,
   LynxUndoHistory
 > = {
   advanceToken: (token, inputCode) => advanceLynxInteractiveSession(token, inputCode),

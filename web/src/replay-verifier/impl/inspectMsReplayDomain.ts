@@ -5,7 +5,7 @@ import { loadNodeReplaySweepSeriesCatalog } from "@level-catalog/impl/loadNodeRe
 import { NodeSolutionFileRepository } from "@replay-verifier/impl/NodeSolutionFileRepository";
 import { buildReplayTraceScenariosFromSolutionFile } from "@replay-verifier/impl/buildReplayTraceScenariosFromSolutionFile";
 import { NodeCharacterizationFixtureRepository } from "@oracle-fixtures/impl/NodeCharacterizationFixtureRepository";
-import { decodeMsLevelGroupData, prepareMsLevel } from "@ruleset-ms/api/level";
+import { prepareLoadedMsLevel } from "@ruleset-ms/api/levelLoader";
 import { createReplayPlan, plannedReplayInput } from "@game-core/api/playback";
 import { advanceMsInteractiveSession, createMsReplaySession } from "@ruleset-ms/impl/engine";
 
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
   }
 
   const loadedLevel = await levelRepository.loadLevel(scenario.request);
-  const level = prepareMsLevel(decodeMsLevelGroupData(loadedLevel.layerData));
+  const level = prepareLoadedMsLevel(loadedLevel);
   const replay = scenario.replay;
   let session = createMsReplaySession(scenario.request, level, replay);
   let plan = createReplayPlan(replay);

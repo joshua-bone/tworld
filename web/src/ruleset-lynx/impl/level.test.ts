@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { prepareLynxLevel } from "@ruleset-lynx/api/level";
+import { decodeLoadedLynxLevelData, prepareLoadedLynxLevel } from "@ruleset-lynx/api/levelLoader";
 import type { DecodedMsLevelData } from "@ruleset-ms/api/level";
+import { createMsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { MS_STATUS_FLAG, MS_TILE, MS_TICKS_PER_SECOND } from "@ruleset-ms/api/tiles";
+
+function createSingleTopTileLevelData(fileCode: number, levelNumber = 7): Uint8Array {
+  return Uint8Array.from([
+    levelNumber, 0,
+    12, 0,
+    0, 0,
+    0, 0,
+    1, 0,
+    fileCode,
+    0, 0,
+    0, 0,
+  ]);
+}
 
 function createDecodedLevelWithSpecialTiles(): DecodedMsLevelData {
   return {
@@ -155,5 +170,28 @@ describe("lynx level preparation", () => {
     });
 
     expect(prepared.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Elevator);
+  });
+
+  it("decodes loaded Lynx levels through the shared decode registration seam", () => {
+    const levelData = createSingleTopTileLevelData(1, 11);
+    const decoded = decodeLoadedLynxLevelData(
+      {
+        levelData,
+        layerData: [levelData],
+      },
+      createMsLevelDecodeRegistration([{ fileCode: 1, tileId: MS_TILE.Fire }]),
+    );
+
+    expect(decoded.cells[0]?.top.id).toBe(MS_TILE.Fire);
+  });
+
+  it("prepares loaded Lynx levels through the ruleset-local load registration seam", () => {
+    const levelData = createSingleTopTileLevelData(51, 11);
+    const prepared = prepareLoadedLynxLevel({
+      levelData,
+      layerData: [levelData],
+    });
+
+    expect(prepared.cells[0]?.top.id).toBe(MS_TILE.Wall);
   });
 });

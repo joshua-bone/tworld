@@ -349,10 +349,10 @@ Goal:
 
 Checklist:
 
-- [ ] introduce ruleset-local element registration for decode/load mapping
-- [ ] keep compile-time built-in ids for now, but route decode through registration
-- [ ] ensure imported sets and DAT parsing can construct registered extensions consistently
-- [ ] integrate level prep and engine initialization with the registration layer
+- [x] introduce ruleset-local element registration for decode/load mapping
+- [x] keep compile-time built-in ids for now, but route decode through registration
+- [x] ensure imported sets and DAT parsing can construct registered extensions consistently
+- [x] integrate level prep and engine initialization with the registration layer
 
 Extensibility win:
 
@@ -410,7 +410,7 @@ Important note:
 - [x] EP7
 - [x] EP8
 - [x] EP9
-- [ ] EP10
+- [x] EP10
 - [ ] EP11
 - [ ] EP12 if and only if real external plugins are still a goal
 
