@@ -191,7 +191,7 @@ describe("createLegacyArtworkSpriteFromFrame", () => {
         transparent: true,
       });
       expect(fakeContext.imageSmoothingEnabled).toBe(false);
-      expect(fakeDrawImage).toHaveBeenCalledWith(spriteSheet, 48, 0, 48, 48, 0, 0, 48, 48);
+      expect(fakeDrawImage).toHaveBeenCalledWith(spriteSheet, 48, 0, 48, 48, 0, 0, 32, 32);
     } finally {
       vi.unstubAllGlobals();
     }

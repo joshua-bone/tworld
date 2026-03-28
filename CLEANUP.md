@@ -64,7 +64,7 @@ Highest-value cleanup targets:
 - [x] PR1: Safety Net For Structural Cleanup
 - [x] PR2: PlayerApp Application Controller Split
 - [x] PR3: Modern Dashboard Shell Split
-- [ ] PR4: Legacy Canvas Render Pipeline Split
+- [x] PR4: Legacy Canvas Render Pipeline Split
 - [ ] PR5: Shared Interactive Adapter Skeleton
 - [ ] PR6: Content Parsing Decomposition
 - [ ] PR7: Persistence And URL Launch Cleanup
