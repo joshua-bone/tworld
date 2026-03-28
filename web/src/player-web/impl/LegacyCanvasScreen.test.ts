@@ -217,7 +217,7 @@ describe("applyLegacyTileOverrides", () => {
     const baseTileset: LegacyTileset = {
       get: vi.fn((tileId: number) => (tileId === MS_TILE.Empty ? emptySprite : null)),
       getCell: vi.fn((topId: number, bottomId: number, timerval: number) =>
-        topId === MS_TILE.Slide_East && bottomId === MS_TILE.Empty && timerval === 7 ? animatedFloorSprite : null,
+        topId === MS_TILE.Empty && bottomId === MS_TILE.Slide_East && timerval === 7 ? animatedFloorSprite : null,
       ),
       getCellAnimationPeriod: vi.fn((topId: number, bottomId: number) =>
         topId === MS_TILE.Empty && bottomId === MS_TILE.Slide_East ? 4 : 1,
@@ -241,7 +241,52 @@ describe("applyLegacyTileOverrides", () => {
         offsetX: 0,
         offsetY: 0,
       });
-      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Slide_East, MS_TILE.Empty, 7);
+      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Empty, MS_TILE.Slide_East, 7);
+      expect(fakeDrawImage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("composes transparent overrides over closed traps using the floor sprite order", () => {
+    const baseCanvas = { width: 32, height: 32 } as HTMLCanvasElement;
+    const fakeDrawImage = vi.fn();
+    const fakeContext = {
+      drawImage: fakeDrawImage,
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeContext),
+    } as unknown as HTMLCanvasElement;
+
+    const trapSprite: LegacyTileSprite = { image: baseCanvas, offsetX: 0, offsetY: 0, transparent: false };
+    const sandbagSprite: LegacyTileSprite = { image: baseCanvas, offsetX: 0, offsetY: 0, transparent: true };
+    const baseTileset: LegacyTileset = {
+      get: vi.fn(() => null),
+      getCell: vi.fn((topId: number, bottomId: number, timerval: number) =>
+        topId === MS_TILE.Empty && bottomId === MS_TILE.Beartrap && timerval === 0 ? trapSprite : null,
+      ),
+      getCellAnimationPeriod: vi.fn(() => 1),
+    };
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCanvas;
+        }),
+      });
+      const overridden = applyLegacyTileOverrides(baseTileset, new Map([[MS_TILE.Sandbag, sandbagSprite]]));
+
+      expect(overridden.getCell?.(MS_TILE.Sandbag, MS_TILE.Beartrap, 0)).toMatchObject({
+        transparent: false,
+        offsetX: 0,
+        offsetY: 0,
+      });
+      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Empty, MS_TILE.Beartrap, 0);
       expect(fakeDrawImage).toHaveBeenCalledTimes(2);
     } finally {
       vi.unstubAllGlobals();

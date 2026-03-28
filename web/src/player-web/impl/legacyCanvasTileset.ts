@@ -236,7 +236,7 @@ export function applyLegacyTileOverrides(
       }
 
       const bottomSprite =
-        baseGetCell?.(bottomId, MS_TILE.Empty, timerval) ??
+        baseGetCell?.(MS_TILE.Empty, bottomId, timerval) ??
         (bottomId === MS_TILE.Empty ? tileset.get(MS_TILE.Empty) : tileset.get(bottomId));
       if (bottomSprite) {
         drawLegacySpriteImage(context, bottomSprite, 0, 0);

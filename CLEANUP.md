@@ -69,7 +69,7 @@ Highest-value cleanup targets:
 - [x] PR6: Content Parsing Decomposition
 - [x] PR7: Persistence And URL Launch Cleanup
 - [x] PR8: Replay Verifier Orchestration Split
-- [ ] PR9: Engine Phase 2 Cleanup
+- [x] PR9: Engine Phase 2 Cleanup
 - [x] PR10: Test DSL Expansion
 - [ ] PR11: Naming And Value Objects Pass
 - [ ] PR12: Docs And Workflow Refresh
@@ -264,8 +264,8 @@ Progress:
 
 - [x] extract Lynx actor movement start and arrival resolution into a dedicated helper module
 - [x] extract Lynx Chip arrival and completed-move resolution into a dedicated helper module
-- [ ] extract the remaining Lynx post-move orchestration helpers around teleports, held traps, and endgame transitions
-- [ ] mirror the same cleanup pass across the remaining MS movement and arrival hotspots
+- [x] extract the remaining Lynx post-move orchestration helpers around teleports, held traps, and endgame transitions
+- [x] mirror the same cleanup pass across the remaining MS movement and arrival hotspots
 
 ### PR10: Test DSL Expansion
 
