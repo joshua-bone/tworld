@@ -1,10 +1,18 @@
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import type {
+  InteractiveGameActorDecoration,
   InteractiveGameRenderFrame,
+  InteractiveGameRenderSprite,
   InteractiveGameTileOverlay,
+  InteractiveGameTileOverlayRender,
   InteractiveGameVisibleLayer,
 } from "@game-core/api/interactive";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import {
+  isThinWallTileId as isThinWallTileIdFromMetadata,
+  projectActorSupportDecoration,
+  projectThinWallActorDecoration,
+} from "@ruleset-ms/api/renderMetadata";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
   MS_DIRECTION,
@@ -49,7 +57,6 @@ const LAYER_CANVAS_BOARD_SIZE = 32 * LEGACY_TILE_SIZE + LAYER_CANVAS_PADDING_PX 
 const INITIAL_RENDER_PREWARM_TICK_COUNT = 4;
 const SUPPORT_BORDER_COLOR = "#2c8cff";
 const ELEVATOR_FAILURE_BORDER_COLOR = "#ff4040";
-const CARRIED_TOOL_ALPHA = 0.25;
 const VISUAL_ENHANCEMENT_ARROW_COLOR = "#000000";
 const BLOCK_SUPPORT_WINDOW_SOLID_BORDER_PX = 4;
 const BLOCK_SUPPORT_WINDOW_TRANSPARENT_CENTER_SIZE = 8;
@@ -87,23 +94,70 @@ function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverla
       continue;
     }
 
-    const kindCode =
-      overlay.kind === "support"
-        ? 1
-        : overlay.kind === "elevator-failure"
-          ? 2
-          : overlay.kind === "hidden-wall-reveal"
-            ? 3
-            : overlay.kind === "blue-wall-reveal"
-              ? 4
-              : overlay.kind === "push-pickup-reveal"
-                ? 5
-                : 6;
     hash = hashLayerValue(hash, overlay.pos);
-    hash = hashLayerValue(hash, kindCode);
+    hash = hashLayerValue(hash, hashOverlayRenderKind(overlay.render, overlay.kind));
     hash = hashLayerValue(hash, overlay.tileId ?? 0);
+    hash = hashLayerValue(hash, overlay.render?.mode === "tile" || overlay.render?.mode === "pickup-reveal" ? overlay.render.tileId : 0);
+    hash = hashLayerValue(hash, overlay.render?.mode === "outline" ? (overlay.render.style === "support" ? 1 : 2) : 0);
   }
   return hash >>> 0;
+}
+
+function hashOverlayRenderKind(
+  render: InteractiveGameTileOverlayRender | undefined,
+  fallbackKind: InteractiveGameTileOverlay["kind"],
+): number {
+  if (!render) {
+    switch (fallbackKind) {
+      case "support":
+        return 1;
+      case "elevator-failure":
+        return 2;
+      case "hidden-wall-reveal":
+        return 3;
+      case "blue-wall-reveal":
+        return 4;
+      case "push-pickup-reveal":
+        return 5;
+      default:
+        return 6;
+    }
+  }
+
+  switch (render.mode) {
+    case "outline":
+      return render.style === "support" ? 1 : 2;
+    case "pickup-reveal":
+      return 5;
+    case "tile":
+      return 6;
+    default:
+      return 0;
+  }
+}
+
+function hashRenderSprite(hash: number, visual: InteractiveGameRenderSprite | null | undefined): number {
+  if (!visual) {
+    return hash;
+  }
+  let next = hashLayerValue(hash, visual.kind === "creature" ? 1 : 2);
+  next = hashLayerValue(next, visual.tileId);
+  next = hashLayerValue(next, visual.dir ?? 0);
+  next = hashLayerValue(next, visual.moving ?? 0);
+  next = hashLayerValue(next, visual.frame ?? 0);
+  next = hashLayerValue(next, Math.round((visual.alpha ?? 1) * 1000));
+  return next;
+}
+
+function hashActorDecoration(hash: number, decoration: InteractiveGameActorDecoration): number {
+  let next = hashLayerValue(hash, decoration.kind === "support-marker" ? 1 : 2);
+  if (decoration.kind === "support-marker") {
+    next = hashLayerValue(next, decoration.floorTileId);
+    next = hashLayerValue(next, decoration.showBlockWindow ? 1 : 0);
+    next = hashLayerValue(next, decoration.showDirectionArrow ? 1 : 0);
+    return next;
+  }
+  return hashLayerValue(next, decoration.tileId);
 }
 
 function buildPickupRevealOverlayTileIds(
@@ -117,10 +171,11 @@ function buildPickupRevealOverlayTileIds(
   }
 
   for (const overlay of overlays) {
-    if (overlay.z !== targetZ || overlay.kind !== "push-pickup-reveal" || typeof overlay.tileId !== "number") {
+    const render = overlay.render;
+    if (overlay.z !== targetZ || render?.mode !== "pickup-reveal") {
       continue;
     }
-    pickupRevealTileIds.set(overlay.pos, overlay.tileId);
+    pickupRevealTileIds.set(overlay.pos, render.tileId);
   }
 
   return pickupRevealTileIds;
@@ -144,6 +199,7 @@ function buildRenderLayerHash(session: InteractiveGameSession, targetZ: number):
     hash = hashLayerValue(hash, chip.endGameAnimationTileId ?? 0);
     hash = hashLayerValue(hash, chip.endGameAnimationFrame ?? 0);
     hash = hashLayerValue(hash, Math.round((chip.scale ?? 1) * 1000));
+    hash = hashRenderSprite(hash, chip.visual);
   }
 
   for (const actor of render.actors) {
@@ -158,6 +214,10 @@ function buildRenderLayerHash(session: InteractiveGameSession, targetZ: number):
     hash = hashLayerValue(hash, actor.hidden ? 1 : 0);
     hash = hashLayerValue(hash, actor.animationReserved ? 1 : 0);
     hash = hashLayerValue(hash, Math.round((actor.scale ?? 1) * 1000));
+    hash = hashRenderSprite(hash, actor.visual);
+    for (const decoration of actor.decorations ?? []) {
+      hash = hashActorDecoration(hash, decoration);
+    }
   }
 
   for (const animation of render.animations) {
@@ -167,9 +227,47 @@ function buildRenderLayerHash(session: InteractiveGameSession, targetZ: number):
     hash = hashLayerValue(hash, animation.pos);
     hash = hashLayerValue(hash, animation.frame);
     hash = hashLayerValue(hash, animation.tileId);
+    hash = hashRenderSprite(hash, animation.visual);
   }
 
   return hash >>> 0;
+}
+
+function drawRenderSprite(
+  context: CanvasRenderingContext2D,
+  tileset: LegacyTileset,
+  visual: InteractiveGameRenderSprite | null | undefined,
+  x: number,
+  y: number,
+  scale = 1,
+): void {
+  if (!visual) {
+    return;
+  }
+
+  if (visual.kind === "tile") {
+    if (typeof visual.alpha === "number" && Math.abs(visual.alpha - 1) > 0.001) {
+      context.save();
+      context.globalAlpha = visual.alpha;
+      drawLegacyTile(context, tileset, visual.tileId, x, y);
+      context.restore();
+      return;
+    }
+    drawLegacyTile(context, tileset, visual.tileId, x, y);
+    return;
+  }
+
+  drawLynxActorSprite(
+    context,
+    tileset,
+    visual.tileId,
+    visual.dir ?? MS_DIRECTION.north,
+    visual.moving ?? 0,
+    visual.frame ?? 0,
+    x,
+    y,
+    scale,
+  );
 }
 
 function animationFrameToken(animationPeriod: number, timerval: number): number {
@@ -241,34 +339,8 @@ function drawProjectedLynxRender(
   if (chip && chipZ === targetZ) {
     const chipX = xOrigin + (chip.pos % 32) * LEGACY_TILE_SIZE;
     const chipY = yOrigin + Math.floor(chip.pos / 32) * LEGACY_TILE_SIZE;
-    if (
-      chip.failed &&
-      chip.endGameAnimationTileId !== null &&
-      chip.endGameAnimationFrame !== null
-    ) {
-      drawLynxActorSprite(
-        context,
-        tileset,
-        chip.endGameAnimationTileId,
-        MS_DIRECTION.north,
-        0,
-        chip.endGameAnimationFrame,
-        chipX,
-        chipY,
-        chip.scale ?? 1,
-      );
-    } else if (!chip.hidden && !chip.failed) {
-      drawLynxActorSprite(
-        context,
-        tileset,
-        chip.pushing ? MS_TILE.Pushing_Chip : MS_TILE.Chip,
-        chip.dir,
-        chip.moving,
-        Math.trunc(chip.moving / 2),
-        chipX,
-        chipY,
-        chip.scale ?? 1,
-      );
+    if (chip.visual) {
+      drawRenderSprite(context, tileset, chip.visual, chipX, chipY, chip.scale ?? 1);
     }
   }
 
@@ -286,14 +358,14 @@ function drawProjectedLynxRender(
       if (actor.animationReserved) {
         const animation = animationsByPos.get(actor.pos);
         if (animation) {
-          drawLynxActorSprite(context, tileset, animation.tileId, MS_DIRECTION.north, 0, animation.frame, x, y);
+          drawRenderSprite(context, tileset, animation.visual, x, y);
           drawnAnimations.add(animation.pos);
         }
       }
       continue;
     }
 
-    drawLynxActorSprite(context, tileset, actor.id, actor.dir, actor.moving, actor.frame, x, y, actor.scale ?? 1);
+    drawRenderSprite(context, tileset, actor.visual, x, y, actor.scale ?? 1);
   }
 
   for (const animation of render.animations) {
@@ -302,7 +374,7 @@ function drawProjectedLynxRender(
     }
     const x = xOrigin + (animation.pos % 32) * LEGACY_TILE_SIZE;
     const y = yOrigin + Math.floor(animation.pos / 32) * LEGACY_TILE_SIZE;
-    drawLynxActorSprite(context, tileset, animation.tileId, MS_DIRECTION.north, 0, animation.frame, x, y);
+    drawRenderSprite(context, tileset, animation.visual, x, y);
   }
 }
 
@@ -323,24 +395,8 @@ function visualEnhancementActorTileId(actorId: number, topId: number, bottomId: 
   return actorId;
 }
 
-function visualEnhancementSupportFloorId(topId: number, bottomId: number): number | null {
-  if (topId === MS_TILE.Beartrap || topId === MS_TILE.CloneMachine) {
-    return topId;
-  }
-  if (bottomId === MS_TILE.Beartrap || bottomId === MS_TILE.CloneMachine) {
-    return bottomId;
-  }
-  return null;
-}
-
 export function isThinWallTileId(tileId: number): boolean {
-  return (
-    tileId === MS_TILE.Wall_North ||
-    tileId === MS_TILE.Wall_West ||
-    tileId === MS_TILE.Wall_South ||
-    tileId === MS_TILE.Wall_East ||
-    tileId === MS_TILE.Wall_Southeast
-  );
+  return isThinWallTileIdFromMetadata(tileId);
 }
 
 export function visualEnhancementActorMarker(
@@ -348,24 +404,14 @@ export function visualEnhancementActorMarker(
   topId: number,
   bottomId: number,
 ): { floorId: number; showBlockWindow: boolean } | null {
-  if (
-    actorId !== MS_TILE.Block &&
-    actorId !== MS_TILE.Blob &&
-    actorId !== MS_TILE.Ball &&
-    actorId !== MS_TILE.Walker &&
-    actorId !== MS_TILE.Paramecium
-  ) {
-    return null;
-  }
-
-  const floorId = visualEnhancementSupportFloorId(topId, bottomId);
-  if (floorId === null) {
+  const decoration = projectActorSupportDecoration(actorId, topId, bottomId);
+  if (!decoration || decoration.kind !== "support-marker") {
     return null;
   }
 
   return {
-    floorId,
-    showBlockWindow: actorId === MS_TILE.Block,
+    floorId: decoration.floorTileId,
+    showBlockWindow: decoration.showBlockWindow,
   };
 }
 
@@ -394,14 +440,8 @@ export function visualEnhancementThinWallActorPassTileId(
   if (ruleset !== "Lynx" || actorId !== MS_TILE.Block) {
     return null;
   }
-
-  if (isThinWallTileId(topId)) {
-    return topId;
-  }
-  if (isThinWallTileId(bottomId)) {
-    return bottomId;
-  }
-  return null;
+  const decoration = projectThinWallActorDecoration(actorId, topId, bottomId);
+  return decoration?.kind === "thin-wall-overlay" ? decoration.tileId : null;
 }
 
 export function shouldUseLegacyCombinedCellSprite(
@@ -558,35 +598,29 @@ function drawActorVisualEnhancements(
 
     const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
     const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
-    const thinWallActorOverlayTileId = visualEnhancementThinWallActorPassTileId(
-      ruleset,
-      actor.id,
-      cell.top.id,
-      cell.bottom.id,
-    );
-    if (thinWallActorOverlayTileId !== null) {
-      const overlaySprite = getOrCreateThinWallOverlaySprite(tileset, thinWallActorOverlayTileId);
-      if (overlaySprite) {
-        drawLegacySpriteImage(context, overlaySprite, x, y);
+    for (const decoration of actor.decorations ?? []) {
+      if (decoration.kind === "thin-wall-overlay") {
+        const overlaySprite = getOrCreateThinWallOverlaySprite(tileset, decoration.tileId);
+        if (overlaySprite) {
+          drawLegacySpriteImage(context, overlaySprite, x, y);
+        }
+        continue;
+      }
+
+      if (decoration.showBlockWindow) {
+        drawVisualEnhancementSupportWindow(
+          context,
+          tileset,
+          visualEnhancementActorTileId(actor.id, cell.top.id, cell.bottom.id),
+          decoration.floorTileId,
+          x,
+          y,
+        );
+      }
+      if (decoration.showDirectionArrow) {
+        drawVisualEnhancementArrow(context, actor.dir, x, y);
       }
     }
-
-    const marker = visualEnhancementActorMarker(actor.id, cell.top.id, cell.bottom.id);
-    if (!marker) {
-      continue;
-    }
-
-    if (marker.showBlockWindow) {
-      drawVisualEnhancementSupportWindow(
-        context,
-        tileset,
-        visualEnhancementActorTileId(actor.id, cell.top.id, cell.bottom.id),
-        marker.floorId,
-        x,
-        y,
-      );
-    }
-    drawVisualEnhancementArrow(context, actor.dir, x, y);
   }
 }
 
@@ -728,28 +762,34 @@ function drawLayerOverlays(
       continue;
     }
 
-    if (overlay.kind === "hidden-wall-reveal" || overlay.kind === "blue-wall-reveal") {
-      if (visualEnhancementsEnabled) {
-        drawLegacyTile(context, tileset, MS_TILE.Wall, x, y);
-      }
+    const render = overlay.render;
+    if (!render) {
       continue;
     }
-    if (overlay.kind === "carried-tool") {
-      if (typeof overlay.tileId !== "number") {
+
+    if (render.mode === "pickup-reveal") {
+      continue;
+    }
+
+    if (render.mode === "tile") {
+      if (render.visualEnhancementOnly && !visualEnhancementsEnabled) {
         continue;
       }
-
-      context.save();
-      context.globalAlpha = CARRIED_TOOL_ALPHA;
-      drawLegacyTile(context, tileset, overlay.tileId, x, y);
-      context.restore();
+      drawRenderSprite(
+        context,
+        tileset,
+        {
+          kind: "tile",
+          tileId: render.tileId,
+          alpha: render.alpha,
+        },
+        x,
+        y,
+      );
       continue;
     }
-    if (overlay.kind === "push-pickup-reveal") {
-      continue;
-    }
 
-    context.strokeStyle = overlay.kind === "support" ? SUPPORT_BORDER_COLOR : ELEVATOR_FAILURE_BORDER_COLOR;
+    context.strokeStyle = render.style === "support" ? SUPPORT_BORDER_COLOR : ELEVATOR_FAILURE_BORDER_COLOR;
     context.lineWidth = 3;
     context.strokeRect(x + 1.5, y + 1.5, LEGACY_TILE_SIZE - 3, LEGACY_TILE_SIZE - 3);
   }

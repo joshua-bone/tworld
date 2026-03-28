@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { expectOverlayPresent } from "@game-core/impl/testOverlays";
 import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter";
 import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
 import type { GameRequest } from "@game-core/api/types";
@@ -104,9 +105,13 @@ describe("interactive session projection", () => {
     expect(session.frame.render?.chip).toMatchObject({
       hidden: false,
       failed: false,
+      visual: expect.objectContaining({
+        kind: "creature",
+      }),
     });
     expect(Array.isArray(session.frame.render?.actors)).toBe(true);
     expect(session.frame.render?.actors.every((actor) => typeof actor.serial === "number")).toBe(true);
+    expect(session.frame.render?.actors.every((actor) => actor.visual?.kind === "creature")).toBe(true);
     expect(session.history.currentTick).toBe(-1);
 
     const next = await adapter.advanceSession(session, "none");
@@ -357,7 +362,7 @@ describe("interactive session projection", () => {
     session = await adapter.advanceSession(session, MS_DIRECTION.none);
 
     expect(session.frame.currentZ).toBe(2);
-    expect(session.frame.tileOverlays).toContainEqual({
+    expectOverlayPresent(session.frame.tileOverlays, {
       z: 2,
       pos: 0,
       kind: "support",
@@ -365,7 +370,7 @@ describe("interactive session projection", () => {
 
     session = await adapter.advanceSession(session, MS_DIRECTION.none);
 
-    expect(session.frame.tileOverlays).toContainEqual({
+    expectOverlayPresent(session.frame.tileOverlays, {
       z: 2,
       pos: 0,
       kind: "support",
@@ -402,7 +407,7 @@ describe("interactive session projection", () => {
     session = await adapter.advanceSession(session, MS_DIRECTION.none);
 
     expect(session.frame.currentZ).toBe(2);
-    expect(session.frame.tileOverlays).toContainEqual({
+    expectOverlayPresent(session.frame.tileOverlays, {
       z: 2,
       pos: 0,
       kind: "elevator-failure",

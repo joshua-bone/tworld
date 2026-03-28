@@ -332,10 +332,10 @@ Goal:
 
 Checklist:
 
-- [ ] register actor/portable-item visual state selection by policy instead of tile-id conditionals
-- [ ] support state-driven sprite selection for moving vs still actors/items
-- [ ] route overlays and animation selection through typed render metadata
-- [ ] keep legacy and modern renderers synchronized through a shared render descriptor shape
+- [x] register actor and portable-item visual state selection by policy instead of tile-id conditionals
+- [x] support state-driven sprite selection for moving vs still actors/items through shared render descriptors
+- [x] route overlays and animation selection through typed render metadata
+- [x] keep renderer consumers synchronized through the shared `InteractiveGameFrame` render descriptor shape
 
 Extensibility win:
 
@@ -409,7 +409,7 @@ Important note:
 - [x] EP6
 - [x] EP7
 - [x] EP8
-- [ ] EP9
+- [x] EP9
 - [ ] EP10
 - [ ] EP11
 - [ ] EP12 if and only if real external plugins are still a goal

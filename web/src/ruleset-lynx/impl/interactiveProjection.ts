@@ -4,6 +4,12 @@ import type { EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import type { LynxInteractiveSessionState } from "@ruleset-lynx/impl/engine";
+import {
+  projectLynxRenderableActor,
+  projectLynxRenderableAnimation,
+  projectLynxRenderableChip,
+  projectLynxRenderableOverlay,
+} from "@ruleset-lynx/impl/renderPolicy";
 import { collectLevelConnections } from "@ruleset-ms/api/level";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -109,7 +115,7 @@ export function projectLynxInteractiveFrame(
     engineStateToSnapshot(session.state, phase, session.lastInput),
     session.state.map.cells,
     {
-      chip: {
+      chip: projectLynxRenderableChip({
         pos: session.chipPos,
         z: session.chipZ,
         dir: session.chipDir,
@@ -120,34 +126,40 @@ export function projectLynxInteractiveFrame(
         endGameAnimationTileId: session.endGameAnimationTileId,
         endGameAnimationFrame: session.endGameAnimationFrame,
         scale: session.chipMoveKind === "air" && session.chipMoving > 0 ? 0.9 + (session.chipMoving / 8) * 0.1 : 1,
-      },
-      actors: session.actors.map((actor) => ({
-        serial: actor.serial,
-        id: actor.id,
-        pos: actor.pos,
-        z: actor.z,
-        dir: actor.dir,
-        moving: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.moving,
-        frame: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.frame,
-        hidden: actor.hidden,
-        animationReserved: actor.animationReserved,
-        scale: actor.moveKind === "air" && actor.moving > 0 ? 0.9 + (actor.moving / 8) * 0.1 : 1,
-      })),
-      animations: runtime?.visuals?.animations?.map((animation) => ({ ...animation })) ?? [],
+      }),
+      actors: session.actors.map((actor) =>
+        projectLynxRenderableActor(
+          {
+            serial: actor.serial,
+            id: actor.id,
+            pos: actor.pos,
+            z: actor.z,
+            dir: actor.dir,
+            moving: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.moving,
+            frame: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.frame,
+            hidden: actor.hidden,
+            animationReserved: actor.animationReserved,
+            scale: actor.moveKind === "air" && actor.moving > 0 ? 0.9 + (actor.moving / 8) * 0.1 : 1,
+          },
+          session.state.map.cells[actor.pos]?.top.id ?? MS_TILE.Empty,
+          session.state.map.cells[actor.pos]?.bottom.id ?? MS_TILE.Empty,
+        ),
+      ),
+      animations: runtime?.visuals?.animations?.map((animation) => projectLynxRenderableAnimation({ ...animation })) ?? [],
     },
     {
       currentZ: session.chipZ ?? 1,
       layers: session.state.map.layers,
       tileOverlays: [
-        ...(runtime?.visuals?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? []),
+        ...(runtime?.visuals?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectLynxRenderableOverlay(overlay)) ?? []),
         ...(runtime?.portableTools?.primedToolDrop
           ? [
-              {
+              projectLynxRenderableOverlay({
                 z: runtime.portableTools.primedToolDrop.z,
                 pos: runtime.portableTools.primedToolDrop.pos,
                 kind: "carried-tool" as const,
                 tileId: runtime.portableTools.primedToolDrop.tileId,
-              },
+              }),
             ]
           : []),
       ],

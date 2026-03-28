@@ -200,12 +200,20 @@ describe("projectMsInteractiveFrame", () => {
           pos: 0,
           dir: MS_DIRECTION.east,
           hidden: false,
+          visual: expect.objectContaining({
+            kind: "creature",
+            tileId: MS_TILE.Blob,
+          }),
         }),
         expect.objectContaining({
           id: MS_TILE.Block,
           pos: 1,
           dir: MS_DIRECTION.south,
           hidden: false,
+          visual: expect.objectContaining({
+            kind: "creature",
+            tileId: MS_TILE.Block,
+          }),
         }),
       ]),
     );
@@ -271,12 +279,22 @@ describe("projectMsInteractiveFrame", () => {
           pos: 0,
           dir: MS_DIRECTION.east,
           hidden: false,
+          visual: expect.objectContaining({
+            kind: "creature",
+            tileId: MS_TILE.Ball,
+          }),
         }),
         expect.objectContaining({
           id: MS_TILE.Block,
           pos: 1,
           dir: MS_DIRECTION.south,
           hidden: false,
+          decorations: expect.arrayContaining([
+            expect.objectContaining({
+              kind: "support-marker",
+              floorTileId: MS_TILE.CloneMachine,
+            }),
+          ]),
         }),
       ]),
     );

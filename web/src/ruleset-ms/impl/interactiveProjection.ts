@@ -3,6 +3,10 @@ import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-
 import type { EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
+import {
+  projectMsRenderableActor,
+  projectMsRenderableOverlay,
+} from "@ruleset-ms/impl/renderPolicy";
 import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
 
 type MsProjectedTileOverlay = InteractiveGameFrame["tileOverlays"][number] & { ttl?: number };
@@ -78,7 +82,8 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
   };
 
   for (const creature of creatures) {
-    addActor({
+    const cells = session.state.engine.map.cells;
+    addActor(projectMsRenderableActor({
       serial: creature.serial,
       id: creature.id,
       pos: creature.pos,
@@ -87,11 +92,12 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
       moving: creature.moving,
       frame: creature.frame,
       hidden: creature.hidden,
-    });
+    }, cells[creature.pos]?.top.id ?? MS_TILE.Empty, cells[creature.pos]?.bottom.id ?? MS_TILE.Empty));
   }
 
   for (const block of blocks) {
-    addActor({
+    const cells = session.state.engine.map.cells;
+    addActor(projectMsRenderableActor({
       id: MS_TILE.Block,
       pos: block.pos,
       z: block.z,
@@ -99,14 +105,15 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
       moving: 0,
       frame: 0,
       hidden: block.hidden,
-    });
+    }, cells[block.pos]?.top.id ?? MS_TILE.Empty, cells[block.pos]?.bottom.id ?? MS_TILE.Empty));
   }
 
   for (const actor of session.state.engine.actors) {
     if (actor.id === MS_TILE.Chip || actor.id === MS_TILE.Swimming_Chip) {
       continue;
     }
-    addActor({
+    const cells = session.state.engine.map.cells;
+    addActor(projectMsRenderableActor({
       id: actor.id,
       pos: actor.position.pos,
       z: actor.position.z,
@@ -114,7 +121,7 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
       moving: 0,
       frame: 0,
       hidden: false,
-    });
+    }, cells[actor.position.pos]?.top.id ?? MS_TILE.Empty, cells[actor.position.pos]?.bottom.id ?? MS_TILE.Empty));
   }
 
   return {
@@ -139,15 +146,15 @@ export function projectMsInteractiveFrame(
       currentZ: session.state.internal.chipZ ?? 1,
       layers: session.state.engine.map.layers,
       tileOverlays: [
-        ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? []),
+        ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectMsRenderableOverlay(overlay)) ?? []),
         ...(primedToolDrop
           ? [
-              {
+              projectMsRenderableOverlay({
                 z: primedToolDrop.z,
                 pos: primedToolDrop.pos,
                 kind: "carried-tool" as const,
                 tileId: primedToolDrop.tileId,
-              },
+              }),
             ]
           : []),
       ],

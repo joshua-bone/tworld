@@ -5,7 +5,7 @@ import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import type { LynxInteractiveSessionState } from "@ruleset-lynx/impl/engine";
 import { projectLynxInteractiveFrame } from "@ruleset-lynx/impl/interactiveProjection";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import { createCell, createEngineState } from "@ruleset-lynx/impl/testSupport";
 
 describe("projectLynxInteractiveFrame", () => {
@@ -354,6 +354,86 @@ describe("projectLynxInteractiveFrame", () => {
       pos: 1,
       kind: "carried-tool",
       tileId: MS_TILE.Sandbag,
+    });
+    expect(
+      frame.tileOverlays.find((overlay) => overlay.kind === "carried-tool" && overlay.pos === 1)?.render,
+    ).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.Sandbag,
+      alpha: 0.25,
+    });
+  });
+
+  it("projects chip and actor visual descriptors for renderer consumers", () => {
+    const cells = [createCell(0, MS_TILE.Wall_South), createCell(1, MS_TILE.CloneMachine)];
+    const level = {
+      number: 1,
+      timeLimitTicks: 0,
+      chipsNeeded: 0,
+      hintText: "",
+      cells,
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      statusFlags: 0,
+    } satisfies LynxLevel;
+    const session = {
+      level,
+      state: createEngineState(cells),
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+      chipPos: 0,
+      chipZ: 1,
+      chipDir: MS_DIRECTION.east,
+      chipMoving: 4,
+      chipMoveKind: "planar",
+      currentInputCode: 0,
+      queuedReplayInputCode: 0,
+      queuedChipInputCode: 0,
+      chipPushing: true,
+      actors: [
+        {
+          serial: 1,
+          id: MS_TILE.Block,
+          pos: 0,
+          z: 1,
+          dir: MS_DIRECTION.east,
+          moving: 0,
+          frame: 0,
+          hidden: false,
+          animationReserved: false,
+        },
+      ],
+      endGameTicksElapsed: null,
+      endGameResult: null,
+      endGameAnimationTileId: null,
+      endGameAnimationFrame: null,
+    } as unknown as LynxInteractiveSessionState;
+
+    const frame = projectLynxInteractiveFrame(session, "tick");
+
+    expect(frame.render?.chip?.visual).toMatchObject({
+      kind: "creature",
+      tileId: MS_TILE.Pushing_Chip,
+      dir: MS_DIRECTION.east,
+    });
+    expect(frame.render?.actors[0]).toMatchObject({
+      visual: {
+        kind: "creature",
+        tileId: MS_TILE.Block,
+        dir: MS_DIRECTION.east,
+      },
+      decorations: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "thin-wall-overlay",
+          tileId: MS_TILE.Wall_South,
+        }),
+      ]),
     });
   });
 });

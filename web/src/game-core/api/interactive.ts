@@ -1,6 +1,43 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import type { GameSnapshot } from "@game-core/api/types";
 
+export interface InteractiveGameRenderSprite {
+  kind: "tile" | "creature";
+  tileId: number;
+  dir?: number;
+  moving?: number;
+  frame?: number;
+  alpha?: number;
+}
+
+export type InteractiveGameActorDecoration =
+  | {
+      kind: "support-marker";
+      floorTileId: number;
+      showBlockWindow: boolean;
+      showDirectionArrow: boolean;
+    }
+  | {
+      kind: "thin-wall-overlay";
+      tileId: number;
+    };
+
+export type InteractiveGameTileOverlayRender =
+  | {
+      mode: "tile";
+      tileId: number;
+      alpha?: number;
+      visualEnhancementOnly?: boolean;
+    }
+  | {
+      mode: "outline";
+      style: "support" | "elevator-failure";
+    }
+  | {
+      mode: "pickup-reveal";
+      tileId: number;
+    };
+
 export interface InteractiveGameRenderableChip {
   pos: number;
   z?: number;
@@ -12,6 +49,7 @@ export interface InteractiveGameRenderableChip {
   endGameAnimationTileId: number | null;
   endGameAnimationFrame: number | null;
   scale?: number;
+  visual?: InteractiveGameRenderSprite | null;
 }
 
 export interface InteractiveGameRenderableActor {
@@ -25,6 +63,8 @@ export interface InteractiveGameRenderableActor {
   hidden: boolean;
   animationReserved?: boolean;
   scale?: number;
+  visual?: InteractiveGameRenderSprite | null;
+  decorations?: InteractiveGameActorDecoration[];
 }
 
 export interface InteractiveGameRenderableAnimation {
@@ -32,6 +72,7 @@ export interface InteractiveGameRenderableAnimation {
   z?: number;
   frame: number;
   tileId: number;
+  visual?: InteractiveGameRenderSprite | null;
 }
 
 export interface InteractiveGameVisibleLayer {
@@ -52,6 +93,7 @@ export interface InteractiveGameTileOverlay {
   pos: number;
   kind: InteractiveGameTileOverlayKind;
   tileId?: number;
+  render?: InteractiveGameTileOverlayRender;
 }
 
 export interface InteractiveGameRenderFrame {
