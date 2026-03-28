@@ -2580,6 +2580,68 @@ describe("runLynxInputTrace", () => {
     expect(fallen.state.map.layers?.[1]?.cells[supportedPos]?.top.id).toBe(MS_TILE.Air);
   });
 
+  it("drops a non-player after Chip opens a supporting green door beneath it", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 33;
+    const supportedPos = 34;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty);
+    lower[supportedPos] = createCell(supportedPos, MS_TILE.Door_Green, MS_TILE.Empty);
+    upper[supportedPos] = createCellAtZ(supportedPos, 2, msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west), MS_TILE.Air);
+    upper[supportedPos - 1] = createCellAtZ(supportedPos - 1, 2, MS_TILE.Wall);
+    upper[supportedPos + 1] = createCellAtZ(supportedPos + 1, 2, MS_TILE.Wall);
+    upper[supportedPos - 32] = createCellAtZ(supportedPos - 32, 2, MS_TILE.Wall);
+    upper[supportedPos + 32] = createCellAtZ(supportedPos + 32, 2, MS_TILE.Wall);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, {
+        lowerCreaturePositions: [chipPos],
+        upperCreaturePositions: [supportedPos],
+      }),
+    );
+    session.state.inventory.keys[3] = 1;
+
+    const opened = advanceLynxTicks(session, 5, MS_DIRECTION.east);
+    const fallen = advanceLynxTicks(opened, 2);
+
+    expect(fallen.state.inventory.keys).toEqual([0, 0, 0, 1]);
+    expect(fallen.endGameResult).toBe("failed");
+    expect(fallen.chipZ).toBe(1);
+    expect(fallen.state.map.layers?.[1]?.cells[supportedPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("drops a non-player after Chip opens a supporting socket beneath it", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 35;
+    const supportedPos = 36;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty);
+    lower[supportedPos] = createCell(supportedPos, MS_TILE.Socket, MS_TILE.Empty);
+    upper[supportedPos] = createCellAtZ(supportedPos, 2, msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west), MS_TILE.Air);
+    upper[supportedPos - 1] = createCellAtZ(supportedPos - 1, 2, MS_TILE.Wall);
+    upper[supportedPos + 1] = createCellAtZ(supportedPos + 1, 2, MS_TILE.Wall);
+    upper[supportedPos - 32] = createCellAtZ(supportedPos - 32, 2, MS_TILE.Wall);
+    upper[supportedPos + 32] = createCellAtZ(supportedPos + 32, 2, MS_TILE.Wall);
+
+    const opened = advanceLynxTicks(
+      createLynxInteractiveSession(
+        createRequest(),
+        createTwoLayerLevel(lower, upper, {
+          lowerCreaturePositions: [chipPos],
+          upperCreaturePositions: [supportedPos],
+        }),
+      ),
+      5,
+      MS_DIRECTION.east,
+    );
+    const fallen = advanceLynxTicks(opened, 2);
+
+    expect(fallen.endGameResult).toBe("failed");
+    expect(fallen.chipZ).toBe(1);
+    expect(fallen.state.map.layers?.[1]?.cells[supportedPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
   it("queues tank reversals across z-layers when Chip presses a blue button", () => {
     const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
     const upper = createBoardAtZ(2);

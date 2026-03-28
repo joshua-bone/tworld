@@ -931,6 +931,84 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[sharedPos]?.top.id).toBe(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west));
   });
 
+  it("drops a non-player after Chip opens a supporting green door beneath it", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(12, 8);
+    const sharedPos = pos(13, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[sharedPos]!.top.id = MS_TILE.Door_Green;
+    upper[sharedPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west);
+    upper[sharedPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [sharedPos], hintText: "" },
+        ],
+      }),
+    );
+    session.state.engine.inventory.keys[3] = 1;
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipPos).toBe(sharedPos);
+    expect(session.state.engine.inventory.keys[3]).toBe(1);
+    expect(session.state.engine.map.layers?.[0]?.cells[sharedPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const bug = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Bug);
+    expect(session.state.internal.chipStatus).toBe("collided");
+    expect(bug?.z).toBe(1);
+    expect(bug?.pos).toBe(sharedPos);
+  });
+
+  it("drops a non-player after Chip opens a supporting socket beneath it", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(14, 8);
+    const sharedPos = pos(15, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[sharedPos]!.top.id = MS_TILE.Socket;
+    upper[sharedPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west);
+    upper[sharedPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        chipsNeeded: 0,
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [sharedPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipPos).toBe(sharedPos);
+    expect(session.state.engine.soundEffects & (1 << MS_SOUND.SocketOpened)).not.toBe(0);
+    expect(session.state.engine.map.layers?.[0]?.cells[sharedPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const bug = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Bug);
+    expect(session.state.internal.chipStatus).toBe("collided");
+    expect(bug?.z).toBe(1);
+    expect(bug?.pos).toBe(sharedPos);
+  });
+
   it("collects a top-layer key when Chip falls from unsupported air", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);

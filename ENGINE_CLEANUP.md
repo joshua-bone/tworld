@@ -537,67 +537,67 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 - no behavior-changing cleanup unless covered by characterization first
 - no “generic movement engine” that erases MS vs Lynx timing
 
-## Proposed PR Plan
+## Proposed EC Plan
 
-### PR1: Characterization Expansion
+### EC1: Characterization Expansion
 
-- [ ] Add characterization tests around MS and Lynx for:
-- [ ] portable item carry / replacement / settle
-- [ ] support release after wall/door/socket changes
-- [ ] air and elevator transitions
-- [ ] teleport exit edge cases
-- [ ] trap/cloner release timing
-- [ ] replay last-move and debug-phase expectations
-- [ ] Add one lightweight metrics snapshot to the doc or tests so future cleanup can be measured.
+- [x] Add characterization tests around MS and Lynx for:
+- [x] portable item carry / replacement / settle
+- [x] support release after wall/door/socket changes
+- [x] air and elevator transitions
+- [x] teleport exit edge cases
+- [x] trap/cloner release timing
+- [x] replay last-move and debug-phase expectations
+- [x] Add one lightweight metrics snapshot to the doc or tests so future cleanup can be measured.
 
-### PR2: Context Objects And Helper Boundaries
+### EC2: Context Objects And Helper Boundaries
 
 - [ ] Introduce `MsTickContext` and `LynxTickContext`.
 - [ ] Replace the worst long-argument helper calls with context access.
 - [ ] No behavior changes.
 
-### PR3: Shared Phase Recorder
+### EC3: Shared Phase Recorder
 
 - [ ] Introduce a shared recorder interface in `game-core`.
 - [ ] Convert Lynx debug traces to use the normal tick path plus recorder hooks.
 - [ ] Keep MS on the same recorder model.
 - [ ] Delete duplicated debug tick logic from Lynx.
 
-### PR4: Portable Item Subsystem Extraction
+### EC4: Portable Item Subsystem Extraction
 
 - [ ] Extract portable-item store infrastructure into `game-core`.
 - [ ] Move MS portable-item logic into `ruleset-ms/impl/portableItems.ts`.
 - [ ] Move Lynx portable-item logic into `ruleset-lynx/impl/portableItems.ts`.
 - [ ] Keep ruleset-specific priming/settle semantics separate.
 
-### PR5: Support And Vertical Movement Extraction
+### EC5: Support And Vertical Movement Extraction
 
 - [ ] Introduce shared support result vocabulary.
 - [ ] Extract MS support/air/elevator helpers into dedicated files.
 - [ ] Extract Lynx support/air/elevator helpers into dedicated files.
 - [ ] Keep ruleset-specific behavior in the ruleset modules.
 
-### PR6: Movement Outcome Vocabulary
+### EC6: Movement Outcome Vocabulary
 
 - [ ] Introduce shared movement/arrival/collision result types.
 - [ ] Refactor MS chip/creature/block movement helpers to return structured outcomes.
 - [ ] Refactor Lynx chip/creature movement helpers to use the same vocabulary.
 
-### PR7: MS Engine Step-Down Cleanup
+### EC7: MS Engine Step-Down Cleanup
 
 - [ ] Split `advanceMsTick` into a turn runner plus phase modules.
 - [ ] Split `runCreatureFloorMovements` into queue helper + movement processors.
 - [ ] Split chip movement and replay bookkeeping into dedicated modules.
 - [ ] Reduce direct tile branching in MS hot paths where a policy seam already exists.
 
-### PR8: Lynx Engine Step-Down Cleanup
+### EC8: Lynx Engine Step-Down Cleanup
 
 - [ ] Split `advanceLynxInteractiveTick` into a turn runner plus phase modules.
 - [ ] Split chip move selection from chip movement execution.
 - [ ] Split trap/button/endgame helpers into dedicated modules.
 - [ ] Reduce long parameter lists via context objects.
 
-### PR9: Policy Surface Expansion
+### EC9: Policy Surface Expansion
 
 - [ ] Extend actor and portable-item policy types for:
 - [ ] blocked move behavior
@@ -608,7 +608,7 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 - [ ] clone behavior
 - [ ] Replace remaining hard-coded raw tile branches only where policy now clearly owns the behavior.
 
-### PR10: Resume Element Work
+### EC10: Resume Element Work
 
 - [ ] Re-evaluate bowling ball on top of the cleaned seams.
 - [ ] Implement MS first.
@@ -627,4 +627,4 @@ The best first cleanup is:
 
 That sequence reduces risk immediately and creates cleaner seams for the harder extractions.
 
-If we try to jump straight to feature work again before PR3 to PR5, we will likely reintroduce exactly the problems we are trying to remove.
+If we try to jump straight to feature work again before EC3 to EC5, we will likely reintroduce exactly the problems we are trying to remove.
