@@ -215,16 +215,16 @@ Goal:
 
 Checklist:
 
-- [ ] extend interaction vocabulary to cover:
-- [ ] deny move
-- [ ] destroy moving actor
-- [ ] destroy target
-- [ ] fail chip
-- [ ] preserve target on special cases
-- [ ] consume / transform target when needed
-- [ ] support actor-vs-portable-item interaction, not just actor-vs-actor
-- [ ] route chip entering a moving actor through the same interaction seam
-- [ ] support directional special cases such as “same-direction moving bowling ball acts as wall”
+- [x] extend interaction vocabulary to cover:
+- [x] deny move
+- [x] destroy moving actor
+- [x] destroy target
+- [x] fail chip
+- [x] preserve target on special cases
+- [x] consume / transform target when needed
+- [x] support actor-vs-portable-item interaction, not just actor-vs-actor
+- [x] route chip entering a moving actor through the same interaction seam
+- [x] support directional special cases such as “same-direction moving bowling ball acts as wall”
 
 Success condition:
 

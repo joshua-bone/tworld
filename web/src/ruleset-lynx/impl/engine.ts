@@ -13,7 +13,7 @@ import {
   topTile,
   topTileIdOr,
 } from "@game-core/impl/board";
-import { OCCUPANCY_TARGET_KIND } from "@game-core/impl/occupancy";
+import { OCCUPANCY_TARGET_KIND, type OccupancyTarget } from "@game-core/impl/occupancy";
 import {
   advanceToCell,
   advancePositionIfPossible,
@@ -53,6 +53,7 @@ import {
   type CollisionResult,
   type MovementAttemptResult,
 } from "@game-core/api/movementOutcomes";
+import { ACTOR_INTERACTION_TARGET_KIND } from "@game-core/api/actorInteractions";
 import { hasVerticalSupport } from "@game-core/api/verticalMovement";
 import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
@@ -189,6 +190,7 @@ import {
 import {
   lynxActorCollisionOutcome,
   lynxActorHazardOutcome,
+  lynxActorInteractionOutcome,
   lynxActorThiefOutcome,
 } from "@ruleset-lynx/impl/actorInteractions";
 import {
@@ -324,6 +326,39 @@ function queryLynxOccupancyOnLayer(
     pos,
     z,
   );
+}
+
+function lynxInteractionTargetFromOccupancy(target: OccupancyTarget<{ id: number }, unknown>) {
+  switch (target.kind) {
+    case OCCUPANCY_TARGET_KIND.runtimeActor:
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: target.runtimeActor?.id ?? MS_TILE.Empty,
+        tileId: target.tileId,
+      } as const;
+    case OCCUPANCY_TARGET_KIND.chip:
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.chip,
+        actorId: MS_TILE.Chip,
+        tileId: target.tileId,
+      } as const;
+    case OCCUPANCY_TARGET_KIND.portableItem:
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
+        tileId:
+          typeof target.portableItem === "object" &&
+          target.portableItem !== null &&
+          "tileId" in target.portableItem &&
+          typeof target.portableItem.tileId === "number"
+            ? target.portableItem.tileId
+            : target.tileId,
+      } as const;
+    default:
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.empty,
+        tileId: target.tileId,
+      } as const;
+  }
 }
 
 export interface LynxRuntimeActor {
@@ -1070,6 +1105,7 @@ function createLynxActorMovementContext(
     canExitTile: (tileId, actorId, dir, releasing) => canLynxExitTile(state, tileId, actorId, dir, releasing),
     chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
     queryTargetOccupancy: (pos, z) => queryLynxOccupancyOnLayer(state, actors, pos, z),
+    interactionOutcome: (actor, target) => lynxActorInteractionOutcome(actor.id, lynxInteractionTargetFromOccupancy(target)),
     clearAnimationAt: (pos) => {
       clearLynxAnimationAt(state, actors, pos);
     },
@@ -2342,7 +2378,14 @@ function resolveLynxChipCollision(
     };
   }
 
-  const collisionOutcome = lynxActorCollisionOutcome(MS_TILE.Chip, collision.actor?.id ?? MS_TILE.Empty);
+  const collisionOutcome = lynxActorInteractionOutcome(MS_TILE.Chip, {
+    kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+    actorId: collision.actor?.id ?? MS_TILE.Empty,
+    tileId: collision.actor?.id ?? MS_TILE.Empty,
+    movingDir: chipDir,
+    targetDir: collision.actor?.dir ?? MS_DIRECTION.none,
+    sameDirection: collision.actor?.dir === chipDir,
+  });
   if (!collisionOutcome.chipFails) {
     return {
       chipPos,
@@ -2354,6 +2397,7 @@ function resolveLynxChipCollision(
   }
 
   const preserveCollidedActor =
+    collisionOutcome.preserveTarget ||
     !collisionOutcome.removeTargetActor ||
     isLynxVerticalMoveKind(chipMoveKind) ||
     isLynxVerticalMoveKind(collision.actor?.moveKind);

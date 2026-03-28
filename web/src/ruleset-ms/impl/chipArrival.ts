@@ -1,4 +1,5 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
+import { ACTOR_INTERACTION_TARGET_KIND } from "@game-core/api/actorInteractions";
 import { popBoardTile } from "@game-core/impl/board";
 import {
   actorInventoryClearBoots,
@@ -10,7 +11,7 @@ import {
   msChipEnterAction,
   msDoorKeyIndex,
 } from "@ruleset-ms/impl/catalog";
-import { msActorCollisionOutcome, msActorThiefOutcome } from "@ruleset-ms/impl/actorInteractions";
+import { msActorInteractionOutcome, msActorThiefOutcome } from "@ruleset-ms/impl/actorInteractions";
 import { collectMsActorTile, projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import {
   clearMsToolInventory,
@@ -126,7 +127,13 @@ export function applyMsChipEnterEffects(
       }
       break;
     case "collision":
-      if (msActorCollisionOutcome(MS_TILE.Chip, floor).chipFails) {
+      if (
+        msActorInteractionOutcome(MS_TILE.Chip, {
+          kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+          actorId: floor,
+          tileId: floor,
+        }).chipFails
+      ) {
         chip.chipStatus = "collided";
       }
       break;

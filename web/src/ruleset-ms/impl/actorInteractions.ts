@@ -1,8 +1,11 @@
 import {
+  ACTOR_INTERACTION_TARGET_KIND,
   actorHazardOutcome,
   actorThiefOutcome,
   chipFailCollisionOutcome,
+  denyMoveCollisionOutcome,
   noActorCollisionOutcome,
+  type ActorInteractionTarget,
   type ActorArrivalOutcome,
   type ActorCollisionOutcome,
   type ActorHazardOutcome,
@@ -22,16 +25,39 @@ function isMsChipActor(actorId: number): boolean {
   return actorId === MS_TILE.Chip || actorId === MS_TILE.Swimming_Chip || actorId === MS_TILE.Pushing_Chip;
 }
 
+function msInteractionTargetActorId(target: ActorInteractionTarget): number {
+  if (target.kind === ACTOR_INTERACTION_TARGET_KIND.chip) {
+    return MS_TILE.Chip;
+  }
+  return target.actorId ?? MS_TILE.Empty;
+}
+
+export function msActorInteractionOutcome(
+  movingActorId: number,
+  target: ActorInteractionTarget,
+): ActorCollisionOutcome {
+  switch (msActorCollisionStrategyId(movingActorId)) {
+    default:
+      if (target.kind === ACTOR_INTERACTION_TARGET_KIND.empty) {
+        return noActorCollisionOutcome();
+      }
+      if (target.kind === ACTOR_INTERACTION_TARGET_KIND.portableItem) {
+        return isMsChipActor(movingActorId) ? noActorCollisionOutcome() : denyMoveCollisionOutcome();
+      }
+      return isMsChipActor(movingActorId) || isMsChipActor(msInteractionTargetActorId(target))
+        ? chipFailCollisionOutcome()
+        : noActorCollisionOutcome();
+  }
+}
+
 export function msActorCollisionOutcome(
   movingActorId: number,
   targetActorId: number,
 ): ActorCollisionOutcome {
-  switch (msActorCollisionStrategyId(movingActorId)) {
-    default:
-      return isMsChipActor(movingActorId) || isMsChipActor(targetActorId)
-        ? chipFailCollisionOutcome()
-        : noActorCollisionOutcome();
-  }
+  return msActorInteractionOutcome(movingActorId, {
+    kind: isMsChipActor(targetActorId) ? ACTOR_INTERACTION_TARGET_KIND.chip : ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+    actorId: targetActorId,
+  });
 }
 
 export function msActorHazardOutcome(tileId: number, actorId: number): ActorHazardOutcome {

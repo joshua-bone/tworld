@@ -1,8 +1,10 @@
+import { ACTOR_INTERACTION_TARGET_KIND } from "@game-core/api/actorInteractions";
 import { describe, expect, it } from "vitest";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   lynxActorArrivalOutcome,
   lynxActorCollisionOutcome,
+  lynxActorInteractionOutcome,
   lynxActorHazardOutcome,
   lynxActorHeldFloorOutcome,
   lynxActorThiefOutcome,
@@ -15,10 +17,36 @@ describe("lynx actor interactions", () => {
       denyMove: false,
       removeMovingActor: false,
       removeTargetActor: true,
+      preserveTarget: false,
+      consumeTarget: false,
+      transformTargetTileId: null,
     });
     expect(lynxActorHazardOutcome(MS_TILE.Fire, MS_TILE.Ball)).toBe("deny-entry");
     expect(lynxActorThiefOutcome(MS_TILE.Chip)).toBe("steal-boots-tools");
     expect(lynxActorHeldFloorOutcome(MS_TILE.CloneMachine, MS_TILE.Fireball)).toBe("hold-direction");
+  });
+
+  it("uses the same interaction seam for portable-item and runtime-actor targets", () => {
+    expect(
+      lynxActorInteractionOutcome(MS_TILE.Ball, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
+        tileId: MS_TILE.Hook,
+      }),
+    ).toEqual({
+      chipFails: false,
+      denyMove: true,
+      removeMovingActor: false,
+      removeTargetActor: false,
+      preserveTarget: false,
+      consumeTarget: false,
+      transformTargetTileId: null,
+    });
+    expect(
+      lynxActorInteractionOutcome(MS_TILE.Chip, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: MS_TILE.Ball,
+      }).chipFails,
+    ).toBe(true);
   });
 
   it("returns typed arrival outcomes for actor landings", () => {

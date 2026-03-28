@@ -1,5 +1,5 @@
 import type { EngineState } from "@game-core/api/model";
-import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
+import type { ActorArrivalOutcome, ActorCollisionOutcome } from "@game-core/api/actorInteractions";
 import {
   addTopTileFlags,
   promoteBottomTile,
@@ -58,6 +58,7 @@ export interface LynxActorMovementContext {
   canExitTile(tileId: number, actorId: number, dir: number, releasing: boolean): boolean;
   chipActsWallForMobs(pos: number, z: number): boolean;
   queryTargetOccupancy(pos: number, z: number): OccupancyTarget<LynxActorMovementActor>;
+  interactionOutcome(actor: LynxActorMovementActor, target: OccupancyTarget<LynxActorMovementActor>): ActorCollisionOutcome;
   clearAnimationAt(pos: number): void;
   canActorEnter(actor: LynxActorMovementActor, tileId: number, dir: number): boolean;
   arrivalOutcome(actor: LynxActorMovementActor, floorId: number): ActorArrivalOutcome;
@@ -118,7 +119,9 @@ export function canLynxActorStartMovement(
   }
 
   const targetOccupancy = context.queryTargetOccupancy(targetPos, actor.z ?? context.activeLayerZ());
+  const interaction = context.interactionOutcome(actor, targetOccupancy);
   if (
+    interaction.denyMove ||
     targetOccupancy.claimed ||
     !context.canActorEnter(actor, context.effectiveTargetTileId(target.top.id), dir)
   ) {

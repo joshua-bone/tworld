@@ -48,6 +48,7 @@ import {
   movementDidSucceed,
   type MovementAttemptResult,
 } from "@game-core/api/movementOutcomes";
+import { ACTOR_INTERACTION_TARGET_KIND } from "@game-core/api/actorInteractions";
 import { hasVerticalSupport } from "@game-core/api/verticalMovement";
 import { advanceTimer, createInitialEngineTimer } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
@@ -122,6 +123,7 @@ import {
   msActorArrivalOutcome,
   msActorCollisionOutcome,
   msActorHazardOutcome,
+  msActorInteractionOutcome,
   msActorThiefOutcome,
 } from "@ruleset-ms/impl/actorInteractions";
 import { applyMsActorArrivalEffects, canMsActorEnterTile, msRuntimeActorArrivalOutcome } from "@ruleset-ms/impl/actorArrival";
@@ -297,6 +299,33 @@ function queryMsTargetOccupancy(
     pos,
     z,
   );
+}
+
+function msInteractionTargetFromOccupancy(target: ReturnType<typeof queryMsTargetOccupancy>) {
+  switch (target.kind) {
+    case "runtime-actor":
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: target.runtimeActor && "id" in target.runtimeActor ? target.runtimeActor.id : msCreatureId(target.tileId),
+        tileId: target.tileId,
+      } as const;
+    case "chip":
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.chip,
+        actorId: MS_TILE.Chip,
+        tileId: target.tileId,
+      } as const;
+    case "portable-item":
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
+        tileId: target.portableItem?.tileId ?? target.tileId,
+      } as const;
+    default:
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.empty,
+        tileId: target.tileId,
+      } as const;
+  }
 }
 
 function applyMsChipCollisionOutcome(internal: MsInternalState, outcome: ReturnType<typeof msActorCollisionOutcome>): void {
@@ -1364,6 +1393,10 @@ function canMoveCreatureWithOptions(
   if (msChipActsWallForMobs(internal, to, runtimeCellZ(cells, to))) {
     return false;
   }
+  const targetOccupancy = internal ? queryMsTargetOccupancy(cells, internal, to, creature.z ?? 1) : null;
+  if (targetOccupancy?.kind === "portable-item") {
+    return !msActorInteractionOutcome(creature.id, msInteractionTargetFromOccupancy(targetOccupancy)).denyMove;
+  }
   let floor = cells[to]!.top.id;
   if (isMsCreature(floor)) {
     const targetId = msCreatureId(floor);
@@ -1431,6 +1464,9 @@ function canMoveBlockInto(
   const targetOccupancy = internal ? queryMsTargetOccupancy(cells, internal, to) : null;
   if (targetOccupancy?.kind === "chip") {
     return true;
+  }
+  if (targetOccupancy?.kind === "portable-item") {
+    return !msActorInteractionOutcome(MS_TILE.Block, msInteractionTargetFromOccupancy(targetOccupancy)).denyMove;
   }
   if (targetOccupancy?.kind === "runtime-actor" || targetOccupancy?.kind === "static-block") {
     return false;

@@ -4,11 +4,33 @@ import type {
   ActorThiefHook,
 } from "@game-core/api/actorCapabilities";
 
+export const ACTOR_INTERACTION_TARGET_KIND = {
+  empty: "empty",
+  runtimeActor: "runtime-actor",
+  portableItem: "portable-item",
+  chip: "chip",
+} as const;
+
+export type ActorInteractionTargetKind =
+  (typeof ACTOR_INTERACTION_TARGET_KIND)[keyof typeof ACTOR_INTERACTION_TARGET_KIND];
+
+export interface ActorInteractionTarget {
+  readonly kind: ActorInteractionTargetKind;
+  readonly actorId?: number;
+  readonly tileId?: number;
+  readonly movingDir?: number;
+  readonly targetDir?: number;
+  readonly sameDirection?: boolean;
+}
+
 export interface ActorCollisionOutcome {
   readonly chipFails: boolean;
   readonly denyMove: boolean;
   readonly removeMovingActor: boolean;
   readonly removeTargetActor: boolean;
+  readonly preserveTarget: boolean;
+  readonly consumeTarget: boolean;
+  readonly transformTargetTileId: number | null;
 }
 
 export type ActorArrivalOutcome =
@@ -41,15 +63,52 @@ export function noActorCollisionOutcome(): ActorCollisionOutcome {
     denyMove: false,
     removeMovingActor: false,
     removeTargetActor: false,
+    preserveTarget: false,
+    consumeTarget: false,
+    transformTargetTileId: null,
   };
 }
 
-export function chipFailCollisionOutcome(removeTargetActor = false): ActorCollisionOutcome {
+export function denyMoveCollisionOutcome(): ActorCollisionOutcome {
+  return {
+    chipFails: false,
+    denyMove: true,
+    removeMovingActor: false,
+    removeTargetActor: false,
+    preserveTarget: false,
+    consumeTarget: false,
+    transformTargetTileId: null,
+  };
+}
+
+export function chipFailCollisionOutcome(removeTargetActor = false, preserveTarget = false): ActorCollisionOutcome {
   return {
     chipFails: true,
     denyMove: false,
     removeMovingActor: false,
     removeTargetActor,
+    preserveTarget,
+    consumeTarget: false,
+    transformTargetTileId: null,
+  };
+}
+
+export function consumeTargetCollisionOutcome(transformTargetTileId: number | null = null): ActorCollisionOutcome {
+  return {
+    chipFails: false,
+    denyMove: false,
+    removeMovingActor: false,
+    removeTargetActor: true,
+    preserveTarget: false,
+    consumeTarget: true,
+    transformTargetTileId,
+  };
+}
+
+export function preserveActorCollisionOutcome(outcome: ActorCollisionOutcome): ActorCollisionOutcome {
+  return {
+    ...outcome,
+    preserveTarget: true,
   };
 }
 

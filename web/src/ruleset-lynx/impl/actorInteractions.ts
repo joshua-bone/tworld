@@ -1,8 +1,11 @@
 import {
+  ACTOR_INTERACTION_TARGET_KIND,
   actorHazardOutcome,
   actorThiefOutcome,
   chipFailCollisionOutcome,
+  denyMoveCollisionOutcome,
   noActorCollisionOutcome,
+  type ActorInteractionTarget,
   type ActorArrivalOutcome,
   type ActorCollisionOutcome,
   type ActorHazardOutcome,
@@ -23,16 +26,39 @@ function isLynxChipActor(actorId: number): boolean {
   return actorId === MS_TILE.Chip || actorId === MS_TILE.Swimming_Chip || actorId === MS_TILE.Pushing_Chip;
 }
 
+function lynxInteractionTargetActorId(target: ActorInteractionTarget): number {
+  if (target.kind === ACTOR_INTERACTION_TARGET_KIND.chip) {
+    return MS_TILE.Chip;
+  }
+  return target.actorId ?? MS_TILE.Empty;
+}
+
+export function lynxActorInteractionOutcome(
+  movingActorId: number,
+  target: ActorInteractionTarget,
+): ActorCollisionOutcome {
+  switch (lynxActorCollisionStrategyId(movingActorId)) {
+    default:
+      if (target.kind === ACTOR_INTERACTION_TARGET_KIND.empty) {
+        return noActorCollisionOutcome();
+      }
+      if (target.kind === ACTOR_INTERACTION_TARGET_KIND.portableItem) {
+        return isLynxChipActor(movingActorId) ? noActorCollisionOutcome() : denyMoveCollisionOutcome();
+      }
+      return isLynxChipActor(movingActorId) || isLynxChipActor(lynxInteractionTargetActorId(target))
+        ? chipFailCollisionOutcome(true)
+        : noActorCollisionOutcome();
+  }
+}
+
 export function lynxActorCollisionOutcome(
   movingActorId: number,
   targetActorId: number,
 ): ActorCollisionOutcome {
-  switch (lynxActorCollisionStrategyId(movingActorId)) {
-    default:
-      return isLynxChipActor(movingActorId) || isLynxChipActor(targetActorId)
-        ? chipFailCollisionOutcome(true)
-        : noActorCollisionOutcome();
-  }
+  return lynxActorInteractionOutcome(movingActorId, {
+    kind: isLynxChipActor(targetActorId) ? ACTOR_INTERACTION_TARGET_KIND.chip : ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+    actorId: targetActorId,
+  });
 }
 
 export function lynxActorHazardOutcome(tileId: number, actorId: number): ActorHazardOutcome {
