@@ -34,10 +34,12 @@ import {
   reverseDirection as backDirection,
 } from "@game-core/impl/grid";
 import {
+  createArrayTurnDebugPhaseRecorder,
   TURN_DEBUG_PHASE,
   TURN_PHASE,
   recordTurnDebugPhase,
   runTurnPhaseHandlers,
+  type TurnDebugPhaseRecorder,
   type TurnDebugPhaseName,
 } from "@game-core/api/turnPhases";
 import { advanceTimer, createInitialEngineTimer } from "@game-core/impl/timer";
@@ -4971,7 +4973,7 @@ function latchCurrentInput(state: MsGameState, internal: MsInternalState, input:
 function advanceMsTick(
   state: MsGameState,
   input: GameRuntimeCommand,
-  debugPhases: GameDebugPhaseSnapshot[] | null = null,
+  debugRecorder: TurnDebugPhaseRecorder<GameDebugPhaseSnapshot> | null = null,
 ): MsAdvanceTickResult {
   const mapLayers = cloneRuntimeMapLayers(state.engine.map);
   const layerCellsByZ = new Map<number, EngineMapCell[]>(mapLayers.map((layer) => [layer.z, layer.cells]));
@@ -5028,8 +5030,8 @@ function advanceMsTick(
       true,
       mapLayers,
     );
-    if (debugPhases && includeFinalPhase) {
-      recordTurnDebugPhase(debugPhases, TURN_DEBUG_PHASE.final, (phase) =>
+    if (debugRecorder && includeFinalPhase) {
+      recordTurnDebugPhase(debugRecorder, TURN_DEBUG_PHASE.final, (phase) =>
         projectMsDebugPhaseSnapshot(
           nextState,
           nextState.engine.map.cells,
@@ -5058,11 +5060,11 @@ function advanceMsTick(
   }
 
   const recordPhase = (phase: TurnDebugPhaseName, lastMove: EngineState["lastMove"] = state.engine.lastMove): void => {
-    if (!debugPhases) {
+    if (!debugRecorder) {
       return;
     }
     const phaseCells = activeChipCells();
-    recordTurnDebugPhase(debugPhases, phase, (recordedPhase) =>
+    recordTurnDebugPhase(debugRecorder, phase, (recordedPhase) =>
       projectMsDebugPhaseSnapshot(
         state,
         phaseCells,
@@ -5082,11 +5084,11 @@ function advanceMsTick(
     lastMove: EngineState["lastMove"] = state.engine.lastMove,
     chipSlipCarryDir: number = MS_DIRECTION.none,
   ): void => {
-    if (!debugPhases) {
+    if (!debugRecorder) {
       return;
     }
     const phaseCells = cellsForZ(snapshotInternal.chipZ ?? 1);
-    recordTurnDebugPhase(debugPhases, phase, (recordedPhase) =>
+    recordTurnDebugPhase(debugRecorder, phase, (recordedPhase) =>
       projectMsDebugPhaseSnapshot(
         state,
         phaseCells,
@@ -5115,8 +5117,8 @@ function advanceMsTick(
 
   const runInitialHousekeepingPhase = (): number => {
     latchCurrentInput(state, inputLatchInternal, input);
-    if (debugPhases) {
-      debugPhases.push(
+    if (debugRecorder) {
+      recordTurnDebugPhase(debugRecorder, TURN_DEBUG_PHASE.postInputLatch, (phase) =>
         projectMsDebugPhaseSnapshot(
           state,
           cells,
@@ -5125,7 +5127,7 @@ function advanceMsTick(
           nextTick,
           soundEffects,
           state.engine.lastMove,
-          TURN_DEBUG_PHASE.postInputLatch,
+          phase,
         ),
       );
     }
@@ -5482,7 +5484,7 @@ export function runMsInputTraceDebug(
     const input = resolveManualInput(previousInput, scheduledInputForTick(commands, tick));
     previousInput = input;
     const phases: GameDebugPhaseSnapshot[] = [];
-    state = advanceMsTick(state, input, phases).state;
+    state = advanceMsTick(state, input, createArrayTurnDebugPhaseRecorder(phases)).state;
     steps.push({
       ...engineStateToSnapshot(state.engine, "tick", input),
       phases,
@@ -5600,7 +5602,7 @@ export function runMsReplayTraceDebugWindow(
         internal: state.internal,
       },
       replayTick.input,
-      phases,
+      createArrayTurnDebugPhaseRecorder(phases),
     ).state;
     if (includeStep(tick)) {
       steps.push({

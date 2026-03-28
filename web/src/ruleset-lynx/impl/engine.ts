@@ -28,7 +28,15 @@ import {
   reverseDirection as backDirection,
   roundedBoardPosition,
 } from "@game-core/impl/grid";
-import { TURN_DEBUG_PHASE, TURN_PHASE, recordTurnDebugPhase, runTurnPhaseHandlers } from "@game-core/api/turnPhases";
+import {
+  createArrayTurnDebugPhaseRecorder,
+  TURN_DEBUG_PHASE,
+  TURN_PHASE,
+  recordTurnDebugPhase,
+  runTurnPhaseHandlers,
+  type TurnDebugPhaseName,
+  type TurnDebugPhaseRecorder,
+} from "@game-core/api/turnPhases";
 import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
 import { actorCollectionAllowsSlot, actorCollectsChips } from "@game-core/api/actorCapabilities";
@@ -3663,6 +3671,7 @@ function recordLynxReplayMove(
 function advanceLynxInteractiveTick(
   session: LynxInteractiveSessionState,
   scheduledInputCode: number | null,
+  debugRecorder: TurnDebugPhaseRecorder<GameDebugPhaseSnapshot> | null = null,
 ): LynxInteractiveSessionState {
   const replayMode = session.replayPlan !== null;
   const carryCurrentInputAcrossTicks = replayMode;
@@ -3701,11 +3710,31 @@ function advanceLynxInteractiveTick(
 
   reconcileLynxPortableToolProjection(state, state.inventory);
   setLynxRuntimeChipState(state, chipPos, chipZ);
+  const nextTick = state.timer.currentTime + 1;
+
+  const recordPhase = (phase: TurnDebugPhaseName, phaseInputCode: number): void => {
+    if (!debugRecorder) {
+      return;
+    }
+    recordTurnDebugPhase(debugRecorder, phase, (recordedPhase) =>
+      projectLynxDebugPhaseSnapshot(
+        state,
+        actors,
+        chipPos,
+        chipDir,
+        chipMoving,
+        phaseInputCode,
+        nextTick,
+        recordedPhase,
+      ),
+    );
+  };
 
   const runInitialHousekeepingPhase = (): void => {
     if (scheduledInputCode !== null) {
       currentInputCode = scheduledInputCode;
     }
+    recordPhase(TURN_DEBUG_PHASE.postInputLatch, currentInputCode);
     state.soundEffects &= ~LYNX_ONE_SHOT_MASK;
     runLynxInitialHousekeeping(state, actors);
     endGameAnimationFrame = advanceLynxEndGameAnimationFrame(endGameResult, endGameAnimationFrame);
@@ -3748,6 +3777,7 @@ function advanceLynxInteractiveTick(
         recordedReplayInputCode = runtimeInput.inputCode;
       }
     }
+    recordPhase(TURN_DEBUG_PHASE.postInitialHousekeeping, currentInputCode);
   };
 
   const runCreatureIntentPhase = (): void => {
@@ -3820,6 +3850,7 @@ function advanceLynxInteractiveTick(
     if (!chipHasPreCreatureMoveQueued) {
       clearLynxCouldntMove(state);
     }
+    recordPhase(TURN_DEBUG_PHASE.postCreatureIntent, 0);
   };
 
   const runCreatureMovementPhase = (): void => {
@@ -3931,6 +3962,7 @@ function advanceLynxInteractiveTick(
       endGameAnimationTileId = collision.endGameAnimationTileId;
       endGameAnimationFrame = collision.endGameAnimationFrame;
     }
+    recordPhase(TURN_DEBUG_PHASE.postCreatureMovement, 0);
   };
 
   const runChipMovementPhase = (): void => {
@@ -4090,6 +4122,7 @@ function advanceLynxInteractiveTick(
     endGameResult = postMove.endGameResult;
     endGameAnimationTileId = postMove.endGameAnimationTileId;
     endGameAnimationFrame = postMove.endGameAnimationFrame;
+    recordPhase(TURN_DEBUG_PHASE.postTeleportResolution, 0);
   };
 
   const runFinalizePhase = (): void => {
@@ -4104,6 +4137,8 @@ function advanceLynxInteractiveTick(
     );
     endGameTicksElapsed = finalizedEndGame.endGameTicksElapsed;
     endGameResult = finalizedEndGame.endGameResult;
+    recordPhase(TURN_DEBUG_PHASE.postPutwallResolution, 0);
+    recordPhase(TURN_DEBUG_PHASE.final, 0);
   };
 
   runTurnPhaseHandlers<void>([
@@ -4331,18 +4366,15 @@ function runLynxReplayTraceDebugInternal(
   windowStart: number,
   windowEndExclusive: number,
 ): GameDebugTrace {
-  const state = initializeLynxEngineState(request, level, replay);
-  state.map.hash = mapHash(state.map.cells);
-  const initialState = engineStateToSnapshot(state, "initial", createRuntimeCommand(0, -1));
-  const initialActors = parseLynxActors(level);
-  const initialChipSeed = findChipSeed(level);
-  const initialChipPos = initialChipSeed.pos;
+  let token = createLynxInteractiveToken(request, level, replay);
+  token.state.map.hash = mapHash(token.state.map.cells);
+  const initialState = engineStateToSnapshot(token.state, "initial", createRuntimeCommand(0, -1));
   const initialDebugState = projectLynxDebugPhaseSnapshot(
-    state,
-    initialActors,
-    initialChipPos,
-    0,
-    0,
+    token.state,
+    token.actors,
+    token.chipPos,
+    token.chipDir,
+    token.chipMoving,
     0,
     0,
     TURN_DEBUG_PHASE.initial,
@@ -4358,423 +4390,34 @@ function runLynxReplayTraceDebugInternal(
       initialDebugState,
       steps: [],
       result: {
-        status: state.status,
-        finalTick: state.timer.tick,
+        status: token.state.status,
+        finalTick: token.state.timer.tick,
       },
     });
   }
 
   const steps: GameDebugTrace["steps"] = [];
-  const chipSeed = findChipSeed(level);
-  let chipPos = chipSeed.pos;
-  let chipZ = chipSeed.z;
-  let chipDir = chipSeed.dir;
-  let chipMoving = 0;
-  let chipMoveKind: LynxMoveKind = "planar";
-  let currentInputCode = 0;
-  let queuedReplayInputCode = 0;
-  let queuedChipInputCode = 0;
-  const actors = parseLynxActors(level);
-  let endGameTicksElapsed: number | null = null;
-  let endGameResult: LynxEndGameResult | null = null;
-  let endGameAnimationTileId: number | null = null;
-  let endGameAnimationFrame: number | null = null;
 
   for (let tick = 0; tick < maxTicks; tick += 1) {
-    setLynxRuntimeChipState(state, chipPos, chipZ);
     const scheduled = scheduledInputForTick(commands, tick);
-    if (scheduled) {
-      currentInputCode = scheduled.inputCode;
-    }
-    state.soundEffects &= ~LYNX_ONE_SHOT_MASK;
-    if (replay && scheduled) {
-      state.replay.cursor += 1;
-    }
-
     const phases: GameDebugPhaseSnapshot[] = [];
-    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postInputLatch, (phase) =>
-      projectLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, currentInputCode, tick, phase),
+    token = advanceLynxInteractiveTick(
+      token,
+      scheduled ? scheduled.inputCode : null,
+      createArrayTurnDebugPhaseRecorder(phases),
     );
-    runLynxInitialHousekeeping(state, actors);
-    endGameAnimationFrame = advanceLynxEndGameAnimationFrame(endGameResult, endGameAnimationFrame);
-    if (endGameTicksElapsed === null && state.timer.timeLimit > 0 && state.timer.currentTime >= state.timer.timeLimit) {
-      const timedOut = failLynxChip(
-        state,
-        actors,
-        chipPos,
-        chipDir,
-        chipMoving,
-        endGameTicksElapsed,
-        endGameResult,
-        endGameAnimationTileId,
-        endGameAnimationFrame,
-        "outoftime",
-      );
-      chipPos = timedOut.chipPos;
-      chipMoving = 0;
-      endGameTicksElapsed = timedOut.endGameTicksElapsed;
-      endGameResult = timedOut.endGameResult;
-      endGameAnimationTileId = timedOut.endGameAnimationTileId;
-      endGameAnimationFrame = timedOut.endGameAnimationFrame;
-    }
-    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postInitialHousekeeping, (phase) =>
-      projectLynxDebugPhaseSnapshot(
-        state,
-        actors,
-        chipPos,
-        chipDir,
-        chipMoving,
-        currentInputCode,
-        tick,
-        phase,
-      ),
-    );
-    advanceLynxAnimations(state, actors);
-
-    for (let index = actors.length - 1; index >= 0; index -= 1) {
-      const actor = actors[index]!;
-      if (actor.hidden || actor.moving > 0 || actor.dormant) {
-        continue;
-      }
-      chooseLynxCreatureMoveForTick(state, actors, actor, chipPos, state.timer.currentTime + 1, state.replay.stepping);
-    }
-    markPendingLynxChipPush(
-      state,
-      actors,
-      chipPos,
-      chipDir,
-      chipMoving,
-      endGameTicksElapsed,
-      pendingLynxChipPushInputCode(
-        state,
-        chipDir,
-        chipMoving,
-        endGameTicksElapsed,
-        queuedChipInputCode,
-        queuedReplayInputCode,
-        currentInputCode,
-      ),
-    );
-    const latchedChipMoveSelection =
-      chipMoving === 0 && !lynxTileHasTag(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), "trap")
-        ? selectLynxChipMoveForTick(
-            createLynxTickContext(state, actors, chipPos, chipZ),
-            level,
-            chipDir,
-            chipMoving,
-            endGameTicksElapsed,
-            currentInputCode,
-            queuedReplayInputCode,
-            queuedChipInputCode,
-          )
-        : null;
-    if (latchedChipMoveSelection) {
-      const previewInputCode =
-        latchedChipMoveSelection.requestedInputCode !== 0
-          ? latchedChipMoveSelection.requestedInputCode
-          : latchedChipMoveSelection.forcedInputCode !== 0 &&
-              isLynxSlide(latchedChipMoveSelection.floorBeforeMove) &&
-              shouldPreviewLynxForcedSlidePush(state, actors, chipPos, latchedChipMoveSelection.startInputCode)
-            ? latchedChipMoveSelection.startInputCode
-            : 0;
-      previewLynxChipPushRequest(state, actors, chipPos, previewInputCode);
-    }
-    if (replay && latchedChipMoveSelection && latchedChipMoveSelection.requestedInputCode !== 0 && queuedReplayInputCode === 0) {
-      state.lastMove = {
-        code: latchedChipMoveSelection.rawRequestedInputCode,
-        name: runtimeCommandName(latchedChipMoveSelection.rawRequestedInputCode),
-      };
-    }
-
-    const chipOnBeartrapBeforeCreatureMovement =
-      chipMoving === 0 && lynxTileHasTag(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), "trap");
-    const chipHasPreCreatureMoveQueued =
-      (latchedChipMoveSelection !== null && latchedChipMoveSelection.startInputCode !== 0) ||
-      (chipOnBeartrapBeforeCreatureMovement &&
-        (queuedChipInputCode !== 0 || queuedReplayInputCode !== 0 || currentInputCode !== 0));
-    if (!chipHasPreCreatureMoveQueued) {
-      clearLynxCouldntMove(state);
-    }
-
-    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postCreatureIntent, (phase) =>
-      projectLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, 0, tick, phase),
-    );
-
-    let chipArrivedOnHeldTrapThisTick = false;
-
-    for (let index = actors.length - 1; index >= 0; index -= 1) {
-      const actor = actors[index]!;
-      if (!skipsDormantLynxActorAdvance(state, actor, state.timer.currentTime + 1)) {
-        advanceLynxCreature(state, level, actors, actor, state.timer.currentTime + 1, chipPos, chipZ);
-      }
-      actor.intentDir = 0;
-      actor.forcedDir = 0;
-      if (
-        !actor.hidden &&
-        actor.moving <= 0 &&
-        lynxButtonAction(topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty)) === "spring-trap"
-      ) {
-        const heldButton = springLynxHeldBrownButton(
-          state,
-          level,
-          actors,
-          actor.pos,
-          chipPos,
-          chipDir,
-          chipMoving,
-          endGameTicksElapsed,
-          endGameResult,
-          endGameAnimationTileId,
-          endGameAnimationFrame,
-          replay ? currentInputCode : 0,
-        );
-        chipPos = heldButton.chipPos;
-        chipDir = heldButton.chipDir;
-        chipMoving = heldButton.chipMoving;
-        endGameTicksElapsed = heldButton.endGameTicksElapsed;
-        endGameResult = heldButton.endGameResult;
-        endGameAnimationTileId = heldButton.endGameAnimationTileId;
-        endGameAnimationFrame = heldButton.endGameAnimationFrame;
-        chipArrivedOnHeldTrapThisTick ||= heldButton.chipArrivedOnTrapThisTick;
-        if (replay && heldButton.consumedReplayInput) {
-          state.lastMove = {
-            code: currentInputCode,
-            name: runtimeCommandName(currentInputCode),
-          };
-          if (heldButton.deferredChipInputCode !== 0) {
-            queuedReplayInputCode = currentInputCode;
-            queuedChipInputCode = heldButton.deferredChipInputCode;
-          }
-          currentInputCode = 0;
-        }
-      }
-    }
-    {
-      const collision = resolveLynxChipCollision(
-        state,
-        actors,
-        chipPos,
-        chipDir,
-        chipMoving,
-        chipMoveKind,
-        endGameTicksElapsed,
-        endGameResult,
-        endGameAnimationTileId,
-        endGameAnimationFrame,
-      );
-      chipPos = collision.chipPos;
-      chipMoving = collision.endGameTicksElapsed !== null ? 0 : chipMoving;
-      endGameTicksElapsed = collision.endGameTicksElapsed;
-      endGameResult = collision.endGameResult;
-      endGameAnimationTileId = collision.endGameAnimationTileId;
-      endGameAnimationFrame = collision.endGameAnimationFrame;
-    }
-
-    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postCreatureMovement, (phase) =>
-      projectLynxDebugPhaseSnapshot(
-        state,
-        actors,
-        chipPos,
-        chipDir,
-        chipMoving,
-        0,
-        tick,
-        phase,
-      ),
-    );
-
-    const chipMoveSelection =
-      (() => {
-        const selection =
-          latchedChipMoveSelection &&
-          chipPos === latchedChipMoveSelection.chipPos &&
-          chipZ === latchedChipMoveSelection.chipZ &&
-          chipDir === latchedChipMoveSelection.chipDir &&
-          chipMoving === latchedChipMoveSelection.chipMoving &&
-          endGameTicksElapsed === latchedChipMoveSelection.endGameTicksElapsed
-            ? latchedChipMoveSelection
-            : selectLynxChipMoveForTick(
-                createLynxTickContext(state, actors, chipPos, chipZ),
-                level,
-                chipDir,
-                chipMoving,
-                endGameTicksElapsed,
-                currentInputCode,
-                queuedReplayInputCode,
-                queuedChipInputCode,
-              );
-        return shouldSuppressLynxChipMoveSelectionForHeldTrapArrival(
-          state,
-          chipPos,
-          chipMoving,
-          chipArrivedOnHeldTrapThisTick,
-        )
-          ? suppressLynxChipMoveSelectionForHeldTrapArrival(selection)
-          : selection;
-      })();
-    const floorBeforeMove = chipMoveSelection.floorBeforeMove;
-    const heldButtonConsumedReplayInput = queuedReplayInputCode !== 0;
-    const rawRequestedInputCode = chipMoveSelection.rawRequestedInputCode;
-    if (
-      chipMoving === 0 &&
-      !shouldSuppressLynxChipMoveSelectionForHeldTrapArrival(state, chipPos, chipMoving, chipArrivedOnHeldTrapThisTick)
-    ) {
-      currentInputCode = 0;
-      queuedReplayInputCode = 0;
-    }
-    const requestedInputCode = chipMoveSelection.requestedInputCode;
-    if (replay && requestedInputCode !== 0 && !heldButtonConsumedReplayInput) {
-      state.lastMove = {
-        code: rawRequestedInputCode,
-        name: runtimeCommandName(rawRequestedInputCode),
-      };
-    }
-    const chosenInputCode = chipMoveSelection.chosenInputCode;
-    queuedChipInputCode = 0;
-    const startInputCode = chipMoveSelection.startInputCode;
-
-    if (startInputCode === 0 && !chipMoveSelection.startAirMove && !chipMoveSelection.startElevatorMove && chipMoving === 0) {
-      if (!lynxRuntimeState(state).trapReleaseCantMoveThisTick) {
-        clearLynxCouldntMove(state);
-      }
-      resetLynxFloorSounds(state);
-    }
-
-    if (chipMoving === 0 && chipMoveSelection.startAirMove) {
-      const airborne = startLynxChipAirMovement(state, chipPos, chipZ);
-      chipPos = airborne.chipPos;
-      chipZ = airborne.chipZ;
-      chipMoving = airborne.chipMoving;
-      chipMoveKind = airborne.chipMoveKind;
-      clearLynxCouldntMove(state);
-    } else if (chipMoving === 0 && chipMoveSelection.startElevatorMove) {
-      const elevated = startLynxChipElevatorMovement(createLynxTickContext(state, actors, chipPos, chipZ), level, chipDir);
-      chipPos = elevated.chipPos;
-      chipZ = elevated.chipZ;
-      chipMoving = elevated.chipMoving;
-      chipMoveKind = elevated.chipMoveKind;
-      if (elevated.chipMoving > 0) {
-        clearLynxCouldntMove(state);
-      }
-    } else if (chipMoving === 0 && startInputCode !== 0) {
-      updateLynxChipStartMovementState(state, floorBeforeMove, chosenInputCode);
-      if (canLynxExitTile(state, floorBeforeMove, MS_TILE.Chip, startInputCode, false)) {
-        if (!canAdvanceLynxPosition(chipPos, startInputCode, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
-          chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
-          addLynxCantMove(state);
-        } else {
-          const targetPos = nextPosition(chipPos, startInputCode, MS_GRID_WIDTH);
-          const target = state.map.cells[targetPos];
-          const targetBlock =
-            target === undefined
-              ? null
-              : findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
-                null;
-          const canPushIntoClaimedCell = targetBlock
-            ? canLynxChipPushIntoClaimedCell(state, targetPos, startInputCode)
-            : false;
-          const pushedBlock =
-            targetBlock && canPushIntoClaimedCell
-              ? tryPushLynxBlock(state, level, actors, targetPos, startInputCode)
-              : false;
-          const canEnterTarget =
-            !!target &&
-            (targetBlock
-              ? pushedBlock && (revealLynxHiddenWall(state, targetPos) ? false : canLynxChipEnterCell(state, targetPos, startInputCode))
-              : revealLynxHiddenWall(state, targetPos)
-                ? false
-                : canLynxChipEnterCell(state, targetPos, startInputCode));
-          if (canEnterTarget) {
-            clearLynxCouldntMove(state);
-            chipDir = startInputCode;
-            chipPos = targetPos;
-            chipMoving = 8;
-            chipMoveKind = "planar";
-          } else {
-            chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
-            addLynxCantMove(state);
-          }
-        }
-      } else {
-        chipDir = turnLynxChipAroundOnBlockedIce(state, floorBeforeMove, startInputCode);
-        addLynxCantMove(state);
-      }
-    }
-
-    const postMove = resolveLynxPostChipMovement(
-      state,
-      level,
-      actors,
-      chipPos,
-      chipDir,
-      chipMoving,
-      chipMoveKind,
-      endGameTicksElapsed,
-      endGameResult,
-      endGameAnimationTileId,
-      endGameAnimationFrame,
-    );
-    chipPos = postMove.chipPos;
-    chipDir = postMove.chipDir;
-    chipMoving = postMove.chipMoving;
-    chipMoveKind = postMove.chipMoveKind;
-    endGameTicksElapsed = postMove.endGameTicksElapsed;
-    endGameResult = postMove.endGameResult;
-    endGameAnimationTileId = postMove.endGameAnimationTileId;
-    endGameAnimationFrame = postMove.endGameAnimationFrame;
-    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postTeleportResolution, (phase) =>
-      projectLynxDebugPhaseSnapshot(
-        state,
-        actors,
-        chipPos,
-        chipDir,
-        chipMoving,
-        0,
-        tick,
-        phase,
-      ),
-    );
-
-    const finalizedEndGame = finalizeLynxTickBookkeeping(
-      state,
-      chipPos,
-      chipDir,
-      chipMoving,
-      chipMoveKind,
-      endGameTicksElapsed,
-      endGameResult,
-    );
-
-    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postPutwallResolution, (phase) =>
-      projectLynxDebugPhaseSnapshot(
-        state,
-        actors,
-        chipPos,
-        chipDir,
-        chipMoving,
-        0,
-        tick,
-        phase,
-      ),
-    );
-    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.final, (phase) =>
-      projectLynxDebugPhaseSnapshot(state, actors, chipPos, chipDir, chipMoving, 0, tick, phase),
-    );
-
-    endGameTicksElapsed = finalizedEndGame.endGameTicksElapsed;
-    endGameResult = finalizedEndGame.endGameResult;
 
     if (includeStep(tick)) {
       steps.push({
         ...engineStateToSnapshot(
-          state,
+          token.state,
           "tick",
           createRuntimeCommand(scheduled?.inputCode ?? 0, scheduled ? scheduled.tick : -1),
         ),
         phases,
       });
     }
-    if (state.status !== "playing") {
+    if (token.state.status !== "playing") {
       break;
     }
   }
@@ -4787,8 +4430,8 @@ function runLynxReplayTraceDebugInternal(
     initialDebugState,
     steps,
     result: {
-      status: steps[steps.length - 1]?.status ?? initialState.status,
-      finalTick: steps[steps.length - 1]?.currentTime ?? initialState.currentTime,
+      status: token.state.status,
+      finalTick: token.state.timer.tick,
     },
   });
 }

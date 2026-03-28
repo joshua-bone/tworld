@@ -558,10 +558,10 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 
 ### EC3: Shared Phase Recorder
 
-- [ ] Introduce a shared recorder interface in `game-core`.
-- [ ] Convert Lynx debug traces to use the normal tick path plus recorder hooks.
-- [ ] Keep MS on the same recorder model.
-- [ ] Delete duplicated debug tick logic from Lynx.
+- [x] Introduce a shared recorder interface in `game-core`.
+- [x] Convert Lynx debug traces to use the normal tick path plus recorder hooks.
+- [x] Keep MS on the same recorder model.
+- [x] Delete duplicated debug tick logic from Lynx.
 
 ### EC4: Portable Item Subsystem Extraction
 

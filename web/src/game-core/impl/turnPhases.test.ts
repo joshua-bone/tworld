@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createArrayTurnDebugPhaseRecorder,
   LYNX_TURN_PHASE_SEQUENCE,
   LYNX_TURN_DEBUG_PHASE_SEQUENCE,
   MS_TURN_PHASE_SEQUENCE,
@@ -59,9 +60,10 @@ describe("turn debug phases", () => {
 
   it("records projected debug phases in order", () => {
     const phases: string[] = [];
+    const recorder = createArrayTurnDebugPhaseRecorder(phases);
 
-    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.postInputLatch, (phase) => `phase:${phase}`);
-    recordTurnDebugPhase(phases, TURN_DEBUG_PHASE.final, (phase) => `phase:${phase}`);
+    recordTurnDebugPhase(recorder, TURN_DEBUG_PHASE.postInputLatch, (phase) => `phase:${phase}`);
+    recordTurnDebugPhase(recorder, TURN_DEBUG_PHASE.final, (phase) => `phase:${phase}`);
 
     expect(phases).toEqual(["phase:post-input-latch", "phase:final"]);
   });

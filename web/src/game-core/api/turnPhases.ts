@@ -32,6 +32,10 @@ export const TURN_PHASE = {
 export type TurnPhaseName = (typeof TURN_PHASE)[keyof typeof TURN_PHASE];
 export type TurnDebugPhaseName = (typeof TURN_DEBUG_PHASE)[keyof typeof TURN_DEBUG_PHASE];
 
+export interface TurnDebugPhaseRecorder<TSnapshot> {
+  record(phase: TurnDebugPhaseName, snapshot: TSnapshot): void;
+}
+
 export const MS_TURN_PHASE_SEQUENCE: readonly TurnPhaseName[] = [
   TURN_PHASE.initialHousekeeping,
   TURN_PHASE.creatureMovement,
@@ -81,12 +85,20 @@ export interface TurnPhaseHandler<TResult> {
   run: () => TResult | null | undefined;
 }
 
+export function createArrayTurnDebugPhaseRecorder<TSnapshot>(phases: TSnapshot[]): TurnDebugPhaseRecorder<TSnapshot> {
+  return {
+    record: (_phase, snapshot) => {
+      phases.push(snapshot);
+    },
+  };
+}
+
 export function recordTurnDebugPhase<TSnapshot>(
-  phases: TSnapshot[],
+  recorder: TurnDebugPhaseRecorder<TSnapshot>,
   phase: TurnDebugPhaseName,
   project: (phase: TurnDebugPhaseName) => TSnapshot,
 ): void {
-  phases.push(project(phase));
+  recorder.record(phase, project(phase));
 }
 
 export function runTurnPhaseHandlers<TResult>(handlers: readonly TurnPhaseHandler<TResult>[]): TResult | null {
