@@ -46,7 +46,6 @@ import {
   PLAYER_BINDABLE_KEYS,
 } from "@player-web/impl/playerKeyBindingsSettings";
 import {
-  buildLevelProgressIndex,
   buildStoredLevelProgressKey,
   mergeLevelProgressSummaries,
   resolveLevelProgressSummary,
@@ -56,18 +55,18 @@ import {
   buildCuratedCatalogView,
   findSetFamilyById,
   findSetFamilyForSelection,
-  listSearchableSetFamilies,
-  listSetFamilyRulesets,
-  resolveSearchMatchedLevelNumber,
-  resolveSetFamilyLevel,
   resolveSetFamilyRuleset,
-  resolveSetFamilySelection,
-  searchSetFamilies,
-  type CuratedCatalogView,
   type SetFamily,
   type SetFamilyRuleset,
 } from "@player-web/impl/modern/curatedCatalog";
-import { describeLevelDisplayStatus } from "@player-web/impl/modern/familyActivity";
+import {
+  buildModernDashboardNavigationModel,
+  resolveDefaultLandingFamily,
+  resolveEmbeddedSelectionIntent,
+  resolveFamilySelectionIntent,
+  tabForFamily,
+  type LibrarySidebarTab,
+} from "@player-web/impl/modern/modernDashboardNavigationController";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import {
   isCompletedBrowserLevelRunResult,
@@ -80,7 +79,6 @@ import {
 } from "@player-web/ports/BrowserProfileStore";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 
-type LibrarySidebarTab = "official" | "curated" | "uploads";
 type ResizablePane = "sets" | "levels";
 
 const LIBRARY_SIDEBAR_TABS: readonly { id: LibrarySidebarTab; label: string }[] = [
@@ -209,56 +207,8 @@ function hasDraggedFiles(dataTransfer: DataTransfer | null): boolean {
   return Array.from(dataTransfer.items).some((item) => item.kind === "file") || dataTransfer.files.length > 0;
 }
 
-function resolveDefaultLandingFamily(view: CuratedCatalogView): SetFamily | null {
-  return (
-    findSetFamilyById(view, "official:cclp1") ??
-    view.officialFamilies[0] ??
-    view.introFamilies[0] ??
-    view.localFamilies[0] ??
-    null
-  );
-}
-
-function listFamiliesForTab(view: CuratedCatalogView, tab: LibrarySidebarTab): SetFamily[] {
-  switch (tab) {
-    case "official":
-      return view.officialFamilies;
-    case "curated":
-      return view.introFamilies;
-    case "uploads":
-      return view.localFamilies;
-  }
-}
-
-function tabForFamily(family: SetFamily): LibrarySidebarTab | null {
-  if (family.section === "official") {
-    return "official";
-  }
-
-  if (family.section === "intro") {
-    return "curated";
-  }
-
-  if (family.section === "local") {
-    return "uploads";
-  }
-
-  return null;
-}
-
-function resolveFamilyRuleset(
-  family: SetFamily,
-  requestedRuleset: BrowserPreferredRuleset,
-): SetFamilyRuleset | null {
-  if (family.launchEntries[requestedRuleset]) {
-    return requestedRuleset;
-  }
-
-  return listSetFamilyRulesets(family)[0] ?? null;
-}
-
 function levelStatusTone(
-  progress: BrowserResolvedLevelProgressSummary | null,
+  progress: ReturnType<typeof buildModernDashboardNavigationModel>["activeLevelProgress"],
 ): "clean" | "undo" | "attempted" | "unplayed" {
   if (!progress) {
     return "unplayed";
@@ -275,7 +225,9 @@ function levelStatusTone(
   return "attempted";
 }
 
-function levelStatusShortLabel(progress: BrowserResolvedLevelProgressSummary | null): string {
+function levelStatusShortLabel(
+  progress: ReturnType<typeof buildModernDashboardNavigationModel>["activeLevelProgress"],
+): string {
   switch (levelStatusTone(progress)) {
     case "clean":
       return "✓";
@@ -288,7 +240,9 @@ function levelStatusShortLabel(progress: BrowserResolvedLevelProgressSummary | n
   }
 }
 
-function levelStatusLongLabel(progress: BrowserResolvedLevelProgressSummary | null): string {
+function levelStatusLongLabel(
+  progress: ReturnType<typeof buildModernDashboardNavigationModel>["activeLevelProgress"],
+): string {
   switch (levelStatusTone(progress)) {
     case "clean":
       return "Cleared clean";
@@ -886,32 +840,42 @@ export function ModernPlayerApp({
     };
   }, [levelContextMenu]);
 
-  const curated = useMemo(() => buildCuratedCatalogView(catalog, lastSelection), [catalog, lastSelection]);
-  const fallbackFamily = resolveDefaultLandingFamily(curated);
-  const requestedActiveFamily = activeFamilyId ? findSetFamilyById(curated, activeFamilyId) : null;
-  const activeFamily = requestedActiveFamily && tabForFamily(requestedActiveFamily) ? requestedActiveFamily : fallbackFamily;
-  const activeRuleset = activeFamily ? resolveFamilyRuleset(activeFamily, requestedRuleset) : null;
-  const activeEntry = activeFamily && activeRuleset ? activeFamily.launchEntries[activeRuleset] ?? null : null;
-  const requestedLevelNumber = activeFamily ? requestedLevelsByFamily[activeFamily.id] ?? 1 : 1;
-  const activeLevel =
-    activeFamily && activeRuleset ? resolveSetFamilyLevel(activeFamily, activeRuleset, requestedLevelNumber) ?? activeEntry?.levels[0] ?? null : null;
-  const activeSelection =
-    activeFamily && activeRuleset && activeLevel ? resolveSetFamilySelection(activeFamily, activeRuleset, activeLevel.number) : null;
-  const progressByKey = useMemo(() => buildLevelProgressIndex(levelProgressSummaries), [levelProgressSummaries]);
-  const activeLevelProgress =
-    activeLevel && activeRuleset ? resolveLevelProgressSummary(activeLevel, activeRuleset, progressByKey) : null;
-  const activeLevelStatus = activeLevel ? describeLevelDisplayStatus(activeLevel, activeLevelProgress) : null;
-  const activeEntryProgress = summarizeEntryProgress(activeEntry, progressByKey);
   const deferredSearchQuery = useDeferredValue(searchQuery);
-  const isSearchActive = deferredSearchQuery.trim() !== "";
-  const searchableFamilies = useMemo(() => listSearchableSetFamilies(curated), [curated]);
-  const searchResults = useMemo(
-    () => searchSetFamilies(searchableFamilies, deferredSearchQuery),
-    [deferredSearchQuery, searchableFamilies],
-  );
-  const visibleFamilies = useMemo(
-    () => (isSearchActive ? searchResults : listFamiliesForTab(curated, activeTab)),
-    [activeTab, curated, isSearchActive, searchResults],
+  const {
+    activeEntry,
+    activeEntryProgress,
+    activeFamily,
+    activeLevel,
+    activeLevelProgress,
+    activeRuleset,
+    activeSelection,
+    curated,
+    fallbackFamily,
+    isSearchActive,
+    progressByKey,
+    visibleFamilies,
+  } = useMemo(
+    () =>
+      buildModernDashboardNavigationModel({
+        activeFamilyId,
+        activeTab,
+        catalog,
+        deferredSearchQuery,
+        lastSelection,
+        levelProgressSummaries,
+        requestedLevelsByFamily,
+        requestedRuleset,
+      }),
+    [
+      activeFamilyId,
+      activeTab,
+      catalog,
+      deferredSearchQuery,
+      lastSelection,
+      levelProgressSummaries,
+      requestedLevelsByFamily,
+      requestedRuleset,
+    ],
   );
   const setInfoFamily = setInfoFamilyId ? findSetFamilyById(curated, setInfoFamilyId) : null;
   const [animatedLevelBadgeKey, setAnimatedLevelBadgeKey] = useState<string | null>(null);
@@ -1162,32 +1126,27 @@ export function ModernPlayerApp({
   });
 
   const handleSelectFamily = useEffectEvent((familyId: string) => {
-    const family = findSetFamilyById(curated, familyId);
-    setActiveFamilyId(familyId);
-    if (!family) {
-      return;
-    }
+    const intent = resolveFamilySelectionIntent({
+      curated,
+      deferredSearchQuery,
+      familyId,
+      requestedRuleset,
+    });
 
-    const familyTab = tabForFamily(family);
-    if (familyTab) {
-      setActiveTab(familyTab);
+    setActiveFamilyId(intent.activeFamilyId);
+    if (intent.activeTab) {
+      setActiveTab(intent.activeTab);
     }
-
-    const matchedRuleset = resolveFamilyRuleset(family, requestedRuleset);
-    const matchedLevelNumber =
-      isSearchActive && matchedRuleset
-        ? resolveSearchMatchedLevelNumber(family, deferredSearchQuery, matchedRuleset)
-        : null;
 
     setRequestedLevelsByFamily((current) => {
-      if (matchedLevelNumber !== null) {
-        if (current[familyId] === matchedLevelNumber) {
+      if (intent.requestedLevelNumber !== null) {
+        if (current[familyId] === intent.requestedLevelNumber) {
           return current;
         }
 
         return {
           ...current,
-          [familyId]: matchedLevelNumber,
+          [familyId]: intent.requestedLevelNumber,
         };
       }
 
@@ -1203,41 +1162,37 @@ export function ModernPlayerApp({
   });
 
   const handleEmbeddedSelectionChange = useEffectEvent((selection: PlayableSelection) => {
-    setLastSelection((current) => {
-      if (
-        current &&
-        current.seriesFile === selection.seriesFile &&
-        current.levelNumber === selection.levelNumber
-      ) {
-        return current;
-      }
-
-      return selection;
+    const intent = resolveEmbeddedSelectionIntent({
+      currentLastSelection: lastSelection,
+      curated,
+      selection,
     });
-    const family = findSetFamilyForSelection(curated, selection);
-    if (!family) {
+
+    if (intent.selectionChanged) {
+      setLastSelection(intent.nextLastSelection);
+    }
+    if (!intent.activeFamilyId || !intent.activeTab) {
       return;
     }
 
-    const familyTab = tabForFamily(family);
-    if (!familyTab) {
-      return;
-    }
+    const nextFamilyId = intent.activeFamilyId;
+    const nextTab = intent.activeTab;
+    const nextRequestedLevelNumber = intent.requestedLevelNumber;
 
-    setActiveFamilyId((current) => (current === family.id ? current : family.id));
-    setActiveTab((current) => (current === familyTab ? current : familyTab));
+    setActiveFamilyId((current) => (current === nextFamilyId ? current : nextFamilyId));
+    setActiveTab((current) => (current === nextTab ? current : nextTab));
     setRequestedLevelsByFamily((current) => {
-      if (current[family.id] === selection.levelNumber) {
+      if (nextRequestedLevelNumber === null || current[nextFamilyId] === nextRequestedLevelNumber) {
         return current;
       }
 
       return {
         ...current,
-        [family.id]: selection.levelNumber,
+        [nextFamilyId]: nextRequestedLevelNumber,
       };
     });
 
-    const nextRuleset = resolveSetFamilyRuleset(family, selection);
+    const nextRuleset = intent.requestedRuleset;
     if (nextRuleset) {
       setRequestedRuleset((current) => (current === nextRuleset ? current : nextRuleset));
       if (preferencesRef.current.defaultRuleset !== nextRuleset) {

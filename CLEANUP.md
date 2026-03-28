@@ -123,6 +123,14 @@ Goal:
 
 - separate composition from catalog/search/load mechanics
 
+Progress:
+
+- [x] extract family and level navigation controller with a tested derived dashboard model
+- [ ] extract backup and import workflow controller
+- [ ] extract settings and profile transfer workflow controller
+- [ ] extract pane resize and layout controller
+- [ ] extract library shell sections into smaller presentational components
+
 ### PR4: Legacy Canvas Render Pipeline Split
 
 Break [LegacyCanvasScreen.tsx](/Users/joshuabone/git/tworld/web/src/player-web/impl/LegacyCanvasScreen.tsx) into:
