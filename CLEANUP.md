@@ -66,7 +66,7 @@ Highest-value cleanup targets:
 - [x] PR3: Modern Dashboard Shell Split
 - [x] PR4: Legacy Canvas Render Pipeline Split
 - [x] PR5: Shared Interactive Adapter Skeleton
-- [ ] PR6: Content Parsing Decomposition
+- [x] PR6: Content Parsing Decomposition
 - [ ] PR7: Persistence And URL Launch Cleanup
 - [ ] PR8: Replay Verifier Orchestration Split
 - [ ] PR9: Engine Phase 2 Cleanup
