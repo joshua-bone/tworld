@@ -13,6 +13,7 @@ The goal is to avoid tile-id conditionals in engine hot paths and avoid passing 
 - [ ] Keep portable-item behavior separate from actor behavior
 - [ ] Make stable runtime entity identity the source of truth for portable items
 - [ ] Make actor-local inventory and collection rules policy-driven
+- [ ] Keep global level progress such as `chipsNeeded` separate from portable-item and actor-local inventory state
 - [ ] Make controller, traversal, and collision behavior policy-driven
 - [ ] Preserve real MS vs Lynx differences at the ruleset layer
 
@@ -32,6 +33,8 @@ Examples:
 - `sandbag`
 - `bowling ball`
 
+This seam owns portable-item identity and drop/carry state only. It must not own global level progress such as `chipsNeeded`.
+
 This seam should answer questions such as:
 
 - [ ] Can Chip collect this item?
@@ -50,6 +53,8 @@ Examples:
 - `bowling ball` while moving
 - `ghost`
 - `fake player`
+
+Actor-local inventory here means actor-owned keys/boots/tools-like state. It does not include global progress counters such as `chipsNeeded`.
 
 This seam should answer questions such as:
 
@@ -77,6 +82,8 @@ This seam should answer questions such as:
 - [ ] Make that entity survive `carried -> primed -> settled on map`
 - [ ] Migrate `sandbag` onto this runtime model first
 - [ ] Keep current sandbag behavior unchanged
+- [ ] Keep `inventory.tools` and `primedToolDrop` as compatibility projections only; do not let portable-item helpers depend on full engine inventory objects
+- [ ] Restrict portable-item projection helpers to portable-item state only, not unrelated global fields such as `chipsNeeded`
 - [ ] Remove any MS sandbag logic that depends on loose tile/inventory state where the runtime entity should own it
 - [ ] Add characterization for identity-sensitive cases such as replacement, primed drop, teleport origin settle, and air support
 
@@ -85,6 +92,7 @@ This seam should answer questions such as:
 - [ ] Introduce the same portable-item runtime seam in Lynx
 - [ ] Migrate `sandbag` onto that model
 - [ ] Preserve Lynx timing/order quirks
+- [ ] Keep the same narrow projection boundary in Lynx: portable-item helpers may project tool-slot/drop state, but not own global progress
 - [ ] Add Lynx characterization for teleport settle, support, replacement, and primed drop cases
 
 ### PR4: Actor-Local Inventory Seam
@@ -92,6 +100,7 @@ This seam should answer questions such as:
 - [ ] Introduce a typed actor-local inventory model
 - [ ] Make inventory ownership actor-based instead of passing raw inventory arrays through helpers
 - [ ] Support at least `no inventory`, `keys + boots`, and future expansion points without changing hot-path signatures
+- [ ] Keep actor-local inventory limited to actor-owned resources; do not move `chipsNeeded` or other global progress counters into this seam
 - [ ] Add tests covering actor-local key and boot use
 
 ### PR5: Controller and Actor Capability Policy
@@ -99,6 +108,7 @@ This seam should answer questions such as:
 - [ ] Introduce typed ruleset policy for actor control mode
 - [ ] Support at least `AI-controlled`, `player-input-controlled`, and `thrown / ballistic` actors
 - [ ] Add typed ruleset policy for collection rules, traversal rules, collision rules, blocked-move outcome, and clone / thief / trap / air / cloner hooks
+- [ ] Add typed hooks for actor-driven global progress effects such as chip collection, separate from actor-local inventory ownership
 - [ ] Keep policy data ruleset-specific even when the seam shape is shared
 
 ### PR6: Bowling Ball in MS
@@ -135,6 +145,8 @@ This seam should answer questions such as:
 
 - [ ] Do not add new tile-id branches for these elements in engine hot paths when a policy seam can answer the question
 - [ ] Do not pass actor inventory through broad helper argument lists
+- [ ] Do not give portable-item helpers a full engine-inventory surface when they only need portable-item projection data
+- [ ] Do not mix global level progress such as `chipsNeeded` into portable-item state or actor-local inventory
 - [ ] Do not merge portable-item state and actor-capability state into one vague abstraction
 - [ ] Stop after PR2 if the sandbag migration does not materially simplify the code
 
