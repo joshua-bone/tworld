@@ -87,6 +87,11 @@ import {
   resolveMsReplayLastMoveAfterChoose,
 } from "@ruleset-ms/impl/chipInput";
 import {
+  applyBlockedMsCreatureAttempt as applyBlockedMsCreatureAttemptWithContext,
+  chooseMsCreatureDirection as chooseMsCreatureDirectionWithContext,
+  type MsCreatureControllerContext,
+} from "@ruleset-ms/impl/controllers";
+import {
   collectLevelConnections,
   collectLevelCreaturePositions,
   levelLayers,
@@ -350,21 +355,6 @@ export function setMsQueueTraceHook(hook: ((event: MsQueueTraceEvent) => void) |
 
 function normalizeRandomSeed(seed: number | undefined): bigint {
   return BigInt((seed ?? 0) & Number(UINT31_MASK));
-}
-
-function leftDirection(dir: number): number {
-  switch (dir) {
-    case MS_DIRECTION.north:
-      return MS_DIRECTION.west;
-    case MS_DIRECTION.west:
-      return MS_DIRECTION.south;
-    case MS_DIRECTION.south:
-      return MS_DIRECTION.east;
-    case MS_DIRECTION.east:
-      return MS_DIRECTION.north;
-    default:
-      return MS_DIRECTION.none;
-  }
 }
 
 function rightDirection(dir: number): number {
@@ -2752,147 +2742,22 @@ function moveCreatureUpOneLayer(
 }
 
 function chooseCreatureDirection(cells: EngineMapCell[], creature: MsTrackedCreature, internal: MsInternalState, currentTime: number, stepping: number): number {
-  creature.tdir = MS_DIRECTION.none;
-  if ((currentTime & 2) !== 0) {
-    return MS_DIRECTION.none;
-  }
-  if (
-    creature.turning &&
-    creature.id === MS_TILE.Tank &&
-    creature.floorMovement !== "none" &&
-    creature.floorMovementDir !== MS_DIRECTION.none
-  ) {
-    return MS_DIRECTION.none;
-  }
-  if (creature.turning) {
-    creature.turning = false;
-    creature.hasMoved = false;
-    updateCreatureTile(cells, creature);
-  }
-  if (creature.hasMoved) {
-    internal.controllerDir = MS_DIRECTION.none;
-    return MS_DIRECTION.none;
-  }
-  if (creature.floorMovement !== "none" && creature.floorMovementDir !== MS_DIRECTION.none) {
-    return MS_DIRECTION.none;
-  }
+  const context: MsCreatureControllerContext = {
+    currentTime,
+    stepping,
+    chipPos: internal.chipPos,
+    floorAt: (pos) => floorAt(cells, pos),
+    getControllerDir: () => internal.controllerDir,
+    setControllerDir: (dir) => {
+      internal.controllerDir = dir;
+    },
+    canMove: (candidate, dir) => canMoveCreature(cells, candidate as MsTrackedCreature, dir, internal),
+    updateCreatureTile: (candidate) => updateCreatureTile(cells, candidate as MsTrackedCreature),
+    randomize3: (array) => randomp3(internal, array),
+    randomize4: (array) => randomp4(internal, array),
+  };
 
-  if (creature.id === MS_TILE.Teeth || creature.id === MS_TILE.Blob) {
-    if (((currentTime + stepping) & 4) !== 0) {
-      return MS_DIRECTION.none;
-    }
-  }
-
-  const floor = floorAt(cells, creature.pos);
-  let choices: number[] = [];
-  let preferredDir = creature.dir;
-  if (floor === MS_TILE.CloneMachine || floor === MS_TILE.Beartrap) {
-    switch (creature.id) {
-      case MS_TILE.Tank:
-      case MS_TILE.Ball:
-      case MS_TILE.Glider:
-      case MS_TILE.Fireball:
-      case MS_TILE.Walker:
-        choices = [creature.dir];
-        break;
-      case MS_TILE.Blob:
-        choices = [creature.dir, leftDirection(creature.dir), backDirection(creature.dir), rightDirection(creature.dir)];
-        randomp4(internal, choices);
-        break;
-      case MS_TILE.Bug:
-      case MS_TILE.Paramecium:
-      case MS_TILE.Teeth:
-        creature.tdir = internal.controllerDir;
-        return internal.controllerDir;
-      default:
-        return MS_DIRECTION.none;
-    }
-  } else {
-    switch (creature.id) {
-      case MS_TILE.Tank:
-        choices = [creature.dir];
-        break;
-      case MS_TILE.Ball:
-        choices = [creature.dir, backDirection(creature.dir)];
-        break;
-      case MS_TILE.Glider:
-        choices = [creature.dir, leftDirection(creature.dir), rightDirection(creature.dir), backDirection(creature.dir)];
-        break;
-      case MS_TILE.Fireball:
-        choices = [creature.dir, rightDirection(creature.dir), leftDirection(creature.dir), backDirection(creature.dir)];
-        break;
-      case MS_TILE.Walker: {
-        const randomized = [leftDirection(creature.dir), backDirection(creature.dir), rightDirection(creature.dir)];
-        randomp3(internal, randomized);
-        choices = [creature.dir, ...randomized];
-        break;
-      }
-      case MS_TILE.Blob:
-        choices = [creature.dir, leftDirection(creature.dir), backDirection(creature.dir), rightDirection(creature.dir)];
-        randomp4(internal, choices);
-        break;
-      case MS_TILE.Bug:
-        choices = [leftDirection(creature.dir), creature.dir, rightDirection(creature.dir), backDirection(creature.dir)];
-        break;
-      case MS_TILE.Paramecium:
-        choices = [rightDirection(creature.dir), creature.dir, leftDirection(creature.dir), backDirection(creature.dir)];
-        break;
-      case MS_TILE.Teeth: {
-        let deltaY = Math.floor(internal.chipPos / MS_GRID_WIDTH) - Math.floor(creature.pos / MS_GRID_WIDTH);
-        let deltaX = (internal.chipPos % MS_GRID_WIDTH) - (creature.pos % MS_GRID_WIDTH);
-        const vertical = deltaY < 0 ? MS_DIRECTION.north : deltaY > 0 ? MS_DIRECTION.south : MS_DIRECTION.none;
-        if (deltaY < 0) {
-          deltaY = -deltaY;
-        }
-        const horizontal = deltaX < 0 ? MS_DIRECTION.west : deltaX > 0 ? MS_DIRECTION.east : MS_DIRECTION.none;
-        if (deltaX < 0) {
-          deltaX = -deltaX;
-        }
-        choices = deltaX > deltaY ? [horizontal, vertical] : [vertical, horizontal];
-        preferredDir = choices[0] ?? creature.dir;
-        if (choices[0] !== MS_DIRECTION.none) {
-          choices.push(choices[0]!);
-        }
-        break;
-      }
-      default:
-        return MS_DIRECTION.none;
-    }
-  }
-
-  if (creature.id === MS_TILE.Tank) {
-    creature.tdir = creature.dir;
-  }
-
-  for (const dir of choices) {
-    creature.tdir = dir;
-    internal.controllerDir = dir;
-    if (dir !== MS_DIRECTION.none && canMoveCreature(cells, creature, dir, internal)) {
-      return dir;
-    }
-  }
-
-  if (
-    creature.id !== MS_TILE.Tank &&
-    floor !== MS_TILE.Beartrap &&
-    floor !== MS_TILE.CloneMachine &&
-    preferredDir !== MS_DIRECTION.none &&
-    creature.dir !== preferredDir
-  ) {
-    creature.dir = preferredDir;
-    updateCreatureTile(cells, creature);
-  }
-
-  creature.tdir = preferredDir;
-  if (creature.id === MS_TILE.Tank) {
-    if (creature.released || floor !== MS_TILE.Beartrap) {
-      creature.hasMoved = true;
-    }
-    creature.tdir = MS_DIRECTION.none;
-    return MS_DIRECTION.none;
-  }
-
-  return preferredDir;
+  return chooseMsCreatureDirectionWithContext(context, creature);
 }
 
 function resolvePendingCloners(cells: EngineMapCell[], internal: MsInternalState): void {
@@ -3413,13 +3278,14 @@ function runCreatureMovements(
   const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? fallbackCells ?? [];
   let soundEffects = 0;
   const applyBlockedCreatureAttempt = (creatureCells: EngineMapCell[], creature: MsTrackedCreature, dir: number): void => {
-    const floor = floorAt(creatureCells, creature.pos);
-    if (dir === MS_DIRECTION.none || floor === MS_TILE.Beartrap || floor === MS_TILE.CloneMachine) {
-      return;
-    }
-
-    creature.dir = dir;
-    updateCreatureTile(creatureCells, creature);
+    applyBlockedMsCreatureAttemptWithContext(
+      {
+        floorAt: (pos) => floorAt(creatureCells, pos),
+        updateCreatureTile: (candidate) => updateCreatureTile(creatureCells, candidate as MsTrackedCreature),
+      },
+      creature,
+      dir,
+    );
   };
 
   for (const creature of internal.creatures) {

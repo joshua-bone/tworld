@@ -81,6 +81,10 @@ import {
   type LynxChipMoveSelection,
 } from "@ruleset-lynx/impl/chipInput";
 import {
+  chooseLynxCreatureMoveForTick as chooseLynxCreatureMoveForTickWithContext,
+  type LynxCreatureControllerContext,
+} from "@ruleset-lynx/impl/controllers";
+import {
   lynxChipTargetCellAllowsEntry,
   lynxChipTargetCellAllowsPush,
   lynxChipTargetCellStopsOnPush,
@@ -129,7 +133,6 @@ import {
   type LynxPostMoveResolution,
 } from "@ruleset-lynx/impl/turnState";
 import {
-  lynxActorControlMode,
   lynxActorEntryMask,
   lynxActorGlobalProgressKind,
   lynxActorHazardResponse,
@@ -143,7 +146,6 @@ import {
   lynxChipEnterAction,
   lynxChipMovementMask,
   lynxCreatureArrivalAction,
-  lynxCreatureFloorAction,
   lynxDoorKeyIndex,
   lynxExitMovementMask,
   lynxFixedSlideDirection,
@@ -1887,74 +1889,6 @@ function finalizeLynxTickBookkeeping(
   return finalizedEndGame;
 }
 
-function chooseLynxCreatureDirection(
-  state: EngineState,
-  actor: LynxRuntimeActor,
-  chipPos: number,
-  currentTime: number,
-  stepping: number,
-): number {
-  const dir = actor.dir;
-
-  switch (actor.id) {
-    case MS_TILE.Tank:
-    case MS_TILE.Ball:
-    case MS_TILE.Glider:
-    case MS_TILE.Fireball:
-      return dir;
-    case MS_TILE.Bug:
-      return left(dir);
-    case MS_TILE.Paramecium:
-      return right(dir);
-    case MS_TILE.Walker:
-      return dir;
-    case MS_TILE.Blob: {
-      const cw = [1, 8, 4, 2];
-      return cw[advanceLynxMainRandom4(state)] ?? 0;
-    }
-    case MS_TILE.Teeth: {
-      if (((currentTime + stepping) & 4) !== 0) {
-        return 0;
-      }
-      const dy = Math.floor(chipPos / MS_GRID_WIDTH) - Math.floor(actor.pos / MS_GRID_WIDTH);
-      const dx = (chipPos % MS_GRID_WIDTH) - (actor.pos % MS_GRID_WIDTH);
-      if (Math.abs(dx) > Math.abs(dy)) {
-        return dx < 0 ? 2 : dx > 0 ? 8 : 0;
-      }
-      return dy < 0 ? 1 : dy > 0 ? 4 : 0;
-    }
-    default:
-      return 0;
-  }
-}
-
-function chooseLynxCreatureFallbacks(actor: LynxRuntimeActor, firstChoice: number): number[] {
-  switch (actor.id) {
-    case MS_TILE.Tank:
-      return firstChoice ? [firstChoice] : [];
-    case MS_TILE.Ball:
-      return [firstChoice, back(actor.dir)].filter((dir, index, dirs) => dir !== 0 && dirs.indexOf(dir) === index);
-    case MS_TILE.Glider:
-      return [firstChoice, left(actor.dir), right(actor.dir), back(actor.dir)].filter(
-        (dir, index, dirs) => dir !== 0 && dirs.indexOf(dir) === index,
-      );
-    case MS_TILE.Fireball:
-      return [firstChoice, right(actor.dir), left(actor.dir), back(actor.dir)].filter(
-        (dir, index, dirs) => dir !== 0 && dirs.indexOf(dir) === index,
-      );
-    case MS_TILE.Bug:
-      return [firstChoice, actor.dir, right(actor.dir), back(actor.dir)].filter(
-        (dir, index, dirs) => dir !== 0 && dirs.indexOf(dir) === index,
-      );
-    case MS_TILE.Paramecium:
-      return [firstChoice, actor.dir, left(actor.dir), back(actor.dir)].filter(
-        (dir, index, dirs) => dir !== 0 && dirs.indexOf(dir) === index,
-      );
-    default:
-      return firstChoice ? [firstChoice] : [];
-  }
-}
-
 function canLynxCreatureStartMovement(
   state: EngineState,
   actors: LynxRuntimeActor[],
@@ -1989,6 +1923,29 @@ function canLynxCreatureStartMovement(
   return true;
 }
 
+function createLynxCreatureControllerContext(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  chipPos: number,
+  currentTime: number,
+  stepping: number,
+): LynxCreatureControllerContext {
+  return {
+    chipPos,
+    currentTime,
+    stepping,
+    withLayer: (z, run) => withLynxLayer(state, z, run),
+    floorAt: (pos) => topTileIdOr(state.map.cells, pos, MS_TILE.Empty),
+    canStart: (actor, dir) => canLynxCreatureStartMovement(state, actors, actor as LynxRuntimeActor, dir, false, true),
+    chooseBlobDirection: () => {
+      const clockwise = [1, 8, 4, 2];
+      return clockwise[advanceLynxMainRandom4(state)] ?? 0;
+    },
+    chooseWalkerRandomDirection: (dir) => [dir, right(dir), back(dir), left(dir)][advanceLynxPrng(state) & 3] ?? dir,
+    slideDirection: (floorId) => getLynxSlideDirection(state, floorId, true),
+  };
+}
+
 function chooseLynxCreatureMoveForTick(
   state: EngineState,
   actors: LynxRuntimeActor[],
@@ -1997,84 +1954,10 @@ function chooseLynxCreatureMoveForTick(
   currentTime: number,
   stepping: number,
 ): void {
-  withLynxLayer(state, actor.z ?? 1, () => {
-    actor.intentDir = 0;
-    actor.forcedDir = 0;
-
-    if (actor.teleported) {
-      actor.forcedDir = actor.dir;
-      actor.teleported = false;
-      return;
-    }
-
-    const floor = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-    if (currentTime !== 0 && isLynxSlide(floor)) {
-      actor.forcedDir = getLynxSlideDirection(state, floor, true);
-      return;
-    }
-    if (currentTime !== 0 && isLynxIce(floor)) {
-      actor.forcedDir = actor.dir;
-      return;
-    }
-
-    if (lynxActorControlMode(actor.id) === "passive") {
-      return;
-    }
-
-    if (lynxCreatureFloorAction(floor) === "hold-direction") {
-      actor.intentDir = actor.dir;
-      return;
-    }
-
-    if (actor.id === MS_TILE.Teeth) {
-      if (((currentTime + stepping) & 4) !== 0) {
-        return;
-      }
-
-      const dy = Math.floor(chipPos / MS_GRID_WIDTH) - Math.floor(actor.pos / MS_GRID_WIDTH);
-      const dx = (chipPos % MS_GRID_WIDTH) - (actor.pos % MS_GRID_WIDTH);
-      const vertical = dy < 0 ? 1 : dy > 0 ? 4 : 0;
-      const horizontal = dx < 0 ? 2 : dx > 0 ? 8 : 0;
-      const fallbackDirs = Math.abs(dx) > Math.abs(dy) ? [horizontal, vertical] : [vertical, horizontal];
-
-      for (const dir of fallbackDirs) {
-        if (dir === 0) {
-          continue;
-        }
-        actor.intentDir = dir;
-        if (canLynxCreatureStartMovement(state, actors, actor, dir, false, true)) {
-          return;
-        }
-      }
-      actor.intentDir = fallbackDirs[0] ?? 0;
-      return;
-    }
-
-    const firstChoice = chooseLynxCreatureDirection(state, actor, chipPos, currentTime, stepping);
-
-    if (actor.id === MS_TILE.Walker) {
-      if (firstChoice !== 0) {
-        actor.intentDir = firstChoice;
-        if (canLynxCreatureStartMovement(state, actors, actor, firstChoice, false, true)) {
-          return;
-        }
-      }
-
-      const randomDir = [actor.dir, right(actor.dir), back(actor.dir), left(actor.dir)][advanceLynxPrng(state) & 3] ?? actor.dir;
-      if (randomDir !== 0) {
-        actor.intentDir = randomDir;
-      }
-      return;
-    }
-
-    const fallbackDirs = chooseLynxCreatureFallbacks(actor, firstChoice);
-    for (const dir of fallbackDirs) {
-      actor.intentDir = dir;
-      if (canLynxCreatureStartMovement(state, actors, actor, dir, false, true)) {
-        return;
-      }
-    }
-  });
+  chooseLynxCreatureMoveForTickWithContext(
+    createLynxCreatureControllerContext(state, actors, chipPos, currentTime, stepping),
+    actor,
+  );
 }
 
 function startLynxCreatureMovement(

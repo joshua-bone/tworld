@@ -70,11 +70,9 @@ What is good:
 
 What is still weak:
 
-- `chooseCreatureDirection` in MS is still `143` lines
 - `runFloorMovement` in MS is still `90` lines and handles air, elevator, ice, slide, teleport, failure, and sound effects
-- `activateCloner` in MS is still `87` lines and manually assembles ad hoc creature state
 - `runLynxChipMovementPhase` is still `168` lines and mixes input resolution, push probing, primed drop settlement, hidden-wall reveal, and move start
-- `resolveLynxActorTeleport` is still `72` lines of loop-heavy mutation logic
+- `advanceLynxChipTrapRelease` still mixes held-button release timing, movement probes, and move completion
 
 Conclusion:
 
@@ -95,7 +93,7 @@ What is good:
 What is still weak:
 
 - the capability surface is still too coarse for future actors like bowling balls, ghosts, or fake players
-- blocked-move outcomes, controller behavior, and some arrival behavior are still open-coded in engine helpers
+- blocked-move outcomes and some arrival behavior are still open-coded in engine helpers
 - actor-owned collection and global progress are not yet cleanly separated for non-Chip actors
 
 Conclusion:
@@ -229,7 +227,7 @@ Good examples:
 Remaining cohesion problems:
 
 - engine helpers still combine traversal, arrival, hazard, sound, and board mutation
-- movement-start and controller logic still sit too close to engine mutation code
+- movement-start logic still sits too close to engine mutation code
 
 ### SOLID, used pragmatically
 
@@ -288,7 +286,7 @@ What is good:
 What is still weak:
 
 - movement-start probing
-- actor controller logic
+- actor-owned collection and global progress
 - portable item activation lifecycle
 
 ### Naming and intent
@@ -322,7 +320,6 @@ Good:
 
 Problems that still matter:
 
-- `chooseCreatureDirection` is still a dense creature-AI switch and should move behind a dedicated controller helper
 - `runFloorMovement` still mixes all chip forced/vertical movement behavior
 - chip movement start is still partially open-coded in engine helpers
 
@@ -396,7 +393,7 @@ Problems that still matter:
 
 - [x] EC10: Movement Probe And Arrival Split
 - [x] EC11: Teleport, Trap, And Cloner Modules
-- [ ] EC12: Actor Controller Seams
+- [x] EC12: Actor Controller Seams
 - [ ] EC13: Generalize Actor-Owned Collection And Global Progress
 - [ ] EC14: Portable Item Activation Lifecycle
 - [ ] EC15: Runtime State Decomposition
@@ -448,7 +445,13 @@ Expected outcome:
 - boundary conditions become local
 - ruleset-specific differences stay isolated instead of scattered
 
-### [ ] EC12: Actor Controller Seams
+### [x] EC12: Actor Controller Seams
+
+Done:
+
+- MS creature controller choice now lives in a dedicated `controllers.ts` module with focused unit coverage.
+- Lynx actor intent and forced-direction selection now live in a dedicated `controllers.ts` module with focused unit coverage.
+- Both engines now build narrow controller contexts at the boundary and keep movement execution separate from controller choice.
 
 Goal:
 
@@ -565,8 +568,7 @@ The remaining cleanup work is concentrated in a specific layer:
 
 - movement start
 - arrival resolution
-- teleports
-- cloners and traps
+- held-button release and post-move consequences
 - actor-owned collection and activation lifecycle
 
 That is the correct place to keep cleaning. If we clean those seams next, future stateful actors can extend policy and helper modules instead of forcing more branching into the engines.
