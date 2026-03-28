@@ -300,22 +300,13 @@ export function usePlayerAppSessionController({
     currentManualMsStepping,
     currentSeriesRuleset,
     engines,
-    levelSeedOverridesRef,
     mode,
-    prepareForSessionTransition,
     profileStore,
     reloadToken,
     replayLaunchRequest,
-    scheduleSessionUiSync,
     selectedLevelNumber,
     selectedSeriesFile,
-    setIsPaused,
-    setIsRunning,
-    setManualRunStarted,
-    setMessage,
     setMode,
-    syncSoundForSession,
-    undoStartOptionsRef,
   ]);
 
   const advanceTick = useEffectEvent(async (input: InteractiveInput) => {

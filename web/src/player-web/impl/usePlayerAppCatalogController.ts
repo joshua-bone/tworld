@@ -141,8 +141,6 @@ export function usePlayerAppCatalogController({
       active = false;
     };
   }, [
-    commitLevelSeedOverrides,
-    currentSelectionRef,
     services,
     setCatalog,
     setIsCatalogLoading,
@@ -182,5 +180,5 @@ export function usePlayerAppCatalogController({
       seriesFile: selectedSeriesFile,
       levelNumber: selectedLevelNumber,
     });
-  }, [mode, notifiedSelectionKeyRef, onSelectionChange, selectedLevelNumber, selectedSeriesFile]);
+  }, [onSelectionChange, selectedLevelNumber, selectedSeriesFile]);
 }

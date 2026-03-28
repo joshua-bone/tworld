@@ -1314,7 +1314,7 @@ export function PlayerApp({
 
     appliedInitialSelectionKeyRef.current = nextSelectionKey;
     launchSelection(resolvedSelection);
-  }, [catalog, initialSelection, isCatalogLoading, launchSelection, mode, selectedLevelNumber, selectedSeriesFile]);
+  }, [catalog, initialSelection, isCatalogLoading, mode, selectedLevelNumber, selectedSeriesFile]);
 
   const activateSeries = useEffectEvent((seriesFile: string) => {
     const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
