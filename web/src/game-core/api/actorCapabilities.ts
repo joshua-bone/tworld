@@ -20,6 +20,8 @@ export type ActorThiefHook = "none" | "steal-boots-tools";
 
 export type ActorAirHook = "chip-support" | "non-chip-support";
 
+export type ActorCollisionHook = "default";
+
 export type ActorHazardName = "water" | "fire" | "bomb";
 
 export type ActorHazardResponse = "ignore" | "deny" | "destroy" | "transform";
@@ -35,6 +37,7 @@ export interface ActorCapabilityPolicy {
   readonly clonerHook: ActorClonerHook;
   readonly thiefHook: ActorThiefHook;
   readonly airHook: ActorAirHook;
+  readonly collisionHook: ActorCollisionHook;
   readonly hazards: Readonly<Record<ActorHazardName, ActorHazardResponse>>;
 }
 
@@ -51,4 +54,20 @@ export function actorCollectionAllowsSlot(kind: ActorItemCollectionKind, slot: A
 
 export function actorCollectsChips(kind: ActorGlobalProgressKind): boolean {
   return kind === "collect-chips";
+}
+
+export function actorBlockedMoveKeepsDirection(kind: ActorBlockedMoveKind): boolean {
+  return kind === "hold-direction";
+}
+
+export function actorBlockedMoveRevertsPortable(kind: ActorBlockedMoveKind): boolean {
+  return kind === "revert-portable";
+}
+
+export function actorThiefStealsBootsAndTools(hook: ActorThiefHook): boolean {
+  return hook === "steal-boots-tools";
+}
+
+export function actorUsesChipSupport(hook: ActorAirHook): boolean {
+  return hook === "chip-support";
 }

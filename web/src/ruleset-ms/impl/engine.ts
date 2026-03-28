@@ -51,7 +51,7 @@ import {
 import { hasVerticalSupport } from "@game-core/api/verticalMovement";
 import { advanceTimer, createInitialEngineTimer } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
-import { actorCollectionAllowsSlot, actorCollectsChips } from "@game-core/api/actorCapabilities";
+import { actorCollectionAllowsSlot, actorCollectsChips, actorThiefStealsBootsAndTools } from "@game-core/api/actorCapabilities";
 import {
   actorInventoryClearBoots,
   actorInventoryCollectIndexedItem,
@@ -101,6 +101,7 @@ import {
   msActorHazardResponse,
   msActorItemCollectionKind,
   msActorLocalInventoryMode,
+  msActorThiefHook,
   msActorArrivalAction,
   msBlockMovementMask,
   msButtonAction,
@@ -188,6 +189,20 @@ function msChipInventoryOwner(inventory: MsChipLocalInventoryProjection): ActorL
   return msActorLocalInventoryMode(MS_TILE.Chip) === "keys-boots-tools"
     ? createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory)
     : createNoActorLocalInventoryOwner("chip");
+}
+
+function applyMsActorThiefHook(
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  actorId: number,
+  inventoryOwner: ActorLocalInventoryOwner,
+): boolean {
+  if (!actorThiefStealsBootsAndTools(msActorThiefHook(actorId))) {
+    return false;
+  }
+  actorInventoryClearBoots(inventoryOwner);
+  clearMsToolInventory(internal, inventory);
+  return true;
 }
 
 export interface MsTrackedBlock {
@@ -3626,9 +3641,9 @@ function applyMsChipEntryEffects(
       soundEffects |= 1 << MS_SOUND.SocketOpened;
       break;
     case "steal-boots":
-      actorInventoryClearBoots(chipInventory);
-      clearMsToolInventory(internal, inventory);
-      soundEffects |= 1 << MS_SOUND.BootsStolen;
+      if (applyMsActorThiefHook(internal, inventory, MS_TILE.Chip, chipInventory)) {
+        soundEffects |= 1 << MS_SOUND.BootsStolen;
+      }
       break;
     case "explode-bomb":
       internal.chipStatus = "bombed";

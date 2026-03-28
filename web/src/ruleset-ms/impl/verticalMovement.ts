@@ -1,5 +1,6 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
+import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCapabilities";
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult, hasVerticalSupport } from "@game-core/api/verticalMovement";
 import {
   actorInventoryUseKey,
@@ -11,6 +12,7 @@ import {
 import { bottomTile, bottomTileIdOr, promoteBottomTile, replaceTopTile, topTile } from "@game-core/impl/board";
 import { normalizeCardinalDirection as normalizeDirection } from "@game-core/impl/grid";
 import {
+  msActorAirHook,
   msActorLocalInventoryMode,
   msDoorKeyIndex,
   msInventorySlot,
@@ -43,6 +45,11 @@ export interface MsChipVerticalContext extends MsVerticalSupportContext {
   lowerCells(z?: number): EngineMapCell[] | null;
   upperCells(z?: number): EngineMapCell[] | null;
   canMoveBlockInto(targetCells: EngineMapCell[], pos: number, dir: number): boolean;
+}
+
+export interface MsVerticalSupportSubject {
+  airHook: ActorAirHook;
+  inventoryOwner: ActorLocalInventoryOwner | null;
 }
 
 function msChipInventoryOwner(inventory: Pick<EngineState["inventory"], "keys" | "boots" | "tools">): ActorLocalInventoryOwner {
@@ -85,85 +92,13 @@ function clearMsChipVerticalFloorMovement(chip: MsChipVerticalState, floorMoveme
   }
 }
 
-export function resolveMsChipSupportBelow(
-  context: MsVerticalSupportContext,
-  lowerCells: EngineMapCell[] | null,
-  pos: number,
-  currentZ: number,
-): VerticalSupportResult {
-  const chipInventory = msChipInventoryOwner(context.inventory);
-  if (!lowerCells) {
-    return VERTICAL_SUPPORT_RESULT.unsupported;
-  }
-
-  const cell = lowerCells[pos];
-  if (!cell) {
-    return VERTICAL_SUPPORT_RESULT.unsupported;
-  }
-
-  const topId = cell.top.id;
-  const bottomId = cell.bottom.id;
-  const topActorId = topId === MS_TILE.Block_Static ? MS_TILE.Block : isMsCreature(topId) ? msCreatureId(topId) : null;
-  if (topActorId === MS_TILE.Block) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
-  if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
-  if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
-  if (topActorId !== null) {
-    return VERTICAL_SUPPORT_RESULT.unsupported;
-  }
-
-  if (isMsSupportingWallTile(topId)) {
-    if (topId === MS_TILE.BlueWall_Real) {
-      replaceTopTile(lowerCells, pos, { ...cell.top, id: MS_TILE.Wall });
-    }
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
-  if (topId === MS_TILE.BlueWall_Fake) {
-    promoteTopFloorToUnderlying(lowerCells, pos);
-    return VERTICAL_SUPPORT_RESULT.unsupported;
-  }
-
-  if (msTileHasTag(topId, "door")) {
-    const doorKeyIndex = msDoorKeyIndex(topId);
-    if (doorKeyIndex !== null && actorInventoryUseKey(chipInventory, doorKeyIndex, { consume: topId !== MS_TILE.Door_Green })) {
-      promoteTopFloorToUnderlying(lowerCells, pos);
-      return VERTICAL_SUPPORT_RESULT.unsupported;
-    }
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
-  if (topId === MS_TILE.Socket) {
-    if (context.inventory.chipsNeeded === 0) {
-      promoteTopFloorToUnderlying(lowerCells, pos);
-      return VERTICAL_SUPPORT_RESULT.unsupported;
-    }
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
-  return VERTICAL_SUPPORT_RESULT.unsupported;
-}
-
-export function resolveMsNonChipSupportBelow(
+export function resolveMsActorSupportBelow(
   context: MsVerticalSupportContext,
   lowerCells: EngineMapCell[] | null,
   pos: number,
   currentZ: number,
   cellZ: number,
+  subject: MsVerticalSupportSubject,
 ): VerticalSupportResult {
   if (!lowerCells) {
     return VERTICAL_SUPPORT_RESULT.unsupported;
@@ -177,6 +112,65 @@ export function resolveMsNonChipSupportBelow(
   const topId = cell.top.id;
   const bottomId = cell.bottom.id;
   const topActorId = topId === MS_TILE.Block_Static ? MS_TILE.Block : isMsCreature(topId) ? msCreatureId(topId) : null;
+  if (actorUsesChipSupport(subject.airHook)) {
+    if (topActorId === MS_TILE.Block) {
+      context.addTileOverlay(currentZ, pos, "support");
+      return VERTICAL_SUPPORT_RESULT.supported;
+    }
+
+    if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
+      context.addTileOverlay(currentZ, pos, "support");
+      return VERTICAL_SUPPORT_RESULT.supported;
+    }
+
+    if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
+      context.addTileOverlay(currentZ, pos, "support");
+      return VERTICAL_SUPPORT_RESULT.supported;
+    }
+
+    if (topActorId !== null) {
+      return VERTICAL_SUPPORT_RESULT.unsupported;
+    }
+
+    if (isMsSupportingWallTile(topId)) {
+      if (topId === MS_TILE.BlueWall_Real) {
+        replaceTopTile(lowerCells, pos, { ...cell.top, id: MS_TILE.Wall });
+      }
+      context.addTileOverlay(currentZ, pos, "support");
+      return VERTICAL_SUPPORT_RESULT.supported;
+    }
+
+    if (topId === MS_TILE.BlueWall_Fake) {
+      promoteTopFloorToUnderlying(lowerCells, pos);
+      return VERTICAL_SUPPORT_RESULT.unsupported;
+    }
+
+    if (msTileHasTag(topId, "door")) {
+      const doorKeyIndex = msDoorKeyIndex(topId);
+      if (
+        doorKeyIndex !== null &&
+        subject.inventoryOwner &&
+        actorInventoryUseKey(subject.inventoryOwner, doorKeyIndex, { consume: topId !== MS_TILE.Door_Green })
+      ) {
+        promoteTopFloorToUnderlying(lowerCells, pos);
+        return VERTICAL_SUPPORT_RESULT.unsupported;
+      }
+      context.addTileOverlay(currentZ, pos, "support");
+      return VERTICAL_SUPPORT_RESULT.supported;
+    }
+
+    if (topId === MS_TILE.Socket) {
+      if (context.inventory.chipsNeeded === 0) {
+        promoteTopFloorToUnderlying(lowerCells, pos);
+        return VERTICAL_SUPPORT_RESULT.unsupported;
+      }
+      context.addTileOverlay(currentZ, pos, "support");
+      return VERTICAL_SUPPORT_RESULT.supported;
+    }
+
+    return VERTICAL_SUPPORT_RESULT.unsupported;
+  }
+
   if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
     context.addTileOverlay(currentZ, pos, "support");
     return VERTICAL_SUPPORT_RESULT.supported;
@@ -204,6 +198,31 @@ export function resolveMsNonChipSupportBelow(
   }
 
   return VERTICAL_SUPPORT_RESULT.unsupported;
+}
+
+export function resolveMsChipSupportBelow(
+  context: MsVerticalSupportContext,
+  lowerCells: EngineMapCell[] | null,
+  pos: number,
+  currentZ: number,
+): VerticalSupportResult {
+  return resolveMsActorSupportBelow(context, lowerCells, pos, currentZ, currentZ, {
+    airHook: msActorAirHook(MS_TILE.Chip),
+    inventoryOwner: msChipInventoryOwner(context.inventory),
+  });
+}
+
+export function resolveMsNonChipSupportBelow(
+  context: MsVerticalSupportContext,
+  lowerCells: EngineMapCell[] | null,
+  pos: number,
+  currentZ: number,
+  cellZ: number,
+): VerticalSupportResult {
+  return resolveMsActorSupportBelow(context, lowerCells, pos, currentZ, cellZ, {
+    airHook: msActorAirHook(MS_TILE.Block),
+    inventoryOwner: null,
+  });
 }
 
 function elevatorDestinationFloor(cell: EngineMapCell): number {

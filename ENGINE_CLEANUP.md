@@ -599,14 +599,14 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 
 ### EC9: Policy Surface Expansion
 
-- [ ] Extend actor and portable-item policy types for:
-- [ ] blocked move behavior
-- [ ] support behavior
-- [ ] collision behavior
-- [ ] arrival behavior
-- [ ] thief behavior
-- [ ] clone behavior
-- [ ] Replace remaining hard-coded raw tile branches only where policy now clearly owns the behavior.
+- [x] Extend actor and portable-item policy types for:
+- [x] blocked move behavior
+- [x] support behavior
+- [x] collision behavior
+- [x] arrival behavior
+- [x] thief behavior
+- [x] clone behavior
+- [x] Replace remaining hard-coded raw tile branches only where policy now clearly owns the behavior.
 
 ### EC10: Resume Element Work
 

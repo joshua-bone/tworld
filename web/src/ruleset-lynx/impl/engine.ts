@@ -56,7 +56,7 @@ import {
 import { hasVerticalSupport } from "@game-core/api/verticalMovement";
 import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
-import { actorCollectionAllowsSlot, actorCollectsChips } from "@game-core/api/actorCapabilities";
+import { actorCollectionAllowsSlot, actorCollectsChips, actorThiefStealsBootsAndTools } from "@game-core/api/actorCapabilities";
 import {
   actorInventoryClearBoots,
   actorInventoryCollectIndexedItem,
@@ -120,6 +120,7 @@ import {
   lynxActorHazardResponse,
   lynxActorItemCollectionKind,
   lynxActorLocalInventoryMode,
+  lynxActorThiefHook,
   lynxArrivalAnimationKind,
   lynxBlockMovementMask,
   lynxButtonAction,
@@ -218,6 +219,19 @@ function lynxChipInventoryOwner(inventory: LynxChipLocalInventoryProjection): Ac
   return lynxActorLocalInventoryMode(MS_TILE.Chip) === "keys-boots-tools"
     ? createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory)
     : createNoActorLocalInventoryOwner("chip");
+}
+
+function applyLynxActorThiefHook(
+  state: EngineState,
+  actorId: number,
+  inventoryOwner: ActorLocalInventoryOwner,
+): boolean {
+  if (!actorThiefStealsBootsAndTools(lynxActorThiefHook(actorId))) {
+    return false;
+  }
+  actorInventoryClearBoots(inventoryOwner);
+  clearLynxToolInventory(lynxRuntimeState(state), state.inventory);
+  return true;
 }
 
 export interface LynxRuntimeActor {
@@ -1365,9 +1379,9 @@ function resolveLynxChipArrival(
       state.map.hash = mapHash(state.map.cells);
       return resolvedArrival(1 << LYNX_SOUND.WallCreated);
     case "steal-boots":
-      actorInventoryClearBoots(chipInventory);
-      clearLynxToolInventory(lynxRuntimeState(state), state.inventory);
-      return resolvedArrival(1 << LYNX_SOUND.BootsStolen);
+      return applyLynxActorThiefHook(state, MS_TILE.Chip, chipInventory)
+        ? resolvedArrival(1 << LYNX_SOUND.BootsStolen)
+        : noArrival();
     case "button":
       return resolvedArrival(resolveLynxButtonEffects(state, level, actors, pos, cell.top.id));
     case "trap":

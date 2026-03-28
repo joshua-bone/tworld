@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  msActorAirHook,
+  msActorBlockedMoveKind,
+  msActorClonerHook,
   msActorCapabilityPolicy,
+  msActorCollisionHook,
   msActorControlMode,
   msActorEntryMask,
   msActorGlobalProgressKind,
   msActorHazardResponse,
+  msActorThiefHook,
+  msActorTrapHook,
   msActorArrivalAction,
   msActorHasTag,
   msActorItemCollectionKind,
@@ -105,6 +111,12 @@ describe("MS ruleset catalog", () => {
     expect(msActorItemCollectionKind(MS_TILE.Chip)).toBe("keys-boots-tools");
     expect(msActorGlobalProgressKind(MS_TILE.Chip)).toBe("collect-chips");
     expect(msActorTraversalKind(MS_TILE.Block)).toBe("block");
+    expect(msActorBlockedMoveKind(MS_TILE.Block)).toBe("stay");
+    expect(msActorTrapHook(MS_TILE.Ball)).toBe("default");
+    expect(msActorClonerHook(MS_TILE.Ball)).toBe("default");
+    expect(msActorThiefHook(MS_TILE.Chip)).toBe("steal-boots-tools");
+    expect(msActorAirHook(MS_TILE.Chip)).toBe("chip-support");
+    expect(msActorCollisionHook(MS_TILE.Ball)).toBe("default");
     expect(msActorEntryMask(MS_TILE.Dirt, MS_TILE.Block)).toBe(msBlockMovementMask(MS_TILE.Dirt));
     expect(msActorEntryMask(MS_TILE.Door_Blue, MS_TILE.Chip)).toBe(msChipMovementMask(MS_TILE.Door_Blue));
     expect(msActorHazardResponse(MS_TILE.Glider, "water")).toBe("ignore");

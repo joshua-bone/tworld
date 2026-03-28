@@ -1,11 +1,17 @@
 import type {
+  ActorAirHook,
+  ActorBlockedMoveKind,
   ActorCapabilityPolicy,
+  ActorClonerHook,
+  ActorCollisionHook,
   ActorControlMode,
   ActorGlobalProgressKind,
   ActorHazardName,
   ActorHazardResponse,
   ActorItemCollectionKind,
   ActorLocalInventoryMode,
+  ActorThiefHook,
+  ActorTrapHook,
   ActorTraversalKind,
 } from "@game-core/api/actorCapabilities";
 import {
@@ -517,6 +523,7 @@ const MS_CHIP_ACTOR_CAPABILITIES = {
   clonerHook: "default",
   thiefHook: "steal-boots-tools",
   airHook: "chip-support",
+  collisionHook: "default",
   hazards: {
     water: "destroy",
     fire: "destroy",
@@ -535,6 +542,7 @@ const MS_BLOCK_ACTOR_CAPABILITIES = {
   clonerHook: "default",
   thiefHook: "none",
   airHook: "non-chip-support",
+  collisionHook: "default",
   hazards: {
     water: "transform",
     fire: "ignore",
@@ -553,6 +561,7 @@ const MS_CREATURE_ACTOR_CAPABILITIES = {
   clonerHook: "default",
   thiefHook: "none",
   airHook: "non-chip-support",
+  collisionHook: "default",
   hazards: {
     water: "destroy",
     fire: "destroy",
@@ -757,6 +766,30 @@ export function msActorGlobalProgressKind(id: number): ActorGlobalProgressKind {
 
 export function msActorTraversalKind(id: number): ActorTraversalKind {
   return msActorCapabilityPolicy(id).traversalKind;
+}
+
+export function msActorBlockedMoveKind(id: number): ActorBlockedMoveKind {
+  return msActorCapabilityPolicy(id).blockedMoveKind;
+}
+
+export function msActorTrapHook(id: number): ActorTrapHook {
+  return msActorCapabilityPolicy(id).trapHook;
+}
+
+export function msActorClonerHook(id: number): ActorClonerHook {
+  return msActorCapabilityPolicy(id).clonerHook;
+}
+
+export function msActorThiefHook(id: number): ActorThiefHook {
+  return msActorCapabilityPolicy(id).thiefHook;
+}
+
+export function msActorAirHook(id: number): ActorAirHook {
+  return msActorCapabilityPolicy(id).airHook;
+}
+
+export function msActorCollisionHook(id: number): ActorCollisionHook {
+  return msActorCapabilityPolicy(id).collisionHook;
 }
 
 export function msActorEntryMask(tileId: number, actorId: number): number {

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  lynxActorAirHook,
+  lynxActorBlockedMoveKind,
+  lynxActorClonerHook,
   lynxActorCapabilityPolicy,
+  lynxActorCollisionHook,
   lynxActorControlMode,
   lynxActorEntryMask,
   lynxActorGlobalProgressKind,
@@ -8,6 +12,8 @@ import {
   lynxActorHasTag,
   lynxActorItemCollectionKind,
   lynxActorLocalInventoryMode,
+  lynxActorThiefHook,
+  lynxActorTrapHook,
   lynxActorTraversalKind,
   lynxArrivalAnimationKind,
   lynxButtonAction,
@@ -130,6 +136,12 @@ describe("Lynx ruleset catalog", () => {
     expect(lynxActorItemCollectionKind(MS_TILE.Chip)).toBe("keys-boots-tools");
     expect(lynxActorGlobalProgressKind(MS_TILE.Chip)).toBe("collect-chips");
     expect(lynxActorTraversalKind(MS_TILE.Block)).toBe("block");
+    expect(lynxActorBlockedMoveKind(MS_TILE.Block)).toBe("stay");
+    expect(lynxActorTrapHook(MS_TILE.Ball)).toBe("default");
+    expect(lynxActorClonerHook(MS_TILE.Ball)).toBe("default");
+    expect(lynxActorThiefHook(MS_TILE.Chip)).toBe("steal-boots-tools");
+    expect(lynxActorAirHook(MS_TILE.Chip)).toBe("chip-support");
+    expect(lynxActorCollisionHook(MS_TILE.Ball)).toBe("default");
     expect(lynxActorEntryMask(MS_TILE.Gravel, MS_TILE.Block)).toBe(lynxBlockMovementMask(MS_TILE.Gravel));
     expect(lynxActorEntryMask(MS_TILE.Door_Blue, MS_TILE.Chip)).toBe(lynxChipMovementMask(MS_TILE.Door_Blue));
     expect(lynxActorHazardResponse(MS_TILE.Glider, "water")).toBe("ignore");

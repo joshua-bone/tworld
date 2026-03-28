@@ -1,11 +1,17 @@
 import type {
+  ActorAirHook,
+  ActorBlockedMoveKind,
   ActorCapabilityPolicy,
+  ActorClonerHook,
+  ActorCollisionHook,
   ActorControlMode,
   ActorGlobalProgressKind,
   ActorHazardName,
   ActorHazardResponse,
   ActorItemCollectionKind,
   ActorLocalInventoryMode,
+  ActorThiefHook,
+  ActorTrapHook,
   ActorTraversalKind,
 } from "@game-core/api/actorCapabilities";
 import {
@@ -574,6 +580,7 @@ const LYNX_CHIP_ACTOR_CAPABILITIES = {
   clonerHook: "default",
   thiefHook: "steal-boots-tools",
   airHook: "chip-support",
+  collisionHook: "default",
   hazards: {
     water: "destroy",
     fire: "destroy",
@@ -592,6 +599,7 @@ const LYNX_BLOCK_ACTOR_CAPABILITIES = {
   clonerHook: "default",
   thiefHook: "none",
   airHook: "non-chip-support",
+  collisionHook: "default",
   hazards: {
     water: "transform",
     fire: "ignore",
@@ -610,6 +618,7 @@ const LYNX_CREATURE_ACTOR_CAPABILITIES = {
   clonerHook: "default",
   thiefHook: "none",
   airHook: "non-chip-support",
+  collisionHook: "default",
   hazards: {
     water: "destroy",
     fire: "deny",
@@ -803,6 +812,30 @@ export function lynxActorGlobalProgressKind(id: number): ActorGlobalProgressKind
 
 export function lynxActorTraversalKind(id: number): ActorTraversalKind {
   return lynxActorCapabilityPolicy(id).traversalKind;
+}
+
+export function lynxActorBlockedMoveKind(id: number): ActorBlockedMoveKind {
+  return lynxActorCapabilityPolicy(id).blockedMoveKind;
+}
+
+export function lynxActorTrapHook(id: number): ActorTrapHook {
+  return lynxActorCapabilityPolicy(id).trapHook;
+}
+
+export function lynxActorClonerHook(id: number): ActorClonerHook {
+  return lynxActorCapabilityPolicy(id).clonerHook;
+}
+
+export function lynxActorThiefHook(id: number): ActorThiefHook {
+  return lynxActorCapabilityPolicy(id).thiefHook;
+}
+
+export function lynxActorAirHook(id: number): ActorAirHook {
+  return lynxActorCapabilityPolicy(id).airHook;
+}
+
+export function lynxActorCollisionHook(id: number): ActorCollisionHook {
+  return lynxActorCapabilityPolicy(id).collisionHook;
 }
 
 export function lynxActorEntryMask(tileId: number, actorId: number): number {
