@@ -315,10 +315,10 @@ Goal:
 
 Checklist:
 
-- [ ] split catalogs by concern: pickups, terrain, hazards, forced floors, buttons, actors, portable items
-- [ ] compose each ruleset catalog from smaller registration modules
-- [ ] keep the final public catalog stable
-- [ ] add catalog tests per concern family rather than only giant catalog tests
+- [x] split each ruleset catalog into tile and actor registration modules with concern-family policy sections for pickups, terrain, forced floors, buttons, portable items, and actor capabilities
+- [x] compose each ruleset catalog from smaller registration modules
+- [x] keep the final public catalog stable
+- [x] add catalog tests per concern family rather than only giant catalog tests
 
 Extensibility win:
 
@@ -408,7 +408,7 @@ Important note:
 - [x] EP5
 - [x] EP6
 - [x] EP7
-- [ ] EP8
+- [x] EP8
 - [ ] EP9
 - [ ] EP10
 - [ ] EP11
