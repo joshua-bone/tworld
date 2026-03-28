@@ -260,6 +260,13 @@ Goal:
 
 - continue reducing nested conditionals without flattening real ruleset differences
 
+Progress:
+
+- [x] extract Lynx actor movement start and arrival resolution into a dedicated helper module
+- [x] extract Lynx Chip arrival and completed-move resolution into a dedicated helper module
+- [ ] extract the remaining Lynx post-move orchestration helpers around teleports, held traps, and endgame transitions
+- [ ] mirror the same cleanup pass across the remaining MS movement and arrival hotspots
+
 ### PR10: Test DSL Expansion
 
 Extend test-builder and DSL patterns beyond engine tests into:

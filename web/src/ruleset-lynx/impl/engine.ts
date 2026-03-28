@@ -77,6 +77,9 @@ import {
   type LynxChipMoveSelection,
 } from "@ruleset-lynx/impl/chipInput";
 import {
+  resolveCompletedLynxChipMove as resolveCompletedLynxChipMoveWithContext,
+} from "@ruleset-lynx/impl/chipArrival";
+import {
   chooseLynxCreatureMoveForTick as chooseLynxCreatureMoveForTickWithContext,
   type LynxCreatureControllerContext,
 } from "@ruleset-lynx/impl/controllers";
@@ -98,6 +101,12 @@ import {
   startLynxChipElevatorMovement,
   type LynxMoveKind,
 } from "@ruleset-lynx/impl/verticalMovement";
+import {
+  canLynxActorStartMovement as canLynxActorStartMovementWithContext,
+  finishLynxActorMovement as finishLynxActorMovementWithContext,
+  startLynxActorMovement as startLynxActorMovementWithContext,
+  type LynxActorMovementContext,
+} from "@ruleset-lynx/impl/actorMovement";
 import {
   clearLynxToolInventory,
   collectLynxPortableItemsFromLayers,
@@ -132,14 +141,10 @@ import {
   lynxActorEntryMask,
   lynxActorHazardResponse,
   lynxActorThiefHook,
-  lynxArrivalAnimationKind,
   lynxBlockMovementMask,
   lynxButtonAction,
   lynxChipMoveSoundAction,
-  lynxChipEnterAction,
   lynxChipMovementMask,
-  lynxCreatureArrivalAction,
-  lynxDoorKeyIndex,
   lynxExitMovementMask,
   lynxFixedSlideDirection,
   lynxIceWallTurn,
@@ -934,6 +939,104 @@ function canLynxExitTile(state: EngineState, tileId: number, actorId: number, di
   return true;
 }
 
+function createLynxActorMovementContext(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  resolveButtonEffects: (pos: number, tileId: number) => number = () => 0,
+): LynxActorMovementContext {
+  return {
+    state,
+    actors,
+    soundBits: {
+      trapEntered: 1 << LYNX_SOUND.TrapEntered,
+      waterSplash: 1 << LYNX_SOUND.WaterSplash,
+      bombExplodes: 1 << LYNX_SOUND.BombExplodes,
+      blockMoving: 1 << LYNX_SOUND.BlockMoving,
+    },
+    activeLayerZ: () => activeLynxLayerZ(state),
+    canExitTile: (tileId, actorId, dir, releasing) => canLynxExitTile(state, tileId, actorId, dir, releasing),
+    chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
+    clearAnimationAt: (pos) => {
+      clearLynxAnimationAt(state, actors, pos);
+    },
+    canCreatureEnter: (tileId, actorId, dir) => canLynxCreatureEnter(tileId, actorId, dir),
+    effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),
+    turnBlockedIceDirection: (dir, floorId) => applyLynxIceWallTurn(backDirection(dir), floorId),
+    applyIceWallTurn: applyLynxIceWallTurn,
+    resolveButtonEffects,
+    removeActor: (actor, animationTileId) => {
+      removeLynxActor(state, actors, actor as LynxRuntimeActor, animationTileId);
+    },
+    animationTileId: lynxAnimationTileId,
+    waterSplashTileId: LYNX_ANIMATION_TILE.Water_Splash,
+    bombExplosionTileId: LYNX_ANIMATION_TILE.Bomb_Explosion,
+  };
+}
+
+function createLynxCompletedChipMoveContext(
+  state: EngineState,
+  level: LynxLevel,
+  actors: LynxRuntimeActor[],
+) {
+  return {
+    state,
+    soundBits: {
+      doorOpened: 1 << LYNX_SOUND.DoorOpened,
+      socketOpened: 1 << LYNX_SOUND.SocketOpened,
+      tileEmptied: 1 << LYNX_SOUND.TileEmptied,
+      wallCreated: 1 << LYNX_SOUND.WallCreated,
+      bootsStolen: 1 << LYNX_SOUND.BootsStolen,
+      trapEntered: 1 << LYNX_SOUND.TrapEntered,
+      chipWins: 1 << LYNX_SOUND.ChipWins,
+    },
+    resolveButtonEffects: (pos: number, tileId: number) => resolveLynxButtonEffects(state, level, actors, pos, tileId),
+    applyThiefHook: () =>
+      applyLynxActorThiefHook(state, MS_TILE.Chip, projectLynxActorInventoryOwner(MS_TILE.Chip, state.inventory)),
+    collectItemSound: (pos: number) => collectLynxItemAtPosition(state, MS_TILE.Chip, pos),
+    springTrap: (pos: number) => {
+      springLynxTrap(state, level, actors, pos);
+    },
+    hasBoot: (tileId: number) => hasLynxBoots(state, tileId),
+    applyIceWallTurn: applyLynxIceWallTurn,
+    failChip: (
+      chipPos: number,
+      chipDir: number,
+      endGameTicksElapsed: number | null,
+      endGameResult: LynxEndGameResult | null,
+      endGameAnimationTileId: number | null,
+      endGameAnimationFrame: number | null,
+      reason: "drowned" | "burned" | "bombed",
+    ) =>
+      failLynxChip(
+        state,
+        actors,
+        chipPos,
+        chipDir,
+        0,
+        endGameTicksElapsed,
+        endGameResult,
+        endGameAnimationTileId,
+        endGameAnimationFrame,
+        reason,
+      ),
+    startCompletedEndGame: (
+      endGameTicksElapsed: number | null,
+      endGameResult: LynxEndGameResult | null,
+      endGameAnimationTileId: number | null,
+      endGameAnimationFrame: number | null,
+    ) =>
+      startLynxEndGame(
+        state,
+        endGameTicksElapsed,
+        endGameResult,
+        endGameAnimationTileId,
+        endGameAnimationFrame,
+        "completed",
+        null,
+      ),
+  };
+}
+
 function advanceLynxMainRandom4(state: EngineState): number {
   const current = BigInt(state.replay.randomState.main.value);
   const next = ((current * 1103515245n) + 12345n) & 0x7fffffffn;
@@ -1299,23 +1402,6 @@ function resolveLynxChipInputForCurrentState(
   });
 }
 
-function resolveLynxCreatureArrivalEffects(
-  state: EngineState,
-  level: LynxLevel,
-  actors: LynxRuntimeActor[],
-  pos: number,
-  tileId: number,
-): number {
-  switch (lynxChipEnterAction(tileId)) {
-    case "trap":
-      return 1 << LYNX_SOUND.TrapEntered;
-    case "button":
-      return resolveLynxButtonEffects(state, level, actors, pos, tileId);
-    default:
-      return 0;
-  }
-}
-
 function revealLynxHiddenWall(state: EngineState, pos: number): boolean {
   const cell = state.map.cells[pos];
   if (!cell) {
@@ -1348,56 +1434,6 @@ function canLynxChipEnterAfterPushingBlock(
   return lynxChipTargetCellAllowsEntry(probeLynxChipTargetCellForState(state, targetPos, dir));
 }
 
-function resolveLynxChipArrival(
-  state: EngineState,
-  level: LynxLevel,
-  actors: LynxRuntimeActor[],
-  pos: number,
-): ArrivalResult {
-  const chipInventory = projectLynxActorInventoryOwner(MS_TILE.Chip, state.inventory);
-  const cell = state.map.cells[pos];
-  if (!cell) {
-    return noArrival();
-  }
-
-  const keyIndex = lynxDoorKeyIndex(cell.top.id);
-  if (keyIndex !== null && actorInventoryUseKey(chipInventory, keyIndex, { consume: keyIndex !== 3 })) {
-    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
-    state.map.hash = mapHash(state.map.cells);
-    return resolvedArrival(1 << LYNX_SOUND.DoorOpened);
-  }
-
-  switch (lynxChipEnterAction(cell.top.id)) {
-    case "open-socket":
-      if (state.inventory.chipsNeeded === 0) {
-        promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
-        state.map.hash = mapHash(state.map.cells);
-        return resolvedArrival(1 << LYNX_SOUND.SocketOpened);
-      }
-      break;
-    case "clear-floor":
-      replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Empty });
-      state.map.hash = mapHash(state.map.cells);
-      return resolvedArrival(1 << LYNX_SOUND.TileEmptied);
-    case "popup-wall":
-      replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
-      state.map.hash = mapHash(state.map.cells);
-      return resolvedArrival(1 << LYNX_SOUND.WallCreated);
-    case "steal-boots":
-      return applyLynxActorThiefHook(state, MS_TILE.Chip, chipInventory)
-        ? resolvedArrival(1 << LYNX_SOUND.BootsStolen)
-        : noArrival();
-    case "button":
-      return resolvedArrival(resolveLynxButtonEffects(state, level, actors, pos, cell.top.id));
-    case "trap":
-      return resolvedArrival(1 << LYNX_SOUND.TrapEntered);
-    case "exit":
-      return completedArrival(1 << LYNX_SOUND.ChipWins);
-  }
-
-  return noArrival();
-}
-
 function resolveCompletedLynxChipMove(
   state: EngineState,
   level: LynxLevel,
@@ -1411,105 +1447,20 @@ function resolveCompletedLynxChipMove(
   endGameAnimationFrame: number | null,
 ): LynxEndGameState & { chipPos: number; chipDir: number } {
   clearLynxCouldntMove(state);
-  const floorAfterMove = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
-
-  switch (lynxChipEnterAction(floorAfterMove)) {
-    case "water-death":
-      if (!hasLynxBoots(state, MS_TILE.Boots_Water)) {
-        return {
-          chipDir,
-          ...failLynxChip(
-            state,
-            actors,
-            chipPos,
-            chipDir,
-            0,
-            endGameTicksElapsed,
-            endGameResult,
-            endGameAnimationTileId,
-            endGameAnimationFrame,
-            "drowned",
-          ),
-        };
-      }
-      break;
-    case "fire-death":
-      if (!hasLynxBoots(state, MS_TILE.Boots_Fire)) {
-        return {
-          chipDir,
-          ...failLynxChip(
-            state,
-            actors,
-            chipPos,
-            chipDir,
-            0,
-            endGameTicksElapsed,
-            endGameResult,
-            endGameAnimationTileId,
-            endGameAnimationFrame,
-            "burned",
-          ),
-        };
-      }
-      break;
-    case "explode-bomb":
-      promoteBottomTile(state.map.cells, chipPos, MS_TILE.Empty);
-      state.map.hash = mapHash(state.map.cells);
-      return {
-        chipDir,
-        ...failLynxChip(
-          state,
-          actors,
-          chipPos,
-          chipDir,
-          0,
-          endGameTicksElapsed,
-          endGameResult,
-          endGameAnimationTileId,
-          endGameAnimationFrame,
-          "bombed",
-        ),
-      };
-  }
-
-  const arrival = resolveLynxChipArrival(state, level, actors, chipPos);
-  state.soundEffects |= arrival.soundEffects;
-  if (arrivalCompleted(arrival) && endGameTicksElapsed === null) {
-    const endGame = startLynxEndGame(
-      state,
-      endGameTicksElapsed,
-      endGameResult,
-      endGameAnimationTileId,
-      endGameAnimationFrame,
-      "completed",
-      null,
-    );
-    endGameTicksElapsed = endGame.endGameTicksElapsed;
-    endGameResult = endGame.endGameResult;
-    endGameAnimationTileId = endGame.endGameAnimationTileId;
-    endGameAnimationFrame = endGame.endGameAnimationFrame;
-  }
-  state.soundEffects |= collectLynxItemAtPosition(state, MS_TILE.Chip, chipPos);
-  const resolvedFloorAfterMove = topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty);
-  if (lynxButtonAction(floorAfterMove) === "spring-trap") {
-    springLynxTrap(state, level, actors, chipPos);
-  }
-  if (isLynxIce(resolvedFloorAfterMove)) {
-    if (chipMoveKind === "air") {
-      lynxChipRuntime(state).chipIgnoreIceFromAir = true;
-    } else {
-      chipDir = applyLynxIceWallTurn(chipDir, resolvedFloorAfterMove);
-    }
-  }
-
-  return {
+  const completed = resolveCompletedLynxChipMoveWithContext(
+    createLynxCompletedChipMoveContext(state, level, actors),
     chipPos,
     chipDir,
+    chipMoveKind,
     endGameTicksElapsed,
     endGameResult,
     endGameAnimationTileId,
     endGameAnimationFrame,
-  };
+  );
+  if (chipMoveKind === "air" && isLynxIce(topTileIdOr(state.map.cells, completed.chipPos, MS_TILE.Empty))) {
+    lynxChipRuntime(state).chipIgnoreIceFromAir = true;
+  }
+  return completed;
 }
 
 export const LYNX_SOUND = {
@@ -1906,30 +1857,13 @@ function canLynxCreatureStartMovement(
   releasing = false,
   clearAnimations = false,
 ): boolean {
-  const floorFrom = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-  if (!canLynxExitTile(state, floorFrom, actor.id, dir, releasing)) {
-    return false;
-  }
-  const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-  if (!targetStep) {
-    return false;
-  }
-  const { pos: targetPos, cell: target } = targetStep;
-  if (lynxChipActsWallForMobs(state, targetPos, actor.z ?? activeLynxLayerZ(state))) {
-    return false;
-  }
-  if (
-    (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 ||
-    !canLynxCreatureEnter(effectiveLynxTargetTileId(state, target.top.id), actor.id, dir)
-  ) {
-    return false;
-  }
-
-  if (clearAnimations && (target.top.state & LYNX_CELL_FLAG.Animated) !== 0) {
-    clearLynxAnimationAt(state, actors, targetPos);
-  }
-
-  return true;
+  return canLynxActorStartMovementWithContext(
+    createLynxActorMovementContext(state, actors),
+    actor,
+    dir,
+    releasing,
+    clearAnimations,
+  );
 }
 
 function createLynxCreatureControllerContext(
@@ -1976,37 +1910,7 @@ function startLynxCreatureMovement(
   dir: number,
   releasing = false,
 ): MovementAttemptResult {
-  actor.dir = dir;
-  const floorFrom = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
-
-  const targetPos = nextPosition(actor.pos, dir, MS_GRID_WIDTH);
-  if (!canLynxCreatureStartMovement(state, actors, actor, dir, releasing, true)) {
-    if (isLynxIce(floorFrom)) {
-      actor.dir = applyLynxIceWallTurn(backDirection(dir), floorFrom);
-    }
-    return blockedMovement();
-  }
-
-  const target = state.map.cells[targetPos]!;
-  if ((target.top.state & LYNX_CELL_FLAG.Animated) !== 0) {
-    clearLynxAnimationAt(state, actors, targetPos);
-  }
-
-  if (actor.id === MS_TILE.Block) {
-    actor.dormant = false;
-  }
-
-  removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-  actor.pos = targetPos;
-  actor.moving = 8;
-  actor.frame = 4;
-  actor.moveKind = "planar";
-  actor.ignoreIceFromAir = false;
-  addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-  if (actor.pushed) {
-    state.soundEffects |= 1 << LYNX_SOUND.BlockMoving;
-  }
-  return movedMovement();
+  return startLynxActorMovementWithContext(createLynxActorMovementContext(state, actors), actor, dir, releasing);
 }
 
 function finishLynxActorMovement(
@@ -2015,80 +1919,14 @@ function finishLynxActorMovement(
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
 ): ArrivalResult {
-  const cell = state.map.cells[actor.pos];
-  if (!cell) {
-    return noArrival();
-  }
-
-  const moveKind = actor.moveKind ?? "planar";
-  actor.moveKind = "planar";
-  actor.ignoreIceFromAir = false;
-  if (isLynxIce(cell.top.id) && moveKind !== "air" && moveKind !== "elevator") {
-    actor.dir = applyLynxIceWallTurn(actor.dir, cell.top.id);
-  } else if (isLynxIce(cell.top.id) && (moveKind === "air" || moveKind === "elevator")) {
-    actor.ignoreIceFromAir = true;
-  }
-
-  const arrivalAction = lynxCreatureArrivalAction(cell.top.id, actor.id);
-  const arrivalAnimationTileId = lynxAnimationTileId(lynxArrivalAnimationKind(cell.top.id, actor.id));
-
-  if (actor.id === MS_TILE.Block) {
-    if (arrivalAction === "block-water") {
-      replaceTopTile(state.map.cells, actor.pos, { ...cell.top, id: MS_TILE.Dirt });
-      removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      removeLynxActor(state, actors, actor, arrivalAnimationTileId ?? LYNX_ANIMATION_TILE.Water_Splash);
-      state.soundEffects |= 1 << LYNX_SOUND.WaterSplash;
-      const arrival = removedOnArrival(1 << LYNX_SOUND.WaterSplash);
-      state.map.hash = mapHash(state.map.cells);
-      return arrival;
-    } else if (arrivalAction === "block-bomb") {
-      promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
-      removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      removeLynxActor(state, actors, actor, arrivalAnimationTileId ?? LYNX_ANIMATION_TILE.Bomb_Explosion);
-      state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
-      const arrival = removedOnArrival(1 << LYNX_SOUND.BombExplodes);
-      state.map.hash = mapHash(state.map.cells);
-      return arrival;
-    } else if (arrivalAction === "clear-key-blue") {
-      promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
-      addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    }
-    actor.deferPush = false;
-    actor.deferPushArmed = false;
-    const soundEffects = resolveLynxCreatureArrivalEffects(state, level, actors, actor.pos, cell.top.id);
-    state.soundEffects |= soundEffects;
-    state.map.hash = mapHash(state.map.cells);
-    return soundEffects === 0 ? noArrival() : resolvedArrival(soundEffects);
-  }
-
-  if (arrivalAction === "creature-water") {
-    removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    removeLynxActor(state, actors, actor, arrivalAnimationTileId ?? LYNX_ANIMATION_TILE.Water_Splash);
-    state.soundEffects |= 1 << LYNX_SOUND.WaterSplash;
-    const arrival = removedOnArrival(1 << LYNX_SOUND.WaterSplash);
-    state.map.hash = mapHash(state.map.cells);
-    return arrival;
-  }
-
-  if (arrivalAction === "creature-bomb") {
-    promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
-    removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    removeLynxActor(state, actors, actor, arrivalAnimationTileId ?? LYNX_ANIMATION_TILE.Bomb_Explosion);
-    state.soundEffects |= 1 << LYNX_SOUND.BombExplodes;
-    const arrival = removedOnArrival(1 << LYNX_SOUND.BombExplodes);
-    state.map.hash = mapHash(state.map.cells);
-    return arrival;
-  }
-
-  if (arrivalAction === "clear-key-blue") {
-    promoteBottomTile(state.map.cells, actor.pos, MS_TILE.Empty);
-    addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    state.map.hash = mapHash(state.map.cells);
-  }
-
-  const soundEffects = resolveLynxCreatureArrivalEffects(state, level, actors, actor.pos, cell.top.id);
-  state.soundEffects |= soundEffects;
-  return soundEffects === 0 ? noArrival() : resolvedArrival(soundEffects);
+  return finishLynxActorMovementWithContext(
+    createLynxActorMovementContext(
+      state,
+      actors,
+      (pos, tileId) => resolveLynxButtonEffects(state, level, actors, pos, tileId),
+    ),
+    actor,
+  );
 }
 
 function advanceLynxCreature(
