@@ -10,10 +10,10 @@ The goal is to avoid tile-id conditionals in engine hot paths and avoid passing 
 ## Design Targets
 
 - [x] Characterize current special-item support and drop behavior before refactoring
-- [ ] Keep portable-item behavior separate from actor behavior
-- [ ] Make stable runtime entity identity the source of truth for portable items
-- [ ] Make actor-local inventory and collection rules policy-driven
-- [ ] Keep global level progress such as `chipsNeeded` separate from portable-item and actor-local inventory state
+- [x] Keep portable-item behavior separate from actor behavior
+- [x] Make stable runtime entity identity the source of truth for portable items
+- [x] Make actor-local inventory and collection rules policy-driven
+- [x] Keep global level progress such as `chipsNeeded` separate from portable-item and actor-local inventory state
 - [ ] Make controller, traversal, and collision behavior policy-driven
 - [ ] Preserve real MS vs Lynx differences at the ruleset layer
 
@@ -78,30 +78,30 @@ This seam should answer questions such as:
 
 ### PR2: MS Portable Item Runtime Model
 
-- [ ] Introduce a first-class runtime entity for portable items in MS
-- [ ] Make that entity survive `carried -> primed -> settled on map`
-- [ ] Migrate `sandbag` onto this runtime model first
-- [ ] Keep current sandbag behavior unchanged
-- [ ] Keep `inventory.tools` and `primedToolDrop` as compatibility projections only; do not let portable-item helpers depend on full engine inventory objects
-- [ ] Restrict portable-item projection helpers to portable-item state only, not unrelated global fields such as `chipsNeeded`
-- [ ] Remove any MS sandbag logic that depends on loose tile/inventory state where the runtime entity should own it
-- [ ] Add characterization for identity-sensitive cases such as replacement, primed drop, teleport origin settle, and air support
+- [x] Introduce a first-class runtime entity for portable items in MS
+- [x] Make that entity survive `carried -> primed -> settled on map`
+- [x] Migrate `sandbag` onto this runtime model first
+- [x] Keep current sandbag behavior unchanged
+- [x] Keep `inventory.tools` and `primedToolDrop` as compatibility projections only; do not let portable-item helpers depend on full engine inventory objects
+- [x] Restrict portable-item projection helpers to portable-item state only, not unrelated global fields such as `chipsNeeded`
+- [x] Remove any MS sandbag logic that depends on loose tile/inventory state where the runtime entity should own it
+- [x] Add characterization for identity-sensitive cases such as replacement, primed drop, teleport origin settle, and air support
 
 ### PR3: Lynx Portable Item Runtime Model
 
-- [ ] Introduce the same portable-item runtime seam in Lynx
-- [ ] Migrate `sandbag` onto that model
-- [ ] Preserve Lynx timing/order quirks
-- [ ] Keep the same narrow projection boundary in Lynx: portable-item helpers may project tool-slot/drop state, but not own global progress
-- [ ] Add Lynx characterization for teleport settle, support, replacement, and primed drop cases
+- [x] Introduce the same portable-item runtime seam in Lynx
+- [x] Migrate `sandbag` onto that model
+- [x] Preserve Lynx timing/order quirks
+- [x] Keep the same narrow projection boundary in Lynx: portable-item helpers may project tool-slot/drop state, but not own global progress
+- [x] Add Lynx characterization for teleport settle, support, replacement, and primed drop cases
 
 ### PR4: Actor-Local Inventory Seam
 
-- [ ] Introduce a typed actor-local inventory model
-- [ ] Make inventory ownership actor-based instead of passing raw inventory arrays through helpers
-- [ ] Support at least `no inventory`, `keys + boots`, and future expansion points without changing hot-path signatures
-- [ ] Keep actor-local inventory limited to actor-owned resources; do not move `chipsNeeded` or other global progress counters into this seam
-- [ ] Add tests covering actor-local key and boot use
+- [x] Introduce a typed actor-local inventory model
+- [x] Make inventory ownership actor-based instead of passing raw inventory arrays through helpers
+- [x] Support at least `no inventory`, `keys + boots`, and future expansion points without changing hot-path signatures
+- [x] Keep actor-local inventory limited to actor-owned resources; do not move `chipsNeeded` or other global progress counters into this seam
+- [x] Add tests covering actor-local key and boot use
 
 ### PR5: Controller and Actor Capability Policy
 

@@ -3758,6 +3758,58 @@ describe("MS engine regressions", () => {
     expect(next.state.engine.map.cells[keyPos]?.bottom.id).toBe(MS_TILE.Empty);
   });
 
+  it("keeps the green key after Chip opens a green door", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const keyPos = pos(11, 10);
+    const doorPos = pos(12, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[keyPos]!.top.id = MS_TILE.Key_Green;
+    cells[doorPos]!.top.id = MS_TILE.Door_Green;
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    const withKey = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+    let throughDoor = withKey;
+    for (let tick = 0; tick < 8 && throughDoor.state.internal.chipPos !== doorPos; tick += 1) {
+      throughDoor = advanceMsInteractiveSession(throughDoor, MS_DIRECTION.east);
+    }
+
+    expect(withKey.state.engine.inventory.keys[3]).toBe(1);
+    expect(throughDoor.state.engine.inventory.keys[3]).toBe(1);
+    expect(throughDoor.state.internal.chipPos).toBe(doorPos);
+  });
+
+  it("strips Chip's boots and carried tool on a burglar tile", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const burglarPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[burglarPos]!.top.id = MS_TILE.Burglar;
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.boots[2] = 1;
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    const next = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(next.state.engine.inventory.boots).toEqual([0, 0, 0, 0]);
+    expect(next.state.engine.inventory.tools).toEqual([0]);
+    expect(next.state.engine.soundEffects & (1 << MS_SOUND.BootsStolen)).not.toBe(0);
+  });
+
   it("preserves Chip and water when a creature dies moving into Chip's water tile", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);

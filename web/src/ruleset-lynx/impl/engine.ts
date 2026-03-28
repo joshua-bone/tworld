@@ -31,6 +31,16 @@ import {
 import { TURN_DEBUG_PHASE, TURN_PHASE, recordTurnDebugPhase, runTurnPhaseHandlers } from "@game-core/api/turnPhases";
 import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
+import {
+  actorInventoryClearBoots,
+  actorInventoryCollectIndexedItem,
+  actorInventoryHasBoot,
+  actorInventoryHasKey,
+  actorInventoryUseKey,
+  createKeysBootsToolsActorLocalInventoryOwner,
+  type ActorKeysBootsToolsInventory,
+  type ActorLocalInventoryOwner,
+} from "@game-core/impl/actorLocalInventory";
 import { createReplayPlan, createRuntimeCommand, plannedReplayInput, recordManualMove, runtimeCommandName } from "@game-core/api/playback";
 import { decodeRuntimeInputCode, GAME_INPUT_MODIFIER_MASKS, getGameInputNameFromCode } from "@game-core/api/command";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
@@ -80,6 +90,7 @@ const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
 const HIDDEN_WALL_REVEAL_TTL = MS_TICKS_PER_SECOND / 2;
 const BLUE_WALL_VISUAL_REVEAL_TTL = 0x7fff_ffff;
 type LynxMoveKind = "planar" | "air" | "elevator";
+type LynxChipLocalInventoryProjection = Pick<EngineState["inventory"], "keys" | "boots" | "tools">;
 
 export interface LynxInteractiveSessionState {
   level: LynxLevel;
@@ -101,6 +112,10 @@ export interface LynxInteractiveSessionState {
   endGameResult: LynxEndGameResult | null;
   endGameAnimationTileId: number | null;
   endGameAnimationFrame: number | null;
+}
+
+function lynxChipInventoryOwner(inventory: LynxChipLocalInventoryProjection): ActorLocalInventoryOwner {
+  return createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory);
 }
 
 type LynxEndGameResult = "completed" | "failed";
@@ -354,6 +369,7 @@ function resolveLynxChipSupportBelow(
   z: number,
   currentZ: number,
 ): boolean {
+  const chipInventory = lynxChipInventoryOwner(state.inventory);
   if (!lowerCells) {
     return false;
   }
@@ -399,10 +415,7 @@ function resolveLynxChipSupportBelow(
 
   if (lynxTileHasTag(topId, "door")) {
     const keyIndex = lynxDoorKeyIndex(topId);
-    if (keyIndex !== null && state.inventory.keys[keyIndex] > 0) {
-      if (topId !== MS_TILE.Door_Green) {
-        state.inventory.keys[keyIndex] -= 1;
-      }
+    if (keyIndex !== null && actorInventoryUseKey(chipInventory, keyIndex, { consume: topId !== MS_TILE.Door_Green })) {
       promoteBottomTile(lowerCells, pos, MS_TILE.Empty);
       return false;
     }
@@ -1202,6 +1215,7 @@ function collectChipAtPosition(state: EngineState, pos: number): boolean {
 }
 
 function collectLynxItemAtPosition(state: EngineState, pos: number): number {
+  const chipInventory = lynxChipInventoryOwner(state.inventory);
   if (collectChipAtPosition(state, pos)) {
     return 1 << LYNX_SOUND.IcCollected;
   }
@@ -1217,7 +1231,7 @@ function collectLynxItemAtPosition(state: EngineState, pos: number): number {
     if (inventorySlot === "tools") {
       queueLynxToolInventoryReplacement(state, tile.id, pos, activeLynxLayerZ(state));
     } else {
-      state.inventory[inventorySlot][inventoryIndex] += 1;
+      actorInventoryCollectIndexedItem(chipInventory, inventorySlot, inventoryIndex);
     }
     promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
@@ -1228,9 +1242,10 @@ function collectLynxItemAtPosition(state: EngineState, pos: number): number {
 }
 
 function hasLynxBoots(state: EngineState, tileId: number): boolean {
+  const chipInventory = lynxChipInventoryOwner(state.inventory);
   const inventorySlot = lynxInventorySlot(tileId);
   const inventoryIndex = lynxInventoryIndex(tileId);
-  return inventorySlot === "boots" && inventoryIndex !== null ? state.inventory.boots[inventoryIndex] > 0 : false;
+  return inventorySlot === "boots" && inventoryIndex !== null ? actorInventoryHasBoot(chipInventory, inventoryIndex) : false;
 }
 
 function lynxChipMovementSpeed(state: EngineState, floorId: number, moveKind: LynxMoveKind = "planar"): number {
@@ -1248,6 +1263,7 @@ function lynxChipMovementSpeed(state: EngineState, floorId: number, moveKind: Ly
 }
 
 function canLynxChipEnterCell(state: EngineState, pos: number, dir: number): boolean {
+  const chipInventory = lynxChipInventoryOwner(state.inventory);
   if (!hasBoardCell(state.map.cells, pos)) {
     return false;
   }
@@ -1265,7 +1281,7 @@ function canLynxChipEnterCell(state: EngineState, pos: number, dir: number): boo
   }
   const keyIndex = lynxDoorKeyIndex(tileId);
   if (keyIndex !== null) {
-    return state.inventory.keys[keyIndex] > 0;
+    return actorInventoryHasKey(chipInventory, keyIndex);
   }
   if (tileId === MS_TILE.Socket) {
     return state.inventory.chipsNeeded === 0;
@@ -1275,6 +1291,7 @@ function canLynxChipEnterCell(state: EngineState, pos: number, dir: number): boo
 }
 
 function canLynxChipPushIntoClaimedCell(state: EngineState, pos: number, dir: number): boolean {
+  const chipInventory = lynxChipInventoryOwner(state.inventory);
   if (!hasBoardCell(state.map.cells, pos)) {
     return false;
   }
@@ -1292,7 +1309,7 @@ function canLynxChipPushIntoClaimedCell(state: EngineState, pos: number, dir: nu
   }
   const keyIndex = lynxDoorKeyIndex(tileId);
   if (keyIndex !== null) {
-    return state.inventory.keys[keyIndex] > 0;
+    return actorInventoryHasKey(chipInventory, keyIndex);
   }
   if (tileId === MS_TILE.Socket) {
     return state.inventory.chipsNeeded === 0;
@@ -1688,6 +1705,7 @@ function resolveLynxChipArrival(
   soundEffects: number;
   completed: boolean;
 } {
+  const chipInventory = lynxChipInventoryOwner(state.inventory);
   const cell = state.map.cells[pos];
   if (!cell) {
     return {
@@ -1697,10 +1715,7 @@ function resolveLynxChipArrival(
   }
 
   const keyIndex = lynxDoorKeyIndex(cell.top.id);
-  if (keyIndex !== null && state.inventory.keys[keyIndex] > 0) {
-    if (keyIndex !== 3) {
-      state.inventory.keys[keyIndex] -= 1;
-    }
+  if (keyIndex !== null && actorInventoryUseKey(chipInventory, keyIndex, { consume: keyIndex !== 3 })) {
     promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
     return {
@@ -1735,7 +1750,7 @@ function resolveLynxChipArrival(
         completed: false,
       };
     case "steal-boots":
-      state.inventory.boots = [0, 0, 0, 0];
+      actorInventoryClearBoots(chipInventory);
       clearLynxToolInventory(state);
       return {
         soundEffects: 1 << LYNX_SOUND.BootsStolen,

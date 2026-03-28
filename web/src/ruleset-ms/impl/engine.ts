@@ -43,6 +43,16 @@ import {
 import { advanceTimer, createInitialEngineTimer } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
 import {
+  actorInventoryClearBoots,
+  actorInventoryCollectIndexedItem,
+  actorInventoryHasBoot,
+  actorInventoryHasKey,
+  actorInventoryUseKey,
+  createKeysBootsToolsActorLocalInventoryOwner,
+  type ActorKeysBootsToolsInventory,
+  type ActorLocalInventoryOwner,
+} from "@game-core/impl/actorLocalInventory";
+import {
   appendRecordedReplayMove,
   createReplayPlan,
   createRuntimeCommand,
@@ -140,6 +150,7 @@ interface MsPrimedToolDrop {
 }
 
 type MsToolInventoryProjection = Pick<EngineState["inventory"], "tools">;
+type MsChipLocalInventoryProjection = Pick<EngineState["inventory"], "keys" | "boots" | "tools">;
 
 type MsPortableItemState =
   | { mode: "map"; pos: number; z: number }
@@ -152,6 +163,10 @@ interface MsPortableItem {
   tileId: number;
   inventorySlot: "tools";
   state: MsPortableItemState;
+}
+
+function msChipInventoryOwner(inventory: MsChipLocalInventoryProjection): ActorLocalInventoryOwner {
+  return createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory);
 }
 
 export interface MsTrackedBlock {
@@ -465,6 +480,7 @@ function resolveMsChipSupportBelow(
   inventory: EngineState["inventory"],
   currentZ: number,
 ): boolean {
+  const chipInventory = msChipInventoryOwner(inventory);
   if (!lowerCells) {
     return false;
   }
@@ -511,10 +527,7 @@ function resolveMsChipSupportBelow(
 
   if (msTileHasTag(topId, "door")) {
     const doorKeyIndex = msDoorKeyIndex(topId);
-    if (doorKeyIndex !== null && inventory.keys[doorKeyIndex] > 0) {
-      if (topId !== MS_TILE.Door_Green) {
-        inventory.keys[doorKeyIndex] -= 1;
-      }
+    if (doorKeyIndex !== null && actorInventoryUseKey(chipInventory, doorKeyIndex, { consume: topId !== MS_TILE.Door_Green })) {
       promoteTopFloorToUnderlying(lowerCells, pos);
       return false;
     }
@@ -1126,6 +1139,7 @@ function refreshFloorMovement(
   internal: MsInternalState,
   inventory: EngineState["inventory"],
 ): void {
+  const chipInventory = msChipInventoryOwner(inventory);
   if (internal.chipStatus !== "okay" || internal.completed) {
     internal.floorMovement = "none";
     internal.floorMovementDir = MS_DIRECTION.none;
@@ -1154,7 +1168,7 @@ function refreshFloorMovement(
     return;
   }
 
-  if (isIceFloor(floor) && inventory.boots[0] === 0) {
+  if (isIceFloor(floor) && !actorInventoryHasBoot(chipInventory, 0)) {
     internal.floorMovement = "ice";
     internal.floorMovementDir = iceWallTurn(floor, internal.chipDir);
     internal.chipDir = internal.floorMovementDir;
@@ -1162,7 +1176,7 @@ function refreshFloorMovement(
     return;
   }
 
-  if (isSlideFloor(floor) && inventory.boots[1] === 0) {
+  if (isSlideFloor(floor) && !actorInventoryHasBoot(chipInventory, 1)) {
     internal.floorMovement = "slide";
     internal.floorMovementDir = slideDirection(floor, internal);
     internal.chipDir = internal.floorMovementDir;
@@ -1181,6 +1195,7 @@ function refreshFloorMovementFromEnteredTile(
   enteredFloor: number,
   enteredFloorState: number,
 ): void {
+  const chipInventory = msChipInventoryOwner(inventory);
   if (internal.chipStatus !== "okay" || internal.completed) {
     internal.floorMovement = "none";
     internal.floorMovementDir = MS_DIRECTION.none;
@@ -1207,7 +1222,7 @@ function refreshFloorMovementFromEnteredTile(
     return;
   }
 
-  if (isIceFloor(enteredFloor) && inventory.boots[0] === 0) {
+  if (isIceFloor(enteredFloor) && !actorInventoryHasBoot(chipInventory, 0)) {
     internal.floorMovement = "ice";
     internal.floorMovementDir = iceWallTurn(enteredFloor, internal.chipDir);
     internal.chipDir = internal.floorMovementDir;
@@ -1215,7 +1230,7 @@ function refreshFloorMovementFromEnteredTile(
     return;
   }
 
-  if (isSlideFloor(enteredFloor) && inventory.boots[1] === 0) {
+  if (isSlideFloor(enteredFloor) && !actorInventoryHasBoot(chipInventory, 1)) {
     internal.floorMovement = "slide";
     internal.floorMovementDir = slideDirection(enteredFloor, internal);
     internal.chipDir = internal.floorMovementDir;
@@ -1430,6 +1445,7 @@ function canMoveChip(
   dir: number,
   options: ChipMoveOptions = {},
 ): boolean {
+  const chipInventory = msChipInventoryOwner(inventory);
   const {
     exposeWalls = true,
     allowPushing = true,
@@ -1462,7 +1478,7 @@ function canMoveChip(
   }
   if (msTileHasTag(floor, "door")) {
     const doorKeyIndex = msDoorKeyIndex(floor);
-    if (doorKeyIndex === null || inventory.keys[doorKeyIndex] === 0) {
+    if (doorKeyIndex === null || !actorInventoryHasKey(chipInventory, doorKeyIndex)) {
       return false;
     }
   }
@@ -3984,6 +4000,7 @@ function applyMsChipEntryEffects(
   let floorTileBeforeMove = nextCell.top;
   let movementFloorTile = floorTileBeforeMove;
   const floor = floorTileBeforeMove.id;
+  const chipInventory = msChipInventoryOwner(inventory);
   let enteredTeleport = false;
   let soundEffects = 0;
 
@@ -4005,8 +4022,8 @@ function applyMsChipEntryEffects(
       break;
     case "open-door": {
       const index = msDoorKeyIndex(floor);
-      if (index !== null && floor !== MS_TILE.Door_Green) {
-        inventory.keys[index] -= 1;
+      if (index !== null) {
+        actorInventoryUseKey(chipInventory, index, { consume: floor !== MS_TILE.Door_Green });
       }
       popTile(cells, nextPos);
       soundEffects |= 1 << MS_SOUND.DoorOpened;
@@ -4019,7 +4036,7 @@ function applyMsChipEntryEffects(
         if (slot === "tools") {
           queueMsToolInventoryReplacement(internal, inventory, floor, nextPos, runtimeCellZ(cells, nextPos));
         } else {
-          inventory[slot][index] += 1;
+          actorInventoryCollectIndexedItem(chipInventory, slot, index);
         }
         popTile(cells, nextPos);
         if (slot === "tools") {
@@ -4034,7 +4051,7 @@ function applyMsChipEntryEffects(
       soundEffects |= 1 << MS_SOUND.SocketOpened;
       break;
     case "steal-boots":
-      inventory.boots = [0, 0, 0, 0] as EngineState["inventory"]["boots"];
+      actorInventoryClearBoots(chipInventory);
       clearMsToolInventory(internal, inventory);
       soundEffects |= 1 << MS_SOUND.BootsStolen;
       break;
@@ -4043,12 +4060,12 @@ function applyMsChipEntryEffects(
       soundEffects |= 1 << MS_SOUND.BombExplodes;
       break;
     case "water-death":
-      if (inventory.boots[3] === 0) {
+      if (!actorInventoryHasBoot(chipInventory, 3)) {
         internal.chipStatus = "drowned";
       }
       break;
     case "fire-death":
-      if (inventory.boots[2] === 0) {
+      if (!actorInventoryHasBoot(chipInventory, 2)) {
         internal.chipStatus = "burned";
       }
       break;
@@ -4223,7 +4240,7 @@ function moveChipDownOneLayer(
     internal.completed = true;
   }
 
-  if (isIceFloor(enteredFloor) && inventory.boots[0] === 0) {
+  if (isIceFloor(enteredFloor) && !actorInventoryHasBoot(msChipInventoryOwner(inventory), 0)) {
     internal.floorMovement = "none";
     internal.floorMovementDir = MS_DIRECTION.none;
   } else {
