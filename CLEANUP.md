@@ -1,364 +1,442 @@
-# Repo Cleanup Plan
+# Engine Extensibility Cleanup Plan
 
-## Basis
+This plan is based on a fresh pass through the current MS and Lynx engines, their extracted helper seams, and the priorities in `CLEAN_CODE.md`.
 
-This plan is based on a fresh repo-wide pass against [CLEAN_CODE.md](/Users/joshuabone/git/tworld/CLEAN_CODE.md), with emphasis on Tier 1 and Tier 2 priorities:
+The question this plan answers is:
 
-- small, single-purpose functions
-- explicit interfaces and narrow seams
-- one level of abstraction per function
-- step-down flow in control logic
-- fewer nested conditionals
-- fewer long argument lists
-- clear ownership of state
-- loose coupling and high cohesion
-- encapsulated boundary conditions
-- shared vocabulary without fake shared behavior
+- If we add new stateful mobs such as bowling balls or ghosts, can we do it without scattering tile checks and duplicating movement logic?
+- If we add new portable items such as hooks, can they plug into the portable-item lifecycle instead of growing sandbag-specific branches?
+- If we add new terrain or pickups, can we register behavior instead of editing giant engine and catalog files?
+- Could any of that eventually become a real plugin story?
 
-## Current Assessment
+## Current Verdict
 
-The repo is no longer broadly unhealthy. The strongest wins already in place are:
+Short answer:
 
-- strong repo instructions and deterministic commands
-- real shared vocabulary in `game-core`
-- ruleset-local policy and helper seams instead of one fake shared engine
-- strong characterization coverage around core engine behavior
+- The engine is much cleaner than it was.
+- It has real seams now.
+- It is not yet a true plugin architecture.
 
-The main remaining problems are concentrated in large orchestrators and boundary-heavy modules, not in every part of the repo.
+Today, the repo is in a good position for:
 
-## Primary Hotspots
+- ruleset-specific cleanup without rewriting the engines
+- adding features that fit existing policy vocabulary
+- reusing portable-item identity, actor-local inventory, and several movement helper seams
 
-Highest-value cleanup targets:
+Today, the repo is not in a good position for:
 
-- [web/src/player-web/impl/PlayerApp.tsx](/Users/joshuabone/git/tworld/web/src/player-web/impl/PlayerApp.tsx)
-- [web/src/player-web/impl/LegacyCanvasScreen.tsx](/Users/joshuabone/git/tworld/web/src/player-web/impl/LegacyCanvasScreen.tsx)
-- [web/src/player-web/impl/modern/ModernPlayerApp.tsx](/Users/joshuabone/git/tworld/web/src/player-web/impl/modern/ModernPlayerApp.tsx)
-- [web/src/ruleset-ms/impl/engine.ts](/Users/joshuabone/git/tworld/web/src/ruleset-ms/impl/engine.ts)
-- [web/src/ruleset-lynx/impl/engine.ts](/Users/joshuabone/git/tworld/web/src/ruleset-lynx/impl/engine.ts)
-- [web/src/player-web/impl/IndexedDbBrowserProfileStore.ts](/Users/joshuabone/git/tworld/web/src/player-web/impl/IndexedDbBrowserProfileStore.ts)
-- [web/src/player-web/impl/urlLaunch.ts](/Users/joshuabone/git/tworld/web/src/player-web/impl/urlLaunch.ts)
-- [web/src/content/api/series-file.ts](/Users/joshuabone/git/tworld/web/src/content/api/series-file.ts)
-- [web/src/content/api/solution-file.ts](/Users/joshuabone/git/tworld/web/src/content/api/solution-file.ts)
-- [web/src/replay-verifier/compose/verifyAllSolutionReplays.ts](/Users/joshuabone/git/tworld/web/src/replay-verifier/compose/verifyAllSolutionReplays.ts)
-- [web/src/game-runtime/impl/LynxGameEngineAdapter.ts](/Users/joshuabone/git/tworld/web/src/game-runtime/impl/LynxGameEngineAdapter.ts)
-- [web/src/game-runtime/impl/MsGameEngineAdapter.ts](/Users/joshuabone/git/tworld/web/src/game-runtime/impl/MsGameEngineAdapter.ts)
+- adding a new stateful actor kind without some new engine work
+- adding a new portable-item behavior family without extending portable-item rulesets
+- adding new terrain families entirely by registration
+- loading third-party gameplay elements as external plugins
 
-## Main Findings
+The honest assessment is:
 
-### Tier 1 issues
+- internal plugin-shaped extensibility is within reach
+- external plugin loading is not
+- bowling ball, ghost, fake player, and hook can be made cleanly
+- they cannot yet be added as pure registrations without more engine cleanup
 
-- Large orchestrators still mix UI flow, persistence, input, selection, replay, and rendering concerns in single files.
-- Step-down flow is good at the top of the engines now, but weaker in player-web and some mid-level engine helpers.
-- There is still duplicated structural code where shared skeletons would help, especially in the game-runtime adapters.
-- A few parser and storage modules mix binary/record decoding, validation, persistence, and policy in one place.
+## Clean-Code Comparison
 
-### Tier 2 issues
+### Tier 1: What is already good
 
-- Some modules still have more than one reason to change.
-- Boundary-condition logic is not always isolated in one home.
-- Test coverage is strong, but some non-engine areas still need better builder support before deeper structural refactors.
-- The right cleanup target is shared vocabulary and shared helper structure, not broad common implementations that erase ruleset differences.
+- [x] MS and Lynx have shared seam shapes without being forced into a fake common engine
+- [x] major hot paths now read in phases instead of one giant monolith
+- [x] long argument lists were reduced in many movement and tick helpers
+- [x] actor-local inventory is separated from global progress such as `chipsNeeded`
+- [x] portable items have stable identity and lifecycle instead of being only tile projections
+- [x] teleport, trap/cloner, controller, vertical-movement, and arrival logic have extracted modules
+- [x] characterization coverage around subtle engine behavior is strong
 
-## PR Plan
+### Tier 1: What still blocks extensibility
 
-- [x] PR1: Safety Net For Structural Cleanup
-- [x] PR2: PlayerApp Application Controller Split
-- [x] PR3: Modern Dashboard Shell Split
-- [x] PR4: Legacy Canvas Render Pipeline Split
-- [x] PR5: Shared Interactive Adapter Skeleton
-- [x] PR6: Content Parsing Decomposition
-- [x] PR7: Persistence And URL Launch Cleanup
-- [x] PR8: Replay Verifier Orchestration Split
-- [x] PR9: Engine Phase 2 Cleanup
-- [x] PR10: Test DSL Expansion
-- [x] PR11: Naming And Value Objects Pass
-- [ ] PR12: Docs And Workflow Refresh
+- [ ] `engine.ts` is still very large in both rulesets
+- [ ] actor behavior is still too coarse for new stateful actor families
+- [ ] portable items are still fundamentally modeled as `tools` with sandbag-shaped assumptions
+- [ ] tile behavior is still mostly encoded as large rule tables plus engine-side interpretation
+- [ ] there is no explicit internal element registration layer
+- [ ] there is no external plugin contract
 
-### PR1: Safety Net For Structural Cleanup
+### Tier 2: What still needs work
 
-Add characterization around:
+- [ ] OCP is only partially achieved: adding new element families still requires edits in multiple core files
+- [ ] DIP is partial: catalogs provide policy data, but engines still know too much about the current policy vocabulary
+- [ ] ISP is partial: capability enums are broad enough to be useful, but too narrow for future actor classes
+- [ ] descriptive naming improved, but some runtime seams still expose mechanics instead of intent
+- [ ] feature-oriented structure exists for many behaviors, but large catalogs still act as “big tables of truth”
 
-- player session flows
-- URL launch and import resolution
-- profile persistence and replay persistence
-- replay sweep reporting
-- runtime adapter behavior
+## Current State Snapshot
 
-Goal:
+Current core file sizes:
 
-- make later structural refactors behavior-preserving and reviewable
+- `web/src/ruleset-ms/impl/engine.ts`: 4295 lines
+- `web/src/ruleset-lynx/impl/engine.ts`: 3545 lines
+- `web/src/ruleset-ms/impl/catalog.ts`: 879 lines
+- `web/src/ruleset-lynx/impl/catalog.ts`: 956 lines
+- `web/src/ruleset-ms/impl/portableItems.ts`: 303 lines
+- `web/src/ruleset-lynx/impl/portableItems.ts`: 295 lines
+- `web/src/game-core/api/actorCapabilities.ts`: 73 lines
+- `web/src/game-core/impl/portableItems.ts`: 231 lines
 
-### PR2: PlayerApp Application Controller Split
+This tells us something important:
 
-Break [PlayerApp.tsx](/Users/joshuabone/git/tworld/web/src/player-web/impl/PlayerApp.tsx) into smaller seams for:
+- the engines are no longer the only problem
+- the catalogs and capability vocabularies are now the main extensibility bottleneck
 
-- session lifecycle
-- keyboard and mobile input handling
-- persistence sync
-- replay and import actions
-- selection and catalog state
+## Extensibility Assessment By Feature Type
 
-Goal:
+### 1. Stateful mobs such as bowling ball, ghost, fake player
 
-- top-level component becomes orchestration, not implementation
+Current state:
 
-Progress:
+- partially ready
 
-- [x] extract selection and navigation controller rules into a dedicated tested module
-- [x] extract catalog and persistence sync controller
-- [x] extract session lifecycle and runtime sync controller
-- [x] extract keyboard/mobile input and replay/import action controllers
+What already helps:
 
-### PR3: Modern Dashboard Shell Split
+- [x] actor-local inventory exists
+- [x] global chip progress is separate from local inventory
+- [x] blocked-move, trap, cloner, thief, support, and hazard hooks exist in policy form
+- [x] movement and arrival helper seams exist in both rulesets
 
-Break [ModernPlayerApp.tsx](/Users/joshuabone/git/tworld/web/src/player-web/impl/modern/ModernPlayerApp.tsx) into:
+What still blocks clean extension:
 
-- library shell
-- family and level navigation
-- backup and import workflows
-- settings workflows
-- pane-resize state
+- [ ] `ActorTraversalKind` only knows `chip`, `creature`, and `block`
+- [ ] `ActorCollisionHook` is still too coarse
+- [ ] `ActorBlockedMoveKind` is still too coarse
+- [ ] actor runtime state is not yet generalized enough for per-family custom state
+- [ ] movement start, arrival, collision, and forced-movement flows are still wired around current actor families
 
-Goal:
+Conclusion:
 
-- separate composition from catalog/search/load mechanics
+- bowling ball or ghost can be added cleanly only after the actor strategy vocabulary is widened
+- today they would still require engine edits, even if those edits could be localized
 
-Progress:
+### 2. Portable items such as hooks, future special items, bowling ball in carried/still form
 
-- [x] extract family and level navigation controller with a tested derived dashboard model
-- [x] extract backup and import workflow controller
-- [x] extract settings and profile transfer workflow controller
-- [x] extract pane resize and layout controller
-- [x] extract library shell sections into smaller presentational components
+Current state:
 
-### PR4: Legacy Canvas Render Pipeline Split
+- partially ready
 
-Break [LegacyCanvasScreen.tsx](/Users/joshuabone/git/tworld/web/src/player-web/impl/LegacyCanvasScreen.tsx) into:
+What already helps:
 
-- artwork loading
-- tileset caching
-- layer caching
-- map rendering
-- overlay rendering
-- inventory-strip rendering
+- [x] portable items have stable identity
+- [x] portable items support map, carried, primed, pending, and attached states
+- [x] portable items survive projection and reuse
 
-Goal:
+What still blocks clean extension:
 
-- main render path reads as step-down rendering instead of a giant graphics utility file
+- [ ] portable items are still hard-wired to inventory slot `"tools"`
+- [ ] replacement and primed-drop behavior is still sandbag-shaped
+- [ ] activation semantics are not yet modeled as portable-item policy
+- [ ] support/drop consequences are not yet generalized enough for multiple portable-item families
+- [ ] attached portable items do not yet drive their own actor lifecycle cleanly
 
-### PR5: Shared Interactive Adapter Skeleton
+Conclusion:
 
-Extract the common structure duplicated in:
+- a hook-like item is not plug-in ready yet
+- the portable-item seam needs one more level of abstraction before it becomes a reusable feature family
 
-- [web/src/game-runtime/impl/LynxGameEngineAdapter.ts](/Users/joshuabone/git/tworld/web/src/game-runtime/impl/LynxGameEngineAdapter.ts)
-- [web/src/game-runtime/impl/MsGameEngineAdapter.ts](/Users/joshuabone/git/tworld/web/src/game-runtime/impl/MsGameEngineAdapter.ts)
+### 3. Terrain and pickups
 
-Candidate shared pieces:
+Current state:
 
-- level load and prep skeleton
-- live runtime advancement skeleton
-- session projection skeleton
-- restore and undo plumbing skeleton
+- better than actors and portable items
 
-Keep ruleset-specific pieces pluggable:
+What already helps:
 
-- failure-cause mapping
-- frame projection
-- runtime token types
-- ruleset-specific trace entry points
+- [x] catalogs encode movement masks, forced-floor kinds, chip-enter actions, buttons, hazards, and inventory slot mapping
+- [x] both rulesets already route much tile behavior through catalog policy
 
-### PR6: Content Parsing Decomposition
+What still blocks clean extension:
 
-Split:
+- [ ] tile actions are still interpreted through engine-owned enums and branches
+- [ ] there is no first-class per-tile behavior registration object
+- [ ] new tile families still require edits to large catalog tables and likely some engine interpretation code
 
-- [web/src/content/api/series-file.ts](/Users/joshuabone/git/tworld/web/src/content/api/series-file.ts)
-- [web/src/content/api/solution-file.ts](/Users/joshuabone/git/tworld/web/src/content/api/solution-file.ts)
+Conclusion:
 
-Into narrower helpers for:
+- simple new pickups that fit existing slot logic are relatively easy
+- new terrain families with stateful or unusual movement/collision behavior are not plugin-ready
 
-- config parsing
-- binary readers
-- metadata decoders
-- hash helpers
-- fail-fast boundary checks
+### 4. True plugins
 
-Goal:
+Current state:
 
-- isolate boundary conditions and reduce parser opacity
+- not supported
 
-### PR7: Persistence And URL Launch Cleanup
+Reasons:
 
-Split:
+- [ ] tile and actor ids are still compile-time enums
+- [ ] ruleset catalogs are compile-time structures
+- [ ] decode/load/render/projection paths are static
+- [ ] there is no manifest-based extension registration
+- [ ] there is no compatibility contract for undo, replay, debug projection, or rendering
 
-- [web/src/player-web/impl/IndexedDbBrowserProfileStore.ts](/Users/joshuabone/git/tworld/web/src/player-web/impl/IndexedDbBrowserProfileStore.ts)
-- [web/src/player-web/impl/urlLaunch.ts](/Users/joshuabone/git/tworld/web/src/player-web/impl/urlLaunch.ts)
+Conclusion:
 
-Into seams for:
+- we should not claim “plugin support” today
+- the right near-term goal is internal plugin-shaped extensibility
 
-- typed record codecs
-- backend transaction helpers
-- replay/import persistence
-- migration helpers
-- request parsing
-- launch resolution
-- remote source adapters
-- href building
+## Design Goals For The Next Cleanup Wave
+
+- Keep MS and Lynx separate where timing and ordering differ
+- Move from coarse enums toward typed policy groups and strategy seams
+- Make state ownership explicit for actor-local state, portable-item state, and global progress
+- Add new element families by registration plus focused helper implementations, not by editing large engine switch trees
+- Prove the seams with one new stateful actor family and one new portable-item family before attempting external plugins
+
+## PR Roadmap
+
+### EP1: Extensibility Characterization Net
 
 Goal:
 
-- explicit ownership of parsing, persistence, and resolution state
+- capture the behavior we need for future element families before changing seam shape
 
-Progress:
+Checklist:
 
-- [x] extract browser profile codecs and parsing helpers into a dedicated module
-- [x] extract the IndexedDB persistence backend and transaction helpers
-- [x] extract URL launch request parsing into a dedicated module
-- [x] extract URL launch built-in/imported/remote source helpers and keep the public wrapper stable
+- [ ] add characterization harnesses for stateful actor archetypes: ballistic, phasing, input-driven, inventory-carrying
+- [ ] add characterization harnesses for portable-item archetypes: carried-only, primed-drop, attach-to-actor, reusable stateful item
+- [ ] add terrain-entry and collision matrix tests that can be reused by future elements
+- [ ] add undo, replay, and debug-projection characterization for stateful elements
 
-### PR8: Replay Verifier Orchestration Split
+Why this comes first:
 
-Break replay sweep orchestration into:
+- future seam work will otherwise guess behavior instead of locking it down
 
-- discovery
-- filtering
-- scenario planning
-- execution
-- aggregation
-- terminal reporting
-
-Targets include:
-
-- [web/src/replay-verifier/compose/verifyAllSolutionReplays.ts](/Users/joshuabone/git/tworld/web/src/replay-verifier/compose/verifyAllSolutionReplays.ts)
-- related `verify*` and sweep modules
+### EP2: Decompose Actor Capability Policy
 
 Goal:
 
-- shared reporter/result vocabulary with ruleset-specific execution left local
+- replace the current coarse actor capability vocabulary with smaller, composable policy groups
 
-Progress:
+Checklist:
 
-- [x] extract replay-sweep discovery, filtering, env, and ranking helpers
-- [x] extract shared solution-file replay sweep vocabulary, report building, and summary formatting
-- [x] extract per-file replay sweep planning and scenario execution helpers
-- [x] extract ruleset and all-replay terminal reporters so compose entry points become setup plus orchestration
+- [ ] split `ActorCapabilityPolicy` into grouped concerns such as control, traversal, collision, hazards, support, theft, trap/cloner, collection, and blocked-move
+- [ ] remove reliance on `traversalKind: chip | creature | block` as the final gameplay discriminator
+- [ ] add typed strategy identifiers or typed interfaces for movement-start and collision behavior
+- [ ] keep policy data per-ruleset in catalog modules
 
-### PR9: Engine Phase 2 Cleanup
+Extensibility win:
 
-Resume engine cleanup on the remaining mid-level hotspots in:
+- bowling ball, ghost, and fake player stop looking like special cases of the current three movement families
 
-- [web/src/ruleset-ms/impl/engine.ts](/Users/joshuabone/git/tworld/web/src/ruleset-ms/impl/engine.ts)
-- [web/src/ruleset-lynx/impl/engine.ts](/Users/joshuabone/git/tworld/web/src/ruleset-lynx/impl/engine.ts)
-
-Focus areas:
-
-- movement start
-- arrival resolution
-- remaining branch-heavy helpers
-- policy gaps needed for future actors
+### EP3: Introduce Supplemental Stateful-Actor Runtime
 
 Goal:
 
-- continue reducing nested conditionals without flattening real ruleset differences
+- support actor families with persistent per-instance runtime state without overloading existing Chip/block/creature records
 
-Progress:
+Checklist:
 
-- [x] extract Lynx actor movement start and arrival resolution into a dedicated helper module
-- [x] extract Lynx Chip arrival and completed-move resolution into a dedicated helper module
-- [x] extract the remaining Lynx post-move orchestration helpers around teleports, held traps, and endgame transitions
-- [x] mirror the same cleanup pass across the remaining MS movement and arrival hotspots
+- [ ] add a supplemental runtime state store keyed by actor serial
+- [ ] support custom mode/state payloads per actor family
+- [ ] route clone, destroy, and restore flows through this store
+- [ ] integrate with interactive projection, replay, and undo
 
-### PR10: Test DSL Expansion
+Extensibility win:
 
-Extend test-builder and DSL patterns beyond engine tests into:
+- bowling ball mode, ghost state, fake-player control state, and future actor-local state get a real owner
 
-- player-web
-- persistence
-- replay-verifier
-- content parsing
+### EP4: Generalize Portable Item Policy
 
 Goal:
 
-- keep the characterization net strong while reducing setup boilerplate and giant test files
+- move from “portable tools with sandbag semantics” to “portable item families with explicit behavior policy”
 
-Progress:
+Checklist:
 
-- [x] extract reusable player-web profile-store and URL-launch test support helpers
-- [x] extract reusable replay-verifier synthetic trace and solution fixture helpers
-- [x] extract reusable content parsing DAT/metadata fixture builders
-- [x] migrate the largest repeated setup clusters onto those helpers while keeping targeted characterization coverage
+- [ ] introduce portable-item policy objects for carry, replacement, prime, drop, attach, detach, and destroy semantics
+- [ ] support multiple portable-item families without hard-wiring everything to `"tools"`
+- [ ] migrate sandbag fully onto the new portable-item policy surface
+- [ ] preserve current identity, projection, and replacement behavior under test
 
-### PR11: Naming And Value Objects Pass
+Extensibility win:
 
-Introduce a small set of narrow value objects where primitives hide meaning, and rename mutation-heavy helpers so side effects are explicit.
+- hooks and still-form bowling balls become policy-driven portable items instead of sandbag variants
 
-Examples:
-
-- position-like values
-- tick/range values
-- inventory-owner identifiers
-- parse/result helper names that currently sound read-only while mutating
+### EP5: Actor Movement Strategy Layer
 
 Goal:
 
-- improve readability after the structural seams exist
+- make movement and forced-movement logic extensible by strategy rather than by current actor category
 
-Progress:
+Checklist:
 
-- [x] replace raw inventory-owner prefix strings with a branded inventory-owner identifier helper
-- [x] rename Chip-enter and Chip-arrival helpers from `resolve...` to `apply...` where they mutate state
+- [ ] define strategy seams for `canStartMove`, `startMove`, `finishMove`, `blockedMove`, and `forcedMove`
+- [ ] migrate current Chip, creature, and block behavior onto those seams
+- [ ] keep ruleset-specific timing and ordering in MS/Lynx modules
+- [ ] eliminate the remaining “actor family means hard-coded engine path” assumptions
 
-### PR12: Docs And Workflow Refresh
+Extensibility win:
 
-Refresh:
+- ghost-style phasing or bowling-ball-style ballistic motion gets a place to live without duplicating Chip or creature paths
 
-- [CLEAN_CODE.md](/Users/joshuabone/git/tworld/CLEAN_CODE.md)
-- repo instructions and validation docs
-- any contributor-facing workflow notes affected by the cleanup
+### EP6: Collision, Arrival, and Hazard Pipeline
 
 Goal:
 
-- keep documentation aligned with the actual seam structure and validation path
+- make unusual interactions first-class instead of encoded as engine exceptions
+
+Checklist:
+
+- [ ] add typed outcomes for actor-vs-actor collision rules
+- [ ] add typed outcomes for tile-arrival rules
+- [ ] extend hazard handling beyond `ignore | deny | destroy | transform` where needed
+- [ ] make thief, trap, and cloner semantics pluggable at the actor-policy level
+
+Extensibility win:
+
+- bowling ball “destroy both”, ghost pass-through, hook attach/detach effects, and special collision cases stop needing bespoke engine branches
+
+### EP7: Tile Effect Pipeline
+
+Goal:
+
+- move tile behavior from static enum interpretation toward executable tile policy seams
+
+Checklist:
+
+- [ ] define tile effect seams such as `onEnter`, `onArrival`, `onLeave`, `onBlockedEnter`, `onSupportCheck`, and `onActivate`
+- [ ] migrate doors, sockets, buttons, teleports, traps, cloners, popup walls, and hidden/blue wall behavior onto those seams
+- [ ] keep ruleset-specific implementations separate
+- [ ] reduce large catalog-side enum interpretation in engine code
+
+Extensibility win:
+
+- new terrain and pickup families can be registered through a predictable behavior surface
+
+### EP8: Catalog Decomposition And Registration
+
+Goal:
+
+- stop treating each ruleset catalog as one giant file of static tables
+
+Checklist:
+
+- [ ] split catalogs by concern: pickups, terrain, hazards, forced floors, buttons, actors, portable items
+- [ ] compose each ruleset catalog from smaller registration modules
+- [ ] keep the final public catalog stable
+- [ ] add catalog tests per concern family rather than only giant catalog tests
+
+Extensibility win:
+
+- adding a new element becomes “register in the correct family” instead of editing several large constant blocks
+
+### EP9: Rendering And Projection Registration
+
+Goal:
+
+- align engine extensibility with projection and rendering seams
+
+Checklist:
+
+- [ ] register actor/portable-item visual state selection by policy instead of tile-id conditionals
+- [ ] support state-driven sprite selection for moving vs still actors/items
+- [ ] route overlays and animation selection through typed render metadata
+- [ ] keep legacy and modern renderers synchronized through a shared render descriptor shape
+
+Extensibility win:
+
+- bowling ball, ghost, hook, and future stateful visuals stop requiring special renderer edits everywhere
+
+### EP10: Decode And Load Registration
+
+Goal:
+
+- stop treating decode/load as a separate hard-coded layer that lags behind gameplay seams
+
+Checklist:
+
+- [ ] introduce ruleset-local element registration for decode/load mapping
+- [ ] keep compile-time built-in ids for now, but route decode through registration
+- [ ] ensure imported sets and DAT parsing can construct registered extensions consistently
+- [ ] integrate level prep and engine initialization with the registration layer
+
+Extensibility win:
+
+- new built-in elements no longer require ad hoc decode wiring across multiple files
+
+### EP11: Prove The Seams With Real Elements
+
+Goal:
+
+- validate that the cleanup produced real extensibility rather than nicer names around the same branching
+
+Checklist:
+
+- [ ] implement one stateful actor family using the new seams
+- [ ] implement one portable-item family using the new seams
+- [ ] forbid engine-hot-path branches for those elements outside the declared seam boundaries
+- [ ] add replay, undo, debug, and renderer coverage for both
+
+Suggested proof elements:
+
+- bowling ball or ghost for actor proof
+- hook or future special item for portable-item proof
+
+Success condition:
+
+- adding the proof elements does not require new large engine switch trees
+
+### EP12: Optional External Plugin Contract
+
+Goal:
+
+- only after internal plugin-shaped extensibility works, evaluate whether real external plugins are worth supporting
+
+Checklist:
+
+- [ ] decide what extension points are safe to expose externally
+- [ ] define manifest and registration contracts
+- [ ] define compatibility rules for replay, undo, debug projection, save state, and rendering
+- [ ] decide what remains compile-time only
+
+Important note:
+
+- this is optional
+- do not start here
+- the internal seam architecture must prove itself first
 
 ## Recommended Order
 
-Default order:
+- [ ] EP1
+- [ ] EP2
+- [ ] EP3
+- [ ] EP4
+- [ ] EP5
+- [ ] EP6
+- [ ] EP7
+- [ ] EP8
+- [ ] EP9
+- [ ] EP10
+- [ ] EP11
+- [ ] EP12 if and only if real external plugins are still a goal
 
-1. PR1
-2. PR2
-3. PR4
-4. PR5
-5. PR6
-6. PR7
-7. PR8
-8. PR9
-9. PR10
-10. PR11
-11. PR12
+## Non-Goals
 
-PR3 can happen after PR2 or in parallel if the write scope stays disjoint.
+- [ ] do not build a fake shared MS/Lynx super-engine
+- [ ] do not erase real timing and ordering differences behind generic callbacks
+- [ ] do not start with external plugin loading
+- [ ] do not add new stateful elements before the next seam layer exists
+- [ ] do not grow actor capability enums forever without decomposing them
 
-This order prioritizes the biggest Tier 1 problems first:
+## Final Answer To The Plugin Question
 
-- giant orchestrators
-- weak step-down flow
-- duplicated adapter structure
-- boundary-heavy parsers and stores
+If you wanted to add bowling balls, ghosts, hooks, new terrain, or new pickups today:
 
-## What Not To Do
+- you could do it more cleanly than before
+- you could reuse several existing seams
+- you would still need core code edits
+- you would still risk duplication for movement, collision, portable-item behavior, or terrain effects
 
-- do not build a common MS/Lynx engine base class
-- do not introduce a React state library just to split large components
-- do not do rename-only or file-shuffle PRs
-- do not DRY ruleset logic where timing or ordering truly differs
-- do not mix seam creation with new gameplay feature work
+If this roadmap is completed through EP11:
 
-## Success Criteria
+- new built-in element families should be addable through ruleset-local registration plus focused strategy code
+- that is the right target for “plugin-shaped” extensibility inside the repo
 
-The cleanup is successful if:
+If you want true external plugins:
 
-- top-level files read as orchestration rather than implementation
-- mid-level helpers stay at one abstraction level
-- state ownership is more obvious
-- new behavior has a clear seam to plug into
-- test setup gets smaller while behavior coverage stays strong
-- future feature work can extend policy/helper seams instead of adding more conditionals to giant files
+- that is a separate architectural project after EP11
+- it is not the current engine architecture
