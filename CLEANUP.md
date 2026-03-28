@@ -68,7 +68,7 @@ Highest-value cleanup targets:
 - [x] PR5: Shared Interactive Adapter Skeleton
 - [x] PR6: Content Parsing Decomposition
 - [x] PR7: Persistence And URL Launch Cleanup
-- [ ] PR8: Replay Verifier Orchestration Split
+- [x] PR8: Replay Verifier Orchestration Split
 - [ ] PR9: Engine Phase 2 Cleanup
 - [ ] PR10: Test DSL Expansion
 - [ ] PR11: Naming And Value Objects Pass
@@ -234,6 +234,13 @@ Targets include:
 Goal:
 
 - shared reporter/result vocabulary with ruleset-specific execution left local
+
+Progress:
+
+- [x] extract replay-sweep discovery, filtering, env, and ranking helpers
+- [x] extract shared solution-file replay sweep vocabulary, report building, and summary formatting
+- [x] extract per-file replay sweep planning and scenario execution helpers
+- [x] extract ruleset and all-replay terminal reporters so compose entry points become setup plus orchestration
 
 ### PR9: Engine Phase 2 Cleanup
 
