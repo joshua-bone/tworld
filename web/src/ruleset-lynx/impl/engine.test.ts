@@ -1583,6 +1583,35 @@ describe("runLynxInputTrace", () => {
     expect(buttonBlock?.stateFlags).toContain("dormant");
   });
 
+  it("lets Chip push a block out of a held-open beartrap", () => {
+    const buttonPos = 34;
+    const trapPos = 65;
+    const exitPos = 97;
+    const trace = runLynxInputTraceDebug(
+      { seriesFile: "intro-lynx.dac", levelNumber: 8, ruleset: "Lynx" },
+      createLevel(
+        [
+          createCell(33, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty),
+          createCell(buttonPos, MS_TILE.Block_Static, MS_TILE.Button_Brown),
+          createCell(trapPos, MS_TILE.Block_Static, MS_TILE.Beartrap),
+          createCell(exitPos, MS_TILE.Empty, MS_TILE.Empty),
+        ],
+        undefined,
+        { traps: [{ from: buttonPos, to: trapPos }] },
+      ),
+      [{ tick: 0, inputCode: 4, inputName: "south" }],
+      1,
+    );
+
+    const finalPhase = trace.steps[0]?.phases.find((phase) => phase.phase === "final");
+    const pushedBlock = finalPhase?.blocks.find((actor) => actor.position.pos === exitPos);
+
+    expect(finalPhase?.activeCreatures[0]?.position.pos).toBe(trapPos);
+    expect(finalPhase?.activeCreatures[0]?.moving).toBe(6);
+    expect(pushedBlock?.moving).toBe(6);
+    expect(trace.steps[0]?.soundEffects & (1 << LYNX_SOUND.CantMove)).toBe(0);
+  });
+
   it("plays ButtonPushed when a pushed block settles on a brown button", () => {
     const buttonPos = 35;
     const trapPos = 97;

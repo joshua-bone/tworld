@@ -16,6 +16,13 @@ export interface LynxTrapClonerActor {
   hidden: boolean;
 }
 
+export interface LynxTrapHeldActor {
+  pos: number;
+  z?: number;
+  moving: number;
+  hidden: boolean;
+}
+
 export interface LynxTrapClonerContext<TActor extends LynxTrapClonerActor> {
   state: EngineState;
   level: LynxLevel;
@@ -48,6 +55,46 @@ export function findLynxClonerTarget(level: LynxLevel, buttonPos: number, z = 1)
 
 export function findLynxTrapTarget(level: LynxLevel, buttonPos: number, z = 1): number | null {
   return findLynxConnectionTarget(level, "traps", buttonPos, z);
+}
+
+export function isLynxTrapHeldOpen<TActor extends LynxTrapHeldActor>(
+  state: EngineState,
+  level: LynxLevel,
+  actors: TActor[],
+  trapPos: number,
+  z = 1,
+): boolean {
+  return collectLevelConnections(level, "traps").some((connection) => {
+    const buttonZ = connection.fromZ ?? connection.toZ ?? 1;
+    const trapZ = connection.toZ ?? connection.fromZ ?? 1;
+    if (connection.to !== trapPos || buttonZ !== z || trapZ !== z) {
+      return false;
+    }
+
+    const buttonCell = state.map.cells[connection.from];
+    if (!buttonCell) {
+      return false;
+    }
+
+    if (
+      buttonCell.top.id === MS_TILE.Sandbag &&
+      buttonCell.bottom.id === MS_TILE.Button_Brown
+    ) {
+      return true;
+    }
+
+    if (buttonCell.top.id !== MS_TILE.Button_Brown) {
+      return false;
+    }
+
+    return actors.some(
+      (actor) =>
+        !actor.hidden &&
+        actor.moving <= 0 &&
+        actor.pos === connection.from &&
+        (actor.z ?? 1) === z,
+    );
+  });
 }
 
 export function activateLynxCloner<TActor extends LynxTrapClonerActor>(

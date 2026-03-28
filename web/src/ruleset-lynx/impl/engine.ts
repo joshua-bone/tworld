@@ -156,6 +156,7 @@ import {
 import {
   activateLynxCloner as activateLynxClonerWithContext,
   findLynxTrapTarget as findLynxTrapTargetInLevel,
+  isLynxTrapHeldOpen,
   springLynxTrap as springLynxTrapWithContext,
   type LynxTrapClonerContext,
 } from "@ruleset-lynx/impl/trapCloner";
@@ -1416,8 +1417,18 @@ function canLynxChipPushIntoClaimedCell(state: EngineState, pos: number, dir: nu
   return lynxChipTargetCellAllowsPush(probeLynxChipTargetCellForState(state, pos, dir, true));
 }
 
+function isLynxHeldOpenTrapBlock(
+  state: EngineState,
+  level: LynxLevel,
+  actors: LynxRuntimeActor[],
+  actor: LynxRuntimeActor,
+): boolean {
+  return actor.id === MS_TILE.Block && isLynxTrapHeldOpen(state, level, actors, actor.pos, actor.z ?? activeLynxLayerZ(state));
+}
+
 function probeLynxChipMoveDirection(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   chipPos: number,
   dir: number,
@@ -1440,7 +1451,13 @@ function probeLynxChipMoveDirection(
     if (!lynxChipTargetCellAllowsPush(targetProbe)) {
       return { canMove: false, pushBlockPos: null };
     }
-    const canPush = canLynxRuntimeActorStartMovement(state, actors, block, dir);
+    const canPush = canLynxRuntimeActorStartMovement(
+      state,
+      actors,
+      block,
+      dir,
+      isLynxHeldOpenTrapBlock(state, level, actors, block),
+    );
     if (lynxChipTargetCellStopsOnPush(targetProbe)) {
       return {
         canMove: false,
@@ -1461,6 +1478,7 @@ function probeLynxChipMoveDirection(
 
 function markPendingLynxChipPush(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   chipPos: number,
   chipDir: number,
@@ -1485,16 +1503,18 @@ function markPendingLynxChipPush(
     if ((chipDir & inputCode) === 0) {
       const horizontalDir = inputCode & (2 | 8);
       if (horizontalDir !== 0) {
-        const horizontalProbe = probeLynxChipMoveDirection(state, actors, chipPos, horizontalDir);
+        const horizontalProbe = probeLynxChipMoveDirection(state, level, actors, chipPos, horizontalDir);
         const verticalDir = inputCode & (1 | 4);
         const verticalProbe =
-          verticalDir !== 0 ? probeLynxChipMoveDirection(state, actors, chipPos, verticalDir) : { canMove: false, pushBlockPos: null };
+          verticalDir !== 0
+            ? probeLynxChipMoveDirection(state, level, actors, chipPos, verticalDir)
+            : { canMove: false, pushBlockPos: null };
         const horizontalBlock =
           horizontalProbe.pushBlockPos !== null
             ? findLynxBlockActor(actors, horizontalProbe.pushBlockPos, activeLynxLayerZ(state))
             : null;
         if ((!horizontalProbe.canMove || horizontalBlock?.dormant) && horizontalProbe.pushBlockPos !== null) {
-          queuePendingLynxBlockPush(state, actors, horizontalProbe.pushBlockPos, horizontalDir);
+          queuePendingLynxBlockPush(state, level, actors, horizontalProbe.pushBlockPos, horizontalDir);
         }
         const slappedBlueWallPos =
           !horizontalProbe.canMove && verticalProbe.canMove
@@ -1519,10 +1539,10 @@ function markPendingLynxChipPush(
 
     const sameDir = chipDir;
     const otherDir = inputCode ^ chipDir;
-    const sameProbe = probeLynxChipMoveDirection(state, actors, chipPos, sameDir);
-    const otherProbe = probeLynxChipMoveDirection(state, actors, chipPos, otherDir);
+    const sameProbe = probeLynxChipMoveDirection(state, level, actors, chipPos, sameDir);
+    const otherProbe = probeLynxChipMoveDirection(state, level, actors, chipPos, otherDir);
     if (sameProbe.canMove && otherProbe.pushBlockPos !== null) {
-      queuePendingLynxBlockPush(state, actors, otherProbe.pushBlockPos, otherDir);
+      queuePendingLynxBlockPush(state, level, actors, otherProbe.pushBlockPos, otherDir);
     }
     const slappedBlueWallPos = sameProbe.canMove ? findSlappedLynxBlueWallRevealPos(state, chipPos, otherDir) : null;
     if (slappedBlueWallPos !== null) {
@@ -1540,6 +1560,7 @@ function markPendingLynxChipPush(
 
 function queuePendingLynxBlockPush(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   targetPos: number,
   dir: number,
@@ -1552,7 +1573,7 @@ function queuePendingLynxBlockPush(
   block.dormant = false;
   block.intentDir = dir;
   block.dir = dir;
-  block.pushed = true;
+  block.pushed = !isLynxHeldOpenTrapBlock(state, level, actors, block);
 }
 
 function pendingLynxChipPushInputCode(
@@ -1577,6 +1598,7 @@ function pendingLynxChipPushInputCode(
 
 function previewLynxChipPushRequest(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   chipPos: number,
   inputCode: number,
@@ -1585,9 +1607,9 @@ function previewLynxChipPushRequest(
     return;
   }
 
-  const probe = probeLynxChipMoveDirection(state, actors, chipPos, inputCode);
+  const probe = probeLynxChipMoveDirection(state, level, actors, chipPos, inputCode);
   if (probe.pushBlockPos !== null) {
-    queuePendingLynxBlockPush(state, actors, probe.pushBlockPos, inputCode);
+    queuePendingLynxBlockPush(state, level, actors, probe.pushBlockPos, inputCode);
   }
 }
 
@@ -1630,6 +1652,7 @@ function resolveLynxButtonEffects(state: EngineState, level: LynxLevel, actors: 
 
 function resolveLynxChipInputForCurrentState(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   chipPos: number,
   chipDir: number,
@@ -1637,9 +1660,9 @@ function resolveLynxChipInputForCurrentState(
 ): number {
   return resolveLynxChipInputDirection(chipDir, inputCode, {
     probeMove: (dir) => {
-      const probe = probeLynxChipMoveDirection(state, actors, chipPos, dir);
+      const probe = probeLynxChipMoveDirection(state, level, actors, chipPos, dir);
       if (probe.pushBlockPos !== null) {
-        queuePendingLynxBlockPush(state, actors, probe.pushBlockPos, dir);
+        queuePendingLynxBlockPush(state, level, actors, probe.pushBlockPos, dir);
       }
       return probe;
     },
@@ -2422,16 +2445,21 @@ function tryPushLynxBlock(
 
   const wasHidden = block.hidden;
   const wasDormant = block.dormant;
+  const heldOpenTrapRelease = isLynxHeldOpenTrapBlock(state, level, actors, block);
   block.hidden = false;
   block.dormant = false;
-  if (!movementDidSucceed(startLynxRuntimeActorMovement(state, actors, block, dir))) {
+  if (
+    !movementDidSucceed(
+      startLynxRuntimeActorMovement(state, actors, block, dir, heldOpenTrapRelease),
+    )
+  ) {
     block.dir = dir;
     block.hidden = wasHidden;
     block.dormant = wasDormant;
     return false;
   }
 
-  block.pushed = true;
+  block.pushed = !heldOpenTrapRelease;
   advanceLynxCreature(state, level, actors, block, state.timer.currentTime + 1);
   if (block.pushed) {
     state.soundEffects |= 1 << LYNX_SOUND.BlockMoving;
@@ -2516,7 +2544,14 @@ function springLynxHeldBrownButton(
   springLynxTrap(state, level, actors, buttonPos);
   if (trapPos === nextChipPos && lynxTileHasTag(topTileIdOr(state.map.cells, nextChipPos, MS_TILE.Empty), "trap")) {
     if (isDirectionalInput(replayInputCode) && nextChipMoving <= 0) {
-      deferredChipInputCode = resolveLynxChipInputForCurrentState(state, actors, nextChipPos, nextChipDir, replayInputCode);
+      deferredChipInputCode = resolveLynxChipInputForCurrentState(
+        state,
+        level,
+        actors,
+        nextChipPos,
+        nextChipDir,
+        replayInputCode,
+      );
       consumedReplayInput = true;
     }
     const releaseStartPos = nextChipPos;
@@ -2939,6 +2974,7 @@ function buildLynxChipMoveSelection(runtime: LynxAdvanceTickRuntime): LynxChipMo
     resolveInputDirection: (inputCode) =>
       resolveLynxChipInputForCurrentState(
         runtime.state,
+        runtime.level,
         runtime.actors,
         runtime.chipPos,
         runtime.chipDir,
@@ -3076,6 +3112,7 @@ function runLynxCreatureIntentPhase(runtime: LynxAdvanceTickRuntime): void {
 
   markPendingLynxChipPush(
     runtime.state,
+    runtime.level,
     runtime.actors,
     runtime.chipPos,
     runtime.chipDir,
@@ -3104,7 +3141,7 @@ function runLynxCreatureIntentPhase(runtime: LynxAdvanceTickRuntime): void {
       isLynxSlide,
       (inputCode) => shouldPreviewLynxForcedSlidePush(runtime.state, runtime.actors, runtime.chipPos, inputCode),
     );
-    previewLynxChipPushRequest(runtime.state, runtime.actors, runtime.chipPos, previewInputCode);
+    previewLynxChipPushRequest(runtime.state, runtime.level, runtime.actors, runtime.chipPos, previewInputCode);
   }
 
   if (
