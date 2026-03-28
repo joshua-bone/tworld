@@ -103,6 +103,7 @@ Goal:
 
 Checklist:
 
+- [x] add a shared bowling-ball scenario matrix plus ruleset-local pending test backlog entries
 - [ ] add focused tests for still-to-moving activation from carried state
 - [ ] add focused tests for map-still-to-moving activation from forced floor
 - [ ] add focused tests for moving-to-still reversion with inventory preservation
