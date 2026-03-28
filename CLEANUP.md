@@ -196,7 +196,7 @@ Goal:
 
 Checklist:
 
-- [ ] add characterization harnesses for stateful actor archetypes: ballistic, phasing, input-driven, inventory-carrying
+- [x] add characterization harnesses for stateful actor archetypes: ballistic, phasing, input-driven, inventory-carrying
 - [x] add characterization harnesses for portable-item archetypes: carried-only, primed-drop, attach-to-actor, reusable stateful item
 - [x] add terrain-entry and collision matrix tests that can be reused by future elements
 - [x] add undo, replay, and debug-projection characterization for stateful elements

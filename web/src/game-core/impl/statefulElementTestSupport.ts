@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { ActorCapabilityPolicy } from "@game-core/api/actorCapabilities";
+import {
+  actorBlockedMoveKeepsDirection,
+  actorBlockedMoveRevertsPortable,
+  actorCollectionAllowsSlot,
+  actorCollectsChips,
+  actorThiefStealsBootsAndTools,
+  actorUsesChipSupport,
+  type ActorCapabilityPolicy,
+  type ActorCollectibleSlot,
+} from "@game-core/api/actorCapabilities";
 import type { PortableItemDropProjection } from "@game-core/impl/portableItems";
 
 interface PortableMapState {
@@ -146,5 +155,47 @@ export function expectActorCapabilityMatrix<TActorId extends number = number>(
 ): void {
   for (const row of rows) {
     expect(getPolicy(row.actorId), row.label).toMatchObject(row.expected);
+  }
+}
+
+export interface StatefulActorArchetypeSummary {
+  readonly controlMode: ActorCapabilityPolicy["controlMode"];
+  readonly traversalKind: ActorCapabilityPolicy["traversalKind"];
+  readonly localInventoryMode: ActorCapabilityPolicy["localInventoryMode"];
+  readonly collectibleSlots: readonly ActorCollectibleSlot[];
+  readonly collectsChips: boolean;
+  readonly keepsDirectionOnBlockedMove: boolean;
+  readonly revertsPortableOnBlockedMove: boolean;
+  readonly usesChipSupport: boolean;
+  readonly thiefStealsBootsAndTools: boolean;
+}
+
+export function summarizeStatefulActorArchetype(policy: ActorCapabilityPolicy): StatefulActorArchetypeSummary {
+  const collectibleSlots = (["keys", "boots", "tools"] as const).filter((slot) =>
+    actorCollectionAllowsSlot(policy.itemCollectionKind, slot),
+  );
+
+  return {
+    controlMode: policy.controlMode,
+    traversalKind: policy.traversalKind,
+    localInventoryMode: policy.localInventoryMode,
+    collectibleSlots,
+    collectsChips: actorCollectsChips(policy.globalProgressKind),
+    keepsDirectionOnBlockedMove: actorBlockedMoveKeepsDirection(policy.blockedMoveKind),
+    revertsPortableOnBlockedMove: actorBlockedMoveRevertsPortable(policy.blockedMoveKind),
+    usesChipSupport: actorUsesChipSupport(policy.airHook),
+    thiefStealsBootsAndTools: actorThiefStealsBootsAndTools(policy.thiefHook),
+  };
+}
+
+export interface StatefulActorArchetypeCase {
+  readonly label: string;
+  readonly policy: ActorCapabilityPolicy;
+  readonly expected: Partial<StatefulActorArchetypeSummary>;
+}
+
+export function expectStatefulActorArchetypes(rows: readonly StatefulActorArchetypeCase[]): void {
+  for (const row of rows) {
+    expect(summarizeStatefulActorArchetype(row.policy), row.label).toMatchObject(row.expected);
   }
 }
