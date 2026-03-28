@@ -52,8 +52,6 @@ export interface MsBlockMovementStrategyContext<TBlock, TInternal> {
   ): MovementAttemptResult;
 }
 
-type MsTrackedActorStrategyId = Exclude<ActorMovementStrategyId, "chip-like">;
-
 const SUPPORTED_MS_CHIP_STRATEGY = "chip-like";
 const SUPPORTED_MS_CREATURE_STRATEGY = "creature-like";
 const SUPPORTED_MS_BLOCK_STRATEGY = "block-like";
@@ -118,7 +116,7 @@ export function runMsChipForcedMoveByStrategy<TInternal, TInventory, TForcedCont
 }
 
 export function canStartMsCreatureMoveByStrategy<TCreature, TInternal>(
-  strategyId: MsTrackedActorStrategyId,
+  strategyId: ActorMovementStrategyId,
   context: MsCreatureMovementStrategyContext<TCreature, TInternal>,
   cells: EngineMapCell[],
   creature: TCreature,
@@ -129,7 +127,7 @@ export function canStartMsCreatureMoveByStrategy<TCreature, TInternal>(
 }
 
 export function startMsCreatureMoveByStrategy<TCreature, TInternal>(
-  strategyId: MsTrackedActorStrategyId,
+  strategyId: ActorMovementStrategyId,
   context: MsCreatureMovementStrategyContext<TCreature, TInternal>,
   cells: EngineMapCell[],
   creature: TCreature,
@@ -142,7 +140,7 @@ export function startMsCreatureMoveByStrategy<TCreature, TInternal>(
 }
 
 export function startMsCreatureDownMoveByStrategy<TCreature, TInternal>(
-  strategyId: MsTrackedActorStrategyId,
+  strategyId: ActorMovementStrategyId,
   context: MsCreatureMovementStrategyContext<TCreature, TInternal>,
   engine: EngineState,
   sourceCells: EngineMapCell[],
@@ -157,7 +155,7 @@ export function startMsCreatureDownMoveByStrategy<TCreature, TInternal>(
 }
 
 export function startMsCreatureUpMoveByStrategy<TCreature, TInternal>(
-  strategyId: MsTrackedActorStrategyId,
+  strategyId: ActorMovementStrategyId,
   context: MsCreatureMovementStrategyContext<TCreature, TInternal>,
   engine: EngineState,
   sourceCells: EngineMapCell[],
@@ -172,7 +170,7 @@ export function startMsCreatureUpMoveByStrategy<TCreature, TInternal>(
 }
 
 export function canStartMsBlockMoveByStrategy<TBlock, TInternal>(
-  strategyId: MsTrackedActorStrategyId,
+  strategyId: ActorMovementStrategyId,
   context: MsBlockMovementStrategyContext<TBlock, TInternal>,
   cells: EngineMapCell[],
   internal: TInternal,
@@ -183,7 +181,7 @@ export function canStartMsBlockMoveByStrategy<TBlock, TInternal>(
 }
 
 export function startMsBlockMoveByStrategy<TBlock, TInternal>(
-  strategyId: MsTrackedActorStrategyId,
+  strategyId: ActorMovementStrategyId,
   context: MsBlockMovementStrategyContext<TBlock, TInternal>,
   cells: EngineMapCell[],
   internal: TInternal,
@@ -199,7 +197,7 @@ export function startMsBlockMoveByStrategy<TBlock, TInternal>(
 }
 
 export function startMsBlockUpMoveByStrategy<TBlock, TInternal>(
-  strategyId: MsTrackedActorStrategyId,
+  strategyId: ActorMovementStrategyId,
   context: MsBlockMovementStrategyContext<TBlock, TInternal>,
   engine: EngineState,
   sourceCells: EngineMapCell[],

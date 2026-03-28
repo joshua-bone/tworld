@@ -1501,7 +1501,7 @@ function moveBlockOnce(
   occupiedOriginPos = -1,
 ): MovementAttemptResult {
   return startMsBlockMoveByStrategy(
-    msNonChipMovementStrategyId(MS_TILE.Block),
+    msActorMovementStrategyId(MS_TILE.Block),
     createMsBlockMovementStrategyDispatchContext(),
     cells,
     internal,
@@ -2516,10 +2516,6 @@ function createMsCreatureMovementContext(
   };
 }
 
-function msNonChipMovementStrategyId(id: number): "creature-like" | "block-like" {
-  return msActorMovementStrategyId(id) === "block-like" ? "block-like" : "creature-like";
-}
-
 function createMsChipMovementStrategyContext(): MsChipMovementStrategyContext<
   MsInternalState,
   EngineState["inventory"],
@@ -2617,7 +2613,7 @@ function moveCreatureOnce(
   internal: MsInternalState,
 ): MovementAttemptResult {
   return startMsCreatureMoveByStrategy(
-    msNonChipMovementStrategyId(creature.id),
+    msActorMovementStrategyId(creature.id),
     createMsCreatureMovementStrategyDispatchContext(),
     cells,
     creature,
@@ -2635,7 +2631,7 @@ function moveCreatureDownOneLayer(
   internal: MsInternalState,
 ): MovementAttemptResult {
   return startMsCreatureDownMoveByStrategy(
-    msNonChipMovementStrategyId(creature.id),
+    msActorMovementStrategyId(creature.id),
     createMsCreatureMovementStrategyDispatchContext(),
     engine,
     sourceCells,
@@ -2655,7 +2651,7 @@ function moveCreatureUpOneLayer(
   internal: MsInternalState,
 ): MovementAttemptResult {
   return startMsCreatureUpMoveByStrategy(
-    msNonChipMovementStrategyId(creature.id),
+    msActorMovementStrategyId(creature.id),
     createMsCreatureMovementStrategyDispatchContext(),
     engine,
     sourceCells,
@@ -3050,7 +3046,7 @@ function processMsBlockFloorQueueEntry(
     const upperCells = msUpperRuntimeCells(layerCellsByZ, block.z);
     if (upperCells) {
       const elevated = startMsBlockUpMoveByStrategy(
-        msNonChipMovementStrategyId(MS_TILE.Block),
+        msActorMovementStrategyId(MS_TILE.Block),
         createMsBlockMovementStrategyDispatchContext(),
         engine,
         blockCells,

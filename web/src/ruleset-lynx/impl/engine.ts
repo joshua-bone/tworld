@@ -1374,7 +1374,7 @@ function probeLynxChipMoveDirection(
     if (!lynxChipTargetCellAllowsPush(targetProbe)) {
       return { canMove: false, pushBlockPos: null };
     }
-    const canPush = canLynxCreatureStartMovement(state, actors, block, dir);
+    const canPush = canLynxRuntimeActorStartMovement(state, actors, block, dir);
     if (lynxChipTargetCellStopsOnPush(targetProbe)) {
       return {
         canMove: false,
@@ -1752,7 +1752,7 @@ function getLynxChipForcedMove(
           return false;
         }
         return withLynxLayer(context.state, targetZ, () =>
-          canLynxCreatureStartMovement(context.state, context.actors, blockingActor as LynxRuntimeActor, pushDir),
+          canLynxRuntimeActorStartMovement(context.state, context.actors, blockingActor as LynxRuntimeActor, pushDir),
         );
       },
     )
@@ -1867,7 +1867,7 @@ function canLynxChipExitTeleportThroughBlock(
   if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return false;
   }
-  return canLynxCreatureStartMovement(state, actors, block, dir) && canLynxChipEnterCell(state, exitPos, dir);
+  return canLynxRuntimeActorStartMovement(state, actors, block, dir) && canLynxChipEnterCell(state, exitPos, dir);
 }
 
 function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[]): LynxTeleportContext {
@@ -1953,7 +1953,7 @@ function finalizeLynxTickBookkeeping(
   );
 }
 
-function canLynxCreatureStartMovement(
+function canLynxRuntimeActorStartMovement(
   state: EngineState,
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
@@ -1984,7 +1984,7 @@ function createLynxCreatureControllerContext(
     stepping,
     withLayer: (z, run) => withLynxLayer(state, z, run),
     floorAt: (pos) => topTileIdOr(state.map.cells, pos, MS_TILE.Empty),
-    canStart: (actor, dir) => canLynxCreatureStartMovement(state, actors, actor as LynxRuntimeActor, dir, false, true),
+    canStart: (actor, dir) => canLynxRuntimeActorStartMovement(state, actors, actor as LynxRuntimeActor, dir, false, true),
     chooseBlobDirection: () => {
       const clockwise = [1, 8, 4, 2];
       return clockwise[advanceLynxMainRandom4(state)] ?? 0;
@@ -2008,7 +2008,7 @@ function chooseLynxCreatureMoveForTick(
   );
 }
 
-function startLynxCreatureMovement(
+function startLynxRuntimeActorMovement(
   state: EngineState,
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
@@ -2024,7 +2024,7 @@ function startLynxCreatureMovement(
   );
 }
 
-function finishLynxActorMovement(
+function finishLynxRuntimeActorMovement(
   state: EngineState,
   level: LynxLevel,
   actors: LynxRuntimeActor[],
@@ -2089,7 +2089,7 @@ function advanceLynxCreature(
         const moveDir = actor.intentDir || actor.forcedDir || forcedLynxActorDirection(state, actor, floorBeforeMove, currentTime);
         actor.intentDir = 0;
         actor.forcedDir = 0;
-        if (moveDir === 0 || !movementDidSucceed(startLynxCreatureMovement(state, actors, actor, moveDir))) {
+        if (moveDir === 0 || !movementDidSucceed(startLynxRuntimeActorMovement(state, actors, actor, moveDir))) {
           return;
         }
       }
@@ -2103,7 +2103,7 @@ function advanceLynxCreature(
     actor.moving = Math.max(0, actor.moving - speed);
     actor.frame = Math.trunc(actor.moving / 2);
     if (actor.moving === 0) {
-      finishLynxActorMovement(state, level, actors, actor);
+      finishLynxRuntimeActorMovement(state, level, actors, actor);
     }
   });
 }
@@ -2284,7 +2284,7 @@ function createLynxTrapClonerContext(
     syncCloneRuntime: (sourceActor, clone) => {
       forkStatefulActorRuntime(lynxStatefulActorRuntime(state), sourceActor.serial, clone.serial);
     },
-    startCreatureMovement: (actor, dir, releasing) => startLynxCreatureMovement(state, actors, actor, dir, releasing),
+    startCreatureMovement: (actor, dir, releasing) => startLynxRuntimeActorMovement(state, actors, actor, dir, releasing),
     advanceCreature: (actor, currentTime) => advanceLynxCreature(state, level, actors, actor, currentTime),
     currentTime: state.timer.currentTime,
   };
@@ -2350,7 +2350,7 @@ function tryPushLynxBlock(
   const wasDormant = block.dormant;
   block.hidden = false;
   block.dormant = false;
-  if (!movementDidSucceed(startLynxCreatureMovement(state, actors, block, dir))) {
+  if (!movementDidSucceed(startLynxRuntimeActorMovement(state, actors, block, dir))) {
     block.dir = dir;
     block.hidden = wasHidden;
     block.dormant = wasDormant;

@@ -267,7 +267,7 @@ Checklist:
 - [x] define strategy seams for `canStartMove`, `startMove`, `finishMove`, `blockedMove`, and `forcedMove`
 - [x] migrate current Chip, creature, and block behavior onto those seams
 - [x] keep ruleset-specific timing and ordering in MS/Lynx modules
-- [ ] eliminate the remaining “actor family means hard-coded engine path” assumptions
+- [x] eliminate the remaining “actor family means hard-coded engine path” assumptions
 
 Extensibility win:
 
@@ -405,7 +405,7 @@ Important note:
 - [x] EP2
 - [x] EP3
 - [x] EP4
-- [ ] EP5
+- [x] EP5
 - [ ] EP6
 - [ ] EP7
 - [ ] EP8
