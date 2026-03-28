@@ -1,630 +1,553 @@
 # Engine Cleanup Plan
 
-## Motivation
+## Scope
 
-We should not continue feature work like bowling balls, ghosts, or fake players on top of the current engine shape.
+This plan is based on a fresh pass through the current MS and Lynx engine area, not the pre-cleanup state.
 
-The engines are still correct enough to ship behavior, but they are carrying too much complexity in the hot paths:
+Files reviewed:
 
-- `web/src/ruleset-ms/impl/engine.ts` is `5696` lines with `147` top-level functions, `502` `if (...)` lines, and `285` direct `MS_TILE.*` references.
-- `web/src/ruleset-lynx/impl/engine.ts` is `4788` lines with `140` top-level functions, `348` `if (...)` lines, and `168` direct `MS_TILE.*` references.
-- The largest functions are orchestration-heavy and do too much:
-  - MS: `advanceMsTick` is about `732` lines.
-  - MS: `runCreatureFloorMovements` is about `607` lines.
-  - Lynx: `advanceLynxInteractiveTick` is about `543` lines.
-  - Lynx: `runLynxReplayTraceDebugInternal` is about `476` lines and duplicates much of the interactive tick logic.
-
-That creates four concrete problems:
-
-- Deep nesting and long argument lists make local reasoning hard.
-- Similar mechanics appear in both engines, but are re-expressed from scratch.
-- New element work tends to push behavior into giant engine functions instead of policy seams.
-- Debug, replay, and board mutation concerns are mixed into gameplay logic.
-
-The cleanup goal is not a shared super-engine. The goal is:
-
-- minimize nested conditionals
-- improve step-down readability
-- move stable concepts behind small interfaces
-- keep real MS vs Lynx differences in ruleset-specific code
-- make new elements extend policy and helpers instead of editing every hot path
-
-## What We Already Have
-
-There are already good seams in the codebase. We should extend them instead of inventing a second architecture.
-
+- `web/src/ruleset-ms/impl/engine.ts`
+- `web/src/ruleset-lynx/impl/engine.ts`
+- `web/src/ruleset-ms/impl/catalog.ts`
+- `web/src/ruleset-lynx/impl/catalog.ts`
+- `web/src/ruleset-ms/impl/verticalMovement.ts`
+- `web/src/ruleset-lynx/impl/verticalMovement.ts`
+- `web/src/ruleset-ms/impl/portableItems.ts`
+- `web/src/ruleset-lynx/impl/portableItems.ts`
+- `web/src/ruleset-ms/impl/chipInput.ts`
+- `web/src/ruleset-lynx/impl/chipInput.ts`
 - `web/src/game-core/api/actorCapabilities.ts`
 - `web/src/game-core/impl/actorLocalInventory.ts`
-- `web/src/game-core/api/turnPhases.ts`
-- `web/src/game-core/impl/board.ts`
-- `web/src/game-core/impl/grid.ts`
-- ruleset catalogs:
-  - `web/src/ruleset-ms/impl/catalog.ts`
-  - `web/src/ruleset-lynx/impl/catalog.ts`
+- `web/src/game-core/impl/portableItems.ts`
+- `web/src/ruleset-ms/impl/engine.test.ts`
+- `web/src/ruleset-lynx/impl/engine.test.ts`
 
-Those are the right foundation:
+## Current Baseline
 
-- shared vocabulary in `game-core`
-- per-ruleset policy in each catalog
-- per-ruleset execution in each engine
-
-## Findings
-
-### Common Concerns That Exist In Both Engines
+The cleanup work already done was worthwhile. The codebase is no longer in the state where the next feature should be jammed directly into giant phase runners.
 
-These concerns show up in both MS and Lynx and should share vocabulary, helper shape, or small reusable infrastructure:
+Current hotspot metrics:
 
-- runtime layer access and `z`-aware board lookup
-- portable special-item state
-- actor-local inventory ownership and item collection/use
-- support resolution for air/elevator
-- teleport destination search
-- movement start / move completion / arrival outcome handling
-- collision resolution
-- button / trap / cloner trigger dispatch
-- replay input latching and last-move bookkeeping
-- phase recording for debug traces
-
-### Common Shape, Different Semantics
+| File | Lines | Top-level functions |
+| --- | ---: | ---: |
+| `web/src/ruleset-ms/impl/engine.ts` | `5010` | `148` |
+| `web/src/ruleset-lynx/impl/engine.ts` | `4036` | `141` |
+| `web/src/ruleset-ms/impl/catalog.ts` | `880` | `54` |
+| `web/src/ruleset-lynx/impl/catalog.ts` | `957` | `56` |
 
-These should not become one shared implementation, but they should use the same interface vocabulary:
+Current engine test coverage is strong, though the test files themselves are now large:
 
-- turn sequencing
-  - MS is tick-phase and floor-queue driven.
-  - Lynx is intent/movement/post-resolution driven.
-- movement timing
-  - MS uses floor queues, slip order, and immediate settle behavior.
-  - Lynx uses movement counters and move completion.
-- occupancy model
-  - MS still leans on layered top/bottom tile inspection.
-  - Lynx leans more on runtime actors plus claimed cell flags.
-- replay/debug
-  - MS records phases inside the main tick path.
-  - Lynx has a largely duplicated debug tick path.
+| File | Lines | Test cases |
+| --- | ---: | ---: |
+| `web/src/ruleset-ms/impl/engine.test.ts` | `6204` | `180` |
+| `web/src/ruleset-lynx/impl/engine.test.ts` | `3358` | `132` |
 
-### Do Not Abstract These Away
+## What Is Already Better
 
-- exact phase ordering differences between MS and Lynx
-- exact trap/cloner timing differences
-- exact arrival timing and animation differences
-- exact support and teleport edge cases when the rulesets disagree
+These seams are now real and should be preserved:
 
-The right reuse level is shared helper infrastructure plus per-ruleset policy and adapters, not a fake common engine base class.
+- shared turn phase recording in `game-core`
+- shared movement outcome vocabulary
+- shared portable-item store mechanics
+- actor-local inventory helpers
+- actor capability vocabulary
+- extracted chip-input modules
+- extracted vertical movement modules
+- extracted MS non-chip floor queue
 
-## Recommended Architecture Direction
+That means the next cleanup phase should not be a broad rewrite. It should be a narrow attack on the remaining hotspots that still violate Tier 1 and Tier 2 clean-code priorities.
 
-### 1. Use Context Objects, Not Long Argument Lists
+## Assessment Against Tier 1 Priorities
 
-Introduce small engine-local context objects and pass those instead of raw argument packs.
+### 1. Small, single-purpose functions and classes
 
-Recommended shapes:
+Status: mixed
 
-- `MsTickContext`
-- `MsPhaseContext`
-- `MsLayerAccess`
-- `LynxTickContext`
-- `LynxPhaseContext`
-- `LynxLayerAccess`
+What is good:
 
-These should own:
+- phase runners are smaller and more readable than before
+- `chipInput.ts`, `verticalMovement.ts`, and portable-item modules show the right shape
 
-- current state references
-- layer/cell access
-- inventory owner access
-- runtime mutation helpers
-- recorder/debug hooks
+What is still weak:
 
-This directly addresses:
+- `chooseCreatureDirection` in MS is still `143` lines
+- `runFloorMovement` in MS is still `90` lines and handles air, elevator, ice, slide, teleport, failure, and sound effects
+- `activateCloner` in MS is still `87` lines and manually assembles ad hoc creature state
+- `runLynxChipMovementPhase` is still `168` lines and mixes input resolution, push probing, primed drop settlement, hidden-wall reveal, and move start
+- `resolveLynxActorTeleport` is still `72` lines of loop-heavy mutation logic
 
-- step-down readability
-- argument explosion
-- dependency inversion
+Conclusion:
 
-### 2. Share Vocabulary And Result Types, Not Engine Classes
+- top-level turn flow is acceptable
+- second-level movement helpers are the real remaining complexity wall
 
-Recommended shared interfaces in `game-core`:
+### 2. Explicit interfaces and narrow seams
 
-```ts
-interface PortableItemStore<TItem> {
-  collectFromLayers(): TItem[];
-  carriedTool(): TItem | undefined;
-  primedTool(): TItem | undefined;
-  mapToolAt(tileId: number, pos: number, z: number): TItem | undefined;
-  projectInventory(): void;
-}
+Status: mixed to good
 
-interface PhaseRecorder<TSnapshot> {
-  record(phase: TurnDebugPhaseName, snapshot: TSnapshot): void;
-}
+What is good:
 
-interface MovementProbeResult {
-  kind: "blocked" | "move" | "collision";
-}
+- `actorCapabilities.ts` exists
+- `actorLocalInventory.ts` exists
+- `portableItems.ts` exists
+- ruleset catalogs own more policy than before
 
-interface ArrivalResolution {
-  soundEffects: number;
-  completed?: boolean;
-  died?: boolean;
-  enteredTeleport?: boolean;
-}
-```
+What is still weak:
 
-These should stay small. They are for composition, not inheritance.
+- the capability surface is still too coarse for future actors like bowling balls, ghosts, or fake players
+- teleports, cloners, traps, blocked-move outcomes, and some arrival behavior are still open-coded in engine helpers
+- actor-owned collection and global progress are not yet cleanly separated for non-Chip actors
 
-### 3. Keep Ruleset Policy In Catalogs
+Conclusion:
 
-When behavior is reusable, the engine should ask a policy question instead of branching on raw tile ids.
+- the right seam shape exists
+- it is not yet deep enough for the next wave of stateful actors
 
-Good candidates to expand:
+### 3. One level of abstraction per function
 
-- actor blocked-move behavior
-- actor support behavior
-- actor collision behavior
-- actor arrival behavior
-- portable-item carry/drop behavior
-- thief interaction behavior
-- clone behavior
+Status: mixed
 
-Broad tags are still only for discovery. Final gameplay decisions should come from typed policy.
+What is good:
 
-### 4. Prefer Two-Step Helpers Over Nested Branching
+- both engines now have clearer high-level tick runners
 
-Current pattern in many places:
+What is still weak:
 
-- inspect cell
-- mutate cell
-- inspect floor
-- mutate inventory
-- inspect teleport
-- mutate status
+- several helpers still mix probing, mutation, sound effects, debug-side behavior, and inventory changes in one place
+- chip movement helpers often shift between “classify the tile” and “rewrite the board” inside the same function
 
-Preferred pattern:
+Conclusion:
 
-1. probe or classify
-2. execute one outcome
+- we no longer have a giant top-level blob
+- we still have large mid-level helpers that violate step-down flow
 
-Examples:
+### 4. Step-down flow in control logic
 
-- `probeMsChipMove(...) -> MovementProbeResult`
-- `resolveMsChipArrival(...) -> ArrivalResolution`
-- `classifyMsSupportBelow(...) -> SupportResolution`
-- `applyLynxChipMoveOutcome(...)`
+Status: improved but incomplete
 
-This is the main way to shrink nested conditionals.
+What is good:
 
-## Shared Extraction Opportunities
+- MS and Lynx phase runners are readable
+- input selection was split into dedicated modules
 
-These are the best shared extractions across both engines.
+What is still weak:
 
-### Shared Helper 1: Layer Access
+- the next function down from the phase runner is often still a kitchen-sink helper
+- movement and arrival logic frequently jumps between concerns
 
-Extract a small `layerAccess` helper module in `game-core` that handles:
+Conclusion:
 
-- `cellsForZ`
-- `lowerCells`
-- `upperCells`
-- `cellZ`
-- `forEachLayer`
+- the next cleanup should target the function layer directly below the tick runner
 
-Keep it read-oriented. Do not put ruleset mutation policy here.
+### 5. Fewer nested conditionals
 
-### Shared Helper 2: Portable Item Store Infrastructure
+Status: still weak in key hotspots
 
-Portable-item logic is duplicated in both engines already:
+Where nesting still dominates:
 
-- collect from layers
-- carried item lookup
-- primed item lookup
-- map lookup by tile/pos/z
-- inventory projection
-- replacement pickup bookkeeping
+- MS creature AI selection
+- MS floor movement
+- MS cloner activation
+- Lynx chip movement start
+- Lynx teleport resolution
+- Lynx chip enter / push / reveal logic
 
-Shared infrastructure should provide:
+Conclusion:
 
-- entity storage helpers
-- projections
-- serial generation
-- lookup helpers
+- the problem is not everywhere
+- it is concentrated in a handful of engine hotspots that should become the next extraction targets
 
-Ruleset-specific behavior should stay outside:
+### 6. Fewer long argument lists
 
-- MS pending-primed replacement behavior
-- Lynx immediate priming behavior
-- sandbag water-settle behavior
+Status: improved
 
-### Shared Helper 3: Support Classification Vocabulary
+What is good:
 
-The support-below logic in both engines is structurally very similar:
+- context objects exist in both engines
+- several helpers now accept a runtime context instead of raw state packs
 
-- inspect lower layer
-- actors support or not
-- cloner/elevator support
-- wall/door/socket support
-- fake blue wall reveals to floor
+What is still weak:
 
-We should share:
+- broad runtime structs still expose too much mutable state at once
+- temporary inline objects are still created in some hotspots instead of using stable helper seams
 
-- result vocabulary
-- classification helper shape
-- door/socket/wall reveal outcome types
+Conclusion:
 
-We should keep:
+- the argument-list problem is no longer the first-order issue
+- state-width and context-width are the next issue
 
-- exact board mutation semantics per ruleset
-- chip-vs-non-chip occupant interpretation
+### 7. Clear ownership of state
 
-### Shared Helper 4: Phase Recording
+Status: mixed
 
-MS already records debug phases from the main tick.
+What is good:
 
-Lynx should move to the same pattern:
+- portable items now have a real store
+- actor-local inventory exists as a separate seam
 
-- one authoritative tick path
-- optional recorder hook
-- debug trace built from recorder snapshots
+What is still weak:
 
-This is one of the highest-value cleanups because it removes a huge duplicate path.
+- movement helpers still directly juggle board state, inventory, sound effects, and runtime actor state
+- `chipsNeeded` remains correctly global, but actor-owned collection logic is still not generalized beyond Chip-shaped helpers
+- future “portable item that becomes an active actor” behavior does not yet have a clean lifecycle seam
 
-### Shared Helper 5: Movement/Arrival Result Types
+Conclusion:
 
-Both engines would benefit from shared result shapes:
+- ownership improved for current sandbag behavior
+- ownership is not yet ready for bowling ball or fake-player-style features
 
-- `MovementProbeResult`
-- `ArrivalResolution`
-- `CollisionResolution`
-- `VerticalMoveResolution`
+### 8. Deterministic validation commands and characterization tests
 
-That will reduce nested conditionals and keep step-down flow readable without forcing identical implementation.
+Status: strong
 
-## MS-Specific Extraction Opportunities
+What is good:
 
-These should move out of `web/src/ruleset-ms/impl/engine.ts`.
+- engine tests are extensive
+- characterization exists for subtle behavior
+- recent cleanup work has been guarded by tests
 
-### MS Helper 1: Portable Items
+What is still weak:
 
-Extract to something like:
+- test files are becoming large enough that readability and local reuse are now a secondary cleanup target
 
-- `web/src/ruleset-ms/impl/portableItems.ts`
+Conclusion:
 
-Move:
+- this is a strength
+- it should be preserved while improving test ergonomics later
 
-- collect/project/reconcile helpers
-- prime/settle/replacement logic
-- Chip special-item wall behavior
+## Assessment Against Tier 2 Priorities
 
-### MS Helper 2: Support And Vertical Movement
+### Loose coupling and high cohesion
 
-Extract to something like:
+Status: mixed
 
-- `web/src/ruleset-ms/impl/support.ts`
-- `web/src/ruleset-ms/impl/verticalMovement.ts`
+Good examples:
 
-Move:
+- `chipInput.ts`
+- `verticalMovement.ts`
+- `portableItems.ts`
 
-- `resolveMsChipSupportBelow`
-- `resolveMsNonChipSupportBelow`
-- chip/creature/block air sync
-- chip/creature/block elevator sync
+Remaining cohesion problems:
 
-### MS Helper 3: Chip Movement
+- engine helpers still combine traversal, arrival, hazard, sound, and board mutation
+- teleports, traps, and cloners are still engine-owned subsystems instead of dedicated modules
 
-Extract to something like:
+### SOLID, used pragmatically
 
-- `web/src/ruleset-ms/impl/chipMovement.ts`
+Status: mixed
 
-Move:
+What is working:
 
-- `canMoveChip`
-- `applyMsChipEntryEffects`
-- `moveChipOnce`
-- `moveChipDownOneLayer`
-- `moveChipUpOneLayer`
-- floor-movement refresh helpers
-- manual movement selection helpers
+- dependency inversion is improving through shared vocabulary and ruleset policy
+- interface segregation is improving around inventory and portable items
 
-### MS Helper 4: Creature And Block Motion
+What is missing:
 
-Extract to something like:
+- capability interfaces need to become more expressive before they are truly open for extension
+- some new behaviors would still require raw branching inside engine hot paths
 
-- `web/src/ruleset-ms/impl/creatureMovement.ts`
-- `web/src/ruleset-ms/impl/blockMovement.ts`
-- `web/src/ruleset-ms/impl/floorQueue.ts`
+### Encapsulate boundary conditions
 
-Move:
+Status: mixed to good
 
-- `canMoveCreature*`
-- `moveCreature*`
-- `chooseCreatureDirection`
-- `moveBlock`
-- `moveBlockUpOneLayer`
-- slip queue logic from `runCreatureFloorMovements`
+What is already good:
 
-This is likely the biggest nested-conditional reduction inside MS.
+- vertical support resolution is much better isolated
+- portable-item replacement/drop behavior is localized
 
-### MS Helper 5: Replay And Debug Bookkeeping
+What still leaks:
 
-Extract to something like:
+- teleport exit search
+- hidden wall reveal behavior
+- cloner/trap release side effects
+- some push and blocked-move edge cases
 
-- `web/src/ruleset-ms/impl/replayBookkeeping.ts`
+### DRY without fake abstraction
 
-Move:
+Status: good direction, incomplete execution
 
-- replay last-move resolution
-- recorded replay move resolution
-- input latching helpers
+Good:
 
-`advanceMsTick` should read like a coordinator, not a replay decoder plus timer plus debug sink plus gameplay engine.
+- shared vocabulary and shared store mechanics were the right extractions
 
-## Lynx-Specific Extraction Opportunities
+Still needed:
 
-These should move out of `web/src/ruleset-lynx/impl/engine.ts`.
+- more shared result types around teleport, trap, cloner, and move probing
 
-### Lynx Helper 1: Eliminate Debug Tick Duplication
+Avoid:
 
-This is the highest-priority Lynx cleanup.
+- a single shared MS/Lynx engine
+- erasing ruleset timing differences for the sake of reuse
 
-Today:
+### Feature-oriented structure
 
-- `advanceLynxInteractiveTick` contains the real turn logic.
-- `runLynxReplayTraceDebugInternal` duplicates most of it.
+Status: improved
 
-Target:
+What is good:
 
-- one real tick implementation
-- recorder hooks for debug phases
-- trace driver wraps the normal tick
+- several subsystems already have feature modules
 
-### Lynx Helper 2: Portable Items
+What is still weak:
 
-Extract to:
+- teleports
+- trap and cloner behavior
+- movement-start probing
+- actor controller logic
 
-- `web/src/ruleset-lynx/impl/portableItems.ts`
+### Naming and intent
 
-Move:
+Status: mostly good
 
-- portable item collection
-- carry/prime/project helpers
-- replacement handling
-- sandbag settle behavior
+The biggest naming problem is no longer naming itself. It is when a function name sounds focused but the body still does too much.
 
-### Lynx Helper 3: Chip Move Selection
+### Fail fast and explicit results
 
-Extract to:
+Status: improving
 
-- `web/src/ruleset-lynx/impl/chipMoveSelection.ts`
+What is good:
 
-Move:
+- movement outcomes now have shared vocabulary
 
-- pending push preview
-- queued input interplay
-- forced move selection
-- held-trap suppression rules
+What is still weak:
 
-This part currently drives a lot of argument count and branching.
+- some engine helpers still communicate primarily through mutation and booleans instead of structured outcomes
 
-### Lynx Helper 4: Chip Lifecycle
+## Concrete Findings By Area
 
-Extract to:
+### MS Engine
 
-- `web/src/ruleset-lynx/impl/chipMovement.ts`
-- `web/src/ruleset-lynx/impl/chipPostMove.ts`
+Good:
 
-Move:
+- tick phases are easier to follow
+- floor queue work was worth extracting
+- portable-item and vertical seams are usable
 
-- `resolveLynxChipArrival`
-- `resolveCompletedLynxChipMove`
-- `resolveLynxPostChipMovement`
-- `resolveLynxChipCollision`
-- `advanceLynxChipTrapRelease`
+Problems that still matter:
 
-The goal is an explicit chip movement lifecycle:
+- `chooseCreatureDirection` is still a dense creature-AI switch and should move behind a dedicated controller helper
+- `runFloorMovement` still mixes all chip forced/vertical movement behavior
+- `activateCloner` still hand-builds clone state in engine code
+- chip arrival and movement start are still partially open-coded in engine helpers
 
-1. choose
-2. start
-3. advance
-4. complete
-5. resolve post-move
+### Lynx Engine
 
-### Lynx Helper 5: Creature Movement And Teleport
+Good:
 
-Extract to:
+- tick runner is much clearer than before
+- chip input resolution was a good extraction
+- shared phase recording removed a bad duplication seam
 
-- `web/src/ruleset-lynx/impl/creatureMovement.ts`
-- `web/src/ruleset-lynx/impl/teleport.ts`
-- `web/src/ruleset-lynx/impl/support.ts`
+Problems that still matter:
 
-Move:
+- `runLynxChipMovementPhase` is still the biggest local complexity sink
+- `canLynxChipEnterCell` and `canLynxChipPushIntoClaimedCell` duplicate logic and should become probe variants of the same seam
+- `resolveLynxActorTeleport` and `resolveLynxChipTeleport` should move into a dedicated teleport module
+- cloner and trap activation should leave the engine hot path
 
-- `chooseLynxCreatureDirection`
-- `chooseLynxCreatureMoveForTick`
-- `startLynxCreatureMovement`
-- `finishLynxActorMovement`
-- `advanceLynxCreature`
-- teleport destination / resolution
-- support / air / elevator start helpers
+### Catalogs
 
-### Lynx Helper 6: Traps, Buttons, And Endgame
+Good:
 
-Extract to:
+- policy concentration is happening in the right place
 
-- `web/src/ruleset-lynx/impl/trapsAndButtons.ts`
-- `web/src/ruleset-lynx/impl/endgame.ts`
+Problems that still matter:
 
-Move:
+- the catalog surface is still not rich enough for stateful actor extensions
+- some behavior that belongs in typed policy is still implemented as engine branching
 
-- held brown button handling
-- sandbag-held brown button handling
-- trap springing
-- endgame state start/finalize helpers
+Important note:
 
-## Extensibility Strategy
+- large catalogs are acceptable if they remain the home for policy
+- do not churn them into data tables just for style
 
-### What To Generalize
+### Shared Game-Core Seams
 
-- helper vocabulary
-- context objects
-- result types
-- portable-item store infrastructure
-- phase recording
-- inventory owner handling
-- ruleset policy lookup interfaces
+Good:
 
-### What Not To Generalize
+- `actorCapabilities.ts`, `actorLocalInventory.ts`, `portableItems.ts`, `movementOutcomes.ts`, and `turnPhases.ts` are the right kind of shared code
 
-- turn order
-- movement cadence
-- occupancy timing
-- teleport claim rules
-- trap/cloner quirks
-- animation timing
+Problems that still matter:
 
-### How This Helps New Elements
+- actor capabilities need deeper hooks
+- portable items still need an activation / attachment lifecycle for future portable actors
+- item collection and global progress need a clearer actor-facing seam
 
-This cleanup should make new elements fit into existing seams:
+### Tests
 
-- `sandbag`: portable-item policy only
-- `bowling ball`: portable-item policy + actor movement/collision policy
-- `ghost`: actor policy only
-- `fake player`: actor policy + controller policy + global progress hooks
+Good:
 
-The engines should ask questions like:
+- strong characterization safety net
 
-- what kind of controller is this actor?
-- what inventory owner does this entity expose?
-- how does this actor probe movement?
-- what happens on blocked movement?
-- what happens on arrival?
-- what supports this entity from below?
+Problems that still matter:
 
-They should not ask:
+- test ergonomics are now the issue, not missing coverage
+- helper builders and assertion DSLs would make future refactors easier to land
 
-- is this tile id the bowling ball?
-- is this tile id a ghost?
-- do I need another branch in `moveCreatureOnce`?
+## Principles For The Next Cleanup Wave
 
-## SOLID Mapping
+- Do not build a shared super-engine.
+- Keep shared code focused on vocabulary, storage, and helper shape.
+- Keep ruleset timing, occupancy, and ordering local to each engine.
+- Attack the worst hotspots first, not the whole codebase.
+- Extract seams before adding new elements.
+- Prefer “probe then apply” helpers over boolean-return mutation blobs.
+- Preserve characterization coverage on every structural change.
 
-### Single Responsibility
+## Recommended Roadmap
 
-Split orchestration, movement, support, portable items, replay/debug, and board mutation helpers into separate modules.
+### EC10: Movement Probe And Arrival Split
 
-### Open/Closed
+Goal:
 
-Add new behavior by extending typed policy and plugging new helpers into a seam, not by editing giant switch ladders.
+- make movement start and arrival logic read as “probe, then apply”
 
-### Liskov
+Targets:
 
-Do not fake one engine as a subtype of the other. Reuse shared abstractions only where behavior shape truly matches.
+- MS chip move probe and arrival handling
+- Lynx chip enter / push / reveal probing
+- structured results instead of mixed booleans plus mutation
 
-### Interface Segregation
+Expected outcome:
 
-Prefer small interfaces:
+- less nesting
+- better step-down flow
+- cleaner blocked-move and arrival extension points
 
-- `PhaseRecorder`
-- `PortableItemStore`
-- `MovementProbe`
-- `SupportResolver`
-- `InventoryOwnerResolver`
+### EC11: Teleport, Trap, And Cloner Modules
 
-### Dependency Inversion
+Goal:
 
-Hot-path logic should depend on policy and helper interfaces, not raw tile checks and ad hoc inventory structures.
+- move teleport search and trap/cloner activation out of engine hot paths
 
-## Non-Goals
+Targets:
 
-- no shared base engine class
-- no inheritance-heavy architecture
-- no behavior-changing cleanup unless covered by characterization first
-- no “generic movement engine” that erases MS vs Lynx timing
+- MS `teleportDestination`, trap release, and cloner activation helpers
+- Lynx `resolveLynxChipTeleport`, `resolveLynxActorTeleport`, `activateLynxCloner`, and `springLynxTrap`
 
-## Proposed EC Plan
+Expected outcome:
 
-### EC1: Characterization Expansion
+- boundary conditions become local
+- ruleset-specific differences stay isolated instead of scattered
 
-- [x] Add characterization tests around MS and Lynx for:
-- [x] portable item carry / replacement / settle
-- [x] support release after wall/door/socket changes
-- [x] air and elevator transitions
-- [x] teleport exit edge cases
-- [x] trap/cloner release timing
-- [x] replay last-move and debug-phase expectations
-- [x] Add one lightweight metrics snapshot to the doc or tests so future cleanup can be measured.
+### EC12: Actor Controller Seams
 
-### EC2: Context Objects And Helper Boundaries
+Goal:
 
-- [x] Introduce `MsTickContext` and `LynxTickContext`.
-- [x] Replace the worst long-argument helper calls with context access.
-- [x] No behavior changes.
+- separate movement-controller logic from engine mutation logic
 
-### EC3: Shared Phase Recorder
+Targets:
 
-- [x] Introduce a shared recorder interface in `game-core`.
-- [x] Convert Lynx debug traces to use the normal tick path plus recorder hooks.
-- [x] Keep MS on the same recorder model.
-- [x] Delete duplicated debug tick logic from Lynx.
+- MS creature direction choice
+- Lynx actor intent/controller behavior
 
-### EC4: Portable Item Subsystem Extraction
+Expected outcome:
 
-- [x] Extract portable-item store infrastructure into `game-core`.
-- [x] Move MS portable-item logic into `ruleset-ms/impl/portableItems.ts`.
-- [x] Move Lynx portable-item logic into `ruleset-lynx/impl/portableItems.ts`.
-- [x] Keep ruleset-specific priming/settle semantics separate.
+- cleaner AI/control extension points
+- direct preparation for fake players and more specialized actors
 
-### EC5: Support And Vertical Movement Extraction
+### EC13: Generalize Actor-Owned Collection And Global Progress
 
-- [x] Introduce shared support result vocabulary.
-- [x] Extract MS support/air/elevator helpers into dedicated files.
-- [x] Extract Lynx support/air/elevator helpers into dedicated files.
-- [x] Keep ruleset-specific behavior in the ruleset modules.
+Goal:
 
-### EC6: Movement Outcome Vocabulary
+- stop hard-coding Chip-shaped collection helpers as the only path
 
-- [x] Introduce shared movement/arrival/collision result types.
-- [x] Refactor MS chip/creature/block movement helpers to return structured outcomes.
-- [x] Refactor Lynx chip/creature movement helpers to use the same vocabulary.
+Targets:
 
-### EC7: MS Engine Step-Down Cleanup
+- actor inventory owner lookup by runtime actor
+- actor-facing item collection
+- actor-facing chip collection that updates global progress without treating progress as local inventory
 
-- [x] Split `advanceMsTick` into a turn runner plus phase modules.
-- [x] Split `runCreatureFloorMovements` into queue helper + movement processors.
-- [x] Split chip movement and replay bookkeeping into dedicated modules.
-- [x] Reduce direct tile branching in MS hot paths where a policy seam already exists.
+Expected outcome:
 
-### EC8: Lynx Engine Step-Down Cleanup
+- clean separation of:
+  - actor-local inventory
+  - portable-item state
+  - global progress
 
-- [x] Split `advanceLynxInteractiveTick` into a turn runner plus phase modules.
-- [x] Split chip move selection from chip movement execution.
-- [x] Split trap/button/endgame helpers into dedicated modules.
-- [x] Reduce long parameter lists via context objects.
+### EC14: Portable Item Activation Lifecycle
 
-### EC9: Policy Surface Expansion
+Goal:
 
-- [x] Extend actor and portable-item policy types for:
-- [x] blocked move behavior
-- [x] support behavior
-- [x] collision behavior
-- [x] arrival behavior
-- [x] thief behavior
-- [x] clone behavior
-- [x] Replace remaining hard-coded raw tile branches only where policy now clearly owns the behavior.
+- support portable entities that can also become active runtime actors
 
-### EC10: Resume Element Work
+Targets:
 
-- [ ] Re-evaluate bowling ball on top of the cleaned seams.
-- [ ] Implement MS first.
-- [ ] Add tests.
-- [ ] Port to Lynx only after the MS seam proves clean.
+- define a stable lifecycle from:
+  - map portable item
+  - carried portable item
+  - primed drop
+  - activated actor-attached state
+  - detached or destroyed state
 
-## Default Recommendation
+Expected outcome:
 
-Do this in the listed order.
+- bowling ball becomes feasible without spreading conditional logic everywhere
+- future hooks or similar portable actors get the same seam
 
-The best first cleanup is:
+### EC15: Runtime State Decomposition
 
-1. characterization
-2. context objects
-3. Lynx debug-path deduplication
+Goal:
 
-That sequence reduces risk immediately and creates cleaner seams for the harder extractions.
+- shrink engine-local “god structs” without losing ruleset locality
 
-If we try to jump straight to feature work again before EC3 to EC5, we will likely reintroduce exactly the problems we are trying to remove.
+Targets:
+
+- split runtime overlays
+- split replay/input latch state
+- split portable-item store access
+- split actor-runtime bookkeeping from whole-engine mutable state
+
+Expected outcome:
+
+- smaller helper surfaces
+- better ownership clarity
+- easier testing of subsystems in isolation
+
+### EC16: Test DSL And Builder Cleanup
+
+Goal:
+
+- keep the characterization safety net, but reduce test maintenance friction
+
+Targets:
+
+- common engine test builders
+- reusable assertions for layers, inventory, movement, and overlays
+
+Expected outcome:
+
+- future cleanup PRs stay small and reviewable
+- test intent becomes easier to scan
+
+## Feature Gating
+
+Do not resume bowling ball, ghost, or fake-player feature work until at least:
+
+- EC10 is complete
+- EC11 is complete
+- EC13 is complete
+- EC14 is complete
+
+That is the minimum seam set needed to avoid repeating the same conditional-sprawl failure mode.
+
+## What We Should Not Spend Time On Right Now
+
+- rewriting the engines into one common base class
+- splitting catalogs purely for aesthetic reasons
+- mass renaming without seam improvement
+- package-principle cleanup detached from actual hot paths
+- replacing every switch with data tables when the switch already lives in a policy module
+
+## Summary
+
+The current architecture is no longer “bad everywhere.” That is the important finding.
+
+The remaining cleanup work is concentrated in a specific layer:
+
+- movement start
+- arrival resolution
+- teleports
+- cloners and traps
+- actor-owned collection and activation lifecycle
+
+That is the correct place to keep cleaning. If we clean those seams next, future stateful actors can extend policy and helper modules instead of forcing more branching into the engines.
