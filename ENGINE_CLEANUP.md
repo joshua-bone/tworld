@@ -565,10 +565,10 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 
 ### EC4: Portable Item Subsystem Extraction
 
-- [ ] Extract portable-item store infrastructure into `game-core`.
-- [ ] Move MS portable-item logic into `ruleset-ms/impl/portableItems.ts`.
-- [ ] Move Lynx portable-item logic into `ruleset-lynx/impl/portableItems.ts`.
-- [ ] Keep ruleset-specific priming/settle semantics separate.
+- [x] Extract portable-item store infrastructure into `game-core`.
+- [x] Move MS portable-item logic into `ruleset-ms/impl/portableItems.ts`.
+- [x] Move Lynx portable-item logic into `ruleset-lynx/impl/portableItems.ts`.
+- [x] Keep ruleset-specific priming/settle semantics separate.
 
 ### EC5: Support And Vertical Movement Extraction
 

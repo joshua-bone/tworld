@@ -57,6 +57,18 @@ import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
 import { projectLynxDebugPhaseSnapshot } from "@ruleset-lynx/impl/debugProjection";
 import {
+  clearLynxToolInventory,
+  collectLynxPortableItemsFromLayers,
+  primeLynxToolDrop,
+  primedLynxPortableToolItem,
+  projectLynxPortableToolState,
+  queueLynxToolInventoryReplacement,
+  reconcileLynxPortableToolProjection,
+  settleLynxPrimedToolDrop,
+  type LynxPortableItem,
+  type LynxPortableToolStateStore,
+} from "@ruleset-lynx/impl/portableItems";
+import {
   lynxActorControlMode,
   lynxActorEntryMask,
   lynxActorGlobalProgressKind,
@@ -163,12 +175,6 @@ interface LynxAnimationState {
   tileId: number;
 }
 
-interface LynxPrimedToolDrop {
-  tileId: number;
-  pos: number;
-  z: number;
-}
-
 const LYNX_ANIMATION_TILE = {
   Water_Splash: 0x74,
   Bomb_Explosion: 0x75,
@@ -195,7 +201,7 @@ interface LynxRuntimeState {
     kind: InteractiveGameTileOverlayKind;
     ttl: number;
   }>;
-  primedToolDrop: LynxPrimedToolDrop | null;
+  primedToolDrop: LynxPortableToolStateStore["primedToolDrop"];
   chipTeleported: boolean;
   chipSlideToken: boolean;
   chipIgnoreIceFromAir?: boolean;
@@ -222,17 +228,6 @@ interface LynxTickContext {
 interface LynxRuntimeLayer {
   z: number;
   cells: EngineMapCell[];
-}
-
-type LynxToolInventoryProjection = Pick<EngineState["inventory"], "tools">;
-
-type LynxPortableItemState = { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
-
-interface LynxPortableItem {
-  serial: number;
-  tileId: number;
-  inventorySlot: "tools";
-  state: LynxPortableItemState;
 }
 
 function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
@@ -635,7 +630,7 @@ function setLynxRuntimeChipState(state: EngineState, chipPos: number, chipZ: num
 
 function lynxChipActsWallForMobs(state: EngineState, pos: number, z: number): boolean {
   const runtime = lynxRuntimeState(state);
-  return primedLynxPortableToolItem(state) !== undefined && runtime.chipPos === pos && runtime.chipZ === z;
+  return primedLynxPortableToolItem(runtime) !== undefined && runtime.chipPos === pos && runtime.chipZ === z;
 }
 
 function clearLynxAnimationAt(state: EngineState, actors: LynxRuntimeActor[], pos: number): boolean {
@@ -690,204 +685,6 @@ function createLynxTickContext(
     addTileOverlay: (z, pos, kind, ttl = 2) => addLynxTileOverlay(state, z, pos, kind, ttl),
     chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
   };
-}
-
-function collectLynxPortableItemsFromLayers(
-  layers: ReadonlyArray<{
-    z: number;
-    cells: EngineMapCell[];
-  }>,
-): LynxPortableItem[] {
-  const items: LynxPortableItem[] = [];
-  for (const layer of layers) {
-    for (const cell of layer.cells) {
-      if (lynxInventorySlot(cell.top.id) !== "tools") {
-        continue;
-      }
-      items.push({
-        serial: items.length + 1,
-        tileId: cell.top.id,
-        inventorySlot: "tools",
-        state: {
-          mode: "map",
-          pos: cell.position.pos,
-          z: layer.z,
-        },
-      });
-    }
-  }
-  return items;
-}
-
-function lynxPortableItemDropProjection(item: LynxPortableItem | undefined): LynxPrimedToolDrop | null {
-  if (!item || (item.state.mode !== "map" && item.state.mode !== "primed")) {
-    return null;
-  }
-  return {
-    tileId: item.tileId,
-    pos: item.state.pos,
-    z: item.state.z,
-  };
-}
-
-function carriedLynxPortableToolItem(state: EngineState): LynxPortableItem | undefined {
-  return lynxRuntimeState(state).portableItems.find((item) => item.inventorySlot === "tools" && item.state.mode === "carried");
-}
-
-function primedLynxPortableToolItem(state: EngineState): LynxPortableItem | undefined {
-  return lynxRuntimeState(state).portableItems.find((item) => item.inventorySlot === "tools" && item.state.mode === "primed");
-}
-
-function lynxPortableMapToolItemAt(state: EngineState, tileId: number, pos: number, z: number): LynxPortableItem | undefined {
-  return lynxRuntimeState(state).portableItems.find(
-    (item) =>
-      item.inventorySlot === "tools" &&
-      item.tileId === tileId &&
-      item.state.mode === "map" &&
-      item.state.pos === pos &&
-      item.state.z === z,
-  );
-}
-
-function createLynxCarriedPortableToolItem(state: EngineState, tileId: number): LynxPortableItem {
-  const runtime = lynxRuntimeState(state);
-  const item: LynxPortableItem = {
-    serial: runtime.nextPortableItemSerial,
-    tileId,
-    inventorySlot: "tools",
-    state: { mode: "carried" },
-  };
-  runtime.nextPortableItemSerial += 1;
-  runtime.portableItems.push(item);
-  return item;
-}
-
-function projectLynxPortableToolState(state: EngineState, inventory: LynxToolInventoryProjection): void {
-  const runtime = lynxRuntimeState(state);
-  inventory.tools = [carriedLynxPortableToolItem(state)?.tileId ?? 0] as EngineState["inventory"]["tools"];
-  runtime.primedToolDrop = lynxPortableItemDropProjection(primedLynxPortableToolItem(state));
-}
-
-function reconcileLynxPortableToolProjection(state: EngineState, inventory: LynxToolInventoryProjection): void {
-  const runtime = lynxRuntimeState(state);
-  const projectedTileId = inventory.tools[0] ?? 0;
-  const carried = carriedLynxPortableToolItem(state);
-  if (projectedTileId === 0) {
-    if (carried) {
-      runtime.portableItems = runtime.portableItems.filter((item) => item.serial !== carried.serial);
-    }
-    projectLynxPortableToolState(state, inventory);
-    return;
-  }
-
-  if (carried) {
-    carried.tileId = projectedTileId;
-  } else {
-    createLynxCarriedPortableToolItem(state, projectedTileId);
-  }
-  projectLynxPortableToolState(state, inventory);
-}
-
-function clearLynxToolInventory(state: EngineState): void {
-  const runtime = lynxRuntimeState(state);
-  const carried = carriedLynxPortableToolItem(state);
-  if (carried) {
-    runtime.portableItems = runtime.portableItems.filter((item) => item.serial !== carried.serial);
-  }
-  projectLynxPortableToolState(state, state.inventory);
-}
-
-function primeLynxToolDrop(state: EngineState, pos: number, z: number): boolean {
-  const carried = carriedLynxPortableToolItem(state);
-  if (!carried || primedLynxPortableToolItem(state)) {
-    return false;
-  }
-
-  carried.state = {
-    mode: "primed",
-    pos,
-    z,
-  };
-  projectLynxPortableToolState(state, state.inventory);
-  return true;
-}
-
-function queueLynxToolInventoryReplacement(state: EngineState, tileId: number, pos: number, z: number): void {
-  const runtime = lynxRuntimeState(state);
-  let collected = lynxPortableMapToolItemAt(state, tileId, pos, z);
-  if (!collected) {
-    collected = {
-      serial: runtime.nextPortableItemSerial,
-      tileId,
-      inventorySlot: "tools",
-      state: {
-        mode: "map",
-        pos,
-        z,
-      },
-    };
-    runtime.nextPortableItemSerial += 1;
-    runtime.portableItems.push(collected);
-  }
-
-  const displaced = carriedLynxPortableToolItem(state);
-  collected.state = { mode: "carried" };
-  if (displaced && displaced.serial !== collected.serial) {
-    displaced.state = {
-      mode: "primed",
-      pos,
-      z,
-    };
-  }
-  projectLynxPortableToolState(state, state.inventory);
-}
-
-function replaceLynxSettledSandbagWater(state: EngineState, pos: number): boolean {
-  const cell = state.map.cells[pos];
-  if (!cell) {
-    return false;
-  }
-
-  if (cell.top.id === MS_TILE.Water) {
-    replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Dirt });
-    return true;
-  }
-
-  if (cell.bottom.id === MS_TILE.Water) {
-    cell.bottom = { ...cell.bottom, id: MS_TILE.Dirt };
-    return true;
-  }
-
-  return false;
-}
-
-function settleLynxPrimedToolDrop(state: EngineState, pos: number, z: number): void {
-  const runtime = lynxRuntimeState(state);
-  const primed = primedLynxPortableToolItem(state);
-  if (!primed || primed.state.mode !== "primed" || primed.state.pos !== pos || primed.state.z !== z) {
-    return;
-  }
-
-  withLynxLayer(state, z, () => {
-    if (primed.tileId === MS_TILE.Sandbag && replaceLynxSettledSandbagWater(state, pos)) {
-      runtime.portableItems = runtime.portableItems.filter((item) => item.serial !== primed.serial);
-      return;
-    }
-
-    const cell = state.map.cells[pos];
-    if (!cell) {
-      return;
-    }
-
-    primed.state = {
-      mode: "map",
-      pos,
-      z,
-    };
-    cell.bottom = { ...cell.top };
-    cell.top = { id: primed.tileId, state: 0 };
-  });
-  projectLynxPortableToolState(state, state.inventory);
 }
 
 function findPressedLynxPermanentHiddenWallPos(state: EngineState, chipPos: number, dir: number): number | null {
@@ -1267,7 +1064,7 @@ function collectLynxItemAtPosition(state: EngineState, actorId: number, pos: num
   const inventoryIndex = lynxInventoryIndex(tile.id);
   if (inventorySlot !== null && inventoryIndex !== null && actorCollectionAllowsSlot(itemCollectionKind, inventorySlot)) {
     if (inventorySlot === "tools") {
-      queueLynxToolInventoryReplacement(state, tile.id, pos, activeLynxLayerZ(state));
+      queueLynxToolInventoryReplacement(lynxRuntimeState(state), state.inventory, tile.id, pos, activeLynxLayerZ(state));
     } else {
       actorInventoryCollectIndexedItem(chipInventory, inventorySlot, inventoryIndex);
     }
@@ -1794,7 +1591,7 @@ function resolveLynxChipArrival(
       };
     case "steal-boots":
       actorInventoryClearBoots(chipInventory);
-      clearLynxToolInventory(state);
+      clearLynxToolInventory(lynxRuntimeState(state), state.inventory);
       return {
         soundEffects: 1 << LYNX_SOUND.BootsStolen,
         completed: false,
@@ -2446,7 +2243,14 @@ function resolveLynxTeleports(
     const teleportOriginZ = activeLynxLayerZ(state);
     chipPos = resolveLynxChipTeleport(state, actors, chipPos, chipDir);
     if (chipPos !== teleportOriginPos) {
-      settleLynxPrimedToolDrop(state, teleportOriginPos, teleportOriginZ);
+      settleLynxPrimedToolDrop(
+        state,
+        lynxRuntimeState(state),
+        state.inventory,
+        teleportOriginPos,
+        teleportOriginZ,
+        (layerZ, run) => withLynxLayer(state, layerZ, run),
+      );
     }
   }
 
@@ -3310,7 +3114,14 @@ function advanceLynxChipTrapRelease(
       };
     }
 
-    settleLynxPrimedToolDrop(state, chipPos, activeLynxLayerZ(state));
+    settleLynxPrimedToolDrop(
+      state,
+      lynxRuntimeState(state),
+      state.inventory,
+      chipPos,
+      activeLynxLayerZ(state),
+      (layerZ, run) => withLynxLayer(state, layerZ, run),
+    );
     chipPos = targetPos;
     chipMoving = 8;
   }
@@ -3615,7 +3426,7 @@ export function initializeLynxEngineState(
   const runtime = lynxRuntimeState(state);
   runtime.portableItems = collectLynxPortableItemsFromLayers(lynxRuntimeLayers(state.map));
   runtime.nextPortableItemSerial = runtime.portableItems.length + 1;
-  projectLynxPortableToolState(state, state.inventory);
+  projectLynxPortableToolState(runtime, state.inventory);
   setLynxRuntimeChipState(state, chipPos, chipSeed.z);
   return state;
 }
@@ -3708,7 +3519,7 @@ function advanceLynxInteractiveTick(
   let latchedChipMoveSelection: ReturnType<typeof selectLynxChipMoveForTick> | null = null;
   let recordedReplayInputCode = 0;
 
-  reconcileLynxPortableToolProjection(state, state.inventory);
+  reconcileLynxPortableToolProjection(lynxRuntimeState(state), state.inventory);
   setLynxRuntimeChipState(state, chipPos, chipZ);
   const nextTick = state.timer.currentTime + 1;
 
@@ -3766,7 +3577,7 @@ function advanceLynxInteractiveTick(
     if (
       endGameTicksElapsed === null &&
       (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
-      primeLynxToolDrop(state, chipPos, chipZ)
+      primeLynxToolDrop(lynxRuntimeState(state), state.inventory, chipPos, chipZ)
     ) {
       if (replayMode) {
         state.lastMove = {
@@ -4026,7 +3837,14 @@ function advanceLynxInteractiveTick(
     }
 
     if (chipMoving === 0 && chipMoveSelection.startAirMove) {
-      settleLynxPrimedToolDrop(state, chipPos, chipZ);
+      settleLynxPrimedToolDrop(
+        state,
+        lynxRuntimeState(state),
+        state.inventory,
+        chipPos,
+        chipZ,
+        (layerZ, run) => withLynxLayer(state, layerZ, run),
+      );
       const airborne = startLynxChipAirMovement(state, chipPos, chipZ);
       chipPos = airborne.chipPos;
       chipZ = airborne.chipZ;
@@ -4034,7 +3852,14 @@ function advanceLynxInteractiveTick(
       chipMoveKind = airborne.chipMoveKind;
       clearLynxCouldntMove(state);
     } else if (chipMoving === 0 && chipMoveSelection.startElevatorMove) {
-      settleLynxPrimedToolDrop(state, chipPos, chipZ);
+      settleLynxPrimedToolDrop(
+        state,
+        lynxRuntimeState(state),
+        state.inventory,
+        chipPos,
+        chipZ,
+        (layerZ, run) => withLynxLayer(state, layerZ, run),
+      );
       const elevated = startLynxChipElevatorMovement(createLynxTickContext(state, actors, chipPos, chipZ), level, chipDir);
       chipPos = elevated.chipPos;
       chipZ = elevated.chipZ;
@@ -4078,7 +3903,14 @@ function advanceLynxInteractiveTick(
           }
           if (canEnterTarget) {
             clearLynxCouldntMove(state);
-            settleLynxPrimedToolDrop(state, chipPos, chipZ);
+            settleLynxPrimedToolDrop(
+              state,
+              lynxRuntimeState(state),
+              state.inventory,
+              chipPos,
+              chipZ,
+              (layerZ, run) => withLynxLayer(state, layerZ, run),
+            );
             chipDir = startInputCode;
             chipPos = targetPos;
             chipMoving = 8;

@@ -109,6 +109,18 @@ import {
   msTileForcedFloorKind,
 } from "@ruleset-ms/impl/catalog";
 import {
+  clearMsToolInventory,
+  collectMsPortableItemsFromLayers,
+  primeMsToolDrop,
+  primedMsPortableToolItem,
+  projectMsPortableToolState,
+  queueMsToolInventoryReplacement,
+  reconcileMsPortableToolProjection,
+  settleMsPrimedToolDrop,
+  type MsPortableItem,
+  type MsPortableToolStateStore,
+} from "@ruleset-ms/impl/portableItems";
+import {
   MS_DIRECTION,
   MS_FLOOR_STATE,
   MS_GRID_HEIGHT,
@@ -150,28 +162,7 @@ interface MsCreatureSlipEntry {
   dir: number;
   slipOrder: number;
 }
-
-interface MsPrimedToolDrop {
-  tileId: number;
-  pos: number;
-  z: number;
-}
-
-type MsToolInventoryProjection = Pick<EngineState["inventory"], "tools">;
 type MsChipLocalInventoryProjection = Pick<EngineState["inventory"], "keys" | "boots" | "tools">;
-
-type MsPortableItemState =
-  | { mode: "map"; pos: number; z: number }
-  | { mode: "carried" }
-  | { mode: "primed"; pos: number; z: number }
-  | { mode: "pending-primed"; pos: number; z: number };
-
-interface MsPortableItem {
-  serial: number;
-  tileId: number;
-  inventorySlot: "tools";
-  state: MsPortableItemState;
-}
 
 function msChipInventoryOwner(inventory: MsChipLocalInventoryProjection): ActorLocalInventoryOwner {
   return msActorLocalInventoryMode(MS_TILE.Chip) === "keys-boots-tools"
@@ -223,8 +214,8 @@ export interface MsInternalState {
   lastSlipDir: number;
   portableItems: MsPortableItem[];
   nextPortableItemSerial: number;
-  primedToolDrop: MsPrimedToolDrop | null;
-  pendingToolDropAfterSettle: MsPrimedToolDrop | null;
+  primedToolDrop: MsPortableToolStateStore["primedToolDrop"];
+  pendingToolDropAfterSettle: MsPortableToolStateStore["pendingToolDropAfterSettle"];
   runtimeLayers: MsRuntimeLayer[];
 }
 
@@ -940,117 +931,6 @@ function updateChipTile(cells: EngineMapCell[], internal: MsInternalState): void
   });
 }
 
-function collectMsPortableItemsFromLayers(
-  layers: ReadonlyArray<{
-    z: number;
-    cells: EngineMapCell[];
-  }>,
-): MsPortableItem[] {
-  const items: MsPortableItem[] = [];
-  for (const layer of layers) {
-    for (const cell of layer.cells) {
-      if (msInventorySlot(cell.top.id) !== "tools") {
-        continue;
-      }
-      items.push({
-        serial: items.length + 1,
-        tileId: cell.top.id,
-        inventorySlot: "tools",
-        state: {
-          mode: "map",
-          pos: cell.position.pos,
-          z: layer.z,
-        },
-      });
-    }
-  }
-  return items;
-}
-
-function msPortableItemDropProjection(item: MsPortableItem | undefined): MsPrimedToolDrop | null {
-  if (!item || (item.state.mode !== "map" && item.state.mode !== "primed" && item.state.mode !== "pending-primed")) {
-    return null;
-  }
-  return {
-    tileId: item.tileId,
-    pos: item.state.pos,
-    z: item.state.z,
-  };
-}
-
-function carriedMsPortableToolItem(internal: MsInternalState): MsPortableItem | undefined {
-  return internal.portableItems.find((item) => item.inventorySlot === "tools" && item.state.mode === "carried");
-}
-
-function primedMsPortableToolItem(internal: MsInternalState): MsPortableItem | undefined {
-  return internal.portableItems.find((item) => item.inventorySlot === "tools" && item.state.mode === "primed");
-}
-
-function pendingPrimedMsPortableToolItem(internal: MsInternalState): MsPortableItem | undefined {
-  return internal.portableItems.find((item) => item.inventorySlot === "tools" && item.state.mode === "pending-primed");
-}
-
-function msPortableMapToolItemAt(
-  internal: MsInternalState,
-  tileId: number,
-  pos: number,
-  z: number,
-): MsPortableItem | undefined {
-  return internal.portableItems.find(
-    (item) =>
-      item.inventorySlot === "tools" &&
-      item.tileId === tileId &&
-      item.state.mode === "map" &&
-      item.state.pos === pos &&
-      item.state.z === z,
-  );
-}
-
-function createMsCarriedPortableToolItem(internal: MsInternalState, tileId: number): MsPortableItem {
-  const item: MsPortableItem = {
-    serial: internal.nextPortableItemSerial,
-    tileId,
-    inventorySlot: "tools",
-    state: { mode: "carried" },
-  };
-  internal.nextPortableItemSerial += 1;
-  internal.portableItems.push(item);
-  return item;
-}
-
-function projectMsPortableToolState(internal: MsInternalState, inventory: MsToolInventoryProjection): void {
-  inventory.tools = [carriedMsPortableToolItem(internal)?.tileId ?? 0] as EngineState["inventory"]["tools"];
-  internal.primedToolDrop = msPortableItemDropProjection(primedMsPortableToolItem(internal));
-  internal.pendingToolDropAfterSettle = msPortableItemDropProjection(pendingPrimedMsPortableToolItem(internal));
-}
-
-function reconcileMsPortableToolProjection(internal: MsInternalState, inventory: MsToolInventoryProjection): void {
-  const projectedTileId = inventory.tools[0] ?? 0;
-  const carried = carriedMsPortableToolItem(internal);
-  if (projectedTileId === 0) {
-    if (carried) {
-      internal.portableItems = internal.portableItems.filter((item) => item.serial !== carried.serial);
-    }
-    projectMsPortableToolState(internal, inventory);
-    return;
-  }
-
-  if (carried) {
-    carried.tileId = projectedTileId;
-  } else {
-    createMsCarriedPortableToolItem(internal, projectedTileId);
-  }
-  projectMsPortableToolState(internal, inventory);
-}
-
-function clearMsToolInventory(internal: MsInternalState, inventory: MsToolInventoryProjection): void {
-  const carried = carriedMsPortableToolItem(internal);
-  if (carried) {
-    internal.portableItems = internal.portableItems.filter((item) => item.serial !== carried.serial);
-  }
-  projectMsPortableToolState(internal, inventory);
-}
-
 function msChipActsWallForMobs(internal: MsInternalState | null, pos: number, z: number): boolean {
   return (
     internal !== null &&
@@ -1059,120 +939,6 @@ function msChipActsWallForMobs(internal: MsInternalState | null, pos: number, z:
     internal.chipPos === pos &&
     (internal.chipZ ?? 1) === z
   );
-}
-
-function primeMsToolDrop(
-  internal: MsInternalState,
-  inventory: MsToolInventoryProjection,
-  pos: number,
-  z: number,
-): boolean {
-  const carried = carriedMsPortableToolItem(internal);
-  if (!carried || primedMsPortableToolItem(internal)) {
-    return false;
-  }
-
-  carried.state = {
-    mode: "primed",
-    pos,
-    z,
-  };
-  projectMsPortableToolState(internal, inventory);
-  return true;
-}
-
-function queueMsToolInventoryReplacement(
-  internal: MsInternalState,
-  inventory: MsToolInventoryProjection,
-  tileId: number,
-  pos: number,
-  z: number,
-): void {
-  let collected = msPortableMapToolItemAt(internal, tileId, pos, z);
-  if (!collected) {
-    collected = {
-      serial: internal.nextPortableItemSerial,
-      tileId,
-      inventorySlot: "tools",
-      state: {
-        mode: "map",
-        pos,
-        z,
-      },
-    };
-    internal.nextPortableItemSerial += 1;
-    internal.portableItems.push(collected);
-  }
-
-  const displaced = carriedMsPortableToolItem(internal);
-  collected.state = { mode: "carried" };
-  if (displaced && displaced.serial !== collected.serial) {
-    displaced.state = primedMsPortableToolItem(internal)
-      ? {
-          mode: "pending-primed",
-          pos,
-          z,
-        }
-      : {
-          mode: "primed",
-          pos,
-          z,
-        };
-  }
-  projectMsPortableToolState(internal, inventory);
-}
-
-function replaceMsSettledSandbagWater(cells: EngineMapCell[], pos: number): boolean {
-  const cell = cells[pos];
-  if (!cell || floorAt(cells, pos) !== MS_TILE.Water) {
-    return false;
-  }
-
-  if (cell.top.id === MS_TILE.Water) {
-    replaceTopTile(cells, pos, { ...cell.top, id: MS_TILE.Dirt });
-    return true;
-  }
-
-  if (cell.bottom.id === MS_TILE.Water) {
-    cell.bottom = { ...cell.bottom, id: MS_TILE.Dirt };
-    return true;
-  }
-
-  return false;
-}
-
-function settleMsPrimedToolDrop(
-  cells: EngineMapCell[],
-  internal: MsInternalState,
-  inventory: MsToolInventoryProjection,
-  pos: number,
-  z: number,
-): void {
-  const primed = primedMsPortableToolItem(internal);
-  if (!primed || primed.state.mode !== "primed" || primed.state.pos !== pos || primed.state.z !== z) {
-    return;
-  }
-
-  if (primed.tileId === MS_TILE.Sandbag && replaceMsSettledSandbagWater(cells, pos)) {
-    internal.portableItems = internal.portableItems.filter((item) => item.serial !== primed.serial);
-  } else {
-    primed.state = {
-      mode: "map",
-      pos,
-      z,
-    };
-    pushTile(cells, pos, { id: primed.tileId, state: 0 });
-  }
-
-  const pendingReplacement = pendingPrimedMsPortableToolItem(internal);
-  if (pendingReplacement && pendingReplacement.state.mode === "pending-primed") {
-    pendingReplacement.state = {
-      mode: "primed",
-      pos: pendingReplacement.state.pos,
-      z: pendingReplacement.state.z,
-    };
-  }
-  projectMsPortableToolState(internal, inventory);
 }
 
 function refreshFloorMovement(
