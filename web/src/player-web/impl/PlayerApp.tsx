@@ -11,34 +11,13 @@ import {
 } from "react";
 import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
 import { shouldAutoSaveWinningHighScoreReplay } from "@player-web/impl/autoSaveReplayPolicy";
-import { copyTextToClipboard } from "@player-web/impl/clipboard";
-import { isFastForwardModifierActive } from "@player-web/impl/fastForward";
 import {
-  isAction1Key,
-  isFineUndoKey,
-  hasBlockedMovementModifier,
-  isFirstLevelKey,
   isHelpToggleKey,
-  isSystemModifierKey,
-  isLastLevelKey,
-  isNextLevelKey,
-  isPauseToggleKey,
-  isPrevLevelKey,
-  isProceedKey,
-  isRestartLevelKey,
-  isUndoCheckpointKey,
-  isUndoKey,
 } from "@player-web/impl/legacyHotkeys";
-import {
-  LegacyLynxInputBuffer,
-  LegacyMsInputBuffer,
-  type DirectionInput,
-} from "@player-web/impl/legacyInput";
-import { MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
+import type { DirectionInput } from "@player-web/impl/legacyInput";
 import {
   legacyMapPixelsForTileSize,
 } from "@player-web/impl/legacyRenderPresets";
-import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
 import { LegacyCanvasScreen, LegacyInventoryStrip, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import {
   buildLevelProgressIndex,
@@ -82,40 +61,22 @@ import {
   formatGameplayTimeLeft,
 } from "@player-web/impl/modern/gameplayShellModel";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
-import { advanceInteractiveGameSession } from "@game-runtime/impl/advanceInteractiveGameSession";
-import { buildReplayExport } from "@game-runtime/impl/buildReplayExport";
-import { importReplayForLevel } from "@game-runtime/impl/importReplayForLevel";
 import {
-  previousInteractiveGameSessionExponentialCheckpointTick,
   previousInteractiveGameSessionCheckpointTick,
   previousInteractiveGameSessionTickByCount,
   previousInteractiveGameSessionTick,
 } from "@game-runtime/impl/interactiveHistoryNavigation";
 import { formatInteractiveTickSeconds } from "@game-runtime/impl/interactiveSessionRun";
-import { loadBrowserPlayableCatalog } from "@player-web/impl/loadBrowserPlayableCatalog";
-import {
-  resolveLegacySessionRandomSeed,
-} from "@player-web/impl/legacySharedRandomSeed";
 import {
   createRandomLegacyRandomSeed,
   findLevelSeedOverride,
   normalizeLegacyRandomSeed,
 } from "@player-web/impl/levelSeedOverrides";
-import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
-import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
-import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
-import { shouldSyncEmbeddedPlayerCatalog } from "@player-web/impl/playerAppCatalogSync";
 import { resolveReplayActionContext } from "@player-web/impl/replayContext";
 import { selectResultHeadline } from "@player-web/impl/resultHeadlines";
-import { measurePerfAsync, recordPerfMeasurement } from "@player-web/impl/runtimePerf";
+import { measurePerfAsync } from "@player-web/impl/runtimePerf";
 import { shouldPersistLevelProgress } from "@player-web/impl/sessionProgressPolicy";
-import { buildUrlLaunchHref } from "@player-web/impl/urlLaunch";
-import { restoreInteractiveGameSession } from "@game-runtime/impl/restoreInteractiveGameSession";
-import { resumeInteractiveGameSession } from "@game-runtime/impl/resumeInteractiveGameSession";
-import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
-import { startInteractiveGameSession } from "@game-runtime/impl/startInteractiveGameSession";
-import { startReplayInteractiveGameSession } from "@game-runtime/impl/startReplayInteractiveGameSession";
-import type { InteractiveGameEnginePort, InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import {
   jumpLevelSelection,
   jumpSeriesSelection,
@@ -127,12 +88,14 @@ import {
   shiftLevelSelection,
   shiftSeriesSelection,
 } from "@player-web/impl/playerAppSelectionController";
+import { gameplayTimeRemainingTicks, nextModernUndoTarget } from "@player-web/impl/playerAppGameplay";
+import { canResumeInteractiveHistoryTimeline } from "@player-web/impl/playerAppRuntime";
+import { usePlayerAppCatalogController } from "@player-web/impl/usePlayerAppCatalogController";
+import { usePlayerAppInputController } from "@player-web/impl/usePlayerAppInputController";
+import { usePlayerAppReplayController } from "@player-web/impl/usePlayerAppReplayController";
+import { usePlayerAppSessionController } from "@player-web/impl/usePlayerAppSessionController";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
-import {
-  encodeRuntimeInputCode,
-  GAME_INPUT_MODIFIER_MASKS,
-  type InteractiveInput,
-} from "@game-core/api/command";
+import { encodeRuntimeInputCode } from "@game-core/api/command";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import { replayTransferCodec } from "@game-core/api/replayTransferCodec";
 import type { SeriesCatalogEntry } from "@content/api/series";
@@ -155,17 +118,8 @@ import {
   saveStoredSoundSettings,
 } from "@player-web/impl/soundSettings";
 import { loadStoredVisualEnhancementsSettings } from "@player-web/impl/visualEnhancementsSettings";
-const LEGACY_FAST_TICK_MS = 25;
-const LEGACY_NORMAL_TICK_MS = 50;
 const GAME_TICKS_PER_SECOND = 20;
-const UNDO_HOLD_REPEAT_DELAY_MS = 160;
-const UNDO_HOLD_REPEAT_INTERVAL_MS = 40;
-const MODERN_UNDO_STEP_TICK_COUNT = 4;
-const MODERN_UNDO_SMOOTH_LIMIT_SECONDS = 8;
-const MODERN_UNDO_SMOOTH_LIMIT_TICKS = MODERN_UNDO_SMOOTH_LIMIT_SECONDS * GAME_TICKS_PER_SECOND;
-const MODERN_UNDO_CHECKPOINT_BASE_TICKS = GAME_TICKS_PER_SECOND;
 const LOW_TIME_WARNING_TICKS = 10 * GAME_TICKS_PER_SECOND;
-const SESSION_UI_SYNC_INTERVAL_MS = 125;
 const LEGACY_RANDOM_SEED_MAX = 0x7fffffff;
 const CURRENT_LEVEL_LINK_COPY_FEEDBACK_MS = 2800;
 const MOBILE_PORTRAIT_MARGIN_PX = 132;
@@ -208,55 +162,6 @@ const MODERN_SERIES_AUTHOR_FALLBACKS: Readonly<Record<string, string>> = {
   "TS0-Lynx.dac": "Tyler Sontag",
 };
 
-interface ModernUndoTarget {
-  continueHolding: boolean;
-  mode: "checkpoint" | "smooth";
-  targetTick: number;
-}
-
-function gameplayTimeRemainingTicks(session: InteractiveGameSession): number {
-  return Math.max(0, session.frame.snapshot.timelimit - Math.max(session.frame.snapshot.currentTime, 0));
-}
-
-function nextModernUndoTarget(session: InteractiveGameSession): ModernUndoTarget | null {
-  if (!session.history.enabled) {
-    return null;
-  }
-
-  const currentAgeTicks = Math.max(0, session.history.latestTick - session.history.currentTick);
-  if (currentAgeTicks < MODERN_UNDO_SMOOTH_LIMIT_TICKS) {
-    const previousStepTick = previousInteractiveGameSessionTickByCount(session, MODERN_UNDO_STEP_TICK_COUNT);
-    if (previousStepTick === null) {
-      return null;
-    }
-
-    const smoothLimitTick = Math.max(
-      session.history.initialTick,
-      session.history.latestTick - MODERN_UNDO_SMOOTH_LIMIT_TICKS,
-    );
-    const targetTick = Math.max(previousStepTick, smoothLimitTick);
-    return {
-      continueHolding: targetTick > smoothLimitTick,
-      mode: "smooth",
-      targetTick,
-    };
-  }
-
-  const checkpointTick = previousInteractiveGameSessionExponentialCheckpointTick(
-    session,
-    MODERN_UNDO_CHECKPOINT_BASE_TICKS,
-  );
-  if (checkpointTick === null) {
-    return null;
-  }
-
-  return {
-    continueHolding: false,
-    mode: "checkpoint",
-    targetTick: checkpointTick,
-  };
-}
-
 function formatModernGameplaySubtitle(
   seriesFile: string | null | undefined,
   level: SeriesCatalogEntry["levels"][number] | null | undefined,
@@ -288,17 +193,6 @@ function formatSeriesDisplayTitle(seriesFile: string | null | undefined): string
   next = next.replace(/(?:\.dat)?[-_. ](?:ms|lynx)\s*$/iu, "");
   next = next.replace(/[-_. ]+$/u, "").trim();
   return next === "" ? null : next;
-}
-
-function interactiveEngineForRuleset(
-  ruleset: SeriesCatalogEntry["ruleset"],
-  engines: BrowserAppServices["engines"],
-): InteractiveGameEnginePort {
-  if (ruleset === "None") {
-    throw new Error("This series does not declare a playable ruleset.");
-  }
-
-  return engines[ruleset];
 }
 
 function SoundIcon({ muted }: { muted: boolean }) {
@@ -546,48 +440,6 @@ const GLOBAL_HELP: HelpSection[] = [
   },
 ];
 
-function keyToInput(key: string): DirectionInput | null {
-  switch (key) {
-    case "ArrowUp":
-    case "w":
-    case "W":
-      return "north";
-    case "ArrowLeft":
-    case "a":
-    case "A":
-      return "west";
-    case "ArrowDown":
-    case "s":
-    case "S":
-      return "south";
-    case "ArrowRight":
-    case "d":
-    case "D":
-      return "east";
-    default:
-      return null;
-  }
-}
-
-function isBrowserScrollKey(key: string): boolean {
-  return (
-    key === "ArrowUp" ||
-    key === "ArrowDown" ||
-    key === "ArrowLeft" ||
-    key === "ArrowRight" ||
-    key === "PageUp" ||
-    key === "PageDown" ||
-    key === "Home" ||
-    key === "End" ||
-    key === " " ||
-    key === "Spacebar"
-  );
-}
-
-function isDatFile(file: File): boolean {
-  return /\.dat$/iu.test(file.name);
-}
-
 interface PlayerAppProps {
   autoDownloadReplaysOnSave?: boolean;
   autoSaveWinningHighScoreReplays?: boolean;
@@ -629,12 +481,7 @@ export function PlayerApp({
   playerKeyBindings: playerKeyBindingsProp,
   visualEnhancementsEnabled: visualEnhancementsEnabledProp,
 }: PlayerAppProps) {
-  const { engines, importDatFile, profileStore, replayTransfer, selectionStore } = services;
-  const initialCatalogRef = useRef<SeriesCatalogEntry[]>(initialCatalog);
-  const initialLevelSeedOverridesRef = useRef<BrowserLevelSeedOverride[]>(initialLevelSeedOverrides);
-  const initialModeRef = useRef<LegacyMode>(initialMode);
-  const initialReplayEntriesRef = useRef<BrowserReplayEntry[]>(initialReplayEntries);
-  const initialSelectionRef = useRef<PlayableSelection | null>(initialSelection);
+  const { engines, profileStore } = services;
   const levelAttemptCountsRef = useRef<Map<string, number>>(new Map());
   const undoSettingsSeedRef = useRef<BrowserUndoSettings | null>(null);
   if (undoSettingsSeedRef.current === null) {
@@ -645,18 +492,16 @@ export function PlayerApp({
     playerKeyBindingsSeedRef.current = playerKeyBindingsProp ?? loadStoredPlayerKeyBindingsSettings();
   }
   const visualEnhancementsEnabledSeedRef = useRef(loadStoredVisualEnhancementsSettings().enabled);
-  const [mode, setMode] = useState<LegacyMode>(initialModeRef.current);
+  const [mode, setMode] = useState<LegacyMode>(initialMode);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
   const [levelProgressSummaries, setLevelProgressSummaries] = useState<BrowserLevelProgressSummary[]>([]);
   const [savedReplayEntries, setSavedReplayEntries] = useState<BrowserReplayEntry[]>([]);
-  const [levelSeedOverrides, setLevelSeedOverrides] = useState<BrowserLevelSeedOverride[]>(initialLevelSeedOverridesRef.current);
+  const [levelSeedOverrides, setLevelSeedOverrides] = useState<BrowserLevelSeedOverride[]>(initialLevelSeedOverrides);
   const [selectedSeriesFile, setSelectedSeriesFile] = useState<string | null>(null);
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number | null>(null);
-  const [session, setSession] = useState<InteractiveGameSession | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isCatalogLoading, setIsCatalogLoading] = useState(true);
-  const [isSessionLoading, setIsSessionLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [showCurrentLevelLinkCopied, setShowCurrentLevelLinkCopied] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -696,12 +541,6 @@ export function PlayerApp({
     seriesFile: string;
     token: number;
   } | null>(null);
-  const tickingRef = useRef(false);
-  const historyNavigationRef = useRef(false);
-  const msInputBufferRef = useRef(new LegacyMsInputBuffer());
-  const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
-  const mobileDirectionalInputRef = useRef(new MobileDirectionalInputTracker());
-  const action1ActiveRef = useRef(false);
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -714,11 +553,9 @@ export function PlayerApp({
   const notifiedSelectionKeyRef = useRef<string | null>(null);
   const appliedInitialSelectionKeyRef = useRef<string | null>(null);
   const currentSelectionRef = useRef<PlayableSelection | null>(initialSelection);
-  const sessionStartedFromReplayRef = useRef(false);
-  const levelSeedOverridesRef = useRef<BrowserLevelSeedOverride[]>(initialLevelSeedOverridesRef.current);
-  const liveSessionRef = useRef<InteractiveGameSession | null>(null);
-  const pendingSessionUiSyncRef = useRef<number | null>(null);
-  const lastSessionUiSyncAtRef = useRef(0);
+  const levelSeedOverridesRef = useRef<BrowserLevelSeedOverride[]>(initialLevelSeedOverrides);
+  const resetGameplayInputBuffersRef = useRef<() => void>(() => {});
+  const stopHeldUndoRef = useRef<() => void>(() => {});
   const currentLevelLinkCopyButtonRef = useRef<HTMLButtonElement | null>(null);
   const currentLevelLinkCopyTimeoutRef = useRef<number | null>(null);
   const currentLevelLinkTargetKeyRef = useRef<string | null>(null);
@@ -730,93 +567,72 @@ export function PlayerApp({
   const availableAction1BindingKeys = PLAYER_BINDABLE_KEYS.filter((key) => key !== undoKeyBinding);
   const availableUndoBindingKeys = PLAYER_BINDABLE_KEYS.filter((key) => key !== action1KeyBinding);
 
-  const disposeSessionIfOwned = useEffectEvent((sessionToDispose: InteractiveGameSession | null) => {
-    if (!sessionToDispose) {
-      return;
-    }
-
-    const engine = interactiveEngineForRuleset(sessionToDispose.request.ruleset, engines);
-    void engine.disposeSession?.(sessionToDispose).catch(() => {
-      // Ignore disposal failures; session lifetime should not block gameplay.
-    });
-  });
-
   const commitLevelSeedOverrides = useEffectEvent((nextOverrides: BrowserLevelSeedOverride[]) => {
     levelSeedOverridesRef.current = nextOverrides;
     setLevelSeedOverrides(nextOverrides);
   });
 
-  const resetGameplayInputBuffers = useEffectEvent(() => {
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
-  });
-
   const prepareForSessionTransition = useEffectEvent(() => {
-    resetGameplayInputBuffers();
+    resetGameplayInputBuffersRef.current();
     setIsRunning(false);
     setIsPaused(false);
     setShowHelp(false);
     setShowSoundControls(false);
     setShowHistoryControls(false);
-    setHeldUndoMode(null);
+    stopHeldUndoRef.current();
     setIsFastForwarding(false);
   });
 
-  const applyDirectionalInputPress = useEffectEvent((input: DirectionInput) => {
-    const activeSession = liveSessionRef.current;
-    if (!activeSession || mode !== "game" || isPaused) {
-      return;
-    }
-
-    if (
-      activeSession.history.restoreMode === "replaying-history" &&
-      !undoSettings.allowTakeoverDuringHistoricalReplay
-    ) {
-      return;
-    }
-
-    if (activeSession.request.ruleset === "Lynx") {
-      lynxInputBufferRef.current.keyDown(input);
-    } else {
-      msInputBufferRef.current.keyDown(input);
-    }
-
-    if (activeSession.mode === "manual" && !manualRunStarted) {
-      setManualRunStarted(true);
-    }
-
-    if (activeSession.history.restoreMode === "restored-paused") {
-      resumeLivePlayFromRestore();
-    }
+  const clearGameplayInputs = useEffectEvent(() => {
+    resetGameplayInputBuffersRef.current();
+    stopHeldUndoRef.current();
+    setIsFastForwarding(false);
   });
 
-  const applyDirectionalInputRelease = useEffectEvent((input: DirectionInput) => {
-    const activeSession = liveSessionRef.current;
-    if (!activeSession || mode !== "game") {
+  const syncSoundForSession = useEffectEvent((nextSession: InteractiveGameSession | null) => {
+    const player = soundPlayerRef.current;
+    if (!player) {
       return;
     }
 
-    if (activeSession.request.ruleset === "Lynx") {
-      lynxInputBufferRef.current.keyUp(input);
-    } else {
-      msInputBufferRef.current.keyUp(input);
+    if (mode !== "game" || !nextSession || showHelp || isPaused) {
+      player.reset();
+      return;
     }
+
+    player.syncFrame(
+      `${nextSession.request.seriesFile}:${nextSession.request.levelNumber}:${nextSession.request.ruleset}`,
+      nextSession.request.ruleset,
+      nextSession.frame.snapshot.tick,
+      nextSession.frame.snapshot.soundEffects,
+    );
   });
 
-  const applyMobileDirectionalInputChanges = useEffectEvent(
-    (changes: { pressed: DirectionInput[]; released: DirectionInput[] }) => {
-      for (const input of changes.released) {
-        applyDirectionalInputRelease(input);
-      }
-
-      for (const input of changes.pressed) {
-        applyDirectionalInputPress(input);
-      }
-    },
-  );
-
-  const resetMobileDirectionalInputState = useEffectEvent(() => {
-    applyMobileDirectionalInputChanges(mobileDirectionalInputRef.current.reset());
+  usePlayerAppCatalogController({
+    chromeMode,
+    services,
+    initialCatalog,
+    initialLevelSeedOverrides,
+    initialMode,
+    initialReplayEntries,
+    initialSelection,
+    catalog,
+    isCatalogLoading,
+    mode,
+    selectedSeriesFile,
+    selectedLevelNumber,
+    currentSelectionRef,
+    notifiedSelectionKeyRef,
+    commitLevelSeedOverrides,
+    setCatalog,
+    setLevelProgressSummaries,
+    setSavedReplayEntries,
+    setSelectedSeriesFile,
+    setSelectedLevelNumber,
+    setMode,
+    setMessage,
+    setIsCatalogLoading,
+    onSelectionChange,
   });
 
   const currentSeries = catalog.find((series) => series.filebase === selectedSeriesFile) ?? null;
@@ -825,6 +641,44 @@ export function PlayerApp({
   const currentSeriesRuleset = currentSeries?.ruleset ?? null;
   const currentManualMsStepping = MS_MANUAL_STEP_STEPPING[manualMsStepParity];
   const currentLevelExists = currentLevel !== null;
+  const {
+    session,
+    isSessionLoading,
+    liveSessionRef,
+    sessionStartedFromReplayRef,
+    advanceTick,
+    performModernUndo,
+    resumeLivePlayFromRestore,
+    resumeOriginalTimeline,
+    resumeOriginalTimelineFromSpace,
+    toggleModernPause,
+    undoPreviousCheckpoint,
+    undoPreviousTick,
+    undoPreviousTickBurst,
+  } = usePlayerAppSessionController({
+    engines,
+    profileStore,
+    mode,
+    setMode,
+    currentSeriesRuleset,
+    currentLevelExists,
+    currentManualMsStepping,
+    replayLaunchRequest,
+    reloadToken,
+    selectedSeriesFile,
+    selectedLevelNumber,
+    levelSeedOverridesRef,
+    undoStartOptionsRef,
+    isPaused,
+    enableRewindAndResume: undoSettings.enableRewindAndResume,
+    prepareForSessionTransition,
+    clearGameplayInputs,
+    setIsRunning,
+    setIsPaused,
+    setManualRunStarted,
+    setMessage,
+    syncSoundForSession,
+  });
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
   const showManualMsStepToggle =
     currentSeriesRuleset === "MS" &&
@@ -898,7 +752,7 @@ export function PlayerApp({
   const replayContextSeries = replayActionContext.series;
   const replayContextLevel = replayActionContext.level;
   const previousHistoryTick = session ? previousInteractiveGameSessionTick(session) : null;
-  const previousCoarseHistoryTick = session ? previousInteractiveGameSessionTickByCount(session, MODERN_UNDO_STEP_TICK_COUNT) : null;
+  const previousCoarseHistoryTick = session ? previousInteractiveGameSessionTickByCount(session, 4) : null;
   const previousHistoryCheckpointTick = session ? previousInteractiveGameSessionCheckpointTick(session) : null;
   const modernUndoTarget = session ? nextModernUndoTarget(session) : null;
   const canUseModernUndo = Boolean(session?.history.enabled && modernUndoTarget !== null);
@@ -906,11 +760,9 @@ export function PlayerApp({
   const canUndoToPreviousCheckpoint = Boolean(
     session?.history.enabled && previousHistoryCheckpointTick !== null,
   );
-  const canResumeOriginalTimeline = Boolean(
-    session?.history.enabled &&
-      undoSettings.enableRewindAndResume &&
-      session?.history.restoreMode === "restored-paused" &&
-      session.history.latestTick > session.history.currentTick,
+  const canResumeOriginalTimeline = canResumeInteractiveHistoryTimeline(
+    session,
+    undoSettings.enableRewindAndResume,
   );
   const isMobileChrome = chromeMode === "mobile";
   const isModernChrome = chromeMode === "modern" || chromeMode === "modern-embedded";
@@ -1083,57 +935,6 @@ export function PlayerApp({
         ? [...buildGamePlayingHelp(undoKeyBinding, action1KeyBinding, usesModernGameUi), ...GLOBAL_HELP]
         : [...buildGameEndedHelp(undoKeyBinding, action1KeyBinding, usesModernGameUi), ...GLOBAL_HELP];
 
-  useEffect(() => {
-    if (!isEmbeddedModernChrome) {
-      return;
-    }
-
-    setCatalog((current) => (
-      shouldSyncEmbeddedPlayerCatalog(current, initialCatalog)
-        ? initialCatalog
-        : current
-    ));
-  }, [initialCatalog, isEmbeddedModernChrome]);
-
-  const flushSessionUiSync = (nextSession: InteractiveGameSession | null) => {
-    if (pendingSessionUiSyncRef.current !== null) {
-      window.clearTimeout(pendingSessionUiSyncRef.current);
-      pendingSessionUiSyncRef.current = null;
-    }
-    lastSessionUiSyncAtRef.current = performance.now();
-    startTransition(() => {
-      setSession(nextSession);
-    });
-  };
-
-  const scheduleSessionUiSync = (
-    nextSession: InteractiveGameSession | null,
-    options: { immediate?: boolean } = {},
-  ) => {
-    liveSessionRef.current = nextSession;
-
-    if (!nextSession || options.immediate) {
-      flushSessionUiSync(nextSession);
-      return;
-    }
-
-    const now = performance.now();
-    const dueAt = lastSessionUiSyncAtRef.current + SESSION_UI_SYNC_INTERVAL_MS;
-    if (now >= dueAt) {
-      flushSessionUiSync(nextSession);
-      return;
-    }
-
-    if (pendingSessionUiSyncRef.current !== null) {
-      return;
-    }
-
-    pendingSessionUiSyncRef.current = window.setTimeout(() => {
-      pendingSessionUiSyncRef.current = null;
-      flushSessionUiSync(liveSessionRef.current);
-    }, Math.max(0, dueAt - now));
-  };
-
   const clearCurrentLevelLinkCopyFeedback = () => {
     if (currentLevelLinkCopyTimeoutRef.current !== null) {
       window.clearTimeout(currentLevelLinkCopyTimeoutRef.current);
@@ -1156,23 +957,8 @@ export function PlayerApp({
   useEffect(() => {
     return () => {
       clearCurrentLevelLinkCopyFeedback();
-
-      if (pendingSessionUiSyncRef.current !== null) {
-        window.clearTimeout(pendingSessionUiSyncRef.current);
-        pendingSessionUiSyncRef.current = null;
-      }
-
-      const activeSession = liveSessionRef.current;
-      if (!activeSession) {
-        return;
-      }
-
-      const engine = interactiveEngineForRuleset(activeSession.request.ruleset, engines);
-      void engine.disposeSession?.(activeSession).catch(() => {
-        // Ignore disposal failures during teardown.
-      });
     };
-  }, [engines]);
+  }, []);
 
   useEffect(() => {
     clearCurrentLevelLinkCopyFeedback();
@@ -1198,40 +984,6 @@ export function PlayerApp({
     saveStoredPlayerKeyBindingsSettings(settings);
     setPlayerKeyBindingsState(settings);
     onPlayerKeyBindingsChange?.(settings);
-  });
-
-  const currentActionModifierMask = useEffectEvent(() =>
-    action1ActiveRef.current ? GAME_INPUT_MODIFIER_MASKS.action1 : 0,
-  );
-
-  const resetAction1Input = useEffectEvent(() => {
-    action1ActiveRef.current = false;
-  });
-
-  useEffect(() => {
-    if (mode !== "game") {
-      setIsFastForwarding(false);
-      resetAction1Input();
-    }
-  }, [mode, resetAction1Input]);
-
-  const syncSoundForSession = useEffectEvent((nextSession: InteractiveGameSession | null) => {
-    const player = soundPlayerRef.current;
-    if (!player) {
-      return;
-    }
-
-    if (mode !== "game" || !nextSession || showHelp || isPaused) {
-      player.reset();
-      return;
-    }
-
-    player.syncFrame(
-      `${nextSession.request.seriesFile}:${nextSession.request.levelNumber}:${nextSession.request.ruleset}`,
-      nextSession.request.ruleset,
-      nextSession.frame.snapshot.tick,
-      nextSession.frame.snapshot.soundEffects,
-    );
   });
 
   useEffect(() => {
@@ -1327,96 +1079,6 @@ export function PlayerApp({
   }, [selectedLevelNumber, selectedSeriesFile]);
 
   useEffect(() => {
-    let active = true;
-
-    if (initialCatalogRef.current.length > 0) {
-      const resolvedSelection = resolveInitialSelection(initialCatalogRef.current, initialSelectionRef.current);
-      startTransition(() => {
-        setCatalog(initialCatalogRef.current);
-        commitLevelSeedOverrides(initialLevelSeedOverridesRef.current);
-        setSavedReplayEntries(initialReplayEntriesRef.current);
-        setSelectedSeriesFile(resolvedSelection?.seriesFile ?? null);
-        setSelectedLevelNumber(resolvedSelection?.levelNumber ?? null);
-        setMode(initialModeRef.current === "game" && resolvedSelection ? "game" : "series-list");
-        setMessage(null);
-        setIsCatalogLoading(false);
-      });
-    }
-
-    Promise.all([
-      loadBrowserPlayableCatalog(services),
-      loadPlayableSelection(selectionStore),
-      profileStore.loadLevelProgressSummaries(),
-      profileStore.loadReplayEntries(),
-      profileStore.loadLevelSeedOverrides(),
-    ])
-      .then(([nextCatalog, storedSelection, storedLevelProgressSummaries, storedReplayEntries, storedLevelSeedOverrides]) => {
-        if (!active) {
-          return;
-        }
-
-        const preferredSelection = currentSelectionRef.current ?? initialSelectionRef.current ?? storedSelection;
-        const resolvedSelection = resolveInitialSelection(nextCatalog, preferredSelection);
-        startTransition(() => {
-          setCatalog(nextCatalog);
-          setLevelProgressSummaries(storedLevelProgressSummaries);
-          commitLevelSeedOverrides(storedLevelSeedOverrides);
-          setSavedReplayEntries(storedReplayEntries);
-          setSelectedSeriesFile(resolvedSelection?.seriesFile ?? null);
-          setSelectedLevelNumber(resolvedSelection?.levelNumber ?? null);
-          setMode(initialModeRef.current === "game" && resolvedSelection ? "game" : "series-list");
-          setMessage(null);
-        });
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
-
-        setMessage(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (active) {
-          setIsCatalogLoading(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!selectedSeriesFile || !selectedLevelNumber) {
-      return;
-    }
-
-    void savePlayableSelection(selectionStore, {
-      seriesFile: selectedSeriesFile,
-      levelNumber: selectedLevelNumber,
-    }).catch((error: unknown) => {
-      setMessage(error instanceof Error ? error.message : String(error));
-    });
-  }, [selectedLevelNumber, selectedSeriesFile]);
-
-  useEffect(() => {
-    if (!selectedSeriesFile || !selectedLevelNumber || !onSelectionChange) {
-      return;
-    }
-
-    const nextSelectionKey = `${selectedSeriesFile}:${selectedLevelNumber}`;
-    if (notifiedSelectionKeyRef.current === nextSelectionKey) {
-      return;
-    }
-    notifiedSelectionKeyRef.current = nextSelectionKey;
-
-    onSelectionChange({
-      seriesFile: selectedSeriesFile,
-      levelNumber: selectedLevelNumber,
-    });
-  }, [onSelectionChange, selectedLevelNumber, selectedSeriesFile]);
-
-  useEffect(() => {
     if (mode !== "game" || !session || session.frame.snapshot.status === "playing") {
       recordedTerminalSessionRef.current = null;
     }
@@ -1491,516 +1153,9 @@ export function PlayerApp({
     session,
   ]);
 
-  useEffect(() => {
-    if (mode !== "game" || !selectedSeriesFile || !selectedLevelNumber) {
-      return;
-    }
-
-    // Do not restart an in-progress session just because the surrounding catalog
-    // finished hydrating. Only the selected series/ruleset/level should matter here.
-    if (!currentSeriesRuleset || !currentLevelExists) {
-      return;
-    }
-    if (currentSeriesRuleset === "None") {
-      setMode("series-list");
-      setMessage(`${selectedSeriesFile} does not declare a playable ruleset.`);
-      return;
-    }
-    let active = true;
-    const queuedReplay =
-      replayLaunchRequest &&
-      replayLaunchRequest.seriesFile === selectedSeriesFile &&
-      replayLaunchRequest.levelNumber === selectedLevelNumber
-        ? replayLaunchRequest
-        : null;
-    prepareForSessionTransition();
-    setIsSessionLoading(true);
-
-    const manualSeedOverride =
-      queuedReplay
-        ? null
-        : findLevelSeedOverride(levelSeedOverridesRef.current, {
-            seriesFile: selectedSeriesFile,
-            levelNumber: selectedLevelNumber,
-            ruleset: currentSeriesRuleset,
-          })?.randomSeed ?? null;
-
-    const request = {
-      seriesFile: selectedSeriesFile,
-      levelNumber: selectedLevelNumber,
-      ruleset: currentSeriesRuleset,
-      randomSeed: resolveLegacySessionRandomSeed(queuedReplay?.replay.randomSeed, Date.now(), manualSeedOverride),
-    } as const;
-    const manualSessionStartOptions =
-      currentSeriesRuleset === "MS"
-        ? {
-            ...undoStartOptionsRef.current,
-            msStepping: currentManualMsStepping,
-          }
-        : undoStartOptionsRef.current;
-
-    const sessionPromise = queuedReplay
-      ? measurePerfAsync("sessionLoadMs", () =>
-          startReplayInteractiveGameSession(
-            interactiveEngineForRuleset(currentSeriesRuleset, engines),
-            request,
-            queuedReplay.replay,
-            undoStartOptionsRef.current,
-          ),
-        )
-      : measurePerfAsync("sessionLoadMs", () =>
-          startInteractiveGameSession(
-            interactiveEngineForRuleset(currentSeriesRuleset, engines),
-            request,
-            manualSessionStartOptions,
-          ),
-        );
-
-    sessionPromise
-      .then((nextSession) => {
-        if (!active) {
-          disposeSessionIfOwned(nextSession);
-          return;
-        }
-
-        void profileStore.recordRecentSelection({
-          seriesFile: selectedSeriesFile,
-          levelNumber: selectedLevelNumber,
-        });
-        sessionStartedFromReplayRef.current = Boolean(queuedReplay) || nextSession.mode === "replay";
-        disposeSessionIfOwned(liveSessionRef.current);
-        scheduleSessionUiSync(nextSession, { immediate: true });
-        syncSoundForSession(nextSession);
-
-        startTransition(() => {
-          setManualRunStarted(nextSession.mode === "replay");
-          setIsRunning(nextSession.frame.snapshot.status === "playing");
-          setMessage(null);
-        });
-      })
-      .catch((error: unknown) => {
-        if (!active) {
-          return;
-        }
-
-        setMessage(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        if (active) {
-          setIsSessionLoading(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [
-    currentSeriesRuleset,
-    currentLevelExists,
-    currentManualMsStepping,
-    engines,
-    mode,
-    prepareForSessionTransition,
-    replayLaunchRequest,
-    reloadToken,
-    selectedLevelNumber,
-    selectedSeriesFile,
-  ]);
-
-  const advanceTick = useEffectEvent(async (input: InteractiveInput) => {
-    const activeSession = liveSessionRef.current;
-    if (mode !== "game" || !activeSession || tickingRef.current || isPaused) {
-      return;
-    }
-
-    tickingRef.current = true;
-    try {
-      const nextSession = await measurePerfAsync("tickMs", () =>
-        advanceInteractiveGameSession(
-          interactiveEngineForRuleset(activeSession.request.ruleset, engines),
-          activeSession,
-          input,
-        ),
-      );
-      if (liveSessionRef.current !== activeSession) {
-        return;
-      }
-      scheduleSessionUiSync(nextSession, {
-        immediate:
-          nextSession.frame.snapshot.status !== "playing" || nextSession.history.restoreMode !== "live",
-      });
-      syncSoundForSession(nextSession);
-      if (nextSession.frame.snapshot.status !== "playing") {
-        setIsRunning(false);
-      }
-    } catch (error: unknown) {
-      if (liveSessionRef.current !== activeSession) {
-        return;
-      }
-      setIsRunning(false);
-      setMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      tickingRef.current = false;
-    }
-  });
-
-  const syncSessionState = useEffectEvent((nextSession: InteractiveGameSession) => {
-    scheduleSessionUiSync(nextSession, { immediate: true });
-    syncSoundForSession(nextSession);
-    startTransition(() => {
-      setIsPaused(false);
-      setIsRunning(
-        nextSession.frame.snapshot.status === "playing" && nextSession.history.restoreMode !== "restored-paused",
-      );
-      setMessage(null);
-    });
-  });
-
-  const addSavedReplayEntry = useEffectEvent((entry: BrowserReplayEntry) => {
-    startTransition(() => {
-      setSavedReplayEntries((current) =>
-        [entry, ...current.filter((existing) => existing.id !== entry.id)].sort((left, right) => right.savedAtMs - left.savedAtMs),
-      );
-    });
-  });
-
   const dismissMessage = useEffectEvent(() => {
     setMessage(null);
   });
-
-  const saveReplayArtifactToLibrary = useEffectEvent(
-    async (
-      artifact: { bytes: Uint8Array; filename: string },
-      source: BrowserReplayEntry["source"],
-      options: {
-        finalScore?: number | null;
-        result?: BrowserReplayEntry["result"];
-        undoUsedCount?: number | null;
-      } = {},
-    ) => {
-      if (
-        !replayContextLevel ||
-        !replayContextSeries ||
-        (replayContextSeries.ruleset !== "MS" && replayContextSeries.ruleset !== "Lynx")
-      ) {
-        return null;
-      }
-
-      const storedEntry = await profileStore.saveReplayEntry({
-        fileName: artifact.filename,
-        seriesFile: replayContextSeries.filebase,
-        levelNumber: replayContextLevel.number,
-        levelName: replayContextLevel.name,
-        ruleset: replayContextSeries.ruleset,
-        source,
-        result: options.result ?? null,
-        finalScore: options.finalScore ?? null,
-        undoUsedCount: options.undoUsedCount ?? null,
-        bytes: artifact.bytes,
-      });
-      addSavedReplayEntry(storedEntry);
-      return storedEntry;
-    },
-  );
-
-  const launchReplayForSelection = useEffectEvent((selection: PlayableSelection, replay: ReplaySolutionPayload, replayName: string) => {
-    prepareForSessionTransition();
-    setReplayLaunchRequest({
-      levelNumber: selection.levelNumber,
-      replay,
-      replayName,
-      seriesFile: selection.seriesFile,
-      token: Date.now(),
-    });
-    setSelectedSeriesFile(selection.seriesFile);
-    setSelectedLevelNumber(selection.levelNumber);
-    setMode("game");
-  });
-
-  const watchSavedReplayEntry = useEffectEvent((entry: BrowserReplayEntry) => {
-    const decodedReplay = replayTransferCodec.inspect(entry.bytes);
-    if (!decodedReplay) {
-      setMessage(`${entry.fileName} is no longer a valid replay payload.`);
-      return;
-    }
-
-    launchReplayForSelection(
-      {
-        seriesFile: entry.seriesFile,
-        levelNumber: entry.levelNumber,
-      },
-      decodedReplay.payload,
-      entry.fileName,
-    );
-  });
-
-  const importReplayForCurrentLevel = useEffectEvent(async () => {
-    if (
-      !replayContextLevel ||
-      !replayContextSeries ||
-      (replayContextSeries.ruleset !== "MS" && replayContextSeries.ruleset !== "Lynx")
-    ) {
-      return;
-    }
-
-    try {
-      const imported = await importReplayForLevel(replayTransfer, replayContextLevel, {
-        ruleset: replayContextSeries.ruleset,
-      });
-      if (!imported) {
-        return;
-      }
-
-      const storedEntry = await saveReplayArtifactToLibrary(
-        {
-          bytes: imported.bytes,
-          filename: imported.fileName,
-        },
-        "imported-file",
-      );
-      setPendingReplayEntryId(storedEntry?.id ?? null);
-      setReplayLaunchRequest(null);
-      setIsPaused(false);
-      setReloadToken((value) => value + 1);
-      setMessage(
-        storedEntry
-          ? `Imported replay ${storedEntry.fileName}. Use Continue with Replay to watch it.`
-          : `Imported replay ${imported.fileName}. Use Continue with Replay to watch it.`,
-      );
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : String(error));
-    }
-  });
-
-  const continueFromReplay = useEffectEvent(() => {
-    if (continueReplayEntry) {
-      watchSavedReplayEntry(continueReplayEntry);
-      return;
-    }
-
-    if (canResumeOriginalTimeline) {
-      resumeOriginalTimeline();
-    }
-  });
-
-  const restoreToTick = useEffectEvent((targetTick: number | null) => {
-    const activeSession = liveSessionRef.current;
-    if (
-      targetTick === null ||
-      mode !== "game" ||
-      !activeSession ||
-      historyNavigationRef.current ||
-      targetTick === activeSession.history.currentTick
-    ) {
-      return;
-    }
-
-    historyNavigationRef.current = true;
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
-    setIsPaused(false);
-
-    void restoreInteractiveGameSession(
-      interactiveEngineForRuleset(activeSession.request.ruleset, engines),
-      activeSession,
-      targetTick,
-    )
-      .then((nextSession) => {
-        if (liveSessionRef.current !== activeSession) {
-          return;
-        }
-
-        syncSessionState(nextSession);
-      })
-      .catch((error: unknown) => {
-        if (liveSessionRef.current !== activeSession) {
-          return;
-        }
-
-        setMessage(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        historyNavigationRef.current = false;
-      });
-  });
-
-  const undoPreviousTick = useEffectEvent(() => {
-    restoreToTick(previousHistoryTick);
-  });
-
-  const undoPreviousTickBurst = useEffectEvent(() => {
-    restoreToTick(previousCoarseHistoryTick);
-  });
-
-  const undoPreviousCheckpoint = useEffectEvent(() => {
-    restoreToTick(previousHistoryCheckpointTick);
-  });
-
-  const performModernUndo = useEffectEvent((forHeldRepeat = false): boolean => {
-    const activeSession = liveSessionRef.current;
-    if (mode !== "game" || !activeSession || historyNavigationRef.current) {
-      return false;
-    }
-
-    const nextTarget = nextModernUndoTarget(activeSession);
-    if (!nextTarget) {
-      return false;
-    }
-
-    if (forHeldRepeat && nextTarget.mode !== "smooth") {
-      stopHeldUndo();
-      return false;
-    }
-
-    if (forHeldRepeat && !nextTarget.continueHolding) {
-      stopHeldUndo();
-    }
-
-    restoreToTick(nextTarget.targetTick);
-    return !forHeldRepeat && nextTarget.mode === "smooth" && nextTarget.continueHolding;
-  });
-
-  const resumeOriginalTimeline = useEffectEvent(() => {
-    const activeSession = liveSessionRef.current;
-    if (!canResumeOriginalTimeline || mode !== "game" || !activeSession || historyNavigationRef.current) {
-      return;
-    }
-
-    historyNavigationRef.current = true;
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
-    setIsPaused(false);
-
-    void resumeInteractiveGameSession(
-      interactiveEngineForRuleset(activeSession.request.ruleset, engines),
-      activeSession,
-    )
-      .then((nextSession) => {
-        if (liveSessionRef.current !== activeSession) {
-          return;
-        }
-
-        syncSessionState(nextSession);
-      })
-      .catch((error: unknown) => {
-        if (liveSessionRef.current !== activeSession) {
-          return;
-        }
-
-        setMessage(error instanceof Error ? error.message : String(error));
-      })
-      .finally(() => {
-        historyNavigationRef.current = false;
-      });
-  });
-
-  const stopHeldUndo = useEffectEvent(() => {
-    setHeldUndoMode(null);
-  });
-
-  const stepHeldUndo = useEffectEvent((nextMode: "coarse" | "fine" | "checkpoint") => {
-    if (usesModernGameUi) {
-      performModernUndo(true);
-      return;
-    }
-
-    if (nextMode === "checkpoint") {
-      undoPreviousCheckpoint();
-      return;
-    }
-
-    if (nextMode === "fine") {
-      undoPreviousTick();
-      return;
-    }
-
-    undoPreviousTickBurst();
-  });
-
-  const resumeOriginalTimelineFromSpace = useEffectEvent(() => {
-    setIsPaused(false);
-    setIsRunning(true);
-    resumeOriginalTimeline();
-  });
-
-  const resumeLivePlayFromRestore = useEffectEvent(() => {
-    setIsPaused(false);
-    setIsRunning(true);
-  });
-
-  const toggleModernPause = useEffectEvent(() => {
-    const activeSession = liveSessionRef.current;
-    if (!activeSession || isSessionLoading || (!isPaused && activeSession.frame.snapshot.status !== "playing")) {
-      return;
-    }
-
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
-    stopHeldUndo();
-    setIsFastForwarding(false);
-    setIsPaused((current) => !current);
-  });
-
-  useEffect(() => {
-    if (
-      mode !== "game" ||
-      !liveSessionRef.current ||
-      !isRunning ||
-      isPaused ||
-      showHelp ||
-      (liveSessionRef.current.mode === "manual" && !manualRunStarted)
-    ) {
-      return;
-    }
-
-    const tickIntervalMs = isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
-    let nextExpectedTickAtMs = performance.now() + tickIntervalMs;
-
-    const intervalId = window.setInterval(() => {
-      const now = performance.now();
-      const driftMs = Math.max(0, now - nextExpectedTickAtMs);
-      recordPerfMeasurement("loopDriftMs", driftMs);
-      nextExpectedTickAtMs += tickIntervalMs;
-      if (driftMs > tickIntervalMs * 4) {
-        nextExpectedTickAtMs = now + tickIntervalMs;
-      }
-
-      const activeSession = liveSessionRef.current;
-      if (!activeSession) {
-        return;
-      }
-
-      const inputCode =
-        activeSession.request.ruleset === "Lynx"
-          ? lynxInputBufferRef.current.nextTickInputCode(currentActionModifierMask())
-          : msInputBufferRef.current.nextTickInputCode(currentActionModifierMask());
-      void advanceTick(inputCode);
-    }, tickIntervalMs);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [advanceTick, isFastForwarding, isPaused, isRunning, manualRunStarted, mode, showHelp]);
-
-  useEffect(() => {
-    if (mode !== "game" || heldUndoMode === null || showHelp) {
-      return;
-    }
-
-    let intervalId: number | null = null;
-    const timeoutId = window.setTimeout(() => {
-      intervalId = window.setInterval(() => {
-        stepHeldUndo(heldUndoMode);
-      }, UNDO_HOLD_REPEAT_INTERVAL_MS);
-    }, UNDO_HOLD_REPEAT_DELAY_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      if (intervalId !== null) {
-        window.clearInterval(intervalId);
-      }
-    };
-  }, [heldUndoMode, mode, showHelp, stepHeldUndo]);
 
   useEffect(() => {
     if (!usesModernGameUi || !message) {
@@ -2227,7 +1382,7 @@ export function PlayerApp({
       return;
     }
 
-    resetGameplayInputBuffers();
+    resetGameplayInputBuffersRef.current();
     setIsPaused(false);
 
     const nextAction = resolveProceedAction(
@@ -2254,77 +1409,61 @@ export function PlayerApp({
         restartCurrentLevel();
     }
   });
-
-  const saveReplayForCurrentRun = useEffectEvent(async (options: { autoTriggered?: boolean } = {}) => {
-    if (!session || !replayContextLevel || !replayContextSeries) {
-      return;
-    }
-
-    try {
-      const artifact = buildReplayExport(replayContextSeries.filebase, replayContextLevel, session);
-      if (!artifact) {
-        if (options.autoTriggered) {
-          return;
-        }
-        throw new Error("no replay data is available for export yet");
-      }
-
-      const storedEntry = await saveReplayArtifactToLibrary(artifact, "saved-run", {
-        finalScore: session.run.result?.score?.finalScore ?? null,
-        result: session.run.result?.outcome ?? null,
-        undoUsedCount: session.run.undoUsedCount,
-      });
-      const downloadedCopy = autoDownloadReplaysOnSave;
-      if (downloadedCopy) {
-        await replayTransfer.exportReplay(artifact);
-      }
-      if (session.run.result) {
-        setReplaySaveNotice(
-          storedEntry
-            ? `${
-                options.autoTriggered ? "Auto-saved" : "Saved"
-              } replay as ${storedEntry.fileName}. Added to the library${downloadedCopy ? " and downloaded a copy" : ""}.`
-            : `Saved replay as ${artifact.filename}.`,
-        );
-      } else {
-        setMessage(
-          storedEntry
-            ? `Saved replay ${storedEntry.fileName} to the library${downloadedCopy ? " and downloaded a copy" : ""}.`
-            : `Saved replay for Level ${replayContextLevel.number}.`,
-        );
-      }
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : String(error));
-    }
-  });
-
-  const saveReplayForCurrentRunFromMenu = useEffectEvent(async () => {
-    setShowReplayMenu(false);
-    await saveReplayForCurrentRun();
-  });
-
-  const importReplayForCurrentLevelFromMenu = useEffectEvent(async () => {
-    setShowReplayMenu(false);
-    await importReplayForCurrentLevel();
-  });
-
-  const watchLatestReplayFromMenu = useEffectEvent(() => {
-    setShowReplayMenu(false);
-    if (latestCurrentReplayEntry) {
-      watchSavedReplayEntry(latestCurrentReplayEntry);
-    }
-  });
-
-  const openManageReplays = useEffectEvent(() => {
-    if (currentLevelReplayEntries.length === 0) {
-      return;
-    }
-
-    setMobileSheet(null);
-    setShowReplayMenu(false);
-    setShowAdvancedMenu(false);
-    setSelectedManagedReplayId(continueReplayEntry?.id ?? currentLevelReplayEntries[0]?.id ?? null);
-    setShowManageReplays(true);
+  const {
+    continueFromReplay,
+    copyCurrentLevelLink,
+    deleteReplayEntryFromLibrary,
+    downloadReplayEntry,
+    importLocalDatFiles,
+    importReplayForCurrentLevel,
+    importReplayForCurrentLevelFromMenu,
+    loadManagedReplay,
+    openManageReplays,
+    saveReplayForCurrentRun,
+    saveReplayForCurrentRunFromMenu,
+    watchLatestReplayFromMenu,
+    watchSavedReplayEntry,
+    closeManageReplays,
+  } = usePlayerAppReplayController({
+    autoDownloadReplaysOnSave,
+    services,
+    catalog,
+    currentSeries,
+    currentLevel,
+    currentRuleset,
+    replayContextSeries,
+    replayContextLevel,
+    currentLevelReplayEntries,
+    latestCurrentReplayEntry,
+    continueReplayEntry,
+    selectedManagedReplayId,
+    setSelectedManagedReplayId,
+    pendingReplayEntryId,
+    setPendingReplayEntryId,
+    setSavedReplayEntries,
+    setCatalog,
+    setMode,
+    setSelectedSeriesFile,
+    setSelectedLevelNumber,
+    setReplayLaunchRequest,
+    setIsPaused,
+    setReloadToken,
+    setMessage,
+    setReplaySaveNotice,
+    showManageReplays,
+    setShowManageReplays,
+    setShowReplayMenu,
+    setShowAdvancedMenu,
+    session,
+    canResumeOriginalTimeline,
+    resumeOriginalTimeline,
+    prepareForSessionTransition,
+    currentLevelLinkTargetKeyRef,
+    currentLevelLinkCopyButtonRef,
+    clearCurrentLevelLinkCopyFeedback,
+    setShowCurrentLevelLinkCopied,
+    currentLevelLinkCopyTimeoutRef,
+    currentLevelLinkCopyFeedbackMs: CURRENT_LEVEL_LINK_COPY_FEEDBACK_MS,
   });
 
   const applyLevelSeedOverride = useEffectEvent(async () => {
@@ -2374,50 +1513,6 @@ export function PlayerApp({
     restartCurrentLevel();
   });
 
-  const copyCurrentLevelLink = useEffectEvent(async () => {
-    if (!currentSeries || !currentLevel || !currentRuleset) {
-      return;
-    }
-
-    const copiedTargetKey = currentLevelLinkTargetKeyRef.current;
-    try {
-      const importedDatFiles = await profileStore.listImportedDatFiles();
-      const href = await buildUrlLaunchHref({
-        importedDatFiles,
-        levelNumber: currentLevel.number,
-        ruleset: currentRuleset,
-        seriesFile: currentSeries.filebase,
-      });
-      await copyTextToClipboard(href);
-      if (!copiedTargetKey || currentLevelLinkTargetKeyRef.current !== copiedTargetKey) {
-        return;
-      }
-      clearCurrentLevelLinkCopyFeedback();
-      setShowCurrentLevelLinkCopied(true);
-      currentLevelLinkCopyTimeoutRef.current = window.setTimeout(() => {
-        currentLevelLinkCopyTimeoutRef.current = null;
-        setShowCurrentLevelLinkCopied(false);
-      }, CURRENT_LEVEL_LINK_COPY_FEEDBACK_MS);
-      if (!currentLevelLinkCopyButtonRef.current) {
-        setMessage("Copied current level URL.");
-      }
-      currentLevelLinkCopyButtonRef.current?.animate?.(
-        [
-          { transform: "scale(1)" },
-          { transform: "scale(0.9)" },
-          { transform: "scale(1.14)" },
-          { transform: "scale(1)" },
-        ],
-        {
-          duration: 380,
-          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        },
-      );
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : String(error));
-    }
-  });
-
   const renderCurrentLevelLinkButton = () => (
     <div className="modern-game-header__title-action">
       <button
@@ -2443,68 +1538,9 @@ export function PlayerApp({
     </div>
   );
 
-  const closeManageReplays = useEffectEvent(() => {
-    setShowManageReplays(false);
-  });
-
-  useEffect(() => {
-    if (!showManageReplays) {
-      return;
-    }
-
-    if (currentLevelReplayEntries.length === 0) {
-      setShowManageReplays(false);
-      setSelectedManagedReplayId(null);
-      return;
-    }
-
-    if (!selectedManagedReplayId || !currentLevelReplayEntries.some((entry) => entry.id === selectedManagedReplayId)) {
-      setSelectedManagedReplayId(currentLevelReplayEntries[0]?.id ?? null);
-    }
-  }, [currentLevelReplayEntries, selectedManagedReplayId, showManageReplays]);
-
-  useEffect(() => {
-    if (pendingReplayEntryId && !currentLevelReplayEntries.some((entry) => entry.id === pendingReplayEntryId)) {
-      setPendingReplayEntryId(null);
-    }
-  }, [currentLevelReplayEntries, pendingReplayEntryId]);
-
-  const loadManagedReplay = useEffectEvent(() => {
-    if (!selectedManagedReplayRow) {
-      return;
-    }
-
-    setPendingReplayEntryId(selectedManagedReplayRow.entry.id);
-    setShowManageReplays(false);
-    setReplayLaunchRequest(null);
-    setIsPaused(false);
-    setReloadToken((value) => value + 1);
-  });
-
-  const downloadReplayEntry = useEffectEvent(async (entry: BrowserReplayEntry) => {
-    try {
-      await replayTransfer.exportReplay({
-        bytes: entry.bytes,
-        filename: entry.fileName,
-      });
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : String(error));
-    }
-  });
-
-  const deleteReplayEntryFromLibrary = useEffectEvent(async (entry: BrowserReplayEntry) => {
-    try {
-      await profileStore.deleteReplayEntry(entry.id);
-      startTransition(() => {
-        setSavedReplayEntries((current) => current.filter((existing) => existing.id !== entry.id));
-      });
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : String(error));
-    }
-  });
 
   const toggleHelp = useEffectEvent(() => {
-    resetGameplayInputBuffers();
+    resetGameplayInputBuffersRef.current();
     setMobileSheet(null);
     setShowReplayMenu(false);
     setShowSoundControls(false);
@@ -2513,8 +1549,8 @@ export function PlayerApp({
   });
 
   const closeHelp = useEffectEvent(() => {
-    resetGameplayInputBuffers();
-    stopHeldUndo();
+    resetGameplayInputBuffersRef.current();
+    stopHeldUndoRef.current();
     setShowHelp(false);
   });
 
@@ -2554,7 +1590,7 @@ export function PlayerApp({
   });
 
   const closeSoundControls = useEffectEvent(() => {
-    stopHeldUndo();
+    stopHeldUndoRef.current();
     setShowSoundControls(false);
   });
 
@@ -2565,7 +1601,7 @@ export function PlayerApp({
   });
 
   const closeHistoryControls = useEffectEvent(() => {
-    stopHeldUndo();
+    stopHeldUndoRef.current();
     setShowHistoryControls(false);
   });
 
@@ -2581,65 +1617,78 @@ export function PlayerApp({
     setSoundMuted(true);
   });
 
-  const importLocalDatFiles = useEffectEvent(async (files: readonly File[]) => {
-    const candidates = files.filter(isDatFile);
-    if (candidates.length === 0) {
-      setMessage("Only .dat files can be imported from local storage.");
-      return;
-    }
-    const existingFilenames = new Set(
-      catalog
-        .filter((entry) => entry.mapfilename.startsWith("local:"))
-        .map((entry) => entry.mapfilename.slice("local:".length)),
-    );
-
-    prepareForSessionTransition();
-    setReplayLaunchRequest(null);
-
-    const results = await Promise.allSettled(
-      candidates.map(async (file) => ({
-        file,
-        entries: await importDatFile(file),
-      })),
-    );
-
-    const successes = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
-    const failures = results.flatMap((result) =>
-      result.status === "rejected"
-        ? [result.reason instanceof Error ? result.reason.message : String(result.reason)]
-        : [],
-    );
-
-    if (successes.length === 0) {
-      setMessage(failures[0] ?? "Failed to import the selected DAT file.");
-      return;
-    }
-
-    const importedEntries = successes.flatMap(({ entries }) => entries);
-    const preferredRuleset =
-      currentRuleset ?? (currentSeries?.ruleset === "MS" || currentSeries?.ruleset === "Lynx" ? currentSeries.ruleset : "Lynx");
-    const selectedImport =
-      successes[0]?.entries.find((entry) => entry.ruleset === preferredRuleset) ?? successes[0]?.entries[0] ?? null;
-
-    startTransition(() => {
-      setCatalog((current) => mergeSeriesCatalogEntries(current, importedEntries));
-      setMode("series-list");
-      setSelectedSeriesFile(selectedImport?.filebase ?? null);
-      setSelectedLevelNumber(selectedImport?.levels[0]?.number ?? null);
-      setMessage(
-        describeLocalDatImportMessage({
-          existingFilenames,
-          failureMessages: failures,
-          successfulFilenames: successes.map(({ file }) => file.name),
-          variant: "classic",
-        }),
-      );
-    });
-  });
-
   const openDatPicker = useEffectEvent(() => {
     datFileInputRef.current?.click();
   });
+
+  const {
+    handleMobileDirectionPointerDown,
+    handleMobileDirectionPointerEnd,
+    handleModernMapClick,
+    preventMobileTouchDefault,
+    resetGameplayInputBuffers,
+    resetMobileDirectionalInputState,
+    stopHeldUndo,
+  } = usePlayerAppInputController({
+    mode,
+    selectedSeriesFile,
+    usesModernGameUi,
+    isMobileChrome,
+    isPaused,
+    isRunning,
+    isSessionLoading,
+    showHelp,
+    showSoundControls,
+    showHistoryControls,
+    showReplayMenu,
+    showAdvancedMenu,
+    showManageReplays,
+    mobileSheet,
+    message,
+    manualRunStarted,
+    setManualRunStarted,
+    setIsRunning,
+    isFastForwarding,
+    setIsFastForwarding,
+    heldUndoMode,
+    setHeldUndoMode,
+    undoKeyBinding,
+    action1KeyBinding,
+    allowTakeoverDuringHistoricalReplay: undoSettings.allowTakeoverDuringHistoricalReplay,
+    canResumeOriginalTimeline,
+    sessionStatus: session?.frame.snapshot.status,
+    liveSessionRef,
+    advanceTick,
+    performModernUndo,
+    resumeOriginalTimelineFromSpace,
+    resumeLivePlayFromRestore,
+    toggleModernPause,
+    undoPreviousCheckpoint,
+    undoPreviousTick,
+    undoPreviousTickBurst,
+    activateSeries,
+    changeSelectedSeriesBy,
+    jumpSelectedSeries,
+    proceedAfterLevelEnd,
+    restartCurrentLevel,
+    exitCurrentGame,
+    changeLevelBy,
+    jumpLevel,
+    toggleHelp,
+    closeHelp,
+    closeSoundControls,
+    closeHistoryControls,
+    setShowReplayMenu,
+    setShowAdvancedMenu,
+    focusGameplaySurface: () => {
+      gameplayFocusRef.current?.focus({ preventScroll: true });
+    },
+    unlockSound: () => {
+      soundPlayerRef.current?.unlock();
+    },
+  });
+  resetGameplayInputBuffersRef.current = resetGameplayInputBuffers;
+  stopHeldUndoRef.current = stopHeldUndo;
 
   useEffect(() => {
     if (showHelp) {
@@ -2792,421 +1841,6 @@ export function PlayerApp({
       window.removeEventListener("pointerdown", onPointerDown);
     };
   }, [showHistoryControls, showSoundControls]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const activeSession = liveSessionRef.current;
-      const editableKeyboardFocus = shouldBypassPlayerHotkeys(event.target, document.activeElement);
-      soundPlayerRef.current?.unlock();
-      setIsFastForwarding(isFastForwardModifierActive(mode, event));
-
-      if (editableKeyboardFocus) {
-        stopHeldUndo();
-        resetAction1Input();
-        msInputBufferRef.current.reset();
-        lynxInputBufferRef.current.reset();
-        return;
-      }
-
-      if (isSystemModifierKey(event.key)) {
-        resetAction1Input();
-        msInputBufferRef.current.reset();
-        lynxInputBufferRef.current.reset();
-      }
-
-      const hasBrowserShortcutModifier = event.altKey || event.ctrlKey || event.metaKey;
-      const isReservedModifiedHotkey =
-        isFineUndoKey(event, undoKeyBinding) || isFirstLevelKey(event) || isLastLevelKey(event);
-      if (hasBrowserShortcutModifier && !isReservedModifiedHotkey) {
-        return;
-      }
-
-      if (isHelpToggleKey(event)) {
-        event.preventDefault();
-        toggleHelp();
-        return;
-      }
-
-      if (showHelp) {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          closeHelp();
-        } else if (event.key !== "Tab") {
-          event.preventDefault();
-        }
-        return;
-      }
-
-      if (showSoundControls && event.key === "Escape") {
-        event.preventDefault();
-        closeSoundControls();
-        return;
-      }
-
-      if (showHistoryControls && event.key === "Escape") {
-        event.preventDefault();
-        closeHistoryControls();
-        return;
-      }
-
-      if (showReplayMenu && event.key === "Escape") {
-        event.preventDefault();
-        setShowReplayMenu(false);
-        return;
-      }
-
-      if (showAdvancedMenu && event.key === "Escape") {
-        event.preventDefault();
-        setShowAdvancedMenu(false);
-        return;
-      }
-
-      if (mode === "series-list") {
-        switch (event.key) {
-          case "ArrowUp":
-            event.preventDefault();
-            changeSelectedSeriesBy(-1);
-            return;
-          case "ArrowDown":
-            event.preventDefault();
-            changeSelectedSeriesBy(1);
-            return;
-          case "PageUp":
-            event.preventDefault();
-            changeSelectedSeriesBy(-10);
-            return;
-          case "PageDown":
-            event.preventDefault();
-            changeSelectedSeriesBy(10);
-            return;
-          case "Home":
-            event.preventDefault();
-            jumpSelectedSeries("first");
-            return;
-          case "End":
-            event.preventDefault();
-            jumpSelectedSeries("last");
-            return;
-          case "Enter":
-          case " ":
-          case "Spacebar":
-            event.preventDefault();
-            if (selectedSeriesFile) {
-              activateSeries(selectedSeriesFile);
-            }
-            return;
-          default:
-            return;
-        }
-      }
-
-      if (mode !== "game") {
-        return;
-      }
-
-      if (!isEditableKeyTarget(event.target) && !hasBlockedMovementModifier(event) && (isBrowserScrollKey(event.key) || keyToInput(event.key) !== null)) {
-        const activeElement = document.activeElement;
-        if (
-          activeElement instanceof HTMLElement &&
-          activeElement !== document.body &&
-          activeElement !== document.documentElement &&
-          !isEditableKeyTarget(activeElement)
-        ) {
-          activeElement.blur();
-        }
-        gameplayFocusRef.current?.focus({ preventScroll: true });
-      }
-
-      if (!isEditableKeyTarget(event.target) && !hasBlockedMovementModifier(event) && isBrowserScrollKey(event.key)) {
-        event.preventDefault();
-      }
-
-      if (usesModernGameUi && !isEditableKeyTarget(event.target) && isPauseToggleKey(event)) {
-        event.preventDefault();
-        toggleModernPause();
-        return;
-      }
-
-      if (isPaused) {
-        if (event.key === "Escape") {
-          event.preventDefault();
-          exitCurrentGame();
-          return;
-        }
-
-        if (isAction1Key(event, action1KeyBinding)) {
-          event.preventDefault();
-          action1ActiveRef.current = true;
-          return;
-        }
-
-        if (event.key !== "Tab") {
-          event.preventDefault();
-        }
-        return;
-      }
-
-      if (usesModernGameUi && activeSession?.history.enabled && isUndoKey(event, undoKeyBinding)) {
-        event.preventDefault();
-        if (event.repeat) {
-          return;
-        }
-        const continueHolding = performModernUndo(false);
-        setHeldUndoMode(continueHolding ? "coarse" : null);
-        return;
-      }
-
-      if (!usesModernGameUi && activeSession?.history.enabled && isUndoCheckpointKey(event, undoKeyBinding)) {
-        event.preventDefault();
-        if (event.repeat) {
-          return;
-        }
-        setHeldUndoMode("checkpoint");
-        undoPreviousCheckpoint();
-        return;
-      }
-
-      if (!usesModernGameUi && activeSession?.history.enabled && isFineUndoKey(event, undoKeyBinding)) {
-        event.preventDefault();
-        if (event.repeat) {
-          return;
-        }
-        setHeldUndoMode("fine");
-        undoPreviousTick();
-        return;
-      }
-
-      if (!usesModernGameUi && activeSession?.history.enabled && isUndoKey(event, undoKeyBinding)) {
-        event.preventDefault();
-        if (event.repeat) {
-          return;
-        }
-        setHeldUndoMode("coarse");
-        undoPreviousTickBurst();
-        return;
-      }
-
-      if (canResumeOriginalTimeline && (event.key === " " || event.key === "Spacebar")) {
-        event.preventDefault();
-        resumeOriginalTimelineFromSpace();
-        return;
-      }
-
-      const startClockKey =
-        activeSession?.mode === "manual" &&
-        !manualRunStarted &&
-        !hasBlockedMovementModifier(event) &&
-        (event.key === " " || event.key === "Spacebar" || keyToInput(event.key) !== null);
-      if (startClockKey) {
-        event.preventDefault();
-        setManualRunStarted(true);
-      }
-
-      if (activeSession && activeSession.frame.snapshot.status !== "playing" && isProceedKey(event.key)) {
-        event.preventDefault();
-        proceedAfterLevelEnd();
-        return;
-      }
-
-      if (usesModernGameUi && activeSession && activeSession.frame.snapshot.status !== "playing" && event.key === "Escape") {
-        event.preventDefault();
-        restartCurrentLevel();
-        return;
-      }
-
-      if (event.key === "Escape") {
-        event.preventDefault();
-        exitCurrentGame();
-        return;
-      }
-
-      if (isRestartLevelKey(event)) {
-        event.preventDefault();
-        restartCurrentLevel();
-        return;
-      }
-
-      if (isPrevLevelKey(event)) {
-        event.preventDefault();
-        changeLevelBy(-1);
-        return;
-      }
-
-      if (isNextLevelKey(event)) {
-        event.preventDefault();
-        changeLevelBy(1);
-        return;
-      }
-
-      if (isFirstLevelKey(event)) {
-        event.preventDefault();
-        jumpLevel("first");
-        return;
-      }
-
-      if (isLastLevelKey(event)) {
-        event.preventDefault();
-        jumpLevel("last");
-        return;
-      }
-
-      const input = keyToInput(event.key);
-      if (
-        activeSession?.history.restoreMode === "replaying-history" &&
-        !undoSettings.allowTakeoverDuringHistoricalReplay &&
-        (input !== null || event.key === " " || event.key === "Spacebar")
-      ) {
-        event.preventDefault();
-        return;
-      }
-      if ((event.key === " " || event.key === "Spacebar") && activeSession?.mode === "manual") {
-        event.preventDefault();
-        if (activeSession.history.restoreMode === "restored-paused") {
-          resumeLivePlayFromRestore();
-        }
-        return;
-      }
-
-      if (isAction1Key(event, action1KeyBinding)) {
-        event.preventDefault();
-        action1ActiveRef.current = true;
-        return;
-      }
-
-      if (!input) {
-        return;
-      }
-
-      if (hasBlockedMovementModifier(event)) {
-        event.preventDefault();
-        resetAction1Input();
-        msInputBufferRef.current.reset();
-        lynxInputBufferRef.current.reset();
-        return;
-      }
-
-      event.preventDefault();
-      applyDirectionalInputPress(input);
-    };
-
-    const onKeyUp = (event: KeyboardEvent) => {
-      const editableKeyboardFocus = shouldBypassPlayerHotkeys(event.target, document.activeElement);
-      setIsFastForwarding(isFastForwardModifierActive(mode, event));
-
-      if (mode !== "game") {
-        return;
-      }
-
-      if (editableKeyboardFocus) {
-        stopHeldUndo();
-        resetAction1Input();
-        msInputBufferRef.current.reset();
-        lynxInputBufferRef.current.reset();
-        return;
-      }
-
-      if (isSystemModifierKey(event.key)) {
-        resetAction1Input();
-        msInputBufferRef.current.reset();
-        lynxInputBufferRef.current.reset();
-        return;
-      }
-
-      if (isAction1Key(event, action1KeyBinding)) {
-        action1ActiveRef.current = false;
-      }
-
-      if (isPaused) {
-        return;
-      }
-
-      if (isUndoKey(event, undoKeyBinding) || isUndoCheckpointKey(event, undoKeyBinding) || isFineUndoKey(event, undoKeyBinding)) {
-        stopHeldUndo();
-      }
-
-      const input = keyToInput(event.key);
-      if (input) {
-        event.preventDefault();
-        applyDirectionalInputRelease(input);
-      }
-    };
-
-    const onKeyPress = (event: KeyboardEvent) => {
-      if (mode !== "game") {
-        return;
-      }
-
-      if (!shouldBypassPlayerHotkeys(event.target, document.activeElement) && !hasBlockedMovementModifier(event) && isBrowserScrollKey(event.key)) {
-        event.preventDefault();
-      }
-    };
-
-    const onPointerDown = (event: PointerEvent) => {
-      soundPlayerRef.current?.unlock();
-      setIsFastForwarding(isFastForwardModifierActive(mode, event));
-    };
-
-    const onWindowBlur = () => {
-      setIsFastForwarding(false);
-      stopHeldUndo();
-      resetAction1Input();
-      resetMobileDirectionalInputState();
-      msInputBufferRef.current.reset();
-      lynxInputBufferRef.current.reset();
-    };
-
-    window.addEventListener("keydown", onKeyDown, { capture: true });
-    window.addEventListener("keypress", onKeyPress, { capture: true });
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("blur", onWindowBlur);
-
-    return () => {
-      window.removeEventListener("keydown", onKeyDown, true);
-      window.removeEventListener("keypress", onKeyPress, true);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("blur", onWindowBlur);
-    };
-  }, [
-    activateSeries,
-    canTogglePause,
-    canResumeOriginalTimeline,
-    changeLevelBy,
-    changeSelectedSeriesBy,
-    applyDirectionalInputPress,
-    applyDirectionalInputRelease,
-    closeHelp,
-    exitCurrentGame,
-    closeHistoryControls,
-    jumpLevel,
-    jumpSelectedSeries,
-    usesModernGameUi,
-    isPaused,
-    mode,
-    proceedAfterLevelEnd,
-    resetMobileDirectionalInputState,
-    resumeLivePlayFromRestore,
-    resumeOriginalTimelineFromSpace,
-    selectedSeriesFile,
-    showAdvancedMenu,
-    showHistoryControls,
-    showReplayMenu,
-    showSoundControls,
-    showHelp,
-    closeSoundControls,
-    action1KeyBinding,
-    undoKeyBinding,
-    resetAction1Input,
-    stopHeldUndo,
-    stepHeldUndo,
-    toggleHelp,
-    toggleModernPause,
-    undoPreviousCheckpoint,
-    undoPreviousTickBurst,
-    undoPreviousTick,
-    undoSettings.allowTakeoverDuringHistoricalReplay,
-  ]);
 
   const helpOverlay = showHelp ? (
     <div
@@ -4243,27 +2877,6 @@ export function PlayerApp({
           Lynx: resolveSetFamilySelection(currentFamily, "Lynx", currentLevel.number),
         }
       : { MS: null, Lynx: null };
-  const handleModernMapClick = useEffectEvent((position: number) => {
-    if (
-      mode !== "game" ||
-      !session ||
-      isPaused ||
-      session.mode !== "manual" ||
-      session.request.ruleset !== "MS" ||
-      session.frame.snapshot.status !== "playing" ||
-      (session.history.restoreMode === "replaying-history" && !undoSettings.allowTakeoverDuringHistoricalReplay)
-    ) {
-      return;
-    }
-
-    msInputBufferRef.current.queueAbsoluteMouseMove(position, currentActionModifierMask());
-    if (!manualRunStarted) {
-      setManualRunStarted(true);
-    }
-    if (!isRunning) {
-      setIsRunning(true);
-    }
-  });
   const renderModernRulesetToggle = (keyPrefix: string) => (
     <div className="modern-ruleset-toggle modern-ruleset-toggle--stacked" role="group" aria-label="Ruleset">
       {(["Lynx", "MS"] as const).map((ruleset) => {
@@ -4383,32 +2996,6 @@ export function PlayerApp({
       </div>
     </section>
   );
-  const handleMobileDirectionPointerDown = useEffectEvent((
-    direction: DirectionInput,
-    event: ReactPointerEvent<HTMLElement>,
-  ) => {
-    if (mobileMovementControlsDisabled) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    applyMobileDirectionalInputChanges(
-      mobileDirectionalInputRef.current.assignPointer(event.pointerId, direction),
-    );
-  });
-  const handleMobileDirectionPointerEnd = useEffectEvent((event: ReactPointerEvent<HTMLElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    applyMobileDirectionalInputChanges(
-      mobileDirectionalInputRef.current.releasePointer(event.pointerId),
-    );
-  });
-  const preventMobileTouchDefault = useEffectEvent((event: ReactTouchEvent<HTMLElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-  });
   const renderMobileTouchButton = (direction: DirectionInput, label: string, modifierClassName: string, arrow: string) => (
     <div
       aria-hidden="true"
@@ -5399,27 +3986,7 @@ export function PlayerApp({
         liveSessionRef={liveSessionRef}
         message={message}
         mode={mode}
-        onMapClick={(position) => {
-          if (
-            mode !== "game" ||
-            !session ||
-            session.mode !== "manual" ||
-            session.request.ruleset !== "MS" ||
-            session.frame.snapshot.status !== "playing" ||
-            (session.history.restoreMode === "replaying-history" &&
-              !undoSettings.allowTakeoverDuringHistoricalReplay)
-          ) {
-            return;
-          }
-
-          msInputBufferRef.current.queueAbsoluteMouseMove(position, currentActionModifierMask());
-          if (!manualRunStarted) {
-            setManualRunStarted(true);
-          }
-          if (!isRunning) {
-            setIsRunning(true);
-          }
-        }}
+        onMapClick={handleModernMapClick}
         onActivateSeries={activateSeries}
         onDatDrop={(files) => {
           void importLocalDatFiles(files);

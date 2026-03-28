@@ -62,7 +62,7 @@ Highest-value cleanup targets:
 ## PR Plan
 
 - [x] PR1: Safety Net For Structural Cleanup
-- [ ] PR2: PlayerApp Application Controller Split
+- [x] PR2: PlayerApp Application Controller Split
 - [ ] PR3: Modern Dashboard Shell Split
 - [ ] PR4: Legacy Canvas Render Pipeline Split
 - [ ] PR5: Shared Interactive Adapter Skeleton
@@ -105,8 +105,9 @@ Goal:
 Progress:
 
 - [x] extract selection and navigation controller rules into a dedicated tested module
-- [ ] extract session lifecycle and runtime sync controller
-- [ ] extract keyboard/mobile input and replay/import action controllers
+- [x] extract catalog and persistence sync controller
+- [x] extract session lifecycle and runtime sync controller
+- [x] extract keyboard/mobile input and replay/import action controllers
 
 ### PR3: Modern Dashboard Shell Split
 
