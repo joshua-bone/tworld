@@ -16,7 +16,13 @@ describe("lynx chipInput", () => {
       {
         probeMove: (probeDir) => ({
           canMove: probeDir === MS_DIRECTION.north,
+          canEnter: probeDir === MS_DIRECTION.north,
+          canPush: false,
+          willCollide: false,
+          pushStopsBeforeEntry: false,
           pushBlockPos: null,
+          targetPos: null,
+          tileId: MS_TILE.Empty,
         }),
         isDormantBlockAt: () => false,
       },
@@ -32,7 +38,13 @@ describe("lynx chipInput", () => {
       {
         probeMove: (probeDir) => ({
           canMove: probeDir === MS_DIRECTION.east,
+          canEnter: probeDir === MS_DIRECTION.east,
+          canPush: probeDir === MS_DIRECTION.east,
+          willCollide: false,
+          pushStopsBeforeEntry: false,
           pushBlockPos: probeDir === MS_DIRECTION.east ? 17 : null,
+          targetPos: probeDir === MS_DIRECTION.east ? 17 : null,
+          tileId: MS_TILE.Empty,
         }),
         isDormantBlockAt: (pos) => pos === 17,
       },

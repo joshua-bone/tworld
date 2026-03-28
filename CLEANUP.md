@@ -260,11 +260,11 @@ Goal:
 
 Checklist:
 
-- [ ] stop treating non-block claimed cells as a generic special case
-- [ ] route chip move probing through occupancy + interaction hooks
-- [ ] make “can enter”, “can push”, and “will collide” explicit outcomes
-- [ ] support directional interaction overrides
-- [ ] keep replay and diagonal-input semantics unchanged under characterization
+- [x] stop treating non-block claimed cells as a generic special case
+- [x] route chip move probing through occupancy + interaction hooks
+- [x] make “can enter”, “can push”, and “will collide” explicit outcomes
+- [x] support directional interaction overrides
+- [x] keep replay and diagonal-input semantics unchanged under characterization
 
 Success condition:
 

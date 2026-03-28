@@ -1,11 +1,9 @@
 import { decodeRuntimeInputCode } from "@game-core/api/command";
 import { isDiagonalInput, isDirectionalInput } from "@game-core/impl/grid";
+import type { LynxChipMoveDirectionProbe } from "@ruleset-lynx/impl/chipMoveProbe";
 import type { LynxMoveKind } from "@ruleset-lynx/impl/verticalMovement";
 
-export interface LynxChipMoveProbe {
-  canMove: boolean;
-  pushBlockPos: number | null;
-}
+export type LynxChipMoveProbe = LynxChipMoveDirectionProbe;
 
 export interface LynxChipInputDirectionResolver {
   probeMove(dir: number): LynxChipMoveProbe;

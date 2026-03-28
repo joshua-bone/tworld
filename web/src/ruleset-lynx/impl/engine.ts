@@ -53,7 +53,6 @@ import {
   type CollisionResult,
   type MovementAttemptResult,
 } from "@game-core/api/movementOutcomes";
-import { ACTOR_INTERACTION_TARGET_KIND } from "@game-core/api/actorInteractions";
 import { hasVerticalSupport } from "@game-core/api/verticalMovement";
 import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
@@ -98,6 +97,7 @@ import {
   lynxChipTargetCellAllowsEntry,
   lynxChipTargetCellAllowsPush,
   lynxChipTargetCellStopsOnPush,
+  probeLynxChipMoveDirectionWithContext,
   probeLynxChipTargetCell,
 } from "@ruleset-lynx/impl/chipMoveProbe";
 import {
@@ -188,6 +188,7 @@ import {
   lynxActorCollisionOutcome,
   lynxActorHazardOutcome,
   lynxActorInteractionOutcome,
+  lynxInteractionTargetFromOccupancy,
   lynxActorThiefOutcome,
 } from "@ruleset-lynx/impl/actorInteractions";
 import {
@@ -323,39 +324,6 @@ function queryLynxOccupancyOnLayer(
     pos,
     z,
   );
-}
-
-function lynxInteractionTargetFromOccupancy(target: OccupancyTarget<{ id: number }, unknown>) {
-  switch (target.kind) {
-    case OCCUPANCY_TARGET_KIND.runtimeActor:
-      return {
-        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
-        actorId: target.runtimeActor?.id ?? MS_TILE.Empty,
-        tileId: target.tileId,
-      } as const;
-    case OCCUPANCY_TARGET_KIND.chip:
-      return {
-        kind: ACTOR_INTERACTION_TARGET_KIND.chip,
-        actorId: MS_TILE.Chip,
-        tileId: target.tileId,
-      } as const;
-    case OCCUPANCY_TARGET_KIND.portableItem:
-      return {
-        kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
-        tileId:
-          typeof target.portableItem === "object" &&
-          target.portableItem !== null &&
-          "tileId" in target.portableItem &&
-          typeof target.portableItem.tileId === "number"
-            ? target.portableItem.tileId
-            : target.tileId,
-      } as const;
-    default:
-      return {
-        kind: ACTOR_INTERACTION_TARGET_KIND.empty,
-        tileId: target.tileId,
-      } as const;
-  }
 }
 
 export interface LynxRuntimeActor {
@@ -1502,52 +1470,31 @@ function probeLynxChipMoveDirection(
   actors: LynxRuntimeActor[],
   chipPos: number,
   dir: number,
-): { canMove: boolean; pushBlockPos: number | null } {
-  if (!canLynxExitTile(state, topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), MS_TILE.Chip, dir, false)) {
-    return { canMove: false, pushBlockPos: null };
-  }
-  const targetStep = advanceToCell(state.map.cells, chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-  if (!targetStep) {
-    return { canMove: false, pushBlockPos: null };
-  }
-  const { pos: targetPos, cell: target } = targetStep;
-  const targetOccupancy = queryLynxOccupancyOnLayer(state, actors, targetPos);
-
-  if (targetOccupancy.claimed) {
-    const block =
-      targetOccupancy.kind === OCCUPANCY_TARGET_KIND.runtimeActor && targetOccupancy.runtimeActor?.id === MS_TILE.Block
-        ? targetOccupancy.runtimeActor
-        : null;
-    if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
-      return { canMove: false, pushBlockPos: null };
-    }
-    const targetProbe = probeLynxChipTargetCellForState(state, targetPos, dir, true);
-    if (!lynxChipTargetCellAllowsPush(targetProbe)) {
-      return { canMove: false, pushBlockPos: null };
-    }
-    const canPush = canLynxRuntimeActorStartMovement(
+) {
+  return probeLynxChipMoveDirectionWithContext(
+    {
       state,
-      actors,
-      block,
-      dir,
-      isLynxHeldOpenTrapBlock(state, level, actors, block),
-    );
-    if (lynxChipTargetCellStopsOnPush(targetProbe)) {
-      return {
-        canMove: false,
-        pushBlockPos: canPush ? targetPos : null,
-      };
-    }
-    return {
-      canMove: canPush,
-      pushBlockPos: canPush ? targetPos : null,
-    };
-  }
-
-  return {
-    canMove: canLynxChipEnterCell(state, targetPos, dir),
-    pushBlockPos: null,
-  };
+      chipPos,
+      canExit: (probeDir) =>
+        canLynxExitTile(state, topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), MS_TILE.Chip, probeDir, false),
+      queryTargetOccupancy: (targetPos) => queryLynxOccupancyOnLayer(state, actors, targetPos),
+      probeTargetCell: (targetPos, probeDir, claimedCell) =>
+        probeLynxChipTargetCellForState(state, targetPos, probeDir, claimedCell),
+      interactionOutcome: (target) => lynxActorInteractionOutcome(MS_TILE.Chip, target),
+      canPushBlock: (block, probeDir) =>
+        !block.hidden &&
+        block.moving <= 0 &&
+        (!block.deferPush || lynxChipRuntime(state).chipTeleported) &&
+        canLynxRuntimeActorStartMovement(
+          state,
+          actors,
+          block,
+          probeDir,
+          isLynxHeldOpenTrapBlock(state, level, actors, block),
+        ),
+    },
+    dir,
+  );
 }
 
 function markPendingLynxChipPush(
@@ -2368,12 +2315,17 @@ function resolveLynxChipCollision(
   }
 
   const collisionOutcome = lynxActorInteractionOutcome(MS_TILE.Chip, {
-    kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
-    actorId: collision.actor?.id ?? MS_TILE.Empty,
-    tileId: collision.actor?.id ?? MS_TILE.Empty,
-    movingDir: chipDir,
-    targetDir: collision.actor?.dir ?? MS_DIRECTION.none,
-    sameDirection: collision.actor?.dir === chipDir,
+    ...lynxInteractionTargetFromOccupancy(
+      {
+        kind: OCCUPANCY_TARGET_KIND.runtimeActor,
+        pos: chipPos,
+        z: activeLynxLayerZ(state),
+        tileId: collision.actor?.id ?? MS_TILE.Empty,
+        claimed: false,
+        runtimeActor: collision.actor ?? undefined,
+      },
+      chipDir,
+    ),
   });
   if (!collisionOutcome.chipFails) {
     return {

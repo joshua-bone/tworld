@@ -12,6 +12,10 @@ import {
   type ActorHeldFloorOutcome,
   type ActorThiefOutcome,
 } from "@game-core/api/actorInteractions";
+import {
+  OCCUPANCY_TARGET_KIND,
+  type OccupancyTarget,
+} from "@game-core/impl/occupancy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   lynxActorClonerHook,
@@ -24,6 +28,15 @@ import {
 
 function isLynxChipActor(actorId: number): boolean {
   return actorId === MS_TILE.Chip || actorId === MS_TILE.Swimming_Chip || actorId === MS_TILE.Pushing_Chip;
+}
+
+export interface LynxInteractionTargetActorRef {
+  id: number;
+  dir?: number;
+}
+
+export interface LynxInteractionTargetPortableItemRef {
+  tileId?: number;
 }
 
 function lynxInteractionTargetActorId(target: ActorInteractionTarget): number {
@@ -59,6 +72,50 @@ export function lynxActorCollisionOutcome(
     kind: isLynxChipActor(targetActorId) ? ACTOR_INTERACTION_TARGET_KIND.chip : ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
     actorId: targetActorId,
   });
+}
+
+export function lynxInteractionTargetFromOccupancy(
+  target: OccupancyTarget<LynxInteractionTargetActorRef, unknown>,
+  movingDir = 0,
+): ActorInteractionTarget {
+  switch (target.kind) {
+    case OCCUPANCY_TARGET_KIND.runtimeActor: {
+      const targetDir = target.runtimeActor?.dir ?? 0;
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: target.runtimeActor?.id ?? MS_TILE.Empty,
+        tileId: target.tileId,
+        movingDir,
+        targetDir,
+        sameDirection: movingDir !== 0 && targetDir !== 0 && movingDir === targetDir,
+      };
+    }
+    case OCCUPANCY_TARGET_KIND.chip:
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.chip,
+        actorId: MS_TILE.Chip,
+        tileId: target.tileId,
+        movingDir,
+      };
+    case OCCUPANCY_TARGET_KIND.portableItem:
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
+        tileId:
+          typeof target.portableItem === "object" &&
+          target.portableItem !== null &&
+          "tileId" in target.portableItem &&
+          typeof target.portableItem.tileId === "number"
+            ? target.portableItem.tileId
+            : target.tileId,
+        movingDir,
+      };
+    default:
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.empty,
+        tileId: target.tileId,
+        movingDir,
+      };
+  }
 }
 
 export function lynxActorHazardOutcome(tileId: number, actorId: number): ActorHazardOutcome {

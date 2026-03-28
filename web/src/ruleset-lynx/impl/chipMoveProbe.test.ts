@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
+import { noActorCollisionOutcome } from "@game-core/api/actorInteractions";
+import { OCCUPANCY_TARGET_KIND } from "@game-core/impl/occupancy";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
   LYNX_CHIP_TARGET_CELL_PROBE,
+  probeLynxChipMoveDirectionWithContext,
   lynxChipTargetCellAllowsEntry,
   lynxChipTargetCellAllowsPush,
   lynxChipTargetCellStopsOnPush,
@@ -91,5 +94,88 @@ describe("probeLynxChipTargetCell", () => {
     const state = makeState(makeCell(MS_TILE.Empty, LYNX_CELL_FLAG.Animated));
 
     expect(probeLynxChipTargetCell(state, 0, MS_DIRECTION.east).status).toBe(LYNX_CHIP_TARGET_CELL_PROBE.blocked);
+  });
+});
+
+describe("probeLynxChipMoveDirectionWithContext", () => {
+  it("allows entry into claimed non-block cells", () => {
+    const state = makeState(makeCell(MS_TILE.Empty));
+    state.map.cells[1] = {
+      ...makeCell(MS_TILE.Empty, LYNX_CELL_FLAG.Claimed),
+      position: { x: 1, y: 0, z: 1, pos: 1 },
+    };
+
+    const probe = probeLynxChipMoveDirectionWithContext(
+      {
+        state,
+        chipPos: 0,
+        canExit: () => true,
+        queryTargetOccupancy: (pos) => ({
+          kind: OCCUPANCY_TARGET_KIND.empty,
+          pos,
+          z: 1,
+          tileId: MS_TILE.Empty,
+          claimed: true,
+        }),
+        probeTargetCell: (pos, dir, claimedCell) => probeLynxChipTargetCell(state, pos, dir, { claimedCell }),
+        interactionOutcome: () => noActorCollisionOutcome(),
+        canPushBlock: () => false,
+      },
+      MS_DIRECTION.east,
+    );
+
+    expect(probe.canEnter).toBe(true);
+    expect(probe.canMove).toBe(true);
+    expect(probe.willCollide).toBe(false);
+  });
+
+  it("exposes collision intent through the interaction seam", () => {
+    const state = makeState(makeCell(MS_TILE.Empty));
+    state.map.cells[1] = {
+      ...makeCell(MS_TILE.Empty),
+      position: { x: 1, y: 0, z: 1, pos: 1 },
+    };
+
+    let sameDirection = false;
+    const probe = probeLynxChipMoveDirectionWithContext(
+      {
+        state,
+        chipPos: 0,
+        canExit: () => true,
+        queryTargetOccupancy: (pos) => ({
+          kind: OCCUPANCY_TARGET_KIND.runtimeActor,
+          pos,
+          z: 1,
+          tileId: MS_TILE.BowlingBall,
+          claimed: false,
+          runtimeActor: {
+            id: MS_TILE.BowlingBall,
+            dir: MS_DIRECTION.east,
+            hidden: false,
+            moving: 0,
+            deferPush: false,
+          },
+        }),
+        probeTargetCell: (pos, dir, claimedCell) => probeLynxChipTargetCell(state, pos, dir, { claimedCell }),
+        interactionOutcome: (target) => {
+          sameDirection = target.sameDirection === true;
+          return {
+            chipFails: true,
+            denyMove: false,
+            removeMovingActor: false,
+            removeTargetActor: true,
+            preserveTarget: false,
+            consumeTarget: false,
+            transformTargetTileId: null,
+          };
+        },
+        canPushBlock: () => false,
+      },
+      MS_DIRECTION.east,
+    );
+
+    expect(sameDirection).toBe(true);
+    expect(probe.canEnter).toBe(true);
+    expect(probe.willCollide).toBe(true);
   });
 });
