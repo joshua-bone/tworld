@@ -321,13 +321,14 @@ Good:
 - tick phases are easier to follow
 - floor queue work was worth extracting
 - portable-item and vertical seams are usable
+- chip arrival now has a dedicated helper seam
 
 Problems that still matter:
 
 - `chooseCreatureDirection` is still a dense creature-AI switch and should move behind a dedicated controller helper
 - `runFloorMovement` still mixes all chip forced/vertical movement behavior
 - `activateCloner` still hand-builds clone state in engine code
-- chip arrival and movement start are still partially open-coded in engine helpers
+- chip movement start is still partially open-coded in engine helpers
 
 ### Lynx Engine
 
@@ -336,11 +337,11 @@ Good:
 - tick runner is much clearer than before
 - chip input resolution was a good extraction
 - shared phase recording removed a bad duplication seam
+- chip target-cell probing now has a dedicated helper seam
 
 Problems that still matter:
 
 - `runLynxChipMovementPhase` is still the biggest local complexity sink
-- `canLynxChipEnterCell` and `canLynxChipPushIntoClaimedCell` duplicate logic and should become probe variants of the same seam
 - `resolveLynxActorTeleport` and `resolveLynxChipTeleport` should move into a dedicated teleport module
 - cloner and trap activation should leave the engine hot path
 
@@ -395,7 +396,23 @@ Problems that still matter:
 
 ## Recommended Roadmap
 
-### EC10: Movement Probe And Arrival Split
+### Progress
+
+- [x] EC10: Movement Probe And Arrival Split
+- [ ] EC11: Teleport, Trap, And Cloner Modules
+- [ ] EC12: Actor Controller Seams
+- [ ] EC13: Generalize Actor-Owned Collection And Global Progress
+- [ ] EC14: Portable Item Activation Lifecycle
+- [ ] EC15: Runtime State Decomposition
+- [ ] EC16: Test DSL And Builder Cleanup
+
+### [x] EC10: Movement Probe And Arrival Split
+
+Done:
+
+- MS chip entered-tile handling now lives behind a dedicated chip-arrival helper with focused unit coverage.
+- Lynx chip target-cell probing now lives behind a dedicated helper with focused unit coverage.
+- Lynx push preview side effects were moved out of the generic probe and into the call sites that actually need them.
 
 Goal:
 
@@ -413,7 +430,7 @@ Expected outcome:
 - better step-down flow
 - cleaner blocked-move and arrival extension points
 
-### EC11: Teleport, Trap, And Cloner Modules
+### [ ] EC11: Teleport, Trap, And Cloner Modules
 
 Goal:
 
@@ -429,7 +446,7 @@ Expected outcome:
 - boundary conditions become local
 - ruleset-specific differences stay isolated instead of scattered
 
-### EC12: Actor Controller Seams
+### [ ] EC12: Actor Controller Seams
 
 Goal:
 
@@ -445,7 +462,7 @@ Expected outcome:
 - cleaner AI/control extension points
 - direct preparation for fake players and more specialized actors
 
-### EC13: Generalize Actor-Owned Collection And Global Progress
+### [ ] EC13: Generalize Actor-Owned Collection And Global Progress
 
 Goal:
 
@@ -464,7 +481,7 @@ Expected outcome:
   - portable-item state
   - global progress
 
-### EC14: Portable Item Activation Lifecycle
+### [ ] EC14: Portable Item Activation Lifecycle
 
 Goal:
 
@@ -484,7 +501,7 @@ Expected outcome:
 - bowling ball becomes feasible without spreading conditional logic everywhere
 - future hooks or similar portable actors get the same seam
 
-### EC15: Runtime State Decomposition
+### [ ] EC15: Runtime State Decomposition
 
 Goal:
 
@@ -503,7 +520,7 @@ Expected outcome:
 - better ownership clarity
 - easier testing of subsystems in isolation
 
-### EC16: Test DSL And Builder Cleanup
+### [ ] EC16: Test DSL And Builder Cleanup
 
 Goal:
 

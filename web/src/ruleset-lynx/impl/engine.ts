@@ -61,7 +61,6 @@ import {
   actorInventoryClearBoots,
   actorInventoryCollectIndexedItem,
   actorInventoryHasBoot,
-  actorInventoryHasKey,
   actorInventoryUseKey,
   createNoActorLocalInventoryOwner,
   createKeysBootsToolsActorLocalInventoryOwner,
@@ -81,6 +80,12 @@ import {
   suppressLynxChipMoveSelectionForHeldTrapArrival,
   type LynxChipMoveSelection,
 } from "@ruleset-lynx/impl/chipInput";
+import {
+  lynxChipTargetCellAllowsEntry,
+  lynxChipTargetCellAllowsPush,
+  lynxChipTargetCellStopsOnPush,
+  probeLynxChipTargetCell,
+} from "@ruleset-lynx/impl/chipMoveProbe";
 import {
   canLynxChipUseElevator,
   chipShouldStartLynxAirMove,
@@ -847,10 +852,6 @@ function addLynxCantMove(state: EngineState): void {
   state.soundEffects |= 1 << LYNX_SOUND.CantMove;
 }
 
-function lynxChipEntryMask(tileId: number): number {
-  return lynxChipMovementMask(tileId);
-}
-
 function canLynxCreatureEnter(tileId: number, actorId: number, dir: number): boolean {
   const mask = lynxActorEntryMask(tileId, actorId);
   if ((mask & dir) === 0) {
@@ -867,6 +868,18 @@ function effectiveLynxTargetTileId(state: EngineState, tileId: number): number {
     return tileId;
   }
   return lynxToggledWallTileId(tileId);
+}
+
+function probeLynxChipTargetCellForState(
+  state: EngineState,
+  pos: number,
+  dir: number,
+  claimedCell = false,
+) {
+  return probeLynxChipTargetCell(state, pos, dir, {
+    claimedCell,
+    toggleWallsPending: lynxRuntimeState(state).toggleWallsPending,
+  });
 }
 
 function canLynxExitTile(state: EngineState, tileId: number, actorId: number, dir: number, releasing: boolean): boolean {
@@ -1024,59 +1037,11 @@ function lynxChipMovementSpeed(state: EngineState, floorId: number, moveKind: Ly
 }
 
 function canLynxChipEnterCell(state: EngineState, pos: number, dir: number): boolean {
-  const chipInventory = lynxChipInventoryOwner(state.inventory);
-  if (!hasBoardCell(state.map.cells, pos)) {
-    return false;
-  }
-  const tile = topTile(state.map.cells, pos);
-  if ((tile.state & LYNX_CELL_FLAG.Animated) !== 0) {
-    return false;
-  }
-
-  const tileId = effectiveLynxTargetTileId(state, tile.id);
-  if ((lynxChipEntryMask(tileId) & dir) === 0) {
-    return false;
-  }
-  if (tileId === MS_TILE.HiddenWall_Temp || tileId === MS_TILE.BlueWall_Real) {
-    return false;
-  }
-  const keyIndex = lynxDoorKeyIndex(tileId);
-  if (keyIndex !== null) {
-    return actorInventoryHasKey(chipInventory, keyIndex);
-  }
-  if (tileId === MS_TILE.Socket) {
-    return state.inventory.chipsNeeded === 0;
-  }
-
-  return true;
+  return lynxChipTargetCellAllowsEntry(probeLynxChipTargetCellForState(state, pos, dir));
 }
 
 function canLynxChipPushIntoClaimedCell(state: EngineState, pos: number, dir: number): boolean {
-  const chipInventory = lynxChipInventoryOwner(state.inventory);
-  if (!hasBoardCell(state.map.cells, pos)) {
-    return false;
-  }
-  const tile = topTile(state.map.cells, pos);
-  if ((tile.state & LYNX_CELL_FLAG.Animated) !== 0) {
-    return false;
-  }
-
-  const tileId = effectiveLynxTargetTileId(state, tile.id);
-  if (tileId === MS_TILE.HiddenWall_Temp || tileId === MS_TILE.BlueWall_Real) {
-    return true;
-  }
-  if ((lynxChipEntryMask(tileId) & dir) === 0) {
-    return false;
-  }
-  const keyIndex = lynxDoorKeyIndex(tileId);
-  if (keyIndex !== null) {
-    return actorInventoryHasKey(chipInventory, keyIndex);
-  }
-  if (tileId === MS_TILE.Socket) {
-    return state.inventory.chipsNeeded === 0;
-  }
-
-  return true;
+  return lynxChipTargetCellAllowsPush(probeLynxChipTargetCellForState(state, pos, dir, true));
 }
 
 function probeLynxChipMoveDirection(
@@ -1099,20 +1064,12 @@ function probeLynxChipMoveDirection(
     if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
       return { canMove: false, pushBlockPos: null };
     }
-    const targetTileId = effectiveLynxTargetTileId(state, target.top.id);
-    const pushOnlyClaimedCell = targetTileId === MS_TILE.HiddenWall_Temp || targetTileId === MS_TILE.BlueWall_Real;
-    const canEnterClaimedCell = pushOnlyClaimedCell || canLynxChipPushIntoClaimedCell(state, targetPos, dir);
-    if (!canEnterClaimedCell) {
+    const targetProbe = probeLynxChipTargetCellForState(state, targetPos, dir, true);
+    if (!lynxChipTargetCellAllowsPush(targetProbe)) {
       return { canMove: false, pushBlockPos: null };
     }
     const canPush = canLynxCreatureStartMovement(state, actors, block, dir);
-    block.dir = dir;
-    if (canPush) {
-      block.dormant = false;
-      block.intentDir = dir;
-      block.pushed = true;
-    }
-    if (pushOnlyClaimedCell) {
+    if (lynxChipTargetCellStopsOnPush(targetProbe)) {
       return {
         canMove: false,
         pushBlockPos: canPush ? targetPos : null,
@@ -1256,7 +1213,10 @@ function previewLynxChipPushRequest(
     return;
   }
 
-  probeLynxChipMoveDirection(state, actors, chipPos, inputCode);
+  const probe = probeLynxChipMoveDirection(state, actors, chipPos, inputCode);
+  if (probe.pushBlockPos !== null) {
+    queuePendingLynxBlockPush(state, actors, probe.pushBlockPos, inputCode);
+  }
 }
 
 function shouldPreviewLynxForcedSlidePush(
@@ -1304,7 +1264,13 @@ function resolveLynxChipInputForCurrentState(
   inputCode: number,
 ): number {
   return resolveLynxChipInputDirection(chipDir, inputCode, {
-    probeMove: (dir) => probeLynxChipMoveDirection(state, actors, chipPos, dir),
+    probeMove: (dir) => {
+      const probe = probeLynxChipMoveDirection(state, actors, chipPos, dir);
+      if (probe.pushBlockPos !== null) {
+        queuePendingLynxBlockPush(state, actors, probe.pushBlockPos, dir);
+      }
+      return probe;
+    },
     isDormantBlockAt: (pos) => {
       const block = findLynxBlockActor(actors, pos, activeLynxLayerZ(state));
       return !!block && !block.hidden && block.dormant;
@@ -1341,6 +1307,24 @@ function revealLynxHiddenWall(state: EngineState, pos: number): boolean {
   replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
   state.map.hash = mapHash(state.map.cells);
   return true;
+}
+
+function canLynxChipEnterAfterPushingBlock(
+  state: EngineState,
+  targetPos: number,
+  dir: number,
+  targetEntryProbe: ReturnType<typeof probeLynxChipTargetCellForState>,
+): boolean {
+  if (lynxChipTargetCellStopsOnPush(targetEntryProbe)) {
+    revealLynxHiddenWall(state, targetPos);
+    return false;
+  }
+
+  if (revealLynxHiddenWall(state, targetPos)) {
+    return false;
+  }
+
+  return lynxChipTargetCellAllowsEntry(probeLynxChipTargetCellForState(state, targetPos, dir));
 }
 
 function resolveLynxChipArrival(
@@ -2774,16 +2758,19 @@ function advanceLynxChipTrapRelease(
         ? null
         : findVisibleActorOnFlaggedTopCell(state.map.cells, actors, targetPos, LYNX_CELL_FLAG.Claimed, (actor) => actor.id === MS_TILE.Block) ??
           null;
-    const canPushIntoClaimedCell = targetBlock ? canLynxChipPushIntoClaimedCell(state, targetPos, chipDir) : false;
+    const targetEntryProbe =
+      targetBlock !== null ? probeLynxChipTargetCellForState(state, targetPos, chipDir, true) : probeLynxChipTargetCellForState(state, targetPos, chipDir);
     const pushedBlock =
-      targetBlock && canPushIntoClaimedCell ? tryPushLynxBlock(state, level, actors, targetPos, chipDir) : false;
+      targetBlock && lynxChipTargetCellAllowsPush(targetEntryProbe)
+        ? tryPushLynxBlock(state, level, actors, targetPos, chipDir)
+        : false;
     const canEnterTarget =
       !!target &&
       (targetBlock
-        ? pushedBlock && (revealLynxHiddenWall(state, targetPos) ? false : canLynxChipEnterCell(state, targetPos, chipDir))
+        ? pushedBlock && canLynxChipEnterAfterPushingBlock(state, targetPos, chipDir, targetEntryProbe)
         : revealLynxHiddenWall(state, targetPos)
           ? false
-          : canLynxChipEnterCell(state, targetPos, chipDir));
+          : lynxChipTargetCellAllowsEntry(targetEntryProbe));
 
     if (!canEnterTarget) {
       lynxRuntimeState(state).trapReleaseCantMoveThisTick = true;
@@ -3665,11 +3652,12 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
   const target = runtime.state.map.cells[targetPos];
   const targetBlock =
     target === undefined ? null : findClaimedLynxBlockOnActiveLayer(runtime.state, runtime.actors, targetPos);
-  const canPushIntoClaimedCell = targetBlock
-    ? canLynxChipPushIntoClaimedCell(runtime.state, targetPos, startInputCode)
-    : false;
+  const targetEntryProbe =
+    targetBlock !== null
+      ? probeLynxChipTargetCellForState(runtime.state, targetPos, startInputCode, true)
+      : probeLynxChipTargetCellForState(runtime.state, targetPos, startInputCode);
   const pushedBlock =
-    targetBlock && canPushIntoClaimedCell
+    targetBlock && lynxChipTargetCellAllowsPush(targetEntryProbe)
       ? tryPushLynxBlock(runtime.state, runtime.level, runtime.actors, targetPos, startInputCode)
       : false;
   const pressedPermanentHiddenWallPos =
@@ -3678,12 +3666,10 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     !!target &&
     (targetBlock
       ? pushedBlock &&
-        (revealLynxHiddenWall(runtime.state, targetPos)
-          ? false
-          : canLynxChipEnterCell(runtime.state, targetPos, startInputCode))
+        canLynxChipEnterAfterPushingBlock(runtime.state, targetPos, startInputCode, targetEntryProbe)
       : revealLynxHiddenWall(runtime.state, targetPos)
         ? false
-        : canLynxChipEnterCell(runtime.state, targetPos, startInputCode));
+        : lynxChipTargetCellAllowsEntry(targetEntryProbe));
   if (targetBlock && (pushedBlock || !canEnterTarget)) {
     runtime.chipPushing = true;
   }
