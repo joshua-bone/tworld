@@ -95,7 +95,7 @@ What is good:
 What is still weak:
 
 - the capability surface is still too coarse for future actors like bowling balls, ghosts, or fake players
-- teleports, cloners, traps, blocked-move outcomes, and some arrival behavior are still open-coded in engine helpers
+- blocked-move outcomes, controller behavior, and some arrival behavior are still open-coded in engine helpers
 - actor-owned collection and global progress are not yet cleanly separated for non-Chip actors
 
 Conclusion:
@@ -147,9 +147,8 @@ Where nesting still dominates:
 
 - MS creature AI selection
 - MS floor movement
-- MS cloner activation
 - Lynx chip movement start
-- Lynx teleport resolution
+- Lynx held brown-button release resolution
 - Lynx chip enter / push / reveal logic
 
 Conclusion:
@@ -230,7 +229,7 @@ Good examples:
 Remaining cohesion problems:
 
 - engine helpers still combine traversal, arrival, hazard, sound, and board mutation
-- teleports, traps, and cloners are still engine-owned subsystems instead of dedicated modules
+- movement-start and controller logic still sit too close to engine mutation code
 
 ### SOLID, used pragmatically
 
@@ -257,9 +256,8 @@ What is already good:
 
 What still leaks:
 
-- teleport exit search
 - hidden wall reveal behavior
-- cloner/trap release side effects
+- held-button trap release side effects
 - some push and blocked-move edge cases
 
 ### DRY without fake abstraction
@@ -272,7 +270,7 @@ Good:
 
 Still needed:
 
-- more shared result types around teleport, trap, cloner, and move probing
+- more shared result types around controller decisions, blocked movement, and move probing
 
 Avoid:
 
@@ -289,10 +287,9 @@ What is good:
 
 What is still weak:
 
-- teleports
-- trap and cloner behavior
 - movement-start probing
 - actor controller logic
+- portable item activation lifecycle
 
 ### Naming and intent
 
@@ -327,7 +324,6 @@ Problems that still matter:
 
 - `chooseCreatureDirection` is still a dense creature-AI switch and should move behind a dedicated controller helper
 - `runFloorMovement` still mixes all chip forced/vertical movement behavior
-- `activateCloner` still hand-builds clone state in engine code
 - chip movement start is still partially open-coded in engine helpers
 
 ### Lynx Engine
@@ -338,12 +334,12 @@ Good:
 - chip input resolution was a good extraction
 - shared phase recording removed a bad duplication seam
 - chip target-cell probing now has a dedicated helper seam
+- teleport and trap/cloner behavior now live behind dedicated helper modules
 
 Problems that still matter:
 
 - `runLynxChipMovementPhase` is still the biggest local complexity sink
-- `resolveLynxActorTeleport` and `resolveLynxChipTeleport` should move into a dedicated teleport module
-- cloner and trap activation should leave the engine hot path
+- held brown-button release handling still mixes input timing with trap resolution
 
 ### Catalogs
 
@@ -399,7 +395,7 @@ Problems that still matter:
 ### Progress
 
 - [x] EC10: Movement Probe And Arrival Split
-- [ ] EC11: Teleport, Trap, And Cloner Modules
+- [x] EC11: Teleport, Trap, And Cloner Modules
 - [ ] EC12: Actor Controller Seams
 - [ ] EC13: Generalize Actor-Owned Collection And Global Progress
 - [ ] EC14: Portable Item Activation Lifecycle
@@ -430,7 +426,13 @@ Expected outcome:
 - better step-down flow
 - cleaner blocked-move and arrival extension points
 
-### [ ] EC11: Teleport, Trap, And Cloner Modules
+### [x] EC11: Teleport, Trap, And Cloner Modules
+
+Done:
+
+- MS teleport search and trap/cloner activation now live in dedicated `teleports.ts` and `trapCloner.ts` modules.
+- Lynx teleport search and trap/cloner activation now live in dedicated `teleports.ts` and `trapCloner.ts` modules.
+- Both engines now use small local context builders at the engine boundary instead of carrying the full subsystem logic inline.
 
 Goal:
 

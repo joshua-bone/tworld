@@ -111,6 +111,16 @@ import {
   type LynxPortableToolStateStore,
 } from "@ruleset-lynx/impl/portableItems";
 import {
+  resolveLynxTeleports as resolveLynxTeleportsWithContext,
+  type LynxTeleportContext,
+} from "@ruleset-lynx/impl/teleports";
+import {
+  activateLynxCloner as activateLynxClonerWithContext,
+  findLynxTrapTarget as findLynxTrapTargetInLevel,
+  springLynxTrap as springLynxTrapWithContext,
+  type LynxTrapClonerContext,
+} from "@ruleset-lynx/impl/trapCloner";
+import {
   applyLynxHeldButtonReplayConsumption,
   type LynxChipTurnState,
   type LynxEndGameResult,
@@ -160,7 +170,7 @@ import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import { collectLevelConnections, collectLevelCreaturePositions, levelLayers } from "@ruleset-ms/api/level";
+import { collectLevelCreaturePositions, levelLayers } from "@ruleset-ms/api/level";
 import type { GameRuntimeCommand } from "@game-core/api/types";
 const LYNX_DEBUG_SCHEMA_VERSION = 2;
 const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
@@ -1702,37 +1712,6 @@ function updateLynxViewFromMovement(
   updateLynxViewChip(state);
 }
 
-function findLynxTeleportDestination(
-  state: EngineState,
-  origin: number,
-  canExit: (teleportPos: number) => boolean,
-): { pos: number; teleported: boolean } {
-  let pos = origin;
-
-  for (;;) {
-    pos -= 1;
-    if (pos < 0) {
-      pos += MS_GRID_WIDTH * MS_GRID_HEIGHT;
-    }
-
-    const cell = state.map.cells[pos];
-    if (lynxTileForcedFloorKind(cell?.top.id ?? MS_TILE.Empty) !== "teleport") {
-      if ((cell?.top.state ?? 0) & LYNX_CELL_FLAG.Teleport) {
-        replaceTopTile(state.map.cells, pos, { ...cell!.top, id: MS_TILE.Teleport });
-      }
-      continue;
-    }
-
-    if (canExit(pos)) {
-      return { pos, teleported: true };
-    }
-
-    if (pos === origin) {
-      return { pos: origin, teleported: false };
-    }
-  }
-}
-
 function canLynxChipExitTeleportThroughBlock(
   state: EngineState,
   actors: LynxRuntimeActor[],
@@ -1746,114 +1725,31 @@ function canLynxChipExitTeleportThroughBlock(
   return canLynxCreatureStartMovement(state, actors, block, dir) && canLynxChipEnterCell(state, exitPos, dir);
 }
 
-function resolveLynxChipTeleport(state: EngineState, actors: LynxRuntimeActor[], chipPos: number, chipDir: number): number {
-  const destination = findLynxTeleportDestination(state, chipPos, (teleportPos) => {
-    const exitStep = advanceToCell(state.map.cells, teleportPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-    if (!exitStep) {
-      return false;
-    }
-    const { pos: exitPos, cell: exitCell } = exitStep;
-
-    const teleportClaimed =
-      teleportPos !== chipPos &&
-      state.map.cells[teleportPos] !== undefined &&
-      hasTopTileFlags(state.map.cells, teleportPos, LYNX_CELL_FLAG.Claimed);
-    if (teleportClaimed) {
-      return false;
-    }
-
-    if (hasTopTileFlags(state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
-      const exitBlock = findClaimedLynxBlockOnActiveLayer(state, actors, exitPos);
-      if (exitBlock) {
-        return canLynxChipExitTeleportThroughBlock(state, actors, exitPos, chipDir);
-      }
-
-      return canLynxChipEnterCell(state, exitPos, chipDir);
-    }
-
-    return canLynxChipEnterCell(state, exitPos, chipDir);
-  });
-
-  if (!destination.teleported) {
-    return chipPos;
-  }
-
-  lynxRuntimeState(state).chipTeleported = true;
-  state.soundEffects |= 1 << LYNX_SOUND.Teleporting;
-  return destination.pos;
-}
-
-function resolveLynxActorTeleport(state: EngineState, actor: LynxRuntimeActor): void {
-  const origin = actor.pos;
-  let pos = origin;
-
-  for (;;) {
-    pos -= 1;
-    if (pos < 0) {
-      pos += MS_GRID_WIDTH * MS_GRID_HEIGHT;
-    }
-
-    const cell = state.map.cells[pos];
-    if (lynxTileForcedFloorKind(cell?.top.id ?? MS_TILE.Empty) !== "teleport") {
-      if ((cell?.top.state ?? 0) & LYNX_CELL_FLAG.Teleport) {
-        replaceTopTile(state.map.cells, pos, { ...cell!.top, id: MS_TILE.Teleport });
-      }
-      continue;
-    }
-    if (lynxChipActsWallForMobs(state, pos, actor.z ?? activeLynxLayerZ(state))) {
-      if (pos === origin) {
-        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-        return;
-      }
-      continue;
-    }
-
-    removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    actor.pos = pos;
-
-    const exitStep = advanceToCell(state.map.cells, pos, actor.dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-    if (!exitStep) {
-      if (pos === origin) {
-        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-        return;
-      }
-      continue;
-    }
-    const { pos: exitPos, cell: exitCell } = exitStep;
-    if (lynxChipActsWallForMobs(state, exitPos, actor.z ?? activeLynxLayerZ(state))) {
-      if (pos === origin) {
-        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-        return;
-      }
-      continue;
-    }
-    if (!canLynxCreatureEnter(effectiveLynxTargetTileId(state, exitCell.top.id), actor.id, actor.dir)) {
-      if (pos === origin) {
-        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-        return;
-      }
-      continue;
-    }
-
-    if (hasTopTileFlags(state.map.cells, pos, LYNX_CELL_FLAG.Claimed)) {
-      if (pos === origin) {
-        addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-        return;
-      }
-      continue;
-    }
-
-    if (!hasTopTileFlags(state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
-      addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      actor.teleported = true;
-      return;
-    }
-
-    if (pos === origin) {
-      addTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      return;
-    }
-  }
+function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[]): LynxTeleportContext {
+  return {
+    state,
+    actors,
+    activeLayerZ: () => activeLynxLayerZ(state),
+    withLayer: (z, run) => withLynxLayer(state, z, run),
+    chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
+    canChipEnter: (pos, dir) => canLynxChipEnterCell(state, pos, dir),
+    canChipExitTeleportThroughBlock: (exitPos, dir) => canLynxChipExitTeleportThroughBlock(state, actors, exitPos, dir),
+    canCreatureEnter: (tileId, actorId, dir) => canLynxCreatureEnter(tileId, actorId, dir),
+    effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),
+    markChipTeleported: () => {
+      lynxRuntimeState(state).chipTeleported = true;
+      state.soundEffects |= 1 << LYNX_SOUND.Teleporting;
+    },
+    settleChipTeleportDrop: (originPos, originZ) =>
+      settleLynxPrimedToolDrop(
+        state,
+        lynxRuntimeState(state),
+        state.inventory,
+        originPos,
+        originZ,
+        (layerZ, run) => withLynxLayer(state, layerZ, run),
+      ),
+  };
 }
 
 function resolveLynxTeleports(
@@ -1863,36 +1759,7 @@ function resolveLynxTeleports(
   chipDir: number,
   chipMoving: number,
 ): number {
-  for (let index = actors.length - 1; index >= 0; index -= 1) {
-    const actor = actors[index]!;
-    if (actor.hidden || actor.moving > 0) {
-      continue;
-    }
-    withLynxLayer(state, actor.z ?? 1, () => {
-      if (lynxTileForcedFloorKind(topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty)) !== "teleport") {
-        return;
-      }
-      resolveLynxActorTeleport(state, actor);
-    });
-  }
-
-  if (chipMoving === 0 && lynxTileForcedFloorKind(topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty)) === "teleport") {
-    const teleportOriginPos = chipPos;
-    const teleportOriginZ = activeLynxLayerZ(state);
-    chipPos = resolveLynxChipTeleport(state, actors, chipPos, chipDir);
-    if (chipPos !== teleportOriginPos) {
-      settleLynxPrimedToolDrop(
-        state,
-        lynxRuntimeState(state),
-        state.inventory,
-        teleportOriginPos,
-        teleportOriginZ,
-        (layerZ, run) => withLynxLayer(state, layerZ, run),
-      );
-    }
-  }
-
-  return chipPos;
+  return resolveLynxTeleportsWithContext(createLynxTeleportContext(state, actors), chipPos, chipDir, chipMoving);
 }
 
 function resolveLynxPostChipMovement(
@@ -2532,16 +2399,47 @@ function allocateLynxActorSlot(actors: LynxRuntimeActor[], actor: LynxRuntimeAct
   return storeActorInReusableHiddenSlot(actors, actor, (entry) => !entry.animationReserved);
 }
 
-function findLynxClonerTarget(level: LynxLevel, buttonPos: number, z = 1): number | null {
-  return collectLevelConnections(level, "cloners").find(
-    (connection) => connection.from === buttonPos && (connection.fromZ ?? 1) === z && (connection.toZ ?? 1) === z,
-  )?.to ?? null;
+function createLynxClonerSnapshot(sourceActor: LynxRuntimeActor, z: number): LynxRuntimeActor {
+  return {
+    ...sourceActor,
+    z,
+    intentDir: 0,
+    forcedDir: 0,
+    teleported: false,
+    moving: 0,
+    frame: 0,
+    moveKind: "planar",
+    ignoreIceFromAir: false,
+    hidden: true,
+    pushed: false,
+    deferPush: false,
+    deferPushArmed: false,
+    animationReserved: false,
+  };
+}
+
+function createLynxTrapClonerContext(
+  state: EngineState,
+  level: LynxLevel,
+  actors: LynxRuntimeActor[],
+): LynxTrapClonerContext<LynxRuntimeActor> {
+  return {
+    state,
+    level,
+    actors,
+    activeLayerZ: () => activeLynxLayerZ(state),
+    withLayer: (z, run) => withLynxLayer(state, z, run),
+    findVisibleActorAt: (pos, z) => findLynxVisibleActorAt(actors, pos, z),
+    buildCloneSnapshot: (sourceActor, z) => createLynxClonerSnapshot(sourceActor, z),
+    allocateCloneSlot: (snapshot) => allocateLynxActorSlot(actors, snapshot),
+    startCreatureMovement: (actor, dir, releasing) => startLynxCreatureMovement(state, actors, actor, dir, releasing),
+    advanceCreature: (actor, currentTime) => advanceLynxCreature(state, level, actors, actor, currentTime),
+    currentTime: state.timer.currentTime,
+  };
 }
 
 function findLynxTrapTarget(level: LynxLevel, buttonPos: number, z = 1): number | null {
-  return collectLevelConnections(level, "traps").find(
-    (connection) => connection.from === buttonPos && (connection.fromZ ?? 1) === z && (connection.toZ ?? 1) === z,
-  )?.to ?? null;
+  return findLynxTrapTargetInLevel(level, buttonPos, z);
 }
 
 function queueLynxTankReversals(state: EngineState, actors: LynxRuntimeActor[]): void {
@@ -2630,79 +2528,11 @@ function skipsDormantLynxActorAdvance(state: EngineState, actor: LynxRuntimeActo
 }
 
 function activateLynxCloner(state: EngineState, level: LynxLevel, actors: LynxRuntimeActor[], buttonPos: number): boolean {
-  const buttonZ = activeLynxLayerZ(state);
-  return withLynxLayer(state, buttonZ, () => {
-    const sourcePos = findLynxClonerTarget(level, buttonPos, buttonZ);
-    if (sourcePos === null || sourcePos < 0 || sourcePos >= state.map.cells.length) {
-      return false;
-    }
-
-    if (!lynxTileHasTag(state.map.cells[sourcePos]?.top.id ?? MS_TILE.Empty, "cloner")) {
-      return false;
-    }
-
-    const sourceActor = findLynxVisibleActorAt(actors, sourcePos, buttonZ);
-    if (!sourceActor || sourceActor.dir === 0) {
-      return false;
-    }
-
-    const sourceSnapshot: LynxRuntimeActor = {
-      ...sourceActor,
-      z: buttonZ,
-      intentDir: 0,
-      forcedDir: 0,
-      teleported: false,
-      moving: 0,
-      frame: 0,
-      moveKind: "planar",
-      ignoreIceFromAir: false,
-      hidden: true,
-      pushed: false,
-      deferPush: false,
-      deferPushArmed: false,
-      animationReserved: false,
-    };
-    const clone = allocateLynxActorSlot(actors, sourceSnapshot);
-
-    if (!movementDidSucceed(startLynxCreatureMovement(state, actors, sourceActor, sourceActor.dir, true))) {
-      return false;
-    }
-
-    Object.assign(clone, {
-      ...sourceSnapshot,
-      hidden: false,
-    });
-    advanceLynxCreature(state, level, actors, sourceActor, state.timer.currentTime + 1);
-    return true;
-  });
+  return activateLynxClonerWithContext(createLynxTrapClonerContext(state, level, actors), buttonPos);
 }
 
 function springLynxTrap(state: EngineState, level: LynxLevel, actors: LynxRuntimeActor[], buttonPos: number): boolean {
-  const buttonZ = activeLynxLayerZ(state);
-  return withLynxLayer(state, buttonZ, () => {
-    const sourcePos = findLynxTrapTarget(level, buttonPos, buttonZ);
-    if (sourcePos === null || sourcePos < 0 || sourcePos >= state.map.cells.length) {
-      return false;
-    }
-    if (!lynxTileHasTag(topTileIdOr(state.map.cells, sourcePos, MS_TILE.Empty), "trap")) {
-      return false;
-    }
-
-    const sourceActor = findLynxVisibleActorAt(actors, sourcePos, buttonZ);
-    if (!sourceActor || sourceActor.dir === 0) {
-      return false;
-    }
-
-    if (
-      sourceActor.moving <= 0 &&
-      !movementDidSucceed(startLynxCreatureMovement(state, actors, sourceActor, sourceActor.dir, true))
-    ) {
-      return false;
-    }
-
-    advanceLynxCreature(state, level, actors, sourceActor, state.timer.currentTime + 1);
-    return true;
-  });
+  return springLynxTrapWithContext(createLynxTrapClonerContext(state, level, actors), buttonPos);
 }
 
 function advanceLynxChipTrapRelease(

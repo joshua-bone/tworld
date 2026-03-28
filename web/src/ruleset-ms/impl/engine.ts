@@ -125,7 +125,18 @@ import {
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
 import { resolveMsChipEnteredTile } from "@ruleset-ms/impl/chipArrival";
+import {
+  activateMsCloner,
+  hasMsTrapConnection,
+  isMsTrapOpen,
+  springMsTrap,
+} from "@ruleset-ms/impl/trapCloner";
 import { MsNonChipFloorQueue, type MsActiveNonChipFloorEntry } from "@ruleset-ms/impl/nonChipFloorQueue";
+import {
+  findMsBlockTeleportDestination,
+  findMsCreatureTeleportDestination,
+  resolveMsChipTeleportDestination,
+} from "@ruleset-ms/impl/teleports";
 import {
   canChipUseMsElevator,
   canNonChipUseMsElevator,
@@ -1040,7 +1051,20 @@ export function initializeMsGameState(
           layerCells[connection.to]?.top.id === MS_TILE.Block_Static ||
           isTrapButtonDown(layerCells, connection.from)))
     ) {
-      springTrap(layerCells, internal, connection.from, z);
+      springMsTrap({
+        cells: layerCells,
+        traps: internal.traps,
+        buttonPos: connection.from,
+        buttonZ: z,
+        chipPos: internal.chipPos,
+        chipZ: internal.chipZ,
+        releaseChip: () => {
+          internal.chipReleased = true;
+        },
+        findTrackedBlock: (pos, layerZ) => findVisibleTrackedBlock(internal, pos, layerZ),
+        releaseStaticBlock: (pos) => upsertTrackedBlock(layerCells, internal, pos, MS_DIRECTION.none),
+        findCreature: (pos, layerZ) => creatureAtPos(internal, pos, layerZ),
+      });
     }
   }
 
@@ -1250,55 +1274,6 @@ function canMoveCreatureWithOptions(
   return true;
 }
 
-function teleportDestinationForCreature(
-  cells: EngineMapCell[],
-  creature: MsTrackedCreature,
-  start: number,
-  dir: number,
-  occupiedOriginPos = -1,
-  internal: MsInternalState | null = null,
-): number {
-  let destination = start;
-
-  for (;;) {
-    destination -= 1;
-    if (destination < 0) {
-      destination += cells.length;
-    }
-    if (destination === start) {
-      break;
-    }
-
-    const tile = cells[destination]!.top;
-    if (tile.id !== MS_TILE.Teleport || (tile.state & MS_FLOOR_STATE.Broken) !== 0) {
-      continue;
-    }
-
-    if (occupiedOriginPos >= 0 && nextPosition(destination, dir, MS_GRID_WIDTH) === occupiedOriginPos) {
-      continue;
-    }
-
-    if (
-      canMoveCreatureWithOptions(
-        cells,
-        {
-          ...creature,
-          pos: destination,
-          dir,
-        },
-        dir,
-        true,
-        false,
-        internal,
-      )
-    ) {
-      return destination;
-    }
-  }
-
-  return start;
-}
-
 function canMoveBlockInto(
   cells: EngineMapCell[],
   to: number,
@@ -1332,41 +1307,6 @@ function canMoveBlockInto(
     return false;
   }
   return cells[to]!.bottom.id !== MS_TILE.CloneMachine;
-}
-
-function teleportDestinationForBlock(
-  cells: EngineMapCell[],
-  start: number,
-  dir: number,
-  occupiedOriginPos = -1,
-  internal: MsInternalState | null = null,
-): number {
-  let destination = start;
-
-  for (;;) {
-    destination -= 1;
-    if (destination < 0) {
-      destination += cells.length;
-    }
-    if (destination === start) {
-      break;
-    }
-    if (destination === occupiedOriginPos) {
-      continue;
-    }
-
-    const tile = cells[destination]!.top;
-    if (tile.id !== MS_TILE.Teleport || (tile.state & MS_FLOOR_STATE.Broken) !== 0) {
-      continue;
-    }
-
-    const exitStep = advanceToCell(cells, destination, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-    if (exitStep && canMoveBlockInto(cells, exitStep.pos, dir, occupiedOriginPos, internal)) {
-      return destination;
-    }
-  }
-
-  return start;
 }
 
 function moveBlock(
@@ -1448,7 +1388,13 @@ function moveBlock(
   const movedTile = keepSourceTile ? { ...cells[pos]!.top } : popTile(cells, pos);
   let landingPos = nextPos;
   if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
-    landingPos = teleportDestinationForBlock(cells, nextPos, dir, pos, internal);
+    landingPos = findMsBlockTeleportDestination({
+      cells,
+      start: nextPos,
+      dir,
+      occupiedOriginPos: pos,
+      canExit: (exitPos) => canMoveBlockInto(cells, exitPos, dir, pos, internal),
+    });
   }
 
   placeStaticBlock(cells, landingPos, movedTile.state);
@@ -1529,62 +1475,12 @@ function advanceCloneMachineBlock(cells: EngineMapCell[], internal: MsInternalSt
   return movementDidSucceed(moveBlock(cells, internal, pos, dir, false, true));
 }
 
-function findClonerTarget(internal: MsInternalState, buttonPos: number, buttonZ = 1): number | null {
-  return internal.cloners.find(
-    (connection) => connection.from === buttonPos && (connection.fromZ ?? 1) === buttonZ && (connection.toZ ?? 1) === buttonZ,
-  )?.to ?? null;
-}
-
-function findTrapTarget(internal: MsInternalState, buttonPos: number, buttonZ = 1): number | null {
-  return internal.traps.find(
-    (connection) => connection.from === buttonPos && (connection.fromZ ?? 1) === buttonZ && (connection.toZ ?? 1) === buttonZ,
-  )?.to ?? null;
-}
-
 function creatureAtPos(internal: MsInternalState, pos: number, z = 1): MsTrackedCreature | undefined {
   return internal.creatures.find((creature) => !creature.hidden && creature.pos === pos && (creature.z ?? 1) === z);
 }
 
 function isTrapButtonDown(cells: EngineMapCell[], pos: number): boolean {
   return pos >= 0 && pos < cells.length && topTileId(cells, pos) !== MS_TILE.Button_Brown;
-}
-
-function hasTrapConnection(internal: MsInternalState, pos: number, z = 1): boolean {
-  return internal.traps.some((connection) => connection.to === pos && (connection.toZ ?? 1) === z);
-}
-
-function isTrapOpen(cells: EngineMapCell[], internal: MsInternalState, trapPos: number, skipButtonPos: number, z = 1): boolean {
-  return internal.traps.some(
-    (connection) =>
-      connection.to === trapPos &&
-      connection.from !== skipButtonPos &&
-      (connection.fromZ ?? 1) === z &&
-      (connection.toZ ?? 1) === z &&
-      isTrapButtonDown(cells, connection.from),
-  );
-}
-
-function springTrap(cells: EngineMapCell[], internal: MsInternalState, buttonPos: number, buttonZ = 1): void {
-  const trapPos = findTrapTarget(internal, buttonPos, buttonZ);
-  if (trapPos === null || trapPos < 0 || trapPos >= cells.length) {
-    return;
-  }
-
-  if (trapPos === internal.chipPos && (internal.chipZ ?? 1) === buttonZ) {
-    internal.chipReleased = true;
-  }
-
-  const trappedBlock = findVisibleTrackedBlock(internal, trapPos, buttonZ);
-  if (trappedBlock) {
-    trappedBlock.released = true;
-  } else if (cells[trapPos]?.top.id === MS_TILE.Block_Static) {
-    upsertTrackedBlock(cells, internal, trapPos, MS_DIRECTION.none).released = true;
-  }
-
-  const trappedCreature = creatureAtPos(internal, trapPos, buttonZ);
-  if (trappedCreature) {
-    trappedCreature.released = true;
-  }
 }
 
 function resolveButtonFloorEffects(
@@ -1603,10 +1499,82 @@ function resolveButtonFloorEffects(
       toggleWalls(internal.runtimeLayers);
       return 0;
     case "activate-cloner":
-      activateCloner(cells, internal, buttonPos, buttonZ);
+      activateMsCloner({
+        cells,
+        cloners: internal.cloners,
+        buttonPos,
+        buttonZ,
+        moveBlockSource: (sourcePos, sourceDir, sourceIsCloneMachine) => {
+          if (sourceIsCloneMachine) {
+            advanceCloneMachineBlock(cells, internal, sourcePos, sourceDir);
+          } else {
+            moveBlock(cells, internal, sourcePos, sourceDir, false, false);
+          }
+        },
+        canCloneCreatureMove: (sourcePos, sourceId, sourceDir) =>
+          canMoveCreatureWithOptions(
+            cells,
+            {
+              serial: -1,
+              id: sourceId,
+              dir: sourceDir,
+              tdir: MS_DIRECTION.none,
+              pos: sourcePos,
+              hidden: false,
+              moving: 0,
+              frame: 0,
+              cloning: false,
+              released: false,
+              turning: false,
+              hasMoved: false,
+              floorMovement: "none",
+              floorMovementDir: MS_DIRECTION.none,
+              sliding: false,
+            },
+            sourceDir,
+            false,
+            true,
+            internal,
+          ),
+        spawnCreatureClone: (sourcePos, sourceId, sourceDir, z) => {
+          internal.creatures.push({
+            serial: internal.nextCreatureSerial,
+            id: sourceId,
+            dir: sourceDir,
+            tdir: MS_DIRECTION.none,
+            pos: sourcePos,
+            z,
+            hidden: false,
+            moving: 0,
+            frame: 0,
+            cloning: true,
+            released: false,
+            turning: false,
+            hasMoved: false,
+            floorMovement: "none",
+            floorMovementDir: MS_DIRECTION.none,
+            sliding: false,
+          });
+          internal.creatureIndexBySerial.set(internal.nextCreatureSerial, internal.creatures.length - 1);
+          internal.nextCreatureSerial += 1;
+        },
+      });
       return 1 << MS_SOUND.ButtonPushed;
     case "spring-trap":
-      springTrap(cells, internal, buttonPos, buttonZ);
+      springMsTrap({
+        cells,
+        traps: internal.traps,
+        buttonPos,
+        buttonZ,
+        chipPos: internal.chipPos,
+        chipZ: internal.chipZ,
+        releaseChip: () => {
+          internal.chipReleased = true;
+        },
+        findTrackedBlock: (pos, layerZ) => findVisibleTrackedBlock(internal, pos, layerZ),
+        releaseStaticBlock: (pos) => upsertTrackedBlock(cells, internal, pos, MS_DIRECTION.none),
+        findCreature: (pos, layerZ) => creatureAtPos(internal, pos, layerZ),
+      });
       return 1 << MS_SOUND.ButtonPushed;
     default:
       return 0;
@@ -2335,12 +2303,18 @@ function updateBlockReleaseAfterMove(
   landingPos: number,
 ): void {
   if (targetTop === MS_TILE.Beartrap) {
-    block.released = isTrapOpen(cells, internal, landingPos, sourcePos, block.z ?? runtimeCellZ(cells, landingPos));
+    block.released = isMsTrapOpen({
+      cells,
+      traps: internal.traps,
+      trapPos: landingPos,
+      skipButtonPos: sourcePos,
+      z: block.z ?? runtimeCellZ(cells, landingPos),
+    });
     return;
   }
 
   if (cells[landingPos]!.bottom.id === MS_TILE.Beartrap) {
-    block.released = hasTrapConnection(internal, landingPos, block.z ?? runtimeCellZ(cells, landingPos));
+    block.released = hasMsTrapConnection(internal.traps, landingPos, block.z ?? runtimeCellZ(cells, landingPos));
     return;
   }
 
@@ -2402,94 +2376,6 @@ function toggleWalls(layers: ReadonlyArray<MsRuntimeLayer>): void {
       }
     }
   });
-}
-
-function activateCloner(cells: EngineMapCell[], internal: MsInternalState, buttonPos: number, buttonZ = runtimeCellZ(cells, buttonPos)): void {
-  const sourcePos = findClonerTarget(internal, buttonPos, buttonZ);
-  if (sourcePos === null) {
-    return;
-  }
-
-  const sourceCell = cells[sourcePos]!;
-  if (!isMsCreature(sourceCell.top.id)) {
-    return;
-  }
-
-  const sourceId = msCreatureId(sourceCell.top.id);
-  if (sourceId === MS_TILE.Chip) {
-    return;
-  }
-
-  const sourceDir = msCreatureDir(sourceCell.top.id);
-  if (sourceId === MS_TILE.Block) {
-    const sourceIsCloneMachine = sourceCell.bottom.id === MS_TILE.CloneMachine;
-    if (sourceIsCloneMachine && (sourceCell.bottom.state & MS_FLOOR_STATE.Cloning) !== 0) {
-      return;
-    }
-    if (sourceDir !== MS_DIRECTION.none) {
-      if (sourceIsCloneMachine) {
-        advanceCloneMachineBlock(cells, internal, sourcePos, sourceDir);
-      } else {
-        moveBlock(cells, internal, sourcePos, sourceDir, false, false);
-      }
-    }
-    return;
-  }
-
-  if (sourceCell.bottom.id !== MS_TILE.CloneMachine || (sourceCell.bottom.state & MS_FLOOR_STATE.Cloning) !== 0) {
-    return;
-  }
-
-  if (
-    !canMoveCreatureWithOptions(
-      cells,
-      {
-        serial: -1,
-        id: sourceId,
-        dir: sourceDir,
-        tdir: MS_DIRECTION.none,
-        pos: sourcePos,
-        hidden: false,
-        moving: 0,
-        frame: 0,
-        cloning: false,
-        released: false,
-        turning: false,
-        hasMoved: false,
-        floorMovement: "none",
-        floorMovementDir: MS_DIRECTION.none,
-        sliding: false,
-      },
-      sourceDir,
-      false,
-      true,
-      internal,
-    )
-  ) {
-    return;
-  }
-
-  addBottomTileFlags(cells, sourcePos, MS_FLOOR_STATE.Cloning);
-  internal.creatures.push({
-    serial: internal.nextCreatureSerial,
-    id: sourceId,
-    dir: sourceDir,
-    tdir: MS_DIRECTION.none,
-    pos: sourcePos,
-    z: buttonZ,
-    hidden: false,
-    moving: 0,
-    frame: 0,
-    cloning: true,
-    released: false,
-    turning: false,
-    hasMoved: false,
-    floorMovement: "none",
-    floorMovementDir: MS_DIRECTION.none,
-    sliding: false,
-  });
-  internal.creatureIndexBySerial.set(internal.nextCreatureSerial, internal.creatures.length - 1);
-  internal.nextCreatureSerial += 1;
 }
 
 function resolveCreatureFloorEffects(cells: EngineMapCell[], creature: MsTrackedCreature, internal: MsInternalState): number {
@@ -2579,7 +2465,25 @@ function moveCreatureOnce(
   switch (standingFloor) {
     case MS_TILE.Teleport:
       if ((standingFloorState & MS_FLOOR_STATE.Broken) === 0) {
-        const teleportedPos = teleportDestinationForCreature(cells, creature, nextPos, dir, oldPos, internal);
+        const teleportedPos = findMsCreatureTeleportDestination({
+          cells,
+          start: nextPos,
+          dir,
+          occupiedOriginPos: oldPos,
+          canExit: (destination) =>
+            canMoveCreatureWithOptions(
+              cells,
+              {
+                ...creature,
+                pos: destination,
+                dir,
+              },
+              dir,
+              true,
+              false,
+              internal,
+            ),
+        });
         if (teleportedPos !== nextPos) {
           cells[nextPos]!.top = { id: targetTop, state: targetTopState };
           cells[nextPos]!.bottom = { id: targetBottom, state: targetBottomState };
@@ -2612,9 +2516,15 @@ function moveCreatureOnce(
   creature.moving = 0;
   creature.pos = savedPos;
   if (standingFloor === MS_TILE.Beartrap) {
-    creature.released = isTrapOpen(cells, internal, nextPos, oldPos, creature.z ?? runtimeCellZ(cells, nextPos));
+    creature.released = isMsTrapOpen({
+      cells,
+      traps: internal.traps,
+      trapPos: nextPos,
+      skipButtonPos: oldPos,
+      z: creature.z ?? runtimeCellZ(cells, nextPos),
+    });
   } else if (cells[nextPos]!.bottom.id === MS_TILE.Beartrap) {
-    creature.released = hasTrapConnection(internal, nextPos, creature.z ?? runtimeCellZ(cells, nextPos));
+    creature.released = hasMsTrapConnection(internal.traps, nextPos, creature.z ?? runtimeCellZ(cells, nextPos));
   }
   if (isMsCreature(cells[nextPos]!.bottom.id)) {
     const targetId = msCreatureId(cells[nextPos]!.bottom.id);
@@ -2693,7 +2603,24 @@ function moveCreatureDownOneLayer(
   switch (standingFloor) {
     case MS_TILE.Teleport:
       if ((standingFloorState & MS_FLOOR_STATE.Broken) === 0) {
-        const teleportedPos = teleportDestinationForCreature(targetCells, creature, nextPos, creature.dir, -1, internal);
+        const teleportedPos = findMsCreatureTeleportDestination({
+          cells: targetCells,
+          start: nextPos,
+          dir: creature.dir,
+          canExit: (destination) =>
+            canMoveCreatureWithOptions(
+              targetCells,
+              {
+                ...creature,
+                pos: destination,
+                dir: creature.dir,
+              },
+              creature.dir,
+              true,
+              false,
+              internal,
+            ),
+        });
         if (teleportedPos !== nextPos) {
           targetCells[nextPos]!.top = { id: targetTop, state: targetTopState };
           targetCells[nextPos]!.bottom = { id: targetBottom, state: targetBottomState };
@@ -2727,9 +2654,15 @@ function moveCreatureDownOneLayer(
   creature.pos = savedPos;
   creature.z = savedZ;
   if (standingFloor === MS_TILE.Beartrap) {
-    creature.released = isTrapOpen(targetCells, internal, nextPos, oldPos, targetZ);
+    creature.released = isMsTrapOpen({
+      cells: targetCells,
+      traps: internal.traps,
+      trapPos: nextPos,
+      skipButtonPos: oldPos,
+      z: targetZ,
+    });
   } else if (targetCells[nextPos]!.bottom.id === MS_TILE.Beartrap) {
-    creature.released = hasTrapConnection(internal, nextPos, targetZ);
+    creature.released = hasMsTrapConnection(internal.traps, nextPos, targetZ);
   }
   if (isMsCreature(targetCells[nextPos]!.bottom.id)) {
     const targetId = msCreatureId(targetCells[nextPos]!.bottom.id);
@@ -3179,7 +3112,13 @@ function processMsBlockFloorQueueEntry(
     const movedTile = oldWasCloneMachine ? { ...blockCells[block.pos]!.top } : popTile(blockCells, block.pos);
     let landingPos = nextPos;
     if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
-      landingPos = teleportDestinationForBlock(blockCells, nextPos, dir, block.pos, internal);
+      landingPos = findMsBlockTeleportDestination({
+        cells: blockCells,
+        start: nextPos,
+        dir,
+        occupiedOriginPos: block.pos,
+        canExit: (exitPos) => canMoveBlockInto(blockCells, exitPos, dir, block.pos, internal),
+      });
     }
 
     placeStaticBlock(blockCells, landingPos, movedTile.state);
@@ -3269,7 +3208,12 @@ function processMsBlockFloorQueueEntry(
           const movedTile = popTile(blockCells, oldPos);
           let landingPos = oldPos;
           if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
-            landingPos = teleportDestinationForBlock(lowerCells, oldPos, block.dir, -1, internal);
+            landingPos = findMsBlockTeleportDestination({
+              cells: lowerCells,
+              start: oldPos,
+              dir: block.dir,
+              canExit: (exitPos) => canMoveBlockInto(lowerCells, exitPos, block.dir, -1, internal),
+            });
           }
 
           placeStaticBlock(lowerCells, landingPos, movedTile.state);
@@ -3503,64 +3447,46 @@ function teleportDestination(
   start: number,
   dir: number,
 ): { destination: number; soundEffects: number } {
-  let destination = start;
-  const basePendingSoundEffects = internal.pendingSoundEffects;
-  let pendingSoundEffects = basePendingSoundEffects;
-
-  for (;;) {
-    destination -= 1;
-    if (destination < 0) {
-      destination += cells.length;
-    }
-    if (destination === start) {
-      break;
-    }
-
-    const tile = cells[destination]!.top;
-    if (tile.id !== MS_TILE.Teleport || (tile.state & MS_FLOOR_STATE.Broken) !== 0) {
-      continue;
-    }
-
-    const probeInternal: MsInternalState = {
-      ...internal,
-      chipPos: destination,
-      chipDir: dir,
-      chipTDir: MS_DIRECTION.none,
-      currentInput: MS_DIRECTION.none,
-      controllerDir: MS_DIRECTION.none,
-      chipHasMoved: false,
-      chipReleased: false,
-      chipWait: 0,
-      chipStatus: "okay",
-      completed: false,
-      replayDeadlineFailed: false,
-      floorMovement: "none",
-      floorMovementDir: MS_DIRECTION.none,
-      pendingSoundEffects,
-    };
-
-    const canExit = canMoveChip(cells, probeInternal, inventory, dir, {
-        exposeWalls: false,
-        noLeaveCheck: true,
-        teleportPush: true,
-        deferButtons: false,
-        occupiedOriginPos: start,
-      });
-    pendingSoundEffects = probeInternal.pendingSoundEffects;
-
-    if (canExit) {
-      internal.pendingSoundEffects = pendingSoundEffects;
-      return {
-        destination,
-        soundEffects: pendingSoundEffects & ~basePendingSoundEffects,
+  const teleported = resolveMsChipTeleportDestination({
+    cells,
+    start,
+    initialPendingSoundEffects: internal.pendingSoundEffects,
+    probeExit: (candidate, pendingSoundEffects) => {
+      const probeInternal: MsInternalState = {
+        ...internal,
+        chipPos: candidate,
+        chipDir: dir,
+        chipTDir: MS_DIRECTION.none,
+        currentInput: MS_DIRECTION.none,
+        controllerDir: MS_DIRECTION.none,
+        chipHasMoved: false,
+        chipReleased: false,
+        chipWait: 0,
+        chipStatus: "okay",
+        completed: false,
+        replayDeadlineFailed: false,
+        floorMovement: "none",
+        floorMovementDir: MS_DIRECTION.none,
+        pendingSoundEffects,
       };
-    }
-  }
 
-  internal.pendingSoundEffects = pendingSoundEffects;
+      return {
+        canExit: canMoveChip(cells, probeInternal, inventory, dir, {
+          exposeWalls: false,
+          noLeaveCheck: true,
+          teleportPush: true,
+          deferButtons: false,
+          occupiedOriginPos: start,
+        }),
+        pendingSoundEffects: probeInternal.pendingSoundEffects,
+      };
+    },
+  });
+
+  internal.pendingSoundEffects = teleported.pendingSoundEffects;
   return {
-    destination: start,
-    soundEffects: pendingSoundEffects & ~basePendingSoundEffects,
+    destination: teleported.destination,
+    soundEffects: teleported.soundEffects,
   };
 }
 
@@ -3636,9 +3562,15 @@ function moveChipOnce(
   // not any floor uncovered by popping items like sockets or chips.
   soundEffects |= resolveButtonFloorEffects(cells, internal, internal.chipPos, floor);
   if (floor === MS_TILE.Beartrap) {
-    internal.chipReleased = isTrapOpen(cells, internal, nextPos, oldPos, internal.chipZ ?? runtimeCellZ(cells, nextPos));
+    internal.chipReleased = isMsTrapOpen({
+      cells,
+      traps: internal.traps,
+      trapPos: nextPos,
+      skipButtonPos: oldPos,
+      z: internal.chipZ ?? runtimeCellZ(cells, nextPos),
+    });
   } else if (cells[nextPos]!.bottom.id === MS_TILE.Beartrap) {
-    internal.chipReleased = hasTrapConnection(internal, nextPos, internal.chipZ ?? runtimeCellZ(cells, nextPos));
+    internal.chipReleased = hasMsTrapConnection(internal.traps, nextPos, internal.chipZ ?? runtimeCellZ(cells, nextPos));
   }
   if (internal.chipStatus === "okay" && msTileHasTag(cells[nextPos]!.bottom.id, "exit")) {
     internal.completed = true;
@@ -3713,9 +3645,15 @@ function moveChipDownOneLayer(
   }
   soundEffects |= resolveButtonFloorEffects(targetCells, internal, internal.chipPos, floor, null, targetZ);
   if (floor === MS_TILE.Beartrap) {
-    internal.chipReleased = isTrapOpen(targetCells, internal, nextPos, oldPos, targetZ);
+    internal.chipReleased = isMsTrapOpen({
+      cells: targetCells,
+      traps: internal.traps,
+      trapPos: nextPos,
+      skipButtonPos: oldPos,
+      z: targetZ,
+    });
   } else if (targetCells[nextPos]!.bottom.id === MS_TILE.Beartrap) {
-    internal.chipReleased = hasTrapConnection(internal, nextPos, targetZ);
+    internal.chipReleased = hasMsTrapConnection(internal.traps, nextPos, targetZ);
   }
   if (internal.chipStatus === "okay" && msTileHasTag(targetCells[nextPos]!.bottom.id, "exit")) {
     internal.completed = true;
