@@ -6,78 +6,118 @@ import {
 } from "@game-core/impl/statefulElementTestSupport";
 
 const INPUT_DRIVEN_ARCHETYPE = {
-  controlMode: "player-input",
-  localInventoryMode: "keys-boots-tools",
-  itemCollectionKind: "keys-boots-tools",
-  globalProgressKind: "collect-chips",
-  traversalKind: "chip",
-  blockedMoveKind: "stay",
-  trapHook: "default",
-  clonerHook: "default",
-  thiefHook: "steal-boots-tools",
-  airHook: "chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "player-input",
+  },
+  inventory: {
+    localInventoryMode: "keys-boots-tools",
+    itemCollectionKind: "keys-boots-tools",
+    globalProgressKind: "collect-chips",
+  },
+  movement: {
+    strategyId: "chip-like",
+    blockedMoveKind: "stay",
+    trapHook: "default",
+    clonerHook: "default",
+    airHook: "chip-support",
+  },
+  interaction: {
+    thiefHook: "steal-boots-tools",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "destroy",
-    fire: "destroy",
-    bomb: "destroy",
+    responses: {
+      water: "destroy",
+      fire: "destroy",
+      bomb: "destroy",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const INVENTORY_CARRYING_ARCHETYPE = {
-  controlMode: "ai",
-  localInventoryMode: "keys-boots",
-  itemCollectionKind: "keys-boots",
-  globalProgressKind: "none",
-  traversalKind: "creature",
-  blockedMoveKind: "stay",
-  trapHook: "default",
-  clonerHook: "default",
-  thiefHook: "steal-boots-tools",
-  airHook: "non-chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "ai",
+  },
+  inventory: {
+    localInventoryMode: "keys-boots",
+    itemCollectionKind: "keys-boots",
+    globalProgressKind: "none",
+  },
+  movement: {
+    strategyId: "creature-like",
+    blockedMoveKind: "stay",
+    trapHook: "default",
+    clonerHook: "default",
+    airHook: "non-chip-support",
+  },
+  interaction: {
+    thiefHook: "steal-boots-tools",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "ignore",
-    fire: "deny",
-    bomb: "destroy",
+    responses: {
+      water: "ignore",
+      fire: "deny",
+      bomb: "destroy",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const BALLISTIC_ARCHETYPE = {
-  controlMode: "ballistic",
-  localInventoryMode: "keys-boots",
-  itemCollectionKind: "keys-boots",
-  globalProgressKind: "none",
-  traversalKind: "creature",
-  blockedMoveKind: "revert-portable",
-  trapHook: "hold-direction",
-  clonerHook: "default",
-  thiefHook: "steal-boots-tools",
-  airHook: "chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "ballistic",
+  },
+  inventory: {
+    localInventoryMode: "keys-boots",
+    itemCollectionKind: "keys-boots",
+    globalProgressKind: "none",
+  },
+  movement: {
+    strategyId: "creature-like",
+    blockedMoveKind: "revert-portable",
+    trapHook: "hold-direction",
+    clonerHook: "default",
+    airHook: "chip-support",
+  },
+  interaction: {
+    thiefHook: "steal-boots-tools",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "destroy",
-    fire: "destroy",
-    bomb: "destroy",
+    responses: {
+      water: "destroy",
+      fire: "destroy",
+      bomb: "destroy",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const ORDINARY_CREATURE_ARCHETYPE = {
-  controlMode: "ai",
-  localInventoryMode: "none",
-  itemCollectionKind: "none",
-  globalProgressKind: "none",
-  traversalKind: "creature",
-  blockedMoveKind: "stay",
-  trapHook: "default",
-  clonerHook: "default",
-  thiefHook: "none",
-  airHook: "non-chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "ai",
+  },
+  inventory: {
+    localInventoryMode: "none",
+    itemCollectionKind: "none",
+    globalProgressKind: "none",
+  },
+  movement: {
+    strategyId: "creature-like",
+    blockedMoveKind: "stay",
+    trapHook: "default",
+    clonerHook: "default",
+    airHook: "non-chip-support",
+  },
+  interaction: {
+    thiefHook: "none",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "destroy",
-    fire: "deny",
-    bomb: "destroy",
+    responses: {
+      water: "destroy",
+      fire: "deny",
+      bomb: "destroy",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
@@ -93,7 +133,7 @@ describe("stateful actor archetype characterization", () => {
         policy: INPUT_DRIVEN_ARCHETYPE,
         expected: {
           controlMode: "player-input",
-          traversalKind: "chip",
+          movementStrategyId: "chip-like",
           localInventoryMode: "keys-boots-tools",
           collectibleSlots: ["keys", "boots", "tools"],
           collectsChips: true,
@@ -106,7 +146,7 @@ describe("stateful actor archetype characterization", () => {
         policy: INVENTORY_CARRYING_ARCHETYPE,
         expected: {
           controlMode: "ai",
-          traversalKind: "creature",
+          movementStrategyId: "creature-like",
           localInventoryMode: "keys-boots",
           collectibleSlots: ["keys", "boots"],
           collectsChips: false,
@@ -119,7 +159,7 @@ describe("stateful actor archetype characterization", () => {
         policy: BALLISTIC_ARCHETYPE,
         expected: {
           controlMode: "ballistic",
-          traversalKind: "creature",
+          movementStrategyId: "creature-like",
           localInventoryMode: "keys-boots",
           collectibleSlots: ["keys", "boots"],
           keepsDirectionOnBlockedMove: false,
@@ -132,7 +172,7 @@ describe("stateful actor archetype characterization", () => {
         policy: PHASING_ARCHETYPE,
         expected: {
           controlMode: "ai",
-          traversalKind: "creature",
+          movementStrategyId: "creature-like",
           localInventoryMode: "none",
           collectibleSlots: [],
           collectsChips: false,

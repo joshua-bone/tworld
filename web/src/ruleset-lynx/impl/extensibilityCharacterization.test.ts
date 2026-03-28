@@ -13,29 +13,45 @@ describe("Lynx extensibility characterization", () => {
         label: "Chip remains the input-driven inventory-carrying archetype",
         actorId: MS_TILE.Chip,
         expected: {
-          controlMode: "player-input",
-          localInventoryMode: "keys-boots-tools",
-          itemCollectionKind: "keys-boots-tools",
-          globalProgressKind: "collect-chips",
-          traversalKind: "chip",
-          blockedMoveKind: "stay",
-          thiefHook: "steal-boots-tools",
-          airHook: "chip-support",
-          collisionHook: "default",
+          control: {
+            mode: "player-input",
+          },
+          inventory: {
+            localInventoryMode: "keys-boots-tools",
+            itemCollectionKind: "keys-boots-tools",
+            globalProgressKind: "collect-chips",
+          },
+          movement: {
+            strategyId: "chip-like",
+            blockedMoveKind: "stay",
+            airHook: "chip-support",
+          },
+          interaction: {
+            thiefHook: "steal-boots-tools",
+            collisionStrategyId: "default",
+          },
         },
       },
       {
         label: "Blocks remain the passive transforming hazard archetype",
         actorId: MS_TILE.Block,
         expected: {
-          controlMode: "passive",
-          localInventoryMode: "none",
-          itemCollectionKind: "none",
-          traversalKind: "block",
+          control: {
+            mode: "passive",
+          },
+          inventory: {
+            localInventoryMode: "none",
+            itemCollectionKind: "none",
+          },
+          movement: {
+            strategyId: "block-like",
+          },
           hazards: {
-            water: "transform",
-            fire: "ignore",
-            bomb: "transform",
+            responses: {
+              water: "transform",
+              fire: "ignore",
+              bomb: "transform",
+            },
           },
         },
       },
@@ -43,12 +59,18 @@ describe("Lynx extensibility characterization", () => {
         label: "Gliders remain the water-immune creature archetype",
         actorId: MS_TILE.Glider,
         expected: {
-          controlMode: "ai",
-          traversalKind: "creature",
+          control: {
+            mode: "ai",
+          },
+          movement: {
+            strategyId: "creature-like",
+          },
           hazards: {
-            water: "ignore",
-            fire: "deny",
-            bomb: "destroy",
+            responses: {
+              water: "ignore",
+              fire: "deny",
+              bomb: "destroy",
+            },
           },
         },
       },
@@ -56,12 +78,18 @@ describe("Lynx extensibility characterization", () => {
         label: "Fireballs remain the fire-immune creature archetype",
         actorId: MS_TILE.Fireball,
         expected: {
-          controlMode: "ai",
-          traversalKind: "creature",
+          control: {
+            mode: "ai",
+          },
+          movement: {
+            strategyId: "creature-like",
+          },
           hazards: {
-            water: "destroy",
-            fire: "ignore",
-            bomb: "destroy",
+            responses: {
+              water: "destroy",
+              fire: "ignore",
+              bomb: "destroy",
+            },
           },
         },
       },

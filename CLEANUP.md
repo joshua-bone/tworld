@@ -213,10 +213,10 @@ Goal:
 
 Checklist:
 
-- [ ] split `ActorCapabilityPolicy` into grouped concerns such as control, traversal, collision, hazards, support, theft, trap/cloner, collection, and blocked-move
-- [ ] remove reliance on `traversalKind: chip | creature | block` as the final gameplay discriminator
-- [ ] add typed strategy identifiers or typed interfaces for movement-start and collision behavior
-- [ ] keep policy data per-ruleset in catalog modules
+- [x] split `ActorCapabilityPolicy` into grouped concerns such as control, traversal, collision, hazards, support, theft, trap/cloner, collection, and blocked-move
+- [x] remove reliance on `traversalKind: chip | creature | block` as the final gameplay discriminator
+- [x] add typed strategy identifiers or typed interfaces for movement-start and collision behavior
+- [x] keep policy data per-ruleset in catalog modules
 
 Extensibility win:
 

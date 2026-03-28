@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  actorAirHook,
   actorBlockedMoveKeepsDirection,
+  actorBlockedMoveKind,
   actorBlockedMoveRevertsPortable,
   actorCollectionAllowsSlot,
+  actorControlMode,
   actorCollectsChips,
+  actorGlobalProgressKind,
+  actorItemCollectionKind,
+  actorLocalInventoryMode,
+  actorMovementStrategyId,
   actorThiefStealsBootsAndTools,
+  actorThiefHook,
   actorUsesChipSupport,
   type ActorCapabilityPolicy,
   type ActorCollectibleSlot,
@@ -23,6 +31,14 @@ interface PortableItemSummary {
     mode: string;
   };
 }
+
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends readonly unknown[]
+    ? T[K]
+    : T[K] extends object
+      ? DeepPartial<T[K]>
+      : T[K];
+};
 
 export interface PortableItemArchetypeHarness<TStore, TInventory> {
   readonly expectedTileId: number;
@@ -146,7 +162,7 @@ export function expectActorEntryMatrix<TTileId extends number = number, TActorId
 export interface ActorCapabilityMatrixRow<TActorId extends number = number> {
   readonly label: string;
   readonly actorId: TActorId;
-  readonly expected: Partial<ActorCapabilityPolicy>;
+  readonly expected: DeepPartial<ActorCapabilityPolicy>;
 }
 
 export function expectActorCapabilityMatrix<TActorId extends number = number>(
@@ -159,9 +175,9 @@ export function expectActorCapabilityMatrix<TActorId extends number = number>(
 }
 
 export interface StatefulActorArchetypeSummary {
-  readonly controlMode: ActorCapabilityPolicy["controlMode"];
-  readonly traversalKind: ActorCapabilityPolicy["traversalKind"];
-  readonly localInventoryMode: ActorCapabilityPolicy["localInventoryMode"];
+  readonly controlMode: ReturnType<typeof actorControlMode>;
+  readonly movementStrategyId: ReturnType<typeof actorMovementStrategyId>;
+  readonly localInventoryMode: ReturnType<typeof actorLocalInventoryMode>;
   readonly collectibleSlots: readonly ActorCollectibleSlot[];
   readonly collectsChips: boolean;
   readonly keepsDirectionOnBlockedMove: boolean;
@@ -172,19 +188,19 @@ export interface StatefulActorArchetypeSummary {
 
 export function summarizeStatefulActorArchetype(policy: ActorCapabilityPolicy): StatefulActorArchetypeSummary {
   const collectibleSlots = (["keys", "boots", "tools"] as const).filter((slot) =>
-    actorCollectionAllowsSlot(policy.itemCollectionKind, slot),
+    actorCollectionAllowsSlot(actorItemCollectionKind(policy), slot),
   );
 
   return {
-    controlMode: policy.controlMode,
-    traversalKind: policy.traversalKind,
-    localInventoryMode: policy.localInventoryMode,
+    controlMode: actorControlMode(policy),
+    movementStrategyId: actorMovementStrategyId(policy),
+    localInventoryMode: actorLocalInventoryMode(policy),
     collectibleSlots,
-    collectsChips: actorCollectsChips(policy.globalProgressKind),
-    keepsDirectionOnBlockedMove: actorBlockedMoveKeepsDirection(policy.blockedMoveKind),
-    revertsPortableOnBlockedMove: actorBlockedMoveRevertsPortable(policy.blockedMoveKind),
-    usesChipSupport: actorUsesChipSupport(policy.airHook),
-    thiefStealsBootsAndTools: actorThiefStealsBootsAndTools(policy.thiefHook),
+    collectsChips: actorCollectsChips(actorGlobalProgressKind(policy)),
+    keepsDirectionOnBlockedMove: actorBlockedMoveKeepsDirection(actorBlockedMoveKind(policy)),
+    revertsPortableOnBlockedMove: actorBlockedMoveRevertsPortable(actorBlockedMoveKind(policy)),
+    usesChipSupport: actorUsesChipSupport(actorAirHook(policy)),
+    thiefStealsBootsAndTools: actorThiefStealsBootsAndTools(actorThiefHook(policy)),
   };
 }
 

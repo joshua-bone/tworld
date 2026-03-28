@@ -3,16 +3,30 @@ import type {
   ActorBlockedMoveKind,
   ActorCapabilityPolicy,
   ActorClonerHook,
-  ActorCollisionHook,
+  ActorCollisionStrategyId,
   ActorControlMode,
   ActorGlobalProgressKind,
   ActorHazardName,
   ActorHazardResponse,
   ActorItemCollectionKind,
   ActorLocalInventoryMode,
+  ActorMovementStrategyId,
   ActorThiefHook,
   ActorTrapHook,
-  ActorTraversalKind,
+} from "@game-core/api/actorCapabilities";
+import {
+  actorAirHook,
+  actorBlockedMoveKind,
+  actorClonerHook,
+  actorCollisionStrategyId,
+  actorControlMode,
+  actorGlobalProgressKind,
+  actorHazardResponse,
+  actorItemCollectionKind,
+  actorLocalInventoryMode,
+  actorMovementStrategyId,
+  actorThiefHook,
+  actorTrapHook,
 } from "@game-core/api/actorCapabilities";
 import {
   createRulesetCatalog,
@@ -570,75 +584,109 @@ function createLynxTileDefinition(id: number): TileDefinition<number> {
 }
 
 const LYNX_CHIP_ACTOR_CAPABILITIES = {
-  controlMode: "player-input",
-  localInventoryMode: "keys-boots-tools",
-  itemCollectionKind: "keys-boots-tools",
-  globalProgressKind: "collect-chips",
-  traversalKind: "chip",
-  blockedMoveKind: "stay",
-  trapHook: "default",
-  clonerHook: "default",
-  thiefHook: "steal-boots-tools",
-  airHook: "chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "player-input",
+  },
+  inventory: {
+    localInventoryMode: "keys-boots-tools",
+    itemCollectionKind: "keys-boots-tools",
+    globalProgressKind: "collect-chips",
+  },
+  movement: {
+    strategyId: "chip-like",
+    blockedMoveKind: "stay",
+    trapHook: "default",
+    clonerHook: "default",
+    airHook: "chip-support",
+  },
+  interaction: {
+    thiefHook: "steal-boots-tools",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "destroy",
-    fire: "destroy",
-    bomb: "destroy",
+    responses: {
+      water: "destroy",
+      fire: "destroy",
+      bomb: "destroy",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const LYNX_BLOCK_ACTOR_CAPABILITIES = {
-  controlMode: "passive",
-  localInventoryMode: "none",
-  itemCollectionKind: "none",
-  globalProgressKind: "none",
-  traversalKind: "block",
-  blockedMoveKind: "stay",
-  trapHook: "default",
-  clonerHook: "default",
-  thiefHook: "none",
-  airHook: "non-chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "passive",
+  },
+  inventory: {
+    localInventoryMode: "none",
+    itemCollectionKind: "none",
+    globalProgressKind: "none",
+  },
+  movement: {
+    strategyId: "block-like",
+    blockedMoveKind: "stay",
+    trapHook: "default",
+    clonerHook: "default",
+    airHook: "non-chip-support",
+  },
+  interaction: {
+    thiefHook: "none",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "transform",
-    fire: "ignore",
-    bomb: "transform",
+    responses: {
+      water: "transform",
+      fire: "ignore",
+      bomb: "transform",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const LYNX_CREATURE_ACTOR_CAPABILITIES = {
-  controlMode: "ai",
-  localInventoryMode: "none",
-  itemCollectionKind: "none",
-  globalProgressKind: "none",
-  traversalKind: "creature",
-  blockedMoveKind: "stay",
-  trapHook: "default",
-  clonerHook: "default",
-  thiefHook: "none",
-  airHook: "non-chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "ai",
+  },
+  inventory: {
+    localInventoryMode: "none",
+    itemCollectionKind: "none",
+    globalProgressKind: "none",
+  },
+  movement: {
+    strategyId: "creature-like",
+    blockedMoveKind: "stay",
+    trapHook: "default",
+    clonerHook: "default",
+    airHook: "non-chip-support",
+  },
+  interaction: {
+    thiefHook: "none",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "destroy",
-    fire: "deny",
-    bomb: "destroy",
+    responses: {
+      water: "destroy",
+      fire: "deny",
+      bomb: "destroy",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const LYNX_WATER_IMMUNE_CREATURE_CAPABILITIES = {
   ...LYNX_CREATURE_ACTOR_CAPABILITIES,
   hazards: {
-    ...LYNX_CREATURE_ACTOR_CAPABILITIES.hazards,
-    water: "ignore",
+    responses: {
+      ...LYNX_CREATURE_ACTOR_CAPABILITIES.hazards.responses,
+      water: "ignore",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const LYNX_FIRE_IMMUNE_CREATURE_CAPABILITIES = {
   ...LYNX_CREATURE_ACTOR_CAPABILITIES,
   hazards: {
-    ...LYNX_CREATURE_ACTOR_CAPABILITIES.hazards,
-    fire: "ignore",
+    responses: {
+      ...LYNX_CREATURE_ACTOR_CAPABILITIES.hazards.responses,
+      fire: "ignore",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
@@ -795,54 +843,54 @@ export function lynxActorCapabilityPolicy(id: number): ActorCapabilityPolicy {
 }
 
 export function lynxActorControlMode(id: number): ActorControlMode {
-  return lynxActorCapabilityPolicy(id).controlMode;
+  return actorControlMode(lynxActorCapabilityPolicy(id));
 }
 
 export function lynxActorLocalInventoryMode(id: number): ActorLocalInventoryMode {
-  return lynxActorCapabilityPolicy(id).localInventoryMode;
+  return actorLocalInventoryMode(lynxActorCapabilityPolicy(id));
 }
 
 export function lynxActorItemCollectionKind(id: number): ActorItemCollectionKind {
-  return lynxActorCapabilityPolicy(id).itemCollectionKind;
+  return actorItemCollectionKind(lynxActorCapabilityPolicy(id));
 }
 
 export function lynxActorGlobalProgressKind(id: number): ActorGlobalProgressKind {
-  return lynxActorCapabilityPolicy(id).globalProgressKind;
+  return actorGlobalProgressKind(lynxActorCapabilityPolicy(id));
 }
 
-export function lynxActorTraversalKind(id: number): ActorTraversalKind {
-  return lynxActorCapabilityPolicy(id).traversalKind;
+export function lynxActorMovementStrategyId(id: number): ActorMovementStrategyId {
+  return actorMovementStrategyId(lynxActorCapabilityPolicy(id));
 }
 
 export function lynxActorBlockedMoveKind(id: number): ActorBlockedMoveKind {
-  return lynxActorCapabilityPolicy(id).blockedMoveKind;
+  return actorBlockedMoveKind(lynxActorCapabilityPolicy(id));
 }
 
 export function lynxActorTrapHook(id: number): ActorTrapHook {
-  return lynxActorCapabilityPolicy(id).trapHook;
+  return actorTrapHook(lynxActorCapabilityPolicy(id));
 }
 
 export function lynxActorClonerHook(id: number): ActorClonerHook {
-  return lynxActorCapabilityPolicy(id).clonerHook;
+  return actorClonerHook(lynxActorCapabilityPolicy(id));
 }
 
 export function lynxActorThiefHook(id: number): ActorThiefHook {
-  return lynxActorCapabilityPolicy(id).thiefHook;
+  return actorThiefHook(lynxActorCapabilityPolicy(id));
 }
 
 export function lynxActorAirHook(id: number): ActorAirHook {
-  return lynxActorCapabilityPolicy(id).airHook;
+  return actorAirHook(lynxActorCapabilityPolicy(id));
 }
 
-export function lynxActorCollisionHook(id: number): ActorCollisionHook {
-  return lynxActorCapabilityPolicy(id).collisionHook;
+export function lynxActorCollisionStrategyId(id: number): ActorCollisionStrategyId {
+  return actorCollisionStrategyId(lynxActorCapabilityPolicy(id));
 }
 
 export function lynxActorEntryMask(tileId: number, actorId: number): number {
-  switch (lynxActorTraversalKind(actorId)) {
-    case "chip":
+  switch (lynxActorMovementStrategyId(actorId)) {
+    case "chip-like":
       return lynxChipMovementMask(tileId);
-    case "block":
+    case "block-like":
       return lynxBlockMovementMask(tileId);
     default:
       return lynxCreatureMovementMask(tileId);
@@ -850,7 +898,7 @@ export function lynxActorEntryMask(tileId: number, actorId: number): number {
 }
 
 export function lynxActorHazardResponse(actorId: number, hazard: ActorHazardName): ActorHazardResponse {
-  return lynxActorCapabilityPolicy(actorId).hazards[hazard];
+  return actorHazardResponse(lynxActorCapabilityPolicy(actorId), hazard);
 }
 
 export function lynxToggledWallTileId(id: number): number {

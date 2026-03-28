@@ -3,16 +3,30 @@ import type {
   ActorBlockedMoveKind,
   ActorCapabilityPolicy,
   ActorClonerHook,
-  ActorCollisionHook,
+  ActorCollisionStrategyId,
   ActorControlMode,
   ActorGlobalProgressKind,
   ActorHazardName,
   ActorHazardResponse,
   ActorItemCollectionKind,
   ActorLocalInventoryMode,
+  ActorMovementStrategyId,
   ActorThiefHook,
   ActorTrapHook,
-  ActorTraversalKind,
+} from "@game-core/api/actorCapabilities";
+import {
+  actorAirHook,
+  actorBlockedMoveKind,
+  actorClonerHook,
+  actorCollisionStrategyId,
+  actorControlMode,
+  actorGlobalProgressKind,
+  actorHazardResponse,
+  actorItemCollectionKind,
+  actorLocalInventoryMode,
+  actorMovementStrategyId,
+  actorThiefHook,
+  actorTrapHook,
 } from "@game-core/api/actorCapabilities";
 import {
   createRulesetCatalog,
@@ -513,83 +527,119 @@ function createMsTileDefinition(id: number): TileDefinition<number> {
 }
 
 const MS_CHIP_ACTOR_CAPABILITIES = {
-  controlMode: "player-input",
-  localInventoryMode: "keys-boots-tools",
-  itemCollectionKind: "keys-boots-tools",
-  globalProgressKind: "collect-chips",
-  traversalKind: "chip",
-  blockedMoveKind: "stay",
-  trapHook: "default",
-  clonerHook: "default",
-  thiefHook: "steal-boots-tools",
-  airHook: "chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "player-input",
+  },
+  inventory: {
+    localInventoryMode: "keys-boots-tools",
+    itemCollectionKind: "keys-boots-tools",
+    globalProgressKind: "collect-chips",
+  },
+  movement: {
+    strategyId: "chip-like",
+    blockedMoveKind: "stay",
+    trapHook: "default",
+    clonerHook: "default",
+    airHook: "chip-support",
+  },
+  interaction: {
+    thiefHook: "steal-boots-tools",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "destroy",
-    fire: "destroy",
-    bomb: "destroy",
+    responses: {
+      water: "destroy",
+      fire: "destroy",
+      bomb: "destroy",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const MS_BLOCK_ACTOR_CAPABILITIES = {
-  controlMode: "passive",
-  localInventoryMode: "none",
-  itemCollectionKind: "none",
-  globalProgressKind: "none",
-  traversalKind: "block",
-  blockedMoveKind: "stay",
-  trapHook: "default",
-  clonerHook: "default",
-  thiefHook: "none",
-  airHook: "non-chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "passive",
+  },
+  inventory: {
+    localInventoryMode: "none",
+    itemCollectionKind: "none",
+    globalProgressKind: "none",
+  },
+  movement: {
+    strategyId: "block-like",
+    blockedMoveKind: "stay",
+    trapHook: "default",
+    clonerHook: "default",
+    airHook: "non-chip-support",
+  },
+  interaction: {
+    thiefHook: "none",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "transform",
-    fire: "ignore",
-    bomb: "transform",
+    responses: {
+      water: "transform",
+      fire: "ignore",
+      bomb: "transform",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const MS_CREATURE_ACTOR_CAPABILITIES = {
-  controlMode: "ai",
-  localInventoryMode: "none",
-  itemCollectionKind: "none",
-  globalProgressKind: "none",
-  traversalKind: "creature",
-  blockedMoveKind: "stay",
-  trapHook: "default",
-  clonerHook: "default",
-  thiefHook: "none",
-  airHook: "non-chip-support",
-  collisionHook: "default",
+  control: {
+    mode: "ai",
+  },
+  inventory: {
+    localInventoryMode: "none",
+    itemCollectionKind: "none",
+    globalProgressKind: "none",
+  },
+  movement: {
+    strategyId: "creature-like",
+    blockedMoveKind: "stay",
+    trapHook: "default",
+    clonerHook: "default",
+    airHook: "non-chip-support",
+  },
+  interaction: {
+    thiefHook: "none",
+    collisionStrategyId: "default",
+  },
   hazards: {
-    water: "destroy",
-    fire: "destroy",
-    bomb: "destroy",
+    responses: {
+      water: "destroy",
+      fire: "destroy",
+      bomb: "destroy",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const MS_WATER_IMMUNE_CREATURE_CAPABILITIES = {
   ...MS_CREATURE_ACTOR_CAPABILITIES,
   hazards: {
-    ...MS_CREATURE_ACTOR_CAPABILITIES.hazards,
-    water: "ignore",
+    responses: {
+      ...MS_CREATURE_ACTOR_CAPABILITIES.hazards.responses,
+      water: "ignore",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const MS_FIRE_IMMUNE_CREATURE_CAPABILITIES = {
   ...MS_CREATURE_ACTOR_CAPABILITIES,
   hazards: {
-    ...MS_CREATURE_ACTOR_CAPABILITIES.hazards,
-    fire: "ignore",
+    responses: {
+      ...MS_CREATURE_ACTOR_CAPABILITIES.hazards.responses,
+      fire: "ignore",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
 const MS_FIRE_DENY_CREATURE_CAPABILITIES = {
   ...MS_CREATURE_ACTOR_CAPABILITIES,
   hazards: {
-    ...MS_CREATURE_ACTOR_CAPABILITIES.hazards,
-    fire: "deny",
+    responses: {
+      ...MS_CREATURE_ACTOR_CAPABILITIES.hazards.responses,
+      fire: "deny",
+    },
   },
 } as const satisfies ActorCapabilityPolicy;
 
@@ -749,54 +799,54 @@ export function msActorCapabilityPolicy(id: number): ActorCapabilityPolicy {
 }
 
 export function msActorControlMode(id: number): ActorControlMode {
-  return msActorCapabilityPolicy(id).controlMode;
+  return actorControlMode(msActorCapabilityPolicy(id));
 }
 
 export function msActorLocalInventoryMode(id: number): ActorLocalInventoryMode {
-  return msActorCapabilityPolicy(id).localInventoryMode;
+  return actorLocalInventoryMode(msActorCapabilityPolicy(id));
 }
 
 export function msActorItemCollectionKind(id: number): ActorItemCollectionKind {
-  return msActorCapabilityPolicy(id).itemCollectionKind;
+  return actorItemCollectionKind(msActorCapabilityPolicy(id));
 }
 
 export function msActorGlobalProgressKind(id: number): ActorGlobalProgressKind {
-  return msActorCapabilityPolicy(id).globalProgressKind;
+  return actorGlobalProgressKind(msActorCapabilityPolicy(id));
 }
 
-export function msActorTraversalKind(id: number): ActorTraversalKind {
-  return msActorCapabilityPolicy(id).traversalKind;
+export function msActorMovementStrategyId(id: number): ActorMovementStrategyId {
+  return actorMovementStrategyId(msActorCapabilityPolicy(id));
 }
 
 export function msActorBlockedMoveKind(id: number): ActorBlockedMoveKind {
-  return msActorCapabilityPolicy(id).blockedMoveKind;
+  return actorBlockedMoveKind(msActorCapabilityPolicy(id));
 }
 
 export function msActorTrapHook(id: number): ActorTrapHook {
-  return msActorCapabilityPolicy(id).trapHook;
+  return actorTrapHook(msActorCapabilityPolicy(id));
 }
 
 export function msActorClonerHook(id: number): ActorClonerHook {
-  return msActorCapabilityPolicy(id).clonerHook;
+  return actorClonerHook(msActorCapabilityPolicy(id));
 }
 
 export function msActorThiefHook(id: number): ActorThiefHook {
-  return msActorCapabilityPolicy(id).thiefHook;
+  return actorThiefHook(msActorCapabilityPolicy(id));
 }
 
 export function msActorAirHook(id: number): ActorAirHook {
-  return msActorCapabilityPolicy(id).airHook;
+  return actorAirHook(msActorCapabilityPolicy(id));
 }
 
-export function msActorCollisionHook(id: number): ActorCollisionHook {
-  return msActorCapabilityPolicy(id).collisionHook;
+export function msActorCollisionStrategyId(id: number): ActorCollisionStrategyId {
+  return actorCollisionStrategyId(msActorCapabilityPolicy(id));
 }
 
 export function msActorEntryMask(tileId: number, actorId: number): number {
-  switch (msActorTraversalKind(actorId)) {
-    case "chip":
+  switch (msActorMovementStrategyId(actorId)) {
+    case "chip-like":
       return msChipMovementMask(tileId);
-    case "block":
+    case "block-like":
       return msBlockMovementMask(tileId);
     default:
       return msCreatureMovementMask(tileId);
@@ -804,7 +854,7 @@ export function msActorEntryMask(tileId: number, actorId: number): number {
 }
 
 export function msActorHazardResponse(actorId: number, hazard: ActorHazardName): ActorHazardResponse {
-  return msActorCapabilityPolicy(actorId).hazards[hazard];
+  return actorHazardResponse(msActorCapabilityPolicy(actorId), hazard);
 }
 
 export function msActorArrivalAction(tileId: number, actorId: number): MsActorArrivalAction {
