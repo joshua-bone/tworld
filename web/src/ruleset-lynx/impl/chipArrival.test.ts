@@ -18,12 +18,14 @@ function createContext(overrides: Partial<LynxCompletedChipMoveContext> = {}): L
       tileEmptied: 4,
       wallCreated: 8,
       bootsStolen: 16,
-      trapEntered: 32,
-      chipWins: 64,
+      itemCollected: 32,
+      icCollected: 64,
+      trapEntered: 128,
+      chipWins: 256,
     },
     resolveButtonEffects: () => 0,
     applyThiefHook: () => false,
-    collectItemSound: () => 0,
+    queueCollectedTool: () => {},
     springTrap: () => {},
     hasBoot: () => false,
     applyIceWallTurn: (dir) => dir,
@@ -66,6 +68,23 @@ describe("lynx chip arrival", () => {
 
     expect(completed.endGameResult).toBe("completed");
     expect(completed.endGameTicksElapsed).toBe(0);
-    expect(context.state.soundEffects & 64).not.toBe(0);
+    expect(context.state.soundEffects & 256).not.toBe(0);
+  });
+
+  it("collects tools and queues portable replacement from chip arrival", () => {
+    const queued: Array<{ pos: number; tileId: number }> = [];
+    const context = createContext({
+      queueCollectedTool: (pos, tileId) => {
+        queued.push({ pos, tileId });
+      },
+    });
+    context.state.map.cells[34] = createCell(34, MS_TILE.Hook, MS_TILE.Empty);
+
+    const arrival = applyLynxChipArrivalEffects(context, 34);
+
+    expect(arrival.status).toBe("resolved");
+    expect(arrival.soundEffects).toBe(32);
+    expect(queued).toEqual([{ pos: 34, tileId: MS_TILE.Hook }]);
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
   });
 });

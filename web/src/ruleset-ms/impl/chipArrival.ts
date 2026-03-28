@@ -1,5 +1,6 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { ACTOR_INTERACTION_TARGET_KIND } from "@game-core/api/actorInteractions";
+import { applyActorFloorImpactAction } from "@game-core/impl/floorImpact";
 import { popBoardTile } from "@game-core/impl/board";
 import {
   actorInventoryClearBoots,
@@ -13,6 +14,7 @@ import {
 } from "@ruleset-ms/impl/catalog";
 import { msActorInteractionOutcome, msActorThiefOutcome } from "@ruleset-ms/impl/actorInteractions";
 import { collectMsActorTile, projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
+import { msFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
 import {
   clearMsToolInventory,
   queueMsToolInventoryReplacement,
@@ -49,64 +51,57 @@ export function applyMsChipEnterEffects(
   const chipInventory = projectMsActorInventoryOwner(MS_TILE.Chip, context.inventory);
   let enteredTeleport = false;
   let soundEffects = 0;
-
-  switch (msChipEnterAction(floor)) {
-    case "clear-floor":
-      popBoardTile(cells, nextPos, MS_TILE.Empty);
-      break;
-    case "collect-chip":
-      if (collectMsActorTile(MS_TILE.Chip, context.inventory, floor).collected) {
+  const floorImpactAction = msFloorImpactAction(msChipEnterAction(floor));
+  if (floorImpactAction !== null) {
+    soundEffects |= applyActorFloorImpactAction(floorImpactAction, {
+      clearFloor: () => {
         popBoardTile(cells, nextPos, MS_TILE.Empty);
-        soundEffects |= 1 << MS_SOUND.IcCollected;
-      }
-      break;
-    case "popup-wall":
-      if (nextCell.top.id === MS_TILE.Empty) {
-        popBoardTile(cells, nextPos, MS_TILE.Empty);
-      } else {
+      },
+      popupWall: () => {
+        if (nextCell.top.id === MS_TILE.Empty) {
+          popBoardTile(cells, nextPos, MS_TILE.Empty);
+          return;
+        }
         floorTileBeforeMove.id = MS_TILE.Wall;
-      }
-      break;
-    case "open-door": {
-      const index = msDoorKeyIndex(floor);
-      if (index !== null) {
-        actorInventoryUseKey(chipInventory, index, { consume: floor !== MS_TILE.Door_Green });
-      }
-      popBoardTile(cells, nextPos, MS_TILE.Empty);
-      soundEffects |= 1 << MS_SOUND.DoorOpened;
-      break;
-    }
-    case "collect-item": {
-      const collected = collectMsActorTile(MS_TILE.Chip, context.inventory, floor);
-      if (collected.collected) {
-        if (collected.slot === "tools") {
-          queueMsToolInventoryReplacement(
-            context.portableTools,
-            context.inventory,
-            floor,
-            nextPos,
-            context.runtimeCellZ(nextPos),
-          );
+      },
+      collectTile: () => collectMsActorTile(MS_TILE.Chip, context.inventory, floor),
+      afterCollect: (collected) => {
+        if (collected.slot !== "tools") {
+          return;
         }
-        popBoardTile(cells, nextPos, MS_TILE.Empty);
-        if (collected.slot === "tools") {
-          movementFloorTile = nextCell.top;
+        queueMsToolInventoryReplacement(
+          context.portableTools,
+          context.inventory,
+          floor,
+          nextPos,
+          context.runtimeCellZ(nextPos),
+        );
+        movementFloorTile = nextCell.top;
+      },
+      tryOpenDoor: () => {
+        const index = msDoorKeyIndex(floor);
+        return index !== null && actorInventoryUseKey(chipInventory, index, { consume: floor !== MS_TILE.Door_Green });
+      },
+      tryOpenSocket: () => true,
+      clearBootsAndTools: () => {
+        if (msActorThiefOutcome(MS_TILE.Chip) !== "steal-boots-tools") {
+          return false;
         }
-        soundEffects |= 1 << MS_SOUND.ItemCollected;
-      }
-      break;
-    }
-    case "open-socket":
-      popBoardTile(cells, nextPos, MS_TILE.Empty);
-      soundEffects |= 1 << MS_SOUND.SocketOpened;
-      break;
-    case "steal-boots":
-      if (msActorThiefOutcome(MS_TILE.Chip) === "steal-boots-tools") {
         actorInventoryClearBoots(chipInventory);
         clearMsToolInventory(context.portableTools, context.inventory);
-        soundEffects |= 1 << MS_SOUND.BootsStolen;
-      }
-      break;
+        return true;
+      },
+      soundEffects: {
+        doorOpened: 1 << MS_SOUND.DoorOpened,
+        socketOpened: 1 << MS_SOUND.SocketOpened,
+        bootsStolen: 1 << MS_SOUND.BootsStolen,
+        itemCollected: 1 << MS_SOUND.ItemCollected,
+        icCollected: 1 << MS_SOUND.IcCollected,
+        wallCreated: 0,
+      },
+    }).soundEffects;
+  } else {
+    switch (msChipEnterAction(floor)) {
     case "explode-bomb":
       chip.chipStatus = "bombed";
       soundEffects |= 1 << MS_SOUND.BombExplodes;
@@ -139,6 +134,7 @@ export function applyMsChipEnterEffects(
       break;
     case "none":
       break;
+    }
   }
 
   return {

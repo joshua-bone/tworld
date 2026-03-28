@@ -5,12 +5,10 @@ import { findHiddenActorAtPosition, findVisibleActorAtPosition, storeActorInReus
 import {
   addTopTileFlags,
   cloneBoardCells,
-  hasBoardCell,
   hasTopTileFlags,
   promoteBottomTile,
   removeTopTileFlags,
   replaceTopTile,
-  topTile,
   topTileIdOr,
 } from "@game-core/impl/board";
 import { OCCUPANCY_TARGET_KIND, type OccupancyTarget } from "@game-core/impl/occupancy";
@@ -134,7 +132,7 @@ import {
   settleLynxPrimedToolDrop,
   type LynxPortableToolStateStore,
 } from "@ruleset-lynx/impl/portableItems";
-import { collectLynxActorTile, projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
+import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
 import {
   applyLynxActorArrivalEffects,
   canLynxActorEnterTile,
@@ -1123,13 +1121,23 @@ function createLynxCompletedChipMoveContext(
       tileEmptied: 1 << LYNX_SOUND.TileEmptied,
       wallCreated: 1 << LYNX_SOUND.WallCreated,
       bootsStolen: 1 << LYNX_SOUND.BootsStolen,
+      itemCollected: 1 << LYNX_SOUND.ItemCollected,
+      icCollected: 1 << LYNX_SOUND.IcCollected,
       trapEntered: 1 << LYNX_SOUND.TrapEntered,
       chipWins: 1 << LYNX_SOUND.ChipWins,
     },
     resolveButtonEffects: (pos: number, tileId: number) => resolveLynxButtonEffects(state, level, actors, pos, tileId),
     applyThiefHook: () =>
       applyLynxActorThiefHook(state, MS_TILE.Chip, projectLynxActorInventoryOwner(MS_TILE.Chip, state.inventory)),
-    collectItemSound: (pos: number) => collectLynxItemAtPosition(state, MS_TILE.Chip, pos),
+    queueCollectedTool: (pos: number, tileId: number) => {
+      queueLynxToolInventoryReplacement(
+        lynxPortableToolRuntime(state),
+        state.inventory,
+        tileId,
+        pos,
+        activeLynxLayerZ(state),
+      );
+    },
     springTrap: (pos: number) => {
       springLynxTrap(state, level, actors, pos);
     },
@@ -1389,31 +1397,6 @@ function updateLynxViewChip(state: EngineState): void {
     state: 0,
     source: "view",
   };
-}
-
-function collectLynxItemAtPosition(state: EngineState, actorId: number, pos: number): number {
-  if (!hasBoardCell(state.map.cells, pos)) {
-    return 0;
-  }
-
-  const tile = topTile(state.map.cells, pos);
-  const collected = collectLynxActorTile(actorId, state.inventory, tile.id);
-  if (collected.collected) {
-    if (collected.collectedChip) {
-      promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
-      state.map.hash = mapHash(state.map.cells);
-      return 1 << LYNX_SOUND.IcCollected;
-    }
-
-    if (collected.slot === "tools") {
-      queueLynxToolInventoryReplacement(lynxPortableToolRuntime(state), state.inventory, tile.id, pos, activeLynxLayerZ(state));
-    }
-    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
-    state.map.hash = mapHash(state.map.cells);
-    return 1 << LYNX_SOUND.ItemCollected;
-  }
-
-  return 0;
 }
 
 function hasLynxBoots(state: EngineState, tileId: number): boolean {

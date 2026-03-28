@@ -1,5 +1,6 @@
 import type { EngineState } from "@game-core/api/model";
 import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
+import { applyActorFloorImpactAction } from "@game-core/impl/floorImpact";
 import { actorInventoryClearBoots, actorInventoryClearTools, actorInventoryHasBoot, actorInventoryUseKey, type ActorLocalInventoryOwner } from "@game-core/impl/actorLocalInventory";
 import { mapHash } from "@game-core/impl/hash";
 import { promoteBottomTile, replaceTopTile } from "@game-core/impl/board";
@@ -7,6 +8,7 @@ import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { lynxChipEnterAction, lynxDoorKeyIndex } from "@ruleset-lynx/impl/catalog";
 import { collectLynxActorTile } from "@ruleset-lynx/impl/actorCollections";
 import { lynxActorArrivalOutcome } from "@ruleset-lynx/impl/actorInteractions";
+import { lynxFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import type { LynxStatefulActorRuntimeEntry } from "@ruleset-lynx/impl/statefulActors";
 
 export interface LynxActorArrivalContext {
@@ -65,60 +67,40 @@ export function applyLynxActorArrivalEffects(
     return 0;
   }
 
-  const keyIndex = lynxDoorKeyIndex(cell.top.id);
-  if (keyIndex !== null && actorInventoryUseKey(context.inventoryOwner, keyIndex, { consume: keyIndex !== 3 })) {
-    promoteBottomTile(context.state.map.cells, pos, MS_TILE.Empty);
-    context.state.map.hash = mapHash(context.state.map.cells);
-    return context.soundBits.doorOpened;
+  const floorImpactAction = lynxFloorImpactAction(lynxChipEnterAction(cell.top.id));
+  if (floorImpactAction === null) {
+    return 0;
   }
 
-  switch (lynxChipEnterAction(cell.top.id)) {
-    case "open-socket":
-      if (context.state.inventory.chipsNeeded === 0) {
-        promoteBottomTile(context.state.map.cells, pos, MS_TILE.Empty);
-        context.state.map.hash = mapHash(context.state.map.cells);
-        return context.soundBits.socketOpened;
-      }
-      break;
-    case "clear-floor":
+  const arrival = applyActorFloorImpactAction(floorImpactAction, {
+    clearFloor: () => {
       replaceTopTile(context.state.map.cells, pos, { ...cell.top, id: MS_TILE.Empty });
       context.state.map.hash = mapHash(context.state.map.cells);
-      return context.soundBits.tileEmptied;
-    case "popup-wall":
+    },
+    consumeEnteredOverlay: () => {
+      promoteBottomTile(context.state.map.cells, pos, MS_TILE.Empty);
+      context.state.map.hash = mapHash(context.state.map.cells);
+    },
+    popupWall: () => {
       replaceTopTile(context.state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
       context.state.map.hash = mapHash(context.state.map.cells);
-      return context.soundBits.wallCreated;
-    case "collect-chip": {
-      const collected = collectLynxActorTile(actorId, context.state.inventory, cell.top.id, {
+    },
+    collectTile: () =>
+      collectLynxActorTile(actorId, context.state.inventory, cell.top.id, {
         actorSerial: context.runtimeEntry?.actorSerial,
         runtimeEntry: context.runtimeEntry,
-      });
-      if (collected.collected) {
-        promoteBottomTile(context.state.map.cells, pos, MS_TILE.Empty);
-        context.state.map.hash = mapHash(context.state.map.cells);
-        return collected.collectedChip ? context.soundBits.icCollected : context.soundBits.itemCollected;
-      }
-      break;
-    }
-    case "collect-item": {
-      const collected = collectLynxActorTile(actorId, context.state.inventory, cell.top.id, {
-        actorSerial: context.runtimeEntry?.actorSerial,
-        runtimeEntry: context.runtimeEntry,
-      });
-      if (collected.collected) {
-        promoteBottomTile(context.state.map.cells, pos, MS_TILE.Empty);
-        context.state.map.hash = mapHash(context.state.map.cells);
-        return context.soundBits.itemCollected;
-      }
-      break;
-    }
-    case "steal-boots":
+      }),
+    tryOpenDoor: () => {
+      const keyIndex = lynxDoorKeyIndex(cell.top.id);
+      return keyIndex !== null && actorInventoryUseKey(context.inventoryOwner, keyIndex, { consume: keyIndex !== 3 });
+    },
+    tryOpenSocket: () => context.state.inventory.chipsNeeded === 0,
+    clearBootsAndTools: () => {
       actorInventoryClearBoots(context.inventoryOwner);
       actorInventoryClearTools(context.inventoryOwner);
-      return context.soundBits.bootsStolen;
-    default:
-      break;
-  }
+    },
+    soundEffects: context.soundBits,
+  });
 
-  return 0;
+  return arrival.soundEffects;
 }

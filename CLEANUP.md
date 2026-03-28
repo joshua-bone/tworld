@@ -278,17 +278,18 @@ Goal:
 
 Checklist:
 
-- [ ] define family-level floor-impact outcomes:
-- [ ] continue
+- [x] define shared floor-impact outcomes for current post-entry behavior
+- [x] continue
 - [ ] destroy
 - [ ] transform floor
-- [ ] collect pickup
-- [ ] use inventory
-- [ ] lose inventory
+- [x] collect pickup
+- [x] use inventory
+- [x] lose inventory
 - [ ] hold direction
 - [ ] revert to portable
-- [ ] use this for hazards, thief, chips, keys, boots, popup walls, fake/real blue walls, teleports, and exits
-- [ ] keep global chip progress separate from actor-local inventory
+- [x] use this for thief, chips, keys, boots, doors, sockets, popup walls, buttons, traps, and exits
+- [ ] extend the same seam across hazards, fake/real blue walls, and teleports
+- [x] keep global chip progress separate from actor-local inventory
 
 Success condition:
 
