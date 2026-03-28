@@ -579,9 +579,9 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 
 ### EC6: Movement Outcome Vocabulary
 
-- [ ] Introduce shared movement/arrival/collision result types.
-- [ ] Refactor MS chip/creature/block movement helpers to return structured outcomes.
-- [ ] Refactor Lynx chip/creature movement helpers to use the same vocabulary.
+- [x] Introduce shared movement/arrival/collision result types.
+- [x] Refactor MS chip/creature/block movement helpers to return structured outcomes.
+- [x] Refactor Lynx chip/creature movement helpers to use the same vocabulary.
 
 ### EC7: MS Engine Step-Down Cleanup
 
