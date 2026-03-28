@@ -128,6 +128,7 @@ export function projectMsInteractiveFrame(
   phase: InteractiveProjectionPhase,
 ): InteractiveGameFrame {
   const runtime = msProjectedRuntimeState(session.state.engine);
+  const primedToolDrop = session.state.internal.portableTools?.primedToolDrop ?? null;
 
   const frame = projectInteractiveFrame(
     engineStateToSnapshot(session.state.engine, phase, session.lastInput),
@@ -138,13 +139,13 @@ export function projectMsInteractiveFrame(
       layers: session.state.engine.map.layers,
       tileOverlays: [
         ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? []),
-        ...(session.state.internal.primedToolDrop
+        ...(primedToolDrop
           ? [
               {
-                z: session.state.internal.primedToolDrop.z,
-                pos: session.state.internal.primedToolDrop.pos,
+                z: primedToolDrop.z,
+                pos: primedToolDrop.pos,
                 kind: "carried-tool" as const,
-                tileId: session.state.internal.primedToolDrop.tileId,
+                tileId: primedToolDrop.tileId,
               },
             ]
           : []),

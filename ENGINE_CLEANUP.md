@@ -389,7 +389,7 @@ Problems that still matter:
 - [x] EC12: Actor Controller Seams
 - [x] EC13: Generalize Actor-Owned Collection And Global Progress
 - [x] EC14: Portable Item Activation Lifecycle
-- [ ] EC15: Runtime State Decomposition
+- [x] EC15: Runtime State Decomposition
 - [ ] EC16: Test DSL And Builder Cleanup
 
 ### [x] EC10: Movement Probe And Arrival Split
@@ -511,7 +511,13 @@ Expected outcome:
 - bowling ball becomes feasible without spreading conditional logic everywhere
 - future hooks or similar portable actors get the same seam
 
-### [ ] EC15: Runtime State Decomposition
+### [x] EC15: Runtime State Decomposition
+
+Done:
+
+- MS internal runtime state now groups random state and portable-tool state into named sub-objects instead of exposing them as flat engine fields.
+- Lynx runtime state now groups visuals, chip-runtime flags, and portable-tool state into named sub-objects, with helper accessors at the engine boundary.
+- MS and Lynx interactive projections, engine tests, and undo canonical session fixtures now reflect the decomposed runtime shape.
 
 Goal:
 

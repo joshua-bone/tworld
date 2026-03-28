@@ -195,10 +195,12 @@ describe("projectMsInteractiveFrame", () => {
         internal: {
           chipZ: 1,
           traps: [],
-          primedToolDrop: {
-            tileId: MS_TILE.Sandbag,
-            pos: 1,
-            z: 1,
+          portableTools: {
+            primedToolDrop: {
+              tileId: MS_TILE.Sandbag,
+              pos: 1,
+              z: 1,
+            },
           },
         },
       },

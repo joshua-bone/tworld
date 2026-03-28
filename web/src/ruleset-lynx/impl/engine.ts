@@ -107,7 +107,6 @@ import {
   queueLynxToolInventoryReplacement,
   reconcileLynxPortableToolProjection,
   settleLynxPrimedToolDrop,
-  type LynxPortableItem,
   type LynxPortableToolStateStore,
 } from "@ruleset-lynx/impl/portableItems";
 import { collectLynxActorTile, projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
@@ -234,7 +233,7 @@ function applyLynxActorThiefHook(
     return false;
   }
   actorInventoryClearBoots(inventoryOwner);
-  clearLynxToolInventory(lynxRuntimeState(state), state.inventory);
+  clearLynxToolInventory(lynxPortableToolRuntime(state), state.inventory);
   return true;
 }
 
@@ -284,6 +283,29 @@ function lynxAnimationTileId(kind: "water-splash" | "bomb-explosion" | "none"): 
 
 interface LynxRuntimeState {
   toggleWallsPending: boolean;
+  visuals: {
+    animations: LynxAnimationState[];
+    tileOverlays: Array<{
+      z: number;
+      pos: number;
+      kind: InteractiveGameTileOverlayKind;
+      ttl: number;
+    }>;
+  };
+  chipRuntime: {
+    chipTeleported: boolean;
+    chipSlideToken: boolean;
+    chipIgnoreIceFromAir?: boolean;
+    couldntMove: boolean;
+    trapReleaseCantMoveThisTick: boolean;
+    lastRandomSlideDir: number;
+  };
+  portableTools: LynxPortableToolStateStore;
+  chipPos: number;
+  chipZ: number;
+}
+
+interface LynxVisualRuntimeState {
   animations: LynxAnimationState[];
   tileOverlays: Array<{
     z: number;
@@ -291,18 +313,18 @@ interface LynxRuntimeState {
     kind: InteractiveGameTileOverlayKind;
     ttl: number;
   }>;
-  primedToolDrop: LynxPortableToolStateStore["primedToolDrop"];
+}
+
+interface LynxChipRuntimeState {
   chipTeleported: boolean;
   chipSlideToken: boolean;
   chipIgnoreIceFromAir?: boolean;
   couldntMove: boolean;
   trapReleaseCantMoveThisTick: boolean;
   lastRandomSlideDir: number;
-  chipPos: number;
-  chipZ: number;
-  portableItems: LynxPortableItem[];
-  nextPortableItemSerial: number;
 }
+
+interface LynxPortableToolRuntimeState extends LynxPortableToolStateStore {}
 
 interface LynxTickContext {
   state: EngineState;
@@ -547,22 +569,40 @@ function lynxRuntimeState(state: EngineState): LynxRuntimeState {
   if (!runtimeState.lynxRuntimeState) {
     runtimeState.lynxRuntimeState = {
       toggleWallsPending: false,
-      animations: [],
-      tileOverlays: [],
-      primedToolDrop: null,
-      chipTeleported: false,
-      chipSlideToken: false,
-      chipIgnoreIceFromAir: false,
-      couldntMove: false,
-      trapReleaseCantMoveThisTick: false,
-      lastRandomSlideDir: directionCode(state.replay.initialRandomSlideDirection),
+      visuals: {
+        animations: [],
+        tileOverlays: [],
+      },
+      chipRuntime: {
+        chipTeleported: false,
+        chipSlideToken: false,
+        chipIgnoreIceFromAir: false,
+        couldntMove: false,
+        trapReleaseCantMoveThisTick: false,
+        lastRandomSlideDir: directionCode(state.replay.initialRandomSlideDirection),
+      },
+      portableTools: {
+        portableItems: [],
+        nextPortableItemSerial: 1,
+        primedToolDrop: null,
+      },
       chipPos: -1,
       chipZ: 1,
-      portableItems: [],
-      nextPortableItemSerial: 1,
     };
   }
   return runtimeState.lynxRuntimeState;
+}
+
+function lynxVisualRuntime(state: EngineState): LynxVisualRuntimeState {
+  return lynxRuntimeState(state).visuals;
+}
+
+function lynxChipRuntime(state: EngineState): LynxChipRuntimeState {
+  return lynxRuntimeState(state).chipRuntime;
+}
+
+function lynxPortableToolRuntime(state: EngineState): LynxPortableToolRuntimeState {
+  return lynxRuntimeState(state).portableTools;
 }
 
 function setLynxRuntimeChipState(state: EngineState, chipPos: number, chipZ: number): void {
@@ -573,25 +613,25 @@ function setLynxRuntimeChipState(state: EngineState, chipPos: number, chipZ: num
 
 function lynxChipActsWallForMobs(state: EngineState, pos: number, z: number): boolean {
   const runtime = lynxRuntimeState(state);
-  return primedLynxPortableToolItem(runtime) !== undefined && runtime.chipPos === pos && runtime.chipZ === z;
+  return primedLynxPortableToolItem(runtime.portableTools) !== undefined && runtime.chipPos === pos && runtime.chipZ === z;
 }
 
 function clearLynxAnimationAt(state: EngineState, actors: LynxRuntimeActor[], pos: number): boolean {
-  const runtime = lynxRuntimeState(state);
-  const index = runtime.animations.findIndex((animation) => animation.pos === pos);
+  const visuals = lynxVisualRuntime(state);
+  const index = visuals.animations.findIndex((animation) => animation.pos === pos);
   if (index < 0) {
     return false;
   }
 
-  runtime.animations.splice(index, 1);
+  visuals.animations.splice(index, 1);
   removeTopTileFlags(state.map.cells, pos, LYNX_CELL_FLAG.Animated);
   releaseReservedAnimationActorAt(actors, pos);
   return true;
 }
 
 function clearLynxTileOverlays(state: EngineState): void {
-  const runtime = lynxRuntimeState(state);
-  runtime.tileOverlays = runtime.tileOverlays
+  const visuals = lynxVisualRuntime(state);
+  visuals.tileOverlays = visuals.tileOverlays
     .map((overlay) => ({ ...overlay, ttl: overlay.ttl - 1 }))
     .filter((overlay) => overlay.ttl > 0);
 }
@@ -603,13 +643,13 @@ function addLynxTileOverlay(
   kind: InteractiveGameTileOverlayKind,
   ttl = 2,
 ): void {
-  const runtime = lynxRuntimeState(state);
-  const existing = runtime.tileOverlays.find((overlay) => overlay.z === z && overlay.pos === pos && overlay.kind === kind);
+  const visuals = lynxVisualRuntime(state);
+  const existing = visuals.tileOverlays.find((overlay) => overlay.z === z && overlay.pos === pos && overlay.kind === kind);
   if (existing) {
     existing.ttl = ttl;
     return;
   }
-  runtime.tileOverlays.push({ z, pos, kind, ttl });
+  visuals.tileOverlays.push({ z, pos, kind, ttl });
 }
 
 function createLynxTickContext(
@@ -677,7 +717,7 @@ function startLynxAnimation(state: EngineState, actors: LynxRuntimeActor[], pos:
     return;
   }
 
-  lynxRuntimeState(state).animations.push({
+  lynxVisualRuntime(state).animations.push({
     pos,
     frame: initialLynxAnimationFrame(state),
     tileId,
@@ -686,10 +726,10 @@ function startLynxAnimation(state: EngineState, actors: LynxRuntimeActor[], pos:
 }
 
 function advanceLynxAnimations(state: EngineState, actors: LynxRuntimeActor[]): void {
-  const runtime = lynxRuntimeState(state);
+  const visuals = lynxVisualRuntime(state);
 
-  for (let index = runtime.animations.length - 1; index >= 0; index -= 1) {
-    const animation = runtime.animations[index]!;
+  for (let index = visuals.animations.length - 1; index >= 0; index -= 1) {
+    const animation = visuals.animations[index]!;
     animation.frame -= 1;
     if (animation.frame >= 0) {
       continue;
@@ -697,7 +737,7 @@ function advanceLynxAnimations(state: EngineState, actors: LynxRuntimeActor[]): 
 
     removeTopTileFlags(state.map.cells, animation.pos, LYNX_CELL_FLAG.Animated);
     releaseReservedAnimationActorAt(actors, animation.pos);
-    runtime.animations.splice(index, 1);
+    visuals.animations.splice(index, 1);
   }
 }
 
@@ -838,16 +878,16 @@ function advanceLynxEndGameAnimationFrame(
 }
 
 function clearLynxCouldntMove(state: EngineState): void {
-  lynxRuntimeState(state).couldntMove = false;
+  lynxChipRuntime(state).couldntMove = false;
 }
 
 function addLynxCantMove(state: EngineState): void {
-  const runtime = lynxRuntimeState(state);
-  if (runtime.couldntMove) {
+  const chipRuntime = lynxChipRuntime(state);
+  if (chipRuntime.couldntMove) {
     return;
   }
 
-  runtime.couldntMove = true;
+  chipRuntime.couldntMove = true;
   state.soundEffects |= 1 << LYNX_SOUND.CantMove;
 }
 
@@ -986,7 +1026,7 @@ function collectLynxItemAtPosition(state: EngineState, actorId: number, pos: num
     }
 
     if (collected.slot === "tools") {
-      queueLynxToolInventoryReplacement(lynxRuntimeState(state), state.inventory, tile.id, pos, activeLynxLayerZ(state));
+      queueLynxToolInventoryReplacement(lynxPortableToolRuntime(state), state.inventory, tile.id, pos, activeLynxLayerZ(state));
     }
     promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
@@ -1042,7 +1082,7 @@ function probeLynxChipMoveDirection(
 
   if (hasTopTileFlags(state.map.cells, targetPos, LYNX_CELL_FLAG.Claimed)) {
     const block = findClaimedLynxBlockOnActiveLayer(state, actors, targetPos);
-    if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
+    if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
       return { canMove: false, pushBlockPos: null };
     }
     const targetProbe = probeLynxChipTargetCellForState(state, targetPos, dir, true);
@@ -1154,7 +1194,7 @@ function queuePendingLynxBlockPush(
   dir: number,
 ): void {
   const block = findLynxBlockActor(actors, targetPos, activeLynxLayerZ(state));
-  if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
+  if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return;
   }
 
@@ -1177,7 +1217,7 @@ function pendingLynxChipPushInputCode(
     return 0;
   }
 
-  if (lynxRuntimeState(state).chipTeleported) {
+  if (lynxChipRuntime(state).chipTeleported) {
     return chipDir;
   }
 
@@ -1456,7 +1496,7 @@ function resolveCompletedLynxChipMove(
   }
   if (isLynxIce(resolvedFloorAfterMove)) {
     if (chipMoveKind === "air") {
-      lynxRuntimeState(state).chipIgnoreIceFromAir = true;
+      lynxChipRuntime(state).chipIgnoreIceFromAir = true;
     } else {
       chipDir = applyLynxIceWallTurn(chipDir, resolvedFloorAfterMove);
     }
@@ -1544,11 +1584,11 @@ function getLynxSlideDirection(state: EngineState, floorId: number, advance: boo
   if (floorId !== MS_TILE.Slide_Random) {
     return 0;
   }
-  const runtime = lynxRuntimeState(state);
+  const chipRuntime = lynxChipRuntime(state);
   if (advance) {
-    runtime.lastRandomSlideDir = right(runtime.lastRandomSlideDir || 1);
+    chipRuntime.lastRandomSlideDir = right(chipRuntime.lastRandomSlideDir || 1);
   }
-  return runtime.lastRandomSlideDir || 1;
+  return chipRuntime.lastRandomSlideDir || 1;
 }
 
 function applyLynxIceWallTurn(dir: number, floorId: number): number {
@@ -1564,7 +1604,7 @@ function getLynxChipForcedMove(
   discardInput: boolean;
   moveKind?: "air" | "elevator";
 } {
-  const runtime = lynxRuntimeState(context.state);
+  const chipRuntime = lynxChipRuntime(context.state);
   if (chipShouldStartLynxAirMove(context, floorId)) {
     return { dir: 0, discardInput: true, moveKind: "air" };
   }
@@ -1590,17 +1630,17 @@ function getLynxChipForcedMove(
   if (context.state.timer.currentTime < 0) {
     return { dir: 0, discardInput: false };
   }
-  if (runtime.chipTeleported) {
-    runtime.chipTeleported = false;
+  if (chipRuntime.chipTeleported) {
+    chipRuntime.chipTeleported = false;
     return { dir: chipDir, discardInput: true };
   }
   if (isLynxSlide(floorId)) {
     return hasLynxBoots(context.state, MS_TILE.Boots_Slide)
       ? { dir: 0, discardInput: false }
-      : { dir: getLynxSlideDirection(context.state, floorId, true), discardInput: !runtime.chipSlideToken };
+      : { dir: getLynxSlideDirection(context.state, floorId, true), discardInput: !chipRuntime.chipSlideToken };
   }
   if (isLynxIce(floorId)) {
-    if (runtime.chipIgnoreIceFromAir) {
+    if (chipRuntime.chipIgnoreIceFromAir) {
       return { dir: 0, discardInput: false };
     }
     return hasLynxBoots(context.state, MS_TILE.Boots_Ice)
@@ -1627,17 +1667,17 @@ function forcedLynxActorDirection(state: EngineState, actor: LynxRuntimeActor, f
 }
 
 function updateLynxChipStartMovementState(state: EngineState, floorId: number, chosenInputCode: number): void {
-  const runtime = lynxRuntimeState(state);
+  const chipRuntime = lynxChipRuntime(state);
 
   if (!isLynxIce(floorId) || chosenInputCode !== 0) {
-    runtime.chipIgnoreIceFromAir = false;
+    chipRuntime.chipIgnoreIceFromAir = false;
   }
 
   if (!hasLynxBoots(state, MS_TILE.Boots_Slide)) {
     if (isLynxSlide(floorId) && chosenInputCode === 0) {
-      runtime.chipSlideToken = true;
+      chipRuntime.chipSlideToken = true;
     } else if (!isLynxIce(floorId) || hasLynxBoots(state, MS_TILE.Boots_Ice)) {
-      runtime.chipSlideToken = false;
+      chipRuntime.chipSlideToken = false;
     }
   }
 }
@@ -1690,7 +1730,7 @@ function canLynxChipExitTeleportThroughBlock(
   dir: number,
 ): boolean {
   const block = findLynxBlockActor(actors, exitPos, activeLynxLayerZ(state));
-  if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
+  if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return false;
   }
   return canLynxCreatureStartMovement(state, actors, block, dir) && canLynxChipEnterCell(state, exitPos, dir);
@@ -1708,13 +1748,13 @@ function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[
     canCreatureEnter: (tileId, actorId, dir) => canLynxCreatureEnter(tileId, actorId, dir),
     effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),
     markChipTeleported: () => {
-      lynxRuntimeState(state).chipTeleported = true;
+      lynxChipRuntime(state).chipTeleported = true;
       state.soundEffects |= 1 << LYNX_SOUND.Teleporting;
     },
     settleChipTeleportDrop: (originPos, originZ) =>
       settleLynxPrimedToolDrop(
         state,
-        lynxRuntimeState(state),
+        lynxPortableToolRuntime(state),
         state.inventory,
         originPos,
         originZ,
@@ -2327,7 +2367,7 @@ function runLynxInitialHousekeeping(state: EngineState, actors: LynxRuntimeActor
   clearLynxTileOverlays(state);
 
   const runtime = lynxRuntimeState(state);
-  runtime.trapReleaseCantMoveThisTick = false;
+  runtime.chipRuntime.trapReleaseCantMoveThisTick = false;
   if (runtime.toggleWallsPending) {
     toggleLynxWalls(state);
     runtime.toggleWallsPending = false;
@@ -2342,7 +2382,7 @@ function tryPushLynxBlock(
   dir: number,
 ): boolean {
   const block = findLynxBlockActor(actors, pos, activeLynxLayerZ(state));
-  if (!block || block.moving > 0 || (block.deferPush && !lynxRuntimeState(state).chipTeleported)) {
+  if (!block || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return false;
   }
 
@@ -2421,7 +2461,7 @@ function advanceLynxChipTrapRelease(
 
   if (chipMoving <= 0) {
     if (!canAdvanceLynxPosition(chipPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
-      lynxRuntimeState(state).trapReleaseCantMoveThisTick = true;
+      lynxChipRuntime(state).trapReleaseCantMoveThisTick = true;
       addLynxCantMove(state);
       return {
         chipPos,
@@ -2455,7 +2495,7 @@ function advanceLynxChipTrapRelease(
           : lynxChipTargetCellAllowsEntry(targetEntryProbe));
 
     if (!canEnterTarget) {
-      lynxRuntimeState(state).trapReleaseCantMoveThisTick = true;
+      lynxChipRuntime(state).trapReleaseCantMoveThisTick = true;
       addLynxCantMove(state);
       return {
         chipPos,
@@ -2470,7 +2510,7 @@ function advanceLynxChipTrapRelease(
 
     settleLynxPrimedToolDrop(
       state,
-      lynxRuntimeState(state),
+      lynxPortableToolRuntime(state),
       state.inventory,
       chipPos,
       activeLynxLayerZ(state),
@@ -2746,9 +2786,9 @@ export function initializeLynxEngineState(
   };
 
   const runtime = lynxRuntimeState(state);
-  runtime.portableItems = collectLynxPortableItemsFromLayers(lynxRuntimeLayers(state.map));
-  runtime.nextPortableItemSerial = runtime.portableItems.length + 1;
-  projectLynxPortableToolState(runtime, state.inventory);
+  runtime.portableTools.portableItems = collectLynxPortableItemsFromLayers(lynxRuntimeLayers(state.map));
+  runtime.portableTools.nextPortableItemSerial = runtime.portableTools.portableItems.length + 1;
+  projectLynxPortableToolState(runtime.portableTools, state.inventory);
   setLynxRuntimeChipState(state, chipPos, chipSeed.z);
   return state;
 }
@@ -2853,7 +2893,7 @@ function createLynxAdvanceTickRuntime(
     nextTick: state.timer.currentTime + 1,
   };
 
-  reconcileLynxPortableToolProjection(lynxRuntimeState(state), state.inventory);
+  reconcileLynxPortableToolProjection(lynxPortableToolRuntime(state), state.inventory);
   setLynxRuntimeChipState(state, runtime.chipPos, runtime.chipZ);
   return runtime;
 }
@@ -3056,7 +3096,7 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
   if (
     runtime.endGameTicksElapsed === null &&
     (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
-    primeLynxToolDrop(lynxRuntimeState(runtime.state), runtime.state.inventory, runtime.chipPos, runtime.chipZ)
+    primeLynxToolDrop(lynxPortableToolRuntime(runtime.state), runtime.state.inventory, runtime.chipPos, runtime.chipZ)
   ) {
     if (runtime.replayMode) {
       runtime.state.lastMove = {
@@ -3246,7 +3286,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     !chipMoveSelection.startElevatorMove &&
     runtime.chipMoving === 0
   ) {
-    if (!lynxRuntimeState(runtime.state).trapReleaseCantMoveThisTick) {
+    if (!lynxChipRuntime(runtime.state).trapReleaseCantMoveThisTick) {
       clearLynxCouldntMove(runtime.state);
     }
     resetLynxFloorSounds(runtime.state);
@@ -3255,7 +3295,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
   if (runtime.chipMoving === 0 && chipMoveSelection.startAirMove) {
     settleLynxPrimedToolDrop(
       runtime.state,
-      lynxRuntimeState(runtime.state),
+      lynxPortableToolRuntime(runtime.state),
       runtime.state.inventory,
       runtime.chipPos,
       runtime.chipZ,
@@ -3282,7 +3322,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
   if (runtime.chipMoving === 0 && chipMoveSelection.startElevatorMove) {
     settleLynxPrimedToolDrop(
       runtime.state,
-      lynxRuntimeState(runtime.state),
+      lynxPortableToolRuntime(runtime.state),
       runtime.state.inventory,
       runtime.chipPos,
       runtime.chipZ,
@@ -3359,7 +3399,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     clearLynxCouldntMove(runtime.state);
     settleLynxPrimedToolDrop(
       runtime.state,
-      lynxRuntimeState(runtime.state),
+      lynxPortableToolRuntime(runtime.state),
       runtime.state.inventory,
       runtime.chipPos,
       runtime.chipZ,

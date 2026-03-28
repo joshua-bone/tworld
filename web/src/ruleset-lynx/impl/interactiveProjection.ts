@@ -14,14 +14,20 @@ interface LynxProjectedAnimationState {
 }
 
 interface LynxProjectedRuntimeState {
-  animations: LynxProjectedAnimationState[];
-  chipTeleported: boolean;
-  primedToolDrop?: {
-    tileId: number;
-    pos: number;
-    z: number;
-  } | null;
-  tileOverlays: Array<InteractiveGameFrame["tileOverlays"][number] & { ttl?: number }>;
+  visuals?: {
+    animations?: LynxProjectedAnimationState[];
+    tileOverlays?: Array<InteractiveGameFrame["tileOverlays"][number] & { ttl?: number }>;
+  };
+  chipRuntime?: {
+    chipTeleported?: boolean;
+  };
+  portableTools?: {
+    primedToolDrop?: {
+      tileId: number;
+      pos: number;
+      z: number;
+    } | null;
+  };
 }
 
 function lynxProjectedRuntimeState(state: EngineState): LynxProjectedRuntimeState | null {
@@ -109,7 +115,7 @@ export function projectLynxInteractiveFrame(
         dir: session.chipDir,
         moving: chipVerticalMove ? 0 : session.chipMoving,
         pushing: session.chipPushing,
-        hidden: runtime?.chipTeleported === true,
+        hidden: runtime?.chipRuntime?.chipTeleported === true,
         failed: session.endGameResult === "failed",
         endGameAnimationTileId: session.endGameAnimationTileId,
         endGameAnimationFrame: session.endGameAnimationFrame,
@@ -126,20 +132,20 @@ export function projectLynxInteractiveFrame(
         animationReserved: actor.animationReserved,
         scale: actor.moveKind === "air" && actor.moving > 0 ? 0.9 + (actor.moving / 8) * 0.1 : 1,
       })),
-      animations: runtime?.animations.map((animation) => ({ ...animation })) ?? [],
+      animations: runtime?.visuals?.animations?.map((animation) => ({ ...animation })) ?? [],
     },
     {
       currentZ: session.chipZ ?? 1,
       layers: session.state.map.layers,
       tileOverlays: [
-        ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? []),
-        ...(runtime?.primedToolDrop
+        ...(runtime?.visuals?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => overlay) ?? []),
+        ...(runtime?.portableTools?.primedToolDrop
           ? [
               {
-                z: runtime.primedToolDrop.z,
-                pos: runtime.primedToolDrop.pos,
+                z: runtime.portableTools.primedToolDrop.z,
+                pos: runtime.portableTools.primedToolDrop.pos,
                 kind: "carried-tool" as const,
-                tileId: runtime.primedToolDrop.tileId,
+                tileId: runtime.portableTools.primedToolDrop.tileId,
               },
             ]
           : []),

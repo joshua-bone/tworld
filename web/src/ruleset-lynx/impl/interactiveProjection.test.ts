@@ -148,22 +148,34 @@ describe("projectLynxInteractiveFrame", () => {
     const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.HiddenWall_Perm)];
     const engine = createEngineState(cells) as EngineState & {
       lynxRuntimeState?: {
-        animations: [];
-        primedToolDrop?: { tileId: number; pos: number; z: number } | null;
-        chipTeleported: boolean;
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: "hidden-wall-reveal";
-          ttl: number;
-        }>;
+        visuals?: {
+          animations: [];
+          tileOverlays?: Array<{
+            z: number;
+            pos: number;
+            kind: "hidden-wall-reveal";
+            ttl: number;
+          }>;
+        };
+        chipRuntime?: {
+          chipTeleported: boolean;
+        };
+        portableTools?: {
+          primedToolDrop?: { tileId: number; pos: number; z: number } | null;
+        };
       };
     };
     engine.lynxRuntimeState = {
-      animations: [],
-      primedToolDrop: null,
-      chipTeleported: false,
-      tileOverlays: [{ z: 1, pos: 1, kind: "hidden-wall-reveal", ttl: 10 }],
+      visuals: {
+        animations: [],
+        tileOverlays: [{ z: 1, pos: 1, kind: "hidden-wall-reveal", ttl: 10 }],
+      },
+      portableTools: {
+        primedToolDrop: null,
+      },
+      chipRuntime: {
+        chipTeleported: false,
+      },
     };
     const level = {
       number: 1,
@@ -215,22 +227,34 @@ describe("projectLynxInteractiveFrame", () => {
     const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.BlueWall_Real)];
     const engine = createEngineState(cells) as EngineState & {
       lynxRuntimeState?: {
-        animations: [];
-        primedToolDrop?: { tileId: number; pos: number; z: number } | null;
-        chipTeleported: boolean;
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: "blue-wall-reveal";
-          ttl: number;
-        }>;
+        visuals?: {
+          animations: [];
+          tileOverlays?: Array<{
+            z: number;
+            pos: number;
+            kind: "blue-wall-reveal";
+            ttl: number;
+          }>;
+        };
+        chipRuntime?: {
+          chipTeleported: boolean;
+        };
+        portableTools?: {
+          primedToolDrop?: { tileId: number; pos: number; z: number } | null;
+        };
       };
     };
     engine.lynxRuntimeState = {
-      animations: [],
-      primedToolDrop: null,
-      chipTeleported: false,
-      tileOverlays: [{ z: 1, pos: 1, kind: "blue-wall-reveal", ttl: 0x7fff_ffff }],
+      visuals: {
+        animations: [],
+        tileOverlays: [{ z: 1, pos: 1, kind: "blue-wall-reveal", ttl: 0x7fff_ffff }],
+      },
+      portableTools: {
+        primedToolDrop: null,
+      },
+      chipRuntime: {
+        chipTeleported: false,
+      },
     };
     const level = {
       number: 1,
@@ -327,22 +351,34 @@ describe("projectLynxInteractiveFrame", () => {
     const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.Empty)];
     const engine = createEngineState(cells) as EngineState & {
       lynxRuntimeState?: {
-        animations: [];
-        primedToolDrop?: { tileId: number; pos: number; z: number } | null;
-        chipTeleported: boolean;
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: "hidden-wall-reveal";
-          ttl: number;
-        }>;
+        visuals?: {
+          animations: [];
+          tileOverlays?: Array<{
+            z: number;
+            pos: number;
+            kind: "hidden-wall-reveal";
+            ttl: number;
+          }>;
+        };
+        chipRuntime?: {
+          chipTeleported: boolean;
+        };
+        portableTools?: {
+          primedToolDrop?: { tileId: number; pos: number; z: number } | null;
+        };
       };
     };
     engine.lynxRuntimeState = {
-      animations: [],
-      primedToolDrop: { tileId: MS_TILE.Sandbag, pos: 1, z: 1 },
-      chipTeleported: false,
-      tileOverlays: [],
+      visuals: {
+        animations: [],
+        tileOverlays: [],
+      },
+      portableTools: {
+        primedToolDrop: { tileId: MS_TILE.Sandbag, pos: 1, z: 1 },
+      },
+      chipRuntime: {
+        chipTeleported: false,
+      },
     };
     const level = {
       number: 1,

@@ -123,39 +123,45 @@ function lynxPortableItems(state: EngineState): Array<{
     (
       state as EngineState & {
         lynxRuntimeState?: {
-          portableItems?: Array<{
-            serial: number;
-            tileId: number;
-            state:
-              | { mode: "map"; pos: number; z: number }
-              | { mode: "carried" }
-              | { mode: "primed"; pos: number; z: number };
-          }>;
+          portableTools?: {
+            portableItems?: Array<{
+              serial: number;
+              tileId: number;
+              state:
+                | { mode: "map"; pos: number; z: number }
+                | { mode: "carried" }
+                | { mode: "primed"; pos: number; z: number };
+            }>;
+          };
         };
       }
-    ).lynxRuntimeState?.portableItems ?? []
+    ).lynxRuntimeState?.portableTools?.portableItems ?? []
   );
 }
 
 function lynxRuntimeStateForTest(state: EngineState): {
-  portableItems: Array<{
-    serial: number;
-    tileId: number;
-    inventorySlot: "tools";
-    state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
-  }>;
-  nextPortableItemSerial: number;
+  portableTools: {
+    portableItems: Array<{
+      serial: number;
+      tileId: number;
+      inventorySlot: "tools";
+      state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
+    }>;
+    nextPortableItemSerial: number;
+  };
 } {
   return (
     state as EngineState & {
       lynxRuntimeState: {
-        portableItems: Array<{
-          serial: number;
-          tileId: number;
-          inventorySlot: "tools";
-          state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
-        }>;
-        nextPortableItemSerial: number;
+        portableTools: {
+          portableItems: Array<{
+            serial: number;
+            tileId: number;
+            inventorySlot: "tools";
+            state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
+          }>;
+          nextPortableItemSerial: number;
+        };
       };
     }
   ).lynxRuntimeState;
@@ -1002,11 +1008,11 @@ describe("advanceLynxInteractiveSession", () => {
 
     const teleported = advanceLynxTicks(session, 4, 8);
     const runtime = teleported.state as typeof teleported.state & {
-      lynxRuntimeState?: { chipTeleported?: boolean };
+      lynxRuntimeState?: { chipRuntime?: { chipTeleported?: boolean } };
     };
 
     expect(teleported.chipPos).toBe(exitTeleportPos);
-    expect(runtime.lynxRuntimeState?.chipTeleported).toBe(true);
+    expect(runtime.lynxRuntimeState?.chipRuntime?.chipTeleported).toBe(true);
   });
 
   it("marks Chip as pushing for the display tick when a move is blocked", () => {
@@ -1044,17 +1050,19 @@ describe("advanceLynxInteractiveSession", () => {
 
     const runtime = session.state as typeof session.state & {
       lynxRuntimeState?: {
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: string;
-          ttl: number;
-        }>;
+        visuals?: {
+          tileOverlays?: Array<{
+            z: number;
+            pos: number;
+            kind: string;
+            ttl: number;
+          }>;
+        };
       };
     };
 
     expect(session.chipPos).toBe(chipPos);
-    expect(runtime.lynxRuntimeState?.tileOverlays).toContainEqual({
+    expect(runtime.lynxRuntimeState?.visuals?.tileOverlays).toContainEqual({
       z: 1,
       pos: wallPos,
       kind: "hidden-wall-reveal",
@@ -1067,17 +1075,19 @@ describe("advanceLynxInteractiveSession", () => {
 
     const settledRuntime = session.state as typeof session.state & {
       lynxRuntimeState?: {
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: string;
-          ttl: number;
-        }>;
+        visuals?: {
+          tileOverlays?: Array<{
+            z: number;
+            pos: number;
+            kind: string;
+            ttl: number;
+          }>;
+        };
       };
     };
 
     expect(
-      settledRuntime.lynxRuntimeState?.tileOverlays?.some(
+      settledRuntime.lynxRuntimeState?.visuals?.tileOverlays?.some(
         (overlay) => overlay.kind === "hidden-wall-reveal" && overlay.pos === wallPos && overlay.z === 1,
       ) ?? false,
     ).toBe(false);
@@ -1121,11 +1131,11 @@ describe("advanceLynxInteractiveSession", () => {
 
     const collided = advanceLynxInteractiveSession(session, 0);
     const runtime = collided.state as typeof collided.state & {
-      lynxRuntimeState?: { animations: Array<{ pos: number; tileId: number }> };
+      lynxRuntimeState?: { visuals?: { animations: Array<{ pos: number; tileId: number }> } };
     };
 
     expect(collided.endGameResult).toBe("failed");
-    expect(runtime.lynxRuntimeState?.animations).toEqual(
+    expect(runtime.lynxRuntimeState?.visuals?.animations).toEqual(
       expect.arrayContaining([expect.objectContaining({ pos: ballPos, tileId: 0x76 })]),
     );
   });
@@ -3007,18 +3017,20 @@ describe("runLynxInputTrace", () => {
 
     const runtime = session.state as typeof session.state & {
       lynxRuntimeState?: {
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: string;
-          ttl: number;
-        }>;
+        visuals?: {
+          tileOverlays?: Array<{
+            z: number;
+            pos: number;
+            kind: string;
+            ttl: number;
+          }>;
+        };
       };
     };
 
     expect(session.chipPos).toBe(targetPos);
     expect(session.state.map.cells[wallPos]?.top.id).toBe(MS_TILE.BlueWall_Real);
-    expect(runtime.lynxRuntimeState?.tileOverlays).toContainEqual({
+    expect(runtime.lynxRuntimeState?.visuals?.tileOverlays).toContainEqual({
       z: 1,
       pos: wallPos,
       kind: "blue-wall-reveal",
@@ -3044,19 +3056,21 @@ describe("runLynxInputTrace", () => {
 
     const runtime = session.state as typeof session.state & {
       lynxRuntimeState?: {
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: string;
-          ttl: number;
-        }>;
+        visuals?: {
+          tileOverlays?: Array<{
+            z: number;
+            pos: number;
+            kind: string;
+            ttl: number;
+          }>;
+        };
       };
     };
 
     expect(session.chipPos).toBe(targetPos);
     expect(session.state.map.cells[wallPos]?.top.id).toBe(MS_TILE.BlueWall_Fake);
     expect(
-      runtime.lynxRuntimeState?.tileOverlays?.some(
+      runtime.lynxRuntimeState?.visuals?.tileOverlays?.some(
         (overlay) => overlay.kind === "blue-wall-reveal" && overlay.pos === wallPos && overlay.z === 1,
       ) ?? false,
     ).toBe(false);
@@ -3239,14 +3253,14 @@ describe("runLynxInputTrace", () => {
     session.state.inventory.tools = [MS_TILE.Sandbag];
 
     const runtime = lynxRuntimeStateForTest(session.state);
-    const carriedSerial = runtime.nextPortableItemSerial;
-    runtime.portableItems.push({
+    const carriedSerial = runtime.portableTools.nextPortableItemSerial;
+    runtime.portableTools.portableItems.push({
       serial: carriedSerial,
       tileId: MS_TILE.Sandbag,
       inventorySlot: "tools",
       state: { mode: "carried" },
     });
-    runtime.nextPortableItemSerial += 1;
+    runtime.portableTools.nextPortableItemSerial += 1;
 
     const next = advanceLynxInteractiveSession(
       session,

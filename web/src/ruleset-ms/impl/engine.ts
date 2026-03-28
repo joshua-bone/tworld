@@ -123,7 +123,6 @@ import {
   queueMsToolInventoryReplacement,
   reconcileMsPortableToolProjection,
   settleMsPrimedToolDrop,
-  type MsPortableItem,
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
 import { resolveMsChipEnteredTile } from "@ruleset-ms/impl/chipArrival";
@@ -200,7 +199,7 @@ function applyMsActorThiefHook(
     return false;
   }
   actorInventoryClearBoots(inventoryOwner);
-  clearMsToolInventory(internal, inventory);
+  clearMsToolInventory(msPortableToolState(internal), inventory);
   return true;
 }
 
@@ -216,6 +215,13 @@ export interface MsTrackedBlock {
   slideDelayPending: boolean;
   slipOrder: number;
 }
+
+interface MsRandomRuntimeState {
+  initial: bigint;
+  value: bigint;
+}
+
+interface MsPortableToolRuntimeState extends MsPortableToolStateStore {}
 
 export interface MsInternalState {
   chipPos: number;
@@ -243,13 +249,9 @@ export interface MsInternalState {
   pendingSoundEffects: number;
   nextCreatureSerial: number;
   nextSlipOrder: number;
-  randomMainInitial: bigint;
-  randomMainValue: bigint;
+  randomState: MsRandomRuntimeState;
   lastSlipDir: number;
-  portableItems: MsPortableItem[];
-  nextPortableItemSerial: number;
-  primedToolDrop: MsPortableToolStateStore["primedToolDrop"];
-  pendingToolDropAfterSettle: MsPortableToolStateStore["pendingToolDropAfterSettle"];
+  portableTools: MsPortableToolRuntimeState;
   runtimeLayers: MsRuntimeLayer[];
 }
 
@@ -366,9 +368,18 @@ function nextRandomValue(value: bigint): bigint {
   return ((value * 1103515245n) + 12345n) & UINT31_MASK;
 }
 
+function msRandomState(internal: MsInternalState): MsRandomRuntimeState {
+  return internal.randomState;
+}
+
+function msPortableToolState(internal: MsInternalState): MsPortableToolRuntimeState {
+  return internal.portableTools;
+}
+
 function advanceRandom(internal: MsInternalState): bigint {
-  internal.randomMainValue = nextRandomValue(internal.randomMainValue);
-  return internal.randomMainValue;
+  const randomState = msRandomState(internal);
+  randomState.value = nextRandomValue(randomState.value);
+  return randomState.value;
 }
 
 function random4(internal: MsInternalState): number {
@@ -639,13 +650,18 @@ function cloneInternalState(internal: MsInternalState): MsInternalState {
     pendingCloners: [...internal.pendingCloners],
     pendingSoundEffects: internal.pendingSoundEffects,
     lastSlipDir: internal.lastSlipDir,
-    portableItems: internal.portableItems.map((item) => ({
-      ...item,
-      state: { ...item.state },
-    })),
-    nextPortableItemSerial: internal.nextPortableItemSerial,
-    primedToolDrop: internal.primedToolDrop ? { ...internal.primedToolDrop } : null,
-    pendingToolDropAfterSettle: internal.pendingToolDropAfterSettle ? { ...internal.pendingToolDropAfterSettle } : null,
+    randomState: { ...internal.randomState },
+    portableTools: {
+      portableItems: internal.portableTools.portableItems.map((item) => ({
+        ...item,
+        state: { ...item.state },
+      })),
+      nextPortableItemSerial: internal.portableTools.nextPortableItemSerial,
+      primedToolDrop: internal.portableTools.primedToolDrop ? { ...internal.portableTools.primedToolDrop } : null,
+      pendingToolDropAfterSettle: internal.portableTools.pendingToolDropAfterSettle
+        ? { ...internal.portableTools.pendingToolDropAfterSettle }
+        : null,
+    },
     goalPos: internal.goalPos,
     runtimeLayers: internal.runtimeLayers.map((layer) => ({
       z: layer.z,
@@ -710,16 +726,16 @@ function updateEngine(
       ...state.engine,
       status: statusName(state.internal),
       timer,
-      replay: {
-        ...state.engine.replay,
-        randomState: {
-          ...state.engine.replay.randomState,
-          main: {
-            initial: String(state.internal.randomMainInitial),
-            value: String(state.internal.randomMainValue),
-            shared: false,
+        replay: {
+          ...state.engine.replay,
+          randomState: {
+            ...state.engine.replay.randomState,
+            main: {
+              initial: String(state.internal.randomState.initial),
+              value: String(state.internal.randomState.value),
+              shared: false,
+            },
           },
-        },
       },
       chip,
       actors,
@@ -779,7 +795,7 @@ function msChipActsWallForMobs(internal: MsInternalState | null, pos: number, z:
   return (
     internal !== null &&
     internal.chipStatus === "okay" &&
-    primedMsPortableToolItem(internal) !== undefined &&
+    primedMsPortableToolItem(msPortableToolState(internal)) !== undefined &&
     internal.chipPos === pos &&
     (internal.chipZ ?? 1) === z
   );
@@ -1000,13 +1016,17 @@ export function initializeMsGameState(
     pendingSoundEffects: 0,
     nextCreatureSerial: creatures.length + 1,
     nextSlipOrder: 0,
-    randomMainInitial: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
-    randomMainValue: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
+    randomState: {
+      initial: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
+      value: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
+    },
     lastSlipDir: MS_DIRECTION.none,
-    portableItems: [],
-    nextPortableItemSerial: 1,
-    primedToolDrop: null,
-    pendingToolDropAfterSettle: null,
+    portableTools: {
+      portableItems: [],
+      nextPortableItemSerial: 1,
+      primedToolDrop: null,
+      pendingToolDropAfterSettle: null,
+    },
     runtimeLayers: [],
   };
   const normalizedRandomSeed = normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed);
@@ -1018,8 +1038,8 @@ export function initializeMsGameState(
     z: layer.z,
     cells: layer.cells,
   }));
-  internal.portableItems = collectMsPortableItemsFromLayers(runtimeLayers);
-  internal.nextPortableItemSerial = internal.portableItems.length + 1;
+  internal.portableTools.portableItems = collectMsPortableItemsFromLayers(runtimeLayers);
+  internal.portableTools.nextPortableItemSerial = internal.portableTools.portableItems.length + 1;
 
   for (const connection of internal.traps) {
     const z = connection.toZ ?? connection.fromZ ?? 1;
@@ -1093,7 +1113,7 @@ export function initializeMsGameState(
     statusFlags: level.statusFlags | MS_STATUS_FLAG.NoAnimation,
     lastMove: { code: 0, name: "none" },
   };
-  projectMsPortableToolState(internal, engine.inventory);
+  projectMsPortableToolState(msPortableToolState(internal), engine.inventory);
 
   const mapLayers = runtimeMapLayers(engine.map);
   const activeCells = runtimeCellsForZ(mapLayers, chipZ);
@@ -3369,7 +3389,7 @@ function moveChipOnce(
 
   const enteredEffects = resolveMsChipEnteredTile(cells, internal, {
     inventory,
-    portableTools: internal,
+    portableTools: msPortableToolState(internal),
     runtimeCellZ: (pos) => runtimeCellZ(cells, pos),
   }, nextPos);
   let floorTileBeforeMove = enteredEffects.floorTileBeforeMove;
@@ -3379,7 +3399,7 @@ function moveChipOnce(
   soundEffects |= enteredEffects.soundEffects;
 
   popTile(cells, oldPos);
-  settleMsPrimedToolDrop(cells, internal, inventory, oldPos, oldZ);
+  settleMsPrimedToolDrop(cells, msPortableToolState(internal), inventory, oldPos, oldZ);
 
   if (enteredTeleport) {
     const teleported = teleportDestination(cells, internal, inventory, nextPos, dir);
@@ -3455,7 +3475,7 @@ function moveChipDownOneLayer(
 
   const enteredEffects = resolveMsChipEnteredTile(targetCells, internal, {
     inventory,
-    portableTools: internal,
+    portableTools: msPortableToolState(internal),
     runtimeCellZ: (pos) => runtimeCellZ(targetCells, pos),
   }, nextPos);
   let floorTileBeforeMove = enteredEffects.floorTileBeforeMove;
@@ -3464,7 +3484,7 @@ function moveChipDownOneLayer(
   soundEffects |= enteredEffects.soundEffects;
 
   popTile(sourceCells, oldPos);
-  settleMsPrimedToolDrop(sourceCells, internal, inventory, oldPos, oldZ);
+  settleMsPrimedToolDrop(sourceCells, msPortableToolState(internal), inventory, oldPos, oldZ);
   internal.chipZ = targetZ;
 
   if (enteredTeleport) {
@@ -3569,7 +3589,7 @@ function moveChipUpOneLayer(
 
   const enteredEffects = resolveMsChipEnteredTile(targetCells, internal, {
     inventory,
-    portableTools: internal,
+    portableTools: msPortableToolState(internal),
     runtimeCellZ: (pos) => runtimeCellZ(targetCells, pos),
   }, nextPos);
   const floorTileBeforeMove = enteredEffects.floorTileBeforeMove;
@@ -3578,7 +3598,7 @@ function moveChipUpOneLayer(
   soundEffects |= enteredEffects.soundEffects;
 
   popTile(sourceCells, oldPos);
-  settleMsPrimedToolDrop(sourceCells, internal, inventory, oldPos, oldZ);
+  settleMsPrimedToolDrop(sourceCells, msPortableToolState(internal), inventory, oldPos, oldZ);
   internal.chipZ = targetZ;
 
   const landingCell = targetCells[nextPos]!;
@@ -3907,8 +3927,8 @@ function createMsAdvanceTickRuntime(
   }));
   inputLatchInternal.runtimeLayers = internal.runtimeLayers;
   const inventory = cloneInventory(state.engine.inventory);
-  reconcileMsPortableToolProjection(internal, inventory);
-  reconcileMsPortableToolProjection(inputLatchInternal, inventory);
+  reconcileMsPortableToolProjection(msPortableToolState(internal), inventory);
+  reconcileMsPortableToolProjection(msPortableToolState(inputLatchInternal), inventory);
   clearMsTileOverlays(state.engine);
   internal.pendingSoundEffects = 0;
 
@@ -3953,7 +3973,7 @@ function finishMsTick(
   includeFinalPhase = true,
 ): MsAdvanceTickResult {
   const activeCells = msAdvanceTickActiveChipCells(runtime);
-  projectMsPortableToolState(runtime.internal, runtime.inventory);
+  projectMsPortableToolState(msPortableToolState(runtime.internal), runtime.inventory);
   const nextState = updateEngine(
     {
       engine: {
@@ -4103,7 +4123,12 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
   if (
     msTickPhaseIsPlayable(runtime) &&
     (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
-    primeMsToolDrop(runtime.internal, runtime.inventory, runtime.internal.chipPos, runtime.internal.chipZ ?? 1)
+    primeMsToolDrop(
+      msPortableToolState(runtime.internal),
+      runtime.inventory,
+      runtime.internal.chipPos,
+      runtime.internal.chipZ ?? 1,
+    )
   ) {
     runtime.toolActionTriggeredThisTick = true;
   }

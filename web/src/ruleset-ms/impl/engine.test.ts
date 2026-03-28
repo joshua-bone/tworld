@@ -4875,7 +4875,7 @@ describe("MS engine regressions", () => {
       sliding: true,
       slideDelayPending: false,
     });
-    expect(next.state.internal.randomMainValue).toBe(1985890719n);
+    expect(next.state.internal.randomState.value).toBe(1985890719n);
   });
 
   it("restarts chip floor movement after an ice retry so slide-random consumes a second RNG advance", () => {
@@ -4908,7 +4908,7 @@ describe("MS engine regressions", () => {
     expect(next.state.internal.chipDir).toBe(MS_DIRECTION.east);
     expect(next.state.internal.floorMovement).toBe("slide");
     expect(next.state.internal.floorMovementDir).toBe(MS_DIRECTION.east);
-    expect(next.state.internal.randomMainValue).toBe(1985890719n);
+    expect(next.state.internal.randomState.value).toBe(1985890719n);
   });
 
   it("keeps a slipping tank facing east when it returns onto a blue button", () => {
@@ -5808,7 +5808,7 @@ describe("MS engine regressions", () => {
 
     expect(session.state.engine.chip?.position.pos).toBe(chipPos);
     expect(session.state.engine.inventory.tools).toEqual([0]);
-    expect(session.state.internal.primedToolDrop).toMatchObject({
+    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
       tileId: MS_TILE.Sandbag,
       pos: chipPos,
       z: 1,
@@ -5823,7 +5823,7 @@ describe("MS engine regressions", () => {
 
     expect(session.state.engine.chip?.position.pos).toBe(eastPos);
     expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Sandbag);
-    expect(session.state.internal.primedToolDrop).toBeNull();
+    expect(session.state.internal.portableTools.primedToolDrop).toBeNull();
   });
 
   it("keeps the same portable item identity when a carried sandbag is primed and settled", () => {
@@ -5846,12 +5846,12 @@ describe("MS engine regressions", () => {
       encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
     );
 
-    const primedItem = session.state.internal.portableItems.find((item) => item.state.mode === "primed");
+    const primedItem = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "primed");
     expect(primedItem?.tileId).toBe(MS_TILE.Sandbag);
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
 
-    const settledItem = session.state.internal.portableItems.find(
+    const settledItem = session.state.internal.portableTools.portableItems.find(
       (item) => item.state.mode === "map" && item.state.pos === chipPos && item.state.z === 1,
     );
     expect(session.state.engine.chip?.position.pos).toBe(eastPos);
@@ -5905,7 +5905,7 @@ describe("MS engine regressions", () => {
     session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
     expect(session.state.internal.chipPos).toBe(pickupPos);
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
-    expect(session.state.internal.primedToolDrop).toMatchObject({
+    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
       tileId: MS_TILE.Sandbag,
       pos: pickupPos,
       z: 1,
@@ -5939,15 +5939,15 @@ describe("MS engine regressions", () => {
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
 
-    const carriedSerial = session.state.internal.portableItems.find((item) => item.state.mode === "carried")?.serial;
-    const pickupSerial = session.state.internal.portableItems.find(
+    const carriedSerial = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried")?.serial;
+    const pickupSerial = session.state.internal.portableTools.portableItems.find(
       (item) => item.state.mode === "map" && item.state.pos === pickupPos && item.state.z === 1,
     )?.serial;
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
 
-    const carried = session.state.internal.portableItems.find((item) => item.state.mode === "carried");
-    const primed = session.state.internal.portableItems.find((item) => item.state.mode === "primed");
+    const carried = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried");
+    const primed = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "primed");
     expect(carried?.serial).toBe(pickupSerial);
     expect(primed?.serial).toBe(carriedSerial);
   });
@@ -5973,7 +5973,7 @@ describe("MS engine regressions", () => {
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
     expect(session.state.internal.chipPos).toBe(firstPickupPos);
-    expect(session.state.internal.primedToolDrop).toMatchObject({
+    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
       tileId: MS_TILE.Sandbag,
       pos: firstPickupPos,
       z: 1,
@@ -5986,7 +5986,7 @@ describe("MS engine regressions", () => {
     expect(session.state.internal.chipPos).toBe(secondPickupPos);
     expect(session.state.engine.map.cells[firstPickupPos]?.top.id).toBe(MS_TILE.Sandbag);
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
-    expect(session.state.internal.primedToolDrop).toMatchObject({
+    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
       tileId: MS_TILE.Sandbag,
       pos: secondPickupPos,
       z: 1,
@@ -6022,14 +6022,14 @@ describe("MS engine regressions", () => {
     session.state.engine.inventory.tools = [MS_TILE.Sandbag];
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
-    const carriedSerial = session.state.internal.portableItems.find((item) => item.state.mode === "carried")?.serial;
+    const carriedSerial = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried")?.serial;
 
     session = advanceMsInteractiveSession(
       session,
       encodeRuntimeInputCode(MS_DIRECTION.east, GAME_INPUT_MODIFIER_MASKS.action1),
     );
 
-    const settled = session.state.internal.portableItems.find(
+    const settled = session.state.internal.portableTools.portableItems.find(
       (item) => item.state.mode === "map" && item.state.pos === chipPos && item.state.z === 1,
     );
     expect(session.state.internal.chipPos).toBe(preferredExitTeleportPos);
@@ -6063,7 +6063,9 @@ describe("MS engine regressions", () => {
 
     expect(session.state.internal.chipZ).toBe(1);
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
-    expect(session.state.internal.portableItems.find((item) => item.state.mode === "carried")?.tileId).toBe(MS_TILE.Sandbag);
+    expect(session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried")?.tileId).toBe(
+      MS_TILE.Sandbag,
+    );
   });
 
   it("keeps a block supported over a sandbag in air", () => {
@@ -6160,7 +6162,7 @@ describe("MS engine regressions", () => {
     const tank = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Tank && !creature.hidden);
     expect(session.state.internal.chipStatus).toBe("okay");
     expect(tank?.pos).toBe(tankPos);
-    expect(session.state.internal.primedToolDrop).toMatchObject({
+    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
       tileId: MS_TILE.Sandbag,
       pos: chipPos,
       z: 1,
