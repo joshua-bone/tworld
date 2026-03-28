@@ -1,60 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { extractGroupedDatLevels, parseDatFile } from "@content/api/series-file";
-
-function encodePassword(password: string): number[] {
-  return Array.from(password, (char) => char.charCodeAt(0) ^ 0x99);
-}
-
-function encodeLatin1(text: string): number[] {
-  return Array.from(text, (char) => char.charCodeAt(0));
-}
-
-function createLevelData(number: number, name: string, password = "ABCD", upperLayer = Uint8Array.from([1])): Uint8Array {
-  const lowerLayer = Uint8Array.from([]);
-  const metadata = Uint8Array.from([
-    3,
-    name.length,
-    ...encodeLatin1(name),
-    6,
-    password.length,
-    ...encodePassword(password),
-  ]);
-
-  return Uint8Array.from([
-    number,
-    0,
-    10,
-    0,
-    0,
-    0,
-    0,
-    0,
-    upperLayer.length,
-    0,
-    ...upperLayer,
-    lowerLayer.length,
-    0,
-    ...lowerLayer,
-    metadata.length,
-    0,
-    ...metadata,
-  ]);
-}
-
-function createDatFile(levels: Uint8Array[]): Uint8Array {
-  const bytes = [0xac, 0xaa, 0x02, 0x00, levels.length, 0x00];
-  for (const level of levels) {
-    bytes.push(level.length & 0xff, (level.length >> 8) & 0xff, ...level);
-  }
-  return Uint8Array.from(bytes);
-}
+import {
+  buildSyntheticMsDatFile,
+  buildSyntheticMsDatLevel,
+} from "@content/impl/contentTestSupport";
 
 describe("3D DAT grouping", () => {
   it("groups contiguous title runs ending in \\1, \\2, \\3 into one logical level", () => {
-    const dat = createDatFile([
-      createLevelData(1, "Stacked\\1"),
-      createLevelData(2, "Stacked\\2"),
-      createLevelData(3, "Solo"),
+    const dat = buildSyntheticMsDatFile([
+      buildSyntheticMsDatLevel(1, "Stacked\\1"),
+      buildSyntheticMsDatLevel(2, "Stacked\\2"),
+      buildSyntheticMsDatLevel(3, "Solo"),
     ]);
 
     const parsed = parseDatFile(dat, { ruleset: "MS" });
@@ -72,11 +28,11 @@ describe("3D DAT grouping", () => {
   });
 
   it("also groups contiguous title runs ending in decreasing order down to \\1", () => {
-    const dat = createDatFile([
-      createLevelData(1, "Descending\\3", "AAAA"),
-      createLevelData(2, "Descending\\2", "BBBB"),
-      createLevelData(3, "Descending\\1", "WXYZ"),
-      createLevelData(4, "Solo"),
+    const dat = buildSyntheticMsDatFile([
+      buildSyntheticMsDatLevel(1, "Descending\\3", "AAAA"),
+      buildSyntheticMsDatLevel(2, "Descending\\2", "BBBB"),
+      buildSyntheticMsDatLevel(3, "Descending\\1", "WXYZ"),
+      buildSyntheticMsDatLevel(4, "Solo"),
     ]);
 
     const parsed = parseDatFile(dat, { ruleset: "MS" });
@@ -88,7 +44,7 @@ describe("3D DAT grouping", () => {
     expect(parsed.levels[0]?.password).toBe("WXYZ");
     expect(grouped.levels).toHaveLength(2);
     expect(grouped.levels[0]?.number).toBe(1);
-    expect(grouped.levels[0]?.levelData).toEqual(createLevelData(3, "Descending\\1", "WXYZ"));
+    expect(grouped.levels[0]?.levelData).toEqual(buildSyntheticMsDatLevel(3, "Descending\\1", "WXYZ"));
     expect(grouped.levels[0]?.layerNumbers).toEqual([3, 2, 1]);
     expect(grouped.levels[0]?.layerData).toHaveLength(3);
     expect(grouped.levels[1]?.number).toBe(2);
@@ -96,10 +52,10 @@ describe("3D DAT grouping", () => {
   });
 
   it("does not skip levels when a decreasing run stops before reaching \\1", () => {
-    const dat = createDatFile([
-      createLevelData(1, "Partial\\3"),
-      createLevelData(2, "Partial\\2"),
-      createLevelData(3, "Solo"),
+    const dat = buildSyntheticMsDatFile([
+      buildSyntheticMsDatLevel(1, "Partial\\3"),
+      buildSyntheticMsDatLevel(2, "Partial\\2"),
+      buildSyntheticMsDatLevel(3, "Solo"),
     ]);
 
     const parsed = parseDatFile(dat, { ruleset: "MS" });
@@ -111,10 +67,10 @@ describe("3D DAT grouping", () => {
   });
 
   it("marks grouped levels when any constituent DAT layer contains a special-tool byte", () => {
-    const dat = createDatFile([
-      createLevelData(1, "Stacked\\1"),
-      createLevelData(2, "Stacked\\2", "ABCD", Uint8Array.from([0x70])),
-      createLevelData(3, "Solo"),
+    const dat = buildSyntheticMsDatFile([
+      buildSyntheticMsDatLevel(1, "Stacked\\1"),
+      buildSyntheticMsDatLevel(2, "Stacked\\2", "ABCD", Uint8Array.from([0x70])),
+      buildSyntheticMsDatLevel(3, "Solo"),
     ]);
 
     const parsed = parseDatFile(dat, { ruleset: "MS" });

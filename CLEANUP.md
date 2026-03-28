@@ -70,7 +70,7 @@ Highest-value cleanup targets:
 - [x] PR7: Persistence And URL Launch Cleanup
 - [x] PR8: Replay Verifier Orchestration Split
 - [ ] PR9: Engine Phase 2 Cleanup
-- [ ] PR10: Test DSL Expansion
+- [x] PR10: Test DSL Expansion
 - [ ] PR11: Naming And Value Objects Pass
 - [ ] PR12: Docs And Workflow Refresh
 
@@ -272,6 +272,13 @@ Extend test-builder and DSL patterns beyond engine tests into:
 Goal:
 
 - keep the characterization net strong while reducing setup boilerplate and giant test files
+
+Progress:
+
+- [x] extract reusable player-web profile-store and URL-launch test support helpers
+- [x] extract reusable replay-verifier synthetic trace and solution fixture helpers
+- [x] extract reusable content parsing DAT/metadata fixture builders
+- [x] migrate the largest repeated setup clusters onto those helpers while keeping targeted characterization coverage
 
 ### PR11: Naming And Value Objects Pass
 

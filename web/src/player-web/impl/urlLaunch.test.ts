@@ -4,85 +4,12 @@ import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatC
 import { decodeDatUrlPayload, encodeDatUrlPayload } from "@player-web/impl/urlDatCodec";
 import { buildUrlLaunchHref, resolveUrlLaunchSelection, resetUrlLaunchCachesForTest } from "@player-web/impl/urlLaunch";
 import { importedSeriesFile } from "@player-web/impl/importedDatIdentity";
-import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
-import type { BrowserProfileStore } from "@player-web/ports/BrowserProfileStore";
-import type { PlayableSelectionStore } from "@player-web/ports/PlayableSelectionStore";
-
-function createDatBytes(): Uint8Array {
-  return Uint8Array.from([
-    0xac, 0xaa, 0x02, 0x00, 0x01, 0x00,
-    0x11, 0x00,
-    0x01, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x01, 0x00, 0x01,
-    0x01, 0x00, 0x00,
-    0x03, 0x00, 0x03, 0x01, 0x41, 0x04, 0x06, 0x04, 0xd8, 0xdb, 0xda, 0xdd,
-  ]);
-}
-
-function createServices(overrides?: {
-  importedDatFiles?: PersistedImportedDatFile[];
-}): Pick<BrowserAppServices, "importDatBytes" | "profileStore" | "selectionStore"> & {
-  __imports: PersistedImportedDatFile[];
-  __savedSelections: { seriesFile: string; levelNumber: number }[];
-} {
-  const importedDatFiles = overrides?.importedDatFiles ?? [];
-  const imports: PersistedImportedDatFile[] = [];
-  const savedSelections: { seriesFile: string; levelNumber: number }[] = [];
-
-  const profileStore = {
-    async listImportedDatFiles() {
-      return importedDatFiles;
-    },
-  } as BrowserProfileStore;
-
-  const selectionStore = {
-    async saveSelection(selection) {
-      savedSelections.push(selection);
-    },
-  } as PlayableSelectionStore;
-
-  return {
-    async importDatBytes(filename, datBytes, source) {
-      const importedEntry = {
-        filename,
-        datBytes: new Uint8Array(datBytes),
-        ...(source ? { source } : {}),
-      } satisfies PersistedImportedDatFile;
-      imports.push(importedEntry);
-      const existingIndex = importedDatFiles.findIndex((entry) => entry.filename === filename);
-      if (existingIndex >= 0) {
-        importedDatFiles.splice(existingIndex, 1, importedEntry);
-      } else {
-        importedDatFiles.push(importedEntry);
-      }
-      return [];
-    },
-    profileStore: profileStore as BrowserAppServices["profileStore"],
-    selectionStore: selectionStore as BrowserAppServices["selectionStore"],
-    get __imports() {
-      return imports;
-    },
-    get __savedSelections() {
-      return savedSelections;
-    },
-  };
-}
-
-function createFetchResponse(bytes: Uint8Array, ok = true, status = 200): Response {
-  return {
-    ok,
-    status,
-    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
-  } as Response;
-}
-
-function createJsonResponse(value: unknown, ok = true, status = 200): Response {
-  return {
-    ok,
-    status,
-    json: async () => value,
-  } as Response;
-}
+import {
+  createFetchResponse,
+  createJsonResponse,
+  createUrlLaunchDatBytes,
+  createUrlLaunchServices,
+} from "@player-web/impl/urlLaunchTestSupport";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -91,8 +18,8 @@ afterEach(() => {
 
 describe("resolveUrlLaunchSelection", () => {
   it("imports gzip+base64url DAT payloads into the requested slot and defaults to Lynx", async () => {
-    const services = createServices();
-    const payload = await encodeDatUrlPayload(createDatBytes());
+    const services = createUrlLaunchServices();
+    const payload = await encodeDatUrlPayload(createUrlLaunchDatBytes());
 
     const result = await resolveUrlLaunchSelection(
       services,
@@ -117,9 +44,9 @@ describe("resolveUrlLaunchSelection", () => {
   });
 
   it("reuses an existing imported slot when the URL DAT hash already exists locally", async () => {
-    const datBytes = createDatBytes();
+    const datBytes = createUrlLaunchDatBytes();
     const payload = await encodeDatUrlPayload(datBytes);
-    const services = createServices({
+    const services = createUrlLaunchServices({
       importedDatFiles: [
         {
           filename: "Existing.dat",
@@ -141,8 +68,8 @@ describe("resolveUrlLaunchSelection", () => {
   });
 
   it("downloads gb pack links as DAT bytes and opens the requested ruleset and level", async () => {
-    const services = createServices();
-    const datBytes = createDatBytes();
+    const services = createUrlLaunchServices();
+    const datBytes = createUrlLaunchDatBytes();
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input) === "https://bitbusters.club/gliderbot/sets/cc1/") {
         return {
@@ -179,7 +106,7 @@ describe("resolveUrlLaunchSelection", () => {
   });
 
   it("canonicalizes gb pack paths before downloading", async () => {
-    const services = createServices();
+    const services = createUrlLaunchServices();
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input) === "https://bitbusters.club/gliderbot/sets/cc1/") {
         return {
@@ -189,7 +116,7 @@ describe("resolveUrlLaunchSelection", () => {
         } as Response;
       }
       expect(String(input)).toBe("https://bitbusters.club/gliderbot/sets/cc1/CustomPack.dat");
-      return createFetchResponse(createDatBytes());
+      return createFetchResponse(createUrlLaunchDatBytes());
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -204,8 +131,8 @@ describe("resolveUrlLaunchSelection", () => {
   });
 
   it("reuses an existing imported pack when the downloaded gb bytes already match", async () => {
-    const datBytes = createDatBytes();
-    const services = createServices({
+    const datBytes = createUrlLaunchDatBytes();
+    const services = createUrlLaunchServices({
       importedDatFiles: [
         {
           filename: "CustomPack.dat",
@@ -238,7 +165,7 @@ describe("resolveUrlLaunchSelection", () => {
   });
 
   it("reuses a built-in pack when the downloaded gb bytes match local content", async () => {
-    const services = createServices();
+    const services = createUrlLaunchServices();
     const datBytes = new Uint8Array(await readFile(new URL("../../../../data/JBLP1.dat", import.meta.url)));
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -271,8 +198,8 @@ describe("resolveUrlLaunchSelection", () => {
   });
 
   it("downloads bb pack links from the Bit Busters API and records their source metadata", async () => {
-    const services = createServices();
-    const datBytes = createDatBytes();
+    const services = createUrlLaunchServices();
+    const datBytes = createUrlLaunchDatBytes();
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === "https://api.bitbusters.club/custom-packs/cc1/577") {
@@ -323,7 +250,7 @@ describe("resolveUrlLaunchSelection", () => {
   });
 
   it("rejects unsupported CC2 bb pack links", async () => {
-    const services = createServices();
+    const services = createUrlLaunchServices();
 
     const result = await resolveUrlLaunchSelection(
       services,
@@ -342,7 +269,7 @@ describe("resolveUrlLaunchSelection", () => {
   });
 
   it("resolves built-in short links by set token and ruleset", async () => {
-    const services = createServices();
+    const services = createUrlLaunchServices();
 
     const result = await resolveUrlLaunchSelection(
       services,
@@ -357,7 +284,7 @@ describe("resolveUrlLaunchSelection", () => {
   });
 
   it("falls back to the saved selection when a set token is unknown", async () => {
-    const services = createServices();
+    const services = createUrlLaunchServices();
     const result = await resolveUrlLaunchSelection(
       services,
       { seriesFile: "CCLP1-Lynx.dac", levelNumber: 1 },
@@ -385,7 +312,7 @@ describe("buildUrlLaunchHref", () => {
   });
 
   it("embeds imported DAT payloads for uploaded sets", async () => {
-    const datBytes = createDatBytes();
+    const datBytes = createUrlLaunchDatBytes();
     const href = await buildUrlLaunchHref({
       baseUrl: "/tworld/",
       importedDatFiles: [{ filename: "SharedPack.dat", datBytes }],
@@ -406,7 +333,7 @@ describe("buildUrlLaunchHref", () => {
   });
 
   it("builds canonical bb links for Bit Busters API-backed imports", async () => {
-    const datBytes = createDatBytes();
+    const datBytes = createUrlLaunchDatBytes();
     const href = await buildUrlLaunchHref({
       baseUrl: "/tworld/",
       importedDatFiles: [
