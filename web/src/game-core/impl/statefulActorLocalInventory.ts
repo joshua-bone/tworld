@@ -16,7 +16,8 @@ export interface StatefulActorLocalInventoryState {
 export type StatefulActorInventoryEntry<
   TKind extends string = string,
   TState extends StatefulActorLocalInventoryState = StatefulActorLocalInventoryState,
-> = StatefulActorRuntimeEntry<TKind, TState>;
+  TPortableFamily extends string = string,
+> = StatefulActorRuntimeEntry<TKind, TState, TPortableFamily>;
 
 export function createStatefulActorLocalInventoryState(
   mode: ActorLocalInventoryMode,

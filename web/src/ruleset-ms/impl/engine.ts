@@ -77,8 +77,6 @@ import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
 import {
   cloneStatefulActorRuntimeStore,
   createStatefulActorRuntimeStore,
-  forkStatefulActorRuntime,
-  removeStatefulActorRuntime,
   type StatefulActorRuntimeEntry,
   type StatefulActorRuntimeStore,
 } from "@game-core/impl/statefulActorRuntime";
@@ -144,7 +142,13 @@ import {
   settleMsPrimedToolDrop,
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
-import { findMsStatefulActorRuntime, seedMsStatefulActorRuntime, type MsStatefulActorRuntimeEntry } from "@ruleset-ms/impl/statefulActors";
+import {
+  cloneMsStatefulActorRuntime,
+  destroyMsStatefulActorRuntime,
+  findMsStatefulActorRuntime,
+  seedMsStatefulActorRuntime,
+  type MsStatefulActorRuntimeEntry,
+} from "@ruleset-ms/impl/statefulActors";
 import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
 import {
   moveMsChipDownOneLayer as moveMsChipDownOneLayerWithContext,
@@ -1683,7 +1687,7 @@ function resolveButtonFloorEffects(
             });
             internal.creatureIndexBySerial.set(clonedCreatureSerial, internal.creatures.length - 1);
             if (typeof sourceSerial === "number") {
-              forkStatefulActorRuntime(internal.statefulActors, sourceSerial, clonedCreatureSerial);
+              cloneMsStatefulActorRuntime(internal.statefulActors, sourceSerial, clonedCreatureSerial);
             }
             internal.nextCreatureSerial = clonedCreatureSerial + 1;
           },
@@ -2557,7 +2561,7 @@ function createMsCreatureMovementContext(
         runtimeEntry: msRuntimeActorEntry(internal, creature.serial),
       }),
     removeStatefulActor: (creature: MsTrackedCreature) => {
-      removeStatefulActorRuntime(internal.statefulActors, creature.serial);
+      destroyMsStatefulActorRuntime(internal.statefulActors, creature.serial);
     },
     findTeleportDestination: (
       cells: EngineMapCell[],

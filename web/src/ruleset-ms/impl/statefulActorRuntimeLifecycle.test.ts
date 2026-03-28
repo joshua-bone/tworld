@@ -1,8 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { findStatefulActorRuntime, setStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
+import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { advanceMsInteractiveSession, createMsInteractiveSession } from "@ruleset-ms/impl/engine";
 import { createEmptyCells, createLevel, createRequest, msStatefulActorsForTest, pos } from "@ruleset-ms/impl/testSupport";
+import {
+  attachMsStatefulActorPortableBacking,
+  detachMsStatefulActorPortableBacking,
+  restoreMsStatefulActorRuntime,
+  type MsStatefulActorRuntimeEntry,
+} from "@ruleset-ms/impl/statefulActors";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
+import type { StatefulActorRuntimeStore } from "@game-core/impl/statefulActorRuntime";
+
+function msRuntimeStore(session: Parameters<typeof msStatefulActorsForTest>[0]): StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry> {
+  return msStatefulActorsForTest(session) as unknown as StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>;
+}
+
+function movingBowlingBallState(): MsStatefulActorRuntimeEntry["state"] {
+  return {
+    mode: "moving",
+    localInventory: {
+      keys: [0, 0, 0, 0],
+      boots: [0, 0, 0, 0],
+    },
+  };
+}
 
 describe("MS stateful actor runtime lifecycle", () => {
   it("seeds bowling ball runtime inventory for live actors", () => {
@@ -22,9 +43,10 @@ describe("MS stateful actor runtime lifecycle", () => {
 
     const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
     expect(bowlingBall).toBeTruthy();
-    expect(findStatefulActorRuntime(msStatefulActorsForTest(session.state), bowlingBall!.serial)).toEqual({
+    expect(findStatefulActorRuntime(msRuntimeStore(session.state), bowlingBall!.serial)).toEqual({
       actorSerial: bowlingBall!.serial,
       kind: "bowling-ball",
+      portableBacking: null,
       state: {
         mode: "moving",
         localInventory: {
@@ -56,10 +78,11 @@ describe("MS stateful actor runtime lifecycle", () => {
 
     const sourceSerial = session.state.internal.cloneSourceSerialByPosition.get(`1:${cloneMachinePos}`);
     expect(sourceSerial).toBeTruthy();
-    setStatefulActorRuntime(msStatefulActorsForTest(session.state), {
+    restoreMsStatefulActorRuntime(msRuntimeStore(session.state), {
       actorSerial: sourceSerial!,
       kind: "bowling-ball",
-      state: { mode: "moving" },
+      portableBacking: null,
+      state: movingBowlingBallState(),
     });
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
@@ -72,19 +95,44 @@ describe("MS stateful actor runtime lifecycle", () => {
 
     const clone = fireballs.find((creature) => creature.serial !== sourceSerial);
     expect(clone).toBeTruthy();
-    expect(findStatefulActorRuntime(msStatefulActorsForTest(session.state), sourceSerial!)).toEqual({
+    expect(findStatefulActorRuntime(msRuntimeStore(session.state), sourceSerial!)).toEqual({
       actorSerial: sourceSerial!,
       kind: "bowling-ball",
-      state: { mode: "moving" },
+      portableBacking: null,
+      state: movingBowlingBallState(),
     });
-    expect(findStatefulActorRuntime(msStatefulActorsForTest(session.state), clone!.serial)).toEqual({
+    expect(findStatefulActorRuntime(msRuntimeStore(session.state), clone!.serial)).toEqual({
       actorSerial: clone!.serial,
       kind: "bowling-ball",
-      state: { mode: "moving" },
+      portableBacking: null,
+      state: movingBowlingBallState(),
     });
   });
 
-  it("removes a creature runtime payload when the creature is destroyed", () => {
+  it("tracks portable-backing attachment through the ruleset helper", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(3, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+    expect(attachMsStatefulActorPortableBacking(msRuntimeStore(session.state), bowlingBall!.serial, {
+      family: "sandbag",
+      portableItemSerial: 17,
+    })?.portableBacking).toEqual({ family: "sandbag", portableItemSerial: 17 });
+    expect(detachMsStatefulActorPortableBacking(msRuntimeStore(session.state), bowlingBall!.serial)?.portableBacking).toBeNull();
+  });
+
+  it("removes a family-owned runtime payload when the creature is destroyed", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);
     const ballPos = pos(9, 10);
@@ -103,10 +151,11 @@ describe("MS stateful actor runtime lifecycle", () => {
 
     const ball = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Ball && !creature.hidden);
     expect(ball).toBeTruthy();
-    setStatefulActorRuntime(msStatefulActorsForTest(session.state), {
+    restoreMsStatefulActorRuntime(msRuntimeStore(session.state), {
       actorSerial: ball!.serial,
-      kind: "ghost",
-      state: { mode: "phasing" },
+      kind: "bowling-ball",
+      portableBacking: null,
+      state: movingBowlingBallState(),
     });
 
     for (let tick = 0; tick < 5; tick += 1) {
@@ -114,6 +163,6 @@ describe("MS stateful actor runtime lifecycle", () => {
     }
 
     expect(session.state.internal.creatures.find((creature) => creature.serial === ball!.serial)?.hidden).toBe(true);
-    expect(findStatefulActorRuntime(msStatefulActorsForTest(session.state), ball!.serial)).toBeUndefined();
+    expect(findStatefulActorRuntime(msRuntimeStore(session.state), ball!.serial)).toBeUndefined();
   });
 });

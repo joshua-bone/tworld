@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cloneStatefulActorRuntimeStore,
+  createStatefulActorRuntimeFamilyAdapter,
   createStatefulActorRuntimeStore,
   findStatefulActorRuntime,
   forkStatefulActorRuntime,
@@ -83,5 +84,66 @@ describe("statefulActorRuntime", () => {
 
     expect(findStatefulActorRuntime(store, 3)?.state.inventory?.keys).toEqual([0, 0, 1, 0]);
     expect(findStatefulActorRuntime(snapshot, 3)?.state.inventory?.keys).toEqual([0, 0, 5, 0]);
+  });
+
+  it("supports family-owned spawn, restore, clone, destroy, and portable-backing lifecycle", () => {
+    const store = createStatefulActorRuntimeStore<TestActorRuntimeEntry>();
+    const adapter = createStatefulActorRuntimeFamilyAdapter<
+      TestActorRuntimeEntry,
+      { spawn: boolean }
+    >({
+      kind: "bowling-ball",
+      createSpawnEntry(actorSerial, context) {
+        if (!context.spawn) {
+          return null;
+        }
+        return {
+          actorSerial,
+          kind: "bowling-ball",
+          portableBacking: null,
+          state: { mode: "moving" },
+        };
+      },
+    });
+
+    expect(adapter.spawn(store, 5, { spawn: true })).toEqual({
+      actorSerial: 5,
+      kind: "bowling-ball",
+      portableBacking: null,
+      state: { mode: "moving" },
+    });
+
+    expect(adapter.attachPortableBacking(store, 5, { family: "sandbag", portableItemSerial: 9 })).toMatchObject({
+      actorSerial: 5,
+      portableBacking: { family: "sandbag", portableItemSerial: 9 },
+    });
+
+    expect(adapter.detachPortableBacking(store, 5)).toMatchObject({
+      actorSerial: 5,
+      portableBacking: null,
+    });
+
+    expect(
+      adapter.restore(store, {
+        actorSerial: 6,
+        kind: "bowling-ball",
+        portableBacking: null,
+        state: { mode: "still" },
+      }),
+    ).toMatchObject({
+      actorSerial: 6,
+      state: { mode: "still" },
+    });
+
+    expect(adapter.clone(store, 6, 7)).toEqual({
+      actorSerial: 7,
+      kind: "bowling-ball",
+      portableBacking: null,
+      state: { mode: "still" },
+    });
+
+    adapter.destroy(store, 6);
+    expect(findStatefulActorRuntime(store, 6)).toBeUndefined();
+    expect(findStatefulActorRuntime(store, 7)).toBeTruthy();
   });
 });

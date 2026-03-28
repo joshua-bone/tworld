@@ -69,8 +69,6 @@ import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
 import {
   createStatefulActorRuntimeStore,
-  forkStatefulActorRuntime,
-  removeStatefulActorRuntime,
   type StatefulActorRuntimeEntry,
   type StatefulActorRuntimeStore,
 } from "@game-core/impl/statefulActorRuntime";
@@ -145,6 +143,8 @@ import {
   lynxRuntimeActorArrivalOutcome,
 } from "@ruleset-lynx/impl/actorArrival";
 import {
+  cloneLynxStatefulActorRuntime,
+  destroyLynxStatefulActorRuntime,
   findLynxStatefulActorRuntime,
   seedLynxStatefulActorRuntime,
   type LynxStatefulActorRuntimeEntry,
@@ -857,7 +857,7 @@ function removeLynxActor(
   actor.moveKind = "planar";
   actor.ignoreIceFromAir = false;
   actor.animationReserved = true;
-  removeStatefulActorRuntime(lynxStatefulActorRuntime(state), actor.serial);
+  destroyLynxStatefulActorRuntime(lynxStatefulActorRuntime(state), actor.serial);
   startLynxAnimation(state, actors, actor.pos, animationTileId);
 }
 
@@ -2379,7 +2379,7 @@ function createLynxTrapClonerContext(
       ),
     allocateCloneSlot: (snapshot) => allocateLynxActorSlot(actors, snapshot),
     syncCloneRuntime: (sourceActor, clone) => {
-      forkStatefulActorRuntime(lynxStatefulActorRuntime(state), sourceActor.serial, clone.serial);
+      cloneLynxStatefulActorRuntime(lynxStatefulActorRuntime(state), sourceActor.serial, clone.serial);
     },
     startCreatureMovement: (actor, dir, releasing) => startLynxRuntimeActorMovement(state, actors, actor, dir, releasing),
     advanceCreature: (actor, currentTime) => advanceLynxCreature(state, level, actors, actor, currentTime),

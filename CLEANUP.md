@@ -169,16 +169,16 @@ Goal:
 
 Checklist:
 
-- [ ] define family-owned runtime state adapters keyed by actor serial
-- [ ] define typed lifecycle hooks for:
-- [ ] spawn
-- [ ] clone
-- [ ] restore
-- [ ] destroy
-- [ ] attach portable backing item
-- [ ] detach portable backing item
-- [ ] make the portable backing item relationship explicit instead of implicit
-- [ ] expose runtime-state access through family helpers instead of direct store poking
+- [x] define family-owned runtime state adapters keyed by actor serial
+- [x] define typed lifecycle hooks for:
+- [x] `spawn`
+- [x] `clone`
+- [x] `restore`
+- [x] `destroy`
+- [x] `attach portable backing item`
+- [x] `detach portable backing item`
+- [x] make the portable backing item relationship explicit instead of implicit
+- [x] expose runtime-state access through family helpers instead of direct store poking
 
 Success condition:
 
