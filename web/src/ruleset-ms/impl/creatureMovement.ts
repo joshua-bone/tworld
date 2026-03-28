@@ -18,6 +18,7 @@ function isIceFloor(tileId: number): boolean {
 }
 
 export interface MsCreatureMovementCreature {
+  serial: number;
   id: number;
   dir: number;
   pos: number;
@@ -43,6 +44,7 @@ export interface MsCreatureMovementContext {
   clearCreatureFloorMovement(creature: MsCreatureMovementCreature): void;
   syncCreatureFloorMovement(cells: EngineMapCell[], creature: MsCreatureMovementCreature): void;
   syncVerticalFloorMovement(creature: MsCreatureMovementCreature): void;
+  removeStatefulActor(creature: MsCreatureMovementCreature): void;
   findTeleportDestination(
     cells: EngineMapCell[],
     start: number,
@@ -71,6 +73,7 @@ function removeCreatureOnArrival(
   creature.pos = oldPos;
   creature.hidden = true;
   context.clearCreatureFloorMovement(creature);
+  context.removeStatefulActor(creature);
 }
 
 function applyCreatureFloorConsequences(
@@ -259,6 +262,7 @@ export function moveMsCreatureDownOneLayer(
       creature.z = sourceZ;
       creature.hidden = true;
       context.clearCreatureFloorMovement(creature);
+      context.removeStatefulActor(creature);
       return movedMovement(soundEffects);
     case "creature-bomb":
       targetCells[nextPos]!.top = { id: MS_TILE.Empty, state: 0 };
@@ -268,6 +272,7 @@ export function moveMsCreatureDownOneLayer(
       creature.z = sourceZ;
       creature.hidden = true;
       context.clearCreatureFloorMovement(creature);
+      context.removeStatefulActor(creature);
       soundEffects |= 1 << MS_SOUND.BombExplodes;
       return movedMovement(soundEffects);
     default:

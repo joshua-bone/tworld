@@ -6,6 +6,7 @@ import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 
 function createCreature(overrides: Partial<MsCreatureMovementCreature> = {}): MsCreatureMovementCreature {
   return {
+    serial: 1,
     id: MS_TILE.Ball,
     dir: MS_DIRECTION.east,
     pos: pos(1, 1),
@@ -34,6 +35,7 @@ function createContext(overrides: Partial<MsCreatureMovementContext> = {}): MsCr
     clearCreatureFloorMovement: () => {},
     syncCreatureFloorMovement: () => {},
     syncVerticalFloorMovement: () => {},
+    removeStatefulActor: () => {},
     findTeleportDestination: (cells: EngineMapCell[], start: number) => start,
     ...overrides,
   };

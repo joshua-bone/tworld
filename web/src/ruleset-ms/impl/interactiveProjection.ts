@@ -79,6 +79,7 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
 
   for (const creature of creatures) {
     addActor({
+      serial: creature.serial,
       id: creature.id,
       pos: creature.pos,
       z: creature.z,

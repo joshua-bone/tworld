@@ -1,6 +1,7 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { createEmptyTestBoard, createTestCell, boardPos } from "@game-core/impl/testBoards";
 import { createTestEngineState } from "@game-core/impl/testEngineState";
+import type { StatefulActorRuntimeEntry, StatefulActorRuntimeStore } from "@game-core/impl/statefulActorRuntime";
 import type { MsLevel } from "@ruleset-ms/api/level";
 import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -60,4 +61,8 @@ export function createEngineState(cells: EngineMapCell[]): EngineState {
 export function msTileOverlays(state: EngineState): MsRuntimeOverlay[] {
   return ((state as EngineState & { msRuntimeState?: { tileOverlays?: MsRuntimeOverlay[] } }).msRuntimeState?.tileOverlays ??
     []);
+}
+
+export function msStatefulActorsForTest(state: { internal: { statefulActors: StatefulActorRuntimeStore<StatefulActorRuntimeEntry> } }) {
+  return state.internal.statefulActors;
 }

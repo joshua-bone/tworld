@@ -7,6 +7,7 @@ import { lynxTileHasTag } from "@ruleset-lynx/impl/catalog";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxTrapClonerActor {
+  serial: number;
   id: number;
   pos: number;
   z?: number;
@@ -24,6 +25,7 @@ export interface LynxTrapClonerContext<TActor extends LynxTrapClonerActor> {
   findVisibleActorAt(pos: number, z: number): TActor | null;
   buildCloneSnapshot(sourceActor: TActor, z: number): TActor;
   allocateCloneSlot(snapshot: TActor): TActor;
+  syncCloneRuntime(sourceActor: TActor, clone: TActor): void;
   startCreatureMovement(actor: TActor, dir: number, releasing: boolean): MovementAttemptResult;
   advanceCreature(actor: TActor, currentTime: number): void;
   currentTime: number;
@@ -79,6 +81,7 @@ export function activateLynxCloner<TActor extends LynxTrapClonerActor>(
       ...sourceSnapshot,
       hidden: false,
     });
+    context.syncCloneRuntime(sourceActor, clone);
     context.advanceCreature(sourceActor, context.currentTime + 1);
     return true;
   });

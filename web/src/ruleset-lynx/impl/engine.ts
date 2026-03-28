@@ -67,6 +67,13 @@ import { createReplayPlan, createRuntimeCommand, plannedReplayInput, recordManua
 import { decodeRuntimeInputCode, GAME_INPUT_MODIFIER_MASKS, getGameInputNameFromCode } from "@game-core/api/command";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
+import {
+  createStatefulActorRuntimeStore,
+  forkStatefulActorRuntime,
+  removeStatefulActorRuntime,
+  type StatefulActorRuntimeEntry,
+  type StatefulActorRuntimeStore,
+} from "@game-core/impl/statefulActorRuntime";
 import { projectLynxDebugPhaseSnapshot } from "@ruleset-lynx/impl/debugProjection";
 import {
   previewInputCodeForLynxChipMoveSelection,
@@ -248,6 +255,7 @@ function applyLynxActorThiefHook(
 }
 
 export interface LynxRuntimeActor {
+  serial: number;
   id: number;
   pos: number;
   z?: number;
@@ -311,6 +319,8 @@ interface LynxRuntimeState {
     lastRandomSlideDir: number;
   };
   portableTools: LynxPortableToolStateStore;
+  statefulActors: LynxStatefulActorRuntimeState;
+  nextActorSerial: number;
   chipPos: number;
   chipZ: number;
 }
@@ -335,6 +345,7 @@ interface LynxChipRuntimeState {
 }
 
 interface LynxPortableToolRuntimeState extends LynxPortableToolStateStore {}
+interface LynxStatefulActorRuntimeState extends StatefulActorRuntimeStore<StatefulActorRuntimeEntry> {}
 
 interface LynxTickContext {
   state: EngineState;
@@ -497,8 +508,9 @@ function isLynxVerticalMoveKind(moveKind: LynxMoveKind | undefined): boolean {
   return moveKind === "air" || moveKind === "elevator";
 }
 
-function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
+function parseLynxActors(level: LynxLevel): { actors: LynxRuntimeActor[]; nextActorSerial: number } {
   const scanned: LynxRuntimeActor[] = [];
+  let nextActorSerial = 1;
   const orderedCreaturePositions = new Set(
     collectLevelCreaturePositions(level).map(({ pos, z }) => `${z}:${pos}`),
   );
@@ -508,6 +520,7 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
       const tile = cell.top;
       if (tile.id === MS_TILE.Block_Static) {
         scanned.push({
+          serial: nextActorSerial,
           id: MS_TILE.Block,
           pos: cell.position.pos,
           z: layer.z,
@@ -527,6 +540,7 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
           dormant: !orderedCreaturePositions.has(`${layer.z}:${cell.position.pos}`),
           animationReserved: false,
         });
+        nextActorSerial += 1;
         continue;
       }
 
@@ -534,6 +548,7 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
         continue;
       }
       scanned.push({
+        serial: nextActorSerial,
         id: msCreatureId(tile.id),
         pos: cell.position.pos,
         z: layer.z,
@@ -553,6 +568,7 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
         dormant: false,
         animationReserved: false,
       });
+      nextActorSerial += 1;
     }
   }
 
@@ -563,7 +579,10 @@ function parseLynxActors(level: LynxLevel): LynxRuntimeActor[] {
     scanned[0] = chip;
   }
 
-  return scanned.filter((actor) => actor.id !== MS_TILE.Chip);
+  return {
+    actors: scanned.filter((actor) => actor.id !== MS_TILE.Chip),
+    nextActorSerial,
+  };
 }
 
 function normalizeRandomSeed(seed: number | undefined): number {
@@ -596,6 +615,8 @@ function lynxRuntimeState(state: EngineState): LynxRuntimeState {
         nextPortableItemSerial: 1,
         primedToolDrop: null,
       },
+      statefulActors: createStatefulActorRuntimeStore(),
+      nextActorSerial: 1,
       chipPos: -1,
       chipZ: 1,
     };
@@ -613,6 +634,17 @@ function lynxChipRuntime(state: EngineState): LynxChipRuntimeState {
 
 function lynxPortableToolRuntime(state: EngineState): LynxPortableToolRuntimeState {
   return lynxRuntimeState(state).portableTools;
+}
+
+function lynxStatefulActorRuntime(state: EngineState): LynxStatefulActorRuntimeState {
+  return lynxRuntimeState(state).statefulActors;
+}
+
+function allocateLynxActorSerial(state: EngineState): number {
+  const runtime = lynxRuntimeState(state);
+  const serial = runtime.nextActorSerial;
+  runtime.nextActorSerial += 1;
+  return serial;
 }
 
 function setLynxRuntimeChipState(state: EngineState, chipPos: number, chipZ: number): void {
@@ -774,6 +806,7 @@ function removeLynxActor(
   actor.moveKind = "planar";
   actor.ignoreIceFromAir = false;
   actor.animationReserved = true;
+  removeStatefulActorRuntime(lynxStatefulActorRuntime(state), actor.serial);
   startLynxAnimation(state, actors, actor.pos, animationTileId);
 }
 
@@ -2221,8 +2254,18 @@ function createLynxTrapClonerContext(
     activeLayerZ: () => activeLynxLayerZ(state),
     withLayer: (z, run) => withLynxLayer(state, z, run),
     findVisibleActorAt: (pos, z) => findLynxVisibleActorAt(actors, pos, z),
-    buildCloneSnapshot: (sourceActor, z) => createLynxClonerSnapshot(sourceActor, z),
+    buildCloneSnapshot: (sourceActor, z) =>
+      createLynxClonerSnapshot(
+        {
+          ...sourceActor,
+          serial: allocateLynxActorSerial(state),
+        },
+        z,
+      ),
     allocateCloneSlot: (snapshot) => allocateLynxActorSlot(actors, snapshot),
+    syncCloneRuntime: (sourceActor, clone) => {
+      forkStatefulActorRuntime(lynxStatefulActorRuntime(state), sourceActor.serial, clone.serial);
+    },
     startCreatureMovement: (actor, dir, releasing) => startLynxCreatureMovement(state, actors, actor, dir, releasing),
     advanceCreature: (actor, currentTime) => advanceLynxCreature(state, level, actors, actor, currentTime),
     currentTime: state.timer.currentTime,
@@ -2606,9 +2649,12 @@ function createLynxInteractiveToken(
     | null = null,
 ): LynxInteractiveSessionState {
   const chipSeed = findChipSeed(level);
+  const parsedActors = parseLynxActors(level);
+  const state = initializeLynxEngineState(request, level, replay);
+  lynxRuntimeState(state).nextActorSerial = parsedActors.nextActorSerial;
   return {
     level,
-    state: initializeLynxEngineState(request, level, replay),
+    state,
     lastInput: createRuntimeCommand(0, -1),
     recordedMoves: replay
       ? replay.moves.map((move, index) => ({
@@ -2626,7 +2672,7 @@ function createLynxInteractiveToken(
     queuedReplayInputCode: 0,
     queuedChipInputCode: 0,
     chipPushing: false,
-    actors: parseLynxActors(level),
+    actors: parsedActors.actors,
     endGameTicksElapsed: null,
     endGameResult: null,
     endGameAnimationTileId: null,

@@ -15,6 +15,7 @@ export interface InteractiveGameRenderableChip {
 }
 
 export interface InteractiveGameRenderableActor {
+  serial?: number;
   id: number;
   pos: number;
   z?: number;

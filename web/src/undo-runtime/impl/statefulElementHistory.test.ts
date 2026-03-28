@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
 import { expectOverlayPresent } from "@game-core/impl/testOverlays";
+import { findStatefulActorRuntime, setStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { projectLynxInteractiveFrame } from "@ruleset-lynx/impl/interactiveProjection";
 import {
   createCell as createLynxCell,
@@ -19,6 +20,7 @@ import {
   createEmptyCells as createMsEmptyCells,
   createLevel as createMsLevel,
   createRequest as createMsRequest,
+  msStatefulActorsForTest,
   pos as msPos,
 } from "@ruleset-ms/impl/testSupport";
 import { reconcileMsPortableToolProjection } from "@ruleset-ms/impl/portableItems";
@@ -106,5 +108,80 @@ describe("stateful element undo/projection characterization", () => {
       kind: "carried-tool",
       tileId: MS_TILE.Sandbag,
     });
+  });
+
+  it("restores MS stateful actor runtime entries and serial-aware render actors through undo", () => {
+    const cells = createMsEmptyCells();
+    const chipPos = msPos(8, 10);
+    const bugPos = msPos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bugPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west);
+
+    let session = createMsInteractiveSession(
+      createMsRequest(),
+      createMsLevel({
+        cells,
+        creaturePositions: [chipPos, bugPos],
+      }),
+    );
+
+    const bug = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Bug && !creature.hidden);
+    expect(bug).toBeTruthy();
+    setStatefulActorRuntime(msStatefulActorsForTest(session.state), {
+      actorSerial: bug!.serial,
+      kind: "ghost",
+      state: { mode: "phasing" },
+    });
+
+    let history = createMsUndoHistory(session, 2);
+    session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
+    history = recordMsUndoTick(history, session, GAME_INPUT_CODES.none);
+
+    const restored = restoreMsUndoHistoryToTick(history, -1);
+    expect(findStatefulActorRuntime(msStatefulActorsForTest(restored.session.state), bug!.serial)).toEqual({
+      actorSerial: bug!.serial,
+      kind: "ghost",
+      state: { mode: "phasing" },
+    });
+
+    const frame = projectMsInteractiveFrame(restored.session, "tick");
+    expect(frame.render?.actors.find((actor) => actor.serial === bug!.serial)?.id).toBe(MS_TILE.Bug);
+  });
+
+  it("restores Lynx stateful actor runtime entries and serial-aware render actors through undo", () => {
+    const chipPos = 33;
+    const bugPos = 34;
+    let session = createLynxInteractiveSession(
+      createLynxRequest(),
+      createLynxLevel(
+        [
+          createLynxCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)),
+          createLynxCell(bugPos, msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west)),
+        ],
+        [chipPos, bugPos],
+      ),
+    );
+
+    const bug = session.actors.find((actor) => actor.id === MS_TILE.Bug && !actor.hidden);
+    expect(bug).toBeTruthy();
+    setStatefulActorRuntime(lynxRuntimeStateForTest(session.state).statefulActors, {
+      actorSerial: bug!.serial,
+      kind: "ghost",
+      state: { mode: "phasing" },
+    });
+
+    let history = createLynxUndoHistory(session, 2);
+    session = advanceLynxInteractiveSession(session, GAME_INPUT_CODES.none);
+    history = recordLynxUndoTick(history, session, GAME_INPUT_CODES.none);
+
+    const restored = restoreLynxUndoHistoryToTick(history, -1);
+    expect(findStatefulActorRuntime(lynxRuntimeStateForTest(restored.session.state).statefulActors, bug!.serial)).toEqual({
+      actorSerial: bug!.serial,
+      kind: "ghost",
+      state: { mode: "phasing" },
+    });
+
+    const frame = projectLynxInteractiveFrame(restored.session, "tick");
+    expect(frame.render?.actors.find((actor) => actor.serial === bug!.serial)?.id).toBe(MS_TILE.Bug);
   });
 });

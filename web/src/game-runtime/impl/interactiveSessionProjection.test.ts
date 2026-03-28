@@ -106,6 +106,7 @@ describe("interactive session projection", () => {
       failed: false,
     });
     expect(Array.isArray(session.frame.render?.actors)).toBe(true);
+    expect(session.frame.render?.actors.every((actor) => typeof actor.serial === "number")).toBe(true);
     expect(session.history.currentTick).toBe(-1);
 
     const next = await adapter.advanceSession(session, "none");
@@ -171,6 +172,7 @@ describe("interactive session projection", () => {
     expect(session.mode).toBe("replay");
     expect(session.run.replayAvailable).toBe(true);
     expect(session.recordedMoves).toEqual([{ when: 0, dir: MS_DIRECTION.east, modifierMask: 0 }]);
+    expect(session.frame.render?.actors.every((actor) => typeof actor.serial === "number")).toBe(true);
     expect(session.history).toMatchObject({
       enabled: true,
       initialTick: -1,

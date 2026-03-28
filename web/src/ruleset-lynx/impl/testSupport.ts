@@ -1,6 +1,7 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { createEmptyTestBoard, createTestCell, boardPos } from "@game-core/impl/testBoards";
 import { createTestEngineState } from "@game-core/impl/testEngineState";
+import type { StatefulActorRuntimeEntry, StatefulActorRuntimeStore } from "@game-core/impl/statefulActorRuntime";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { advanceLynxInteractiveSession, createLynxInteractiveSession } from "@ruleset-lynx/impl/engine";
 import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
@@ -146,8 +147,20 @@ export function lynxPortableItems(state: EngineState): LynxPortableItem[] {
   );
 }
 
-export function lynxRuntimeStateForTest(state: EngineState): { portableTools: LynxPortableToolRuntime } {
-  return (state as EngineState & { lynxRuntimeState: { portableTools: LynxPortableToolRuntime } }).lynxRuntimeState;
+export function lynxRuntimeStateForTest(state: EngineState): {
+  portableTools: LynxPortableToolRuntime;
+  statefulActors: StatefulActorRuntimeStore<StatefulActorRuntimeEntry>;
+  nextActorSerial: number;
+} {
+  return (
+    state as EngineState & {
+      lynxRuntimeState: {
+        portableTools: LynxPortableToolRuntime;
+        statefulActors: StatefulActorRuntimeStore<StatefulActorRuntimeEntry>;
+        nextActorSerial: number;
+      };
+    }
+  ).lynxRuntimeState;
 }
 
 export function lynxTileOverlays(state: EngineState): LynxRuntimeOverlay[] {

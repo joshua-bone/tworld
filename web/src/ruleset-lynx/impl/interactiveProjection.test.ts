@@ -43,6 +43,7 @@ describe("projectLynxInteractiveFrame", () => {
       chipPushing: false,
       actors: [
         {
+          serial: 1,
           id: MS_TILE.Block,
           pos: 0,
           z: 1,

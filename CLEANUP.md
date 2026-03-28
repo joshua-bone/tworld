@@ -230,10 +230,10 @@ Goal:
 
 Checklist:
 
-- [ ] add a supplemental runtime state store keyed by actor serial
-- [ ] support custom mode/state payloads per actor family
-- [ ] route clone, destroy, and restore flows through this store
-- [ ] integrate with interactive projection, replay, and undo
+- [x] add a supplemental runtime state store keyed by actor serial
+- [x] support custom mode/state payloads per actor family
+- [x] route clone, destroy, and restore flows through this store
+- [x] integrate with interactive projection, replay, and undo
 
 Extensibility win:
 
@@ -403,7 +403,7 @@ Important note:
 
 - [ ] EP1
 - [ ] EP2
-- [ ] EP3
+- [x] EP3
 - [ ] EP4
 - [ ] EP5
 - [ ] EP6

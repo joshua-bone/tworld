@@ -122,6 +122,7 @@ export function projectLynxInteractiveFrame(
         scale: session.chipMoveKind === "air" && session.chipMoving > 0 ? 0.9 + (session.chipMoving / 8) * 0.1 : 1,
       },
       actors: session.actors.map((actor) => ({
+        serial: actor.serial,
         id: actor.id,
         pos: actor.pos,
         z: actor.z,

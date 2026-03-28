@@ -74,6 +74,14 @@ import {
 } from "@game-core/api/command";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
+import {
+  cloneStatefulActorRuntimeStore,
+  createStatefulActorRuntimeStore,
+  forkStatefulActorRuntime,
+  removeStatefulActorRuntime,
+  type StatefulActorRuntimeEntry,
+  type StatefulActorRuntimeStore,
+} from "@game-core/impl/statefulActorRuntime";
 import { collectMsActorsFromLayers, hashMsCreaturesFromLayers, projectMsDebugPhaseSnapshot } from "@ruleset-ms/impl/debugProjection";
 import type { GameCommand, GameRequest, GameRuntimeCommand, GameTrace } from "@game-core/api/types";
 import {
@@ -232,6 +240,7 @@ interface MsRandomRuntimeState {
 }
 
 interface MsPortableToolRuntimeState extends MsPortableToolStateStore {}
+interface MsStatefulActorRuntimeState extends StatefulActorRuntimeStore<StatefulActorRuntimeEntry> {}
 
 export interface MsInternalState {
   chipPos: number;
@@ -253,6 +262,7 @@ export interface MsInternalState {
   creatureIndexBySerial: Map<number, number>;
   creatureSlipList: MsCreatureSlipEntry[];
   blocks: MsTrackedBlock[];
+  cloneSourceSerialByPosition: Map<string, number>;
   traps: MsConnection[];
   cloners: MsConnection[];
   pendingCloners: number[];
@@ -262,6 +272,7 @@ export interface MsInternalState {
   randomState: MsRandomRuntimeState;
   lastSlipDir: number;
   portableTools: MsPortableToolRuntimeState;
+  statefulActors: MsStatefulActorRuntimeState;
   runtimeLayers: MsRuntimeLayer[];
 }
 
@@ -655,12 +666,14 @@ function cloneInternalState(internal: MsInternalState): MsInternalState {
     creatureIndexBySerial: new Map(internal.creatureIndexBySerial),
     creatureSlipList: internal.creatureSlipList.map((entry) => ({ ...entry })),
     blocks: internal.blocks.map((block) => ({ ...block })),
+    cloneSourceSerialByPosition: new Map(internal.cloneSourceSerialByPosition),
     traps: internal.traps.map((connection) => ({ ...connection })),
     cloners: internal.cloners.map((connection) => ({ ...connection })),
     pendingCloners: [...internal.pendingCloners],
     pendingSoundEffects: internal.pendingSoundEffects,
     lastSlipDir: internal.lastSlipDir,
     randomState: { ...internal.randomState },
+    statefulActors: cloneStatefulActorRuntimeStore(internal.statefulActors),
     portableTools: {
       portableItems: internal.portableTools.portableItems.map((item) => ({
         ...item,
@@ -936,8 +949,10 @@ export function initializeMsGameState(
   let chipDir: number = MS_DIRECTION.south;
   const creatures: MsTrackedCreature[] = [];
   const blocks: MsTrackedBlock[] = [];
+  let nextCreatureSerial = 1;
   const seededPositions = new Set<string>();
   const layerPositionKey = (pos: number, z: number) => `${z}:${pos}`;
+  const cloneSourceSerialByPosition = new Map<string, number>();
 
   for (const { pos, z } of collectLevelCreaturePositions(level)) {
     const layerCells = layerCellsByZ.get(z);
@@ -962,7 +977,7 @@ export function initializeMsGameState(
       if (creatureId === MS_TILE.Block) {
       } else if (cell.bottom.id !== MS_TILE.CloneMachine) {
         creatures.push({
-          serial: creatures.length + 1,
+          serial: nextCreatureSerial,
           id: creatureId,
           dir: msCreatureDir(cell.top.id),
           tdir: MS_DIRECTION.none,
@@ -979,6 +994,10 @@ export function initializeMsGameState(
           floorMovementDir: MS_DIRECTION.none,
           sliding: false,
         });
+        nextCreatureSerial += 1;
+      } else {
+        cloneSourceSerialByPosition.set(layerPositionKey(pos, z), nextCreatureSerial);
+        nextCreatureSerial += 1;
       }
     }
     seededPositions.add(layerPositionKey(pos, z));
@@ -1020,17 +1039,19 @@ export function initializeMsGameState(
     creatureIndexBySerial: new Map(creatures.map((creature, creatureIndex) => [creature.serial, creatureIndex])),
     creatureSlipList: [],
     blocks,
+    cloneSourceSerialByPosition,
     traps: collectLevelConnections(level, "traps"),
     cloners: collectLevelConnections(level, "cloners"),
     pendingCloners: [],
     pendingSoundEffects: 0,
-    nextCreatureSerial: creatures.length + 1,
+    nextCreatureSerial,
     nextSlipOrder: 0,
     randomState: {
       initial: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
       value: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
     },
     lastSlipDir: MS_DIRECTION.none,
+    statefulActors: createStatefulActorRuntimeStore(),
     portableTools: {
       portableItems: [],
       nextPortableItemSerial: 1,
@@ -1547,8 +1568,11 @@ function resolveButtonFloorEffects(
             internal,
           ),
         spawnCreatureClone: (sourcePos, sourceId, sourceDir, z) => {
+          const clonedCreatureSerial = internal.nextCreatureSerial;
+          const sourceCreature = creatureAtPos(internal, sourcePos, z);
+          const sourceSerial = sourceCreature?.serial ?? internal.cloneSourceSerialByPosition.get(`${z}:${sourcePos}`);
           internal.creatures.push({
-            serial: internal.nextCreatureSerial,
+            serial: clonedCreatureSerial,
             id: sourceId,
             dir: sourceDir,
             tdir: MS_DIRECTION.none,
@@ -1565,8 +1589,11 @@ function resolveButtonFloorEffects(
             floorMovementDir: MS_DIRECTION.none,
             sliding: false,
           });
-          internal.creatureIndexBySerial.set(internal.nextCreatureSerial, internal.creatures.length - 1);
-          internal.nextCreatureSerial += 1;
+          internal.creatureIndexBySerial.set(clonedCreatureSerial, internal.creatures.length - 1);
+          if (typeof sourceSerial === "number") {
+            forkStatefulActorRuntime(internal.statefulActors, sourceSerial, clonedCreatureSerial);
+          }
+          internal.nextCreatureSerial = clonedCreatureSerial + 1;
         },
       });
       return 1 << MS_SOUND.ButtonPushed;
@@ -2420,6 +2447,9 @@ function createMsCreatureMovementContext(
       syncCreatureFloorMovement(cells, creature, internal);
     },
     syncVerticalFloorMovement,
+    removeStatefulActor: (creature: MsTrackedCreature) => {
+      removeStatefulActorRuntime(internal.statefulActors, creature.serial);
+    },
     findTeleportDestination: (
       cells: EngineMapCell[],
       start: number,
