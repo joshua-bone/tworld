@@ -21,6 +21,14 @@ export interface PortableItemLocatedState<TMode extends string> extends Portable
   mode: TMode;
 }
 
+export type PortableItemDetachedState<TMode extends string> = PortableItemLocatedState<TMode>;
+
+export interface PortableItemAttachedState<TAttachmentKind extends string = string> {
+  mode: "attached";
+  attachmentKind: TAttachmentKind;
+  attachmentId: number;
+}
+
 export interface PortableItemBase<TInventorySlot extends string, TState extends { mode: string }> {
   serial: number;
   tileId: number;
@@ -119,6 +127,80 @@ export function removePortableItem<TItem extends { serial: number }, TStore exte
   serial: number,
 ): void {
   store.portableItems = store.portableItems.filter((item) => item.serial !== serial);
+}
+
+export function destroyPortableItem<TItem extends { serial: number }, TStore extends PortableItemStore<TItem>>(
+  store: TStore,
+  serial: number,
+): void {
+  removePortableItem(store, serial);
+}
+
+export function findPortableItemBySerial<TItem extends { serial: number }>(
+  items: readonly TItem[],
+  serial: number,
+): TItem | undefined {
+  return items.find((item) => item.serial === serial);
+}
+
+export function findPortableAttachedItem<
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TInventorySlot, TState>,
+>(
+  items: readonly TItem[],
+  inventorySlot: TInventorySlot,
+  attachmentKind: string,
+  attachmentId: number,
+): TItem | undefined {
+  return items.find((item) => {
+    if (item.inventorySlot !== inventorySlot || item.state.mode !== "attached") {
+      return false;
+    }
+    const state = item.state as unknown as PortableItemAttachedState;
+    return state.attachmentKind === attachmentKind && state.attachmentId === attachmentId;
+  });
+}
+
+export function setPortableItemCarriedState<TItem extends { state: { mode: string } }>(item: TItem): void {
+  item.state = { mode: "carried" } as TItem["state"];
+}
+
+export function setPortableItemMapState<TItem extends { state: { mode: string } }>(
+  item: TItem,
+  pos: number,
+  z: number,
+): void {
+  item.state = {
+    mode: "map",
+    pos,
+    z,
+  } as TItem["state"];
+}
+
+export function setPortableItemDetachedState<TItem extends { state: { mode: string } }>(
+  item: TItem,
+  mode: string,
+  pos: number,
+  z: number,
+): void {
+  item.state = {
+    mode,
+    pos,
+    z,
+  } as TItem["state"];
+}
+
+export function setPortableItemAttachedState<TItem extends { state: { mode: string } }>(
+  item: TItem,
+  attachmentKind: string,
+  attachmentId: number,
+): void {
+  item.state = {
+    mode: "attached",
+    attachmentKind,
+    attachmentId,
+  } as TItem["state"];
 }
 
 export function portableItemDropProjection<TItem extends { tileId: number; state: { mode: string } }>(

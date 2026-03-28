@@ -184,12 +184,11 @@ What is good:
 What is still weak:
 
 - movement helpers still directly juggle board state, inventory, sound effects, and runtime actor state
-- future “portable item that becomes an active actor” behavior does not yet have a clean lifecycle seam
 
 Conclusion:
 
 - ownership improved for current sandbag behavior
-- ownership is not yet ready for bowling ball or fake-player-style features
+- ownership is in a better place for bowling ball or fake-player-style features, but the remaining movement seams still need cleanup
 
 ### 8. Deterministic validation commands and characterization tests
 
@@ -284,7 +283,6 @@ What is good:
 What is still weak:
 
 - movement-start probing
-- portable item activation lifecycle
 
 ### Naming and intent
 
@@ -360,7 +358,6 @@ Good:
 Problems that still matter:
 
 - actor capabilities need deeper hooks
-- portable items still need an activation / attachment lifecycle for future portable actors
 
 ### Tests
 
@@ -391,7 +388,7 @@ Problems that still matter:
 - [x] EC11: Teleport, Trap, And Cloner Modules
 - [x] EC12: Actor Controller Seams
 - [x] EC13: Generalize Actor-Owned Collection And Global Progress
-- [ ] EC14: Portable Item Activation Lifecycle
+- [x] EC14: Portable Item Activation Lifecycle
 - [ ] EC15: Runtime State Decomposition
 - [ ] EC16: Test DSL And Builder Cleanup
 
@@ -488,7 +485,13 @@ Expected outcome:
   - portable-item state
   - global progress
 
-### [ ] EC14: Portable Item Activation Lifecycle
+### [x] EC14: Portable Item Activation Lifecycle
+
+Done:
+
+- Shared portable-item state now includes explicit actor-attached lifecycle support in `game-core`.
+- MS and Lynx portable-item modules now expose explicit activate, detach, and destroy lifecycle helpers instead of relying on raw state mutation.
+- Portable-item lifecycle coverage now exists at both the shared helper layer and the ruleset seam layer.
 
 Goal:
 
@@ -571,6 +574,6 @@ The remaining cleanup work is concentrated in a specific layer:
 - movement start
 - arrival resolution
 - held-button release and post-move consequences
-- portable-item activation lifecycle
+- runtime state decomposition and test ergonomics
 
 That is the correct place to keep cleaning. If we clean those seams next, future stateful actors can extend policy and helper modules instead of forcing more branching into the engines.

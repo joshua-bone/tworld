@@ -2,15 +2,22 @@ import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import {
   collectPortableItemsFromLayers,
   createPortableItem,
+  destroyPortableItem,
+  findPortableAttachedItem,
   findPortableItemByMode,
+  findPortableItemBySerial,
   findPortableMapItemAt,
   portableItemDropProjection,
   projectCarriedPortableToolTile,
-  removePortableItem,
+  setPortableItemAttachedState,
+  setPortableItemCarriedState,
+  setPortableItemDetachedState,
+  setPortableItemMapState,
   type PortableItemBase,
+  type PortableItemAttachedState,
   type PortableItemCarriedState,
+  type PortableItemDetachedState,
   type PortableItemDropProjection,
-  type PortableItemLocatedState,
   type PortableItemMapState,
   type PortableItemStore,
   type PortableToolInventoryProjection,
@@ -26,7 +33,8 @@ export type LynxToolInventoryProjection = PortableToolInventoryProjection;
 export type LynxPortableItemState =
   | PortableItemMapState
   | PortableItemCarriedState
-  | PortableItemLocatedState<"primed">;
+  | PortableItemDetachedState<"primed">
+  | PortableItemAttachedState<"actor">;
 
 export interface LynxPortableItem extends PortableItemBase<"tools", LynxPortableItemState> {}
 
@@ -101,7 +109,7 @@ export function reconcileLynxPortableToolProjection(
   const carried = carriedLynxPortableToolItem(store);
   if (projectedTileId === 0) {
     if (carried) {
-      removePortableItem(store, carried.serial);
+      destroyPortableItem(store, carried.serial);
     }
     projectLynxPortableToolState(store, inventory);
     return;
@@ -118,7 +126,7 @@ export function reconcileLynxPortableToolProjection(
 export function clearLynxToolInventory(store: LynxPortableToolStateStore, inventory: LynxToolInventoryProjection): void {
   const carried = carriedLynxPortableToolItem(store);
   if (carried) {
-    removePortableItem(store, carried.serial);
+    destroyPortableItem(store, carried.serial);
   }
   projectLynxPortableToolState(store, inventory);
 }
@@ -134,11 +142,7 @@ export function primeLynxToolDrop(
     return false;
   }
 
-  carried.state = {
-    mode: "primed",
-    pos,
-    z,
-  };
+  setPortableItemDetachedState(carried, "primed", pos, z);
   projectLynxPortableToolState(store, inventory);
   return true;
 }
@@ -156,24 +160,88 @@ export function queueLynxToolInventoryReplacement(
       serial,
       tileId,
       inventorySlot: "tools",
-      state: {
-        mode: "map",
-        pos,
-        z,
-      },
+      state: { mode: "map", pos, z },
     }));
   }
 
   const displaced = carriedLynxPortableToolItem(store);
-  collected.state = { mode: "carried" };
+  setPortableItemCarriedState(collected);
   if (displaced && displaced.serial !== collected.serial) {
-    displaced.state = {
-      mode: "primed",
-      pos,
-      z,
-    };
+    setPortableItemDetachedState(displaced, "primed", pos, z);
   }
   projectLynxPortableToolState(store, inventory);
+}
+
+export function activateLynxPortableTool(
+  store: LynxPortableToolStateStore,
+  inventory: LynxToolInventoryProjection,
+  serial: number,
+  actorSerial: number,
+): boolean {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  if (!item) {
+    return false;
+  }
+
+  setPortableItemAttachedState(item, "actor", actorSerial);
+  projectLynxPortableToolState(store, inventory);
+  return true;
+}
+
+export function findLynxPortableToolAttachedToActor(
+  store: LynxPortableToolStateStore,
+  actorSerial: number,
+): LynxPortableItem | undefined {
+  return findPortableAttachedItem(store.portableItems, "tools", "actor", actorSerial);
+}
+
+export function detachLynxPortableToolToMap(
+  store: LynxPortableToolStateStore,
+  inventory: LynxToolInventoryProjection,
+  serial: number,
+  pos: number,
+  z: number,
+): boolean {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  if (!item) {
+    return false;
+  }
+
+  setPortableItemMapState(item, pos, z);
+  projectLynxPortableToolState(store, inventory);
+  return true;
+}
+
+export function detachLynxPortableToolToDrop(
+  store: LynxPortableToolStateStore,
+  inventory: LynxToolInventoryProjection,
+  serial: number,
+  pos: number,
+  z: number,
+): boolean {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  if (!item) {
+    return false;
+  }
+
+  setPortableItemDetachedState(item, "primed", pos, z);
+  projectLynxPortableToolState(store, inventory);
+  return true;
+}
+
+export function destroyLynxPortableTool(
+  store: LynxPortableToolStateStore,
+  inventory: LynxToolInventoryProjection,
+  serial: number,
+): boolean {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  if (!item) {
+    return false;
+  }
+
+  destroyPortableItem(store, serial);
+  projectLynxPortableToolState(store, inventory);
+  return true;
 }
 
 function replaceLynxSettledSandbagWater(state: EngineState, pos: number): boolean {
@@ -210,7 +278,7 @@ export function settleLynxPrimedToolDrop(
 
   withLayer(z, () => {
     if (primed.tileId === MS_TILE.Sandbag && replaceLynxSettledSandbagWater(state, pos)) {
-      removePortableItem(store, primed.serial);
+      destroyPortableItem(store, primed.serial);
       return;
     }
 
@@ -219,11 +287,7 @@ export function settleLynxPrimedToolDrop(
       return;
     }
 
-    primed.state = {
-      mode: "map",
-      pos,
-      z,
-    };
+    setPortableItemMapState(primed, pos, z);
     cell.bottom = { ...cell.top };
     cell.top = { id: primed.tileId, state: 0 };
   });
