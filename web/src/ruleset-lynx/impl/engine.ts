@@ -56,15 +56,11 @@ import {
 import { hasVerticalSupport } from "@game-core/api/verticalMovement";
 import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
-import { actorCollectionAllowsSlot, actorCollectsChips, actorThiefStealsBootsAndTools } from "@game-core/api/actorCapabilities";
+import { actorThiefStealsBootsAndTools } from "@game-core/api/actorCapabilities";
 import {
   actorInventoryClearBoots,
-  actorInventoryCollectIndexedItem,
   actorInventoryHasBoot,
   actorInventoryUseKey,
-  createNoActorLocalInventoryOwner,
-  createKeysBootsToolsActorLocalInventoryOwner,
-  type ActorKeysBootsToolsInventory,
   type ActorLocalInventoryOwner,
 } from "@game-core/impl/actorLocalInventory";
 import { createReplayPlan, createRuntimeCommand, plannedReplayInput, recordManualMove, runtimeCommandName } from "@game-core/api/playback";
@@ -114,6 +110,7 @@ import {
   type LynxPortableItem,
   type LynxPortableToolStateStore,
 } from "@ruleset-lynx/impl/portableItems";
+import { collectLynxActorTile, projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
 import {
   resolveLynxTeleports as resolveLynxTeleportsWithContext,
   type LynxTeleportContext,
@@ -134,10 +131,7 @@ import {
 } from "@ruleset-lynx/impl/turnState";
 import {
   lynxActorEntryMask,
-  lynxActorGlobalProgressKind,
   lynxActorHazardResponse,
-  lynxActorItemCollectionKind,
-  lynxActorLocalInventoryMode,
   lynxActorThiefHook,
   lynxArrivalAnimationKind,
   lynxBlockMovementMask,
@@ -178,7 +172,6 @@ const LYNX_DEBUG_SCHEMA_VERSION = 2;
 const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
 const HIDDEN_WALL_REVEAL_TTL = MS_TICKS_PER_SECOND / 2;
 const BLUE_WALL_VISUAL_REVEAL_TTL = 0x7fff_ffff;
-type LynxChipLocalInventoryProjection = Pick<EngineState["inventory"], "keys" | "boots" | "tools">;
 
 export interface LynxInteractiveSessionState {
   level: LynxLevel;
@@ -230,12 +223,6 @@ interface LynxAdvanceTickRuntime {
   latchedChipMoveSelection: LynxChipMoveSelection | null;
   recordedReplayInputCode: number;
   nextTick: number;
-}
-
-function lynxChipInventoryOwner(inventory: LynxChipLocalInventoryProjection): ActorLocalInventoryOwner {
-  return lynxActorLocalInventoryMode(MS_TILE.Chip) === "keys-boots-tools"
-    ? createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory)
-    : createNoActorLocalInventoryOwner("chip");
 }
 
 function applyLynxActorThiefHook(
@@ -984,40 +971,22 @@ function updateLynxViewChip(state: EngineState): void {
   };
 }
 
-function collectChipAtPosition(state: EngineState, actorId: number, pos: number): boolean {
-  if (!hasBoardCell(state.map.cells, pos)) {
-    return false;
-  }
-
-  if (topTile(state.map.cells, pos).id === MS_TILE.ICChip && actorCollectsChips(lynxActorGlobalProgressKind(actorId))) {
-    promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
-    state.inventory.chipsNeeded = Math.max(0, state.inventory.chipsNeeded - 1);
-    state.map.hash = mapHash(state.map.cells);
-    return true;
-  }
-
-  return false;
-}
-
 function collectLynxItemAtPosition(state: EngineState, actorId: number, pos: number): number {
-  const chipInventory = lynxChipInventoryOwner(state.inventory);
-  const itemCollectionKind = lynxActorItemCollectionKind(actorId);
-  if (collectChipAtPosition(state, actorId, pos)) {
-    return 1 << LYNX_SOUND.IcCollected;
-  }
-
   if (!hasBoardCell(state.map.cells, pos)) {
     return 0;
   }
 
   const tile = topTile(state.map.cells, pos);
-  const inventorySlot = lynxInventorySlot(tile.id);
-  const inventoryIndex = lynxInventoryIndex(tile.id);
-  if (inventorySlot !== null && inventoryIndex !== null && actorCollectionAllowsSlot(itemCollectionKind, inventorySlot)) {
-    if (inventorySlot === "tools") {
+  const collected = collectLynxActorTile(actorId, state.inventory, tile.id);
+  if (collected.collected) {
+    if (collected.collectedChip) {
+      promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
+      state.map.hash = mapHash(state.map.cells);
+      return 1 << LYNX_SOUND.IcCollected;
+    }
+
+    if (collected.slot === "tools") {
       queueLynxToolInventoryReplacement(lynxRuntimeState(state), state.inventory, tile.id, pos, activeLynxLayerZ(state));
-    } else {
-      actorInventoryCollectIndexedItem(chipInventory, inventorySlot, inventoryIndex);
     }
     promoteBottomTile(state.map.cells, pos, MS_TILE.Empty);
     state.map.hash = mapHash(state.map.cells);
@@ -1028,7 +997,7 @@ function collectLynxItemAtPosition(state: EngineState, actorId: number, pos: num
 }
 
 function hasLynxBoots(state: EngineState, tileId: number): boolean {
-  const chipInventory = lynxChipInventoryOwner(state.inventory);
+  const chipInventory = projectLynxActorInventoryOwner(MS_TILE.Chip, state.inventory);
   const inventorySlot = lynxInventorySlot(tileId);
   const inventoryIndex = lynxInventoryIndex(tileId);
   return inventorySlot === "boots" && inventoryIndex !== null ? actorInventoryHasBoot(chipInventory, inventoryIndex) : false;
@@ -1345,7 +1314,7 @@ function resolveLynxChipArrival(
   actors: LynxRuntimeActor[],
   pos: number,
 ): ArrivalResult {
-  const chipInventory = lynxChipInventoryOwner(state.inventory);
+  const chipInventory = projectLynxActorInventoryOwner(MS_TILE.Chip, state.inventory);
   const cell = state.map.cells[pos];
   if (!cell) {
     return noArrival();

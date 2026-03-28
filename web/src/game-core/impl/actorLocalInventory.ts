@@ -33,6 +33,20 @@ export type ActorLocalInventoryOwner =
   | KeysBootsActorLocalInventoryOwner
   | KeysBootsToolsActorLocalInventoryOwner;
 
+export function projectActorLocalInventoryOwner(
+  ownerId: string,
+  mode: ActorLocalInventoryMode,
+  inventory: ActorKeysBootsInventory | ActorKeysBootsToolsInventory | null,
+): ActorLocalInventoryOwner {
+  if (mode === "none" || inventory === null) {
+    return createNoActorLocalInventoryOwner(ownerId);
+  }
+
+  return mode === "keys-boots-tools"
+    ? createKeysBootsToolsActorLocalInventoryOwner(ownerId, inventory as ActorKeysBootsToolsInventory)
+    : createKeysBootsActorLocalInventoryOwner(ownerId, inventory as ActorKeysBootsInventory);
+}
+
 export function createActorLocalInventory(mode: "none"): null;
 export function createActorLocalInventory(mode: "keys-boots"): ActorKeysBootsInventory;
 export function createActorLocalInventory(mode: "keys-boots-tools"): ActorKeysBootsToolsInventory;

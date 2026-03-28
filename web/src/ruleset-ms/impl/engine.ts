@@ -56,9 +56,6 @@ import {
   actorInventoryClearBoots,
   actorInventoryHasBoot,
   actorInventoryHasKey,
-  createNoActorLocalInventoryOwner,
-  createKeysBootsToolsActorLocalInventoryOwner,
-  type ActorKeysBootsToolsInventory,
   type ActorLocalInventoryOwner,
 } from "@game-core/impl/actorLocalInventory";
 import {
@@ -91,6 +88,7 @@ import {
   chooseMsCreatureDirection as chooseMsCreatureDirectionWithContext,
   type MsCreatureControllerContext,
 } from "@ruleset-ms/impl/controllers";
+import { projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import {
   collectLevelConnections,
   collectLevelCreaturePositions,
@@ -101,7 +99,6 @@ import {
 import {
   msActorEntryMask,
   msActorHazardResponse,
-  msActorLocalInventoryMode,
   msActorThiefHook,
   msActorArrivalAction,
   msBlockMovementMask,
@@ -191,13 +188,6 @@ interface MsCreatureSlipEntry {
   serial: number;
   dir: number;
   slipOrder: number;
-}
-type MsChipLocalInventoryProjection = Pick<EngineState["inventory"], "keys" | "boots" | "tools">;
-
-function msChipInventoryOwner(inventory: MsChipLocalInventoryProjection): ActorLocalInventoryOwner {
-  return msActorLocalInventoryMode(MS_TILE.Chip) === "keys-boots-tools"
-    ? createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory)
-    : createNoActorLocalInventoryOwner("chip");
 }
 
 function applyMsActorThiefHook(
@@ -800,7 +790,7 @@ function refreshFloorMovement(
   internal: MsInternalState,
   inventory: EngineState["inventory"],
 ): void {
-  const chipInventory = msChipInventoryOwner(inventory);
+  const chipInventory = projectMsActorInventoryOwner(MS_TILE.Chip, inventory);
   if (internal.chipStatus !== "okay" || internal.completed) {
     internal.floorMovement = "none";
     internal.floorMovementDir = MS_DIRECTION.none;
@@ -856,7 +846,7 @@ function refreshFloorMovementFromEnteredTile(
   enteredFloor: number,
   enteredFloorState: number,
 ): void {
-  const chipInventory = msChipInventoryOwner(inventory);
+  const chipInventory = projectMsActorInventoryOwner(MS_TILE.Chip, inventory);
   if (internal.chipStatus !== "okay" || internal.completed) {
     internal.floorMovement = "none";
     internal.floorMovementDir = MS_DIRECTION.none;
@@ -1119,7 +1109,7 @@ function canMoveChip(
   dir: number,
   options: ChipMoveOptions = {},
 ): boolean {
-  const chipInventory = msChipInventoryOwner(inventory);
+  const chipInventory = projectMsActorInventoryOwner(MS_TILE.Chip, inventory);
   const {
     exposeWalls = true,
     allowPushing = true,
@@ -3525,7 +3515,7 @@ function moveChipDownOneLayer(
     internal.completed = true;
   }
 
-  if (isIceFloor(enteredFloor) && !actorInventoryHasBoot(msChipInventoryOwner(inventory), 0)) {
+  if (isIceFloor(enteredFloor) && !actorInventoryHasBoot(projectMsActorInventoryOwner(MS_TILE.Chip, inventory), 0)) {
     internal.floorMovement = "none";
     internal.floorMovementDir = MS_DIRECTION.none;
   } else {

@@ -1,27 +1,17 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { popBoardTile } from "@game-core/impl/board";
-import { actorCollectionAllowsSlot, actorCollectsChips } from "@game-core/api/actorCapabilities";
 import {
   actorInventoryClearBoots,
-  actorInventoryCollectIndexedItem,
   actorInventoryHasBoot,
   actorInventoryUseKey,
-  createKeysBootsToolsActorLocalInventoryOwner,
-  createNoActorLocalInventoryOwner,
-  type ActorKeysBootsToolsInventory,
-  type ActorLocalInventoryOwner,
 } from "@game-core/impl/actorLocalInventory";
 import { MS_FLOOR_STATE, MS_SOUND, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  msActorGlobalProgressKind,
-  msActorItemCollectionKind,
-  msActorLocalInventoryMode,
   msChipEnterAction,
   msDoorKeyIndex,
-  msInventoryIndex,
-  msInventorySlot,
   msIsActorTile,
 } from "@ruleset-ms/impl/catalog";
+import { collectMsActorTile, projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import {
   clearMsToolInventory,
   queueMsToolInventoryReplacement,
@@ -45,14 +35,6 @@ export interface MsChipEnteredTileResolution {
   movementFloorTile: EngineMapCell["top"];
 }
 
-function msChipInventoryOwner(
-  inventory: Pick<EngineState["inventory"], "keys" | "boots" | "tools">,
-): ActorLocalInventoryOwner {
-  return msActorLocalInventoryMode(MS_TILE.Chip) === "keys-boots-tools"
-    ? createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory)
-    : createNoActorLocalInventoryOwner("chip");
-}
-
 export function resolveMsChipEnteredTile(
   cells: EngineMapCell[],
   chip: MsChipEntryState,
@@ -63,9 +45,7 @@ export function resolveMsChipEnteredTile(
   let floorTileBeforeMove = nextCell.top;
   let movementFloorTile = floorTileBeforeMove;
   const floor = floorTileBeforeMove.id;
-  const chipInventory = msChipInventoryOwner(context.inventory);
-  const chipItemCollectionKind = msActorItemCollectionKind(MS_TILE.Chip);
-  const chipGlobalProgressKind = msActorGlobalProgressKind(MS_TILE.Chip);
+  const chipInventory = projectMsActorInventoryOwner(MS_TILE.Chip, context.inventory);
   let enteredTeleport = false;
   let soundEffects = 0;
 
@@ -74,11 +54,10 @@ export function resolveMsChipEnteredTile(
       popBoardTile(cells, nextPos, MS_TILE.Empty);
       break;
     case "collect-chip":
-      if (actorCollectsChips(chipGlobalProgressKind)) {
-        context.inventory.chipsNeeded = Math.max(0, context.inventory.chipsNeeded - 1);
+      if (collectMsActorTile(MS_TILE.Chip, context.inventory, floor).collected) {
+        popBoardTile(cells, nextPos, MS_TILE.Empty);
+        soundEffects |= 1 << MS_SOUND.IcCollected;
       }
-      popBoardTile(cells, nextPos, MS_TILE.Empty);
-      soundEffects |= 1 << MS_SOUND.IcCollected;
       break;
     case "popup-wall":
       if (nextCell.top.id === MS_TILE.Empty) {
@@ -97,10 +76,9 @@ export function resolveMsChipEnteredTile(
       break;
     }
     case "collect-item": {
-      const slot = msInventorySlot(floor);
-      const index = msInventoryIndex(floor);
-      if (slot !== null && index !== null && actorCollectionAllowsSlot(chipItemCollectionKind, slot)) {
-        if (slot === "tools") {
+      const collected = collectMsActorTile(MS_TILE.Chip, context.inventory, floor);
+      if (collected.collected) {
+        if (collected.slot === "tools") {
           queueMsToolInventoryReplacement(
             context.portableTools,
             context.inventory,
@@ -108,11 +86,9 @@ export function resolveMsChipEnteredTile(
             nextPos,
             context.runtimeCellZ(nextPos),
           );
-        } else {
-          actorInventoryCollectIndexedItem(chipInventory, slot, index);
         }
         popBoardTile(cells, nextPos, MS_TILE.Empty);
-        if (slot === "tools") {
+        if (collected.slot === "tools") {
           movementFloorTile = nextCell.top;
         }
         soundEffects |= 1 << MS_SOUND.ItemCollected;

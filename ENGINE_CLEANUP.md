@@ -94,7 +94,6 @@ What is still weak:
 
 - the capability surface is still too coarse for future actors like bowling balls, ghosts, or fake players
 - blocked-move outcomes and some arrival behavior are still open-coded in engine helpers
-- actor-owned collection and global progress are not yet cleanly separated for non-Chip actors
 
 Conclusion:
 
@@ -185,7 +184,6 @@ What is good:
 What is still weak:
 
 - movement helpers still directly juggle board state, inventory, sound effects, and runtime actor state
-- `chipsNeeded` remains correctly global, but actor-owned collection logic is still not generalized beyond Chip-shaped helpers
 - future “portable item that becomes an active actor” behavior does not yet have a clean lifecycle seam
 
 Conclusion:
@@ -286,7 +284,6 @@ What is good:
 What is still weak:
 
 - movement-start probing
-- actor-owned collection and global progress
 - portable item activation lifecycle
 
 ### Naming and intent
@@ -364,7 +361,6 @@ Problems that still matter:
 
 - actor capabilities need deeper hooks
 - portable items still need an activation / attachment lifecycle for future portable actors
-- item collection and global progress need a clearer actor-facing seam
 
 ### Tests
 
@@ -394,7 +390,7 @@ Problems that still matter:
 - [x] EC10: Movement Probe And Arrival Split
 - [x] EC11: Teleport, Trap, And Cloner Modules
 - [x] EC12: Actor Controller Seams
-- [ ] EC13: Generalize Actor-Owned Collection And Global Progress
+- [x] EC13: Generalize Actor-Owned Collection And Global Progress
 - [ ] EC14: Portable Item Activation Lifecycle
 - [ ] EC15: Runtime State Decomposition
 - [ ] EC16: Test DSL And Builder Cleanup
@@ -467,7 +463,13 @@ Expected outcome:
 - cleaner AI/control extension points
 - direct preparation for fake players and more specialized actors
 
-### [ ] EC13: Generalize Actor-Owned Collection And Global Progress
+### [x] EC13: Generalize Actor-Owned Collection And Global Progress
+
+Done:
+
+- Shared actor collection helpers now separate local inventory mutation from global chip-progress updates in `game-core`.
+- MS and Lynx now project actor inventory owners through dedicated ruleset helpers instead of duplicating Chip-only owner logic across engine modules.
+- Both rulesets now route actor-facing chip/item collection through ruleset collection helpers, keeping portable-item queues and tile mapping local.
 
 Goal:
 
@@ -569,6 +571,6 @@ The remaining cleanup work is concentrated in a specific layer:
 - movement start
 - arrival resolution
 - held-button release and post-move consequences
-- actor-owned collection and activation lifecycle
+- portable-item activation lifecycle
 
 That is the correct place to keep cleaning. If we clean those seams next, future stateful actors can extend policy and helper modules instead of forcing more branching into the engines.

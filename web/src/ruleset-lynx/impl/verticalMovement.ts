@@ -4,9 +4,6 @@ import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCap
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult, hasVerticalSupport } from "@game-core/api/verticalMovement";
 import {
   actorInventoryUseKey,
-  createKeysBootsToolsActorLocalInventoryOwner,
-  createNoActorLocalInventoryOwner,
-  type ActorKeysBootsToolsInventory,
   type ActorLocalInventoryOwner,
 } from "@game-core/impl/actorLocalInventory";
 import { addTopTileFlags, promoteBottomTile, removeTopTileFlags, replaceTopTile, topTileIdOr } from "@game-core/impl/board";
@@ -14,12 +11,12 @@ import { normalizeCardinalDirection as normalizeDirection } from "@game-core/imp
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
   lynxActorAirHook,
-  lynxActorLocalInventoryMode,
   lynxDoorKeyIndex,
   lynxInventorySlot,
   lynxTileForcedFloorKind,
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
+import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export type LynxMoveKind = "planar" | "air" | "elevator";
@@ -57,12 +54,6 @@ export interface LynxVerticalLayerAccess {
 export interface LynxVerticalSupportSubject {
   airHook: ActorAirHook;
   inventoryOwner: ActorLocalInventoryOwner | null;
-}
-
-function lynxChipInventoryOwner(inventory: Pick<EngineState["inventory"], "keys" | "boots" | "tools">): ActorLocalInventoryOwner {
-  return lynxActorLocalInventoryMode(MS_TILE.Chip) === "keys-boots-tools"
-    ? createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory)
-    : createNoActorLocalInventoryOwner("chip");
 }
 
 function isLynxSupportingWallTile(id: number): boolean {
@@ -109,7 +100,7 @@ export function resolveLynxChipSupportBelow(
 ): VerticalSupportResult {
   return resolveLynxActorSupportBelow(context, lowerCells, pos, z, currentZ, {
     airHook: lynxActorAirHook(MS_TILE.Chip),
-    inventoryOwner: lynxChipInventoryOwner(context.state.inventory),
+    inventoryOwner: projectLynxActorInventoryOwner(MS_TILE.Chip, context.state.inventory),
   });
 }
 

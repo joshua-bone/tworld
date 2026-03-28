@@ -10,6 +10,7 @@ import {
   createKeysBootsActorLocalInventoryOwner,
   createKeysBootsToolsActorLocalInventoryOwner,
   createNoActorLocalInventoryOwner,
+  projectActorLocalInventoryOwner,
 } from "@game-core/impl/actorLocalInventory";
 
 describe("actorLocalInventory", () => {
@@ -61,5 +62,18 @@ describe("actorLocalInventory", () => {
     owner.inventory.tools = [71];
     expect(actorInventoryClearTools(owner)).toBe(true);
     expect(owner.inventory.tools).toEqual([0]);
+  });
+
+  it("projects owner wrappers from a mode plus backing inventory", () => {
+    const noInventory = projectActorLocalInventoryOwner("ghost", "none", null);
+    expect(noInventory.mode).toBe("none");
+
+    const keysBoots = createActorLocalInventory("keys-boots");
+    const keysBootsOwner = projectActorLocalInventoryOwner("fake-player", "keys-boots", keysBoots);
+    expect(keysBootsOwner.mode).toBe("keys-boots");
+
+    const keysBootsTools = createActorLocalInventory("keys-boots-tools");
+    const keysBootsToolsOwner = projectActorLocalInventoryOwner("chip", "keys-boots-tools", keysBootsTools);
+    expect(keysBootsToolsOwner.mode).toBe("keys-boots-tools");
   });
 });

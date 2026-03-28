@@ -4,22 +4,19 @@ import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCap
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult, hasVerticalSupport } from "@game-core/api/verticalMovement";
 import {
   actorInventoryUseKey,
-  createKeysBootsToolsActorLocalInventoryOwner,
-  createNoActorLocalInventoryOwner,
-  type ActorKeysBootsToolsInventory,
   type ActorLocalInventoryOwner,
 } from "@game-core/impl/actorLocalInventory";
 import { bottomTile, bottomTileIdOr, promoteBottomTile, replaceTopTile, topTile } from "@game-core/impl/board";
 import { normalizeCardinalDirection as normalizeDirection } from "@game-core/impl/grid";
 import {
   msActorAirHook,
-  msActorLocalInventoryMode,
   msDoorKeyIndex,
   msInventorySlot,
   msIsOverlayFloorTile,
   msTileForcedFloorKind,
   msTileHasTag,
 } from "@ruleset-ms/impl/catalog";
+import { projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import { MS_DIRECTION, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
 export type MsFloorMovement = "none" | "ice" | "slide" | "teleport" | "air" | "elevator";
@@ -50,12 +47,6 @@ export interface MsChipVerticalContext extends MsVerticalSupportContext {
 export interface MsVerticalSupportSubject {
   airHook: ActorAirHook;
   inventoryOwner: ActorLocalInventoryOwner | null;
-}
-
-function msChipInventoryOwner(inventory: Pick<EngineState["inventory"], "keys" | "boots" | "tools">): ActorLocalInventoryOwner {
-  return msActorLocalInventoryMode(MS_TILE.Chip) === "keys-boots-tools"
-    ? createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory)
-    : createNoActorLocalInventoryOwner("chip");
 }
 
 function isMsSupportingWallTile(id: number): boolean {
@@ -208,7 +199,7 @@ export function resolveMsChipSupportBelow(
 ): VerticalSupportResult {
   return resolveMsActorSupportBelow(context, lowerCells, pos, currentZ, currentZ, {
     airHook: msActorAirHook(MS_TILE.Chip),
-    inventoryOwner: msChipInventoryOwner(context.inventory),
+    inventoryOwner: projectMsActorInventoryOwner(MS_TILE.Chip, context.inventory),
   });
 }
 
