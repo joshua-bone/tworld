@@ -592,10 +592,10 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 
 ### EC8: Lynx Engine Step-Down Cleanup
 
-- [ ] Split `advanceLynxInteractiveTick` into a turn runner plus phase modules.
-- [ ] Split chip move selection from chip movement execution.
-- [ ] Split trap/button/endgame helpers into dedicated modules.
-- [ ] Reduce long parameter lists via context objects.
+- [x] Split `advanceLynxInteractiveTick` into a turn runner plus phase modules.
+- [x] Split chip move selection from chip movement execution.
+- [x] Split trap/button/endgame helpers into dedicated modules.
+- [x] Reduce long parameter lists via context objects.
 
 ### EC9: Policy Surface Expansion
 
