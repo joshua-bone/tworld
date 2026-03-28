@@ -4,6 +4,7 @@ import msTilesUrl from "@res/tiles.bmp?url";
 import expandedArtworkUrl from "@res/expansion_artwork/expanded.png?url";
 import { expansionArtworkFrameRect, type ExpansionArtworkFrameRect } from "@player-web/impl/expansionArtwork";
 import { buildLegacyTileset, type LegacyTileSprite, type LegacyTileset } from "@player-web/impl/legacyTileset";
+import { LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import { createCanvas, drawLegacySpriteImage, loadLegacyImage } from "@player-web/impl/legacyCanvasShared";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -20,7 +21,6 @@ const LEGACY_TILESET_URLS: Record<LegacyTilesetRuleset, string> = {
   Lynx: lynxTilesUrl,
 };
 
-const LEGACY_TILE_SIZE = 32;
 const legacyTilesetCache = new Map<LegacyTilesetRuleset, LegacyTileset>();
 const legacyTilesetPromiseCache = new Map<LegacyTilesetRuleset, Promise<LegacyTileset>>();
 

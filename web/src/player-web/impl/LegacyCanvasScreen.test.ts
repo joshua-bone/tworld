@@ -13,7 +13,7 @@ import {
   visualEnhancementThinWallOverlayTileId,
   withLegacyMapViewportClip,
 } from "@player-web/impl/LegacyCanvasScreen";
-import { LEGACY_MAP_HEIGHT, LEGACY_MAP_WIDTH, LEGACY_MAP_X, LEGACY_MAP_Y } from "@player-web/impl/legacySprites";
+import { LEGACY_MAP_HEIGHT, LEGACY_MAP_WIDTH, LEGACY_MAP_X, LEGACY_MAP_Y, LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import type { LegacyTileSprite, LegacyTileset } from "@player-web/impl/legacyTileset";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -191,7 +191,17 @@ describe("createLegacyArtworkSpriteFromFrame", () => {
         transparent: true,
       });
       expect(fakeContext.imageSmoothingEnabled).toBe(false);
-      expect(fakeDrawImage).toHaveBeenCalledWith(spriteSheet, 48, 0, 48, 48, 0, 0, 32, 32);
+      expect(fakeDrawImage).toHaveBeenCalledWith(
+        spriteSheet,
+        48,
+        0,
+        48,
+        48,
+        0,
+        0,
+        LEGACY_TILE_SIZE,
+        LEGACY_TILE_SIZE,
+      );
     } finally {
       vi.unstubAllGlobals();
     }
@@ -200,7 +210,7 @@ describe("createLegacyArtworkSpriteFromFrame", () => {
 
 describe("applyLegacyTileOverrides", () => {
   it("keeps bottom-tile animation available under a transparent overridden top tile", () => {
-    const baseCanvas = { width: 32, height: 32 } as HTMLCanvasElement;
+    const baseCanvas = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const fakeDrawImage = vi.fn();
     const fakeContext = {
       drawImage: fakeDrawImage,
@@ -249,7 +259,7 @@ describe("applyLegacyTileOverrides", () => {
   });
 
   it("composes transparent overrides over closed traps using the floor sprite order", () => {
-    const baseCanvas = { width: 32, height: 32 } as HTMLCanvasElement;
+    const baseCanvas = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const fakeDrawImage = vi.fn();
     const fakeContext = {
       drawImage: fakeDrawImage,

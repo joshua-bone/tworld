@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { characterizePortableItemArchetypes } from "@game-core/impl/statefulElementTestSupport";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   activateMsPortableTool,
@@ -34,6 +35,29 @@ function createInventory(): MsToolInventoryProjection {
 }
 
 describe("ms portableItems lifecycle", () => {
+  characterizePortableItemArchetypes("portable item archetypes", {
+    expectedTileId: MS_TILE.Sandbag,
+    actorSerial: 41,
+    dropLocation: { pos: 9, z: 2 },
+    mapLocation: { pos: 11, z: 2 },
+    createStore,
+    createInventory,
+    project: projectMsPortableToolState,
+    findCarriedSerial: (store) => store.portableItems.find((item) => item.state.mode === "carried")?.serial,
+    readCarriedTile: (inventory) => inventory.tools[0] ?? 0,
+    readDropProjection: (store) => store.primedToolDrop,
+    activate: activateMsPortableTool,
+    findAttachedSerial: (store, actorSerial) => findMsPortableToolAttachedToActor(store, actorSerial)?.serial,
+    detachToDrop: (store, inventory, serial, pos, z) => detachMsPortableToolToDrop(store, inventory, serial, pos, z, "primed"),
+    detachToMap: detachMsPortableToolToMap,
+    findMapState: (store, serial) => {
+      const item = store.portableItems.find((portableItem) => portableItem.serial === serial);
+      return item?.state.mode === "map" ? item.state : undefined;
+    },
+    destroy: destroyMsPortableTool,
+    summarizeItems: (store) => store.portableItems.map((item) => ({ serial: item.serial, state: { mode: item.state.mode } })),
+  });
+
   it("can activate a carried portable item onto an actor and clear the carried projection", () => {
     const store = createStore();
     const inventory = createInventory();
