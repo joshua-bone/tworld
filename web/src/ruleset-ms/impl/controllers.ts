@@ -1,7 +1,10 @@
 import { reverseDirection as backDirection } from "@game-core/impl/grid";
 import { MS_DIRECTION, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 import { msActorControlMode } from "@ruleset-ms/impl/catalog";
-import { msActorHeldFloorOutcome } from "@ruleset-ms/impl/actorInteractions";
+import {
+  applyBlockedMsActorMoveStart,
+  msActorHoldsDirectionOnFloor,
+} from "@ruleset-ms/impl/actorMovementLifecycle";
 
 type MsCreatureFloorMovement = "none" | "ice" | "slide" | "teleport" | "air" | "elevator";
 
@@ -252,7 +255,7 @@ export function chooseMsCreatureDirection(
   }
 
   const floor = context.floorAt(creature.pos);
-  const trapOrCloneFloor = msActorHeldFloorOutcome(floor, creature.id) === "hold-direction";
+  const trapOrCloneFloor = msActorHoldsDirectionOnFloor(floor, creature.id);
   const trapOrCloneChoice = trapOrCloneFloor ? chooseTrapOrCloneFloorDirections(context, creature) : null;
   if (trapOrCloneChoice && trapOrCloneChoice.immediateDir !== null) {
     creature.tdir = trapOrCloneChoice.immediateDir;
@@ -294,11 +297,5 @@ export function applyBlockedMsCreatureAttempt(
   creature: MsCreatureControllerCreature,
   dir: number,
 ): void {
-  const floor = context.floorAt(creature.pos);
-  if (dir === MS_DIRECTION.none || floor === MS_TILE.Beartrap || floor === MS_TILE.CloneMachine) {
-    return;
-  }
-
-  creature.dir = dir;
-  context.updateCreatureTile(creature);
+  applyBlockedMsActorMoveStart(context, creature, dir);
 }

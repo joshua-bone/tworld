@@ -1,5 +1,5 @@
 import { lynxActorControlMode, lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
-import { lynxActorHeldFloorOutcome } from "@ruleset-lynx/impl/actorInteractions";
+import { lynxActorHoldsDirectionOnFloor } from "@ruleset-lynx/impl/actorMovementLifecycle";
 import { MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxCreatureControllerActor {
@@ -181,7 +181,7 @@ export function chooseLynxCreatureMoveForTick(
       return;
     }
 
-    if (lynxActorHeldFloorOutcome(floor, actor.id) === "hold-direction") {
+    if (lynxActorHoldsDirectionOnFloor(floor, actor.id)) {
       actor.intentDir = actor.dir;
       return;
     }

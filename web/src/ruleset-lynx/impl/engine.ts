@@ -121,10 +121,7 @@ import {
 import {
   applyLynxChipStartMoveStateByStrategy,
   blockedLynxChipMoveDirectionByStrategy,
-  canStartLynxActorMoveByStrategy,
-  finishLynxActorMoveByStrategy,
   forcedLynxActorDirectionByStrategy,
-  startLynxActorMoveByStrategy,
 } from "@ruleset-lynx/impl/movementStrategies";
 import {
   clearLynxToolInventory,
@@ -2125,8 +2122,7 @@ function canLynxRuntimeActorStartMovement(
   releasing = false,
   clearAnimations = false,
 ): boolean {
-  return canStartLynxActorMoveByStrategy(
-    lynxActorMovementStrategyId(actor.id),
+  return canLynxActorStartMovementWithContext(
     createLynxActorMovementContext(state, actors),
     actor,
     dir,
@@ -2179,13 +2175,7 @@ function startLynxRuntimeActorMovement(
   dir: number,
   releasing = false,
 ): MovementAttemptResult {
-  return startLynxActorMoveByStrategy(
-    lynxActorMovementStrategyId(actor.id),
-    createLynxActorMovementContext(state, actors),
-    actor,
-    dir,
-    releasing,
-  );
+  return startLynxActorMovementWithContext(createLynxActorMovementContext(state, actors), actor, dir, releasing);
 }
 
 function finishLynxRuntimeActorMovement(
@@ -2194,8 +2184,7 @@ function finishLynxRuntimeActorMovement(
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
 ): ArrivalResult {
-  return finishLynxActorMoveByStrategy(
-    lynxActorMovementStrategyId(actor.id),
+  return finishLynxActorMovementWithContext(
     createLynxActorMovementContext(
       state,
       actors,

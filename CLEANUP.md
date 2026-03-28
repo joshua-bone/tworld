@@ -238,15 +238,15 @@ Goal:
 
 Checklist:
 
-- [ ] split actor movement into explicit hooks:
-- [ ] `canStartMove`
-- [ ] `onBlockedStart`
-- [ ] `onEnteredCell`
-- [ ] `onCompletedStep`
-- [ ] `onFloorImpact`
-- [ ] `onHeldFloor`
-- [ ] keep strategy ids for high-level movement shape, but move family-specific consequences into these lifecycle hooks
-- [ ] migrate existing creature/block/ballistic families to the new shape without behavior change
+- [x] split actor movement into explicit hooks:
+- [x] `canStartMove`
+- [x] `onBlockedStart`
+- [x] `onEnteredCell`
+- [x] `onCompletedStep`
+- [x] `onFloorImpact`
+- [x] `onHeldFloor`
+- [x] keep strategy ids for high-level movement shape, but move family-specific consequences into these lifecycle hooks
+- [x] migrate existing creature/block/ballistic families to the new shape without behavior change
 
 Success condition:
 

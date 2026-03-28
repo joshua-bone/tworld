@@ -2,17 +2,13 @@ import type { EngineState } from "@game-core/api/model";
 import type { ActorArrivalOutcome, ActorCollisionOutcome } from "@game-core/api/actorInteractions";
 import {
   addTopTileFlags,
-  promoteBottomTile,
   removeTopTileFlags,
-  replaceTopTile,
   topTileIdOr,
 } from "@game-core/impl/board";
 import { advanceToCell } from "@game-core/impl/grid";
-import { mapHash } from "@game-core/impl/hash";
 import {
   blockedMovement,
   movedMovement,
-  noArrival,
   removedOnArrival,
   resolvedArrival,
   type ArrivalResult,
@@ -20,13 +16,14 @@ import {
 } from "@game-core/api/movementOutcomes";
 import type { OccupancyTarget } from "@game-core/impl/occupancy";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import {
-  lynxArrivalAnimationKind,
-  lynxChipEnterAction,
-  lynxTileForcedFloorKind,
-} from "@ruleset-lynx/impl/catalog";
-import { lynxActorArrivalOutcome } from "@ruleset-lynx/impl/actorInteractions";
+import { lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
 import type { LynxMoveKind } from "@ruleset-lynx/impl/verticalMovement";
+import {
+  applyLynxActorCompletedStep,
+  applyLynxActorEnteredCell,
+  applyLynxActorFloorImpact,
+  applyLynxBlockedActorMoveStart,
+} from "@ruleset-lynx/impl/actorMovementLifecycle";
 import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxActorMovementActor {
@@ -81,21 +78,6 @@ function isLynxIce(tileId: number): boolean {
   return lynxTileForcedFloorKind(tileId) === "ice";
 }
 
-function resolveLynxActorArrivalEffects(
-  context: LynxActorMovementContext,
-  pos: number,
-  tileId: number,
-): number {
-  switch (lynxChipEnterAction(tileId)) {
-    case "trap":
-      return context.soundBits.trapEntered;
-    case "button":
-      return context.resolveButtonEffects(pos, tileId);
-    default:
-      return 0;
-  }
-}
-
 export function canLynxActorStartMovement(
   context: LynxActorMovementContext,
   actor: LynxActorMovementActor,
@@ -145,9 +127,7 @@ export function startLynxActorMovement(
   const floorFrom = topTileIdOr(context.state.map.cells, actor.pos, MS_TILE.Empty);
   const targetStep = advanceToCell(context.state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
   if (!targetStep || !canLynxActorStartMovement(context, actor, dir, releasing, true)) {
-    if (isLynxIce(floorFrom)) {
-      actor.dir = context.turnBlockedIceDirection(dir, floorFrom);
-    }
+    applyLynxBlockedActorMoveStart(context, actor, dir, floorFrom);
     return blockedMovement();
   }
 
@@ -179,76 +159,17 @@ export function finishLynxActorMovement(
 ): ArrivalResult {
   const cell = context.state.map.cells[actor.pos];
   if (!cell) {
-    return noArrival();
+    return applyLynxActorCompletedStep(context, actor, MS_TILE.Empty);
   }
 
-  const moveKind = actor.moveKind ?? "planar";
-  actor.moveKind = "planar";
-  actor.ignoreIceFromAir = false;
-  if (isLynxIce(cell.top.id) && moveKind !== "air" && moveKind !== "elevator") {
-    actor.dir = context.applyIceWallTurn(actor.dir, cell.top.id);
-  } else if (isLynxIce(cell.top.id) && (moveKind === "air" || moveKind === "elevator")) {
-    actor.ignoreIceFromAir = true;
+  applyLynxActorEnteredCell(context, actor, cell.top.id);
+  const floorImpact = applyLynxActorFloorImpact(context, actor, cell.top.id);
+  if (floorImpact.removed) {
+    return removedOnArrival(floorImpact.soundEffects);
   }
 
-  const arrivalAction = context.arrivalOutcome(actor, cell.top.id);
-  const arrivalAnimationTileId = context.animationTileId(lynxArrivalAnimationKind(cell.top.id, actor.id));
-
-  if (actor.id === MS_TILE.Block) {
-    if (arrivalAction === "block-water") {
-      replaceTopTile(context.state.map.cells, actor.pos, { ...cell.top, id: MS_TILE.Dirt });
-      removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      context.removeActor(actor, arrivalAnimationTileId ?? context.waterSplashTileId);
-      context.state.soundEffects |= context.soundBits.waterSplash;
-      context.state.map.hash = mapHash(context.state.map.cells);
-      return removedOnArrival(context.soundBits.waterSplash);
-    }
-    if (arrivalAction === "block-bomb") {
-      promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
-      removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      context.removeActor(actor, arrivalAnimationTileId ?? context.bombExplosionTileId);
-      context.state.soundEffects |= context.soundBits.bombExplodes;
-      context.state.map.hash = mapHash(context.state.map.cells);
-      return removedOnArrival(context.soundBits.bombExplodes);
-    }
-    if (arrivalAction === "clear-key-blue") {
-      promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
-      addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    }
-
-    actor.deferPush = false;
-    actor.deferPushArmed = false;
-    const soundEffects = resolveLynxActorArrivalEffects(context, actor.pos, cell.top.id) | context.applyArrivalEffects(actor);
-    context.state.soundEffects |= soundEffects;
-    context.state.map.hash = mapHash(context.state.map.cells);
-    return soundEffects === 0 ? noArrival() : resolvedArrival(soundEffects);
-  }
-
-  if (arrivalAction === "creature-water" || arrivalAction === "creature-fire") {
-    removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    context.removeActor(actor, arrivalAnimationTileId ?? context.waterSplashTileId);
-    const soundEffects = arrivalAction === "creature-water" ? context.soundBits.waterSplash : 0;
-    context.state.soundEffects |= soundEffects;
-    context.state.map.hash = mapHash(context.state.map.cells);
-    return removedOnArrival(soundEffects);
-  }
-
-  if (arrivalAction === "creature-bomb") {
-    promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
-    removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    context.removeActor(actor, arrivalAnimationTileId ?? context.bombExplosionTileId);
-    context.state.soundEffects |= context.soundBits.bombExplodes;
-    context.state.map.hash = mapHash(context.state.map.cells);
-    return removedOnArrival(context.soundBits.bombExplodes);
-  }
-
-  if (arrivalAction === "clear-key-blue") {
-    promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
-    addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    context.state.map.hash = mapHash(context.state.map.cells);
-  }
-
-  const soundEffects = resolveLynxActorArrivalEffects(context, actor.pos, cell.top.id) | context.applyArrivalEffects(actor);
-  context.state.soundEffects |= soundEffects;
-  return soundEffects === 0 ? noArrival() : resolvedArrival(soundEffects);
+  const completedStep = applyLynxActorCompletedStep(context, actor, cell.top.id);
+  return floorImpact.soundEffects !== 0 && completedStep.status === "none"
+    ? resolvedArrival(floorImpact.soundEffects)
+    : completedStep;
 }

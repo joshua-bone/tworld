@@ -1,14 +1,7 @@
 import type { EngineState } from "@game-core/api/model";
 import type { ActorMovementStrategyId } from "@game-core/api/actorCapabilities";
-import type { ArrivalResult, MovementAttemptResult } from "@game-core/api/movementOutcomes";
 import { reverseDirection as backDirection } from "@game-core/impl/grid";
-import {
-  canLynxActorStartMovement as canLynxActorStartMovementWithContext,
-  finishLynxActorMovement as finishLynxActorMovementWithContext,
-  startLynxActorMovement as startLynxActorMovementWithContext,
-  type LynxActorMovementActor,
-  type LynxActorMovementContext,
-} from "@ruleset-lynx/impl/actorMovement";
+import type { LynxActorMovementActor } from "@ruleset-lynx/impl/actorMovement";
 import { lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
 
 type LynxRuntimeActorMovementStrategyId = Exclude<ActorMovementStrategyId, "chip-like">;
@@ -35,20 +28,6 @@ interface LynxChipMovementStrategy {
 }
 
 interface LynxActorMovementStrategy {
-  canStartMove(
-    context: LynxActorMovementContext,
-    actor: LynxActorMovementActor,
-    dir: number,
-    releasing?: boolean,
-    clearAnimations?: boolean,
-  ): boolean;
-  startMove(
-    context: LynxActorMovementContext,
-    actor: LynxActorMovementActor,
-    dir: number,
-    releasing?: boolean,
-  ): MovementAttemptResult;
-  finishMove(context: LynxActorMovementContext, actor: LynxActorMovementActor): ArrivalResult;
   forcedMoveDirection(
     slideDirection: (floorId: number) => number,
     actor: LynxActorMovementActor,
@@ -95,15 +74,6 @@ const LYNX_CHIP_MOVEMENT_STRATEGIES: Record<"chip-like", LynxChipMovementStrateg
 };
 
 const DEFAULT_LYNX_ACTOR_MOVEMENT_STRATEGY: LynxActorMovementStrategy = {
-  canStartMove(context, actor, dir, releasing = false, clearAnimations = false) {
-    return canLynxActorStartMovementWithContext(context, actor, dir, releasing, clearAnimations);
-  },
-  startMove(context, actor, dir, releasing = false) {
-    return startLynxActorMovementWithContext(context, actor, dir, releasing);
-  },
-  finishMove(context, actor) {
-    return finishLynxActorMovementWithContext(context, actor);
-  },
   forcedMoveDirection(slideDirection, actor, floorId, currentTime) {
     if (currentTime === 0 && lynxTileForcedFloorKind(floorId) !== "air") {
       return 0;
@@ -166,35 +136,6 @@ export function blockedLynxChipMoveDirectionByStrategy(
   attemptedDir: number,
 ): number {
   return lynxChipMovementStrategy(strategyId).blockedMoveDirection(context, floorId, attemptedDir);
-}
-
-export function canStartLynxActorMoveByStrategy(
-  strategyId: ActorMovementStrategyId,
-  context: LynxActorMovementContext,
-  actor: LynxActorMovementActor,
-  dir: number,
-  releasing = false,
-  clearAnimations = false,
-): boolean {
-  return lynxActorMovementStrategy(strategyId).canStartMove(context, actor, dir, releasing, clearAnimations);
-}
-
-export function startLynxActorMoveByStrategy(
-  strategyId: ActorMovementStrategyId,
-  context: LynxActorMovementContext,
-  actor: LynxActorMovementActor,
-  dir: number,
-  releasing = false,
-): MovementAttemptResult {
-  return lynxActorMovementStrategy(strategyId).startMove(context, actor, dir, releasing);
-}
-
-export function finishLynxActorMoveByStrategy(
-  strategyId: ActorMovementStrategyId,
-  context: LynxActorMovementContext,
-  actor: LynxActorMovementActor,
-): ArrivalResult {
-  return lynxActorMovementStrategy(strategyId).finishMove(context, actor);
 }
 
 export function forcedLynxActorDirectionByStrategy(
