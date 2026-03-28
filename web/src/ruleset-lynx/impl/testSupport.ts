@@ -8,6 +8,7 @@ import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 type LynxPortableItem = {
   serial: number;
+  family: "sandbag";
   tileId: number;
   state:
     | { mode: "map"; pos: number; z: number }
@@ -18,6 +19,7 @@ type LynxPortableItem = {
 type LynxPortableToolRuntime = {
   portableItems: Array<{
     serial: number;
+    family: "sandbag";
     tileId: number;
     inventorySlot: "tools";
     state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };

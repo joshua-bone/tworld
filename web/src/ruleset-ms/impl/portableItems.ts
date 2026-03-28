@@ -1,35 +1,41 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import { bottomTile, pushBoardTile, replaceTopTile, topTile } from "@game-core/impl/board";
 import {
+  activatePortableItemFamily,
+  carriedPortableItemForFamily,
+  clearPortableItemFamilyInventory,
   collectPortableItemsFromLayers,
-  createPortableItem,
-  destroyPortableItem,
-  findPortableAttachedItem,
-  findPortableItemByMode,
-  findPortableItemBySerial,
-  findPortableMapItemAt,
-  portableItemDropProjection,
-  projectCarriedPortableToolTile,
-  setPortableItemAttachedState,
-  setPortableItemCarriedState,
-  setPortableItemDetachedState,
-  setPortableItemMapState,
+  destroyPortableItemFamily,
+  detachPortableItemFamilyToDrop,
+  detachPortableItemFamilyToMap,
+  findPortableItemFamilyAttachedToActor,
+  mapPortableItemForFamilyAt,
+  pendingPortableItemForFamily,
+  primePortableItemFamilyDrop,
+  primedPortableItemForFamily,
+  projectPortableItemFamilyState,
+  queuePortableItemFamilyReplacement,
+  reconcilePortableItemFamilyProjection,
+  settlePortableItemFamilyDrop,
   type PortableItemBase,
   type PortableItemAttachedState,
   type PortableItemCarriedState,
   type PortableItemDropProjection,
   type PortableItemDetachedState,
-  type PortableItemLocatedState,
+  type PortableItemFamilyDescriptor,
+  type PortableItemFamilyPolicy,
   type PortableItemMapState,
   type PortableItemStore,
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
-import { msInventorySlot, msIsOverlayFloorTile } from "@ruleset-ms/impl/catalog";
+import { msInventorySlot, msIsOverlayFloorTile, msPortableItemFamily } from "@ruleset-ms/impl/catalog";
 
 export interface MsPrimedToolDrop extends PortableItemDropProjection {}
 
 export type MsToolInventoryProjection = PortableToolInventoryProjection;
+type MsPortableItemFamily = NonNullable<ReturnType<typeof msPortableItemFamily>>;
+type MsPortableInventorySlot = "tools";
 
 export type MsPortableItemState =
   | PortableItemMapState
@@ -38,23 +44,74 @@ export type MsPortableItemState =
   | PortableItemDetachedState<"pending-primed">
   | PortableItemAttachedState<"actor">;
 
-export interface MsPortableItem extends PortableItemBase<"tools", MsPortableItemState> {}
+export interface MsPortableItem extends PortableItemBase<MsPortableItemFamily, MsPortableInventorySlot, MsPortableItemState> {}
 
 export interface MsPortableToolStateStore extends PortableItemStore<MsPortableItem> {
   primedToolDrop: MsPrimedToolDrop | null;
   pendingToolDropAfterSettle: MsPrimedToolDrop | null;
 }
 
+function identifyMsPortableItem(tileId: number): PortableItemFamilyDescriptor<MsPortableItemFamily, MsPortableInventorySlot> | null {
+  const family = msPortableItemFamily(tileId);
+  const inventorySlot = msInventorySlot(tileId);
+  if (!family || inventorySlot !== "tools") {
+    return null;
+  }
+  return {
+    family,
+    inventorySlot,
+  };
+}
+
+const MS_SANDBAG_PORTABLE_ITEM_POLICY: PortableItemFamilyPolicy<
+  "sandbag",
+  "tools",
+  MsPortableItemState,
+  MsPortableItem,
+  MsToolInventoryProjection
+> = {
+  family: "sandbag",
+  inventorySlot: "tools",
+  attachmentKind: "actor",
+  primedMode: "primed",
+  pendingPrimedMode: "pending-primed",
+  displacedMode: ({ hasActivePrimedItem }) => (hasActivePrimedItem ? "pending-primed" : "primed"),
+  projection: {
+    readCarriedTile: (inventory) => inventory.tools[0] ?? 0,
+    writeCarriedTile: (inventory, tileId) => {
+      inventory.tools = [tileId];
+    },
+  },
+  createCarriedItem: ({ serial, family, inventorySlot, tileId }) => ({
+    serial,
+    family,
+    tileId,
+    inventorySlot,
+    state: { mode: "carried" },
+  }),
+  createMapItem: ({ serial, family, inventorySlot, tileId, pos, z }) => ({
+    serial,
+    family,
+    tileId,
+    inventorySlot,
+    state: {
+      mode: "map",
+      pos,
+      z,
+    },
+  }),
+};
+
 function carriedMsPortableToolItem(store: MsPortableToolStateStore): MsPortableItem | undefined {
-  return findPortableItemByMode(store.portableItems, "tools", "carried");
+  return carriedPortableItemForFamily(store, MS_SANDBAG_PORTABLE_ITEM_POLICY);
 }
 
 export function primedMsPortableToolItem(store: MsPortableToolStateStore): MsPortableItem | undefined {
-  return findPortableItemByMode(store.portableItems, "tools", "primed");
+  return primedPortableItemForFamily(store, MS_SANDBAG_PORTABLE_ITEM_POLICY);
 }
 
 function pendingPrimedMsPortableToolItem(store: MsPortableToolStateStore): MsPortableItem | undefined {
-  return findPortableItemByMode(store.portableItems, "tools", "pending-primed");
+  return pendingPortableItemForFamily(store, MS_SANDBAG_PORTABLE_ITEM_POLICY);
 }
 
 function msPortableMapToolItemAt(
@@ -63,16 +120,7 @@ function msPortableMapToolItemAt(
   pos: number,
   z: number,
 ): MsPortableItem | undefined {
-  return findPortableMapItemAt(store.portableItems, "tools", tileId, pos, z);
-}
-
-function createMsCarriedPortableToolItem(store: MsPortableToolStateStore, tileId: number): MsPortableItem {
-  return createPortableItem(store, (serial): MsPortableItem => ({
-    serial,
-    tileId,
-    inventorySlot: "tools",
-    state: { mode: "carried" },
-  }));
+  return mapPortableItemForFamilyAt(store, MS_SANDBAG_PORTABLE_ITEM_POLICY, tileId, pos, z);
 }
 
 export function collectMsPortableItemsFromLayers(
@@ -83,10 +131,10 @@ export function collectMsPortableItemsFromLayers(
 ): MsPortableItem[] {
   return collectPortableItemsFromLayers(
     layers,
-    "tools",
-    msInventorySlot,
-    ({ serial, tileId, inventorySlot, pos, z }): MsPortableItem => ({
+    identifyMsPortableItem,
+    ({ serial, family, tileId, inventorySlot, pos, z }): MsPortableItem => ({
       serial,
+      family,
       tileId,
       inventorySlot,
       state: {
@@ -99,36 +147,21 @@ export function collectMsPortableItemsFromLayers(
 }
 
 export function projectMsPortableToolState(store: MsPortableToolStateStore, inventory: MsToolInventoryProjection): void {
-  projectCarriedPortableToolTile(inventory, carriedMsPortableToolItem(store));
-  store.primedToolDrop = portableItemDropProjection(primedMsPortableToolItem(store), ["primed"]);
-  store.pendingToolDropAfterSettle = portableItemDropProjection(pendingPrimedMsPortableToolItem(store), ["pending-primed"]);
+  const projection = projectPortableItemFamilyState(store, inventory, MS_SANDBAG_PORTABLE_ITEM_POLICY);
+  store.primedToolDrop = projection.primedDrop;
+  store.pendingToolDropAfterSettle = projection.pendingPrimedDrop;
 }
 
 export function reconcileMsPortableToolProjection(store: MsPortableToolStateStore, inventory: MsToolInventoryProjection): void {
-  const projectedTileId = inventory.tools[0] ?? 0;
-  const carried = carriedMsPortableToolItem(store);
-  if (projectedTileId === 0) {
-    if (carried) {
-      destroyPortableItem(store, carried.serial);
-    }
-    projectMsPortableToolState(store, inventory);
-    return;
-  }
-
-  if (carried) {
-    carried.tileId = projectedTileId;
-  } else {
-    createMsCarriedPortableToolItem(store, projectedTileId);
-  }
-  projectMsPortableToolState(store, inventory);
+  const projection = reconcilePortableItemFamilyProjection(store, inventory, MS_SANDBAG_PORTABLE_ITEM_POLICY);
+  store.primedToolDrop = projection.primedDrop;
+  store.pendingToolDropAfterSettle = projection.pendingPrimedDrop;
 }
 
 export function clearMsToolInventory(store: MsPortableToolStateStore, inventory: MsToolInventoryProjection): void {
-  const carried = carriedMsPortableToolItem(store);
-  if (carried) {
-    destroyPortableItem(store, carried.serial);
-  }
-  projectMsPortableToolState(store, inventory);
+  const projection = clearPortableItemFamilyInventory(store, inventory, MS_SANDBAG_PORTABLE_ITEM_POLICY);
+  store.primedToolDrop = projection.primedDrop;
+  store.pendingToolDropAfterSettle = projection.pendingPrimedDrop;
 }
 
 export function primeMsToolDrop(
@@ -137,14 +170,9 @@ export function primeMsToolDrop(
   pos: number,
   z: number,
 ): boolean {
-  const carried = carriedMsPortableToolItem(store);
-  if (!carried || primedMsPortableToolItem(store)) {
-    return false;
-  }
-
-  setPortableItemDetachedState(carried, "primed", pos, z);
+  const primed = primePortableItemFamilyDrop(store, inventory, MS_SANDBAG_PORTABLE_ITEM_POLICY, pos, z);
   projectMsPortableToolState(store, inventory);
-  return true;
+  return primed;
 }
 
 export function queueMsToolInventoryReplacement(
@@ -154,21 +182,7 @@ export function queueMsToolInventoryReplacement(
   pos: number,
   z: number,
 ): void {
-  let collected = msPortableMapToolItemAt(store, tileId, pos, z);
-  if (!collected) {
-    collected = createPortableItem(store, (serial): MsPortableItem => ({
-      serial,
-      tileId,
-      inventorySlot: "tools",
-      state: { mode: "map", pos, z },
-    }));
-  }
-
-  const displaced = carriedMsPortableToolItem(store);
-  setPortableItemCarriedState(collected);
-  if (displaced && displaced.serial !== collected.serial) {
-    setPortableItemDetachedState(displaced, primedMsPortableToolItem(store) ? "pending-primed" : "primed", pos, z);
-  }
+  queuePortableItemFamilyReplacement(store, inventory, MS_SANDBAG_PORTABLE_ITEM_POLICY, tileId, pos, z);
   projectMsPortableToolState(store, inventory);
 }
 
@@ -178,21 +192,16 @@ export function activateMsPortableTool(
   serial: number,
   actorSerial: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemAttachedState(item, "actor", actorSerial);
+  const activated = activatePortableItemFamily(store, inventory, MS_SANDBAG_PORTABLE_ITEM_POLICY, serial, actorSerial);
   projectMsPortableToolState(store, inventory);
-  return true;
+  return activated;
 }
 
 export function findMsPortableToolAttachedToActor(
   store: MsPortableToolStateStore,
   actorSerial: number,
 ): MsPortableItem | undefined {
-  return findPortableAttachedItem(store.portableItems, "tools", "actor", actorSerial);
+  return findPortableItemFamilyAttachedToActor(store, MS_SANDBAG_PORTABLE_ITEM_POLICY, actorSerial);
 }
 
 export function detachMsPortableToolToMap(
@@ -202,14 +211,9 @@ export function detachMsPortableToolToMap(
   pos: number,
   z: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemMapState(item, pos, z);
+  const detached = detachPortableItemFamilyToMap(store, inventory, MS_SANDBAG_PORTABLE_ITEM_POLICY, serial, pos, z);
   projectMsPortableToolState(store, inventory);
-  return true;
+  return detached;
 }
 
 export function detachMsPortableToolToDrop(
@@ -220,14 +224,17 @@ export function detachMsPortableToolToDrop(
   z: number,
   mode: "primed" | "pending-primed" = "primed",
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemDetachedState(item, mode, pos, z);
+  const detached = detachPortableItemFamilyToDrop(
+    store,
+    inventory,
+    MS_SANDBAG_PORTABLE_ITEM_POLICY,
+    serial,
+    pos,
+    z,
+    mode,
+  );
   projectMsPortableToolState(store, inventory);
-  return true;
+  return detached;
 }
 
 export function destroyMsPortableTool(
@@ -235,14 +242,9 @@ export function destroyMsPortableTool(
   inventory: MsToolInventoryProjection,
   serial: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  destroyPortableItem(store, serial);
+  const destroyed = destroyPortableItemFamily(store, inventory, MS_SANDBAG_PORTABLE_ITEM_POLICY, serial);
   projectMsPortableToolState(store, inventory);
-  return true;
+  return destroyed;
 }
 
 function msFloorAt(cells: EngineMapCell[], pos: number): number {
@@ -283,21 +285,13 @@ export function settleMsPrimedToolDrop(
   pos: number,
   z: number,
 ): void {
-  const primed = primedMsPortableToolItem(store);
-  if (!primed || primed.state.mode !== "primed" || primed.state.pos !== pos || primed.state.z !== z) {
-    return;
-  }
+  settlePortableItemFamilyDrop(store, inventory, MS_SANDBAG_PORTABLE_ITEM_POLICY, pos, z, (primed) => {
+    if (primed.tileId === MS_TILE.Sandbag && replaceMsSettledSandbagWater(cells, pos)) {
+      return "destroyed";
+    }
 
-  if (primed.tileId === MS_TILE.Sandbag && replaceMsSettledSandbagWater(cells, pos)) {
-    destroyPortableItem(store, primed.serial);
-  } else {
-    setPortableItemMapState(primed, pos, z);
     pushBoardTile(cells, pos, { id: primed.tileId, state: 0 });
-  }
-
-  const pendingReplacement = pendingPrimedMsPortableToolItem(store);
-  if (pendingReplacement && pendingReplacement.state.mode === "pending-primed") {
-    setPortableItemDetachedState(pendingReplacement, "primed", pendingReplacement.state.pos, pendingReplacement.state.z);
-  }
+    return "mapped";
+  });
   projectMsPortableToolState(store, inventory);
 }

@@ -73,6 +73,7 @@ describe("applyMsChipEnterEffects", () => {
     expect(portableTools.portableItems).toEqual([
       {
         serial: 1,
+        family: "sandbag",
         tileId: MS_TILE.Sandbag,
         inventorySlot: "tools",
         state: { mode: "carried" },
@@ -98,6 +99,7 @@ describe("applyMsChipEnterEffects", () => {
     const portableTools = makePortableTools();
     portableTools.portableItems.push({
       serial: 1,
+      family: "sandbag",
       tileId: MS_TILE.Sandbag,
       inventorySlot: "tools",
       state: { mode: "carried" },

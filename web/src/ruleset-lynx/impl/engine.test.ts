@@ -3080,6 +3080,7 @@ describe("runLynxInputTrace", () => {
     const carriedSerial = runtime.portableTools.nextPortableItemSerial;
     runtime.portableTools.portableItems.push({
       serial: carriedSerial,
+      family: "sandbag",
       tileId: MS_TILE.Sandbag,
       inventorySlot: "tools",
       state: { mode: "carried" },

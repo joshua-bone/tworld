@@ -29,8 +29,9 @@ export interface PortableItemAttachedState<TAttachmentKind extends string = stri
   attachmentId: number;
 }
 
-export interface PortableItemBase<TInventorySlot extends string, TState extends { mode: string }> {
+export interface PortableItemBase<TFamily extends string, TInventorySlot extends string, TState extends { mode: string }> {
   serial: number;
+  family: TFamily;
   tileId: number;
   inventorySlot: TInventorySlot;
   state: TState;
@@ -41,19 +42,64 @@ export interface PortableItemStore<TItem> {
   nextPortableItemSerial: number;
 }
 
+export interface PortableItemFamilyDescriptor<TFamily extends string, TInventorySlot extends string> {
+  family: TFamily;
+  inventorySlot: TInventorySlot;
+}
+
 export interface PortableToolInventoryProjection {
   tools: ToolInventorySlots;
 }
 
-export function collectPortableItemsFromLayers<TInventorySlot extends string, TItem>(
+export interface PortableItemInventoryProjectionAdapter<TInventoryProjection> {
+  readCarriedTile(inventory: TInventoryProjection): number;
+  writeCarriedTile(inventory: TInventoryProjection, tileId: number): void;
+}
+
+export interface PortableItemFamilyPolicy<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+> extends PortableItemFamilyDescriptor<TFamily, TInventorySlot> {
+  attachmentKind: string;
+  primedMode: TState["mode"];
+  pendingPrimedMode?: TState["mode"];
+  displacedMode(args: { hasActivePrimedItem: boolean }): TState["mode"];
+  projection: PortableItemInventoryProjectionAdapter<TInventoryProjection>;
+  createCarriedItem(args: {
+    serial: number;
+    family: TFamily;
+    inventorySlot: TInventorySlot;
+    tileId: number;
+  }): TItem;
+  createMapItem(args: {
+    serial: number;
+    family: TFamily;
+    inventorySlot: TInventorySlot;
+    tileId: number;
+    pos: number;
+    z: number;
+  }): TItem;
+}
+
+export interface PortableItemFamilyProjection {
+  primedDrop: PortableItemDropProjection | null;
+  pendingPrimedDrop: PortableItemDropProjection | null;
+}
+
+type PortableItemRecord = PortableItemBase<string, string, { mode: string }>;
+
+export function collectPortableItemsFromLayers<TFamily extends string, TInventorySlot extends string, TItem>(
   layers: ReadonlyArray<{
     z: number;
     cells: EngineMapCell[];
   }>,
-  inventorySlot: TInventorySlot,
-  slotForTileId: (tileId: number) => string | null,
+  identifyPortableItem: (tileId: number) => PortableItemFamilyDescriptor<TFamily, TInventorySlot> | null,
   createMapItem: (args: {
     serial: number;
+    family: TFamily;
     tileId: number;
     inventorySlot: TInventorySlot;
     pos: number;
@@ -63,14 +109,16 @@ export function collectPortableItemsFromLayers<TInventorySlot extends string, TI
   const items: TItem[] = [];
   for (const layer of layers) {
     for (const cell of layer.cells) {
-      if (slotForTileId(cell.top.id) !== inventorySlot) {
+      const family = identifyPortableItem(cell.top.id);
+      if (!family) {
         continue;
       }
       items.push(
         createMapItem({
           serial: items.length + 1,
+          family: family.family,
           tileId: cell.top.id,
-          inventorySlot,
+          inventorySlot: family.inventorySlot,
           pos: cell.position.pos,
           z: layer.z,
         }),
@@ -81,30 +129,32 @@ export function collectPortableItemsFromLayers<TInventorySlot extends string, TI
 }
 
 export function findPortableItemByMode<
+  TFamily extends string,
   TInventorySlot extends string,
   TState extends { mode: string },
-  TItem extends PortableItemBase<TInventorySlot, TState>,
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
 >(
   items: readonly TItem[],
-  inventorySlot: TInventorySlot,
+  family: TFamily,
   mode: TState["mode"],
 ): TItem | undefined {
-  return items.find((item) => item.inventorySlot === inventorySlot && item.state.mode === mode);
+  return items.find((item) => item.family === family && item.state.mode === mode);
 }
 
 export function findPortableMapItemAt<
+  TFamily extends string,
   TInventorySlot extends string,
   TState extends { mode: string },
-  TItem extends PortableItemBase<TInventorySlot, TState>,
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
 >(
   items: readonly TItem[],
-  inventorySlot: TInventorySlot,
+  family: TFamily,
   tileId: number,
   pos: number,
   z: number,
 ): TItem | undefined {
   return items.find((item) => {
-    if (item.inventorySlot !== inventorySlot || item.tileId !== tileId || item.state.mode !== "map") {
+    if (item.family !== family || item.tileId !== tileId || item.state.mode !== "map") {
       return false;
     }
     const state = item.state as unknown as PortableItemLocation;
@@ -144,17 +194,18 @@ export function findPortableItemBySerial<TItem extends { serial: number }>(
 }
 
 export function findPortableAttachedItem<
+  TFamily extends string,
   TInventorySlot extends string,
   TState extends { mode: string },
-  TItem extends PortableItemBase<TInventorySlot, TState>,
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
 >(
   items: readonly TItem[],
-  inventorySlot: TInventorySlot,
+  family: TFamily,
   attachmentKind: string,
   attachmentId: number,
 ): TItem | undefined {
   return items.find((item) => {
-    if (item.inventorySlot !== inventorySlot || item.state.mode !== "attached") {
+    if (item.family !== family || item.state.mode !== "attached") {
       return false;
     }
     const state = item.state as unknown as PortableItemAttachedState;
@@ -228,4 +279,391 @@ export function projectCarriedPortableToolTile<TItem extends { tileId: number }>
   carriedItem: TItem | undefined,
 ): void {
   inventory.tools = [carriedItem?.tileId ?? 0] as ToolInventorySlots;
+}
+
+export function carriedPortableItemForFamily<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, unknown>,
+): TItem | undefined {
+  return store.portableItems.find(
+    (item): item is TItem => item.family === policy.family && item.state.mode === "carried",
+  );
+}
+
+export function primedPortableItemForFamily<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, unknown>,
+): TItem | undefined {
+  return store.portableItems.find(
+    (item): item is TItem => item.family === policy.family && item.state.mode === policy.primedMode,
+  );
+}
+
+export function pendingPortableItemForFamily<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, unknown>,
+): TItem | undefined {
+  if (!policy.pendingPrimedMode) {
+    return undefined;
+  }
+  return store.portableItems.find(
+    (item): item is TItem => item.family === policy.family && item.state.mode === policy.pendingPrimedMode,
+  );
+}
+
+export function mapPortableItemForFamilyAt<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, unknown>,
+  tileId: number,
+  pos: number,
+  z: number,
+): TItem | undefined {
+  return store.portableItems.find((item): item is TItem => {
+    if (item.family !== policy.family || item.tileId !== tileId || item.state.mode !== "map") {
+      return false;
+    }
+    const state = item.state as unknown as PortableItemLocation;
+    return state.pos === pos && state.z === z;
+  });
+}
+
+export function projectPortableItemFamilyState<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+): PortableItemFamilyProjection {
+  const carried = carriedPortableItemForFamily(store, policy);
+  policy.projection.writeCarriedTile(inventory, carried?.tileId ?? 0);
+  return {
+    primedDrop: portableItemDropProjection(primedPortableItemForFamily(store, policy), [policy.primedMode]),
+    pendingPrimedDrop: portableItemDropProjection(
+      pendingPortableItemForFamily(store, policy),
+      policy.pendingPrimedMode ? [policy.pendingPrimedMode] : [],
+    ),
+  };
+}
+
+function createCarriedPortableItemForFamily<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  tileId: number,
+): TItem {
+  const item = policy.createCarriedItem({
+    serial: store.nextPortableItemSerial,
+    family: policy.family,
+    inventorySlot: policy.inventorySlot,
+    tileId,
+  });
+  store.nextPortableItemSerial += 1;
+  store.portableItems.push(item);
+  return item;
+}
+
+function createMapPortableItemForFamily<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  tileId: number,
+  pos: number,
+  z: number,
+): TItem {
+  const item = policy.createMapItem({
+    serial: store.nextPortableItemSerial,
+    family: policy.family,
+    inventorySlot: policy.inventorySlot,
+    tileId,
+    pos,
+    z,
+  });
+  store.nextPortableItemSerial += 1;
+  store.portableItems.push(item);
+  return item;
+}
+
+export function reconcilePortableItemFamilyProjection<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+): PortableItemFamilyProjection {
+  const projectedTileId = policy.projection.readCarriedTile(inventory);
+  const carried = carriedPortableItemForFamily(store, policy);
+  if (projectedTileId === 0) {
+    if (carried) {
+      destroyPortableItem(store, carried.serial);
+    }
+    return projectPortableItemFamilyState(store, inventory, policy);
+  }
+
+  if (carried) {
+    carried.tileId = projectedTileId;
+  } else {
+    createCarriedPortableItemForFamily(store, policy, projectedTileId);
+  }
+  return projectPortableItemFamilyState(store, inventory, policy);
+}
+
+export function clearPortableItemFamilyInventory<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+): PortableItemFamilyProjection {
+  const carried = carriedPortableItemForFamily(store, policy);
+  if (carried) {
+    destroyPortableItem(store, carried.serial);
+  }
+  return projectPortableItemFamilyState(store, inventory, policy);
+}
+
+export function primePortableItemFamilyDrop<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  pos: number,
+  z: number,
+): boolean {
+  const carried = carriedPortableItemForFamily(store, policy);
+  if (!carried || primedPortableItemForFamily(store, policy)) {
+    return false;
+  }
+
+  setPortableItemDetachedState(carried, policy.primedMode as string, pos, z);
+  projectPortableItemFamilyState(store, inventory, policy);
+  return true;
+}
+
+export function queuePortableItemFamilyReplacement<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  tileId: number,
+  pos: number,
+  z: number,
+): void {
+  let collected = mapPortableItemForFamilyAt(store, policy, tileId, pos, z);
+  if (!collected) {
+    collected = createMapPortableItemForFamily(store, policy, tileId, pos, z);
+  }
+
+  const displaced = carriedPortableItemForFamily(store, policy);
+  setPortableItemCarriedState(collected);
+  if (displaced && displaced.serial !== collected.serial) {
+    setPortableItemDetachedState(
+      displaced,
+      policy.displacedMode({
+        hasActivePrimedItem: primedPortableItemForFamily(store, policy) !== undefined,
+      }) as string,
+      pos,
+      z,
+    );
+  }
+  projectPortableItemFamilyState(store, inventory, policy);
+}
+
+export function activatePortableItemFamily<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  serial: number,
+  actorSerial: number,
+): boolean {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  if (!item || item.family !== policy.family) {
+    return false;
+  }
+
+  setPortableItemAttachedState(item, policy.attachmentKind, actorSerial);
+  projectPortableItemFamilyState(store, inventory, policy);
+  return true;
+}
+
+export function findPortableItemFamilyAttachedToActor<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, unknown>,
+  actorSerial: number,
+): TItem | undefined {
+  return store.portableItems.find((item): item is TItem => {
+    if (item.family !== policy.family || item.state.mode !== "attached") {
+      return false;
+    }
+    const state = item.state as unknown as PortableItemAttachedState;
+    return state.attachmentKind === policy.attachmentKind && state.attachmentId === actorSerial;
+  });
+}
+
+export function detachPortableItemFamilyToMap<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  serial: number,
+  pos: number,
+  z: number,
+): boolean {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  if (!item || item.family !== policy.family) {
+    return false;
+  }
+
+  setPortableItemMapState(item, pos, z);
+  projectPortableItemFamilyState(store, inventory, policy);
+  return true;
+}
+
+export function detachPortableItemFamilyToDrop<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  serial: number,
+  pos: number,
+  z: number,
+  mode: TState["mode"] = policy.primedMode,
+): boolean {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  if (!item || item.family !== policy.family) {
+    return false;
+  }
+
+  setPortableItemDetachedState(item, mode as string, pos, z);
+  projectPortableItemFamilyState(store, inventory, policy);
+  return true;
+}
+
+export function destroyPortableItemFamily<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  serial: number,
+): boolean {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  if (!item || item.family !== policy.family) {
+    return false;
+  }
+
+  destroyPortableItem(store, serial);
+  projectPortableItemFamilyState(store, inventory, policy);
+  return true;
+}
+
+export function settlePortableItemFamilyDrop<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+>(
+  store: PortableItemStore<PortableItemRecord>,
+  inventory: TInventoryProjection,
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  pos: number,
+  z: number,
+  settle: (item: TItem) => "mapped" | "destroyed",
+): void {
+  const primed = primedPortableItemForFamily(store, policy);
+  const primedLocation = primed?.state as PortableItemLocation | undefined;
+  if (!primed || primed.state.mode !== policy.primedMode || primedLocation?.pos !== pos || primedLocation.z !== z) {
+    return;
+  }
+
+  const outcome = settle(primed);
+  if (outcome === "destroyed") {
+    destroyPortableItem(store, primed.serial);
+  } else {
+    setPortableItemMapState(primed, pos, z);
+  }
+
+  const pending = pendingPortableItemForFamily(store, policy);
+  if (pending && policy.pendingPrimedMode && pending.state.mode === policy.pendingPrimedMode) {
+    const pendingLocation = pending.state as unknown as PortableItemLocation;
+    setPortableItemDetachedState(pending, policy.primedMode as string, pendingLocation.pos, pendingLocation.z);
+  }
+  projectPortableItemFamilyState(store, inventory, policy);
 }

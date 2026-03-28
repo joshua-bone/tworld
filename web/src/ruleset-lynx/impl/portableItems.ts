@@ -1,34 +1,40 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import {
+  activatePortableItemFamily,
+  carriedPortableItemForFamily,
+  clearPortableItemFamilyInventory,
   collectPortableItemsFromLayers,
-  createPortableItem,
-  destroyPortableItem,
-  findPortableAttachedItem,
-  findPortableItemByMode,
-  findPortableItemBySerial,
-  findPortableMapItemAt,
-  portableItemDropProjection,
-  projectCarriedPortableToolTile,
-  setPortableItemAttachedState,
-  setPortableItemCarriedState,
-  setPortableItemDetachedState,
-  setPortableItemMapState,
+  destroyPortableItemFamily,
+  detachPortableItemFamilyToDrop,
+  detachPortableItemFamilyToMap,
+  findPortableItemFamilyAttachedToActor,
+  mapPortableItemForFamilyAt,
+  primePortableItemFamilyDrop,
+  primedPortableItemForFamily,
+  projectPortableItemFamilyState,
+  queuePortableItemFamilyReplacement,
+  reconcilePortableItemFamilyProjection,
+  settlePortableItemFamilyDrop,
   type PortableItemBase,
   type PortableItemAttachedState,
   type PortableItemCarriedState,
   type PortableItemDetachedState,
   type PortableItemDropProjection,
+  type PortableItemFamilyDescriptor,
+  type PortableItemFamilyPolicy,
   type PortableItemMapState,
   type PortableItemStore,
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
 import { replaceTopTile } from "@game-core/impl/board";
-import { lynxInventorySlot } from "@ruleset-lynx/impl/catalog";
+import { lynxInventorySlot, lynxPortableItemFamily } from "@ruleset-lynx/impl/catalog";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxPrimedToolDrop extends PortableItemDropProjection {}
 
 export type LynxToolInventoryProjection = PortableToolInventoryProjection;
+type LynxPortableItemFamily = NonNullable<ReturnType<typeof lynxPortableItemFamily>>;
+type LynxPortableInventorySlot = "tools";
 
 export type LynxPortableItemState =
   | PortableItemMapState
@@ -36,7 +42,7 @@ export type LynxPortableItemState =
   | PortableItemDetachedState<"primed">
   | PortableItemAttachedState<"actor">;
 
-export interface LynxPortableItem extends PortableItemBase<"tools", LynxPortableItemState> {}
+export interface LynxPortableItem extends PortableItemBase<LynxPortableItemFamily, LynxPortableInventorySlot, LynxPortableItemState> {}
 
 export interface LynxPortableToolStateStore extends PortableItemStore<LynxPortableItem> {
   primedToolDrop: LynxPrimedToolDrop | null;
@@ -44,12 +50,62 @@ export interface LynxPortableToolStateStore extends PortableItemStore<LynxPortab
 
 export type LynxRunWithLayer = <T>(z: number, run: () => T) => T;
 
+function identifyLynxPortableItem(tileId: number): PortableItemFamilyDescriptor<LynxPortableItemFamily, LynxPortableInventorySlot> | null {
+  const family = lynxPortableItemFamily(tileId);
+  const inventorySlot = lynxInventorySlot(tileId);
+  if (!family || inventorySlot !== "tools") {
+    return null;
+  }
+  return {
+    family,
+    inventorySlot,
+  };
+}
+
+const LYNX_SANDBAG_PORTABLE_ITEM_POLICY: PortableItemFamilyPolicy<
+  "sandbag",
+  "tools",
+  LynxPortableItemState,
+  LynxPortableItem,
+  LynxToolInventoryProjection
+> = {
+  family: "sandbag",
+  inventorySlot: "tools",
+  attachmentKind: "actor",
+  primedMode: "primed",
+  displacedMode: () => "primed",
+  projection: {
+    readCarriedTile: (inventory) => inventory.tools[0] ?? 0,
+    writeCarriedTile: (inventory, tileId) => {
+      inventory.tools = [tileId];
+    },
+  },
+  createCarriedItem: ({ serial, family, inventorySlot, tileId }) => ({
+    serial,
+    family,
+    tileId,
+    inventorySlot,
+    state: { mode: "carried" },
+  }),
+  createMapItem: ({ serial, family, inventorySlot, tileId, pos, z }) => ({
+    serial,
+    family,
+    tileId,
+    inventorySlot,
+    state: {
+      mode: "map",
+      pos,
+      z,
+    },
+  }),
+};
+
 function carriedLynxPortableToolItem(store: LynxPortableToolStateStore): LynxPortableItem | undefined {
-  return findPortableItemByMode(store.portableItems, "tools", "carried");
+  return carriedPortableItemForFamily(store, LYNX_SANDBAG_PORTABLE_ITEM_POLICY);
 }
 
 export function primedLynxPortableToolItem(store: LynxPortableToolStateStore): LynxPortableItem | undefined {
-  return findPortableItemByMode(store.portableItems, "tools", "primed");
+  return primedPortableItemForFamily(store, LYNX_SANDBAG_PORTABLE_ITEM_POLICY);
 }
 
 function lynxPortableMapToolItemAt(
@@ -58,16 +114,7 @@ function lynxPortableMapToolItemAt(
   pos: number,
   z: number,
 ): LynxPortableItem | undefined {
-  return findPortableMapItemAt(store.portableItems, "tools", tileId, pos, z);
-}
-
-function createLynxCarriedPortableToolItem(store: LynxPortableToolStateStore, tileId: number): LynxPortableItem {
-  return createPortableItem(store, (serial): LynxPortableItem => ({
-    serial,
-    tileId,
-    inventorySlot: "tools",
-    state: { mode: "carried" },
-  }));
+  return mapPortableItemForFamilyAt(store, LYNX_SANDBAG_PORTABLE_ITEM_POLICY, tileId, pos, z);
 }
 
 export function collectLynxPortableItemsFromLayers(
@@ -78,10 +125,10 @@ export function collectLynxPortableItemsFromLayers(
 ): LynxPortableItem[] {
   return collectPortableItemsFromLayers(
     layers,
-    "tools",
-    lynxInventorySlot,
-    ({ serial, tileId, inventorySlot, pos, z }): LynxPortableItem => ({
+    identifyLynxPortableItem,
+    ({ serial, family, tileId, inventorySlot, pos, z }): LynxPortableItem => ({
       serial,
+      family,
       tileId,
       inventorySlot,
       state: {
@@ -97,38 +144,21 @@ export function projectLynxPortableToolState(
   store: LynxPortableToolStateStore,
   inventory: LynxToolInventoryProjection,
 ): void {
-  projectCarriedPortableToolTile(inventory, carriedLynxPortableToolItem(store));
-  store.primedToolDrop = portableItemDropProjection(primedLynxPortableToolItem(store), ["primed"]);
+  const projection = projectPortableItemFamilyState(store, inventory, LYNX_SANDBAG_PORTABLE_ITEM_POLICY);
+  store.primedToolDrop = projection.primedDrop;
 }
 
 export function reconcileLynxPortableToolProjection(
   store: LynxPortableToolStateStore,
   inventory: LynxToolInventoryProjection,
 ): void {
-  const projectedTileId = inventory.tools[0] ?? 0;
-  const carried = carriedLynxPortableToolItem(store);
-  if (projectedTileId === 0) {
-    if (carried) {
-      destroyPortableItem(store, carried.serial);
-    }
-    projectLynxPortableToolState(store, inventory);
-    return;
-  }
-
-  if (carried) {
-    carried.tileId = projectedTileId;
-  } else {
-    createLynxCarriedPortableToolItem(store, projectedTileId);
-  }
-  projectLynxPortableToolState(store, inventory);
+  const projection = reconcilePortableItemFamilyProjection(store, inventory, LYNX_SANDBAG_PORTABLE_ITEM_POLICY);
+  store.primedToolDrop = projection.primedDrop;
 }
 
 export function clearLynxToolInventory(store: LynxPortableToolStateStore, inventory: LynxToolInventoryProjection): void {
-  const carried = carriedLynxPortableToolItem(store);
-  if (carried) {
-    destroyPortableItem(store, carried.serial);
-  }
-  projectLynxPortableToolState(store, inventory);
+  const projection = clearPortableItemFamilyInventory(store, inventory, LYNX_SANDBAG_PORTABLE_ITEM_POLICY);
+  store.primedToolDrop = projection.primedDrop;
 }
 
 export function primeLynxToolDrop(
@@ -137,14 +167,9 @@ export function primeLynxToolDrop(
   pos: number,
   z: number,
 ): boolean {
-  const carried = carriedLynxPortableToolItem(store);
-  if (!carried || primedLynxPortableToolItem(store)) {
-    return false;
-  }
-
-  setPortableItemDetachedState(carried, "primed", pos, z);
+  const primed = primePortableItemFamilyDrop(store, inventory, LYNX_SANDBAG_PORTABLE_ITEM_POLICY, pos, z);
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return primed;
 }
 
 export function queueLynxToolInventoryReplacement(
@@ -154,21 +179,7 @@ export function queueLynxToolInventoryReplacement(
   pos: number,
   z: number,
 ): void {
-  let collected = lynxPortableMapToolItemAt(store, tileId, pos, z);
-  if (!collected) {
-    collected = createPortableItem(store, (serial): LynxPortableItem => ({
-      serial,
-      tileId,
-      inventorySlot: "tools",
-      state: { mode: "map", pos, z },
-    }));
-  }
-
-  const displaced = carriedLynxPortableToolItem(store);
-  setPortableItemCarriedState(collected);
-  if (displaced && displaced.serial !== collected.serial) {
-    setPortableItemDetachedState(displaced, "primed", pos, z);
-  }
+  queuePortableItemFamilyReplacement(store, inventory, LYNX_SANDBAG_PORTABLE_ITEM_POLICY, tileId, pos, z);
   projectLynxPortableToolState(store, inventory);
 }
 
@@ -178,21 +189,16 @@ export function activateLynxPortableTool(
   serial: number,
   actorSerial: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemAttachedState(item, "actor", actorSerial);
+  const activated = activatePortableItemFamily(store, inventory, LYNX_SANDBAG_PORTABLE_ITEM_POLICY, serial, actorSerial);
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return activated;
 }
 
 export function findLynxPortableToolAttachedToActor(
   store: LynxPortableToolStateStore,
   actorSerial: number,
 ): LynxPortableItem | undefined {
-  return findPortableAttachedItem(store.portableItems, "tools", "actor", actorSerial);
+  return findPortableItemFamilyAttachedToActor(store, LYNX_SANDBAG_PORTABLE_ITEM_POLICY, actorSerial);
 }
 
 export function detachLynxPortableToolToMap(
@@ -202,14 +208,9 @@ export function detachLynxPortableToolToMap(
   pos: number,
   z: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemMapState(item, pos, z);
+  const detached = detachPortableItemFamilyToMap(store, inventory, LYNX_SANDBAG_PORTABLE_ITEM_POLICY, serial, pos, z);
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return detached;
 }
 
 export function detachLynxPortableToolToDrop(
@@ -219,14 +220,16 @@ export function detachLynxPortableToolToDrop(
   pos: number,
   z: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemDetachedState(item, "primed", pos, z);
+  const detached = detachPortableItemFamilyToDrop(
+    store,
+    inventory,
+    LYNX_SANDBAG_PORTABLE_ITEM_POLICY,
+    serial,
+    pos,
+    z,
+  );
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return detached;
 }
 
 export function destroyLynxPortableTool(
@@ -234,14 +237,9 @@ export function destroyLynxPortableTool(
   inventory: LynxToolInventoryProjection,
   serial: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  destroyPortableItem(store, serial);
+  const destroyed = destroyPortableItemFamily(store, inventory, LYNX_SANDBAG_PORTABLE_ITEM_POLICY, serial);
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return destroyed;
 }
 
 function replaceLynxSettledSandbagWater(state: EngineState, pos: number): boolean {
@@ -271,25 +269,21 @@ export function settleLynxPrimedToolDrop(
   z: number,
   withLayer: LynxRunWithLayer,
 ): void {
-  const primed = primedLynxPortableToolItem(store);
-  if (!primed || primed.state.mode !== "primed" || primed.state.pos !== pos || primed.state.z !== z) {
-    return;
-  }
+  settlePortableItemFamilyDrop(store, inventory, LYNX_SANDBAG_PORTABLE_ITEM_POLICY, pos, z, (primed) =>
+    withLayer(z, () => {
+      if (primed.tileId === MS_TILE.Sandbag && replaceLynxSettledSandbagWater(state, pos)) {
+        return "destroyed";
+      }
 
-  withLayer(z, () => {
-    if (primed.tileId === MS_TILE.Sandbag && replaceLynxSettledSandbagWater(state, pos)) {
-      destroyPortableItem(store, primed.serial);
-      return;
-    }
+      const cell = state.map.cells[pos];
+      if (!cell) {
+        return "destroyed";
+      }
 
-    const cell = state.map.cells[pos];
-    if (!cell) {
-      return;
-    }
-
-    setPortableItemMapState(primed, pos, z);
-    cell.bottom = { ...cell.top };
-    cell.top = { id: primed.tileId, state: 0 };
-  });
+      cell.bottom = { ...cell.top };
+      cell.top = { id: primed.tileId, state: 0 };
+      return "mapped";
+    }),
+  );
   projectLynxPortableToolState(store, inventory);
 }

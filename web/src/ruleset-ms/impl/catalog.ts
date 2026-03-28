@@ -40,6 +40,7 @@ import {
 import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 type InventorySlot = "keys" | "boots" | "tools";
+type PortableItemFamily = "sandbag";
 type MsForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air" | "elevator";
 type MsChipEnterAction =
   | "none"
@@ -74,6 +75,7 @@ interface MsTilePolicyDefinition {
   readonly exitMovementMask: number;
   readonly requiresReleaseToExit: boolean;
   readonly inventorySlot?: InventorySlot;
+  readonly portableItemFamily?: PortableItemFamily;
   readonly inventoryIndex?: number;
   readonly doorKeyIndex?: number;
   readonly forcedFloorKind: MsForcedFloorKind;
@@ -469,7 +471,9 @@ function defaultMsRequiresReleaseToExit(id: number): boolean {
   return id === MS_TILE.Beartrap;
 }
 
-function inventoryPolicy(id: number): Pick<MsTilePolicyDefinition, "inventorySlot" | "inventoryIndex" | "doorKeyIndex"> {
+function inventoryPolicy(
+  id: number,
+): Pick<MsTilePolicyDefinition, "inventorySlot" | "portableItemFamily" | "inventoryIndex" | "doorKeyIndex"> {
   if (KEY_TILE_SET.has(id)) {
     return {
       inventorySlot: "keys",
@@ -485,6 +489,7 @@ function inventoryPolicy(id: number): Pick<MsTilePolicyDefinition, "inventorySlo
   if (TOOL_TILE_SET.has(id)) {
     return {
       inventorySlot: "tools",
+      portableItemFamily: "sandbag",
       inventoryIndex: 0,
     };
   }
@@ -768,6 +773,10 @@ export function msRequiresReleaseToExit(id: number): boolean {
 
 export function msInventorySlot(id: number): InventorySlot | null {
   return msTilePolicy(id).inventorySlot ?? null;
+}
+
+export function msPortableItemFamily(id: number): PortableItemFamily | null {
+  return msTilePolicy(id).portableItemFamily ?? null;
 }
 
 export function msInventoryIndex(id: number): number | null {

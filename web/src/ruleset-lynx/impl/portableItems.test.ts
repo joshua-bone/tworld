@@ -17,6 +17,7 @@ function createStore(): LynxPortableToolStateStore {
     portableItems: [
       {
         serial: 1,
+        family: "sandbag",
         tileId: MS_TILE.Sandbag,
         inventorySlot: "tools",
         state: { mode: "carried" },

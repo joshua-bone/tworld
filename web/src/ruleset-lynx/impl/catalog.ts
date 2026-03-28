@@ -40,6 +40,7 @@ import {
 import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 type InventorySlot = "keys" | "boots" | "tools";
+type PortableItemFamily = "sandbag";
 type LynxForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air" | "elevator";
 type LynxCreatureFloorAction = "none" | "hold-direction";
 type LynxChipEnterAction =
@@ -89,6 +90,7 @@ interface LynxTilePolicyDefinition {
   readonly requiresReleaseToExit: boolean;
   readonly creatureFloorAction: LynxCreatureFloorAction;
   readonly inventorySlot?: InventorySlot;
+  readonly portableItemFamily?: PortableItemFamily;
   readonly inventoryIndex?: number;
   readonly doorKeyIndex?: number;
   readonly forcedFloorKind: LynxForcedFloorKind;
@@ -525,7 +527,9 @@ function defaultLynxCreatureFloorAction(id: number): LynxCreatureFloorAction {
   return id === MS_TILE.CloneMachine || id === MS_TILE.Beartrap ? "hold-direction" : "none";
 }
 
-function inventoryPolicy(id: number): Pick<LynxTilePolicyDefinition, "inventorySlot" | "inventoryIndex" | "doorKeyIndex"> {
+function inventoryPolicy(
+  id: number,
+): Pick<LynxTilePolicyDefinition, "inventorySlot" | "portableItemFamily" | "inventoryIndex" | "doorKeyIndex"> {
   if (KEY_TILE_SET.has(id)) {
     return {
       inventorySlot: "keys",
@@ -541,6 +545,7 @@ function inventoryPolicy(id: number): Pick<LynxTilePolicyDefinition, "inventoryS
   if (TOOL_TILE_SET.has(id)) {
     return {
       inventorySlot: "tools",
+      portableItemFamily: "sandbag",
       inventoryIndex: 0,
     };
   }
@@ -788,6 +793,10 @@ export function lynxTileHasCapability(id: number, capability: TileCapability): b
 
 export function lynxInventorySlot(id: number): InventorySlot | null {
   return lynxTilePolicy(id).inventorySlot ?? null;
+}
+
+export function lynxPortableItemFamily(id: number): PortableItemFamily | null {
+  return lynxTilePolicy(id).portableItemFamily ?? null;
 }
 
 export function lynxInventoryIndex(id: number): number | null {

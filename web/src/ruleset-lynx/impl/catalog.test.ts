@@ -30,6 +30,7 @@ import {
   lynxIceWallTurn,
   lynxInventoryIndex,
   lynxInventorySlot,
+  lynxPortableItemFamily,
   lynxRequiresReleaseToExit,
   lynxRulesetCatalog,
   lynxTileForcedFloorKind,
@@ -71,6 +72,8 @@ describe("Lynx ruleset catalog", () => {
     expect(lynxInventoryIndex(MS_TILE.Key_Blue)).toBe(1);
     expect(lynxInventorySlot(MS_TILE.Boots_Fire)).toBe("boots");
     expect(lynxInventoryIndex(MS_TILE.Boots_Fire)).toBe(2);
+    expect(lynxPortableItemFamily(MS_TILE.Sandbag)).toBe("sandbag");
+    expect(lynxPortableItemFamily(MS_TILE.Key_Blue)).toBeNull();
     expect(lynxDoorKeyIndex(MS_TILE.Door_Yellow)).toBe(2);
     expect(lynxDoorKeyIndex(MS_TILE.Teleport)).toBeNull();
     expect(lynxButtonAction(MS_TILE.Button_Blue)).toBe("turn-tanks");

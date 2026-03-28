@@ -247,10 +247,10 @@ Goal:
 
 Checklist:
 
-- [ ] introduce portable-item policy objects for carry, replacement, prime, drop, attach, detach, and destroy semantics
-- [ ] support multiple portable-item families without hard-wiring everything to `"tools"`
-- [ ] migrate sandbag fully onto the new portable-item policy surface
-- [ ] preserve current identity, projection, and replacement behavior under test
+- [x] introduce portable-item policy objects for carry, replacement, prime, drop, attach, detach, and destroy semantics
+- [x] support multiple portable-item families without hard-wiring everything to `"tools"`
+- [x] migrate sandbag fully onto the new portable-item policy surface
+- [x] preserve current identity, projection, and replacement behavior under test
 
 Extensibility win:
 
@@ -401,10 +401,10 @@ Important note:
 
 ## Recommended Order
 
-- [ ] EP1
-- [ ] EP2
+- [x] EP1
+- [x] EP2
 - [x] EP3
-- [ ] EP4
+- [x] EP4
 - [ ] EP5
 - [ ] EP6
 - [ ] EP7
