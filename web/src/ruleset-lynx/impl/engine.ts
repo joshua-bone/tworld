@@ -120,6 +120,14 @@ import {
   type LynxActorMovementContext,
 } from "@ruleset-lynx/impl/actorMovement";
 import {
+  applyLynxChipStartMoveStateByStrategy,
+  blockedLynxChipMoveDirectionByStrategy,
+  canStartLynxActorMoveByStrategy,
+  finishLynxActorMoveByStrategy,
+  forcedLynxActorDirectionByStrategy,
+  startLynxActorMoveByStrategy,
+} from "@ruleset-lynx/impl/movementStrategies";
+import {
   clearLynxToolInventory,
   collectLynxPortableItemsFromLayers,
   primeLynxToolDrop,
@@ -152,6 +160,7 @@ import {
 import {
   lynxActorEntryMask,
   lynxActorHazardResponse,
+  lynxActorMovementStrategyId,
   lynxActorThiefHook,
   lynxBlockMovementMask,
   lynxButtonAction,
@@ -1775,43 +1784,44 @@ function getLynxChipForcedMove(
 }
 
 function forcedLynxActorDirection(state: EngineState, actor: LynxRuntimeActor, floorId: number, currentTime: number): number {
-  if (currentTime === 0 && !isLynxAir(floorId)) {
-    return 0;
-  }
-  if (isLynxSlide(floorId)) {
-    return getLynxSlideDirection(state, floorId, true);
-  }
-  if (isLynxIce(floorId)) {
-    if (actor.ignoreIceFromAir) {
-      return 0;
-    }
-    return actor.dir;
-  }
-  return 0;
+  return forcedLynxActorDirectionByStrategy(
+    lynxActorMovementStrategyId(actor.id),
+    (forcedFloorId) => getLynxSlideDirection(state, forcedFloorId, true),
+    actor,
+    floorId,
+    currentTime,
+  );
 }
 
 function updateLynxChipStartMovementState(state: EngineState, floorId: number, chosenInputCode: number): void {
   const chipRuntime = lynxChipRuntime(state);
-
-  if (!isLynxIce(floorId) || chosenInputCode !== 0) {
-    chipRuntime.chipIgnoreIceFromAir = false;
-  }
-
-  if (!hasLynxBoots(state, MS_TILE.Boots_Slide)) {
-    if (isLynxSlide(floorId) && chosenInputCode === 0) {
-      chipRuntime.chipSlideToken = true;
-    } else if (!isLynxIce(floorId) || hasLynxBoots(state, MS_TILE.Boots_Ice)) {
-      chipRuntime.chipSlideToken = false;
-    }
-  }
+  const updated = applyLynxChipStartMoveStateByStrategy(
+    lynxActorMovementStrategyId(MS_TILE.Chip),
+    {
+      hasSlideBoot: () => hasLynxBoots(state, MS_TILE.Boots_Slide),
+      hasIceBoot: () => hasLynxBoots(state, MS_TILE.Boots_Ice),
+      applyIceWallTurn: applyLynxIceWallTurn,
+    },
+    floorId,
+    chosenInputCode,
+    chipRuntime.chipIgnoreIceFromAir ?? false,
+    chipRuntime.chipSlideToken ?? false,
+  );
+  chipRuntime.chipIgnoreIceFromAir = updated.chipIgnoreIceFromAir;
+  chipRuntime.chipSlideToken = updated.chipSlideToken;
 }
 
 function turnLynxChipAroundOnBlockedIce(state: EngineState, floorId: number, attemptedDir: number): number {
-  if (!isLynxIce(floorId) || hasLynxBoots(state, MS_TILE.Boots_Ice)) {
-    return attemptedDir;
-  }
-
-  return applyLynxIceWallTurn(backDirection(attemptedDir), floorId);
+  return blockedLynxChipMoveDirectionByStrategy(
+    lynxActorMovementStrategyId(MS_TILE.Chip),
+    {
+      hasSlideBoot: () => hasLynxBoots(state, MS_TILE.Boots_Slide),
+      hasIceBoot: () => hasLynxBoots(state, MS_TILE.Boots_Ice),
+      applyIceWallTurn: applyLynxIceWallTurn,
+    },
+    floorId,
+    attemptedDir,
+  );
 }
 
 function updateLynxViewFromMovement(
@@ -1951,7 +1961,8 @@ function canLynxCreatureStartMovement(
   releasing = false,
   clearAnimations = false,
 ): boolean {
-  return canLynxActorStartMovementWithContext(
+  return canStartLynxActorMoveByStrategy(
+    lynxActorMovementStrategyId(actor.id),
     createLynxActorMovementContext(state, actors),
     actor,
     dir,
@@ -2004,7 +2015,13 @@ function startLynxCreatureMovement(
   dir: number,
   releasing = false,
 ): MovementAttemptResult {
-  return startLynxActorMovementWithContext(createLynxActorMovementContext(state, actors), actor, dir, releasing);
+  return startLynxActorMoveByStrategy(
+    lynxActorMovementStrategyId(actor.id),
+    createLynxActorMovementContext(state, actors),
+    actor,
+    dir,
+    releasing,
+  );
 }
 
 function finishLynxActorMovement(
@@ -2013,7 +2030,8 @@ function finishLynxActorMovement(
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
 ): ArrivalResult {
-  return finishLynxActorMovementWithContext(
+  return finishLynxActorMoveByStrategy(
+    lynxActorMovementStrategyId(actor.id),
     createLynxActorMovementContext(
       state,
       actors,

@@ -107,6 +107,7 @@ import {
 import {
   msActorEntryMask,
   msActorHazardResponse,
+  msActorMovementStrategyId,
   msActorThiefHook,
   msActorArrivalAction,
   msBlockMovementMask,
@@ -151,6 +152,20 @@ import {
   moveMsCreaturePlanar as moveMsCreaturePlanarWithContext,
   moveMsCreatureUpOneLayer as moveMsCreatureUpOneLayerWithContext,
 } from "@ruleset-ms/impl/creatureMovement";
+import {
+  canStartMsChipMoveByStrategy,
+  type MsBlockMovementStrategyContext,
+  type MsChipMovementStrategyContext,
+  type MsCreatureMovementStrategyContext,
+  startMsBlockMoveByStrategy,
+  startMsBlockUpMoveByStrategy,
+  startMsChipDownMoveByStrategy,
+  startMsChipMoveByStrategy,
+  startMsChipUpMoveByStrategy,
+  startMsCreatureDownMoveByStrategy,
+  startMsCreatureMoveByStrategy,
+  startMsCreatureUpMoveByStrategy,
+} from "@ruleset-ms/impl/movementStrategies";
 import {
   findMsBlockTeleportDestination,
   findMsCreatureTeleportDestination,
@@ -1476,6 +1491,28 @@ function moveBlock(
   return movedMovement();
 }
 
+function moveBlockOnce(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  pos: number,
+  dir: number,
+  deferButtons: boolean,
+  preserveSourceTile: boolean,
+  occupiedOriginPos = -1,
+): MovementAttemptResult {
+  return startMsBlockMoveByStrategy(
+    msNonChipMovementStrategyId(MS_TILE.Block),
+    createMsBlockMovementStrategyDispatchContext(),
+    cells,
+    internal,
+    pos,
+    dir,
+    deferButtons,
+    preserveSourceTile,
+    occupiedOriginPos,
+  );
+}
+
 function pushBlock(
   cells: EngineMapCell[],
   internal: MsInternalState,
@@ -1492,7 +1529,7 @@ function pushBlock(
       return false;
     }
   }
-  const moveResult = moveBlock(cells, internal, pos, dir, deferButtons, false, occupiedOriginPos);
+  const moveResult = moveBlockOnce(cells, internal, pos, dir, deferButtons, false, occupiedOriginPos);
   if (!movementDidSucceed(moveResult) && trackedBlock && !trackedBlock.hidden && !teleportPush) {
     const standingFloor = bottomTileIdOr(cells, pos, MS_TILE.Empty);
     if (standingFloor !== MS_TILE.Beartrap && standingFloor !== MS_TILE.CloneMachine && trackedBlock.floorMovement === "none") {
@@ -1503,7 +1540,7 @@ function pushBlock(
 }
 
 function advanceCloneMachineBlock(cells: EngineMapCell[], internal: MsInternalState, pos: number, dir: number): boolean {
-  return movementDidSucceed(moveBlock(cells, internal, pos, dir, false, true));
+  return movementDidSucceed(moveBlockOnce(cells, internal, pos, dir, false, true));
 }
 
 function creatureAtPos(internal: MsInternalState, pos: number, z = 1): MsTrackedCreature | undefined {
@@ -1539,7 +1576,7 @@ function resolveButtonFloorEffects(
           if (sourceIsCloneMachine) {
             advanceCloneMachineBlock(cells, internal, sourcePos, sourceDir);
           } else {
-            moveBlock(cells, internal, sourcePos, sourceDir, false, false);
+            moveBlockOnce(cells, internal, sourcePos, sourceDir, false, false);
           }
         },
         canCloneCreatureMove: (sourcePos, sourceId, sourceDir) =>
@@ -2479,20 +2516,113 @@ function createMsCreatureMovementContext(
   };
 }
 
+function msNonChipMovementStrategyId(id: number): "creature-like" | "block-like" {
+  return msActorMovementStrategyId(id) === "block-like" ? "block-like" : "creature-like";
+}
+
+function createMsChipMovementStrategyContext(): MsChipMovementStrategyContext<
+  MsInternalState,
+  EngineState["inventory"],
+  MsTickContext
+> {
+  return {
+    canStartMove: canMoveChip,
+    startMove: (moveCells, moveInternal, moveInventory, moveDir) =>
+      moveMsChipPlanarWithContext(createMsChipMovementContext(moveInternal, moveInventory), moveCells, moveDir),
+    startDownMove: (sourceCells, targetCells, moveInternal, moveInventory) =>
+      moveMsChipDownOneLayerWithContext(
+        createMsChipMovementContext(moveInternal, moveInventory),
+        sourceCells,
+        targetCells,
+      ),
+    startUpMove: (sourceCells, targetCells, moveInternal, moveInventory) =>
+      moveMsChipUpOneLayerWithContext(
+        createMsChipMovementContext(moveInternal, moveInventory),
+        sourceCells,
+        targetCells,
+      ),
+    runForcedMove: (tickContext, moveCells) => runFloorMovement(tickContext, moveCells),
+  };
+}
+
+function createMsCreatureMovementStrategyDispatchContext(): MsCreatureMovementStrategyContext<
+  MsTrackedCreature,
+  MsInternalState
+> {
+  return {
+    canStartMove: (moveCells, moveCreature, moveDir, moveInternal) =>
+      canMoveCreature(moveCells, moveCreature, moveDir, moveInternal),
+    startMove: (moveCells, moveCreature, moveDir, moveInternal) =>
+      moveMsCreaturePlanarWithContext(
+        createMsCreatureMovementContext(moveInternal),
+        moveCells,
+        moveCreature,
+        moveDir,
+        () => {
+          moveInternal.chipStatus = "collided";
+        },
+      ),
+    startDownMove: (_engine, moveSourceCells, moveTargetCells, _layerCellsByZ, moveCreature, moveInternal) =>
+      moveMsCreatureDownOneLayerWithContext(
+        createMsCreatureMovementContext(moveInternal),
+        moveSourceCells,
+        moveTargetCells,
+        moveCreature,
+        () => {
+          moveInternal.chipStatus = "collided";
+        },
+      ),
+    startUpMove: (moveEngine, moveSourceCells, moveTargetCells, moveLayerCellsByZ, moveCreature, moveInternal) => {
+      const tickContext = createMsTickContext(moveEngine, moveInternal, moveEngine.inventory, moveLayerCellsByZ);
+      return moveMsCreatureUpOneLayerWithContext(
+        createMsCreatureMovementContext(moveInternal, (trackedCreature) => {
+          syncMsCreatureAirFloorMovement(tickContext, trackedCreature);
+          syncMsCreatureElevatorFloorMovement(tickContext, trackedCreature);
+        }),
+        moveSourceCells,
+        moveTargetCells,
+        moveCreature,
+        () => {
+          moveInternal.chipStatus = "collided";
+        },
+        isValidElevatorDestinationFloor,
+      );
+    },
+  };
+}
+
+function createMsBlockMovementStrategyDispatchContext(): MsBlockMovementStrategyContext<
+  MsTrackedBlock,
+  MsInternalState
+> {
+  return {
+    canStartMove: (moveCells, moveInternal, movePos, moveDir) =>
+      canMoveBlockInto(
+        moveCells,
+        nextPosition(movePos, moveDir, MS_GRID_WIDTH),
+        moveDir,
+        -1,
+        moveInternal,
+      ),
+    startMove: moveBlock,
+    startUpMove: (engine, sourceCells, targetCells, moveLayerCellsByZ, block, moveInternal) =>
+      moveBlockUpOneLayer(engine, sourceCells, targetCells, moveLayerCellsByZ, block, moveInternal),
+  };
+}
+
 function moveCreatureOnce(
   cells: EngineMapCell[],
   creature: MsTrackedCreature,
   dir: number,
   internal: MsInternalState,
 ): MovementAttemptResult {
-  return moveMsCreaturePlanarWithContext(
-    createMsCreatureMovementContext(internal),
+  return startMsCreatureMoveByStrategy(
+    msNonChipMovementStrategyId(creature.id),
+    createMsCreatureMovementStrategyDispatchContext(),
     cells,
     creature,
     dir,
-    () => {
-      internal.chipStatus = "collided";
-    },
+    internal,
   );
 }
 
@@ -2504,14 +2634,15 @@ function moveCreatureDownOneLayer(
   creature: MsTrackedCreature,
   internal: MsInternalState,
 ): MovementAttemptResult {
-  return moveMsCreatureDownOneLayerWithContext(
-    createMsCreatureMovementContext(internal),
+  return startMsCreatureDownMoveByStrategy(
+    msNonChipMovementStrategyId(creature.id),
+    createMsCreatureMovementStrategyDispatchContext(),
+    engine,
     sourceCells,
     targetCells,
+    layerCellsByZ,
     creature,
-    () => {
-      internal.chipStatus = "collided";
-    },
+    internal,
   );
 }
 
@@ -2523,19 +2654,15 @@ function moveCreatureUpOneLayer(
   creature: MsTrackedCreature,
   internal: MsInternalState,
 ): MovementAttemptResult {
-  const tickContext = createMsTickContext(engine, internal, engine.inventory, layerCellsByZ);
-  return moveMsCreatureUpOneLayerWithContext(
-    createMsCreatureMovementContext(internal, (trackedCreature) => {
-      syncMsCreatureAirFloorMovement(tickContext, trackedCreature);
-      syncMsCreatureElevatorFloorMovement(tickContext, trackedCreature);
-    }),
+  return startMsCreatureUpMoveByStrategy(
+    msNonChipMovementStrategyId(creature.id),
+    createMsCreatureMovementStrategyDispatchContext(),
+    engine,
     sourceCells,
     targetCells,
+    layerCellsByZ,
     creature,
-    () => {
-      internal.chipStatus = "collided";
-    },
-    isValidElevatorDestinationFloor,
+    internal,
   );
 }
 
@@ -2922,7 +3049,16 @@ function processMsBlockFloorQueueEntry(
   } else if (block.floorMovement === "elevator") {
     const upperCells = msUpperRuntimeCells(layerCellsByZ, block.z);
     if (upperCells) {
-      const elevated = moveBlockUpOneLayer(engine, blockCells, upperCells, layerCellsByZ, block, internal);
+      const elevated = startMsBlockUpMoveByStrategy(
+        msNonChipMovementStrategyId(MS_TILE.Block),
+        createMsBlockMovementStrategyDispatchContext(),
+        engine,
+        blockCells,
+        upperCells,
+        layerCellsByZ,
+        block,
+        internal,
+      );
       soundEffects |= elevated.soundEffects;
       moved = movementDidSucceed(elevated);
     }
@@ -3205,7 +3341,14 @@ function moveChipOnce(
   inventory: EngineState["inventory"],
   dir: number,
 ): MovementAttemptResult {
-  return moveMsChipPlanarWithContext(createMsChipMovementContext(internal, inventory), cells, dir);
+  return startMsChipMoveByStrategy(
+    msActorMovementStrategyId(MS_TILE.Chip),
+    createMsChipMovementStrategyContext(),
+    cells,
+    internal,
+    inventory,
+    dir,
+  );
 }
 
 function moveChipDownOneLayer(
@@ -3214,7 +3357,14 @@ function moveChipDownOneLayer(
   internal: MsInternalState,
   inventory: EngineState["inventory"],
 ): MovementAttemptResult {
-  return moveMsChipDownOneLayerWithContext(createMsChipMovementContext(internal, inventory), sourceCells, targetCells);
+  return startMsChipDownMoveByStrategy(
+    msActorMovementStrategyId(MS_TILE.Chip),
+    createMsChipMovementStrategyContext(),
+    sourceCells,
+    targetCells,
+    internal,
+    inventory,
+  );
 }
 
 function elevatorDestinationFloor(cell: EngineMapCell): number {
@@ -3234,7 +3384,14 @@ function moveChipUpOneLayer(
   internal: MsInternalState,
   inventory: EngineState["inventory"],
 ): MovementAttemptResult {
-  return moveMsChipUpOneLayerWithContext(createMsChipMovementContext(internal, inventory), sourceCells, targetCells);
+  return startMsChipUpMoveByStrategy(
+    msActorMovementStrategyId(MS_TILE.Chip),
+    createMsChipMovementStrategyContext(),
+    sourceCells,
+    targetCells,
+    internal,
+    inventory,
+  );
 }
 
 function moveBlockUpOneLayer(
@@ -3339,7 +3496,16 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
     return soundEffects;
   }
   const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, internal.floorMovementDir);
-  if (canMoveChip(cells, internal, context.inventory, internal.floorMovementDir)) {
+  if (
+    canStartMsChipMoveByStrategy(
+      msActorMovementStrategyId(MS_TILE.Chip),
+      createMsChipMovementStrategyContext(),
+      cells,
+      internal,
+      context.inventory,
+      internal.floorMovementDir,
+    )
+  ) {
     soundEffects |= moveChipWithPushPickupReveal(
       context.engine,
       cells,
@@ -3361,7 +3527,16 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
     internal.lastSlipDir = internal.floorMovementDir;
     internal.chipDir = internal.floorMovementDir;
     updateChipTile(cells, internal);
-    if (canMoveChip(cells, internal, context.inventory, internal.floorMovementDir)) {
+    if (
+      canStartMsChipMoveByStrategy(
+        msActorMovementStrategyId(MS_TILE.Chip),
+        createMsChipMovementStrategyContext(),
+        cells,
+        internal,
+        context.inventory,
+        internal.floorMovementDir,
+      )
+    ) {
       soundEffects |= moveChipOnce(cells, internal, context.inventory, internal.floorMovementDir).soundEffects;
       refreshFloorMovement(cells, internal, context.inventory);
       internal.chipHasMoved = false;
@@ -3376,7 +3551,16 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
     internal.lastSlipDir = internal.floorMovementDir;
     internal.chipDir = internal.floorMovementDir;
     updateChipTile(cells, internal);
-    if (canMoveChip(cells, internal, context.inventory, internal.floorMovementDir)) {
+    if (
+      canStartMsChipMoveByStrategy(
+        msActorMovementStrategyId(MS_TILE.Chip),
+        createMsChipMovementStrategyContext(),
+        cells,
+        internal,
+        context.inventory,
+        internal.floorMovementDir,
+      )
+    ) {
       soundEffects |= moveChipOnce(cells, internal, context.inventory, internal.floorMovementDir).soundEffects;
       internal.chipHasMoved = false;
       return soundEffects;
@@ -3460,7 +3644,16 @@ function runManualMovement(
   internal.chipWait = 0;
   const pressedPermanentHiddenWallPos = findPressedMsPermanentHiddenWallPos(cells, internal.chipPos, dir);
   const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, dir);
-  if (!canMoveChip(cells, internal, inventory, dir)) {
+  if (
+    !canStartMsChipMoveByStrategy(
+      msActorMovementStrategyId(MS_TILE.Chip),
+      createMsChipMovementStrategyContext(),
+      cells,
+      internal,
+      inventory,
+      dir,
+    )
+  ) {
     if (pressedPermanentHiddenWallPos !== null) {
       addMsTileOverlay(engine, internal.chipZ ?? 1, pressedPermanentHiddenWallPos, "hidden-wall-reveal", HIDDEN_WALL_REVEAL_TTL);
     }
