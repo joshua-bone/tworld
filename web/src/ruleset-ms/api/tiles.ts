@@ -89,6 +89,7 @@ export const MS_TILE = {
   Swimming_Chip: 0x6c,
   Pushing_Chip: 0x70,
   Sandbag: 0x80,
+  Hook: 0x81,
 } as const;
 
 export const MS_FLOOR_STATE = {

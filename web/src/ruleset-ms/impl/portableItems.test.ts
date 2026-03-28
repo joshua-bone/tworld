@@ -35,6 +35,29 @@ function createInventory(): MsToolInventoryProjection {
   };
 }
 
+function createHookStore(): MsPortableToolStateStore {
+  return {
+    portableItems: [
+      {
+        serial: 1,
+        family: "hook",
+        tileId: MS_TILE.Hook,
+        inventorySlot: "tools",
+        state: { mode: "carried" },
+      },
+    ],
+    nextPortableItemSerial: 2,
+    primedToolDrop: null,
+    pendingToolDropAfterSettle: null,
+  };
+}
+
+function createHookInventory(): MsToolInventoryProjection {
+  return {
+    tools: [MS_TILE.Hook],
+  };
+}
+
 describe("ms portableItems lifecycle", () => {
   characterizePortableItemArchetypes("portable item archetypes", {
     expectedTileId: MS_TILE.Sandbag,
@@ -94,5 +117,19 @@ describe("ms portableItems lifecycle", () => {
     expect(store.portableItems).toEqual([]);
     projectMsPortableToolState(store, inventory);
     expect(inventory.tools).toEqual([0]);
+  });
+
+  it("supports a second portable item family without sandbag-specific assumptions", () => {
+    const store = createHookStore();
+    const inventory = createHookInventory();
+
+    expect(activateMsPortableTool(store, inventory, 1, 41)).toBe(true);
+    expect(findMsPortableToolAttachedToActor(store, 41)?.family).toBe("hook");
+    expect(detachMsPortableToolToDrop(store, inventory, 1, 9, 2, "primed")).toBe(true);
+    expect(store.primedToolDrop).toEqual({
+      tileId: MS_TILE.Hook,
+      pos: 9,
+      z: 2,
+    });
   });
 });

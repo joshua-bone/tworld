@@ -58,6 +58,7 @@ describe("MS catalog tile families", () => {
     expect(msInventorySlot(MS_TILE.Boots_Fire)).toBe("boots");
     expect(msInventoryIndex(MS_TILE.Boots_Fire)).toBe(2);
     expect(msPortableItemFamily(MS_TILE.Sandbag)).toBe("sandbag");
+    expect(msPortableItemFamily(MS_TILE.Hook)).toBe("hook");
     expect(msPortableItemFamily(MS_TILE.Key_Blue)).toBeNull();
     expect(msDoorKeyIndex(MS_TILE.Door_Yellow)).toBe(2);
     expect(msDoorKeyIndex(MS_TILE.Teleport)).toBeNull();

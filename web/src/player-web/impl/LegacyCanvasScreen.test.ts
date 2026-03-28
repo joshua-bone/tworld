@@ -258,6 +258,49 @@ describe("applyLegacyTileOverrides", () => {
     }
   });
 
+  it("supports a second portable item family using the same transparent override path", () => {
+    const baseCanvas = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
+    const fakeDrawImage = vi.fn();
+    const fakeContext = {
+      drawImage: fakeDrawImage,
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeContext),
+    } as unknown as HTMLCanvasElement;
+
+    const emptySprite: LegacyTileSprite = { image: baseCanvas, offsetX: 0, offsetY: 0, transparent: false };
+    const hookSprite: LegacyTileSprite = { image: baseCanvas, offsetX: 0, offsetY: 0, transparent: true };
+    const baseTileset: LegacyTileset = {
+      get: vi.fn((tileId: number) => (tileId === MS_TILE.Empty ? emptySprite : null)),
+      getCell: vi.fn(() => emptySprite),
+      getCellAnimationPeriod: vi.fn(() => 1),
+    };
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCanvas;
+        }),
+      });
+      const overridden = applyLegacyTileOverrides(baseTileset, new Map([[MS_TILE.Hook, hookSprite]]));
+
+      expect(overridden.getCell?.(MS_TILE.Hook, MS_TILE.Slide_East, 7)).toMatchObject({
+        transparent: false,
+        offsetX: 0,
+        offsetY: 0,
+      });
+      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Empty, MS_TILE.Slide_East, 7);
+      expect(fakeDrawImage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("composes transparent overrides over closed traps using the floor sprite order", () => {
     const baseCanvas = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const fakeDrawImage = vi.fn();

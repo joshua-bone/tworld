@@ -83,6 +83,27 @@ describe("applyMsChipEnterEffects", () => {
     expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
   });
 
+  it("collects hook portable tools through the same portable item store", () => {
+    const cells = [makeCell(MS_TILE.Hook)];
+    const inventory = makeInventory();
+    const portableTools = makePortableTools();
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, portableTools), 0);
+
+    expect(inventory.tools[0]).toBe(MS_TILE.Hook);
+    expect(portableTools.portableItems).toEqual([
+      {
+        serial: 1,
+        family: "hook",
+        tileId: MS_TILE.Hook,
+        inventorySlot: "tools",
+        state: { mode: "carried" },
+      },
+    ]);
+    expect(result.movementFloorTile.id).toBe(MS_TILE.Empty);
+    expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
+  });
+
   it("marks water death when Chip lacks water boots", () => {
     const chip = makeChipState();
 

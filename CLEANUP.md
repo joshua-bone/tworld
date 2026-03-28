@@ -367,7 +367,7 @@ Goal:
 Checklist:
 
 - [ ] implement one stateful actor family using the new seams
-- [ ] implement one portable-item family using the new seams
+- [x] implement one portable-item family using the new seams
 - [ ] forbid engine-hot-path branches for those elements outside the declared seam boundaries
 - [ ] add replay, undo, debug, and renderer coverage for both
 

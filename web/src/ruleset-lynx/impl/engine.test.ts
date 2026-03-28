@@ -3036,6 +3036,32 @@ describe("runLynxInputTrace", () => {
     expect(settledItem?.serial).toBe(primedItem?.serial);
   });
 
+  it("primes and settles a hook through the shared portable item flow", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Hook];
+
+    const primed = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(primed.state.inventory.tools).toEqual([0]);
+    expect(lynxPortableItems(primed.state).find((item) => item.state.mode === "primed")?.tileId).toBe(MS_TILE.Hook);
+
+    const moved = advanceLynxTicks(primed, 4, MS_DIRECTION.east);
+
+    expect(moved.chipPos).toBe(eastPos);
+    expect(moved.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Hook);
+  });
+
   it("preserves portable item identities across a replacement pickup", () => {
     const chipPos = 33;
     const pickupPos = 34;

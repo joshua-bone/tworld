@@ -34,6 +34,28 @@ function createInventory(): LynxToolInventoryProjection {
   };
 }
 
+function createHookStore(): LynxPortableToolStateStore {
+  return {
+    portableItems: [
+      {
+        serial: 1,
+        family: "hook",
+        tileId: MS_TILE.Hook,
+        inventorySlot: "tools",
+        state: { mode: "carried" },
+      },
+    ],
+    nextPortableItemSerial: 2,
+    primedToolDrop: null,
+  };
+}
+
+function createHookInventory(): LynxToolInventoryProjection {
+  return {
+    tools: [MS_TILE.Hook],
+  };
+}
+
 describe("lynx portableItems lifecycle", () => {
   characterizePortableItemArchetypes("portable item archetypes", {
     expectedTileId: MS_TILE.Sandbag,
@@ -93,5 +115,19 @@ describe("lynx portableItems lifecycle", () => {
     expect(store.portableItems).toEqual([]);
     projectLynxPortableToolState(store, inventory);
     expect(inventory.tools).toEqual([0]);
+  });
+
+  it("supports a second portable item family without sandbag-specific assumptions", () => {
+    const store = createHookStore();
+    const inventory = createHookInventory();
+
+    expect(activateLynxPortableTool(store, inventory, 1, 41)).toBe(true);
+    expect(findLynxPortableToolAttachedToActor(store, 41)?.family).toBe("hook");
+    expect(detachLynxPortableToolToDrop(store, inventory, 1, 9, 2)).toBe(true);
+    expect(store.primedToolDrop).toEqual({
+      tileId: MS_TILE.Hook,
+      pos: 9,
+      z: 2,
+    });
   });
 });

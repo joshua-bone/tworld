@@ -5752,6 +5752,38 @@ describe("MS engine regressions", () => {
     expect(settledItem?.serial).toBe(primedItem?.serial);
   });
 
+  it("primes and settles a hook through the shared portable item flow", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Hook];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
+      tileId: MS_TILE.Hook,
+      pos: chipPos,
+      z: 1,
+    });
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.engine.chip?.position.pos).toBe(eastPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Hook);
+  });
+
   it("consumes a dropped sandbag into dirt when Chip leaves water", () => {
     const cells = createEmptyCells();
     const chipPos = pos(12, 12);

@@ -293,7 +293,12 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
           const sandbagSprite = createLegacyArtworkSpriteFromFrame(expandedArtworkImage, sandbagFrame);
           const tileset = applyLegacyTileOverrides(
             buildLegacyTileset(canvas, ruleset),
-            sandbagSprite ? new Map([[MS_TILE.Sandbag, sandbagSprite]]) : new Map(),
+            sandbagSprite
+              ? new Map([
+                  [MS_TILE.Sandbag, sandbagSprite],
+                  [MS_TILE.Hook, sandbagSprite],
+                ])
+              : new Map(),
           );
           legacyTilesetCache.set(ruleset, tileset);
           resolve(tileset);
