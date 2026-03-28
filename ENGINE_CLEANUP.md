@@ -552,9 +552,9 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 
 ### EC2: Context Objects And Helper Boundaries
 
-- [ ] Introduce `MsTickContext` and `LynxTickContext`.
-- [ ] Replace the worst long-argument helper calls with context access.
-- [ ] No behavior changes.
+- [x] Introduce `MsTickContext` and `LynxTickContext`.
+- [x] Replace the worst long-argument helper calls with context access.
+- [x] No behavior changes.
 
 ### EC3: Shared Phase Recorder
 
