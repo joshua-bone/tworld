@@ -1,3 +1,13 @@
+import type {
+  ActorCapabilityPolicy,
+  ActorControlMode,
+  ActorGlobalProgressKind,
+  ActorHazardName,
+  ActorHazardResponse,
+  ActorItemCollectionKind,
+  ActorLocalInventoryMode,
+  ActorTraversalKind,
+} from "@game-core/api/actorCapabilities";
 import {
   createRulesetCatalog,
   type ActorDefinition,
@@ -496,6 +506,104 @@ function createMsTileDefinition(id: number): TileDefinition<number> {
   };
 }
 
+const MS_CHIP_ACTOR_CAPABILITIES = {
+  controlMode: "player-input",
+  localInventoryMode: "keys-boots-tools",
+  itemCollectionKind: "keys-boots-tools",
+  globalProgressKind: "collect-chips",
+  traversalKind: "chip",
+  blockedMoveKind: "stay",
+  trapHook: "default",
+  clonerHook: "default",
+  thiefHook: "steal-boots-tools",
+  airHook: "chip-support",
+  hazards: {
+    water: "destroy",
+    fire: "destroy",
+    bomb: "destroy",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+const MS_BLOCK_ACTOR_CAPABILITIES = {
+  controlMode: "passive",
+  localInventoryMode: "none",
+  itemCollectionKind: "none",
+  globalProgressKind: "none",
+  traversalKind: "block",
+  blockedMoveKind: "stay",
+  trapHook: "default",
+  clonerHook: "default",
+  thiefHook: "none",
+  airHook: "non-chip-support",
+  hazards: {
+    water: "transform",
+    fire: "ignore",
+    bomb: "transform",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+const MS_CREATURE_ACTOR_CAPABILITIES = {
+  controlMode: "ai",
+  localInventoryMode: "none",
+  itemCollectionKind: "none",
+  globalProgressKind: "none",
+  traversalKind: "creature",
+  blockedMoveKind: "stay",
+  trapHook: "default",
+  clonerHook: "default",
+  thiefHook: "none",
+  airHook: "non-chip-support",
+  hazards: {
+    water: "destroy",
+    fire: "destroy",
+    bomb: "destroy",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+const MS_WATER_IMMUNE_CREATURE_CAPABILITIES = {
+  ...MS_CREATURE_ACTOR_CAPABILITIES,
+  hazards: {
+    ...MS_CREATURE_ACTOR_CAPABILITIES.hazards,
+    water: "ignore",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+const MS_FIRE_IMMUNE_CREATURE_CAPABILITIES = {
+  ...MS_CREATURE_ACTOR_CAPABILITIES,
+  hazards: {
+    ...MS_CREATURE_ACTOR_CAPABILITIES.hazards,
+    fire: "ignore",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+const MS_FIRE_DENY_CREATURE_CAPABILITIES = {
+  ...MS_CREATURE_ACTOR_CAPABILITIES,
+  hazards: {
+    ...MS_CREATURE_ACTOR_CAPABILITIES.hazards,
+    fire: "deny",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+function defaultMsActorCapabilities(id: number): ActorCapabilityPolicy {
+  switch (id) {
+    case MS_TILE.Chip:
+    case MS_TILE.Swimming_Chip:
+    case MS_TILE.Pushing_Chip:
+      return MS_CHIP_ACTOR_CAPABILITIES;
+    case MS_TILE.Block:
+      return MS_BLOCK_ACTOR_CAPABILITIES;
+    case MS_TILE.Glider:
+      return MS_WATER_IMMUNE_CREATURE_CAPABILITIES;
+    case MS_TILE.Fireball:
+      return MS_FIRE_IMMUNE_CREATURE_CAPABILITIES;
+    case MS_TILE.Bug:
+    case MS_TILE.Walker:
+      return MS_FIRE_DENY_CREATURE_CAPABILITIES;
+    default:
+      return MS_CREATURE_ACTOR_CAPABILITIES;
+  }
+}
+
 function createMsActorDefinition(id: number): ActorDefinition<number> {
   const name = msTileConstName(id);
   const tags =
@@ -514,6 +622,7 @@ function createMsActorDefinition(id: number): ActorDefinition<number> {
     code: `ms:${name.toLowerCase()}`,
     name: humanizeMsTileName(name),
     tags,
+    capabilities: defaultMsActorCapabilities(id),
   };
 }
 
@@ -626,19 +735,68 @@ export function msActorHasTag(id: number, tag: ActorTag): boolean {
   return msActorDefinition(id)?.tags.includes(tag) ?? false;
 }
 
+export function msActorCapabilityPolicy(id: number): ActorCapabilityPolicy {
+  return msActorDefinition(id)?.capabilities ?? MS_CREATURE_ACTOR_CAPABILITIES;
+}
+
+export function msActorControlMode(id: number): ActorControlMode {
+  return msActorCapabilityPolicy(id).controlMode;
+}
+
+export function msActorLocalInventoryMode(id: number): ActorLocalInventoryMode {
+  return msActorCapabilityPolicy(id).localInventoryMode;
+}
+
+export function msActorItemCollectionKind(id: number): ActorItemCollectionKind {
+  return msActorCapabilityPolicy(id).itemCollectionKind;
+}
+
+export function msActorGlobalProgressKind(id: number): ActorGlobalProgressKind {
+  return msActorCapabilityPolicy(id).globalProgressKind;
+}
+
+export function msActorTraversalKind(id: number): ActorTraversalKind {
+  return msActorCapabilityPolicy(id).traversalKind;
+}
+
+export function msActorEntryMask(tileId: number, actorId: number): number {
+  switch (msActorTraversalKind(actorId)) {
+    case "chip":
+      return msChipMovementMask(tileId);
+    case "block":
+      return msBlockMovementMask(tileId);
+    default:
+      return msCreatureMovementMask(tileId);
+  }
+}
+
+export function msActorHazardResponse(actorId: number, hazard: ActorHazardName): ActorHazardResponse {
+  return msActorCapabilityPolicy(actorId).hazards[hazard];
+}
+
 export function msActorArrivalAction(tileId: number, actorId: number): MsActorArrivalAction {
   if (tileId === MS_TILE.Water) {
-    return actorId === MS_TILE.Block
-      ? "block-water"
-      : msActorHasTag(actorId, "water-immune")
-        ? "none"
-        : "creature-water";
+    switch (msActorHazardResponse(actorId, "water")) {
+      case "transform":
+        return "block-water";
+      case "destroy":
+        return "creature-water";
+      default:
+        return "none";
+    }
   }
   if (tileId === MS_TILE.Fire) {
-    return actorId === MS_TILE.Block || msActorHasTag(actorId, "fire-immune") ? "none" : "creature-fire";
+    return msActorHazardResponse(actorId, "fire") === "destroy" ? "creature-fire" : "none";
   }
   if (tileId === MS_TILE.Bomb) {
-    return actorId === MS_TILE.Block ? "block-bomb" : "creature-bomb";
+    switch (msActorHazardResponse(actorId, "bomb")) {
+      case "transform":
+        return "block-bomb";
+      case "destroy":
+        return "creature-bomb";
+      default:
+        return "none";
+    }
   }
   return "none";
 }

@@ -14,8 +14,8 @@ The goal is to avoid tile-id conditionals in engine hot paths and avoid passing 
 - [x] Make stable runtime entity identity the source of truth for portable items
 - [x] Make actor-local inventory and collection rules policy-driven
 - [x] Keep global level progress such as `chipsNeeded` separate from portable-item and actor-local inventory state
-- [ ] Make controller, traversal, and collision behavior policy-driven
-- [ ] Preserve real MS vs Lynx differences at the ruleset layer
+- [x] Make controller, traversal, and collision behavior policy-driven
+- [x] Preserve real MS vs Lynx differences at the ruleset layer
 
 ## Core Architecture
 
@@ -105,11 +105,11 @@ This seam should answer questions such as:
 
 ### PR5: Controller and Actor Capability Policy
 
-- [ ] Introduce typed ruleset policy for actor control mode
-- [ ] Support at least `AI-controlled`, `player-input-controlled`, and `thrown / ballistic` actors
-- [ ] Add typed ruleset policy for collection rules, traversal rules, collision rules, blocked-move outcome, and clone / thief / trap / air / cloner hooks
-- [ ] Add typed hooks for actor-driven global progress effects such as chip collection, separate from actor-local inventory ownership
-- [ ] Keep policy data ruleset-specific even when the seam shape is shared
+- [x] Introduce typed ruleset policy for actor control mode
+- [x] Support at least `AI-controlled`, `player-input-controlled`, and `thrown / ballistic` actors
+- [x] Add typed ruleset policy for collection rules, traversal rules, collision rules, blocked-move outcome, and clone / thief / trap / air / cloner hooks
+- [x] Add typed hooks for actor-driven global progress effects such as chip collection, separate from actor-local inventory ownership
+- [x] Keep policy data ruleset-specific even when the seam shape is shared
 
 ### PR6: Bowling Ball in MS
 

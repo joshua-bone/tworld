@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  lynxActorCapabilityPolicy,
+  lynxActorControlMode,
+  lynxActorEntryMask,
+  lynxActorGlobalProgressKind,
+  lynxActorHazardResponse,
   lynxActorHasTag,
+  lynxActorItemCollectionKind,
+  lynxActorLocalInventoryMode,
+  lynxActorTraversalKind,
   lynxArrivalAnimationKind,
   lynxButtonAction,
   lynxBlockMovementMask,
@@ -116,6 +124,16 @@ describe("Lynx ruleset catalog", () => {
     expect(lynxActorHasTag(MS_TILE.Fireball, "fire-immune")).toBe(true);
     expect(lynxActorHasTag(MS_TILE.Block, "block")).toBe(true);
     expect(lynxActorHasTag(MS_TILE.Block, "fire-immune")).toBe(true);
+    expect(lynxActorCapabilityPolicy(MS_TILE.Chip).controlMode).toBe("player-input");
+    expect(lynxActorControlMode(MS_TILE.Block)).toBe("passive");
+    expect(lynxActorLocalInventoryMode(MS_TILE.Chip)).toBe("keys-boots-tools");
+    expect(lynxActorItemCollectionKind(MS_TILE.Chip)).toBe("keys-boots-tools");
+    expect(lynxActorGlobalProgressKind(MS_TILE.Chip)).toBe("collect-chips");
+    expect(lynxActorTraversalKind(MS_TILE.Block)).toBe("block");
+    expect(lynxActorEntryMask(MS_TILE.Gravel, MS_TILE.Block)).toBe(lynxBlockMovementMask(MS_TILE.Gravel));
+    expect(lynxActorEntryMask(MS_TILE.Door_Blue, MS_TILE.Chip)).toBe(lynxChipMovementMask(MS_TILE.Door_Blue));
+    expect(lynxActorHazardResponse(MS_TILE.Glider, "water")).toBe("ignore");
+    expect(lynxActorHazardResponse(MS_TILE.Ball, "fire")).toBe("deny");
   });
 
   it("provides creature arrival and floor-sound policy", () => {

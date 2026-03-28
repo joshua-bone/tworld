@@ -42,12 +42,14 @@ import {
 } from "@game-core/api/turnPhases";
 import { advanceTimer, createInitialEngineTimer } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
+import { actorCollectionAllowsSlot, actorCollectsChips } from "@game-core/api/actorCapabilities";
 import {
   actorInventoryClearBoots,
   actorInventoryCollectIndexedItem,
   actorInventoryHasBoot,
   actorInventoryHasKey,
   actorInventoryUseKey,
+  createNoActorLocalInventoryOwner,
   createKeysBootsToolsActorLocalInventoryOwner,
   type ActorKeysBootsToolsInventory,
   type ActorLocalInventoryOwner,
@@ -81,12 +83,16 @@ import {
   type MsLevel,
 } from "@ruleset-ms/api/level";
 import {
+  msActorEntryMask,
+  msActorGlobalProgressKind,
+  msActorHazardResponse,
+  msActorItemCollectionKind,
+  msActorLocalInventoryMode,
   msActorArrivalAction,
   msBlockMovementMask,
   msButtonAction,
   msChipMovementMask,
   msChipEnterAction,
-  msCreatureMovementMask,
   msDoorKeyIndex,
   msExitMovementMask,
   msIceWallTurn,
@@ -166,7 +172,9 @@ interface MsPortableItem {
 }
 
 function msChipInventoryOwner(inventory: MsChipLocalInventoryProjection): ActorLocalInventoryOwner {
-  return createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory);
+  return msActorLocalInventoryMode(MS_TILE.Chip) === "keys-boots-tools"
+    ? createKeysBootsToolsActorLocalInventoryOwner("chip", inventory as ActorKeysBootsToolsInventory)
+    : createNoActorLocalInventoryOwner("chip");
 }
 
 export interface MsTrackedBlock {
@@ -1577,10 +1585,10 @@ function canMoveCreatureWithOptions(
       return blockingCreature !== undefined && blockingCreature.dir === creature.dir;
     }
   }
-  if ((msCreatureMovementMask(floor) & dir) === 0) {
+  if ((msActorEntryMask(floor, creature.id) & dir) === 0) {
     return false;
   }
-  if (!ignoreFireCheck && floor === MS_TILE.Fire && (creature.id === MS_TILE.Bug || creature.id === MS_TILE.Walker)) {
+  if (!ignoreFireCheck && floor === MS_TILE.Fire && msActorHazardResponse(creature.id, "fire") === "deny") {
     return false;
   }
   if (cells[to]!.bottom.id === MS_TILE.CloneMachine) {
@@ -4001,6 +4009,8 @@ function applyMsChipEntryEffects(
   let movementFloorTile = floorTileBeforeMove;
   const floor = floorTileBeforeMove.id;
   const chipInventory = msChipInventoryOwner(inventory);
+  const chipItemCollectionKind = msActorItemCollectionKind(MS_TILE.Chip);
+  const chipGlobalProgressKind = msActorGlobalProgressKind(MS_TILE.Chip);
   let enteredTeleport = false;
   let soundEffects = 0;
 
@@ -4009,7 +4019,9 @@ function applyMsChipEntryEffects(
       popTile(cells, nextPos);
       break;
     case "collect-chip":
-      inventory.chipsNeeded = Math.max(0, inventory.chipsNeeded - 1);
+      if (actorCollectsChips(chipGlobalProgressKind)) {
+        inventory.chipsNeeded = Math.max(0, inventory.chipsNeeded - 1);
+      }
       popTile(cells, nextPos);
       soundEffects |= 1 << MS_SOUND.IcCollected;
       break;
@@ -4032,7 +4044,7 @@ function applyMsChipEntryEffects(
     case "collect-item": {
       const slot = msInventorySlot(floor);
       const index = msInventoryIndex(floor);
-      if (slot !== null && index !== null) {
+      if (slot !== null && index !== null && actorCollectionAllowsSlot(chipItemCollectionKind, slot)) {
         if (slot === "tools") {
           queueMsToolInventoryReplacement(internal, inventory, floor, nextPos, runtimeCellZ(cells, nextPos));
         } else {

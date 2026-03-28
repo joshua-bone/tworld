@@ -1,6 +1,5 @@
+import type { ActorLocalInventoryMode } from "@game-core/api/actorCapabilities";
 import type { InventorySlots, ToolInventorySlots } from "@game-core/api/model";
-
-export type ActorLocalInventoryMode = "none" | "keys-boots" | "keys-boots-tools";
 
 export interface ActorKeysBootsInventory {
   keys: InventorySlots;

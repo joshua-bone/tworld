@@ -1,3 +1,5 @@
+import type { ActorCapabilityPolicy } from "./actorCapabilities";
+
 export type TileTag =
   | "walkable"
   | "blocking"
@@ -62,6 +64,7 @@ export interface ActorDefinition<TActorId extends number = number> {
   code: string;
   name: string;
   tags: readonly ActorTag[];
+  capabilities: ActorCapabilityPolicy;
 }
 
 export interface RulesetCatalog<TTileId extends number = number, TActorId extends number = number> {

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  msActorCapabilityPolicy,
+  msActorControlMode,
+  msActorEntryMask,
+  msActorGlobalProgressKind,
+  msActorHazardResponse,
   msActorArrivalAction,
   msActorHasTag,
+  msActorItemCollectionKind,
+  msActorLocalInventoryMode,
+  msActorTraversalKind,
   msBlockMovementMask,
   msButtonAction,
   msChipMovementMask,
@@ -91,6 +99,16 @@ describe("MS ruleset catalog", () => {
     expect(msActorHasTag(MS_TILE.Fireball, "fire-immune")).toBe(true);
     expect(msActorHasTag(MS_TILE.Glider, "water-immune")).toBe(true);
     expect(msActorHasTag(MS_TILE.Chip, "chip")).toBe(true);
+    expect(msActorCapabilityPolicy(MS_TILE.Chip).controlMode).toBe("player-input");
+    expect(msActorControlMode(MS_TILE.Bug)).toBe("ai");
+    expect(msActorLocalInventoryMode(MS_TILE.Chip)).toBe("keys-boots-tools");
+    expect(msActorItemCollectionKind(MS_TILE.Chip)).toBe("keys-boots-tools");
+    expect(msActorGlobalProgressKind(MS_TILE.Chip)).toBe("collect-chips");
+    expect(msActorTraversalKind(MS_TILE.Block)).toBe("block");
+    expect(msActorEntryMask(MS_TILE.Dirt, MS_TILE.Block)).toBe(msBlockMovementMask(MS_TILE.Dirt));
+    expect(msActorEntryMask(MS_TILE.Door_Blue, MS_TILE.Chip)).toBe(msChipMovementMask(MS_TILE.Door_Blue));
+    expect(msActorHazardResponse(MS_TILE.Glider, "water")).toBe("ignore");
+    expect(msActorHazardResponse(MS_TILE.Bug, "fire")).toBe("deny");
     expect(msIsOverlayFloorTile(MS_TILE.Key_Red)).toBe(true);
     expect(msIsOverlayFloorTile(MS_TILE.Bug)).toBe(true);
     expect(msPreservesUnderlyingFloor(MS_TILE.Empty)).toBe(true);

@@ -1,3 +1,13 @@
+import type {
+  ActorCapabilityPolicy,
+  ActorControlMode,
+  ActorGlobalProgressKind,
+  ActorHazardName,
+  ActorHazardResponse,
+  ActorItemCollectionKind,
+  ActorLocalInventoryMode,
+  ActorTraversalKind,
+} from "@game-core/api/actorCapabilities";
 import {
   createRulesetCatalog,
   type ActorDefinition,
@@ -553,6 +563,93 @@ function createLynxTileDefinition(id: number): TileDefinition<number> {
   };
 }
 
+const LYNX_CHIP_ACTOR_CAPABILITIES = {
+  controlMode: "player-input",
+  localInventoryMode: "keys-boots-tools",
+  itemCollectionKind: "keys-boots-tools",
+  globalProgressKind: "collect-chips",
+  traversalKind: "chip",
+  blockedMoveKind: "stay",
+  trapHook: "default",
+  clonerHook: "default",
+  thiefHook: "steal-boots-tools",
+  airHook: "chip-support",
+  hazards: {
+    water: "destroy",
+    fire: "destroy",
+    bomb: "destroy",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+const LYNX_BLOCK_ACTOR_CAPABILITIES = {
+  controlMode: "passive",
+  localInventoryMode: "none",
+  itemCollectionKind: "none",
+  globalProgressKind: "none",
+  traversalKind: "block",
+  blockedMoveKind: "stay",
+  trapHook: "default",
+  clonerHook: "default",
+  thiefHook: "none",
+  airHook: "non-chip-support",
+  hazards: {
+    water: "transform",
+    fire: "ignore",
+    bomb: "transform",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+const LYNX_CREATURE_ACTOR_CAPABILITIES = {
+  controlMode: "ai",
+  localInventoryMode: "none",
+  itemCollectionKind: "none",
+  globalProgressKind: "none",
+  traversalKind: "creature",
+  blockedMoveKind: "stay",
+  trapHook: "default",
+  clonerHook: "default",
+  thiefHook: "none",
+  airHook: "non-chip-support",
+  hazards: {
+    water: "destroy",
+    fire: "deny",
+    bomb: "destroy",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+const LYNX_WATER_IMMUNE_CREATURE_CAPABILITIES = {
+  ...LYNX_CREATURE_ACTOR_CAPABILITIES,
+  hazards: {
+    ...LYNX_CREATURE_ACTOR_CAPABILITIES.hazards,
+    water: "ignore",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+const LYNX_FIRE_IMMUNE_CREATURE_CAPABILITIES = {
+  ...LYNX_CREATURE_ACTOR_CAPABILITIES,
+  hazards: {
+    ...LYNX_CREATURE_ACTOR_CAPABILITIES.hazards,
+    fire: "ignore",
+  },
+} as const satisfies ActorCapabilityPolicy;
+
+function defaultLynxActorCapabilities(id: number): ActorCapabilityPolicy {
+  switch (id) {
+    case MS_TILE.Chip:
+    case MS_TILE.Swimming_Chip:
+    case MS_TILE.Pushing_Chip:
+      return LYNX_CHIP_ACTOR_CAPABILITIES;
+    case MS_TILE.Block:
+      return LYNX_BLOCK_ACTOR_CAPABILITIES;
+    case MS_TILE.Glider:
+      return LYNX_WATER_IMMUNE_CREATURE_CAPABILITIES;
+    case MS_TILE.Fireball:
+      return LYNX_FIRE_IMMUNE_CREATURE_CAPABILITIES;
+    default:
+      return LYNX_CREATURE_ACTOR_CAPABILITIES;
+  }
+}
+
 function createLynxActorDefinition(id: number): ActorDefinition<number> {
   const name = lynxTileConstName(id);
   const tags =
@@ -571,6 +668,7 @@ function createLynxActorDefinition(id: number): ActorDefinition<number> {
     code: `lynx:${name.toLowerCase()}`,
     name: humanizeLynxTileName(name),
     tags,
+    capabilities: defaultLynxActorCapabilities(id),
   };
 }
 
@@ -683,6 +781,45 @@ export function lynxActorHasTag(id: number, tag: ActorTag): boolean {
   return lynxActorDefinition(id)?.tags.includes(tag) ?? false;
 }
 
+export function lynxActorCapabilityPolicy(id: number): ActorCapabilityPolicy {
+  return lynxActorDefinition(id)?.capabilities ?? LYNX_CREATURE_ACTOR_CAPABILITIES;
+}
+
+export function lynxActorControlMode(id: number): ActorControlMode {
+  return lynxActorCapabilityPolicy(id).controlMode;
+}
+
+export function lynxActorLocalInventoryMode(id: number): ActorLocalInventoryMode {
+  return lynxActorCapabilityPolicy(id).localInventoryMode;
+}
+
+export function lynxActorItemCollectionKind(id: number): ActorItemCollectionKind {
+  return lynxActorCapabilityPolicy(id).itemCollectionKind;
+}
+
+export function lynxActorGlobalProgressKind(id: number): ActorGlobalProgressKind {
+  return lynxActorCapabilityPolicy(id).globalProgressKind;
+}
+
+export function lynxActorTraversalKind(id: number): ActorTraversalKind {
+  return lynxActorCapabilityPolicy(id).traversalKind;
+}
+
+export function lynxActorEntryMask(tileId: number, actorId: number): number {
+  switch (lynxActorTraversalKind(actorId)) {
+    case "chip":
+      return lynxChipMovementMask(tileId);
+    case "block":
+      return lynxBlockMovementMask(tileId);
+    default:
+      return lynxCreatureMovementMask(tileId);
+  }
+}
+
+export function lynxActorHazardResponse(actorId: number, hazard: ActorHazardName): ActorHazardResponse {
+  return lynxActorCapabilityPolicy(actorId).hazards[hazard];
+}
+
 export function lynxToggledWallTileId(id: number): number {
   if (id === MS_TILE.SwitchWall_Open || id === MS_TILE.SwitchWall_Closed) {
     return id ^ (MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed);
@@ -731,14 +868,24 @@ export function lynxCreatureArrivalAction(tileId: number, actorId: number): Lynx
     return "clear-key-blue";
   }
   if (tileId === MS_TILE.Water) {
-    return actorId === MS_TILE.Block
-      ? "block-water"
-      : lynxActorHasTag(actorId, "water-immune")
-        ? "none"
-        : "creature-water";
+    switch (lynxActorHazardResponse(actorId, "water")) {
+      case "transform":
+        return "block-water";
+      case "destroy":
+        return "creature-water";
+      default:
+        return "none";
+    }
   }
   if (tileId === MS_TILE.Bomb) {
-    return actorId === MS_TILE.Block ? "block-bomb" : "creature-bomb";
+    switch (lynxActorHazardResponse(actorId, "bomb")) {
+      case "transform":
+        return "block-bomb";
+      case "destroy":
+        return "creature-bomb";
+      default:
+        return "none";
+    }
   }
   return "none";
 }
