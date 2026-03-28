@@ -8,12 +8,7 @@ import type {
 } from "@game-runtime/ports/InteractiveGameEngine";
 import type { LevelRepository } from "@level-catalog/ports/LevelRepository";
 import {
-  createHistoricalReplayRestoreState,
-  createLiveRestoreState,
-  createPausedRestoreState,
   fromInteractiveHandle,
-  toInteractiveHandle,
-  type InteractiveSessionRuntimeState,
 } from "@game-runtime/impl/interactiveHandle";
 import {
   boardPositionToGridPosition,
@@ -24,9 +19,7 @@ import {
   describeMsActorName,
   formatInteractiveTickSeconds,
 } from "@game-runtime/impl/interactiveSessionRun";
-import { projectInteractiveGameSession } from "@game-runtime/impl/projectInteractiveGameSession";
-import { projectInteractiveSessionHistory } from "@game-runtime/impl/projectInteractiveSessionHistory";
-import { GAME_INPUT_CODES, resolveGameInputCode, type InteractiveInput } from "@game-core/api/command";
+import type { InteractiveInput } from "@game-core/api/command";
 import { decodeMsLevelGroupData, levelHintTextAtZ, prepareMsLevel } from "@ruleset-ms/api/level";
 import {
   advanceMsInteractiveSession,
@@ -48,13 +41,29 @@ import {
   restoreMsUndoHistoryToTick,
 } from "@undo-runtime/impl/msHistory";
 import type { MsUndoHistory } from "@undo-runtime/impl/msHistory";
-import { latestUndoTick, nextUndoTickEvent } from "@undo-runtime/impl/history";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
+import {
+  advanceInteractiveSessionWithHistory,
+  assertAdapterRuleset,
+  createInteractiveAdapterRuntime,
+  projectInteractiveAdapterSession,
+  restoreInteractiveSessionToTick,
+  resumeInteractiveSessionFromHistory,
+  withPreparedInteractiveLevel,
+  type InteractiveAdapterHistoryConfig,
+  type InteractiveAdapterProjectionConfig,
+  type InteractiveAdapterRuntime,
+} from "@game-runtime/impl/interactiveAdapterSkeleton";
 
-type MsInteractiveRuntime = InteractiveSessionRuntimeState<MsInteractiveSessionState, MsUndoHistory> & {
-  level: ReturnType<typeof prepareMsLevel>;
-  undoUsedCount: number;
-};
+type MsInteractiveRuntime = InteractiveAdapterRuntime<
+  MsInteractiveSessionState,
+  ReturnType<typeof prepareMsLevel>,
+  MsUndoHistory
+>;
+
+function prepareLoadedMsLevel(loaded: Awaited<ReturnType<LevelRepository["loadLevel"]>>) {
+  return prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
+}
 
 function findMsCollisionCause(state: MsInteractiveSessionState["state"]): InteractiveGameSessionEndCause {
   const chipPos = boardPositionToGridPosition(state.internal.chipPos, state.internal.chipZ ?? 1);
@@ -178,42 +187,38 @@ function projectMsRunState(
   }
 }
 
+const msProjectionConfig: InteractiveAdapterProjectionConfig<
+  MsInteractiveSessionState,
+  ReturnType<typeof prepareMsLevel>,
+  MsUndoHistory
+> = {
+  getCurrentTick: (token) => token.state.engine.timer.currentTime,
+  projectFrame: (token, phase) => projectMsInteractiveFrame(token, phase),
+  projectHintText: (runtime) => levelHintTextAtZ(runtime.level, runtime.token.state.internal.chipZ) || null,
+  projectRunState: (request, runtime, frame) => projectMsRunState(request, runtime, frame),
+};
+
 function projectMsSession(
   session: Pick<InteractiveGameSession, "request" | "mode">,
   runtime: MsInteractiveRuntime,
   phase: "initial" | "tick",
 ): InteractiveGameSession {
-  const frame = projectMsInteractiveFrame(runtime.token, phase);
-  return projectInteractiveGameSession({
-    request: session.request,
-    mode: session.mode,
-    hintText: levelHintTextAtZ(runtime.level, runtime.token.state.internal.chipZ) || null,
-    frame,
-    history: projectInteractiveSessionHistory(
-      runtime.history,
-      runtime.token.state.engine.timer.currentTime,
-      runtime.restoreState,
-    ),
-    run: projectMsRunState(session.request, runtime, frame),
-    recordedMoves: runtime.token.recordedMoves,
-    handle: toInteractiveHandle(runtime),
-  });
+  return projectInteractiveAdapterSession(session, runtime, phase, msProjectionConfig);
 }
 
-function advanceLiveMsRuntime(
-  runtime: MsInteractiveRuntime,
-  inputCode: number,
-  source: "manual" | "replay",
-): MsInteractiveRuntime {
-  const token = advanceMsInteractiveSession(runtime.token, inputCode);
-  return {
-    token,
-    level: runtime.level,
-    undoUsedCount: runtime.undoUsedCount,
-    history: recordMsUndoTick(runtime.history, token, token.lastInput.inputCode, source),
-    restoreState: createLiveRestoreState(),
-  };
-}
+const msHistoryConfig: InteractiveAdapterHistoryConfig<
+  MsInteractiveSessionState,
+  ReturnType<typeof prepareMsLevel>,
+  MsUndoHistory
+> = {
+  advanceToken: (token, inputCode) => advanceMsInteractiveSession(token, inputCode),
+  forkUndoHistory: (history, token) => forkMsUndoHistory(history, token),
+  getCurrentTick: (token) => token.state.engine.timer.currentTime,
+  projectSession: (session, runtime, phase) => projectMsSession(session, runtime, phase),
+  recordUndoTick: (history, token, _inputCode, source) =>
+    recordMsUndoTick(history, token, token.lastInput.inputCode, source),
+  restoreUndoHistoryToTick: (history, targetTick) => restoreMsUndoHistoryToTick(history, targetTick),
+};
 
 export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort, InteractiveGameEnginePort {
   constructor(private readonly levels: LevelRepository) {}
@@ -227,13 +232,9 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     commands: Parameters<GameEnginePort["runInputTrace"]>[1],
     maxTicks: number,
   ) {
-    if (request.ruleset !== "MS") {
-      throw new Error(`TS MS engine does not support ruleset ${request.ruleset}`);
-    }
-
-    const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-    return runMsInputTrace(loaded.request, level, commands, maxTicks);
+    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+      runMsInputTrace(loaded.request, level, commands, maxTicks),
+    );
   }
 
   async runReplayTrace(
@@ -241,13 +242,9 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     replay: Parameters<GameEnginePort["runReplayTrace"]>[1],
     maxTicks: number,
   ): ReturnType<GameEnginePort["runReplayTrace"]> {
-    if (request.ruleset !== "MS") {
-      throw new Error(`TS MS engine does not support ruleset ${request.ruleset}`);
-    }
-
-    const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-    return runMsReplayTrace(loaded.request, level, replay, maxTicks);
+    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+      runMsReplayTrace(loaded.request, level, replay, maxTicks),
+    );
   }
 
   async runInputTraceDebug(
@@ -255,13 +252,9 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     commands: Parameters<DebugGameEnginePort["runInputTraceDebug"]>[1],
     maxTicks: number,
   ) {
-    if (request.ruleset !== "MS") {
-      throw new Error(`TS MS engine does not support ruleset ${request.ruleset}`);
-    }
-
-    const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-    return runMsInputTraceDebug(loaded.request, level, commands, maxTicks);
+    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+      runMsInputTraceDebug(loaded.request, level, commands, maxTicks),
+    );
   }
 
   async runReplayTraceDebug(
@@ -269,13 +262,9 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     replay: Parameters<DebugGameEnginePort["runReplayTraceDebug"]>[1],
     maxTicks: number,
   ) {
-    if (request.ruleset !== "MS") {
-      throw new Error(`TS MS engine does not support ruleset ${request.ruleset}`);
-    }
-
-    const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-    return runMsReplayTraceDebug(loaded.request, level, replay, maxTicks);
+    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+      runMsReplayTraceDebug(loaded.request, level, replay, maxTicks),
+    );
   }
 
   async runReplayTraceDebugWindow(
@@ -285,46 +274,24 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     windowStart: number,
     windowEndExclusive: number,
   ) {
-    if (request.ruleset !== "MS") {
-      throw new Error(`TS MS engine does not support ruleset ${request.ruleset}`);
-    }
-
-    const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-    return runMsReplayTraceDebugWindow(loaded.request, level, replay, maxTicks, windowStart, windowEndExclusive);
+    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+      runMsReplayTraceDebugWindow(loaded.request, level, replay, maxTicks, windowStart, windowEndExclusive),
+    );
   }
 
   async startSession(
     request: Parameters<InteractiveGameEnginePort["startSession"]>[0],
     options?: Parameters<InteractiveGameEnginePort["startSession"]>[1],
   ): Promise<InteractiveGameSession> {
-    if (request.ruleset !== "MS") {
-      throw new Error(`TS MS engine does not support ruleset ${request.ruleset}`);
-    }
-
-    const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-    const token = createMsInteractiveSession(
-      request,
-      level,
-      options?.msStepping === undefined ? null : { stepping: options.msStepping },
-    );
-    const runtime: MsInteractiveRuntime = {
-      token,
-      level,
-      undoUsedCount: 0,
-      history: createMsUndoHistory(token, options?.undoSettings ?? 8),
-      restoreState: createLiveRestoreState(),
-    };
-
-    return projectMsSession(
-      {
+    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, async (_loaded, level) => {
+      const token = createMsInteractiveSession(
         request,
-        mode: "manual",
-      },
-      runtime,
-      "initial",
-    );
+        level,
+        options?.msStepping === undefined ? null : { stepping: options.msStepping },
+      );
+      const runtime = createInteractiveAdapterRuntime(token, level, createMsUndoHistory, options?.undoSettings);
+      return projectMsSession({ request, mode: "manual" }, runtime, "initial");
+    });
   }
 
   async startReplaySession(
@@ -332,146 +299,31 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     replay: ReplaySolutionPayload,
     options?: Parameters<InteractiveGameEnginePort["startReplaySession"]>[2],
   ): Promise<InteractiveGameSession> {
-    if (request.ruleset !== "MS") {
-      throw new Error(`TS MS engine does not support ruleset ${request.ruleset}`);
-    }
-
-    const loaded = await this.levels.loadLevel(request);
-    const level = prepareMsLevel(decodeMsLevelGroupData(loaded.layerData, loaded.levelData));
-    const token = createMsReplaySession(request, level, replay);
-    const runtime: MsInteractiveRuntime = {
-      token,
-      level,
-      undoUsedCount: 0,
-      history: createMsUndoHistory(token, options?.undoSettings ?? 8),
-      restoreState: createLiveRestoreState(),
-    };
-
-    return projectMsSession(
-      {
-        request,
-        mode: "replay",
-      },
-      runtime,
-      "initial",
-    );
+    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, async (_loaded, level) => {
+      const token = createMsReplaySession(request, level, replay);
+      const runtime = createInteractiveAdapterRuntime(token, level, createMsUndoHistory, options?.undoSettings);
+      return projectMsSession({ request, mode: "replay" }, runtime, "initial");
+    });
   }
 
   async advanceSession(
     session: InteractiveGameSession,
     input: InteractiveInput,
   ): Promise<InteractiveGameSession> {
+    assertAdapterRuleset(session.request, "MS", "TS MS engine");
     const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
-    const inputCode = resolveGameInputCode(input);
-    const currentTick = runtime.token.state.engine.timer.currentTime;
-
-    if (runtime.restoreState.mode === "restored-paused") {
-      if (inputCode === GAME_INPUT_CODES.none) {
-        return projectMsSession(session, runtime, "tick");
-      }
-
-      const futureTick = nextUndoTickEvent(runtime.history, currentTick);
-      const branchedRuntime = futureTick ? {
-        ...runtime,
-        history: forkMsUndoHistory(runtime.history, runtime.token),
-      } : runtime;
-      return projectMsSession(session, advanceLiveMsRuntime(branchedRuntime, inputCode, "manual"), "tick");
-    }
-
-    if (runtime.restoreState.mode === "replaying-history") {
-      if (inputCode !== GAME_INPUT_CODES.none) {
-        const branchedRuntime = {
-          ...runtime,
-          history: forkMsUndoHistory(runtime.history, runtime.token),
-        };
-        return projectMsSession(session, advanceLiveMsRuntime(branchedRuntime, inputCode, "manual"), "tick");
-      }
-
-      const historicalEvent = nextUndoTickEvent(runtime.history, currentTick);
-      if (!historicalEvent) {
-        return projectMsSession(
-          session,
-          {
-            ...runtime,
-            restoreState: createLiveRestoreState(),
-          },
-          "tick",
-        );
-      }
-
-      const token = advanceMsInteractiveSession(runtime.token, historicalEvent.inputCode);
-      const replayTargetTick = runtime.restoreState.replayTargetTick ?? latestUndoTick(runtime.history);
-      const hasMoreHistoricalTicks = nextUndoTickEvent(runtime.history, token.state.engine.timer.currentTime) !== null;
-      return projectMsSession(
-        session,
-        {
-          token,
-          level: runtime.level,
-          undoUsedCount: runtime.undoUsedCount,
-          history: runtime.history,
-          restoreState: hasMoreHistoricalTicks
-            ? createHistoricalReplayRestoreState(runtime.restoreState.restoredFromTick ?? currentTick, replayTargetTick)
-            : createLiveRestoreState(),
-        },
-        "tick",
-      );
-    }
-
-    return projectMsSession(
-      session,
-      advanceLiveMsRuntime(runtime, inputCode, session.mode === "replay" ? "replay" : "manual"),
-      "tick",
-    );
+    return advanceInteractiveSessionWithHistory(session, runtime, input, msHistoryConfig);
   }
 
   async restoreSession(session: InteractiveGameSession, targetTick: number): Promise<InteractiveGameSession> {
+    assertAdapterRuleset(session.request, "MS", "TS MS engine");
     const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
-    const restored = restoreMsUndoHistoryToTick(runtime.history, targetTick);
-    const currentTick = runtime.token.state.engine.timer.currentTime;
-    const undoUsedCount =
-      targetTick <= session.history.initialTick
-        ? 0
-        : targetTick < currentTick
-          ? runtime.undoUsedCount + 1
-          : runtime.undoUsedCount;
-
-    return projectMsSession(
-      session,
-      {
-        token: restored.session,
-        level: runtime.level,
-        undoUsedCount,
-        history: runtime.history,
-        restoreState: createPausedRestoreState(targetTick),
-      },
-      "tick",
-    );
+    return restoreInteractiveSessionToTick(session, runtime, targetTick, msHistoryConfig);
   }
 
   async resumeSession(session: InteractiveGameSession): Promise<InteractiveGameSession> {
+    assertAdapterRuleset(session.request, "MS", "TS MS engine");
     const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
-    const replayTargetTick = latestUndoTick(runtime.history);
-    if (replayTargetTick <= runtime.token.state.engine.timer.currentTime) {
-      return projectMsSession(
-        session,
-        {
-          ...runtime,
-          restoreState: createLiveRestoreState(),
-        },
-        "tick",
-      );
-    }
-
-    return projectMsSession(
-      session,
-      {
-        ...runtime,
-        restoreState: createHistoricalReplayRestoreState(
-          runtime.token.state.engine.timer.currentTime,
-          replayTargetTick,
-        ),
-      },
-      "tick",
-    );
+    return resumeInteractiveSessionFromHistory(session, runtime, msHistoryConfig);
   }
 }
