@@ -125,11 +125,11 @@ Goal:
 
 Checklist:
 
-- [ ] define a ruleset-local `ElementFamilyRegistration` shape
-- [ ] split registration into actor families, portable-item families, terrain/pickup families, and decode/load registration
-- [ ] keep ids static, but stop scattering their meaning across unrelated modules
-- [ ] move existing hook and sandbag family wiring onto this registration surface first
-- [ ] expose narrow lookup helpers so engines ask for family behavior instead of inferring it from tile ids
+- [x] define a ruleset-local `ElementFamilyRegistration` shape
+- [x] split registration into actor families, portable-item families, terrain/pickup families, and decode/load registration
+- [x] keep ids static, but stop scattering their meaning across unrelated modules
+- [x] move existing hook and sandbag family wiring onto this registration surface first
+- [x] expose narrow lookup helpers so engines ask for family behavior instead of inferring it from tile ids
 
 Success condition:
 

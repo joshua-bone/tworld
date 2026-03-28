@@ -21,13 +21,16 @@ import {
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
 import { replaceTopTile } from "@game-core/impl/board";
-import { lynxInventorySlot, lynxPortableItemFamily } from "@ruleset-lynx/impl/catalog";
+import type { LynxPortableItemFamily } from "@ruleset-lynx/impl/catalogTiles";
+import {
+  lookupLynxPortableItemFamilyRegistrationByTileId,
+  lookupLynxTerrainPickupTileRegistration,
+} from "@ruleset-lynx/impl/elementRegistration";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxPrimedToolDrop extends PortableItemDropProjection {}
 
 export type LynxToolInventoryProjection = PortableToolInventoryProjection;
-type LynxPortableItemFamily = NonNullable<ReturnType<typeof lynxPortableItemFamily>>;
 type LynxPortableInventorySlot = "tools";
 
 export type LynxPortableItemState =
@@ -45,8 +48,9 @@ export interface LynxPortableToolStateStore extends PortableItemStore<LynxPortab
 export type LynxRunWithLayer = <T>(z: number, run: () => T) => T;
 
 function identifyLynxPortableItem(tileId: number): PortableItemFamilyDescriptor<LynxPortableItemFamily, LynxPortableInventorySlot> | null {
-  const family = lynxPortableItemFamily(tileId);
-  const inventorySlot = lynxInventorySlot(tileId);
+  const familyRegistration = lookupLynxPortableItemFamilyRegistrationByTileId(tileId);
+  const inventorySlot = lookupLynxTerrainPickupTileRegistration(tileId)?.inventorySlot;
+  const family = familyRegistration?.familyId;
   if (!family || inventorySlot !== "tools") {
     return null;
   }
@@ -133,7 +137,7 @@ function lynxPortableItemPolicyForTileId(
   PortableItemBase<LynxPortableItemFamily, "tools", LynxPortableItemState>,
   LynxToolInventoryProjection
 > | null {
-  const family = lynxPortableItemFamily(tileId);
+  const family = lookupLynxPortableItemFamilyRegistrationByTileId(tileId)?.familyId;
   return family ? lynxPortableItemPolicyForFamily(family) : null;
 }
 

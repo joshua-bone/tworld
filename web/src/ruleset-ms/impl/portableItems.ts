@@ -22,12 +22,16 @@ import {
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
-import { msInventorySlot, msIsOverlayFloorTile, msPortableItemFamily } from "@ruleset-ms/impl/catalog";
+import { msIsOverlayFloorTile } from "@ruleset-ms/impl/catalog";
+import type { MsPortableItemFamily } from "@ruleset-ms/impl/catalogTiles";
+import {
+  lookupMsPortableItemFamilyRegistrationByTileId,
+  lookupMsTerrainPickupTileRegistration,
+} from "@ruleset-ms/impl/elementRegistration";
 
 export interface MsPrimedToolDrop extends PortableItemDropProjection {}
 
 export type MsToolInventoryProjection = PortableToolInventoryProjection;
-type MsPortableItemFamily = NonNullable<ReturnType<typeof msPortableItemFamily>>;
 type MsPortableInventorySlot = "tools";
 
 export type MsPortableItemState =
@@ -45,8 +49,9 @@ export interface MsPortableToolStateStore extends PortableItemStore<MsPortableIt
 }
 
 function identifyMsPortableItem(tileId: number): PortableItemFamilyDescriptor<MsPortableItemFamily, MsPortableInventorySlot> | null {
-  const family = msPortableItemFamily(tileId);
-  const inventorySlot = msInventorySlot(tileId);
+  const familyRegistration = lookupMsPortableItemFamilyRegistrationByTileId(tileId);
+  const inventorySlot = lookupMsTerrainPickupTileRegistration(tileId)?.inventorySlot;
+  const family = familyRegistration?.familyId;
   if (!family || inventorySlot !== "tools") {
     return null;
   }
@@ -134,7 +139,7 @@ function msPortableItemPolicyForTileId(
   PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
   MsToolInventoryProjection
 > | null {
-  const family = msPortableItemFamily(tileId);
+  const family = lookupMsPortableItemFamilyRegistrationByTileId(tileId)?.familyId;
   return family ? msPortableItemPolicyForFamily(family) : null;
 }
 

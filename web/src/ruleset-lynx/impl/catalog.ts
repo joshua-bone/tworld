@@ -35,7 +35,6 @@ import {
 } from "@game-core/api/ruleset";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  lookupLynxActorDefinition,
   lynxActorDefinitions,
   LYNX_CREATURE_ACTOR_CAPABILITIES,
 } from "@ruleset-lynx/impl/catalogActors";
@@ -56,6 +55,11 @@ import {
   type LynxInventorySlot,
   type LynxPortableItemFamily,
 } from "@ruleset-lynx/impl/catalogTiles";
+import {
+  lookupLynxActorDefinitionRegistration,
+  lookupLynxPortableItemFamilyRegistrationByTileId,
+  lookupLynxTerrainPickupTileRegistration,
+} from "@ruleset-lynx/impl/elementRegistration";
 
 type LynxCreatureArrivalAction =
   | "none"
@@ -82,19 +86,23 @@ export function lynxTileHasCapability(id: number, capability: TileCapability): b
 }
 
 export function lynxInventorySlot(id: number): LynxInventorySlot | null {
-  return lookupLynxTilePolicy(id).inventorySlot ?? null;
+  return lookupLynxTerrainPickupTileRegistration(id)?.inventorySlot ?? lookupLynxTilePolicy(id).inventorySlot ?? null;
 }
 
 export function lynxPortableItemFamily(id: number): LynxPortableItemFamily | null {
-  return lookupLynxTilePolicy(id).portableItemFamily ?? null;
+  return (
+    lookupLynxPortableItemFamilyRegistrationByTileId(id)?.familyId ??
+    lookupLynxTilePolicy(id).portableItemFamily ??
+    null
+  );
 }
 
 export function lynxInventoryIndex(id: number): number | null {
-  return lookupLynxTilePolicy(id).inventoryIndex ?? null;
+  return lookupLynxTerrainPickupTileRegistration(id)?.inventoryIndex ?? lookupLynxTilePolicy(id).inventoryIndex ?? null;
 }
 
 export function lynxDoorKeyIndex(id: number): number | null {
-  return lookupLynxTilePolicy(id).doorKeyIndex ?? null;
+  return lookupLynxTerrainPickupTileRegistration(id)?.doorKeyIndex ?? lookupLynxTilePolicy(id).doorKeyIndex ?? null;
 }
 
 export function lynxChipMovementMask(id: number): number {
@@ -134,11 +142,11 @@ export function lynxButtonAction(id: number): LynxButtonAction {
 }
 
 export function lynxActorHasTag(id: number, tag: ActorTag): boolean {
-  return lookupLynxActorDefinition(id)?.tags.includes(tag) ?? false;
+  return lookupLynxActorDefinitionRegistration(id)?.tags.includes(tag) ?? false;
 }
 
 export function lynxActorCapabilityPolicy(id: number) {
-  return lookupLynxActorDefinition(id)?.capabilities ?? LYNX_CREATURE_ACTOR_CAPABILITIES;
+  return lookupLynxActorDefinitionRegistration(id)?.capabilities ?? LYNX_CREATURE_ACTOR_CAPABILITIES;
 }
 
 export function lynxActorControlMode(id: number): ActorControlMode {

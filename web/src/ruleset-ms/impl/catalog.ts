@@ -35,7 +35,6 @@ import {
 } from "@game-core/api/ruleset";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  lookupMsActorDefinition,
   msActorDefinitions,
   MS_CREATURE_ACTOR_CAPABILITIES,
 } from "@ruleset-ms/impl/catalogActors";
@@ -50,6 +49,11 @@ import {
   type MsInventorySlot,
   type MsPortableItemFamily,
 } from "@ruleset-ms/impl/catalogTiles";
+import {
+  lookupMsActorDefinitionRegistration,
+  lookupMsPortableItemFamilyRegistrationByTileId,
+  lookupMsTerrainPickupTileRegistration,
+} from "@ruleset-ms/impl/elementRegistration";
 
 type MsActorArrivalAction =
   | "none"
@@ -94,19 +98,21 @@ export function msRequiresReleaseToExit(id: number): boolean {
 }
 
 export function msInventorySlot(id: number): MsInventorySlot | null {
-  return lookupMsTilePolicy(id).inventorySlot ?? null;
+  return lookupMsTerrainPickupTileRegistration(id)?.inventorySlot ?? lookupMsTilePolicy(id).inventorySlot ?? null;
 }
 
 export function msPortableItemFamily(id: number): MsPortableItemFamily | null {
-  return lookupMsTilePolicy(id).portableItemFamily ?? null;
+  return (
+    lookupMsPortableItemFamilyRegistrationByTileId(id)?.familyId ?? lookupMsTilePolicy(id).portableItemFamily ?? null
+  );
 }
 
 export function msInventoryIndex(id: number): number | null {
-  return lookupMsTilePolicy(id).inventoryIndex ?? null;
+  return lookupMsTerrainPickupTileRegistration(id)?.inventoryIndex ?? lookupMsTilePolicy(id).inventoryIndex ?? null;
 }
 
 export function msDoorKeyIndex(id: number): number | null {
-  return lookupMsTilePolicy(id).doorKeyIndex ?? null;
+  return lookupMsTerrainPickupTileRegistration(id)?.doorKeyIndex ?? lookupMsTilePolicy(id).doorKeyIndex ?? null;
 }
 
 export function msTileForcedFloorKind(id: number): MsForcedFloorKind {
@@ -122,11 +128,11 @@ export function msButtonAction(id: number): MsButtonAction {
 }
 
 export function msActorHasTag(id: number, tag: ActorTag): boolean {
-  return lookupMsActorDefinition(id)?.tags.includes(tag) ?? false;
+  return lookupMsActorDefinitionRegistration(id)?.tags.includes(tag) ?? false;
 }
 
 export function msActorCapabilityPolicy(id: number) {
-  return lookupMsActorDefinition(id)?.capabilities ?? MS_CREATURE_ACTOR_CAPABILITIES;
+  return lookupMsActorDefinitionRegistration(id)?.capabilities ?? MS_CREATURE_ACTOR_CAPABILITIES;
 }
 
 export function msActorControlMode(id: number): ActorControlMode {
@@ -217,7 +223,7 @@ export function msActorArrivalAction(tileId: number, actorId: number): MsActorAr
 }
 
 export function msIsActorTile(id: number): boolean {
-  return lookupMsActorDefinition(id) !== undefined;
+  return lookupMsActorDefinitionRegistration(id) !== undefined;
 }
 
 export function msIsOverlayFloorTile(id: number): boolean {
