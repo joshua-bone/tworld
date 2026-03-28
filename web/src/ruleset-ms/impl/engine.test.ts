@@ -5696,6 +5696,38 @@ describe("MS engine regressions", () => {
     expect(session.state.internal.primedToolDrop).toBeNull();
   });
 
+  it("keeps the same portable item identity when a carried sandbag is primed and settled", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const primedItem = session.state.internal.portableItems.find((item) => item.state.mode === "primed");
+    expect(primedItem?.tileId).toBe(MS_TILE.Sandbag);
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    const settledItem = session.state.internal.portableItems.find(
+      (item) => item.state.mode === "map" && item.state.pos === chipPos && item.state.z === 1,
+    );
+    expect(session.state.engine.chip?.position.pos).toBe(eastPos);
+    expect(settledItem?.serial).toBe(primedItem?.serial);
+  });
+
   it("consumes a dropped sandbag into dirt when Chip leaves water", () => {
     const cells = createEmptyCells();
     const chipPos = pos(12, 12);
@@ -5759,6 +5791,37 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
   });
 
+  it("preserves portable item identities across a replacement pickup", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(9, 9);
+    const pickupPos = pos(10, 9);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[pickupPos]!.top.id = MS_TILE.Sandbag;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const carriedSerial = session.state.internal.portableItems.find((item) => item.state.mode === "carried")?.serial;
+    const pickupSerial = session.state.internal.portableItems.find(
+      (item) => item.state.mode === "map" && item.state.pos === pickupPos && item.state.z === 1,
+    )?.serial;
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    const carried = session.state.internal.portableItems.find((item) => item.state.mode === "carried");
+    const primed = session.state.internal.portableItems.find((item) => item.state.mode === "primed");
+    expect(carried?.serial).toBe(pickupSerial);
+    expect(primed?.serial).toBe(carriedSerial);
+  });
+
   it("settles an existing primed sandbag before priming the next replacement pickup", () => {
     const cells = createEmptyCells();
     const chipPos = pos(9, 9);
@@ -5808,6 +5871,42 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
   });
 
+  it("keeps a dropped sandbag's portable item identity when it settles on a teleport origin", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(6, 19);
+    const entryTeleportPos = pos(7, 19);
+    const preferredExitTeleportPos = pos(5, 19);
+    const fallbackExitTeleportPos = pos(4, 19);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[entryTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[preferredExitTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[fallbackExitTeleportPos]!.top.id = MS_TILE.Teleport;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    const carriedSerial = session.state.internal.portableItems.find((item) => item.state.mode === "carried")?.serial;
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.east, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const settled = session.state.internal.portableItems.find(
+      (item) => item.state.mode === "map" && item.state.pos === chipPos && item.state.z === 1,
+    );
+    expect(session.state.internal.chipPos).toBe(preferredExitTeleportPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Sandbag);
+    expect(settled?.serial).toBe(carriedSerial);
+  });
+
   it("collects a sandbag when Chip falls from unsupported air", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);
@@ -5834,6 +5933,7 @@ describe("MS engine regressions", () => {
 
     expect(session.state.internal.chipZ).toBe(1);
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
+    expect(session.state.internal.portableItems.find((item) => item.state.mode === "carried")?.tileId).toBe(MS_TILE.Sandbag);
   });
 
   it("keeps a block supported over a sandbag in air", () => {
