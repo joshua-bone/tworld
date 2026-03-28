@@ -102,6 +102,12 @@ Goal:
 
 - top-level component becomes orchestration, not implementation
 
+Progress:
+
+- [x] extract selection and navigation controller rules into a dedicated tested module
+- [ ] extract session lifecycle and runtime sync controller
+- [ ] extract keyboard/mobile input and replay/import action controllers
+
 ### PR3: Modern Dashboard Shell Split
 
 Break [ModernPlayerApp.tsx](/Users/joshuabone/git/tworld/web/src/player-web/impl/modern/ModernPlayerApp.tsx) into:

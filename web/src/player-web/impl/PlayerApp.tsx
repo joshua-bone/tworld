@@ -61,7 +61,6 @@ import {
   mobileLevelStatusDescription,
   mobileLevelStatusLabel,
   MOBILE_LIBRARY_SECTIONS,
-  resolveMobileFamilyRuleset,
   shiftMobileLibrarySection,
   type MobileLibrarySection,
 } from "@player-web/impl/mobile/mobileCatalog";
@@ -117,6 +116,17 @@ import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
 import { startInteractiveGameSession } from "@game-runtime/impl/startInteractiveGameSession";
 import { startReplayInteractiveGameSession } from "@game-runtime/impl/startReplayInteractiveGameSession";
 import type { InteractiveGameEnginePort, InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import {
+  jumpLevelSelection,
+  jumpSeriesSelection,
+  resolveFamilySelection,
+  resolveInitialSelection,
+  resolveLevelSelection,
+  resolveProceedAction,
+  resolveSeriesSelection,
+  shiftLevelSelection,
+  shiftSeriesSelection,
+} from "@player-web/impl/playerAppSelectionController";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 import {
   encodeRuntimeInputCode,
@@ -574,49 +584,6 @@ function isBrowserScrollKey(key: string): boolean {
   );
 }
 
-function clampIndex(value: number, count: number): number {
-  if (count <= 0) {
-    return 0;
-  }
-
-  return Math.max(0, Math.min(count - 1, value));
-}
-
-function resolveInitialSelection(
-  catalog: SeriesCatalogEntry[],
-  stored: PlayableSelection | null,
-): PlayableSelection | null {
-  if (catalog.length === 0) {
-    return null;
-  }
-
-  if (stored) {
-    const series = catalog.find((candidate) => candidate.filebase === stored.seriesFile);
-    const level = series?.levels.find((candidate) => candidate.number === stored.levelNumber);
-    if (series && level) {
-      return stored;
-    }
-  }
-
-  const fallbackSeries = catalog[0]!;
-  return {
-    seriesFile: fallbackSeries.filebase,
-    levelNumber: fallbackSeries.levels[0]?.number ?? 1,
-  };
-}
-
-function pickLevelNumber(series: SeriesCatalogEntry | null, requested: number | null): number | null {
-  if (!series) {
-    return null;
-  }
-
-  if (requested !== null && series.levels.some((level) => level.number === requested)) {
-    return requested;
-  }
-
-  return series.levels[0]?.number ?? null;
-}
-
 function isDatFile(file: File): boolean {
   return /\.dat$/iu.test(file.name);
 }
@@ -777,6 +744,22 @@ export function PlayerApp({
   const commitLevelSeedOverrides = useEffectEvent((nextOverrides: BrowserLevelSeedOverride[]) => {
     levelSeedOverridesRef.current = nextOverrides;
     setLevelSeedOverrides(nextOverrides);
+  });
+
+  const resetGameplayInputBuffers = useEffectEvent(() => {
+    msInputBufferRef.current.reset();
+    lynxInputBufferRef.current.reset();
+  });
+
+  const prepareForSessionTransition = useEffectEvent(() => {
+    resetGameplayInputBuffers();
+    setIsRunning(false);
+    setIsPaused(false);
+    setShowHelp(false);
+    setShowSoundControls(false);
+    setShowHistoryControls(false);
+    setHeldUndoMode(null);
+    setIsFastForwarding(false);
   });
 
   const applyDirectionalInputPress = useEffectEvent((input: DirectionInput) => {
@@ -1530,10 +1513,7 @@ export function PlayerApp({
       replayLaunchRequest.levelNumber === selectedLevelNumber
         ? replayLaunchRequest
         : null;
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
-    setIsRunning(false);
-    setIsPaused(false);
+    prepareForSessionTransition();
     setIsSessionLoading(true);
 
     const manualSeedOverride =
@@ -1620,6 +1600,7 @@ export function PlayerApp({
     currentManualMsStepping,
     engines,
     mode,
+    prepareForSessionTransition,
     replayLaunchRequest,
     reloadToken,
     selectedLevelNumber,
@@ -1723,14 +1704,7 @@ export function PlayerApp({
   );
 
   const launchReplayForSelection = useEffectEvent((selection: PlayableSelection, replay: ReplaySolutionPayload, replayName: string) => {
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
-    setIsRunning(false);
-    setIsPaused(false);
-    setShowHelp(false);
-    setShowSoundControls(false);
-    setShowHistoryControls(false);
-    stopHeldUndo();
+    prepareForSessionTransition();
     setReplayLaunchRequest({
       levelNumber: selection.levelNumber,
       replay,
@@ -2088,40 +2062,30 @@ export function PlayerApp({
   });
 
   const selectSeries = useEffectEvent((seriesFile: string) => {
-    const series = catalog.find((candidate) => candidate.filebase === seriesFile) ?? null;
-    const levelNumber = pickLevelNumber(series, selectedLevelNumber);
-    if (levelNumber === null) {
+    const nextSelection = resolveSeriesSelection(catalog, seriesFile, selectedLevelNumber);
+    if (!nextSelection) {
       return;
     }
 
-    applySelection({
-      levelNumber,
-      seriesFile,
-    });
+    applySelection(nextSelection);
   });
 
   const selectLevel = useEffectEvent((levelNumber: number) => {
-    if (!currentSeries || !currentSeries.levels.some((level) => level.number === levelNumber)) {
+    const nextSelection = resolveLevelSelection(currentSeries, levelNumber);
+    if (!nextSelection) {
       return;
     }
 
-    applySelection({
-      levelNumber,
-      seriesFile: currentSeries.filebase,
-    });
+    applySelection(nextSelection);
   });
 
   const selectSetFamily = useEffectEvent((family: SetFamily) => {
-    const preferredRuleset = resolveMobileFamilyRuleset(family, currentPreferredRuleset);
-    if (!preferredRuleset) {
-      return;
-    }
-
-    const requestedLevelNumber =
-      family.id === currentFamily?.id
-        ? currentLevel?.number ?? family.continueSelection?.levelNumber ?? 1
-        : family.continueSelection?.levelNumber ?? currentLevel?.number ?? 1;
-    const nextSelection = resolveSetFamilySelection(family, preferredRuleset, requestedLevelNumber);
+    const nextSelection = resolveFamilySelection(
+      family,
+      currentPreferredRuleset,
+      currentFamily?.id ?? null,
+      currentLevel?.number ?? null,
+    );
     if (!nextSelection) {
       return;
     }
@@ -2145,14 +2109,7 @@ export function PlayerApp({
   });
 
   const exitCurrentGame = useEffectEvent(() => {
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
-    setIsRunning(false);
-    setIsPaused(false);
-    setShowHelp(false);
-    setShowSoundControls(false);
-    setShowHistoryControls(false);
-    stopHeldUndo();
+    prepareForSessionTransition();
     setReplayLaunchRequest(null);
 
     if (isEmbeddedModernChrome) {
@@ -2169,14 +2126,7 @@ export function PlayerApp({
   });
 
   const launchSelection = useEffectEvent((selection: PlayableSelection) => {
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
-    setIsRunning(false);
-    setIsPaused(false);
-    setShowHelp(false);
-    setShowSoundControls(false);
-    setShowHistoryControls(false);
-    stopHeldUndo();
+    prepareForSessionTransition();
     setReplayLaunchRequest(null);
     setSelectedSeriesFile(selection.seriesFile);
     setSelectedLevelNumber(selection.levelNumber);
@@ -2227,53 +2177,43 @@ export function PlayerApp({
   });
 
   const changeSelectedSeriesBy = useEffectEvent((delta: number) => {
-    if (catalog.length === 0) {
+    const nextSelection = shiftSeriesSelection(catalog, selectedSeriesFile, selectedLevelNumber, delta);
+    if (!nextSelection) {
       return;
     }
 
-    const currentIndex = catalog.findIndex((series) => series.filebase === selectedSeriesFile);
-    const nextIndex = clampIndex((currentIndex >= 0 ? currentIndex : 0) + delta, catalog.length);
-    selectSeries(catalog[nextIndex]!.filebase);
+    applySelection(nextSelection);
   });
 
   const jumpSelectedSeries = useEffectEvent((position: "first" | "last") => {
-    if (catalog.length === 0) {
+    const nextSelection = jumpSeriesSelection(catalog, selectedLevelNumber, position);
+    if (!nextSelection) {
       return;
     }
 
-    selectSeries(position === "first" ? catalog[0]!.filebase : catalog[catalog.length - 1]!.filebase);
+    applySelection(nextSelection);
   });
 
   const changeLevelBy = useEffectEvent((delta: number) => {
-    if (!currentSeries || !currentLevel) {
-      return;
-    }
-
-    const currentIndex = currentSeries.levels.findIndex((level) => level.number === currentLevel.number);
-    const nextIndex = clampIndex(currentIndex + delta, currentSeries.levels.length);
-    const nextLevel = currentSeries.levels[nextIndex];
-    if (!nextLevel || nextLevel.number === currentLevel.number) {
+    const nextLevelNumber = shiftLevelSelection(currentSeries, currentLevel?.number ?? null, delta);
+    if (nextLevelNumber === null) {
       return;
     }
 
     setReplayLaunchRequest(null);
     setIsPaused(false);
-    setSelectedLevelNumber(nextLevel.number);
+    setSelectedLevelNumber(nextLevelNumber);
   });
 
   const jumpLevel = useEffectEvent((position: "first" | "last") => {
-    if (!currentSeries || currentSeries.levels.length === 0) {
-      return;
-    }
-
-    const nextLevel = position === "first" ? currentSeries.levels[0] : currentSeries.levels[currentSeries.levels.length - 1];
-    if (!nextLevel) {
+    const nextLevelNumber = jumpLevelSelection(currentSeries, position);
+    if (nextLevelNumber === null) {
       return;
     }
 
     setReplayLaunchRequest(null);
     setIsPaused(false);
-    setSelectedLevelNumber(nextLevel.number);
+    setSelectedLevelNumber(nextLevelNumber);
   });
 
   const restartCurrentLevel = useEffectEvent(() => {
@@ -2283,36 +2223,35 @@ export function PlayerApp({
   });
 
   const proceedAfterLevelEnd = useEffectEvent(() => {
-    if (!session || !currentSeries || !currentLevel) {
+    if (!session) {
       return;
     }
 
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
+    resetGameplayInputBuffers();
     setIsPaused(false);
 
-    if (session.frame.snapshot.status === "completed") {
-      const currentIndex = currentSeries.levels.findIndex((level) => level.number === currentLevel.number);
-      const nextLevel = currentSeries.levels[currentIndex + 1];
-      if (nextLevel) {
-        setReplayLaunchRequest(null);
-        setSelectedLevelNumber(nextLevel.number);
-        setMessage(null);
-        return;
-      }
-
-      if (usesModernGameUi) {
-        restartCurrentLevel();
-        return;
-      }
-
-      setMode("series-list");
-      setMessage(`${currentSeries.filebase} completed.`);
+    const nextAction = resolveProceedAction(
+      session.frame.snapshot.status,
+      currentSeries,
+      currentLevel?.number ?? null,
+      usesModernGameUi,
+    );
+    if (!nextAction) {
       return;
     }
 
-    if (session.frame.snapshot.status === "failed") {
-      restartCurrentLevel();
+    switch (nextAction.kind) {
+      case "select-level":
+        setReplayLaunchRequest(null);
+        setSelectedLevelNumber(nextAction.levelNumber);
+        setMessage(null);
+        return;
+      case "series-list":
+        setMode("series-list");
+        setMessage(nextAction.message);
+        return;
+      default:
+        restartCurrentLevel();
     }
   });
 
@@ -2565,8 +2504,7 @@ export function PlayerApp({
   });
 
   const toggleHelp = useEffectEvent(() => {
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
+    resetGameplayInputBuffers();
     setMobileSheet(null);
     setShowReplayMenu(false);
     setShowSoundControls(false);
@@ -2575,8 +2513,7 @@ export function PlayerApp({
   });
 
   const closeHelp = useEffectEvent(() => {
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
+    resetGameplayInputBuffers();
     stopHeldUndo();
     setShowHelp(false);
   });
@@ -2656,12 +2593,7 @@ export function PlayerApp({
         .map((entry) => entry.mapfilename.slice("local:".length)),
     );
 
-    msInputBufferRef.current.reset();
-    lynxInputBufferRef.current.reset();
-    setIsRunning(false);
-    setShowHelp(false);
-    setShowSoundControls(false);
-    setShowHistoryControls(false);
+    prepareForSessionTransition();
     setReplayLaunchRequest(null);
 
     const results = await Promise.allSettled(
