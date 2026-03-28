@@ -53,6 +53,7 @@ import { advanceTimer, createInitialEngineTimer } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
 import {
   actorInventoryClearBoots,
+  actorInventoryClearTools,
   actorInventoryHasBoot,
   actorInventoryHasKey,
   type ActorLocalInventoryOwner,
@@ -125,6 +126,7 @@ import {
   msActorHazardOutcome,
   msActorThiefOutcome,
 } from "@ruleset-ms/impl/actorInteractions";
+import { applyMsActorArrivalEffects, canMsActorEnterTile, msRuntimeActorArrivalOutcome } from "@ruleset-ms/impl/actorArrival";
 import {
   applyMsBlockedChipEnterEffect,
   applyMsTileActivationEffect,
@@ -142,6 +144,7 @@ import {
   settleMsPrimedToolDrop,
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
+import { findMsStatefulActorRuntime, seedMsStatefulActorRuntime, type MsStatefulActorRuntimeEntry } from "@ruleset-ms/impl/statefulActors";
 import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
 import {
   moveMsChipDownOneLayer as moveMsChipDownOneLayerWithContext,
@@ -240,8 +243,34 @@ function applyMsActorThiefHook(
     return false;
   }
   actorInventoryClearBoots(inventoryOwner);
-  clearMsToolInventory(msPortableToolState(internal), inventory);
+  actorInventoryClearTools(inventoryOwner);
+  if (actorId === MS_TILE.Chip) {
+    clearMsToolInventory(msPortableToolState(internal), inventory);
+  }
   return true;
+}
+
+function msRuntimeActorEntry(
+  internal: MsInternalState,
+  actorSerial: number,
+): MsStatefulActorRuntimeEntry | null {
+  return findMsStatefulActorRuntime(
+    internal.statefulActors as unknown as StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>,
+    actorSerial,
+  ) ?? null;
+}
+
+function projectMsRuntimeActorInventoryOwner(
+  actorId: number,
+  actorSerial: number,
+  inventory: EngineState["inventory"],
+  internal: MsInternalState,
+): ActorLocalInventoryOwner {
+  const runtimeEntry = msRuntimeActorEntry(internal, actorSerial);
+  return projectMsActorInventoryOwner(actorId, inventory, {
+    actorSerial,
+    runtimeEntry,
+  });
 }
 
 function applyMsChipCollisionOutcome(internal: MsInternalState, outcome: ReturnType<typeof msActorCollisionOutcome>): void {
@@ -269,7 +298,7 @@ interface MsRandomRuntimeState {
 }
 
 interface MsPortableToolRuntimeState extends MsPortableToolStateStore {}
-interface MsStatefulActorRuntimeState extends StatefulActorRuntimeStore<StatefulActorRuntimeEntry> {}
+interface MsStatefulActorRuntimeState extends StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry> {}
 
 export interface MsInternalState {
   chipPos: number;
@@ -982,6 +1011,7 @@ export function initializeMsGameState(
   const seededPositions = new Set<string>();
   const layerPositionKey = (pos: number, z: number) => `${z}:${pos}`;
   const cloneSourceSerialByPosition = new Map<string, number>();
+  const statefulActors = createStatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>();
 
   for (const { pos, z } of collectLevelCreaturePositions(level)) {
     const layerCells = layerCellsByZ.get(z);
@@ -1023,9 +1053,19 @@ export function initializeMsGameState(
           floorMovementDir: MS_DIRECTION.none,
           sliding: false,
         });
+        seedMsStatefulActorRuntime(
+          statefulActors,
+          nextCreatureSerial,
+          creatureId,
+        );
         nextCreatureSerial += 1;
       } else {
         cloneSourceSerialByPosition.set(layerPositionKey(pos, z), nextCreatureSerial);
+        seedMsStatefulActorRuntime(
+          statefulActors,
+          nextCreatureSerial,
+          creatureId,
+        );
         nextCreatureSerial += 1;
       }
     }
@@ -1080,7 +1120,7 @@ export function initializeMsGameState(
       value: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
     },
     lastSlipDir: MS_DIRECTION.none,
-    statefulActors: createStatefulActorRuntimeStore(),
+    statefulActors,
     portableTools: {
       portableItems: [],
       nextPortableItemSerial: 1,
@@ -1266,8 +1306,9 @@ function canMoveCreature(
   creature: MsTrackedCreature,
   dir: number,
   internal: MsInternalState | null = null,
+  inventory: EngineState["inventory"] | null = null,
 ): boolean {
-  return canMoveCreatureWithOptions(cells, creature, dir, false, false, internal);
+  return canMoveCreatureWithOptions(cells, creature, dir, false, false, internal, inventory);
 }
 
 function canMoveCreatureWithOptions(
@@ -1277,6 +1318,7 @@ function canMoveCreatureWithOptions(
   ignoreFireCheck: boolean,
   cloneCantBlock = false,
   internal: MsInternalState | null = null,
+  inventory: EngineState["inventory"] | null = null,
 ): boolean {
   if (!canLeaveFloor(cells, creature.pos, dir, creature.released)) {
     return false;
@@ -1319,6 +1361,12 @@ function canMoveCreatureWithOptions(
   }
   if ((msActorEntryMask(floor, creature.id) & dir) === 0) {
     return false;
+  }
+  if (internal && inventory) {
+    const inventoryOwner = projectMsRuntimeActorInventoryOwner(creature.id, creature.serial, inventory, internal);
+    if (!canMsActorEnterTile(floor, creature.id, inventory, inventoryOwner)) {
+      return false;
+    }
   }
   if (!ignoreFireCheck && msActorHazardOutcome(floor, creature.id) === "deny-entry") {
     return false;
@@ -2475,6 +2523,7 @@ function resolveChipFloorEffects(cells: EngineMapCell[], internal: MsInternalSta
 
 function createMsCreatureMovementContext(
   internal: MsInternalState,
+  inventory: EngineState["inventory"],
   syncVerticalFloorMovement: (creature: MsTrackedCreature) => void = () => {},
 ) {
   return {
@@ -2487,6 +2536,12 @@ function createMsCreatureMovementContext(
       isMsTrapOpen({ cells, traps: internal.traps, trapPos, skipButtonPos, z }),
     hasTrapConnection: (pos: number, z: number) => hasMsTrapConnection(internal.traps, pos, z),
     chipActsWallForMobs: (pos: number, z: number) => msChipActsWallForMobs(internal, pos, z),
+    arrivalOutcome: (creature: MsTrackedCreature, floorId: number) =>
+      msRuntimeActorArrivalOutcome(
+        floorId,
+        creature.id,
+        projectMsRuntimeActorInventoryOwner(creature.id, creature.serial, inventory, internal),
+      ),
     runtimeCellZ,
     clearCreatureFloorMovement: (creature: MsTrackedCreature) => {
       clearCreatureFloorMovement(creature, internal);
@@ -2495,6 +2550,12 @@ function createMsCreatureMovementContext(
       syncCreatureFloorMovement(cells, creature, internal);
     },
     syncVerticalFloorMovement,
+    applyArrivalEffects: (cells: EngineMapCell[], creature: MsTrackedCreature) =>
+      applyMsActorArrivalEffects(cells, creature.id, creature.pos, {
+        inventory,
+        inventoryOwner: projectMsRuntimeActorInventoryOwner(creature.id, creature.serial, inventory, internal),
+        runtimeEntry: msRuntimeActorEntry(internal, creature.serial),
+      }),
     removeStatefulActor: (creature: MsTrackedCreature) => {
       removeStatefulActorRuntime(internal.statefulActors, creature.serial);
     },
@@ -2522,6 +2583,7 @@ function createMsCreatureMovementContext(
             true,
             false,
             internal,
+            inventory,
           ),
       }),
   };
@@ -2552,16 +2614,18 @@ function createMsChipMovementStrategyContext(): MsChipMovementStrategyContext<
   };
 }
 
-function createMsCreatureMovementStrategyDispatchContext(): MsCreatureMovementStrategyContext<
+function createMsCreatureMovementStrategyDispatchContext(
+  inventory: EngineState["inventory"],
+): MsCreatureMovementStrategyContext<
   MsTrackedCreature,
   MsInternalState
 > {
   return {
     canStartMove: (moveCells, moveCreature, moveDir, moveInternal) =>
-      canMoveCreature(moveCells, moveCreature, moveDir, moveInternal),
+      canMoveCreature(moveCells, moveCreature, moveDir, moveInternal, inventory),
     startMove: (moveCells, moveCreature, moveDir, moveInternal) =>
-        moveMsCreaturePlanarWithContext(
-        createMsCreatureMovementContext(moveInternal),
+      moveMsCreaturePlanarWithContext(
+        createMsCreatureMovementContext(moveInternal, inventory),
         moveCells,
         moveCreature,
         moveDir,
@@ -2569,7 +2633,7 @@ function createMsCreatureMovementStrategyDispatchContext(): MsCreatureMovementSt
       ),
     startDownMove: (_engine, moveSourceCells, moveTargetCells, _layerCellsByZ, moveCreature, moveInternal) =>
       moveMsCreatureDownOneLayerWithContext(
-        createMsCreatureMovementContext(moveInternal),
+        createMsCreatureMovementContext(moveInternal, inventory),
         moveSourceCells,
         moveTargetCells,
         moveCreature,
@@ -2578,7 +2642,7 @@ function createMsCreatureMovementStrategyDispatchContext(): MsCreatureMovementSt
     startUpMove: (moveEngine, moveSourceCells, moveTargetCells, moveLayerCellsByZ, moveCreature, moveInternal) => {
       const tickContext = createMsTickContext(moveEngine, moveInternal, moveEngine.inventory, moveLayerCellsByZ);
       return moveMsCreatureUpOneLayerWithContext(
-        createMsCreatureMovementContext(moveInternal, (trackedCreature) => {
+        createMsCreatureMovementContext(moveInternal, inventory, (trackedCreature) => {
           syncMsCreatureAirFloorMovement(tickContext, trackedCreature);
           syncMsCreatureElevatorFloorMovement(tickContext, trackedCreature);
         }),
@@ -2616,10 +2680,11 @@ function moveCreatureOnce(
   creature: MsTrackedCreature,
   dir: number,
   internal: MsInternalState,
+  inventory: EngineState["inventory"],
 ): MovementAttemptResult {
   return startMsCreatureMoveByStrategy(
     msActorMovementStrategyId(creature.id),
-    createMsCreatureMovementStrategyDispatchContext(),
+    createMsCreatureMovementStrategyDispatchContext(inventory),
     cells,
     creature,
     dir,
@@ -2634,10 +2699,11 @@ function moveCreatureDownOneLayer(
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
   creature: MsTrackedCreature,
   internal: MsInternalState,
+  inventory: EngineState["inventory"],
 ): MovementAttemptResult {
   return startMsCreatureDownMoveByStrategy(
     msActorMovementStrategyId(creature.id),
-    createMsCreatureMovementStrategyDispatchContext(),
+    createMsCreatureMovementStrategyDispatchContext(inventory),
     engine,
     sourceCells,
     targetCells,
@@ -2654,10 +2720,11 @@ function moveCreatureUpOneLayer(
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
   creature: MsTrackedCreature,
   internal: MsInternalState,
+  inventory: EngineState["inventory"],
 ): MovementAttemptResult {
   return startMsCreatureUpMoveByStrategy(
     msActorMovementStrategyId(creature.id),
-    createMsCreatureMovementStrategyDispatchContext(),
+    createMsCreatureMovementStrategyDispatchContext(inventory),
     engine,
     sourceCells,
     targetCells,
@@ -2667,7 +2734,14 @@ function moveCreatureUpOneLayer(
   );
 }
 
-function chooseCreatureDirection(cells: EngineMapCell[], creature: MsTrackedCreature, internal: MsInternalState, currentTime: number, stepping: number): number {
+function chooseCreatureDirection(
+  cells: EngineMapCell[],
+  creature: MsTrackedCreature,
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  currentTime: number,
+  stepping: number,
+): number {
   const context: MsCreatureControllerContext = {
     currentTime,
     stepping,
@@ -2677,7 +2751,7 @@ function chooseCreatureDirection(cells: EngineMapCell[], creature: MsTrackedCrea
     setControllerDir: (dir) => {
       internal.controllerDir = dir;
     },
-    canMove: (candidate, dir) => canMoveCreature(cells, candidate as MsTrackedCreature, dir, internal),
+    canMove: (candidate, dir) => canMoveCreature(cells, candidate as MsTrackedCreature, dir, internal, inventory),
     updateCreatureTile: (candidate) => updateCreatureTile(cells, candidate as MsTrackedCreature),
     randomize3: (array) => randomp3(internal, array),
     randomize4: (array) => randomp4(internal, array),
@@ -2754,29 +2828,45 @@ function processMsCreatureFloorQueueEntry(
       ) {
         clearCreatureFloorMovement(creature, internal);
       } else {
-        soundEffects |= moveCreatureDownOneLayer(engine, creatureCells, lowerCells, layerCellsByZ, creature, internal).soundEffects;
+        soundEffects |= moveCreatureDownOneLayer(
+          engine,
+          creatureCells,
+          lowerCells,
+          layerCellsByZ,
+          creature,
+          internal,
+          engine.inventory,
+        ).soundEffects;
         refreshCreatureSlidingFlag(creature);
         moved = true;
       }
     } else if (creature.floorMovement === "elevator") {
       const upperCells = msUpperRuntimeCells(layerCellsByZ, creature.z);
       if (upperCells) {
-        const elevated = moveCreatureUpOneLayer(engine, creatureCells, upperCells, layerCellsByZ, creature, internal);
+        const elevated = moveCreatureUpOneLayer(
+          engine,
+          creatureCells,
+          upperCells,
+          layerCellsByZ,
+          creature,
+          internal,
+          engine.inventory,
+        );
         soundEffects |= elevated.soundEffects;
         if (movementDidSucceed(elevated)) {
           refreshCreatureSlidingFlag(creature);
           moved = true;
         }
       }
-    } else if (canMoveCreature(creatureCells, creature, originalDir, internal)) {
-      soundEffects |= moveCreatureOnce(creatureCells, creature, originalDir, internal).soundEffects;
+    } else if (canMoveCreature(creatureCells, creature, originalDir, internal, engine.inventory)) {
+      soundEffects |= moveCreatureOnce(creatureCells, creature, originalDir, internal, engine.inventory).soundEffects;
       refreshCreatureSlidingFlag(creature);
       moved = true;
     } else if (creature.floorMovement === "ice") {
       retriedAfterBlock = true;
       const turnedDir = iceWallTurn(creatureCells[creature.pos]!.bottom.id, backDirection(originalDir));
-      if (turnedDir !== MS_DIRECTION.none && canMoveCreature(creatureCells, creature, turnedDir, internal)) {
-        soundEffects |= moveCreatureOnce(creatureCells, creature, turnedDir, internal).soundEffects;
+      if (turnedDir !== MS_DIRECTION.none && canMoveCreature(creatureCells, creature, turnedDir, internal, engine.inventory)) {
+        soundEffects |= moveCreatureOnce(creatureCells, creature, turnedDir, internal, engine.inventory).soundEffects;
         refreshCreatureSlidingFlag(creature);
         moved = true;
       } else {
@@ -3114,13 +3204,14 @@ function processMsBlockFloorQueueEntry(
 
 function runCreatureFloorMovements(
   engine: EngineState,
+  inventory: EngineState["inventory"],
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
   internal: MsInternalState,
   currentTime: number,
 ): number {
   const fallbackCells = layerCellsByZ.values().next().value as EngineMapCell[] | undefined;
   const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? fallbackCells ?? [];
-  const tickContext = createMsTickContext(engine, internal, engine.inventory, layerCellsByZ);
+  const tickContext = createMsTickContext(engine, internal, inventory, layerCellsByZ);
   syncMsNonChipVerticalFloorMovements(tickContext, internal);
 
   const queue = new MsNonChipFloorQueue({
@@ -3196,6 +3287,7 @@ function runCreatureFloorMovements(
 
 function runCreatureMovements(
   engine: EngineState,
+  inventory: EngineState["inventory"],
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
   internal: MsInternalState,
   currentTime: number,
@@ -3224,10 +3316,10 @@ function runCreatureMovements(
       continue;
     }
     const creatureCells = cellsForZ(creature.z ?? 1);
-    const dir = chooseCreatureDirection(creatureCells, creature, internal, currentTime, stepping);
+    const dir = chooseCreatureDirection(creatureCells, creature, internal, inventory, currentTime, stepping);
     if (dir !== MS_DIRECTION.none) {
-      if (canMoveCreature(creatureCells, creature, dir, internal)) {
-        soundEffects |= moveCreatureOnce(creatureCells, creature, dir, internal).soundEffects;
+      if (canMoveCreature(creatureCells, creature, dir, internal, inventory)) {
+        soundEffects |= moveCreatureOnce(creatureCells, creature, dir, internal, inventory).soundEffects;
       } else {
         applyBlockedCreatureAttempt(creatureCells, creature, dir);
       }
@@ -3935,6 +4027,7 @@ function runMsCreatureMovementPhase(runtime: MsAdvanceTickRuntime): void {
   }
   runtime.soundEffects |= runCreatureMovements(
     runtime.state.engine,
+    runtime.inventory,
     runtime.layerCellsByZ,
     runtime.internal,
     runtime.nextTick,
@@ -4000,7 +4093,13 @@ function runMsCreatureFloorPhase(runtime: MsAdvanceTickRuntime): void {
   if (!msTickPhaseIsPlayable(runtime) || runtime.nextTick <= 0 || (runtime.nextTick & 1) !== 0) {
     return;
   }
-  runtime.soundEffects |= runCreatureFloorMovements(runtime.state.engine, runtime.layerCellsByZ, runtime.internal, runtime.nextTick);
+  runtime.soundEffects |= runCreatureFloorMovements(
+    runtime.state.engine,
+    runtime.inventory,
+    runtime.layerCellsByZ,
+    runtime.internal,
+    runtime.nextTick,
+  );
   recordMsTickPhase(runtime, TURN_DEBUG_PHASE.postBlockFloorMovement);
 }
 

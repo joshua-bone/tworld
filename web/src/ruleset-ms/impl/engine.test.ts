@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
+import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { expectOverlayAbsent, expectOverlayPresent } from "@game-core/impl/testOverlays";
 import {
   advanceMsInteractiveSession,
@@ -23,7 +24,15 @@ import {
   msCreatureId,
   msCreatureTile,
 } from "@ruleset-ms/api/tiles";
-import { createEmptyCells, createEmptyCellsAtZ, createLevel, createRequest, msTileOverlays, pos } from "@ruleset-ms/impl/testSupport";
+import {
+  createEmptyCells,
+  createEmptyCellsAtZ,
+  createLevel,
+  createRequest,
+  msStatefulActorsForTest,
+  msTileOverlays,
+  pos,
+} from "@ruleset-ms/impl/testSupport";
 
 const TEST_MOUSE_RANGE_MIN = -9;
 const TEST_MOUSE_RANGE = 19;
@@ -6127,5 +6136,81 @@ describe("MS engine regressions", () => {
     expect(session.state.internal.chipStatus).toBe("okay");
     expect(block?.z).toBe(2);
     expect(session.state.engine.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
+
+  it("lets a bowling ball collect a key and chip, then spend the key opening a door", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(3, 1);
+    const keyPos = pos(4, 1);
+    const chipItemPos = pos(5, 1);
+    const doorPos = pos(6, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+    cells[keyPos]!.top.id = MS_TILE.Key_Red;
+    cells[chipItemPos]!.top.id = MS_TILE.ICChip;
+    cells[doorPos]!.top.id = MS_TILE.Door_Red;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        chipsNeeded: 1,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 20; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(msStatefulActorsForTest(session.state), bowlingBall.serial)
+      : undefined;
+
+    expect(session.state.engine.inventory.chipsNeeded).toBe(0);
+    expect(session.state.engine.map.cells[keyPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.map.cells[chipItemPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.map.cells[doorPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(runtimeEntry?.state.localInventory).toEqual({
+      keys: [0, 0, 0, 0],
+      boots: [0, 0, 0, 0],
+    });
+  });
+
+  it("lets a bowling ball keep moving after collecting water boots and entering water", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(3, 1);
+    const bootsPos = pos(4, 1);
+    const waterPos = pos(5, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+    cells[bootsPos]!.top.id = MS_TILE.Boots_Water;
+    cells[waterPos]!.top.id = MS_TILE.Water;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 10; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(msStatefulActorsForTest(session.state), bowlingBall.serial)
+      : undefined;
+
+    expect(bowlingBall).toBeTruthy();
+    expect(runtimeEntry?.state.localInventory).toEqual({
+      keys: [0, 0, 0, 0],
+      boots: [0, 0, 0, 1],
+    });
   });
 });

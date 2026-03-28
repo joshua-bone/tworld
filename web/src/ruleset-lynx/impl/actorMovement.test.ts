@@ -43,7 +43,8 @@ function createContext(overrides: Partial<LynxActorMovementContext> = {}): LynxA
     canExitTile: () => true,
     chipActsWallForMobs: () => false,
     clearAnimationAt: () => {},
-    canCreatureEnter: () => true,
+    canActorEnter: () => true,
+    arrivalOutcome: () => "none",
     effectiveTargetTileId: (tileId) => tileId,
     turnBlockedIceDirection: () => MS_DIRECTION.west,
     applyIceWallTurn: (dir) => dir,
@@ -52,6 +53,7 @@ function createContext(overrides: Partial<LynxActorMovementContext> = {}): LynxA
     animationTileId: () => null,
     waterSplashTileId: 100,
     bombExplosionTileId: 101,
+    applyArrivalEffects: () => 0,
     ...overrides,
   };
 }
@@ -59,7 +61,7 @@ function createContext(overrides: Partial<LynxActorMovementContext> = {}): LynxA
 describe("lynx actor movement", () => {
   it("uses the blocked-ice turn hook when a move cannot start", () => {
     const context = createContext({
-      canCreatureEnter: () => false,
+      canActorEnter: () => false,
     });
     context.state.map.cells[34] = createCell(34, MS_TILE.Ice, MS_TILE.Empty);
     const actor = createActor({ pos: 34, dir: MS_DIRECTION.east });

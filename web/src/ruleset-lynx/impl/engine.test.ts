@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
+import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { expectOverlayAbsent, expectOverlayPresent } from "@game-core/impl/testOverlays";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
@@ -3218,5 +3219,60 @@ describe("runLynxInputTrace", () => {
     expect(supported.endGameResult).toBeNull();
     expect(block?.z).toBe(2);
     expect(block?.pos).toBe(chipPos);
+  });
+
+  it("lets a bowling ball collect a key and chip, then spend the key opening a door", () => {
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(35, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(36, MS_TILE.Key_Red, MS_TILE.Empty),
+        createCell(37, MS_TILE.ICChip, MS_TILE.Empty),
+        createCell(38, MS_TILE.Door_Red, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.chipsNeeded = 1;
+
+    session = advanceLynxTicks(session, 16);
+
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(lynxRuntimeStateForTest(session.state).statefulActors, bowlingBall.serial)
+      : undefined;
+
+    expect(session.state.inventory.chipsNeeded).toBe(0);
+    expect(session.state.map.cells[36]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.map.cells[37]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.map.cells[38]?.top.id).toBe(MS_TILE.Empty);
+    expect(runtimeEntry?.state.localInventory).toEqual({
+      keys: [0, 0, 0, 0],
+      boots: [0, 0, 0, 0],
+    });
+  });
+
+  it("lets a bowling ball keep moving after collecting water boots and entering water", () => {
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(35, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(36, MS_TILE.Boots_Water, MS_TILE.Empty),
+        createCell(37, MS_TILE.Water, MS_TILE.Empty),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 8);
+
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(lynxRuntimeStateForTest(session.state).statefulActors, bowlingBall.serial)
+      : undefined;
+
+    expect(bowlingBall).toBeTruthy();
+    expect(runtimeEntry?.state.localInventory).toEqual({
+      keys: [0, 0, 0, 0],
+      boots: [0, 0, 0, 1],
+    });
   });
 });

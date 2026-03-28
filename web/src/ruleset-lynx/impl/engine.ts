@@ -58,6 +58,7 @@ import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "
 import { mapHash } from "@game-core/impl/hash";
 import {
   actorInventoryClearBoots,
+  actorInventoryClearTools,
   actorInventoryHasBoot,
   actorInventoryUseKey,
   type ActorLocalInventoryOwner,
@@ -138,6 +139,16 @@ import {
   type LynxPortableToolStateStore,
 } from "@ruleset-lynx/impl/portableItems";
 import { collectLynxActorTile, projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
+import {
+  applyLynxActorArrivalEffects,
+  canLynxActorEnterTile,
+  lynxRuntimeActorArrivalOutcome,
+} from "@ruleset-lynx/impl/actorArrival";
+import {
+  findLynxStatefulActorRuntime,
+  seedLynxStatefulActorRuntime,
+  type LynxStatefulActorRuntimeEntry,
+} from "@ruleset-lynx/impl/statefulActors";
 import {
   resolveLynxTeleports as resolveLynxTeleportsWithContext,
   type LynxTeleportContext,
@@ -265,8 +276,32 @@ function applyLynxActorThiefHook(
     return false;
   }
   actorInventoryClearBoots(inventoryOwner);
-  clearLynxToolInventory(lynxPortableToolRuntime(state), state.inventory);
+  actorInventoryClearTools(inventoryOwner);
+  if (actorId === MS_TILE.Chip) {
+    clearLynxToolInventory(lynxPortableToolRuntime(state), state.inventory);
+  }
   return true;
+}
+
+function lynxRuntimeActorEntry(
+  state: EngineState,
+  actorSerial: number,
+): LynxStatefulActorRuntimeEntry | null {
+  return findLynxStatefulActorRuntime(
+    lynxStatefulActorRuntime(state) as unknown as StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
+    actorSerial,
+  ) ?? null;
+}
+
+function projectLynxRuntimeActorInventoryOwner(
+  state: EngineState,
+  actor: Pick<LynxRuntimeActor, "id" | "serial">,
+): ActorLocalInventoryOwner {
+  const runtimeEntry = lynxRuntimeActorEntry(state, actor.serial);
+  return projectLynxActorInventoryOwner(actor.id, state.inventory, {
+    actorSerial: actor.serial,
+    runtimeEntry,
+  });
 }
 
 export interface LynxRuntimeActor {
@@ -360,7 +395,7 @@ interface LynxChipRuntimeState {
 }
 
 interface LynxPortableToolRuntimeState extends LynxPortableToolStateStore {}
-interface LynxStatefulActorRuntimeState extends StatefulActorRuntimeStore<StatefulActorRuntimeEntry> {}
+interface LynxStatefulActorRuntimeState extends StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry> {}
 
 interface LynxTickContext {
   state: EngineState;
@@ -949,12 +984,15 @@ function addLynxCantMove(state: EngineState): void {
   state.soundEffects |= 1 << LYNX_SOUND.CantMove;
 }
 
-function canLynxCreatureEnter(tileId: number, actorId: number, dir: number): boolean {
-  const mask = lynxActorEntryMask(tileId, actorId);
+function canLynxCreatureEnter(state: EngineState, actor: Pick<LynxRuntimeActor, "id" | "serial">, tileId: number, dir: number): boolean {
+  const mask = lynxActorEntryMask(tileId, actor.id);
   if ((mask & dir) === 0) {
     return false;
   }
-  if (lynxActorHazardOutcome(tileId, actorId) === "deny-entry") {
+  if (!canLynxActorEnterTile(tileId, state.inventory, projectLynxRuntimeActorInventoryOwner(state, actor))) {
+    return false;
+  }
+  if (lynxActorHazardOutcome(tileId, actor.id) === "deny-entry") {
     return false;
   }
   return true;
@@ -1012,7 +1050,9 @@ function createLynxActorMovementContext(
     clearAnimationAt: (pos) => {
       clearLynxAnimationAt(state, actors, pos);
     },
-    canCreatureEnter: (tileId, actorId, dir) => canLynxCreatureEnter(tileId, actorId, dir),
+    canActorEnter: (actor, tileId, dir) => canLynxCreatureEnter(state, actor as LynxRuntimeActor, tileId, dir),
+    arrivalOutcome: (actor, floorId) =>
+      lynxRuntimeActorArrivalOutcome(floorId, actor.id, projectLynxRuntimeActorInventoryOwner(state, actor as LynxRuntimeActor)),
     effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),
     turnBlockedIceDirection: (dir, floorId) => applyLynxIceWallTurn(backDirection(dir), floorId),
     applyIceWallTurn: applyLynxIceWallTurn,
@@ -1023,6 +1063,26 @@ function createLynxActorMovementContext(
     animationTileId: lynxAnimationTileId,
     waterSplashTileId: LYNX_ANIMATION_TILE.Water_Splash,
     bombExplosionTileId: LYNX_ANIMATION_TILE.Bomb_Explosion,
+    applyArrivalEffects: (actor) =>
+      applyLynxActorArrivalEffects(
+        {
+          state,
+          inventoryOwner: projectLynxRuntimeActorInventoryOwner(state, actor as LynxRuntimeActor),
+          runtimeEntry: lynxRuntimeActorEntry(state, (actor as LynxRuntimeActor).serial),
+          soundBits: {
+            doorOpened: 1 << LYNX_SOUND.DoorOpened,
+            socketOpened: 1 << LYNX_SOUND.SocketOpened,
+            tileEmptied: 1 << LYNX_SOUND.TileEmptied,
+            wallCreated: 1 << LYNX_SOUND.WallCreated,
+            bootsStolen: 1 << LYNX_SOUND.BootsStolen,
+            itemCollected: 1 << LYNX_SOUND.ItemCollected,
+            icCollected: 1 << LYNX_SOUND.IcCollected,
+          },
+          resolveButtonEffects,
+        },
+        actor.id,
+        actor.pos,
+      ),
   };
 }
 
@@ -1879,7 +1939,7 @@ function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[
     chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
     canChipEnter: (pos, dir) => canLynxChipEnterCell(state, pos, dir),
     canChipExitTeleportThroughBlock: (exitPos, dir) => canLynxChipExitTeleportThroughBlock(state, actors, exitPos, dir),
-    canCreatureEnter: (tileId, actorId, dir) => canLynxCreatureEnter(tileId, actorId, dir),
+    canActorEnter: (actor, tileId, dir) => canLynxCreatureEnter(state, actor as LynxRuntimeActor, tileId, dir),
     effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),
     markChipTeleported: () => {
       lynxChipRuntime(state).chipTeleported = true;
@@ -2683,7 +2743,15 @@ function createLynxInteractiveToken(
   const chipSeed = findChipSeed(level);
   const parsedActors = parseLynxActors(level);
   const state = initializeLynxEngineState(request, level, replay);
-  lynxRuntimeState(state).nextActorSerial = parsedActors.nextActorSerial;
+  const runtime = lynxRuntimeState(state);
+  runtime.nextActorSerial = parsedActors.nextActorSerial;
+  for (const actor of parsedActors.actors) {
+    seedLynxStatefulActorRuntime(
+      runtime.statefulActors as unknown as StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
+      actor.serial,
+      actor.id,
+    );
+  }
   return {
     level,
     state,

@@ -1,4 +1,5 @@
 import type { EngineState } from "@game-core/api/model";
+import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
 import {
   addTopTileFlags,
   promoteBottomTile,
@@ -56,7 +57,8 @@ export interface LynxActorMovementContext {
   canExitTile(tileId: number, actorId: number, dir: number, releasing: boolean): boolean;
   chipActsWallForMobs(pos: number, z: number): boolean;
   clearAnimationAt(pos: number): void;
-  canCreatureEnter(tileId: number, actorId: number, dir: number): boolean;
+  canActorEnter(actor: LynxActorMovementActor, tileId: number, dir: number): boolean;
+  arrivalOutcome(actor: LynxActorMovementActor, floorId: number): ActorArrivalOutcome;
   effectiveTargetTileId(tileId: number): number;
   turnBlockedIceDirection(dir: number, floorId: number): number;
   applyIceWallTurn(dir: number, floorId: number): number;
@@ -65,6 +67,7 @@ export interface LynxActorMovementContext {
   animationTileId(kind: "water-splash" | "bomb-explosion" | "none"): number | null;
   waterSplashTileId: number;
   bombExplosionTileId: number;
+  applyArrivalEffects(actor: LynxActorMovementActor): number;
 }
 
 function isLynxSlide(tileId: number): boolean {
@@ -114,7 +117,7 @@ export function canLynxActorStartMovement(
 
   if (
     (target.top.state & LYNX_CELL_FLAG.Claimed) !== 0 ||
-    !context.canCreatureEnter(context.effectiveTargetTileId(target.top.id), actor.id, dir)
+    !context.canActorEnter(actor, context.effectiveTargetTileId(target.top.id), dir)
   ) {
     return false;
   }
@@ -182,7 +185,7 @@ export function finishLynxActorMovement(
     actor.ignoreIceFromAir = true;
   }
 
-  const arrivalAction = lynxActorArrivalOutcome(cell.top.id, actor.id);
+  const arrivalAction = context.arrivalOutcome(actor, cell.top.id);
   const arrivalAnimationTileId = context.animationTileId(lynxArrivalAnimationKind(cell.top.id, actor.id));
 
   if (actor.id === MS_TILE.Block) {
@@ -209,18 +212,19 @@ export function finishLynxActorMovement(
 
     actor.deferPush = false;
     actor.deferPushArmed = false;
-    const soundEffects = resolveLynxActorArrivalEffects(context, actor.pos, cell.top.id);
+    const soundEffects = resolveLynxActorArrivalEffects(context, actor.pos, cell.top.id) | context.applyArrivalEffects(actor);
     context.state.soundEffects |= soundEffects;
     context.state.map.hash = mapHash(context.state.map.cells);
     return soundEffects === 0 ? noArrival() : resolvedArrival(soundEffects);
   }
 
-  if (arrivalAction === "creature-water") {
+  if (arrivalAction === "creature-water" || arrivalAction === "creature-fire") {
     removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     context.removeActor(actor, arrivalAnimationTileId ?? context.waterSplashTileId);
-    context.state.soundEffects |= context.soundBits.waterSplash;
+    const soundEffects = arrivalAction === "creature-water" ? context.soundBits.waterSplash : 0;
+    context.state.soundEffects |= soundEffects;
     context.state.map.hash = mapHash(context.state.map.cells);
-    return removedOnArrival(context.soundBits.waterSplash);
+    return removedOnArrival(soundEffects);
   }
 
   if (arrivalAction === "creature-bomb") {
@@ -238,7 +242,7 @@ export function finishLynxActorMovement(
     context.state.map.hash = mapHash(context.state.map.cells);
   }
 
-  const soundEffects = resolveLynxActorArrivalEffects(context, actor.pos, cell.top.id);
+  const soundEffects = resolveLynxActorArrivalEffects(context, actor.pos, cell.top.id) | context.applyArrivalEffects(actor);
   context.state.soundEffects |= soundEffects;
   return soundEffects === 0 ? noArrival() : resolvedArrival(soundEffects);
 }

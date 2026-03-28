@@ -1,4 +1,5 @@
 import type { EngineMapCell } from "@game-core/api/model";
+import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
 import { blockedMovement, movedMovement, type MovementAttemptResult } from "@game-core/api/movementOutcomes";
 import { nextPosition } from "@game-core/impl/grid";
 import { msTileForcedFloorKind } from "@ruleset-ms/impl/catalog";
@@ -41,10 +42,12 @@ export interface MsCreatureMovementContext {
   isTrapOpen(cells: EngineMapCell[], trapPos: number, skipButtonPos: number, z: number): boolean;
   hasTrapConnection(pos: number, z: number): boolean;
   chipActsWallForMobs(pos: number, z: number): boolean;
+  arrivalOutcome(creature: MsCreatureMovementCreature, floorId: number): ActorArrivalOutcome;
   runtimeCellZ(cells: EngineMapCell[], pos: number): number;
   clearCreatureFloorMovement(creature: MsCreatureMovementCreature): void;
   syncCreatureFloorMovement(cells: EngineMapCell[], creature: MsCreatureMovementCreature): void;
   syncVerticalFloorMovement(creature: MsCreatureMovementCreature): void;
+  applyArrivalEffects(cells: EngineMapCell[], creature: MsCreatureMovementCreature): number;
   removeStatefulActor(creature: MsCreatureMovementCreature): void;
   findTeleportDestination(
     cells: EngineMapCell[],
@@ -125,6 +128,7 @@ export function moveMsCreaturePlanar(
 ): MovementAttemptResult {
   const oldPos = creature.pos;
   const arrivalActorId = msCreatureId(cells[oldPos]!.top.id);
+  const arrivalCreature = arrivalActorId === creature.id ? creature : { ...creature, id: arrivalActorId };
   const oldWasCloneMachine = cells[oldPos]!.bottom.id === MS_TILE.CloneMachine;
   let nextPos = nextPosition(oldPos, dir, MS_GRID_WIDTH);
   const targetTop = cells[nextPos]!.top.id;
@@ -158,7 +162,7 @@ export function moveMsCreaturePlanar(
   const standingFloor = standingFloorWasTop ? targetTop : targetBottom;
   const standingFloorState = standingFloorWasTop ? targetTopState : targetBottomState;
 
-  switch (msActorArrivalOutcome(standingFloor, arrivalActorId)) {
+  switch (context.arrivalOutcome(arrivalCreature, standingFloor)) {
     case "creature-water":
     case "creature-fire":
       removeCreatureOnArrival(
@@ -215,6 +219,7 @@ export function moveMsCreaturePlanar(
       setChipCollided();
     }
   }
+  soundEffects |= context.applyArrivalEffects(cells, creature);
   return movedMovement(soundEffects);
 }
 
@@ -253,7 +258,7 @@ export function moveMsCreatureDownOneLayer(
   const standingFloor = standingFloorWasTop ? targetTop : targetBottom;
   const standingFloorState = standingFloorWasTop ? targetTopState : targetBottomState;
 
-  switch (msActorArrivalOutcome(standingFloor, creature.id)) {
+  switch (context.arrivalOutcome(creature, standingFloor)) {
     case "creature-water":
     case "creature-fire":
       targetCells[nextPos]!.top = { id: targetTop, state: targetTopState };
@@ -312,6 +317,7 @@ export function moveMsCreatureDownOneLayer(
     context.syncCreatureFloorMovement(targetCells, creature);
     context.syncVerticalFloorMovement(creature);
   }
+  soundEffects |= context.applyArrivalEffects(targetCells, creature);
   return movedMovement(soundEffects);
 }
 
@@ -378,5 +384,6 @@ export function moveMsCreatureUpOneLayer(
 
   context.syncCreatureFloorMovement(targetCells, creature);
   context.syncVerticalFloorMovement(creature);
+  soundEffects |= context.applyArrivalEffects(targetCells, creature);
   return movedMovement(soundEffects);
 }

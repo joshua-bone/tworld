@@ -5,6 +5,30 @@ import { advanceLynxTicks, createCell, createLevel, createRequest, lynxRuntimeSt
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 
 describe("Lynx stateful actor runtime lifecycle", () => {
+  it("seeds bowling ball runtime inventory for live actors", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(34, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+      ]),
+    );
+
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    expect(bowlingBall).toBeTruthy();
+    expect(findStatefulActorRuntime(lynxRuntimeStateForTest(session.state).statefulActors, bowlingBall!.serial)).toEqual({
+      actorSerial: bowlingBall!.serial,
+      kind: "bowling-ball",
+      state: {
+        mode: "moving",
+        localInventory: {
+          keys: [0, 0, 0, 0],
+          boots: [0, 0, 0, 0],
+        },
+      },
+    });
+  });
+
   it("forks stateful runtime payloads onto cloner duplicates", () => {
     const buttonPos = 34;
     const clonerPos = 70;

@@ -371,6 +371,16 @@ Checklist:
 - [ ] forbid engine-hot-path branches for those elements outside the declared seam boundaries
 - [ ] add replay, undo, debug, and renderer coverage for both
 
+Current bowling-ball actor proof progress:
+
+- [x] seed runtime-owned bowling-ball state by actor serial in both rulesets
+- [x] route ballistic movement choice through actor policy instead of raw engine family branching
+- [x] prove actor-local key/boot collection and actor-driven chip progress in both rulesets
+- [x] prove actor key use against doors without inventing new engine-hot-path tile checks
+- [ ] implement still-form portable lifecycle and blocked-move reversion through the portable-item seam
+- [ ] implement actor-vs-actor collision/destruction semantics through the interaction seam
+- [ ] add replay, undo, debug, and renderer characterization for the stateful actor proof
+
 Suggested proof elements:
 
 - bowling ball or ghost for actor proof

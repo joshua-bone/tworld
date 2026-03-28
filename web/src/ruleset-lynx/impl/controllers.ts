@@ -176,6 +176,11 @@ export function chooseLynxCreatureMoveForTick(
       return;
     }
 
+    if (lynxActorControlMode(actor.id) === "ballistic") {
+      actor.intentDir = actor.dir;
+      return;
+    }
+
     if (lynxActorHeldFloorOutcome(floor, actor.id) === "hold-direction") {
       actor.intentDir = actor.dir;
       return;

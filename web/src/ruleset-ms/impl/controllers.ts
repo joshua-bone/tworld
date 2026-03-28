@@ -1,5 +1,6 @@
 import { reverseDirection as backDirection } from "@game-core/impl/grid";
 import { MS_DIRECTION, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
+import { msActorControlMode } from "@ruleset-ms/impl/catalog";
 import { msActorHeldFloorOutcome } from "@ruleset-ms/impl/actorInteractions";
 
 type MsCreatureFloorMovement = "none" | "ice" | "slide" | "teleport" | "air" | "elevator";
@@ -117,6 +118,14 @@ function chooseTrapOrCloneFloorDirections(
   context: MsCreatureControllerContext,
   creature: MsCreatureControllerCreature,
 ): { choices: number[]; preferredDir: number; immediateDir: number | null } {
+  if (msActorControlMode(creature.id) === "ballistic") {
+    return {
+      choices: [creature.dir],
+      preferredDir: creature.dir,
+      immediateDir: null,
+    };
+  }
+
   switch (creature.id) {
     case MS_TILE.Tank:
     case MS_TILE.Ball:
@@ -158,6 +167,10 @@ function chooseStandardDirections(
   context: MsCreatureControllerContext,
   creature: MsCreatureControllerCreature,
 ): { choices: number[]; preferredDir: number } {
+  if (msActorControlMode(creature.id) === "ballistic") {
+    return { choices: [creature.dir], preferredDir: creature.dir };
+  }
+
   switch (creature.id) {
     case MS_TILE.Tank:
       return { choices: [creature.dir], preferredDir: creature.dir };

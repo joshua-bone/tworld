@@ -5,6 +5,36 @@ import { createEmptyCells, createLevel, createRequest, msStatefulActorsForTest, 
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 
 describe("MS stateful actor runtime lifecycle", () => {
+  it("seeds bowling ball runtime inventory for live actors", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(3, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+    expect(bowlingBall).toBeTruthy();
+    expect(findStatefulActorRuntime(msStatefulActorsForTest(session.state), bowlingBall!.serial)).toEqual({
+      actorSerial: bowlingBall!.serial,
+      kind: "bowling-ball",
+      state: {
+        mode: "moving",
+        localInventory: {
+          keys: [0, 0, 0, 0],
+          boots: [0, 0, 0, 0],
+        },
+      },
+    });
+  });
+
   it("forks stateful runtime payloads onto clone-machine creature duplicates", () => {
     const cells = createEmptyCells();
     const chipPos = pos(2, 2);

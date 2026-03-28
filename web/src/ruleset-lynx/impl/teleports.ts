@@ -23,7 +23,7 @@ export interface LynxTeleportContext {
   chipActsWallForMobs(pos: number, z: number): boolean;
   canChipEnter(pos: number, dir: number): boolean;
   canChipExitTeleportThroughBlock(exitPos: number, dir: number): boolean;
-  canCreatureEnter(tileId: number, actorId: number, dir: number): boolean;
+  canActorEnter(actor: LynxTeleportActor, tileId: number, dir: number): boolean;
   effectiveTargetTileId(tileId: number): number;
   markChipTeleported(): void;
   settleChipTeleportDrop(originPos: number, originZ: number): void;
@@ -142,7 +142,7 @@ export function resolveLynxActorTeleport(
       }
       continue;
     }
-    if (!context.canCreatureEnter(context.effectiveTargetTileId(exitCell.top.id), actor.id, actor.dir)) {
+    if (!context.canActorEnter(actor, context.effectiveTargetTileId(exitCell.top.id), actor.dir)) {
       if (pos === origin) {
         addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
         return;
