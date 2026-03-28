@@ -71,19 +71,23 @@ import {
   type RecordedReplayMoveDecision,
   resolveManualInput,
   scheduledInputForTick,
-  runtimeCommandName,
 } from "@game-core/api/playback";
 import {
   decodeRuntimeInputCode,
-  encodeRuntimeInputCode,
   GAME_INPUT_CODES,
   GAME_INPUT_MODIFIER_MASKS,
-  stripRuntimeInputModifiers,
 } from "@game-core/api/command";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { createGameDebugTrace, createGameTrace } from "@game-core/impl/trace";
 import { collectMsActorsFromLayers, hashMsCreaturesFromLayers, projectMsDebugPhaseSnapshot } from "@ruleset-ms/impl/debugProjection";
 import type { GameCommand, GameRequest, GameRuntimeCommand, GameTrace } from "@game-core/api/types";
+import {
+  chooseMsManualMovement,
+  latchCurrentMsInput,
+  replayBestTimeTicks,
+  resolveMsRecordedReplayMoveAfterChoose,
+  resolveMsReplayLastMoveAfterChoose,
+} from "@ruleset-ms/impl/chipInput";
 import {
   collectLevelConnections,
   collectLevelCreaturePositions,
@@ -127,6 +131,7 @@ import {
   type MsPortableItem,
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
+import { MsNonChipFloorQueue, type MsActiveNonChipFloorEntry } from "@ruleset-ms/impl/nonChipFloorQueue";
 import {
   canChipUseMsElevator,
   canNonChipUseMsElevator,
@@ -313,13 +318,6 @@ const RANDOM4_MASK = 0x0fffffffn;
 const RANDOM3_DIVISOR = 0x40000000n;
 const RANDOM4_DIVISOR = 0x10000000n;
 const MS_DEBUG_SCHEMA_VERSION = 2;
-const MS_MOUSE_RANGE_MIN = -9;
-const MS_MOUSE_RANGE = 19;
-const CMD_MOUSE_MOVE_FIRST = (MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east) + 1;
-const CMD_MOUSE_MOVE_LAST = CMD_MOUSE_MOVE_FIRST + MS_MOUSE_RANGE * MS_MOUSE_RANGE - 1;
-const CMD_MOVE_NOP = CMD_MOUSE_MOVE_FIRST - MS_MOUSE_RANGE_MIN * (MS_MOUSE_RANGE + 1);
-const CMD_ABS_MOUSE_MOVE_FIRST = 512;
-const CMD_ABS_MOUSE_MOVE_LAST = CMD_ABS_MOUSE_MOVE_FIRST + MS_GRID_WIDTH * MS_GRID_HEIGHT - 1;
 const MS_AIR_MOVEMENT_DIR = MS_DIRECTION.north;
 const MS_ELEVATOR_MOVEMENT_DIR = MS_DIRECTION.south;
 const HIDDEN_WALL_REVEAL_TTL = MS_TICKS_PER_SECOND / 2;
@@ -333,28 +331,6 @@ export function setMsQueueTraceHook(hook: ((event: MsQueueTraceEvent) => void) |
 
 function normalizeRandomSeed(seed: number | undefined): bigint {
   return BigInt((seed ?? 0) & Number(UINT31_MASK));
-}
-
-function isRelativeMouseCommand(code: number): boolean {
-  const normalized = stripRuntimeInputModifiers(code);
-  return normalized >= CMD_MOUSE_MOVE_FIRST && normalized <= CMD_MOUSE_MOVE_LAST;
-}
-
-function isAbsoluteMouseCommand(code: number): boolean {
-  const normalized = stripRuntimeInputModifiers(code);
-  return normalized >= CMD_ABS_MOUSE_MOVE_FIRST && normalized <= CMD_ABS_MOUSE_MOVE_LAST;
-}
-
-function makeMouseRelative(absPos: number, chipPos: number): number {
-  const x = (absPos % MS_GRID_WIDTH) - (chipPos % MS_GRID_WIDTH);
-  const y = Math.floor(absPos / MS_GRID_WIDTH) - Math.floor(chipPos / MS_GRID_WIDTH);
-  return (y - MS_MOUSE_RANGE_MIN) * MS_MOUSE_RANGE + (x - MS_MOUSE_RANGE_MIN);
-}
-
-function makeMouseAbsolute(relPos: number, chipPos: number): number {
-  const x = (relPos % MS_MOUSE_RANGE) + MS_MOUSE_RANGE_MIN;
-  const y = Math.floor(relPos / MS_MOUSE_RANGE) + MS_MOUSE_RANGE_MIN;
-  return chipPos + y * MS_GRID_WIDTH + x;
 }
 
 function leftDirection(dir: number): number {
@@ -1627,6 +1603,31 @@ function resolveButtonFloorEffects(
     default:
       return 0;
   }
+}
+
+function floorHasMsButtonAction(floor: number): boolean {
+  return msButtonAction(floor) !== "none";
+}
+
+function resolveDeferredOrImmediateButtonLandingEffects(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  pos: number,
+  floor: number,
+  deferButtons: boolean,
+  actor: MsTrackedCreature | null = null,
+  buttonZ = actor?.z ?? internal.chipZ ?? 1,
+): number {
+  if (!floorHasMsButtonAction(floor)) {
+    return 0;
+  }
+
+  if (deferButtons) {
+    addBottomTileFlags(cells, pos, MS_FLOOR_STATE.ButtonDown);
+    return msButtonAction(floor) === "toggle-walls" ? 0 : 1 << MS_SOUND.ButtonPushed;
+  }
+
+  return resolveButtonFloorEffects(cells, internal, pos, floor, actor, buttonZ);
 }
 
 function handleDeferredButtons(cells: EngineMapCell[], internal: MsInternalState): number {
@@ -2963,62 +2964,7 @@ function createClones(internal: MsInternalState): void {
   }
 }
 
-function runCreatureFloorMovements(
-  engine: EngineState,
-  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
-  internal: MsInternalState,
-  currentTime: number,
-): number {
-  type ActiveNonChipSlip =
-    | { kind: "creature"; serial: number; dir: number; slipOrder: number }
-    | { kind: "block"; blockIndex: number; slipOrder: number };
-
-  const compareActiveNonChipSlips = (left: ActiveNonChipSlip, right: ActiveNonChipSlip): number => {
-    if (left.slipOrder === right.slipOrder) {
-      if (left.kind === "creature" && right.kind === "creature") {
-        return left.serial - right.serial;
-      }
-      if (left.kind === "block" && right.kind === "block") {
-        return left.blockIndex - right.blockIndex;
-      }
-      return left.kind === "creature" ? -1 : 1;
-    }
-    return left.slipOrder - right.slipOrder;
-  };
-
-  const listActiveNonChipSlips = (): ActiveNonChipSlip[] =>
-    [
-      ...internal.creatureSlipList
-        .filter((entry) => {
-          const creature = creatureForSerial(internal, entry.serial);
-          return (
-            creature &&
-            !creature.hidden &&
-            !creature.cloning &&
-            creature.floorMovement !== "none" &&
-            creature.floorMovementDir !== MS_DIRECTION.none
-          );
-        })
-        .map((entry) => ({
-          kind: "creature" as const,
-          serial: entry.serial,
-          dir: entry.dir,
-          slipOrder: entry.slipOrder,
-        })),
-      ...internal.blocks
-        .map((block, blockIndex) => ({ block, blockIndex }))
-        .filter(({ block }) => !block.hidden && block.floorMovement !== "none" && block.floorMovementDir !== MS_DIRECTION.none)
-        .map(({ blockIndex }) => ({
-          kind: "block" as const,
-          blockIndex,
-          slipOrder: internal.blocks[blockIndex]!.slipOrder,
-        })),
-    ].sort(compareActiveNonChipSlips);
-
-  const fallbackCells = layerCellsByZ.values().next().value as EngineMapCell[] | undefined;
-  const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? fallbackCells ?? [];
-  const tickContext = createMsTickContext(engine, internal, engine.inventory, layerCellsByZ);
-
+function syncMsNonChipVerticalFloorMovements(tickContext: MsTickContext, internal: MsInternalState): void {
   for (const creature of internal.creatures) {
     syncMsCreatureAirFloorMovement(tickContext, creature);
     syncMsCreatureElevatorFloorMovement(tickContext, creature);
@@ -3027,161 +2973,419 @@ function runCreatureFloorMovements(
     syncMsBlockAirFloorMovement(tickContext, block);
     syncMsBlockElevatorFloorMovement(tickContext, block);
   }
+}
 
-  const queue = listActiveNonChipSlips();
+function processMsCreatureFloorQueueEntry(
+  engine: EngineState,
+  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
+  internal: MsInternalState,
+  cellsForZ: (z?: number) => EngineMapCell[],
+  tickContext: MsTickContext,
+  queue: MsNonChipFloorQueue,
+  slipIndex: number,
+  advance: number,
+  active: Extract<MsActiveNonChipFloorEntry, { kind: "creature" }>,
+): number {
+  const creature = creatureForSerial(internal, active.serial);
+  const creatureCells = cellsForZ(creature?.z ?? 1);
+  if (
+    !creature ||
+    creature.hidden ||
+    creature.cloning ||
+    creature.floorMovement === "none" ||
+    creature.floorMovementDir === MS_DIRECTION.none
+  ) {
+    queue.removeEntry(slipIndex);
+    return 0;
+  }
 
-  const entryLabel = (entry: ActiveNonChipSlip | undefined): string | null => {
-    if (!entry) {
-      return null;
-    }
-    if (entry.kind === "creature") {
-      const creature = creatureForSerial(internal, entry.serial);
-      return `creature:${entry.serial}:${creature?.pos ?? -1}`;
-    }
-    const block = internal.blocks[entry.blockIndex];
-    return `block:${entry.blockIndex}:${block?.pos ?? -1}`;
-  };
+  let soundEffects = 0;
+  creature.frame = creature.dir;
+  try {
+    const originalDir = active.dir;
+    let moved = false;
+    let retriedAfterBlock = false;
 
-  const queueLabels = (): string[] => queue.map((entry) => entryLabel(entry) ?? "unknown");
-
-  const traceQueue = (action: string, slipIndex: number, advance: number, entry?: ActiveNonChipSlip): void => {
-    msQueueTraceHook?.({
-      tick: currentTime,
-      phase: "non-chip-floor",
-      action,
-      slipIndex,
-      advance,
-      entry: entryLabel(entry),
-      queue: queueLabels(),
-    });
-  };
-
-  const isQueueEntryActive = (entry: ActiveNonChipSlip): boolean => {
-    if (entry.kind === "creature") {
-      const creature = creatureForSerial(internal, entry.serial);
-      return Boolean(
-        creature &&
-          !creature.hidden &&
-          !creature.cloning &&
-          creature.floorMovement !== "none" &&
-          creature.floorMovementDir !== MS_DIRECTION.none,
-      );
-    }
-
-    const block = internal.blocks[entry.blockIndex];
-    return Boolean(block && !block.hidden && block.floorMovement !== "none" && block.floorMovementDir !== MS_DIRECTION.none);
-  };
-
-  const syncQueueBackToState = (): void => {
-    internal.creatureSlipList = [];
-    for (const block of internal.blocks) {
-      block.slipOrder = -1;
-    }
-
-    for (const entry of queue) {
-      if (!isQueueEntryActive(entry)) {
-        continue;
-      }
-
-      if (entry.kind === "creature") {
-        const creature = creatureForSerial(internal, entry.serial);
-        if (!creature) {
-          continue;
-        }
-        internal.creatureSlipList.push({
-          serial: creature.serial,
-          dir: entry.dir,
-          slipOrder: entry.slipOrder,
-        });
-      } else {
-        const block = internal.blocks[entry.blockIndex];
-        if (!block) {
-          continue;
-        }
-        block.slipOrder = entry.slipOrder;
-      }
-    }
-  };
-
-  const updateQueueEntry = (entry: ActiveNonChipSlip): void => {
-    if (entry.kind === "creature") {
-      const creature = creatureForSerial(internal, entry.serial);
-      entry.dir = creature?.floorMovementDir ?? MS_DIRECTION.none;
-    }
-  };
-
-  const removeQueueEntry = (index: number): void => {
-    queue.splice(index, 1);
-  };
-
-  const queueContainsEntry = (entry: ActiveNonChipSlip): boolean =>
-    queue.some((candidate) => {
-      if (candidate.kind !== entry.kind) {
-        return false;
-      }
-      if (candidate.kind === "creature" && entry.kind === "creature") {
-        return candidate.serial === entry.serial;
-      }
-      if (candidate.kind === "block" && entry.kind === "block") {
-        return candidate.blockIndex === entry.blockIndex;
-      }
-      return false;
-    });
-
-  const appendNewActiveEntriesIntoQueue = (): void => {
-    for (const entry of internal.creatureSlipList) {
-      const creature = creatureForSerial(internal, entry.serial);
+    if (creature.floorMovement === "air") {
+      const lowerCells = msLowerRuntimeCells(layerCellsByZ, creature.z);
       if (
-        !creature ||
-        creature.hidden ||
-        creature.cloning ||
-        creature.floorMovement === "none" ||
-        creature.floorMovementDir === MS_DIRECTION.none
+        !lowerCells ||
+        hasVerticalSupport(
+          resolveMsNonChipSupportBelow(
+            tickContext,
+            lowerCells,
+            creature.pos,
+            creature.z ?? 1,
+            runtimeCellZ(lowerCells, creature.pos),
+          ),
+        )
       ) {
-        continue;
+        clearCreatureFloorMovement(creature, internal);
+      } else {
+        soundEffects |= moveCreatureDownOneLayer(engine, creatureCells, lowerCells, layerCellsByZ, creature, internal).soundEffects;
+        refreshCreatureSlidingFlag(creature);
+        moved = true;
       }
-
-      const activeEntry: ActiveNonChipSlip = {
-        kind: "creature",
-        serial: entry.serial,
-        dir: entry.dir,
-        slipOrder: entry.slipOrder,
-      };
-      if (!queueContainsEntry(activeEntry)) {
-        queue.push(activeEntry);
+    } else if (creature.floorMovement === "elevator") {
+      const upperCells = msUpperRuntimeCells(layerCellsByZ, creature.z);
+      if (upperCells) {
+        const elevated = moveCreatureUpOneLayer(engine, creatureCells, upperCells, layerCellsByZ, creature, internal);
+        soundEffects |= elevated.soundEffects;
+        if (movementDidSucceed(elevated)) {
+          refreshCreatureSlidingFlag(creature);
+          moved = true;
+        }
+      }
+    } else if (canMoveCreature(creatureCells, creature, originalDir, internal)) {
+      soundEffects |= moveCreatureOnce(creatureCells, creature, originalDir, internal).soundEffects;
+      refreshCreatureSlidingFlag(creature);
+      moved = true;
+    } else if (creature.floorMovement === "ice") {
+      retriedAfterBlock = true;
+      const turnedDir = iceWallTurn(creatureCells[creature.pos]!.bottom.id, backDirection(originalDir));
+      if (turnedDir !== MS_DIRECTION.none && canMoveCreature(creatureCells, creature, turnedDir, internal)) {
+        soundEffects |= moveCreatureOnce(creatureCells, creature, turnedDir, internal).soundEffects;
+        refreshCreatureSlidingFlag(creature);
+        moved = true;
+      } else {
+        creature.floorMovementDir = originalDir;
+        const creatureSlipIndex = findCreatureSlipIndex(internal, creature.serial);
+        if (creatureSlipIndex >= 0) {
+          internal.creatureSlipList[creatureSlipIndex]!.dir = originalDir;
+        }
       }
     }
 
-    internal.blocks.forEach((block, blockIndex) => {
-      if (block.hidden || block.floorMovement === "none" || block.floorMovementDir === MS_DIRECTION.none) {
-        return;
+    if (retriedAfterBlock && findCreatureSlipIndex(internal, creature.serial) >= 0) {
+      if (moved) {
+        syncCreatureFloorMovement(creatureCells, creature, internal);
       }
-
-      const activeEntry: ActiveNonChipSlip = {
-        kind: "block",
-        blockIndex,
-        slipOrder: block.slipOrder,
-      };
-      if (!queueContainsEntry(activeEntry)) {
-        queue.push(activeEntry);
+      if (queue.isEntryActive(active)) {
+        queue.trace("requeue-creature-retry", slipIndex, advance, active);
+        queue.requeueEntry(slipIndex);
+      } else {
+        queue.trace("remove-creature-retry-inactive", slipIndex, advance, active);
+        queue.removeEntry(slipIndex);
       }
-    });
-
-    queue.sort(compareActiveNonChipSlips);
-  };
-
-  const requeueCurrentEntry = (index: number): void => {
-    const entry = queue[index];
-    if (!entry || !isQueueEntryActive(entry)) {
-      removeQueueEntry(index);
-      return;
     }
 
-    updateQueueEntry(entry);
-    entry.slipOrder = reserveNextSlipOrder(internal);
-    queue.splice(index, 1);
-    queue.push(entry);
+    if (!moved && creature.floorMovement === "elevator") {
+      addMsTileOverlay(engine, creature.z ?? 1, creature.pos, "elevator-failure");
+      if (queue.isEntryActive(active)) {
+        queue.updateEntry(active);
+      } else {
+        queue.trace("remove-creature-post-elevator-inactive", slipIndex, advance, active);
+        queue.removeEntry(slipIndex);
+      }
+      return soundEffects;
+    }
+
+    if (!moved) {
+      restartCreatureFloorMovementAfterBlockedAttempt(creatureCells, creature, originalDir, internal);
+      if (!queue.isEntryActive(active)) {
+        queue.trace("remove-creature-post-restart-inactive", slipIndex, advance, active);
+        queue.removeEntry(slipIndex);
+        return soundEffects;
+      }
+
+      queue.updateEntry(active);
+      if (!retriedAfterBlock && findCreatureSlipIndex(internal, creature.serial) >= 0 && creature.floorMovementDir !== MS_DIRECTION.none) {
+        queue.trace("requeue-creature-blocked", slipIndex, advance, active);
+        queue.requeueEntry(slipIndex);
+      }
+      return soundEffects;
+    }
+
+    if (queue.isEntryActive(active)) {
+      queue.updateEntry(active);
+    } else {
+      queue.trace("remove-creature-post-move-inactive", slipIndex, advance, active);
+      queue.removeEntry(slipIndex);
+    }
+
+    return soundEffects;
+  } finally {
+    creature.frame = 0;
+  }
+}
+
+function processMsBlockFloorQueueEntry(
+  engine: EngineState,
+  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
+  internal: MsInternalState,
+  cellsForZ: (z?: number) => EngineMapCell[],
+  queue: MsNonChipFloorQueue,
+  slipIndex: number,
+  advance: number,
+  active: Extract<MsActiveNonChipFloorEntry, { kind: "block" }>,
+): number {
+  const block = internal.blocks[active.blockIndex];
+  const blockCells = cellsForZ(block?.z ?? 1);
+  if (!block) {
+    queue.trace("remove-missing-block", slipIndex, advance, active);
+    queue.removeEntry(slipIndex);
+    return 0;
+  }
+
+  let soundEffects = 0;
+  const tryMove = (dir: number): boolean => {
+    const oldWasCloneMachine = blockCells[block.pos]!.bottom.id === MS_TILE.CloneMachine;
+    if (!canLeaveFloor(blockCells, block.pos, dir, block.released)) {
+      return false;
+    }
+
+    const nextPos = nextPosition(block.pos, dir, MS_GRID_WIDTH);
+    if (!canMoveBlockInto(blockCells, nextPos, dir, -1, internal)) {
+      return false;
+    }
+
+    const targetTop = blockCells[nextPos]!.top.id;
+    const targetTopState = blockCells[nextPos]!.top.state;
+    const targetBottom = blockCells[nextPos]!.bottom.id;
+    const targetBottomState = blockCells[nextPos]!.bottom.state;
+    switch (msActorArrivalAction(targetTop, MS_TILE.Block)) {
+      case "block-water":
+        blockCells[nextPos]!.top = { id: MS_TILE.Dirt, state: 0 };
+        if (!oldWasCloneMachine) {
+          popTile(blockCells, block.pos);
+        } else {
+          blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
+        }
+        hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1);
+        soundEffects |= 1 << MS_SOUND.WaterSplash;
+        return true;
+      case "block-bomb":
+        blockCells[nextPos]!.top = { id: MS_TILE.Empty, state: 0 };
+        if (!oldWasCloneMachine) {
+          popTile(blockCells, block.pos);
+        } else {
+          blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
+        }
+        hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1);
+        soundEffects |= 1 << MS_SOUND.BombExplodes;
+        return true;
+      default:
+        break;
+    }
+
+    const movedTile = oldWasCloneMachine ? { ...blockCells[block.pos]!.top } : popTile(blockCells, block.pos);
+    let landingPos = nextPos;
+    if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
+      landingPos = teleportDestinationForBlock(blockCells, nextPos, dir, block.pos, internal);
+    }
+
+    placeStaticBlock(blockCells, landingPos, movedTile.state);
+
+    const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
+    if (targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip) {
+      internal.chipStatus = "collided";
+    }
+    if (oldWasCloneMachine) {
+      blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
+    }
+
+    const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
+    const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
+    const sourcePos = block.pos;
+    block.pos = landingPos;
+    block.dir = dir;
+    updateBlockReleaseAfterMove(blockCells, internal, block, sourcePos, targetTop, landingPos);
+    const previousFloorMovement = block.floorMovement;
+    const previousSliding = block.sliding;
+    setBlockFloorMovementAfterSuccessfulMove(
+      block,
+      successfulFloor,
+      successfulFloorState,
+      internal,
+      previousFloorMovement,
+      previousSliding,
+    );
+    if (previousFloorMovement === "none" && block.floorMovement !== "none") {
+      internal.controllerDir = block.floorMovementDir;
+    }
+    soundEffects |= resolveDeferredOrImmediateButtonLandingEffects(
+      blockCells,
+      internal,
+      landingPos,
+      successfulFloor,
+      false,
+      null,
+      block.z ?? 1,
+    );
+    return true;
   };
+
+  const originalDir = block.floorMovementDir;
+  let moved = false;
+  let retriedAfterBlock = false;
+
+  if (block.floorMovement === "air") {
+    const lowerCells = msLowerRuntimeCells(layerCellsByZ, block.z);
+    if (
+      !lowerCells ||
+      hasVerticalSupport(
+        resolveMsNonChipSupportBelow(
+          createMsTickContext(engine, internal, engine.inventory, layerCellsByZ),
+          lowerCells,
+          block.pos,
+          block.z ?? 1,
+          runtimeCellZ(lowerCells, block.pos),
+        ),
+      )
+    ) {
+      clearBlockFloorMovement(block);
+    } else {
+      const sourceZ = block.z ?? runtimeCellZ(blockCells, block.pos);
+      const oldPos = block.pos;
+      const targetTop = lowerCells[oldPos]!.top.id;
+      const targetTopState = lowerCells[oldPos]!.top.state;
+      const targetBottom = lowerCells[oldPos]!.bottom.id;
+      const targetBottomState = lowerCells[oldPos]!.bottom.state;
+
+      switch (msActorArrivalAction(targetTop, MS_TILE.Block)) {
+        case "block-water":
+          lowerCells[oldPos]!.top = { id: MS_TILE.Dirt, state: 0 };
+          popTile(blockCells, oldPos);
+          hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ);
+          soundEffects |= 1 << MS_SOUND.WaterSplash;
+          moved = true;
+          break;
+        case "block-bomb":
+          lowerCells[oldPos]!.top = { id: MS_TILE.Empty, state: 0 };
+          popTile(blockCells, oldPos);
+          hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ);
+          soundEffects |= 1 << MS_SOUND.BombExplodes;
+          moved = true;
+          break;
+        default: {
+          const movedTile = popTile(blockCells, oldPos);
+          let landingPos = oldPos;
+          if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
+            landingPos = teleportDestinationForBlock(lowerCells, oldPos, block.dir, -1, internal);
+          }
+
+          placeStaticBlock(lowerCells, landingPos, movedTile.state);
+          const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
+          if (targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip) {
+            internal.chipStatus = "collided";
+          }
+
+          const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
+          const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
+          block.pos = landingPos;
+          block.z = Math.max(1, sourceZ - 1);
+          updateBlockReleaseAfterMove(lowerCells, internal, block, oldPos, targetTop, landingPos);
+          const previousFloorMovement = block.floorMovement;
+          const previousSliding = block.sliding;
+          if (isIceFloor(successfulFloor)) {
+            clearBlockFloorMovement(block);
+          } else {
+            setBlockFloorMovementAfterSuccessfulMove(
+              block,
+              successfulFloor,
+              successfulFloorState,
+              internal,
+              previousFloorMovement,
+              previousSliding,
+            );
+            syncMsBlockAirFloorMovement(createMsTickContext(engine, internal, engine.inventory, layerCellsByZ), block);
+          }
+          soundEffects |= resolveDeferredOrImmediateButtonLandingEffects(
+            lowerCells,
+            internal,
+            landingPos,
+            successfulFloor,
+            false,
+            null,
+            block.z ?? 1,
+          );
+          moved = true;
+          break;
+        }
+      }
+    }
+  } else if (block.floorMovement === "elevator") {
+    const upperCells = msUpperRuntimeCells(layerCellsByZ, block.z);
+    if (upperCells) {
+      const elevated = moveBlockUpOneLayer(engine, blockCells, upperCells, layerCellsByZ, block, internal);
+      soundEffects |= elevated.soundEffects;
+      moved = movementDidSucceed(elevated);
+    }
+  } else {
+    moved = tryMove(originalDir);
+  }
+
+  if (!moved && block.floorMovement === "ice") {
+    retriedAfterBlock = true;
+    const turnedDir = iceWallTurn(blockCells[block.pos]!.bottom.id, backDirection(originalDir));
+    block.floorMovementDir = turnedDir;
+    if (turnedDir !== MS_DIRECTION.none) {
+      moved = tryMove(turnedDir);
+    }
+  }
+
+  if (retriedAfterBlock && !block.hidden && block.floorMovement !== "none" && block.floorMovementDir !== MS_DIRECTION.none) {
+    if (moved) {
+      restartBlockFloorMovementAfterRetrySuccess(blockCells, block, internal);
+    }
+    queue.trace("requeue-block-retry", slipIndex, advance, active);
+    queue.requeueEntry(slipIndex);
+  }
+
+  if (!moved && block.floorMovement === "elevator" && internal.blocks.includes(block)) {
+    addMsTileOverlay(engine, block.z ?? 1, block.pos, "elevator-failure");
+    if (!queue.isEntryActive(active)) {
+      queue.trace("remove-block-post-elevator-inactive", slipIndex, advance, active);
+      queue.removeEntry(slipIndex);
+    }
+    return soundEffects;
+  }
+
+  if (!moved && internal.blocks.includes(block)) {
+    restartBlockFloorMovementAfterBlockedAttempt(blockCells, block, originalDir, internal);
+    if (!queue.isEntryActive(active)) {
+      queue.trace("remove-block-post-restart-inactive", slipIndex, advance, active);
+      queue.removeEntry(slipIndex);
+      return soundEffects;
+    }
+
+    if (!retriedAfterBlock && !block.hidden && block.floorMovement !== "none" && block.floorMovementDir !== MS_DIRECTION.none) {
+      queue.trace("requeue-block-blocked", slipIndex, advance, active);
+      queue.requeueEntry(slipIndex);
+    }
+    return soundEffects;
+  }
+
+  if (!queue.isEntryActive(active)) {
+    queue.trace("remove-block-post-move-inactive", slipIndex, advance, active);
+    queue.removeEntry(slipIndex);
+  }
+
+  return soundEffects;
+}
+
+function runCreatureFloorMovements(
+  engine: EngineState,
+  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
+  internal: MsInternalState,
+  currentTime: number,
+): number {
+  const fallbackCells = layerCellsByZ.values().next().value as EngineMapCell[] | undefined;
+  const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? fallbackCells ?? [];
+  const tickContext = createMsTickContext(engine, internal, engine.inventory, layerCellsByZ);
+  syncMsNonChipVerticalFloorMovements(tickContext, internal);
+
+  const queue = new MsNonChipFloorQueue({
+    state: internal,
+    findCreature: (serial) => creatureForSerial(internal, serial),
+    reserveNextSlipOrder: () => reserveNextSlipOrder(internal),
+    trace: (event) =>
+      msQueueTraceHook?.({
+        tick: currentTime,
+        phase: "non-chip-floor",
+        ...event,
+      }),
+  });
 
   internal.blocks.forEach((block, blockIndex) => {
     if (!block.hidden && block.floorMovement === "slide" && block.floorMovementDir !== MS_DIRECTION.none && block.slideDelayPending) {
@@ -3191,405 +3395,54 @@ function runCreatureFloorMovements(
 
   let soundEffects = 0;
   let advance = 0;
-  traceQueue("start", 0, advance);
-  for (let slipIndex = 0; slipIndex < queue.length; ) {
-    const previousSlipCount = queue.length;
-    const active = queue[slipIndex];
+  queue.trace("start", 0, advance);
+  for (let slipIndex = 0; slipIndex < queue.entries.length; ) {
+    const previousSlipCount = queue.entries.length;
+    const active = queue.entries[slipIndex];
     if (!active) {
       break;
     }
 
     if (advance > 0) {
-      traceQueue("skip-advance", slipIndex, advance, active);
+      queue.trace("skip-advance", slipIndex, advance, active);
       advance -= 1;
       slipIndex += 1;
       continue;
     }
 
-    if (!isQueueEntryActive(active)) {
-      traceQueue("remove-inactive", slipIndex, advance, active);
-      removeQueueEntry(slipIndex);
+    if (!queue.isEntryActive(active)) {
+      queue.trace("remove-inactive", slipIndex, advance, active);
+      queue.removeEntry(slipIndex);
       continue;
     }
 
-    traceQueue("process", slipIndex, advance, active);
+    queue.trace("process", slipIndex, advance, active);
 
     if (active.kind === "creature") {
-      const creature = creatureForSerial(internal, active.serial);
-      const creatureCells = cellsForZ(creature?.z ?? 1);
-      if (
-        !creature ||
-        creature.hidden ||
-        creature.cloning ||
-        creature.floorMovement === "none" ||
-        creature.floorMovementDir === MS_DIRECTION.none
-      ) {
-        removeQueueEntry(slipIndex);
-        continue;
-      }
-
-      creature.frame = creature.dir;
-      try {
-        const originalDir = active.dir;
-        let moved = false;
-        let retriedAfterBlock = false;
-
-        if (creature.floorMovement === "air") {
-          const lowerCells = msLowerRuntimeCells(layerCellsByZ, creature.z);
-          if (
-            !lowerCells ||
-            hasVerticalSupport(
-              resolveMsNonChipSupportBelow(
-                tickContext,
-                lowerCells,
-                creature.pos,
-                creature.z ?? 1,
-                runtimeCellZ(lowerCells, creature.pos),
-              ),
-            )
-          ) {
-            clearCreatureFloorMovement(creature, internal);
-          } else {
-            soundEffects |= moveCreatureDownOneLayer(engine, creatureCells, lowerCells, layerCellsByZ, creature, internal).soundEffects;
-            refreshCreatureSlidingFlag(creature);
-            moved = true;
-          }
-        } else if (creature.floorMovement === "elevator") {
-          const upperCells = msUpperRuntimeCells(layerCellsByZ, creature.z);
-          if (upperCells) {
-            const elevated = moveCreatureUpOneLayer(engine, creatureCells, upperCells, layerCellsByZ, creature, internal);
-            soundEffects |= elevated.soundEffects;
-            if (movementDidSucceed(elevated)) {
-              refreshCreatureSlidingFlag(creature);
-              moved = true;
-            }
-          }
-        } else if (canMoveCreature(creatureCells, creature, originalDir, internal)) {
-          soundEffects |= moveCreatureOnce(creatureCells, creature, originalDir, internal).soundEffects;
-          refreshCreatureSlidingFlag(creature);
-          moved = true;
-        } else if (creature.floorMovement === "ice") {
-          retriedAfterBlock = true;
-          const turnedDir = iceWallTurn(creatureCells[creature.pos]!.bottom.id, backDirection(originalDir));
-          if (turnedDir !== MS_DIRECTION.none && canMoveCreature(creatureCells, creature, turnedDir, internal)) {
-            soundEffects |= moveCreatureOnce(creatureCells, creature, turnedDir, internal).soundEffects;
-            refreshCreatureSlidingFlag(creature);
-            moved = true;
-          } else {
-            creature.floorMovementDir = originalDir;
-            const slipIndex = findCreatureSlipIndex(internal, creature.serial);
-            if (slipIndex >= 0) {
-              internal.creatureSlipList[slipIndex]!.dir = originalDir;
-            }
-          }
-        }
-
-        if (retriedAfterBlock && findCreatureSlipIndex(internal, creature.serial) >= 0) {
-          if (moved) {
-            syncCreatureFloorMovement(creatureCells, creature, internal);
-          }
-          if (isQueueEntryActive(active)) {
-            traceQueue("requeue-creature-retry", slipIndex, advance, active);
-            requeueCurrentEntry(slipIndex);
-          } else {
-            traceQueue("remove-creature-retry-inactive", slipIndex, advance, active);
-            removeQueueEntry(slipIndex);
-          }
-        }
-
-        if (!moved && creature.floorMovement === "elevator") {
-          addMsTileOverlay(engine, creature.z ?? 1, creature.pos, "elevator-failure");
-          if (isQueueEntryActive(active)) {
-            updateQueueEntry(active);
-          } else {
-            traceQueue("remove-creature-post-elevator-inactive", slipIndex, advance, active);
-            removeQueueEntry(slipIndex);
-            continue;
-          }
-        } else if (!moved) {
-          restartCreatureFloorMovementAfterBlockedAttempt(creatureCells, creature, originalDir, internal);
-          if (isQueueEntryActive(active)) {
-            updateQueueEntry(active);
-          } else {
-            traceQueue("remove-creature-post-restart-inactive", slipIndex, advance, active);
-            removeQueueEntry(slipIndex);
-            continue;
-          }
-
-          if (!retriedAfterBlock && findCreatureSlipIndex(internal, creature.serial) >= 0 && creature.floorMovementDir !== MS_DIRECTION.none) {
-            traceQueue("requeue-creature-blocked", slipIndex, advance, active);
-            requeueCurrentEntry(slipIndex);
-          }
-        } else if (isQueueEntryActive(active)) {
-          updateQueueEntry(active);
-        } else {
-          traceQueue("remove-creature-post-move-inactive", slipIndex, advance, active);
-          removeQueueEntry(slipIndex);
-          appendNewActiveEntriesIntoQueue();
-          if (queue.length === previousSlipCount) {
-            advance += 1;
-          }
-          continue;
-        }
-      } finally {
-        creature.frame = 0;
-      }
+      soundEffects |= processMsCreatureFloorQueueEntry(
+        engine,
+        layerCellsByZ,
+        internal,
+        cellsForZ,
+        tickContext,
+        queue,
+        slipIndex,
+        advance,
+        active,
+      );
     } else {
-      const block = internal.blocks[active.blockIndex];
-      const blockCells = cellsForZ(block?.z ?? 1);
-      if (!block) {
-        traceQueue("remove-missing-block", slipIndex, advance, active);
-        removeQueueEntry(slipIndex);
-        continue;
-      }
-
-      const tryMove = (dir: number): boolean => {
-        const oldWasCloneMachine = blockCells[block.pos]!.bottom.id === MS_TILE.CloneMachine;
-        if (!canLeaveFloor(blockCells, block.pos, dir, block.released)) {
-          return false;
-        }
-
-        const nextPos = nextPosition(block.pos, dir, MS_GRID_WIDTH);
-        if (!canMoveBlockInto(blockCells, nextPos, dir, -1, internal)) {
-          return false;
-        }
-
-        const targetTop = blockCells[nextPos]!.top.id;
-        const targetTopState = blockCells[nextPos]!.top.state;
-        const targetBottom = blockCells[nextPos]!.bottom.id;
-        const targetBottomState = blockCells[nextPos]!.bottom.state;
-        switch (msActorArrivalAction(targetTop, MS_TILE.Block)) {
-          case "block-water":
-            blockCells[nextPos]!.top = { id: MS_TILE.Dirt, state: 0 };
-            if (!oldWasCloneMachine) {
-              popTile(blockCells, block.pos);
-            } else {
-              blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
-            }
-            hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1);
-            soundEffects |= 1 << MS_SOUND.WaterSplash;
-            return true;
-          case "block-bomb":
-            blockCells[nextPos]!.top = { id: MS_TILE.Empty, state: 0 };
-            if (!oldWasCloneMachine) {
-              popTile(blockCells, block.pos);
-            } else {
-              blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
-            }
-            hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1);
-            soundEffects |= 1 << MS_SOUND.BombExplodes;
-            return true;
-          default:
-            break;
-        }
-
-        const movedTile = oldWasCloneMachine ? { ...blockCells[block.pos]!.top } : popTile(blockCells, block.pos);
-        let landingPos = nextPos;
-        if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
-          landingPos = teleportDestinationForBlock(blockCells, nextPos, dir, block.pos, internal);
-        }
-
-        placeStaticBlock(blockCells, landingPos, movedTile.state);
-
-        const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-        if (targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip) {
-          internal.chipStatus = "collided";
-        }
-        if (oldWasCloneMachine) {
-          blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
-        }
-
-        const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
-        const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
-
-        const sourcePos = block.pos;
-        block.pos = landingPos;
-        block.dir = dir;
-        updateBlockReleaseAfterMove(blockCells, internal, block, sourcePos, targetTop, landingPos);
-        const previousFloorMovement = block.floorMovement;
-        const previousSliding = block.sliding;
-        setBlockFloorMovementAfterSuccessfulMove(
-          block,
-          successfulFloor,
-          successfulFloorState,
-          internal,
-          previousFloorMovement,
-          previousSliding,
-        );
-        if (previousFloorMovement === "none" && block.floorMovement !== "none") {
-          internal.controllerDir = block.floorMovementDir;
-        }
-        if (
-          successfulFloor === MS_TILE.Button_Blue ||
-          successfulFloor === MS_TILE.Button_Green ||
-          successfulFloor === MS_TILE.Button_Red ||
-          successfulFloor === MS_TILE.Button_Brown
-        ) {
-          soundEffects |= resolveButtonFloorEffects(blockCells, internal, landingPos, successfulFloor, null, block.z ?? 1);
-        }
-        return true;
-      };
-
-      const originalDir = block.floorMovementDir;
-      let moved = false;
-      let retriedAfterBlock = false;
-
-      if (block.floorMovement === "air") {
-        const lowerCells = msLowerRuntimeCells(layerCellsByZ, block.z);
-        if (
-          !lowerCells ||
-          hasVerticalSupport(
-            resolveMsNonChipSupportBelow(
-              tickContext,
-              lowerCells,
-              block.pos,
-              block.z ?? 1,
-              runtimeCellZ(lowerCells, block.pos),
-            ),
-          )
-        ) {
-          clearBlockFloorMovement(block);
-        } else {
-          const sourceZ = block.z ?? runtimeCellZ(blockCells, block.pos);
-          const oldPos = block.pos;
-          const targetTop = lowerCells[oldPos]!.top.id;
-          const targetTopState = lowerCells[oldPos]!.top.state;
-          const targetBottom = lowerCells[oldPos]!.bottom.id;
-          const targetBottomState = lowerCells[oldPos]!.bottom.state;
-
-          switch (msActorArrivalAction(targetTop, MS_TILE.Block)) {
-            case "block-water":
-              lowerCells[oldPos]!.top = { id: MS_TILE.Dirt, state: 0 };
-              popTile(blockCells, oldPos);
-              hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ);
-              soundEffects |= 1 << MS_SOUND.WaterSplash;
-              moved = true;
-              break;
-            case "block-bomb":
-              lowerCells[oldPos]!.top = { id: MS_TILE.Empty, state: 0 };
-              popTile(blockCells, oldPos);
-              hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ);
-              soundEffects |= 1 << MS_SOUND.BombExplodes;
-              moved = true;
-              break;
-            default: {
-              const movedTile = popTile(blockCells, oldPos);
-              let landingPos = oldPos;
-              if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
-                landingPos = teleportDestinationForBlock(lowerCells, oldPos, block.dir, -1, internal);
-              }
-
-              placeStaticBlock(lowerCells, landingPos, movedTile.state);
-              const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-              if (targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip) {
-                internal.chipStatus = "collided";
-              }
-
-              const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
-              const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
-              block.pos = landingPos;
-              block.z = Math.max(1, sourceZ - 1);
-              updateBlockReleaseAfterMove(lowerCells, internal, block, oldPos, targetTop, landingPos);
-              const previousFloorMovement = block.floorMovement;
-              const previousSliding = block.sliding;
-              if (isIceFloor(successfulFloor)) {
-                clearBlockFloorMovement(block);
-              } else {
-                setBlockFloorMovementAfterSuccessfulMove(
-                  block,
-                  successfulFloor,
-                  successfulFloorState,
-                  internal,
-                  previousFloorMovement,
-                  previousSliding,
-                );
-                syncMsBlockAirFloorMovement(createMsTickContext(engine, internal, engine.inventory, layerCellsByZ), block);
-              }
-              if (
-                successfulFloor === MS_TILE.Button_Blue ||
-                successfulFloor === MS_TILE.Button_Green ||
-                successfulFloor === MS_TILE.Button_Red ||
-                successfulFloor === MS_TILE.Button_Brown
-              ) {
-                soundEffects |= resolveButtonFloorEffects(lowerCells, internal, landingPos, successfulFloor, null, block.z ?? 1);
-              }
-              moved = true;
-              break;
-            }
-          }
-        }
-      } else if (block.floorMovement === "elevator") {
-        const upperCells = msUpperRuntimeCells(layerCellsByZ, block.z);
-        if (upperCells) {
-          const elevated = moveBlockUpOneLayer(engine, blockCells, upperCells, layerCellsByZ, block, internal);
-          soundEffects |= elevated.soundEffects;
-          moved = movementDidSucceed(elevated);
-        }
-      } else {
-        moved = tryMove(originalDir);
-      }
-
-      if (!moved && block.floorMovement === "ice") {
-        retriedAfterBlock = true;
-        const turnedDir = iceWallTurn(blockCells[block.pos]!.bottom.id, backDirection(originalDir));
-        block.floorMovementDir = turnedDir;
-        if (turnedDir !== MS_DIRECTION.none) {
-          moved = tryMove(turnedDir);
-        }
-      }
-
-      if (
-        retriedAfterBlock &&
-        !block.hidden &&
-        block.floorMovement !== "none" &&
-        block.floorMovementDir !== MS_DIRECTION.none
-      ) {
-        if (moved) {
-          restartBlockFloorMovementAfterRetrySuccess(blockCells, block, internal);
-        }
-        traceQueue("requeue-block-retry", slipIndex, advance, active);
-        requeueCurrentEntry(slipIndex);
-      }
-
-      if (!moved && block.floorMovement === "elevator" && internal.blocks.includes(block)) {
-        addMsTileOverlay(engine, block.z ?? 1, block.pos, "elevator-failure");
-        if (!isQueueEntryActive(active)) {
-          traceQueue("remove-block-post-elevator-inactive", slipIndex, advance, active);
-          removeQueueEntry(slipIndex);
-          continue;
-        }
-      } else if (!moved && internal.blocks.includes(block)) {
-        restartBlockFloorMovementAfterBlockedAttempt(blockCells, block, originalDir, internal);
-        if (!isQueueEntryActive(active)) {
-          traceQueue("remove-block-post-restart-inactive", slipIndex, advance, active);
-          removeQueueEntry(slipIndex);
-          continue;
-        }
-
-        if (!retriedAfterBlock && !block.hidden && block.floorMovement !== "none" && block.floorMovementDir !== MS_DIRECTION.none) {
-          traceQueue("requeue-block-blocked", slipIndex, advance, active);
-          requeueCurrentEntry(slipIndex);
-        }
-      } else if (!isQueueEntryActive(active)) {
-        traceQueue("remove-block-post-move-inactive", slipIndex, advance, active);
-        removeQueueEntry(slipIndex);
-        appendNewActiveEntriesIntoQueue();
-        if (queue.length === previousSlipCount) {
-          advance += 1;
-        }
-        continue;
-      }
+      soundEffects |= processMsBlockFloorQueueEntry(engine, layerCellsByZ, internal, cellsForZ, queue, slipIndex, advance, active);
     }
 
-    appendNewActiveEntriesIntoQueue();
-    const nextSlipCount = queue.length;
+    queue.appendNewActiveEntries();
+    const nextSlipCount = queue.entries.length;
     if (nextSlipCount === previousSlipCount) {
       advance += 1;
     }
   }
 
-  syncQueueBackToState();
-  traceQueue("end", queue.length, advance);
+  queue.syncBackToState();
+  queue.trace("end", queue.entries.length, advance);
   return soundEffects;
 }
 
@@ -4242,74 +4095,6 @@ function chipMoveToGoalPos(
   return secondary === MS_DIRECTION.none ? primary : secondary;
 }
 
-function chooseManualMovement(
-  cells: EngineMapCell[],
-  internal: MsInternalState,
-  inventory: EngineState["inventory"],
-  currentTime: number,
-): {
-  consumedInputCode: number;
-  dir: number;
-} {
-  internal.chipTDir = MS_DIRECTION.none;
-  if ((currentTime & 3) === 0) {
-    internal.chipHasMoved = false;
-  }
-  if (internal.chipHasMoved) {
-    if (internal.currentInput !== MS_DIRECTION.none && internal.goalPos >= 0) {
-      internal.goalPos = -1;
-    }
-    return {
-      consumedInputCode: GAME_INPUT_CODES.none,
-      dir: MS_DIRECTION.none,
-    };
-  }
-  const inputCode = internal.currentInput;
-  const { baseCode: decodedInputCode } = decodeRuntimeInputCode(inputCode);
-  internal.currentInput = MS_DIRECTION.none;
-  if (
-    internal.floorMovement === "ice" ||
-    internal.floorMovement === "air" ||
-    internal.floorMovement === "elevator" ||
-    internal.floorMovement === "teleport" ||
-    (internal.floorMovement === "slide" && decodedInputCode === internal.chipDir)
-  ) {
-    if (currentTime > 0 && (currentTime & 1) === 0) {
-      internal.goalPos = -1;
-    }
-    return {
-      consumedInputCode: GAME_INPUT_CODES.none,
-      dir: MS_DIRECTION.none,
-    };
-  }
-  if (decodedInputCode === MS_DIRECTION.none) {
-    let dir: number = MS_DIRECTION.none;
-    if (internal.goalPos >= 0 && (currentTime & 3) === 2) {
-      dir = chipMoveToGoalPos(cells, internal, inventory);
-    }
-    internal.chipTDir = dir;
-    return {
-      consumedInputCode: GAME_INPUT_CODES.none,
-      dir,
-    };
-  }
-
-  let dir = normalizeDirection(decodedInputCode);
-  if (isAbsoluteMouseCommand(decodedInputCode)) {
-    internal.goalPos = decodedInputCode - CMD_ABS_MOUSE_MOVE_FIRST;
-    dir = (currentTime & 3) === 2 ? chipMoveToGoalPos(cells, internal, inventory) : MS_DIRECTION.none;
-  } else if (isRelativeMouseCommand(decodedInputCode)) {
-    internal.goalPos = makeMouseAbsolute(decodedInputCode - CMD_MOUSE_MOVE_FIRST, internal.chipPos);
-    dir = (currentTime & 3) === 2 ? chipMoveToGoalPos(cells, internal, inventory) : MS_DIRECTION.none;
-  }
-
-  internal.chipTDir = dir;
-  return {
-    consumedInputCode: inputCode,
-    dir,
-  };
-}
-
 function moveChipWithPushPickupReveal(
   engine: EngineState,
   cells: EngineMapCell[],
@@ -4373,175 +4158,43 @@ function runManualMovement(
   return moveResult.soundEffects;
 }
 
-function resolveReplayLastMoveAfterChoose(
-  state: MsGameState,
-  internal: MsInternalState,
-  currentTime: number,
-  inputCode: number,
-  chipHasMovedBeforeChoose: boolean,
-  goalPosBeforeChoose: number,
-  floorMovementBeforeChoose: MsInternalState["floorMovement"],
-  chipDirBeforeChoose: number,
-  toolActionTriggered: boolean,
-): EngineState["lastMove"] {
-  const previous = state.engine.lastMove;
-  const { baseCode, modifierMask } = decodeRuntimeInputCode(inputCode);
-
-  if (state.engine.replay.cursor < 0) {
-    return { code: MS_DIRECTION.none, name: "none" };
-  }
-
-  const chipHasMoved = (currentTime & 3) === 0 ? false : chipHasMovedBeforeChoose;
-  const discardFloorMovement = floorMovementBeforeChoose;
-  const discardChipDir = chipDirBeforeChoose;
-
-  if (chipHasMoved && !toolActionTriggered) {
-    if (inputCode !== MS_DIRECTION.none && goalPosBeforeChoose >= 0) {
-      const runtimeMove = createRuntimeCommand(CMD_MOVE_NOP, state.engine.timer.currentTime + 1);
-      return {
-        code: runtimeMove.inputCode,
-        name: runtimeMove.inputName,
-      };
-    }
-    return previous;
-  }
-
-  const discard =
-    discardFloorMovement === "ice" ||
-    discardFloorMovement === "air" ||
-    discardFloorMovement === "elevator" ||
-    discardFloorMovement === "teleport" ||
-    (discardFloorMovement === "slide" && baseCode === discardChipDir);
-  if (discard && !toolActionTriggered) {
-    return previous;
-  }
-
-  if (isAbsoluteMouseCommand(baseCode)) {
-    const goalPos = baseCode - CMD_ABS_MOUSE_MOVE_FIRST;
-    const move = createRuntimeCommand(
-      encodeRuntimeInputCode(CMD_MOUSE_MOVE_FIRST + makeMouseRelative(goalPos, internal.chipPos), modifierMask),
-      state.engine.timer.currentTime + 1,
-    );
-    return {
-      code: move.inputCode,
-      name: move.inputName,
-    };
-  }
-
-  if (isRelativeMouseCommand(baseCode)) {
-    const move = createRuntimeCommand(encodeRuntimeInputCode(baseCode, modifierMask), state.engine.timer.currentTime + 1);
-    return {
-      code: move.inputCode,
-      name: move.inputName,
-    };
-  }
-
-  const dir = normalizeDirection(baseCode);
-  const runtimeMove = createRuntimeCommand(dir, state.engine.timer.currentTime + 1);
-  return {
-    code: encodeRuntimeInputCode(runtimeMove.inputCode, modifierMask),
-    name: runtimeCommandName(encodeRuntimeInputCode(runtimeMove.inputCode, modifierMask)),
-  };
+interface MsChipFloorPhaseState {
+  chipFloorMovementModeBeforeFloor: MsInternalState["floorMovement"];
+  chipFloorMovementModeAfterFloor: MsInternalState["floorMovement"];
+  chipFloorMovementWasActive: boolean;
 }
 
-function resolveRecordedReplayMoveAfterChoose(
-  state: MsGameState,
-  internal: MsInternalState,
-  currentTime: number,
-  inputCode: number,
-  chipHasMovedBeforeChoose: boolean,
-  goalPosBeforeChoose: number,
-  floorMovementBeforeChoose: MsInternalState["floorMovement"],
-  chipDirBeforeChoose: number,
-  toolActionTriggered: boolean,
-): RecordedReplayMoveDecision | null {
-  const { baseCode, modifierMask } = decodeRuntimeInputCode(inputCode);
-  if (state.engine.replay.cursor >= 0 || (baseCode === MS_DIRECTION.none && (!toolActionTriggered || modifierMask === 0))) {
-    return null;
-  }
-
-  const chipHasMoved = (currentTime & 3) === 0 ? false : chipHasMovedBeforeChoose;
-  if (chipHasMoved && !toolActionTriggered) {
-    return goalPosBeforeChoose >= 0
-      ? {
-          when: currentTime,
-          dir: CMD_MOVE_NOP,
-          modifierMask,
-        }
-      : null;
-  }
-
-  const discard =
-    floorMovementBeforeChoose === "ice" ||
-    floorMovementBeforeChoose === "air" ||
-    floorMovementBeforeChoose === "elevator" ||
-    floorMovementBeforeChoose === "teleport" ||
-    (floorMovementBeforeChoose === "slide" && baseCode === chipDirBeforeChoose);
-  if (discard && !toolActionTriggered) {
-    return null;
-  }
-
-  if (isAbsoluteMouseCommand(baseCode)) {
-    const goalPos = baseCode - CMD_ABS_MOUSE_MOVE_FIRST;
-    return {
-      when: currentTime,
-      dir: CMD_MOUSE_MOVE_FIRST + makeMouseRelative(goalPos, internal.chipPos),
-      modifierMask,
-    };
-  }
-
-  if (isRelativeMouseCommand(baseCode)) {
-    return {
-      when: currentTime,
-      dir: baseCode,
-      modifierMask,
-    };
-  }
-
-  return {
-    when: currentTime,
-    dir: normalizeDirection(baseCode),
-    modifierMask,
-  };
+interface MsChipInputResolution {
+  chipPosBeforeManualMovement: number;
+  manualDir: number;
+  nextLastMove: EngineState["lastMove"];
 }
 
-function replayBestTimeTicks(replay: ReplaySolutionPayload): number | undefined {
-  const replayWithBestTime = replay as ReplaySolutionPayload & {
-    bestTimeTicks?: number;
-  };
-  return typeof replayWithBestTime.bestTimeTicks === "number" ? replayWithBestTime.bestTimeTicks : undefined;
+interface MsAdvanceTickRuntime {
+  state: MsGameState;
+  input: GameRuntimeCommand;
+  debugRecorder: TurnDebugPhaseRecorder<GameDebugPhaseSnapshot> | null;
+  mapLayers: MsRuntimeLayer[];
+  layerCellsByZ: Map<number, EngineMapCell[]>;
+  initialCells: EngineMapCell[];
+  internal: MsInternalState;
+  inputLatchInternal: MsInternalState;
+  inventory: EngineState["inventory"];
+  nextTick: number;
+  timeOffset: number;
+  soundEffects: number;
+  recordedReplayMove: RecordedReplayMoveDecision | null;
+  toolActionTriggeredThisTick: boolean;
 }
 
-function isMouseGoalInputCode(inputCode: number): boolean {
-  const normalized = stripRuntimeInputModifiers(inputCode);
-  return normalized === CMD_MOVE_NOP || isAbsoluteMouseCommand(normalized) || isRelativeMouseCommand(normalized);
-}
-
-function latchCurrentInput(state: MsGameState, internal: MsInternalState, input: GameRuntimeCommand): void {
-  if (state.engine.replay.cursor >= 0) {
-    if (input.inputCode !== MS_DIRECTION.none) {
-      internal.currentInput = input.inputCode;
-    }
-    return;
-  }
-
-  const { baseCode, modifierMask } = decodeRuntimeInputCode(input.inputCode);
-  internal.currentInput = isMouseGoalInputCode(input.inputCode)
-    ? input.inputCode
-    : encodeRuntimeInputCode(normalizeDirection(baseCode), modifierMask);
-}
-
-// MS runs Chip floor movement on even ticks before normal input handling.
-function advanceMsTick(
+function createMsAdvanceTickRuntime(
   state: MsGameState,
   input: GameRuntimeCommand,
-  debugRecorder: TurnDebugPhaseRecorder<GameDebugPhaseSnapshot> | null = null,
-): MsAdvanceTickResult {
+  debugRecorder: TurnDebugPhaseRecorder<GameDebugPhaseSnapshot> | null,
+): MsAdvanceTickRuntime {
   const mapLayers = cloneRuntimeMapLayers(state.engine.map);
   const layerCellsByZ = new Map<number, EngineMapCell[]>(mapLayers.map((layer) => [layer.z, layer.cells]));
-  const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? mapLayers[0]!.cells;
-  const cells = cellsForZ(state.internal.chipZ ?? 1);
-  const activeChipCells = (): EngineMapCell[] => cellsForZ(internal.chipZ ?? 1);
+  const initialCells = layerCellsByZ.get(state.internal.chipZ ?? 1) ?? mapLayers[0]!.cells;
   const internal = cloneInternalState(state.internal);
   const inputLatchInternal = cloneInternalState(state.internal);
   internal.runtimeLayers = mapLayers.map((layer) => ({
@@ -4552,461 +4205,523 @@ function advanceMsTick(
   const inventory = cloneInventory(state.engine.inventory);
   reconcileMsPortableToolProjection(internal, inventory);
   reconcileMsPortableToolProjection(inputLatchInternal, inventory);
-  const nextTick = state.engine.timer.currentTime + 1;
-  let timeOffset = -1;
-  let soundEffects = 0;
-  let recordedReplayMove: RecordedReplayMoveDecision | null = null;
-  let toolActionTriggeredThisTick = false;
   clearMsTileOverlays(state.engine);
   internal.pendingSoundEffects = 0;
-  const flushPendingSoundEffects = (): void => {
-    if (internal.pendingSoundEffects === 0) {
-      return;
-    }
-    soundEffects |= internal.pendingSoundEffects;
-    internal.pendingSoundEffects = 0;
-  };
 
-  const finishTick = (
-    lastMove: EngineState["lastMove"] = state.engine.lastMove,
-    overrideTimeOffset = timeOffset,
-    includeFinalPhase = true,
-  ): MsAdvanceTickResult => {
-    const activeCells = cellsForZ(internal.chipZ ?? 1);
-    projectMsPortableToolState(internal, inventory);
-    const nextState = updateEngine(
-      {
-        engine: {
-          ...state.engine,
-          inventory,
-          lastMove,
-          timer: {
-            ...state.engine.timer,
-            timeOffset: overrideTimeOffset,
-          },
+  return {
+    state,
+    input,
+    debugRecorder,
+    mapLayers,
+    layerCellsByZ,
+    initialCells,
+    internal,
+    inputLatchInternal,
+    inventory,
+    nextTick: state.engine.timer.currentTime + 1,
+    timeOffset: -1,
+    soundEffects: 0,
+    recordedReplayMove: null,
+    toolActionTriggeredThisTick: false,
+  };
+}
+
+function msAdvanceTickCellsForZ(runtime: MsAdvanceTickRuntime, z = 1): EngineMapCell[] {
+  return runtime.layerCellsByZ.get(z) ?? runtime.mapLayers[0]!.cells;
+}
+
+function msAdvanceTickActiveChipCells(runtime: MsAdvanceTickRuntime): EngineMapCell[] {
+  return msAdvanceTickCellsForZ(runtime, runtime.internal.chipZ ?? 1);
+}
+
+function flushMsPendingSoundEffects(runtime: MsAdvanceTickRuntime): void {
+  if (runtime.internal.pendingSoundEffects === 0) {
+    return;
+  }
+  runtime.soundEffects |= runtime.internal.pendingSoundEffects;
+  runtime.internal.pendingSoundEffects = 0;
+}
+
+function finishMsTick(
+  runtime: MsAdvanceTickRuntime,
+  lastMove: EngineState["lastMove"] = runtime.state.engine.lastMove,
+  overrideTimeOffset = runtime.timeOffset,
+  includeFinalPhase = true,
+): MsAdvanceTickResult {
+  const activeCells = msAdvanceTickActiveChipCells(runtime);
+  projectMsPortableToolState(runtime.internal, runtime.inventory);
+  const nextState = updateEngine(
+    {
+      engine: {
+        ...runtime.state.engine,
+        inventory: runtime.inventory,
+        lastMove,
+        timer: {
+          ...runtime.state.engine.timer,
+          timeOffset: overrideTimeOffset,
         },
-        internal,
       },
-      activeCells,
-      soundEffects,
-      true,
-      mapLayers,
+      internal: runtime.internal,
+    },
+    activeCells,
+    runtime.soundEffects,
+    true,
+    runtime.mapLayers,
+  );
+  if (runtime.debugRecorder && includeFinalPhase) {
+    recordTurnDebugPhase(runtime.debugRecorder, TURN_DEBUG_PHASE.final, (phase) =>
+      projectMsDebugPhaseSnapshot(
+        nextState,
+        nextState.engine.map.cells,
+        nextState.internal,
+        nextState.engine.inventory,
+        nextState.engine.timer.currentTime,
+        nextState.engine.soundEffects,
+        nextState.engine.lastMove,
+        phase,
+      ),
     );
-    if (debugRecorder && includeFinalPhase) {
-      recordTurnDebugPhase(debugRecorder, TURN_DEBUG_PHASE.final, (phase) =>
-        projectMsDebugPhaseSnapshot(
-          nextState,
-          nextState.engine.map.cells,
-          nextState.internal,
-          nextState.engine.inventory,
-          nextState.engine.timer.currentTime,
-          nextState.engine.soundEffects,
-          nextState.engine.lastMove,
-          phase,
-        ),
-      );
-    }
-    return {
-      state: nextState,
-      recordedReplayMove,
-    };
+  }
+  return {
+    state: nextState,
+    recordedReplayMove: runtime.recordedReplayMove,
   };
+}
 
-  if (
-    state.engine.replay.cursor >= 0 &&
-    state.engine.replay.cursor >= state.engine.replay.moveCount &&
-    nextTick + state.engine.timer.timeOffset - 1 > state.engine.replay.bestTimeTicks
-  ) {
-    internal.replayDeadlineFailed = true;
-    return finishTick(state.engine.lastMove, state.engine.timer.timeOffset, false);
+function recordMsTickPhase(
+  runtime: MsAdvanceTickRuntime,
+  phase: TurnDebugPhaseName,
+  lastMove: EngineState["lastMove"] = runtime.state.engine.lastMove,
+): void {
+  if (!runtime.debugRecorder) {
+    return;
+  }
+  recordTurnDebugPhase(runtime.debugRecorder, phase, (recordedPhase) =>
+    projectMsDebugPhaseSnapshot(
+      runtime.state,
+      msAdvanceTickActiveChipCells(runtime),
+      runtime.internal,
+      runtime.inventory,
+      runtime.nextTick,
+      runtime.soundEffects,
+      lastMove,
+      recordedPhase,
+    ),
+  );
+}
+
+function recordMsTickPhaseWithInternal(
+  runtime: MsAdvanceTickRuntime,
+  phase: TurnDebugPhaseName,
+  snapshotInternal: MsInternalState,
+  lastMove: EngineState["lastMove"] = runtime.state.engine.lastMove,
+  chipSlipCarryDir: number = MS_DIRECTION.none,
+): void {
+  if (!runtime.debugRecorder) {
+    return;
+  }
+  const phaseCells = msAdvanceTickCellsForZ(runtime, snapshotInternal.chipZ ?? 1);
+  recordTurnDebugPhase(runtime.debugRecorder, phase, (recordedPhase) =>
+    projectMsDebugPhaseSnapshot(
+      runtime.state,
+      phaseCells,
+      snapshotInternal,
+      runtime.inventory,
+      runtime.nextTick,
+      runtime.soundEffects,
+      lastMove,
+      recordedPhase,
+      chipSlipCarryDir,
+    ),
+  );
+}
+
+function msTickPhaseIsPlayable(runtime: MsAdvanceTickRuntime): boolean {
+  return runtime.internal.chipStatus === "okay" && !runtime.internal.completed;
+}
+
+function maybeFinishMsTickEarly(
+  runtime: MsAdvanceTickRuntime,
+  lastMove: EngineState["lastMove"] = runtime.state.engine.lastMove,
+): MsAdvanceTickResult | null {
+  if (msTickPhaseIsPlayable(runtime)) {
+    return null;
+  }
+  flushMsPendingSoundEffects(runtime);
+  return finishMsTick(runtime, lastMove);
+}
+
+function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
+  runtime.inputLatchInternal.currentInput = latchCurrentMsInput(
+    runtime.state.engine.replay.cursor,
+    runtime.inputLatchInternal.currentInput,
+    runtime.input.inputCode,
+  );
+  if (runtime.debugRecorder) {
+    recordTurnDebugPhase(runtime.debugRecorder, TURN_DEBUG_PHASE.postInputLatch, (phase) =>
+      projectMsDebugPhaseSnapshot(
+        runtime.state,
+        runtime.initialCells,
+        runtime.inputLatchInternal,
+        runtime.inventory,
+        runtime.nextTick,
+        runtime.soundEffects,
+        runtime.state.engine.lastMove,
+        phase,
+      ),
+    );
   }
 
-  const recordPhase = (phase: TurnDebugPhaseName, lastMove: EngineState["lastMove"] = state.engine.lastMove): void => {
-    if (!debugRecorder) {
-      return;
-    }
-    const phaseCells = activeChipCells();
-    recordTurnDebugPhase(debugRecorder, phase, (recordedPhase) =>
-      projectMsDebugPhaseSnapshot(
-        state,
-        phaseCells,
-        internal,
-        inventory,
-        nextTick,
-        soundEffects,
-        lastMove,
-        recordedPhase,
-      ),
-    );
-  };
-
-  const recordPhaseWithInternal = (
-    phase: TurnDebugPhaseName,
-    snapshotInternal: MsInternalState,
-    lastMove: EngineState["lastMove"] = state.engine.lastMove,
-    chipSlipCarryDir: number = MS_DIRECTION.none,
-  ): void => {
-    if (!debugRecorder) {
-      return;
-    }
-    const phaseCells = cellsForZ(snapshotInternal.chipZ ?? 1);
-    recordTurnDebugPhase(debugRecorder, phase, (recordedPhase) =>
-      projectMsDebugPhaseSnapshot(
-        state,
-        phaseCells,
-        snapshotInternal,
-        inventory,
-        nextTick,
-        soundEffects,
-        lastMove,
-        recordedPhase,
-        chipSlipCarryDir,
-      ),
-    );
-  };
-
-  const isPlayablePhase = (): boolean => internal.chipStatus === "okay" && !internal.completed;
-
-  const maybeFinishEarly = (
-    lastMove: EngineState["lastMove"] = state.engine.lastMove,
-  ): MsAdvanceTickResult | null => {
-    if (isPlayablePhase()) {
-      return null;
-    }
-    flushPendingSoundEffects();
-    return finishTick(lastMove);
-  };
-
-  const runInitialHousekeepingPhase = (): number => {
-    latchCurrentInput(state, inputLatchInternal, input);
-    if (debugRecorder) {
-      recordTurnDebugPhase(debugRecorder, TURN_DEBUG_PHASE.postInputLatch, (phase) =>
-        projectMsDebugPhaseSnapshot(
-          state,
-          cells,
-          inputLatchInternal,
-          inventory,
-          nextTick,
-          soundEffects,
-          state.engine.lastMove,
-          phase,
-        ),
-      );
-    }
-
-    if ((nextTick & 3) === 0) {
-      for (const creature of internal.creatures) {
-        if (creature.turning) {
-          creature.turning = false;
-          creature.hasMoved = false;
-          updateCreatureTile(cellsForZ(creature.z ?? 1), creature);
-        }
-      }
-      internal.chipWait += 1;
-      if (internal.chipWait > 3) {
-        internal.chipWait = 3;
-        if (internal.chipDir !== MS_DIRECTION.none) {
-          internal.chipDir = MS_DIRECTION.south;
-          updateChipTile(activeChipCells(), internal);
-        }
+  if ((runtime.nextTick & 3) === 0) {
+    for (const creature of runtime.internal.creatures) {
+      if (creature.turning) {
+        creature.turning = false;
+        creature.hasMoved = false;
+        updateCreatureTile(msAdvanceTickCellsForZ(runtime, creature.z ?? 1), creature);
       }
     }
-
-    latchCurrentInput(state, internal, input);
-    const { modifierMask } = decodeRuntimeInputCode(internal.currentInput);
-    if (
-      isPlayablePhase() &&
-      (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
-      primeMsToolDrop(internal, inventory, internal.chipPos, internal.chipZ ?? 1)
-    ) {
-      toolActionTriggeredThisTick = true;
+    runtime.internal.chipWait += 1;
+    if (runtime.internal.chipWait > 3) {
+      runtime.internal.chipWait = 3;
+      if (runtime.internal.chipDir !== MS_DIRECTION.none) {
+        runtime.internal.chipDir = MS_DIRECTION.south;
+        updateChipTile(msAdvanceTickActiveChipCells(runtime), runtime.internal);
+      }
     }
-    recordPhase(TURN_DEBUG_PHASE.postInitialHousekeeping);
-    return internal.currentInput;
-  };
+  }
 
-  const runCreatureMovementPhase = (): void => {
-    if (!isPlayablePhase()) {
-      return;
-    }
-    if (nextTick > 0 && (nextTick & 1) === 0) {
-      internal.controllerDir = MS_DIRECTION.none;
-    }
-    soundEffects |= runCreatureMovements(state.engine, layerCellsByZ, internal, nextTick, state.engine.replay.stepping);
-    if (nextTick > 0 && (nextTick & 1) === 0) {
-      recordPhase(TURN_DEBUG_PHASE.postCreatureMovement);
-    }
-  };
+  runtime.internal.currentInput = latchCurrentMsInput(
+    runtime.state.engine.replay.cursor,
+    runtime.internal.currentInput,
+    runtime.input.inputCode,
+  );
+  const { modifierMask } = decodeRuntimeInputCode(runtime.internal.currentInput);
+  if (
+    msTickPhaseIsPlayable(runtime) &&
+    (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
+    primeMsToolDrop(runtime.internal, runtime.inventory, runtime.internal.chipPos, runtime.internal.chipZ ?? 1)
+  ) {
+    runtime.toolActionTriggeredThisTick = true;
+  }
+  recordMsTickPhase(runtime, TURN_DEBUG_PHASE.postInitialHousekeeping);
+  return runtime.internal.currentInput;
+}
 
-  const runChipFloorPhase = (): {
-    chipFloorMovementModeBeforeFloor: MsInternalState["floorMovement"];
-    chipFloorMovementModeAfterFloor: MsInternalState["floorMovement"];
-    chipFloorMovementWasActive: boolean;
-  } => {
-    if (isPlayablePhase()) {
-      const tickContext = createMsTickContext(state.engine, internal, inventory, layerCellsByZ);
-      syncMsChipAirFloorMovement(
-        {
-          ...tickContext,
-          canMoveBlockInto,
-        },
-        internal,
-      );
-      syncMsChipElevatorFloorMovement(
-        {
-          ...tickContext,
-          canMoveBlockInto,
-        },
-        internal,
-      );
-    }
+function runMsCreatureMovementPhase(runtime: MsAdvanceTickRuntime): void {
+  if (!msTickPhaseIsPlayable(runtime)) {
+    return;
+  }
+  if (runtime.nextTick > 0 && (runtime.nextTick & 1) === 0) {
+    runtime.internal.controllerDir = MS_DIRECTION.none;
+  }
+  runtime.soundEffects |= runCreatureMovements(
+    runtime.state.engine,
+    runtime.layerCellsByZ,
+    runtime.internal,
+    runtime.nextTick,
+    runtime.state.engine.replay.stepping,
+  );
+  if (runtime.nextTick > 0 && (runtime.nextTick & 1) === 0) {
+    recordMsTickPhase(runtime, TURN_DEBUG_PHASE.postCreatureMovement);
+  }
+}
 
-    const chipFloorMovementModeBeforeFloor = internal.floorMovement;
-    const chipFloorMovementDirBeforeFloor = internal.floorMovementDir;
-    const chipFloorMovementWasActive =
-      isPlayablePhase() &&
-      nextTick > 0 &&
-      (nextTick & 1) === 0 &&
-      internal.floorMovement !== "none" &&
-      internal.floorMovementDir !== MS_DIRECTION.none;
-
-    if (nextTick > 0 && (nextTick & 1) === 0) {
-      soundEffects |= runFloorMovement(createMsTickContext(state.engine, internal, inventory, layerCellsByZ), activeChipCells());
-      recordPhaseWithInternal(
-        TURN_DEBUG_PHASE.postChipFloorMovement,
-        cloneInternalState(internal),
-        state.engine.lastMove,
-        chipFloorMovementWasActive && internal.floorMovement === "none"
-          ? chipFloorMovementDirBeforeFloor
-          : MS_DIRECTION.none,
-      );
-    }
-
-    return {
-      chipFloorMovementModeBeforeFloor,
-      chipFloorMovementModeAfterFloor: internal.floorMovement,
-      chipFloorMovementWasActive,
-    };
-  };
-
-  const runCreatureFloorPhase = (): void => {
-    if (!isPlayablePhase() || nextTick <= 0 || (nextTick & 1) !== 0) {
-      return;
-    }
-    soundEffects |= runCreatureFloorMovements(state.engine, layerCellsByZ, internal, nextTick);
-    recordPhase(TURN_DEBUG_PHASE.postBlockFloorMovement);
-  };
-
-  const resolveChipInputPhase = (
-    replayLastMoveInputCode: number,
-  ): {
-    chipPosBeforeManualMovement: number;
-    manualDir: number;
-    nextLastMove: EngineState["lastMove"];
-  } => {
-    const replayLastMoveFloorMovement = internal.floorMovement;
-    const replayLastMoveChipDir = internal.chipDir;
-    const replayLastMoveGoalPos = internal.goalPos;
-    const replayLastMoveChipHasMoved = internal.chipHasMoved;
-    const manualChoice: ReturnType<typeof chooseManualMovement> = isPlayablePhase()
-      ? chooseManualMovement(activeChipCells(), internal, inventory, nextTick)
-      : {
-          consumedInputCode: GAME_INPUT_CODES.none,
-          dir: MS_DIRECTION.none,
-        };
-    const recordedInputCode =
-      toolActionTriggeredThisTick && manualChoice.consumedInputCode === GAME_INPUT_CODES.none
-        ? replayLastMoveInputCode
-        : manualChoice.consumedInputCode;
-    recordedReplayMove = resolveRecordedReplayMoveAfterChoose(
-      state,
-      internal,
-      nextTick,
-      recordedInputCode,
-      replayLastMoveChipHasMoved,
-      replayLastMoveGoalPos,
-      replayLastMoveFloorMovement,
-      replayLastMoveChipDir,
-      toolActionTriggeredThisTick,
+function runMsChipFloorPhase(runtime: MsAdvanceTickRuntime): MsChipFloorPhaseState {
+  if (msTickPhaseIsPlayable(runtime)) {
+    const tickContext = createMsTickContext(runtime.state.engine, runtime.internal, runtime.inventory, runtime.layerCellsByZ);
+    syncMsChipAirFloorMovement(
+      {
+        ...tickContext,
+        canMoveBlockInto,
+      },
+      runtime.internal,
     );
-    const chipPosBeforeManualMovement = internal.chipPos;
-    const nextLastMove = resolveReplayLastMoveAfterChoose(
-      state,
-      internal,
-      nextTick,
-      replayLastMoveInputCode,
-      replayLastMoveChipHasMoved,
-      replayLastMoveGoalPos,
-      replayLastMoveFloorMovement,
-      replayLastMoveChipDir,
-      toolActionTriggeredThisTick,
+    syncMsChipElevatorFloorMovement(
+      {
+        ...tickContext,
+        canMoveBlockInto,
+      },
+      runtime.internal,
     );
+  }
 
-    return {
-      chipPosBeforeManualMovement,
-      manualDir: manualChoice.dir,
-      nextLastMove,
-    };
-  };
+  const chipFloorMovementModeBeforeFloor = runtime.internal.floorMovement;
+  const chipFloorMovementDirBeforeFloor = runtime.internal.floorMovementDir;
+  const chipFloorMovementWasActive =
+    msTickPhaseIsPlayable(runtime) &&
+    runtime.nextTick > 0 &&
+    (runtime.nextTick & 1) === 0 &&
+    runtime.internal.floorMovement !== "none" &&
+    runtime.internal.floorMovementDir !== MS_DIRECTION.none;
 
-  const runTimerPhase = (nextLastMove: EngineState["lastMove"]): MsAdvanceTickResult | null => {
-    if (!isPlayablePhase()) {
-      return null;
-    }
-    timeOffset = 0;
-    if (state.engine.timer.timeLimit > 0 && nextTick >= state.engine.timer.timeLimit) {
-      internal.chipStatus = "outoftime";
-      soundEffects |= 1 << MS_SOUND.TimeOut;
-      return {
-        state: updateEngine(
-          {
-            engine: {
-              ...state.engine,
-              inventory,
-              lastMove: nextLastMove,
-              timer: {
-                ...state.engine.timer,
-                timeOffset,
-              },
-            },
-            internal,
-          },
-          activeChipCells(),
-          soundEffects,
-        ),
-        recordedReplayMove,
-      };
-    }
-    if (
-      state.engine.timer.timeLimit > 0 &&
-      state.engine.timer.timeLimit > nextTick &&
-      state.engine.timer.timeLimit - nextTick <= 15 * MS_TICKS_PER_SECOND &&
-      nextTick % MS_TICKS_PER_SECOND === 0
-    ) {
-      soundEffects |= 1 << MS_SOUND.TimeLow;
-    }
-    return null;
-  };
-
-  const runManualMovementPhase = (
-    nextLastMove: EngineState["lastMove"],
-    manualDir: number,
-    chipPosBeforeManualMovement: number,
-    chipFloorMovementWasActive: boolean,
-    chipFloorMovementModeBeforeFloor: MsInternalState["floorMovement"],
-    chipFloorMovementModeAfterFloor: MsInternalState["floorMovement"],
-  ): MsAdvanceTickResult | null => {
-    recordPhaseWithInternal(TURN_DEBUG_PHASE.postChipInput, cloneInternalState(internal), nextLastMove);
-    if (isPlayablePhase()) {
-      soundEffects |= runManualMovement(state.engine, activeChipCells(), internal, inventory, manualDir);
-    }
-    if (!isPlayablePhase()) {
-      flushPendingSoundEffects();
-      return finishTick(nextLastMove);
-    }
-    const carriedSlideExitThisTick =
-      !chipFloorMovementWasActive &&
-      chipFloorMovementModeAfterFloor === "slide" &&
-      internal.floorMovement === "none" &&
-      internal.chipPos !== chipPosBeforeManualMovement;
-    recordPhaseWithInternal(
-      TURN_DEBUG_PHASE.postChipMovement,
-      cloneInternalState(internal),
-      nextLastMove,
-      ((chipFloorMovementWasActive &&
-        chipFloorMovementModeBeforeFloor === "slide" &&
-        chipFloorMovementModeAfterFloor === "slide" &&
-        internal.floorMovement === "none") ||
-        carriedSlideExitThisTick)
-        ? internal.lastSlipDir
+  if (runtime.nextTick > 0 && (runtime.nextTick & 1) === 0) {
+    runtime.soundEffects |= runFloorMovement(
+      createMsTickContext(runtime.state.engine, runtime.internal, runtime.inventory, runtime.layerCellsByZ),
+      msAdvanceTickActiveChipCells(runtime),
+    );
+    recordMsTickPhaseWithInternal(
+      runtime,
+      TURN_DEBUG_PHASE.postChipFloorMovement,
+      cloneInternalState(runtime.internal),
+      runtime.state.engine.lastMove,
+      chipFloorMovementWasActive && runtime.internal.floorMovement === "none"
+        ? chipFloorMovementDirBeforeFloor
         : MS_DIRECTION.none,
     );
-    return null;
-  };
+  }
 
-  const runCloneReleasePhase = (nextLastMove: EngineState["lastMove"]): MsAdvanceTickResult => {
-    forEachRuntimeLayer(mapLayers, (layerCells) => {
-      soundEffects |= handleDeferredButtons(layerCells, internal);
-    });
-    resolvePendingCloners(cells, internal);
-    createClones(internal);
-    flushPendingSoundEffects();
-    recordPhase(TURN_DEBUG_PHASE.postCloneRelease, nextLastMove);
-    return finishTick(nextLastMove);
+  return {
+    chipFloorMovementModeBeforeFloor,
+    chipFloorMovementModeAfterFloor: runtime.internal.floorMovement,
+    chipFloorMovementWasActive,
   };
+}
+
+function runMsCreatureFloorPhase(runtime: MsAdvanceTickRuntime): void {
+  if (!msTickPhaseIsPlayable(runtime) || runtime.nextTick <= 0 || (runtime.nextTick & 1) !== 0) {
+    return;
+  }
+  runtime.soundEffects |= runCreatureFloorMovements(runtime.state.engine, runtime.layerCellsByZ, runtime.internal, runtime.nextTick);
+  recordMsTickPhase(runtime, TURN_DEBUG_PHASE.postBlockFloorMovement);
+}
+
+function resolveMsChipInputPhase(
+  runtime: MsAdvanceTickRuntime,
+  replayLastMoveInputCode: number,
+): MsChipInputResolution {
+  const replaySnapshot = {
+    chipHasMovedBeforeChoose: runtime.internal.chipHasMoved,
+    goalPosBeforeChoose: runtime.internal.goalPos,
+    floorMovementBeforeChoose: runtime.internal.floorMovement,
+    chipDirBeforeChoose: runtime.internal.chipDir,
+    chipPos: runtime.internal.chipPos,
+  };
+  const manualChoice = msTickPhaseIsPlayable(runtime)
+    ? chooseMsManualMovement(runtime.internal, runtime.nextTick, () =>
+        chipMoveToGoalPos(msAdvanceTickActiveChipCells(runtime), runtime.internal, runtime.inventory),
+      )
+    : {
+        consumedInputCode: GAME_INPUT_CODES.none,
+        dir: MS_DIRECTION.none,
+      };
+  const recordedInputCode =
+    runtime.toolActionTriggeredThisTick && manualChoice.consumedInputCode === GAME_INPUT_CODES.none
+      ? replayLastMoveInputCode
+      : manualChoice.consumedInputCode;
+  runtime.recordedReplayMove = resolveMsRecordedReplayMoveAfterChoose(
+    runtime.state.engine.replay.cursor,
+    runtime.nextTick,
+    recordedInputCode,
+    replaySnapshot,
+    runtime.toolActionTriggeredThisTick,
+  );
+  const chipPosBeforeManualMovement = runtime.internal.chipPos;
+  const nextLastMove = resolveMsReplayLastMoveAfterChoose(
+    {
+      replayCursor: runtime.state.engine.replay.cursor,
+      previousLastMove: runtime.state.engine.lastMove,
+      currentTime: runtime.nextTick,
+      engineTime: runtime.state.engine.timer.currentTime,
+    },
+    replayLastMoveInputCode,
+    replaySnapshot,
+    runtime.toolActionTriggeredThisTick,
+  );
+
+  return {
+    chipPosBeforeManualMovement,
+    manualDir: manualChoice.dir,
+    nextLastMove,
+  };
+}
+
+function runMsTimerPhase(
+  runtime: MsAdvanceTickRuntime,
+  nextLastMove: EngineState["lastMove"],
+): MsAdvanceTickResult | null {
+  if (!msTickPhaseIsPlayable(runtime)) {
+    return null;
+  }
+  runtime.timeOffset = 0;
+  if (runtime.state.engine.timer.timeLimit > 0 && runtime.nextTick >= runtime.state.engine.timer.timeLimit) {
+    runtime.internal.chipStatus = "outoftime";
+    runtime.soundEffects |= 1 << MS_SOUND.TimeOut;
+    return {
+      state: updateEngine(
+        {
+          engine: {
+            ...runtime.state.engine,
+            inventory: runtime.inventory,
+            lastMove: nextLastMove,
+            timer: {
+              ...runtime.state.engine.timer,
+              timeOffset: runtime.timeOffset,
+            },
+          },
+          internal: runtime.internal,
+        },
+        msAdvanceTickActiveChipCells(runtime),
+        runtime.soundEffects,
+      ),
+      recordedReplayMove: runtime.recordedReplayMove,
+    };
+  }
+  if (
+    runtime.state.engine.timer.timeLimit > 0 &&
+    runtime.state.engine.timer.timeLimit > runtime.nextTick &&
+    runtime.state.engine.timer.timeLimit - runtime.nextTick <= 15 * MS_TICKS_PER_SECOND &&
+    runtime.nextTick % MS_TICKS_PER_SECOND === 0
+  ) {
+    runtime.soundEffects |= 1 << MS_SOUND.TimeLow;
+  }
+  return null;
+}
+
+function runMsManualMovementPhase(
+  runtime: MsAdvanceTickRuntime,
+  nextLastMove: EngineState["lastMove"],
+  manualDir: number,
+  chipPosBeforeManualMovement: number,
+  chipFloorMovementWasActive: boolean,
+  chipFloorMovementModeBeforeFloor: MsInternalState["floorMovement"],
+  chipFloorMovementModeAfterFloor: MsInternalState["floorMovement"],
+): MsAdvanceTickResult | null {
+  recordMsTickPhaseWithInternal(runtime, TURN_DEBUG_PHASE.postChipInput, cloneInternalState(runtime.internal), nextLastMove);
+  if (msTickPhaseIsPlayable(runtime)) {
+    runtime.soundEffects |= runManualMovement(
+      runtime.state.engine,
+      msAdvanceTickActiveChipCells(runtime),
+      runtime.internal,
+      runtime.inventory,
+      manualDir,
+    );
+  }
+  if (!msTickPhaseIsPlayable(runtime)) {
+    flushMsPendingSoundEffects(runtime);
+    return finishMsTick(runtime, nextLastMove);
+  }
+  const carriedSlideExitThisTick =
+    !chipFloorMovementWasActive &&
+    chipFloorMovementModeAfterFloor === "slide" &&
+    runtime.internal.floorMovement === "none" &&
+    runtime.internal.chipPos !== chipPosBeforeManualMovement;
+  recordMsTickPhaseWithInternal(
+    runtime,
+    TURN_DEBUG_PHASE.postChipMovement,
+    cloneInternalState(runtime.internal),
+    nextLastMove,
+    ((chipFloorMovementWasActive &&
+      chipFloorMovementModeBeforeFloor === "slide" &&
+      chipFloorMovementModeAfterFloor === "slide" &&
+      runtime.internal.floorMovement === "none") ||
+      carriedSlideExitThisTick)
+      ? runtime.internal.lastSlipDir
+      : MS_DIRECTION.none,
+  );
+  return null;
+}
+
+function runMsCloneReleasePhase(
+  runtime: MsAdvanceTickRuntime,
+  nextLastMove: EngineState["lastMove"],
+): MsAdvanceTickResult {
+  forEachRuntimeLayer(runtime.mapLayers, (layerCells) => {
+    runtime.soundEffects |= handleDeferredButtons(layerCells, runtime.internal);
+  });
+  resolvePendingCloners(runtime.initialCells, runtime.internal);
+  createClones(runtime.internal);
+  flushMsPendingSoundEffects(runtime);
+  recordMsTickPhase(runtime, TURN_DEBUG_PHASE.postCloneRelease, nextLastMove);
+  return finishMsTick(runtime, nextLastMove);
+}
+
+function advanceMsTick(
+  state: MsGameState,
+  input: GameRuntimeCommand,
+  debugRecorder: TurnDebugPhaseRecorder<GameDebugPhaseSnapshot> | null = null,
+): MsAdvanceTickResult {
+  const runtime = createMsAdvanceTickRuntime(state, input, debugRecorder);
+
+  if (
+    runtime.state.engine.replay.cursor >= 0 &&
+    runtime.state.engine.replay.cursor >= runtime.state.engine.replay.moveCount &&
+    runtime.nextTick + runtime.state.engine.timer.timeOffset - 1 > runtime.state.engine.replay.bestTimeTicks
+  ) {
+    runtime.internal.replayDeadlineFailed = true;
+    return finishMsTick(runtime, runtime.state.engine.lastMove, runtime.state.engine.timer.timeOffset, false);
+  }
 
   let replayLastMoveInputCode = 0;
-  let nextLastMove = state.engine.lastMove;
-  let chipFloorMovementModeBeforeFloor = internal.floorMovement;
-  let chipFloorMovementModeAfterFloor = internal.floorMovement;
-  let chipFloorMovementWasActive = false;
-  let chipPosBeforeManualMovement = internal.chipPos;
+  let nextLastMove = runtime.state.engine.lastMove;
+  let chipFloorPhaseState: MsChipFloorPhaseState = {
+    chipFloorMovementModeBeforeFloor: runtime.internal.floorMovement,
+    chipFloorMovementModeAfterFloor: runtime.internal.floorMovement,
+    chipFloorMovementWasActive: false,
+  };
+  let chipPosBeforeManualMovement = runtime.internal.chipPos;
   let manualDir: number = MS_DIRECTION.none;
   const earlyResult = runTurnPhaseHandlers<MsAdvanceTickResult>([
     {
       name: TURN_PHASE.initialHousekeeping,
       run: () => {
-        replayLastMoveInputCode = runInitialHousekeepingPhase();
+        replayLastMoveInputCode = runMsInitialHousekeepingPhase(runtime);
         return null;
       },
     },
     {
       name: TURN_PHASE.creatureMovement,
       run: () => {
-        runCreatureMovementPhase();
-        nextLastMove = state.engine.lastMove;
-        return maybeFinishEarly(nextLastMove);
+        runMsCreatureMovementPhase(runtime);
+        nextLastMove = runtime.state.engine.lastMove;
+        return maybeFinishMsTickEarly(runtime, nextLastMove);
       },
     },
     {
       name: TURN_PHASE.chipFloorMovement,
       run: () => {
-        ({
-          chipFloorMovementModeBeforeFloor,
-          chipFloorMovementModeAfterFloor,
-          chipFloorMovementWasActive,
-        } = runChipFloorPhase());
-        nextLastMove = state.engine.lastMove;
-        return maybeFinishEarly(nextLastMove);
+        chipFloorPhaseState = runMsChipFloorPhase(runtime);
+        nextLastMove = runtime.state.engine.lastMove;
+        return maybeFinishMsTickEarly(runtime, nextLastMove);
       },
     },
     {
       name: TURN_PHASE.creatureFloorMovement,
       run: () => {
-        runCreatureFloorPhase();
-        nextLastMove = state.engine.lastMove;
-        return maybeFinishEarly(nextLastMove);
+        runMsCreatureFloorPhase(runtime);
+        nextLastMove = runtime.state.engine.lastMove;
+        return maybeFinishMsTickEarly(runtime, nextLastMove);
       },
     },
     {
       name: TURN_PHASE.chipInputResolution,
       run: () => {
-        ({ chipPosBeforeManualMovement, manualDir, nextLastMove } = resolveChipInputPhase(replayLastMoveInputCode));
+        ({ chipPosBeforeManualMovement, manualDir, nextLastMove } = resolveMsChipInputPhase(runtime, replayLastMoveInputCode));
         return null;
       },
     },
     {
       name: TURN_PHASE.timer,
-      run: () => runTimerPhase(nextLastMove),
+      run: () => runMsTimerPhase(runtime, nextLastMove),
     },
     {
       name: TURN_PHASE.manualMovement,
       run: () =>
-        runManualMovementPhase(
+        runMsManualMovementPhase(
+          runtime,
           nextLastMove,
           manualDir,
           chipPosBeforeManualMovement,
-          chipFloorMovementWasActive,
-          chipFloorMovementModeBeforeFloor,
-          chipFloorMovementModeAfterFloor,
+          chipFloorPhaseState.chipFloorMovementWasActive,
+          chipFloorPhaseState.chipFloorMovementModeBeforeFloor,
+          chipFloorPhaseState.chipFloorMovementModeAfterFloor,
         ),
     },
     {
       name: TURN_PHASE.cloneRelease,
-      run: () => runCloneReleasePhase(nextLastMove),
+      run: () => runMsCloneReleasePhase(runtime, nextLastMove),
     },
   ]);
-  return earlyResult ?? runCloneReleasePhase(nextLastMove);
+  return earlyResult ?? runMsCloneReleasePhase(runtime, nextLastMove);
 }
 
 export function runMsInputTrace(request: GameRequest, level: MsLevel, commands: GameCommand[], maxTicks: number): GameTrace {

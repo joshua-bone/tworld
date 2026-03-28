@@ -585,10 +585,10 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 
 ### EC7: MS Engine Step-Down Cleanup
 
-- [ ] Split `advanceMsTick` into a turn runner plus phase modules.
-- [ ] Split `runCreatureFloorMovements` into queue helper + movement processors.
-- [ ] Split chip movement and replay bookkeeping into dedicated modules.
-- [ ] Reduce direct tile branching in MS hot paths where a policy seam already exists.
+- [x] Split `advanceMsTick` into a turn runner plus phase modules.
+- [x] Split `runCreatureFloorMovements` into queue helper + movement processors.
+- [x] Split chip movement and replay bookkeeping into dedicated modules.
+- [x] Reduce direct tile branching in MS hot paths where a policy seam already exists.
 
 ### EC8: Lynx Engine Step-Down Cleanup
 
