@@ -572,10 +572,10 @@ Hot-path logic should depend on policy and helper interfaces, not raw tile check
 
 ### EC5: Support And Vertical Movement Extraction
 
-- [ ] Introduce shared support result vocabulary.
-- [ ] Extract MS support/air/elevator helpers into dedicated files.
-- [ ] Extract Lynx support/air/elevator helpers into dedicated files.
-- [ ] Keep ruleset-specific behavior in the ruleset modules.
+- [x] Introduce shared support result vocabulary.
+- [x] Extract MS support/air/elevator helpers into dedicated files.
+- [x] Extract Lynx support/air/elevator helpers into dedicated files.
+- [x] Keep ruleset-specific behavior in the ruleset modules.
 
 ### EC6: Movement Outcome Vocabulary
 

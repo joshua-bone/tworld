@@ -42,6 +42,7 @@ import {
   type TurnDebugPhaseRecorder,
   type TurnDebugPhaseName,
 } from "@game-core/api/turnPhases";
+import { hasVerticalSupport } from "@game-core/api/verticalMovement";
 import { advanceTimer, createInitialEngineTimer } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
 import { actorCollectionAllowsSlot, actorCollectsChips } from "@game-core/api/actorCapabilities";
@@ -120,6 +121,14 @@ import {
   type MsPortableItem,
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
+import {
+  canChipUseMsElevator,
+  canNonChipUseMsElevator,
+  resolveMsChipSupportBelow,
+  resolveMsNonChipSupportBelow,
+  syncMsChipAirFloorMovement,
+  syncMsChipElevatorFloorMovement,
+} from "@ruleset-ms/impl/verticalMovement";
 import {
   MS_DIRECTION,
   MS_FLOOR_STATE,
@@ -251,6 +260,7 @@ interface MsTickContext {
   cellsForZ(z?: number): EngineMapCell[] | null;
   lowerCells(z?: number): EngineMapCell[] | null;
   upperCells(z?: number): EngineMapCell[] | null;
+  chipActsWallForMobs(pos: number, z: number): boolean;
   addTileOverlay(
     z: number,
     pos: number,
@@ -453,19 +463,6 @@ function floorTile(cells: EngineMapCell[], pos: number): EngineMapCell["top"] {
   return bottom;
 }
 
-function isMsSupportingWallTile(id: number): boolean {
-  switch (id) {
-    case MS_TILE.Wall:
-    case MS_TILE.HiddenWall_Perm:
-    case MS_TILE.HiddenWall_Temp:
-    case MS_TILE.BlueWall_Real:
-    case MS_TILE.SwitchWall_Closed:
-      return true;
-    default:
-      return false;
-  }
-}
-
 function msLowerRuntimeCells(
   layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
   z: number | undefined,
@@ -484,141 +481,6 @@ function msUpperRuntimeCells(
 ): EngineMapCell[] | null {
   const currentZ = z ?? 1;
   return layerCellsByZ.get(currentZ + 1) ?? null;
-}
-
-function promoteTopFloorToUnderlying(cells: EngineMapCell[], pos: number): void {
-  promoteBottomTile(cells, pos, MS_TILE.Empty);
-}
-
-function resolveMsChipSupportBelow(
-  context: MsTickContext,
-  lowerCells: EngineMapCell[] | null,
-  pos: number,
-  currentZ: number,
-): boolean {
-  const chipInventory = msChipInventoryOwner(context.inventory);
-  if (!lowerCells) {
-    return false;
-  }
-
-  const cell = lowerCells[pos];
-  if (!cell) {
-    return false;
-  }
-
-  const topId = cell.top.id;
-  const bottomId = cell.bottom.id;
-  const topActorId = topId === MS_TILE.Block_Static ? MS_TILE.Block : isMsCreature(topId) ? msCreatureId(topId) : null;
-  if (topActorId === MS_TILE.Block) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return true;
-  }
-
-  if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return true;
-  }
-
-  if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return true;
-  }
-
-  if (topActorId !== null) {
-    return false;
-  }
-
-  if (isMsSupportingWallTile(topId)) {
-    if (topId === MS_TILE.BlueWall_Real) {
-      replaceTopTile(lowerCells, pos, { ...cell.top, id: MS_TILE.Wall });
-    }
-    context.addTileOverlay(currentZ, pos, "support");
-    return true;
-  }
-
-  if (topId === MS_TILE.BlueWall_Fake) {
-    promoteTopFloorToUnderlying(lowerCells, pos);
-    return false;
-  }
-
-  if (msTileHasTag(topId, "door")) {
-    const doorKeyIndex = msDoorKeyIndex(topId);
-    if (doorKeyIndex !== null && actorInventoryUseKey(chipInventory, doorKeyIndex, { consume: topId !== MS_TILE.Door_Green })) {
-      promoteTopFloorToUnderlying(lowerCells, pos);
-      return false;
-    }
-    context.addTileOverlay(currentZ, pos, "support");
-    return true;
-  }
-
-  if (topId === MS_TILE.Socket) {
-    if (context.inventory.chipsNeeded === 0) {
-      promoteTopFloorToUnderlying(lowerCells, pos);
-      return false;
-    }
-    context.addTileOverlay(currentZ, pos, "support");
-    return true;
-  }
-
-  return false;
-}
-
-function resolveMsNonChipSupportBelow(
-  context: MsTickContext,
-  lowerCells: EngineMapCell[] | null,
-  pos: number,
-  currentZ: number,
-): boolean {
-  if (!lowerCells) {
-    return false;
-  }
-
-  const cell = lowerCells[pos];
-  if (!cell) {
-    return false;
-  }
-
-  const topId = cell.top.id;
-  const bottomId = cell.bottom.id;
-  const topActorId = topId === MS_TILE.Block_Static ? MS_TILE.Block : isMsCreature(topId) ? msCreatureId(topId) : null;
-  if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return true;
-  }
-
-  if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return true;
-  }
-
-  if (topActorId !== null) {
-    const supported =
-      msChipActsWallForMobs(context.internal, pos, runtimeCellZ(lowerCells, pos)) ||
-      (topActorId !== MS_TILE.Chip && topActorId !== MS_TILE.Swimming_Chip);
-    if (supported) {
-      context.addTileOverlay(currentZ, pos, "support");
-    }
-    return supported;
-  }
-
-  if (
-    msTopTileSupportsNonChipFromAbove(topId)
-  ) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return true;
-  }
-
-  return false;
-}
-
-function msTopTileSupportsNonChipFromAbove(id: number): boolean {
-  return (
-    msInventorySlot(id) === "tools" ||
-    isMsSupportingWallTile(id) ||
-    id === MS_TILE.BlueWall_Fake ||
-    msTileHasTag(id, "door") ||
-    id === MS_TILE.Socket
-  );
 }
 
 function canLeaveFloor(cells: EngineMapCell[], pos: number, dir: number, released: boolean): boolean {
@@ -705,6 +567,7 @@ function createMsTickContext(
     cellsForZ: (z = 1) => layerCellsByZ.get(z) ?? null,
     lowerCells: (z) => msLowerRuntimeCells(layerCellsByZ, z),
     upperCells: (z) => msUpperRuntimeCells(layerCellsByZ, z),
+    chipActsWallForMobs: (pos, z) => msChipActsWallForMobs(internal, pos, z),
     addTileOverlay: (z, pos, kind, ttl = 2, tileId) => addMsTileOverlay(engine, z, pos, kind, ttl, tileId),
   };
 }
@@ -1889,7 +1752,17 @@ function syncMsCreatureAirFloorMovement(context: MsTickContext, creature: MsTrac
   }
 
   const lowerCells = context.lowerCells(creature.z);
-  if (resolveMsNonChipSupportBelow(context, lowerCells, creature.pos, creature.z ?? 1)) {
+  if (
+    hasVerticalSupport(
+      resolveMsNonChipSupportBelow(
+        context,
+        lowerCells,
+        creature.pos,
+        creature.z ?? 1,
+        lowerCells ? runtimeCellZ(lowerCells, creature.pos) : 1,
+      ),
+    )
+  ) {
     if (creature.floorMovement === "air") {
       clearCreatureFloorMovement(creature, internal);
     }
@@ -1930,7 +1803,14 @@ function syncMsCreatureElevatorFloorMovement(context: MsTickContext, creature: M
     return;
   }
 
-  if (!canNonChipUseElevator(context.upperCells(creature.z), creature.pos, internal)) {
+  if (
+    !canNonChipUseMsElevator(
+      context.upperCells(creature.z),
+      creature.pos,
+      (pos, z) => msChipActsWallForMobs(internal, pos, z),
+      context.upperCells(creature.z) ? runtimeCellZ(context.upperCells(creature.z)!, creature.pos) : (creature.z ?? 1) + 1,
+    )
+  ) {
     clearCreatureFloorMovement(creature, internal);
     context.addTileOverlay(creature.z ?? 1, creature.pos, "elevator-failure");
     return;
@@ -2171,7 +2051,17 @@ function syncMsBlockAirFloorMovement(context: MsTickContext, block: MsTrackedBlo
   }
 
   const lowerCells = context.lowerCells(block.z);
-  if (resolveMsNonChipSupportBelow(context, lowerCells, block.pos, block.z ?? 1)) {
+  if (
+    hasVerticalSupport(
+      resolveMsNonChipSupportBelow(
+        context,
+        lowerCells,
+        block.pos,
+        block.z ?? 1,
+        lowerCells ? runtimeCellZ(lowerCells, block.pos) : 1,
+      ),
+    )
+  ) {
     if (block.floorMovement === "air") {
       clearBlockFloorMovement(block);
     }
@@ -2202,7 +2092,14 @@ function syncMsBlockElevatorFloorMovement(context: MsTickContext, block: MsTrack
     return;
   }
 
-  if (!canNonChipUseElevator(context.upperCells(block.z), block.pos, internal)) {
+  if (
+    !canNonChipUseMsElevator(
+      context.upperCells(block.z),
+      block.pos,
+      (pos, z) => msChipActsWallForMobs(internal, pos, z),
+      context.upperCells(block.z) ? runtimeCellZ(context.upperCells(block.z)!, block.pos) : (block.z ?? 1) + 1,
+    )
+  ) {
     clearBlockFloorMovement(block);
     context.addTileOverlay(block.z ?? 1, block.pos, "elevator-failure");
     return;
@@ -3333,7 +3230,18 @@ function runCreatureFloorMovements(
 
         if (creature.floorMovement === "air") {
           const lowerCells = msLowerRuntimeCells(layerCellsByZ, creature.z);
-          if (!lowerCells || resolveMsNonChipSupportBelow(tickContext, lowerCells, creature.pos, creature.z ?? 1)) {
+          if (
+            !lowerCells ||
+            hasVerticalSupport(
+              resolveMsNonChipSupportBelow(
+                tickContext,
+                lowerCells,
+                creature.pos,
+                creature.z ?? 1,
+                runtimeCellZ(lowerCells, creature.pos),
+              ),
+            )
+          ) {
             clearCreatureFloorMovement(creature, internal);
           } else {
             soundEffects |= moveCreatureDownOneLayer(engine, creatureCells, lowerCells, layerCellsByZ, creature, internal);
@@ -3522,7 +3430,18 @@ function runCreatureFloorMovements(
 
       if (block.floorMovement === "air") {
         const lowerCells = msLowerRuntimeCells(layerCellsByZ, block.z);
-        if (!lowerCells || resolveMsNonChipSupportBelow(tickContext, lowerCells, block.pos, block.z ?? 1)) {
+        if (
+          !lowerCells ||
+          hasVerticalSupport(
+            resolveMsNonChipSupportBelow(
+              tickContext,
+              lowerCells,
+              block.pos,
+              block.z ?? 1,
+              runtimeCellZ(lowerCells, block.pos),
+            ),
+          )
+        ) {
           clearBlockFloorMovement(block);
         } else {
           const sourceZ = block.z ?? runtimeCellZ(blockCells, block.pos);
@@ -4058,69 +3977,6 @@ function isValidElevatorDestinationFloor(floor: number): boolean {
   return isAirFloor(floor) || isSlideFloor(floor) || isElevatorFloor(floor) || floor === MS_TILE.Exit;
 }
 
-function canChipUseElevator(targetCells: EngineMapCell[] | null, pos: number, dir: number): boolean {
-  if (!targetCells) {
-    return false;
-  }
-
-  const nextCell = targetCells[pos];
-  if (!nextCell) {
-    return false;
-  }
-
-  if (!isValidElevatorDestinationFloor(elevatorDestinationFloor(nextCell))) {
-    return false;
-  }
-
-  if (nextCell.top.id !== MS_TILE.Block_Static) {
-    return true;
-  }
-
-  const pushDir = normalizeDirection(dir);
-  if (pushDir === MS_DIRECTION.none) {
-    return false;
-  }
-
-  const x = pos % MS_GRID_WIDTH;
-  const y = Math.floor(pos / MS_GRID_WIDTH);
-  const nextX = x + (pushDir === MS_DIRECTION.west ? -1 : pushDir === MS_DIRECTION.east ? 1 : 0);
-  const nextY = y + (pushDir === MS_DIRECTION.north ? -1 : pushDir === MS_DIRECTION.south ? 1 : 0);
-  if (nextX < 0 || nextX >= MS_GRID_WIDTH || nextY < 0 || nextY >= MS_GRID_HEIGHT) {
-    return false;
-  }
-
-  return canMoveBlockInto(targetCells, nextY * MS_GRID_WIDTH + nextX, pushDir);
-}
-
-function canNonChipUseElevator(
-  targetCells: EngineMapCell[] | null,
-  pos: number,
-  internal: MsInternalState | null = null,
-): boolean {
-  if (!targetCells) {
-    return false;
-  }
-
-  const nextCell = targetCells[pos];
-  if (!nextCell) {
-    return false;
-  }
-  if (msChipActsWallForMobs(internal, pos, runtimeCellZ(targetCells, pos))) {
-    return false;
-  }
-
-  if (!isValidElevatorDestinationFloor(elevatorDestinationFloor(nextCell))) {
-    return false;
-  }
-
-  const targetTop = nextCell.top.id;
-  const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-  return (
-    targetTop !== MS_TILE.Block_Static &&
-    (targetCreatureId === MS_TILE.Empty || targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip)
-  );
-}
-
 function moveChipUpOneLayer(
   sourceCells: EngineMapCell[],
   targetCells: EngineMapCell[],
@@ -4255,76 +4111,6 @@ function moveBlockUpOneLayer(
   return { moved: true, soundEffects };
 }
 
-function syncMsChipAirFloorMovement(context: MsTickContext): void {
-  const { internal } = context;
-  const chipZ = internal.chipZ ?? 1;
-  const cells = context.cellsForZ(chipZ);
-  if (!cells) {
-    return;
-  }
-
-  if (internal.chipStatus !== "okay" || internal.completed) {
-    if (internal.floorMovement === "air") {
-      internal.floorMovement = "none";
-      internal.floorMovementDir = MS_DIRECTION.none;
-    }
-    return;
-  }
-
-  if (!isAirFloor(bottomTileIdOr(cells, internal.chipPos, MS_TILE.Empty))) {
-    if (internal.floorMovement === "air") {
-      internal.floorMovement = "none";
-      internal.floorMovementDir = MS_DIRECTION.none;
-    }
-    return;
-  }
-
-  const lowerCells = context.lowerCells(chipZ);
-  if (resolveMsChipSupportBelow(context, lowerCells, internal.chipPos, chipZ)) {
-    internal.floorMovement = "none";
-    internal.floorMovementDir = MS_DIRECTION.none;
-    return;
-  }
-
-  internal.floorMovement = "air";
-  internal.floorMovementDir = MS_AIR_MOVEMENT_DIR;
-}
-
-function syncMsChipElevatorFloorMovement(context: MsTickContext): void {
-  const { internal } = context;
-  const chipZ = internal.chipZ ?? 1;
-  const cells = context.cellsForZ(chipZ);
-  if (!cells) {
-    return;
-  }
-
-  if (internal.chipStatus !== "okay" || internal.completed) {
-    if (internal.floorMovement === "elevator") {
-      internal.floorMovement = "none";
-      internal.floorMovementDir = MS_DIRECTION.none;
-    }
-    return;
-  }
-
-  if (!isElevatorFloor(bottomTileIdOr(cells, internal.chipPos, MS_TILE.Empty))) {
-    if (internal.floorMovement === "elevator") {
-      internal.floorMovement = "none";
-      internal.floorMovementDir = MS_DIRECTION.none;
-    }
-    return;
-  }
-
-  if (!canChipUseElevator(context.upperCells(chipZ), internal.chipPos, internal.chipDir)) {
-    internal.floorMovement = "none";
-    internal.floorMovementDir = MS_DIRECTION.none;
-    context.addTileOverlay(chipZ, internal.chipPos, "elevator-failure");
-    return;
-  }
-
-  internal.floorMovement = "elevator";
-  internal.floorMovementDir = MS_ELEVATOR_MOVEMENT_DIR;
-}
-
 function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): number {
   const { internal } = context;
   if (
@@ -4340,7 +4126,10 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
   let soundEffects = 0;
   if (internal.floorMovement === "air") {
     const lowerCells = context.lowerCells(internal.chipZ);
-    if (!lowerCells || resolveMsChipSupportBelow(context, lowerCells, internal.chipPos, internal.chipZ ?? 1)) {
+    if (
+      !lowerCells ||
+      hasVerticalSupport(resolveMsChipSupportBelow(context, lowerCells, internal.chipPos, internal.chipZ ?? 1))
+    ) {
       internal.floorMovement = "none";
       internal.floorMovementDir = MS_DIRECTION.none;
       return 0;
@@ -4949,8 +4738,20 @@ function advanceMsTick(
   } => {
     if (isPlayablePhase()) {
       const tickContext = createMsTickContext(state.engine, internal, inventory, layerCellsByZ);
-      syncMsChipAirFloorMovement(tickContext);
-      syncMsChipElevatorFloorMovement(tickContext);
+      syncMsChipAirFloorMovement(
+        {
+          ...tickContext,
+          canMoveBlockInto,
+        },
+        internal,
+      );
+      syncMsChipElevatorFloorMovement(
+        {
+          ...tickContext,
+          canMoveBlockInto,
+        },
+        internal,
+      );
     }
 
     const chipFloorMovementModeBeforeFloor = internal.floorMovement;
