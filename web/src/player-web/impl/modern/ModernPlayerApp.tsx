@@ -3,21 +3,12 @@ import {
   useDeferredValue,
   useEffect,
   useEffectEvent,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-  type Ref,
 } from "react";
-import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
+import type { SeriesCatalogEntry } from "@content/api/series";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
-import { buildAppHref } from "@player-web/impl/appPaths";
-import {
-  applyBrowserLocalSettingsSnapshot,
-} from "@player-web/impl/browserProfileBackup";
 import { copyTextToClipboard } from "@player-web/impl/clipboard";
 import {
   loadBrowserPlayableCatalog,
@@ -28,107 +19,59 @@ import {
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
 import { measurePerfAsync } from "@player-web/impl/runtimePerf";
+import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
 import { resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
-import {
-  loadStoredVisualEnhancementsSettings,
-  saveStoredVisualEnhancementsSettings,
-} from "@player-web/impl/visualEnhancementsSettings";
-import {
-  loadStoredPlayerKeyBindingsSettings,
-  saveStoredPlayerKeyBindingsSettings,
-  type BrowserPlayerKeyBindingsSettings,
-  type PlayerBindableKey,
-  PLAYER_BINDABLE_KEYS,
-} from "@player-web/impl/playerKeyBindingsSettings";
 import {
   buildStoredLevelProgressKey,
   mergeLevelProgressSummaries,
-  resolveLevelProgressSummary,
-  summarizeEntryProgress,
 } from "@player-web/impl/levelProgress";
 import {
   buildCuratedCatalogView,
   findSetFamilyById,
   findSetFamilyForSelection,
   resolveSetFamilyRuleset,
-  type SetFamily,
-  type SetFamilyRuleset,
 } from "@player-web/impl/modern/curatedCatalog";
 import {
+  ModernDashboardLevelsPane,
+  ModernDashboardPaneRail,
+  ModernDashboardSetsPane,
+  ModernDashboardSplitter,
+} from "@player-web/impl/modern/modernDashboardPanels";
+import {
   buildModernDashboardNavigationModel,
-  resolveDefaultLandingFamily,
   resolveEmbeddedSelectionIntent,
   resolveFamilySelectionIntent,
   tabForFamily,
   type LibrarySidebarTab,
 } from "@player-web/impl/modern/modernDashboardNavigationController";
 import {
+  LevelContextMenuState,
+  ModernDashboardAboutModal,
+  ModernDashboardLevelContextMenu,
+  ModernDashboardMessageModal,
+  ModernDashboardSetInfoModal,
+  ModernDashboardSettingsModal,
+} from "@player-web/impl/modern/modernDashboardModals";
+import {
   buildModernLevelLink,
   discardModernUploadedFamily,
   importModernLocalDatFiles,
-  importModernProfileBackup,
-  prepareModernProfileBackupDownload,
 } from "@player-web/impl/modern/modernDashboardTransferController";
+import { useModernDashboardPaneLayout } from "@player-web/impl/modern/useModernDashboardPaneLayout";
+import { useModernDashboardSettingsController } from "@player-web/impl/modern/useModernDashboardSettingsController";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import {
   isCompletedBrowserLevelRunResult,
   type BrowserLevelSeedOverride,
   type BrowserLevelProgressSummary,
-  type BrowserResolvedLevelProgressSummary,
-  createDefaultBrowserProfilePreferences,
   type BrowserPreferredRuleset,
-  type BrowserProfilePreferences,
 } from "@player-web/ports/BrowserProfileStore";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
-
-type ResizablePane = "sets" | "levels";
-
-const LIBRARY_SIDEBAR_TABS: readonly { id: LibrarySidebarTab; label: string }[] = [
-  { id: "official", label: "Official" },
-  { id: "curated", label: "Curated" },
-  { id: "uploads", label: "Uploads" },
-];
 
 interface ModernPlayerAppProps {
   services: BrowserAppServices;
   onOpenClassic: () => void;
   onOpenMobile?: (() => void) | undefined;
-}
-
-interface LevelContextMenuState {
-  levelNumber: number;
-  ruleset: BrowserPreferredRuleset;
-  seriesFile: string;
-  x: number;
-  y: number;
-}
-
-const ABOUT_LINKS = {
-  browserPortRepo: "https://github.com/joshua-bone/tworld",
-  tileWorldRepo: "https://github.com/SicklySilverMoon/tworld",
-  bitbustersClub: "https://bitbusters.club",
-  bitbustersWiki: "https://wiki.bitbusters.club",
-  discord: "https://discord.gg/Xd4dUY9",
-  legacy: buildAppHref("/legacy", import.meta.env.BASE_URL),
-  mobile: buildAppHref("/mobile", import.meta.env.BASE_URL),
-} as const;
-
-const DASHBOARD_COLLAPSED_PANE_WIDTH = 44;
-const DASHBOARD_DEFAULT_SETS_PANE_WIDTH = 292;
-const DASHBOARD_DEFAULT_LEVELS_PANE_WIDTH = 276;
-const DASHBOARD_MIN_SETS_PANE_WIDTH = 210;
-const DASHBOARD_MAX_SETS_PANE_WIDTH = 400;
-const DASHBOARD_MIN_LEVELS_PANE_WIDTH = 210;
-const DASHBOARD_MAX_LEVELS_PANE_WIDTH = 400;
-interface DashboardStyle extends CSSProperties {
-  "--modern-dashboard-sets-min-width": string;
-  "--modern-dashboard-sets-width": string;
-  "--modern-dashboard-levels-min-width": string;
-  "--modern-dashboard-levels-width": string;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 type IdleCallbackHandle = number;
@@ -163,425 +106,6 @@ function waitForBrowserIdle(timeoutMs = 120): Promise<void> {
   });
 }
 
-function estimateSetsPaneWidth(activeFamily: SetFamily | null, visibleFamilies: readonly SetFamily[]): number {
-  const longestFamilyTitle = Math.max(...visibleFamilies.map((family) => family.title.length), activeFamily?.title.length ?? 0, 14);
-  const longestSidebarSummary = Math.max(
-    ...visibleFamilies.map(
-      (family) =>
-        (family.sidebarSummary?.length ?? 0) +
-        (family.yearLabel ? family.yearLabel.length + 3 : 0),
-    ),
-    18,
-  );
-
-  return clamp(
-    Math.ceil(Math.max(268, longestFamilyTitle * 8.8 + 72, longestSidebarSummary * 6.8 + 84)),
-    DASHBOARD_MIN_SETS_PANE_WIDTH,
-    DASHBOARD_MAX_SETS_PANE_WIDTH,
-  );
-}
-
-function estimateLevelsPaneWidth(activeEntry: SeriesCatalogEntry | null): number {
-  if (!activeEntry) {
-    return DASHBOARD_DEFAULT_LEVELS_PANE_WIDTH;
-  }
-
-  const longestLevelName = Math.max(...activeEntry.levels.map((level) => level.name.length), 18);
-  const densityFloor = 260;
-  const sparseSetBuffer = activeEntry.levels.length <= 12 ? 0 : 12;
-
-  return clamp(
-    Math.ceil(Math.max(densityFloor, longestLevelName * 6 + 92 + sparseSetBuffer)),
-    DASHBOARD_MIN_LEVELS_PANE_WIDTH,
-    DASHBOARD_MAX_LEVELS_PANE_WIDTH,
-  );
-}
-
-function hasDraggedFiles(dataTransfer: DataTransfer | null): boolean {
-  if (!dataTransfer) {
-    return false;
-  }
-
-  return Array.from(dataTransfer.items).some((item) => item.kind === "file") || dataTransfer.files.length > 0;
-}
-
-function levelStatusTone(
-  progress: ReturnType<typeof buildModernDashboardNavigationModel>["activeLevelProgress"],
-): "clean" | "undo" | "attempted" | "unplayed" {
-  if (!progress) {
-    return "unplayed";
-  }
-
-  if (progress.bestResult === "completed-clean") {
-    return "clean";
-  }
-
-  if (progress.bestResult === "completed-with-undo") {
-    return "undo";
-  }
-
-  return "attempted";
-}
-
-function levelStatusShortLabel(
-  progress: ReturnType<typeof buildModernDashboardNavigationModel>["activeLevelProgress"],
-): string {
-  switch (levelStatusTone(progress)) {
-    case "clean":
-      return "✓";
-    case "undo":
-      return "U";
-    case "attempted":
-      return "A";
-    default:
-      return "";
-  }
-}
-
-function levelStatusLongLabel(
-  progress: ReturnType<typeof buildModernDashboardNavigationModel>["activeLevelProgress"],
-): string {
-  switch (levelStatusTone(progress)) {
-    case "clean":
-      return "Cleared clean";
-    case "undo":
-      return "Cleared with undo";
-    case "attempted":
-      return "Attempted";
-    default:
-      return "Unplayed";
-  }
-}
-
-function levelNameSizeClass(name: string): string {
-  if (name.length >= 36) {
-    return " modern-level-row__name--micro";
-  }
-
-  if (name.length >= 32) {
-    return " modern-level-row__name--compactest";
-  }
-
-  if (name.length >= 24) {
-    return " modern-level-row__name--compact";
-  }
-
-  return "";
-}
-
-function formatFamilyClearedMeta(
-  family: SetFamily,
-  progressByKey: ReadonlyMap<string, BrowserLevelProgressSummary>,
-): string {
-  const parts = (["Lynx", "MS"] as const).flatMap((ruleset) => {
-    const entry = family.launchEntries[ruleset] ?? null;
-    if (!entry) {
-      return [];
-    }
-
-    const progress = summarizeEntryProgress(entry, progressByKey);
-    return [`${progress.completedLevels}/${entry.levels.length} (${ruleset})`];
-  });
-
-  if (parts.length === 0) {
-    return `Cleared: 0/${family.levelCount}`;
-  }
-
-  return `Cleared: ${parts.join(" ")}`;
-}
-
-function RulesetToggle({
-  family,
-  onSelect,
-  selectedRuleset,
-}: {
-  family: SetFamily;
-  onSelect: (ruleset: SetFamilyRuleset) => void;
-  selectedRuleset: SetFamilyRuleset;
-}) {
-  return (
-    <div aria-label="Ruleset" className="modern-ruleset-toggle" role="group">
-      {(["Lynx", "MS"] as const).map((ruleset) => {
-        const isAvailable = family.launchEntries[ruleset] !== undefined;
-        return (
-          <button
-            aria-pressed={selectedRuleset === ruleset}
-            className={`modern-ruleset-toggle__button${selectedRuleset === ruleset ? " modern-ruleset-toggle__button--active" : ""}`}
-            disabled={!isAvailable}
-            key={`${family.id}:${ruleset}`}
-            onClick={() => {
-              if (isAvailable) {
-                onSelect(ruleset);
-              }
-            }}
-            type="button"
-          >
-            {family.rulesetLabels[ruleset] ?? ruleset}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function SidebarCategoryPicker({
-  activeTab,
-  onSelect,
-}: {
-  activeTab: LibrarySidebarTab;
-  onSelect: (tab: LibrarySidebarTab) => void;
-}) {
-  const activeIndex = LIBRARY_SIDEBAR_TABS.findIndex((option) => option.id === activeTab);
-  const previousOption =
-    LIBRARY_SIDEBAR_TABS[(activeIndex - 1 + LIBRARY_SIDEBAR_TABS.length) % LIBRARY_SIDEBAR_TABS.length]!;
-  const nextOption = LIBRARY_SIDEBAR_TABS[(activeIndex + 1) % LIBRARY_SIDEBAR_TABS.length]!;
-
-  return (
-    <div className="modern-dashboard__category-picker">
-      <button
-        aria-label={`Previous category: ${previousOption.label}`}
-        className="modern-dashboard__category-nav"
-        onClick={() => {
-          onSelect(previousOption.id);
-        }}
-        type="button"
-      >
-        <span aria-hidden="true" className="modern-dashboard__category-nav-icon">
-          ‹
-        </span>
-      </button>
-      <label className="modern-dashboard__category-select-wrap">
-        <select
-          aria-label="Set category"
-          className="modern-dashboard__category-select"
-          onChange={(event) => {
-            onSelect(event.currentTarget.value as LibrarySidebarTab);
-          }}
-          value={activeTab}
-        >
-          {LIBRARY_SIDEBAR_TABS.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <span aria-hidden="true" className="modern-dashboard__category-select-caret">
-          ▾
-        </span>
-      </label>
-      <button
-        aria-label={`Next category: ${nextOption.label}`}
-        className="modern-dashboard__category-nav"
-        onClick={() => {
-          onSelect(nextOption.id);
-        }}
-        type="button"
-      >
-        <span aria-hidden="true" className="modern-dashboard__category-nav-icon">
-          ›
-        </span>
-      </button>
-    </div>
-  );
-}
-
-function SidebarSearchField({
-  query,
-  onChange,
-}: {
-  query: string;
-  onChange: (query: string) => void;
-}) {
-  return (
-    <label className="modern-dashboard__search">
-      <span aria-hidden="true" className="modern-dashboard__search-icon">
-        <svg className="modern-dashboard__action-icon" viewBox="0 0 24 24">
-          <circle cx="11" cy="11" r="6.5" />
-          <path d="m16 16 4 4" />
-        </svg>
-      </span>
-      <input
-        aria-label="Search sets"
-        autoCapitalize="off"
-        autoCorrect="off"
-        className="modern-dashboard__search-input"
-        onChange={(event) => {
-          onChange(event.currentTarget.value);
-        }}
-        placeholder="Search..."
-        spellCheck={false}
-        type="search"
-        value={query}
-      />
-    </label>
-  );
-}
-
-function SidebarFamilyButton({
-  actionKind,
-  family,
-  isActive,
-  meta,
-  onAction,
-  onSelect,
-  onShowInfo,
-}: {
-  actionKind: "discard" | "info" | null;
-  family: SetFamily;
-  isActive: boolean;
-  meta: string;
-  onAction: (familyId: string) => void;
-  onSelect: (familyId: string) => void;
-  onShowInfo: (familyId: string) => void;
-}) {
-  const isDiscardAction = actionKind === "discard";
-  return (
-    <div className="modern-library__family-card">
-      <button
-        aria-pressed={isActive}
-        className={`modern-library__family${isActive ? " modern-library__family--active" : ""}`}
-        onClick={() => {
-          onSelect(family.id);
-        }}
-        type="button"
-      >
-        <span className="modern-library__family-title">{family.title}</span>
-        {family.sidebarSummary ? (
-          <span className="modern-library__family-summary">
-            {family.sidebarSummary}
-            {family.yearLabel ? ` (${family.yearLabel})` : ""}
-          </span>
-        ) : null}
-        <span className="modern-library__family-meta">{meta}</span>
-      </button>
-      {actionKind ? (
-        <button
-          aria-label={isDiscardAction ? `Discard ${family.title}` : `About ${family.title}`}
-          className={`modern-library__family-info${isDiscardAction ? " modern-library__family-info--trash" : ""}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (isDiscardAction) {
-              onAction(family.id);
-              return;
-            }
-            onShowInfo(family.id);
-          }}
-          type="button"
-        >
-          {isDiscardAction ? (
-            <svg aria-hidden="true" className="modern-library__family-action-icon" viewBox="0 0 16 16">
-              <path d="M3.5 4.5h9M6 2.5h4M5.5 4.5v8m5-8v8M4.5 4.5l.6 9h5.8l.6-9" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.4" />
-            </svg>
-          ) : (
-            "?"
-          )}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function LevelRow({
-  animatedBadge,
-  buttonRef,
-  isActive,
-  level,
-  onContextMenu,
-  onSelect,
-  progress,
-}: {
-  animatedBadge: boolean;
-  buttonRef?: Ref<HTMLButtonElement>;
-  isActive: boolean;
-  level: SeriesLevel;
-  onContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>, levelNumber: number) => void;
-  onSelect: (levelNumber: number) => void;
-  progress: BrowserResolvedLevelProgressSummary | null;
-}) {
-  const medalTone = levelStatusTone(progress);
-  return (
-    <button
-      aria-pressed={isActive}
-      className={`modern-level-row${isActive ? " modern-level-row--active" : ""}`}
-      ref={buttonRef}
-      onClick={(event) => {
-        onSelect(level.number);
-        if (event.detail > 0) {
-          event.currentTarget.blur();
-        }
-      }}
-      onContextMenu={(event) => {
-        onContextMenu?.(event, level.number);
-      }}
-      type="button"
-    >
-      <span className="modern-level-row__number">{level.number}</span>
-      <span
-        aria-label={levelStatusLongLabel(progress)}
-        className={`modern-level-row__medal modern-level-row__medal--${medalTone}${animatedBadge ? " modern-level-row__medal--celebrate" : ""}`}
-        title={levelStatusLongLabel(progress)}
-      >
-        {levelStatusShortLabel(progress)}
-      </span>
-      <span className={`modern-level-row__name${levelNameSizeClass(level.name)}`}>{level.name}</span>
-    </button>
-  );
-}
-
-function PaneRail({
-  label,
-  onExpand,
-}: {
-  label: string;
-  onExpand: () => void;
-}) {
-  return (
-    <button
-      aria-label={`Expand ${label} pane`}
-      className="modern-dashboard__collapsed-rail"
-      onClick={onExpand}
-      type="button"
-    >
-      <span className="modern-dashboard__collapsed-rail-label">{label}</span>
-    </button>
-  );
-}
-
-function DashboardSplitter({
-  isCollapsed,
-  label,
-  onPointerDown,
-  onToggleCollapse,
-}: {
-  isCollapsed: boolean;
-  label: string;
-  onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onToggleCollapse: () => void;
-}) {
-  return (
-    <div
-      aria-label={`Resize ${label} pane`}
-      className="modern-dashboard__splitter"
-      onPointerDown={onPointerDown}
-      role="separator"
-    >
-      <button
-        aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${label} pane`}
-        className="modern-dashboard__splitter-toggle"
-        onClick={(event) => {
-          event.stopPropagation();
-          onToggleCollapse();
-        }}
-        type="button"
-      >
-        <span aria-hidden="true" className="modern-dashboard__splitter-toggle-icon">
-          {isCollapsed ? "›" : "‹"}
-        </span>
-      </button>
-    </div>
-  );
-}
-
 export function ModernPlayerApp({
   services,
   onOpenClassic,
@@ -591,10 +115,6 @@ export function ModernPlayerApp({
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
   const profileFileInputRef = useRef<HTMLInputElement | null>(null);
   const dragDepthRef = useRef(0);
-  const setsPaneManualRef = useRef(false);
-  const levelsPaneManualRef = useRef(false);
-  const setsPaneWidthRef = useRef(DASHBOARD_DEFAULT_SETS_PANE_WIDTH);
-  const levelsPaneWidthRef = useRef(DASHBOARD_DEFAULT_LEVELS_PANE_WIDTH);
   const [activeTab, setActiveTab] = useState<LibrarySidebarTab>("official");
   const [activeFamilyId, setActiveFamilyId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
@@ -607,48 +127,39 @@ export function ModernPlayerApp({
   const [isDropTargetActive, setIsDropTargetActive] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isProfileTransferBusy, setIsProfileTransferBusy] = useState(false);
   const [setInfoFamilyId, setSetInfoFamilyId] = useState<string | null>(null);
-  const [isSetsPaneCollapsed, setIsSetsPaneCollapsed] = useState(false);
-  const [isLevelsPaneCollapsed, setIsLevelsPaneCollapsed] = useState(false);
-  const [setsPaneWidth, setSetsPaneWidth] = useState(DASHBOARD_DEFAULT_SETS_PANE_WIDTH);
-  const [levelsPaneWidth, setLevelsPaneWidth] = useState(DASHBOARD_DEFAULT_LEVELS_PANE_WIDTH);
   const [requestedRuleset, setRequestedRuleset] = useState<BrowserPreferredRuleset>("Lynx");
   const [requestedLevelsByFamily, setRequestedLevelsByFamily] = useState<Record<string, number>>({});
   const [levelContextMenu, setLevelContextMenu] = useState<LevelContextMenuState | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [visualEnhancementsEnabled, setVisualEnhancementsEnabled] = useState(
-    () => loadStoredVisualEnhancementsSettings().enabled,
-  );
-  const [playerKeyBindings, setPlayerKeyBindings] = useState<BrowserPlayerKeyBindingsSettings>(
-    () => loadStoredPlayerKeyBindingsSettings(),
-  );
-  const [preferences, setPreferences] = useState<BrowserProfilePreferences>(
-    createDefaultBrowserProfilePreferences(),
-  );
-  const preferencesRef = useRef<BrowserProfilePreferences>(createDefaultBrowserProfilePreferences());
   const badgeAnimationTimeoutRef = useRef<number | null>(null);
 
   const dismissMessage = useEffectEvent(() => {
     setMessage(null);
   });
-
-  const applyPlayerKeyBindings = useEffectEvent((settings: BrowserPlayerKeyBindingsSettings) => {
-    setPlayerKeyBindings(settings);
-    saveStoredPlayerKeyBindingsSettings(settings);
-  });
-
-  const persistPreferences = useEffectEvent((patch: Partial<BrowserProfilePreferences>) => {
-    const nextPreferences = {
-      ...preferencesRef.current,
-      ...patch,
-    };
-    preferencesRef.current = nextPreferences;
-    setPreferences(nextPreferences);
-    if (patch.defaultRuleset) {
-      setRequestedRuleset(patch.defaultRuleset);
-    }
-    void profileStore.savePreferences(nextPreferences);
+  const {
+    applyPlayerKeyBindings,
+    downloadProfileBackup,
+    importProfileBackupFile,
+    isProfileTransferBusy,
+    persistPreferences,
+    playerKeyBindings,
+    preferences,
+    preferencesRef,
+    setAction1Key,
+    setAutoDownloadReplaysOnSave,
+    setAutoSaveWinningHighScoreReplays,
+    setStoredPreferences,
+    setUndoKey,
+    setVisualEnhancementsEnabled,
+    visualEnhancementsEnabled,
+  } = useModernDashboardSettingsController({
+    closeSettings: () => {
+      setIsSettingsOpen(false);
+    },
+    profileStore,
+    setMessage,
+    setRequestedRuleset,
   });
 
   useEffect(() => {
@@ -693,8 +204,7 @@ export function ModernPlayerApp({
         startTransition(() => {
           setCatalog(bootstrapCatalog);
           setLastSelection(initialSelection);
-          preferencesRef.current = storedPreferences;
-          setPreferences(storedPreferences);
+          setStoredPreferences(storedPreferences);
           setRequestedRuleset(bootstrapRuleset);
           setActiveFamilyId(bootstrapFamily?.id ?? null);
           setActiveTab(bootstrapTab);
@@ -896,14 +406,21 @@ export function ModernPlayerApp({
       triggerCompletedLevelBadgeAnimation(summary);
     }
   });
-
-  useEffect(() => {
-    setsPaneWidthRef.current = setsPaneWidth;
-  }, [setsPaneWidth]);
-
-  useEffect(() => {
-    levelsPaneWidthRef.current = levelsPaneWidth;
-  }, [levelsPaneWidth]);
+  const {
+    dashboardStyle,
+    expandLevelsPane,
+    expandSetsPane,
+    isLevelsPaneCollapsed,
+    isSetsPaneCollapsed,
+    startPaneResize,
+    toggleLevelsPaneCollapsed,
+    toggleSetsPaneCollapsed,
+  } = useModernDashboardPaneLayout({
+    activeEntry,
+    activeFamily,
+    isCatalogLoading,
+    visibleFamilies,
+  });
 
   useEffect(() => {
     if (isCatalogLoading || activeFamilyId || !fallbackFamily) {
@@ -912,6 +429,16 @@ export function ModernPlayerApp({
 
     setActiveFamilyId(fallbackFamily.id);
   }, [activeFamilyId, fallbackFamily, isCatalogLoading]);
+
+  useEffect(() => {
+    if (!activeSelection) {
+      return;
+    }
+
+    void savePlayableSelection(selectionStore, activeSelection).catch((error: unknown) => {
+      setMessage((current) => current ?? (error instanceof Error ? error.message : String(error)));
+    });
+  }, [activeSelection, selectionStore]);
 
   useEffect(() => {
     if (!activeFamily || !activeLevel) {
@@ -935,28 +462,6 @@ export function ModernPlayerApp({
       block: "nearest",
     });
   }, [activeEntry?.filebase, activeLevel?.number]);
-
-  useLayoutEffect(() => {
-    if (isCatalogLoading) {
-      return;
-    }
-
-    if (!setsPaneManualRef.current) {
-      const nextSetsWidth = estimateSetsPaneWidth(activeFamily, visibleFamilies);
-      if (nextSetsWidth > setsPaneWidthRef.current) {
-        setsPaneWidthRef.current = nextSetsWidth;
-        setSetsPaneWidth(nextSetsWidth);
-      }
-    }
-
-    if (!levelsPaneManualRef.current) {
-      const nextLevelsWidth = estimateLevelsPaneWidth(activeEntry);
-      if (nextLevelsWidth !== levelsPaneWidthRef.current) {
-        levelsPaneWidthRef.current = nextLevelsWidth;
-        setLevelsPaneWidth(nextLevelsWidth);
-      }
-    }
-  }, [activeEntry, activeFamily, isCatalogLoading, visibleFamilies]);
 
   const importLocalDatFiles = useEffectEvent(async (files: readonly File[]) => {
     setIsImporting(true);
@@ -1032,43 +537,6 @@ export function ModernPlayerApp({
       await copyTextToClipboard(href);
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : String(error));
-    }
-  });
-
-  const downloadProfileBackup = useEffectEvent(async () => {
-    if (typeof document === "undefined") {
-      setMessage("Profile download requires a browser document context.");
-      return;
-    }
-
-    setIsProfileTransferBusy(true);
-    try {
-      const backup = await prepareModernProfileBackupDownload(profileStore);
-      const url = URL.createObjectURL(new Blob([backup.payload], { type: "application/json" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = backup.filename;
-      anchor.rel = "noopener";
-      anchor.click();
-      window.setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 0);
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsProfileTransferBusy(false);
-    }
-  });
-
-  const importProfileBackupFile = useEffectEvent(async (file: File) => {
-    setIsProfileTransferBusy(true);
-    try {
-      applyBrowserLocalSettingsSnapshot(await importModernProfileBackup(profileStore, file));
-      setIsSettingsOpen(false);
-      window.location.reload();
-    } catch (error: unknown) {
-      setMessage(error instanceof Error ? error.message : String(error));
-      setIsProfileTransferBusy(false);
     }
   });
 
@@ -1148,48 +616,6 @@ export function ModernPlayerApp({
     }
   });
 
-  const startPaneResize = useEffectEvent((pane: ResizablePane, originX: number) => {
-    const startWidth = pane === "sets" ? setsPaneWidthRef.current : levelsPaneWidthRef.current;
-    const minWidth = pane === "sets" ? DASHBOARD_MIN_SETS_PANE_WIDTH : DASHBOARD_MIN_LEVELS_PANE_WIDTH;
-    const maxWidth = pane === "sets" ? DASHBOARD_MAX_SETS_PANE_WIDTH : DASHBOARD_MAX_LEVELS_PANE_WIDTH;
-    const previousUserSelect = document.body.style.userSelect;
-    const previousCursor = document.body.style.cursor;
-
-    document.body.style.userSelect = "none";
-    document.body.style.cursor = "col-resize";
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const nextWidth = clamp(startWidth + (event.clientX - originX), minWidth, maxWidth);
-      if (pane === "sets") {
-        setsPaneManualRef.current = true;
-        setIsSetsPaneCollapsed(false);
-        setSetsPaneWidth(nextWidth);
-        return;
-      }
-
-      levelsPaneManualRef.current = true;
-      setIsLevelsPaneCollapsed(false);
-      setLevelsPaneWidth(nextWidth);
-    };
-
-    const handlePointerUp = () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      document.body.style.userSelect = previousUserSelect;
-      document.body.style.cursor = previousCursor;
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-  });
-
-  const dashboardStyle: DashboardStyle = {
-    "--modern-dashboard-sets-min-width": `${isSetsPaneCollapsed ? DASHBOARD_COLLAPSED_PANE_WIDTH : DASHBOARD_MIN_SETS_PANE_WIDTH}px`,
-    "--modern-dashboard-sets-width": `${isSetsPaneCollapsed ? DASHBOARD_COLLAPSED_PANE_WIDTH : setsPaneWidth}px`,
-    "--modern-dashboard-levels-min-width": `${isLevelsPaneCollapsed ? DASHBOARD_COLLAPSED_PANE_WIDTH : DASHBOARD_MIN_LEVELS_PANE_WIDTH}px`,
-    "--modern-dashboard-levels-width": `${isLevelsPaneCollapsed ? DASHBOARD_COLLAPSED_PANE_WIDTH : levelsPaneWidth}px`,
-  };
-
   return (
     <main className="modern-shell modern-shell--dashboard">
       <input
@@ -1223,175 +649,51 @@ export function ModernPlayerApp({
       <div className="modern-dashboard" style={dashboardStyle}>
         <div className="modern-dashboard__pane modern-dashboard__pane--sets">
           {isSetsPaneCollapsed ? (
-            <PaneRail
-              label="Sets"
-              onExpand={() => {
-                setIsSetsPaneCollapsed(false);
-              }}
-            />
+            <ModernDashboardPaneRail label="Sets" onExpand={expandSetsPane} />
           ) : (
-            <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--sets" tabIndex={-1}>
-              <section className="modern-dashboard__panel modern-dashboard__panel--brand">
-                <div className="modern-dashboard__brand-bar">
-                  <div className="modern-dashboard__brand-lockup">
-                    <div aria-hidden="true" className="modern-dashboard__brand-logo">
-                      <span className="modern-dashboard__brand-logo-letter">T</span>
-                      <span className="modern-dashboard__brand-logo-letter">W</span>
-                      <span className="modern-dashboard__brand-logo-letter">O</span>
-                    </div>
-                    <h1 className="modern-dashboard__title modern-dashboard__title--brand">
-                      <span className="modern-dashboard__title-line">TILE WORLD</span>
-                      <span className="modern-dashboard__title-line">ONLINE</span>
-                    </h1>
-                  </div>
-                  <div className="modern-dashboard__brand-actions">
-                    <button
-                      aria-label="Replay and save settings"
-                      className="modern-dashboard__brand-action-button"
-                      onClick={() => {
-                        setIsAboutOpen(false);
-                        setSetInfoFamilyId(null);
-                        setIsSettingsOpen(true);
-                      }}
-                      type="button"
-                    >
-                      <svg aria-hidden="true" className="modern-dashboard__action-icon" viewBox="0 0 24 24">
-                        <path d="M20 7h-9" />
-                        <path d="M14 17H5" />
-                        <circle cx="17" cy="7" r="3" />
-                        <circle cx="8" cy="17" r="3" />
-                      </svg>
-                    </button>
-                    <button
-                      aria-label="About Tile World Online"
-                      className="modern-dashboard__brand-action-button"
-                      onClick={() => {
-                        setIsSettingsOpen(false);
-                        setSetInfoFamilyId(null);
-                        setIsAboutOpen(true);
-                      }}
-                      type="button"
-                    >
-                      <svg aria-hidden="true" className="modern-dashboard__action-icon" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M9.09 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3" />
-                        <path d="M12 17h.01" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              <section className="modern-dashboard__panel modern-dashboard__panel--fill">
-                <div className="modern-dashboard__library-tools">
-                  <SidebarSearchField
-                    onChange={setSearchQuery}
-                    query={searchQuery}
-                  />
-                  {!isSearchActive ? (
-                    <SidebarCategoryPicker
-                      activeTab={activeTab}
-                      onSelect={(tab) => {
-                        setActiveTab(tab);
-                      }}
-                    />
-                  ) : null}
-                </div>
-
-                {visibleFamilies.length > 0 ? (
-                  <div className="modern-library__family-list" tabIndex={-1}>
-                    {visibleFamilies.map((family) => {
-                      return (
-                        <SidebarFamilyButton
-                          actionKind={family.section === "local" ? "discard" : "info"}
-                          family={family}
-                          isActive={activeFamily?.id === family.id}
-                          key={family.id}
-                          meta={formatFamilyClearedMeta(family, progressByKey)}
-                          onAction={discardUploadedFamily}
-                          onSelect={handleSelectFamily}
-                          onShowInfo={(familyId) => {
-                            setIsAboutOpen(false);
-                            setSetInfoFamilyId(familyId);
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="modern-empty-state modern-dashboard__empty-panel">
-                    {isSearchActive
-                      ? `No sets match "${deferredSearchQuery.trim()}".`
-                      : activeTab === "uploads"
-                        ? "No uploaded sets yet. Open a DAT file and it will stay available in this browser."
-                        : activeTab === "curated"
-                          ? "No curated sets are available right now."
-                          : "No official sets are available right now."}
-                  </div>
-                )}
-
-                <section
-                  className={`modern-dashboard__upload modern-import-dropzone${isDropTargetActive ? " modern-import-dropzone--active" : ""}`}
-                  onDragEnter={(event) => {
-                    if (!hasDraggedFiles(event.dataTransfer)) {
-                      return;
-                    }
-                    event.preventDefault();
-                    dragDepthRef.current += 1;
-                    setIsDropTargetActive(true);
-                  }}
-                  onDragLeave={(event) => {
-                    if (!hasDraggedFiles(event.dataTransfer)) {
-                      return;
-                    }
-                    event.preventDefault();
-                    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-                    if (dragDepthRef.current === 0) {
-                      setIsDropTargetActive(false);
-                    }
-                  }}
-                  onDragOver={(event) => {
-                    if (!hasDraggedFiles(event.dataTransfer)) {
-                      return;
-                    }
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "copy";
-                  }}
-                  onDrop={(event) => {
-                    if (!hasDraggedFiles(event.dataTransfer)) {
-                      return;
-                    }
-                    event.preventDefault();
-                    dragDepthRef.current = 0;
-                    setIsDropTargetActive(false);
-                    const files = Array.from(event.dataTransfer.files ?? []);
-                    if (files.length > 0) {
-                      void importLocalDatFiles(files);
-                    }
-                  }}
-                >
-                  <div>
-                    <p className="modern-preference-block__label">Local DAT</p>
-                    <p className="modern-dashboard__copy modern-dashboard__copy--compact">
-                      Upload a DAT from disk or drag one onto this panel.
-                    </p>
-                  </div>
-                  <button
-                    className="modern-button modern-button--secondary"
-                    onClick={() => {
-                      datFileInputRef.current?.click();
-                    }}
-                    type="button"
-                  >
-                    {isImporting ? "Importing..." : "Open Local DAT"}
-                  </button>
-                </section>
-              </section>
-            </aside>
+            <ModernDashboardSetsPane
+              activeFamilyId={activeFamily?.id ?? null}
+              activeTab={activeTab}
+              dragDepthRef={dragDepthRef}
+              emptySearchQuery={deferredSearchQuery}
+              isDropTargetActive={isDropTargetActive}
+              isImporting={isImporting}
+              isSearchActive={isSearchActive}
+              onDropDatFiles={(files) => {
+                void importLocalDatFiles(files);
+              }}
+              onOpenAbout={() => {
+                setIsSettingsOpen(false);
+                setSetInfoFamilyId(null);
+                setIsAboutOpen(true);
+              }}
+              onOpenDatPicker={() => {
+                datFileInputRef.current?.click();
+              }}
+              onOpenSettings={() => {
+                setIsAboutOpen(false);
+                setSetInfoFamilyId(null);
+                setIsSettingsOpen(true);
+              }}
+              onSelectFamily={handleSelectFamily}
+              onSelectTab={setActiveTab}
+              onSetDropTargetActive={setIsDropTargetActive}
+              onShowFamilyInfo={(familyId) => {
+                setIsAboutOpen(false);
+                setSetInfoFamilyId(familyId);
+              }}
+              onUploadedFamilyAction={(familyId) => {
+                void discardUploadedFamily(familyId);
+              }}
+              progressByKey={progressByKey}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              visibleFamilies={visibleFamilies}
+            />
           )}
         </div>
 
-        <DashboardSplitter
+        <ModernDashboardSplitter
           isCollapsed={isSetsPaneCollapsed}
           label="sets"
           onPointerDown={(event) => {
@@ -1401,116 +703,56 @@ export function ModernPlayerApp({
             event.preventDefault();
             startPaneResize("sets", event.clientX);
           }}
-          onToggleCollapse={() => {
-            setIsSetsPaneCollapsed((current) => !current);
-          }}
+          onToggleCollapse={toggleSetsPaneCollapsed}
         />
 
         <div className="modern-dashboard__pane modern-dashboard__pane--levels">
           {isLevelsPaneCollapsed ? (
-            <PaneRail
-              label="Levels"
-              onExpand={() => {
-                setIsLevelsPaneCollapsed(false);
-              }}
-            />
+            <ModernDashboardPaneRail label="Levels" onExpand={expandLevelsPane} />
           ) : (
-            <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--levels" tabIndex={-1}>
-              <section className="modern-dashboard__panel modern-dashboard__panel--compact modern-dashboard__panel--level-summary">
-                <div className="modern-dashboard__section-header">
-                  <p className="modern-section__eyebrow">Level Selector</p>
-                  <p className="modern-dashboard__meta-note">
-                    {activeEntry ? `${activeEntryProgress.completedLevels}/${activeEntry.levels.length} cleared` : "No level data"}
-                  </p>
-                </div>
+            <ModernDashboardLevelsPane
+              activeEntry={activeEntry}
+              activeEntryProgress={activeEntryProgress}
+              activeFamily={activeFamily}
+              activeLevel={activeLevel}
+              activeLevelProgress={activeLevelProgress}
+              activeLevelRowRef={activeLevelRowRef}
+              activeRuleset={activeRuleset}
+              animatedLevelBadgeKey={animatedLevelBadgeKey}
+              onLevelContextMenu={(event, levelNumber) => {
+                if (activeEntry?.ruleset !== "MS" && activeEntry?.ruleset !== "Lynx") {
+                  return;
+                }
 
-                <div className="modern-dashboard__level-header">
-                  <div>
-                    <h2 className="modern-dashboard__panel-title">{activeFamily?.title ?? "No set selected"}</h2>
-                    <p className="modern-dashboard__copy modern-dashboard__copy--compact">
-                      {activeLevel ? `Level ${activeLevel.number}: ${activeLevel.name}` : "Choose a playable level."}
-                    </p>
-                  </div>
-                  {activeFamily && activeRuleset ? (
-                    <RulesetToggle
-                      family={activeFamily}
-                      onSelect={(ruleset) => {
-                        setRequestedRuleset(ruleset);
-                        persistPreferences({ defaultRuleset: ruleset });
-                      }}
-                      selectedRuleset={activeRuleset}
-                    />
-                  ) : null}
-                </div>
+                event.preventDefault();
+                setLevelContextMenu({
+                  levelNumber,
+                  ruleset: activeEntry.ruleset,
+                  seriesFile: activeEntry.filebase,
+                  x: event.clientX,
+                  y: event.clientY,
+                });
+              }}
+              onSelectLevel={(levelNumber) => {
+                if (!activeFamily) {
+                  return;
+                }
 
-                <div className="modern-dashboard__level-inline-meta">
-                  <span className="modern-dashboard__level-inline-meta-label">Best Score</span>
-                  <strong>{activeLevelProgress ? activeLevelProgress.bestScore : 0}</strong>
-                </div>
-              </section>
-
-              <section className="modern-dashboard__panel modern-dashboard__panel--fill">
-                <div className="modern-dashboard__section-header">
-                  <p className="modern-section__eyebrow">Levels</p>
-                  <p className="modern-dashboard__meta-note">{activeEntry ? `${activeEntry.levels.length} total` : "Unavailable"}</p>
-                </div>
-
-                {activeEntry ? (
-                  <div className="modern-level-sidebar" role="list" tabIndex={-1}>
-                    {activeEntry.levels.map((level) => {
-                      const progress =
-                        activeEntry.ruleset === "MS" || activeEntry.ruleset === "Lynx"
-                          ? resolveLevelProgressSummary(level, activeEntry.ruleset, progressByKey)
-                          : null;
-                      return (
-                        <LevelRow
-                          animatedBadge={
-                            progress !== null && animatedLevelBadgeKey === buildStoredLevelProgressKey(progress)
-                          }
-                          buttonRef={activeLevel?.number === level.number ? activeLevelRowRef : undefined}
-                          isActive={activeLevel?.number === level.number}
-                          key={`${activeEntry.filebase}:${level.number}`}
-                          level={level}
-                          onContextMenu={(event, levelNumber) => {
-                            if (activeEntry.ruleset !== "MS" && activeEntry.ruleset !== "Lynx") {
-                              return;
-                            }
-
-                            event.preventDefault();
-                            setLevelContextMenu({
-                              levelNumber,
-                              ruleset: activeEntry.ruleset,
-                              seriesFile: activeEntry.filebase,
-                              x: event.clientX,
-                              y: event.clientY,
-                            });
-                          }}
-                          onSelect={(levelNumber) => {
-                            if (!activeFamily) {
-                              return;
-                            }
-
-                            setRequestedLevelsByFamily((current) => ({
-                              ...current,
-                              [activeFamily.id]: levelNumber,
-                            }));
-                          }}
-                          progress={progress}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="modern-empty-state modern-dashboard__empty-panel">
-                    The selected family does not expose a playable entry for this ruleset.
-                  </div>
-                )}
-              </section>
-            </aside>
+                setRequestedLevelsByFamily((current) => ({
+                  ...current,
+                  [activeFamily.id]: levelNumber,
+                }));
+              }}
+              onSelectRuleset={(ruleset) => {
+                setRequestedRuleset(ruleset);
+                persistPreferences({ defaultRuleset: ruleset });
+              }}
+              progressByKey={progressByKey}
+            />
           )}
         </div>
 
-        <DashboardSplitter
+        <ModernDashboardSplitter
           isCollapsed={isLevelsPaneCollapsed}
           label="levels"
           onPointerDown={(event) => {
@@ -1520,9 +762,7 @@ export function ModernPlayerApp({
             event.preventDefault();
             startPaneResize("levels", event.clientX);
           }}
-          onToggleCollapse={() => {
-            setIsLevelsPaneCollapsed((current) => !current);
-          }}
+          onToggleCollapse={toggleLevelsPaneCollapsed}
         />
 
         <section className="modern-dashboard__player">
@@ -1552,471 +792,68 @@ export function ModernPlayerApp({
       </div>
 
       {levelContextMenu ? (
-        <div
-          aria-hidden="true"
-          className="modern-context-menu-backdrop"
-          onClick={() => {
+        <ModernDashboardLevelContextMenu
+          contextMenu={levelContextMenu}
+          onClose={() => {
             setLevelContextMenu(null);
           }}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            setLevelContextMenu(null);
+          onCopyLink={(state) => {
+            void copyLevelLink(
+              state.seriesFile,
+              state.ruleset,
+              state.levelNumber,
+            );
           }}
-        >
-          <div
-            className="modern-context-menu"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-            role="menu"
-            style={{ left: levelContextMenu.x, top: levelContextMenu.y }}
-          >
-            <button
-              className="modern-context-menu__item"
-              onClick={() => {
-                void copyLevelLink(
-                  levelContextMenu.seriesFile,
-                  levelContextMenu.ruleset,
-                  levelContextMenu.levelNumber,
-                );
-                setLevelContextMenu(null);
-              }}
-              role="menuitem"
-              type="button"
-            >
-              Copy Link
-            </button>
-          </div>
-        </div>
+        />
       ) : null}
 
       {message ? (
-        <div
-          aria-hidden="true"
-          className="modern-message-modal"
-          onClick={dismissMessage}
-        >
-          <div
-            aria-labelledby="modern-dashboard-message-title"
-            aria-modal="true"
-            className="modern-message-modal__dialog"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-            role="dialog"
-          >
-            <div className="modern-message-modal__header">
-              <div>
-                <p className="modern-section__eyebrow">Notice</p>
-                <h2 className="modern-dashboard__panel-title" id="modern-dashboard-message-title">
-                  Tile World Online
-                </h2>
-              </div>
-              <button
-                aria-label="Close notice"
-                className="modern-dashboard__about-button modern-dashboard__about-button--close"
-                onClick={dismissMessage}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-            <div className="modern-message-modal__body">
-              <p className="modern-dashboard__copy">{message}</p>
-            </div>
-            <div className="modern-message-modal__actions">
-              <button className="modern-button modern-button--secondary" onClick={dismissMessage} type="button">
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <ModernDashboardMessageModal
+          message={message}
+          onClose={dismissMessage}
+        />
       ) : null}
 
       {setInfoFamily ? (
-        <div
-          aria-hidden="true"
-          className="modern-about-modal"
-          onClick={() => {
+        <ModernDashboardSetInfoModal
+          family={setInfoFamily}
+          onClose={() => {
             setSetInfoFamilyId(null);
           }}
-        >
-          <div
-            aria-labelledby="modern-set-info-title"
-            aria-modal="true"
-            className="modern-about-modal__dialog"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-            role="dialog"
-          >
-            <div className="modern-about-modal__header">
-              <div>
-                <p className="modern-section__eyebrow">Set Info</p>
-                <h2 className="modern-dashboard__panel-title" id="modern-set-info-title">
-                  {setInfoFamily.title}
-                </h2>
-              </div>
-              <button
-                aria-label={`Close ${setInfoFamily.title} info`}
-                className="modern-dashboard__about-button modern-dashboard__about-button--close"
-                onClick={() => {
-                  setSetInfoFamilyId(null);
-                }}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="modern-about-modal__body">
-              <section className="modern-about-modal__section">
-                <p className="modern-preference-block__label">Overview</p>
-                <p className="modern-dashboard__copy">{setInfoFamily.description}</p>
-                {setInfoFamily.context ? <p className="modern-dashboard__copy">{setInfoFamily.context}</p> : null}
-              </section>
-
-              <section className="modern-about-modal__section">
-                <p className="modern-preference-block__label">Pack Status</p>
-                <p className="modern-dashboard__copy">
-                  {setInfoFamily.levelCount} levels
-                  {setInfoFamily.yearLabel ? `  ·  ${setInfoFamily.yearLabel}` : ""}
-                  {setInfoFamily.sidebarSummary ? `  ·  ${setInfoFamily.sidebarSummary}` : ""}
-                </p>
-              </section>
-
-              {setInfoFamily.links.length ? (
-                <section className="modern-about-modal__section">
-                  <p className="modern-preference-block__label">Links</p>
-                  <div className="modern-set-card__links modern-about-modal__links">
-                    {setInfoFamily.links.map((link) => (
-                      <a className="modern-inline-link" href={link.href} key={`${setInfoFamily.id}:${link.href}`} rel="noreferrer" target="_blank">
-                        {link.label}
-                      </a>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-            </div>
-          </div>
-        </div>
+        />
       ) : null}
 
       {isSettingsOpen ? (
-        <div
-          aria-hidden="true"
-          className="modern-about-modal"
-          onClick={() => {
+        <ModernDashboardSettingsModal
+          isProfileTransferBusy={isProfileTransferBusy}
+          onClose={() => {
             setIsSettingsOpen(false);
           }}
-        >
-          <div
-            aria-labelledby="modern-settings-title"
-            aria-modal="true"
-            className="modern-about-modal__dialog modern-settings-modal__dialog"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-            role="dialog"
-          >
-            <div className="modern-about-modal__header">
-              <div>
-                <p className="modern-section__eyebrow">Settings</p>
-                <h2 className="modern-dashboard__panel-title" id="modern-settings-title">
-                  Settings
-                </h2>
-              </div>
-              <button
-                aria-label="Close settings dialog"
-                className="modern-dashboard__about-button modern-dashboard__about-button--close"
-                onClick={() => {
-                  setIsSettingsOpen(false);
-                }}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="modern-about-modal__body modern-settings-modal">
-              <label className="modern-settings-modal__option">
-                <input
-                  checked={visualEnhancementsEnabled}
-                  onChange={(event) => {
-                    const enabled = event.currentTarget.checked;
-                    setVisualEnhancementsEnabled(enabled);
-                    saveStoredVisualEnhancementsSettings({ enabled });
-                  }}
-                  type="checkbox"
-                />
-                <div>
-                  <strong>Enable Visual Enhancements</strong>
-                  <p className="modern-dashboard__copy">
-                    E.g. visual aids for trap state, key count, etc. which may not be scoreboard legal
-                  </p>
-                </div>
-              </label>
-
-              <section className="modern-about-modal__section modern-settings-modal__section">
-                <p className="modern-preference-block__label">Keyboard</p>
-                <p className="modern-dashboard__copy">
-                  Remap Action 1 and Undo without colliding with movement or other keyboard controls.
-                </p>
-                <div className="modern-settings-modal__actions">
-                  <label className="modern-settings-modal__field">
-                    <span>Action 1 Key</span>
-                    <select
-                      className="modern-history-dock__select"
-                      onChange={(event) => {
-                        applyPlayerKeyBindings({
-                          ...playerKeyBindings,
-                          action1Key: event.currentTarget.value as PlayerBindableKey,
-                        });
-                      }}
-                      value={playerKeyBindings.action1Key}
-                    >
-                      {PLAYER_BINDABLE_KEYS.filter((key) => key !== playerKeyBindings.undoKey).map((key) => (
-                        <option key={key} value={key}>
-                          {key}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="modern-settings-modal__field">
-                    <span>Undo Key</span>
-                    <select
-                      className="modern-history-dock__select"
-                      onChange={(event) => {
-                        applyPlayerKeyBindings({
-                          ...playerKeyBindings,
-                          undoKey: event.currentTarget.value as PlayerBindableKey,
-                        });
-                      }}
-                      value={playerKeyBindings.undoKey}
-                    >
-                      {PLAYER_BINDABLE_KEYS.filter((key) => key !== playerKeyBindings.action1Key).map((key) => (
-                        <option key={key} value={key}>
-                          {key}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </section>
-
-              <label className="modern-settings-modal__option">
-                <input
-                  checked={preferences.autoSaveWinningHighScoreReplays}
-                  onChange={(event) => {
-                    persistPreferences({
-                      autoSaveWinningHighScoreReplays: event.currentTarget.checked,
-                    });
-                  }}
-                  type="checkbox"
-                />
-                <div>
-                  <strong>Auto save winning high scores</strong>
-                  <p className="modern-dashboard__copy">
-                    Automatically save winning replays when they match or beat the current best score for that level.
-                  </p>
-                </div>
-              </label>
-
-              <label className="modern-settings-modal__option">
-                <input
-                  checked={preferences.autoDownloadReplaysOnSave}
-                  onChange={(event) => {
-                    persistPreferences({
-                      autoDownloadReplaysOnSave: event.currentTarget.checked,
-                    });
-                  }}
-                  type="checkbox"
-                />
-                <div>
-                  <strong>Auto-download replays on save</strong>
-                  <p className="modern-dashboard__copy">
-                    Download a local `.tws` or `.twsx` copy whenever a replay is saved to the browser library.
-                  </p>
-                </div>
-              </label>
-
-              <section className="modern-about-modal__section modern-settings-modal__section">
-                <p className="modern-preference-block__label">Profile Backup</p>
-                <p className="modern-dashboard__copy">
-                  Download a structured backup of local sets, replays, progress, selection, and browser settings. Uploading a backup replaces the current local profile and reloads the page.
-                </p>
-                <div className="modern-settings-modal__actions">
-                  <button
-                    className="modern-button modern-button--secondary"
-                    disabled={isProfileTransferBusy}
-                    onClick={() => {
-                      void downloadProfileBackup();
-                    }}
-                    type="button"
-                  >
-                    Download Profile
-                  </button>
-                  <button
-                    className="modern-button modern-button--secondary"
-                    disabled={isProfileTransferBusy}
-                    onClick={() => {
-                      profileFileInputRef.current?.click();
-                    }}
-                    type="button"
-                  >
-                    Upload Profile
-                  </button>
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
+          onDownloadProfile={() => {
+            void downloadProfileBackup();
+          }}
+          onOpenProfileUpload={() => {
+            profileFileInputRef.current?.click();
+          }}
+          onSelectAction1Key={setAction1Key}
+          onSelectUndoKey={setUndoKey}
+          onSetAutoDownloadReplaysOnSave={setAutoDownloadReplaysOnSave}
+          onSetAutoSaveWinningHighScoreReplays={setAutoSaveWinningHighScoreReplays}
+          onSetVisualEnhancementsEnabled={setVisualEnhancementsEnabled}
+          playerKeyBindings={playerKeyBindings}
+          preferences={preferences}
+          visualEnhancementsEnabled={visualEnhancementsEnabled}
+        />
       ) : null}
 
       {isAboutOpen ? (
-        <div
-          aria-hidden="true"
-          className="modern-about-modal"
-          onClick={() => {
+        <ModernDashboardAboutModal
+          onClose={() => {
             setIsAboutOpen(false);
           }}
-        >
-          <div
-            aria-labelledby="modern-about-title"
-            aria-modal="true"
-            className="modern-about-modal__dialog"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-            role="dialog"
-          >
-            <div className="modern-about-modal__header">
-              <div>
-                <p className="modern-section__eyebrow">About</p>
-                <h2 className="modern-dashboard__panel-title" id="modern-about-title">
-                  Tile World Online
-                </h2>
-              </div>
-              <button
-                aria-label="Close about dialog"
-                className="modern-dashboard__about-button modern-dashboard__about-button--close"
-                onClick={() => {
-                  setIsAboutOpen(false);
-                }}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="modern-about-modal__body">
-              <section className="modern-about-modal__section">
-                <p className="modern-preference-block__label">Project</p>
-                <p className="modern-dashboard__copy">
-                  Tile World Online is a Typescript port of Tile World that brings the classic MS and Lynx rulesets into a modern browser UI. It includes rich features like improved level browsing and progress tracking, undo history, replay tools, ruleset switching, and even 3D levels. Tile World Online is a static website; all progress, scores and replays are saved locally.
-                </p>
-              </section>
-
-              <section className="modern-about-modal__section">
-                <p className="modern-preference-block__label">Engine Parity</p>
-                <p className="modern-dashboard__copy">
-                  Core gameplay logic has been verified on over 2,500 replays per ruleset in an attempt to ensure exact behavior parity with legacy Tile World. That being said, the Typescript port runs in a fundamentally different runtime environment than the original C implementation, and there are likely to be subtle differences between the engines. There may also be outright bugs remaining in the code that may be uncovered as playtesting progresses.
-                </p>
-              </section>
-
-              <section className="modern-about-modal__section">
-                <p className="modern-preference-block__label">License And Credits</p>
-                <p className="modern-dashboard__copy">
-                  Tile World Online (TWO) is a browser based TypeScript port of Tile World / Tile World 2, and includes code derived from the original Tile World codebase.
-                </p>
-                <p className="modern-dashboard__copy">
-                  Copyright © 2026 Joshua Bone
-                  <br />
-                  Portions Copyright © 2001-2025 Brian Raiter, Madhav Shanbhag, and Eric Schmidt
-                </p>
-                <p className="modern-dashboard__copy">
-                  Released under the GNU General Public License, version 2 or later.
-                </p>
-                <p className="modern-dashboard__copy">
-                  Original Tile World was written by Brian Raiter. Tile World 2 was developed by Madhav Shanbhag, with later releases and maintenance by Eric Schmidt, Michael Hansen (Zrax), ChosenID, David Stolp (pieguy), A Sickly Silver Moon, G lander, and Eevee. Chip&apos;s Challenge was designed by Chuck Sommerville.
-                </p>
-              </section>
-
-              <section className="modern-about-modal__section">
-                <p className="modern-preference-block__label">Links</p>
-                <div className="modern-set-card__links modern-about-modal__links">
-                  <a className="modern-inline-link" href={ABOUT_LINKS.browserPortRepo} rel="noreferrer" target="_blank">
-                    Tile World Online repo
-                  </a>
-                  <span aria-hidden="true">|</span>
-                  <a className="modern-inline-link" href={ABOUT_LINKS.tileWorldRepo} rel="noreferrer" target="_blank">
-                    Tile World repo
-                  </a>
-                  <span aria-hidden="true">|</span>
-                  <a className="modern-inline-link" href={ABOUT_LINKS.bitbustersClub} rel="noreferrer" target="_blank">
-                    Bit Busters Club
-                  </a>
-                  <span aria-hidden="true">|</span>
-                  <a className="modern-inline-link" href={ABOUT_LINKS.bitbustersWiki} rel="noreferrer" target="_blank">
-                    Chip Wiki
-                  </a>
-                  <span aria-hidden="true">|</span>
-                  <a className="modern-inline-link" href={ABOUT_LINKS.discord} rel="noreferrer" target="_blank">
-                    Discord server
-                  </a>
-                  <span aria-hidden="true">|</span>
-                  <a
-                    className="modern-inline-link"
-                    href={ABOUT_LINKS.legacy}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      setIsAboutOpen(false);
-                      onOpenClassic();
-                    }}
-                  >
-                    TWO Legacy UI
-                  </a>
-                  {onOpenMobile ? (
-                    <>
-                      <span aria-hidden="true">|</span>
-                      <a
-                        className="modern-inline-link"
-                        href={ABOUT_LINKS.mobile}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          setIsAboutOpen(false);
-                          onOpenMobile();
-                        }}
-                      >
-                        TWO Mobile UI
-                      </a>
-                    </>
-                  ) : null}
-                </div>
-              </section>
-
-              <section className="modern-about-modal__section">
-                <p className="modern-preference-block__label">URL Launches</p>
-                <p className="modern-dashboard__copy">
-                  Built-in sets can be opened with URLs like <code>?set=CCLP1&amp;level=3&amp;ruleset=Lynx</code>.
-                  Custom DAT packs can be embedded directly with <code>#dat=&lt;base64url-gzip-dat&gt;</code>,
-                  plus optional <code>level</code>, <code>ruleset</code>, and <code>slot</code> parameters.
-                </p>
-                <p className="modern-dashboard__copy">
-                  Example: <code>?level=3&amp;ruleset=MS&amp;slot=3D_CHIPS.dat#dat=...</code>. The
-                  <code>slot</code> name controls overwrite-by-name behavior for local work-in-progress packs.
-                </p>
-              </section>
-
-              <section className="modern-about-modal__section">
-                <p className="modern-preference-block__label">Bug Reports</p>
-                <p className="modern-dashboard__copy">
-                  If you hit a browser-port bug, report it to jbone in the Bit Busters Discord so it can be reproduced against the current modern UI and replay corpus.
-                </p>
-              </section>
-            </div>
-          </div>
-        </div>
+          onOpenClassic={onOpenClassic}
+          onOpenMobile={onOpenMobile}
+        />
       ) : null}
     </main>
   );

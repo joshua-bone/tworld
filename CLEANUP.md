@@ -63,7 +63,7 @@ Highest-value cleanup targets:
 
 - [x] PR1: Safety Net For Structural Cleanup
 - [x] PR2: PlayerApp Application Controller Split
-- [ ] PR3: Modern Dashboard Shell Split
+- [x] PR3: Modern Dashboard Shell Split
 - [ ] PR4: Legacy Canvas Render Pipeline Split
 - [ ] PR5: Shared Interactive Adapter Skeleton
 - [ ] PR6: Content Parsing Decomposition
@@ -127,9 +127,9 @@ Progress:
 
 - [x] extract family and level navigation controller with a tested derived dashboard model
 - [x] extract backup and import workflow controller
-- [ ] extract settings and profile transfer workflow controller
-- [ ] extract pane resize and layout controller
-- [ ] extract library shell sections into smaller presentational components
+- [x] extract settings and profile transfer workflow controller
+- [x] extract pane resize and layout controller
+- [x] extract library shell sections into smaller presentational components
 
 ### PR4: Legacy Canvas Render Pipeline Split
 
