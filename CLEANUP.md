@@ -1,452 +1,388 @@
-# Engine Extensibility Cleanup Plan
+# Stateful Element Cleanup Plan
 
-This plan is based on a fresh pass through the current MS and Lynx engines, their extracted helper seams, and the priorities in `CLEAN_CODE.md`.
+This plan is for one narrow goal:
 
-The question this plan answers is:
+- make a second bowling-ball attempt land as a clean extension
+- keep the same path usable for future stateful mobs such as ghosts and fake players
+- keep the same path usable for future portable-item families such as hooks and other special items
 
-- If we add new stateful mobs such as bowling balls or ghosts, can we do it without scattering tile checks and duplicating movement logic?
-- If we add new portable items such as hooks, can they plug into the portable-item lifecycle instead of growing sandbag-specific branches?
-- If we add new terrain or pickups, can we register behavior instead of editing giant engine and catalog files?
-- Could any of that eventually become a real plugin story?
+This is not a generic repo cleanup pass.
+It is an engine and runtime cleanup pass aimed at making new gameplay elements feel registered, not hand-wired.
 
-## Current Verdict
+## Why The First Bowling-Ball Attempt Was Not Good Enough
 
-Short answer:
+The rollback confirmed a few things:
 
-- The engine is much cleaner than it was.
-- It has real seams now.
-- It is not yet a true plugin architecture.
+- the codebase is cleaner than it used to be
+- it is still not ready for a truly clean stateful-element extension
+- bowling ball is not “just one more actor”
+- bowling ball is also not “just one more portable item”
 
-Today, the repo is in a good position for:
+It crosses too many concerns at once:
 
-- ruleset-specific cleanup without rewriting the engines
-- adding features that fit existing policy vocabulary
-- reusing portable-item identity, actor-local inventory, and several movement helper seams
+- DAT decode
+- still-form portable item identity
+- carried and primed portable-item behavior
+- actor activation from a portable state
+- actor-local keys/boots inventory
+- blocked-move reversion back into a portable state
+- actor-vs-actor collision
+- actor-vs-portable collision
+- floor hazards and thief behavior
+- trap and cloner behavior
+- air support and falling
+- rendering and projection
+- replay, undo, and debug projection
 
-Today, the repo is not in a good position for:
+The fact that one feature touches all of those is not itself the problem.
+The problem is that those concerns are still split across too many engine-owned branches.
 
-- adding a new stateful actor kind without some new engine work
-- adding a new portable-item behavior family without extending portable-item rulesets
-- adding new terrain families entirely by registration
-- loading third-party gameplay elements as external plugins
+## Current Honest Assessment
 
-The honest assessment is:
-
-- internal plugin-shaped extensibility is within reach
-- external plugin loading is not
-- bowling ball, ghost, fake player, and hook can be made cleanly
-- they cannot yet be added as pure registrations without more engine cleanup
-
-## Clean-Code Comparison
-
-### Tier 1: What is already good
-
-- [x] MS and Lynx have shared seam shapes without being forced into a fake common engine
-- [x] major hot paths now read in phases instead of one giant monolith
-- [x] long argument lists were reduced in many movement and tick helpers
-- [x] actor-local inventory is separated from global progress such as `chipsNeeded`
-- [x] portable items have stable identity and lifecycle instead of being only tile projections
-- [x] teleport, trap/cloner, controller, vertical-movement, and arrival logic have extracted modules
-- [x] characterization coverage around subtle engine behavior is strong
-
-### Tier 1: What still blocks extensibility
-
-- [ ] `engine.ts` is still very large in both rulesets
-- [ ] actor behavior is still too coarse for new stateful actor families
-- [ ] portable items are still fundamentally modeled as `tools` with sandbag-shaped assumptions
-- [ ] tile behavior is still mostly encoded as large rule tables plus engine-side interpretation
-- [ ] there is no explicit internal element registration layer
-- [ ] there is no external plugin contract
-
-### Tier 2: What still needs work
-
-- [ ] OCP is only partially achieved: adding new element families still requires edits in multiple core files
-- [ ] DIP is partial: catalogs provide policy data, but engines still know too much about the current policy vocabulary
-- [ ] ISP is partial: capability enums are broad enough to be useful, but too narrow for future actor classes
-- [ ] descriptive naming improved, but some runtime seams still expose mechanics instead of intent
-- [ ] feature-oriented structure exists for many behaviors, but large catalogs still act as “big tables of truth”
-
-## Current State Snapshot
-
-Current core file sizes:
-
-- `web/src/ruleset-ms/impl/engine.ts`: 4295 lines
-- `web/src/ruleset-lynx/impl/engine.ts`: 3545 lines
-- `web/src/ruleset-ms/impl/catalog.ts`: 879 lines
-- `web/src/ruleset-lynx/impl/catalog.ts`: 956 lines
-- `web/src/ruleset-ms/impl/portableItems.ts`: 303 lines
-- `web/src/ruleset-lynx/impl/portableItems.ts`: 295 lines
-- `web/src/game-core/api/actorCapabilities.ts`: 73 lines
-- `web/src/game-core/impl/portableItems.ts`: 231 lines
-
-This tells us something important:
-
-- the engines are no longer the only problem
-- the catalogs and capability vocabularies are now the main extensibility bottleneck
-
-## Extensibility Assessment By Feature Type
-
-### 1. Stateful mobs such as bowling ball, ghost, fake player
-
-Current state:
-
-- partially ready
-
-What already helps:
-
-- [x] actor-local inventory exists
-- [x] global chip progress is separate from local inventory
-- [x] blocked-move, trap, cloner, thief, support, and hazard hooks exist in policy form
-- [x] movement and arrival helper seams exist in both rulesets
-
-What still blocks clean extension:
-
-- [ ] `ActorTraversalKind` only knows `chip`, `creature`, and `block`
-- [ ] `ActorCollisionHook` is still too coarse
-- [ ] `ActorBlockedMoveKind` is still too coarse
-- [ ] actor runtime state is not yet generalized enough for per-family custom state
-- [ ] movement start, arrival, collision, and forced-movement flows are still wired around current actor families
-
-Conclusion:
-
-- bowling ball or ghost can be added cleanly only after the actor strategy vocabulary is widened
-- today they would still require engine edits, even if those edits could be localized
-
-### 2. Portable items such as hooks, future special items, bowling ball in carried/still form
-
-Current state:
-
-- partially ready
-
-What already helps:
+### What is already good
 
 - [x] portable items have stable identity
-- [x] portable items support map, carried, primed, pending, and attached states
-- [x] portable items survive projection and reuse
-
-What still blocks clean extension:
-
-- [ ] portable items are still hard-wired to inventory slot `"tools"`
-- [ ] replacement and primed-drop behavior is still sandbag-shaped
-- [ ] activation semantics are not yet modeled as portable-item policy
-- [ ] support/drop consequences are not yet generalized enough for multiple portable-item families
-- [ ] attached portable items do not yet drive their own actor lifecycle cleanly
-
-Conclusion:
-
-- a hook-like item is not plug-in ready yet
-- the portable-item seam needs one more level of abstraction before it becomes a reusable feature family
-
-### 3. Terrain and pickups
-
-Current state:
-
-- better than actors and portable items
-
-What already helps:
-
-- [x] catalogs encode movement masks, forced-floor kinds, chip-enter actions, buttons, hazards, and inventory slot mapping
-- [x] both rulesets already route much tile behavior through catalog policy
-
-What still blocks clean extension:
-
-- [ ] tile actions are still interpreted through engine-owned enums and branches
-- [ ] there is no first-class per-tile behavior registration object
-- [ ] new tile families still require edits to large catalog tables and likely some engine interpretation code
-
-Conclusion:
-
-- simple new pickups that fit existing slot logic are relatively easy
-- new terrain families with stateful or unusual movement/collision behavior are not plugin-ready
-
-### 4. True plugins
-
-Current state:
-
-- not supported
-
-Reasons:
-
-- [ ] tile and actor ids are still compile-time enums
-- [ ] ruleset catalogs are compile-time structures
-- [ ] decode/load/render/projection paths are static
-- [ ] there is no manifest-based extension registration
-- [ ] there is no compatibility contract for undo, replay, debug projection, or rendering
-
-Conclusion:
-
-- we should not claim “plugin support” today
-- the right near-term goal is internal plugin-shaped extensibility
-
-## Design Goals For The Next Cleanup Wave
-
-- Keep MS and Lynx separate where timing and ordering differ
-- Move from coarse enums toward typed policy groups and strategy seams
-- Make state ownership explicit for actor-local state, portable-item state, and global progress
-- Add new element families by registration plus focused helper implementations, not by editing large engine switch trees
-- Prove the seams with one new stateful actor family and one new portable-item family before attempting external plugins
-
-## PR Roadmap
-
-### EP1: Extensibility Characterization Net
-
-Goal:
-
-- capture the behavior we need for future element families before changing seam shape
-
-Checklist:
-
-- [x] add characterization harnesses for stateful actor archetypes: ballistic, phasing, input-driven, inventory-carrying
-- [x] add characterization harnesses for portable-item archetypes: carried-only, primed-drop, attach-to-actor, reusable stateful item
-- [x] add terrain-entry and collision matrix tests that can be reused by future elements
-- [x] add undo, replay, and debug-projection characterization for stateful elements
-
-Why this comes first:
-
-- future seam work will otherwise guess behavior instead of locking it down
-
-### EP2: Decompose Actor Capability Policy
-
-Goal:
-
-- replace the current coarse actor capability vocabulary with smaller, composable policy groups
-
-Checklist:
-
-- [x] split `ActorCapabilityPolicy` into grouped concerns such as control, traversal, collision, hazards, support, theft, trap/cloner, collection, and blocked-move
-- [x] remove reliance on `traversalKind: chip | creature | block` as the final gameplay discriminator
-- [x] add typed strategy identifiers or typed interfaces for movement-start and collision behavior
-- [x] keep policy data per-ruleset in catalog modules
-
-Extensibility win:
-
-- bowling ball, ghost, and fake player stop looking like special cases of the current three movement families
-
-### EP3: Introduce Supplemental Stateful-Actor Runtime
-
-Goal:
-
-- support actor families with persistent per-instance runtime state without overloading existing Chip/block/creature records
-
-Checklist:
-
-- [x] add a supplemental runtime state store keyed by actor serial
-- [x] support custom mode/state payloads per actor family
-- [x] route clone, destroy, and restore flows through this store
-- [x] integrate with interactive projection, replay, and undo
-
-Extensibility win:
-
-- bowling ball mode, ghost state, fake-player control state, and future actor-local state get a real owner
-
-### EP4: Generalize Portable Item Policy
-
-Goal:
-
-- move from “portable tools with sandbag semantics” to “portable item families with explicit behavior policy”
-
-Checklist:
-
-- [x] introduce portable-item policy objects for carry, replacement, prime, drop, attach, detach, and destroy semantics
-- [x] support multiple portable-item families without hard-wiring everything to `"tools"`
-- [x] migrate sandbag fully onto the new portable-item policy surface
-- [x] preserve current identity, projection, and replacement behavior under test
-
-Extensibility win:
-
-- hooks and still-form bowling balls become policy-driven portable items instead of sandbag variants
-
-### EP5: Actor Movement Strategy Layer
-
-Goal:
-
-- make movement and forced-movement logic extensible by strategy rather than by current actor category
-
-Checklist:
-
-- [x] define strategy seams for `canStartMove`, `startMove`, `finishMove`, `blockedMove`, and `forcedMove`
-- [x] migrate current Chip, creature, and block behavior onto those seams
-- [x] keep ruleset-specific timing and ordering in MS/Lynx modules
-- [x] eliminate the remaining “actor family means hard-coded engine path” assumptions
-
-Extensibility win:
-
-- ghost-style phasing or bowling-ball-style ballistic motion gets a place to live without duplicating Chip or creature paths
-
-### EP6: Collision, Arrival, and Hazard Pipeline
-
-Goal:
-
-- make unusual interactions first-class instead of encoded as engine exceptions
-
-Checklist:
-
-- [x] add typed outcomes for actor-vs-actor collision rules
-- [x] add typed outcomes for tile-arrival rules
-- [x] extend hazard handling beyond `ignore | deny | destroy | transform` where needed
-- [x] make thief, trap, and cloner semantics pluggable at the actor-policy level
-
-Extensibility win:
-
-- bowling ball “destroy both”, ghost pass-through, hook attach/detach effects, and special collision cases stop needing bespoke engine branches
-
-### EP7: Tile Effect Pipeline
-
-Goal:
-
-- move tile behavior from static enum interpretation toward executable tile policy seams
-
-Checklist:
-
-- [x] define ruleset-local tile effect seams covering blocked enter, support checks, activation, arrival, teleport, and trap/cloner resolution
-- [x] migrate doors, sockets, buttons, teleports, traps, cloners, popup walls, and hidden/blue wall behavior onto those seams
-- [x] keep ruleset-specific implementations separate
-- [x] reduce large catalog-side enum interpretation in engine code
-
-Extensibility win:
-
-- new terrain and pickup families can be added through a predictable ruleset-local behavior surface instead of scattered engine branching
-
-### EP8: Catalog Decomposition And Registration
-
-Goal:
-
-- stop treating each ruleset catalog as one giant file of static tables
-
-Checklist:
-
-- [x] split each ruleset catalog into tile and actor registration modules with concern-family policy sections for pickups, terrain, forced floors, buttons, portable items, and actor capabilities
-- [x] compose each ruleset catalog from smaller registration modules
-- [x] keep the final public catalog stable
-- [x] add catalog tests per concern family rather than only giant catalog tests
-
-Extensibility win:
-
-- adding a new element becomes “register in the correct family” instead of editing several large constant blocks
-
-### EP9: Rendering And Projection Registration
-
-Goal:
-
-- align engine extensibility with projection and rendering seams
-
-Checklist:
-
-- [x] register actor and portable-item visual state selection by policy instead of tile-id conditionals
-- [x] support state-driven sprite selection for moving vs still actors/items through shared render descriptors
-- [x] route overlays and animation selection through typed render metadata
-- [x] keep renderer consumers synchronized through the shared `InteractiveGameFrame` render descriptor shape
-
-Extensibility win:
-
-- bowling ball, ghost, hook, and future stateful visuals stop requiring special renderer edits everywhere
-
-### EP10: Decode And Load Registration
-
-Goal:
-
-- stop treating decode/load as a separate hard-coded layer that lags behind gameplay seams
-
-Checklist:
-
-- [x] introduce ruleset-local element registration for decode/load mapping
-- [x] keep compile-time built-in ids for now, but route decode through registration
-- [x] ensure imported sets and DAT parsing can construct registered extensions consistently
-- [x] integrate level prep and engine initialization with the registration layer
-
-Extensibility win:
-
-- new built-in elements no longer require ad hoc decode wiring across multiple files
-
-### EP11: Prove The Seams With Real Elements
-
-Goal:
-
-- validate that the cleanup produced real extensibility rather than nicer names around the same branching
-
-Checklist:
-
-- [ ] implement one stateful actor family using the new seams
-- [x] implement one portable-item family using the new seams
-- [ ] forbid engine-hot-path branches for those elements outside the declared seam boundaries
-- [ ] add replay, undo, debug, and renderer coverage for both
-
-Current bowling-ball actor proof progress:
-
-- [x] seed runtime-owned bowling-ball state by actor serial in both rulesets
-- [x] route ballistic movement choice through actor policy instead of raw engine family branching
-- [x] prove actor-local key/boot collection and actor-driven chip progress in both rulesets
-- [x] prove actor key use against doors without inventing new engine-hot-path tile checks
-- [ ] implement still-form portable lifecycle and blocked-move reversion through the portable-item seam
-- [ ] implement actor-vs-actor collision/destruction semantics through the interaction seam
-- [ ] add replay, undo, debug, and renderer characterization for the stateful actor proof
-
-Suggested proof elements:
-
-- bowling ball or ghost for actor proof
-- hook or future special item for portable-item proof
-
-Success condition:
-
-- adding the proof elements does not require new large engine switch trees
-
-### EP12: Optional External Plugin Contract
-
-Goal:
-
-- only after internal plugin-shaped extensibility works, evaluate whether real external plugins are worth supporting
-
-Checklist:
-
-- [ ] decide what extension points are safe to expose externally
-- [ ] define manifest and registration contracts
-- [ ] define compatibility rules for replay, undo, debug projection, save state, and rendering
-- [ ] decide what remains compile-time only
-
-Important note:
-
-- this is optional
-- do not start here
-- the internal seam architecture must prove itself first
-
-## Recommended Order
-
-- [x] EP1
-- [x] EP2
-- [x] EP3
-- [x] EP4
-- [x] EP5
-- [x] EP6
-- [x] EP7
-- [x] EP8
-- [x] EP9
-- [x] EP10
-- [ ] EP11
-- [ ] EP12 if and only if real external plugins are still a goal
+- [x] actor-local inventory is separated from global progress
+- [x] stateful actor runtime exists
+- [x] movement strategies exist
+- [x] actor interaction and tile-effect seams exist
+- [x] MS and Lynx keep their own timing and ordering
+
+### What is still not good enough
+
+- [ ] there is no first-class element registration seam that ties decode, runtime, projection, and rendering together
+- [ ] portable items do not yet have a full activation lifecycle contract
+- [ ] actor movement still assumes too much about the built-in families
+- [ ] chip-vs-runtime-actor probing is still separate from actor-vs-actor interaction
+- [ ] occupancy is still split across claimed cells, actors, and portable items in a way that leaks into engine code
+- [ ] floor-impact, blocked-move, and arrival behavior are not yet first-class strategy hooks
+- [ ] a new stateful family still requires edits in too many core files
+
+## Goal State
+
+After this cleanup wave, adding bowling ball should look like:
+
+1. register a DAT decode mapping
+2. register a portable-item family
+3. register an actor family
+4. implement that family’s portable activation lifecycle
+5. implement that family’s movement, collision, and floor-impact policies
+6. register render/projection metadata
+7. add ruleset tests
+
+The second attempt will still require code.
+It should not require fresh branching in unrelated engine hot paths.
 
 ## Non-Goals
 
-- [ ] do not build a fake shared MS/Lynx super-engine
-- [ ] do not erase real timing and ordering differences behind generic callbacks
-- [ ] do not start with external plugin loading
-- [ ] do not add new stateful elements before the next seam layer exists
-- [ ] do not grow actor capability enums forever without decomposing them
+- do not build true external plugin loading in this wave
+- do not create a fake shared MS/Lynx engine
+- do not erase real ruleset differences
+- do not chase “DRY” by merging behavior that is only superficially similar
+- do not mix this cleanup with another unrelated feature
 
-## Final Answer To The Plugin Question
+## Success Criteria
 
-If you wanted to add bowling balls, ghosts, hooks, new terrain, or new pickups today:
+We are ready for bowling-ball attempt two only when all of the following are true:
 
-- you could do it more cleanly than before
-- you could reuse several existing seams
-- you would still need core code edits
-- you would still risk duplication for movement, collision, portable-item behavior, or terrain effects
+- [ ] a portable item can become a runtime actor through a typed lifecycle seam
+- [ ] a runtime actor can revert back to a portable item through a typed lifecycle seam
+- [ ] actor-vs-actor and actor-vs-portable collisions are handled through one typed interaction path
+- [ ] blocked-move behavior is configured per actor family, not open-coded in engines
+- [ ] floor-impact and arrival behavior are configured per actor family, not open-coded in engines
+- [ ] chip probing against moving actors uses the same interaction vocabulary as actor movement
+- [ ] adding one new family does not require edits in both ruleset engines outside narrow registration and helper seams
 
-If this roadmap is completed through EP11:
+## PR Roadmap
 
-- new built-in element families should be addable through ruleset-local registration plus focused strategy code
-- that is the right target for “plugin-shaped” extensibility inside the repo
+### SE1: Lock Down The Bowling-Ball Failure Surface
 
-If you want true external plugins:
+Goal:
 
-- that is a separate architectural project after EP11
-- it is not the current engine architecture
+- characterize the behaviors that made the first attempt spread
+
+Checklist:
+
+- [ ] add focused tests for still-to-moving activation from carried state
+- [ ] add focused tests for map-still-to-moving activation from forced floor
+- [ ] add focused tests for moving-to-still reversion with inventory preservation
+- [ ] add focused tests for actor-vs-portable destruction
+- [ ] add focused tests for “Chip chasing behind moving bowling ball acts as wall”
+- [ ] add focused tests for trap hold/release behavior
+- [ ] add focused tests for cloner hold/deep-clone behavior
+- [ ] add focused tests for air drop and fall-onto-player / fall-onto-actor behavior
+
+Why first:
+
+- we need the exact failure surface frozen before changing seams again
+
+### SE2: Introduce Element Family Registration
+
+Goal:
+
+- add an internal registration layer that ties together the existing seams
+
+Checklist:
+
+- [ ] define a ruleset-local `ElementFamilyRegistration` shape
+- [ ] split registration into actor families, portable-item families, terrain/pickup families, and decode/load registration
+- [ ] keep ids static, but stop scattering their meaning across unrelated modules
+- [ ] move existing hook and sandbag family wiring onto this registration surface first
+- [ ] expose narrow lookup helpers so engines ask for family behavior instead of inferring it from tile ids
+
+Success condition:
+
+- a new family can be registered in one obvious place per ruleset
+
+### SE3: Portable Item Lifecycle Contract
+
+Goal:
+
+- make portable items first-class state machines instead of map/carried projections plus ad hoc engine code
+
+Checklist:
+
+- [ ] define typed lifecycle operations:
+- [ ] `carry`
+- [ ] `primeDrop`
+- [ ] `settleDrop`
+- [ ] `activateToActor`
+- [ ] `attachToActor`
+- [ ] `detachToMap`
+- [ ] `destroy`
+- [ ] `clone`
+- [ ] move replacement behavior and drop semantics behind that contract
+- [ ] move support-loss drop behavior behind that contract
+- [ ] make “drop consequences” shared for portable-item families instead of sandbag-shaped
+- [ ] prove the seam by migrating sandbag and hook fully onto it
+
+Success condition:
+
+- still bowling ball can exist as “just another portable-item family with extra state”
+
+### SE4: Stateful Actor Runtime Contract
+
+Goal:
+
+- stop treating runtime state as a generic side store plus ruleset-specific ad hoc assumptions
+
+Checklist:
+
+- [ ] define family-owned runtime state adapters keyed by actor serial
+- [ ] define typed lifecycle hooks for:
+- [ ] spawn
+- [ ] clone
+- [ ] restore
+- [ ] destroy
+- [ ] attach portable backing item
+- [ ] detach portable backing item
+- [ ] make the portable backing item relationship explicit instead of implicit
+- [ ] expose runtime-state access through family helpers instead of direct store poking
+
+Success condition:
+
+- bowling ball runtime state is owned by the bowling-ball family, not by random engine helpers
+
+### SE5: Unified Occupancy And Interaction Targeting
+
+Goal:
+
+- stop treating claimed cells, runtime actors, and portable items as separate collision worlds
+
+Checklist:
+
+- [ ] define an occupancy query layer per ruleset
+- [ ] support typed targets:
+- [ ] empty
+- [ ] runtime actor
+- [ ] static block
+- [ ] portable item
+- [ ] chip
+- [ ] animation-reserved / blocked visual cell when relevant
+- [ ] make actor movement, chip probing, and trap/cloner checks all use that query layer
+- [ ] stop special-casing “tools on top tile” inside movement logic
+
+Success condition:
+
+- actor-vs-portable and chip-vs-moving-ball can be expressed through the same interaction targeting model
+
+### SE6: Actor Interaction Pipeline
+
+Goal:
+
+- unify collision semantics across chip movement and non-chip movement
+
+Checklist:
+
+- [ ] extend interaction vocabulary to cover:
+- [ ] deny move
+- [ ] destroy moving actor
+- [ ] destroy target
+- [ ] fail chip
+- [ ] preserve target on special cases
+- [ ] consume / transform target when needed
+- [ ] support actor-vs-portable-item interaction, not just actor-vs-actor
+- [ ] route chip entering a moving actor through the same interaction seam
+- [ ] support directional special cases such as “same-direction moving bowling ball acts as wall”
+
+Success condition:
+
+- collision rules are configured, not open-coded in both chip and creature paths
+
+### SE7: Actor Movement Lifecycle Hooks
+
+Goal:
+
+- stop making movement strategy responsible for too many unrelated outcomes
+
+Checklist:
+
+- [ ] split actor movement into explicit hooks:
+- [ ] `canStartMove`
+- [ ] `onBlockedStart`
+- [ ] `onEnteredCell`
+- [ ] `onCompletedStep`
+- [ ] `onFloorImpact`
+- [ ] `onHeldFloor`
+- [ ] keep strategy ids for high-level movement shape, but move family-specific consequences into these lifecycle hooks
+- [ ] migrate existing creature/block/ballistic families to the new shape without behavior change
+
+Success condition:
+
+- blocked reversion, trap hold, force-floor persistence, and floor destruction become normal family hooks
+
+### SE8: Chip Probe And Player Interaction Cleanup
+
+Goal:
+
+- make Chip’s move legality and push probing compatible with new runtime actor families
+
+Checklist:
+
+- [ ] stop treating non-block claimed cells as a generic special case
+- [ ] route chip move probing through occupancy + interaction hooks
+- [ ] make “can enter”, “can push”, and “will collide” explicit outcomes
+- [ ] support directional interaction overrides
+- [ ] keep replay and diagonal-input semantics unchanged under characterization
+
+Success condition:
+
+- moving bowling ball no longer needs bespoke player logic hidden in chip probing
+
+### SE9: Floor Impact And Arrival Policy
+
+Goal:
+
+- separate “may enter tile” from “what happens after entering tile”
+
+Checklist:
+
+- [ ] define family-level floor-impact outcomes:
+- [ ] continue
+- [ ] destroy
+- [ ] transform floor
+- [ ] collect pickup
+- [ ] use inventory
+- [ ] lose inventory
+- [ ] hold direction
+- [ ] revert to portable
+- [ ] use this for hazards, thief, chips, keys, boots, popup walls, fake/real blue walls, teleports, and exits
+- [ ] keep global chip progress separate from actor-local inventory
+
+Success condition:
+
+- bowling ball’s chip/key/boot/thief/hazard rules become policy wiring, not engine branching
+
+### SE10: Trap, Cloner, And Support Hooks
+
+Goal:
+
+- move the last stateful special-floor assumptions out of engine orchestration
+
+Checklist:
+
+- [ ] add family hooks for trap hold and release
+- [ ] add family hooks for cloner entry, blocked cloner collision, and clone exit
+- [ ] add family hooks for support and support-loss outcomes
+- [ ] add family hooks for falling collision outcomes
+- [ ] make clone of a family-owned runtime state explicit and testable
+
+Success condition:
+
+- bowling ball trap/cloner/air behavior is configurable through the family seam
+
+### SE11: Render And Projection Registration
+
+Goal:
+
+- stop deriving too much visual state from tile ids inside the renderer
+
+Checklist:
+
+- [ ] register portable-item still visuals by family
+- [ ] register runtime actor visuals by family + mode
+- [ ] support still vs moving bowling ball through render metadata
+- [ ] ensure undo, replay, and debug projection preserve family state needed for rendering
+- [ ] keep renderer consumption declarative
+
+Success condition:
+
+- adding a new stateful family does not require new renderer-side tile inference
+
+### SE12: Prove The Seams With Bowling Ball Attempt Two
+
+Goal:
+
+- only after SE1 through SE11 are in place, retry bowling ball
+
+Checklist:
+
+- [ ] implement bowling ball as one portable-item family plus one actor family
+- [ ] keep shared behavior in seam modules where MS/Lynx really match
+- [ ] keep ordering and timing local to each ruleset
+- [ ] add ruleset-specific gameplay coverage for the full requirement set
+- [ ] run replay, undo, projection, and renderer validation
+
+Exit condition:
+
+- bowling ball lands without new scattered engine hot-path branches
+
+## Recommended Order
+
+1. SE1
+2. SE2
+3. SE3
+4. SE5
+5. SE6
+6. SE7
+7. SE8
+8. SE9
+9. SE10
+10. SE4
+11. SE11
+12. SE12
+
+Reasoning:
+
+- SE4 is important, but not first. We already have a stateful runtime store.
+- The bigger blocker is that movement and interaction still do not agree on what an element even is.
+- Once occupancy, lifecycle, and interaction are coherent, runtime-state ownership becomes much easier to keep clean.
+
+## What To Watch For
+
+- if a PR adds more raw tile checks to `engine.ts`, stop and re-evaluate
+- if a PR passes raw inventory arrays through more helpers, stop and re-evaluate
+- if a PR requires touching both ruleset engines plus renderers plus projections for one small semantic change, the seam is still wrong
+- if a PR “shares code” by erasing MS/Lynx ordering differences, back it out
+- if a PR uses tags as the final gameplay rule when direction, timing, or inventory matter, it is too coarse
+
+## Ready For Second Attempt?
+
+Not yet.
+
+We are ready for a second bowling-ball implementation attempt only when:
+
+- [ ] SE1 through SE11 are complete, or
+- [ ] we intentionally accept a narrower target and document exactly which future extensibility goals we are giving up
+
+Until then, bowling ball is still useful as a design probe, but not yet a clean feature implementation target.
