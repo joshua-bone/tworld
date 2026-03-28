@@ -104,14 +104,14 @@ Goal:
 Checklist:
 
 - [x] add a shared bowling-ball scenario matrix plus ruleset-local pending test backlog entries
-- [ ] add focused tests for still-to-moving activation from carried state
-- [ ] add focused tests for map-still-to-moving activation from forced floor
-- [ ] add focused tests for moving-to-still reversion with inventory preservation
-- [ ] add focused tests for actor-vs-portable destruction
-- [ ] add focused tests for “Chip chasing behind moving bowling ball acts as wall”
-- [ ] add focused tests for trap hold/release behavior
-- [ ] add focused tests for cloner hold/deep-clone behavior
-- [ ] add focused tests for air drop and fall-onto-player / fall-onto-actor behavior
+- [x] add focused tests for still-to-moving activation from carried state
+- [x] add focused tests for map-still-to-moving activation from forced floor
+- [x] add focused tests for moving-to-still reversion with inventory preservation
+- [x] add focused tests for actor-vs-portable destruction
+- [x] add focused tests for “Chip chasing behind moving bowling ball acts as wall”
+- [x] add focused tests for trap hold/release behavior
+- [x] add focused tests for cloner hold/deep-clone behavior
+- [x] add focused tests for air drop and fall-onto-player / fall-onto-actor behavior
 
 Why first:
 
