@@ -2,7 +2,7 @@ export type ActorLocalInventoryMode = "none" | "keys-boots" | "keys-boots-tools"
 
 export type ActorControlMode = "player-input" | "ai" | "ballistic" | "passive";
 
-export type ActorMovementStrategyId = "chip-like" | "creature-like" | "block-like";
+export type ActorMovementStrategyId = "chip-like" | "creature-like" | "block-like" | "ballistic-like";
 
 export type ActorItemCollectionKind = "none" | "keys-boots" | "keys-boots-tools";
 

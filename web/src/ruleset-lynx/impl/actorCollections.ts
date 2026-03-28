@@ -11,6 +11,11 @@ import {
   type ActorKeysBootsToolsInventory,
   type ActorLocalInventoryOwner,
 } from "@game-core/impl/actorLocalInventory";
+import {
+  projectStatefulActorLocalInventoryOwner,
+  type StatefulActorInventoryEntry,
+  type StatefulActorLocalInventoryState,
+} from "@game-core/impl/statefulActorLocalInventory";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   lynxActorGlobalProgressKind,
@@ -24,25 +29,52 @@ export type LynxActorInventoryProjection = Pick<EngineState["inventory"], "keys"
 export type LynxActorProgressProjection = Pick<EngineState["inventory"], "chipsNeeded">;
 export type LynxActorInventoryState = LynxActorInventoryProjection & LynxActorProgressProjection;
 export type LynxActorLocalInventoryState = ActorKeysBootsInventory | ActorKeysBootsToolsInventory | null;
+export type LynxActorRuntimeInventoryEntry = StatefulActorInventoryEntry<string, StatefulActorLocalInventoryState>;
 
 export interface LynxActorTileCollectionResolution extends ActorItemCollectionResolution {
   collectedChip: boolean;
 }
 
+export interface LynxActorInventoryOwnerOptions {
+  actorSerial?: number;
+  localInventory?: LynxActorLocalInventoryState;
+  runtimeEntry?: LynxActorRuntimeInventoryEntry | null;
+}
+
 export function projectLynxActorInventoryOwner(
   actorId: number,
   inventory: LynxActorInventoryProjection,
-  localInventory: LynxActorLocalInventoryState = null,
+  options: LynxActorInventoryOwnerOptions = {},
 ): ActorLocalInventoryOwner {
-  const projectedInventory = actorId === MS_TILE.Chip ? inventory : localInventory;
-  return projectActorLocalInventoryOwner(createActorInventoryOwnerId("lynx", actorId), lynxActorLocalInventoryMode(actorId), projectedInventory);
+  if (actorId === MS_TILE.Chip) {
+    return projectActorLocalInventoryOwner(
+      createActorInventoryOwnerId("lynx", actorId),
+      lynxActorLocalInventoryMode(actorId),
+      inventory,
+    );
+  }
+
+  if (options.actorSerial !== undefined && options.runtimeEntry) {
+    return projectStatefulActorLocalInventoryOwner(
+      "lynx-actor",
+      options.actorSerial,
+      lynxActorLocalInventoryMode(actorId),
+      options.runtimeEntry,
+    );
+  }
+
+  return projectActorLocalInventoryOwner(
+    createActorInventoryOwnerId("lynx", actorId),
+    lynxActorLocalInventoryMode(actorId),
+    options.localInventory ?? null,
+  );
 }
 
 export function collectLynxActorTile(
   actorId: number,
   inventory: LynxActorInventoryState,
   tileId: number,
-  localInventory: LynxActorLocalInventoryState = null,
+  options: LynxActorInventoryOwnerOptions = {},
 ): LynxActorTileCollectionResolution {
   if (tileId === MS_TILE.ICChip) {
     const collectedChip = collectActorChipProgress(inventory, lynxActorGlobalProgressKind(actorId));
@@ -67,7 +99,7 @@ export function collectLynxActorTile(
 
   return {
     ...collectActorInventoryItem(
-      projectLynxActorInventoryOwner(actorId, inventory, localInventory),
+      projectLynxActorInventoryOwner(actorId, inventory, options),
       lynxActorItemCollectionKind(actorId),
       slot,
       index,

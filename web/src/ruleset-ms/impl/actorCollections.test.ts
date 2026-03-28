@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { collectMsActorTile, projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import { createActorLocalInventory } from "@game-core/impl/actorLocalInventory";
+import { createStatefulActorLocalInventoryState } from "@game-core/impl/statefulActorLocalInventory";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 function createChipInventory() {
@@ -41,10 +42,45 @@ describe("ms actorCollections", () => {
   it("uses actor-local inventory when projecting non-chip actors", () => {
     const chipInventory = createChipInventory();
     const localInventory = createActorLocalInventory("keys-boots");
-    const collected = collectMsActorTile(MS_TILE.Ball, chipInventory, MS_TILE.Boots_Ice, localInventory);
+    const collected = collectMsActorTile(MS_TILE.Ball, chipInventory, MS_TILE.Boots_Ice, { localInventory });
 
     expect(collected.collected).toBe(false);
     expect(collected.slot).toBeNull();
     expect(localInventory.boots[0]).toBe(0);
+  });
+
+  it("projects and mutates per-instance stateful actor inventory for bowling balls", () => {
+    const chipInventory = createChipInventory();
+    const runtimeEntry = {
+      actorSerial: 41,
+      kind: "bowling-ball",
+      state: createStatefulActorLocalInventoryState("keys-boots"),
+    };
+
+    const owner = projectMsActorInventoryOwner(MS_TILE.BowlingBall, chipInventory, {
+      actorSerial: 41,
+      runtimeEntry,
+    });
+    expect(owner.ownerId).toBe("ms-actor:41");
+    expect(owner.mode).toBe("keys-boots");
+
+    const keyCollected = collectMsActorTile(MS_TILE.BowlingBall, chipInventory, MS_TILE.Key_Red, {
+      actorSerial: 41,
+      runtimeEntry,
+    });
+    const chipCollected = collectMsActorTile(MS_TILE.BowlingBall, chipInventory, MS_TILE.ICChip, {
+      actorSerial: 41,
+      runtimeEntry,
+    });
+
+    expect(keyCollected).toMatchObject({
+      collected: true,
+      collectedChip: false,
+      slot: "keys",
+      index: 0,
+    });
+    expect(runtimeEntry.state.localInventory?.keys[0]).toBe(1);
+    expect(chipCollected.collectedChip).toBe(true);
+    expect(chipInventory.chipsNeeded).toBe(1);
   });
 });

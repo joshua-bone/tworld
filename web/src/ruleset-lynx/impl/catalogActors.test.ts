@@ -33,23 +33,35 @@ describe("Lynx catalog actor families", () => {
     expect(lynxActorHasTag(MS_TILE.Block, "fire-immune")).toBe(true);
     expect(lynxActorCapabilityPolicy(MS_TILE.Chip).control.mode).toBe("player-input");
     expect(lynxActorControlMode(MS_TILE.Block)).toBe("passive");
+    expect(lynxActorControlMode(MS_TILE.BowlingBall)).toBe("ballistic");
     expect(lynxActorLocalInventoryMode(MS_TILE.Chip)).toBe("keys-boots-tools");
+    expect(lynxActorLocalInventoryMode(MS_TILE.BowlingBall)).toBe("keys-boots");
     expect(lynxActorItemCollectionKind(MS_TILE.Chip)).toBe("keys-boots-tools");
+    expect(lynxActorItemCollectionKind(MS_TILE.BowlingBall)).toBe("keys-boots");
     expect(lynxActorGlobalProgressKind(MS_TILE.Chip)).toBe("collect-chips");
+    expect(lynxActorGlobalProgressKind(MS_TILE.BowlingBall)).toBe("collect-chips");
     expect(lynxActorMovementStrategyId(MS_TILE.Block)).toBe("block-like");
+    expect(lynxActorMovementStrategyId(MS_TILE.BowlingBall)).toBe("ballistic-like");
     expect(lynxActorBlockedMoveKind(MS_TILE.Block)).toBe("stay");
+    expect(lynxActorBlockedMoveKind(MS_TILE.BowlingBall)).toBe("revert-portable");
     expect(lynxActorTrapHook(MS_TILE.Ball)).toBe("default");
+    expect(lynxActorTrapHook(MS_TILE.BowlingBall)).toBe("hold-direction");
     expect(lynxActorClonerHook(MS_TILE.Ball)).toBe("default");
+    expect(lynxActorClonerHook(MS_TILE.BowlingBall)).toBe("hold-direction");
     expect(lynxActorThiefHook(MS_TILE.Chip)).toBe("steal-boots-tools");
+    expect(lynxActorThiefHook(MS_TILE.BowlingBall)).toBe("steal-boots-tools");
     expect(lynxActorAirHook(MS_TILE.Chip)).toBe("chip-support");
+    expect(lynxActorAirHook(MS_TILE.BowlingBall)).toBe("chip-support");
     expect(lynxActorCollisionStrategyId(MS_TILE.Ball)).toBe("default");
   });
 
   it("provides actor arrival, hazard, and sound policy helpers", () => {
     expect(lynxActorEntryMask(MS_TILE.Gravel, MS_TILE.Block)).toBe(lynxBlockMovementMask(MS_TILE.Gravel));
     expect(lynxActorEntryMask(MS_TILE.Door_Blue, MS_TILE.Chip)).toBe(lynxChipMovementMask(MS_TILE.Door_Blue));
+    expect(lynxActorEntryMask(MS_TILE.Door_Blue, MS_TILE.BowlingBall)).toBe(lynxChipMovementMask(MS_TILE.Door_Blue));
     expect(lynxActorHazardResponse(MS_TILE.Glider, "water")).toBe("ignore");
     expect(lynxActorHazardResponse(MS_TILE.Ball, "fire")).toBe("deny");
+    expect(lynxActorHazardResponse(MS_TILE.BowlingBall, "fire")).toBe("destroy");
     expect(lynxCreatureArrivalAction(MS_TILE.Beartrap, MS_TILE.Ball)).toBe("trap");
     expect(lynxCreatureArrivalAction(MS_TILE.Button_Red, MS_TILE.Ball)).toBe("button");
     expect(lynxCreatureArrivalAction(MS_TILE.Water, MS_TILE.Block)).toBe("block-water");

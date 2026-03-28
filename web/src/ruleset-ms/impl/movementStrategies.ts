@@ -54,6 +54,7 @@ export interface MsBlockMovementStrategyContext<TBlock, TInternal> {
 
 const SUPPORTED_MS_CHIP_STRATEGY = "chip-like";
 const SUPPORTED_MS_CREATURE_STRATEGY = "creature-like";
+const SUPPORTED_MS_BALLISTIC_STRATEGY = "ballistic-like";
 const SUPPORTED_MS_BLOCK_STRATEGY = "block-like";
 
 export function canStartMsChipMoveByStrategy<TInternal, TInventory, TForcedContext>(
@@ -123,7 +124,10 @@ export function canStartMsCreatureMoveByStrategy<TCreature, TInternal>(
   dir: number,
   internal: TInternal,
 ): boolean {
-  return strategyId === SUPPORTED_MS_CREATURE_STRATEGY && context.canStartMove(cells, creature, dir, internal);
+  return (
+    (strategyId === SUPPORTED_MS_CREATURE_STRATEGY || strategyId === SUPPORTED_MS_BALLISTIC_STRATEGY) &&
+    context.canStartMove(cells, creature, dir, internal)
+  );
 }
 
 export function startMsCreatureMoveByStrategy<TCreature, TInternal>(
@@ -134,7 +138,7 @@ export function startMsCreatureMoveByStrategy<TCreature, TInternal>(
   dir: number,
   internal: TInternal,
 ): MovementAttemptResult {
-  return strategyId === SUPPORTED_MS_CREATURE_STRATEGY
+  return strategyId === SUPPORTED_MS_CREATURE_STRATEGY || strategyId === SUPPORTED_MS_BALLISTIC_STRATEGY
     ? context.startMove(cells, creature, dir, internal)
     : blockedMovement();
 }
@@ -149,7 +153,7 @@ export function startMsCreatureDownMoveByStrategy<TCreature, TInternal>(
   creature: TCreature,
   internal: TInternal,
 ): MovementAttemptResult {
-  return strategyId === SUPPORTED_MS_CREATURE_STRATEGY
+  return strategyId === SUPPORTED_MS_CREATURE_STRATEGY || strategyId === SUPPORTED_MS_BALLISTIC_STRATEGY
     ? context.startDownMove(engine, sourceCells, targetCells, layerCellsByZ, creature, internal)
     : blockedMovement();
 }
@@ -164,7 +168,7 @@ export function startMsCreatureUpMoveByStrategy<TCreature, TInternal>(
   creature: TCreature,
   internal: TInternal,
 ): MovementAttemptResult {
-  return strategyId === SUPPORTED_MS_CREATURE_STRATEGY
+  return strategyId === SUPPORTED_MS_CREATURE_STRATEGY || strategyId === SUPPORTED_MS_BALLISTIC_STRATEGY
     ? context.startUpMove(engine, sourceCells, targetCells, layerCellsByZ, creature, internal)
     : blockedMovement();
 }

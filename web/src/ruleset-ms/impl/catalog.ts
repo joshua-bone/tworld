@@ -176,6 +176,7 @@ export function msActorCollisionStrategyId(id: number): ActorCollisionStrategyId
 export function msActorEntryMask(tileId: number, actorId: number): number {
   switch (msActorMovementStrategyId(actorId)) {
     case "chip-like":
+    case "ballistic-like":
       return msChipMovementMask(tileId);
     case "block-like":
       return msBlockMovementMask(tileId);

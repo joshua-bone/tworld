@@ -124,6 +124,7 @@ const DEFAULT_LYNX_ACTOR_MOVEMENT_STRATEGY: LynxActorMovementStrategy = {
 const LYNX_ACTOR_MOVEMENT_STRATEGIES: Record<LynxRuntimeActorMovementStrategyId, LynxActorMovementStrategy> = {
   "creature-like": DEFAULT_LYNX_ACTOR_MOVEMENT_STRATEGY,
   "block-like": DEFAULT_LYNX_ACTOR_MOVEMENT_STRATEGY,
+  "ballistic-like": DEFAULT_LYNX_ACTOR_MOVEMENT_STRATEGY,
 };
 
 function lynxChipMovementStrategy(strategyId: ActorMovementStrategyId): LynxChipMovementStrategy {
@@ -132,6 +133,7 @@ function lynxChipMovementStrategy(strategyId: ActorMovementStrategyId): LynxChip
 
 function lynxActorMovementStrategy(strategyId: ActorMovementStrategyId): LynxActorMovementStrategy {
   switch (strategyId) {
+    case "ballistic-like":
     case "block-like":
     case "creature-like":
       return LYNX_ACTOR_MOVEMENT_STRATEGIES[strategyId];

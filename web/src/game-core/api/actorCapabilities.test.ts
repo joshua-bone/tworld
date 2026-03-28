@@ -71,6 +71,15 @@ describe("actorCapabilities", () => {
     expect(actorCollectionAllowsSlot("keys-boots", "tools")).toBe(false);
     expect(actorCollectsChips("collect-chips")).toBe(true);
     expect(actorCollectsChips("none")).toBe(false);
+    expect(
+      actorMovementStrategyId({
+        ...chipLikePolicy,
+        movement: {
+          ...chipLikePolicy.movement,
+          strategyId: "ballistic-like",
+        },
+      }),
+    ).toBe("ballistic-like");
   });
 
   it("classifies blocked-move, thief, and support hooks", () => {

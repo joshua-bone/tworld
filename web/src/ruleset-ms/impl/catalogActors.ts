@@ -89,6 +89,35 @@ export const MS_CREATURE_ACTOR_CAPABILITIES = {
   },
 } as const satisfies ActorCapabilityPolicy;
 
+export const MS_BOWLING_BALL_ACTOR_CAPABILITIES = {
+  control: {
+    mode: "ballistic",
+  },
+  inventory: {
+    localInventoryMode: "keys-boots",
+    itemCollectionKind: "keys-boots",
+    globalProgressKind: "collect-chips",
+  },
+  movement: {
+    strategyId: "ballistic-like",
+    blockedMoveKind: "revert-portable",
+    trapHook: "hold-direction",
+    clonerHook: "hold-direction",
+    airHook: "chip-support",
+  },
+  interaction: {
+    thiefHook: "steal-boots-tools",
+    collisionStrategyId: "default",
+  },
+  hazards: {
+    responses: {
+      water: "destroy",
+      fire: "destroy",
+      bomb: "destroy",
+    },
+  },
+} as const satisfies ActorCapabilityPolicy;
+
 const MS_WATER_IMMUNE_CREATURE_CAPABILITIES = {
   ...MS_CREATURE_ACTOR_CAPABILITIES,
   hazards: {
@@ -133,6 +162,7 @@ const ACTOR_TILE_IDS = [
   MS_TILE.Paramecium,
   MS_TILE.Swimming_Chip,
   MS_TILE.Pushing_Chip,
+  MS_TILE.BowlingBall,
 ] as const;
 
 function msTileConstName(id: number): string {
@@ -156,6 +186,8 @@ function defaultMsActorCapabilities(id: number): ActorCapabilityPolicy {
       return MS_CHIP_ACTOR_CAPABILITIES;
     case MS_TILE.Block:
       return MS_BLOCK_ACTOR_CAPABILITIES;
+    case MS_TILE.BowlingBall:
+      return MS_BOWLING_BALL_ACTOR_CAPABILITIES;
     case MS_TILE.Glider:
       return MS_WATER_IMMUNE_CREATURE_CAPABILITIES;
     case MS_TILE.Fireball:
@@ -175,6 +207,8 @@ function createMsActorDefinition(id: number): ActorDefinition<number> {
       ? (["chip", "collects-items"] as const)
       : id === MS_TILE.Block
         ? (["block"] as const)
+        : id === MS_TILE.BowlingBall
+          ? (["creature", "collects-items"] as const)
         : id === MS_TILE.Glider
           ? (["creature", "water-immune"] as const)
           : id === MS_TILE.Fireball

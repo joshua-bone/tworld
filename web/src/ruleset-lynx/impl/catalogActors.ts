@@ -89,6 +89,35 @@ export const LYNX_CREATURE_ACTOR_CAPABILITIES = {
   },
 } as const satisfies ActorCapabilityPolicy;
 
+export const LYNX_BOWLING_BALL_ACTOR_CAPABILITIES = {
+  control: {
+    mode: "ballistic",
+  },
+  inventory: {
+    localInventoryMode: "keys-boots",
+    itemCollectionKind: "keys-boots",
+    globalProgressKind: "collect-chips",
+  },
+  movement: {
+    strategyId: "ballistic-like",
+    blockedMoveKind: "revert-portable",
+    trapHook: "hold-direction",
+    clonerHook: "hold-direction",
+    airHook: "chip-support",
+  },
+  interaction: {
+    thiefHook: "steal-boots-tools",
+    collisionStrategyId: "default",
+  },
+  hazards: {
+    responses: {
+      water: "destroy",
+      fire: "destroy",
+      bomb: "destroy",
+    },
+  },
+} as const satisfies ActorCapabilityPolicy;
+
 const LYNX_WATER_IMMUNE_CREATURE_CAPABILITIES = {
   ...LYNX_CREATURE_ACTOR_CAPABILITIES,
   hazards: {
@@ -123,6 +152,7 @@ const ACTOR_TILE_IDS = [
   MS_TILE.Paramecium,
   MS_TILE.Swimming_Chip,
   MS_TILE.Pushing_Chip,
+  MS_TILE.BowlingBall,
 ] as const;
 
 function lynxTileConstName(id: number): string {
@@ -146,6 +176,8 @@ function defaultLynxActorCapabilities(id: number): ActorCapabilityPolicy {
       return LYNX_CHIP_ACTOR_CAPABILITIES;
     case MS_TILE.Block:
       return LYNX_BLOCK_ACTOR_CAPABILITIES;
+    case MS_TILE.BowlingBall:
+      return LYNX_BOWLING_BALL_ACTOR_CAPABILITIES;
     case MS_TILE.Glider:
       return LYNX_WATER_IMMUNE_CREATURE_CAPABILITIES;
     case MS_TILE.Fireball:
@@ -162,6 +194,8 @@ function createLynxActorDefinition(id: number): ActorDefinition<number> {
       ? (["chip", "collects-items", "pushes-blocks"] as const)
       : id === MS_TILE.Block
         ? (["block", "fire-immune"] as const)
+        : id === MS_TILE.BowlingBall
+          ? (["creature", "collects-items"] as const)
         : id === MS_TILE.Glider
           ? (["creature", "water-immune"] as const)
           : id === MS_TILE.Fireball

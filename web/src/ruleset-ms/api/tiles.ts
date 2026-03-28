@@ -88,6 +88,7 @@ export const MS_TILE = {
   Paramecium: 0x68,
   Swimming_Chip: 0x6c,
   Pushing_Chip: 0x70,
+  BowlingBall: 0x74,
   Sandbag: 0x80,
   Hook: 0x81,
 } as const;

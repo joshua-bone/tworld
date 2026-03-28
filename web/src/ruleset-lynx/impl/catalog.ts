@@ -188,6 +188,7 @@ export function lynxActorCollisionStrategyId(id: number): ActorCollisionStrategy
 export function lynxActorEntryMask(tileId: number, actorId: number): number {
   switch (lynxActorMovementStrategyId(actorId)) {
     case "chip-like":
+    case "ballistic-like":
       return lynxChipMovementMask(tileId);
     case "block-like":
       return lynxBlockMovementMask(tileId);
