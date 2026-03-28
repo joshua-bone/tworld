@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { runSolutionFileReplaySweep } from "@replay-verifier/impl/runSolutionFileReplaySweep";
+import {
+  formatSolutionFileReplaySweepFailureSummary,
+  runSolutionFileReplaySweep,
+} from "@replay-verifier/impl/runSolutionFileReplaySweep";
 import type { LoadedSolutionFile } from "@replay-verifier/ports/SolutionFileRepository";
 import type { SeriesCatalogEntry } from "@content/api/series";
 import type { GameTrace } from "@game-core/api/types";
@@ -264,5 +267,92 @@ describe("runSolutionFileReplaySweep", () => {
       replayCount: 1,
       failures: [],
     });
+  });
+
+  it("formats replay sweep summaries with ranked counts and limited sample failures", () => {
+    const summary = formatSolutionFileReplaySweepFailureSummary(
+      {
+        replayCount: 3,
+        unsupportedFiles: ["unsupported.tws"],
+        failures: [
+          {
+            scenarioName: "CCLP1.dac:1",
+            solutionFile: "/tmp/CCLP1.dac.tws",
+            seriesFile: "CCLP1.dac",
+            levelNumber: 1,
+            mismatchPaths: ["$.steps[582].chip.position.pos", "$.result.finalTick"],
+            mismatches: [
+              {
+                path: "$.steps[582].chip.position.pos",
+                expected: 485,
+                actual: 509,
+              },
+              {
+                path: "$.result.finalTick",
+                expected: 10,
+                actual: 11,
+              },
+            ],
+          },
+          {
+            scenarioName: "CCLP1.dac:2",
+            solutionFile: "/tmp/CCLP1-second.dac.tws",
+            seriesFile: "CCLP1.dac",
+            levelNumber: 2,
+            mismatchPaths: ["$engine"],
+            mismatches: [
+              {
+                path: "$engine",
+                expected: "MS replay trace support",
+                actual: "candidate engine does not support ruleset MS",
+              },
+            ],
+          },
+          {
+            scenarioName: "CCLP2.dac:1",
+            solutionFile: "/tmp/CCLP2.dac.tws",
+            seriesFile: "CCLP2.dac",
+            levelNumber: 1,
+            mismatchPaths: ["$.steps[9].status"],
+            mismatches: [
+              {
+                path: "$.steps[9].status",
+                expected: "playing",
+                actual: "failed",
+              },
+            ],
+          },
+        ],
+        failureCountBySeries: [
+          { key: "CCLP1.dac", count: 2 },
+          { key: "CCLP2.dac", count: 1 },
+        ],
+        firstMismatchPathCounts: [
+          { key: "$.steps[582].chip.position.pos", count: 1 },
+          { key: "$.steps[9].status", count: 1 },
+          { key: "$engine", count: 1 },
+        ],
+      },
+      2,
+    );
+
+    expect(summary).toContain("unsupported files: unsupported.tws");
+    expect(summary).toContain("replays checked: 3");
+    expect(summary).toContain("failing replays: 3");
+    expect(summary).toContain("failing series:");
+    expect(summary).toContain("- CCLP1.dac: 2");
+    expect(summary).toContain("- CCLP2.dac: 1");
+    expect(summary).toContain("top first mismatch paths:");
+    expect(summary).toContain("- $.steps[582].chip.position.pos: 1");
+    expect(summary).toContain("- $.steps[9].status: 1");
+    expect(summary).toContain("- $engine: 1");
+    expect(summary).toContain("sample failures:");
+    expect(summary).toContain(
+      "- CCLP1.dac:1 -> $.steps[582].chip.position.pos: expected 485, got 509 | $.result.finalTick: expected 10, got 11",
+    );
+    expect(summary).toContain(
+      "- CCLP1.dac:2 -> $engine: expected MS replay trace support, got candidate engine does not support ruleset MS",
+    );
+    expect(summary).not.toContain("CCLP2.dac:1 ->");
   });
 });

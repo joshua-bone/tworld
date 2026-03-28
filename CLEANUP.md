@@ -61,6 +61,19 @@ Highest-value cleanup targets:
 
 ## PR Plan
 
+- [x] PR1: Safety Net For Structural Cleanup
+- [ ] PR2: PlayerApp Application Controller Split
+- [ ] PR3: Modern Dashboard Shell Split
+- [ ] PR4: Legacy Canvas Render Pipeline Split
+- [ ] PR5: Shared Interactive Adapter Skeleton
+- [ ] PR6: Content Parsing Decomposition
+- [ ] PR7: Persistence And URL Launch Cleanup
+- [ ] PR8: Replay Verifier Orchestration Split
+- [ ] PR9: Engine Phase 2 Cleanup
+- [ ] PR10: Test DSL Expansion
+- [ ] PR11: Naming And Value Objects Pass
+- [ ] PR12: Docs And Workflow Refresh
+
 ### PR1: Safety Net For Structural Cleanup
 
 Add characterization around:

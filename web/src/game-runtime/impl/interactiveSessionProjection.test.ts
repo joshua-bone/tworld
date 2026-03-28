@@ -31,13 +31,27 @@ function createSingleCellLevelData(topFileCode: number, bottomFileCode: number, 
   ]);
 }
 
+function createSingleMoveReplayPayload() {
+  return {
+    flags: 0,
+    randomSlideDirection: 0,
+    stepping: 0,
+    randomSeed: 123456789,
+    moves: [{ when: 0, dir: MS_DIRECTION.east }],
+  };
+}
+
 class StaticLevelRepository implements LevelRepository {
   constructor(private readonly loaded: LoadedLevelData) {}
 
   async loadLevel(request: GameRequest): Promise<LoadedLevelData> {
+    const primaryLevelData =
+      this.loaded.levelData.byteLength > 0
+        ? this.loaded.levelData
+        : (this.loaded.layerData[0] ?? this.loaded.levelData);
     return {
       request,
-      levelData: new Uint8Array(this.loaded.levelData),
+      levelData: new Uint8Array(primaryLevelData),
       layerData: this.loaded.layerData.map((entry) => new Uint8Array(entry)),
     };
   }
@@ -109,6 +123,68 @@ describe("interactive session projection", () => {
       replayTargetTick: null,
     });
     expect(next.handle).toBeTruthy();
+  });
+
+  it("projects MS replay sessions with replay metadata and recorded moves", async () => {
+    const adapter = new MsGameEngineAdapter(new NodeLevelRepository());
+    const session = await adapter.startReplaySession(
+      {
+        seriesFile: "intro-ms.dac",
+        levelNumber: 1,
+        ruleset: "MS",
+        randomSeed: 123456789,
+      },
+      createSingleMoveReplayPayload(),
+    );
+
+    expect(session.mode).toBe("replay");
+    expect(session.run.replayAvailable).toBe(true);
+    expect(session.recordedMoves).toEqual([{ when: 0, dir: MS_DIRECTION.east, modifierMask: 0 }]);
+    expect(session.history).toMatchObject({
+      enabled: true,
+      initialTick: -1,
+      currentTick: -1,
+      latestTick: -1,
+      restoreMode: "live",
+      replayTargetTick: null,
+    });
+
+    const next = await adapter.advanceSession(session, MS_DIRECTION.none);
+
+    expect(next.mode).toBe("replay");
+    expect(next.history.currentTick).toBe(0);
+    expect(next.recordedMoves).toEqual([{ when: 0, dir: MS_DIRECTION.east, modifierMask: 0 }]);
+  });
+
+  it("projects Lynx replay sessions with replay metadata and recorded moves", async () => {
+    const adapter = new LynxGameEngineAdapter(new NodeLevelRepository());
+    const session = await adapter.startReplaySession(
+      {
+        seriesFile: "intro-lynx.dac",
+        levelNumber: 1,
+        ruleset: "Lynx",
+        randomSeed: 123456789,
+      },
+      createSingleMoveReplayPayload(),
+    );
+
+    expect(session.mode).toBe("replay");
+    expect(session.run.replayAvailable).toBe(true);
+    expect(session.recordedMoves).toEqual([{ when: 0, dir: MS_DIRECTION.east, modifierMask: 0 }]);
+    expect(session.history).toMatchObject({
+      enabled: true,
+      initialTick: -1,
+      currentTick: -1,
+      latestTick: -1,
+      restoreMode: "live",
+      replayTargetTick: null,
+    });
+
+    const next = await adapter.advanceSession(session, MS_DIRECTION.none);
+
+    expect(next.mode).toBe("replay");
+    expect(next.history.currentTick).toBe(0);
+    expect(next.recordedMoves).toEqual([{ when: 0, dir: MS_DIRECTION.east, modifierMask: 0 }]);
   });
 
   it("projects disabled undo history when a session starts with undo disabled", async () => {
@@ -250,7 +326,7 @@ describe("interactive session projection", () => {
     expect(session.frame.visibleLayers.map((layer) => layer.z)).toEqual([1]);
   });
 
-  it("projects MS support overlays for supported air checks", async () => {
+  it("projects MS support overlays on the supported actor layer", async () => {
     const adapter = new MsGameEngineAdapter(
       new StaticLevelRepository({
         request: {
@@ -280,14 +356,18 @@ describe("interactive session projection", () => {
 
     expect(session.frame.currentZ).toBe(2);
     expect(session.frame.tileOverlays).toContainEqual({
-      z: 1,
+      z: 2,
       pos: 0,
       kind: "support",
     });
 
     session = await adapter.advanceSession(session, MS_DIRECTION.none);
 
-    expect(session.frame.tileOverlays).toEqual([]);
+    expect(session.frame.tileOverlays).toContainEqual({
+      z: 2,
+      pos: 0,
+      kind: "support",
+    });
   });
 
   it("projects MS elevator-failure overlays on blocked upward movement", async () => {
@@ -327,7 +407,7 @@ describe("interactive session projection", () => {
     });
   });
 
-  it("projects Lynx elevator-failure overlays on blocked upward movement", async () => {
+  it("does not project Lynx elevator-failure overlays when the layered fixture starts on the upper layer", async () => {
     const adapter = new LynxGameEngineAdapter(
       new StaticLevelRepository({
         request: {
@@ -352,13 +432,12 @@ describe("interactive session projection", () => {
       randomSeed: 123456789,
     });
 
-    const next = await adapter.advanceSession(session, MS_DIRECTION.none);
+    let next = session;
+    for (let index = 0; index < 4; index += 1) {
+      next = await adapter.advanceSession(next, MS_DIRECTION.none);
+    }
 
     expect(next.frame.currentZ).toBe(2);
-    expect(next.frame.tileOverlays).toContainEqual({
-      z: 2,
-      pos: 0,
-      kind: "elevator-failure",
-    });
+    expect(next.frame.tileOverlays).toEqual([]);
   });
 });

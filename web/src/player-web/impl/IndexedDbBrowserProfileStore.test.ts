@@ -5,7 +5,7 @@ import {
   parseStoredBrowserProfilePreferences,
   type BrowserProfilePersistenceBackend,
 } from "@player-web/impl/IndexedDbBrowserProfileStore";
-import type { BrowserReplayEntry } from "@player-web/ports/BrowserProfileStore";
+import type { BrowserProfileSnapshot, BrowserReplayEntry } from "@player-web/ports/BrowserProfileStore";
 import { createDefaultBrowserProfilePreferences } from "@player-web/ports/BrowserProfileStore";
 
 class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePersistenceBackend {
@@ -352,6 +352,79 @@ describe("IndexedDbBrowserProfileStore", () => {
         finalScore: 6000,
         undoUsedCount: 0,
         bytes: Uint8Array.from([4, 5, 6]),
+      },
+    ]);
+  });
+
+  it("ignores invalid replay entries while importing a browser profile snapshot", async () => {
+    const store = new IndexedDbBrowserProfileStore(new MemoryBrowserProfilePersistenceBackend());
+    const snapshot = {
+      version: 1,
+      selection: null,
+      preferences: createDefaultBrowserProfilePreferences(),
+      importedDatFiles: [],
+      replayEntries: [
+        {
+          id: "valid-replay",
+          fileName: "valid.tws.bin",
+          seriesFile: "CCLP1-MS.dac",
+          levelNumber: 1,
+          levelName: "One",
+          ruleset: "MS",
+          savedAtMs: 2000,
+          source: "imported-file",
+          result: "completed",
+          finalScore: 500,
+          undoUsedCount: 0,
+          bytes: [1, 2, 3],
+        },
+        {
+          id: "broken-ruleset",
+          fileName: "broken-ruleset.tws.bin",
+          seriesFile: "CCLP1-MS.dac",
+          levelNumber: 2,
+          levelName: "Two",
+          ruleset: "Broken",
+          savedAtMs: 1500,
+          source: "saved-run",
+          result: "completed-clean",
+          finalScore: 400,
+          undoUsedCount: 0,
+          bytes: [4, 5],
+        },
+        {
+          id: "broken-bytes",
+          fileName: "broken-bytes.tws.bin",
+          seriesFile: "CCLP1-MS.dac",
+          levelNumber: 3,
+          levelName: "Three",
+          ruleset: "MS",
+          savedAtMs: 1000,
+          source: "saved-run",
+          result: "completed-clean",
+          finalScore: 300,
+          undoUsedCount: 0,
+          bytes: null,
+        },
+      ],
+    } as unknown as BrowserProfileSnapshot;
+
+    await store.importProfileSnapshot(snapshot);
+
+    expect(await store.loadReplayEntries()).toEqual([
+      {
+        id: "valid-replay",
+        fileName: "valid.tws.bin",
+        seriesFile: "CCLP1-MS.dac",
+        levelNumber: 1,
+        levelName: "One",
+        ruleset: "MS",
+        savedAtMs: 2000,
+        source: "imported-file",
+        result: "completed-clean",
+        finalScore: 500,
+        undoUsedCount: 0,
+        bytes: Uint8Array.from([1, 2, 3]),
       },
     ]);
   });
