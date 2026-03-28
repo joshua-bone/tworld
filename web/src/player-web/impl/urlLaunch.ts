@@ -1,36 +1,31 @@
-import {
-  bitbustersCustomPackGameSlug,
-  fetchBitbustersCustomPack,
-  type BitbustersCustomPackGameSlug,
-} from "@player-web/impl/bitbustersCustomPacksApi";
-import { listBrowserSeriesCatalogFiles } from "@level-catalog/impl/loadBrowserSeriesCatalogEntries";
-import { loadBySuffix, type BrowserSeriesLoaderMap } from "@level-catalog/impl/browserSeriesCatalogEntries.shared";
-import { parseSeriesConfig } from "@content/api/series-file";
-import type {
-  BitbustersCustomPackGame,
-  PersistedImportedDatFile,
-  PersistedImportedDatSource,
-} from "@level-catalog/ports/ImportedDatCatalogStore";
 import { buildAppHref } from "@player-web/impl/appPaths";
 import {
   computeDatContentHash,
   importedSeriesFile,
   sanitizeImportedDatSlotName,
-  stripImportedDatExtension,
 } from "@player-web/impl/importedDatIdentity";
+import { parseUrlLaunchRequest, type ParsedUrlLaunchRequest } from "@player-web/impl/urlLaunchRequest";
+import {
+  buildBitbustersPackToken,
+  defaultImportedSlotName,
+  findImportedDatEntry,
+  findImportedDatEntryBySource,
+  findImportedSlotByHash,
+  findImportedSlotByToken,
+  findMatchingBuiltInSeriesFile,
+  loadBitbustersLaunchPack,
+  loadGliderBotLaunchPack,
+  resolveBuiltInSeriesFile,
+  stripSeriesRulesetSuffix,
+  type DownloadedLaunchPack,
+} from "@player-web/impl/urlLaunchSupport";
 import { decodeDatUrlPayload, encodeDatUrlPayload } from "@player-web/impl/urlDatCodec";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
+import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
 import type { BrowserPreferredRuleset } from "@player-web/ports/BrowserProfileStore";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 
-interface ParsedUrlLaunchRequest {
-  datPayload: string | null;
-  packToken: string | null;
-  setToken: string | null;
-  levelNumber: number;
-  ruleset: BrowserPreferredRuleset;
-  slotName: string | null;
-}
+export { resetUrlLaunchCachesForTest } from "@player-web/impl/urlLaunchSupport";
 
 export interface UrlLaunchResolution {
   message: string | null;
@@ -47,357 +42,173 @@ export interface UrlLaunchHrefRequest {
   seriesFile: string;
 }
 
-const GLIDERBOT_PACK_BASE_URL = "https://bitbusters.club/gliderbot/sets/";
-const builtInSeriesConfigs = import.meta.glob("@sets/*.dac", {
-  import: "default",
-  query: "?raw",
-}) as BrowserSeriesLoaderMap<string>;
-const builtInDataFiles = import.meta.glob(["@data/*.dat", "@data/*.ccx", "!@data/CHIPS.dat"], {
-  import: "default",
-  query: "?url",
-}) as BrowserSeriesLoaderMap<string>;
-const builtInDatHashCache = new Map<string, Promise<{ datHash: string; ruleset: BrowserPreferredRuleset } | null>>();
-const gliderBotDirectoryEntriesCache = new Map<string, Promise<string[]>>();
+type UrlLaunchServices = Pick<BrowserAppServices, "importDatBytes" | "profileStore" | "selectionStore">;
 
-function parseLevelNumber(value: string | null): number {
-  if (!value) {
-    return 1;
-  }
-
-  const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
-}
-
-function parseRuleset(value: string | null): BrowserPreferredRuleset {
-  return value === "MS" ? "MS" : "Lynx";
-}
-
-function parseUrlLaunchRequest(location: Pick<Location, "hash" | "search">): ParsedUrlLaunchRequest | null {
-  const searchParams = new URLSearchParams(location.search);
-  const hashParams = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : location.hash);
-  const datPayload = hashParams.get("dat") ?? searchParams.get("dat") ?? searchParams.get("levelset");
-  const packToken = searchParams.get("pack") ?? hashParams.get("pack");
-  const setToken = searchParams.get("set") ?? hashParams.get("set");
-
-  if (!datPayload && !packToken && !setToken) {
-    return null;
-  }
-
+function createResolvedSelection(
+  slotName: string,
+  levelNumber: number,
+  ruleset: BrowserPreferredRuleset,
+): PlayableSelection {
   return {
-    datPayload,
-    packToken,
-    setToken,
-    levelNumber: parseLevelNumber(searchParams.get("level") ?? hashParams.get("level")),
-    ruleset: parseRuleset(searchParams.get("ruleset") ?? hashParams.get("ruleset")),
-    slotName: searchParams.get("slot") ?? hashParams.get("slot") ?? searchParams.get("name") ?? hashParams.get("name"),
+    seriesFile: importedSeriesFile(slotName, ruleset),
+    levelNumber,
   };
 }
 
-function normalizeSetToken(value: string): string {
-  return value.toLowerCase().replace(/\.[^.]+$/u, "").replace(/[^a-z0-9]/gu, "");
-}
-
-function stripSeriesRulesetSuffix(seriesFile: string): string {
-  const raw = seriesFile.replace(/\.dac$/iu, "");
-  return raw.replace(/(?:-lynx|-ms|\.dat-lynx|\.dat-ms)$/iu, "");
-}
-
-function buildSeriesFileCandidates(seriesFile: string): string[] {
-  const raw = seriesFile.replace(/\.dac$/iu, "");
-  return [
-    raw,
-    raw.replace(/-(ms|lynx)$/iu, ""),
-    raw.replace(/\.dat-(ms|lynx)$/iu, ""),
-  ];
-}
-
-function matchesRuleset(seriesFile: string, ruleset: BrowserPreferredRuleset): boolean {
-  return ruleset === "MS"
-    ? /(?:-ms|\.dat-ms)\.dac$/iu.test(seriesFile)
-    : /(?:-lynx|\.dat-lynx)\.dac$/iu.test(seriesFile);
-}
-
-function resolveBuiltInSeriesFile(
-  setToken: string,
-  ruleset: BrowserPreferredRuleset,
-  availableSeriesFiles: readonly string[],
-): string | null {
-  const normalizedToken = normalizeSetToken(setToken);
-  const matches = availableSeriesFiles.filter((seriesFile) =>
-    buildSeriesFileCandidates(seriesFile).some((candidate) => normalizeSetToken(candidate) === normalizedToken),
-  );
-
-  return matches.find((seriesFile) => matchesRuleset(seriesFile, ruleset)) ?? matches[0] ?? null;
-}
-
-function findImportedSlotByToken(
-  setToken: string,
-  importedDatFiles: readonly PersistedImportedDatFile[],
-): string | null {
-  const normalizedToken = normalizeSetToken(setToken);
-  const match = importedDatFiles.find((entry) => normalizeSetToken(entry.filename) === normalizedToken);
-  return match?.filename ?? null;
-}
-
-async function findImportedSlotByHash(
-  datHash: string,
-  importedDatFiles: readonly PersistedImportedDatFile[],
-): Promise<string | null> {
-  for (const entry of importedDatFiles) {
-    const entryHash = entry.datHash ?? (await computeDatContentHash(entry.datBytes));
-    if (entryHash === datHash) {
-      return entry.filename;
-    }
-  }
-
-  return null;
-}
-
-function defaultImportedSlotName(datHash: string): string {
-  return `Imported-${datHash.slice(0, 8)}.dat`;
-}
-
-function findImportedDatEntry(
-  seriesFile: string,
-  ruleset: BrowserPreferredRuleset,
-  importedDatFiles: readonly PersistedImportedDatFile[],
-): PersistedImportedDatFile | null {
-  return (
-    importedDatFiles.find((entry) => importedSeriesFile(entry.filename, ruleset) === seriesFile) ?? null
-  );
-}
-
-function findImportedDatEntryBySource(
-  source: PersistedImportedDatSource,
-  importedDatFiles: readonly PersistedImportedDatFile[],
-): PersistedImportedDatFile | null {
-  return (
-    importedDatFiles.find(
-      (entry) =>
-        entry.source?.kind === source.kind &&
-        entry.source.game === source.game &&
-        entry.source.packId === source.packId,
-    ) ?? null
-  );
-}
-
-function buildBitbustersPackToken(source: Extract<PersistedImportedDatSource, { kind: "bitbusters-custom-pack" }>): string {
-  return `bb:${bitbustersCustomPackGameSlug(source.game)}/${source.packId}`;
-}
-
-function parseBitbustersPackToken(
-  value: string,
-): { game: BitbustersCustomPackGame; gameSlug: BitbustersCustomPackGameSlug; packId: number } | null {
-  const match = /^bb:(cc1|cc2)\/([1-9][0-9]*)$/iu.exec(value.trim());
-  if (!match) {
-    return null;
-  }
-
-  const gameSlug = match[1].toLowerCase() as BitbustersCustomPackGameSlug;
+async function persistUrlLaunchSelection(
+  services: Pick<BrowserAppServices, "selectionStore">,
+  selection: PlayableSelection,
+): Promise<UrlLaunchResolution> {
+  await services.selectionStore.saveSelection(selection);
   return {
-    game: gameSlug === "cc1" ? "CC1" : "CC2",
-    gameSlug,
-    packId: Number.parseInt(match[2]!, 10),
+    message: null,
+    overrideApplied: true,
+    selection,
   };
 }
 
-function canonicalizePackPathSegments(value: string): string[] {
-  const raw = value.trim().replace(/\/+$/u, "");
-  const segments: string[] = [];
-
-  for (const segment of raw.split("/")) {
-    if (segment === "" || segment === ".") {
-      continue;
-    }
-    if (segment === "..") {
-      segments.pop();
-      continue;
-    }
-
-    segments.push(segment);
-  }
-
-  return segments;
+function fallbackUrlLaunchResolution(
+  fallbackSelection: PlayableSelection | null,
+  message: string | null,
+): UrlLaunchResolution {
+  return {
+    message,
+    overrideApplied: false,
+    selection: fallbackSelection,
+  };
 }
 
-function canonicalizeGliderBotPackPath(value: string): string {
-  const rawPath = value.startsWith("gb:") ? value.slice("gb:".length) : value;
-  const segments = canonicalizePackPathSegments(rawPath);
-  if (segments.length === 0) {
-    throw new Error("Pack path is empty.");
+async function resolveDatPayloadSelection(
+  services: UrlLaunchServices,
+  request: ParsedUrlLaunchRequest,
+): Promise<PlayableSelection | null> {
+  if (!request.datPayload) {
+    return null;
   }
 
-  if (segments[0] === "cc1" && !/\.dat$/iu.test(segments[segments.length - 1] ?? "")) {
-    segments[segments.length - 1] = `${segments[segments.length - 1]}.dat`;
-  }
+  const datBytes = await decodeDatUrlPayload(request.datPayload);
+  const datHash = await computeDatContentHash(datBytes);
+  const importedDatFiles = await services.profileStore.listImportedDatFiles();
+  const slotName =
+    request.slotName !== null
+      ? sanitizeImportedDatSlotName(request.slotName)
+      : (await findImportedSlotByHash(datHash, importedDatFiles)) ?? defaultImportedSlotName(datHash);
 
-  return segments.join("/");
+  await services.importDatBytes(slotName, datBytes);
+  return createResolvedSelection(slotName, request.levelNumber, request.ruleset);
 }
 
-function buildGliderBotPackUrl(canonicalPath: string): string {
-  const url = new URL(GLIDERBOT_PACK_BASE_URL);
-  const basePath = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
-  url.pathname = `${basePath}${canonicalPath.split("/").map((segment) => encodeURIComponent(segment)).join("/")}`;
-  return url.toString();
-}
-
-function buildGliderBotDirectoryUrl(directoryPath: string): string {
-  const url = new URL(GLIDERBOT_PACK_BASE_URL);
-  const basePath = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
-  const normalizedDirectory = directoryPath === "" ? "" : `${directoryPath.replace(/\/+$/u, "")}/`;
-  url.pathname = `${basePath}${normalizedDirectory.split("/").filter((segment) => segment !== "").map((segment) => encodeURIComponent(segment)).join("/")}`;
-  if (!url.pathname.endsWith("/")) {
-    url.pathname = `${url.pathname}/`;
-  }
-  return url.toString();
-}
-
-function packSlotNameFromCanonicalPath(canonicalPath: string): string {
-  const basename = canonicalPath.split("/").at(-1);
-  if (!basename) {
-    throw new Error("Pack path is empty.");
-  }
-
-  return sanitizeImportedDatSlotName(basename);
-}
-
-async function loadBuiltInSeriesDatHash(
-  seriesFile: string,
-): Promise<{ datHash: string; ruleset: BrowserPreferredRuleset } | null> {
-  const cached = builtInDatHashCache.get(seriesFile);
-  if (cached) {
-    return cached;
-  }
-
-  const promise = (async () => {
-    const configText = await loadBySuffix(builtInSeriesConfigs, `/sets/${seriesFile}`);
-    if (!configText) {
-      return null;
-    }
-
-    const config = parseSeriesConfig(configText);
-    if (config.ruleset !== "MS" && config.ruleset !== "Lynx") {
-      return null;
-    }
-
-    const dataUrl = await loadBySuffix(builtInDataFiles, `/data/${config.mapFile}`);
-    if (!dataUrl) {
-      return null;
-    }
-
-    const response = await fetch(dataUrl);
-    if (!response.ok) {
-      return null;
-    }
-
+async function resolveImportedPackSelection(
+  services: UrlLaunchServices,
+  request: ParsedUrlLaunchRequest,
+  pack: DownloadedLaunchPack,
+): Promise<PlayableSelection> {
+  const importedDatFiles = await services.profileStore.listImportedDatFiles();
+  const matchingBuiltInSeriesFile = await findMatchingBuiltInSeriesFile(pack.setToken, request.ruleset, pack.datHash);
+  if (matchingBuiltInSeriesFile) {
     return {
-      datHash: await computeDatContentHash(new Uint8Array(await response.arrayBuffer())),
-      ruleset: config.ruleset,
+      seriesFile: matchingBuiltInSeriesFile,
+      levelNumber: request.levelNumber,
     };
-  })();
+  }
 
-  builtInDatHashCache.set(seriesFile, promise);
-  return promise;
+  if (pack.source) {
+    const importedEntryBySource = findImportedDatEntryBySource(pack.source, importedDatFiles);
+    if (importedEntryBySource) {
+      const importedHash = importedEntryBySource.datHash ?? (await computeDatContentHash(importedEntryBySource.datBytes));
+      if (importedHash === pack.datHash) {
+        return createResolvedSelection(importedEntryBySource.filename, request.levelNumber, request.ruleset);
+      }
+
+      await services.importDatBytes(importedEntryBySource.filename, pack.datBytes, pack.source);
+      return createResolvedSelection(importedEntryBySource.filename, request.levelNumber, request.ruleset);
+    }
+  }
+
+  const importedSlotByToken = findImportedSlotByToken(pack.setToken, importedDatFiles);
+  if (importedSlotByToken) {
+    const importedEntry = importedDatFiles.find((entry) => entry.filename === importedSlotByToken) ?? null;
+    const importedHash = importedEntry?.datHash ?? (importedEntry ? await computeDatContentHash(importedEntry.datBytes) : null);
+    if (
+      importedHash === pack.datHash &&
+      (!pack.source ||
+        (importedEntry?.source?.kind === pack.source.kind &&
+          importedEntry.source.game === pack.source.game &&
+          importedEntry.source.packId === pack.source.packId))
+    ) {
+      return createResolvedSelection(importedSlotByToken, request.levelNumber, request.ruleset);
+    }
+
+    await services.importDatBytes(importedSlotByToken, pack.datBytes, pack.source);
+    return createResolvedSelection(importedSlotByToken, request.levelNumber, request.ruleset);
+  }
+
+  const importedSlotByHash = await findImportedSlotByHash(pack.datHash, importedDatFiles);
+  if (importedSlotByHash) {
+    const importedEntry = importedDatFiles.find((entry) => entry.filename === importedSlotByHash) ?? null;
+    if (!pack.source) {
+      return createResolvedSelection(importedSlotByHash, request.levelNumber, request.ruleset);
+    }
+
+    if (
+      importedEntry?.source?.kind === pack.source.kind &&
+      importedEntry.source.game === pack.source.game &&
+      importedEntry.source.packId === pack.source.packId
+    ) {
+      return createResolvedSelection(importedSlotByHash, request.levelNumber, request.ruleset);
+    }
+
+    await services.importDatBytes(importedSlotByHash, pack.datBytes, pack.source);
+    return createResolvedSelection(importedSlotByHash, request.levelNumber, request.ruleset);
+  }
+
+  await services.importDatBytes(pack.slotName, pack.datBytes, pack.source);
+  return createResolvedSelection(pack.slotName, request.levelNumber, request.ruleset);
 }
 
-async function findMatchingBuiltInSeriesFile(
-  setToken: string,
-  ruleset: BrowserPreferredRuleset,
-  datHash: string,
-): Promise<string | null> {
-  const builtInSeriesFile = resolveBuiltInSeriesFile(setToken, ruleset, listBrowserSeriesCatalogFiles());
-  if (!builtInSeriesFile) {
+async function resolvePackSelection(
+  services: UrlLaunchServices,
+  request: ParsedUrlLaunchRequest,
+): Promise<PlayableSelection | null> {
+  if (!request.packToken) {
     return null;
   }
 
-  const metadata = await loadBuiltInSeriesDatHash(builtInSeriesFile);
-  if (!metadata || metadata.ruleset !== ruleset || metadata.datHash !== datHash) {
+  const bitbustersPack = await loadBitbustersLaunchPack(request.packToken);
+  if (bitbustersPack) {
+    return resolveImportedPackSelection(services, request, bitbustersPack);
+  }
+
+  if (!request.packToken.startsWith("gb:")) {
+    throw new Error(`Pack ${request.packToken} is not supported.`);
+  }
+
+  return resolveImportedPackSelection(services, request, await loadGliderBotLaunchPack(request.packToken));
+}
+
+async function resolveSetTokenSelection(
+  services: UrlLaunchServices,
+  request: ParsedUrlLaunchRequest,
+): Promise<PlayableSelection | null> {
+  if (!request.setToken) {
     return null;
   }
 
-  return builtInSeriesFile;
-}
-
-function decodeHtmlHref(value: string): string {
-  return value
-    .replace(/&amp;/gu, "&")
-    .replace(/&quot;/gu, "\"")
-    .replace(/&#39;/gu, "'")
-    .replace(/&lt;/gu, "<")
-    .replace(/&gt;/gu, ">");
-}
-
-function parseDirectoryListingHrefs(html: string): string[] {
-  const matches = html.matchAll(/href="([^"]+)"/giu);
-  const hrefs: string[] = [];
-
-  for (const match of matches) {
-    const href = match[1];
-    if (!href) {
-      continue;
-    }
-    hrefs.push(decodeHtmlHref(href));
+  const builtInSeriesFile = resolveBuiltInSeriesFile(request.setToken, request.ruleset);
+  if (builtInSeriesFile) {
+    return {
+      seriesFile: builtInSeriesFile,
+      levelNumber: request.levelNumber,
+    };
   }
 
-  return hrefs;
-}
-
-async function loadGliderBotDirectoryEntries(directoryPath: string): Promise<string[]> {
-  const cached = gliderBotDirectoryEntriesCache.get(directoryPath);
-  if (cached) {
-    return cached;
+  const importedDatFiles = await services.profileStore.listImportedDatFiles();
+  const importedSlotName = findImportedSlotByToken(request.setToken, importedDatFiles);
+  if (importedSlotName) {
+    return createResolvedSelection(importedSlotName, request.levelNumber, request.ruleset);
   }
 
-  const promise = (async () => {
-    const response = await fetch(buildGliderBotDirectoryUrl(directoryPath));
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${buildGliderBotDirectoryUrl(directoryPath)}: ${response.status}`);
-    }
-
-    return parseDirectoryListingHrefs(await response.text());
-  })();
-
-  gliderBotDirectoryEntriesCache.set(directoryPath, promise);
-  return promise;
-}
-
-async function resolveGliderBotCaseSensitivePath(canonicalPath: string): Promise<string> {
-  const segments = canonicalPath.split("/").filter((segment) => segment !== "");
-  if (segments.length === 0) {
-    throw new Error("Pack path is empty.");
-  }
-
-  const directorySegments = segments.slice(0, -1);
-  const requestedFile = segments[segments.length - 1]!;
-  const directoryPath = directorySegments.join("/");
-  const entries = await loadGliderBotDirectoryEntries(directoryPath);
-  const matchingEntry = entries.find((href) => {
-    if (href === "../" || href.endsWith("/")) {
-      return false;
-    }
-
-    return href.toLowerCase() === requestedFile.toLowerCase();
-  });
-
-  if (!matchingEntry) {
-    return canonicalPath;
-  }
-
-  return [...directorySegments, matchingEntry].join("/");
-}
-
-async function fetchDatBytes(url: string): Promise<Uint8Array> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.status}`);
-  }
-
-  return new Uint8Array(await response.arrayBuffer());
-}
-
-export function resetUrlLaunchCachesForTest(): void {
-  builtInDatHashCache.clear();
-  gliderBotDirectoryEntriesCache.clear();
+  throw new Error(`Set ${request.setToken} was not found.`);
 }
 
 export async function buildUrlLaunchHref({
@@ -429,331 +240,28 @@ export async function buildUrlLaunchHref({
 }
 
 export async function resolveUrlLaunchSelection(
-  services: Pick<BrowserAppServices, "importDatBytes" | "profileStore" | "selectionStore">,
+  services: UrlLaunchServices,
   fallbackSelection: PlayableSelection | null,
   location: Pick<Location, "hash" | "search"> = window.location,
 ): Promise<UrlLaunchResolution> {
   const request = parseUrlLaunchRequest(location);
   if (!request) {
-    return {
-      message: null,
-      overrideApplied: false,
-      selection: fallbackSelection,
-    };
+    return fallbackUrlLaunchResolution(fallbackSelection, null);
   }
 
   try {
-    if (request.datPayload) {
-      const datBytes = await decodeDatUrlPayload(request.datPayload);
-      const datHash = await computeDatContentHash(datBytes);
-      const importedDatFiles = await services.profileStore.listImportedDatFiles();
-      const selectedSlotName =
-        request.slotName !== null
-          ? sanitizeImportedDatSlotName(request.slotName)
-          : (await findImportedSlotByHash(datHash, importedDatFiles)) ?? defaultImportedSlotName(datHash);
-
-      await services.importDatBytes(selectedSlotName, datBytes);
-      const selection = {
-        seriesFile: importedSeriesFile(selectedSlotName, request.ruleset),
-        levelNumber: request.levelNumber,
-      } satisfies PlayableSelection;
-      await services.selectionStore.saveSelection(selection);
-      return {
-        message: null,
-        overrideApplied: true,
-        selection,
-      };
+    const selection =
+      (await resolveDatPayloadSelection(services, request)) ??
+      (await resolvePackSelection(services, request)) ??
+      (await resolveSetTokenSelection(services, request));
+    if (!selection) {
+      return fallbackUrlLaunchResolution(fallbackSelection, null);
     }
-
-    if (request.packToken) {
-      const bitbustersPackToken = parseBitbustersPackToken(request.packToken);
-      if (bitbustersPackToken) {
-        if (bitbustersPackToken.game === "CC2") {
-          throw new Error("CC2 custom packs are ZIP-based and not yet supported.");
-        }
-
-        const pack = await fetchBitbustersCustomPack(bitbustersPackToken.gameSlug, bitbustersPackToken.packId);
-        if (!pack) {
-          throw new Error(`Custom pack ${request.packToken} was not found.`);
-        }
-        if (!pack.downloadUrl) {
-          throw new Error(`Custom pack ${pack.fileName} is not available for download.`);
-        }
-        if (!/\.dat$/iu.test(pack.fileName)) {
-          throw new Error(`Custom pack ${pack.fileName} is not a supported DAT download.`);
-        }
-
-        const datBytes = await fetchDatBytes(pack.downloadUrl);
-        const datHash = await computeDatContentHash(datBytes);
-        const packSlotName = sanitizeImportedDatSlotName(pack.fileName);
-        const packSetToken = stripImportedDatExtension(pack.fileName);
-        const importedSource = {
-          kind: "bitbusters-custom-pack",
-          game: pack.game,
-          packId: pack.id,
-        } satisfies PersistedImportedDatSource;
-        const importedDatFiles = await services.profileStore.listImportedDatFiles();
-        const matchingBuiltInSeriesFile = await findMatchingBuiltInSeriesFile(packSetToken, request.ruleset, datHash);
-
-        if (matchingBuiltInSeriesFile) {
-          const selection = {
-            seriesFile: matchingBuiltInSeriesFile,
-            levelNumber: request.levelNumber,
-          } satisfies PlayableSelection;
-          await services.selectionStore.saveSelection(selection);
-          return {
-            message: null,
-            overrideApplied: true,
-            selection,
-          };
-        }
-
-        const importedEntryBySource = findImportedDatEntryBySource(importedSource, importedDatFiles);
-        if (importedEntryBySource) {
-          const importedHash = importedEntryBySource.datHash ?? (await computeDatContentHash(importedEntryBySource.datBytes));
-          if (importedHash === datHash) {
-            const selection = {
-              seriesFile: importedSeriesFile(importedEntryBySource.filename, request.ruleset),
-              levelNumber: request.levelNumber,
-            } satisfies PlayableSelection;
-            await services.selectionStore.saveSelection(selection);
-            return {
-              message: null,
-              overrideApplied: true,
-              selection,
-            };
-          }
-
-          await services.importDatBytes(importedEntryBySource.filename, datBytes, importedSource);
-          const selection = {
-            seriesFile: importedSeriesFile(importedEntryBySource.filename, request.ruleset),
-            levelNumber: request.levelNumber,
-          } satisfies PlayableSelection;
-          await services.selectionStore.saveSelection(selection);
-          return {
-            message: null,
-            overrideApplied: true,
-            selection,
-          };
-        }
-
-        const importedSlotByToken = findImportedSlotByToken(packSetToken, importedDatFiles);
-        if (importedSlotByToken) {
-          const importedEntry = importedDatFiles.find((entry) => entry.filename === importedSlotByToken) ?? null;
-          const importedHash = importedEntry?.datHash ?? (importedEntry ? await computeDatContentHash(importedEntry.datBytes) : null);
-          if (
-            importedHash === datHash &&
-            importedEntry?.source?.kind === importedSource.kind &&
-            importedEntry.source.game === importedSource.game &&
-            importedEntry.source.packId === importedSource.packId
-          ) {
-            const selection = {
-              seriesFile: importedSeriesFile(importedSlotByToken, request.ruleset),
-              levelNumber: request.levelNumber,
-            } satisfies PlayableSelection;
-            await services.selectionStore.saveSelection(selection);
-            return {
-              message: null,
-              overrideApplied: true,
-              selection,
-            };
-          }
-
-          await services.importDatBytes(importedSlotByToken, datBytes, importedSource);
-          const selection = {
-            seriesFile: importedSeriesFile(importedSlotByToken, request.ruleset),
-            levelNumber: request.levelNumber,
-          } satisfies PlayableSelection;
-          await services.selectionStore.saveSelection(selection);
-          return {
-            message: null,
-            overrideApplied: true,
-            selection,
-          };
-        }
-
-        const importedSlotByHash = await findImportedSlotByHash(datHash, importedDatFiles);
-        if (importedSlotByHash) {
-          const importedEntry = importedDatFiles.find((entry) => entry.filename === importedSlotByHash) ?? null;
-          if (
-            importedEntry?.source?.kind === importedSource.kind &&
-            importedEntry.source.game === importedSource.game &&
-            importedEntry.source.packId === importedSource.packId
-          ) {
-            const selection = {
-              seriesFile: importedSeriesFile(importedSlotByHash, request.ruleset),
-              levelNumber: request.levelNumber,
-            } satisfies PlayableSelection;
-            await services.selectionStore.saveSelection(selection);
-            return {
-              message: null,
-              overrideApplied: true,
-              selection,
-            };
-          }
-
-          await services.importDatBytes(importedSlotByHash, datBytes, importedSource);
-          const selection = {
-            seriesFile: importedSeriesFile(importedSlotByHash, request.ruleset),
-            levelNumber: request.levelNumber,
-          } satisfies PlayableSelection;
-          await services.selectionStore.saveSelection(selection);
-          return {
-            message: null,
-            overrideApplied: true,
-            selection,
-          };
-        }
-
-        await services.importDatBytes(packSlotName, datBytes, importedSource);
-        const selection = {
-          seriesFile: importedSeriesFile(packSlotName, request.ruleset),
-          levelNumber: request.levelNumber,
-        } satisfies PlayableSelection;
-        await services.selectionStore.saveSelection(selection);
-        return {
-          message: null,
-          overrideApplied: true,
-          selection,
-        };
-      }
-
-      if (!request.packToken.startsWith("gb:")) {
-        return {
-          message: `Pack ${request.packToken} is not supported.`,
-          overrideApplied: false,
-          selection: fallbackSelection,
-        };
-      }
-
-      const canonicalPackPath = canonicalizeGliderBotPackPath(request.packToken);
-      const resolvedPackPath = await resolveGliderBotCaseSensitivePath(canonicalPackPath);
-      const packUrl = buildGliderBotPackUrl(resolvedPackPath);
-      const datBytes = await fetchDatBytes(packUrl);
-      const datHash = await computeDatContentHash(datBytes);
-      const packSlotName = packSlotNameFromCanonicalPath(resolvedPackPath);
-      const packToken = packSlotName.replace(/\.[^.]+$/u, "");
-      const importedDatFiles = await services.profileStore.listImportedDatFiles();
-      const matchingBuiltInSeriesFile = await findMatchingBuiltInSeriesFile(packToken, request.ruleset, datHash);
-
-      if (matchingBuiltInSeriesFile) {
-        const selection = {
-          seriesFile: matchingBuiltInSeriesFile,
-          levelNumber: request.levelNumber,
-        } satisfies PlayableSelection;
-        await services.selectionStore.saveSelection(selection);
-        return {
-          message: null,
-          overrideApplied: true,
-          selection,
-        };
-      }
-
-      const importedSlotByToken = findImportedSlotByToken(packToken, importedDatFiles);
-      if (importedSlotByToken) {
-        const importedEntry = importedDatFiles.find((entry) => entry.filename === importedSlotByToken) ?? null;
-        const importedHash = importedEntry?.datHash ?? (importedEntry ? await computeDatContentHash(importedEntry.datBytes) : null);
-        if (importedHash === datHash) {
-          const selection = {
-            seriesFile: importedSeriesFile(importedSlotByToken, request.ruleset),
-            levelNumber: request.levelNumber,
-          } satisfies PlayableSelection;
-          await services.selectionStore.saveSelection(selection);
-          return {
-            message: null,
-            overrideApplied: true,
-            selection,
-          };
-        }
-
-        await services.importDatBytes(importedSlotByToken, datBytes);
-        const selection = {
-          seriesFile: importedSeriesFile(importedSlotByToken, request.ruleset),
-          levelNumber: request.levelNumber,
-        } satisfies PlayableSelection;
-        await services.selectionStore.saveSelection(selection);
-        return {
-          message: null,
-          overrideApplied: true,
-          selection,
-        };
-      }
-
-      const importedSlotByHash = await findImportedSlotByHash(datHash, importedDatFiles);
-      if (importedSlotByHash) {
-        const selection = {
-          seriesFile: importedSeriesFile(importedSlotByHash, request.ruleset),
-          levelNumber: request.levelNumber,
-        } satisfies PlayableSelection;
-        await services.selectionStore.saveSelection(selection);
-        return {
-          message: null,
-          overrideApplied: true,
-          selection,
-        };
-      }
-
-      await services.importDatBytes(packSlotName, datBytes);
-      const selection = {
-        seriesFile: importedSeriesFile(packSlotName, request.ruleset),
-        levelNumber: request.levelNumber,
-      } satisfies PlayableSelection;
-      await services.selectionStore.saveSelection(selection);
-      return {
-        message: null,
-        overrideApplied: true,
-        selection,
-      };
-    }
-
-    if (request.setToken) {
-      const availableSeriesFiles = listBrowserSeriesCatalogFiles();
-      const builtInSeriesFile = resolveBuiltInSeriesFile(request.setToken, request.ruleset, availableSeriesFiles);
-      if (builtInSeriesFile) {
-        const selection = {
-          seriesFile: builtInSeriesFile,
-          levelNumber: request.levelNumber,
-        } satisfies PlayableSelection;
-        await services.selectionStore.saveSelection(selection);
-        return {
-          message: null,
-          overrideApplied: true,
-          selection,
-        };
-      }
-
-      const importedDatFiles = await services.profileStore.listImportedDatFiles();
-      const importedSlotName = findImportedSlotByToken(request.setToken, importedDatFiles);
-      if (importedSlotName) {
-        const selection = {
-          seriesFile: importedSeriesFile(importedSlotName, request.ruleset),
-          levelNumber: request.levelNumber,
-        } satisfies PlayableSelection;
-        await services.selectionStore.saveSelection(selection);
-        return {
-          message: null,
-          overrideApplied: true,
-          selection,
-        };
-      }
-
-      return {
-        message: `Set ${request.setToken} was not found.`,
-        overrideApplied: false,
-        selection: fallbackSelection,
-      };
-    }
-
-    return {
-      message: null,
-      overrideApplied: false,
-      selection: fallbackSelection,
-    };
+    return persistUrlLaunchSelection(services, selection);
   } catch (error: unknown) {
-    return {
-      message: error instanceof Error ? error.message : String(error),
-      overrideApplied: false,
-      selection: fallbackSelection,
-    };
+    return fallbackUrlLaunchResolution(
+      fallbackSelection,
+      error instanceof Error ? error.message : String(error),
+    );
   }
 }

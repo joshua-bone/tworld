@@ -67,7 +67,7 @@ Highest-value cleanup targets:
 - [x] PR4: Legacy Canvas Render Pipeline Split
 - [x] PR5: Shared Interactive Adapter Skeleton
 - [x] PR6: Content Parsing Decomposition
-- [ ] PR7: Persistence And URL Launch Cleanup
+- [x] PR7: Persistence And URL Launch Cleanup
 - [ ] PR8: Replay Verifier Orchestration Split
 - [ ] PR9: Engine Phase 2 Cleanup
 - [ ] PR10: Test DSL Expansion
@@ -207,6 +207,13 @@ Into seams for:
 Goal:
 
 - explicit ownership of parsing, persistence, and resolution state
+
+Progress:
+
+- [x] extract browser profile codecs and parsing helpers into a dedicated module
+- [x] extract the IndexedDB persistence backend and transaction helpers
+- [x] extract URL launch request parsing into a dedicated module
+- [x] extract URL launch built-in/imported/remote source helpers and keep the public wrapper stable
 
 ### PR8: Replay Verifier Orchestration Split
 
