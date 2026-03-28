@@ -12,7 +12,7 @@ import {
   runLynxReplayTraceDebug,
 } from "@ruleset-lynx/impl/engine";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
-import type { EngineMapCell } from "@game-core/api/model";
+import type { EngineMapCell, EngineState } from "@game-core/api/model";
 
 function createCell(pos: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
   return {
@@ -109,6 +109,56 @@ function advanceLynxTicks(
     current = advanceLynxInteractiveSession(current, tick === 0 ? firstInputCode : 0);
   }
   return current;
+}
+
+function lynxPortableItems(state: EngineState): Array<{
+  serial: number;
+  tileId: number;
+  state:
+    | { mode: "map"; pos: number; z: number }
+    | { mode: "carried" }
+    | { mode: "primed"; pos: number; z: number };
+}> {
+  return (
+    (
+      state as EngineState & {
+        lynxRuntimeState?: {
+          portableItems?: Array<{
+            serial: number;
+            tileId: number;
+            state:
+              | { mode: "map"; pos: number; z: number }
+              | { mode: "carried" }
+              | { mode: "primed"; pos: number; z: number };
+          }>;
+        };
+      }
+    ).lynxRuntimeState?.portableItems ?? []
+  );
+}
+
+function lynxRuntimeStateForTest(state: EngineState): {
+  portableItems: Array<{
+    serial: number;
+    tileId: number;
+    inventorySlot: "tools";
+    state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
+  }>;
+  nextPortableItemSerial: number;
+} {
+  return (
+    state as EngineState & {
+      lynxRuntimeState: {
+        portableItems: Array<{
+          serial: number;
+          tileId: number;
+          inventorySlot: "tools";
+          state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
+        }>;
+        nextPortableItemSerial: number;
+      };
+    }
+  ).lynxRuntimeState;
 }
 
 describe("initializeLynxEngineState", () => {
@@ -3059,6 +3109,95 @@ describe("runLynxInputTrace", () => {
     expect(moved.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Sandbag);
   });
 
+  it("keeps the same portable item identity when a carried sandbag is primed and settled", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Sandbag];
+
+    const primed = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    const primedItem = lynxPortableItems(primed.state).find((item) => item.state.mode === "primed");
+
+    const moved = advanceLynxTicks(primed, 4, MS_DIRECTION.east);
+    const settledItem = lynxPortableItems(moved.state).find(
+      (item) => item.state.mode === "map" && item.state.pos === chipPos && item.state.z === 1,
+    );
+
+    expect(moved.chipPos).toBe(eastPos);
+    expect(settledItem?.serial).toBe(primedItem?.serial);
+  });
+
+  it("preserves portable item identities across a replacement pickup", () => {
+    const chipPos = 33;
+    const pickupPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(pickupPos, MS_TILE.Sandbag),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Sandbag];
+
+    const reconciled = advanceLynxInteractiveSession(session, GAME_INPUT_CODES.none);
+    const carriedSerial = lynxPortableItems(reconciled.state).find((item) => item.state.mode === "carried")?.serial;
+    const pickupSerial = lynxPortableItems(reconciled.state).find(
+      (item) => item.state.mode === "map" && item.state.pos === pickupPos && item.state.z === 1,
+    )?.serial;
+
+    const moved = advanceLynxTicks(reconciled, 4, MS_DIRECTION.east);
+    const carried = lynxPortableItems(moved.state).find((item) => item.state.mode === "carried");
+    const primed = lynxPortableItems(moved.state).find((item) => item.state.mode === "primed");
+
+    expect(carried?.serial).toBe(pickupSerial);
+    expect(primed?.serial).toBe(carriedSerial);
+  });
+
+  it("keeps a dropped sandbag's portable item identity when it settles on the source teleport tile", () => {
+    const chipPos = 33;
+    const blockedEastPos = 34;
+    const exitTeleportPos = 96;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Teleport),
+        createCell(blockedEastPos, MS_TILE.Wall),
+        createCell(exitTeleportPos, MS_TILE.Teleport),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Sandbag];
+
+    const runtime = lynxRuntimeStateForTest(session.state);
+    const carriedSerial = runtime.nextPortableItemSerial;
+    runtime.portableItems.push({
+      serial: carriedSerial,
+      tileId: MS_TILE.Sandbag,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    runtime.nextPortableItemSerial += 1;
+
+    const next = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.east, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    const settled = lynxPortableItems(next.state).find(
+      (item) => item.state.mode === "map" && item.state.pos === chipPos && item.state.z === 1,
+    );
+
+    expect(next.chipPos).toBe(exitTeleportPos);
+    expect(settled?.serial).toBe(carriedSerial);
+  });
+
   it("collects a sandbag when Chip falls from unsupported air", () => {
     const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
     const upper = createBoardAtZ(2);
@@ -3075,6 +3214,7 @@ describe("runLynxInputTrace", () => {
 
     expect(fallen.chipZ).toBe(1);
     expect(fallen.state.inventory.tools).toEqual([MS_TILE.Sandbag]);
+    expect(lynxPortableItems(fallen.state).find((item) => item.state.mode === "carried")?.tileId).toBe(MS_TILE.Sandbag);
     expect(fallen.state.map.layers?.[0]?.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
   });
 
