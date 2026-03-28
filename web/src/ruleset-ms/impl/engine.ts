@@ -51,7 +51,6 @@ import {
 import { hasVerticalSupport } from "@game-core/api/verticalMovement";
 import { advanceTimer, createInitialEngineTimer } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
-import { actorThiefStealsBootsAndTools } from "@game-core/api/actorCapabilities";
 import {
   actorInventoryClearBoots,
   actorInventoryHasBoot,
@@ -106,10 +105,7 @@ import {
 } from "@ruleset-ms/api/level";
 import {
   msActorEntryMask,
-  msActorHazardResponse,
   msActorMovementStrategyId,
-  msActorThiefHook,
-  msActorArrivalAction,
   msBlockMovementMask,
   msButtonAction,
   msChipMovementMask,
@@ -123,6 +119,12 @@ import {
   msTileHasTag,
   msTileForcedFloorKind,
 } from "@ruleset-ms/impl/catalog";
+import {
+  msActorArrivalOutcome,
+  msActorCollisionOutcome,
+  msActorHazardOutcome,
+  msActorThiefOutcome,
+} from "@ruleset-ms/impl/actorInteractions";
 import {
   clearMsToolInventory,
   collectMsPortableItemsFromLayers,
@@ -228,12 +230,18 @@ function applyMsActorThiefHook(
   actorId: number,
   inventoryOwner: ActorLocalInventoryOwner,
 ): boolean {
-  if (!actorThiefStealsBootsAndTools(msActorThiefHook(actorId))) {
+  if (msActorThiefOutcome(actorId) !== "steal-boots-tools") {
     return false;
   }
   actorInventoryClearBoots(inventoryOwner);
   clearMsToolInventory(msPortableToolState(internal), inventory);
   return true;
+}
+
+function applyMsChipCollisionOutcome(internal: MsInternalState, outcome: ReturnType<typeof msActorCollisionOutcome>): void {
+  if (outcome.chipFails) {
+    internal.chipStatus = "collided";
+  }
 }
 
 export interface MsTrackedBlock {
@@ -1310,7 +1318,7 @@ function canMoveCreatureWithOptions(
   if ((msActorEntryMask(floor, creature.id) & dir) === 0) {
     return false;
   }
-  if (!ignoreFireCheck && floor === MS_TILE.Fire && msActorHazardResponse(creature.id, "fire") === "deny") {
+  if (!ignoreFireCheck && msActorHazardOutcome(floor, creature.id) === "deny-entry") {
     return false;
   }
   if (cells[to]!.bottom.id === MS_TILE.CloneMachine) {
@@ -1397,7 +1405,7 @@ function moveBlock(
   const targetTopState = cells[nextPos]!.top.state;
   const targetBottom = cells[nextPos]!.bottom.id;
   const targetBottomState = cells[nextPos]!.bottom.state;
-  switch (msActorArrivalAction(targetTop, MS_TILE.Block)) {
+  switch (msActorArrivalOutcome(targetTop, MS_TILE.Block)) {
     case "block-water":
       cells[nextPos]!.top.id = MS_TILE.Dirt;
       cells[nextPos]!.top.state = 0;
@@ -1449,9 +1457,7 @@ function moveBlock(
   }
 
   const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-  if (targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip) {
-    internal.chipStatus = "collided";
-  }
+  applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(MS_TILE.Block, targetCreatureId));
 
   const block = trackedBlock;
   block.pos = landingPos;
@@ -2549,14 +2555,12 @@ function createMsCreatureMovementStrategyDispatchContext(): MsCreatureMovementSt
     canStartMove: (moveCells, moveCreature, moveDir, moveInternal) =>
       canMoveCreature(moveCells, moveCreature, moveDir, moveInternal),
     startMove: (moveCells, moveCreature, moveDir, moveInternal) =>
-      moveMsCreaturePlanarWithContext(
+        moveMsCreaturePlanarWithContext(
         createMsCreatureMovementContext(moveInternal),
         moveCells,
         moveCreature,
         moveDir,
-        () => {
-          moveInternal.chipStatus = "collided";
-        },
+        () => applyMsChipCollisionOutcome(moveInternal, msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip)),
       ),
     startDownMove: (_engine, moveSourceCells, moveTargetCells, _layerCellsByZ, moveCreature, moveInternal) =>
       moveMsCreatureDownOneLayerWithContext(
@@ -2564,9 +2568,7 @@ function createMsCreatureMovementStrategyDispatchContext(): MsCreatureMovementSt
         moveSourceCells,
         moveTargetCells,
         moveCreature,
-        () => {
-          moveInternal.chipStatus = "collided";
-        },
+        () => applyMsChipCollisionOutcome(moveInternal, msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip)),
       ),
     startUpMove: (moveEngine, moveSourceCells, moveTargetCells, moveLayerCellsByZ, moveCreature, moveInternal) => {
       const tickContext = createMsTickContext(moveEngine, moveInternal, moveEngine.inventory, moveLayerCellsByZ);
@@ -2578,9 +2580,7 @@ function createMsCreatureMovementStrategyDispatchContext(): MsCreatureMovementSt
         moveSourceCells,
         moveTargetCells,
         moveCreature,
-        () => {
-          moveInternal.chipStatus = "collided";
-        },
+        () => applyMsChipCollisionOutcome(moveInternal, msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip)),
         isValidElevatorDestinationFloor,
       );
     },
@@ -2870,7 +2870,7 @@ function processMsBlockFloorQueueEntry(
     const targetTopState = blockCells[nextPos]!.top.state;
     const targetBottom = blockCells[nextPos]!.bottom.id;
     const targetBottomState = blockCells[nextPos]!.bottom.state;
-    switch (msActorArrivalAction(targetTop, MS_TILE.Block)) {
+    switch (msActorArrivalOutcome(targetTop, MS_TILE.Block)) {
       case "block-water":
         blockCells[nextPos]!.top = { id: MS_TILE.Dirt, state: 0 };
         if (!oldWasCloneMachine) {
@@ -2910,9 +2910,7 @@ function processMsBlockFloorQueueEntry(
     placeStaticBlock(blockCells, landingPos, movedTile.state);
 
     const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-    if (targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip) {
-      internal.chipStatus = "collided";
-    }
+    applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(MS_TILE.Block, targetCreatureId));
     if (oldWasCloneMachine) {
       blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
     }
@@ -2975,7 +2973,7 @@ function processMsBlockFloorQueueEntry(
       const targetBottom = lowerCells[oldPos]!.bottom.id;
       const targetBottomState = lowerCells[oldPos]!.bottom.state;
 
-      switch (msActorArrivalAction(targetTop, MS_TILE.Block)) {
+      switch (msActorArrivalOutcome(targetTop, MS_TILE.Block)) {
         case "block-water":
           lowerCells[oldPos]!.top = { id: MS_TILE.Dirt, state: 0 };
           popTile(blockCells, oldPos);
@@ -3004,9 +3002,7 @@ function processMsBlockFloorQueueEntry(
 
           placeStaticBlock(lowerCells, landingPos, movedTile.state);
           const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-          if (targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip) {
-            internal.chipStatus = "collided";
-          }
+          applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(MS_TILE.Block, targetCreatureId));
 
           const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
           const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
@@ -3429,9 +3425,7 @@ function moveBlockUpOneLayer(
   block.pos = oldPos;
   block.z = targetZ;
 
-  if (targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip) {
-    internal.chipStatus = "collided";
-  }
+  applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(MS_TILE.Block, targetCreatureId));
 
   const previousFloorMovement = block.floorMovement;
   const previousSliding = block.sliding;

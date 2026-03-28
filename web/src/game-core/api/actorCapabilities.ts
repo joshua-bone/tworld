@@ -12,9 +12,9 @@ export type ActorCollectibleSlot = "keys" | "boots" | "tools";
 
 export type ActorBlockedMoveKind = "stay" | "hold-direction" | "revert-portable";
 
-export type ActorTrapHook = "default" | "hold-direction";
+export type ActorTrapHook = "none" | "default" | "hold-direction";
 
-export type ActorClonerHook = "default";
+export type ActorClonerHook = "none" | "default" | "hold-direction";
 
 export type ActorThiefHook = "none" | "steal-boots-tools";
 

@@ -56,7 +56,6 @@ import {
 import { hasVerticalSupport } from "@game-core/api/verticalMovement";
 import { advanceTimer, createInitialEngineTimer, syncTimerSecondsPlayed } from "@game-core/impl/timer";
 import { mapHash } from "@game-core/impl/hash";
-import { actorThiefStealsBootsAndTools } from "@game-core/api/actorCapabilities";
 import {
   actorInventoryClearBoots,
   actorInventoryHasBoot,
@@ -159,9 +158,7 @@ import {
 } from "@ruleset-lynx/impl/turnState";
 import {
   lynxActorEntryMask,
-  lynxActorHazardResponse,
   lynxActorMovementStrategyId,
-  lynxActorThiefHook,
   lynxBlockMovementMask,
   lynxButtonAction,
   lynxChipMoveSoundAction,
@@ -176,6 +173,11 @@ import {
   lynxTileHasTag,
   lynxToggledWallTileId,
 } from "@ruleset-lynx/impl/catalog";
+import {
+  lynxActorCollisionOutcome,
+  lynxActorHazardOutcome,
+  lynxActorThiefOutcome,
+} from "@ruleset-lynx/impl/actorInteractions";
 import {
   MS_DIRECTION,
   MS_GRID_HEIGHT,
@@ -255,7 +257,7 @@ function applyLynxActorThiefHook(
   actorId: number,
   inventoryOwner: ActorLocalInventoryOwner,
 ): boolean {
-  if (!actorThiefStealsBootsAndTools(lynxActorThiefHook(actorId))) {
+  if (lynxActorThiefOutcome(actorId) !== "steal-boots-tools") {
     return false;
   }
   actorInventoryClearBoots(inventoryOwner);
@@ -948,7 +950,7 @@ function canLynxCreatureEnter(tileId: number, actorId: number, dir: number): boo
   if ((mask & dir) === 0) {
     return false;
   }
-  if (tileId === MS_TILE.Fire && lynxActorHazardResponse(actorId, "fire") === "deny") {
+  if (lynxActorHazardOutcome(tileId, actorId) === "deny-entry") {
     return false;
   }
   return true;
@@ -2220,7 +2222,21 @@ function resolveLynxChipCollision(
     };
   }
 
-  const preserveCollidedActor = isLynxVerticalMoveKind(chipMoveKind) || isLynxVerticalMoveKind(collision.actor?.moveKind);
+  const collisionOutcome = lynxActorCollisionOutcome(MS_TILE.Chip, collision.actor?.id ?? MS_TILE.Empty);
+  if (!collisionOutcome.chipFails) {
+    return {
+      chipPos,
+      endGameTicksElapsed,
+      endGameResult,
+      endGameAnimationTileId,
+      endGameAnimationFrame,
+    };
+  }
+
+  const preserveCollidedActor =
+    !collisionOutcome.removeTargetActor ||
+    isLynxVerticalMoveKind(chipMoveKind) ||
+    isLynxVerticalMoveKind(collision.actor?.moveKind);
   return failLynxChip(
     state,
     actors,

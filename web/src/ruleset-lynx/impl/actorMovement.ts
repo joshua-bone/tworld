@@ -21,9 +21,9 @@ import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
   lynxArrivalAnimationKind,
   lynxChipEnterAction,
-  lynxCreatureArrivalAction,
   lynxTileForcedFloorKind,
 } from "@ruleset-lynx/impl/catalog";
+import { lynxActorArrivalOutcome } from "@ruleset-lynx/impl/actorInteractions";
 import type { LynxMoveKind } from "@ruleset-lynx/impl/verticalMovement";
 import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -182,7 +182,7 @@ export function finishLynxActorMovement(
     actor.ignoreIceFromAir = true;
   }
 
-  const arrivalAction = lynxCreatureArrivalAction(cell.top.id, actor.id);
+  const arrivalAction = lynxActorArrivalOutcome(cell.top.id, actor.id);
   const arrivalAnimationTileId = context.animationTileId(lynxArrivalAnimationKind(cell.top.id, actor.id));
 
   if (actor.id === MS_TILE.Block) {

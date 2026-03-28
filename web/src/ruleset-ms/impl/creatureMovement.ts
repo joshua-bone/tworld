@@ -1,7 +1,8 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import { blockedMovement, movedMovement, type MovementAttemptResult } from "@game-core/api/movementOutcomes";
 import { nextPosition } from "@game-core/impl/grid";
-import { msActorArrivalAction, msTileForcedFloorKind } from "@ruleset-ms/impl/catalog";
+import { msTileForcedFloorKind } from "@ruleset-ms/impl/catalog";
+import { msActorArrivalOutcome, msActorCollisionOutcome } from "@ruleset-ms/impl/actorInteractions";
 import {
   MS_DIRECTION,
   MS_FLOOR_STATE,
@@ -157,7 +158,7 @@ export function moveMsCreaturePlanar(
   const standingFloor = standingFloorWasTop ? targetTop : targetBottom;
   const standingFloorState = standingFloorWasTop ? targetTopState : targetBottomState;
 
-  switch (msActorArrivalAction(standingFloor, arrivalActorId)) {
+  switch (msActorArrivalOutcome(standingFloor, arrivalActorId)) {
     case "creature-water":
     case "creature-fire":
       removeCreatureOnArrival(
@@ -210,7 +211,7 @@ export function moveMsCreaturePlanar(
   soundEffects |= applyCreatureFloorConsequences(context, cells, oldPos, oldWasCloneMachine, creature, nextPos, standingFloor);
   if (isMsCreature(cells[nextPos]!.bottom.id)) {
     const targetId = msCreatureId(cells[nextPos]!.bottom.id);
-    if (targetId === MS_TILE.Chip || targetId === MS_TILE.Swimming_Chip) {
+    if (msActorCollisionOutcome(creature.id, targetId).chipFails) {
       setChipCollided();
     }
   }
@@ -252,7 +253,7 @@ export function moveMsCreatureDownOneLayer(
   const standingFloor = standingFloorWasTop ? targetTop : targetBottom;
   const standingFloorState = standingFloorWasTop ? targetTopState : targetBottomState;
 
-  switch (msActorArrivalAction(standingFloor, creature.id)) {
+  switch (msActorArrivalOutcome(standingFloor, creature.id)) {
     case "creature-water":
     case "creature-fire":
       targetCells[nextPos]!.top = { id: targetTop, state: targetTopState };

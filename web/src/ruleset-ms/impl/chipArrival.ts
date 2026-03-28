@@ -9,8 +9,8 @@ import { MS_FLOOR_STATE, MS_SOUND, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   msChipEnterAction,
   msDoorKeyIndex,
-  msIsActorTile,
 } from "@ruleset-ms/impl/catalog";
+import { msActorCollisionOutcome, msActorThiefOutcome } from "@ruleset-ms/impl/actorInteractions";
 import { collectMsActorTile, projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import {
   clearMsToolInventory,
@@ -100,9 +100,11 @@ export function applyMsChipEnterEffects(
       soundEffects |= 1 << MS_SOUND.SocketOpened;
       break;
     case "steal-boots":
-      actorInventoryClearBoots(chipInventory);
-      clearMsToolInventory(context.portableTools, context.inventory);
-      soundEffects |= 1 << MS_SOUND.BootsStolen;
+      if (msActorThiefOutcome(MS_TILE.Chip) === "steal-boots-tools") {
+        actorInventoryClearBoots(chipInventory);
+        clearMsToolInventory(context.portableTools, context.inventory);
+        soundEffects |= 1 << MS_SOUND.BootsStolen;
+      }
       break;
     case "explode-bomb":
       chip.chipStatus = "bombed";
@@ -124,7 +126,7 @@ export function applyMsChipEnterEffects(
       }
       break;
     case "collision":
-      if (msIsActorTile(floor)) {
+      if (msActorCollisionOutcome(MS_TILE.Chip, floor).chipFails) {
         chip.chipStatus = "collided";
       }
       break;

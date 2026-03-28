@@ -1,5 +1,6 @@
 import { reverseDirection as backDirection } from "@game-core/impl/grid";
 import { MS_DIRECTION, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
+import { msActorHeldFloorOutcome } from "@ruleset-ms/impl/actorInteractions";
 
 type MsCreatureFloorMovement = "none" | "ice" | "slide" | "teleport" | "air" | "elevator";
 
@@ -238,7 +239,7 @@ export function chooseMsCreatureDirection(
   }
 
   const floor = context.floorAt(creature.pos);
-  const trapOrCloneFloor = floor === MS_TILE.CloneMachine || floor === MS_TILE.Beartrap;
+  const trapOrCloneFloor = msActorHeldFloorOutcome(floor, creature.id) === "hold-direction";
   const trapOrCloneChoice = trapOrCloneFloor ? chooseTrapOrCloneFloorDirections(context, creature) : null;
   if (trapOrCloneChoice && trapOrCloneChoice.immediateDir !== null) {
     creature.tdir = trapOrCloneChoice.immediateDir;

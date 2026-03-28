@@ -281,10 +281,10 @@ Goal:
 
 Checklist:
 
-- [ ] add typed outcomes for actor-vs-actor collision rules
-- [ ] add typed outcomes for tile-arrival rules
-- [ ] extend hazard handling beyond `ignore | deny | destroy | transform` where needed
-- [ ] make thief, trap, and cloner semantics pluggable at the actor-policy level
+- [x] add typed outcomes for actor-vs-actor collision rules
+- [x] add typed outcomes for tile-arrival rules
+- [x] extend hazard handling beyond `ignore | deny | destroy | transform` where needed
+- [x] make thief, trap, and cloner semantics pluggable at the actor-policy level
 
 Extensibility win:
 
@@ -406,7 +406,7 @@ Important note:
 - [x] EP3
 - [x] EP4
 - [x] EP5
-- [ ] EP6
+- [x] EP6
 - [ ] EP7
 - [ ] EP8
 - [ ] EP9
