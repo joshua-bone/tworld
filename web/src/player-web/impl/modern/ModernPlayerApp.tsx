@@ -17,10 +17,6 @@ import { PlayerApp } from "@player-web/impl/PlayerApp";
 import { buildAppHref } from "@player-web/impl/appPaths";
 import {
   applyBrowserLocalSettingsSnapshot,
-  buildBrowserProfileBackupFilename,
-  createBrowserProfileBackup,
-  parseBrowserProfileBackup,
-  serializeBrowserProfileBackup,
 } from "@player-web/impl/browserProfileBackup";
 import { copyTextToClipboard } from "@player-web/impl/clipboard";
 import {
@@ -29,11 +25,10 @@ import {
   resolveModernBootstrapCatalogOptions,
   resolveModernDeferredCatalogBatches,
 } from "@player-web/impl/loadBrowserPlayableCatalog";
-import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
 import { measurePerfAsync } from "@player-web/impl/runtimePerf";
-import { buildUrlLaunchHref, resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
+import { resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
 import {
   loadStoredVisualEnhancementsSettings,
   saveStoredVisualEnhancementsSettings,
@@ -67,6 +62,13 @@ import {
   tabForFamily,
   type LibrarySidebarTab,
 } from "@player-web/impl/modern/modernDashboardNavigationController";
+import {
+  buildModernLevelLink,
+  discardModernUploadedFamily,
+  importModernLocalDatFiles,
+  importModernProfileBackup,
+  prepareModernProfileBackupDownload,
+} from "@player-web/impl/modern/modernDashboardTransferController";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import {
   isCompletedBrowserLevelRunResult,
@@ -193,10 +195,6 @@ function estimateLevelsPaneWidth(activeEntry: SeriesCatalogEntry | null): number
     DASHBOARD_MIN_LEVELS_PANE_WIDTH,
     DASHBOARD_MAX_LEVELS_PANE_WIDTH,
   );
-}
-
-function isDatFile(file: File): boolean {
-  return /\.dat$/iu.test(file.name);
 }
 
 function hasDraggedFiles(dataTransfer: DataTransfer | null): boolean {
@@ -746,6 +744,7 @@ export function ModernPlayerApp({
               const nextCatalogBatch = await measurePerfAsync("catalogHydrationBatchMs", () =>
                 loadBrowserPlayableCatalog(services, {
                   includeImported: false,
+                  ignoreBuiltinLoadErrors: true,
                   seriesFiles: batch,
                 }),
               );
@@ -758,11 +757,9 @@ export function ModernPlayerApp({
               });
             }
           } catch (error: unknown) {
-            if (!active) {
-              return;
+            if (active) {
+              console.warn("Deferred modern catalog hydration failed.", error);
             }
-
-            setMessage((current) => current ?? (error instanceof Error ? error.message : String(error)));
           }
         })();
       })
@@ -962,107 +959,62 @@ export function ModernPlayerApp({
   }, [activeEntry, activeFamily, isCatalogLoading, visibleFamilies]);
 
   const importLocalDatFiles = useEffectEvent(async (files: readonly File[]) => {
-    const candidates = files.filter(isDatFile);
-    if (candidates.length === 0) {
-      setMessage("Only .dat files can be imported from local storage.");
-      return;
-    }
-
-    const existingFilenames = new Set(
-      catalog
-        .filter((entry) => entry.mapfilename.startsWith("local:"))
-        .map((entry) => entry.mapfilename.slice("local:".length)),
-    );
-
     setIsImporting(true);
-    const results = await Promise.allSettled(
-      candidates.map(async (file) => ({
-        file,
-        entries: await importDatFile(file),
-      })),
-    );
-    setIsImporting(false);
+    try {
+      const result = await importModernLocalDatFiles({
+        catalog,
+        files: [...files],
+        importDatFile,
+        requestedRuleset,
+      });
 
-    const successes = results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
-    const failures = results.flatMap((result) =>
-      result.status === "rejected"
-        ? [result.reason instanceof Error ? result.reason.message : String(result.reason)]
-        : [],
-    );
-
-    if (successes.length === 0) {
-      setMessage(failures[0] ?? "Failed to import the selected DAT file.");
-      return;
+      startTransition(() => {
+        if (result.nextCatalog) {
+          setCatalog(result.nextCatalog);
+        }
+        if (result.nextActiveTab) {
+          setActiveTab(result.nextActiveTab);
+        }
+        if (result.nextActiveFamilyId && result.nextRequestedLevelNumber !== null) {
+          setActiveFamilyId(result.nextActiveFamilyId);
+          setRequestedLevelsByFamily((current) => ({
+            ...current,
+            [result.nextActiveFamilyId!]: result.nextRequestedLevelNumber!,
+          }));
+        }
+        setMessage(result.message);
+      });
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsImporting(false);
     }
-
-    const importedEntries = successes.flatMap(({ entries }) => entries);
-    const mergedCatalog = mergeSeriesCatalogEntries(catalog, importedEntries);
-    const preferredImportedEntry =
-      importedEntries.find((entry) => entry.ruleset === requestedRuleset) ?? importedEntries[0] ?? null;
-    const preferredImportedSelection =
-      preferredImportedEntry && preferredImportedEntry.levels[0]
-        ? {
-            seriesFile: preferredImportedEntry.filebase,
-            levelNumber: preferredImportedEntry.levels[0].number,
-          }
-        : null;
-    const importedFamily = preferredImportedSelection
-      ? findSetFamilyForSelection(buildCuratedCatalogView(mergedCatalog, preferredImportedSelection), preferredImportedSelection)
-      : null;
-
-    startTransition(() => {
-      setCatalog(mergedCatalog);
-      setActiveTab("uploads");
-      if (importedFamily && preferredImportedSelection) {
-        setActiveFamilyId(importedFamily.id);
-        setRequestedLevelsByFamily((current) => ({
-          ...current,
-          [importedFamily.id]: preferredImportedSelection.levelNumber,
-        }));
-      }
-      setMessage(
-        describeLocalDatImportMessage({
-          existingFilenames,
-          failureMessages: failures,
-          successfulFilenames: successes.map(({ file }) => file.name),
-          variant: "modern",
-        }),
-      );
-    });
   });
 
   const discardUploadedFamily = useEffectEvent(async (familyId: string) => {
-    const family = findSetFamilyById(curated, familyId);
-    const filename = family?.section === "local" ? family.entries[0]?.mapfilename.slice("local:".length) ?? null : null;
-    if (!family || !filename) {
-      return;
-    }
-
     try {
-      await deleteImportedDatFile(filename);
-      const nextCatalog = catalog.filter((entry) => entry.mapfilename !== `local:${filename}`);
-      const nextCurated = buildCuratedCatalogView(nextCatalog, lastSelection);
-      const nextActiveFamily =
-        activeFamily?.id === familyId
-          ? (nextCurated.localFamilies[0] ?? resolveDefaultLandingFamily(nextCurated))
-          : activeFamily;
+      const result = await discardModernUploadedFamily({
+        activeFamilyId: activeFamily?.id ?? null,
+        activeTab,
+        catalog,
+        deleteImportedDatFile,
+        familyId,
+        lastSelection,
+      });
+      if (!result) {
+        return;
+      }
 
       startTransition(() => {
-        setCatalog(nextCatalog);
+        setCatalog(result.nextCatalog);
         setRequestedLevelsByFamily((current) => {
           const next = { ...current };
-          delete next[familyId];
+          delete next[result.removedFamilyId];
           return next;
         });
-        if (activeFamily?.id === familyId) {
-          setActiveFamilyId(nextActiveFamily?.id ?? null);
-          setActiveTab(nextActiveFamily ? (tabForFamily(nextActiveFamily) ?? "official") : "official");
-        } else if (activeTab === "uploads" && nextCurated.localFamilies.length === 0) {
-          const fallbackFamily = resolveDefaultLandingFamily(nextCurated);
-          setActiveFamilyId(fallbackFamily?.id ?? null);
-          setActiveTab(fallbackFamily ? (tabForFamily(fallbackFamily) ?? "official") : "official");
-        }
-        setMessage(`Discarded local set ${filename}.`);
+        setActiveFamilyId(result.nextActiveFamilyId);
+        setActiveTab(result.nextActiveTab);
+        setMessage(result.message);
       });
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -1071,10 +1023,9 @@ export function ModernPlayerApp({
 
   const copyLevelLink = useEffectEvent(async (seriesFile: string, ruleset: BrowserPreferredRuleset, levelNumber: number) => {
     try {
-      const importedDatFiles = await profileStore.listImportedDatFiles();
-      const href = await buildUrlLaunchHref({
-        importedDatFiles,
+      const href = await buildModernLevelLink({
         levelNumber,
+        profileStore,
         ruleset,
         seriesFile,
       });
@@ -1092,13 +1043,11 @@ export function ModernPlayerApp({
 
     setIsProfileTransferBusy(true);
     try {
-      const snapshot = await profileStore.exportProfileSnapshot();
-      const backup = createBrowserProfileBackup(snapshot);
-      const payload = serializeBrowserProfileBackup(backup);
-      const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+      const backup = await prepareModernProfileBackupDownload(profileStore);
+      const url = URL.createObjectURL(new Blob([backup.payload], { type: "application/json" }));
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = buildBrowserProfileBackupFilename(backup.exportedAtMs);
+      anchor.download = backup.filename;
       anchor.rel = "noopener";
       anchor.click();
       window.setTimeout(() => {
@@ -1114,9 +1063,7 @@ export function ModernPlayerApp({
   const importProfileBackupFile = useEffectEvent(async (file: File) => {
     setIsProfileTransferBusy(true);
     try {
-      const backup = parseBrowserProfileBackup(await file.text());
-      await profileStore.importProfileSnapshot(backup.profile);
-      applyBrowserLocalSettingsSnapshot(backup.localSettings);
+      applyBrowserLocalSettingsSnapshot(await importModernProfileBackup(profileStore, file));
       setIsSettingsOpen(false);
       window.location.reload();
     } catch (error: unknown) {

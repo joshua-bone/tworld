@@ -4,6 +4,11 @@ import { normalizeBrowserAssetLoadError } from "@level-catalog/impl/browserAsset
 
 export type BrowserSeriesLoaderMap<T> = Record<string, () => Promise<T>>;
 
+export interface LoadBrowserSeriesCatalogEntriesOptions {
+  ignoreSeriesLoadErrors?: boolean;
+  seriesFiles?: string[];
+}
+
 export function basename(path: string): string {
   const parts = path.split("/");
   return parts[parts.length - 1] ?? path;
@@ -34,37 +39,44 @@ export async function loadBySuffix<T>(
 export async function loadBrowserSeriesCatalogEntriesFromLoaders(
   seriesConfigs: BrowserSeriesLoaderMap<string>,
   dataFiles: BrowserSeriesLoaderMap<string>,
-  seriesFiles?: string[],
+  options: LoadBrowserSeriesCatalogEntriesOptions = {},
 ): Promise<SeriesCatalogEntry[]> {
+  const { ignoreSeriesLoadErrors = false, seriesFiles } = options;
   const targets = seriesFiles ?? listBrowserSeriesCatalogFilesFromLoaders(seriesConfigs);
   const catalog: SeriesCatalogEntry[] = [];
 
   for (const seriesFile of targets) {
-    const configText = await loadBySuffix(seriesConfigs, `/sets/${seriesFile}`);
-    if (!configText) {
-      continue;
-    }
+    try {
+      const configText = await loadBySuffix(seriesConfigs, `/sets/${seriesFile}`);
+      if (!configText) {
+        continue;
+      }
 
-    const config = parseSeriesConfig(configText);
-    const dataUrl = await loadBySuffix(dataFiles, `/data/${config.mapFile}`);
-    if (!dataUrl) {
-      continue;
-    }
+      const config = parseSeriesConfig(configText);
+      const dataUrl = await loadBySuffix(dataFiles, `/data/${config.mapFile}`);
+      if (!dataUrl) {
+        continue;
+      }
 
-    const response = await fetch(dataUrl);
-    if (!response.ok) {
-      continue;
-    }
+      const response = await fetch(dataUrl);
+      if (!response.ok) {
+        continue;
+      }
 
-    const datBytes = new Uint8Array(await response.arrayBuffer());
-    const parsed = parseDatFile(datBytes, { ruleset: config.ruleset });
-    catalog.push({
-      name: seriesFile,
-      filebase: seriesFile,
-      mapfilename: `./data/${config.mapFile}`,
-      ruleset: parsed.ruleset,
-      levels: parsed.levels,
-    });
+      const datBytes = new Uint8Array(await response.arrayBuffer());
+      const parsed = parseDatFile(datBytes, { ruleset: config.ruleset });
+      catalog.push({
+        name: seriesFile,
+        filebase: seriesFile,
+        mapfilename: `./data/${config.mapFile}`,
+        ruleset: parsed.ruleset,
+        levels: parsed.levels,
+      });
+    } catch (error: unknown) {
+      if (!ignoreSeriesLoadErrors) {
+        throw error;
+      }
+    }
   }
 
   return catalog;

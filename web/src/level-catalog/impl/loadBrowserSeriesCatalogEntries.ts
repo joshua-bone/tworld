@@ -2,6 +2,7 @@ import type { SeriesCatalogEntry } from "@content/api/series";
 import {
   listBrowserSeriesCatalogFilesFromLoaders,
   loadBrowserSeriesCatalogEntriesFromLoaders,
+  type LoadBrowserSeriesCatalogEntriesOptions,
   type BrowserSeriesLoaderMap,
 } from "@level-catalog/impl/browserSeriesCatalogEntries.shared";
 import type {
@@ -80,11 +81,16 @@ export function listBrowserSeriesCatalogFiles(): string[] {
   return listBrowserSeriesCatalogFilesFromLoaders(seriesConfigs);
 }
 
-export async function loadBrowserSeriesCatalogEntries(seriesFiles?: string[]): Promise<SeriesCatalogEntry[]> {
-  const targets = seriesFiles ?? listBrowserSeriesCatalogFiles();
+export async function loadBrowserSeriesCatalogEntries(
+  options: LoadBrowserSeriesCatalogEntriesOptions = {},
+): Promise<SeriesCatalogEntry[]> {
+  const targets = options.seriesFiles ?? listBrowserSeriesCatalogFiles();
   const worker = getBrowserSeriesCatalogWorker();
   if (!worker) {
-    return loadBrowserSeriesCatalogEntriesFromLoaders(seriesConfigs, dataFiles, targets);
+    return loadBrowserSeriesCatalogEntriesFromLoaders(seriesConfigs, dataFiles, {
+      ...options,
+      seriesFiles: targets,
+    });
   }
 
   const requestId = nextCatalogRequestId;
@@ -96,6 +102,7 @@ export async function loadBrowserSeriesCatalogEntries(seriesFiles?: string[]): P
     try {
       const request: BrowserSeriesCatalogWorkerRequest = {
         id: requestId,
+        ignoreSeriesLoadErrors: options.ignoreSeriesLoadErrors,
         seriesFiles: targets,
       };
       worker.postMessage(request);

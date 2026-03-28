@@ -22,10 +22,13 @@ const dataFiles = import.meta.glob(["@data/*.dat", "!@data/CHIPS.dat"], {
 const workerScope = self as DedicatedWorkerGlobalScope;
 
 workerScope.onmessage = async (event: MessageEvent<BrowserSeriesCatalogWorkerRequest>) => {
-  const { id, seriesFiles } = event.data;
+  const { id, ignoreSeriesLoadErrors, seriesFiles } = event.data;
 
   try {
-    const entries = await loadBrowserSeriesCatalogEntriesFromLoaders(seriesConfigs, dataFiles, seriesFiles);
+    const entries = await loadBrowserSeriesCatalogEntriesFromLoaders(seriesConfigs, dataFiles, {
+      ignoreSeriesLoadErrors,
+      seriesFiles,
+    });
     const response: BrowserSeriesCatalogWorkerResponse = { id, entries };
     workerScope.postMessage(response);
   } catch (error: unknown) {

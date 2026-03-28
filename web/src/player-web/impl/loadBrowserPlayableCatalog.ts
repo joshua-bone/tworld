@@ -14,6 +14,7 @@ import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore
 
 interface LoadBrowserPlayableCatalogOptions {
   includeImported?: boolean;
+  ignoreBuiltinLoadErrors?: boolean;
   seriesFiles?: string[];
 }
 
@@ -123,9 +124,12 @@ export async function loadBrowserPlayableCatalog(
   services: Pick<BrowserAppServices, "listImportedCatalogEntries">,
   options: LoadBrowserPlayableCatalogOptions = {},
 ): Promise<SeriesCatalogEntry[]> {
-  const { includeImported = true, seriesFiles } = options;
+  const { ignoreBuiltinLoadErrors = false, includeImported = true, seriesFiles } = options;
   const [browserEntries, importedEntries] = await Promise.all([
-    loadBrowserSeriesCatalogEntries(seriesFiles),
+    loadBrowserSeriesCatalogEntries({
+      ignoreSeriesLoadErrors: ignoreBuiltinLoadErrors,
+      seriesFiles,
+    }),
     includeImported ? services.listImportedCatalogEntries() : Promise.resolve([]),
   ]);
 
