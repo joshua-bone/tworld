@@ -1,13 +1,24 @@
 import { mapHash } from "@game-core/impl/hash";
-import { lynxActorBlockedMoveKind } from "@ruleset-lynx/impl/catalog";
-import { lynxActorHeldFloorOutcome } from "@ruleset-lynx/impl/actorInteractions";
+import {
+  actorFloorImpactBombDestroys,
+  actorFloorImpactDestroysEnteringActor,
+  actorFloorImpactHoldsDirection,
+  actorFloorImpactTransformClearsFloor,
+  actorFloorImpactTransformTurnsToDirt,
+  actorFloorImpactTransformsFloor,
+} from "@game-core/impl/floorImpact";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import type { ArrivalResult } from "@game-core/api/movementOutcomes";
 import { noArrival, removedOnArrival, resolvedArrival } from "@game-core/api/movementOutcomes";
 import { addTopTileFlags, promoteBottomTile, removeTopTileFlags, replaceTopTile } from "@game-core/impl/board";
-import { lynxArrivalAnimationKind, lynxChipEnterAction, lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
+import { lynxArrivalAnimationKind, lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
 import type { LynxActorMovementActor, LynxActorMovementContext } from "@ruleset-lynx/impl/actorMovement";
+import {
+  lynxBlockedMoveFloorImpactAction,
+  lynxHeldFloorImpactAction,
+  lynxRuntimeActorFloorImpactAction,
+} from "@ruleset-lynx/impl/floorImpactPolicy";
 
 function isLynxSlide(tileId: number): boolean {
   return lynxTileForcedFloorKind(tileId) === "slide";
@@ -18,7 +29,7 @@ function isLynxIce(tileId: number): boolean {
 }
 
 export function lynxActorHoldsDirectionOnFloor(floorId: number, actorId: number): boolean {
-  return lynxActorHeldFloorOutcome(floorId, actorId) === "hold-direction";
+  return actorFloorImpactHoldsDirection(lynxHeldFloorImpactAction(floorId, actorId) ?? "none");
 }
 
 export function applyLynxBlockedActorMoveStart(
@@ -27,7 +38,7 @@ export function applyLynxBlockedActorMoveStart(
   attemptedDir: number,
   floorId: number,
 ): void {
-  if (isLynxIce(floorId) && lynxActorBlockedMoveKind(actor.id) === "stay") {
+  if (isLynxIce(floorId) && lynxBlockedMoveFloorImpactAction(actor.id) === null) {
     actor.dir = context.turnBlockedIceDirection(attemptedDir, floorId);
   }
 }
@@ -48,11 +59,12 @@ export function applyLynxActorEnteredCell(
 }
 
 function resolveLynxActorArrivalEffects(
-  context: Pick<LynxActorMovementContext, "soundBits" | "resolveButtonEffects">,
+  context: Pick<LynxActorMovementContext, "soundBits" | "resolveButtonEffects" | "arrivalOutcome">,
+  actor: LynxActorMovementActor,
   pos: number,
   tileId: number,
 ): number {
-  switch (lynxChipEnterAction(tileId)) {
+  switch (lynxRuntimeActorFloorImpactAction(context.arrivalOutcome(actor, tileId))) {
     case "trap":
       return context.soundBits.trapEntered;
     case "button":
@@ -82,51 +94,8 @@ export function applyLynxActorFloorImpact(
   }
 
   const arrivalAction = context.arrivalOutcome(actor, floorId);
+  const floorImpactAction = lynxRuntimeActorFloorImpactAction(arrivalAction) ?? "none";
   const arrivalAnimationTileId = context.animationTileId(lynxArrivalAnimationKind(floorId, actor.id));
-
-  if (actor.id === MS_TILE.Block) {
-    if (arrivalAction === "block-water") {
-      replaceTopTile(context.state.map.cells, actor.pos, { ...cell.top, id: MS_TILE.Dirt });
-      removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      context.removeActor(actor, arrivalAnimationTileId ?? context.waterSplashTileId);
-      context.state.soundEffects |= context.soundBits.waterSplash;
-      context.state.map.hash = mapHash(context.state.map.cells);
-      return { removed: true, soundEffects: context.soundBits.waterSplash, hashChanged: true };
-    }
-    if (arrivalAction === "block-bomb") {
-      promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
-      removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      context.removeActor(actor, arrivalAnimationTileId ?? context.bombExplosionTileId);
-      context.state.soundEffects |= context.soundBits.bombExplodes;
-      context.state.map.hash = mapHash(context.state.map.cells);
-      return { removed: true, soundEffects: context.soundBits.bombExplodes, hashChanged: true };
-    }
-    if (arrivalAction === "clear-key-blue") {
-      promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
-      addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      return { removed: false, soundEffects: 0, hashChanged: true };
-    }
-
-    return { removed: false, soundEffects: 0, hashChanged: false };
-  }
-
-  if (arrivalAction === "creature-water" || arrivalAction === "creature-fire") {
-    removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    context.removeActor(actor, arrivalAnimationTileId ?? context.waterSplashTileId);
-    const soundEffects = arrivalAction === "creature-water" ? context.soundBits.waterSplash : 0;
-    context.state.soundEffects |= soundEffects;
-    context.state.map.hash = mapHash(context.state.map.cells);
-    return { removed: true, soundEffects, hashChanged: true };
-  }
-
-  if (arrivalAction === "creature-bomb") {
-    promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
-    removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    context.removeActor(actor, arrivalAnimationTileId ?? context.bombExplosionTileId);
-    context.state.soundEffects |= context.soundBits.bombExplodes;
-    context.state.map.hash = mapHash(context.state.map.cells);
-    return { removed: true, soundEffects: context.soundBits.bombExplodes, hashChanged: true };
-  }
 
   if (arrivalAction === "clear-key-blue") {
     promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
@@ -135,11 +104,49 @@ export function applyLynxActorFloorImpact(
     return { removed: false, soundEffects: 0, hashChanged: true };
   }
 
+  if (actorFloorImpactTransformsFloor(floorImpactAction)) {
+    replaceTopTile(context.state.map.cells, actor.pos, {
+      ...cell.top,
+      id: actorFloorImpactTransformTurnsToDirt(floorImpactAction) ? MS_TILE.Dirt : MS_TILE.Empty,
+    });
+    removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+    context.removeActor(
+      actor,
+      actorFloorImpactTransformClearsFloor(floorImpactAction)
+        ? arrivalAnimationTileId ?? context.bombExplosionTileId
+        : arrivalAnimationTileId ?? context.waterSplashTileId,
+    );
+    const soundEffects = actorFloorImpactTransformClearsFloor(floorImpactAction)
+      ? context.soundBits.bombExplodes
+      : context.soundBits.waterSplash;
+    context.state.soundEffects |= soundEffects;
+    context.state.map.hash = mapHash(context.state.map.cells);
+    return { removed: true, soundEffects, hashChanged: true };
+  }
+
+  if (actorFloorImpactDestroysEnteringActor(floorImpactAction) && !actorFloorImpactBombDestroys(floorImpactAction)) {
+    removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+    context.removeActor(actor, arrivalAnimationTileId ?? context.waterSplashTileId);
+    const soundEffects = floorImpactAction === "destroy-water" ? context.soundBits.waterSplash : 0;
+    context.state.soundEffects |= soundEffects;
+    context.state.map.hash = mapHash(context.state.map.cells);
+    return { removed: true, soundEffects, hashChanged: true };
+  }
+
+  if (actorFloorImpactBombDestroys(floorImpactAction)) {
+    promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
+    removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+    context.removeActor(actor, arrivalAnimationTileId ?? context.bombExplosionTileId);
+    context.state.soundEffects |= context.soundBits.bombExplodes;
+    context.state.map.hash = mapHash(context.state.map.cells);
+    return { removed: true, soundEffects: context.soundBits.bombExplodes, hashChanged: true };
+  }
+
   return { removed: false, soundEffects: 0, hashChanged: false };
 }
 
 export function applyLynxActorCompletedStep(
-  context: Pick<LynxActorMovementContext, "state" | "soundBits" | "resolveButtonEffects" | "applyArrivalEffects">,
+  context: Pick<LynxActorMovementContext, "state" | "soundBits" | "resolveButtonEffects" | "applyArrivalEffects" | "arrivalOutcome">,
   actor: LynxActorMovementActor,
   floorId: number,
 ): ArrivalResult {
@@ -148,7 +155,7 @@ export function applyLynxActorCompletedStep(
     actor.deferPushArmed = false;
   }
 
-  const soundEffects = resolveLynxActorArrivalEffects(context, actor.pos, floorId) | context.applyArrivalEffects(actor);
+  const soundEffects = resolveLynxActorArrivalEffects(context, actor, actor.pos, floorId) | context.applyArrivalEffects(actor);
   context.state.soundEffects |= soundEffects;
   return soundEffects === 0 ? noArrival() : resolvedArrival(soundEffects);
 }

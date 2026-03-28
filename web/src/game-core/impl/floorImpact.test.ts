@@ -1,5 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyActorFloorImpactAction } from "@game-core/impl/floorImpact";
+import {
+  actorFloorImpactBombDestroys,
+  actorFloorImpactDestroysEnteringActor,
+  actorFloorImpactHoldsDirection,
+  actorFloorImpactRevertsPortable,
+  actorFloorImpactTeleports,
+  actorFloorImpactTransformClearsFloor,
+  actorFloorImpactTransformTurnsToDirt,
+  actorFloorImpactTransformsFloor,
+  applyActorFloorImpactAction,
+} from "@game-core/impl/floorImpact";
 
 describe("floorImpact", () => {
   it("collects chips and items through the shared floor-impact helper", () => {
@@ -96,5 +106,17 @@ describe("floorImpact", () => {
 
     expect(popupWall).toHaveBeenCalledOnce();
     expect(clearBootsAndTools).toHaveBeenCalledOnce();
+  });
+
+  it("exposes typed metadata for destructive, transform, held, teleport, and reversion outcomes", () => {
+    expect(actorFloorImpactDestroysEnteringActor("destroy-water")).toBe(true);
+    expect(actorFloorImpactDestroysEnteringActor("destroy-fire")).toBe(true);
+    expect(actorFloorImpactBombDestroys("destroy-bomb")).toBe(true);
+    expect(actorFloorImpactTransformsFloor("transform-to-dirt")).toBe(true);
+    expect(actorFloorImpactTransformTurnsToDirt("transform-to-dirt")).toBe(true);
+    expect(actorFloorImpactTransformClearsFloor("transform-to-empty")).toBe(true);
+    expect(actorFloorImpactHoldsDirection("hold-direction")).toBe(true);
+    expect(actorFloorImpactTeleports("teleport")).toBe(true);
+    expect(actorFloorImpactRevertsPortable("revert-portable")).toBe(true);
   });
 });

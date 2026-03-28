@@ -55,7 +55,6 @@ The problem is that those concerns are still split across too many engine-owned 
 - [ ] actor movement still assumes too much about the built-in families
 - [ ] chip-vs-runtime-actor probing is still separate from actor-vs-actor interaction
 - [ ] occupancy is still split across claimed cells, actors, and portable items in a way that leaks into engine code
-- [ ] floor-impact, blocked-move, and arrival behavior are not yet first-class strategy hooks
 - [ ] a new stateful family still requires edits in too many core files
 
 ## Goal State
@@ -88,8 +87,8 @@ We are ready for bowling-ball attempt two only when all of the following are tru
 - [ ] a portable item can become a runtime actor through a typed lifecycle seam
 - [ ] a runtime actor can revert back to a portable item through a typed lifecycle seam
 - [ ] actor-vs-actor and actor-vs-portable collisions are handled through one typed interaction path
-- [ ] blocked-move behavior is configured per actor family, not open-coded in engines
-- [ ] floor-impact and arrival behavior are configured per actor family, not open-coded in engines
+- [x] blocked-move behavior is configured per actor family, not open-coded in engines
+- [x] floor-impact and arrival behavior are configured per actor family, not open-coded in engines
 - [ ] chip probing against moving actors uses the same interaction vocabulary as actor movement
 - [ ] adding one new family does not require edits in both ruleset engines outside narrow registration and helper seams
 
@@ -280,15 +279,15 @@ Checklist:
 
 - [x] define shared floor-impact outcomes for current post-entry behavior
 - [x] continue
-- [ ] destroy
-- [ ] transform floor
+- [x] destroy
+- [x] transform floor
 - [x] collect pickup
 - [x] use inventory
 - [x] lose inventory
-- [ ] hold direction
-- [ ] revert to portable
+- [x] hold direction
+- [x] revert to portable
 - [x] use this for thief, chips, keys, boots, doors, sockets, popup walls, buttons, traps, and exits
-- [ ] extend the same seam across hazards, fake/real blue walls, and teleports
+- [x] extend the same seam across hazards, fake/real blue walls, and teleports
 - [x] keep global chip progress separate from actor-local inventory
 
 Success condition:

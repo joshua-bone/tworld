@@ -10,6 +10,7 @@ import {
   lynxInventorySlot,
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
+import { lynxBlockedEnterEffect } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxTileActivationContext {
@@ -57,7 +58,7 @@ function lynxTopTileSupportsNonChipFromAbove(id: number): boolean {
 }
 
 export function isLynxBlockedChipEnterRevealTile(tileId: number): boolean {
-  return tileId === MS_TILE.HiddenWall_Temp || tileId === MS_TILE.BlueWall_Real;
+  return lynxBlockedEnterEffect(tileId) === "reveal-wall";
 }
 
 export function applyLynxBlockedChipEnterEffect(state: EngineState, pos: number): boolean {

@@ -1,7 +1,11 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
-import { msActorBlockedMoveKind } from "@ruleset-ms/impl/catalog";
-import { msActorHeldFloorOutcome } from "@ruleset-ms/impl/actorInteractions";
+import {
+  actorFloorImpactBombDestroys,
+  actorFloorImpactDestroysEnteringActor,
+  actorFloorImpactHoldsDirection,
+  actorFloorImpactTeleports,
+} from "@game-core/impl/floorImpact";
 import {
   MS_DIRECTION,
   MS_FLOOR_STATE,
@@ -11,6 +15,12 @@ import {
   msCreatureId,
   msCreatureTile,
 } from "@ruleset-ms/api/tiles";
+import {
+  msBlockedMoveFloorImpactAction,
+  msHeldFloorImpactAction,
+  msRuntimeActorFloorImpactAction,
+  msTilePostEntryAction,
+} from "@ruleset-ms/impl/floorImpactPolicy";
 
 export interface MsMovementLifecycleCreature {
   id: number;
@@ -58,7 +68,7 @@ export interface MsCompletedStepLifecycleContext<TCreature extends MsMovementLif
 }
 
 export function msActorHoldsDirectionOnFloor(floorId: number, actorId: number): boolean {
-  return msActorHeldFloorOutcome(floorId, actorId) === "hold-direction";
+  return actorFloorImpactHoldsDirection(msHeldFloorImpactAction(floorId, actorId) ?? "none");
 }
 
 export function applyBlockedMsActorMoveStart<TCreature extends MsBlockedMoveLifecycleCreature>(
@@ -73,7 +83,7 @@ export function applyBlockedMsActorMoveStart<TCreature extends MsBlockedMoveLife
   if (
     dir === MS_DIRECTION.none ||
     msActorHoldsDirectionOnFloor(floor, creature.id) ||
-    msActorBlockedMoveKind(creature.id) !== "stay"
+    msBlockedMoveFloorImpactAction(creature.id) !== null
   ) {
     return;
   }
@@ -96,7 +106,7 @@ export function applyMsCreatureEnteredCell<TCreature extends MsMovementLifecycle
   standingFloor: number,
   standingFloorState: number,
 ): number {
-  if (standingFloor !== MS_TILE.Teleport || (standingFloorState & MS_FLOOR_STATE.Broken) !== 0) {
+  if (!actorFloorImpactTeleports(msTilePostEntryAction(standingFloor) ?? "none") || (standingFloorState & MS_FLOOR_STATE.Broken) !== 0) {
     return nextPos;
   }
 
@@ -153,9 +163,8 @@ export function applyMsCreatureFloorImpact<TCreature extends MsMovementLifecycle
   targetBottom: number,
   targetBottomState: number,
 ): { removed: boolean; soundEffects: number } {
-  switch (arrivalOutcome) {
-    case "creature-water":
-    case "creature-fire":
+  const floorImpactAction = msRuntimeActorFloorImpactAction(arrivalOutcome) ?? "none";
+  if (actorFloorImpactDestroysEnteringActor(floorImpactAction) && !actorFloorImpactBombDestroys(floorImpactAction)) {
       removeCreatureOnFloorImpact(
         context,
         cells,
@@ -166,7 +175,9 @@ export function applyMsCreatureFloorImpact<TCreature extends MsMovementLifecycle
         { id: targetBottom, state: targetBottomState },
       );
       return { removed: true, soundEffects: 0 };
-    case "creature-bomb":
+  }
+
+  if (actorFloorImpactBombDestroys(floorImpactAction)) {
       removeCreatureOnFloorImpact(
         context,
         cells,
@@ -177,9 +188,9 @@ export function applyMsCreatureFloorImpact<TCreature extends MsMovementLifecycle
         { id: targetBottom, state: targetBottomState },
       );
       return { removed: true, soundEffects: 1 << MS_SOUND.BombExplodes };
-    default:
-      return { removed: false, soundEffects: 0 };
   }
+
+  return { removed: false, soundEffects: 0 };
 }
 
 export function applyMsCreatureCompletedStep<TCreature extends MsMovementLifecycleCreature>(

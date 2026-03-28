@@ -1,8 +1,10 @@
 import type { EngineState } from "@game-core/api/model";
 import { addTopTileFlags, hasTopTileFlags, removeTopTileFlags, replaceTopTile, topTileIdOr } from "@game-core/impl/board";
+import { actorFloorImpactTeleports } from "@game-core/impl/floorImpact";
 import { advanceToCell } from "@game-core/impl/grid";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
+import { lynxTilePostEntryAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxTeleportActor {
@@ -43,7 +45,7 @@ function findLynxTeleportDestination(
     }
 
     const cell = state.map.cells[pos];
-    if (lynxTileForcedFloorKind(cell?.top.id ?? MS_TILE.Empty) !== "teleport") {
+    if (!actorFloorImpactTeleports(lynxTilePostEntryAction(cell?.top.id ?? MS_TILE.Empty) ?? "none")) {
       if ((cell?.top.state ?? 0) & LYNX_CELL_FLAG.Teleport) {
         replaceTopTile(state.map.cells, pos, { ...cell!.top, id: MS_TILE.Teleport });
       }
@@ -109,7 +111,7 @@ export function resolveLynxActorTeleport(
     }
 
     const cell = context.state.map.cells[pos];
-    if (lynxTileForcedFloorKind(cell?.top.id ?? MS_TILE.Empty) !== "teleport") {
+    if (!actorFloorImpactTeleports(lynxTilePostEntryAction(cell?.top.id ?? MS_TILE.Empty) ?? "none")) {
       if ((cell?.top.state ?? 0) & LYNX_CELL_FLAG.Teleport) {
         replaceTopTile(context.state.map.cells, pos, { ...cell!.top, id: MS_TILE.Teleport });
       }
@@ -183,14 +185,17 @@ export function resolveLynxTeleports(
       continue;
     }
     context.withLayer(actor.z ?? 1, () => {
-      if (lynxTileForcedFloorKind(topTileIdOr(context.state.map.cells, actor.pos, MS_TILE.Empty)) !== "teleport") {
+      if (!actorFloorImpactTeleports(lynxTilePostEntryAction(topTileIdOr(context.state.map.cells, actor.pos, MS_TILE.Empty)) ?? "none")) {
         return;
       }
       resolveLynxActorTeleport(context, actor);
     });
   }
 
-  if (chipMoving === 0 && lynxTileForcedFloorKind(topTileIdOr(context.state.map.cells, chipPos, MS_TILE.Empty)) === "teleport") {
+  if (
+    chipMoving === 0 &&
+    actorFloorImpactTeleports(lynxTilePostEntryAction(topTileIdOr(context.state.map.cells, chipPos, MS_TILE.Empty)) ?? "none")
+  ) {
     const teleportOriginPos = chipPos;
     const teleportOriginZ = context.activeLayerZ();
     chipPos = resolveLynxChipTeleport(context, chipPos, chipDir);

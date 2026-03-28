@@ -16,7 +16,15 @@ export type ActorFloorImpactAction =
   | "popup-wall"
   | "button"
   | "trap"
-  | "exit";
+  | "exit"
+  | "destroy-water"
+  | "destroy-fire"
+  | "destroy-bomb"
+  | "transform-to-dirt"
+  | "transform-to-empty"
+  | "hold-direction"
+  | "teleport"
+  | "revert-portable";
 
 export interface ActorFloorImpactCollectionResolution {
   collected: boolean;
@@ -50,6 +58,38 @@ export interface ActorFloorImpactContext<
 
 function effectSound(effect: number | undefined): number {
   return effect ?? 0;
+}
+
+export function actorFloorImpactDestroysEnteringActor(action: ActorFloorImpactAction): boolean {
+  return action === "destroy-water" || action === "destroy-fire" || action === "destroy-bomb";
+}
+
+export function actorFloorImpactTransformsFloor(action: ActorFloorImpactAction): boolean {
+  return action === "transform-to-dirt" || action === "transform-to-empty";
+}
+
+export function actorFloorImpactTransformClearsFloor(action: ActorFloorImpactAction): boolean {
+  return action === "transform-to-empty";
+}
+
+export function actorFloorImpactTransformTurnsToDirt(action: ActorFloorImpactAction): boolean {
+  return action === "transform-to-dirt";
+}
+
+export function actorFloorImpactBombDestroys(action: ActorFloorImpactAction): boolean {
+  return action === "destroy-bomb";
+}
+
+export function actorFloorImpactHoldsDirection(action: ActorFloorImpactAction): boolean {
+  return action === "hold-direction";
+}
+
+export function actorFloorImpactTeleports(action: ActorFloorImpactAction): boolean {
+  return action === "teleport";
+}
+
+export function actorFloorImpactRevertsPortable(action: ActorFloorImpactAction): boolean {
+  return action === "revert-portable";
 }
 
 function consumeEnteredOverlay(
@@ -108,5 +148,14 @@ export function applyActorFloorImpactAction<
       return resolvedArrival(effectSound(context.soundEffects.trapEntered));
     case "exit":
       return completedArrival(effectSound(context.soundEffects.chipWins));
+    case "destroy-water":
+    case "destroy-fire":
+    case "destroy-bomb":
+    case "transform-to-dirt":
+    case "transform-to-empty":
+    case "hold-direction":
+    case "teleport":
+    case "revert-portable":
+      return noArrival();
   }
 }

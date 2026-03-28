@@ -1,5 +1,8 @@
 import type { EngineState } from "@game-core/api/model";
-import { applyActorFloorImpactAction } from "@game-core/impl/floorImpact";
+import {
+  actorFloorImpactTeleports,
+  applyActorFloorImpactAction,
+} from "@game-core/impl/floorImpact";
 import { promoteBottomTile, replaceTopTile } from "@game-core/impl/board";
 import { mapHash } from "@game-core/impl/hash";
 import { actorInventoryUseKey } from "@game-core/impl/actorLocalInventory";
@@ -16,6 +19,7 @@ import {
 import { collectLynxActorTile, projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
 import { lynxFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { lynxTilePostEntryAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import type {
   LynxEndGameResult,
   LynxEndGameState,
@@ -123,9 +127,10 @@ export function applyCompletedLynxChipMove(
   endGameAnimationFrame: number | null,
 ): LynxEndGameState & { chipPos: number; chipDir: number } {
   const floorAfterMove = context.state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty;
+  const postEntryAction = lynxTilePostEntryAction(floorAfterMove);
 
-  switch (lynxChipEnterAction(floorAfterMove)) {
-    case "water-death":
+  switch (postEntryAction) {
+    case "destroy-water":
       if (!context.hasBoot(MS_TILE.Boots_Water)) {
         return {
           chipDir,
@@ -141,7 +146,7 @@ export function applyCompletedLynxChipMove(
         };
       }
       break;
-    case "fire-death":
+    case "destroy-fire":
       if (!context.hasBoot(MS_TILE.Boots_Fire)) {
         return {
           chipDir,
@@ -157,7 +162,7 @@ export function applyCompletedLynxChipMove(
         };
       }
       break;
-    case "explode-bomb":
+    case "destroy-bomb":
       promoteBottomTile(context.state.map.cells, chipPos, MS_TILE.Empty);
       context.state.map.hash = mapHash(context.state.map.cells);
       return {
@@ -172,6 +177,8 @@ export function applyCompletedLynxChipMove(
           "bombed",
         ),
       };
+    default:
+      break;
   }
 
   const arrival = applyLynxChipArrivalEffects(context, chipPos);

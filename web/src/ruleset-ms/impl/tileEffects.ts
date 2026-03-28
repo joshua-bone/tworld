@@ -10,6 +10,7 @@ import {
   msInventorySlot,
   msTileHasTag,
 } from "@ruleset-ms/impl/catalog";
+import { msBlockedEnterEffect } from "@ruleset-ms/impl/floorImpactPolicy";
 import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
 export interface MsTileActivationContext<TCreature> {
@@ -59,7 +60,7 @@ function promoteTopFloorToUnderlying(cells: EngineMapCell[], pos: number): void 
 }
 
 export function isMsBlockedChipEnterRevealTile(tileId: number): boolean {
-  return tileId === MS_TILE.HiddenWall_Temp || tileId === MS_TILE.BlueWall_Real;
+  return msBlockedEnterEffect(tileId) === "reveal-wall";
 }
 
 export function applyMsBlockedChipEnterEffect(

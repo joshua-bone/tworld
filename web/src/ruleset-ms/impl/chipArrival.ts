@@ -1,6 +1,6 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { ACTOR_INTERACTION_TARGET_KIND } from "@game-core/api/actorInteractions";
-import { applyActorFloorImpactAction } from "@game-core/impl/floorImpact";
+import { actorFloorImpactTeleports, applyActorFloorImpactAction } from "@game-core/impl/floorImpact";
 import { popBoardTile } from "@game-core/impl/board";
 import {
   actorInventoryClearBoots,
@@ -52,7 +52,22 @@ export function applyMsChipEnterEffects(
   let enteredTeleport = false;
   let soundEffects = 0;
   const floorImpactAction = msFloorImpactAction(msChipEnterAction(floor));
-  if (floorImpactAction !== null) {
+  if (floorImpactAction === "destroy-bomb") {
+    chip.chipStatus = "bombed";
+    soundEffects |= 1 << MS_SOUND.BombExplodes;
+  } else if (floorImpactAction === "destroy-water") {
+    if (!actorInventoryHasBoot(chipInventory, 3)) {
+      chip.chipStatus = "drowned";
+    }
+  } else if (floorImpactAction === "destroy-fire") {
+    if (!actorInventoryHasBoot(chipInventory, 2)) {
+      chip.chipStatus = "burned";
+    }
+  } else if (floorImpactAction !== null && actorFloorImpactTeleports(floorImpactAction)) {
+    if ((floorTileBeforeMove.state & MS_FLOOR_STATE.Broken) === 0) {
+      enteredTeleport = true;
+    }
+  } else if (floorImpactAction !== null) {
     soundEffects |= applyActorFloorImpactAction(floorImpactAction, {
       clearFloor: () => {
         popBoardTile(cells, nextPos, MS_TILE.Empty);
@@ -102,25 +117,6 @@ export function applyMsChipEnterEffects(
     }).soundEffects;
   } else {
     switch (msChipEnterAction(floor)) {
-    case "explode-bomb":
-      chip.chipStatus = "bombed";
-      soundEffects |= 1 << MS_SOUND.BombExplodes;
-      break;
-    case "water-death":
-      if (!actorInventoryHasBoot(chipInventory, 3)) {
-        chip.chipStatus = "drowned";
-      }
-      break;
-    case "fire-death":
-      if (!actorInventoryHasBoot(chipInventory, 2)) {
-        chip.chipStatus = "burned";
-      }
-      break;
-    case "teleport":
-      if ((floorTileBeforeMove.state & MS_FLOOR_STATE.Broken) === 0) {
-        enteredTeleport = true;
-      }
-      break;
     case "collision":
       if (
         msActorInteractionOutcome(MS_TILE.Chip, {
@@ -133,6 +129,11 @@ export function applyMsChipEnterEffects(
       }
       break;
     case "none":
+      break;
+    case "explode-bomb":
+    case "water-death":
+    case "fire-death":
+    case "teleport":
       break;
     }
   }
