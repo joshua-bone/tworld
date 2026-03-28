@@ -2493,6 +2493,43 @@ describe("runLynxInputTrace", () => {
     expect(toggled.state.map.layers?.[1]?.cells[switchWallPos]?.top.id).toBe(MS_TILE.SwitchWall_Open);
   });
 
+  it("drops a non-player after a supporting switch wall opens beneath it", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 33;
+    const buttonPos = 34;
+    const supportedPos = 66;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty);
+    lower[buttonPos] = createCell(buttonPos, MS_TILE.Button_Green, MS_TILE.Empty);
+    lower[supportedPos] = createCell(supportedPos, MS_TILE.SwitchWall_Closed, MS_TILE.Empty);
+    upper[supportedPos] = createCellAtZ(supportedPos, 2, msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west), MS_TILE.Air);
+    upper[supportedPos - 1] = createCellAtZ(supportedPos - 1, 2, MS_TILE.Wall);
+    upper[supportedPos + 1] = createCellAtZ(supportedPos + 1, 2, MS_TILE.Wall);
+    upper[supportedPos - 32] = createCellAtZ(supportedPos - 32, 2, MS_TILE.Wall);
+    upper[supportedPos + 32] = createCellAtZ(supportedPos + 32, 2, MS_TILE.Wall);
+
+    const toggled = advanceLynxTicks(
+      createLynxInteractiveSession(
+        createRequest(),
+        createTwoLayerLevel(lower, upper, {
+          lowerCreaturePositions: [chipPos],
+          upperCreaturePositions: [supportedPos],
+        }),
+      ),
+      5,
+      MS_DIRECTION.east,
+    );
+
+    expect(toggled.state.map.layers?.[0]?.cells[supportedPos]?.top.id).toBe(MS_TILE.SwitchWall_Open);
+
+    const fallen = advanceLynxTicks(toggled, 2);
+    const bug = fallen.actors.find((actor) => actor.id === MS_TILE.Bug && !actor.hidden);
+
+    expect(fallen.endGameResult).toBeNull();
+    expect(bug?.z).toBe(1);
+    expect(fallen.state.map.layers?.[1]?.cells[supportedPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
   it("queues tank reversals across z-layers when Chip presses a blue button", () => {
     const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
     const upper = createBoardAtZ(2);

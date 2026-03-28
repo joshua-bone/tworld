@@ -557,17 +557,23 @@ function resolveMsNonChipSupportBelow(
   }
 
   if (
-    topId === MS_TILE.Sandbag ||
-    isMsSupportingWallTile(topId) ||
-    topId === MS_TILE.BlueWall_Fake ||
-    msTileHasTag(topId, "door") ||
-    topId === MS_TILE.Socket
+    msTopTileSupportsNonChipFromAbove(topId)
   ) {
     addMsTileOverlay(engine, currentZ, pos, "support");
     return true;
   }
 
   return false;
+}
+
+function msTopTileSupportsNonChipFromAbove(id: number): boolean {
+  return (
+    msInventorySlot(id) === "tools" ||
+    isMsSupportingWallTile(id) ||
+    id === MS_TILE.BlueWall_Fake ||
+    msTileHasTag(id, "door") ||
+    id === MS_TILE.Socket
+  );
 }
 
 function canLeaveFloor(cells: EngineMapCell[], pos: number, dir: number, released: boolean): boolean {

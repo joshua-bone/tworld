@@ -5836,6 +5836,74 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
   });
 
+  it("keeps a block supported over a sandbag in air", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const blockPos = pos(9, 8);
+    lower[blockPos]!.top.id = MS_TILE.Sandbag;
+    upper[blockPos]!.top.id = MS_TILE.Block_Static;
+    upper[blockPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [blockPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const block = session.state.internal.blocks.find((entry) => !entry.hidden);
+    expect(block?.z).toBe(2);
+    expect(block?.pos).toBe(blockPos);
+    expect(session.state.engine.map.layers?.[0]?.cells[blockPos]?.top.id).toBe(MS_TILE.Sandbag);
+    expect(session.state.engine.map.layers?.[1]?.cells[blockPos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
+
+  it("drops a non-player after Chip removes its supporting sandbag and collides on landing", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(12, 8);
+    const sharedPos = pos(13, 8);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    lower[sharedPos]!.top.id = MS_TILE.Sandbag;
+    upper[sharedPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west);
+    upper[sharedPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [sharedPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipPos).toBe(sharedPos);
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const bug = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Bug);
+    expect(session.state.internal.chipStatus).toBe("collided");
+    expect(bug?.z).toBe(1);
+    expect(bug?.pos).toBe(sharedPos);
+  });
+
   it("treats a primed tool drop as a wall to adjacent MS creatures", () => {
     const cells = createEmptyCells();
     const chipPos = pos(8, 10);

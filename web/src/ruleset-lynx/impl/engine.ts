@@ -455,17 +455,23 @@ function resolveLynxNonChipSupportBelow(
   }
 
   if (
-    topId === MS_TILE.Sandbag ||
-    isLynxSupportingWallTile(topId) ||
-    topId === MS_TILE.BlueWall_Fake ||
-    lynxTileHasTag(topId, "door") ||
-    topId === MS_TILE.Socket
+    lynxTopTileSupportsNonChipFromAbove(topId)
   ) {
     addLynxTileOverlay(state, currentZ, pos, "support");
     return true;
   }
 
   return false;
+}
+
+function lynxTopTileSupportsNonChipFromAbove(id: number): boolean {
+  return (
+    lynxInventorySlot(id) === "tools" ||
+    isLynxSupportingWallTile(id) ||
+    id === MS_TILE.BlueWall_Fake ||
+    lynxTileHasTag(id, "door") ||
+    id === MS_TILE.Socket
+  );
 }
 
 function isLynxVerticalMoveKind(moveKind: LynxMoveKind | undefined): boolean {
