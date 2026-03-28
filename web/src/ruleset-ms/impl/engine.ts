@@ -126,6 +126,12 @@ import {
   msActorThiefOutcome,
 } from "@ruleset-ms/impl/actorInteractions";
 import {
+  applyMsBlockedChipEnterEffect,
+  applyMsTileActivationEffect,
+  deferredMsTileActivationSound,
+  hasMsTileActivation,
+} from "@ruleset-ms/impl/tileEffects";
+import {
   clearMsToolInventory,
   collectMsPortableItemsFromLayers,
   primeMsToolDrop,
@@ -1228,11 +1234,7 @@ function canMoveChip(
       return false;
     }
   }
-  if (exposeWalls && (floor === MS_TILE.HiddenWall_Temp || floor === MS_TILE.BlueWall_Real)) {
-    floorTile(cells, to).id = MS_TILE.Wall;
-    return false;
-  }
-  if (!exposeWalls && (floor === MS_TILE.HiddenWall_Temp || floor === MS_TILE.BlueWall_Real)) {
+  if (applyMsBlockedChipEnterEffect(cells, to, exposeWalls)) {
     return false;
   }
   if (floor === MS_TILE.Block_Static) {
@@ -1565,104 +1567,107 @@ function resolveButtonFloorEffects(
   inMidMove: MsTrackedCreature | null = null,
   buttonZ = inMidMove?.z ?? internal.chipZ ?? 1,
 ): number {
-  switch (msButtonAction(floor)) {
-    case "turn-tanks":
-      turnTanks(cells, internal, inMidMove);
-      return 1 << MS_SOUND.ButtonPushed;
-    case "toggle-walls":
-      toggleWalls(internal.runtimeLayers);
-      return 0;
-    case "activate-cloner":
-      activateMsCloner({
-        cells,
-        cloners: internal.cloners,
-        buttonPos,
-        buttonZ,
-        moveBlockSource: (sourcePos, sourceDir, sourceIsCloneMachine) => {
-          if (sourceIsCloneMachine) {
-            advanceCloneMachineBlock(cells, internal, sourcePos, sourceDir);
-          } else {
-            moveBlockOnce(cells, internal, sourcePos, sourceDir, false, false);
-          }
-        },
-        canCloneCreatureMove: (sourcePos, sourceId, sourceDir) =>
-          canMoveCreatureWithOptions(
-            cells,
-            {
-              serial: -1,
+  return applyMsTileActivationEffect(
+    {
+      turnTanks: (activeCreature) => turnTanks(cells, internal, activeCreature ?? null),
+      toggleWalls: () => {
+        toggleWalls(internal.runtimeLayers);
+      },
+      activateCloner: (activationButtonPos, activationButtonZ) => {
+        activateMsCloner({
+          cells,
+          cloners: internal.cloners,
+          buttonPos: activationButtonPos,
+          buttonZ: activationButtonZ,
+          moveBlockSource: (sourcePos, sourceDir, sourceIsCloneMachine) => {
+            if (sourceIsCloneMachine) {
+              advanceCloneMachineBlock(cells, internal, sourcePos, sourceDir);
+            } else {
+              moveBlockOnce(cells, internal, sourcePos, sourceDir, false, false);
+            }
+          },
+          canCloneCreatureMove: (sourcePos, sourceId, sourceDir) =>
+            canMoveCreatureWithOptions(
+              cells,
+              {
+                serial: -1,
+                id: sourceId,
+                dir: sourceDir,
+                tdir: MS_DIRECTION.none,
+                pos: sourcePos,
+                hidden: false,
+                moving: 0,
+                frame: 0,
+                cloning: false,
+                released: false,
+                turning: false,
+                hasMoved: false,
+                floorMovement: "none",
+                floorMovementDir: MS_DIRECTION.none,
+                sliding: false,
+              },
+              sourceDir,
+              false,
+              true,
+              internal,
+            ),
+          spawnCreatureClone: (sourcePos, sourceId, sourceDir, z) => {
+            const clonedCreatureSerial = internal.nextCreatureSerial;
+            const sourceCreature = creatureAtPos(internal, sourcePos, z);
+            const sourceSerial = sourceCreature?.serial ?? internal.cloneSourceSerialByPosition.get(`${z}:${sourcePos}`);
+            internal.creatures.push({
+              serial: clonedCreatureSerial,
               id: sourceId,
               dir: sourceDir,
               tdir: MS_DIRECTION.none,
               pos: sourcePos,
+              z,
               hidden: false,
               moving: 0,
               frame: 0,
-              cloning: false,
+              cloning: true,
               released: false,
               turning: false,
               hasMoved: false,
               floorMovement: "none",
               floorMovementDir: MS_DIRECTION.none,
               sliding: false,
-            },
-            sourceDir,
-            false,
-            true,
-            internal,
-          ),
-        spawnCreatureClone: (sourcePos, sourceId, sourceDir, z) => {
-          const clonedCreatureSerial = internal.nextCreatureSerial;
-          const sourceCreature = creatureAtPos(internal, sourcePos, z);
-          const sourceSerial = sourceCreature?.serial ?? internal.cloneSourceSerialByPosition.get(`${z}:${sourcePos}`);
-          internal.creatures.push({
-            serial: clonedCreatureSerial,
-            id: sourceId,
-            dir: sourceDir,
-            tdir: MS_DIRECTION.none,
-            pos: sourcePos,
-            z,
-            hidden: false,
-            moving: 0,
-            frame: 0,
-            cloning: true,
-            released: false,
-            turning: false,
-            hasMoved: false,
-            floorMovement: "none",
-            floorMovementDir: MS_DIRECTION.none,
-            sliding: false,
-          });
-          internal.creatureIndexBySerial.set(clonedCreatureSerial, internal.creatures.length - 1);
-          if (typeof sourceSerial === "number") {
-            forkStatefulActorRuntime(internal.statefulActors, sourceSerial, clonedCreatureSerial);
-          }
-          internal.nextCreatureSerial = clonedCreatureSerial + 1;
-        },
-      });
-      return 1 << MS_SOUND.ButtonPushed;
-    case "spring-trap":
-      springMsTrap({
-        cells,
-        traps: internal.traps,
-        buttonPos,
-        buttonZ,
-        chipPos: internal.chipPos,
-        chipZ: internal.chipZ,
-        releaseChip: () => {
-          internal.chipReleased = true;
-        },
-        findTrackedBlock: (pos, layerZ) => findVisibleTrackedBlock(internal, pos, layerZ),
-        releaseStaticBlock: (pos) => upsertTrackedBlock(cells, internal, pos, MS_DIRECTION.none),
-        findCreature: (pos, layerZ) => creatureAtPos(internal, pos, layerZ),
-      });
-      return 1 << MS_SOUND.ButtonPushed;
-    default:
-      return 0;
-  }
+            });
+            internal.creatureIndexBySerial.set(clonedCreatureSerial, internal.creatures.length - 1);
+            if (typeof sourceSerial === "number") {
+              forkStatefulActorRuntime(internal.statefulActors, sourceSerial, clonedCreatureSerial);
+            }
+            internal.nextCreatureSerial = clonedCreatureSerial + 1;
+          },
+        });
+      },
+      springTrap: (activationButtonPos, activationButtonZ) => {
+        springMsTrap({
+          cells,
+          traps: internal.traps,
+          buttonPos: activationButtonPos,
+          buttonZ: activationButtonZ,
+          chipPos: internal.chipPos,
+          chipZ: internal.chipZ,
+          releaseChip: () => {
+            internal.chipReleased = true;
+          },
+          findTrackedBlock: (pos, layerZ) => findVisibleTrackedBlock(internal, pos, layerZ),
+          releaseStaticBlock: (pos) => upsertTrackedBlock(cells, internal, pos, MS_DIRECTION.none),
+          findCreature: (pos, layerZ) => creatureAtPos(internal, pos, layerZ),
+        });
+      },
+      buttonPushedSound: 1 << MS_SOUND.ButtonPushed,
+    },
+    buttonPos,
+    floor,
+    buttonZ,
+    inMidMove,
+  );
 }
 
 function floorHasMsButtonAction(floor: number): boolean {
-  return msButtonAction(floor) !== "none";
+  return hasMsTileActivation(floor);
 }
 
 function resolveDeferredOrImmediateButtonLandingEffects(
@@ -1680,7 +1685,7 @@ function resolveDeferredOrImmediateButtonLandingEffects(
 
   if (deferButtons) {
     addBottomTileFlags(cells, pos, MS_FLOOR_STATE.ButtonDown);
-    return msButtonAction(floor) === "toggle-walls" ? 0 : 1 << MS_SOUND.ButtonPushed;
+    return deferredMsTileActivationSound(floor, 1 << MS_SOUND.ButtonPushed);
   }
 
   return resolveButtonFloorEffects(cells, internal, pos, floor, actor, buttonZ);

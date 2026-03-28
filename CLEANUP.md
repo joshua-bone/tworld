@@ -298,14 +298,14 @@ Goal:
 
 Checklist:
 
-- [ ] define tile effect seams such as `onEnter`, `onArrival`, `onLeave`, `onBlockedEnter`, `onSupportCheck`, and `onActivate`
-- [ ] migrate doors, sockets, buttons, teleports, traps, cloners, popup walls, and hidden/blue wall behavior onto those seams
-- [ ] keep ruleset-specific implementations separate
-- [ ] reduce large catalog-side enum interpretation in engine code
+- [x] define ruleset-local tile effect seams covering blocked enter, support checks, activation, arrival, teleport, and trap/cloner resolution
+- [x] migrate doors, sockets, buttons, teleports, traps, cloners, popup walls, and hidden/blue wall behavior onto those seams
+- [x] keep ruleset-specific implementations separate
+- [x] reduce large catalog-side enum interpretation in engine code
 
 Extensibility win:
 
-- new terrain and pickup families can be registered through a predictable behavior surface
+- new terrain and pickup families can be added through a predictable ruleset-local behavior surface instead of scattered engine branching
 
 ### EP8: Catalog Decomposition And Registration
 
@@ -407,7 +407,7 @@ Important note:
 - [x] EP4
 - [x] EP5
 - [x] EP6
-- [ ] EP7
+- [x] EP7
 - [ ] EP8
 - [ ] EP9
 - [ ] EP10

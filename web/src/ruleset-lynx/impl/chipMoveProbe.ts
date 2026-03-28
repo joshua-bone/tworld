@@ -4,6 +4,7 @@ import { actorInventoryHasKey } from "@game-core/impl/actorLocalInventory";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { lynxChipMovementMask, lynxDoorKeyIndex, lynxToggledWallTileId } from "@ruleset-lynx/impl/catalog";
 import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
+import { isLynxBlockedChipEnterRevealTile } from "@ruleset-lynx/impl/tileEffects";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 export const LYNX_CHIP_TARGET_CELL_PROBE = {
@@ -41,7 +42,7 @@ export function probeLynxChipTargetCell(
   }
 
   const tileId = options.toggleWallsPending ? lynxToggledWallTileId(tile.id) : tile.id;
-  const revealWall = tileId === MS_TILE.HiddenWall_Temp || tileId === MS_TILE.BlueWall_Real;
+  const revealWall = isLynxBlockedChipEnterRevealTile(tileId);
   if (options.claimedCell && revealWall) {
     return { status: LYNX_CHIP_TARGET_CELL_PROBE.pushOnly, tileId };
   }

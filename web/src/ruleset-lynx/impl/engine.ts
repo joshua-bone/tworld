@@ -179,6 +179,10 @@ import {
   lynxActorThiefOutcome,
 } from "@ruleset-lynx/impl/actorInteractions";
 import {
+  applyLynxBlockedChipEnterEffect,
+  applyLynxTileActivationEffect,
+} from "@ruleset-lynx/impl/tileEffects";
+import {
   MS_DIRECTION,
   MS_GRID_HEIGHT,
   MS_GRID_WIDTH,
@@ -1154,7 +1158,7 @@ function createLynxTrapReleaseContext(
       probe: ReturnType<typeof probeLynxChipTargetCellForState>,
     ) =>
       canLynxChipEnterAfterPushingBlock(state, targetPos, dir, probe),
-    revealHiddenWall: (targetPos: number) => revealLynxHiddenWall(state, targetPos),
+    revealHiddenWall: (targetPos: number) => revealBlockedLynxChipEnterTile(state, targetPos),
     settlePrimedToolDrop: (originPos: number, originZ: number) => {
       settleLynxPrimedToolDrop(
         state,
@@ -1548,20 +1552,20 @@ function shouldPreviewLynxForcedSlidePush(
 }
 
 function resolveLynxButtonEffects(state: EngineState, level: LynxLevel, actors: LynxRuntimeActor[], pos: number, tileId: number): number {
-  switch (lynxButtonAction(tileId)) {
-    case "turn-tanks":
-      queueLynxTankReversals(state, actors);
-      return 1 << LYNX_SOUND.ButtonPushed;
-    case "toggle-walls":
-      lynxRuntimeState(state).toggleWallsPending = !lynxRuntimeState(state).toggleWallsPending;
-      return 1 << LYNX_SOUND.ButtonPushed;
-    case "activate-cloner":
-      return activateLynxCloner(state, level, actors, pos) ? 1 << LYNX_SOUND.ButtonPushed : 0;
-    case "spring-trap":
-      return 1 << LYNX_SOUND.ButtonPushed;
-    default:
-      return 0;
-  }
+  return applyLynxTileActivationEffect(
+    {
+      queueTankReversals: () => {
+        queueLynxTankReversals(state, actors);
+      },
+      toggleWalls: () => {
+        lynxRuntimeState(state).toggleWallsPending = !lynxRuntimeState(state).toggleWallsPending;
+      },
+      activateCloner: (buttonPos) => activateLynxCloner(state, level, actors, buttonPos),
+      buttonPushedSound: 1 << LYNX_SOUND.ButtonPushed,
+    },
+    pos,
+    tileId,
+  );
 }
 
 function resolveLynxChipInputForCurrentState(
@@ -1586,20 +1590,6 @@ function resolveLynxChipInputForCurrentState(
   });
 }
 
-function revealLynxHiddenWall(state: EngineState, pos: number): boolean {
-  const cell = state.map.cells[pos];
-  if (!cell) {
-    return false;
-  }
-  if (cell.top.id !== MS_TILE.HiddenWall_Temp && cell.top.id !== MS_TILE.BlueWall_Real) {
-    return false;
-  }
-
-  replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
-  state.map.hash = mapHash(state.map.cells);
-  return true;
-}
-
 function canLynxChipEnterAfterPushingBlock(
   state: EngineState,
   targetPos: number,
@@ -1607,15 +1597,23 @@ function canLynxChipEnterAfterPushingBlock(
   targetEntryProbe: ReturnType<typeof probeLynxChipTargetCellForState>,
 ): boolean {
   if (lynxChipTargetCellStopsOnPush(targetEntryProbe)) {
-    revealLynxHiddenWall(state, targetPos);
+    revealBlockedLynxChipEnterTile(state, targetPos);
     return false;
   }
 
-  if (revealLynxHiddenWall(state, targetPos)) {
+  if (revealBlockedLynxChipEnterTile(state, targetPos)) {
     return false;
   }
 
   return lynxChipTargetCellAllowsEntry(probeLynxChipTargetCellForState(state, targetPos, dir));
+}
+
+function revealBlockedLynxChipEnterTile(state: EngineState, targetPos: number): boolean {
+  if (!applyLynxBlockedChipEnterEffect(state, targetPos)) {
+    return false;
+  }
+  state.map.hash = mapHash(state.map.cells);
+  return true;
 }
 
 function applyCompletedLynxChipMove(
@@ -3271,7 +3269,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     (targetBlock
       ? pushedBlock &&
         canLynxChipEnterAfterPushingBlock(runtime.state, targetPos, startInputCode, targetEntryProbe)
-      : revealLynxHiddenWall(runtime.state, targetPos)
+      : revealBlockedLynxChipEnterTile(runtime.state, targetPos)
         ? false
         : lynxChipTargetCellAllowsEntry(targetEntryProbe));
   if (targetBlock && (pushedBlock || !canEnterTarget)) {
