@@ -1,81 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { EngineMapCell, EngineState } from "@game-core/api/model";
+import type { EngineState } from "@game-core/api/model";
+import { expectOverlayPresent } from "@game-core/impl/testOverlays";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
 import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import { projectMsInteractiveFrame } from "@ruleset-ms/impl/interactiveProjection";
-
-function createCell(pos: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
-  return {
-    position: {
-      x: pos % 32,
-      y: Math.floor(pos / 32),
-      z: 1,
-      pos,
-    },
-    top: { id: topId, state: 0 },
-    bottom: { id: bottomId, state: 0 },
-  };
-}
-
-function createEngineState(cells: EngineMapCell[]): EngineState {
-  return {
-    request: {
-      seriesFile: "test.dat",
-      levelNumber: 1,
-      ruleset: "MS",
-    },
-    status: "playing",
-    timer: {
-      tick: 0,
-      currentTime: 0,
-      timeOffset: 0,
-      secondsPlayed: 0,
-      timeLimit: 0,
-    },
-    inventory: {
-      keys: [0, 0, 0, 0],
-      boots: [0, 0, 0, 0],
-      tools: [0],
-      chipsNeeded: 0,
-    },
-    replay: {
-      cursor: 0,
-      stepping: 0,
-      moveCount: 0,
-      bestTimeTicks: 0,
-      initialRandomSlideDirection: "north",
-      randomState: {
-        main: {
-          initial: "0",
-          value: "0",
-          shared: false,
-        },
-        lynx: {
-          prng1: 0,
-          prng2: 0,
-        },
-      },
-    },
-    chip: null,
-    actors: [],
-    map: {
-      hash: "",
-      creaturesHash: "",
-      creatureCount: 0,
-      cells,
-    },
-    view: {
-      x: 0,
-      y: 0,
-    },
-    soundEffects: 0,
-    statusFlags: 0,
-    lastMove: {
-      code: 0,
-      name: "none",
-    },
-  };
-}
+import { createCell, createEngineState } from "@ruleset-ms/impl/testSupport";
 
 describe("projectMsInteractiveFrame", () => {
   it("marks held-button beartraps as visually open in the projected frame only", () => {
@@ -137,7 +66,7 @@ describe("projectMsInteractiveFrame", () => {
 
     const frame = projectMsInteractiveFrame(session, "tick");
 
-    expect(frame.tileOverlays).toContainEqual({
+    expectOverlayPresent(frame.tileOverlays, {
       z: 1,
       pos: 1,
       kind: "hidden-wall-reveal",
@@ -179,7 +108,7 @@ describe("projectMsInteractiveFrame", () => {
 
     const frame = projectMsInteractiveFrame(session, "tick");
 
-    expect(frame.tileOverlays).toContainEqual({
+    expectOverlayPresent(frame.tileOverlays, {
       z: 1,
       pos: 1,
       kind: "push-pickup-reveal",
@@ -215,7 +144,7 @@ describe("projectMsInteractiveFrame", () => {
 
     const frame = projectMsInteractiveFrame(session, "tick");
 
-    expect(frame.tileOverlays).toContainEqual({
+    expectOverlayPresent(frame.tileOverlays, {
       z: 1,
       pos: 1,
       kind: "carried-tool",

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { EngineMapCell } from "@game-core/api/model";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
+import { expectOverlayAbsent, expectOverlayPresent } from "@game-core/impl/testOverlays";
 import {
   advanceMsInteractiveSession,
   createMsInteractiveSession,
@@ -23,55 +23,7 @@ import {
   msCreatureId,
   msCreatureTile,
 } from "@ruleset-ms/api/tiles";
-
-function createEmptyCells(): EngineMapCell[] {
-  return Array.from({ length: MS_GRID_WIDTH * MS_GRID_HEIGHT }, (_, pos) => ({
-    position: {
-      x: pos % MS_GRID_WIDTH,
-      y: Math.floor(pos / MS_GRID_WIDTH),
-      pos,
-    },
-    top: { id: MS_TILE.Empty, state: 0 },
-    bottom: { id: MS_TILE.Empty, state: 0 },
-  }));
-}
-
-function createEmptyCellsAtZ(z: number): EngineMapCell[] {
-  return createEmptyCells().map((cell) => ({
-    ...cell,
-    position: {
-      ...cell.position,
-      z,
-    },
-  }));
-}
-
-function pos(x: number, y: number): number {
-  return y * MS_GRID_WIDTH + x;
-}
-
-function createLevel(overrides: Partial<MsLevel> & { cells: EngineMapCell[]; creaturePositions?: number[] }): MsLevel {
-  return {
-    number: 1,
-    timeLimitTicks: 200,
-    chipsNeeded: 0,
-    hintText: "",
-    traps: [],
-    cloners: [],
-    creaturePositions: overrides.creaturePositions ?? [],
-    statusFlags: 0,
-    ...overrides,
-  };
-}
-
-function createRequest() {
-  return {
-    seriesFile: "test-ms.dac",
-    levelNumber: 1,
-    ruleset: "MS" as const,
-    randomSeed: 123456789,
-  };
-}
+import { createEmptyCells, createEmptyCellsAtZ, createLevel, createRequest, msTileOverlays, pos } from "@ruleset-ms/impl/testSupport";
 
 const TEST_MOUSE_RANGE_MIN = -9;
 const TEST_MOUSE_RANGE = 19;
@@ -3372,19 +3324,8 @@ describe("MS engine regressions", () => {
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
 
-    const runtime = session.state.engine as typeof session.state.engine & {
-      msRuntimeState?: {
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: string;
-          ttl: number;
-        }>;
-      };
-    };
-
     expect(session.state.internal.chipPos).toBe(chipPos);
-    expect(runtime.msRuntimeState?.tileOverlays).toContainEqual({
+    expectOverlayPresent(msTileOverlays(session.state.engine), {
       z: 1,
       pos: wallPos,
       kind: "hidden-wall-reveal",
@@ -3395,22 +3336,11 @@ describe("MS engine regressions", () => {
       session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
     }
 
-    const settledRuntime = session.state.engine as typeof session.state.engine & {
-      msRuntimeState?: {
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: string;
-          ttl: number;
-        }>;
-      };
-    };
-
-    expect(
-      settledRuntime.msRuntimeState?.tileOverlays?.some(
-        (overlay) => overlay.kind === "hidden-wall-reveal" && overlay.pos === wallPos && overlay.z === 1,
-      ) ?? false,
-    ).toBe(false);
+    expectOverlayAbsent(msTileOverlays(session.state.engine), {
+      z: 1,
+      pos: wallPos,
+      kind: "hidden-wall-reveal",
+    });
   });
 
   it("shows pushed-under pickups beneath Chip for two extra ticks in MS mode", () => {
@@ -3431,21 +3361,9 @@ describe("MS engine regressions", () => {
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
 
-    const runtime = session.state.engine as typeof session.state.engine & {
-      msRuntimeState?: {
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: string;
-          ttl: number;
-          tileId?: number;
-        }>;
-      };
-    };
-
     expect(session.state.internal.chipPos).toBe(blockPos);
     expect(session.state.engine.inventory.keys[2]).toBe(1);
-    expect(runtime.msRuntimeState?.tileOverlays).toContainEqual({
+    expectOverlayPresent(msTileOverlays(session.state.engine), {
       z: 1,
       pos: blockPos,
       kind: "push-pickup-reveal",
@@ -3456,19 +3374,7 @@ describe("MS engine regressions", () => {
     session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
     session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
 
-    const lingerRuntime = session.state.engine as typeof session.state.engine & {
-      msRuntimeState?: {
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: string;
-          ttl: number;
-          tileId?: number;
-        }>;
-      };
-    };
-
-    expect(lingerRuntime.msRuntimeState?.tileOverlays).toContainEqual({
+    expectOverlayPresent(msTileOverlays(session.state.engine), {
       z: 1,
       pos: blockPos,
       kind: "push-pickup-reveal",
@@ -3478,23 +3384,11 @@ describe("MS engine regressions", () => {
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
 
-    const settledRuntime = session.state.engine as typeof session.state.engine & {
-      msRuntimeState?: {
-        tileOverlays?: Array<{
-          z: number;
-          pos: number;
-          kind: string;
-          ttl: number;
-          tileId?: number;
-        }>;
-      };
-    };
-
-    expect(
-      settledRuntime.msRuntimeState?.tileOverlays?.some(
-        (overlay) => overlay.kind === "push-pickup-reveal" && overlay.pos === blockPos && overlay.z === 1,
-      ) ?? false,
-    ).toBe(false);
+    expectOverlayAbsent(msTileOverlays(session.state.engine), {
+      z: 1,
+      pos: blockPos,
+      kind: "push-pickup-reveal",
+    });
   });
 
   it("allows a perpendicular manual move after a blocked slide push on the same even tick", () => {

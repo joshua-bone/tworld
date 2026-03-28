@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
+import { expectOverlayAbsent, expectOverlayPresent } from "@game-core/impl/testOverlays";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   advanceLynxInteractiveSession,
@@ -11,161 +12,21 @@ import {
   runLynxReplayTrace,
   runLynxReplayTraceDebug,
 } from "@ruleset-lynx/impl/engine";
-import type { LynxLevel } from "@ruleset-lynx/api/level";
-import type { EngineMapCell, EngineState } from "@game-core/api/model";
-
-function createCell(pos: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
-  return {
-    position: { x: pos % 32, y: Math.floor(pos / 32), pos },
-    top: { id: topId, state: 0 },
-    bottom: { id: bottomId, state: 0 },
-  };
-}
-
-function createCellAtZ(pos: number, z: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
-  return {
-    position: { x: pos % 32, y: Math.floor(pos / 32), z, pos },
-    top: { id: topId, state: 0 },
-    bottom: { id: bottomId, state: 0 },
-  };
-}
-
-function createBoardAtZ(z: number): EngineMapCell[] {
-  return Array.from({ length: 32 * 32 }, (_, pos) => createCellAtZ(pos, z, MS_TILE.Empty));
-}
-
-function createLevel(
-  cells: EngineMapCell[],
-  creaturePositions?: number[],
-  overrides: Partial<Pick<LynxLevel, "traps" | "cloners">> = {},
-): LynxLevel {
-  const board = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
-  for (const cell of cells) {
-    board[cell.position.pos] = cell;
-  }
-
-  return {
-    number: 1,
-    timeLimitTicks: 4000,
-    chipsNeeded: 0,
-    hintText: "",
-    cells: board,
-    traps: overrides.traps?.map((connection) => ({ ...connection })) ?? [],
-    cloners: overrides.cloners?.map((connection) => ({ ...connection })) ?? [],
-    creaturePositions:
-      creaturePositions ??
-      cells.filter((cell) => cell.top.id !== MS_TILE.Empty || cell.bottom.id !== MS_TILE.Empty).map((cell) => cell.position.pos),
-    statusFlags: 0,
-  };
-}
-
-function createTwoLayerLevel(
-  lowerCells: EngineMapCell[],
-  upperCells: EngineMapCell[],
-  options: {
-    lowerCreaturePositions?: number[];
-    upperCreaturePositions?: number[];
-    lowerTraps?: LynxLevel["traps"];
-    upperTraps?: LynxLevel["traps"];
-    lowerCloners?: LynxLevel["cloners"];
-    upperCloners?: LynxLevel["cloners"];
-  } = {},
-): LynxLevel {
-  return {
-    ...createLevel([]),
-    cells: lowerCells,
-    layers: [
-      {
-        z: 1,
-        cells: lowerCells,
-        traps: options.lowerTraps?.map((connection) => ({ ...connection })) ?? [],
-        cloners: options.lowerCloners?.map((connection) => ({ ...connection })) ?? [],
-        creaturePositions: options.lowerCreaturePositions ?? [],
-        hintText: "",
-      },
-      {
-        z: 2,
-        cells: upperCells,
-        traps: options.upperTraps?.map((connection) => ({ ...connection })) ?? [],
-        cloners: options.upperCloners?.map((connection) => ({ ...connection })) ?? [],
-        creaturePositions: options.upperCreaturePositions ?? [],
-        hintText: "",
-      },
-    ],
-  };
-}
-
-function createRequest() {
-  return { seriesFile: "intro-lynx.dac", levelNumber: 1, ruleset: "Lynx" as const };
-}
-
-function advanceLynxTicks(
-  session: ReturnType<typeof createLynxInteractiveSession>,
-  ticks: number,
-  firstInputCode = 0,
-) {
-  let current = session;
-  for (let tick = 0; tick < ticks; tick += 1) {
-    current = advanceLynxInteractiveSession(current, tick === 0 ? firstInputCode : 0);
-  }
-  return current;
-}
-
-function lynxPortableItems(state: EngineState): Array<{
-  serial: number;
-  tileId: number;
-  state:
-    | { mode: "map"; pos: number; z: number }
-    | { mode: "carried" }
-    | { mode: "primed"; pos: number; z: number };
-}> {
-  return (
-    (
-      state as EngineState & {
-        lynxRuntimeState?: {
-          portableTools?: {
-            portableItems?: Array<{
-              serial: number;
-              tileId: number;
-              state:
-                | { mode: "map"; pos: number; z: number }
-                | { mode: "carried" }
-                | { mode: "primed"; pos: number; z: number };
-            }>;
-          };
-        };
-      }
-    ).lynxRuntimeState?.portableTools?.portableItems ?? []
-  );
-}
-
-function lynxRuntimeStateForTest(state: EngineState): {
-  portableTools: {
-    portableItems: Array<{
-      serial: number;
-      tileId: number;
-      inventorySlot: "tools";
-      state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
-    }>;
-    nextPortableItemSerial: number;
-  };
-} {
-  return (
-    state as EngineState & {
-      lynxRuntimeState: {
-        portableTools: {
-          portableItems: Array<{
-            serial: number;
-            tileId: number;
-            inventorySlot: "tools";
-            state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
-          }>;
-          nextPortableItemSerial: number;
-        };
-      };
-    }
-  ).lynxRuntimeState;
-}
+import {
+  advanceLynxTicks,
+  createBoardAtZ,
+  createCell,
+  createCellAtZ,
+  createLevel,
+  createRequest,
+  createTwoLayerLevel,
+  lynxAnimations,
+  lynxChipTeleported,
+  lynxPortableItems,
+  lynxRuntimeStateForTest,
+  lynxTileOverlays,
+  pos,
+} from "@ruleset-lynx/impl/testSupport";
 
 describe("initializeLynxEngineState", () => {
   it("preserves cloned runtime map layers during initialization", () => {
@@ -339,7 +200,7 @@ describe("initializeLynxEngineState", () => {
     );
 
     expect(state.map.cells[33]).toEqual({
-      position: { x: 1, y: 1, pos: 33 },
+      position: { x: 1, y: 1, z: 1, pos: 33 },
       top: { id: MS_TILE.Empty, state: 0 },
       bottom: { id: MS_TILE.Empty, state: 0 },
     });
@@ -357,12 +218,12 @@ describe("initializeLynxEngineState", () => {
     );
 
     expect(state.map.cells[65]).toEqual({
-      position: { x: 1, y: 2, pos: 65 },
+      position: { x: 1, y: 2, z: 1, pos: 65 },
       top: { id: MS_TILE.Fire, state: 0x40 },
       bottom: { id: MS_TILE.Empty, state: 0 },
     });
     expect(state.map.cells[66]).toEqual({
-      position: { x: 2, y: 2, pos: 66 },
+      position: { x: 2, y: 2, z: 1, pos: 66 },
       top: { id: MS_TILE.ICChip, state: 0x40 },
       bottom: { id: MS_TILE.Empty, state: 0 },
     });
@@ -1007,12 +868,8 @@ describe("advanceLynxInteractiveSession", () => {
     );
 
     const teleported = advanceLynxTicks(session, 4, 8);
-    const runtime = teleported.state as typeof teleported.state & {
-      lynxRuntimeState?: { chipRuntime?: { chipTeleported?: boolean } };
-    };
-
     expect(teleported.chipPos).toBe(exitTeleportPos);
-    expect(runtime.lynxRuntimeState?.chipRuntime?.chipTeleported).toBe(true);
+    expect(lynxChipTeleported(teleported.state)).toBe(true);
   });
 
   it("marks Chip as pushing for the display tick when a move is blocked", () => {
@@ -1048,21 +905,8 @@ describe("advanceLynxInteractiveSession", () => {
 
     session = advanceLynxInteractiveSession(session, 8);
 
-    const runtime = session.state as typeof session.state & {
-      lynxRuntimeState?: {
-        visuals?: {
-          tileOverlays?: Array<{
-            z: number;
-            pos: number;
-            kind: string;
-            ttl: number;
-          }>;
-        };
-      };
-    };
-
     expect(session.chipPos).toBe(chipPos);
-    expect(runtime.lynxRuntimeState?.visuals?.tileOverlays).toContainEqual({
+    expectOverlayPresent(lynxTileOverlays(session.state), {
       z: 1,
       pos: wallPos,
       kind: "hidden-wall-reveal",
@@ -1073,24 +917,11 @@ describe("advanceLynxInteractiveSession", () => {
       session = advanceLynxInteractiveSession(session, 0);
     }
 
-    const settledRuntime = session.state as typeof session.state & {
-      lynxRuntimeState?: {
-        visuals?: {
-          tileOverlays?: Array<{
-            z: number;
-            pos: number;
-            kind: string;
-            ttl: number;
-          }>;
-        };
-      };
-    };
-
-    expect(
-      settledRuntime.lynxRuntimeState?.visuals?.tileOverlays?.some(
-        (overlay) => overlay.kind === "hidden-wall-reveal" && overlay.pos === wallPos && overlay.z === 1,
-      ) ?? false,
-    ).toBe(false);
+    expectOverlayAbsent(lynxTileOverlays(session.state), {
+      z: 1,
+      pos: wallPos,
+      kind: "hidden-wall-reveal",
+    });
   });
 
   it("keeps Chip's death animation on the in-progress destination tile when a death starts mid-step", () => {
@@ -1130,12 +961,8 @@ describe("advanceLynxInteractiveSession", () => {
     );
 
     const collided = advanceLynxInteractiveSession(session, 0);
-    const runtime = collided.state as typeof collided.state & {
-      lynxRuntimeState?: { visuals?: { animations: Array<{ pos: number; tileId: number }> } };
-    };
-
     expect(collided.endGameResult).toBe("failed");
-    expect(runtime.lynxRuntimeState?.visuals?.animations).toEqual(
+    expect(lynxAnimations(collided.state)).toEqual(
       expect.arrayContaining([expect.objectContaining({ pos: ballPos, tileId: 0x76 })]),
     );
   });
@@ -3015,22 +2842,9 @@ describe("runLynxInputTrace", () => {
       MS_DIRECTION.north | MS_DIRECTION.east,
     );
 
-    const runtime = session.state as typeof session.state & {
-      lynxRuntimeState?: {
-        visuals?: {
-          tileOverlays?: Array<{
-            z: number;
-            pos: number;
-            kind: string;
-            ttl: number;
-          }>;
-        };
-      };
-    };
-
     expect(session.chipPos).toBe(targetPos);
     expect(session.state.map.cells[wallPos]?.top.id).toBe(MS_TILE.BlueWall_Real);
-    expect(runtime.lynxRuntimeState?.visuals?.tileOverlays).toContainEqual({
+    expectOverlayPresent(lynxTileOverlays(session.state), {
       z: 1,
       pos: wallPos,
       kind: "blue-wall-reveal",
@@ -3054,26 +2868,13 @@ describe("runLynxInputTrace", () => {
       MS_DIRECTION.north | MS_DIRECTION.east,
     );
 
-    const runtime = session.state as typeof session.state & {
-      lynxRuntimeState?: {
-        visuals?: {
-          tileOverlays?: Array<{
-            z: number;
-            pos: number;
-            kind: string;
-            ttl: number;
-          }>;
-        };
-      };
-    };
-
     expect(session.chipPos).toBe(targetPos);
     expect(session.state.map.cells[wallPos]?.top.id).toBe(MS_TILE.BlueWall_Fake);
-    expect(
-      runtime.lynxRuntimeState?.visuals?.tileOverlays?.some(
-        (overlay) => overlay.kind === "blue-wall-reveal" && overlay.pos === wallPos && overlay.z === 1,
-      ) ?? false,
-    ).toBe(false);
+    expectOverlayAbsent(lynxTileOverlays(session.state), {
+      z: 1,
+      pos: wallPos,
+      kind: "blue-wall-reveal",
+    });
   });
 
   it("resolves a diagonal replay command to the alternate direction when the current facing is blocked", () => {

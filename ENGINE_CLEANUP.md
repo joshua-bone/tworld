@@ -390,7 +390,7 @@ Problems that still matter:
 - [x] EC13: Generalize Actor-Owned Collection And Global Progress
 - [x] EC14: Portable Item Activation Lifecycle
 - [x] EC15: Runtime State Decomposition
-- [ ] EC16: Test DSL And Builder Cleanup
+- [x] EC16: Test DSL And Builder Cleanup
 
 ### [x] EC10: Movement Probe And Arrival Split
 
@@ -536,7 +536,7 @@ Expected outcome:
 - better ownership clarity
 - easier testing of subsystems in isolation
 
-### [ ] EC16: Test DSL And Builder Cleanup
+### [x] EC16: Test DSL And Builder Cleanup
 
 Goal:
 
@@ -551,6 +551,14 @@ Expected outcome:
 
 - future cleanup PRs stay small and reviewable
 - test intent becomes easier to scan
+
+Done:
+
+- added shared board and engine-state test builders in `web/src/game-core/impl/testBoards.ts` and `web/src/game-core/impl/testEngineState.ts`
+- added shared overlay assertions in `web/src/game-core/impl/testOverlays.ts`
+- added ruleset-specific test support in `web/src/ruleset-ms/impl/testSupport.ts` and `web/src/ruleset-lynx/impl/testSupport.ts`
+- removed repeated local board, level, request, runtime, and overlay helper clusters from the MS and Lynx engine and interactive-projection tests
+- normalized the core engine characterization suites onto those helpers so future cleanup work can add focused tests without growing more inline setup boilerplate
 
 ## Feature Gating
 
