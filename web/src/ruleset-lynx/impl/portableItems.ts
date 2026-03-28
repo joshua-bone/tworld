@@ -1,22 +1,20 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import {
+  createPortableItemFamilyLifecycle,
   collectPortableItemsFromLayers,
   createPortableItem,
-  destroyPortableItem,
   findPortableItemBySerial,
   mapPortableItemForFamilyAt,
-  setPortableItemAttachedState,
-  setPortableItemCarriedState,
-  setPortableItemDetachedState,
-  setPortableItemMapState,
   type PortableItemAttachedState,
   type PortableItemBase,
   type PortableItemCarriedState,
   type PortableItemDetachedState,
   type PortableItemDropProjection,
   type PortableItemFamilyDescriptor,
+  type PortableItemFamilyLifecycle,
   type PortableItemFamilyPolicy,
   type PortableItemMapState,
+  type PortableItemSettleResult,
   type PortableItemStore,
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
@@ -128,6 +126,66 @@ function lynxPortableItemPolicyForFamily(
   return LYNX_PORTABLE_ITEM_POLICIES[family];
 }
 
+interface LynxPortableItemSettleContext {
+  state: EngineState;
+  pos: number;
+  z: number;
+  withLayer: LynxRunWithLayer;
+}
+
+function settleLynxPortableItemDrop(
+  item: LynxPortableItem,
+  context: LynxPortableItemSettleContext,
+): PortableItemSettleResult {
+  return context.withLayer(context.z, () => {
+    if (item.family === "sandbag" && replaceLynxSettledSandbagWater(context.state, context.pos)) {
+      return "destroyed" as const;
+    }
+
+    const cell = context.state.map.cells[context.pos];
+    if (!cell) {
+      return "destroyed" as const;
+    }
+
+    cell.bottom = { ...cell.top };
+    cell.top = { id: item.tileId, state: 0 };
+    return "mapped" as const;
+  });
+}
+
+const LYNX_PORTABLE_ITEM_LIFECYCLES = {
+  sandbag: createPortableItemFamilyLifecycle<
+    LynxPortableItemFamily,
+    "tools",
+    LynxPortableItemState,
+    PortableItemBase<LynxPortableItemFamily, "tools", LynxPortableItemState>,
+    LynxToolInventoryProjection,
+    LynxPortableItemSettleContext
+  >(LYNX_PORTABLE_ITEM_POLICIES.sandbag, {
+    settleDrop: settleLynxPortableItemDrop,
+  }),
+  hook: createPortableItemFamilyLifecycle<
+    LynxPortableItemFamily,
+    "tools",
+    LynxPortableItemState,
+    PortableItemBase<LynxPortableItemFamily, "tools", LynxPortableItemState>,
+    LynxToolInventoryProjection,
+    LynxPortableItemSettleContext
+  >(LYNX_PORTABLE_ITEM_POLICIES.hook, {
+    settleDrop: settleLynxPortableItemDrop,
+  }),
+} as const satisfies Record<
+  LynxPortableItemFamily,
+  PortableItemFamilyLifecycle<
+    LynxPortableItemFamily,
+    "tools",
+    LynxPortableItemState,
+    PortableItemBase<LynxPortableItemFamily, "tools", LynxPortableItemState>,
+    LynxToolInventoryProjection,
+    LynxPortableItemSettleContext
+  >
+>;
+
 function lynxPortableItemPolicyForTileId(
   tileId: number,
 ): PortableItemFamilyPolicy<
@@ -139,6 +197,48 @@ function lynxPortableItemPolicyForTileId(
 > | null {
   const family = lookupLynxPortableItemFamilyRegistrationByTileId(tileId)?.familyId;
   return family ? lynxPortableItemPolicyForFamily(family) : null;
+}
+
+function lynxPortableItemLifecycleForFamily(
+  family: LynxPortableItemFamily,
+): PortableItemFamilyLifecycle<
+  LynxPortableItemFamily,
+  "tools",
+  LynxPortableItemState,
+  PortableItemBase<LynxPortableItemFamily, "tools", LynxPortableItemState>,
+  LynxToolInventoryProjection,
+  LynxPortableItemSettleContext
+> {
+  return LYNX_PORTABLE_ITEM_LIFECYCLES[family];
+}
+
+function lynxPortableItemLifecycleForTileId(
+  tileId: number,
+): PortableItemFamilyLifecycle<
+  LynxPortableItemFamily,
+  "tools",
+  LynxPortableItemState,
+  PortableItemBase<LynxPortableItemFamily, "tools", LynxPortableItemState>,
+  LynxToolInventoryProjection,
+  LynxPortableItemSettleContext
+> | null {
+  const family = lookupLynxPortableItemFamilyRegistrationByTileId(tileId)?.familyId;
+  return family ? lynxPortableItemLifecycleForFamily(family) : null;
+}
+
+function lynxPortableItemLifecycleForSerial(
+  store: LynxPortableToolStateStore,
+  serial: number,
+): PortableItemFamilyLifecycle<
+  LynxPortableItemFamily,
+  "tools",
+  LynxPortableItemState,
+  PortableItemBase<LynxPortableItemFamily, "tools", LynxPortableItemState>,
+  LynxToolInventoryProjection,
+  LynxPortableItemSettleContext
+> | null {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  return item ? lynxPortableItemLifecycleForFamily(item.family) : null;
 }
 
 function carriedLynxPortableToolItem(store: LynxPortableToolStateStore): LynxPortableItem | undefined {
@@ -159,80 +259,6 @@ function projectLynxDrop(item: LynxPortableItem | undefined): LynxPrimedToolDrop
     pos: item.state.pos,
     z: item.state.z,
   };
-}
-
-function lynxPortableItemLocation(item: LynxPortableItem | undefined): { pos: number; z: number } | null {
-  if (!item) {
-    return null;
-  }
-
-  if (item.state.mode === "map" || item.state.mode === "primed") {
-    return {
-      pos: item.state.pos,
-      z: item.state.z,
-    };
-  }
-
-  return null;
-}
-
-function createLynxPortableCarriedItem(
-  store: LynxPortableToolStateStore,
-  policy: PortableItemFamilyPolicy<
-    LynxPortableItemFamily,
-    "tools",
-    LynxPortableItemState,
-    PortableItemBase<LynxPortableItemFamily, "tools", LynxPortableItemState>,
-    LynxToolInventoryProjection
-  >,
-  tileId: number,
-): LynxPortableItem {
-  return createPortableItem(store, (serial) =>
-    policy.createCarriedItem({
-      serial,
-      family: policy.family,
-      inventorySlot: policy.inventorySlot,
-      tileId,
-    }),
-  );
-}
-
-function createLynxPortableMapItem(
-  store: LynxPortableToolStateStore,
-  policy: PortableItemFamilyPolicy<
-    LynxPortableItemFamily,
-    "tools",
-    LynxPortableItemState,
-    PortableItemBase<LynxPortableItemFamily, "tools", LynxPortableItemState>,
-    LynxToolInventoryProjection
-  >,
-  tileId: number,
-  pos: number,
-  z: number,
-): LynxPortableItem {
-  return createPortableItem(store, (serial) =>
-    policy.createMapItem({
-      serial,
-      family: policy.family,
-      inventorySlot: policy.inventorySlot,
-      tileId,
-      pos,
-      z,
-    }),
-  );
-}
-
-function lynxPortableMapToolItemAt(
-  store: LynxPortableToolStateStore,
-  tileId: number,
-  pos: number,
-  z: number,
-): LynxPortableItem | undefined {
-  const policy = lynxPortableItemPolicyForTileId(tileId);
-  if (!policy) {
-    return undefined;
-  }
-  return mapPortableItemForFamilyAt(store, policy, tileId, pos, z);
 }
 
 export function collectLynxPortableItemsFromLayers(
@@ -275,37 +301,32 @@ export function reconcileLynxPortableToolProjection(
 
   if (projectedTileId === 0) {
     if (carried) {
-      destroyPortableItem(store, carried.serial);
+      lynxPortableItemLifecycleForFamily(carried.family).destroy(store, inventory, carried.serial);
     }
     projectLynxPortableToolState(store, inventory);
     return;
   }
 
-  const policy = lynxPortableItemPolicyForTileId(projectedTileId);
-  if (!policy) {
+  const lifecycle = lynxPortableItemLifecycleForTileId(projectedTileId);
+  if (!lifecycle) {
     if (carried) {
-      destroyPortableItem(store, carried.serial);
+      lynxPortableItemLifecycleForFamily(carried.family).destroy(store, inventory, carried.serial);
+    } else {
+      inventory.tools = [0];
     }
-    inventory.tools = [0];
     projectLynxPortableToolState(store, inventory);
     return;
   }
-
-  if (carried) {
-    carried.family = policy.family;
-    carried.inventorySlot = policy.inventorySlot;
-    carried.tileId = projectedTileId;
-  } else {
-    createLynxPortableCarriedItem(store, policy, projectedTileId);
-  }
-
+  lifecycle.reconcileProjection(store, inventory);
   projectLynxPortableToolState(store, inventory);
 }
 
 export function clearLynxToolInventory(store: LynxPortableToolStateStore, inventory: LynxToolInventoryProjection): void {
   const carried = carriedLynxPortableToolItem(store);
   if (carried) {
-    destroyPortableItem(store, carried.serial);
+    lynxPortableItemLifecycleForFamily(carried.family).clearInventory(store, inventory);
+  } else {
+    projectLynxPortableToolState(store, inventory);
   }
   projectLynxPortableToolState(store, inventory);
 }
@@ -321,10 +342,9 @@ export function primeLynxToolDrop(
     return false;
   }
 
-  const policy = lynxPortableItemPolicyForFamily(carried.family);
-  setPortableItemDetachedState(carried, policy.primedMode, pos, z);
+  const primed = lynxPortableItemLifecycleForFamily(carried.family).primeDrop(store, inventory, pos, z);
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return primed;
 }
 
 export function queueLynxToolInventoryReplacement(
@@ -334,30 +354,11 @@ export function queueLynxToolInventoryReplacement(
   pos: number,
   z: number,
 ): void {
-  const policy = lynxPortableItemPolicyForTileId(tileId);
-  if (!policy) {
+  const lifecycle = lynxPortableItemLifecycleForTileId(tileId);
+  if (!lifecycle) {
     return;
   }
-
-  let collected = lynxPortableMapToolItemAt(store, tileId, pos, z);
-  if (!collected) {
-    collected = createLynxPortableMapItem(store, policy, tileId, pos, z);
-  }
-
-  const displaced = carriedLynxPortableToolItem(store);
-  setPortableItemCarriedState(collected);
-  if (displaced && displaced.serial !== collected.serial) {
-    const displacedPolicy = lynxPortableItemPolicyForFamily(displaced.family);
-    setPortableItemDetachedState(
-      displaced,
-      displacedPolicy.displacedMode({
-        hasActivePrimedItem: primedLynxPortableToolItem(store) !== undefined,
-      }),
-      pos,
-      z,
-    );
-  }
-
+  lifecycle.queueReplacement(store, inventory, tileId, pos, z);
   projectLynxPortableToolState(store, inventory);
 }
 
@@ -367,15 +368,33 @@ export function activateLynxPortableTool(
   serial: number,
   actorSerial: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  const policy = lynxPortableItemPolicyForFamily(item.family);
-  setPortableItemAttachedState(item, policy.attachmentKind, actorSerial);
+  const lifecycle = lynxPortableItemLifecycleForSerial(store, serial);
+  const activated = lifecycle ? lifecycle.activateToActor(store, inventory, serial, actorSerial) : false;
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return activated;
+}
+
+export function attachLynxPortableToolToActor(
+  store: LynxPortableToolStateStore,
+  inventory: LynxToolInventoryProjection,
+  serial: number,
+  actorSerial: number,
+): boolean {
+  const lifecycle = lynxPortableItemLifecycleForSerial(store, serial);
+  const attached = lifecycle ? lifecycle.attachToActor(store, inventory, serial, actorSerial) : false;
+  projectLynxPortableToolState(store, inventory);
+  return attached;
+}
+
+export function carryLynxPortableTool(
+  store: LynxPortableToolStateStore,
+  inventory: LynxToolInventoryProjection,
+  serial: number,
+): boolean {
+  const lifecycle = lynxPortableItemLifecycleForSerial(store, serial);
+  const carried = lifecycle ? lifecycle.carry(store, inventory, serial) : false;
+  projectLynxPortableToolState(store, inventory);
+  return carried;
 }
 
 export function findLynxPortableToolAttachedToActor(
@@ -397,14 +416,10 @@ export function detachLynxPortableToolToMap(
   pos: number,
   z: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemMapState(item, pos, z);
+  const lifecycle = lynxPortableItemLifecycleForSerial(store, serial);
+  const detached = lifecycle ? lifecycle.detachToMap(store, inventory, serial, pos, z) : false;
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return detached;
 }
 
 export function detachLynxPortableToolToDrop(
@@ -414,14 +429,10 @@ export function detachLynxPortableToolToDrop(
   pos: number,
   z: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemDetachedState(item, "primed", pos, z);
+  const lifecycle = lynxPortableItemLifecycleForSerial(store, serial);
+  const detached = lifecycle ? lifecycle.detachToDrop(store, inventory, serial, pos, z) : false;
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return detached;
 }
 
 export function destroyLynxPortableTool(
@@ -429,14 +440,21 @@ export function destroyLynxPortableTool(
   inventory: LynxToolInventoryProjection,
   serial: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  destroyPortableItem(store, serial);
+  const lifecycle = lynxPortableItemLifecycleForSerial(store, serial);
+  const destroyed = lifecycle ? lifecycle.destroy(store, inventory, serial) : false;
   projectLynxPortableToolState(store, inventory);
-  return true;
+  return destroyed;
+}
+
+export function cloneLynxPortableTool(
+  store: LynxPortableToolStateStore,
+  inventory: LynxToolInventoryProjection,
+  serial: number,
+): LynxPortableItem | undefined {
+  const lifecycle = lynxPortableItemLifecycleForSerial(store, serial);
+  const cloned = lifecycle?.clone(store, inventory, serial) as LynxPortableItem | undefined;
+  projectLynxPortableToolState(store, inventory);
+  return cloned;
 }
 
 function replaceLynxSettledSandbagWater(state: EngineState, pos: number): boolean {
@@ -467,31 +485,14 @@ export function settleLynxPrimedToolDrop(
   withLayer: LynxRunWithLayer,
 ): void {
   const primed = primedLynxPortableToolItem(store);
-  const primedLocation = lynxPortableItemLocation(primed);
-  if (!primed || !primedLocation || primedLocation.pos !== pos || primedLocation.z !== z) {
+  if (!primed) {
     return;
   }
-
-  const outcome = withLayer(z, () => {
-    if (primed.tileId === MS_TILE.Sandbag && replaceLynxSettledSandbagWater(state, pos)) {
-      return "destroyed" as const;
-    }
-
-    const cell = state.map.cells[pos];
-    if (!cell) {
-      return "destroyed" as const;
-    }
-
-    cell.bottom = { ...cell.top };
-    cell.top = { id: primed.tileId, state: 0 };
-    return "mapped" as const;
+  lynxPortableItemLifecycleForFamily(primed.family).settleDrop(store, inventory, pos, z, {
+    state,
+    pos,
+    z,
+    withLayer,
   });
-
-  if (outcome === "destroyed") {
-    destroyPortableItem(store, primed.serial);
-  } else {
-    setPortableItemMapState(primed, pos, z);
-  }
-
   projectLynxPortableToolState(store, inventory);
 }

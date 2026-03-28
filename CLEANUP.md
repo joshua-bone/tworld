@@ -143,19 +143,19 @@ Goal:
 
 Checklist:
 
-- [ ] define typed lifecycle operations:
-- [ ] `carry`
-- [ ] `primeDrop`
-- [ ] `settleDrop`
-- [ ] `activateToActor`
-- [ ] `attachToActor`
-- [ ] `detachToMap`
-- [ ] `destroy`
-- [ ] `clone`
-- [ ] move replacement behavior and drop semantics behind that contract
-- [ ] move support-loss drop behavior behind that contract
-- [ ] make “drop consequences” shared for portable-item families instead of sandbag-shaped
-- [ ] prove the seam by migrating sandbag and hook fully onto it
+- [x] define typed lifecycle operations:
+- [x] `carry`
+- [x] `primeDrop`
+- [x] `settleDrop`
+- [x] `activateToActor`
+- [x] `attachToActor`
+- [x] `detachToMap`
+- [x] `destroy`
+- [x] `clone`
+- [x] move replacement behavior and drop semantics behind that contract
+- [x] move support-loss drop behavior behind that contract
+- [x] make “drop consequences” shared for portable-item families instead of sandbag-shaped
+- [x] prove the seam by migrating sandbag and hook fully onto it
 
 Success condition:
 

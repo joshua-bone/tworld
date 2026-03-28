@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   activatePortableItemFamily,
   carriedPortableItemForFamily,
+  createPortableItemFamilyLifecycle,
   collectPortableItemsFromLayers,
   createPortableItem,
   destroyPortableItemFamily,
@@ -241,5 +242,41 @@ describe("portableItems", () => {
       z: 2,
     });
     expect(projectPortableItemFamilyState(store, inventory, HOOK_POLICY).primedDrop).toBeNull();
+  });
+
+  it("supports lifecycle-bound carry, clone, and settle operations", () => {
+    const store = createStore();
+    const inventory: TestInventory = { tools: [0] };
+    store.portableItems.push({
+      serial: 1,
+      family: "sandbag",
+      tileId: 71,
+      inventorySlot: "tools",
+      state: { mode: "map", pos: 4, z: 1 },
+    });
+    store.nextPortableItemSerial = 2;
+
+    const lifecycle = createPortableItemFamilyLifecycle(SANDBAG_POLICY, {
+      settleDrop: (_item, context: { destroy: boolean }) => (context.destroy ? "destroyed" : "mapped"),
+    });
+
+    expect(lifecycle.carry(store, inventory, 1)).toBe(true);
+    expect(inventory.tools).toEqual([71]);
+    expect(lifecycle.attachToActor(store, inventory, 1, 41)).toBe(true);
+
+    const cloned = lifecycle.clone(store, inventory, 1);
+    expect(cloned).toMatchObject({
+      serial: 2,
+      family: "sandbag",
+      state: { mode: "attached", attachmentKind: "actor", attachmentId: 41 },
+    });
+
+    expect(lifecycle.detachToDrop(store, inventory, 1, 12, 2)).toBe(true);
+    lifecycle.settleDrop(store, inventory, 12, 2, { destroy: false });
+    expect(findPortableItemBySerial(store.portableItems, 1)?.state).toEqual({ mode: "map", pos: 12, z: 2 });
+
+    expect(lifecycle.detachToDrop(store, inventory, 1, 13, 2)).toBe(true);
+    lifecycle.settleDrop(store, inventory, 13, 2, { destroy: true });
+    expect(findPortableItemBySerial(store.portableItems, 1)).toBeUndefined();
   });
 });

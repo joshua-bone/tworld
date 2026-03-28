@@ -1,23 +1,21 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import { bottomTile, pushBoardTile, replaceTopTile, topTile } from "@game-core/impl/board";
 import {
+  createPortableItemFamilyLifecycle,
   collectPortableItemsFromLayers,
   createPortableItem,
-  destroyPortableItem,
   findPortableItemBySerial,
   mapPortableItemForFamilyAt,
-  setPortableItemAttachedState,
-  setPortableItemCarriedState,
-  setPortableItemDetachedState,
-  setPortableItemMapState,
   type PortableItemAttachedState,
   type PortableItemBase,
   type PortableItemCarriedState,
   type PortableItemDetachedState,
   type PortableItemDropProjection,
   type PortableItemFamilyDescriptor,
+  type PortableItemFamilyLifecycle,
   type PortableItemFamilyPolicy,
   type PortableItemMapState,
+  type PortableItemSettleResult,
   type PortableItemStore,
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
@@ -130,6 +128,53 @@ function msPortableItemPolicyForFamily(
   return MS_PORTABLE_ITEM_POLICIES[family];
 }
 
+interface MsPortableItemSettleContext {
+  cells: EngineMapCell[];
+  pos: number;
+}
+
+function settleMsPortableItemDrop(item: MsPortableItem, context: MsPortableItemSettleContext): PortableItemSettleResult {
+  if (item.family === "sandbag" && replaceMsSettledSandbagWater(context.cells, context.pos)) {
+    return "destroyed";
+  }
+
+  pushBoardTile(context.cells, context.pos, { id: item.tileId, state: 0 });
+  return "mapped";
+}
+
+const MS_PORTABLE_ITEM_LIFECYCLES = {
+  sandbag: createPortableItemFamilyLifecycle<
+    MsPortableItemFamily,
+    "tools",
+    MsPortableItemState,
+    PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
+    MsToolInventoryProjection,
+    MsPortableItemSettleContext
+  >(MS_PORTABLE_ITEM_POLICIES.sandbag, {
+    settleDrop: settleMsPortableItemDrop,
+  }),
+  hook: createPortableItemFamilyLifecycle<
+    MsPortableItemFamily,
+    "tools",
+    MsPortableItemState,
+    PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
+    MsToolInventoryProjection,
+    MsPortableItemSettleContext
+  >(MS_PORTABLE_ITEM_POLICIES.hook, {
+    settleDrop: settleMsPortableItemDrop,
+  }),
+} as const satisfies Record<
+  MsPortableItemFamily,
+  PortableItemFamilyLifecycle<
+    MsPortableItemFamily,
+    "tools",
+    MsPortableItemState,
+    PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
+    MsToolInventoryProjection,
+    MsPortableItemSettleContext
+  >
+>;
+
 function msPortableItemPolicyForTileId(
   tileId: number,
 ): PortableItemFamilyPolicy<
@@ -141,6 +186,48 @@ function msPortableItemPolicyForTileId(
 > | null {
   const family = lookupMsPortableItemFamilyRegistrationByTileId(tileId)?.familyId;
   return family ? msPortableItemPolicyForFamily(family) : null;
+}
+
+function msPortableItemLifecycleForFamily(
+  family: MsPortableItemFamily,
+): PortableItemFamilyLifecycle<
+  MsPortableItemFamily,
+  "tools",
+  MsPortableItemState,
+  PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
+  MsToolInventoryProjection,
+  MsPortableItemSettleContext
+> {
+  return MS_PORTABLE_ITEM_LIFECYCLES[family];
+}
+
+function msPortableItemLifecycleForTileId(
+  tileId: number,
+): PortableItemFamilyLifecycle<
+  MsPortableItemFamily,
+  "tools",
+  MsPortableItemState,
+  PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
+  MsToolInventoryProjection,
+  MsPortableItemSettleContext
+> | null {
+  const family = lookupMsPortableItemFamilyRegistrationByTileId(tileId)?.familyId;
+  return family ? msPortableItemLifecycleForFamily(family) : null;
+}
+
+function msPortableItemLifecycleForSerial(
+  store: MsPortableToolStateStore,
+  serial: number,
+): PortableItemFamilyLifecycle<
+  MsPortableItemFamily,
+  "tools",
+  MsPortableItemState,
+  PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
+  MsToolInventoryProjection,
+  MsPortableItemSettleContext
+> | null {
+  const item = findPortableItemBySerial(store.portableItems, serial);
+  return item ? msPortableItemLifecycleForFamily(item.family) : null;
 }
 
 function carriedMsPortableToolItem(store: MsPortableToolStateStore): MsPortableItem | undefined {
@@ -165,80 +252,6 @@ function projectMsDrop(item: MsPortableItem | undefined, mode: "primed" | "pendi
     pos: item.state.pos,
     z: item.state.z,
   };
-}
-
-function msPortableItemLocation(item: MsPortableItem | undefined): { pos: number; z: number } | null {
-  if (!item) {
-    return null;
-  }
-
-  if (item.state.mode === "map" || item.state.mode === "primed" || item.state.mode === "pending-primed") {
-    return {
-      pos: item.state.pos,
-      z: item.state.z,
-    };
-  }
-
-  return null;
-}
-
-function createMsPortableCarriedItem(
-  store: MsPortableToolStateStore,
-  policy: PortableItemFamilyPolicy<
-    MsPortableItemFamily,
-    "tools",
-    MsPortableItemState,
-    PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
-    MsToolInventoryProjection
-  >,
-  tileId: number,
-): MsPortableItem {
-  return createPortableItem(store, (serial) =>
-    policy.createCarriedItem({
-      serial,
-      family: policy.family,
-      inventorySlot: policy.inventorySlot,
-      tileId,
-    }),
-  );
-}
-
-function createMsPortableMapItem(
-  store: MsPortableToolStateStore,
-  policy: PortableItemFamilyPolicy<
-    MsPortableItemFamily,
-    "tools",
-    MsPortableItemState,
-    PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
-    MsToolInventoryProjection
-  >,
-  tileId: number,
-  pos: number,
-  z: number,
-): MsPortableItem {
-  return createPortableItem(store, (serial) =>
-    policy.createMapItem({
-      serial,
-      family: policy.family,
-      inventorySlot: policy.inventorySlot,
-      tileId,
-      pos,
-      z,
-    }),
-  );
-}
-
-function msPortableMapToolItemAt(
-  store: MsPortableToolStateStore,
-  tileId: number,
-  pos: number,
-  z: number,
-): MsPortableItem | undefined {
-  const policy = msPortableItemPolicyForTileId(tileId);
-  if (!policy) {
-    return undefined;
-  }
-  return mapPortableItemForFamilyAt(store, policy, tileId, pos, z);
 }
 
 export function collectMsPortableItemsFromLayers(
@@ -276,37 +289,33 @@ export function reconcileMsPortableToolProjection(store: MsPortableToolStateStor
 
   if (projectedTileId === 0) {
     if (carried) {
-      destroyPortableItem(store, carried.serial);
+      msPortableItemLifecycleForFamily(carried.family).destroy(store, inventory, carried.serial);
     }
     projectMsPortableToolState(store, inventory);
     return;
   }
 
-  const policy = msPortableItemPolicyForTileId(projectedTileId);
-  if (!policy) {
+  const lifecycle = msPortableItemLifecycleForTileId(projectedTileId);
+  if (!lifecycle) {
     if (carried) {
-      destroyPortableItem(store, carried.serial);
+      msPortableItemLifecycleForFamily(carried.family).destroy(store, inventory, carried.serial);
+    } else {
+      inventory.tools = [0];
     }
-    inventory.tools = [0];
     projectMsPortableToolState(store, inventory);
     return;
   }
 
-  if (carried) {
-    carried.family = policy.family;
-    carried.inventorySlot = policy.inventorySlot;
-    carried.tileId = projectedTileId;
-  } else {
-    createMsPortableCarriedItem(store, policy, projectedTileId);
-  }
-
+  lifecycle.reconcileProjection(store, inventory);
   projectMsPortableToolState(store, inventory);
 }
 
 export function clearMsToolInventory(store: MsPortableToolStateStore, inventory: MsToolInventoryProjection): void {
   const carried = carriedMsPortableToolItem(store);
   if (carried) {
-    destroyPortableItem(store, carried.serial);
+    msPortableItemLifecycleForFamily(carried.family).clearInventory(store, inventory);
+  } else {
+    projectMsPortableToolState(store, inventory);
   }
   projectMsPortableToolState(store, inventory);
 }
@@ -322,10 +331,9 @@ export function primeMsToolDrop(
     return false;
   }
 
-  const policy = msPortableItemPolicyForFamily(carried.family);
-  setPortableItemDetachedState(carried, policy.primedMode, pos, z);
+  const primed = msPortableItemLifecycleForFamily(carried.family).primeDrop(store, inventory, pos, z);
   projectMsPortableToolState(store, inventory);
-  return true;
+  return primed;
 }
 
 export function queueMsToolInventoryReplacement(
@@ -335,31 +343,11 @@ export function queueMsToolInventoryReplacement(
   pos: number,
   z: number,
 ): void {
-  const policy = msPortableItemPolicyForTileId(tileId);
-  if (!policy) {
+  const lifecycle = msPortableItemLifecycleForTileId(tileId);
+  if (!lifecycle) {
     return;
   }
-
-  let collected = msPortableMapToolItemAt(store, tileId, pos, z);
-  if (!collected) {
-    collected = createMsPortableMapItem(store, policy, tileId, pos, z);
-  }
-
-  const displaced = carriedMsPortableToolItem(store);
-  setPortableItemCarriedState(collected);
-
-  if (displaced && displaced.serial !== collected.serial) {
-    const displacedPolicy = msPortableItemPolicyForFamily(displaced.family);
-    setPortableItemDetachedState(
-      displaced,
-      displacedPolicy.displacedMode({
-        hasActivePrimedItem: primedMsPortableToolItem(store) !== undefined,
-      }),
-      pos,
-      z,
-    );
-  }
-
+  lifecycle.queueReplacement(store, inventory, tileId, pos, z);
   projectMsPortableToolState(store, inventory);
 }
 
@@ -369,15 +357,33 @@ export function activateMsPortableTool(
   serial: number,
   actorSerial: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  const policy = msPortableItemPolicyForFamily(item.family);
-  setPortableItemAttachedState(item, policy.attachmentKind, actorSerial);
+  const lifecycle = msPortableItemLifecycleForSerial(store, serial);
+  const activated = lifecycle ? lifecycle.activateToActor(store, inventory, serial, actorSerial) : false;
   projectMsPortableToolState(store, inventory);
-  return true;
+  return activated;
+}
+
+export function attachMsPortableToolToActor(
+  store: MsPortableToolStateStore,
+  inventory: MsToolInventoryProjection,
+  serial: number,
+  actorSerial: number,
+): boolean {
+  const lifecycle = msPortableItemLifecycleForSerial(store, serial);
+  const attached = lifecycle ? lifecycle.attachToActor(store, inventory, serial, actorSerial) : false;
+  projectMsPortableToolState(store, inventory);
+  return attached;
+}
+
+export function carryMsPortableTool(
+  store: MsPortableToolStateStore,
+  inventory: MsToolInventoryProjection,
+  serial: number,
+): boolean {
+  const lifecycle = msPortableItemLifecycleForSerial(store, serial);
+  const carried = lifecycle ? lifecycle.carry(store, inventory, serial) : false;
+  projectMsPortableToolState(store, inventory);
+  return carried;
 }
 
 export function findMsPortableToolAttachedToActor(
@@ -399,14 +405,10 @@ export function detachMsPortableToolToMap(
   pos: number,
   z: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemMapState(item, pos, z);
+  const lifecycle = msPortableItemLifecycleForSerial(store, serial);
+  const detached = lifecycle ? lifecycle.detachToMap(store, inventory, serial, pos, z) : false;
   projectMsPortableToolState(store, inventory);
-  return true;
+  return detached;
 }
 
 export function detachMsPortableToolToDrop(
@@ -417,14 +419,10 @@ export function detachMsPortableToolToDrop(
   z: number,
   mode: "primed" | "pending-primed" = "primed",
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  setPortableItemDetachedState(item, mode, pos, z);
+  const lifecycle = msPortableItemLifecycleForSerial(store, serial);
+  const detached = lifecycle ? lifecycle.detachToDrop(store, inventory, serial, pos, z, mode) : false;
   projectMsPortableToolState(store, inventory);
-  return true;
+  return detached;
 }
 
 export function destroyMsPortableTool(
@@ -432,14 +430,21 @@ export function destroyMsPortableTool(
   inventory: MsToolInventoryProjection,
   serial: number,
 ): boolean {
-  const item = findPortableItemBySerial(store.portableItems, serial);
-  if (!item) {
-    return false;
-  }
-
-  destroyPortableItem(store, serial);
+  const lifecycle = msPortableItemLifecycleForSerial(store, serial);
+  const destroyed = lifecycle ? lifecycle.destroy(store, inventory, serial) : false;
   projectMsPortableToolState(store, inventory);
-  return true;
+  return destroyed;
+}
+
+export function cloneMsPortableTool(
+  store: MsPortableToolStateStore,
+  inventory: MsToolInventoryProjection,
+  serial: number,
+): MsPortableItem | undefined {
+  const lifecycle = msPortableItemLifecycleForSerial(store, serial);
+  const cloned = lifecycle?.clone(store, inventory, serial) as MsPortableItem | undefined;
+  projectMsPortableToolState(store, inventory);
+  return cloned;
 }
 
 function msFloorAt(cells: EngineMapCell[], pos: number): number {
@@ -481,30 +486,9 @@ export function settleMsPrimedToolDrop(
   z: number,
 ): void {
   const primed = primedMsPortableToolItem(store);
-  const primedLocation = msPortableItemLocation(primed);
-  if (!primed || !primedLocation || primedLocation.pos !== pos || primedLocation.z !== z) {
+  if (!primed) {
     return;
   }
-
-  const destroyed = primed.tileId === MS_TILE.Sandbag && replaceMsSettledSandbagWater(cells, pos);
-  if (destroyed) {
-    destroyPortableItem(store, primed.serial);
-  } else {
-    pushBoardTile(cells, pos, { id: primed.tileId, state: 0 });
-    setPortableItemMapState(primed, pos, z);
-  }
-
-  const pending = pendingPrimedMsPortableToolItem(store);
-  const pendingLocation = msPortableItemLocation(pending);
-  if (pending) {
-    const pendingPolicy = msPortableItemPolicyForFamily(pending.family);
-    setPortableItemDetachedState(
-      pending,
-      pendingPolicy.primedMode,
-      pendingLocation?.pos ?? pos,
-      pendingLocation?.z ?? z,
-    );
-  }
-
+  msPortableItemLifecycleForFamily(primed.family).settleDrop(store, inventory, pos, z, { cells, pos });
   projectMsPortableToolState(store, inventory);
 }

@@ -3,6 +3,8 @@ import { characterizePortableItemArchetypes } from "@game-core/impl/statefulElem
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   activateLynxPortableTool,
+  carryLynxPortableTool,
+  cloneLynxPortableTool,
   destroyLynxPortableTool,
   detachLynxPortableToolToDrop,
   detachLynxPortableToolToMap,
@@ -128,6 +130,23 @@ describe("lynx portableItems lifecycle", () => {
       tileId: MS_TILE.Hook,
       pos: 9,
       z: 2,
+    });
+  });
+
+  it("can carry a mapped portable item and clone an attached one", () => {
+    const store = createStore();
+    const inventory: LynxToolInventoryProjection = { tools: [0] };
+    store.portableItems[0]!.state = { mode: "map", pos: 11, z: 2 };
+
+    expect(carryLynxPortableTool(store, inventory, 1)).toBe(true);
+    expect(inventory.tools).toEqual([MS_TILE.Sandbag]);
+
+    expect(activateLynxPortableTool(store, inventory, 1, 41)).toBe(true);
+    const cloned = cloneLynxPortableTool(store, inventory, 1);
+    expect(cloned).toMatchObject({
+      serial: 2,
+      family: "sandbag",
+      state: { mode: "attached", attachmentKind: "actor", attachmentId: 41 },
     });
   });
 });
