@@ -146,6 +146,7 @@ const MS_BUILTIN_DAT_TILE_IDS = [
   msCreatureTile(MS_TILE.Chip, 4),
   msCreatureTile(MS_TILE.Chip, 8),
   MS_TILE.Sandbag,
+  MS_TILE.BowlingBall_Still,
 ] as const;
 
 function remapBuiltinMsTile(tileId: number, context: MsLevelDecodeContext): number {

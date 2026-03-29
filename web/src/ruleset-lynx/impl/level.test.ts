@@ -185,6 +185,17 @@ describe("lynx level preparation", () => {
     expect(decoded.cells[0]?.top.id).toBe(MS_TILE.Fire);
   });
 
+  it("decodes built-in DAT file code 0x71 as a still bowling ball in loaded Lynx levels", () => {
+    const levelData = createSingleTopTileLevelData(0x71, 11);
+    const decoded = decodeLoadedLynxLevelData({
+      levelData,
+      layerData: [levelData],
+    });
+
+    expect(decoded.cells[0]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+    expect(decoded.badTiles).toBe(false);
+  });
+
   it("prepares loaded Lynx levels through the ruleset-local load registration seam", () => {
     const levelData = createSingleTopTileLevelData(51, 11);
     const prepared = prepareLoadedLynxLevel({

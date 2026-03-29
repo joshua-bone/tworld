@@ -95,6 +95,13 @@ describe("ms level preparation", () => {
     expect(decoded.cells[0]?.top.id).toBe(MS_TILE.Fire);
   });
 
+  it("decodes built-in DAT file code 0x71 as a still bowling ball", () => {
+    const decoded = decodeMsLevelData(createSingleTopTileLevelData(0x71, 7));
+
+    expect(decoded.cells[0]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+    expect(decoded.badTiles).toBe(false);
+  });
+
   it("prepares loaded MS levels through the ruleset-local load registration seam", () => {
     const levelData = createSingleTopTileLevelData(1, 7);
     const prepared = prepareLoadedMsLevel(

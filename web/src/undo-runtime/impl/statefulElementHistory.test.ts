@@ -117,6 +117,111 @@ describe("stateful element undo/projection characterization", () => {
     });
   }
 
+  it("restores a thrown MS bowling ball through undo with runtime inventory and moving projection intact", () => {
+    const cells = createMsEmptyCells();
+    const chipPos = msPos(8, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createMsRequest(),
+      createMsLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+    reconcileMsPortableToolProjection(session.state.internal.portableTools, session.state.engine.inventory);
+    const carried = session.state.internal.portableTools.portableItems.find(
+      (item) => item.state.mode === "carried" && item.family === "bowling-ball",
+    );
+    const bowlingBallState = carried?.bowlingBallState;
+    const localInventory = bowlingBallState?.localInventory;
+    if (!bowlingBallState || !localInventory) {
+      throw new Error("expected carried bowling ball");
+    }
+    localInventory.keys = [1, 0, 0, 0];
+    localInventory.boots = [0, 1, 0, 0];
+
+    let history = createMsUndoHistory(session, 2);
+    const throwInput = encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1);
+    session = advanceMsInteractiveSession(session, throwInput);
+    history = recordMsUndoTick(history, session, throwInput);
+
+    const restored = restoreMsUndoHistoryToTick(history, 0);
+    const bowlingBall = restored.session.state.internal.creatures.find(
+      (creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden,
+    );
+
+    expect(restored.replayedEventCount).toBeGreaterThan(0);
+    expect(restored.session.state.engine.inventory.tools).toEqual([0]);
+    expect(findStatefulActorRuntime(msStatefulActorsForTest(restored.session.state), bowlingBall!.serial)).toMatchObject({
+      actorSerial: bowlingBall!.serial,
+      kind: "bowling-ball",
+      state: {
+        mode: "moving",
+        localInventory: {
+          keys: [1, 0, 0, 0],
+          boots: [0, 1, 0, 0],
+        },
+      },
+    });
+
+    const frame = projectMsInteractiveFrame(restored.session, "tick");
+    expect(frame.render?.actors.find((actor) => actor.serial === bowlingBall!.serial)?.visual).toMatchObject({
+      tileId: MS_TILE.BowlingBall,
+      artworkSpriteId: "bowling_ball_moving",
+    });
+  });
+
+  it("restores a thrown Lynx bowling ball through undo with runtime inventory and moving projection intact", () => {
+    const chipPos = 33;
+    let session = createLynxInteractiveSession(
+      createLynxRequest(),
+      createLynxLevel([createLynxCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east))], [chipPos]),
+    );
+    session.state.inventory.tools = [MS_TILE.BowlingBall_Still];
+    const portableTools = lynxRuntimeStateForTest(session.state).portableTools as LynxPortableToolStateStore;
+    reconcileLynxPortableToolProjection(portableTools, session.state.inventory);
+    const carried = lynxPortableItems(session.state).find(
+      (item) => item.state.mode === "carried" && item.family === "bowling-ball",
+    );
+    const bowlingBallState = carried?.bowlingBallState;
+    const localInventory = bowlingBallState?.localInventory;
+    if (!bowlingBallState || !localInventory) {
+      throw new Error("expected carried bowling ball");
+    }
+    localInventory.keys = [1, 0, 0, 0];
+    localInventory.boots = [0, 1, 0, 0];
+
+    let history = createLynxUndoHistory(session, 2);
+    const throwInput = encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1);
+    session = advanceLynxInteractiveSession(session, throwInput);
+    history = recordLynxUndoTick(history, session, throwInput);
+
+    const restored = restoreLynxUndoHistoryToTick(history, 0);
+    const bowlingBall = restored.session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+
+    expect(restored.replayedEventCount).toBeGreaterThan(0);
+    expect(restored.session.state.inventory.tools).toEqual([0]);
+    expect(findStatefulActorRuntime(lynxRuntimeStateForTest(restored.session.state).statefulActors, bowlingBall!.serial)).toMatchObject({
+      actorSerial: bowlingBall!.serial,
+      kind: "bowling-ball",
+      state: {
+        mode: "moving",
+        localInventory: {
+          keys: [1, 0, 0, 0],
+          boots: [0, 1, 0, 0],
+        },
+      },
+    });
+
+    const frame = projectLynxInteractiveFrame(restored.session, "tick");
+    expect(frame.render?.actors.find((actor) => actor.serial === bowlingBall!.serial)?.visual).toMatchObject({
+      tileId: MS_TILE.BowlingBall,
+      artworkSpriteId: "bowling_ball_moving",
+    });
+  });
+
   it("restores MS stateful actor runtime entries and serial-aware render actors through undo", () => {
     const cells = createMsEmptyCells();
     const chipPos = msPos(8, 10);

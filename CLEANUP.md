@@ -482,12 +482,12 @@ Goal:
 
 Checklist:
 
-- [ ] enable DAT decode `0x71 -> bowling ball`
-- [ ] enable final renderer / projection / artwork wiring
-- [ ] add undo, replay, and interactive projection coverage
-- [ ] run focused replay sweeps for both rulesets
-- [ ] run typecheck and targeted gameplay suites
-- [ ] confirm no temporary debug hooks or seam-bypass code remains
+- [x] enable DAT decode `0x71 -> bowling ball`
+- [x] enable final renderer / projection / artwork wiring
+- [x] add undo, replay, and interactive projection coverage
+- [x] run focused replay sweeps for both rulesets
+- [x] run typecheck and targeted gameplay suites
+- [x] confirm no temporary debug hooks or seam-bypass code remains
 
 Exit condition:
 

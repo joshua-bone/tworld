@@ -3946,6 +3946,49 @@ describe("MS engine regressions", () => {
     expect(debugPhase?.activeCreatures[0]?.id).toBe(MS_TILE.Chip);
   });
 
+  it("replays a bowling ball throw from an Action1-modified replay input", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const bowlingBallPos = pos(9, 10);
+    const throwPos = pos(10, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = MS_TILE.BowlingBall_Still;
+
+    let session = createMsReplaySession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+      {
+        flags: 0,
+        randomSlideDirection: MS_DIRECTION.north,
+        stepping: 0,
+        randomSeed: 123456789,
+        moves: [
+          { when: 0, dir: MS_DIRECTION.east },
+          { when: 4, dir: GAME_INPUT_CODES.none },
+        ],
+        modifierMasks: [0, GAME_INPUT_MODIFIER_MASKS.action1],
+      },
+    );
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
+    }
+
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+
+    expect(session.state.engine.inventory.tools).toEqual([0]);
+    expect(session.state.internal.chipPos).toBe(bowlingBallPos);
+    expect(bowlingBall?.pos).toBeGreaterThan(bowlingBallPos);
+    expect(bowlingBall?.dir).toBe(MS_DIRECTION.east);
+    expect(session.recordedMoves).toEqual([
+      { when: 0, dir: MS_DIRECTION.east, modifierMask: 0 },
+      { when: 4, dir: GAME_INPUT_CODES.none, modifierMask: GAME_INPUT_MODIFIER_MASKS.action1 },
+    ]);
+  });
+
   it("does not drown Chip when moving onto an empty-top water-bottom cell", () => {
     const cells = createEmptyCells();
     const startPos = pos(25, 26);

@@ -6,6 +6,7 @@ import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   advanceLynxInteractiveSession,
   createLynxInteractiveSession,
+  createLynxReplaySession,
   initializeLynxEngineState,
   LYNX_SOUND,
   runLynxInputTrace,
@@ -3023,6 +3024,45 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[0]?.replayCursor).toBe(1);
     expect(trace.steps[0]?.lastMove).toBe("east");
     expect(trace.scheduledInputs).toEqual([]);
+  });
+
+  it("replays a bowling ball throw from an Action1-modified replay input", () => {
+    const chipPos = 33;
+    const bowlingBallPos = 34;
+    const throwPos = 35;
+    let session = createLynxReplaySession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(bowlingBallPos, MS_TILE.BowlingBall_Still, MS_TILE.Empty),
+        createCell(throwPos, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+      {
+        flags: 0,
+        randomSlideDirection: MS_DIRECTION.north,
+        stepping: 0,
+        randomSeed: 362436069,
+        moves: [
+          { when: 0, dir: MS_DIRECTION.east },
+          { when: 4, dir: GAME_INPUT_CODES.none },
+        ],
+        modifierMasks: [0, GAME_INPUT_MODIFIER_MASKS.action1],
+      },
+    );
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceLynxInteractiveSession(session, GAME_INPUT_CODES.none);
+    }
+
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+
+    expect(session.state.inventory.tools).toEqual([0]);
+    expect(session.chipPos).toBe(bowlingBallPos);
+    expect(bowlingBall?.pos).toBe(throwPos);
+    expect(session.recordedMoves).toEqual([
+      { when: 0, dir: MS_DIRECTION.east, modifierMask: 0 },
+      { when: 4, dir: GAME_INPUT_CODES.none, modifierMask: GAME_INPUT_MODIFIER_MASKS.action1 },
+    ]);
   });
 
   it("keeps a dropped sandbag on the source teleport tile while Chip teleports away", () => {
