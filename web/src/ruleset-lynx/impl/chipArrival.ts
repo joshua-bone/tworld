@@ -7,7 +7,9 @@ import { promoteBottomTile, replaceTopTile } from "@game-core/impl/board";
 import { mapHash } from "@game-core/impl/hash";
 import { actorInventoryUseKey } from "@game-core/impl/actorLocalInventory";
 import {
+  completedArrival,
   noArrival,
+  resolvedArrival,
   type ArrivalResult,
 } from "@game-core/api/movementOutcomes";
 import {
@@ -74,46 +76,70 @@ export function applyLynxChipArrivalEffects(
   pos: number,
 ): ArrivalResult {
   const chipInventory = projectLynxActorInventoryOwner(MS_TILE.Chip, context.state.inventory);
-  const cell = context.state.map.cells[pos];
-  if (!cell) {
-    return noArrival();
+  let soundEffects = 0;
+  let resolved = false;
+  let completed = false;
+
+  for (let depth = 0; depth < 8; depth += 1) {
+    const cell = context.state.map.cells[pos];
+    if (!cell) {
+      break;
+    }
+
+    const enteredTileId = cell.top.id;
+    const topStateBeforeResolution = cell.top.state;
+    const floorImpactAction = lynxFloorImpactAction(lynxChipEnterAction(enteredTileId));
+    if (floorImpactAction === null) {
+      break;
+    }
+
+    const arrival = applyActorFloorImpactAction(floorImpactAction, {
+      clearFloor: () => {
+        replaceTopTile(context.state.map.cells, pos, { ...cell.top, id: MS_TILE.Empty });
+        context.state.map.hash = mapHash(context.state.map.cells);
+      },
+      consumeEnteredOverlay: () => {
+        promoteBottomTile(context.state.map.cells, pos, MS_TILE.Empty);
+        context.state.map.hash = mapHash(context.state.map.cells);
+      },
+      popupWall: () => {
+        replaceTopTile(context.state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
+        context.state.map.hash = mapHash(context.state.map.cells);
+      },
+      collectTile: () => collectLynxActorTile(MS_TILE.Chip, context.state.inventory, cell.top.id),
+      afterCollect: (resolution) => {
+        if (resolution.slot === "tools") {
+          context.queueCollectedTool(pos, enteredTileId);
+        }
+      },
+      tryOpenDoor: () => {
+        const keyIndex = lynxDoorKeyIndex(cell.top.id);
+        return keyIndex !== null && actorInventoryUseKey(chipInventory, keyIndex, { consume: keyIndex !== 3 });
+      },
+      tryOpenSocket: () => context.state.inventory.chipsNeeded === 0,
+      clearBootsAndTools: () => context.applyThiefHook(),
+      resolveButtonEffects: () => context.resolveButtonEffects(pos, cell.top.id),
+      soundEffects: context.soundBits,
+    });
+
+    soundEffects |= arrival.soundEffects;
+    resolved ||= arrival.status === "resolved";
+    completed ||= arrival.status === "completed";
+    if (
+      completed ||
+      (cell.top.id === enteredTileId && cell.top.state === topStateBeforeResolution)
+    ) {
+      break;
+    }
   }
 
-  const enteredTileId = cell.top.id;
-  const floorImpactAction = lynxFloorImpactAction(lynxChipEnterAction(cell.top.id));
-  if (floorImpactAction === null) {
-    return noArrival();
+  if (completed) {
+    return completedArrival(soundEffects);
   }
-
-  const arrival = applyActorFloorImpactAction(floorImpactAction, {
-    clearFloor: () => {
-      replaceTopTile(context.state.map.cells, pos, { ...cell.top, id: MS_TILE.Empty });
-      context.state.map.hash = mapHash(context.state.map.cells);
-    },
-    consumeEnteredOverlay: () => {
-      promoteBottomTile(context.state.map.cells, pos, MS_TILE.Empty);
-      context.state.map.hash = mapHash(context.state.map.cells);
-    },
-    popupWall: () => {
-      replaceTopTile(context.state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
-      context.state.map.hash = mapHash(context.state.map.cells);
-    },
-    collectTile: () => collectLynxActorTile(MS_TILE.Chip, context.state.inventory, cell.top.id),
-    afterCollect: (resolution) => {
-      if (resolution.slot === "tools") {
-        context.queueCollectedTool(pos, enteredTileId);
-      }
-    },
-    tryOpenDoor: () => {
-      const keyIndex = lynxDoorKeyIndex(cell.top.id);
-      return keyIndex !== null && actorInventoryUseKey(chipInventory, keyIndex, { consume: keyIndex !== 3 });
-    },
-    tryOpenSocket: () => context.state.inventory.chipsNeeded === 0,
-    clearBootsAndTools: () => context.applyThiefHook(),
-    resolveButtonEffects: () => context.resolveButtonEffects(pos, cell.top.id),
-    soundEffects: context.soundBits,
-  });
-  return arrival;
+  if (resolved) {
+    return resolvedArrival(soundEffects);
+  }
+  return noArrival(soundEffects);
 }
 
 export function applyCompletedLynxChipMove(
@@ -126,9 +152,23 @@ export function applyCompletedLynxChipMove(
   endGameAnimationTileId: number | null,
   endGameAnimationFrame: number | null,
 ): LynxEndGameState & { chipPos: number; chipDir: number } {
-  const floorAfterMove = context.state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty;
-  const postEntryAction = lynxTilePostEntryAction(floorAfterMove);
+  const arrival = applyLynxChipArrivalEffects(context, chipPos);
+  context.state.soundEffects |= arrival.soundEffects;
+  if (arrival.status === "completed" && endGameTicksElapsed === null) {
+    const endGame = context.startCompletedEndGame(
+      endGameTicksElapsed,
+      endGameResult,
+      endGameAnimationTileId,
+      endGameAnimationFrame,
+    );
+    endGameTicksElapsed = endGame.endGameTicksElapsed;
+    endGameResult = endGame.endGameResult;
+    endGameAnimationTileId = endGame.endGameAnimationTileId;
+    endGameAnimationFrame = endGame.endGameAnimationFrame;
+  }
 
+  const resolvedFloorAfterMove = context.state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty;
+  const postEntryAction = lynxTilePostEntryAction(resolvedFloorAfterMove);
   switch (postEntryAction) {
     case "destroy-water":
       if (!context.hasBoot(MS_TILE.Boots_Water)) {
@@ -181,23 +221,7 @@ export function applyCompletedLynxChipMove(
       break;
   }
 
-  const arrival = applyLynxChipArrivalEffects(context, chipPos);
-  context.state.soundEffects |= arrival.soundEffects;
-  if (arrival.status === "completed" && endGameTicksElapsed === null) {
-    const endGame = context.startCompletedEndGame(
-      endGameTicksElapsed,
-      endGameResult,
-      endGameAnimationTileId,
-      endGameAnimationFrame,
-    );
-    endGameTicksElapsed = endGame.endGameTicksElapsed;
-    endGameResult = endGame.endGameResult;
-    endGameAnimationTileId = endGame.endGameAnimationTileId;
-    endGameAnimationFrame = endGame.endGameAnimationFrame;
-  }
-
-  const resolvedFloorAfterMove = context.state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty;
-  if (lynxButtonAction(floorAfterMove) === "spring-trap") {
+  if (lynxButtonAction(resolvedFloorAfterMove) === "spring-trap") {
     context.springTrap(chipPos);
   }
   if (isLynxIce(resolvedFloorAfterMove)) {

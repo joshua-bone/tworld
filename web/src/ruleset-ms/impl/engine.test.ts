@@ -6654,6 +6654,47 @@ describe("MS engine regressions", () => {
     });
   });
 
+  it("throws a carried bowling ball through a same-colored non-green door using the bowling ball's local key inventory", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const doorPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[doorPos]!.top.id = MS_TILE.Door_Red;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    const carried = session.state.internal.portableTools.portableItems.find(
+      (item) => item.state.mode === "carried" && item.family === "bowling-ball",
+    );
+    if (!carried?.bowlingBallState?.localInventory) {
+      throw new Error("expected carried bowling ball local inventory");
+    }
+    carried.bowlingBallState.localInventory.keys[0] = 1;
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const runtimeEntry = session.state.internal.creatures.find(
+      (creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden,
+    );
+
+    expect(session.state.engine.inventory.tools).toEqual([0]);
+    expect(runtimeEntry).toMatchObject({
+      pos: doorPos,
+      dir: MS_DIRECTION.east,
+    });
+  });
+
   it("throws a carried bowling ball into an empty clone machine", () => {
     const cells = createEmptyCells();
     const chipPos = pos(8, 10);

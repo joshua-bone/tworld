@@ -280,7 +280,7 @@ export function applyLegacyTileOverrides(
 
       const emptyFloorSprite = tileset.get(MS_TILE.Empty);
       const bottomSprite =
-        baseGetCell?.(MS_TILE.Empty, bottomId, timerval) ??
+        (bottomId !== MS_TILE.Empty ? baseGetCell?.(bottomId, MS_TILE.Empty, timerval) : null) ??
         (bottomId === MS_TILE.Empty ? tileset.get(MS_TILE.Empty) : tileset.get(bottomId));
       if (emptyFloorSprite && bottomSprite?.transparent) {
         drawLegacySpriteImage(context, emptyFloorSprite, 0, 0);

@@ -48,97 +48,111 @@ export function applyMsChipEnterEffects(
   const nextCell = cells[nextPos]!;
   let floorTileBeforeMove = nextCell.top;
   let movementFloorTile = floorTileBeforeMove;
-  const floor = floorTileBeforeMove.id;
   const chipInventory = projectMsActorInventoryOwner(MS_TILE.Chip, context.inventory);
   let enteredTeleport = false;
   let soundEffects = 0;
-  const floorImpactAction = msFloorImpactAction(msChipEnterAction(floor));
-  if (floorImpactAction === "destroy-bomb") {
-    chip.chipStatus = "bombed";
-    soundEffects |= 1 << MS_SOUND.BombExplodes;
-  } else if (floorImpactAction === "destroy-water") {
-    if (!actorInventoryHasBoot(chipInventory, 3)) {
-      chip.chipStatus = "drowned";
-    }
-  } else if (floorImpactAction === "destroy-fire") {
-    if (!actorInventoryHasBoot(chipInventory, 2)) {
-      chip.chipStatus = "burned";
-    }
-  } else if (floorImpactAction !== null && actorFloorImpactTeleports(floorImpactAction)) {
-    if ((floorTileBeforeMove.state & MS_FLOOR_STATE.Broken) === 0) {
-      enteredTeleport = true;
-    }
-  } else if (floorImpactAction !== null) {
-    soundEffects |= applyActorFloorImpactAction(floorImpactAction, {
-      clearFloor: () => {
-        popBoardTile(cells, nextPos, MS_TILE.Empty);
-      },
-      popupWall: () => {
-        if (nextCell.top.id === MS_TILE.Empty) {
+  for (let depth = 0; depth < 8; depth += 1) {
+    floorTileBeforeMove = nextCell.top;
+    movementFloorTile = nextCell.top;
+    const floor = floorTileBeforeMove.id;
+    const topIdBeforeResolution = nextCell.top.id;
+    const topStateBeforeResolution = nextCell.top.state;
+    const floorImpactAction = msFloorImpactAction(msChipEnterAction(floor));
+
+    if (floorImpactAction === "destroy-bomb") {
+      chip.chipStatus = "bombed";
+      soundEffects |= 1 << MS_SOUND.BombExplodes;
+    } else if (floorImpactAction === "destroy-water") {
+      if (!actorInventoryHasBoot(chipInventory, 3)) {
+        chip.chipStatus = "drowned";
+      }
+    } else if (floorImpactAction === "destroy-fire") {
+      if (!actorInventoryHasBoot(chipInventory, 2)) {
+        chip.chipStatus = "burned";
+      }
+    } else if (floorImpactAction !== null && actorFloorImpactTeleports(floorImpactAction)) {
+      if ((floorTileBeforeMove.state & MS_FLOOR_STATE.Broken) === 0) {
+        enteredTeleport = true;
+      }
+    } else if (floorImpactAction !== null) {
+      soundEffects |= applyActorFloorImpactAction(floorImpactAction, {
+        clearFloor: () => {
           popBoardTile(cells, nextPos, MS_TILE.Empty);
-          return;
+        },
+        popupWall: () => {
+          if (nextCell.top.id === MS_TILE.Empty) {
+            popBoardTile(cells, nextPos, MS_TILE.Empty);
+            return;
+          }
+          floorTileBeforeMove.id = MS_TILE.Wall;
+        },
+        collectTile: () => collectMsActorTile(MS_TILE.Chip, context.inventory, floor),
+        afterCollect: (collected) => {
+          if (collected.slot !== "tools") {
+            return;
+          }
+          queueMsToolInventoryReplacement(
+            context.portableTools,
+            context.inventory,
+            floor,
+            nextPos,
+            context.runtimeCellZ(nextPos),
+          );
+          movementFloorTile = nextCell.top;
+        },
+        tryOpenDoor: () => {
+          const index = msDoorKeyIndex(floor);
+          return index !== null && actorInventoryUseKey(chipInventory, index, { consume: floor !== MS_TILE.Door_Green });
+        },
+        tryOpenSocket: () => true,
+        clearBootsAndTools: () => {
+          if (msActorThiefOutcome(MS_TILE.Chip) !== "steal-boots-tools") {
+            return false;
+          }
+          actorInventoryClearBoots(chipInventory);
+          clearMsToolInventory(context.portableTools, context.inventory);
+          return true;
+        },
+        soundEffects: {
+          doorOpened: 1 << MS_SOUND.DoorOpened,
+          socketOpened: 1 << MS_SOUND.SocketOpened,
+          bootsStolen: 1 << MS_SOUND.BootsStolen,
+          itemCollected: 1 << MS_SOUND.ItemCollected,
+          icCollected: 1 << MS_SOUND.IcCollected,
+          wallCreated: 0,
+        },
+      }).soundEffects;
+    } else {
+      switch (msChipEnterAction(floor)) {
+      case "collision":
+        const collisionOutcome = msActorInteractionOutcome(MS_TILE.Chip, {
+          kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+          actorId: floor,
+          tileId: floor,
+        });
+        if (collisionOutcome.chipFails) {
+          chip.chipStatus = "collided";
         }
-        floorTileBeforeMove.id = MS_TILE.Wall;
-      },
-      collectTile: () => collectMsActorTile(MS_TILE.Chip, context.inventory, floor),
-      afterCollect: (collected) => {
-        if (collected.slot !== "tools") {
-          return;
+        if (collisionOutcome.removeTargetActor) {
+          context.removeRuntimeActor(cells, nextPos);
         }
-        queueMsToolInventoryReplacement(
-          context.portableTools,
-          context.inventory,
-          floor,
-          nextPos,
-          context.runtimeCellZ(nextPos),
-        );
-        movementFloorTile = nextCell.top;
-      },
-      tryOpenDoor: () => {
-        const index = msDoorKeyIndex(floor);
-        return index !== null && actorInventoryUseKey(chipInventory, index, { consume: floor !== MS_TILE.Door_Green });
-      },
-      tryOpenSocket: () => true,
-      clearBootsAndTools: () => {
-        if (msActorThiefOutcome(MS_TILE.Chip) !== "steal-boots-tools") {
-          return false;
-        }
-        actorInventoryClearBoots(chipInventory);
-        clearMsToolInventory(context.portableTools, context.inventory);
-        return true;
-      },
-      soundEffects: {
-        doorOpened: 1 << MS_SOUND.DoorOpened,
-        socketOpened: 1 << MS_SOUND.SocketOpened,
-        bootsStolen: 1 << MS_SOUND.BootsStolen,
-        itemCollected: 1 << MS_SOUND.ItemCollected,
-        icCollected: 1 << MS_SOUND.IcCollected,
-        wallCreated: 0,
-      },
-    }).soundEffects;
-  } else {
-    switch (msChipEnterAction(floor)) {
-    case "collision":
-      const collisionOutcome = msActorInteractionOutcome(MS_TILE.Chip, {
-        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
-        actorId: floor,
-        tileId: floor,
-      });
-      if (collisionOutcome.chipFails) {
-        chip.chipStatus = "collided";
+        break;
+      case "none":
+        break;
+      case "explode-bomb":
+      case "water-death":
+      case "fire-death":
+      case "teleport":
+        break;
       }
-      if (collisionOutcome.removeTargetActor) {
-        context.removeRuntimeActor(cells, nextPos);
-        floorTileBeforeMove = nextCell.top;
-        movementFloorTile = nextCell.top;
-      }
-      break;
-    case "none":
-      break;
-    case "explode-bomb":
-    case "water-death":
-    case "fire-death":
-    case "teleport":
+    }
+
+    movementFloorTile = nextCell.top;
+    if (
+      chip.chipStatus !== "okay" ||
+      enteredTeleport ||
+      (nextCell.top.id === topIdBeforeResolution && nextCell.top.state === topStateBeforeResolution)
+    ) {
       break;
     }
   }

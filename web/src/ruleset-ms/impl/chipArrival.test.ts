@@ -9,7 +9,7 @@ import {
 } from "@ruleset-ms/impl/chipArrival";
 import type { MsPortableToolStateStore } from "@ruleset-ms/impl/portableItems";
 
-function makeCell(topId: number, bottomId = MS_TILE.Empty, topState = 0): EngineMapCell {
+function makeCell(topId: number, bottomId: number = MS_TILE.Empty, topState: number = 0): EngineMapCell {
   return {
     position: { x: 0, y: 0, z: 1, pos: 0 },
     top: { id: topId, state: topState },
@@ -134,6 +134,43 @@ describe("applyMsChipEnterEffects", () => {
     applyMsChipEnterEffects([makeCell(MS_TILE.Water)], chip, makeContext(makeInventory(), makePortableTools()), 0);
 
     expect(chip.chipStatus).toBe("drowned");
+  });
+
+  it("collects a portable item and then resolves the revealed lower water tile", () => {
+    const chip = makeChipState();
+    const cells = [makeCell(MS_TILE.BowlingBall_Still, MS_TILE.Water)];
+
+    const result = applyMsChipEnterEffects(cells, chip, makeContext(makeInventory(), makePortableTools()), 0);
+
+    expect(chip.chipStatus).toBe("drowned");
+    expect(cells[0]!.top.id).toBe(MS_TILE.Water);
+    expect(result.movementFloorTile.id).toBe(MS_TILE.Water);
+    expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
+  });
+
+  it("collects a portable item and then resolves the revealed lower dirt tile", () => {
+    const cells = [makeCell(MS_TILE.Sandbag, MS_TILE.Dirt)];
+    const inventory = makeInventory();
+    const portableTools = makePortableTools();
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, portableTools), 0);
+
+    expect(cells[0]!.top.id).toBe(MS_TILE.Empty);
+    expect(cells[0]!.bottom.id).toBe(MS_TILE.Empty);
+    expect(result.movementFloorTile.id).toBe(MS_TILE.Empty);
+    expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
+  });
+
+  it("collects a portable item and then resolves the revealed lower popup wall", () => {
+    const cells = [makeCell(MS_TILE.Hook, MS_TILE.PopupWall)];
+    const inventory = makeInventory();
+    const portableTools = makePortableTools();
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, portableTools), 0);
+
+    expect(cells[0]!.top.id).toBe(MS_TILE.Wall);
+    expect(result.movementFloorTile.id).toBe(MS_TILE.Wall);
+    expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
   });
 
   it("clears boots and tools on thief tiles", () => {

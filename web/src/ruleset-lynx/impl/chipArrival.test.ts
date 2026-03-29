@@ -104,4 +104,41 @@ describe("lynx chip arrival", () => {
     expect(queued).toEqual([{ pos: 34, tileId: MS_TILE.BowlingBall_Still }]);
     expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
   });
+
+  it("collects a portable item and then resolves the revealed lower popup wall", () => {
+    const queued: Array<{ pos: number; tileId: number }> = [];
+    const context = createContext({
+      queueCollectedTool: (pos, tileId) => {
+        queued.push({ pos, tileId });
+      },
+    });
+    context.state.map.cells[34] = createCell(34, MS_TILE.BowlingBall_Still, MS_TILE.PopupWall);
+
+    const arrival = applyLynxChipArrivalEffects(context, 34);
+
+    expect(arrival.status).toBe("resolved");
+    expect(arrival.soundEffects).toBe(40);
+    expect(queued).toEqual([{ pos: 34, tileId: MS_TILE.BowlingBall_Still }]);
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Wall);
+  });
+
+  it("drowns Chip after collecting a portable item that reveals water", () => {
+    const context = createContext();
+    context.state.map.cells[34] = createCell(34, MS_TILE.Sandbag, MS_TILE.Water);
+
+    const completed = applyCompletedLynxChipMove(context, 34, MS_DIRECTION.east, "planar", null, null, null, null);
+
+    expect(completed.chipPos).toBe(34);
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Water);
+  });
+
+  it("bombs Chip after collecting a portable item that reveals a bomb", () => {
+    const context = createContext();
+    context.state.map.cells[34] = createCell(34, MS_TILE.Hook, MS_TILE.Bomb);
+
+    const completed = applyCompletedLynxChipMove(context, 34, MS_DIRECTION.east, "planar", null, null, null, null);
+
+    expect(completed.chipPos).toBe(34);
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
+  });
 });

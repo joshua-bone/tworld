@@ -3342,6 +3342,39 @@ describe("runLynxInputTrace", () => {
     });
   });
 
+  it("throws a carried bowling ball through a same-colored non-green door using the bowling ball's local key inventory", () => {
+    const chipPos = 33;
+    const doorPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(doorPos, MS_TILE.Door_Red, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceLynxInteractiveSession(session, GAME_INPUT_CODES.none);
+    const carried = lynxPortableItems(session.state).find(
+      (item) => item.state.mode === "carried" && item.family === "bowling-ball",
+    );
+    expect(carried?.bowlingBallState?.localInventory).toBeTruthy();
+    carried!.bowlingBallState!.localInventory!.keys[0] = 1;
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const runtimeActor = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+
+    expect(session.state.inventory.tools).toEqual([0]);
+    expect(runtimeActor).toMatchObject({
+      pos: doorPos,
+      dir: MS_DIRECTION.east,
+    });
+  });
+
   it("throws a carried bowling ball into an empty clone machine", () => {
     const chipPos = 33;
     const clonerPos = 34;

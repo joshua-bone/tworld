@@ -188,4 +188,64 @@ describe("createLegacyExpansionArtworkOverrides", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("uses the bottom tile's own combined sprite path under a transparent still bowling ball", () => {
+    const fakeContext = {
+      imageSmoothingEnabled: true,
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeContext),
+    } as unknown as HTMLCanvasElement;
+    const floorSprite: LegacyTileSprite = { image: fakeCanvas, offsetX: 0, offsetY: 0, transparent: false };
+    const waterSprite: LegacyTileSprite = { image: fakeCanvas, offsetX: 0, offsetY: 0, transparent: false };
+    const bowlingBallSprite: LegacyTileSprite = { image: fakeCanvas, offsetX: 0, offsetY: 0, transparent: true };
+    const baseGetCell = vi.fn((topId: number, bottomId: number) => {
+      if (topId === MS_TILE.Empty && bottomId === MS_TILE.Water) {
+        return floorSprite;
+      }
+      if (topId === MS_TILE.Water && bottomId === MS_TILE.Empty) {
+        return waterSprite;
+      }
+      return null;
+    });
+    const baseTileset: LegacyTileset = {
+      get: (tileId) => {
+        if (tileId === MS_TILE.Empty) {
+          return floorSprite;
+        }
+        if (tileId === MS_TILE.Water) {
+          return waterSprite;
+        }
+        return null;
+      },
+      getCell: baseGetCell,
+    };
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCanvas;
+        }),
+      });
+
+      const overridden = applyLegacyTileOverrides(
+        baseTileset,
+        new Map([[MS_TILE.BowlingBall_Still, bowlingBallSprite]]),
+      );
+
+      const sprite = overridden.getCell?.(MS_TILE.BowlingBall_Still, MS_TILE.Water, 0);
+
+      expect(sprite).toMatchObject({ transparent: false });
+      expect(baseGetCell).toHaveBeenCalledWith(MS_TILE.Water, MS_TILE.Empty, 0);
+      expect(fakeContext.drawImage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
