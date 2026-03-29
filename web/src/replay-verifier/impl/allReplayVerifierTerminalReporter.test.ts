@@ -8,9 +8,14 @@ describe("allReplayVerifierTerminalReporter", () => {
 
   it("prints compact per-pack bars and only failing replay lines", () => {
     const logs: string[] = [];
+    const writes: string[] = [];
     vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
       logs.push(args.join(" "));
     });
+    vi.spyOn(process.stdout, "write").mockImplementation(((chunk: string | Uint8Array) => {
+      writes.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+      return true;
+    }) as typeof process.stdout.write);
 
     const reporter = createAllReplayVerifierTerminalReporter(false);
     reporter.onSolutionFileStart("CCLP1-MS.tws", "CCLP1.dac", "MS", 3);
@@ -23,8 +28,8 @@ describe("allReplayVerifierTerminalReporter", () => {
     reporter.onLegacyFailure("CCLP1-MS.tws:3", 3, "MS", "legacy failed at tick 17", "failed");
     reporter.onSolutionFileComplete();
 
+    expect(writes).toEqual(["CCLP1: ", "-", "X", "X", "\n"]);
     expect(logs).toEqual([
-      "CCLP1: -XX",
       "FAIL L002 CCLP1-MS.tws:2 | mapHash @ $.steps[5] | expected abc, got def",
       "FAIL L003 CCLP1-MS.tws:3 | legacy failed at tick 17",
       "",

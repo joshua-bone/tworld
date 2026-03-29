@@ -8,9 +8,14 @@ describe("rulesetReplaySweepTerminalReporter", () => {
 
   it("prints compact outcome bars and only failing replay lines per file", () => {
     const logs: string[] = [];
+    const writes: string[] = [];
     vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
       logs.push(args.join(" "));
     });
+    vi.spyOn(process.stdout, "write").mockImplementation(((chunk: string | Uint8Array) => {
+      writes.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"));
+      return true;
+    }) as typeof process.stdout.write);
 
     const reporter = createRulesetReplaySweepTerminalReporter("MS", false);
     reporter.progress.onSolutionFileStart?.({
@@ -45,8 +50,8 @@ describe("rulesetReplaySweepTerminalReporter", () => {
       failures: [],
     } as never);
 
+    expect(writes).toEqual(["CCLP1: ", "-", "X", "-", "\n"]);
     expect(logs).toEqual([
-      "CCLP1: -X-",
       "FAIL L002 CCLP1-MS.tws:2 | $.steps[3].status: expected playing, got failed",
       "",
     ]);

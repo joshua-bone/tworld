@@ -1,9 +1,5 @@
-import {
-  summarizeSolutionFileReplaySweepFailure,
-} from "@replay-verifier/impl/solutionFileReplaySweepReport";
-import {
-  formatReplaySweepPackProgress,
-} from "@replay-verifier/impl/replaySweepTerminalFormat";
+import { summarizeSolutionFileReplaySweepFailure } from "@replay-verifier/impl/solutionFileReplaySweepReport";
+import { formatReplaySweepOutcomeBar, formatReplaySweepPackPrefix } from "@replay-verifier/impl/replaySweepTerminalFormat";
 import type {
   SolutionFileReplaySweepProgressReporter,
   SolutionFileReplaySweepReport,
@@ -70,6 +66,7 @@ export function createRulesetReplaySweepTerminalReporter(
         currentFilePackName = plan.series.filebase;
         currentFileOutcomeBar = [];
         currentFileFailureLines = [];
+        process.stdout.write(colors.cyan(formatReplaySweepPackPrefix(currentFilePackName)));
       },
       onScenarioComplete({ scenario, failure }) {
         totalCounts.checked += 1;
@@ -77,18 +74,25 @@ export function createRulesetReplaySweepTerminalReporter(
         const levelLabel = `L${String(scenario.request.levelNumber).padStart(3, "0")}`;
         if (!failure) {
           totalCounts.passed += 1;
-          currentFileOutcomeBar.push(colors.green("-"));
+          const outcome = colors.green("-");
+          currentFileOutcomeBar.push(outcome);
+          process.stdout.write(outcome);
           return;
         }
 
         totalCounts.failed += 1;
-        currentFileOutcomeBar.push(colors.red("X"));
+        const outcome = colors.red("X");
+        currentFileOutcomeBar.push(outcome);
+        process.stdout.write(outcome);
         currentFileFailureLines.push(
           `${colors.red("FAIL")} ${levelLabel} ${scenario.name} | ${summarizeSolutionFileReplaySweepFailure(failure)}`,
         );
       },
       onSolutionFileComplete() {
-        console.log(colors.cyan(formatReplaySweepPackProgress(currentFilePackName, currentFileOutcomeBar)));
+        if (currentFileOutcomeBar.length === 0) {
+          process.stdout.write(formatReplaySweepOutcomeBar(currentFileOutcomeBar));
+        }
+        process.stdout.write("\n");
         for (const failureLine of currentFileFailureLines) {
           console.log(failureLine);
         }

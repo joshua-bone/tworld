@@ -1,6 +1,6 @@
 import { collectTraceMismatches, type TraceMismatch } from "@replay-verifier/impl/engine/comparators/traceComparison";
 import { formatReplaySweepValue } from "@replay-verifier/impl/replaySweepSupport";
-import { formatReplaySweepPackProgress } from "@replay-verifier/impl/replaySweepTerminalFormat";
+import { formatReplaySweepOutcomeBar, formatReplaySweepPackPrefix } from "@replay-verifier/impl/replaySweepTerminalFormat";
 import type { GameTrace } from "@game-core/api/types";
 import type { SupportedReplaySweepRuleset } from "@replay-verifier/impl/solutionFileReplaySweepTypes";
 
@@ -117,6 +117,7 @@ export function createAllReplayVerifierTerminalReporter(useColor: boolean): AllR
       filePackName = seriesFilebase;
       fileOutcomeBar = [];
       fileFailureLines = [];
+      process.stdout.write(colors.cyan(formatReplaySweepPackPrefix(filePackName)));
     },
     onLegacyFailure(scenarioName, levelNumber, ruleset, detail, _status) {
       const totals = rulesetTotals(ruleset);
@@ -124,7 +125,9 @@ export function createAllReplayVerifierTerminalReporter(useColor: boolean): AllR
       totals.checked += 1;
       totalCounts.legacyFailed += 1;
       totals.legacyFailed += 1;
-      fileOutcomeBar.push(colors.red("X"));
+      const outcome = colors.red("X");
+      fileOutcomeBar.push(outcome);
+      process.stdout.write(outcome);
       fileFailureLines.push(
         formatFailureOutcomeLine({
           scenarioName,
@@ -139,7 +142,9 @@ export function createAllReplayVerifierTerminalReporter(useColor: boolean): AllR
       totals.checked += 1;
       totalCounts.passed += 1;
       totals.passed += 1;
-      fileOutcomeBar.push(colors.green("-"));
+      const outcome = colors.green("-");
+      fileOutcomeBar.push(outcome);
+      process.stdout.write(outcome);
     },
     onTraceComparisonFailure(scenarioName, levelNumber, ruleset, mismatch) {
       const totals = rulesetTotals(ruleset);
@@ -147,7 +152,9 @@ export function createAllReplayVerifierTerminalReporter(useColor: boolean): AllR
       totals.checked += 1;
       totalCounts.tsFailed += 1;
       totals.tsFailed += 1;
-      fileOutcomeBar.push(colors.red("X"));
+      const outcome = colors.red("X");
+      fileOutcomeBar.push(outcome);
+      process.stdout.write(outcome);
       fileFailureLines.push(
         formatFailureOutcomeLine({
           scenarioName,
@@ -157,7 +164,10 @@ export function createAllReplayVerifierTerminalReporter(useColor: boolean): AllR
       );
     },
     onSolutionFileComplete() {
-      console.log(colors.cyan(formatReplaySweepPackProgress(filePackName, fileOutcomeBar)));
+      if (fileOutcomeBar.length === 0) {
+        process.stdout.write(formatReplaySweepOutcomeBar(fileOutcomeBar));
+      }
+      process.stdout.write("\n");
       for (const failureLine of fileFailureLines) {
         console.log(failureLine);
       }
