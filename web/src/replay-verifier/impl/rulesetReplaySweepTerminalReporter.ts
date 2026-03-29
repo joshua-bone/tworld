@@ -1,9 +1,9 @@
 import {
-  rankReplaySweepCounts,
-} from "@replay-verifier/impl/replaySweepSupport";
-import {
   summarizeSolutionFileReplaySweepFailure,
 } from "@replay-verifier/impl/solutionFileReplaySweepReport";
+import {
+  formatReplaySweepPackProgress,
+} from "@replay-verifier/impl/replaySweepTerminalFormat";
 import type {
   SolutionFileReplaySweepProgressReporter,
   SolutionFileReplaySweepReport,
@@ -55,48 +55,42 @@ export function createRulesetReplaySweepTerminalReporter(
     passed: 0,
     failed: 0,
   };
-  const totalMismatchPaths: string[] = [];
   let supportedFileCount = 0;
-  let currentFileCounts: SummaryCounts = { checked: 0, passed: 0, failed: 0 };
-  let currentFileMismatchPaths: string[] = [];
+  let currentFilePackName = "";
+  let currentFileOutcomeBar: string[] = [];
+  let currentFileFailureLines: string[] = [];
 
   return {
     progress: {
       onUnsupportedFile({ solutionFile }) {
         console.log(colors.cyan(`== ${solutionFile.label} | unsupported ==`));
       },
-      onSolutionFileStart({ solutionFile, plan, scenarios }) {
+      onSolutionFileStart({ plan }) {
         supportedFileCount += 1;
-        currentFileCounts = { checked: 0, passed: 0, failed: 0 };
-        currentFileMismatchPaths = [];
-        console.log(colors.cyan(`== ${solutionFile.label} | ${plan.series.filebase} | ${ruleset} | ${scenarios.length} replays ==`));
+        currentFilePackName = plan.series.filebase;
+        currentFileOutcomeBar = [];
+        currentFileFailureLines = [];
       },
       onScenarioComplete({ scenario, failure }) {
-        currentFileCounts.checked += 1;
         totalCounts.checked += 1;
 
         const levelLabel = `L${String(scenario.request.levelNumber).padStart(3, "0")}`;
         if (!failure) {
-          currentFileCounts.passed += 1;
           totalCounts.passed += 1;
-          console.log(`${colors.green("PASS")} ${levelLabel} ${scenario.name}`);
+          currentFileOutcomeBar.push(colors.green("-"));
           return;
         }
 
-        currentFileCounts.failed += 1;
         totalCounts.failed += 1;
-        const firstMismatchPath = failure.mismatchPaths[0];
-        if (firstMismatchPath) {
-          currentFileMismatchPaths.push(firstMismatchPath);
-          totalMismatchPaths.push(firstMismatchPath);
-        }
-        console.log(`${colors.red("FAIL")} ${levelLabel} ${scenario.name} | ${summarizeSolutionFileReplaySweepFailure(failure)}`);
+        currentFileOutcomeBar.push(colors.red("X"));
+        currentFileFailureLines.push(
+          `${colors.red("FAIL")} ${levelLabel} ${scenario.name} | ${summarizeSolutionFileReplaySweepFailure(failure)}`,
+        );
       },
       onSolutionFileComplete() {
-        printSummaryLine(colors.yellow("summary:"), currentFileCounts);
-        if (currentFileMismatchPaths.length > 0) {
-          const topMismatchPaths = rankReplaySweepCounts(currentFileMismatchPaths).slice(0, 5);
-          console.log(colors.gray(`top mismatch paths: ${topMismatchPaths.map((item) => `${item.key} (${item.count})`).join(", ")}`));
+        console.log(colors.cyan(formatReplaySweepPackProgress(currentFilePackName, currentFileOutcomeBar)));
+        for (const failureLine of currentFileFailureLines) {
+          console.log(failureLine);
         }
         console.log("");
       },
@@ -106,10 +100,6 @@ export function createRulesetReplaySweepTerminalReporter(
       console.log(`solution files checked: ${supportedFileCount}`);
       console.log(`unsupported files: ${report.unsupportedFiles.length > 0 ? report.unsupportedFiles.join(", ") : "(none)"}`);
       printSummaryLine(`${ruleset}:`, totalCounts);
-      if (totalMismatchPaths.length > 0) {
-        const topMismatchPaths = rankReplaySweepCounts(totalMismatchPaths).slice(0, 10);
-        console.log(`top mismatch paths: ${topMismatchPaths.map((item) => `${item.key} (${item.count})`).join(", ")}`);
-      }
 
       if (report.replayCount === 0) {
         console.log(`No matching ${ruleset} replays were checked.`);

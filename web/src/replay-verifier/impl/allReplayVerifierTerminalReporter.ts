@@ -1,16 +1,13 @@
 import { collectTraceMismatches, type TraceMismatch } from "@replay-verifier/impl/engine/comparators/traceComparison";
-import { rankReplaySweepCounts, formatReplaySweepValue } from "@replay-verifier/impl/replaySweepSupport";
+import { formatReplaySweepValue } from "@replay-verifier/impl/replaySweepSupport";
+import { formatReplaySweepPackProgress } from "@replay-verifier/impl/replaySweepTerminalFormat";
 import type { GameTrace } from "@game-core/api/types";
 import type { SupportedReplaySweepRuleset } from "@replay-verifier/impl/solutionFileReplaySweepTypes";
 
-type ReplayOutcomeKind = "pass" | "legacy-fail" | "ts-fail";
-
 interface ReplayOutcome {
-  kind: ReplayOutcomeKind;
   scenarioName: string;
   levelNumber: number;
   detail: string;
-  firstMismatchPath?: string;
 }
 
 interface SummaryCounts {
@@ -60,31 +57,17 @@ function summarizeMismatchShort(mismatch: TraceMismatch): string {
   return `${field} @ ${scope} | expected ${formatReplaySweepValue(mismatch.expected)}, got ${formatReplaySweepValue(mismatch.actual)}`;
 }
 
-function formatOutcomeLabel(kind: ReplayOutcomeKind, colors: ReturnType<typeof createColors>): string {
-  switch (kind) {
-    case "pass":
-      return colors.green("PASS");
-    case "legacy-fail":
-    case "ts-fail":
-      return colors.red("FAIL");
-  }
-}
-
 function printSummaryLine(prefix: string, counts: SummaryCounts): void {
   console.log(
     `${prefix} checked ${counts.checked} | passed ${counts.passed} | ts-failed ${counts.tsFailed} | legacy-failed ${counts.legacyFailed}`,
   );
 }
 
-function printAnomalousOutcome(
+function formatFailureOutcomeLine(
   outcome: ReplayOutcome,
   colors: ReturnType<typeof createColors>,
-): void {
-  const label = outcome.kind === "legacy-fail" ? colors.yellow("legacy-fail") : colors.red("ts-fail");
-  const mismatchSuffix = outcome.firstMismatchPath ? ` | first mismatch ${outcome.firstMismatchPath}` : "";
-  console.log(
-    `${label} L${String(outcome.levelNumber).padStart(3, "0")} ${outcome.scenarioName} | ${outcome.detail}${mismatchSuffix}`,
-  );
+): string {
+  return `${colors.red("FAIL")} L${String(outcome.levelNumber).padStart(3, "0")} ${outcome.scenarioName} | ${outcome.detail}`;
 }
 
 export interface AllReplayVerifierTerminalReporter {
@@ -110,14 +93,11 @@ export function createAllReplayVerifierTerminalReporter(useColor: boolean): AllR
     ["MS", { ruleset: "MS", checked: 0, passed: 0, legacyFailed: 0, tsFailed: 0 }],
     ["Lynx", { ruleset: "Lynx", checked: 0, passed: 0, legacyFailed: 0, tsFailed: 0 }],
   ]);
-  const totalMismatchPaths: string[] = [];
-  const totalLegacyStatuses: string[] = [];
-  const anomalyOutcomes: ReplayOutcome[] = [];
   const unsupportedFiles: string[] = [];
   let supportedFileCount = 0;
-  let fileCounts: SummaryCounts = { checked: 0, passed: 0, legacyFailed: 0, tsFailed: 0 };
-  let fileMismatchPaths: string[] = [];
-  let fileLegacyStatuses: string[] = [];
+  let filePackName = "";
+  let fileOutcomeBar: string[] = [];
+  let fileFailureLines: string[] = [];
 
   function rulesetTotals(ruleset: SupportedReplaySweepRuleset): RulesetTotals {
     const totals = totalsByRuleset.get(ruleset);
@@ -132,69 +112,54 @@ export function createAllReplayVerifierTerminalReporter(useColor: boolean): AllR
       unsupportedFiles.push(label);
       console.log(colors.cyan(`== ${label} | unsupported ==`));
     },
-    onSolutionFileStart(label, seriesFilebase, ruleset, replayCount) {
+    onSolutionFileStart(_label, seriesFilebase, _ruleset, _replayCount) {
       supportedFileCount += 1;
-      fileCounts = { checked: 0, passed: 0, legacyFailed: 0, tsFailed: 0 };
-      fileMismatchPaths = [];
-      fileLegacyStatuses = [];
-      console.log(colors.cyan(`== ${label} | ${seriesFilebase} | ${ruleset} | ${replayCount} replays ==`));
+      filePackName = seriesFilebase;
+      fileOutcomeBar = [];
+      fileFailureLines = [];
     },
-    onLegacyFailure(scenarioName, levelNumber, ruleset, detail, status) {
+    onLegacyFailure(scenarioName, levelNumber, ruleset, detail, _status) {
       const totals = rulesetTotals(ruleset);
-      fileCounts.checked += 1;
       totalCounts.checked += 1;
       totals.checked += 1;
-      fileCounts.legacyFailed += 1;
       totalCounts.legacyFailed += 1;
       totals.legacyFailed += 1;
-      fileLegacyStatuses.push(status);
-      totalLegacyStatuses.push(status);
-      anomalyOutcomes.push({
-        kind: "legacy-fail",
-        scenarioName,
-        levelNumber,
-        detail,
-      });
-      console.log(`${formatOutcomeLabel("legacy-fail", colors)} L${String(levelNumber).padStart(3, "0")} ${scenarioName} | ${detail}`);
+      fileOutcomeBar.push(colors.red("X"));
+      fileFailureLines.push(
+        formatFailureOutcomeLine({
+          scenarioName,
+          levelNumber,
+          detail,
+        }, colors),
+      );
     },
-    onPass(scenarioName, levelNumber, ruleset) {
+    onPass(_scenarioName, _levelNumber, ruleset) {
       const totals = rulesetTotals(ruleset);
-      fileCounts.checked += 1;
       totalCounts.checked += 1;
       totals.checked += 1;
-      fileCounts.passed += 1;
       totalCounts.passed += 1;
       totals.passed += 1;
-      console.log(`${formatOutcomeLabel("pass", colors)} L${String(levelNumber).padStart(3, "0")} ${scenarioName}`);
+      fileOutcomeBar.push(colors.green("-"));
     },
     onTraceComparisonFailure(scenarioName, levelNumber, ruleset, mismatch) {
       const totals = rulesetTotals(ruleset);
-      fileCounts.checked += 1;
       totalCounts.checked += 1;
       totals.checked += 1;
-      fileCounts.tsFailed += 1;
       totalCounts.tsFailed += 1;
       totals.tsFailed += 1;
-      fileMismatchPaths.push(mismatch.path);
-      totalMismatchPaths.push(mismatch.path);
-      anomalyOutcomes.push({
-        kind: "ts-fail",
-        scenarioName,
-        levelNumber,
-        detail: summarizeMismatchShort(mismatch),
-        firstMismatchPath: mismatch.path,
-      });
-      console.log(`${formatOutcomeLabel("ts-fail", colors)} L${String(levelNumber).padStart(3, "0")} ${scenarioName} | ${summarizeMismatchShort(mismatch)}`);
+      fileOutcomeBar.push(colors.red("X"));
+      fileFailureLines.push(
+        formatFailureOutcomeLine({
+          scenarioName,
+          levelNumber,
+          detail: summarizeMismatchShort(mismatch),
+        }, colors),
+      );
     },
     onSolutionFileComplete() {
-      printSummaryLine(colors.yellow("summary:"), fileCounts);
-      if (fileMismatchPaths.length > 0) {
-        const topMismatchPaths = rankReplaySweepCounts(fileMismatchPaths).slice(0, 5);
-        console.log(colors.gray(`top mismatch paths: ${topMismatchPaths.map((item) => `${item.key} (${item.count})`).join(", ")}`));
-      }
-      if (fileLegacyStatuses.length > 0) {
-        const topStatuses = rankReplaySweepCounts(fileLegacyStatuses);
-        console.log(colors.gray(`legacy statuses: ${topStatuses.map((item) => `${item.key} (${item.count})`).join(", ")}`));
+      console.log(colors.cyan(formatReplaySweepPackProgress(filePackName, fileOutcomeBar)));
+      for (const failureLine of fileFailureLines) {
+        console.log(failureLine);
       }
       console.log("");
     },
@@ -205,20 +170,6 @@ export function createAllReplayVerifierTerminalReporter(useColor: boolean): AllR
       printSummaryLine("all replays:", totalCounts);
       for (const totals of totalsByRuleset.values()) {
         printSummaryLine(`${totals.ruleset}:`, totals);
-      }
-      if (totalMismatchPaths.length > 0) {
-        const topMismatchPaths = rankReplaySweepCounts(totalMismatchPaths).slice(0, 10);
-        console.log(`top mismatch paths: ${topMismatchPaths.map((item) => `${item.key} (${item.count})`).join(", ")}`);
-      }
-      if (totalLegacyStatuses.length > 0) {
-        const topStatuses = rankReplaySweepCounts(totalLegacyStatuses);
-        console.log(`legacy statuses: ${topStatuses.map((item) => `${item.key} (${item.count})`).join(", ")}`);
-      }
-      if (anomalyOutcomes.length > 0) {
-        console.log("anomalous levels:");
-        for (const outcome of anomalyOutcomes) {
-          printAnomalousOutcome(outcome, colors);
-        }
       }
 
       if (failOnErrors && (totalCounts.legacyFailed > 0 || totalCounts.tsFailed > 0)) {
