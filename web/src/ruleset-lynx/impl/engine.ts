@@ -1,7 +1,7 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@game-core/api/debug";
-import { setBowlingBallMode } from "@game-core/impl/bowlingBall";
+import { cloneBowlingBallState, setBowlingBallMode } from "@game-core/impl/bowlingBall";
 import { findHiddenActorAtPosition, findVisibleActorAtPosition, storeActorInReusableHiddenSlot } from "@game-core/impl/actors";
 import {
   addTopTileFlags,
@@ -124,13 +124,19 @@ import {
 } from "@ruleset-lynx/impl/movementStrategies";
 import {
   activateLynxPortableTool,
+  attachLynxPortableToolToActor,
+  cloneLynxPortableTool,
   clearLynxToolInventory,
   collectLynxPortableItemsFromLayers,
+  destroyLynxPortableTool,
+  detachLynxPortableToolToMap,
+  findLynxPortableToolAttachedToActor,
   primedLynxPortableToolItem,
   projectLynxPortableToolState,
   queueLynxToolInventoryReplacement,
   reconcileLynxPortableToolProjection,
   settleLynxPrimedToolDrop,
+  type LynxToolInventoryProjection,
   type LynxPortableToolStateStore,
 } from "@ruleset-lynx/impl/portableItems";
 import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
@@ -140,7 +146,9 @@ import {
   lynxRuntimeActorArrivalOutcome,
 } from "@ruleset-lynx/impl/actorArrival";
 import {
+  attachLynxStatefulActorPortableBacking,
   cloneLynxStatefulActorRuntimeForCloner,
+  detachLynxStatefulActorPortableBacking,
   destroyLynxStatefulActorRuntime,
   findLynxStatefulActorRuntime,
   seedLynxStatefulActorRuntime,
@@ -196,6 +204,7 @@ import {
   applyLynxBlockedChipEnterEffect,
   applyLynxTileActivationEffect,
 } from "@ruleset-lynx/impl/tileEffects";
+import { lynxBlockedMoveFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import {
   MS_DIRECTION,
   MS_GRID_HEIGHT,
@@ -305,6 +314,244 @@ function projectLynxRuntimeActorInventoryOwner(
   return projectLynxActorInventoryOwner(actor.id, state.inventory, {
     actorSerial: actor.serial,
     runtimeEntry,
+  });
+}
+
+function lynxDetachedToolInventoryProjection(): LynxToolInventoryProjection {
+  return {
+    tools: [0],
+  };
+}
+
+function lynxPortableBackedActorItemSerial(
+  state: EngineState,
+  actorSerial: number,
+): number | null {
+  const runtimeEntry = lynxRuntimeActorEntry(state, actorSerial);
+  if (runtimeEntry?.portableBacking?.portableItemSerial !== undefined) {
+    return runtimeEntry.portableBacking.portableItemSerial;
+  }
+  return findLynxPortableToolAttachedToActor(lynxPortableToolRuntime(state), actorSerial)?.serial ?? null;
+}
+
+function syncLynxPortableBackedActorStateToPortableItem(
+  state: EngineState,
+  actorSerial: number,
+): void {
+  const runtimeEntry = lynxRuntimeActorEntry(state, actorSerial);
+  const attachedItem = findLynxPortableToolAttachedToActor(lynxPortableToolRuntime(state), actorSerial);
+  if (
+    runtimeEntry?.kind !== "bowling-ball" ||
+    attachedItem?.family !== "bowling-ball" ||
+    !attachedItem.bowlingBallState
+  ) {
+    return;
+  }
+
+  attachedItem.bowlingBallState = cloneBowlingBallState(runtimeEntry.state);
+}
+
+function destroyLynxPortableBackedActorRuntime(
+  state: EngineState,
+  actorSerial: number,
+): void {
+  syncLynxPortableBackedActorStateToPortableItem(state, actorSerial);
+  const portableItemSerial = lynxPortableBackedActorItemSerial(state, actorSerial);
+  if (portableItemSerial !== null) {
+    destroyLynxPortableTool(lynxPortableToolRuntime(state), state.inventory, portableItemSerial);
+  }
+  destroyLynxStatefulActorRuntime(lynxStatefulActorRuntime(state), actorSerial);
+}
+
+function removeLynxCollisionTarget(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  target: ReturnType<typeof queryLynxOccupancyOnLayer>,
+): void {
+  switch (target.kind) {
+    case OCCUPANCY_TARGET_KIND.portableItem:
+      if (target.portableItem && "serial" in target.portableItem && typeof target.portableItem.serial === "number") {
+        destroyLynxPortableTool(lynxPortableToolRuntime(state), state.inventory, target.portableItem.serial);
+      }
+      promoteBottomTile(state.map.cells, target.pos, MS_TILE.Empty);
+      return;
+    case OCCUPANCY_TARGET_KIND.runtimeActor:
+      if (target.runtimeActor) {
+        removeTopTileFlags(state.map.cells, target.pos, LYNX_CELL_FLAG.Claimed);
+        removeLynxActor(state, actors, target.runtimeActor as LynxRuntimeActor, LYNX_ANIMATION_TILE.Entity_Explosion);
+      }
+      return;
+    default:
+      return;
+  }
+}
+
+function revealBlockedLynxBallisticEnter(
+  state: EngineState,
+  actor: LynxRuntimeActor,
+  dir: number,
+): void {
+  if (lynxActorMovementStrategyId(actor.id) !== "ballistic-like" || dir === MS_DIRECTION.none) {
+    return;
+  }
+
+  const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return;
+  }
+
+  applyLynxBlockedChipEnterEffect(state, targetStep.pos);
+}
+
+function shouldRevertLynxPortableBackedActorOnBlockedMove(
+  state: EngineState,
+  actor: LynxRuntimeActor,
+  floorId: number,
+  releasing: boolean,
+): boolean {
+  if (lynxBlockedMoveFloorImpactAction(actor.id) !== "revert-portable" || actor.hidden) {
+    return false;
+  }
+
+  if (floorId === MS_TILE.CloneMachine) {
+    return false;
+  }
+
+  const inventoryOwner = projectLynxRuntimeActorInventoryOwner(state, actor);
+  if (isLynxSlide(floorId) && !actorInventoryHasBoot(inventoryOwner, 0)) {
+    return false;
+  }
+  if (isLynxIce(floorId) && !actorInventoryHasBoot(inventoryOwner, 1)) {
+    return false;
+  }
+  if (!releasing && lynxTileHasTag(floorId, "trap")) {
+    return false;
+  }
+  return true;
+}
+
+function revertLynxPortableBackedActorToMap(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  actor: LynxRuntimeActor,
+): boolean {
+  const attachedItem = findLynxPortableToolAttachedToActor(lynxPortableToolRuntime(state), actor.serial);
+  if (!attachedItem) {
+    return false;
+  }
+
+  syncLynxPortableBackedActorStateToPortableItem(state, actor.serial);
+  const actorZ = actor.z ?? activeLynxLayerZ(state);
+  const tileId = attachedItem.tileId;
+  detachLynxStatefulActorPortableBacking(lynxStatefulActorRuntime(state), actor.serial);
+  if (!detachLynxPortableToolToMap(lynxPortableToolRuntime(state), state.inventory, attachedItem.serial, actor.pos, actorZ)) {
+    return false;
+  }
+
+  const cell = state.map.cells[actor.pos];
+  if (!cell) {
+    return false;
+  }
+  cell.bottom = { ...cell.top };
+  cell.top = { id: tileId, state: 0 };
+  actor.hidden = true;
+  actor.moving = 0;
+  actor.frame = 0;
+  actor.intentDir = 0;
+  actor.forcedDir = 0;
+  actor.teleported = false;
+  actor.moveKind = "planar";
+  actor.ignoreIceFromAir = false;
+  actor.pushed = false;
+  actor.deferPush = false;
+  actor.deferPushArmed = false;
+  actor.reversePending = false;
+  actor.dormant = false;
+  actor.animationReserved = false;
+  removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+  destroyLynxStatefulActorRuntime(lynxStatefulActorRuntime(state), actor.serial);
+  return true;
+}
+
+function maybeRevertLynxPortableBackedActorOnBlockedMove(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  actor: LynxRuntimeActor,
+  floorId: number,
+  releasing: boolean,
+): boolean {
+  return (
+    shouldRevertLynxPortableBackedActorOnBlockedMove(state, actor, floorId, releasing) &&
+    revertLynxPortableBackedActorToMap(state, actors, actor)
+  );
+}
+
+function resolveLynxRuntimeActorPreMoveCollision(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  actor: LynxRuntimeActor,
+  dir: number,
+): MovementAttemptResult | null {
+  const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return null;
+  }
+
+  const target = queryLynxOccupancyOnLayer(state, actors, targetStep.pos, actor.z ?? activeLynxLayerZ(state));
+  if (target.kind === OCCUPANCY_TARGET_KIND.empty || target.kind === OCCUPANCY_TARGET_KIND.chip) {
+    return null;
+  }
+
+  const interaction = lynxActorInteractionOutcome(actor.id, lynxInteractionTargetFromOccupancy(target, dir));
+  if (
+    interaction.denyMove ||
+    (!interaction.removeMovingActor && !interaction.removeTargetActor && !interaction.consumeTarget)
+  ) {
+    return null;
+  }
+
+  if (interaction.removeTargetActor || interaction.consumeTarget) {
+    removeLynxCollisionTarget(state, actors, target);
+  }
+  if (interaction.removeMovingActor) {
+    removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+    removeLynxActor(state, actors, actor, LYNX_ANIMATION_TILE.Entity_Explosion);
+  }
+
+  return movedMovement();
+}
+
+function cloneLynxPortableBackedActorForCloner(
+  state: EngineState,
+  sourceActorSerial: number,
+  cloneActorSerial: number,
+): void {
+  const detachedProjection = lynxDetachedToolInventoryProjection();
+  syncLynxPortableBackedActorStateToPortableItem(state, sourceActorSerial);
+  cloneLynxStatefulActorRuntimeForCloner(lynxStatefulActorRuntime(state), sourceActorSerial, cloneActorSerial);
+  const sourcePortableSerial = lynxPortableBackedActorItemSerial(state, sourceActorSerial);
+  if (sourcePortableSerial === null) {
+    return;
+  }
+
+  const clonedPortable = cloneLynxPortableTool(
+    lynxPortableToolRuntime(state),
+    detachedProjection,
+    sourcePortableSerial,
+  );
+  if (!clonedPortable) {
+    return;
+  }
+
+  attachLynxPortableToolToActor(
+    lynxPortableToolRuntime(state),
+    detachedProjection,
+    clonedPortable.serial,
+    cloneActorSerial,
+  );
+  attachLynxStatefulActorPortableBacking(lynxStatefulActorRuntime(state), cloneActorSerial, {
+    family: clonedPortable.family,
+    portableItemSerial: clonedPortable.serial,
   });
 }
 
@@ -792,6 +1039,117 @@ function tryActivateLynxBowlingBallThrow(
   return true;
 }
 
+function activateMappedLynxBowlingBallsOnForceFloors(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+): void {
+  for (const item of lynxPortableToolRuntime(state).portableItems) {
+    if (
+      item.family !== "bowling-ball" ||
+      item.state.mode !== "map" ||
+      !item.bowlingBallState ||
+      item.bowlingBallState.mode !== "still"
+    ) {
+      continue;
+    }
+
+    const cells = lynxCellsForZ(state.map, item.state.z);
+    const cell = cells[item.state.pos];
+    if (!cell || cell.top.id !== item.tileId) {
+      continue;
+    }
+
+    const floor = cell.bottom.id;
+    if (!isLynxSlide(floor)) {
+      continue;
+    }
+
+    const dir = getLynxSlideDirection(state, floor, true);
+    if (dir === MS_DIRECTION.none) {
+      continue;
+    }
+
+    const pos = item.state.pos;
+    const z = item.state.z;
+    setBowlingBallMode(item.bowlingBallState, "moving", dir);
+    const actorSerial = allocateLynxActorSerial(state);
+    if (!activateLynxPortableTool(lynxPortableToolRuntime(state), state.inventory, item.serial, actorSerial)) {
+      setBowlingBallMode(item.bowlingBallState, "still", dir);
+      continue;
+    }
+
+    spawnLynxBowlingBallStatefulActorFromPortable(
+      lynxStatefulActorRuntime(state),
+      actorSerial,
+      item.serial,
+      item.bowlingBallState,
+    );
+    promoteBottomTile(cells, pos, MS_TILE.Empty);
+    addTopTileFlags(cells, pos, LYNX_CELL_FLAG.Claimed);
+    allocateLynxActorSlot(actors, {
+      serial: actorSerial,
+      id: MS_TILE.BowlingBall,
+      pos,
+      z,
+      dir,
+      intentDir: 0,
+      forcedDir: 0,
+      teleported: false,
+      moving: 0,
+      frame: 0,
+      moveKind: "planar",
+      ignoreIceFromAir: false,
+      hidden: false,
+      pushed: false,
+      deferPush: false,
+      deferPushArmed: false,
+      reversePending: false,
+      dormant: false,
+      animationReserved: false,
+    });
+  }
+}
+
+function seedLynxPortableBackedBowlingBallActors(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+): void {
+  const runtime = lynxRuntimeState(state);
+  for (const actor of actors) {
+    if (actor.hidden || actor.id !== MS_TILE.BowlingBall) {
+      continue;
+    }
+
+    const runtimeEntry = lynxRuntimeActorEntry(state, actor.serial);
+    if (
+      runtimeEntry?.kind !== "bowling-ball" ||
+      runtimeEntry.portableBacking?.portableItemSerial !== undefined ||
+      findLynxPortableToolAttachedToActor(runtime.portableTools, actor.serial)
+    ) {
+      continue;
+    }
+
+    const portableItemSerial = runtime.portableTools.nextPortableItemSerial;
+    runtime.portableTools.portableItems.push({
+      serial: portableItemSerial,
+      family: "bowling-ball",
+      tileId: MS_TILE.BowlingBall_Still,
+      inventorySlot: "tools",
+      bowlingBallState: cloneBowlingBallState(runtimeEntry.state),
+      state: {
+        mode: "attached",
+        attachmentKind: "actor",
+        attachmentId: actor.serial,
+      },
+    });
+    runtime.portableTools.nextPortableItemSerial += 1;
+    attachLynxStatefulActorPortableBacking(runtime.statefulActors, actor.serial, {
+      family: "bowling-ball",
+      portableItemSerial,
+    });
+  }
+}
+
 function lynxStatefulActorRuntime(state: EngineState): LynxStatefulActorRuntimeState {
   return lynxRuntimeState(state).statefulActors;
 }
@@ -962,7 +1320,7 @@ function removeLynxActor(
   actor.moveKind = "planar";
   actor.ignoreIceFromAir = false;
   actor.animationReserved = true;
-  destroyLynxStatefulActorRuntime(lynxStatefulActorRuntime(state), actor.serial);
+  destroyLynxPortableBackedActorRuntime(state, actor.serial);
   startLynxAnimation(state, actors, actor.pos, animationTileId);
 }
 
@@ -2158,6 +2516,22 @@ function canLynxRuntimeActorStartMovement(
   releasing = false,
   clearAnimations = false,
 ): boolean {
+  const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (targetStep) {
+    const target = queryLynxOccupancyOnLayer(state, actors, targetStep.pos, actor.z ?? activeLynxLayerZ(state));
+    const interaction = lynxActorInteractionOutcome(actor.id, lynxInteractionTargetFromOccupancy(target, dir));
+    if (interaction.denyMove) {
+      return false;
+    }
+    if (
+      target.kind !== OCCUPANCY_TARGET_KIND.empty &&
+      target.kind !== OCCUPANCY_TARGET_KIND.chip &&
+      (interaction.removeMovingActor || interaction.removeTargetActor || interaction.consumeTarget)
+    ) {
+      return true;
+    }
+  }
+
   return canLynxActorStartMovementWithContext(
     createLynxActorMovementContext(state, actors),
     actor,
@@ -2211,7 +2585,18 @@ function startLynxRuntimeActorMovement(
   dir: number,
   releasing = false,
 ): MovementAttemptResult {
-  return startLynxActorMovementWithContext(createLynxActorMovementContext(state, actors), actor, dir, releasing);
+  const preMoveCollision = resolveLynxRuntimeActorPreMoveCollision(state, actors, actor, dir);
+  if (preMoveCollision) {
+    return preMoveCollision;
+  }
+
+  const floorBeforeMove = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
+  const result = startLynxActorMovementWithContext(createLynxActorMovementContext(state, actors), actor, dir, releasing);
+  if (!movementDidSucceed(result)) {
+    revealBlockedLynxBallisticEnter(state, actor, dir);
+    maybeRevertLynxPortableBackedActorOnBlockedMove(state, actors, actor, floorBeforeMove, releasing);
+  }
+  return result;
 }
 
 function finishLynxRuntimeActorMovement(
@@ -2291,7 +2676,13 @@ function advanceLynxCreature(
         const moveDir = actor.intentDir || actor.forcedDir || forcedLynxActorDirection(state, actor, floorBeforeMove, currentTime);
         actor.intentDir = 0;
         actor.forcedDir = 0;
-        if (moveDir === 0 || !movementDidSucceed(startLynxRuntimeActorMovement(state, actors, actor, moveDir))) {
+        if (moveDir === 0) {
+          return;
+        }
+        if (!movementDidSucceed(startLynxRuntimeActorMovement(state, actors, actor, moveDir, false))) {
+          return;
+        }
+        if (actor.hidden || actor.moving <= 0) {
           return;
         }
       }
@@ -2547,7 +2938,7 @@ function createLynxTrapClonerContext(
       ),
     allocateCloneSlot: (snapshot) => allocateLynxActorSlot(actors, snapshot),
     cloneFamilyRuntimeForCloner: (sourceActorSerial, cloneActorSerial) => {
-      cloneLynxStatefulActorRuntimeForCloner(lynxStatefulActorRuntime(state), sourceActorSerial, cloneActorSerial);
+      cloneLynxPortableBackedActorForCloner(state, sourceActorSerial, cloneActorSerial);
     },
     startCreatureMovement: (actor, dir, releasing) => startLynxRuntimeActorMovement(state, actors, actor, dir, releasing),
     advanceCreature: (actor, currentTime) => advanceLynxCreature(state, level, actors, actor, currentTime),
@@ -2955,6 +3346,8 @@ function createLynxInteractiveToken(
       actor.id,
     );
   }
+  activateMappedLynxBowlingBallsOnForceFloors(state, parsedActors.actors);
+  seedLynxPortableBackedBowlingBallActors(state, parsedActors.actors);
   return {
     level,
     state,

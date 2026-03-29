@@ -47,7 +47,7 @@ export interface LynxPortableItem extends PortableItemBase<LynxPortableItemFamil
   bowlingBallState?: BowlingBallState;
 }
 
-interface LynxBowlingBallPortableItem
+export interface LynxBowlingBallPortableItem
   extends PortableItemBase<"bowling-ball", LynxPortableInventorySlot, LynxPortableItemState> {
   bowlingBallState: BowlingBallState;
 }
@@ -338,6 +338,12 @@ export function primedLynxPortableToolItem(store: LynxPortableToolStateStore): L
   return store.portableItems.find((item) => item.state.mode === "primed");
 }
 
+export function isLynxBowlingBallPortableItem(
+  item: LynxPortableItem | null | undefined,
+): item is LynxBowlingBallPortableItem {
+  return item?.family === "bowling-ball" && !!item.bowlingBallState;
+}
+
 function projectLynxDrop(item: LynxPortableItem | undefined): LynxPrimedToolDrop | null {
   if (!item || item.state.mode !== "primed") {
     return null;
@@ -359,17 +365,31 @@ export function collectLynxPortableItemsFromLayers(
   return collectPortableItemsFromLayers(
     layers,
     identifyLynxPortableItem,
-    ({ serial, family, tileId, inventorySlot, pos, z }): LynxPortableItem => ({
-      serial,
-      family,
-      tileId,
-      inventorySlot,
-      state: {
-        mode: "map",
-        pos,
-        z,
-      },
-    }),
+    ({ serial, family, tileId, inventorySlot, pos, z }): LynxPortableItem =>
+      family === "bowling-ball"
+        ? {
+            serial,
+            family,
+            tileId,
+            inventorySlot,
+            bowlingBallState: createStillBowlingBallState(),
+            state: {
+              mode: "map",
+              pos,
+              z,
+            },
+          }
+        : {
+            serial,
+            family,
+            tileId,
+            inventorySlot,
+            state: {
+              mode: "map",
+              pos,
+              z,
+            },
+          },
   );
 }
 

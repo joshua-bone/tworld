@@ -4,33 +4,10 @@ import { createTestEngineState } from "@game-core/impl/testEngineState";
 import type { StatefulActorRuntimeEntry, StatefulActorRuntimeStore } from "@game-core/impl/statefulActorRuntime";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { advanceLynxInteractiveSession, createLynxInteractiveSession } from "@ruleset-lynx/impl/engine";
+import type { LynxPortableItem, LynxPortableToolStateStore } from "@ruleset-lynx/impl/portableItems";
 import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
-type LynxPortableItem = {
-  serial: number;
-  family: "sandbag" | "hook" | "bowling-ball";
-  tileId: number;
-  state:
-    | { mode: "map"; pos: number; z: number }
-    | { mode: "carried" }
-    | { mode: "primed"; pos: number; z: number }
-    | { mode: "attached"; attachmentKind: string; attachmentId: number };
-};
-
-type LynxPortableToolRuntime = {
-  portableItems: Array<{
-    serial: number;
-    family: "sandbag" | "hook" | "bowling-ball";
-    tileId: number;
-    inventorySlot: "tools";
-    state:
-      | { mode: "map"; pos: number; z: number }
-      | { mode: "carried" }
-      | { mode: "primed"; pos: number; z: number }
-      | { mode: "attached"; attachmentKind: string; attachmentId: number };
-  }>;
-  nextPortableItemSerial: number;
-};
+type LynxPortableToolRuntime = Pick<LynxPortableToolStateStore, "portableItems" | "nextPortableItemSerial">;
 
 type LynxRuntimeOverlay = {
   z: number;

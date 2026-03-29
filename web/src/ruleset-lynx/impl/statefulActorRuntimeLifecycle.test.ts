@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { createMovingBowlingBallState } from "@game-core/impl/bowlingBall";
 import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { createLynxInteractiveSession } from "@ruleset-lynx/impl/engine";
-import { advanceLynxTicks, createCell, createLevel, createRequest, lynxRuntimeStateForTest } from "@ruleset-lynx/impl/testSupport";
+import {
+  advanceLynxTicks,
+  createCell,
+  createLevel,
+  createRequest,
+  lynxPortableItems,
+  lynxRuntimeStateForTest,
+} from "@ruleset-lynx/impl/testSupport";
 import {
   attachLynxStatefulActorPortableBacking,
   cloneLynxStatefulActorRuntimeForCloner,
@@ -34,11 +41,18 @@ describe("Lynx stateful actor runtime lifecycle", () => {
     );
 
     const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const attachedPortable = lynxPortableItems(session.state).find(
+      (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === bowlingBall?.serial,
+    );
     expect(bowlingBall).toBeTruthy();
+    expect(attachedPortable).toBeTruthy();
     expect(findStatefulActorRuntime(lynxRuntimeStore(session), bowlingBall!.serial)).toEqual({
       actorSerial: bowlingBall!.serial,
       kind: "bowling-ball",
-      portableBacking: null,
+      portableBacking: {
+        family: "bowling-ball",
+        portableItemSerial: attachedPortable!.serial,
+      },
       state: {
         mode: "moving",
         travelDirection: null,
@@ -128,12 +142,19 @@ describe("Lynx stateful actor runtime lifecycle", () => {
     );
 
     const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const attachedPortable = lynxPortableItems(session.state).find(
+      (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === bowlingBall?.serial,
+    );
     const cloneSerial = bowlingBall!.serial + 100;
 
+    expect(attachedPortable).toBeTruthy();
     expect(cloneLynxStatefulActorRuntimeForCloner(lynxRuntimeStore(session), bowlingBall!.serial, cloneSerial)).toEqual({
       actorSerial: cloneSerial,
       kind: "bowling-ball",
-      portableBacking: null,
+      portableBacking: {
+        family: "bowling-ball",
+        portableItemSerial: attachedPortable!.serial,
+      },
       state: movingBowlingBallState(),
     });
   });

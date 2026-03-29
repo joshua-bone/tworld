@@ -462,12 +462,12 @@ Goal:
 
 Checklist:
 
-- [ ] hook portable activation and throw timing into Lynx Chip flow
-- [ ] implement blocked-move reversion vs hold-direction exceptions on ice / force floors
-- [ ] implement Lynx trap, cloner, teleport, and air/elevator timing through the existing Lynx seams
-- [ ] implement Lynx actor collision and destruction timing
-- [ ] implement Lynx clone deep-copy of bowling-ball inventory/state
-- [ ] add focused Lynx engine tests for the full requirement matrix that applies to Lynx
+- [x] hook portable activation and throw timing into Lynx Chip flow
+- [x] implement blocked-move reversion vs hold-direction exceptions on ice / force floors
+- [x] implement Lynx trap, cloner, teleport, and air/elevator timing through the existing Lynx seams
+- [x] implement Lynx actor collision and destruction timing
+- [x] implement Lynx clone deep-copy of bowling-ball inventory/state
+- [x] add focused Lynx engine tests for the full requirement matrix that applies to Lynx
 - [ ] add oracle replay differential windows for any behavior that depends on native Lynx timing
 
 Success condition:

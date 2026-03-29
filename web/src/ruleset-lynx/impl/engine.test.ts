@@ -13,6 +13,8 @@ import {
   runLynxReplayTrace,
   runLynxReplayTraceDebug,
 } from "@ruleset-lynx/impl/engine";
+import { isLynxBowlingBallPortableItem } from "@ruleset-lynx/impl/portableItems";
+import type { LynxStatefulActorRuntimeEntry } from "@ruleset-lynx/impl/statefulActors";
 import {
   advanceLynxTicks,
   createBoardAtZ,
@@ -3457,5 +3459,174 @@ describe("runLynxInputTrace", () => {
       keys: [0, 0, 0, 0],
       boots: [0, 0, 0, 1],
     });
+  });
+
+  it("activates a still bowling ball from map state when it starts on force floor", () => {
+    const chipPos = 1;
+    const bowlingBallPos = 65;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(bowlingBallPos, MS_TILE.BowlingBall_Still, MS_TILE.Slide_North),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 1);
+
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const attachedPortable = bowlingBall
+      ? lynxPortableItems(session.state).find(
+          (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === bowlingBall.serial,
+        )
+      : undefined;
+    const attachedBowlingBall = isLynxBowlingBallPortableItem(attachedPortable)
+      ? attachedPortable
+      : undefined;
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(lynxRuntimeStateForTest(session.state).statefulActors, bowlingBall.serial) as LynxStatefulActorRuntimeEntry | undefined
+      : undefined;
+
+    expect(bowlingBall).toMatchObject({
+      id: MS_TILE.BowlingBall,
+      pos: bowlingBallPos - 32,
+      dir: MS_DIRECTION.north,
+    });
+    expect(bowlingBall?.moving).toBeGreaterThan(0);
+    expect(attachedBowlingBall?.family).toBe("bowling-ball");
+    expect(runtimeEntry?.state.mode).toBe("moving");
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "map" && item.tileId === MS_TILE.BowlingBall_Still)).toBeUndefined();
+  });
+
+  it("reverts a blocked moving bowling ball to still map state while preserving local inventory", () => {
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(35, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(36, MS_TILE.Key_Red, MS_TILE.Empty),
+        createCell(37, MS_TILE.BlueWall_Real, MS_TILE.Empty),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 5);
+
+    const rawMapBowlingBall = lynxPortableItems(session.state).find(
+      (item) => item.state.mode === "map" && item.family === "bowling-ball" && item.state.pos === 36 && item.state.z === 1,
+    );
+    const mapBowlingBall = isLynxBowlingBallPortableItem(rawMapBowlingBall)
+      ? rawMapBowlingBall
+      : undefined;
+
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toBeUndefined();
+    expect(session.state.map.cells[36]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+    expect(session.state.map.cells[37]?.top.id).toBe(MS_TILE.Wall);
+    expect(mapBowlingBall?.bowlingBallState).toEqual(
+      expect.objectContaining({
+        mode: "still",
+        localInventory: {
+          keys: [1, 0, 0, 0],
+          boots: [0, 0, 0, 0],
+        },
+      }),
+    );
+  });
+
+  it("destroys both a moving bowling ball and a still portable item on contact", () => {
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(35, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(36, MS_TILE.Sandbag, MS_TILE.Empty),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 1);
+
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toBeUndefined();
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "map" && item.state.pos === 36 && item.state.z === 1)).toBeUndefined();
+    expect(session.state.map.cells[36]?.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("deep clones bowling-ball portable state when a cloner releases it", () => {
+    const buttonPos = 34;
+    const clonerPos = 70;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+          createCell(buttonPos, MS_TILE.Button_Red, MS_TILE.Empty),
+          createCell(clonerPos, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.CloneMachine),
+          createCell(clonerPos + 1, MS_TILE.Empty, MS_TILE.Empty),
+        ],
+        undefined,
+        { cloners: [{ from: buttonPos, to: clonerPos }] },
+      ),
+    );
+
+    const runtime = lynxRuntimeStateForTest(session.state);
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(runtime.statefulActors, bowlingBall.serial) as LynxStatefulActorRuntimeEntry | undefined
+      : undefined;
+    const attachedPortable = bowlingBall
+      ? lynxPortableItems(session.state).find(
+          (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === bowlingBall.serial,
+        )
+      : undefined;
+    const attachedBowlingBall = isLynxBowlingBallPortableItem(attachedPortable)
+      ? attachedPortable
+      : undefined;
+
+    runtimeEntry!.state.localInventory = {
+      keys: [0, 1, 0, 0],
+      boots: [0, 0, 1, 0],
+    };
+    attachedBowlingBall!.bowlingBallState = {
+      ...runtimeEntry!.state,
+      localInventory: {
+        keys: [...runtimeEntry!.state.localInventory!.keys] as [number, number, number, number],
+        boots: [...runtimeEntry!.state.localInventory!.boots] as [number, number, number, number],
+      },
+    };
+
+    session = advanceLynxTicks(session, 4, MS_DIRECTION.east);
+
+    const liveBowlingBalls = session.actors
+      .filter((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)
+      .sort((left, right) => left.pos - right.pos);
+    const attachedPortables = liveBowlingBalls.map((actor) =>
+      lynxPortableItems(session.state)
+        .find(
+          (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === actor.serial,
+        ),
+    ).map((item) =>
+      isLynxBowlingBallPortableItem(item)
+        ? item
+        : undefined,
+    );
+    const runtimeEntries = liveBowlingBalls.map((actor) =>
+      findStatefulActorRuntime(lynxRuntimeStateForTest(session.state).statefulActors, actor.serial) as LynxStatefulActorRuntimeEntry | undefined,
+    );
+
+    expect(liveBowlingBalls.map((actor) => actor.pos)).toEqual([clonerPos, clonerPos + 1]);
+    expect(attachedPortables.map((item) => item?.serial).sort((left, right) => (left ?? 0) - (right ?? 0))).toEqual([1, 2]);
+    for (const runtimeEntry of runtimeEntries) {
+      expect(runtimeEntry?.state.localInventory).toEqual({
+        keys: [0, 1, 0, 0],
+        boots: [0, 0, 1, 0],
+      });
+    }
+    for (const portable of attachedPortables) {
+      expect(portable?.bowlingBallState?.localInventory).toEqual({
+        keys: [0, 1, 0, 0],
+        boots: [0, 0, 1, 0],
+      });
+    }
+    expect(runtimeEntries.map((entry) => entry?.portableBacking?.portableItemSerial).sort((left, right) => (left ?? 0) - (right ?? 0))).toEqual(
+      attachedPortables.map((item) => item?.serial).sort((left, right) => (left ?? 0) - (right ?? 0)),
+    );
   });
 });
