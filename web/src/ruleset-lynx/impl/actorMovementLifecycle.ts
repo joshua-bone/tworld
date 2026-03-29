@@ -33,12 +33,12 @@ export function lynxActorHoldsDirectionOnFloor(floorId: number, actorId: number)
 }
 
 export function applyLynxBlockedActorMoveStart(
-  context: Pick<LynxActorMovementContext, "turnBlockedIceDirection">,
+  context: Pick<LynxActorMovementContext, "turnBlockedIceDirection" | "shouldTurnBlockedIce">,
   actor: LynxActorMovementActor,
   attemptedDir: number,
   floorId: number,
 ): void {
-  if (isLynxIce(floorId) && lynxBlockedMoveFloorImpactAction(actor.id) === null) {
+  if (isLynxIce(floorId) && context.shouldTurnBlockedIce(actor, floorId)) {
     actor.dir = context.turnBlockedIceDirection(attemptedDir, floorId);
   }
 }

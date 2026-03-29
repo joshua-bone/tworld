@@ -3225,6 +3225,31 @@ describe("runLynxInputTrace", () => {
     expect(runtimeEntry?.state.travelDirection).toBe(MS_DIRECTION.east);
   });
 
+  it("keeps Chip out of a just-thrown bowling ball's first square on the same tick", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Empty),
+        createCell(eastPos + 1, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.east, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.chipPos).toBe(chipPos);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toMatchObject({
+      pos: eastPos,
+      dir: MS_DIRECTION.east,
+    });
+  });
+
   it("keeps a carried bowling ball when the forward throw path is blocked", () => {
     const chipPos = 33;
     const eastPos = 34;
@@ -3572,6 +3597,30 @@ describe("runLynxInputTrace", () => {
     );
   });
 
+  it("sanitizes the restored floor state when a bowling ball comes to rest", () => {
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(35, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(36, MS_TILE.BlueWall_Real, MS_TILE.Empty),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 5);
+
+    expect(session.state.map.cells[35]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+    expect(session.state.map.cells[35]?.top.state).toBe(0);
+    expect(session.state.map.cells[35]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(session.state.map.cells[35]?.bottom.state).toBe(0);
+    expect(lynxPortableItems(session.state)).toContainEqual(
+      expect.objectContaining({
+        family: "bowling-ball",
+        state: { mode: "map", pos: 35, z: 1 },
+      }),
+    );
+  });
+
   it("destroys both a moving bowling ball and a still portable item on contact", () => {
     let session = createLynxInteractiveSession(
       createRequest(),
@@ -3587,6 +3636,52 @@ describe("runLynxInputTrace", () => {
     expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toBeUndefined();
     expect(lynxPortableItems(session.state).find((item) => item.state.mode === "map" && item.state.pos === 36 && item.state.z === 1)).toBeUndefined();
     expect(session.state.map.cells[36]?.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("treats force floors as normal floor for a bowling ball with slide boots", () => {
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(100, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(101, MS_TILE.Slide_North, MS_TILE.Empty),
+        createCell(102, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+    );
+
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(lynxRuntimeStateForTest(session.state).statefulActors, bowlingBall.serial) as LynxStatefulActorRuntimeEntry | undefined
+      : undefined;
+    const localInventory = runtimeEntry?.state.localInventory;
+    expect(localInventory).toBeTruthy();
+    localInventory!.boots[0] = 1;
+
+    session = advanceLynxTicks(session, 8);
+
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toMatchObject({
+      pos: 102,
+      dir: MS_DIRECTION.east,
+    });
+  });
+
+  it("bounces and keeps moving on ice in Lynx when a bowling ball lacks ice boots", () => {
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(100, MS_TILE.Empty, MS_TILE.Empty),
+        createCell(101, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Ice),
+        createCell(102, MS_TILE.Wall, MS_TILE.Empty),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 8);
+
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toMatchObject({
+      pos: 99,
+      dir: MS_DIRECTION.west,
+    });
   });
 
   it("deep clones bowling-ball portable state when a cloner releases it", () => {

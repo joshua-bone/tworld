@@ -182,6 +182,12 @@ import {
   moveMsCreatureUpOneLayer as moveMsCreatureUpOneLayerWithContext,
 } from "@ruleset-ms/impl/creatureMovement";
 import {
+  applyMsCreatureCollisionAfterCompletedStep,
+  applyMsCreatureCompletedStep,
+  applyMsCreatureEnteredCell,
+  applyMsCreatureFloorImpact,
+} from "@ruleset-ms/impl/actorMovementLifecycle";
+import {
   canStartMsChipMoveByStrategy,
   type MsBlockMovementStrategyContext,
   type MsChipMovementStrategyContext,
@@ -516,13 +522,18 @@ function revertMsPortableBackedCreatureToMap(
 function shouldRevertPortableBackedCreatureOnBlockedMove(
   cells: EngineMapCell[],
   creature: MsTrackedCreature,
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
 ): boolean {
   if (msBlockedMoveFloorImpactAction(creature.id) !== "revert-portable" || creature.hidden) {
     return false;
   }
 
   const standingTile = bottomTile(cells, creature.pos);
-  if (isIceFloor(standingTile.id) || isSlideFloor(standingTile.id)) {
+  if (
+    (isIceFloor(standingTile.id) || isSlideFloor(standingTile.id)) &&
+    !msActorTreatsForcedFloorAsNormal(creature, standingTile.id, internal, inventory)
+  ) {
     return false;
   }
   if (standingTile.id === MS_TILE.Teleport && (standingTile.state & MS_FLOOR_STATE.Broken) === 0) {
@@ -541,7 +552,7 @@ function maybeRevertPortableBackedCreatureOnBlockedMove(
   creature: MsTrackedCreature,
 ): boolean {
   return (
-    shouldRevertPortableBackedCreatureOnBlockedMove(cells, creature) &&
+    shouldRevertPortableBackedCreatureOnBlockedMove(cells, creature, internal, inventory) &&
     revertMsPortableBackedCreatureToMap(cells, internal, inventory, creature)
   );
 }
@@ -830,6 +841,10 @@ function tryActivateMsBowlingBallThrow(
   if (!carried.bowlingBallState) {
     return false;
   }
+  const targetTop = cells[targetStep.pos]!.top.id;
+  const targetTopState = cells[targetStep.pos]!.top.state;
+  const targetBottom = cells[targetStep.pos]!.bottom.id;
+  const targetBottomState = cells[targetStep.pos]!.bottom.state;
 
   const probeCreature: MsTrackedCreature = {
     serial: -1,
@@ -902,7 +917,77 @@ function tryActivateMsBowlingBallThrow(
     id: msCreatureTile(MS_TILE.BowlingBall, dir),
     state: 0,
   };
+  settleMsSpawnedBowlingBallLanding(
+    runtime,
+    cells,
+    runtime.internal.creatures[runtime.internal.creatures.length - 1]!,
+    dir,
+    targetTop,
+    targetTopState,
+    targetBottom,
+    targetBottomState,
+  );
   return true;
+}
+
+function settleMsSpawnedBowlingBallLanding(
+  runtime: MsAdvanceTickRuntime,
+  cells: EngineMapCell[],
+  creature: MsTrackedCreature,
+  dir: number,
+  targetTop: number,
+  targetTopState: number,
+  targetBottom: number,
+  targetBottomState: number,
+): void {
+  const context = createMsCreatureMovementContext(runtime.internal, runtime.inventory);
+  const standingFloorWasTop = !isMsCreature(targetTop);
+  const standingFloor = standingFloorWasTop ? targetTop : targetBottom;
+  const standingFloorState = standingFloorWasTop ? targetTopState : targetBottomState;
+  const landedPos = applyMsCreatureEnteredCell(
+    context,
+    cells,
+    creature,
+    creature.pos,
+    dir,
+    runtime.internal.chipPos,
+    targetTop,
+    targetTopState,
+    targetBottom,
+    targetBottomState,
+    standingFloor,
+    standingFloorState,
+  );
+  const floorImpact = applyMsCreatureFloorImpact(
+    context,
+    cells,
+    landedPos,
+    true,
+    creature,
+    context.arrivalOutcome(creature, standingFloor),
+    targetTop,
+    targetTopState,
+    targetBottom,
+    targetBottomState,
+  );
+  runtime.internal.pendingSoundEffects |= floorImpact.soundEffects;
+  if (floorImpact.removed) {
+    return;
+  }
+
+  runtime.internal.pendingSoundEffects |= applyMsCreatureCompletedStep(
+    context,
+    cells,
+    landedPos,
+    true,
+    creature,
+    landedPos,
+    standingFloor,
+  );
+  applyMsCreatureCollisionAfterCompletedStep(cells, creature.pos, () => {
+    runtime.internal.chipStatus = "collided";
+  });
+  runtime.internal.pendingSoundEffects |= context.applyArrivalEffects(cells, creature);
 }
 
 function advanceRandom(internal: MsInternalState): bigint {
@@ -939,6 +1024,33 @@ function isIceFloor(floor: number): boolean {
 
 function isSlideFloor(floor: number): boolean {
   return msTileForcedFloorKind(floor) === "slide";
+}
+
+function msForcedFloorBootIndex(floor: number): number | null {
+  if (isIceFloor(floor)) {
+    return 0;
+  }
+  if (isSlideFloor(floor)) {
+    return 1;
+  }
+  return null;
+}
+
+function msActorTreatsForcedFloorAsNormal(
+  creature: Pick<MsTrackedCreature, "id" | "serial">,
+  floor: number,
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+): boolean {
+  const bootIndex = msForcedFloorBootIndex(floor);
+  if (bootIndex === null) {
+    return false;
+  }
+
+  return actorInventoryHasBoot(
+    projectMsRuntimeActorInventoryOwner(creature.id, creature.serial, inventory, internal),
+    bootIndex,
+  );
 }
 
 function isAirFloor(floor: number): boolean {
@@ -2460,7 +2572,12 @@ function syncMsCreatureElevatorFloorMovement(context: MsTickContext, creature: M
   });
 }
 
-function syncCreatureFloorMovement(cells: EngineMapCell[], creature: MsTrackedCreature, internal: MsInternalState): boolean {
+function syncCreatureFloorMovement(
+  cells: EngineMapCell[],
+  creature: MsTrackedCreature,
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+): boolean {
   if (creature.hidden) {
     clearCreatureFloorMovement(creature, internal);
     return false;
@@ -2485,10 +2602,10 @@ function syncCreatureFloorMovement(cells: EngineMapCell[], creature: MsTrackedCr
   if (floor === MS_TILE.Teleport && (standingTile.state & MS_FLOOR_STATE.Broken) === 0) {
     movement = "teleport";
     movementDir = creature.dir;
-  } else if (isIceFloor(floor)) {
+  } else if (isIceFloor(floor) && !msActorTreatsForcedFloorAsNormal(creature, floor, internal, inventory)) {
     movement = "ice";
     movementDir = iceWallTurn(floor, creature.dir);
-  } else if (isSlideFloor(floor)) {
+  } else if (isSlideFloor(floor) && !msActorTreatsForcedFloorAsNormal(creature, floor, internal, inventory)) {
     movement = "slide";
     movementDir = slideDirection(floor, internal);
   }
@@ -2522,6 +2639,7 @@ function restartCreatureFloorMovementAfterBlockedAttempt(
   creature: MsTrackedCreature,
   originalDir: number,
   internal: MsInternalState,
+  inventory: EngineState["inventory"],
 ): void {
   if (creature.hidden) {
     clearCreatureFloorMovement(creature, internal);
@@ -2557,10 +2675,10 @@ function restartCreatureFloorMovementAfterBlockedAttempt(
   if (floor === MS_TILE.Teleport && (standingTile.state & MS_FLOOR_STATE.Broken) === 0) {
     movement = "teleport";
     movementDir = originalDir;
-  } else if (isIceFloor(floor)) {
+  } else if (isIceFloor(floor) && !msActorTreatsForcedFloorAsNormal(creature, floor, internal, inventory)) {
     movement = "ice";
     movementDir = originalDir;
-  } else if (isSlideFloor(floor)) {
+  } else if (isSlideFloor(floor) && !msActorTreatsForcedFloorAsNormal(creature, floor, internal, inventory)) {
     movement = "slide";
     movementDir = slideDirection(floor, internal);
   }
@@ -3102,7 +3220,7 @@ function activateMappedBowlingBallsOnForceFloors(
       id: msCreatureTile(MS_TILE.BowlingBall, dir),
       state: 0,
     };
-    syncCreatureFloorMovement(cells, creature, internal);
+    syncCreatureFloorMovement(cells, creature, internal, inventory);
   }
 }
 
@@ -3139,7 +3257,7 @@ function createMsCreatureMovementContext(
       clearCreatureFloorMovement(creature, internal);
     },
     syncCreatureFloorMovement: (cells: EngineMapCell[], creature: MsTrackedCreature) => {
-      syncCreatureFloorMovement(cells, creature, internal);
+      syncCreatureFloorMovement(cells, creature, internal, inventory);
     },
     syncVerticalFloorMovement,
     applyArrivalEffects: (cells: EngineMapCell[], creature: MsTrackedCreature) =>
@@ -3149,7 +3267,7 @@ function createMsCreatureMovementContext(
         runtimeEntry: msRuntimeActorEntry(internal, creature.serial),
       }),
     removeStatefulActor: (creature: MsTrackedCreature) => {
-      destroyMsStatefulActorRuntime(internal.statefulActors, creature.serial);
+      destroyMsPortableBackedActorRuntime(internal, inventory, creature.serial);
     },
     findTeleportDestination: (
       cells: EngineMapCell[],
@@ -3472,10 +3590,10 @@ function processMsCreatureFloorQueueEntry(
       }
     }
 
-    if (retriedAfterBlock && findCreatureSlipIndex(internal, creature.serial) >= 0) {
-      if (moved) {
-        syncCreatureFloorMovement(creatureCells, creature, internal);
-      }
+      if (retriedAfterBlock && findCreatureSlipIndex(internal, creature.serial) >= 0) {
+        if (moved) {
+          syncCreatureFloorMovement(creatureCells, creature, internal, engine.inventory);
+        }
       if (queue.isEntryActive(active)) {
         queue.trace("requeue-creature-retry", slipIndex, advance, active);
         queue.requeueEntry(slipIndex);
@@ -3498,7 +3616,7 @@ function processMsCreatureFloorQueueEntry(
 
     if (!moved) {
       revealMsBallisticBlockedEnter(creatureCells, creature, originalDir);
-      restartCreatureFloorMovementAfterBlockedAttempt(creatureCells, creature, originalDir, internal);
+      restartCreatureFloorMovementAfterBlockedAttempt(creatureCells, creature, originalDir, internal, engine.inventory);
       if (maybeRevertPortableBackedCreatureOnBlockedMove(creatureCells, internal, engine.inventory, creature)) {
         if (queue.isEntryActive(active)) {
           queue.trace("remove-creature-reverted-portable", slipIndex, advance, active);

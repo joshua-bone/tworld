@@ -139,4 +139,53 @@ describe("createLegacyExpansionArtworkOverrides", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("draws the floor underneath transparent pickups when compositing bowling-ball artwork cells", () => {
+    const fakeContext = {
+      imageSmoothingEnabled: true,
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeContext),
+    } as unknown as HTMLCanvasElement;
+    const floorSprite: LegacyTileSprite = { image: fakeCanvas, offsetX: 0, offsetY: 0, transparent: false };
+    const keySprite: LegacyTileSprite = { image: fakeCanvas, offsetX: 0, offsetY: 0, transparent: true };
+    const bowlingBallSprite: LegacyTileSprite = { image: fakeCanvas, offsetX: 0, offsetY: 0, transparent: true };
+    const baseTileset: LegacyTileset = {
+      get: (tileId) => {
+        if (tileId === MS_TILE.Empty) {
+          return floorSprite;
+        }
+        if (tileId === MS_TILE.Key_Green) {
+          return keySprite;
+        }
+        return null;
+      },
+    };
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCanvas;
+        }),
+      });
+
+      const overridden = applyLegacyTileOverrides(
+        baseTileset,
+        new Map([[msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), bowlingBallSprite]]),
+      );
+
+      const sprite = overridden.getCell?.(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Key_Green, 0);
+
+      expect(sprite).toMatchObject({ transparent: false });
+      expect(fakeContext.drawImage).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

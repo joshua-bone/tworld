@@ -62,6 +62,7 @@ export interface LynxActorMovementContext {
   arrivalOutcome(actor: LynxActorMovementActor, floorId: number): ActorArrivalOutcome;
   effectiveTargetTileId(tileId: number): number;
   turnBlockedIceDirection(dir: number, floorId: number): number;
+  shouldTurnBlockedIce(actor: LynxActorMovementActor, floorId: number): boolean;
   applyIceWallTurn(dir: number, floorId: number): number;
   resolveButtonEffects(pos: number, tileId: number): number;
   removeActor(actor: LynxActorMovementActor, animationTileId: number): void;

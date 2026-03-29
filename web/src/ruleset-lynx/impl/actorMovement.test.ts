@@ -64,6 +64,7 @@ function createContext(overrides: Partial<LynxActorMovementContext> = {}): LynxA
     arrivalOutcome: () => "none",
     effectiveTargetTileId: (tileId) => tileId,
     turnBlockedIceDirection: () => MS_DIRECTION.west,
+    shouldTurnBlockedIce: () => true,
     applyIceWallTurn: (dir) => dir,
     resolveButtonEffects: () => 0,
     removeActor: () => {},

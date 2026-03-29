@@ -33,6 +33,7 @@ import {
   msTileOverlays,
   pos,
 } from "@ruleset-ms/impl/testSupport";
+import type { MsStatefulActorRuntimeEntry } from "@ruleset-ms/impl/statefulActors";
 
 const TEST_MOUSE_RANGE_MIN = -9;
 const TEST_MOUSE_RANGE = 19;
@@ -6546,8 +6547,79 @@ describe("MS engine regressions", () => {
     );
 
     expect(session.state.engine.inventory.tools).toEqual([0]);
+    expect(session.state.engine.map.cells[doorPos]?.bottom.id).toBe(MS_TILE.Empty);
     expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toMatchObject({
       pos: doorPos,
+      dir: MS_DIRECTION.east,
+    });
+  });
+
+  it("treats ice as normal floor for a bowling ball with ice boots", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(3, 3);
+    const icePos = pos(4, 3);
+    const exitPos = pos(5, 3);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+    cells[icePos]!.top.id = MS_TILE.Ice;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(msStatefulActorsForTest(session.state), bowlingBall.serial) as MsStatefulActorRuntimeEntry | undefined
+      : undefined;
+    const localInventory = runtimeEntry?.state.localInventory;
+    expect(localInventory).toBeTruthy();
+    localInventory!.boots[0] = 1;
+
+    for (let tick = 0; tick < 12; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toMatchObject({
+      pos: exitPos,
+      dir: MS_DIRECTION.east,
+    });
+  });
+
+  it("treats force floors as normal floor for a bowling ball with force boots", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(3, 5);
+    const slidePos = pos(4, 5);
+    const exitPos = pos(5, 5);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+    cells[slidePos]!.top.id = MS_TILE.Slide_North;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(msStatefulActorsForTest(session.state), bowlingBall.serial) as MsStatefulActorRuntimeEntry | undefined
+      : undefined;
+    const localInventory = runtimeEntry?.state.localInventory;
+    expect(localInventory).toBeTruthy();
+    localInventory!.boots[1] = 1;
+
+    for (let tick = 0; tick < 12; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toMatchObject({
+      pos: exitPos,
       dir: MS_DIRECTION.east,
     });
   });

@@ -22,6 +22,7 @@ export interface LynxCreatureControllerContext {
   chooseBlobDirection(): number;
   chooseWalkerRandomDirection(dir: number): number;
   slideDirection(floorId: number): number;
+  treatsForcedFloorAsNormal(actor: LynxCreatureControllerActor, floorId: number): boolean;
 }
 
 function left(dir: number): number {
@@ -163,11 +164,11 @@ export function chooseLynxCreatureMoveForTick(
     }
 
     const floor = context.floorAt(actor.pos);
-    if (context.currentTime !== 0 && isLynxSlide(floor)) {
+    if (context.currentTime !== 0 && isLynxSlide(floor) && !context.treatsForcedFloorAsNormal(actor, floor)) {
       actor.forcedDir = context.slideDirection(floor);
       return;
     }
-    if (context.currentTime !== 0 && isLynxIce(floor)) {
+    if (context.currentTime !== 0 && isLynxIce(floor) && !context.treatsForcedFloorAsNormal(actor, floor)) {
       actor.forcedDir = actor.dir;
       return;
     }

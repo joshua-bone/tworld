@@ -30,6 +30,7 @@ function createContext(overrides: Partial<LynxCreatureControllerContext> = {}): 
     chooseBlobDirection: () => MS_DIRECTION.north,
     chooseWalkerRandomDirection: (dir) => dir,
     slideDirection: () => MS_DIRECTION.north,
+    treatsForcedFloorAsNormal: () => false,
     ...overrides,
   };
 }

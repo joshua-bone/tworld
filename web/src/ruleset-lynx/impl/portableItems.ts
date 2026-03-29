@@ -25,6 +25,7 @@ import {
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
 import { replaceTopTile } from "@game-core/impl/board";
+import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import type { LynxPortableItemFamily } from "@ruleset-lynx/impl/catalogTiles";
 import {
   lookupLynxPortableItemFamilyRegistrationByTileId,
@@ -191,6 +192,13 @@ interface LynxPortableItemSettleContext {
   withLayer: LynxRunWithLayer;
 }
 
+export function sanitizeLynxPortableUnderlyingTile(tile: EngineMapCell["top"]): EngineMapCell["top"] {
+  return {
+    ...tile,
+    state: tile.state & ~(LYNX_CELL_FLAG.Claimed | LYNX_CELL_FLAG.Animated),
+  };
+}
+
 function settleLynxPortableItemDrop(
   item: LynxPortableItem,
   context: LynxPortableItemSettleContext,
@@ -205,7 +213,7 @@ function settleLynxPortableItemDrop(
       return "destroyed" as const;
     }
 
-    cell.bottom = { ...cell.top };
+    cell.bottom = sanitizeLynxPortableUnderlyingTile(cell.top);
     cell.top = { id: item.tileId, state: 0 };
     return "mapped" as const;
   });

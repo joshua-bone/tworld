@@ -37,6 +37,7 @@ describe("lynx actor movement lifecycle", () => {
     applyLynxBlockedActorMoveStart(
       {
         turnBlockedIceDirection: () => MS_DIRECTION.west,
+        shouldTurnBlockedIce: () => true,
       },
       ordinaryActor,
       MS_DIRECTION.east,
@@ -51,6 +52,7 @@ describe("lynx actor movement lifecycle", () => {
     applyLynxBlockedActorMoveStart(
       {
         turnBlockedIceDirection: () => MS_DIRECTION.west,
+        shouldTurnBlockedIce: () => false,
       },
       bowlingBall,
       MS_DIRECTION.east,
