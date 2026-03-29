@@ -20,6 +20,7 @@ export interface LynxTrapClonerActor {
   dir: number;
   moving: number;
   hidden: boolean;
+  deferPush?: boolean;
 }
 
 export interface LynxTrapHeldActor {
@@ -122,7 +123,7 @@ export function activateLynxCloner<TActor extends LynxTrapClonerActor>(
     }
 
     const sourceActor = context.findVisibleActorAt(sourcePos, buttonZ);
-    if (!sourceActor || sourceActor.dir === 0) {
+    if (!sourceActor || sourceActor.dir === 0 || sourceActor.deferPush) {
       return false;
     }
     const clonerHooks = lynxActorClonerFamilyHooks(sourceActor.id);

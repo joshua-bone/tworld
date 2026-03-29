@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   applyLynxBlockedChipEnterEffect,
   applyLynxTileActivationEffect,
   resolveLynxTileSupportBelow,
 } from "@ruleset-lynx/impl/tileEffects";
 
-function makeCell(topId: number, bottomId = MS_TILE.Empty): EngineMapCell {
+function makeCell(topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
   return {
     position: { x: 0, y: 0, z: 1, pos: 0 },
     top: { id: topId, state: 0 },
@@ -58,6 +58,14 @@ describe("lynx tile effects", () => {
 
     expect(applyLynxBlockedChipEnterEffect(state, 0)).toBe(true);
     expect(state.map.cells[0]!.top.id).toBe(MS_TILE.Wall);
+  });
+
+  it("reveals a blocked hidden wall under an occupant through the blocked-enter effect", () => {
+    const state = makeState(makeCell(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west), MS_TILE.BlueWall_Real));
+
+    expect(applyLynxBlockedChipEnterEffect(state, 0)).toBe(true);
+    expect(state.map.cells[0]!.top.id).toBe(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west));
+    expect(state.map.cells[0]!.bottom.id).toBe(MS_TILE.Wall);
   });
 
   it("routes button activation through callbacks", () => {

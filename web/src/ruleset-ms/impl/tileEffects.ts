@@ -3,11 +3,12 @@ import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive"
 import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCapabilities";
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult } from "@game-core/api/verticalMovement";
 import { actorInventoryUseKey, type ActorLocalInventoryOwner } from "@game-core/impl/actorLocalInventory";
-import { promoteBottomTile, replaceTopTile } from "@game-core/impl/board";
+import { promoteBottomTile, replaceBottomTile, replaceTopTile } from "@game-core/impl/board";
 import {
   msButtonAction,
   msDoorKeyIndex,
   msInventorySlot,
+  msIsOverlayFloorTile,
   msTileHasTag,
 } from "@ruleset-ms/impl/catalog";
 import { msBlockedEnterEffect } from "@ruleset-ms/impl/floorImpactPolicy";
@@ -63,17 +64,37 @@ export function isMsBlockedChipEnterRevealTile(tileId: number): boolean {
   return msBlockedEnterEffect(tileId) === "reveal-wall";
 }
 
+function msBlockedChipEnterRevealLayer(
+  cell: EngineMapCell | undefined,
+): "top" | "bottom" | null {
+  if (!cell) {
+    return null;
+  }
+  if (isMsBlockedChipEnterRevealTile(cell.top.id)) {
+    return "top";
+  }
+  if (msIsOverlayFloorTile(cell.top.id) && isMsBlockedChipEnterRevealTile(cell.bottom.id)) {
+    return "bottom";
+  }
+  return null;
+}
+
 export function applyMsBlockedChipEnterEffect(
   cells: EngineMapCell[],
   pos: number,
   exposeWalls: boolean,
 ): boolean {
-  const tileId = cells[pos]?.top.id ?? MS_TILE.Empty;
-  if (!isMsBlockedChipEnterRevealTile(tileId)) {
+  const cell = cells[pos];
+  const revealLayer = msBlockedChipEnterRevealLayer(cell);
+  if (!cell || revealLayer === null) {
     return false;
   }
   if (exposeWalls) {
-    replaceTopTile(cells, pos, { ...cells[pos]!.top, id: MS_TILE.Wall });
+    if (revealLayer === "top") {
+      replaceTopTile(cells, pos, { ...cell.top, id: MS_TILE.Wall });
+    } else {
+      replaceBottomTile(cells, pos, { ...cell.bottom, id: MS_TILE.Wall });
+    }
   }
   return true;
 }

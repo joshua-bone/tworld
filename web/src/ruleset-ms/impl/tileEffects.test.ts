@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell } from "@game-core/api/model";
-import { MS_SOUND, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_SOUND, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   applyMsBlockedChipEnterEffect,
   applyMsTileActivationEffect,
   resolveMsTileSupportBelow,
 } from "@ruleset-ms/impl/tileEffects";
 
-function makeCell(topId: number, bottomId = MS_TILE.Empty): EngineMapCell {
+function makeCell(topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
   return {
     position: { x: 0, y: 0, z: 1, pos: 0 },
     top: { id: topId, state: 0 },
@@ -21,6 +21,14 @@ describe("ms tile effects", () => {
 
     expect(applyMsBlockedChipEnterEffect(cells, 0, true)).toBe(true);
     expect(cells[0]!.top.id).toBe(MS_TILE.Wall);
+  });
+
+  it("reveals a blocked hidden wall under an occupant through the blocked-enter effect", () => {
+    const cells = [makeCell(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west), MS_TILE.BlueWall_Real)];
+
+    expect(applyMsBlockedChipEnterEffect(cells, 0, true)).toBe(true);
+    expect(cells[0]!.top.id).toBe(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west));
+    expect(cells[0]!.bottom.id).toBe(MS_TILE.Wall);
   });
 
   it("routes button activation through callbacks and preserves toggle-wall silence", () => {

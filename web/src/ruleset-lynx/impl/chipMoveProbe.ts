@@ -12,7 +12,7 @@ import {
 } from "@ruleset-lynx/impl/actorInteractions";
 import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
 import { queryLynxOccupancyTarget } from "@ruleset-lynx/impl/occupancy";
-import { isLynxBlockedChipEnterRevealTile } from "@ruleset-lynx/impl/tileEffects";
+import { isLynxBlockedChipEnterRevealTile, lynxChipProbeTileId } from "@ruleset-lynx/impl/tileEffects";
 import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export const LYNX_CHIP_TARGET_CELL_PROBE = {
@@ -88,7 +88,8 @@ export function probeLynxChipTargetCell(
     return { status: LYNX_CHIP_TARGET_CELL_PROBE.blocked, tileId: occupancy.tileId };
   }
 
-  const tileId = options.toggleWallsPending ? lynxToggledWallTileId(occupancy.tileId) : occupancy.tileId;
+  const cell = state.map.cells[pos]!;
+  const tileId = options.toggleWallsPending ? lynxToggledWallTileId(lynxChipProbeTileId(cell)) : lynxChipProbeTileId(cell);
   const revealWall = isLynxBlockedChipEnterRevealTile(tileId);
   if (options.claimedCell && revealWall) {
     return { status: LYNX_CHIP_TARGET_CELL_PROBE.pushOnly, tileId };

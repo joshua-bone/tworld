@@ -177,6 +177,14 @@ runSuite("TS Lynx engine replay trace differential", () => {
     await expectReplayWindowToMatch("CCLP3-lynx.dac.tws:146", 5586, 5591);
   }, 30_000);
 
+  it("matches the occupied-teleport reroute window from CCLP3:122", async () => {
+    await expectReplayWindowToMatch("CCLP3-lynx.dac.tws:122", 1371, 1377);
+  }, 30_000);
+
+  it("matches the held-open trap push timing window from CCLP5Voting-Razor-Lynx:8", async () => {
+    await expectReplayWindowToMatch("CCLP5Voting-Razor-Lynx.tws:8", 1819, 1824);
+  }, 30_000);
+
   it("matches the push-into-fire window from CCLP1:17", async () => {
     await expectReplayWindowToMatch("CCLP1-lynx.dac.tws:17", 77, 83);
   }, 30_000);

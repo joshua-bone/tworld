@@ -3,7 +3,7 @@ import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive"
 import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCapabilities";
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult } from "@game-core/api/verticalMovement";
 import { actorInventoryUseKey, type ActorLocalInventoryOwner } from "@game-core/impl/actorLocalInventory";
-import { promoteBottomTile, replaceTopTile } from "@game-core/impl/board";
+import { promoteBottomTile, replaceBottomTile, replaceTopTile } from "@game-core/impl/board";
 import {
   lynxButtonAction,
   lynxDoorKeyIndex,
@@ -11,7 +11,7 @@ import {
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
 import { lynxBlockedEnterEffect } from "@ruleset-lynx/impl/floorImpactPolicy";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { isMsCreature, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxTileActivationContext {
   toggleWalls(): void;
@@ -61,14 +61,32 @@ export function isLynxBlockedChipEnterRevealTile(tileId: number): boolean {
   return lynxBlockedEnterEffect(tileId) === "reveal-wall";
 }
 
+function lynxTopUsesUnderlyingFloor(topId: number): boolean {
+  return isMsCreature(topId) || lynxInventorySlot(topId) !== null;
+}
+
+export function lynxChipProbeTileId(cell: EngineMapCell): number {
+  if (lynxTopUsesUnderlyingFloor(cell.top.id) && cell.bottom.id !== MS_TILE.Empty) {
+    return cell.bottom.id;
+  }
+  return cell.top.id;
+}
+
 export function applyLynxBlockedChipEnterEffect(state: EngineState, pos: number): boolean {
   const cell = state.map.cells[pos];
-  if (!cell || !isLynxBlockedChipEnterRevealTile(cell.top.id)) {
+  if (!cell) {
     return false;
   }
 
-  replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
-  return true;
+  if (isLynxBlockedChipEnterRevealTile(cell.top.id)) {
+    replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
+    return true;
+  }
+  if (lynxTopUsesUnderlyingFloor(cell.top.id) && isLynxBlockedChipEnterRevealTile(cell.bottom.id)) {
+    replaceBottomTile(state.map.cells, pos, { ...cell.bottom, id: MS_TILE.Wall });
+    return true;
+  }
+  return false;
 }
 
 export function applyLynxTileActivationEffect(

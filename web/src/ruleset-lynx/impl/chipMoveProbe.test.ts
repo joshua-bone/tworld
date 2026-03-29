@@ -12,9 +12,9 @@ import {
   probeLynxChipTargetCell,
 } from "@ruleset-lynx/impl/chipMoveProbe";
 import { lynxActorInteractionOutcome, lynxInteractionTargetFromOccupancy } from "@ruleset-lynx/impl/actorInteractions";
-import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 
-function makeCell(topId: number, topState = 0, bottomId = MS_TILE.Empty): EngineMapCell {
+function makeCell(topId: number, topState: number = 0, bottomId: number = MS_TILE.Empty): EngineMapCell {
   return {
     position: { x: 0, y: 0, z: 1, pos: 0 },
     top: { id: topId, state: topState },
@@ -93,6 +93,12 @@ describe("probeLynxChipTargetCell", () => {
 
   it("blocks animated cells", () => {
     const state = makeState(makeCell(MS_TILE.Empty, LYNX_CELL_FLAG.Animated));
+
+    expect(probeLynxChipTargetCell(state, 0, MS_DIRECTION.east).status).toBe(LYNX_CHIP_TARGET_CELL_PROBE.blocked);
+  });
+
+  it("blocks a reveal wall under an occupant", () => {
+    const state = makeState(makeCell(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west), 0, MS_TILE.BlueWall_Real));
 
     expect(probeLynxChipTargetCell(state, 0, MS_DIRECTION.east).status).toBe(LYNX_CHIP_TARGET_CELL_PROBE.blocked);
   });

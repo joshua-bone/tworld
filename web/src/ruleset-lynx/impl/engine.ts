@@ -2429,6 +2429,15 @@ function updateLynxViewFromMovement(
   updateLynxViewChip(state);
 }
 
+function chipCanOccupyLynxTeleport(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  pos: number,
+): boolean {
+  const landing = queryLynxOccupancyOnLayer(state, actors, pos);
+  return !landing.claimed && landing.kind === OCCUPANCY_TARGET_KIND.empty;
+}
+
 function claimedLynxChipTeleportExitIsValid(
   state: EngineState,
   actors: LynxRuntimeActor[],
@@ -2460,6 +2469,7 @@ function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[
     activeLayerZ: () => activeLynxLayerZ(state),
     withLayer: (z, run) => withLynxLayer(state, z, run),
     chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
+    chipTeleportLandingIsClear: (teleportPos) => chipCanOccupyLynxTeleport(state, actors, teleportPos),
     canChipEnter: (pos, dir) => canLynxChipEnterCell(state, pos, dir),
     claimedChipTeleportExitIsValid: (exitPos, dir) => claimedLynxChipTeleportExitIsValid(state, actors, exitPos, dir),
     canActorEnter: (actor, tileId, dir) => canLynxCreatureEnter(state, actor as LynxRuntimeActor, tileId, dir),
@@ -2744,6 +2754,10 @@ function advanceLynxCreature(
               },
             },
       );
+      if (actor.id === MS_TILE.Block && isLynxHeldOpenTrapBlock(state, level, actors, actor)) {
+        actor.deferPush = true;
+        actor.deferPushArmed = false;
+      }
     }
   });
 }

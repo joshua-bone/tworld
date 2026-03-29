@@ -23,6 +23,7 @@ export interface LynxTeleportContext {
   activeLayerZ(): number;
   withLayer<T>(z: number, run: () => T): T;
   chipActsWallForMobs(pos: number, z: number): boolean;
+  chipTeleportLandingIsClear(teleportPos: number): boolean;
   canChipEnter(pos: number, dir: number): boolean;
   claimedChipTeleportExitIsValid(exitPos: number, dir: number): boolean;
   canActorEnter(actor: LynxTeleportActor, tileId: number, dir: number): boolean;
@@ -68,6 +69,10 @@ export function resolveLynxChipTeleport(
   chipDir: number,
 ): number {
   const destination = findLynxTeleportDestination(context.state, chipPos, (teleportPos) => {
+    if (teleportPos !== chipPos && !context.chipTeleportLandingIsClear(teleportPos)) {
+      return false;
+    }
+
     const exitStep = advanceToCell(context.state.map.cells, teleportPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
     if (!exitStep) {
       return false;
