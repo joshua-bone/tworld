@@ -59,6 +59,7 @@ describe("MS catalog tile families", () => {
     expect(msInventoryIndex(MS_TILE.Boots_Fire)).toBe(2);
     expect(msPortableItemFamily(MS_TILE.Sandbag)).toBe("sandbag");
     expect(msPortableItemFamily(MS_TILE.Hook)).toBe("hook");
+    expect(msPortableItemFamily(MS_TILE.BowlingBall_Still)).toBe("bowling-ball");
     expect(msPortableItemFamily(MS_TILE.Key_Blue)).toBeNull();
     expect(msDoorKeyIndex(MS_TILE.Door_Yellow)).toBe(2);
     expect(msDoorKeyIndex(MS_TILE.Teleport)).toBeNull();
@@ -66,6 +67,7 @@ describe("MS catalog tile families", () => {
 
   it("provides chip-entry, button, forced-floor, and exit policy helpers", () => {
     expect(msChipEnterAction(MS_TILE.Key_Red)).toBe("collect-item");
+    expect(msChipEnterAction(MS_TILE.BowlingBall_Still)).toBe("collect-item");
     expect(msChipEnterAction(MS_TILE.Bomb)).toBe("explode-bomb");
     expect(msChipEnterAction(MS_TILE.Water)).toBe("water-death");
     expect(msChipEnterAction(MS_TILE.Fire)).toBe("fire-death");

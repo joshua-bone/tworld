@@ -7,7 +7,7 @@ import {
 import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export type LynxInventorySlot = "keys" | "boots" | "tools";
-export type LynxPortableItemFamily = "sandbag" | "hook";
+export type LynxPortableItemFamily = "sandbag" | "hook" | "bowling-ball";
 export type LynxForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air" | "elevator";
 export type LynxCreatureFloorAction = "none" | "hold-direction";
 export type LynxChipEnterAction =
@@ -68,7 +68,7 @@ const FULL_MOVEMENT_MASK =
 
 const KEY_TILE_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
 const BOOT_TILE_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
-const TOOL_TILE_IDS = [MS_TILE.Sandbag, MS_TILE.Hook] as const;
+const TOOL_TILE_IDS = [MS_TILE.Sandbag, MS_TILE.Hook, MS_TILE.BowlingBall_Still] as const;
 const DOOR_TILE_IDS = [MS_TILE.Door_Red, MS_TILE.Door_Blue, MS_TILE.Door_Yellow, MS_TILE.Door_Green] as const;
 const BUTTON_TILE_IDS = [
   MS_TILE.Button_Blue,
@@ -386,6 +386,7 @@ function defaultLynxChipEnterAction(id: number): LynxChipEnterAction {
     case MS_TILE.Boots_Water:
     case MS_TILE.Sandbag:
     case MS_TILE.Hook:
+    case MS_TILE.BowlingBall_Still:
       return "collect-item";
     case MS_TILE.Socket:
       return "open-socket";
@@ -480,7 +481,12 @@ function inventoryPolicy(
   if (TOOL_TILE_SET.has(id)) {
     return {
       inventorySlot: "tools",
-      portableItemFamily: id === MS_TILE.Hook ? "hook" : "sandbag",
+      portableItemFamily:
+        id === MS_TILE.Hook
+          ? "hook"
+          : id === MS_TILE.BowlingBall_Still
+            ? "bowling-ball"
+            : "sandbag",
       inventoryIndex: 0,
     };
   }

@@ -380,15 +380,15 @@ Goal:
 
 Checklist:
 
-- [ ] add a `bowling-ball` portable-item family with stable identity and persistent local state
-- [ ] add a `bowling-ball` stateful actor family with explicit runtime mode
-- [ ] define the shared bowling-ball state shape:
+- [x] add a `bowling-ball` portable-item family with stable identity and persistent local state
+- [x] add a `bowling-ball` stateful actor family with explicit runtime mode
+- [x] define the shared bowling-ball state shape:
   - `mode: still | moving`
   - current direction / last travel direction
   - keys
   - boots
-- [ ] register still and moving visuals through render registration only
-- [ ] keep the family unreferenced from DAT decode for now
+- [x] register still and moving visuals through render registration only
+- [x] keep the family unreferenced from DAT decode for now
 
 Success condition:
 

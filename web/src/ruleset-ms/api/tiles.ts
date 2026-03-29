@@ -91,6 +91,7 @@ export const MS_TILE = {
   BowlingBall: 0x74,
   Sandbag: 0x80,
   Hook: 0x81,
+  BowlingBall_Still: 0x82,
 } as const;
 
 export const MS_FLOOR_STATE = {

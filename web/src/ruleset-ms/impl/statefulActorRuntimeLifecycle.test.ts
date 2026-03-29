@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createMovingBowlingBallState } from "@game-core/impl/bowlingBall";
 import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { advanceMsInteractiveSession, createMsInteractiveSession } from "@ruleset-ms/impl/engine";
 import { createEmptyCells, createLevel, createRequest, msStatefulActorsForTest, pos } from "@ruleset-ms/impl/testSupport";
@@ -17,13 +18,7 @@ function msRuntimeStore(session: Parameters<typeof msStatefulActorsForTest>[0]):
 }
 
 function movingBowlingBallState(): MsStatefulActorRuntimeEntry["state"] {
-  return {
-    mode: "moving",
-    localInventory: {
-      keys: [0, 0, 0, 0],
-      boots: [0, 0, 0, 0],
-    },
-  };
+  return createMovingBowlingBallState();
 }
 
 describe("MS stateful actor runtime lifecycle", () => {
@@ -50,6 +45,7 @@ describe("MS stateful actor runtime lifecycle", () => {
       portableBacking: null,
       state: {
         mode: "moving",
+        travelDirection: null,
         localInventory: {
           keys: [0, 0, 0, 0],
           boots: [0, 0, 0, 0],

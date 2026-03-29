@@ -46,6 +46,7 @@ describe("Lynx catalog tile families", () => {
     expect(lynxInventoryIndex(MS_TILE.Boots_Fire)).toBe(2);
     expect(lynxPortableItemFamily(MS_TILE.Sandbag)).toBe("sandbag");
     expect(lynxPortableItemFamily(MS_TILE.Hook)).toBe("hook");
+    expect(lynxPortableItemFamily(MS_TILE.BowlingBall_Still)).toBe("bowling-ball");
     expect(lynxPortableItemFamily(MS_TILE.Key_Blue)).toBeNull();
     expect(lynxDoorKeyIndex(MS_TILE.Door_Yellow)).toBe(2);
     expect(lynxDoorKeyIndex(MS_TILE.Teleport)).toBeNull();
@@ -76,6 +77,7 @@ describe("Lynx catalog tile families", () => {
     expect(lynxChipEnterAction(MS_TILE.Dirt)).toBe("clear-floor");
     expect(lynxChipEnterAction(MS_TILE.ICChip)).toBe("collect-chip");
     expect(lynxChipEnterAction(MS_TILE.Boots_Water)).toBe("collect-item");
+    expect(lynxChipEnterAction(MS_TILE.BowlingBall_Still)).toBe("collect-item");
     expect(lynxChipEnterAction(MS_TILE.Door_Blue)).toBe("open-door");
     expect(lynxChipEnterAction(MS_TILE.Beartrap)).toBe("trap");
     expect(lynxChipEnterAction(MS_TILE.Exit)).toBe("exit");

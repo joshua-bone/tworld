@@ -2,6 +2,7 @@ import type {
   InteractiveGameRenderSprite,
   InteractiveGameTileOverlayRender,
 } from "@game-core/api/interactive";
+import { bowlingBallArtworkSpriteId } from "@game-core/impl/bowlingBall";
 import type { MsStatefulActorRuntimeEntry } from "@ruleset-ms/impl/statefulActors";
 import {
   lookupMsActorFamilyRegistration,
@@ -14,16 +15,11 @@ function msPortableItemArtworkSpriteId(tileId: number): string | null {
     case "sandbag":
     case "hook":
       return "sandbag";
+    case "bowling-ball":
+      return "bowling_ball_still";
     default:
       return null;
   }
-}
-
-function msBowlingBallArtworkSpriteId(
-  runtimeEntry: MsStatefulActorRuntimeEntry | null,
-): string {
-  const mode = runtimeEntry?.kind === "bowling-ball" ? (runtimeEntry.state as { mode?: string }).mode : "moving";
-  return mode === "still" ? "bowling_ball_still" : "bowling_ball_moving";
 }
 
 export function projectMsPortableItemRender(
@@ -53,10 +49,11 @@ export function projectMsActorRenderSprite(
   runtimeEntry: MsStatefulActorRuntimeEntry | null,
 ): InteractiveGameRenderSprite {
   if (runtimeEntry?.kind === "bowling-ball" || lookupMsActorFamilyRegistration(actor.id)?.familyId === "bowling-ball") {
+    const mode = runtimeEntry?.kind === "bowling-ball" ? runtimeEntry.state.mode : "moving";
     return {
       kind: "creature",
       tileId: MS_TILE.BowlingBall,
-      artworkSpriteId: msBowlingBallArtworkSpriteId(runtimeEntry),
+      artworkSpriteId: bowlingBallArtworkSpriteId(mode),
       dir: actor.dir,
       moving: actor.moving,
       frame: actor.frame,

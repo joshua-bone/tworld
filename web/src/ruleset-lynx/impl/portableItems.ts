@@ -1,5 +1,9 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import {
+  createStillBowlingBallState,
+  type BowlingBallState,
+} from "@game-core/impl/bowlingBall";
+import {
   createPortableItemFamilyLifecycle,
   collectPortableItemsFromLayers,
   createPortableItem,
@@ -37,7 +41,14 @@ export type LynxPortableItemState =
   | PortableItemDetachedState<"primed">
   | PortableItemAttachedState<"actor">;
 
-export interface LynxPortableItem extends PortableItemBase<LynxPortableItemFamily, LynxPortableInventorySlot, LynxPortableItemState> {}
+export interface LynxPortableItem extends PortableItemBase<LynxPortableItemFamily, LynxPortableInventorySlot, LynxPortableItemState> {
+  bowlingBallState?: BowlingBallState;
+}
+
+interface LynxBowlingBallPortableItem
+  extends PortableItemBase<"bowling-ball", LynxPortableInventorySlot, LynxPortableItemState> {
+  bowlingBallState: BowlingBallState;
+}
 
 export interface LynxPortableToolStateStore extends PortableItemStore<LynxPortableItem> {
   primedToolDrop: LynxPrimedToolDrop | null;
@@ -58,7 +69,9 @@ function identifyLynxPortableItem(tileId: number): PortableItemFamilyDescriptor<
   };
 }
 
-function createLynxPortableItemPolicy<TFamily extends LynxPortableItemFamily>(
+type LynxStandardPortableItemFamily = Exclude<LynxPortableItemFamily, "bowling-ball">;
+
+function createLynxPortableItemPolicy<TFamily extends LynxStandardPortableItemFamily>(
   family: TFamily,
 ): PortableItemFamilyPolicy<
   TFamily,
@@ -100,9 +113,52 @@ function createLynxPortableItemPolicy<TFamily extends LynxPortableItemFamily>(
   };
 }
 
+function createLynxBowlingBallPortableItemPolicy(): PortableItemFamilyPolicy<
+  "bowling-ball",
+  "tools",
+  LynxPortableItemState,
+  LynxBowlingBallPortableItem,
+  LynxToolInventoryProjection
+> {
+  return {
+    family: "bowling-ball",
+    inventorySlot: "tools",
+    attachmentKind: "actor",
+    primedMode: "primed",
+    displacedMode: () => "primed",
+    projection: {
+      readCarriedTile: (inventory) => inventory.tools[0] ?? 0,
+      writeCarriedTile: (inventory, tileId) => {
+        inventory.tools = [tileId];
+      },
+    },
+    createCarriedItem: ({ serial, family, inventorySlot, tileId }) => ({
+      serial,
+      family,
+      tileId,
+      inventorySlot,
+      bowlingBallState: createStillBowlingBallState(),
+      state: { mode: "carried" },
+    }),
+    createMapItem: ({ serial, family, inventorySlot, tileId, pos, z }) => ({
+      serial,
+      family,
+      tileId,
+      inventorySlot,
+      bowlingBallState: createStillBowlingBallState(),
+      state: {
+        mode: "map",
+        pos,
+        z,
+      },
+    }),
+  };
+}
+
 const LYNX_PORTABLE_ITEM_POLICIES = {
   sandbag: createLynxPortableItemPolicy("sandbag"),
   hook: createLynxPortableItemPolicy("hook"),
+  "bowling-ball": createLynxBowlingBallPortableItemPolicy(),
 } as const satisfies Record<
   LynxPortableItemFamily,
   PortableItemFamilyPolicy<
@@ -172,6 +228,16 @@ const LYNX_PORTABLE_ITEM_LIFECYCLES = {
     LynxToolInventoryProjection,
     LynxPortableItemSettleContext
   >(LYNX_PORTABLE_ITEM_POLICIES.hook, {
+    settleDrop: settleLynxPortableItemDrop,
+  }),
+  "bowling-ball": createPortableItemFamilyLifecycle<
+    LynxPortableItemFamily,
+    "tools",
+    LynxPortableItemState,
+    LynxPortableItem,
+    LynxToolInventoryProjection,
+    LynxPortableItemSettleContext
+  >(LYNX_PORTABLE_ITEM_POLICIES["bowling-ball"], {
     settleDrop: settleLynxPortableItemDrop,
   }),
 } as const satisfies Record<

@@ -92,6 +92,7 @@ describe("createLegacyExpansionArtworkOverrides", () => {
       expect(overrides.get(MS_TILE.Sandbag)).toMatchObject({ transparent: true });
       expect(overrides.get(MS_TILE.Hook)).toMatchObject({ transparent: true });
       expect(overrides.get(MS_TILE.BowlingBall)).toMatchObject({ transparent: true });
+      expect(overrides.get(MS_TILE.BowlingBall_Still)).toMatchObject({ transparent: true });
       expect(fakeContext.drawImage).toHaveBeenCalledTimes(3);
     } finally {
       vi.unstubAllGlobals();

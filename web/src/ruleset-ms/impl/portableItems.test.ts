@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createStillBowlingBallState } from "@game-core/impl/bowlingBall";
 import { characterizePortableItemArchetypes } from "@game-core/impl/statefulElementTestSupport";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   activateMsPortableTool,
   carryMsPortableTool,
@@ -57,6 +58,30 @@ function createHookStore(): MsPortableToolStateStore {
 function createHookInventory(): MsToolInventoryProjection {
   return {
     tools: [MS_TILE.Hook],
+  };
+}
+
+function createBowlingBallStore(): MsPortableToolStateStore {
+  return {
+    portableItems: [
+      {
+        serial: 1,
+        family: "bowling-ball",
+        tileId: MS_TILE.BowlingBall_Still,
+        inventorySlot: "tools",
+        bowlingBallState: createStillBowlingBallState(MS_DIRECTION.east),
+        state: { mode: "carried" },
+      },
+    ],
+    nextPortableItemSerial: 2,
+    primedToolDrop: null,
+    pendingToolDropAfterSettle: null,
+  };
+}
+
+function createBowlingBallInventory(): MsToolInventoryProjection {
+  return {
+    tools: [MS_TILE.BowlingBall_Still],
   };
 }
 
@@ -148,6 +173,31 @@ describe("ms portableItems lifecycle", () => {
     expect(cloned).toMatchObject({
       serial: 2,
       family: "sandbag",
+      state: { mode: "attached", attachmentKind: "actor", attachmentId: 41 },
+    });
+  });
+
+  it("preserves bowling-ball family state through attach, detach, and clone", () => {
+    const store = createBowlingBallStore();
+    const inventory = createBowlingBallInventory();
+
+    expect(activateMsPortableTool(store, inventory, 1, 41)).toBe(true);
+    const attached = findMsPortableToolAttachedToActor(store, 41);
+    expect(attached).toMatchObject({
+      family: "bowling-ball",
+      tileId: MS_TILE.BowlingBall_Still,
+      bowlingBallState: createStillBowlingBallState(MS_DIRECTION.east),
+    });
+
+    expect(detachMsPortableToolToDrop(store, inventory, 1, 9, 2, "primed")).toBe(true);
+    expect(store.portableItems[0]?.bowlingBallState).toEqual(createStillBowlingBallState(MS_DIRECTION.east));
+
+    expect(activateMsPortableTool(store, inventory, 1, 41)).toBe(true);
+    const cloned = cloneMsPortableTool(store, inventory, 1);
+    expect(cloned).toMatchObject({
+      serial: 2,
+      family: "bowling-ball",
+      bowlingBallState: createStillBowlingBallState(MS_DIRECTION.east),
       state: { mode: "attached", attachmentKind: "actor", attachmentId: 41 },
     });
   });

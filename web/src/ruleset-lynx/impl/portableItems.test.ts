@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createStillBowlingBallState } from "@game-core/impl/bowlingBall";
 import { characterizePortableItemArchetypes } from "@game-core/impl/statefulElementTestSupport";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   activateLynxPortableTool,
   carryLynxPortableTool,
@@ -55,6 +56,29 @@ function createHookStore(): LynxPortableToolStateStore {
 function createHookInventory(): LynxToolInventoryProjection {
   return {
     tools: [MS_TILE.Hook],
+  };
+}
+
+function createBowlingBallStore(): LynxPortableToolStateStore {
+  return {
+    portableItems: [
+      {
+        serial: 1,
+        family: "bowling-ball",
+        tileId: MS_TILE.BowlingBall_Still,
+        inventorySlot: "tools",
+        bowlingBallState: createStillBowlingBallState(MS_DIRECTION.east),
+        state: { mode: "carried" },
+      },
+    ],
+    nextPortableItemSerial: 2,
+    primedToolDrop: null,
+  };
+}
+
+function createBowlingBallInventory(): LynxToolInventoryProjection {
+  return {
+    tools: [MS_TILE.BowlingBall_Still],
   };
 }
 
@@ -146,6 +170,31 @@ describe("lynx portableItems lifecycle", () => {
     expect(cloned).toMatchObject({
       serial: 2,
       family: "sandbag",
+      state: { mode: "attached", attachmentKind: "actor", attachmentId: 41 },
+    });
+  });
+
+  it("preserves bowling-ball family state through attach, detach, and clone", () => {
+    const store = createBowlingBallStore();
+    const inventory = createBowlingBallInventory();
+
+    expect(activateLynxPortableTool(store, inventory, 1, 41)).toBe(true);
+    const attached = findLynxPortableToolAttachedToActor(store, 41);
+    expect(attached).toMatchObject({
+      family: "bowling-ball",
+      tileId: MS_TILE.BowlingBall_Still,
+      bowlingBallState: createStillBowlingBallState(MS_DIRECTION.east),
+    });
+
+    expect(detachLynxPortableToolToDrop(store, inventory, 1, 9, 2)).toBe(true);
+    expect(store.portableItems[0]?.bowlingBallState).toEqual(createStillBowlingBallState(MS_DIRECTION.east));
+
+    expect(activateLynxPortableTool(store, inventory, 1, 41)).toBe(true);
+    const cloned = cloneLynxPortableTool(store, inventory, 1);
+    expect(cloned).toMatchObject({
+      serial: 2,
+      family: "bowling-ball",
+      bowlingBallState: createStillBowlingBallState(MS_DIRECTION.east),
       state: { mode: "attached", attachmentKind: "actor", attachmentId: 41 },
     });
   });

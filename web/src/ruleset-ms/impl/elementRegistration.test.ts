@@ -24,12 +24,21 @@ describe("MS element registration", () => {
   it("maps portable item families and portable terrain tile registration", () => {
     expect(lookupMsPortableItemFamilyRegistration("sandbag")?.tileId).toBe(MS_TILE.Sandbag);
     expect(lookupMsPortableItemFamilyRegistrationByTileId(MS_TILE.Hook)?.familyId).toBe("hook");
+    expect(lookupMsPortableItemFamilyRegistration("bowling-ball")?.tileId).toBe(MS_TILE.BowlingBall_Still);
+    expect(lookupMsPortableItemFamilyRegistrationByTileId(MS_TILE.BowlingBall_Still)?.familyId).toBe("bowling-ball");
     expect(lookupMsTerrainPickupFamilyRegistration(MS_TILE.Sandbag)?.familyId).toBe("portable-items");
+    expect(lookupMsTerrainPickupFamilyRegistration(MS_TILE.BowlingBall_Still)?.familyId).toBe("portable-items");
     expect(lookupMsTerrainPickupTileRegistration(MS_TILE.Sandbag)).toEqual({
       tileId: MS_TILE.Sandbag,
       inventorySlot: "tools",
       inventoryIndex: 0,
       portableItemFamily: "sandbag",
+    });
+    expect(lookupMsTerrainPickupTileRegistration(MS_TILE.BowlingBall_Still)).toEqual({
+      tileId: MS_TILE.BowlingBall_Still,
+      inventorySlot: "tools",
+      inventoryIndex: 0,
+      portableItemFamily: "bowling-ball",
     });
   });
 

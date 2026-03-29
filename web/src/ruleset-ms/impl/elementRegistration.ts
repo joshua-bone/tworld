@@ -86,6 +86,11 @@ const MS_PORTABLE_ITEM_FAMILY_REGISTRATIONS = [
     tileId: MS_TILE.Hook,
     inventorySlot: "tools",
   },
+  {
+    familyId: "bowling-ball",
+    tileId: MS_TILE.BowlingBall_Still,
+    inventorySlot: "tools",
+  },
 ] as const satisfies readonly MsPortableItemFamilyRegistration[];
 
 const MS_TERRAIN_PICKUP_FAMILY_REGISTRATIONS = [

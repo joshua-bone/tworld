@@ -201,6 +201,7 @@ export function createLegacyExpansionArtworkOverrides(
   const artworkSprites = createLegacyExpansionArtworkSprites(image);
   const sandbagSprite = artworkSprites.get("sandbag") ?? null;
   const bowlingBallMovingSprite = artworkSprites.get("bowling_ball_moving") ?? null;
+  const bowlingBallStillSprite = artworkSprites.get("bowling_ball_still") ?? null;
 
   if (sandbagSprite) {
     overrides.set(MS_TILE.Sandbag, sandbagSprite);
@@ -208,6 +209,9 @@ export function createLegacyExpansionArtworkOverrides(
   }
   if (bowlingBallMovingSprite) {
     overrides.set(MS_TILE.BowlingBall, bowlingBallMovingSprite);
+  }
+  if (bowlingBallStillSprite) {
+    overrides.set(MS_TILE.BowlingBall_Still, bowlingBallStillSprite);
   }
 
   return overrides;

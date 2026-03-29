@@ -1,6 +1,10 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import { bottomTile, pushBoardTile, replaceTopTile, topTile } from "@game-core/impl/board";
 import {
+  createStillBowlingBallState,
+  type BowlingBallState,
+} from "@game-core/impl/bowlingBall";
+import {
   createPortableItemFamilyLifecycle,
   collectPortableItemsFromLayers,
   createPortableItem,
@@ -39,7 +43,14 @@ export type MsPortableItemState =
   | PortableItemDetachedState<"pending-primed">
   | PortableItemAttachedState<"actor">;
 
-export interface MsPortableItem extends PortableItemBase<MsPortableItemFamily, MsPortableInventorySlot, MsPortableItemState> {}
+export interface MsPortableItem extends PortableItemBase<MsPortableItemFamily, MsPortableInventorySlot, MsPortableItemState> {
+  bowlingBallState?: BowlingBallState;
+}
+
+interface MsBowlingBallPortableItem
+  extends PortableItemBase<"bowling-ball", MsPortableInventorySlot, MsPortableItemState> {
+  bowlingBallState: BowlingBallState;
+}
 
 export interface MsPortableToolStateStore extends PortableItemStore<MsPortableItem> {
   primedToolDrop: MsPrimedToolDrop | null;
@@ -59,7 +70,9 @@ function identifyMsPortableItem(tileId: number): PortableItemFamilyDescriptor<Ms
   };
 }
 
-function createMsPortableItemPolicy<TFamily extends MsPortableItemFamily>(
+type MsStandardPortableItemFamily = Exclude<MsPortableItemFamily, "bowling-ball">;
+
+function createMsPortableItemPolicy<TFamily extends MsStandardPortableItemFamily>(
   family: TFamily,
 ): PortableItemFamilyPolicy<
   TFamily,
@@ -102,9 +115,53 @@ function createMsPortableItemPolicy<TFamily extends MsPortableItemFamily>(
   };
 }
 
+function createMsBowlingBallPortableItemPolicy(): PortableItemFamilyPolicy<
+  "bowling-ball",
+  "tools",
+  MsPortableItemState,
+  MsBowlingBallPortableItem,
+  MsToolInventoryProjection
+> {
+  return {
+    family: "bowling-ball",
+    inventorySlot: "tools",
+    attachmentKind: "actor",
+    primedMode: "primed",
+    pendingPrimedMode: "pending-primed",
+    displacedMode: ({ hasActivePrimedItem }) => (hasActivePrimedItem ? "pending-primed" : "primed"),
+    projection: {
+      readCarriedTile: (inventory) => inventory.tools[0] ?? 0,
+      writeCarriedTile: (inventory, tileId) => {
+        inventory.tools = [tileId];
+      },
+    },
+    createCarriedItem: ({ serial, family, inventorySlot, tileId }) => ({
+      serial,
+      family,
+      tileId,
+      inventorySlot,
+      bowlingBallState: createStillBowlingBallState(),
+      state: { mode: "carried" },
+    }),
+    createMapItem: ({ serial, family, inventorySlot, tileId, pos, z }) => ({
+      serial,
+      family,
+      tileId,
+      inventorySlot,
+      bowlingBallState: createStillBowlingBallState(),
+      state: {
+        mode: "map",
+        pos,
+        z,
+      },
+    }),
+  };
+}
+
 const MS_PORTABLE_ITEM_POLICIES = {
   sandbag: createMsPortableItemPolicy("sandbag"),
   hook: createMsPortableItemPolicy("hook"),
+  "bowling-ball": createMsBowlingBallPortableItemPolicy(),
 } as const satisfies Record<
   MsPortableItemFamily,
   PortableItemFamilyPolicy<
@@ -161,6 +218,16 @@ const MS_PORTABLE_ITEM_LIFECYCLES = {
     MsToolInventoryProjection,
     MsPortableItemSettleContext
   >(MS_PORTABLE_ITEM_POLICIES.hook, {
+    settleDrop: settleMsPortableItemDrop,
+  }),
+  "bowling-ball": createPortableItemFamilyLifecycle<
+    MsPortableItemFamily,
+    "tools",
+    MsPortableItemState,
+    MsPortableItem,
+    MsToolInventoryProjection,
+    MsPortableItemSettleContext
+  >(MS_PORTABLE_ITEM_POLICIES["bowling-ball"], {
     settleDrop: settleMsPortableItemDrop,
   }),
 } as const satisfies Record<

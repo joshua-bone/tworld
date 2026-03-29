@@ -2,6 +2,7 @@ import type {
   InteractiveGameRenderSprite,
   InteractiveGameTileOverlayRender,
 } from "@game-core/api/interactive";
+import { bowlingBallArtworkSpriteId } from "@game-core/impl/bowlingBall";
 import type { LynxStatefulActorRuntimeEntry } from "@ruleset-lynx/impl/statefulActors";
 import {
   lookupLynxActorFamilyRegistration,
@@ -14,16 +15,11 @@ function lynxPortableItemArtworkSpriteId(tileId: number): string | null {
     case "sandbag":
     case "hook":
       return "sandbag";
+    case "bowling-ball":
+      return "bowling_ball_still";
     default:
       return null;
   }
-}
-
-function lynxBowlingBallArtworkSpriteId(
-  runtimeEntry: LynxStatefulActorRuntimeEntry | null,
-): string {
-  const mode = runtimeEntry?.kind === "bowling-ball" ? (runtimeEntry.state as { mode?: string }).mode : "moving";
-  return mode === "still" ? "bowling_ball_still" : "bowling_ball_moving";
 }
 
 export function projectLynxPortableItemRender(
@@ -53,10 +49,11 @@ export function projectLynxActorRenderSprite(
   runtimeEntry: LynxStatefulActorRuntimeEntry | null,
 ): InteractiveGameRenderSprite {
   if (runtimeEntry?.kind === "bowling-ball" || lookupLynxActorFamilyRegistration(actor.id)?.familyId === "bowling-ball") {
+    const mode = runtimeEntry?.kind === "bowling-ball" ? runtimeEntry.state.mode : "moving";
     return {
       kind: "creature",
       tileId: MS_TILE.BowlingBall,
-      artworkSpriteId: lynxBowlingBallArtworkSpriteId(runtimeEntry),
+      artworkSpriteId: bowlingBallArtworkSpriteId(mode),
       dir: actor.dir,
       moving: actor.moving,
       frame: actor.frame,

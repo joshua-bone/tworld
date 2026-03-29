@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createStillBowlingBallState } from "@game-core/impl/bowlingBall";
 import { createLynxInitialStatefulActorRuntime, type LynxStatefulActorRuntimeEntry } from "@ruleset-lynx/impl/statefulActors";
 import {
   projectLynxActorRenderSprite,
@@ -20,6 +21,12 @@ describe("lynx render registration", () => {
       artworkSpriteId: "sandbag",
       alpha: 0.25,
     });
+    expect(projectLynxPortableItemRender(MS_TILE.BowlingBall_Still, 0.25)).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.BowlingBall_Still,
+      artworkSpriteId: "bowling_ball_still",
+      alpha: 0.25,
+    });
   });
 
   it("projects bowling ball actor visuals by runtime mode", () => {
@@ -28,10 +35,7 @@ describe("lynx render registration", () => {
       actorSerial: 7,
       kind: "bowling-ball",
       portableBacking: null,
-      state: {
-        mode: "still",
-        localInventory: {},
-      },
+      state: createStillBowlingBallState(),
     } as unknown as LynxStatefulActorRuntimeEntry;
 
     expect(

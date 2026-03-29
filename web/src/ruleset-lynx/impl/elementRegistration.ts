@@ -80,6 +80,11 @@ const LYNX_PORTABLE_ITEM_FAMILY_REGISTRATIONS = [
     tileId: MS_TILE.Hook,
     inventorySlot: "tools",
   },
+  {
+    familyId: "bowling-ball",
+    tileId: MS_TILE.BowlingBall_Still,
+    inventorySlot: "tools",
+  },
 ] as const satisfies readonly LynxPortableItemFamilyRegistration[];
 
 const LYNX_TERRAIN_PICKUP_FAMILY_REGISTRATIONS = [

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createMovingBowlingBallState } from "@game-core/impl/bowlingBall";
 import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { createLynxInteractiveSession } from "@ruleset-lynx/impl/engine";
 import { advanceLynxTicks, createCell, createLevel, createRequest, lynxRuntimeStateForTest } from "@ruleset-lynx/impl/testSupport";
@@ -19,13 +20,7 @@ function lynxRuntimeStore(
 }
 
 function movingBowlingBallState(): LynxStatefulActorRuntimeEntry["state"] {
-  return {
-    mode: "moving",
-    localInventory: {
-      keys: [0, 0, 0, 0],
-      boots: [0, 0, 0, 0],
-    },
-  };
+  return createMovingBowlingBallState();
 }
 
 describe("Lynx stateful actor runtime lifecycle", () => {
@@ -46,6 +41,7 @@ describe("Lynx stateful actor runtime lifecycle", () => {
       portableBacking: null,
       state: {
         mode: "moving",
+        travelDirection: null,
         localInventory: {
           keys: [0, 0, 0, 0],
           boots: [0, 0, 0, 0],

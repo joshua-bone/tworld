@@ -1,8 +1,8 @@
 import {
-  createStatefulActorLocalInventoryState,
-  type StatefulActorInventoryEntry,
-  type StatefulActorLocalInventoryState,
-} from "@game-core/impl/statefulActorLocalInventory";
+  createMovingBowlingBallState,
+  type BowlingBallState,
+} from "@game-core/impl/bowlingBall";
+import { type StatefulActorInventoryEntry } from "@game-core/impl/statefulActorLocalInventory";
 import {
   createStatefulActorRuntimeFamilyAdapter,
   findStatefulActorRuntime,
@@ -16,10 +16,7 @@ import {
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import type { LynxPortableItemFamily } from "@ruleset-lynx/impl/catalogTiles";
 
-export interface LynxBowlingBallRuntimeState extends Record<string, unknown> {
-  mode: "moving";
-  localInventory: StatefulActorLocalInventoryState["localInventory"];
-}
+export type LynxBowlingBallRuntimeState = BowlingBallState;
 
 export type LynxStatefulActorRuntimeEntry = StatefulActorInventoryEntry<
   "bowling-ball",
@@ -44,10 +41,7 @@ const LYNX_BOWLING_BALL_RUNTIME_ADAPTER = createStatefulActorRuntimeFamilyAdapte
       actorSerial,
       kind: "bowling-ball",
       portableBacking: null,
-      state: {
-        mode: "moving",
-        localInventory: createStatefulActorLocalInventoryState("keys-boots").localInventory,
-      },
+      state: createMovingBowlingBallState(),
     };
   },
 });

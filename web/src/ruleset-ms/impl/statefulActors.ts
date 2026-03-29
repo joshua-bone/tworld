@@ -1,8 +1,8 @@
 import {
-  createStatefulActorLocalInventoryState,
-  type StatefulActorInventoryEntry,
-  type StatefulActorLocalInventoryState,
-} from "@game-core/impl/statefulActorLocalInventory";
+  createMovingBowlingBallState,
+  type BowlingBallState,
+} from "@game-core/impl/bowlingBall";
+import { type StatefulActorInventoryEntry } from "@game-core/impl/statefulActorLocalInventory";
 import {
   createStatefulActorRuntimeFamilyAdapter,
   findStatefulActorRuntime,
@@ -16,10 +16,7 @@ import {
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import type { MsPortableItemFamily } from "@ruleset-ms/impl/catalogTiles";
 
-export interface MsBowlingBallRuntimeState extends Record<string, unknown> {
-  mode: "moving";
-  localInventory: StatefulActorLocalInventoryState["localInventory"];
-}
+export type MsBowlingBallRuntimeState = BowlingBallState;
 
 export type MsStatefulActorRuntimeEntry = StatefulActorInventoryEntry<
   "bowling-ball",
@@ -44,10 +41,7 @@ const MS_BOWLING_BALL_RUNTIME_ADAPTER = createStatefulActorRuntimeFamilyAdapter<
       actorSerial,
       kind: "bowling-ball",
       portableBacking: null,
-      state: {
-        mode: "moving",
-        localInventory: createStatefulActorLocalInventoryState("keys-boots").localInventory,
-      },
+      state: createMovingBowlingBallState(),
     };
   },
 });
