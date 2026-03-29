@@ -3,6 +3,7 @@ import {
   actorClonerClonesFamilyRuntime,
   actorClonerExitStartsMovement,
   actorClonerFamilyHooks,
+  actorFallingCollisionFailsChip,
   actorSupportFamilyHooks,
   actorTrapFamilyHooks,
   actorTrapReleaseStartsMovement,
@@ -43,11 +44,14 @@ describe("actor special floor hooks", () => {
   });
 
   it("carries support and falling defaults through a dedicated hook shape", () => {
-    expect(actorSupportFamilyHooks(MS_BOWLING_BALL_ACTOR_CAPABILITIES)).toEqual({
+    const hooks = actorSupportFamilyHooks(MS_BOWLING_BALL_ACTOR_CAPABILITIES);
+
+    expect(hooks).toEqual({
       airHook: "chip-support",
       unsupportedOutcome: "fall",
       supportLossOutcome: "fall",
       fallingCollisionBehavior: "default",
     });
+    expect(actorFallingCollisionFailsChip(hooks)).toBe(true);
   });
 });

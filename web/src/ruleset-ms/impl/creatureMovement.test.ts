@@ -98,4 +98,22 @@ describe("ms creatureMovement", () => {
     expect(creature.floorMovement).toBe("none");
     expect(creature.floorMovementDir).toBe(MS_DIRECTION.none);
   });
+
+  it("routes air-landing Chip collision through support-family hooks", () => {
+    const sourceCells = createEmptyCellsAtZ(2);
+    const targetCells = createEmptyCellsAtZ(1);
+    const creaturePos = pos(1, 1);
+    sourceCells[creaturePos]!.top.id = msCreatureTile(MS_TILE.Ball, MS_DIRECTION.east);
+    targetCells[creaturePos]!.bottom.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    const creature = createCreature({
+      pos: creaturePos,
+      z: 2,
+      floorMovement: "air",
+    });
+    const setChipCollided = vi.fn();
+
+    moveMsCreatureDownOneLayer(createContext(), sourceCells, targetCells, creature, setChipCollided);
+
+    expect(setChipCollided).toHaveBeenCalledTimes(1);
+  });
 });

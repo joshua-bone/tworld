@@ -71,6 +71,8 @@ function createContext(overrides: Partial<LynxActorMovementContext> = {}): LynxA
     waterSplashTileId: 100,
     bombExplosionTileId: 101,
     applyArrivalEffects: () => 0,
+    isChipAt: () => false,
+    recordFallingChipCollision: () => {},
     ...overrides,
   };
 }
@@ -91,6 +93,7 @@ describe("lynx actor movement", () => {
 
   it("routes button arrivals through shared floor effects for blocks", () => {
     const context = createContext({
+      arrivalOutcome: () => "button",
       resolveButtonEffects: () => 32,
     });
     context.state.map.cells[34] = createCell(34, MS_TILE.Button_Brown, MS_TILE.Empty);
@@ -107,5 +110,26 @@ describe("lynx actor movement", () => {
     expect(arrival.soundEffects).toBe(32);
     expect(actor.deferPush).toBe(false);
     expect(actor.deferPushArmed).toBe(false);
+  });
+
+  it("records Chip collision when an actor lands from air through the support-family hook", () => {
+    const recorded: number[] = [];
+    const context = createContext({
+      isChipAt: () => true,
+      recordFallingChipCollision: (actor) => {
+        recorded.push(actor.id);
+      },
+    });
+    context.state.map.cells[34] = createCell(34, MS_TILE.Empty, MS_TILE.Empty);
+    const actor = createActor({
+      id: MS_TILE.BowlingBall,
+      pos: 34,
+      z: 1,
+      moveKind: "air",
+    });
+
+    finishLynxActorMovement(context, actor);
+
+    expect(recorded).toEqual([MS_TILE.BowlingBall]);
   });
 });

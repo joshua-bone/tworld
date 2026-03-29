@@ -1,8 +1,9 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
+import { actorFallingCollisionFailsChip } from "@game-core/api/actorSpecialFloorHooks";
 import { blockedMovement, movedMovement, type MovementAttemptResult } from "@game-core/api/movementOutcomes";
 import { nextPosition } from "@game-core/impl/grid";
-import { msTileForcedFloorKind } from "@ruleset-ms/impl/catalog";
+import { msActorSupportFamilyHooks, msTileForcedFloorKind } from "@ruleset-ms/impl/catalog";
 import { msActorArrivalOutcome } from "@ruleset-ms/impl/actorInteractions";
 import {
   applyMsCreatureCollisionAfterCompletedStep,
@@ -23,6 +24,19 @@ import {
 
 function isIceFloor(tileId: number): boolean {
   return msTileForcedFloorKind(tileId) === "ice";
+}
+
+function applyMsCreatureFallingCollision(
+  creature: MsCreatureMovementCreature,
+  cells: EngineMapCell[],
+  nextPos: number,
+  setChipCollided: () => void,
+): void {
+  if (!actorFallingCollisionFailsChip(msActorSupportFamilyHooks(creature.id))) {
+    return;
+  }
+
+  applyMsCreatureCollisionAfterCompletedStep(cells, nextPos, setChipCollided);
 }
 
 export interface MsCreatureMovementCreature {
@@ -216,7 +230,7 @@ export function moveMsCreatureDownOneLayer(
 
   context.popTile(sourceCells, oldPos);
   soundEffects |= applyMsCreatureCompletedStep(context, targetCells, oldPos, false, creature, nextPos, standingFloor, false);
-  applyMsCreatureCollisionAfterCompletedStep(targetCells, nextPos, setChipCollided);
+  applyMsCreatureFallingCollision(creature, targetCells, nextPos, setChipCollided);
   if (isIceFloor(standingFloor)) {
     context.clearCreatureFloorMovement(creature);
   } else {

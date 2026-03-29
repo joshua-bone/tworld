@@ -1,5 +1,6 @@
 import type { EngineState } from "@game-core/api/model";
 import type { ActorArrivalOutcome, ActorCollisionOutcome } from "@game-core/api/actorInteractions";
+import { actorFallingCollisionFailsChip } from "@game-core/api/actorSpecialFloorHooks";
 import {
   addTopTileFlags,
   removeTopTileFlags,
@@ -16,7 +17,7 @@ import {
 } from "@game-core/api/movementOutcomes";
 import type { OccupancyTarget } from "@game-core/impl/occupancy";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import { lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
+import { lynxActorSupportFamilyHooks, lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
 import type { LynxMoveKind } from "@ruleset-lynx/impl/verticalMovement";
 import {
   applyLynxActorCompletedStep,
@@ -68,6 +69,8 @@ export interface LynxActorMovementContext {
   waterSplashTileId: number;
   bombExplosionTileId: number;
   applyArrivalEffects(actor: LynxActorMovementActor): number;
+  isChipAt(pos: number, z: number): boolean;
+  recordFallingChipCollision(actor: LynxActorMovementActor): void;
 }
 
 function isLynxSlide(tileId: number): boolean {
@@ -157,6 +160,8 @@ export function finishLynxActorMovement(
   context: LynxActorMovementContext,
   actor: LynxActorMovementActor,
 ): ArrivalResult {
+  const moveKind = actor.moveKind ?? "planar";
+  const actorZ = actor.z ?? context.activeLayerZ();
   const cell = context.state.map.cells[actor.pos];
   if (!cell) {
     return applyLynxActorCompletedStep(context, actor, MS_TILE.Empty);
@@ -166,6 +171,14 @@ export function finishLynxActorMovement(
   const floorImpact = applyLynxActorFloorImpact(context, actor, cell.top.id);
   if (floorImpact.removed) {
     return removedOnArrival(floorImpact.soundEffects);
+  }
+
+  if (
+    moveKind === "air" &&
+    actorFallingCollisionFailsChip(lynxActorSupportFamilyHooks(actor.id)) &&
+    context.isChipAt(actor.pos, actorZ)
+  ) {
+    context.recordFallingChipCollision(actor);
   }
 
   const completedStep = applyLynxActorCompletedStep(context, actor, cell.top.id);

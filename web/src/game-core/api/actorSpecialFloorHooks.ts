@@ -80,3 +80,7 @@ export function actorClonerExitStartsMovement(hooks: ActorClonerFamilyHooks): bo
 export function actorClonerClonesFamilyRuntime(hooks: ActorClonerFamilyHooks): boolean {
   return hooks.runtimeCloneBehavior === "clone-family-runtime";
 }
+
+export function actorFallingCollisionFailsChip(hooks: ActorSupportFamilyHooks): boolean {
+  return hooks.fallingCollisionBehavior === "default";
+}
