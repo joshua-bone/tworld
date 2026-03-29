@@ -3643,6 +3643,39 @@ describe("MS engine regressions", () => {
     expect(ball?.pos).toBe(trapPos);
   });
 
+  it("treats an open empty-top beartrap cell as empty floor when a creature enters it", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(2, 2);
+    const ballPos = pos(10, 8);
+    const trapButtonPos = pos(14, 19);
+    const trapPos = pos(10, 9);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[ballPos]!.top.id = msCreatureTile(MS_TILE.Ball, MS_DIRECTION.south);
+    cells[trapButtonPos]!.top.id = MS_TILE.Wall;
+    cells[trapPos]!.bottom.id = MS_TILE.Beartrap;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        traps: [{ from: trapButtonPos, to: trapPos }],
+        creaturePositions: [chipPos, ballPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const ball = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Ball && !creature.hidden);
+    expect(ball).toMatchObject({
+      pos: trapPos,
+      released: false,
+    });
+    expect(session.state.engine.map.cells[trapPos]?.top.id).toBe(msCreatureTile(MS_TILE.Ball, MS_DIRECTION.south));
+    expect(session.state.engine.map.cells[trapPos]?.bottom.id).toBe(MS_TILE.Empty);
+  });
+
   it("does not let Chip leave a closed wired beartrap immediately after entering it", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 8);

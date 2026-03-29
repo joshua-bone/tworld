@@ -1213,7 +1213,7 @@ function pushTile(cells: EngineMapCell[], pos: number, tile: EngineMapCell["top"
 
   if (
     cell.top.id === MS_TILE.Empty &&
-    (cell.bottom.id === MS_TILE.CloneMachine || cell.bottom.id === MS_TILE.Beartrap)
+    cell.bottom.id === MS_TILE.CloneMachine
   ) {
     cell.top = { ...tile };
     return;
