@@ -105,6 +105,7 @@ import {
   type MsLevel,
 } from "@ruleset-ms/api/level";
 import {
+  msActorClonerFamilyHooks,
   msActorEntryMask,
   msActorMovementStrategyId,
   msBlockMovementMask,
@@ -393,6 +394,35 @@ function msPortableBackedActorItemSerial(
   return findMsPortableToolAttachedToActor(msPortableToolState(internal), actorSerial)?.serial ?? null;
 }
 
+function msLayerPositionKey(pos: number, z: number): string {
+  return `${z}:${pos}`;
+}
+
+function msCloneSourceSerialAt(
+  internal: MsInternalState,
+  pos: number,
+  z: number,
+): number | undefined {
+  return internal.cloneSourceSerialByPosition.get(msLayerPositionKey(pos, z));
+}
+
+function holdMsCreatureOnCloneMachine(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  creature: MsTrackedCreature,
+): void {
+  const z = creature.z ?? runtimeCellZ(cells, creature.pos);
+  internal.cloneSourceSerialByPosition.set(msLayerPositionKey(creature.pos, z), creature.serial);
+  creature.hidden = true;
+  creature.released = false;
+  creature.turning = false;
+  creature.hasMoved = false;
+  creature.frame = 0;
+  creature.moving = 0;
+  creature.cloning = false;
+  clearCreatureFloorMovement(creature, internal);
+}
+
 function syncMsPortableBackedActorStateToPortableItem(
   internal: MsInternalState,
   actorSerial: number,
@@ -450,6 +480,14 @@ function removeMsTargetRuntimeActor(
   if (targetCreature) {
     popTile(cells, pos);
     destroyMsTrackedCreature(internal, inventory, targetCreature);
+    return;
+  }
+
+  const cloneSourceSerial = msCloneSourceSerialAt(internal, pos, z);
+  if (typeof cloneSourceSerial === "number" && isMsCreature(cells[pos]?.top.id ?? MS_TILE.Empty)) {
+    popTile(cells, pos);
+    internal.cloneSourceSerialByPosition.delete(msLayerPositionKey(pos, z));
+    destroyMsPortableBackedActorRuntime(internal, inventory, cloneSourceSerial);
     return;
   }
 
@@ -537,6 +575,9 @@ function shouldRevertPortableBackedCreatureOnBlockedMove(
     return false;
   }
   if (standingTile.id === MS_TILE.Teleport && (standingTile.state & MS_FLOOR_STATE.Broken) === 0) {
+    return false;
+  }
+  if (standingTile.id === MS_TILE.CloneMachine) {
     return false;
   }
   if (standingTile.id === MS_TILE.Beartrap && !creature.released) {
@@ -988,6 +1029,13 @@ function settleMsSpawnedBowlingBallLanding(
     runtime.internal.chipStatus = "collided";
   });
   runtime.internal.pendingSoundEffects |= context.applyArrivalEffects(cells, creature);
+  if (
+    !creature.hidden &&
+    bottomTile(cells, creature.pos).id === MS_TILE.CloneMachine &&
+    msActorClonerFamilyHooks(creature.id).entryBehavior === "occupy-and-hold"
+  ) {
+    holdMsCreatureOnCloneMachine(cells, runtime.internal, creature);
+  }
 }
 
 function advanceRandom(internal: MsInternalState): bigint {
@@ -1125,6 +1173,19 @@ function canLeaveFloor(cells: EngineMapCell[], pos: number, dir: number, release
 }
 
 function pushTile(cells: EngineMapCell[], pos: number, tile: EngineMapCell["top"]): void {
+  const cell = cells[pos];
+  if (!cell) {
+    return;
+  }
+
+  if (
+    cell.top.id === MS_TILE.Empty &&
+    (cell.bottom.id === MS_TILE.CloneMachine || cell.bottom.id === MS_TILE.Beartrap)
+  ) {
+    cell.top = { ...tile };
+    return;
+  }
+
   pushBoardTile(cells, pos, tile);
 }
 
@@ -1971,7 +2032,10 @@ function canMoveCreatureWithOptions(
   if (!ignoreFireCheck && msActorHazardOutcome(floor, creature.id) === "deny-entry") {
     return false;
   }
-  if (cells[to]!.bottom.id === MS_TILE.CloneMachine) {
+  if (
+    cells[to]!.bottom.id === MS_TILE.CloneMachine &&
+    msActorClonerFamilyHooks(creature.id).entryBehavior === "none"
+  ) {
     return false;
   }
 
@@ -3392,7 +3456,7 @@ function moveCreatureOnce(
   internal: MsInternalState,
   inventory: EngineState["inventory"],
 ): MovementAttemptResult {
-  return startMsCreatureMoveByStrategy(
+  const result = startMsCreatureMoveByStrategy(
     msActorMovementStrategyId(creature.id),
     createMsCreatureMovementStrategyDispatchContext(inventory),
     cells,
@@ -3400,6 +3464,15 @@ function moveCreatureOnce(
     dir,
     internal,
   );
+  if (
+    result.status === "moved" &&
+    !creature.hidden &&
+    bottomTile(cells, creature.pos).id === MS_TILE.CloneMachine &&
+    msActorClonerFamilyHooks(creature.id).entryBehavior === "occupy-and-hold"
+  ) {
+    holdMsCreatureOnCloneMachine(cells, internal, creature);
+  }
+  return result;
 }
 
 function moveCreatureDownOneLayer(

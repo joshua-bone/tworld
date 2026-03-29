@@ -3225,6 +3225,36 @@ describe("runLynxInputTrace", () => {
     expect(runtimeEntry?.state.travelDirection).toBe(MS_DIRECTION.east);
   });
 
+  it("collects an ICChip on the first landing square of a thrown bowling ball", () => {
+    const chipPos = 33;
+    const chipItemPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(chipItemPos, MS_TILE.ICChip, MS_TILE.Empty),
+        createCell(35, MS_TILE.Wall, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.chipsNeeded = 1;
+    session.state.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    session = advanceLynxTicks(session, 4);
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+
+    expect(session.state.inventory.chipsNeeded).toBe(0);
+    expect(bowlingBall).toMatchObject({
+      id: MS_TILE.BowlingBall,
+      pos: chipItemPos,
+      dir: MS_DIRECTION.east,
+    });
+  });
+
   it("keeps Chip out of a just-thrown bowling ball's first square on the same tick", () => {
     const chipPos = 33;
     const eastPos = 34;
@@ -3526,6 +3556,27 @@ describe("runLynxInputTrace", () => {
     });
   });
 
+  it("preserves a bowling ball's keys through a burglar while clearing its boots", () => {
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(35, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(36, MS_TILE.Key_Green, MS_TILE.Empty),
+        createCell(37, MS_TILE.Boots_Water, MS_TILE.Empty),
+        createCell(38, MS_TILE.Burglar, MS_TILE.Empty),
+        createCell(39, MS_TILE.Door_Green, MS_TILE.Empty),
+        createCell(40, MS_TILE.Water, MS_TILE.Empty),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 20);
+
+    expect(session.state.map.cells[39]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.map.cells[40]?.top.id).toBe(MS_TILE.Water);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toBeUndefined();
+  });
+
   it("activates a still bowling ball from map state when it starts on force floor", () => {
     const chipPos = 1;
     const bowlingBallPos = 65;
@@ -3619,6 +3670,32 @@ describe("runLynxInputTrace", () => {
         state: { mode: "map", pos: 35, z: 1 },
       }),
     );
+  });
+
+  it("clears the rested bowling ball tile when Chip picks the bowling ball back up", () => {
+    const chipPos = 68;
+    const westWallPos = 99;
+    const bowlingBallPos = 100;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south), MS_TILE.Empty),
+        createCell(westWallPos, MS_TILE.Wall, MS_TILE.Empty),
+        createCell(bowlingBallPos, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.west), MS_TILE.Empty),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 5);
+    expect(session.state.map.cells[bowlingBallPos]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+
+    session = advanceLynxTicks(session, 4, MS_DIRECTION.south);
+
+    expect(session.state.inventory.tools).toEqual([MS_TILE.BowlingBall_Still]);
+    expect(session.chipPos).toBe(bowlingBallPos);
+    expect(session.state.map.cells[bowlingBallPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.map.cells[bowlingBallPos]?.top.state).toBe(0);
+    expect(session.state.map.cells[bowlingBallPos]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(session.state.map.cells[bowlingBallPos]?.bottom.state).toBe(0);
   });
 
   it("destroys both a moving bowling ball and a still portable item on contact", () => {
@@ -3763,5 +3840,93 @@ describe("runLynxInputTrace", () => {
     expect(runtimeEntries.map((entry) => entry?.portableBacking?.portableItemSerial).sort((left, right) => (left ?? 0) - (right ?? 0))).toEqual(
       attachedPortables.map((item) => item?.serial).sort((left, right) => (left ?? 0) - (right ?? 0)),
     );
+  });
+
+  it("holds a moving bowling ball in a beartrap and resumes its direction on release", () => {
+    const buttonPos = 34;
+    const trapPos = 65;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+          createCell(buttonPos, MS_TILE.Button_Brown, MS_TILE.Empty),
+          createCell(trapPos - 1, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+          createCell(trapPos, MS_TILE.Beartrap, MS_TILE.Empty),
+          createCell(trapPos + 1, MS_TILE.Empty, MS_TILE.Empty),
+        ],
+        undefined,
+        { traps: [{ from: buttonPos, to: trapPos }] },
+      ),
+    );
+
+    let trapped = advanceLynxTicks(session, 4);
+    const trappedBall = trapped.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const trappedRuntimeEntry = trappedBall
+      ? findStatefulActorRuntime(lynxRuntimeStateForTest(trapped.state).statefulActors, trappedBall.serial) as LynxStatefulActorRuntimeEntry | undefined
+      : undefined;
+
+    expect(trappedBall?.pos).toBe(trapPos);
+    expect(trappedRuntimeEntry?.state.mode).toBe("moving");
+
+    trapped = advanceLynxTicks(trapped, 4, MS_DIRECTION.east);
+
+    expect(trapped.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toMatchObject({
+      pos: trapPos + 1,
+      dir: MS_DIRECTION.east,
+    });
+  });
+
+  it("reverts a trapped moving bowling ball to still mode when a blocked release fails", () => {
+    const buttonPos = 34;
+    const trapPos = 65;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+          createCell(buttonPos, MS_TILE.Button_Brown, MS_TILE.Empty),
+          createCell(trapPos - 1, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+          createCell(trapPos, MS_TILE.Beartrap, MS_TILE.Empty),
+          createCell(trapPos + 1, MS_TILE.Wall, MS_TILE.Empty),
+        ],
+        undefined,
+        { traps: [{ from: buttonPos, to: trapPos }] },
+      ),
+    );
+
+    session = advanceLynxTicks(session, 4);
+    session = advanceLynxTicks(session, 4, MS_DIRECTION.east);
+
+    const reverted = lynxPortableItems(session.state).find(
+      (item) => item.state.mode === "map" && item.family === "bowling-ball" && item.state.pos === trapPos && item.state.z === 1,
+    );
+
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toBeUndefined();
+    expect(session.state.map.cells[trapPos]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+    expect(reverted).toBeDefined();
+  });
+
+  it("continues in its travel direction after falling from air and destroys a target on landing path", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const bowlingBallPos = 100;
+    const targetPos = 101;
+    lower[targetPos] = createCell(targetPos, MS_TILE.Block_Static, MS_TILE.Empty);
+    upper[bowlingBallPos] = createCellAtZ(bowlingBallPos, 2, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Air);
+
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, {
+        lowerCreaturePositions: [],
+        upperCreaturePositions: [bowlingBallPos],
+      }),
+    );
+
+    session = advanceLynxTicks(session, 8);
+
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toBeUndefined();
+    expect(session.actors.find((actor) => actor.id === MS_TILE.Bug && !actor.hidden)).toBeUndefined();
+    expect(session.state.map.layers?.[0]?.cells[targetPos]?.top.id).toBe(MS_TILE.Empty);
   });
 });

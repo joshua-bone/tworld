@@ -5888,6 +5888,39 @@ describe("MS engine regressions", () => {
     expect(runtimeEntry?.state.travelDirection).toBe(MS_DIRECTION.east);
   });
 
+  it("collects an ICChip on the first landing square of a thrown bowling ball", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const chipItemPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[chipItemPos]!.top.id = MS_TILE.ICChip;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+        chipsNeeded: 1,
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+
+    expect(session.state.engine.inventory.chipsNeeded).toBe(0);
+    expect(bowlingBall).toMatchObject({
+      id: MS_TILE.BowlingBall,
+      pos: chipItemPos,
+      dir: MS_DIRECTION.east,
+    });
+    expect(session.state.engine.map.cells[chipItemPos]?.top.id).toBe(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east));
+  });
+
   it("keeps a carried bowling ball when the forward throw path is blocked", () => {
     const cells = createEmptyCells();
     const chipPos = pos(8, 10);
@@ -6385,6 +6418,40 @@ describe("MS engine regressions", () => {
     });
   });
 
+  it("preserves a bowling ball's keys through a burglar while clearing its boots", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(3, 1);
+    const keyPos = pos(4, 1);
+    const bootsPos = pos(5, 1);
+    const burglarPos = pos(6, 1);
+    const doorPos = pos(7, 1);
+    const waterPos = pos(8, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+    cells[keyPos]!.top.id = MS_TILE.Key_Green;
+    cells[bootsPos]!.top.id = MS_TILE.Boots_Water;
+    cells[burglarPos]!.top.id = MS_TILE.Burglar;
+    cells[doorPos]!.top.id = MS_TILE.Door_Green;
+    cells[waterPos]!.top.id = MS_TILE.Water;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 24; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.engine.map.cells[doorPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.map.cells[waterPos]?.top.id).toBe(MS_TILE.Water);
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toBeUndefined();
+  });
+
   it("activates a still bowling ball from map state when it starts on force floor", () => {
     const cells = createEmptyCells();
     const chipPos = pos(1, 1);
@@ -6645,5 +6712,237 @@ describe("MS engine regressions", () => {
 
     expect(session.state.internal.chipPos).toBe(chipPos);
     expect(session.state.internal.chipStatus).toBe("okay");
+  });
+
+  it("holds a moving bowling ball in a beartrap and resumes its direction on release", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const buttonPos = pos(2, 1);
+    const bowlingBallPos = pos(4, 5);
+    const trapPos = pos(5, 5);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[buttonPos]!.top.id = MS_TILE.Button_Brown;
+    cells[bowlingBallPos]!.top.id = MS_TILE.BowlingBall_Still;
+    cells[bowlingBallPos]!.bottom.id = MS_TILE.Slide_East;
+    cells[trapPos]!.top.id = MS_TILE.Beartrap;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        traps: [{ from: buttonPos, to: trapPos }],
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 8; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const trappedBall = session.state.internal.creatures.find(
+      (creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden,
+    );
+    const trappedRuntimeEntry = trappedBall
+      ? findStatefulActorRuntime(msStatefulActorsForTest(session.state), trappedBall.serial) as MsStatefulActorRuntimeEntry | undefined
+      : undefined;
+
+    expect(trappedBall?.pos).toBe(trapPos);
+    expect(trappedRuntimeEntry?.state.mode).toBe("moving");
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+    for (let tick = 0; tick < 8; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const releasedBall = session.state.internal.creatures.find(
+      (creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden,
+    );
+    const releasedRuntimeEntry = releasedBall
+      ? findStatefulActorRuntime(msStatefulActorsForTest(session.state), releasedBall.serial) as MsStatefulActorRuntimeEntry | undefined
+      : undefined;
+
+    expect(releasedBall?.pos).toBeGreaterThan(trapPos);
+    expect(releasedBall?.dir).toBe(MS_DIRECTION.east);
+    expect(releasedRuntimeEntry?.state.mode).toBe("moving");
+  });
+
+  it("reverts a trapped moving bowling ball to still mode when a blocked release fails", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const buttonPos = pos(2, 1);
+    const bowlingBallPos = pos(4, 5);
+    const trapPos = pos(5, 5);
+    const blockedExitPos = pos(6, 5);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[buttonPos]!.top.id = MS_TILE.Button_Brown;
+    cells[bowlingBallPos]!.top.id = MS_TILE.BowlingBall_Still;
+    cells[bowlingBallPos]!.bottom.id = MS_TILE.Slide_East;
+    cells[trapPos]!.top.id = MS_TILE.Beartrap;
+    cells[blockedExitPos]!.top.id = MS_TILE.Wall;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        traps: [{ from: buttonPos, to: trapPos }],
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 8; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const trappedBall = session.state.internal.creatures.find(
+      (creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden,
+    );
+    const trappedRuntimeEntry = trappedBall
+      ? findStatefulActorRuntime(msStatefulActorsForTest(session.state), trappedBall.serial) as MsStatefulActorRuntimeEntry | undefined
+      : undefined;
+    trappedRuntimeEntry!.state.localInventory = {
+      keys: [0, 1, 0, 0],
+      boots: [0, 0, 1, 0],
+    };
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+    for (let tick = 0; tick < 8; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const reverted = session.state.internal.portableTools.portableItems.find(
+      (item) => item.state.mode === "map" && item.tileId === MS_TILE.BowlingBall_Still && item.state.pos === trapPos && item.state.z === 1,
+    );
+
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toBeUndefined();
+    expect(session.state.engine.map.cells[trapPos]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+    expect(reverted).toBeDefined();
+    expect(reverted?.bowlingBallState?.localInventory).toEqual({
+      keys: [0, 1, 0, 0],
+      boots: [0, 0, 1, 0],
+    });
+  });
+
+  it("continues in its travel direction after falling from air and destroys a target on landing path", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const bowlingBallPos = pos(10, 8);
+    const targetPos = pos(11, 8);
+    lower[targetPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west);
+    upper[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+    upper[bowlingBallPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [targetPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [targetPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [bowlingBallPos], hintText: "" },
+        ],
+      }),
+    );
+
+    for (let tick = 0; tick < 14; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toBeUndefined();
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Bug && !creature.hidden)).toBeUndefined();
+    expect(session.state.engine.map.cells[targetPos]?.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("deep clones bowling-ball local inventory when a clone machine releases it", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const buttonPos = pos(7, 10);
+    const clonerPos = pos(9, 10);
+    const exitPos = pos(10, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[buttonPos]!.top.id = MS_TILE.Button_Red;
+    cells[clonerPos]!.bottom.id = MS_TILE.CloneMachine;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        cloners: [{ from: buttonPos, to: clonerPos }],
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const sourceSerial = session.state.internal.cloneSourceSerialByPosition.get(`1:${clonerPos}`);
+    const sourceRuntimeEntry =
+      typeof sourceSerial === "number"
+        ? (findStatefulActorRuntime(msStatefulActorsForTest(session.state), sourceSerial) as MsStatefulActorRuntimeEntry | undefined)
+        : undefined;
+    const sourcePortable =
+      typeof sourceSerial === "number"
+        ? session.state.internal.portableTools.portableItems.find(
+            (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === sourceSerial,
+          )
+        : undefined;
+
+    sourceRuntimeEntry!.state.localInventory = {
+      keys: [0, 1, 0, 0],
+      boots: [0, 0, 1, 0],
+    };
+    expect(sourcePortable?.bowlingBallState?.mode).toBe("moving");
+    expect(sourceSerial).toBeDefined();
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.west);
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const liveBowlingBalls = session.state.internal.creatures
+      .filter((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)
+      .sort((left, right) => left.pos - right.pos);
+    const bowlingBallPortables = session.state.internal.portableTools.portableItems.filter((item) => item.family === "bowling-ball");
+    const heldSourcePortable = typeof sourceSerial === "number"
+      ? bowlingBallPortables.find(
+          (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === sourceSerial,
+        )
+      : undefined;
+    const clonePortable = liveBowlingBalls[0]
+      ? bowlingBallPortables.find(
+          (item) =>
+            item.state.mode === "attached" &&
+            item.state.attachmentKind === "actor" &&
+            item.state.attachmentId === liveBowlingBalls[0]!.serial,
+        )
+      : undefined;
+    const runtimeEntries = liveBowlingBalls.map((creature) =>
+      findStatefulActorRuntime(msStatefulActorsForTest(session.state), creature.serial) as MsStatefulActorRuntimeEntry | undefined,
+    );
+
+    expect(bowlingBallPortables).toHaveLength(2);
+    expect(heldSourcePortable?.bowlingBallState?.localInventory).toEqual({
+      keys: [0, 1, 0, 0],
+      boots: [0, 0, 1, 0],
+    });
+    expect(clonePortable?.bowlingBallState?.mode).toBe("moving");
+    expect(clonePortable?.bowlingBallState?.localInventory).toEqual({
+      keys: [0, 1, 0, 0],
+      boots: [0, 0, 1, 0],
+    });
+    expect(session.state.internal.cloneSourceSerialByPosition.get(`1:${clonerPos}`)).toBe(sourceSerial);
+    expect(liveBowlingBalls).toHaveLength(1);
+    expect(liveBowlingBalls[0]?.pos).toBe(exitPos);
+    expect(session.state.engine.map.cells[clonerPos]?.bottom.id).toBe(MS_TILE.CloneMachine);
+    expect(session.state.engine.map.cells[clonerPos]?.top.id).toBe(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east));
+    expect(session.state.engine.map.cells[exitPos]?.top.id).toBe(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east));
+    for (const runtimeEntry of runtimeEntries) {
+      expect(runtimeEntry?.state.localInventory).toEqual({
+        keys: [0, 1, 0, 0],
+        boots: [0, 0, 1, 0],
+      });
+    }
   });
 });
