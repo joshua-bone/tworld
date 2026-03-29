@@ -19,6 +19,7 @@ import {
   lynxTileForcedFloorKind,
 } from "@ruleset-lynx/impl/catalog";
 import { collectLynxActorTile, projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
+import { lookupLynxTerrainPickupFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
 import { lynxFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { lynxTilePostEntryAction } from "@ruleset-lynx/impl/floorImpactPolicy";
@@ -88,6 +89,7 @@ export function applyLynxChipArrivalEffects(
 
     const enteredTileId = cell.top.id;
     const topStateBeforeResolution = cell.top.state;
+    let continueIntoRevealedLowerTile = false;
     const floorImpactAction = lynxFloorImpactAction(lynxChipEnterAction(enteredTileId));
     if (floorImpactAction === null) {
       break;
@@ -108,6 +110,11 @@ export function applyLynxChipArrivalEffects(
       },
       collectTile: () => collectLynxActorTile(MS_TILE.Chip, context.state.inventory, cell.top.id),
       afterCollect: (resolution) => {
+        const revealedFloorImpact = lynxFloorImpactAction(lynxChipEnterAction(cell.top.id));
+        continueIntoRevealedLowerTile =
+          lookupLynxTerrainPickupFamilyRegistration(enteredTileId)?.familyId === "portable-items" &&
+          revealedFloorImpact !== null &&
+          revealedFloorImpact !== "none";
         if (resolution.slot === "tools") {
           context.queueCollectedTool(pos, enteredTileId);
         }
@@ -127,6 +134,7 @@ export function applyLynxChipArrivalEffects(
     completed ||= arrival.status === "completed";
     if (
       completed ||
+      !continueIntoRevealedLowerTile ||
       (cell.top.id === enteredTileId && cell.top.state === topStateBeforeResolution)
     ) {
       break;

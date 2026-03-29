@@ -122,6 +122,38 @@ describe("lynx chip arrival", () => {
     expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Wall);
   });
 
+  it("does not immediately resolve a revealed lower ice floor after collecting a portable item", () => {
+    const queued: Array<{ pos: number; tileId: number }> = [];
+    const context = createContext({
+      queueCollectedTool: (pos, tileId) => {
+        queued.push({ pos, tileId });
+      },
+    });
+    context.state.map.cells[34] = createCell(34, MS_TILE.BowlingBall_Still, MS_TILE.Ice);
+
+    const arrival = applyLynxChipArrivalEffects(context, 34);
+
+    expect(arrival.status).toBe("resolved");
+    expect(arrival.soundEffects).toBe(32);
+    expect(queued).toEqual([{ pos: 34, tileId: MS_TILE.BowlingBall_Still }]);
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Ice);
+  });
+
+  it("does not immediately resolve a revealed lower IC chip after collecting a non-portable pickup", () => {
+    const context = createContext();
+    context.state.inventory.chipsNeeded = 3;
+    context.state.map.cells[34] = createCell(34, MS_TILE.Key_Red, MS_TILE.ICChip);
+
+    const arrival = applyLynxChipArrivalEffects(context, 34);
+
+    expect(arrival.status).toBe("resolved");
+    expect(arrival.soundEffects).toBe(32);
+    expect(context.state.inventory.keys[0]).toBe(1);
+    expect(context.state.inventory.chipsNeeded).toBe(3);
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.ICChip);
+    expect(context.state.map.cells[34]?.bottom.id).toBe(MS_TILE.Empty);
+  });
+
   it("drowns Chip after collecting a portable item that reveals water", () => {
     const context = createContext();
     context.state.map.cells[34] = createCell(34, MS_TILE.Sandbag, MS_TILE.Water);

@@ -12,6 +12,7 @@ import {
   msChipEnterAction,
   msDoorKeyIndex,
 } from "@ruleset-ms/impl/catalog";
+import { lookupMsTerrainPickupFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
 import { msActorInteractionOutcome, msActorThiefOutcome } from "@ruleset-ms/impl/actorInteractions";
 import { collectMsActorTile, projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import { msFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
@@ -46,14 +47,15 @@ export function applyMsChipEnterEffects(
   nextPos: number,
 ): MsChipEnteredTileResolution {
   const nextCell = cells[nextPos]!;
-  let floorTileBeforeMove = nextCell.top;
-  let movementFloorTile = floorTileBeforeMove;
+  let floorTileBeforeMove = { ...nextCell.top };
+  let movementFloorTile = { ...nextCell.top };
   const chipInventory = projectMsActorInventoryOwner(MS_TILE.Chip, context.inventory);
   let enteredTeleport = false;
   let soundEffects = 0;
   for (let depth = 0; depth < 8; depth += 1) {
-    floorTileBeforeMove = nextCell.top;
-    movementFloorTile = nextCell.top;
+    floorTileBeforeMove = { ...nextCell.top };
+    movementFloorTile = { ...nextCell.top };
+    let continueIntoRevealedLowerTile = false;
     const floor = floorTileBeforeMove.id;
     const topIdBeforeResolution = nextCell.top.id;
     const topStateBeforeResolution = nextCell.top.state;
@@ -84,10 +86,16 @@ export function applyMsChipEnterEffects(
             popBoardTile(cells, nextPos, MS_TILE.Empty);
             return;
           }
+          nextCell.top.id = MS_TILE.Wall;
           floorTileBeforeMove.id = MS_TILE.Wall;
         },
         collectTile: () => collectMsActorTile(MS_TILE.Chip, context.inventory, floor),
         afterCollect: (collected) => {
+          const revealedFloorImpact = msFloorImpactAction(msChipEnterAction(nextCell.top.id));
+          continueIntoRevealedLowerTile =
+            lookupMsTerrainPickupFamilyRegistration(floor)?.familyId === "portable-items" &&
+            revealedFloorImpact !== null &&
+            revealedFloorImpact !== "none";
           if (collected.slot !== "tools") {
             return;
           }
@@ -98,7 +106,7 @@ export function applyMsChipEnterEffects(
             nextPos,
             context.runtimeCellZ(nextPos),
           );
-          movementFloorTile = nextCell.top;
+          movementFloorTile = { ...nextCell.top };
         },
         tryOpenDoor: () => {
           const index = msDoorKeyIndex(floor);
@@ -147,10 +155,11 @@ export function applyMsChipEnterEffects(
       }
     }
 
-    movementFloorTile = nextCell.top;
+    movementFloorTile = { ...nextCell.top };
     if (
       chip.chipStatus !== "okay" ||
       enteredTeleport ||
+      !continueIntoRevealedLowerTile ||
       (nextCell.top.id === topIdBeforeResolution && nextCell.top.state === topStateBeforeResolution)
     ) {
       break;

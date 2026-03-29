@@ -4394,7 +4394,7 @@ describe("MS engine regressions", () => {
     expect(session.state.internal.floorMovementDir).toBe(MS_DIRECTION.none);
   });
 
-  it("slides through a sandbag sitting on ice in MS", () => {
+  it("does not arm forced ice movement when Chip collects a sandbag sitting on ice in MS", () => {
     const cells = createEmptyCells();
     const chipPos = pos(11, 15);
     const targetPos = pos(12, 15);
@@ -4415,13 +4415,13 @@ describe("MS engine regressions", () => {
 
     expect(session.state.engine.chip?.position.pos).toBe(targetPos);
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
-    expect(session.state.internal.floorMovement).toBe("ice");
-    expect(session.state.internal.floorMovementDir).toBe(MS_DIRECTION.east);
+    expect(session.state.internal.floorMovement).toBe("none");
+    expect(session.state.internal.floorMovementDir).toBe(MS_DIRECTION.none);
 
     session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
     session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
 
-    expect(session.state.engine.chip?.position.pos).toBe(exitPos);
+    expect(session.state.engine.chip?.position.pos).toBe(targetPos);
   });
 
   it("plays ButtonPushed when a sliding block lands on a brown button during block floor movement", () => {

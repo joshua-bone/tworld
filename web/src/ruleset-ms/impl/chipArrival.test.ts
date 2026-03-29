@@ -173,6 +173,33 @@ describe("applyMsChipEnterEffects", () => {
     expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
   });
 
+  it("does not immediately resolve a revealed lower ice floor after collecting a portable item", () => {
+    const cells = [makeCell(MS_TILE.Sandbag, MS_TILE.Ice)];
+    const inventory = makeInventory();
+    const portableTools = makePortableTools();
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, portableTools), 0);
+
+    expect(cells[0]!.top.id).toBe(MS_TILE.Ice);
+    expect(result.movementFloorTile.id).toBe(MS_TILE.Ice);
+    expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
+  });
+
+  it("does not immediately resolve a revealed lower IC chip after collecting a non-portable pickup", () => {
+    const cells = [makeCell(MS_TILE.Key_Red, MS_TILE.ICChip)];
+    const inventory = makeInventory();
+    inventory.chipsNeeded = 3;
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, makePortableTools()), 0);
+
+    expect(inventory.keys[0]).toBe(1);
+    expect(inventory.chipsNeeded).toBe(3);
+    expect(cells[0]!.top.id).toBe(MS_TILE.ICChip);
+    expect(cells[0]!.bottom.id).toBe(MS_TILE.Empty);
+    expect(result.movementFloorTile.id).toBe(MS_TILE.ICChip);
+    expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
+  });
+
   it("clears boots and tools on thief tiles", () => {
     const cells = [makeCell(MS_TILE.Burglar)];
     const inventory = makeInventory();
