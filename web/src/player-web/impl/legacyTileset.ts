@@ -10,6 +10,7 @@ export interface LegacyTileSprite {
 
 export interface LegacyTileset {
   get(tileId: number): LegacyTileSprite | null;
+  getArtworkSprite?: (spriteId: string) => LegacyTileSprite | null;
   getCell?: (topId: number, bottomId: number, timerval: number) => LegacyTileSprite | null;
   getCreature?: (id: number, dir: number, moving: number, frame: number) => LegacyTileSprite | null;
   getCellAnimationPeriod?: (topId: number, bottomId: number) => number;

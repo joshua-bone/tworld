@@ -46,6 +46,7 @@ import {
   type LegacyLayerCanvasCache,
 } from "@player-web/impl/legacyLayerCanvasCache";
 import type { LegacyTileset } from "@player-web/impl/legacyTileset";
+import type { LegacyTileSprite } from "@player-web/impl/legacyTileset";
 
 const LOWER_LAYER_SCALE = 0.9;
 const LOWER_LAYER_BLUR_PX = 1;
@@ -67,6 +68,18 @@ function hashLayerValue(hash: number, value: number): number {
   let next = hash ^ (value & 0xff_ff_ff_ff);
   next = Math.imul(next, 0x01_00_01_93);
   return next >>> 0;
+}
+
+function hashLayerString(hash: number, value: string | undefined): number {
+  if (!value) {
+    return hashLayerValue(hash, 0);
+  }
+
+  let next = hashLayerValue(hash, value.length);
+  for (let index = 0; index < value.length; index += 1) {
+    next = hashLayerValue(next, value.charCodeAt(index));
+  }
+  return next;
 }
 
 function buildVisibleLayerCellsSummary(
@@ -98,6 +111,7 @@ function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverla
     hash = hashLayerValue(hash, hashOverlayRenderKind(overlay.render, overlay.kind));
     hash = hashLayerValue(hash, overlay.tileId ?? 0);
     hash = hashLayerValue(hash, overlay.render?.mode === "tile" || overlay.render?.mode === "pickup-reveal" ? overlay.render.tileId : 0);
+    hash = hashLayerString(hash, overlay.render?.mode === "tile" || overlay.render?.mode === "pickup-reveal" ? overlay.render.artworkSpriteId : undefined);
     hash = hashLayerValue(hash, overlay.render?.mode === "outline" ? (overlay.render.style === "support" ? 1 : 2) : 0);
   }
   return hash >>> 0;
@@ -142,6 +156,7 @@ function hashRenderSprite(hash: number, visual: InteractiveGameRenderSprite | nu
   }
   let next = hashLayerValue(hash, visual.kind === "creature" ? 1 : 2);
   next = hashLayerValue(next, visual.tileId);
+  next = hashLayerString(next, visual.artworkSpriteId);
   next = hashLayerValue(next, visual.dir ?? 0);
   next = hashLayerValue(next, visual.moving ?? 0);
   next = hashLayerValue(next, visual.frame ?? 0);
@@ -245,6 +260,12 @@ function drawRenderSprite(
     return;
   }
 
+  const artworkSprite = visual.artworkSpriteId ? tileset.getArtworkSprite?.(visual.artworkSpriteId) ?? null : null;
+  if (artworkSprite) {
+    drawLegacyRenderableSprite(context, artworkSprite, x, y, scale, visual.alpha);
+    return;
+  }
+
   if (visual.kind === "tile") {
     if (typeof visual.alpha === "number" && Math.abs(visual.alpha - 1) > 0.001) {
       context.save();
@@ -268,6 +289,41 @@ function drawRenderSprite(
     y,
     scale,
   );
+}
+
+function drawLegacyRenderableSprite(
+  context: CanvasRenderingContext2D,
+  sprite: LegacyTileSprite,
+  x: number,
+  y: number,
+  scale = 1,
+  alpha: number | undefined = undefined,
+): void {
+  const hasAlpha = typeof alpha === "number" && Math.abs(alpha - 1) > 0.001;
+  const drawX = x + sprite.offsetX;
+  const drawY = y + sprite.offsetY;
+
+  if (Math.abs(scale - 1) < 0.001) {
+    if (hasAlpha) {
+      context.save();
+      context.globalAlpha = alpha;
+      context.drawImage(sprite.image, drawX, drawY);
+      context.restore();
+      return;
+    }
+
+    context.drawImage(sprite.image, drawX, drawY);
+    return;
+  }
+
+  context.save();
+  if (hasAlpha) {
+    context.globalAlpha = alpha;
+  }
+  context.translate(drawX + sprite.image.width / 2, drawY + sprite.image.height / 2);
+  context.scale(scale, scale);
+  context.drawImage(sprite.image, -sprite.image.width / 2, -sprite.image.height / 2);
+  context.restore();
 }
 
 function animationFrameToken(animationPeriod: number, timerval: number): number {
@@ -781,6 +837,7 @@ function drawLayerOverlays(
         {
           kind: "tile",
           tileId: render.tileId,
+          artworkSpriteId: render.artworkSpriteId,
           alpha: render.alpha,
         },
         x,

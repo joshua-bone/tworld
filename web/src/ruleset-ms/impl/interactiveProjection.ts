@@ -84,8 +84,8 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
 
   for (const creature of creatures) {
     const cells = session.state.engine.map.cells;
-    const statefulKind = creature.serial
-      ? findStatefulActorRuntime(session.state.internal.statefulActors, creature.serial)?.kind ?? null
+    const runtimeEntry = creature.serial
+      ? findStatefulActorRuntime(session.state.internal.statefulActors, creature.serial) ?? null
       : null;
     addActor(projectMsRenderableActor({
       serial: creature.serial,
@@ -96,7 +96,7 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
       moving: creature.moving,
       frame: creature.frame,
       hidden: creature.hidden,
-    }, cells[creature.pos]?.top.id ?? MS_TILE.Empty, cells[creature.pos]?.bottom.id ?? MS_TILE.Empty, statefulKind));
+    }, cells[creature.pos]?.top.id ?? MS_TILE.Empty, cells[creature.pos]?.bottom.id ?? MS_TILE.Empty, runtimeEntry));
   }
 
   for (const block of blocks) {

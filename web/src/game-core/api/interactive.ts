@@ -4,6 +4,7 @@ import type { GameSnapshot } from "@game-core/api/types";
 export interface InteractiveGameRenderSprite {
   kind: "tile" | "creature";
   tileId: number;
+  artworkSpriteId?: string;
   dir?: number;
   moving?: number;
   frame?: number;
@@ -26,6 +27,7 @@ export type InteractiveGameTileOverlayRender =
   | {
       mode: "tile";
       tileId: number;
+      artworkSpriteId?: string;
       alpha?: number;
       visualEnhancementOnly?: boolean;
     }
@@ -36,6 +38,7 @@ export type InteractiveGameTileOverlayRender =
   | {
       mode: "pickup-reveal";
       tileId: number;
+      artworkSpriteId?: string;
     };
 
 export interface InteractiveGameRenderableChip {

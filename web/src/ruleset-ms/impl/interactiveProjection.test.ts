@@ -151,6 +151,14 @@ describe("projectMsInteractiveFrame", () => {
       kind: "carried-tool",
       tileId: MS_TILE.Sandbag,
     });
+    expect(
+      frame.tileOverlays.find((overlay) => overlay.kind === "carried-tool" && overlay.pos === 1)?.render,
+    ).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.Sandbag,
+      artworkSpriteId: "sandbag",
+      alpha: 0.25,
+    });
   });
 
   it("projects tracked creature and block directions into render actors", () => {
@@ -345,6 +353,7 @@ describe("projectMsInteractiveFrame", () => {
     expect(frame.render?.actors[0]?.visual).toMatchObject({
       kind: "creature",
       tileId: MS_TILE.BowlingBall,
+      artworkSpriteId: "bowling_ball_moving",
     });
   });
 });

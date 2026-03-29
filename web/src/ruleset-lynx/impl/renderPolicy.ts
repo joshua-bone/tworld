@@ -9,6 +9,11 @@ import {
   projectThinWallActorDecoration,
   projectTileOverlayRender,
 } from "@ruleset-ms/api/renderMetadata";
+import type { LynxStatefulActorRuntimeEntry } from "@ruleset-lynx/impl/statefulActors";
+import {
+  projectLynxActorRenderSprite,
+  projectLynxPortableItemRender,
+} from "@ruleset-lynx/impl/renderRegistration";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export function projectLynxRenderableChip(
@@ -43,23 +48,16 @@ export function projectLynxRenderableActor(
   actor: Omit<InteractiveGameRenderableActor, "visual" | "decorations">,
   topId: number,
   bottomId: number,
-  statefulKind: string | null = null,
+  runtimeEntry: LynxStatefulActorRuntimeEntry | null = null,
 ): InteractiveGameRenderableActor {
   const decorations = [
     projectThinWallActorDecoration(actor.id, topId, bottomId),
     projectActorSupportDecoration(actor.id, topId, bottomId),
   ].filter((decoration): decoration is NonNullable<typeof decoration> => decoration !== null);
-  const visualTileId = statefulKind === "bowling-ball" ? MS_TILE.BowlingBall : actor.id;
 
   return {
     ...actor,
-    visual: {
-      kind: "creature",
-      tileId: visualTileId,
-      dir: actor.dir,
-      moving: actor.moving,
-      frame: actor.frame,
-    },
+    visual: projectLynxActorRenderSprite(actor, runtimeEntry),
     decorations,
   };
 }
@@ -82,6 +80,13 @@ export function projectLynxRenderableAnimation(
 export function projectLynxRenderableOverlay(
   overlay: InteractiveGameTileOverlay,
 ): InteractiveGameTileOverlay {
+  if (overlay.kind === "carried-tool" && typeof overlay.tileId === "number") {
+    return {
+      ...overlay,
+      render: projectLynxPortableItemRender(overlay.tileId, 0.25) ?? undefined,
+    };
+  }
+
   return {
     ...overlay,
     render: projectTileOverlayRender(overlay) ?? undefined,

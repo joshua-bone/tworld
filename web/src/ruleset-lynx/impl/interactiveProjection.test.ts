@@ -361,6 +361,7 @@ describe("projectLynxInteractiveFrame", () => {
     ).toEqual({
       mode: "tile",
       tileId: MS_TILE.Sandbag,
+      artworkSpriteId: "sandbag",
       alpha: 0.25,
     });
   });
@@ -527,6 +528,7 @@ describe("projectLynxInteractiveFrame", () => {
     expect(frame.render?.actors[0]?.visual).toMatchObject({
       kind: "creature",
       tileId: MS_TILE.BowlingBall,
+      artworkSpriteId: "bowling_ball_moving",
     });
   });
 });

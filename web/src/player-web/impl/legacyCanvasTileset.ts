@@ -198,12 +198,9 @@ export function createLegacyExpansionArtworkOverrides(
   image: CanvasImageSource,
 ): ReadonlyMap<number, LegacyTileSprite> {
   const overrides = new Map<number, LegacyTileSprite>();
-  const sandbagFrame = expansionArtworkFrameRect("sandbag");
-  const bowlingBallMovingFrame = expansionArtworkFrameRect("bowling_ball_moving");
-  const sandbagSprite = sandbagFrame ? createLegacyArtworkSpriteFromFrame(image, sandbagFrame) : null;
-  const bowlingBallMovingSprite = bowlingBallMovingFrame
-    ? createLegacyArtworkSpriteFromFrame(image, bowlingBallMovingFrame)
-    : null;
+  const artworkSprites = createLegacyExpansionArtworkSprites(image);
+  const sandbagSprite = artworkSprites.get("sandbag") ?? null;
+  const bowlingBallMovingSprite = artworkSprites.get("bowling_ball_moving") ?? null;
 
   if (sandbagSprite) {
     overrides.set(MS_TILE.Sandbag, sandbagSprite);
@@ -216,11 +213,26 @@ export function createLegacyExpansionArtworkOverrides(
   return overrides;
 }
 
+export function createLegacyExpansionArtworkSprites(
+  image: CanvasImageSource,
+): ReadonlyMap<string, LegacyTileSprite> {
+  const sprites = new Map<string, LegacyTileSprite>();
+  for (const spriteId of ["sandbag", "bowling_ball_moving", "bowling_ball_still"] as const) {
+    const frame = expansionArtworkFrameRect(spriteId);
+    const sprite = frame ? createLegacyArtworkSpriteFromFrame(image, frame) : null;
+    if (sprite) {
+      sprites.set(spriteId, sprite);
+    }
+  }
+  return sprites;
+}
+
 export function applyLegacyTileOverrides(
   tileset: LegacyTileset,
   overrides: ReadonlyMap<number, LegacyTileSprite>,
+  artworkSprites: ReadonlyMap<string, LegacyTileSprite> = new Map(),
 ): LegacyTileset {
-  if (overrides.size === 0) {
+  if (overrides.size === 0 && artworkSprites.size === 0) {
     return tileset;
   }
 
@@ -232,6 +244,9 @@ export function applyLegacyTileOverrides(
     ...tileset,
     get(tileId: number): LegacyTileSprite | null {
       return overrides.get(tileId) ?? tileset.get(tileId);
+    },
+    getArtworkSprite(spriteId: string): LegacyTileSprite | null {
+      return artworkSprites.get(spriteId) ?? tileset.getArtworkSprite?.(spriteId) ?? null;
     },
     getCell(topId: number, bottomId: number, timerval: number): LegacyTileSprite | null {
       const overrideTop = overrides.get(topId);
@@ -307,9 +322,11 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
           }
 
           context.drawImage(image, 0, 0);
+          const artworkSprites = createLegacyExpansionArtworkSprites(expandedArtworkImage);
           const tileset = applyLegacyTileOverrides(
             buildLegacyTileset(canvas, ruleset),
             createLegacyExpansionArtworkOverrides(expandedArtworkImage),
+            artworkSprites,
           );
           legacyTilesetCache.set(ruleset, tileset);
           resolve(tileset);

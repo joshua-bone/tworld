@@ -131,23 +131,30 @@ export function projectLynxInteractiveFrame(
         scale: session.chipMoveKind === "air" && session.chipMoving > 0 ? 0.9 + (session.chipMoving / 8) * 0.1 : 1,
       }),
       actors: session.actors.map((actor) =>
-        projectLynxRenderableActor(
-          {
-            serial: actor.serial,
-            id: actor.id,
-            pos: actor.pos,
-            z: actor.z,
-            dir: actor.dir,
-            moving: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.moving,
-            frame: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.frame,
-            hidden: actor.hidden,
-            animationReserved: actor.animationReserved,
-            scale: actor.moveKind === "air" && actor.moving > 0 ? 0.9 + (actor.moving / 8) * 0.1 : 1,
-          },
-          session.state.map.cells[actor.pos]?.top.id ?? MS_TILE.Empty,
-          session.state.map.cells[actor.pos]?.bottom.id ?? MS_TILE.Empty,
-          findStatefulActorRuntime(runtime?.statefulActors ?? { byActorSerial: new Map() }, actor.serial)?.kind ?? null,
-        ),
+        {
+          const runtimeEntry = findStatefulActorRuntime(
+            runtime?.statefulActors ?? { byActorSerial: new Map() },
+            actor.serial,
+          ) ?? null;
+
+          return projectLynxRenderableActor(
+            {
+              serial: actor.serial,
+              id: actor.id,
+              pos: actor.pos,
+              z: actor.z,
+              dir: actor.dir,
+              moving: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.moving,
+              frame: actor.moveKind === "air" || actor.moveKind === "elevator" ? 0 : actor.frame,
+              hidden: actor.hidden,
+              animationReserved: actor.animationReserved,
+              scale: actor.moveKind === "air" && actor.moving > 0 ? 0.9 + (actor.moving / 8) * 0.1 : 1,
+            },
+            session.state.map.cells[actor.pos]?.top.id ?? MS_TILE.Empty,
+            session.state.map.cells[actor.pos]?.bottom.id ?? MS_TILE.Empty,
+            runtimeEntry,
+          );
+        }
       ),
       animations: runtime?.visuals?.animations?.map((animation) => projectLynxRenderableAnimation({ ...animation })) ?? [],
     },

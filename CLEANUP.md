@@ -320,11 +320,11 @@ Goal:
 
 Checklist:
 
-- [ ] register portable-item still visuals by family
-- [ ] register runtime actor visuals by family + mode
-- [ ] support still vs moving bowling ball through render metadata
-- [ ] ensure undo, replay, and debug projection preserve family state needed for rendering
-- [ ] keep renderer consumption declarative
+- [x] register portable-item still visuals by family
+- [x] register runtime actor visuals by family + mode
+- [x] support still vs moving bowling ball through render metadata
+- [x] ensure undo, replay, and debug projection preserve family state needed for rendering
+- [x] keep renderer consumption declarative
 
 Success condition:
 
