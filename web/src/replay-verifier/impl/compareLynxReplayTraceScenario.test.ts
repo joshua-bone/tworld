@@ -297,6 +297,10 @@ runSuite("TS Lynx engine replay trace differential", () => {
     await expectReplayWindowToMatch("CCLP5Voting-Acrylic-Lynx.tws:19", 458, 461);
   }, 30_000);
 
+  it("matches the claimed-exit teleport window from CCLP5 Voting Chocolate:37", async () => {
+    await expectReplayWindowToMatch("CCLP5Voting-Chocolate-Lynx.tws:37", 615, 619);
+  }, 30_000);
+
   it("matches the held-trap release CantMove window from CCLP5 Voting Qualification:48", async () => {
     await expectReplayWindowToMatch("CCLP5Voting-Qualification-Lynx.tws:48", 6615, 6618);
   }, 30_000);

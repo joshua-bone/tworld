@@ -1469,11 +1469,12 @@ function canMoveBlockInto(
   if (targetOccupancy?.kind === "portable-item") {
     return !msActorInteractionOutcome(MS_TILE.Block, msInteractionTargetFromOccupancy(targetOccupancy)).denyMove;
   }
-  if (targetOccupancy?.kind === "runtime-actor" || targetOccupancy?.kind === "static-block") {
-    return false;
-  }
 
   const targetTop = cells[to]!.top.id;
+  if (isMsCreature(targetTop)) {
+    const targetId = msCreatureId(targetTop);
+    return targetId === MS_TILE.Chip || targetId === MS_TILE.Swimming_Chip;
+  }
   if ((msBlockMovementMask(targetTop) & dir) === 0) {
     return false;
   }

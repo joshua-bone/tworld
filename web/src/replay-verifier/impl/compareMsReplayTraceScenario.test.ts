@@ -130,4 +130,8 @@ runSuite("TS MS engine replay trace differential", () => {
   it("matches the late steady-state window from CCLP5 Voting Spatula:6", async () => {
     await expectReplayWindowToMatch("CCLP5Voting-Spatula-MS.tws:6", 3720, 3722);
   }, 30_000);
+
+  it("matches the same-phase cloner release window from CCLP5 Voting Chocolate:1", async () => {
+    await expectReplayWindowToMatch("CCLP5Voting-Chocolate-MS.tws:1", 3828, 3829);
+  }, 30_000);
 });

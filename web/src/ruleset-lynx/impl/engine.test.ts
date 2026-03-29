@@ -1272,6 +1272,26 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[5]!.chip!.position.pos).toBe(41);
   });
 
+  it("treats a claimed non-block exit as a valid Chip teleport destination", () => {
+    const level = createLevel([
+      createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+      createCell(34, MS_TILE.Teleport, MS_TILE.Empty),
+      createCell(40, MS_TILE.Teleport, MS_TILE.Empty),
+      createCell(41, msCreatureTile(MS_TILE.Tank, 8), MS_TILE.Empty),
+      createCell(42, MS_TILE.Wall, MS_TILE.Empty),
+    ]);
+
+    const trace = runLynxInputTrace(
+      { seriesFile: "intro-lynx.dac", levelNumber: 6, ruleset: "Lynx" },
+      level,
+      [{ tick: 0, inputCode: 8, inputName: "east" }],
+      6,
+    );
+
+    expect(trace.steps[3]!.chip!.position.pos).toBe(40);
+    expect(trace.steps[3]?.soundEffects).toBe(1 << 9);
+  });
+
   it("skips teleports whose claimed block exit cannot actually be pushed", () => {
     const level = createLevel([
       createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),

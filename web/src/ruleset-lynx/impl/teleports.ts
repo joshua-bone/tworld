@@ -24,7 +24,7 @@ export interface LynxTeleportContext {
   withLayer<T>(z: number, run: () => T): T;
   chipActsWallForMobs(pos: number, z: number): boolean;
   canChipEnter(pos: number, dir: number): boolean;
-  canChipExitTeleportThroughBlock(exitPos: number, dir: number): boolean;
+  claimedChipTeleportExitIsValid(exitPos: number, dir: number): boolean;
   canActorEnter(actor: LynxTeleportActor, tileId: number, dir: number): boolean;
   effectiveTargetTileId(tileId: number): number;
   markChipTeleported(): void;
@@ -83,7 +83,7 @@ export function resolveLynxChipTeleport(
     }
 
     if (hasTopTileFlags(context.state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
-      return context.canChipExitTeleportThroughBlock(exitPos, chipDir);
+      return context.claimedChipTeleportExitIsValid(exitPos, chipDir);
     }
 
     return context.canChipEnter(exitPos, chipDir);

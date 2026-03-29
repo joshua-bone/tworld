@@ -1944,7 +1944,7 @@ function updateLynxViewFromMovement(
   updateLynxViewChip(state);
 }
 
-function canLynxChipExitTeleportThroughBlock(
+function claimedLynxChipTeleportExitIsValid(
   state: EngineState,
   actors: LynxRuntimeActor[],
   exitPos: number,
@@ -1955,7 +1955,10 @@ function canLynxChipExitTeleportThroughBlock(
     target.claimed && target.kind === OCCUPANCY_TARGET_KIND.runtimeActor && target.runtimeActor?.id === MS_TILE.Block
       ? target.runtimeActor
       : null;
-  if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
+  if (!block) {
+    return true;
+  }
+  if (block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return false;
   }
   return canLynxRuntimeActorStartMovement(state, actors, block, dir) && canLynxChipEnterCell(state, exitPos, dir);
@@ -1969,7 +1972,7 @@ function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[
     withLayer: (z, run) => withLynxLayer(state, z, run),
     chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
     canChipEnter: (pos, dir) => canLynxChipEnterCell(state, pos, dir),
-    canChipExitTeleportThroughBlock: (exitPos, dir) => canLynxChipExitTeleportThroughBlock(state, actors, exitPos, dir),
+    claimedChipTeleportExitIsValid: (exitPos, dir) => claimedLynxChipTeleportExitIsValid(state, actors, exitPos, dir),
     canActorEnter: (actor, tileId, dir) => canLynxCreatureEnter(state, actor as LynxRuntimeActor, tileId, dir),
     effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),
     markChipTeleported: () => {
