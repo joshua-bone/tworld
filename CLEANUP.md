@@ -50,11 +50,11 @@ The problem is that those concerns are still split across too many engine-owned 
 
 ### What is still not good enough
 
-- [ ] there is no first-class element registration seam that ties decode, runtime, projection, and rendering together
-- [ ] portable items do not yet have a full activation lifecycle contract
-- [ ] actor movement still assumes too much about the built-in families
-- [ ] chip-vs-runtime-actor probing is still separate from actor-vs-actor interaction
-- [ ] occupancy is still split across claimed cells, actors, and portable items in a way that leaks into engine code
+- [x] there is now a first-class element registration seam that ties decode, runtime, projection, and rendering together
+- [x] portable items now have a full activation lifecycle contract
+- [x] actor movement no longer assumes only the old built-in families
+- [x] chip-vs-runtime-actor probing now uses the same interaction vocabulary as actor movement
+- [x] occupancy now has a typed query layer instead of leaking through ad hoc claimed-cell and top-tile checks
 - [ ] a new stateful family still requires edits in too many core files
 
 ## Goal State
@@ -84,12 +84,12 @@ It should not require fresh branching in unrelated engine hot paths.
 
 We are ready for bowling-ball attempt two only when all of the following are true:
 
-- [ ] a portable item can become a runtime actor through a typed lifecycle seam
-- [ ] a runtime actor can revert back to a portable item through a typed lifecycle seam
-- [ ] actor-vs-actor and actor-vs-portable collisions are handled through one typed interaction path
+- [x] a portable item can become a runtime actor through a typed lifecycle seam
+- [x] a runtime actor can revert back to a portable item through a typed lifecycle seam
+- [x] actor-vs-actor and actor-vs-portable collisions are handled through one typed interaction path
 - [x] blocked-move behavior is configured per actor family, not open-coded in engines
 - [x] floor-impact and arrival behavior are configured per actor family, not open-coded in engines
-- [ ] chip probing against moving actors uses the same interaction vocabulary as actor movement
+- [x] chip probing against moving actors uses the same interaction vocabulary as actor movement
 - [ ] adding one new family does not require edits in both ruleset engines outside narrow registration and helper seams
 
 ## PR Roadmap
@@ -379,11 +379,16 @@ Reasoning:
 
 ## Ready For Second Attempt?
 
-Not yet.
+Yes, for a second attempt.
+
+What is still not proven is the exit condition for the attempt itself:
+
+- [ ] bowling ball lands without new scattered engine hot-path branches
+- [ ] bowling ball can be added through narrow registration and helper seams rather than cross-cutting rewrites
 
 We are ready for a second bowling-ball implementation attempt only when:
 
-- [ ] SE1 through SE11 are complete, or
+- [x] SE1 through SE11 are complete, or
 - [ ] we intentionally accept a narrower target and document exactly which future extensibility goals we are giving up
 
-Until then, bowling ball is still useful as a design probe, but not yet a clean feature implementation target.
+Bowling ball is now the proof step for the seam work above, not the trigger for more prerequisite cleanup.
