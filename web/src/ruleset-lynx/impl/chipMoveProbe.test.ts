@@ -5,12 +5,13 @@ import { OCCUPANCY_TARGET_KIND } from "@game-core/impl/occupancy";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
   LYNX_CHIP_TARGET_CELL_PROBE,
-  probeLynxChipMoveDirectionWithContext,
   lynxChipTargetCellAllowsEntry,
   lynxChipTargetCellAllowsPush,
   lynxChipTargetCellStopsOnPush,
+  probeLynxChipMoveDirectionWithContext,
   probeLynxChipTargetCell,
 } from "@ruleset-lynx/impl/chipMoveProbe";
+import { lynxActorInteractionOutcome, lynxInteractionTargetFromOccupancy } from "@ruleset-lynx/impl/actorInteractions";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 function makeCell(topId: number, topState = 0, bottomId = MS_TILE.Empty): EngineMapCell {
@@ -177,5 +178,62 @@ describe("probeLynxChipMoveDirectionWithContext", () => {
     expect(sameDirection).toBe(true);
     expect(probe.canEnter).toBe(true);
     expect(probe.willCollide).toBe(true);
+  });
+
+  it("denies same-direction entry into a moving bowling ball through the interaction seam", () => {
+    const state = makeState(makeCell(MS_TILE.Empty));
+    state.map.cells[1] = {
+      ...makeCell(MS_TILE.Empty),
+      position: { x: 1, y: 0, z: 1, pos: 1 },
+    };
+
+    const probe = probeLynxChipMoveDirectionWithContext(
+      {
+        state,
+        chipPos: 0,
+        canExit: () => true,
+        queryTargetOccupancy: (pos) => ({
+          kind: OCCUPANCY_TARGET_KIND.runtimeActor,
+          pos,
+          z: 1,
+          tileId: MS_TILE.BowlingBall,
+          claimed: false,
+          runtimeActor: {
+            id: MS_TILE.BowlingBall,
+            dir: MS_DIRECTION.east,
+            hidden: false,
+            moving: 0,
+            deferPush: false,
+          },
+        }),
+        probeTargetCell: (pos, dir, claimedCell) => probeLynxChipTargetCell(state, pos, dir, { claimedCell }),
+        interactionOutcome: (target) => lynxActorInteractionOutcome(MS_TILE.Chip, target),
+        canPushBlock: () => false,
+      },
+      MS_DIRECTION.east,
+    );
+
+    expect(
+      lynxActorInteractionOutcome(
+        MS_TILE.Chip,
+        lynxInteractionTargetFromOccupancy(
+          {
+            kind: OCCUPANCY_TARGET_KIND.runtimeActor,
+            pos: 1,
+            z: 1,
+            tileId: MS_TILE.BowlingBall,
+            claimed: false,
+            runtimeActor: {
+              id: MS_TILE.BowlingBall,
+              dir: MS_DIRECTION.east,
+            },
+          },
+          MS_DIRECTION.east,
+        ),
+      ).denyMove,
+    ).toBe(true);
+    expect(probe.canEnter).toBe(false);
+    expect(probe.canMove).toBe(false);
+    expect(probe.willCollide).toBe(false);
   });
 });

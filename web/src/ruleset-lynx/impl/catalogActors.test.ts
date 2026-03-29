@@ -59,6 +59,7 @@ describe("Lynx catalog actor families", () => {
     expect(lynxActorClonerFamilyHooks(MS_TILE.BowlingBall).runtimeCloneBehavior).toBe("clone-family-runtime");
     expect(lynxActorSupportFamilyHooks(MS_TILE.BowlingBall).fallingCollisionBehavior).toBe("default");
     expect(lynxActorCollisionStrategyId(MS_TILE.Ball)).toBe("default");
+    expect(lynxActorCollisionStrategyId(MS_TILE.BowlingBall)).toBe("ballistic-destroy");
   });
 
   it("provides actor arrival, hazard, and sound policy helpers", () => {

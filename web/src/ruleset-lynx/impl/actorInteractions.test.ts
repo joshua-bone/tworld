@@ -49,6 +49,52 @@ describe("lynx actor interactions", () => {
     ).toBe(true);
   });
 
+  it("expresses bowling-ball destroy and same-direction wall behavior through collision policy", () => {
+    expect(
+      lynxActorInteractionOutcome(MS_TILE.BowlingBall, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
+        tileId: MS_TILE.Sandbag,
+      }),
+    ).toEqual({
+      chipFails: false,
+      denyMove: false,
+      removeMovingActor: true,
+      removeTargetActor: true,
+      preserveTarget: false,
+      consumeTarget: true,
+      transformTargetTileId: null,
+    });
+    expect(
+      lynxActorInteractionOutcome(MS_TILE.BowlingBall, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: MS_TILE.Ball,
+      }),
+    ).toEqual({
+      chipFails: false,
+      denyMove: false,
+      removeMovingActor: true,
+      removeTargetActor: true,
+      preserveTarget: false,
+      consumeTarget: false,
+      transformTargetTileId: null,
+    });
+    expect(
+      lynxActorInteractionOutcome(MS_TILE.Chip, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: MS_TILE.BowlingBall,
+        sameDirection: true,
+      }),
+    ).toEqual({
+      chipFails: false,
+      denyMove: true,
+      removeMovingActor: false,
+      removeTargetActor: false,
+      preserveTarget: false,
+      consumeTarget: false,
+      transformTargetTileId: null,
+    });
+  });
+
   it("returns typed arrival outcomes for actor landings", () => {
     expect(lynxActorArrivalOutcome(MS_TILE.Button_Red, MS_TILE.Ball)).toBe("button");
     expect(lynxActorArrivalOutcome(MS_TILE.Beartrap, MS_TILE.Ball)).toBe("trap");

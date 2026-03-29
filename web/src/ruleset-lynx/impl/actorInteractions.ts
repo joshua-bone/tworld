@@ -2,9 +2,7 @@ import {
   ACTOR_INTERACTION_TARGET_KIND,
   actorHazardOutcome,
   actorThiefOutcome,
-  chipFailCollisionOutcome,
-  denyMoveCollisionOutcome,
-  noActorCollisionOutcome,
+  resolveActorInteractionOutcome,
   type ActorInteractionTarget,
   type ActorArrivalOutcome,
   type ActorCollisionOutcome,
@@ -50,18 +48,18 @@ export function lynxActorInteractionOutcome(
   movingActorId: number,
   target: ActorInteractionTarget,
 ): ActorCollisionOutcome {
-  switch (lynxActorCollisionStrategyId(movingActorId)) {
-    default:
-      if (target.kind === ACTOR_INTERACTION_TARGET_KIND.empty) {
-        return noActorCollisionOutcome();
-      }
-      if (target.kind === ACTOR_INTERACTION_TARGET_KIND.portableItem) {
-        return isLynxChipActor(movingActorId) ? noActorCollisionOutcome() : denyMoveCollisionOutcome();
-      }
-      return isLynxChipActor(movingActorId) || isLynxChipActor(lynxInteractionTargetActorId(target))
-        ? chipFailCollisionOutcome(true)
-        : noActorCollisionOutcome();
-  }
+  const targetActorId =
+    target.kind === ACTOR_INTERACTION_TARGET_KIND.runtimeActor || target.kind === ACTOR_INTERACTION_TARGET_KIND.chip
+      ? lynxInteractionTargetActorId(target)
+      : null;
+  return resolveActorInteractionOutcome({
+    movingStrategyId: lynxActorCollisionStrategyId(movingActorId),
+    targetStrategyId: targetActorId === null ? null : lynxActorCollisionStrategyId(targetActorId),
+    movingIsChip: isLynxChipActor(movingActorId),
+    targetIsChip: targetActorId !== null && isLynxChipActor(targetActorId),
+    defaultChipCollisionRemovesTarget: true,
+    target,
+  });
 }
 
 export function lynxActorCollisionOutcome(

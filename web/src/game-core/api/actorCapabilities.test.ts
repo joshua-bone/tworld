@@ -63,6 +63,15 @@ describe("actorCapabilities", () => {
     expect(actorAirHook(chipLikePolicy)).toBe("chip-support");
     expect(actorThiefHook(chipLikePolicy)).toBe("steal-boots-tools");
     expect(actorCollisionStrategyId(chipLikePolicy)).toBe("default");
+    expect(
+      actorCollisionStrategyId({
+        ...chipLikePolicy,
+        interaction: {
+          ...chipLikePolicy.interaction,
+          collisionStrategyId: "ballistic-destroy",
+        },
+      }),
+    ).toBe("ballistic-destroy");
     expect(actorHazardResponse(chipLikePolicy, "fire")).toBe("deny");
   });
 

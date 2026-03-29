@@ -20,7 +20,7 @@ export type ActorThiefHook = "none" | "steal-boots-tools";
 
 export type ActorAirHook = "chip-support" | "non-chip-support";
 
-export type ActorCollisionStrategyId = "default";
+export type ActorCollisionStrategyId = "default" | "ballistic-destroy";
 
 export type ActorHazardName = "water" | "fire" | "bomb";
 

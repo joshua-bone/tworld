@@ -56,6 +56,7 @@ describe("MS catalog actor families", () => {
     expect(msActorClonerFamilyHooks(MS_TILE.BowlingBall).runtimeCloneBehavior).toBe("clone-family-runtime");
     expect(msActorSupportFamilyHooks(MS_TILE.BowlingBall).fallingCollisionBehavior).toBe("default");
     expect(msActorCollisionStrategyId(MS_TILE.Ball)).toBe("default");
+    expect(msActorCollisionStrategyId(MS_TILE.BowlingBall)).toBe("ballistic-destroy");
   });
 
   it("provides actor-vs-tile entry, hazard, arrival, and overlay helpers", () => {

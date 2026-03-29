@@ -422,17 +422,14 @@ Goal:
 
 Checklist:
 
-- [ ] bowling ball moving actor uses Chip-like terrain-entry policy through actor movement strategy / floor-impact seams
-- [ ] bowling ball owns keys/boots inventory through actor-local inventory ownership, not global inventory
-- [ ] bowling ball can collect:
-  - chips
-  - keys
-  - boots
-- [ ] chip collection updates global chip progress, not per-ball state
-- [ ] thief clears ball inventory through family policy
-- [ ] water / fire / bomb hazard behavior is expressed through family hazard policy
-- [ ] still-ball / moving-ball / special-item destroy-both collision semantics are expressed through the interaction seam
-- [ ] same-direction Chip-behind-moving-ball wall behavior is expressed through the Chip probe / interaction seam
+- [x] bowling ball moving actor uses Chip-like terrain-entry policy through actor movement strategy / floor-impact seams
+- [x] bowling ball owns keys/boots inventory through actor-local inventory ownership, not global inventory
+- [x] bowling ball can collect chips, keys, and boots
+- [x] chip collection updates global chip progress, not per-ball state
+- [x] thief clears ball inventory through family policy
+- [x] water / fire / bomb hazard behavior is expressed through family hazard policy
+- [x] still-ball / moving-ball / special-item destroy-both collision semantics are expressed through the interaction seam
+- [x] same-direction Chip-behind-moving-ball wall behavior is expressed through the Chip probe / interaction seam
 
 Success condition:
 

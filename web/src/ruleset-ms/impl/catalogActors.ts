@@ -107,7 +107,7 @@ export const MS_BOWLING_BALL_ACTOR_CAPABILITIES = {
   },
   interaction: {
     thiefHook: "steal-boots-tools",
-    collisionStrategyId: "default",
+    collisionStrategyId: "ballistic-destroy",
   },
   hazards: {
     responses: {

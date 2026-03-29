@@ -49,6 +49,52 @@ describe("ms actor interactions", () => {
     ).toBe(true);
   });
 
+  it("expresses bowling-ball destroy and same-direction wall behavior through collision policy", () => {
+    expect(
+      msActorInteractionOutcome(MS_TILE.BowlingBall, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
+        tileId: MS_TILE.Sandbag,
+      }),
+    ).toEqual({
+      chipFails: false,
+      denyMove: false,
+      removeMovingActor: true,
+      removeTargetActor: true,
+      preserveTarget: false,
+      consumeTarget: true,
+      transformTargetTileId: null,
+    });
+    expect(
+      msActorInteractionOutcome(MS_TILE.BowlingBall, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: MS_TILE.Ball,
+      }),
+    ).toEqual({
+      chipFails: false,
+      denyMove: false,
+      removeMovingActor: true,
+      removeTargetActor: true,
+      preserveTarget: false,
+      consumeTarget: false,
+      transformTargetTileId: null,
+    });
+    expect(
+      msActorInteractionOutcome(MS_TILE.Chip, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: MS_TILE.BowlingBall,
+        sameDirection: true,
+      }),
+    ).toEqual({
+      chipFails: false,
+      denyMove: true,
+      removeMovingActor: false,
+      removeTargetActor: false,
+      preserveTarget: false,
+      consumeTarget: false,
+      transformTargetTileId: null,
+    });
+  });
+
   it("returns typed arrival outcomes for actor landings", () => {
     expect(msActorArrivalOutcome(MS_TILE.Water, MS_TILE.Block)).toBe("block-water");
     expect(msActorArrivalOutcome(MS_TILE.Fire, MS_TILE.Glider)).toBe("creature-fire");
