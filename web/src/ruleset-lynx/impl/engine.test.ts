@@ -1315,6 +1315,28 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[5]!.chip!.position.pos).toBe(41);
   });
 
+  it("skips teleports whose claimed non-block exit is held on a clone machine", () => {
+    const level = createLevel([
+      createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+      createCell(34, MS_TILE.Teleport, MS_TILE.Empty),
+      createCell(40, MS_TILE.Teleport, MS_TILE.Empty),
+      createCell(41, msCreatureTile(MS_TILE.Fireball, 8), MS_TILE.CloneMachine),
+      createCell(50, MS_TILE.Teleport, MS_TILE.Empty),
+      createCell(51, MS_TILE.Empty, MS_TILE.Empty),
+    ]);
+
+    const trace = runLynxInputTrace(
+      { seriesFile: "intro-lynx.dac", levelNumber: 6, ruleset: "Lynx" },
+      level,
+      [{ tick: 0, inputCode: 8, inputName: "east" }],
+      6,
+    );
+
+    expect(trace.steps[3]!.chip!.position.pos).toBe(50);
+    expect(trace.steps[3]?.soundEffects).toBe(1 << 9);
+    expect(trace.steps[5]!.chip!.position.pos).toBe(51);
+  });
+
   it("teleports a stationary creature at post-teleport resolution and forces it out in its last attempted facing", () => {
     const trace = runLynxInputTraceDebug(
       { seriesFile: "intro-lynx.dac", levelNumber: 6, ruleset: "Lynx" },

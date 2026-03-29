@@ -1965,12 +1965,16 @@ function claimedLynxChipTeleportExitIsValid(
   dir: number,
 ): boolean {
   const target = queryLynxOccupancyOnLayer(state, actors, exitPos);
+  const runtimeActor = target.kind === OCCUPANCY_TARGET_KIND.runtimeActor ? target.runtimeActor ?? null : null;
   const block =
-    target.claimed && target.kind === OCCUPANCY_TARGET_KIND.runtimeActor && target.runtimeActor?.id === MS_TILE.Block
-      ? target.runtimeActor
+    target.claimed && runtimeActor?.id === MS_TILE.Block
+      ? runtimeActor
       : null;
   if (!block) {
-    return true;
+    return (
+      runtimeActor === null ||
+      (canLynxExitTile(state, target.tileId, runtimeActor.id, dir, false) && canLynxChipEnterCell(state, exitPos, dir))
+    );
   }
   if (block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return false;

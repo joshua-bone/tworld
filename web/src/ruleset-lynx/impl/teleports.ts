@@ -74,14 +74,6 @@ export function resolveLynxChipTeleport(
     }
     const { pos: exitPos } = exitStep;
 
-    const teleportClaimed =
-      teleportPos !== chipPos &&
-      context.state.map.cells[teleportPos] !== undefined &&
-      hasTopTileFlags(context.state.map.cells, teleportPos, LYNX_CELL_FLAG.Claimed);
-    if (teleportClaimed) {
-      return false;
-    }
-
     if (hasTopTileFlags(context.state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
       return context.claimedChipTeleportExitIsValid(exitPos, chipDir);
     }

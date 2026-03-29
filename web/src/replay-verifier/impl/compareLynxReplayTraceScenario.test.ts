@@ -101,6 +101,10 @@ runSuite("TS Lynx engine replay trace differential", () => {
     await expectReplayWindowToMatch("CCLP5-lynx.dac.tws:68", 2471, 2474);
   }, 30_000);
 
+  it("matches the claimed-teleport same-tick window from CCLP5:91", async () => {
+    await expectReplayWindowToMatch("CCLP5-lynx.dac.tws:91", 1910, 1914);
+  }, 30_000);
+
   it("matches the beartrap push-sound cleanup window from CCLP5:30", async () => {
     await expectReplayWindowToMatch("CCLP5-lynx.dac.tws:30", 2566, 2570);
   }, 30_000);
@@ -167,6 +171,10 @@ runSuite("TS Lynx engine replay trace differential", () => {
 
   it("matches the late teleport-reroute window from CCLP1:113", async () => {
     await expectReplayWindowToMatch("CCLP1-lynx.dac.tws:113", 110, 117);
+  }, 30_000);
+
+  it("matches the claimed-teleport chain window from CCLP3:146", async () => {
+    await expectReplayWindowToMatch("CCLP3-lynx.dac.tws:146", 5586, 5591);
   }, 30_000);
 
   it("matches the push-into-fire window from CCLP1:17", async () => {
@@ -295,6 +303,14 @@ runSuite("TS Lynx engine replay trace differential", () => {
 
   it("matches the held-open trap arrival window from CCLP5 Voting Acrylic:19", async () => {
     await expectReplayWindowToMatch("CCLP5Voting-Acrylic-Lynx.tws:19", 458, 461);
+  }, 30_000);
+
+  it("matches the claimed-teleport window from CCLP5 Voting Broadcast:31", async () => {
+    await expectReplayWindowToMatch("CCLP5Voting-Broadcast-Lynx.tws:31", 508, 513);
+  }, 30_000);
+
+  it("matches the claimed-teleport window from CCLP5 Voting Chocolate:13", async () => {
+    await expectReplayWindowToMatch("CCLP5Voting-Chocolate-Lynx.tws:13", 111, 116);
   }, 30_000);
 
   it("matches the claimed-exit teleport window from CCLP5 Voting Chocolate:37", async () => {
