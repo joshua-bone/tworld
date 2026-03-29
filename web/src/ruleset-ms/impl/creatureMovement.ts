@@ -57,6 +57,7 @@ export interface MsCreatureMovementCreature {
 export interface MsCreatureMovementContext {
   pushTile(cells: EngineMapCell[], pos: number, tile: EngineMapCell["top"]): void;
   popTile(cells: EngineMapCell[], pos: number): void;
+  applyMobExitFloorEffect(cells: EngineMapCell[], pos: number): void;
   updateCreatureTile(cells: EngineMapCell[], creature: MsCreatureMovementCreature): void;
   handlePreMoveCollision(
     sourceCells: EngineMapCell[],
@@ -164,6 +165,7 @@ export function moveMsCreaturePlanar(
 
   if (!oldWasCloneMachine) {
     context.popTile(cells, oldPos);
+    context.applyMobExitFloorEffect(cells, oldPos);
   }
   soundEffects |= applyMsCreatureCompletedStep(context, cells, oldPos, oldWasCloneMachine, creature, nextPos, standingFloor);
   applyMsCreatureCollisionAfterCompletedStep(cells, nextPos, setChipCollided);
@@ -238,12 +240,14 @@ export function moveMsCreatureDownOneLayer(
   );
   if (floorImpact.removed) {
     context.popTile(sourceCells, oldPos);
+    context.applyMobExitFloorEffect(sourceCells, oldPos);
     creature.pos = oldPos;
     creature.z = sourceZ;
     return movedMovement(soundEffects | floorImpact.soundEffects);
   }
 
   context.popTile(sourceCells, oldPos);
+  context.applyMobExitFloorEffect(sourceCells, oldPos);
   soundEffects |= applyMsCreatureCompletedStep(context, targetCells, oldPos, false, creature, nextPos, standingFloor, false);
   applyMsCreatureFallingCollision(creature, targetCells, nextPos, setChipCollided);
   if (isIceFloor(standingFloor)) {
@@ -305,6 +309,7 @@ export function moveMsCreatureUpOneLayer(
   }
 
   context.popTile(sourceCells, oldPos);
+  context.applyMobExitFloorEffect(sourceCells, oldPos);
   const savedPos = creature.pos;
   const savedZ = creature.z;
   creature.pos = oldPos;

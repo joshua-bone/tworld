@@ -8,6 +8,7 @@ import {
   lynxButtonAction,
   lynxDoorKeyIndex,
   lynxInventorySlot,
+  lynxTileMobExitAction,
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
 import { lynxBlockedEnterEffect } from "@ruleset-lynx/impl/floorImpactPolicy";
@@ -63,6 +64,34 @@ export function isLynxBlockedChipEnterRevealTile(tileId: number): boolean {
 
 function lynxTopUsesUnderlyingFloor(topId: number): boolean {
   return isMsCreature(topId) || lynxInventorySlot(topId) !== null;
+}
+
+function applyLynxMobExitTileAction(
+  cells: EngineMapCell[],
+  pos: number,
+  layer: "top" | "bottom",
+): boolean {
+  const cell = cells[pos];
+  if (!cell) {
+    return false;
+  }
+
+  const tile = layer === "top" ? cell.top : cell.bottom;
+  if (lynxTileMobExitAction(tile.id) !== "turn-to-air") {
+    return false;
+  }
+
+  const nextTile = { ...tile, id: MS_TILE.Air, state: 0 };
+  if (layer === "top") {
+    replaceTopTile(cells, pos, nextTile);
+  } else {
+    replaceBottomTile(cells, pos, nextTile);
+  }
+  return true;
+}
+
+export function applyLynxMobExitFloorEffect(cells: EngineMapCell[], pos: number): boolean {
+  return applyLynxMobExitTileAction(cells, pos, "top") || applyLynxMobExitTileAction(cells, pos, "bottom");
 }
 
 export function lynxChipProbeTileId(cell: EngineMapCell): number {

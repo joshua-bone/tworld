@@ -63,6 +63,7 @@ import {
   type LynxFloorSoundAction,
   type LynxForcedFloorKind,
   type LynxInventorySlot,
+  type LynxMobExitAction,
   type LynxPortableItemFamily,
 } from "@ruleset-lynx/impl/catalogTiles";
 import {
@@ -141,6 +142,10 @@ export function lynxCreatureFloorAction(id: number): LynxCreatureFloorAction {
 
 export function lynxTileForcedFloorKind(id: number): LynxForcedFloorKind {
   return lookupLynxTilePolicy(id).forcedFloorKind;
+}
+
+export function lynxTileMobExitAction(id: number): LynxMobExitAction {
+  return lookupLynxTilePolicy(id).mobExitAction;
 }
 
 export function lynxChipEnterAction(id: number): LynxChipEnterAction {

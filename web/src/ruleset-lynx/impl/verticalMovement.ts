@@ -155,6 +155,7 @@ export function startLynxChipAirMovement(
   layers: LynxVerticalLayerAccess,
   chipPos: number,
   chipZ: number,
+  applyMobExitFloorEffect: (pos: number, z: number) => void,
 ): { chipPos: number; chipZ: number; chipMoving: number; chipMoveKind: LynxMoveKind } {
   const currentZ = chipZ;
   const targetZ = Math.max(1, currentZ - 1);
@@ -162,6 +163,7 @@ export function startLynxChipAirMovement(
     return { chipPos, chipZ, chipMoving: 0, chipMoveKind: "planar" };
   }
 
+  applyMobExitFloorEffect(chipPos, currentZ);
   layers.setActiveLayer(targetZ);
   return {
     chipPos,
@@ -176,6 +178,7 @@ export function startLynxChipElevatorMovement(
   chipDir: number,
   layers: Pick<LynxVerticalLayerAccess, "setActiveLayer">,
   tryPushBlockingBlock: (pushDir: number, targetZ: number) => boolean,
+  applyMobExitFloorEffect: (pos: number, z: number) => void,
 ): { chipPos: number; chipZ: number; chipMoving: number; chipMoveKind: LynxMoveKind } {
   const targetZ = context.chipZ + 1;
   const upperCells = context.upperCells(context.chipZ);
@@ -193,6 +196,7 @@ export function startLynxChipElevatorMovement(
     }
   }
 
+  applyMobExitFloorEffect(context.chipPos, context.chipZ);
   layers.setActiveLayer(targetZ);
   return {
     chipPos: context.chipPos,
@@ -206,6 +210,7 @@ export function startLynxActorAirMovement(
   state: EngineState,
   actor: LynxRuntimeActorVerticalState,
   layers: Pick<LynxVerticalLayerAccess, "cellsForZ">,
+  applyMobExitFloorEffect: (pos: number, z: number) => void,
 ): boolean {
   const currentZ = actor.z ?? 1;
   const targetZ = Math.max(1, currentZ - 1);
@@ -214,6 +219,7 @@ export function startLynxActorAirMovement(
   }
 
   removeTopTileFlags(layers.cellsForZ(currentZ), actor.pos, LYNX_CELL_FLAG.Claimed);
+  applyMobExitFloorEffect(actor.pos, currentZ);
   actor.z = targetZ;
   actor.moving = 8;
   actor.frame = 4;
@@ -226,6 +232,7 @@ export function startLynxActorElevatorMovement(
   context: LynxVerticalSupportContext,
   actor: LynxRuntimeActorVerticalState,
   layers: Pick<LynxVerticalLayerAccess, "cellsForZ">,
+  applyMobExitFloorEffect: (pos: number, z: number) => void,
 ): boolean {
   const currentZ = actor.z ?? 1;
   const targetZ = currentZ + 1;
@@ -245,6 +252,7 @@ export function startLynxActorElevatorMovement(
   }
 
   removeTopTileFlags(layers.cellsForZ(currentZ), actor.pos, LYNX_CELL_FLAG.Claimed);
+  applyMobExitFloorEffect(actor.pos, currentZ);
   actor.z = targetZ;
   actor.moving = 8;
   actor.frame = 4;

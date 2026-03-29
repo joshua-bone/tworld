@@ -39,6 +39,7 @@ function createContext(
     applyEnterEffects: () => createEnteredTileResolution(MS_TILE.IceWall_Southeast),
     teleportDestination: () => ({ destination: internal.chipPos, soundEffects: 0 }),
     popTile: () => {},
+    applyMobExitFloorEffect: () => {},
     pushTile: () => {},
     settlePrimedToolDrop: () => {},
     preservesUnderlyingFloor: () => false,

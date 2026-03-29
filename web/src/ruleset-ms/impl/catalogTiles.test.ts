@@ -14,6 +14,7 @@ import {
   msRequiresReleaseToExit,
   msSlideDirection,
   msTileForcedFloorKind,
+  msTileMobExitAction,
   msTileHasCapability,
   msTileHasTag,
 } from "@ruleset-ms/impl/catalog";
@@ -27,6 +28,7 @@ describe("MS catalog tile families", () => {
     expect(msTileHasTag(MS_TILE.Boots_Fire, "boots")).toBe(true);
     expect(msTileHasTag(MS_TILE.Teleport, "teleport")).toBe(true);
     expect(msTileHasTag(MS_TILE.Air, "walkable")).toBe(true);
+    expect(msTileHasTag(MS_TILE.Cloud, "walkable")).toBe(true);
     expect(msTileHasTag(MS_TILE.Beartrap, "trap")).toBe(true);
     expect(msTileHasTag(MS_TILE.CloneMachine, "cloner")).toBe(true);
     expect(msTileHasTag(MS_TILE.Ice, "ice")).toBe(true);
@@ -81,6 +83,7 @@ describe("MS catalog tile families", () => {
     expect(msTileForcedFloorKind(MS_TILE.Slide_Random)).toBe("slide");
     expect(msTileForcedFloorKind(MS_TILE.Teleport)).toBe("teleport");
     expect(msTileForcedFloorKind(MS_TILE.Air)).toBe("air");
+    expect(msTileMobExitAction(MS_TILE.Cloud)).toBe("turn-to-air");
     expect(msSlideDirection(MS_TILE.Slide_East, MS_DIRECTION.north)).toBe(MS_DIRECTION.east);
     expect(msSlideDirection(MS_TILE.Slide_Random, MS_DIRECTION.west)).toBe(MS_DIRECTION.west);
     expect(msIceWallTurn(MS_TILE.IceWall_Northwest, MS_DIRECTION.south)).toBe(MS_DIRECTION.west);

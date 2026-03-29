@@ -3,6 +3,7 @@ import type { EngineMapCell } from "@game-core/api/model";
 import { MS_DIRECTION, MS_SOUND, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   applyMsBlockedChipEnterEffect,
+  applyMsMobExitFloorEffect,
   applyMsTileActivationEffect,
   resolveMsTileSupportBelow,
 } from "@ruleset-ms/impl/tileEffects";
@@ -98,5 +99,20 @@ describe("ms tile effects", () => {
 
     expect(result).toBe("unsupported");
     expect(lowerCells[0]!.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("turns an exited top-layer cloud into air", () => {
+    const cells = [makeCell(MS_TILE.Cloud)];
+
+    expect(applyMsMobExitFloorEffect(cells, 0)).toBe(true);
+    expect(cells[0]!.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("turns an exited underlying cloud into air beneath a portable item", () => {
+    const cells = [makeCell(MS_TILE.Sandbag, MS_TILE.Cloud)];
+
+    expect(applyMsMobExitFloorEffect(cells, 0)).toBe(true);
+    expect(cells[0]!.top.id).toBe(MS_TILE.Sandbag);
+    expect(cells[0]!.bottom.id).toBe(MS_TILE.Air);
   });
 });

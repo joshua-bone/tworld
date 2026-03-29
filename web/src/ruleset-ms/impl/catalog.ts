@@ -57,6 +57,7 @@ import {
   type MsChipEnterAction,
   type MsForcedFloorKind,
   type MsInventorySlot,
+  type MsMobExitAction,
   type MsPortableItemFamily,
 } from "@ruleset-ms/impl/catalogTiles";
 import {
@@ -127,6 +128,10 @@ export function msDoorKeyIndex(id: number): number | null {
 
 export function msTileForcedFloorKind(id: number): MsForcedFloorKind {
   return lookupMsTilePolicy(id).forcedFloorKind;
+}
+
+export function msTileMobExitAction(id: number): MsMobExitAction {
+  return lookupMsTilePolicy(id).mobExitAction;
 }
 
 export function msChipEnterAction(id: number): MsChipEnterAction {

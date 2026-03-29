@@ -130,6 +130,7 @@ import {
 } from "@ruleset-ms/impl/actorInteractions";
 import { applyMsActorArrivalEffects, canMsActorEnterTile, msRuntimeActorArrivalOutcome } from "@ruleset-ms/impl/actorArrival";
 import {
+  applyMsMobExitFloorEffect,
   applyMsBlockedChipEnterEffect,
   applyMsTileActivationEffect,
   deferredMsTileActivationSound,
@@ -648,7 +649,7 @@ function resolveMsCreaturePreMoveCollision(
     if (sourceCells[oldPos]!.bottom.id === MS_TILE.CloneMachine) {
       sourceCells[oldPos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
     } else {
-      popTile(sourceCells, oldPos);
+      popExitedMsMobSourceTile(sourceCells, oldPos);
     }
     destroyMsTrackedCreature(internal, inventory, creature);
   }
@@ -1224,6 +1225,12 @@ function pushTile(cells: EngineMapCell[], pos: number, tile: EngineMapCell["top"
 
 function popTile(cells: EngineMapCell[], pos: number): EngineMapCell["top"] {
   return popBoardTile(cells, pos, MS_TILE.Empty);
+}
+
+function popExitedMsMobSourceTile(cells: EngineMapCell[], pos: number): EngineMapCell["top"] {
+  const tile = popTile(cells, pos);
+  applyMsMobExitFloorEffect(cells, pos);
+  return tile;
 }
 
 function placeStaticBlock(cells: EngineMapCell[], pos: number, state: number): void {
@@ -3329,6 +3336,7 @@ function createMsCreatureMovementContext(
   return {
     pushTile,
     popTile,
+    applyMobExitFloorEffect: (cells: EngineMapCell[], pos: number) => applyMsMobExitFloorEffect(cells, pos),
     updateCreatureTile: (cells: EngineMapCell[], creature: MsTrackedCreature) => updateCreatureTile(cells, creature),
     handlePreMoveCollision: (
       sourceCells: EngineMapCell[],
@@ -3795,7 +3803,7 @@ function processMsBlockFloorQueueEntry(
       case "block-water":
         blockCells[nextPos]!.top = { id: MS_TILE.Dirt, state: 0 };
         if (!oldWasCloneMachine) {
-          popTile(blockCells, block.pos);
+          popExitedMsMobSourceTile(blockCells, block.pos);
         } else {
           blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
         }
@@ -3805,7 +3813,7 @@ function processMsBlockFloorQueueEntry(
       case "block-bomb":
         blockCells[nextPos]!.top = { id: MS_TILE.Empty, state: 0 };
         if (!oldWasCloneMachine) {
-          popTile(blockCells, block.pos);
+          popExitedMsMobSourceTile(blockCells, block.pos);
         } else {
           blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
         }
@@ -3816,7 +3824,7 @@ function processMsBlockFloorQueueEntry(
         break;
     }
 
-    const movedTile = oldWasCloneMachine ? { ...blockCells[block.pos]!.top } : popTile(blockCells, block.pos);
+    const movedTile = oldWasCloneMachine ? { ...blockCells[block.pos]!.top } : popExitedMsMobSourceTile(blockCells, block.pos);
     let landingPos = nextPos;
     if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
       landingPos = findMsBlockTeleportDestination({
@@ -3897,20 +3905,20 @@ function processMsBlockFloorQueueEntry(
       switch (msActorArrivalOutcome(targetTop, MS_TILE.Block)) {
         case "block-water":
           lowerCells[oldPos]!.top = { id: MS_TILE.Dirt, state: 0 };
-          popTile(blockCells, oldPos);
+          popExitedMsMobSourceTile(blockCells, oldPos);
           hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ);
           soundEffects |= 1 << MS_SOUND.WaterSplash;
           moved = true;
           break;
         case "block-bomb":
           lowerCells[oldPos]!.top = { id: MS_TILE.Empty, state: 0 };
-          popTile(blockCells, oldPos);
+          popExitedMsMobSourceTile(blockCells, oldPos);
           hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ);
           soundEffects |= 1 << MS_SOUND.BombExplodes;
           moved = true;
           break;
         default: {
-          const movedTile = popTile(blockCells, oldPos);
+          const movedTile = popExitedMsMobSourceTile(blockCells, oldPos);
           let landingPos = oldPos;
           if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
             landingPos = findMsBlockTeleportDestination({
@@ -4231,6 +4239,7 @@ function createMsChipMovementContext(
     teleportDestination: (cells: EngineMapCell[], start: number, dir: number) =>
       teleportDestination(cells, internal, inventory, start, dir),
     popTile,
+    applyMobExitFloorEffect: (cells: EngineMapCell[], pos: number) => applyMsMobExitFloorEffect(cells, pos),
     pushTile,
     settlePrimedToolDrop: (cells: EngineMapCell[], pos: number, z: number) =>
       settleMsPrimedToolDrop(cells, msPortableToolState(internal), inventory, pos, z),
@@ -4348,7 +4357,7 @@ function moveBlockUpOneLayer(
     return blockedMovement(soundEffects);
   }
 
-  const movedTile = popTile(sourceCells, oldPos);
+  const movedTile = popExitedMsMobSourceTile(sourceCells, oldPos);
   placeStaticBlock(targetCells, oldPos, movedTile.state);
   block.pos = oldPos;
   block.z = targetZ;

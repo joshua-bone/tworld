@@ -9,6 +9,7 @@ import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/a
 export type MsInventorySlot = "keys" | "boots" | "tools";
 export type MsPortableItemFamily = "sandbag" | "hook" | "bowling-ball";
 export type MsForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air" | "elevator";
+export type MsMobExitAction = "none" | "turn-to-air";
 export type MsChipEnterAction =
   | "none"
   | "clear-floor"
@@ -39,6 +40,7 @@ export interface MsTilePolicyDefinition {
   readonly inventoryIndex?: number;
   readonly doorKeyIndex?: number;
   readonly forcedFloorKind: MsForcedFloorKind;
+  readonly mobExitAction: MsMobExitAction;
   readonly chipEnterAction: MsChipEnterAction;
   readonly buttonAction: MsButtonAction;
 }
@@ -99,6 +101,7 @@ const ACTOR_TILE_SET = new Set<number>(ACTOR_TILE_IDS);
 
 const CHIPPABLE_TILE_IDS = new Set<number>([
   MS_TILE.Empty,
+  MS_TILE.Cloud,
   MS_TILE.Air,
   MS_TILE.Elevator,
   ...SLIDE_TILE_IDS,
@@ -186,6 +189,7 @@ const DEFAULT_MS_TILE_POLICY: MsTilePolicyDefinition = {
   exitMovementMask: FULL_MOVEMENT_MASK,
   requiresReleaseToExit: false,
   forcedFloorKind: "none",
+  mobExitAction: "none",
   chipEnterAction: "none",
   buttonAction: "none",
 };
@@ -318,6 +322,9 @@ function defaultMsTileHooks(id: number): TileHookName[] {
   if (BUTTON_TILE_SET.has(id)) {
     hooks.push("after-leave");
   }
+  if (defaultMsMobExitAction(id) !== "none") {
+    hooks.push("after-leave");
+  }
   return [...new Set(hooks)];
 }
 
@@ -338,6 +345,10 @@ function defaultForcedFloorKind(id: number): MsForcedFloorKind {
     return "ice";
   }
   return "none";
+}
+
+function defaultMsMobExitAction(id: number): MsMobExitAction {
+  return id === MS_TILE.Cloud ? "turn-to-air" : "none";
 }
 
 function defaultChipEnterAction(id: number): MsChipEnterAction {
@@ -483,6 +494,7 @@ function createMsTilePolicyDefinition(id: number): MsTilePolicyDefinition {
     exitMovementMask: defaultMsExitMovementMask(id),
     requiresReleaseToExit: id === MS_TILE.Beartrap,
     forcedFloorKind: defaultForcedFloorKind(id),
+    mobExitAction: defaultMsMobExitAction(id),
     chipEnterAction: defaultChipEnterAction(id),
     buttonAction: defaultButtonAction(id),
     ...inventoryPolicy(id),

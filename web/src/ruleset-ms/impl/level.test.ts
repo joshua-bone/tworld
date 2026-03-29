@@ -102,6 +102,16 @@ describe("ms level preparation", () => {
     expect(decoded.badTiles).toBe(false);
   });
 
+  it("decodes built-in DAT file code 0x72 as cloud on higher layers and floor on z1", () => {
+    const single = decodeMsLevelData(createSingleTopTileLevelData(0x72, 7));
+    const grouped = decodeMsLevelGroupData([createSingleTopTileLevelData(0x72, 7), createSingleTopTileLevelData(0x72, 8)]);
+
+    expect(single.cells[0]?.top.id).toBe(MS_TILE.Empty);
+    expect(grouped.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Empty);
+    expect(grouped.layers?.[1]?.cells[0]?.top.id).toBe(MS_TILE.Cloud);
+    expect(grouped.badTiles).toBe(false);
+  });
+
   it("prepares loaded MS levels through the ruleset-local load registration seam", () => {
     const levelData = createSingleTopTileLevelData(1, 7);
     const prepared = prepareLoadedMsLevel(

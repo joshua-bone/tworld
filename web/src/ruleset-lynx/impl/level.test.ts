@@ -196,6 +196,23 @@ describe("lynx level preparation", () => {
     expect(decoded.badTiles).toBe(false);
   });
 
+  it("decodes built-in DAT file code 0x72 as cloud on higher layers and floor on z1 in loaded Lynx levels", () => {
+    const levelData = createSingleTopTileLevelData(0x72, 11);
+    const single = decodeLoadedLynxLevelData({
+      levelData,
+      layerData: [levelData],
+    });
+    const grouped = decodeLoadedLynxLevelData({
+      levelData,
+      layerData: [levelData, createSingleTopTileLevelData(0x72, 12)],
+    });
+
+    expect(single.cells[0]?.top.id).toBe(MS_TILE.Empty);
+    expect(grouped.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Empty);
+    expect(grouped.layers?.[1]?.cells[0]?.top.id).toBe(MS_TILE.Cloud);
+    expect(grouped.badTiles).toBe(false);
+  });
+
   it("prepares loaded Lynx levels through the ruleset-local load registration seam", () => {
     const levelData = createSingleTopTileLevelData(51, 11);
     const prepared = prepareLoadedLynxLevel({

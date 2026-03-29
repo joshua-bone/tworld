@@ -60,6 +60,7 @@ function createContext(overrides: Partial<LynxActorMovementContext> = {}): LynxA
       transformTargetTileId: null,
     }),
     clearAnimationAt: () => {},
+    applyMobExitFloorEffect: () => {},
     canActorEnter: () => true,
     arrivalOutcome: () => "none",
     effectiveTargetTileId: (tileId) => tileId,

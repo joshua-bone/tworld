@@ -133,6 +133,33 @@ describe("MS engine regressions", () => {
     ]);
   });
 
+  it("turns a z2 cloud into air when Chip exits it", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(1, 1);
+    const eastPos = pos(2, 1);
+    upper[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    upper[chipPos]!.bottom.id = MS_TILE.Cloud;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipPos).toBe(eastPos);
+    expect(session.state.internal.chipZ).toBe(2);
+    expect(session.state.engine.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
   it("uses same-layer trap connections when Chip presses a brown button on z2", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);

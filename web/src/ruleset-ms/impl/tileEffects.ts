@@ -9,6 +9,7 @@ import {
   msDoorKeyIndex,
   msInventorySlot,
   msIsOverlayFloorTile,
+  msTileMobExitAction,
   msTileHasTag,
 } from "@ruleset-ms/impl/catalog";
 import { msBlockedEnterEffect } from "@ruleset-ms/impl/floorImpactPolicy";
@@ -58,6 +59,34 @@ function msTopTileSupportsNonChipFromAbove(id: number): boolean {
 
 function promoteTopFloorToUnderlying(cells: EngineMapCell[], pos: number): void {
   promoteBottomTile(cells, pos, MS_TILE.Empty);
+}
+
+function applyMsMobExitTileAction(
+  cells: EngineMapCell[],
+  pos: number,
+  layer: "top" | "bottom",
+): boolean {
+  const cell = cells[pos];
+  if (!cell) {
+    return false;
+  }
+
+  const tile = layer === "top" ? cell.top : cell.bottom;
+  if (msTileMobExitAction(tile.id) !== "turn-to-air") {
+    return false;
+  }
+
+  const nextTile = { ...tile, id: MS_TILE.Air, state: 0 };
+  if (layer === "top") {
+    replaceTopTile(cells, pos, nextTile);
+  } else {
+    replaceBottomTile(cells, pos, nextTile);
+  }
+  return true;
+}
+
+export function applyMsMobExitFloorEffect(cells: EngineMapCell[], pos: number): boolean {
+  return applyMsMobExitTileAction(cells, pos, "top") || applyMsMobExitTileAction(cells, pos, "bottom");
 }
 
 export function isMsBlockedChipEnterRevealTile(tileId: number): boolean {

@@ -10,6 +10,7 @@ export type LynxInventorySlot = "keys" | "boots" | "tools";
 export type LynxPortableItemFamily = "sandbag" | "hook" | "bowling-ball";
 export type LynxForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air" | "elevator";
 export type LynxCreatureFloorAction = "none" | "hold-direction";
+export type LynxMobExitAction = "none" | "turn-to-air";
 export type LynxChipEnterAction =
   | "none"
   | "clear-floor"
@@ -52,6 +53,7 @@ export interface LynxTilePolicyDefinition {
   readonly inventoryIndex?: number;
   readonly doorKeyIndex?: number;
   readonly forcedFloorKind: LynxForcedFloorKind;
+  readonly mobExitAction: LynxMobExitAction;
   readonly chipEnterAction: LynxChipEnterAction;
   readonly buttonAction: LynxButtonAction;
 }
@@ -103,6 +105,7 @@ const DEADLY_TILE_SET = new Set<number>(DEADLY_TILE_IDS);
 
 const CHIPPABLE_TILE_IDS = new Set<number>([
   MS_TILE.Empty,
+  MS_TILE.Cloud,
   MS_TILE.Air,
   MS_TILE.Elevator,
   ...SLIDE_TILE_IDS,
@@ -195,6 +198,7 @@ const DEFAULT_LYNX_TILE_POLICY: LynxTilePolicyDefinition = {
   requiresReleaseToExit: false,
   creatureFloorAction: "none",
   forcedFloorKind: "none",
+  mobExitAction: "none",
   chipEnterAction: "none",
   buttonAction: "none",
 };
@@ -325,6 +329,9 @@ function defaultLynxTileHooks(id: number): TileHookName[] {
   if (BUTTON_TILE_SET.has(id)) {
     hooks.push("after-leave");
   }
+  if (defaultLynxMobExitAction(id) !== "none") {
+    hooks.push("after-leave");
+  }
   return [...new Set(hooks)];
 }
 
@@ -345,6 +352,10 @@ function defaultLynxForcedFloorKind(id: number): LynxForcedFloorKind {
     return "ice";
   }
   return "none";
+}
+
+function defaultLynxMobExitAction(id: number): LynxMobExitAction {
+  return id === MS_TILE.Cloud ? "turn-to-air" : "none";
 }
 
 function defaultLynxButtonAction(id: number): LynxButtonAction {
@@ -510,6 +521,7 @@ function createLynxTilePolicyDefinition(id: number): LynxTilePolicyDefinition {
     requiresReleaseToExit: id === MS_TILE.Beartrap || id === MS_TILE.CloneMachine,
     creatureFloorAction: id === MS_TILE.CloneMachine || id === MS_TILE.Beartrap ? "hold-direction" : "none",
     forcedFloorKind: defaultLynxForcedFloorKind(id),
+    mobExitAction: defaultLynxMobExitAction(id),
     chipEnterAction: defaultLynxChipEnterAction(id),
     buttonAction: defaultLynxButtonAction(id),
     ...inventoryPolicy(id),

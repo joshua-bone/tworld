@@ -15,6 +15,7 @@ import {
   lynxPortableItemFamily,
   lynxRequiresReleaseToExit,
   lynxTileForcedFloorKind,
+  lynxTileMobExitAction,
   lynxTileHasCapability,
   lynxTileHasTag,
   lynxToggledWallTileId,
@@ -29,6 +30,7 @@ describe("Lynx catalog tile families", () => {
     expect(lynxTileHasTag(MS_TILE.Boots_Fire, "boots")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Teleport, "teleport")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Air, "walkable")).toBe(true);
+    expect(lynxTileHasTag(MS_TILE.Cloud, "walkable")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Beartrap, "trap")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Exit, "exit")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Ice, "ice")).toBe(true);
@@ -58,6 +60,7 @@ describe("Lynx catalog tile families", () => {
     expect(lynxTileForcedFloorKind(MS_TILE.Slide_Random)).toBe("slide");
     expect(lynxTileForcedFloorKind(MS_TILE.Teleport)).toBe("teleport");
     expect(lynxTileForcedFloorKind(MS_TILE.Air)).toBe("air");
+    expect(lynxTileMobExitAction(MS_TILE.Cloud)).toBe("turn-to-air");
   });
 
   it("provides movement masks and chip arrival helpers", () => {

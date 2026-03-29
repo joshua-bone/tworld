@@ -147,11 +147,16 @@ const MS_BUILTIN_DAT_TILE_IDS = [
   msCreatureTile(MS_TILE.Chip, 8),
   MS_TILE.Sandbag,
   MS_TILE.BowlingBall_Still,
+  MS_TILE.Cloud,
 ] as const;
 
 function remapBuiltinMsTile(tileId: number, context: MsLevelDecodeContext): number {
   if (context.z > 1 && tileId === MS_TILE.Overlay_Buffer) {
     return MS_TILE.Air;
+  }
+
+  if (tileId === MS_TILE.Cloud && context.z <= 1) {
+    return MS_TILE.Empty;
   }
 
   if (context.hasHigherLayers && tileId === MS_TILE.Exited_Chip) {

@@ -202,6 +202,7 @@ import {
   lynxActorThiefOutcome,
 } from "@ruleset-lynx/impl/actorInteractions";
 import {
+  applyLynxMobExitFloorEffect,
   applyLynxBlockedChipEnterEffect,
   applyLynxTileActivationEffect,
 } from "@ruleset-lynx/impl/tileEffects";
@@ -801,6 +802,10 @@ function lynxRuntimeLayers(map: EngineState["map"]): LynxRuntimeLayer[] {
 
 function lynxCellsForZ(map: EngineState["map"], z = 1): EngineMapCell[] {
   return lynxRuntimeLayers(map).find((layer) => layer.z === z)?.cells ?? lynxRuntimeLayers(map)[0]!.cells;
+}
+
+function applyLynxExitedMobSourceFloorEffect(state: EngineState, pos: number, z: number): void {
+  applyLynxMobExitFloorEffect(lynxCellsForZ(state.map, z), pos);
 }
 
 function setLynxActiveLayer(state: EngineState, z = 1): EngineMapCell[] {
@@ -1556,6 +1561,7 @@ function createLynxActorMovementContext(
     clearAnimationAt: (pos) => {
       clearLynxAnimationAt(state, actors, pos);
     },
+    applyMobExitFloorEffect: (pos, z) => applyLynxExitedMobSourceFloorEffect(state, pos, z),
     canActorEnter: (actor, tileId, dir) => canLynxCreatureEnter(state, actor as LynxRuntimeActor, tileId, dir),
     arrivalOutcome: (actor, floorId) =>
       lynxRuntimeActorArrivalOutcome(floorId, actor.id, projectLynxRuntimeActorInventoryOwner(state, actor as LynxRuntimeActor)),
@@ -2714,7 +2720,14 @@ function advanceLynxCreature(
             resolveLynxRuntimeActorSupportBelow(tickContext, lowerCells, actor.id, null, actor.pos, targetZ, actor.z ?? 1),
           )
         ) {
-          if (!startLynxActorAirMovement(state, actor, { cellsForZ: (z) => lynxCellsForZ(state.map, z) })) {
+          if (
+            !startLynxActorAirMovement(
+              state,
+              actor,
+              { cellsForZ: (z) => lynxCellsForZ(state.map, z) },
+              (pos, z) => applyLynxExitedMobSourceFloorEffect(state, pos, z),
+            )
+          ) {
             return;
           }
         } else {
@@ -2729,6 +2742,7 @@ function advanceLynxCreature(
             tickContext,
             actor,
             { cellsForZ: (z) => lynxCellsForZ(state.map, z) },
+            (pos, z) => applyLynxExitedMobSourceFloorEffect(state, pos, z),
           )
         ) {
           // Vertical move started; skip planar movement selection.
@@ -3943,6 +3957,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
       },
       runtime.chipPos,
       runtime.chipZ,
+      (pos, z) => applyLynxExitedMobSourceFloorEffect(runtime.state, pos, z),
     );
     runtime.chipPos = airborne.chipPos;
     runtime.chipZ = airborne.chipZ;
@@ -3973,6 +3988,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
         withLynxLayer(runtime.state, targetZ, () =>
           tryPushLynxBlock(runtime.state, runtime.level, runtime.actors, runtime.chipPos, pushDir),
         ),
+      (pos, z) => applyLynxExitedMobSourceFloorEffect(runtime.state, pos, z),
     );
     runtime.chipPos = elevated.chipPos;
     runtime.chipZ = elevated.chipZ;
@@ -4048,6 +4064,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
       runtime.chipZ,
       (layerZ, run) => withLynxLayer(runtime.state, layerZ, run),
     );
+    applyLynxExitedMobSourceFloorEffect(runtime.state, runtime.chipPos, runtime.chipZ);
     runtime.chipDir = startInputCode;
     runtime.chipPos = targetPos;
     runtime.chipMoving = 8;

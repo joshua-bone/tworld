@@ -9,7 +9,7 @@ describe("expandedArtworkSheetKey", () => {
         mode: "grid",
         tileWidth: 48,
         tileHeight: 48,
-        columns: 3,
+        columns: 4,
         rows: 1,
       },
     });
@@ -27,7 +27,7 @@ describe("expansionArtworkFrameRect", () => {
     });
   });
 
-  it("returns the bowling ball frames from the second and third sheet cells", () => {
+  it("returns the bowling ball and cloud frames from the remaining sheet cells", () => {
     expect(expansionArtworkFrameRect("bowling_ball_moving")).toEqual({
       x: 48,
       y: 0,
@@ -37,6 +37,13 @@ describe("expansionArtworkFrameRect", () => {
     });
     expect(expansionArtworkFrameRect("bowling_ball_still")).toEqual({
       x: 96,
+      y: 0,
+      width: 48,
+      height: 48,
+      transparent: true,
+    });
+    expect(expansionArtworkFrameRect("cloud")).toEqual({
+      x: 144,
       y: 0,
       width: 48,
       height: 48,

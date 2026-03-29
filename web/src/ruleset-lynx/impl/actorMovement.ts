@@ -58,6 +58,7 @@ export interface LynxActorMovementContext {
   queryTargetOccupancy(pos: number, z: number): OccupancyTarget<LynxActorMovementActor>;
   interactionOutcome(actor: LynxActorMovementActor, target: OccupancyTarget<LynxActorMovementActor>): ActorCollisionOutcome;
   clearAnimationAt(pos: number): void;
+  applyMobExitFloorEffect(pos: number, z: number): void;
   canActorEnter(actor: LynxActorMovementActor, tileId: number, dir: number): boolean;
   arrivalOutcome(actor: LynxActorMovementActor, floorId: number): ActorArrivalOutcome;
   effectiveTargetTileId(tileId: number): number;
@@ -144,7 +145,10 @@ export function startLynxActorMovement(
     actor.dormant = false;
   }
 
-  removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+  const sourcePos = actor.pos;
+  const sourceZ = actor.z ?? context.activeLayerZ();
+  removeTopTileFlags(context.state.map.cells, sourcePos, LYNX_CELL_FLAG.Claimed);
+  context.applyMobExitFloorEffect(sourcePos, sourceZ);
   actor.pos = targetPos;
   actor.moving = 8;
   actor.frame = 4;

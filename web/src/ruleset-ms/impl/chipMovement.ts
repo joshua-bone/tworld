@@ -26,6 +26,7 @@ export interface MsChipMovementContext {
   applyEnterEffects(cells: EngineMapCell[], nextPos: number): MsChipEnteredTileResolution;
   teleportDestination(cells: EngineMapCell[], start: number, dir: number): { destination: number; soundEffects: number };
   popTile(cells: EngineMapCell[], pos: number): void;
+  applyMobExitFloorEffect(cells: EngineMapCell[], pos: number): void;
   pushTile(cells: EngineMapCell[], pos: number, tile: EngineMapCell["top"]): void;
   settlePrimedToolDrop(cells: EngineMapCell[], pos: number, z: number): void;
   preservesUnderlyingFloor(cell: EngineMapCell): boolean;
@@ -131,6 +132,7 @@ export function moveMsChipPlanar(
 
   context.popTile(cells, oldPos);
   context.settlePrimedToolDrop(cells, oldPos, oldZ);
+  context.applyMobExitFloorEffect(cells, oldPos);
 
   if (enteredEffects.enteredTeleport) {
     const teleported = context.teleportDestination(cells, nextPos, dir);
@@ -176,6 +178,7 @@ export function moveMsChipDownOneLayer(
 
   context.popTile(sourceCells, oldPos);
   context.settlePrimedToolDrop(sourceCells, oldPos, oldZ);
+  context.applyMobExitFloorEffect(sourceCells, oldPos);
   context.internal.chipZ = targetZ;
 
   if (enteredEffects.enteredTeleport) {
@@ -243,6 +246,7 @@ export function moveMsChipUpOneLayer(
 
   context.popTile(sourceCells, oldPos);
   context.settlePrimedToolDrop(sourceCells, oldPos, oldZ);
+  context.applyMobExitFloorEffect(sourceCells, oldPos);
   context.internal.chipZ = targetZ;
 
   soundEffects |= placeChipOnDestination(

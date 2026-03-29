@@ -66,7 +66,7 @@ describe("getOrCreateHeldTrapSprite", () => {
 
 describe("createLegacyExpansionArtworkOverrides", () => {
   it("maps expansion artwork sprites onto the registered portable-item and bowling-ball ids", () => {
-    const fakeImage = { width: LEGACY_TILE_SIZE * 3, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
+    const fakeImage = { width: LEGACY_TILE_SIZE * 4, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const fakeContext = {
       imageSmoothingEnabled: true,
       drawImage: vi.fn(),
@@ -96,14 +96,15 @@ describe("createLegacyExpansionArtworkOverrides", () => {
       expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.south))).toMatchObject({ transparent: true });
       expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east))).toMatchObject({ transparent: true });
       expect(overrides.get(MS_TILE.BowlingBall_Still)).toMatchObject({ transparent: true });
-      expect(fakeContext.drawImage).toHaveBeenCalledTimes(3);
+      expect(overrides.get(MS_TILE.Cloud)).toMatchObject({ transparent: true });
+      expect(fakeContext.drawImage).toHaveBeenCalledTimes(4);
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
   it("keeps expansion artwork sprites addressable by sprite id for renderer metadata", () => {
-    const fakeImage = { width: LEGACY_TILE_SIZE * 3, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
+    const fakeImage = { width: LEGACY_TILE_SIZE * 4, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const fakeContext = {
       imageSmoothingEnabled: true,
       drawImage: vi.fn(),
@@ -134,7 +135,8 @@ describe("createLegacyExpansionArtworkOverrides", () => {
       expect(overridden.getArtworkSprite?.("sandbag")).toMatchObject({ transparent: true });
       expect(overridden.getArtworkSprite?.("bowling_ball_moving")).toMatchObject({ transparent: true });
       expect(overridden.getArtworkSprite?.("bowling_ball_still")).toMatchObject({ transparent: true });
-      expect(fakeContext.drawImage).toHaveBeenCalledTimes(3);
+      expect(overridden.getArtworkSprite?.("cloud")).toMatchObject({ transparent: true });
+      expect(fakeContext.drawImage).toHaveBeenCalledTimes(4);
     } finally {
       vi.unstubAllGlobals();
     }

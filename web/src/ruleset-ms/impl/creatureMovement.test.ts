@@ -26,6 +26,7 @@ function createContext(overrides: Partial<MsCreatureMovementContext> = {}): MsCr
   return {
     pushTile: () => {},
     popTile: () => {},
+    applyMobExitFloorEffect: () => {},
     updateCreatureTile: () => {},
     handlePreMoveCollision: () => null,
     resolveButtonFloorEffects: () => 0,

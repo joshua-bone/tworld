@@ -92,6 +92,7 @@ export const MS_TILE = {
   Sandbag: 0x80,
   Hook: 0x81,
   BowlingBall_Still: 0x82,
+  Cloud: 0x83,
 } as const;
 
 export const MS_FLOOR_STATE = {

@@ -4,7 +4,7 @@
     "mode": "grid",
     "tileWidth": 48,
     "tileHeight": 48,
-    "columns": 3,
+    "columns": 4,
     "rows": 1
   },
   "sprites": {
@@ -20,6 +20,11 @@
     },
     "bowling_ball_still": {
       "column": 2,
+      "row": 0,
+      "transparent": true
+    },
+    "cloud": {
+      "column": 3,
       "row": 0,
       "transparent": true
     }

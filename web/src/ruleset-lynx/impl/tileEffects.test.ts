@@ -3,6 +3,7 @@ import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   applyLynxBlockedChipEnterEffect,
+  applyLynxMobExitFloorEffect,
   applyLynxTileActivationEffect,
   resolveLynxTileSupportBelow,
 } from "@ruleset-lynx/impl/tileEffects";
@@ -112,5 +113,20 @@ describe("lynx tile effects", () => {
 
     expect(result).toBe("unsupported");
     expect(lowerCells[0]!.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("turns an exited top-layer cloud into air", () => {
+    const cells = [makeCell(MS_TILE.Cloud)];
+
+    expect(applyLynxMobExitFloorEffect(cells, 0)).toBe(true);
+    expect(cells[0]!.top.id).toBe(MS_TILE.Air);
+  });
+
+  it("turns an exited underlying cloud into air beneath a portable item", () => {
+    const cells = [makeCell(MS_TILE.Sandbag, MS_TILE.Cloud)];
+
+    expect(applyLynxMobExitFloorEffect(cells, 0)).toBe(true);
+    expect(cells[0]!.top.id).toBe(MS_TILE.Sandbag);
+    expect(cells[0]!.bottom.id).toBe(MS_TILE.Air);
   });
 });

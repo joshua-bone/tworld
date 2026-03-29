@@ -102,6 +102,27 @@ describe("initializeLynxEngineState", () => {
     ]);
   });
 
+  it("turns a z2 cloud into air when Chip exits it", () => {
+    const lower = createBoardAtZ(1);
+    const upper = createBoardAtZ(2);
+    const chipPos = pos(1, 1);
+    const eastPos = pos(2, 1);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Cloud);
+
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, {
+        upperCreaturePositions: [chipPos],
+      }),
+    );
+
+    session = advanceLynxTicks(session, 4, MS_DIRECTION.east);
+
+    expect(session.chipPos).toBe(eastPos);
+    expect(session.chipZ).toBe(2);
+    expect(session.state.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
+  });
+
   it("uses same-layer teleport search when Chip teleports on z2", () => {
     const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
     const upper = createBoardAtZ(2);
