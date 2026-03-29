@@ -58,6 +58,13 @@ export interface MsCreatureMovementContext {
   pushTile(cells: EngineMapCell[], pos: number, tile: EngineMapCell["top"]): void;
   popTile(cells: EngineMapCell[], pos: number): void;
   updateCreatureTile(cells: EngineMapCell[], creature: MsCreatureMovementCreature): void;
+  handlePreMoveCollision(
+    sourceCells: EngineMapCell[],
+    targetCells: EngineMapCell[],
+    creature: MsCreatureMovementCreature,
+    nextPos: number,
+    dir: number,
+  ): MovementAttemptResult | null;
   resolveButtonFloorEffects(cells: EngineMapCell[], pos: number, floor: number, creature: MsCreatureMovementCreature): number;
   isTrapOpen(cells: EngineMapCell[], trapPos: number, skipButtonPos: number, z: number): boolean;
   hasTrapConnection(pos: number, z: number): boolean;
@@ -90,6 +97,10 @@ export function moveMsCreaturePlanar(
   const arrivalCreature = arrivalActorId === creature.id ? creature : { ...creature, id: arrivalActorId };
   const oldWasCloneMachine = cells[oldPos]!.bottom.id === MS_TILE.CloneMachine;
   let nextPos = nextPosition(oldPos, dir, MS_GRID_WIDTH);
+  const preMoveCollision = context.handlePreMoveCollision(cells, cells, creature, nextPos, dir);
+  if (preMoveCollision) {
+    return preMoveCollision;
+  }
   const targetTop = cells[nextPos]!.top.id;
   const targetTopState = cells[nextPos]!.top.state;
   const targetBottom = cells[nextPos]!.bottom.id;
@@ -171,6 +182,10 @@ export function moveMsCreatureDownOneLayer(
   const sourceZ = creature.z ?? context.runtimeCellZ(sourceCells, oldPos);
   const targetZ = Math.max(1, sourceZ - 1);
   let nextPos = oldPos;
+  const preMoveCollision = context.handlePreMoveCollision(sourceCells, targetCells, creature, nextPos, creature.dir);
+  if (preMoveCollision) {
+    return preMoveCollision;
+  }
   const targetTop = targetCells[nextPos]!.top.id;
   const targetTopState = targetCells[nextPos]!.top.state;
   const targetBottom = targetCells[nextPos]!.bottom.id;
@@ -252,6 +267,10 @@ export function moveMsCreatureUpOneLayer(
   const oldPos = creature.pos;
   const sourceZ = creature.z ?? context.runtimeCellZ(sourceCells, oldPos);
   const targetZ = sourceZ + 1;
+  const preMoveCollision = context.handlePreMoveCollision(sourceCells, targetCells, creature, oldPos, creature.dir);
+  if (preMoveCollision) {
+    return preMoveCollision;
+  }
   const targetTop = targetCells[oldPos]!.top.id;
   const targetTopState = targetCells[oldPos]!.top.state;
   const targetBottom = targetCells[oldPos]!.bottom.id;

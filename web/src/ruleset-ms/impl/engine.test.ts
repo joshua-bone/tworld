@@ -264,7 +264,9 @@ describe("MS engine regressions", () => {
       }),
     );
 
-    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    for (let tick = 0; tick < 8; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
     expect(session.state.internal.chipZ).toBe(2);
     expect(session.state.internal.chipPos).toBe(chipPos);
 
@@ -6337,5 +6339,131 @@ describe("MS engine regressions", () => {
       keys: [0, 0, 0, 0],
       boots: [0, 0, 0, 1],
     });
+  });
+
+  it("activates a still bowling ball from map state when it starts on force floor", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(4, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = MS_TILE.BowlingBall_Still;
+    cells[bowlingBallPos]!.bottom.id = MS_TILE.Slide_East;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+    const attachedPortable = bowlingBall
+      ? session.state.internal.portableTools.portableItems.find(
+          (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === bowlingBall.serial,
+        )
+      : undefined;
+
+    expect(bowlingBall).toBeTruthy();
+    expect(attachedPortable?.family).toBe("bowling-ball");
+    expect(session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "map" && item.tileId === MS_TILE.BowlingBall_Still)).toBeUndefined();
+  });
+
+  it("reverts a blocked moving bowling ball to still map state while preserving local inventory", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const keyPos = pos(3, 1);
+    const wallPos = pos(4, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[keyPos]!.top.id = MS_TILE.Key_Red;
+    cells[wallPos]!.top.id = MS_TILE.Wall;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    for (let tick = 0; tick < 8; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const reverted = session.state.internal.portableTools.portableItems.find(
+      (item) => item.state.mode === "map" && item.tileId === MS_TILE.BowlingBall_Still && item.state.pos === keyPos && item.state.z === 1,
+    );
+
+    expect(session.state.engine.map.cells[keyPos]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toBeUndefined();
+    expect(reverted).toMatchObject({
+      family: "bowling-ball",
+      bowlingBallState: {
+        mode: "still",
+        localInventory: {
+          keys: [1, 0, 0, 0],
+          boots: [0, 0, 0, 0],
+        },
+      },
+    });
+  });
+
+  it("destroys both a moving bowling ball and a still portable item on contact", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const sandbagPos = pos(4, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[sandbagPos]!.top.id = MS_TILE.Sandbag;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    for (let tick = 0; tick < 8; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.engine.map.cells[sandbagPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toBeUndefined();
+    expect(session.state.internal.portableTools.portableItems.find((item) => item.tileId === MS_TILE.Sandbag)).toBeUndefined();
+  });
+
+  it("denies Chip entry when chasing a moving bowling ball from behind", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(2, 1);
+    const wallPos = pos(3, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+    cells[wallPos]!.top.id = MS_TILE.Wall;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.internal.chipStatus).toBe("okay");
   });
 });

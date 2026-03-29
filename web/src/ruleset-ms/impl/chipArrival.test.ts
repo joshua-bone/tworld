@@ -47,6 +47,7 @@ function makeContext(
     inventory,
     portableTools,
     runtimeCellZ: () => 1,
+    removeRuntimeActor: () => {},
   };
 }
 

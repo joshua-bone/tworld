@@ -443,12 +443,12 @@ Goal:
 
 Checklist:
 
-- [ ] hook portable activation and throw timing into MS Chip flow
-- [ ] implement blocked-move reversion vs hold-direction exceptions on ice / force floors
-- [ ] implement MS trap, cloner, teleport, and air/elevator timing through the existing MS seams
-- [ ] implement MS actor collision and destruction timing
-- [ ] implement MS clone deep-copy of bowling-ball inventory/state
-- [ ] add focused MS engine tests for the full requirement matrix that applies to MS
+- [x] hook portable activation and throw timing into MS Chip flow
+- [x] implement blocked-move reversion vs hold-direction exceptions on ice / force floors
+- [x] implement MS trap, cloner, teleport, and air/elevator timing through the existing MS seams
+- [x] implement MS actor collision and destruction timing
+- [x] implement MS clone deep-copy of bowling-ball inventory/state
+- [x] add focused MS engine tests for the full requirement matrix that applies to MS
 
 Success condition:
 

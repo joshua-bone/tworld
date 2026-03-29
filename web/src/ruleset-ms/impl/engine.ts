@@ -5,7 +5,7 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@game-core/api/debug";
-import { setBowlingBallMode } from "@game-core/impl/bowlingBall";
+import { cloneBowlingBallState, setBowlingBallMode } from "@game-core/impl/bowlingBall";
 import { findExistingActorAtPosition, findVisibleActorAtPosition } from "@game-core/impl/actors";
 import {
   addBottomTileFlags,
@@ -134,10 +134,16 @@ import {
   deferredMsTileActivationSound,
   hasMsTileActivation,
 } from "@ruleset-ms/impl/tileEffects";
+import { msBlockedMoveFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
 import {
   activateMsPortableTool,
+  attachMsPortableToolToActor,
   clearMsToolInventory,
+  cloneMsPortableTool,
   collectMsPortableItemsFromLayers,
+  destroyMsPortableTool,
+  detachMsPortableToolToMap,
+  findMsPortableToolAttachedToActor,
   primedMsPortableToolItem,
   projectMsPortableToolState,
   queueMsToolInventoryReplacement,
@@ -146,7 +152,9 @@ import {
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
 import {
+  attachMsStatefulActorPortableBacking,
   cloneMsStatefulActorRuntimeForCloner,
+  detachMsStatefulActorPortableBacking,
   destroyMsStatefulActorRuntime,
   findMsStatefulActorRuntime,
   seedMsStatefulActorRuntime,
@@ -305,29 +313,57 @@ function queryMsTargetOccupancy(
   );
 }
 
-function msInteractionTargetFromOccupancy(target: ReturnType<typeof queryMsTargetOccupancy>) {
+function msInteractionTargetFromOccupancy(
+  target: ReturnType<typeof queryMsTargetOccupancy>,
+  movingDir: number = MS_DIRECTION.none,
+) {
   switch (target.kind) {
-    case "runtime-actor":
+    case "runtime-actor": {
+      const targetDir =
+        target.runtimeActor && "dir" in target.runtimeActor && typeof target.runtimeActor.dir === "number"
+          ? target.runtimeActor.dir
+          : MS_DIRECTION.none;
       return {
         kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
-        actorId: target.runtimeActor && "id" in target.runtimeActor ? target.runtimeActor.id : msCreatureId(target.tileId),
+        actorId:
+          target.runtimeActor && "id" in target.runtimeActor && typeof target.runtimeActor.id === "number"
+            ? target.runtimeActor.id
+            : target.tileId === MS_TILE.Block_Static
+              ? MS_TILE.Block
+              : msCreatureId(target.tileId),
         tileId: target.tileId,
+        movingDir,
+        targetDir,
+        sameDirection: movingDir !== MS_DIRECTION.none && targetDir !== MS_DIRECTION.none && movingDir === targetDir,
+      } as const;
+    }
+    case "static-block":
+      return {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: MS_TILE.Block,
+        tileId: target.tileId,
+        movingDir,
+        targetDir: MS_DIRECTION.none,
+        sameDirection: false,
       } as const;
     case "chip":
       return {
         kind: ACTOR_INTERACTION_TARGET_KIND.chip,
         actorId: MS_TILE.Chip,
         tileId: target.tileId,
+        movingDir,
       } as const;
     case "portable-item":
       return {
         kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
         tileId: target.portableItem?.tileId ?? target.tileId,
+        movingDir,
       } as const;
     default:
       return {
         kind: ACTOR_INTERACTION_TARGET_KIND.empty,
         tileId: target.tileId,
+        movingDir,
       } as const;
   }
 }
@@ -336,6 +372,259 @@ function applyMsChipCollisionOutcome(internal: MsInternalState, outcome: ReturnT
   if (outcome.chipFails) {
     internal.chipStatus = "collided";
   }
+}
+
+function msPortableBackedActorItemSerial(
+  internal: MsInternalState,
+  actorSerial: number,
+): number | null {
+  const runtimeEntry = msRuntimeActorEntry(internal, actorSerial);
+  if (runtimeEntry?.portableBacking?.portableItemSerial) {
+    return runtimeEntry.portableBacking.portableItemSerial;
+  }
+  return findMsPortableToolAttachedToActor(msPortableToolState(internal), actorSerial)?.serial ?? null;
+}
+
+function syncMsPortableBackedActorStateToPortableItem(
+  internal: MsInternalState,
+  actorSerial: number,
+): void {
+  const runtimeEntry = msRuntimeActorEntry(internal, actorSerial);
+  const attachedItem = findMsPortableToolAttachedToActor(msPortableToolState(internal), actorSerial);
+  if (
+    runtimeEntry?.kind !== "bowling-ball" ||
+    attachedItem?.family !== "bowling-ball" ||
+    !attachedItem.bowlingBallState
+  ) {
+    return;
+  }
+
+  attachedItem.bowlingBallState = cloneBowlingBallState(runtimeEntry.state);
+}
+
+function destroyMsPortableBackedActorRuntime(
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  actorSerial: number,
+): void {
+  syncMsPortableBackedActorStateToPortableItem(internal, actorSerial);
+  const portableItemSerial = msPortableBackedActorItemSerial(internal, actorSerial);
+  if (portableItemSerial !== null) {
+    destroyMsPortableTool(msPortableToolState(internal), inventory, portableItemSerial);
+  }
+  destroyMsStatefulActorRuntime(internal.statefulActors, actorSerial);
+}
+
+function destroyMsTrackedCreature(
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  creature: MsTrackedCreature,
+): void {
+  creature.hidden = true;
+  creature.released = false;
+  creature.turning = false;
+  creature.hasMoved = false;
+  creature.frame = 0;
+  creature.moving = 0;
+  creature.cloning = false;
+  clearCreatureFloorMovement(creature, internal);
+  destroyMsPortableBackedActorRuntime(internal, inventory, creature.serial);
+}
+
+function removeMsTargetRuntimeActor(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  pos: number,
+  z: number,
+): void {
+  const targetCreature = creatureAtPos(internal, pos, z);
+  if (targetCreature) {
+    popTile(cells, pos);
+    destroyMsTrackedCreature(internal, inventory, targetCreature);
+    return;
+  }
+
+  const targetBlock = findVisibleTrackedBlock(internal, pos, z);
+  if (targetBlock) {
+    popTile(cells, pos);
+    hideTrackedBlockAtPos(internal, pos, targetBlock.dir, z);
+    return;
+  }
+
+  if (cells[pos]?.top.id === MS_TILE.Block_Static || isMsCreature(cells[pos]?.top.id ?? MS_TILE.Empty)) {
+    popTile(cells, pos);
+  }
+}
+
+function removeMsCollisionTarget(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  target: ReturnType<typeof queryMsTargetOccupancy>,
+): void {
+  switch (target.kind) {
+    case "portable-item":
+      if (target.portableItem && "serial" in target.portableItem && typeof target.portableItem.serial === "number") {
+        destroyMsPortableTool(msPortableToolState(internal), inventory, target.portableItem.serial);
+      }
+      popTile(cells, target.pos);
+      return;
+    case "runtime-actor":
+    case "static-block":
+      removeMsTargetRuntimeActor(cells, internal, inventory, target.pos, target.z);
+      return;
+    default:
+      return;
+  }
+}
+
+function revertMsPortableBackedCreatureToMap(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  creature: MsTrackedCreature,
+): boolean {
+  const attachedItem = findMsPortableToolAttachedToActor(msPortableToolState(internal), creature.serial);
+  if (!attachedItem) {
+    return false;
+  }
+
+  syncMsPortableBackedActorStateToPortableItem(internal, creature.serial);
+  const creatureZ = creature.z ?? runtimeCellZ(cells, creature.pos);
+  const tileId = attachedItem.tileId;
+  detachMsStatefulActorPortableBacking(internal.statefulActors, creature.serial);
+  if (!detachMsPortableToolToMap(msPortableToolState(internal), inventory, attachedItem.serial, creature.pos, creatureZ)) {
+    return false;
+  }
+
+  cells[creature.pos]!.top = { id: tileId, state: 0 };
+  creature.hidden = true;
+  creature.released = false;
+  creature.turning = false;
+  creature.hasMoved = false;
+  creature.frame = 0;
+  creature.moving = 0;
+  creature.cloning = false;
+  clearCreatureFloorMovement(creature, internal);
+  destroyMsStatefulActorRuntime(internal.statefulActors, creature.serial);
+  return true;
+}
+
+function shouldRevertPortableBackedCreatureOnBlockedMove(
+  cells: EngineMapCell[],
+  creature: MsTrackedCreature,
+): boolean {
+  if (msBlockedMoveFloorImpactAction(creature.id) !== "revert-portable" || creature.hidden) {
+    return false;
+  }
+
+  const standingTile = bottomTile(cells, creature.pos);
+  if (isIceFloor(standingTile.id) || isSlideFloor(standingTile.id)) {
+    return false;
+  }
+  if (standingTile.id === MS_TILE.Teleport && (standingTile.state & MS_FLOOR_STATE.Broken) === 0) {
+    return false;
+  }
+  if (standingTile.id === MS_TILE.Beartrap && !creature.released) {
+    return false;
+  }
+  return true;
+}
+
+function maybeRevertPortableBackedCreatureOnBlockedMove(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  creature: MsTrackedCreature,
+): boolean {
+  return (
+    shouldRevertPortableBackedCreatureOnBlockedMove(cells, creature) &&
+    revertMsPortableBackedCreatureToMap(cells, internal, inventory, creature)
+  );
+}
+
+function revealMsBallisticBlockedEnter(
+  cells: EngineMapCell[],
+  creature: MsTrackedCreature,
+  dir: number,
+): void {
+  if (msActorMovementStrategyId(creature.id) !== "ballistic-like" || dir === MS_DIRECTION.none) {
+    return;
+  }
+
+  const step = advanceToCell(cells, creature.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!step) {
+    return;
+  }
+  applyMsBlockedChipEnterEffect(cells, step.pos, true);
+}
+
+function resolveMsCreaturePreMoveCollision(
+  sourceCells: EngineMapCell[],
+  targetCells: EngineMapCell[],
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  creature: MsTrackedCreature,
+  nextPos: number,
+  dir: number,
+): MovementAttemptResult | null {
+  const targetZ = runtimeCellZ(targetCells, nextPos);
+  const target = queryMsTargetOccupancy(targetCells, internal, nextPos, targetZ);
+  if (target.kind === "empty") {
+    return null;
+  }
+
+  const collisionOutcome = msActorInteractionOutcome(creature.id, msInteractionTargetFromOccupancy(target, dir));
+  if (
+    collisionOutcome.denyMove ||
+    (!collisionOutcome.removeMovingActor && !collisionOutcome.removeTargetActor && !collisionOutcome.consumeTarget)
+  ) {
+    return null;
+  }
+
+  if (collisionOutcome.removeTargetActor || collisionOutcome.consumeTarget) {
+    removeMsCollisionTarget(targetCells, internal, inventory, target);
+  }
+  if (collisionOutcome.chipFails) {
+    applyMsChipCollisionOutcome(internal, collisionOutcome);
+  }
+  if (collisionOutcome.removeMovingActor) {
+    const oldPos = creature.pos;
+    if (sourceCells[oldPos]!.bottom.id === MS_TILE.CloneMachine) {
+      sourceCells[oldPos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
+    } else {
+      popTile(sourceCells, oldPos);
+    }
+    destroyMsTrackedCreature(internal, inventory, creature);
+  }
+
+  return movedMovement();
+}
+
+function cloneMsPortableBackedActorForCloner(
+  internal: MsInternalState,
+  sourceActorSerial: number,
+  targetActorSerial: number,
+): void {
+  const detachedProjection = msDetachedToolInventoryProjection();
+  syncMsPortableBackedActorStateToPortableItem(internal, sourceActorSerial);
+  cloneMsStatefulActorRuntimeForCloner(internal.statefulActors, sourceActorSerial, targetActorSerial);
+  const sourcePortableSerial = msPortableBackedActorItemSerial(internal, sourceActorSerial);
+  if (sourcePortableSerial === null) {
+    return;
+  }
+
+  const clonedPortable = cloneMsPortableTool(msPortableToolState(internal), detachedProjection, sourcePortableSerial);
+  if (!clonedPortable) {
+    return;
+  }
+
+  attachMsPortableToolToActor(msPortableToolState(internal), detachedProjection, clonedPortable.serial, targetActorSerial);
+  attachMsStatefulActorPortableBacking(internal.statefulActors, targetActorSerial, {
+    family: clonedPortable.family,
+    portableItemSerial: clonedPortable.serial,
+  });
 }
 
 export interface MsTrackedBlock {
@@ -512,6 +801,12 @@ function msRandomState(internal: MsInternalState): MsRandomRuntimeState {
 
 function msPortableToolState(internal: MsInternalState): MsPortableToolRuntimeState {
   return internal.portableTools;
+}
+
+function msDetachedToolInventoryProjection(): Pick<EngineState["inventory"], "tools"> {
+  return {
+    tools: [0] as EngineState["inventory"]["tools"],
+  };
 }
 
 function tryActivateMsBowlingBallThrow(
@@ -830,6 +1125,10 @@ function cloneRuntimeMapLayers(map: EngineState["map"]): MsRuntimeLayer[] {
 
 function runtimeCellsForZ(layers: ReadonlyArray<MsRuntimeLayer>, z = 1): EngineMapCell[] {
   return layers.find((layer) => layer.z === z)?.cells ?? layers[0]!.cells;
+}
+
+function runtimeLayerCellsByZ(layers: ReadonlyArray<MsRuntimeLayer>): Map<number, EngineMapCell[]> {
+  return new Map<number, EngineMapCell[]>(layers.map((layer) => [layer.z, layer.cells]));
 }
 
 function runtimeCellZ(cells: EngineMapCell[], pos: number): number {
@@ -1359,6 +1658,8 @@ export function initializeMsGameState(
   projectMsPortableToolState(msPortableToolState(internal), engine.inventory);
 
   const mapLayers = runtimeMapLayers(engine.map);
+  activateMappedBowlingBallsOnForceFloors(runtimeLayerCellsByZ(mapLayers), internal, engine.inventory);
+  projectMsPortableToolState(msPortableToolState(internal), engine.inventory);
   const activeCells = runtimeCellsForZ(mapLayers, chipZ);
   engine.map.cells = activeCells;
 
@@ -1410,6 +1711,12 @@ function canMoveChip(
     }
   }
   const targetOccupancy = queryMsTargetOccupancy(cells, internal, to);
+  if (
+    (targetOccupancy.kind === "runtime-actor" || targetOccupancy.kind === "chip") &&
+    msActorInteractionOutcome(MS_TILE.Chip, msInteractionTargetFromOccupancy(targetOccupancy, dir)).denyMove
+  ) {
+    return false;
+  }
   if (targetOccupancy.kind === "runtime-actor" || targetOccupancy.kind === "chip") {
     const targetId = msCreatureId(cells[to]!.top.id);
     if (targetId === MS_TILE.Block) {
@@ -1482,8 +1789,15 @@ function canMoveCreatureWithOptions(
     return false;
   }
   const targetOccupancy = internal ? queryMsTargetOccupancy(cells, internal, to, creature.z ?? 1) : null;
-  if (targetOccupancy?.kind === "portable-item") {
-    return !msActorInteractionOutcome(creature.id, msInteractionTargetFromOccupancy(targetOccupancy)).denyMove;
+  const targetInteraction =
+    targetOccupancy && internal
+      ? msActorInteractionOutcome(creature.id, msInteractionTargetFromOccupancy(targetOccupancy, dir))
+      : null;
+  if (targetInteraction?.denyMove) {
+    return false;
+  }
+  if (targetOccupancy?.kind === "portable-item" || targetOccupancy?.kind === "static-block") {
+    return Boolean(targetInteraction?.removeTargetActor || targetInteraction?.consumeTarget);
   }
   let floor = cells[to]!.top.id;
   if (isMsCreature(floor)) {
@@ -1505,6 +1819,9 @@ function canMoveCreatureWithOptions(
       }
       const blockingCreature = creatureAtPos(internal, to, creature.z ?? 1);
       return blockingCreature !== undefined && blockingCreature.dir === creature.dir;
+    }
+    if (targetInteraction?.removeTargetActor || targetInteraction?.consumeTarget) {
+      return true;
     }
   }
   if ((msActorEntryMask(floor, creature.id) & dir) === 0) {
@@ -1694,7 +2011,7 @@ function moveBlock(
         internal.pendingSoundEffects |= 1 << MS_SOUND.ButtonPushed;
       }
     } else {
-      const buttonSoundEffects = resolveButtonFloorEffects(cells, internal, landingPos, landedButtonFloor);
+      const buttonSoundEffects = resolveButtonFloorEffects(cells, internal, null, landingPos, landedButtonFloor);
       internal.pendingSoundEffects |= buttonSoundEffects;
     }
   }
@@ -1765,6 +2082,7 @@ function isTrapButtonDown(cells: EngineMapCell[], pos: number): boolean {
 function resolveButtonFloorEffects(
   cells: EngineMapCell[],
   internal: MsInternalState,
+  inventory: EngineState["inventory"] | null,
   buttonPos: number,
   floor: number,
   inMidMove: MsTrackedCreature | null = null,
@@ -1793,11 +2111,15 @@ function resolveButtonFloorEffects(
             canMoveCreatureWithOptions(
               cells,
               {
-                serial: -1,
+                serial:
+                  creatureAtPos(internal, sourcePos, buttonZ)?.serial ??
+                  internal.cloneSourceSerialByPosition.get(`${buttonZ}:${sourcePos}`) ??
+                  -1,
                 id: sourceId,
                 dir: sourceDir,
                 tdir: MS_DIRECTION.none,
                 pos: sourcePos,
+                z: buttonZ,
                 hidden: false,
                 moving: 0,
                 frame: 0,
@@ -1813,6 +2135,7 @@ function resolveButtonFloorEffects(
               false,
               true,
               internal,
+              inventory,
             ),
           spawnCreatureClone: (sourcePos, sourceId, sourceDir, z, cloneFamilyRuntime) => {
             const clonedCreatureSerial = internal.nextCreatureSerial;
@@ -1838,7 +2161,7 @@ function resolveButtonFloorEffects(
             });
             internal.creatureIndexBySerial.set(clonedCreatureSerial, internal.creatures.length - 1);
             if (cloneFamilyRuntime && typeof sourceSerial === "number") {
-              cloneMsStatefulActorRuntimeForCloner(internal.statefulActors, sourceSerial, clonedCreatureSerial);
+              cloneMsPortableBackedActorForCloner(internal, sourceSerial, clonedCreatureSerial);
             }
             internal.nextCreatureSerial = clonedCreatureSerial + 1;
           },
@@ -1891,7 +2214,7 @@ function resolveDeferredOrImmediateButtonLandingEffects(
     return deferredMsTileActivationSound(floor, 1 << MS_SOUND.ButtonPushed);
   }
 
-  return resolveButtonFloorEffects(cells, internal, pos, floor, actor, buttonZ);
+  return resolveButtonFloorEffects(cells, internal, null, pos, floor, actor, buttonZ);
 }
 
 function handleDeferredButtons(cells: EngineMapCell[], internal: MsInternalState): number {
@@ -1908,7 +2231,15 @@ function handleDeferredButtons(cells: EngineMapCell[], internal: MsInternalState
     }
 
     if (floor !== MS_TILE.Empty) {
-      soundEffects |= resolveButtonFloorEffects(cells, internal, cell.position.pos, floor, null, runtimeCellZ(cells, cell.position.pos));
+      soundEffects |= resolveButtonFloorEffects(
+        cells,
+        internal,
+        null,
+        cell.position.pos,
+        floor,
+        null,
+        runtimeCellZ(cells, cell.position.pos),
+      );
     }
   }
 
@@ -2670,12 +3001,86 @@ function toggleWalls(layers: ReadonlyArray<MsRuntimeLayer>): void {
 
 function resolveCreatureFloorEffects(cells: EngineMapCell[], creature: MsTrackedCreature, internal: MsInternalState): number {
   const floor = bottomTileId(cells, creature.pos);
-  return resolveButtonFloorEffects(cells, internal, creature.pos, floor, creature);
+  return resolveButtonFloorEffects(cells, internal, null, creature.pos, floor, creature);
 }
 
 function resolveChipFloorEffects(cells: EngineMapCell[], internal: MsInternalState): number {
   const floor = bottomTileId(cells, internal.chipPos);
-  return resolveButtonFloorEffects(cells, internal, internal.chipPos, floor);
+  return resolveButtonFloorEffects(cells, internal, null, internal.chipPos, floor);
+}
+
+function activateMappedBowlingBallsOnForceFloors(
+  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+): void {
+  for (const item of internal.portableTools.portableItems) {
+    if (
+      item.family !== "bowling-ball" ||
+      item.state.mode !== "map" ||
+      !item.bowlingBallState ||
+      item.bowlingBallState.mode !== "still"
+    ) {
+      continue;
+    }
+
+    const cells = layerCellsByZ.get(item.state.z);
+    if (!cells || cells[item.state.pos]?.top.id !== item.tileId) {
+      continue;
+    }
+
+    const floor = bottomTile(cells, item.state.pos).id;
+    if (!isSlideFloor(floor)) {
+      continue;
+    }
+
+    const dir = slideDirection(floor, internal);
+    if (dir === MS_DIRECTION.none) {
+      continue;
+    }
+
+    const pos = item.state.pos;
+    const z = item.state.z;
+    setBowlingBallMode(item.bowlingBallState, "moving", dir);
+    const actorSerial = internal.nextCreatureSerial;
+    if (!activateMsPortableTool(msPortableToolState(internal), inventory, item.serial, actorSerial)) {
+      setBowlingBallMode(item.bowlingBallState, "still", dir);
+      continue;
+    }
+
+    internal.nextCreatureSerial = actorSerial + 1;
+    const creature: MsTrackedCreature = {
+      serial: actorSerial,
+      id: MS_TILE.BowlingBall,
+      dir,
+      tdir: MS_DIRECTION.none,
+      pos,
+      z,
+      hidden: false,
+      moving: 0,
+      frame: 0,
+      cloning: false,
+      released: false,
+      turning: false,
+      hasMoved: false,
+      floorMovement: "none",
+      floorMovementDir: MS_DIRECTION.none,
+      sliding: false,
+    };
+    internal.creatures.push(creature);
+    internal.creatureIndexBySerial.set(actorSerial, internal.creatures.length - 1);
+    spawnMsBowlingBallStatefulActorFromPortable(
+      internal.statefulActors,
+      actorSerial,
+      item.serial,
+      item.bowlingBallState,
+    );
+    cells[pos]!.top = {
+      id: msCreatureTile(MS_TILE.BowlingBall, dir),
+      state: 0,
+    };
+    syncCreatureFloorMovement(cells, creature, internal);
+  }
 }
 
 function createMsCreatureMovementContext(
@@ -2687,8 +3092,15 @@ function createMsCreatureMovementContext(
     pushTile,
     popTile,
     updateCreatureTile: (cells: EngineMapCell[], creature: MsTrackedCreature) => updateCreatureTile(cells, creature),
+    handlePreMoveCollision: (
+      sourceCells: EngineMapCell[],
+      targetCells: EngineMapCell[],
+      creature: MsTrackedCreature,
+      nextPos: number,
+      dir: number,
+    ) => resolveMsCreaturePreMoveCollision(sourceCells, targetCells, internal, inventory, creature, nextPos, dir),
     resolveButtonFloorEffects: (cells: EngineMapCell[], pos: number, floor: number, creature: MsTrackedCreature) =>
-      resolveButtonFloorEffects(cells, internal, pos, floor, creature),
+      resolveButtonFloorEffects(cells, internal, inventory, pos, floor, creature),
     isTrapOpen: (cells: EngineMapCell[], trapPos: number, skipButtonPos: number, z: number) =>
       isMsTrapOpen({ cells, traps: internal.traps, trapPos, skipButtonPos, z }),
     hasTrapConnection: (pos: number, z: number) => hasMsTrapConnection(internal.traps, pos, z),
@@ -3062,7 +3474,15 @@ function processMsCreatureFloorQueueEntry(
     }
 
     if (!moved) {
+      revealMsBallisticBlockedEnter(creatureCells, creature, originalDir);
       restartCreatureFloorMovementAfterBlockedAttempt(creatureCells, creature, originalDir, internal);
+      if (maybeRevertPortableBackedCreatureOnBlockedMove(creatureCells, internal, engine.inventory, creature)) {
+        if (queue.isEntryActive(active)) {
+          queue.trace("remove-creature-reverted-portable", slipIndex, advance, active);
+          queue.removeEntry(slipIndex);
+        }
+        return soundEffects;
+      }
       if (!queue.isEntryActive(active)) {
         queue.trace("remove-creature-post-restart-inactive", slipIndex, advance, active);
         queue.removeEntry(slipIndex);
@@ -3372,6 +3792,7 @@ function runCreatureFloorMovements(
   const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? fallbackCells ?? [];
   const tickContext = createMsTickContext(engine, internal, inventory, layerCellsByZ);
   syncMsNonChipVerticalFloorMovements(tickContext, internal);
+  activateMappedBowlingBallsOnForceFloors(layerCellsByZ, internal, inventory);
 
   const queue = new MsNonChipFloorQueue({
     state: internal,
@@ -3460,6 +3881,7 @@ function runCreatureMovements(
   const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? fallbackCells ?? [];
   let soundEffects = 0;
   const applyBlockedCreatureAttempt = (creatureCells: EngineMapCell[], creature: MsTrackedCreature, dir: number): void => {
+    revealMsBallisticBlockedEnter(creatureCells, creature, dir);
     applyBlockedMsCreatureAttemptWithContext(
       {
         floorAt: (pos) => floorAt(creatureCells, pos),
@@ -3468,6 +3890,7 @@ function runCreatureMovements(
       creature,
       dir,
     );
+    maybeRevertPortableBackedCreatureOnBlockedMove(creatureCells, internal, inventory, creature);
   };
 
   for (const creature of internal.creatures) {
@@ -3553,6 +3976,8 @@ function createMsChipMovementContext(
           inventory,
           portableTools: msPortableToolState(internal),
           runtimeCellZ: (pos) => runtimeCellZ(cells, pos),
+          removeRuntimeActor: (runtimeCells: EngineMapCell[], pos: number) =>
+            removeMsTargetRuntimeActor(runtimeCells, internal, inventory, pos, runtimeCellZ(runtimeCells, pos)),
         },
         nextPos,
       ),
@@ -3566,7 +3991,7 @@ function createMsChipMovementContext(
       cell.top.id === MS_TILE.Empty && msPreservesUnderlyingFloor(cell.bottom.id),
     updateChipTile: (cells: EngineMapCell[]) => updateChipTile(cells, internal),
     resolveButtonFloorEffects: (cells: EngineMapCell[], pos: number, floor: number, z?: number) =>
-      resolveButtonFloorEffects(cells, internal, pos, floor, undefined, z),
+      resolveButtonFloorEffects(cells, internal, inventory, pos, floor, undefined, z),
     isTrapOpen: (cells: EngineMapCell[], trapPos: number, skipButtonPos: number, z: number) =>
       isMsTrapOpen({ cells, traps: internal.traps, trapPos, skipButtonPos, z }),
     hasTrapConnection: (pos: number, z: number) => hasMsTrapConnection(internal.traps, pos, z),

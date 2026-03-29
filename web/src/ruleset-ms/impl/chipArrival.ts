@@ -29,6 +29,7 @@ export interface MsChipEntryContext {
   inventory: EngineState["inventory"];
   portableTools: MsPortableToolStateStore;
   runtimeCellZ(pos: number): number;
+  removeRuntimeActor(cells: EngineMapCell[], pos: number): void;
 }
 
 export interface MsChipEnteredTileResolution {
@@ -118,14 +119,18 @@ export function applyMsChipEnterEffects(
   } else {
     switch (msChipEnterAction(floor)) {
     case "collision":
-      if (
-        msActorInteractionOutcome(MS_TILE.Chip, {
-          kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
-          actorId: floor,
-          tileId: floor,
-        }).chipFails
-      ) {
+      const collisionOutcome = msActorInteractionOutcome(MS_TILE.Chip, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
+        actorId: floor,
+        tileId: floor,
+      });
+      if (collisionOutcome.chipFails) {
         chip.chipStatus = "collided";
+      }
+      if (collisionOutcome.removeTargetActor) {
+        context.removeRuntimeActor(cells, nextPos);
+        floorTileBeforeMove = nextCell.top;
+        movementFloorTile = nextCell.top;
       }
       break;
     case "none":

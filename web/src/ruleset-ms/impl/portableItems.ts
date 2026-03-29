@@ -353,17 +353,31 @@ export function collectMsPortableItemsFromLayers(
   return collectPortableItemsFromLayers(
     layers,
     identifyMsPortableItem,
-    ({ serial, family, tileId, inventorySlot, pos, z }): MsPortableItem => ({
-      serial,
-      family,
-      tileId,
-      inventorySlot,
-      state: {
-        mode: "map",
-        pos,
-        z,
-      },
-    }),
+    ({ serial, family, tileId, inventorySlot, pos, z }): MsPortableItem =>
+      family === "bowling-ball"
+        ? {
+            serial,
+            family,
+            tileId,
+            inventorySlot,
+            bowlingBallState: createStillBowlingBallState(),
+            state: {
+              mode: "map",
+              pos,
+              z,
+            },
+          }
+        : {
+            serial,
+            family,
+            tileId,
+            inventorySlot,
+            state: {
+              mode: "map",
+              pos,
+              z,
+            },
+          },
   );
 }
 
