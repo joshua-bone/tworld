@@ -4,6 +4,7 @@ import { createLynxInteractiveSession } from "@ruleset-lynx/impl/engine";
 import { advanceLynxTicks, createCell, createLevel, createRequest, lynxRuntimeStateForTest } from "@ruleset-lynx/impl/testSupport";
 import {
   attachLynxStatefulActorPortableBacking,
+  cloneLynxStatefulActorRuntimeForCloner,
   detachLynxStatefulActorPortableBacking,
   restoreLynxStatefulActorRuntime,
   type LynxStatefulActorRuntimeEntry,
@@ -119,6 +120,26 @@ describe("Lynx stateful actor runtime lifecycle", () => {
       detachLynxStatefulActorPortableBacking(lynxRuntimeStore(session), bowlingBall!.serial)
         ?.portableBacking,
     ).toBeNull();
+  });
+
+  it("exposes family-owned cloner cloning through a dedicated helper", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(34, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+      ]),
+    );
+
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const cloneSerial = bowlingBall!.serial + 100;
+
+    expect(cloneLynxStatefulActorRuntimeForCloner(lynxRuntimeStore(session), bowlingBall!.serial, cloneSerial)).toEqual({
+      actorSerial: cloneSerial,
+      kind: "bowling-ball",
+      portableBacking: null,
+      state: movingBowlingBallState(),
+    });
   });
 
   it("removes a family-owned runtime payload when an actor is destroyed", () => {

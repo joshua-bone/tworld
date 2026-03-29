@@ -3,6 +3,7 @@ import {
   msActorAirHook,
   msActorArrivalAction,
   msActorBlockedMoveKind,
+  msActorClonerFamilyHooks,
   msActorClonerHook,
   msActorCapabilityPolicy,
   msActorCollisionStrategyId,
@@ -14,7 +15,9 @@ import {
   msActorItemCollectionKind,
   msActorLocalInventoryMode,
   msActorMovementStrategyId,
+  msActorSupportFamilyHooks,
   msActorThiefHook,
+  msActorTrapFamilyHooks,
   msActorTrapHook,
   msBlockMovementMask,
   msChipMovementMask,
@@ -49,6 +52,9 @@ describe("MS catalog actor families", () => {
     expect(msActorThiefHook(MS_TILE.BowlingBall)).toBe("steal-boots-tools");
     expect(msActorAirHook(MS_TILE.Chip)).toBe("chip-support");
     expect(msActorAirHook(MS_TILE.BowlingBall)).toBe("chip-support");
+    expect(msActorTrapFamilyHooks(MS_TILE.BowlingBall).releaseBehavior).toBe("move-current-direction");
+    expect(msActorClonerFamilyHooks(MS_TILE.BowlingBall).runtimeCloneBehavior).toBe("clone-family-runtime");
+    expect(msActorSupportFamilyHooks(MS_TILE.BowlingBall).fallingCollisionBehavior).toBe("default");
     expect(msActorCollisionStrategyId(MS_TILE.Ball)).toBe("default");
   });
 

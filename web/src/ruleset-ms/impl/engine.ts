@@ -145,7 +145,7 @@ import {
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
 import {
-  cloneMsStatefulActorRuntime,
+  cloneMsStatefulActorRuntimeForCloner,
   destroyMsStatefulActorRuntime,
   findMsStatefulActorRuntime,
   seedMsStatefulActorRuntime,
@@ -194,6 +194,7 @@ import {
   canNonChipUseMsElevator,
   resolveMsChipSupportBelow,
   resolveMsNonChipSupportBelow,
+  resolveMsRuntimeActorSupportBelow,
   syncMsChipAirFloorMovement,
   syncMsChipElevatorFloorMovement,
 } from "@ruleset-ms/impl/verticalMovement";
@@ -1725,7 +1726,7 @@ function resolveButtonFloorEffects(
               true,
               internal,
             ),
-          spawnCreatureClone: (sourcePos, sourceId, sourceDir, z) => {
+          spawnCreatureClone: (sourcePos, sourceId, sourceDir, z, cloneFamilyRuntime) => {
             const clonedCreatureSerial = internal.nextCreatureSerial;
             const sourceCreature = creatureAtPos(internal, sourcePos, z);
             const sourceSerial = sourceCreature?.serial ?? internal.cloneSourceSerialByPosition.get(`${z}:${sourcePos}`);
@@ -1748,8 +1749,8 @@ function resolveButtonFloorEffects(
               sliding: false,
             });
             internal.creatureIndexBySerial.set(clonedCreatureSerial, internal.creatures.length - 1);
-            if (typeof sourceSerial === "number") {
-              cloneMsStatefulActorRuntime(internal.statefulActors, sourceSerial, clonedCreatureSerial);
+            if (cloneFamilyRuntime && typeof sourceSerial === "number") {
+              cloneMsStatefulActorRuntimeForCloner(internal.statefulActors, sourceSerial, clonedCreatureSerial);
             }
             internal.nextCreatureSerial = clonedCreatureSerial + 1;
           },
@@ -1936,9 +1937,11 @@ function syncMsCreatureAirFloorMovement(context: MsTickContext, creature: MsTrac
   const lowerCells = context.lowerCells(creature.z);
   if (
     hasVerticalSupport(
-      resolveMsNonChipSupportBelow(
+      resolveMsRuntimeActorSupportBelow(
         context,
         lowerCells,
+        creature.id,
+        null,
         creature.pos,
         creature.z ?? 1,
         lowerCells ? runtimeCellZ(lowerCells, creature.pos) : 1,
@@ -2883,9 +2886,11 @@ function processMsCreatureFloorQueueEntry(
       if (
         !lowerCells ||
         hasVerticalSupport(
-          resolveMsNonChipSupportBelow(
+          resolveMsRuntimeActorSupportBelow(
             tickContext,
             lowerCells,
+            creature.id,
+            null,
             creature.pos,
             creature.z ?? 1,
             runtimeCellZ(lowerCells, creature.pos),

@@ -109,6 +109,14 @@ export function cloneMsStatefulActorRuntime(
   return adapter ? adapter.clone(store, sourceActorSerial, targetActorSerial) : forkStatefulActorRuntime(store, sourceActorSerial, targetActorSerial);
 }
 
+export function cloneMsStatefulActorRuntimeForCloner(
+  store: StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>,
+  sourceActorSerial: number,
+  targetActorSerial: number,
+): MsStatefulActorRuntimeEntry | undefined {
+  return cloneMsStatefulActorRuntime(store, sourceActorSerial, targetActorSerial);
+}
+
 export function destroyMsStatefulActorRuntime(
   store: StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>,
   actorSerial: number,

@@ -18,11 +18,11 @@ import {
 } from "@game-core/impl/occupancy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  lynxActorClonerHook,
+  lynxActorClonerFamilyHooks,
   lynxActorCollisionStrategyId,
   lynxActorHazardResponse,
   lynxActorThiefHook,
-  lynxActorTrapHook,
+  lynxActorTrapFamilyHooks,
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
 
@@ -150,10 +150,10 @@ export function lynxActorHeldFloorOutcome(
   actorId: number,
 ): ActorHeldFloorOutcome {
   if (tileId === MS_TILE.Beartrap) {
-    return lynxActorTrapHook(actorId) === "none" ? "none" : "hold-direction";
+    return lynxActorTrapFamilyHooks(actorId).heldFloorOutcome;
   }
   if (tileId === MS_TILE.CloneMachine) {
-    return lynxActorClonerHook(actorId) === "none" ? "none" : "hold-direction";
+    return lynxActorClonerFamilyHooks(actorId).heldFloorOutcome;
   }
   return "none";
 }

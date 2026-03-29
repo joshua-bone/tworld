@@ -302,11 +302,15 @@ Goal:
 
 Checklist:
 
-- [ ] add family hooks for trap hold and release
-- [ ] add family hooks for cloner entry, blocked cloner collision, and clone exit
-- [ ] add family hooks for support and support-loss outcomes
+- [x] add family hooks for trap hold and release
+- [x] add family hooks for cloner entry, blocked cloner collision, and clone exit
+- [x] add family hooks for support and support-loss outcomes
 - [ ] add family hooks for falling collision outcomes
-- [ ] make clone of a family-owned runtime state explicit and testable
+- [x] make clone of a family-owned runtime state explicit and testable
+
+Remaining:
+
+- falling collision still rides existing arrival flow instead of an explicit family-owned outcome helper
 
 Success condition:
 

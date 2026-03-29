@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   lynxActorAirHook,
   lynxActorBlockedMoveKind,
+  lynxActorClonerFamilyHooks,
   lynxActorClonerHook,
   lynxActorCapabilityPolicy,
   lynxActorCollisionStrategyId,
@@ -13,7 +14,9 @@ import {
   lynxActorItemCollectionKind,
   lynxActorLocalInventoryMode,
   lynxActorMovementStrategyId,
+  lynxActorSupportFamilyHooks,
   lynxActorThiefHook,
+  lynxActorTrapFamilyHooks,
   lynxActorTrapHook,
   lynxArrivalAnimationKind,
   lynxBlockMovementMask,
@@ -52,6 +55,9 @@ describe("Lynx catalog actor families", () => {
     expect(lynxActorThiefHook(MS_TILE.BowlingBall)).toBe("steal-boots-tools");
     expect(lynxActorAirHook(MS_TILE.Chip)).toBe("chip-support");
     expect(lynxActorAirHook(MS_TILE.BowlingBall)).toBe("chip-support");
+    expect(lynxActorTrapFamilyHooks(MS_TILE.BowlingBall).releaseBehavior).toBe("move-current-direction");
+    expect(lynxActorClonerFamilyHooks(MS_TILE.BowlingBall).runtimeCloneBehavior).toBe("clone-family-runtime");
+    expect(lynxActorSupportFamilyHooks(MS_TILE.BowlingBall).fallingCollisionBehavior).toBe("default");
     expect(lynxActorCollisionStrategyId(MS_TILE.Ball)).toBe("default");
   });
 

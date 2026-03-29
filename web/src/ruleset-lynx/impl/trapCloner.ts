@@ -1,9 +1,14 @@
 import type { EngineState } from "@game-core/api/model";
+import {
+  actorClonerClonesFamilyRuntime,
+  actorClonerExitStartsMovement,
+  actorTrapReleaseStartsMovement,
+} from "@game-core/api/actorSpecialFloorHooks";
 import { movementDidSucceed, type MovementAttemptResult } from "@game-core/api/movementOutcomes";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { collectLevelConnections } from "@ruleset-ms/api/level";
 import { topTileIdOr } from "@game-core/impl/board";
-import { lynxTileHasTag } from "@ruleset-lynx/impl/catalog";
+import { lynxActorClonerFamilyHooks, lynxActorTrapFamilyHooks, lynxTileHasTag } from "@ruleset-lynx/impl/catalog";
 import { queryLynxOccupancyTarget, type LynxOccupancyPortableItemRef } from "@ruleset-lynx/impl/occupancy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -34,7 +39,7 @@ export interface LynxTrapClonerContext<TActor extends LynxTrapClonerActor> {
   findVisibleActorAt(pos: number, z: number): TActor | null;
   buildCloneSnapshot(sourceActor: TActor, z: number): TActor;
   allocateCloneSlot(snapshot: TActor): TActor;
-  syncCloneRuntime(sourceActor: TActor, clone: TActor): void;
+  cloneFamilyRuntimeForCloner(sourceActorSerial: number, cloneActorSerial: number): void;
   startCreatureMovement(actor: TActor, dir: number, releasing: boolean): MovementAttemptResult;
   advanceCreature(actor: TActor, currentTime: number): void;
   currentTime: number;
@@ -120,6 +125,10 @@ export function activateLynxCloner<TActor extends LynxTrapClonerActor>(
     if (!sourceActor || sourceActor.dir === 0) {
       return false;
     }
+    const clonerHooks = lynxActorClonerFamilyHooks(sourceActor.id);
+    if (clonerHooks.entryBehavior === "none" || !actorClonerExitStartsMovement(clonerHooks)) {
+      return false;
+    }
 
     const sourceSnapshot = context.buildCloneSnapshot(sourceActor, buttonZ);
     const clone = context.allocateCloneSlot(sourceSnapshot);
@@ -132,7 +141,9 @@ export function activateLynxCloner<TActor extends LynxTrapClonerActor>(
       ...sourceSnapshot,
       hidden: false,
     });
-    context.syncCloneRuntime(sourceActor, clone);
+    if (actorClonerClonesFamilyRuntime(clonerHooks)) {
+      context.cloneFamilyRuntimeForCloner(sourceActor.serial, clone.serial);
+    }
     context.advanceCreature(sourceActor, context.currentTime + 1);
     return true;
   });
@@ -154,6 +165,9 @@ export function springLynxTrap<TActor extends LynxTrapClonerActor>(
 
     const sourceActor = context.findVisibleActorAt(sourcePos, buttonZ);
     if (!sourceActor || sourceActor.dir === 0) {
+      return false;
+    }
+    if (!actorTrapReleaseStartsMovement(lynxActorTrapFamilyHooks(sourceActor.id))) {
       return false;
     }
 

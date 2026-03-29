@@ -109,6 +109,14 @@ export function cloneLynxStatefulActorRuntime(
   return adapter ? adapter.clone(store, sourceActorSerial, targetActorSerial) : forkStatefulActorRuntime(store, sourceActorSerial, targetActorSerial);
 }
 
+export function cloneLynxStatefulActorRuntimeForCloner(
+  store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
+  sourceActorSerial: number,
+  targetActorSerial: number,
+): LynxStatefulActorRuntimeEntry | undefined {
+  return cloneLynxStatefulActorRuntime(store, sourceActorSerial, targetActorSerial);
+}
+
 export function destroyLynxStatefulActorRuntime(
   store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
   actorSerial: number,

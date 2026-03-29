@@ -103,7 +103,7 @@ import {
   chipShouldStartLynxAirMove,
   isValidLynxElevatorDestinationFloor,
   resolveLynxChipSupportBelow,
-  resolveLynxNonChipSupportBelow,
+  resolveLynxRuntimeActorSupportBelow,
   startLynxActorAirMovement,
   startLynxActorElevatorMovement,
   startLynxChipAirMovement,
@@ -139,7 +139,7 @@ import {
   lynxRuntimeActorArrivalOutcome,
 } from "@ruleset-lynx/impl/actorArrival";
 import {
-  cloneLynxStatefulActorRuntime,
+  cloneLynxStatefulActorRuntimeForCloner,
   destroyLynxStatefulActorRuntime,
   findLynxStatefulActorRuntime,
   seedLynxStatefulActorRuntime,
@@ -2144,7 +2144,11 @@ function advanceLynxCreature(
       if (isLynxAir(floorBeforeMove)) {
         const targetZ = Math.max(1, (actor.z ?? 1) - 1);
         const lowerCells = tickContext.lowerCells(actor.z);
-        if (!hasVerticalSupport(resolveLynxNonChipSupportBelow(tickContext, lowerCells, actor.pos, targetZ, actor.z ?? 1))) {
+        if (
+          !hasVerticalSupport(
+            resolveLynxRuntimeActorSupportBelow(tickContext, lowerCells, actor.id, null, actor.pos, targetZ, actor.z ?? 1),
+          )
+        ) {
           if (!startLynxActorAirMovement(state, actor, { cellsForZ: (z) => lynxCellsForZ(state.map, z) })) {
             return;
           }
@@ -2385,8 +2389,8 @@ function createLynxTrapClonerContext(
         z,
       ),
     allocateCloneSlot: (snapshot) => allocateLynxActorSlot(actors, snapshot),
-    syncCloneRuntime: (sourceActor, clone) => {
-      cloneLynxStatefulActorRuntime(lynxStatefulActorRuntime(state), sourceActor.serial, clone.serial);
+    cloneFamilyRuntimeForCloner: (sourceActorSerial, cloneActorSerial) => {
+      cloneLynxStatefulActorRuntimeForCloner(lynxStatefulActorRuntime(state), sourceActorSerial, cloneActorSerial);
     },
     startCreatureMovement: (actor, dir, releasing) => startLynxRuntimeActorMovement(state, actors, actor, dir, releasing),
     advanceCreature: (actor, currentTime) => advanceLynxCreature(state, level, actors, actor, currentTime),

@@ -6,7 +6,7 @@ import { addTopTileFlags, removeTopTileFlags, topTileIdOr } from "@game-core/imp
 import { normalizeCardinalDirection as normalizeDirection } from "@game-core/impl/grid";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
-  lynxActorAirHook,
+  lynxActorSupportFamilyHooks,
   lynxTileForcedFloorKind,
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
@@ -56,6 +56,16 @@ function isLynxElevator(id: number): boolean {
   return lynxTileForcedFloorKind(id) === "elevator";
 }
 
+function lynxVerticalSupportSubject(
+  actorId: number,
+  inventoryOwner: ActorLocalInventoryOwner | null,
+): LynxTileSupportSubject {
+  return {
+    airHook: lynxActorSupportFamilyHooks(actorId).airHook,
+    inventoryOwner,
+  };
+}
+
 export function resolveLynxChipSupportBelow(
   context: LynxVerticalSupportContext,
   lowerCells: EngineMapCell[] | null,
@@ -63,10 +73,14 @@ export function resolveLynxChipSupportBelow(
   z: number,
   currentZ: number,
 ): VerticalSupportResult {
-  return resolveLynxActorSupportBelow(context, lowerCells, pos, z, currentZ, {
-    airHook: lynxActorAirHook(MS_TILE.Chip),
-    inventoryOwner: projectLynxActorInventoryOwner(MS_TILE.Chip, context.state.inventory),
-  });
+  return resolveLynxActorSupportBelow(
+    context,
+    lowerCells,
+    pos,
+    z,
+    currentZ,
+    lynxVerticalSupportSubject(MS_TILE.Chip, projectLynxActorInventoryOwner(MS_TILE.Chip, context.state.inventory)),
+  );
 }
 
 export function resolveLynxActorSupportBelow(
@@ -87,10 +101,26 @@ export function resolveLynxNonChipSupportBelow(
   z: number,
   currentZ: number,
 ): VerticalSupportResult {
-  return resolveLynxActorSupportBelow(context, lowerCells, pos, z, currentZ, {
-    airHook: lynxActorAirHook(MS_TILE.Block),
-    inventoryOwner: null,
-  });
+  return resolveLynxRuntimeActorSupportBelow(context, lowerCells, MS_TILE.Block, null, pos, z, currentZ);
+}
+
+export function resolveLynxRuntimeActorSupportBelow(
+  context: LynxVerticalSupportContext,
+  lowerCells: EngineMapCell[] | null,
+  actorId: number,
+  inventoryOwner: ActorLocalInventoryOwner | null,
+  pos: number,
+  z: number,
+  currentZ: number,
+): VerticalSupportResult {
+  return resolveLynxActorSupportBelow(
+    context,
+    lowerCells,
+    pos,
+    z,
+    currentZ,
+    lynxVerticalSupportSubject(actorId, inventoryOwner),
+  );
 }
 
 export function isValidLynxElevatorDestinationFloor(floorId: number): boolean {

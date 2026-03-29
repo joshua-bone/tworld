@@ -27,6 +27,16 @@ import {
   actorThiefHook,
   actorTrapHook,
 } from "@game-core/api/actorCapabilities";
+import type {
+  ActorClonerFamilyHooks,
+  ActorSupportFamilyHooks,
+  ActorTrapFamilyHooks,
+} from "@game-core/api/actorSpecialFloorHooks";
+import {
+  actorClonerFamilyHooks,
+  actorSupportFamilyHooks,
+  actorTrapFamilyHooks,
+} from "@game-core/api/actorSpecialFloorHooks";
 import {
   createRulesetCatalog,
   type ActorTag,
@@ -173,6 +183,18 @@ export function msActorThiefHook(id: number): ActorThiefHook {
 
 export function msActorAirHook(id: number): ActorAirHook {
   return actorAirHook(msActorCapabilityPolicy(id));
+}
+
+export function msActorTrapFamilyHooks(id: number): ActorTrapFamilyHooks {
+  return actorTrapFamilyHooks(msActorCapabilityPolicy(id));
+}
+
+export function msActorClonerFamilyHooks(id: number): ActorClonerFamilyHooks {
+  return actorClonerFamilyHooks(msActorCapabilityPolicy(id));
+}
+
+export function msActorSupportFamilyHooks(id: number): ActorSupportFamilyHooks {
+  return actorSupportFamilyHooks(msActorCapabilityPolicy(id));
 }
 
 export function msActorCollisionStrategyId(id: number): ActorCollisionStrategyId {

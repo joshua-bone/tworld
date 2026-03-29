@@ -14,11 +14,11 @@ import {
 } from "@game-core/api/actorInteractions";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  msActorClonerHook,
+  msActorClonerFamilyHooks,
   msActorCollisionStrategyId,
   msActorHazardResponse,
   msActorThiefHook,
-  msActorTrapHook,
+  msActorTrapFamilyHooks,
 } from "@ruleset-ms/impl/catalog";
 
 function isMsChipActor(actorId: number): boolean {
@@ -83,10 +83,10 @@ export function msActorHeldFloorOutcome(
   actorId: number,
 ): ActorHeldFloorOutcome {
   if (tileId === MS_TILE.Beartrap) {
-    return msActorTrapHook(actorId) === "none" ? "none" : "hold-direction";
+    return msActorTrapFamilyHooks(actorId).heldFloorOutcome;
   }
   if (tileId === MS_TILE.CloneMachine) {
-    return msActorClonerHook(actorId) === "none" ? "none" : "hold-direction";
+    return msActorClonerFamilyHooks(actorId).heldFloorOutcome;
   }
   return "none";
 }

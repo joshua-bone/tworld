@@ -4,6 +4,7 @@ import { advanceMsInteractiveSession, createMsInteractiveSession } from "@rulese
 import { createEmptyCells, createLevel, createRequest, msStatefulActorsForTest, pos } from "@ruleset-ms/impl/testSupport";
 import {
   attachMsStatefulActorPortableBacking,
+  cloneMsStatefulActorRuntimeForCloner,
   detachMsStatefulActorPortableBacking,
   restoreMsStatefulActorRuntime,
   type MsStatefulActorRuntimeEntry,
@@ -130,6 +131,32 @@ describe("MS stateful actor runtime lifecycle", () => {
       portableItemSerial: 17,
     })?.portableBacking).toEqual({ family: "sandbag", portableItemSerial: 17 });
     expect(detachMsStatefulActorPortableBacking(msRuntimeStore(session.state), bowlingBall!.serial)?.portableBacking).toBeNull();
+  });
+
+  it("exposes family-owned cloner cloning through a dedicated helper", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(3, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+    const cloneSerial = bowlingBall!.serial + 100;
+
+    expect(cloneMsStatefulActorRuntimeForCloner(msRuntimeStore(session.state), bowlingBall!.serial, cloneSerial)).toEqual({
+      actorSerial: cloneSerial,
+      kind: "bowling-ball",
+      portableBacking: null,
+      state: movingBowlingBallState(),
+    });
   });
 
   it("removes a family-owned runtime payload when the creature is destroyed", () => {

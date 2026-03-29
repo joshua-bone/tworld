@@ -1,4 +1,9 @@
 import type { EngineMapCell } from "@game-core/api/model";
+import {
+  actorClonerClonesFamilyRuntime,
+  actorClonerExitStartsMovement,
+  actorTrapReleaseStartsMovement,
+} from "@game-core/api/actorSpecialFloorHooks";
 import { addBottomTileFlags, topTileId } from "@game-core/impl/board";
 import type { MsConnection } from "@ruleset-ms/api/level";
 import {
@@ -9,12 +14,15 @@ import {
   MS_FLOOR_STATE,
   MS_TILE,
 } from "@ruleset-ms/api/tiles";
+import { msActorClonerFamilyHooks, msActorTrapFamilyHooks } from "@ruleset-ms/impl/catalog";
 
 export interface MsTrapClonerCreatureRef {
+  id?: number;
   released: boolean;
 }
 
 export interface MsTrapClonerBlockRef {
+  id?: number;
   released: boolean;
 }
 
@@ -113,18 +121,23 @@ export function springMsTrap(args: {
   }
 
   if (trapPos === chipPos && (chipZ ?? 1) === buttonZ) {
-    releaseChip();
+    if (actorTrapReleaseStartsMovement(msActorTrapFamilyHooks(MS_TILE.Chip))) {
+      releaseChip();
+    }
   }
 
   const trappedBlock = findTrackedBlock(trapPos, buttonZ);
-  if (trappedBlock) {
+  if (trappedBlock && actorTrapReleaseStartsMovement(msActorTrapFamilyHooks(trappedBlock.id ?? MS_TILE.Block))) {
     trappedBlock.released = true;
   } else if (cells[trapPos]?.top.id === MS_TILE.Block_Static) {
-    releaseStaticBlock(trapPos).released = true;
+    const releasedBlock = releaseStaticBlock(trapPos);
+    if (actorTrapReleaseStartsMovement(msActorTrapFamilyHooks(releasedBlock.id ?? MS_TILE.Block))) {
+      releasedBlock.released = true;
+    }
   }
 
   const trappedCreature = findCreature(trapPos, buttonZ);
-  if (trappedCreature) {
+  if (trappedCreature && actorTrapReleaseStartsMovement(msActorTrapFamilyHooks(trappedCreature.id ?? MS_TILE.Empty))) {
     trappedCreature.released = true;
   }
 }
@@ -136,7 +149,7 @@ export function activateMsCloner(args: {
   buttonZ?: number;
   moveBlockSource(sourcePos: number, sourceDir: number, sourceIsCloneMachine: boolean): void;
   canCloneCreatureMove(sourcePos: number, sourceId: number, sourceDir: number): boolean;
-  spawnCreatureClone(sourcePos: number, sourceId: number, sourceDir: number, z: number): void;
+  spawnCreatureClone(sourcePos: number, sourceId: number, sourceDir: number, z: number, cloneFamilyRuntime: boolean): void;
 }): void {
   const {
     cells,
@@ -161,6 +174,10 @@ export function activateMsCloner(args: {
   if (sourceId === MS_TILE.Chip) {
     return;
   }
+  const clonerHooks = msActorClonerFamilyHooks(sourceId);
+  if (clonerHooks.entryBehavior === "none" || !actorClonerExitStartsMovement(clonerHooks)) {
+    return;
+  }
 
   const sourceDir = msCreatureDir(sourceCell.top.id);
   if (sourceId === MS_TILE.Block) {
@@ -183,5 +200,5 @@ export function activateMsCloner(args: {
   }
 
   addBottomTileFlags(cells, sourcePos, MS_FLOOR_STATE.Cloning);
-  spawnCreatureClone(sourcePos, sourceId, sourceDir, buttonZ);
+  spawnCreatureClone(sourcePos, sourceId, sourceDir, buttonZ, actorClonerClonesFamilyRuntime(clonerHooks));
 }

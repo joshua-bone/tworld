@@ -5,7 +5,7 @@ import { type ActorLocalInventoryOwner } from "@game-core/impl/actorLocalInvento
 import { bottomTile, bottomTileIdOr, topTile } from "@game-core/impl/board";
 import { normalizeCardinalDirection as normalizeDirection } from "@game-core/impl/grid";
 import {
-  msActorAirHook,
+  msActorSupportFamilyHooks,
   msIsOverlayFloorTile,
   msTileForcedFloorKind,
 } from "@ruleset-ms/impl/catalog";
@@ -43,6 +43,16 @@ function clearMsChipVerticalFloorMovement(chip: MsChipVerticalState, floorMoveme
   }
 }
 
+function msVerticalSupportSubject(
+  actorId: number,
+  inventoryOwner: ActorLocalInventoryOwner | null,
+): MsVerticalSupportSubject {
+  return {
+    airHook: msActorSupportFamilyHooks(actorId).airHook,
+    inventoryOwner,
+  };
+}
+
 export function resolveMsActorSupportBelow(
   context: MsVerticalSupportContext,
   lowerCells: EngineMapCell[] | null,
@@ -60,10 +70,33 @@ export function resolveMsChipSupportBelow(
   pos: number,
   currentZ: number,
 ): VerticalSupportResult {
-  return resolveMsActorSupportBelow(context, lowerCells, pos, currentZ, currentZ, {
-    airHook: msActorAirHook(MS_TILE.Chip),
-    inventoryOwner: projectMsActorInventoryOwner(MS_TILE.Chip, context.inventory),
-  });
+  return resolveMsActorSupportBelow(
+    context,
+    lowerCells,
+    pos,
+    currentZ,
+    currentZ,
+    msVerticalSupportSubject(MS_TILE.Chip, projectMsActorInventoryOwner(MS_TILE.Chip, context.inventory)),
+  );
+}
+
+export function resolveMsRuntimeActorSupportBelow(
+  context: MsVerticalSupportContext,
+  lowerCells: EngineMapCell[] | null,
+  actorId: number,
+  inventoryOwner: ActorLocalInventoryOwner | null,
+  pos: number,
+  currentZ: number,
+  cellZ: number,
+): VerticalSupportResult {
+  return resolveMsActorSupportBelow(
+    context,
+    lowerCells,
+    pos,
+    currentZ,
+    cellZ,
+    msVerticalSupportSubject(actorId, inventoryOwner),
+  );
 }
 
 export function resolveMsNonChipSupportBelow(
@@ -73,10 +106,7 @@ export function resolveMsNonChipSupportBelow(
   currentZ: number,
   cellZ: number,
 ): VerticalSupportResult {
-  return resolveMsActorSupportBelow(context, lowerCells, pos, currentZ, cellZ, {
-    airHook: msActorAirHook(MS_TILE.Block),
-    inventoryOwner: null,
-  });
+  return resolveMsRuntimeActorSupportBelow(context, lowerCells, MS_TILE.Block, null, pos, currentZ, cellZ);
 }
 
 function elevatorDestinationFloor(cell: EngineMapCell): number {
