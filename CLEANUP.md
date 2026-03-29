@@ -336,17 +336,166 @@ Goal:
 
 - only after SE1 through SE11 are in place, retry bowling ball
 
+Implementation rule:
+
+- do not expose `0x71` through live DAT decode until the element is complete enough to ship
+
+Why:
+
+- we do not want an intermediate PR that makes existing or future content parse a half-implemented bowling ball
+
+Shared-vs-local split:
+
+- shared when appropriate:
+  - portable-item family state shape
+  - stateful actor family state shape
+  - portable-to-actor and actor-to-portable transition helpers
+  - per-ball keys/boots inventory ownership
+  - family render metadata and sprite ids
+  - collision / floor-impact / special-floor policy data where MS and Lynx truly agree
+- ruleset-local by default:
+  - action ordering
+  - exact throw timing
+  - chip-vs-moving-ball interaction timing
+  - trap release timing
+  - cloner timing
+  - teleport timing
+  - air / elevator sequencing
+  - replay and oracle characterization
+
+Guardrails for every bowling-ball PR:
+
+- if a PR adds a raw bowling-ball tile-id check in `engine.ts`, stop and re-evaluate
+- if a PR passes raw inventory arrays through new helper chains, stop and re-evaluate
+- if a PR needs both ruleset engines edited in parallel for the same semantic change, move that semantic into a seam first
+- if a PR cannot be tested with focused ruleset-local gameplay coverage, it is too large
+
+PR rollout:
+
+#### PR12.1: Bowling Ball Family Scaffolding
+
+Goal:
+
+- add the family-owned state and registration points without enabling the element from DAT yet
+
 Checklist:
 
-- [ ] implement bowling ball as one portable-item family plus one actor family
-- [ ] keep shared behavior in seam modules where MS/Lynx really match
-- [ ] keep ordering and timing local to each ruleset
-- [ ] add ruleset-specific gameplay coverage for the full requirement set
-- [ ] run replay, undo, projection, and renderer validation
+- [ ] add a `bowling-ball` portable-item family with stable identity and persistent local state
+- [ ] add a `bowling-ball` stateful actor family with explicit runtime mode
+- [ ] define the shared bowling-ball state shape:
+  - `mode: still | moving`
+  - current direction / last travel direction
+  - keys
+  - boots
+- [ ] register still and moving visuals through render registration only
+- [ ] keep the family unreferenced from DAT decode for now
+
+Success condition:
+
+- bowling ball exists as a family-owned concept in the seams without changing gameplay yet
+
+#### PR12.2: Portable Lifecycle And Chip Inventory Semantics
+
+Goal:
+
+- implement still-form bowling ball as a portable item that Chip can carry, prime, and throw
+
+Checklist:
+
+- [ ] still bowling ball can be picked up by Chip only
+- [ ] bowling ball occupies the special-item slot
+- [ ] replacing it with another special item primes a still drop exactly like sandbag
+- [ ] `Action1` attempts a forward throw through the portable activation seam
+- [ ] failed throw leaves the bowling ball in inventory
+- [ ] carried -> primed -> dropped still-form preserves the same per-instance state
+- [ ] no actor motion yet beyond activation itself
+
+Success condition:
+
+- portable bowling ball lifecycle is complete without yet relying on bespoke actor-motion behavior
+
+#### PR12.3: Shared Actor-Family Behavior For Moving Bowling Balls
+
+Goal:
+
+- implement the shared semantics that do not depend on MS vs Lynx timing
+
+Checklist:
+
+- [ ] bowling ball moving actor uses Chip-like terrain-entry policy through actor movement strategy / floor-impact seams
+- [ ] bowling ball owns keys/boots inventory through actor-local inventory ownership, not global inventory
+- [ ] bowling ball can collect:
+  - chips
+  - keys
+  - boots
+- [ ] chip collection updates global chip progress, not per-ball state
+- [ ] thief clears ball inventory through family policy
+- [ ] water / fire / bomb hazard behavior is expressed through family hazard policy
+- [ ] still-ball / moving-ball / special-item destroy-both collision semantics are expressed through the interaction seam
+- [ ] same-direction Chip-behind-moving-ball wall behavior is expressed through the Chip probe / interaction seam
+
+Success condition:
+
+- the core bowling-ball rules live in family policy and family-owned helpers, not engine branches
+
+#### PR12.4: MS Ruleset Integration
+
+Goal:
+
+- wire bowling ball into MS ordering and runtime behavior
+
+Checklist:
+
+- [ ] hook portable activation and throw timing into MS Chip flow
+- [ ] implement blocked-move reversion vs hold-direction exceptions on ice / force floors
+- [ ] implement MS trap, cloner, teleport, and air/elevator timing through the existing MS seams
+- [ ] implement MS actor collision and destruction timing
+- [ ] implement MS clone deep-copy of bowling-ball inventory/state
+- [ ] add focused MS engine tests for the full requirement matrix that applies to MS
+
+Success condition:
+
+- bowling ball works in MS without new ad hoc bowling-ball branches in MS hot paths
+
+#### PR12.5: Lynx Ruleset Integration
+
+Goal:
+
+- wire bowling ball into Lynx ordering and runtime behavior
+
+Checklist:
+
+- [ ] hook portable activation and throw timing into Lynx Chip flow
+- [ ] implement blocked-move reversion vs hold-direction exceptions on ice / force floors
+- [ ] implement Lynx trap, cloner, teleport, and air/elevator timing through the existing Lynx seams
+- [ ] implement Lynx actor collision and destruction timing
+- [ ] implement Lynx clone deep-copy of bowling-ball inventory/state
+- [ ] add focused Lynx engine tests for the full requirement matrix that applies to Lynx
+- [ ] add oracle replay differential windows for any behavior that depends on native Lynx timing
+
+Success condition:
+
+- bowling ball works in Lynx without reintroducing pre-cleanup Chip-probe or teleport branching
+
+#### PR12.6: Final Enablement And Full Validation
+
+Goal:
+
+- expose bowling ball to real content only after the behavior is complete
+
+Checklist:
+
+- [ ] enable DAT decode `0x71 -> bowling ball`
+- [ ] enable final renderer / projection / artwork wiring
+- [ ] add undo, replay, and interactive projection coverage
+- [ ] run focused replay sweeps for both rulesets
+- [ ] run typecheck and targeted gameplay suites
+- [ ] confirm no temporary debug hooks or seam-bypass code remains
 
 Exit condition:
 
 - bowling ball lands without new scattered engine hot-path branches
+- bowling ball is added through narrow registration plus family helpers rather than cross-cutting rewrites
 
 ## Recommended Order
 
