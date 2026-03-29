@@ -6,7 +6,7 @@ import { expansionArtworkFrameRect, type ExpansionArtworkFrameRect } from "@play
 import { buildLegacyTileset, type LegacyTileSprite, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import { LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import { createCanvas, drawLegacySpriteImage, loadLegacyImage } from "@player-web/impl/legacyCanvasShared";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 
 export type LegacyTilesetRuleset = "MS" | "Lynx";
 
@@ -208,7 +208,9 @@ export function createLegacyExpansionArtworkOverrides(
     overrides.set(MS_TILE.Hook, sandbagSprite);
   }
   if (bowlingBallMovingSprite) {
-    overrides.set(MS_TILE.BowlingBall, bowlingBallMovingSprite);
+    for (const dir of [MS_DIRECTION.north, MS_DIRECTION.west, MS_DIRECTION.south, MS_DIRECTION.east] as const) {
+      overrides.set(msCreatureTile(MS_TILE.BowlingBall, dir), bowlingBallMovingSprite);
+    }
   }
   if (bowlingBallStillSprite) {
     overrides.set(MS_TILE.BowlingBall_Still, bowlingBallStillSprite);

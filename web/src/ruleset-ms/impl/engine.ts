@@ -96,7 +96,7 @@ import {
   chooseMsCreatureDirection as chooseMsCreatureDirectionWithContext,
   type MsCreatureControllerContext,
 } from "@ruleset-ms/impl/controllers";
-import { projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
+import { projectMsActorInventoryOwner, type MsActorLocalInventoryState } from "@ruleset-ms/impl/actorCollections";
 import {
   collectLevelConnections,
   collectLevelCreaturePositions,
@@ -284,11 +284,13 @@ function projectMsRuntimeActorInventoryOwner(
   actorSerial: number,
   inventory: EngineState["inventory"],
   internal: MsInternalState,
+  localInventory: MsActorLocalInventoryState = null,
 ): ActorLocalInventoryOwner {
   const runtimeEntry = msRuntimeActorEntry(internal, actorSerial);
   return projectMsActorInventoryOwner(actorId, inventory, {
-    actorSerial,
+    actorSerial: runtimeEntry ? actorSerial : undefined,
     runtimeEntry,
+    localInventory: runtimeEntry ? undefined : localInventory,
   });
 }
 
@@ -825,6 +827,9 @@ function tryActivateMsBowlingBallThrow(
   if (targetOccupancy.kind !== "empty") {
     return false;
   }
+  if (!carried.bowlingBallState) {
+    return false;
+  }
 
   const probeCreature: MsTrackedCreature = {
     serial: -1,
@@ -844,11 +849,18 @@ function tryActivateMsBowlingBallThrow(
     floorMovementDir: MS_DIRECTION.none,
     sliding: false,
   };
-  if (!canMoveCreatureWithOptions(cells, probeCreature, dir, false, false, runtime.internal, runtime.inventory)) {
-    return false;
-  }
-
-  if (!carried.bowlingBallState) {
+  if (
+    !canMoveCreatureWithOptions(
+      cells,
+      probeCreature,
+      dir,
+      false,
+      false,
+      runtime.internal,
+      runtime.inventory,
+      carried.bowlingBallState.localInventory,
+    )
+  ) {
     return false;
   }
 
@@ -1770,6 +1782,7 @@ function canMoveCreatureWithOptions(
   cloneCantBlock = false,
   internal: MsInternalState | null = null,
   inventory: EngineState["inventory"] | null = null,
+  localInventory: MsActorLocalInventoryState = null,
 ): boolean {
   if (!canLeaveFloor(cells, creature.pos, dir, creature.released)) {
     return false;
@@ -1793,11 +1806,12 @@ function canMoveCreatureWithOptions(
     targetOccupancy && internal
       ? msActorInteractionOutcome(creature.id, msInteractionTargetFromOccupancy(targetOccupancy, dir))
       : null;
+  const removesTarget = Boolean(targetInteraction?.removeTargetActor || targetInteraction?.consumeTarget);
   if (targetInteraction?.denyMove) {
     return false;
   }
   if (targetOccupancy?.kind === "portable-item" || targetOccupancy?.kind === "static-block") {
-    return Boolean(targetInteraction?.removeTargetActor || targetInteraction?.consumeTarget);
+    return removesTarget;
   }
   let floor = cells[to]!.top.id;
   if (isMsCreature(floor)) {
@@ -1808,6 +1822,9 @@ function canMoveCreatureWithOptions(
         return false;
       }
     } else {
+      if (removesTarget) {
+        return true;
+      }
       if (!cloneCantBlock) {
         return false;
       }
@@ -1820,7 +1837,7 @@ function canMoveCreatureWithOptions(
       const blockingCreature = creatureAtPos(internal, to, creature.z ?? 1);
       return blockingCreature !== undefined && blockingCreature.dir === creature.dir;
     }
-    if (targetInteraction?.removeTargetActor || targetInteraction?.consumeTarget) {
+    if (removesTarget) {
       return true;
     }
   }
@@ -1828,7 +1845,13 @@ function canMoveCreatureWithOptions(
     return false;
   }
   if (internal && inventory) {
-    const inventoryOwner = projectMsRuntimeActorInventoryOwner(creature.id, creature.serial, inventory, internal);
+    const inventoryOwner = projectMsRuntimeActorInventoryOwner(
+      creature.id,
+      creature.serial,
+      inventory,
+      internal,
+      localInventory,
+    );
     if (!canMsActorEnterTile(floor, creature.id, inventory, inventoryOwner)) {
       return false;
     }

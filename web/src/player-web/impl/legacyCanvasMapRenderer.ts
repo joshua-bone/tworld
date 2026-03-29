@@ -45,7 +45,7 @@ import {
   storeCachedLayerCanvas,
   type LegacyLayerCanvasCache,
 } from "@player-web/impl/legacyLayerCanvasCache";
-import type { LegacyTileset } from "@player-web/impl/legacyTileset";
+import { legacyCreatureMovementOffset, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import type { LegacyTileSprite } from "@player-web/impl/legacyTileset";
 
 const LOWER_LAYER_SCALE = 0.9;
@@ -262,7 +262,23 @@ function drawRenderSprite(
 
   const artworkSprite = visual.artworkSpriteId ? tileset.getArtworkSprite?.(visual.artworkSpriteId) ?? null : null;
   if (artworkSprite) {
-    drawLegacyRenderableSprite(context, artworkSprite, x, y, scale, visual.alpha);
+    const movementOffset =
+      visual.kind === "creature"
+        ? legacyCreatureMovementOffset(
+            visual.dir ?? MS_DIRECTION.north,
+            visual.moving ?? 0,
+            LEGACY_TILE_SIZE,
+            LEGACY_TILE_SIZE,
+          )
+        : { offsetX: 0, offsetY: 0 };
+    drawLegacyRenderableSprite(
+      context,
+      artworkSprite,
+      x + movementOffset.offsetX,
+      y + movementOffset.offsetY,
+      scale,
+      visual.alpha,
+    );
     return;
   }
 

@@ -2,10 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   LegacyLynxTileShape,
   LYNX_TILE_SPECS,
+  legacyCreatureMovementOffset,
   normalizeMsLegacyDisplayTileId,
   scanLynxLargeTileLayout,
 } from "@player-web/impl/legacyTileset";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 function createRaster(width: number, height: number, fill: readonly number[]): Uint8ClampedArray {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -69,5 +70,15 @@ describe("normalizeMsLegacyDisplayTileId", () => {
   it("keeps blue walls visible while matching fake blue walls to the real blue wall art", () => {
     expect(normalizeMsLegacyDisplayTileId(MS_TILE.BlueWall_Real)).toBe(MS_TILE.BlueWall_Real);
     expect(normalizeMsLegacyDisplayTileId(MS_TILE.BlueWall_Fake)).toBe(MS_TILE.BlueWall_Real);
+  });
+});
+
+describe("legacyCreatureMovementOffset", () => {
+  it("projects cardinal offsets for moving creature visuals", () => {
+    expect(legacyCreatureMovementOffset(MS_DIRECTION.north, 8, 32, 32)).toEqual({ offsetX: 0, offsetY: 32 });
+    expect(legacyCreatureMovementOffset(MS_DIRECTION.west, 8, 32, 32)).toEqual({ offsetX: 32, offsetY: 0 });
+    expect(legacyCreatureMovementOffset(MS_DIRECTION.south, 8, 32, 32)).toEqual({ offsetX: 0, offsetY: -32 });
+    expect(legacyCreatureMovementOffset(MS_DIRECTION.east, 8, 32, 32)).toEqual({ offsetX: -32, offsetY: 0 });
+    expect(legacyCreatureMovementOffset(MS_DIRECTION.east, 0, 32, 32)).toEqual({ offsetX: 0, offsetY: 0 });
   });
 });

@@ -7,7 +7,7 @@ import {
 } from "@player-web/impl/legacyCanvasTileset";
 import { LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import type { LegacyTileSprite, LegacyTileset } from "@player-web/impl/legacyTileset";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 
 describe("getOrCreateHeldTrapSprite", () => {
   it("creates the composite sprite at full legacy tile size", () => {
@@ -91,7 +91,10 @@ describe("createLegacyExpansionArtworkOverrides", () => {
 
       expect(overrides.get(MS_TILE.Sandbag)).toMatchObject({ transparent: true });
       expect(overrides.get(MS_TILE.Hook)).toMatchObject({ transparent: true });
-      expect(overrides.get(MS_TILE.BowlingBall)).toMatchObject({ transparent: true });
+      expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.north))).toMatchObject({ transparent: true });
+      expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.west))).toMatchObject({ transparent: true });
+      expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.south))).toMatchObject({ transparent: true });
+      expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east))).toMatchObject({ transparent: true });
       expect(overrides.get(MS_TILE.BowlingBall_Still)).toMatchObject({ transparent: true });
       expect(fakeContext.drawImage).toHaveBeenCalledTimes(3);
     } finally {

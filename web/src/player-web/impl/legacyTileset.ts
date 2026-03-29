@@ -16,6 +16,30 @@ export interface LegacyTileset {
   getCellAnimationPeriod?: (topId: number, bottomId: number) => number;
 }
 
+export function legacyCreatureMovementOffset(
+  dir: number,
+  moving: number,
+  tileWidth: number,
+  tileHeight: number,
+): { offsetX: number; offsetY: number } {
+  if (moving <= 0) {
+    return { offsetX: 0, offsetY: 0 };
+  }
+
+  switch (dir) {
+    case NORTH:
+      return { offsetX: 0, offsetY: (moving * tileHeight) / 8 };
+    case WEST:
+      return { offsetX: (moving * tileWidth) / 8, offsetY: 0 };
+    case SOUTH:
+      return { offsetX: 0, offsetY: -(moving * tileHeight) / 8 };
+    case EAST:
+      return { offsetX: -(moving * tileWidth) / 8, offsetY: 0 };
+    default:
+      return { offsetX: 0, offsetY: 0 };
+  }
+}
+
 interface RasterImage {
   width: number;
   height: number;
@@ -987,25 +1011,12 @@ function buildLynxLegacyTileset(sourceCanvas: HTMLCanvasElement): LegacyTileset 
       }
 
       const frameIndex = entry.celCount > 1 ? Math.max(0, Math.min(frame, entry.celCount - 1)) : 0;
-      let offsetX = 0;
-      let offsetY = 0;
-
-      if ((entry.transpSize === 0 || isLynxAnimationTile(id)) && moving > 0) {
-        switch (dir) {
-          case NORTH:
-            offsetY += (moving * layout.tileHeight) / 8;
-            break;
-          case WEST:
-            offsetX += (moving * layout.tileWidth) / 8;
-            break;
-          case SOUTH:
-            offsetY -= (moving * layout.tileHeight) / 8;
-            break;
-          case EAST:
-            offsetX -= (moving * layout.tileWidth) / 8;
-            break;
-        }
-      }
+      const movementOffset =
+        (entry.transpSize === 0 || isLynxAnimationTile(id))
+          ? legacyCreatureMovementOffset(dir, moving, layout.tileWidth, layout.tileHeight)
+          : { offsetX: 0, offsetY: 0 };
+      let offsetX = movementOffset.offsetX;
+      let offsetY = movementOffset.offsetY;
 
       if ((entry.transpSize & SIZE_EXTLEFT) !== 0) {
         offsetX -= layout.tileWidth;
