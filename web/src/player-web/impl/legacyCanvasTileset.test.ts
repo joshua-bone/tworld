@@ -96,7 +96,10 @@ describe("createLegacyExpansionArtworkOverrides", () => {
       expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.south))).toMatchObject({ transparent: true });
       expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east))).toMatchObject({ transparent: true });
       expect(overrides.get(MS_TILE.BowlingBall_Still)).toMatchObject({ transparent: true });
-      expect(overrides.get(MS_TILE.Cloud)).toMatchObject({ transparent: true });
+      expect(overrides.get(MS_TILE.Cloud)).toMatchObject({
+        transparent: true,
+        preserveLayerTransparency: true,
+      });
       expect(fakeContext.drawImage).toHaveBeenCalledTimes(4);
     } finally {
       vi.unstubAllGlobals();
@@ -135,7 +138,10 @@ describe("createLegacyExpansionArtworkOverrides", () => {
       expect(overridden.getArtworkSprite?.("sandbag")).toMatchObject({ transparent: true });
       expect(overridden.getArtworkSprite?.("bowling_ball_moving")).toMatchObject({ transparent: true });
       expect(overridden.getArtworkSprite?.("bowling_ball_still")).toMatchObject({ transparent: true });
-      expect(overridden.getArtworkSprite?.("cloud")).toMatchObject({ transparent: true });
+      expect(overridden.getArtworkSprite?.("cloud")).toMatchObject({
+        transparent: true,
+        preserveLayerTransparency: true,
+      });
       expect(fakeContext.drawImage).toHaveBeenCalledTimes(4);
     } finally {
       vi.unstubAllGlobals();
@@ -245,6 +251,61 @@ describe("createLegacyExpansionArtworkOverrides", () => {
 
       expect(sprite).toMatchObject({ transparent: false });
       expect(baseGetCell).toHaveBeenCalledWith(MS_TILE.Water, MS_TILE.Empty, 0);
+      expect(fakeContext.drawImage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not synthesize an opaque floor behind a layer-passthrough cloud sprite", () => {
+    const fakeContext = {
+      imageSmoothingEnabled: true,
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeContext),
+    } as unknown as HTMLCanvasElement;
+    const floorSprite: LegacyTileSprite = { image: fakeCanvas, offsetX: 0, offsetY: 0, transparent: false };
+    const cloudSprite: LegacyTileSprite = {
+      image: fakeCanvas,
+      offsetX: 0,
+      offsetY: 0,
+      transparent: true,
+      preserveLayerTransparency: true,
+    };
+    const bowlingBallSprite: LegacyTileSprite = { image: fakeCanvas, offsetX: 0, offsetY: 0, transparent: true };
+    const baseTileset: LegacyTileset = {
+      get: (tileId) => {
+        if (tileId === MS_TILE.Empty) {
+          return floorSprite;
+        }
+        if (tileId === MS_TILE.Cloud) {
+          return cloudSprite;
+        }
+        return null;
+      },
+    };
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCanvas;
+        }),
+      });
+
+      const overridden = applyLegacyTileOverrides(
+        baseTileset,
+        new Map([[MS_TILE.BowlingBall_Still, bowlingBallSprite]]),
+      );
+
+      const sprite = overridden.getCell?.(MS_TILE.BowlingBall_Still, MS_TILE.Cloud, 0);
+
+      expect(sprite).toMatchObject({ transparent: false });
       expect(fakeContext.drawImage).toHaveBeenCalledTimes(2);
     } finally {
       vi.unstubAllGlobals();

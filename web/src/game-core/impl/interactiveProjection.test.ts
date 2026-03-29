@@ -62,4 +62,14 @@ describe("projectInteractiveVisibleLayers", () => {
     expect(visible[0]!.cells).not.toBe(cells);
     expect(visible[0]!.cells[0]!.position.z).toBeUndefined();
   });
+
+  it("prefers the layer cells that match the current z when layered runtime state is available", () => {
+    const layers = [createLayer(1), createLayer(2)];
+
+    const visible = projectInteractiveVisibleLayers(layers[0]!.cells, 2, layers);
+
+    expect(visible.map((layer) => layer.z)).toEqual([2, 1]);
+    expect(visible[0]!.cells[0]!.top.id).toBe(2);
+    expect(visible[1]!.cells[0]!.top.id).toBe(1);
+  });
 });

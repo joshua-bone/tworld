@@ -4,6 +4,7 @@ export interface ExpansionArtworkSpriteKey {
   column: number;
   row: number;
   transparent: boolean;
+  preserveLayerTransparency?: boolean;
 }
 
 export interface ExpansionArtworkSheetKey {
@@ -24,6 +25,7 @@ export interface ExpansionArtworkFrameRect {
   width: number;
   height: number;
   transparent: boolean;
+  preserveLayerTransparency: boolean;
 }
 
 export const expandedArtworkSheetKey: ExpansionArtworkSheetKey = expandedArtworkKeyJson;
@@ -48,5 +50,6 @@ export function expansionArtworkFrameRect(spriteId: string): ExpansionArtworkFra
     width: slice.tileWidth,
     height: slice.tileHeight,
     transparent: sprite.transparent,
+    preserveLayerTransparency: sprite.preserveLayerTransparency === true,
   };
 }

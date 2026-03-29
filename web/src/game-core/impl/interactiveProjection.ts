@@ -19,12 +19,20 @@ interface ProjectInteractiveFrameOptions {
   tileOverlays?: ReadonlyArray<InteractiveGameTileOverlay>;
 }
 
+function currentLayerCells(
+  cells: EngineMapCell[],
+  currentZ: number,
+  layers?: ReadonlyArray<InteractiveProjectionLayer>,
+): EngineMapCell[] {
+  return layers?.find((layer) => layer.z === currentZ)?.cells ?? cells;
+}
+
 export function projectInteractiveVisibleLayers(
   cells: EngineMapCell[],
   currentZ = 1,
   layers?: ReadonlyArray<InteractiveProjectionLayer>,
 ): InteractiveGameVisibleLayer[] {
-  const currentCells = cloneBoardCells(cells);
+  const currentCells = cloneBoardCells(currentLayerCells(cells, currentZ, layers));
   const runtimeLayers = layers ?? [{ z: currentZ, cells }];
   const visibleLayers: InteractiveGameVisibleLayer[] = [{ z: currentZ, cells: currentCells }];
 

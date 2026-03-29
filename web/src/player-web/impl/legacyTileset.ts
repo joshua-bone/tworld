@@ -6,6 +6,7 @@ export interface LegacyTileSprite {
   offsetX: number;
   offsetY: number;
   transparent: boolean;
+  preserveLayerTransparency?: boolean;
 }
 
 export interface LegacyTileset {

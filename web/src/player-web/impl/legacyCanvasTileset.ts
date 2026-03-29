@@ -191,7 +191,12 @@ export function createLegacyArtworkSpriteFromFrame(
     offsetX: 0,
     offsetY: 0,
     transparent: frame.transparent,
+    preserveLayerTransparency: frame.preserveLayerTransparency,
   };
+}
+
+function shouldDrawSyntheticFloorBehindTransparentSprite(sprite: LegacyTileSprite | null): boolean {
+  return sprite?.transparent === true && sprite.preserveLayerTransparency !== true;
 }
 
 export function createLegacyExpansionArtworkOverrides(
@@ -286,7 +291,7 @@ export function applyLegacyTileOverrides(
       const bottomSprite =
         (bottomId !== MS_TILE.Empty ? baseGetCell?.(bottomId, MS_TILE.Empty, timerval) : null) ??
         (bottomId === MS_TILE.Empty ? tileset.get(MS_TILE.Empty) : tileset.get(bottomId));
-      if (emptyFloorSprite && bottomSprite?.transparent) {
+      if (emptyFloorSprite && shouldDrawSyntheticFloorBehindTransparentSprite(bottomSprite ?? null)) {
         drawLegacySpriteImage(context, emptyFloorSprite, 0, 0);
       }
       if (bottomSprite) {

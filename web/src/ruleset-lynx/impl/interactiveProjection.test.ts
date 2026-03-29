@@ -531,4 +531,59 @@ describe("projectLynxInteractiveFrame", () => {
       artworkSpriteId: "bowling_ball_moving",
     });
   });
+
+  it("uses the chip's current z-layer cells even when state.map.cells is stale", () => {
+    const lower = [createCell(0, MS_TILE.Cloud)];
+    const upper = [createCell(0, MS_TILE.Air)];
+    const engine = createEngineState(lower);
+    const layers = [
+      { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+      { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+    ] satisfies NonNullable<LynxLevel["layers"]>;
+    engine.map.layers = layers;
+    engine.map.cells = lower;
+    const level = {
+      number: 1,
+      timeLimitTicks: 0,
+      chipsNeeded: 0,
+      hintText: "",
+      cells: lower,
+      layers,
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      statusFlags: 0,
+    } satisfies LynxLevel;
+    const session = {
+      level,
+      state: engine,
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+      chipPos: 0,
+      chipZ: 2,
+      chipDir: 0,
+      chipMoving: 0,
+      chipMoveKind: "planar",
+      currentInputCode: 0,
+      queuedReplayInputCode: 0,
+      queuedChipInputCode: 0,
+      chipPushing: false,
+      actors: [],
+      endGameTicksElapsed: null,
+      endGameResult: null,
+      endGameAnimationTileId: null,
+      endGameAnimationFrame: null,
+    } as unknown as LynxInteractiveSessionState;
+
+    const frame = projectLynxInteractiveFrame(session, "tick");
+
+    expect(frame.currentZ).toBe(2);
+    expect(frame.cells[0]?.top.id).toBe(MS_TILE.Air);
+    expect(frame.visibleLayers[1]?.cells[0]?.top.id).toBe(MS_TILE.Cloud);
+  });
 });

@@ -24,6 +24,7 @@ describe("expansionArtworkFrameRect", () => {
       width: 48,
       height: 48,
       transparent: true,
+      preserveLayerTransparency: false,
     });
   });
 
@@ -34,6 +35,7 @@ describe("expansionArtworkFrameRect", () => {
       width: 48,
       height: 48,
       transparent: true,
+      preserveLayerTransparency: false,
     });
     expect(expansionArtworkFrameRect("bowling_ball_still")).toEqual({
       x: 96,
@@ -41,6 +43,7 @@ describe("expansionArtworkFrameRect", () => {
       width: 48,
       height: 48,
       transparent: true,
+      preserveLayerTransparency: false,
     });
     expect(expansionArtworkFrameRect("cloud")).toEqual({
       x: 144,
@@ -48,6 +51,7 @@ describe("expansionArtworkFrameRect", () => {
       width: 48,
       height: 48,
       transparent: true,
+      preserveLayerTransparency: true,
     });
   });
 

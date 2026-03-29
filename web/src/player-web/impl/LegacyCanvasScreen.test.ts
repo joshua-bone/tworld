@@ -182,6 +182,7 @@ describe("createLegacyArtworkSpriteFromFrame", () => {
         width: 48,
         height: 48,
         transparent: true,
+        preserveLayerTransparency: false,
       });
 
       expect(sprite).toMatchObject({
@@ -227,7 +228,7 @@ describe("applyLegacyTileOverrides", () => {
     const baseTileset: LegacyTileset = {
       get: vi.fn((tileId: number) => (tileId === MS_TILE.Empty ? emptySprite : null)),
       getCell: vi.fn((topId: number, bottomId: number, timerval: number) =>
-        topId === MS_TILE.Empty && bottomId === MS_TILE.Slide_East && timerval === 7 ? animatedFloorSprite : null,
+        topId === MS_TILE.Slide_East && bottomId === MS_TILE.Empty && timerval === 7 ? animatedFloorSprite : null,
       ),
       getCellAnimationPeriod: vi.fn((topId: number, bottomId: number) =>
         topId === MS_TILE.Empty && bottomId === MS_TILE.Slide_East ? 4 : 1,
@@ -251,7 +252,7 @@ describe("applyLegacyTileOverrides", () => {
         offsetX: 0,
         offsetY: 0,
       });
-      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Empty, MS_TILE.Slide_East, 7);
+      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Slide_East, MS_TILE.Empty, 7);
       expect(fakeDrawImage).toHaveBeenCalledTimes(2);
     } finally {
       vi.unstubAllGlobals();
@@ -294,7 +295,7 @@ describe("applyLegacyTileOverrides", () => {
         offsetX: 0,
         offsetY: 0,
       });
-      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Empty, MS_TILE.Slide_East, 7);
+      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Slide_East, MS_TILE.Empty, 7);
       expect(fakeDrawImage).toHaveBeenCalledTimes(2);
     } finally {
       vi.unstubAllGlobals();
@@ -318,7 +319,7 @@ describe("applyLegacyTileOverrides", () => {
     const baseTileset: LegacyTileset = {
       get: vi.fn(() => null),
       getCell: vi.fn((topId: number, bottomId: number, timerval: number) =>
-        topId === MS_TILE.Empty && bottomId === MS_TILE.Beartrap && timerval === 0 ? trapSprite : null,
+        topId === MS_TILE.Beartrap && bottomId === MS_TILE.Empty && timerval === 0 ? trapSprite : null,
       ),
       getCellAnimationPeriod: vi.fn(() => 1),
     };
@@ -339,7 +340,7 @@ describe("applyLegacyTileOverrides", () => {
         offsetX: 0,
         offsetY: 0,
       });
-      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Empty, MS_TILE.Beartrap, 0);
+      expect(baseTileset.getCell).toHaveBeenCalledWith(MS_TILE.Beartrap, MS_TILE.Empty, 0);
       expect(fakeDrawImage).toHaveBeenCalledTimes(2);
     } finally {
       vi.unstubAllGlobals();

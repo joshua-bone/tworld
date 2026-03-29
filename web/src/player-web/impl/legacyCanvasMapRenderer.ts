@@ -794,7 +794,9 @@ function drawCompositedCell(
   if (bottom === MS_TILE.Empty) {
     drawLegacyTile(context, tileset, MS_TILE.Empty, x, y);
   } else if (bottomTransparent) {
-    drawLegacyTile(context, tileset, MS_TILE.Empty, x, y);
+    if (bottomSprite?.preserveLayerTransparency !== true) {
+      drawLegacyTile(context, tileset, MS_TILE.Empty, x, y);
+    }
     drawLegacyTile(context, tileset, bottom, x, y);
   } else {
     drawLegacyTile(context, tileset, bottom, x, y);

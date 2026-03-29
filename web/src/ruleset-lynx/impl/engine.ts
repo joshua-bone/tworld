@@ -3657,6 +3657,7 @@ function resolveLynxChipMoveSelectionForRuntime(runtime: LynxAdvanceTickRuntime)
 }
 
 function finishLynxInteractiveTick(runtime: LynxAdvanceTickRuntime): LynxInteractiveSessionState {
+  setLynxActiveLayer(runtime.state, runtime.chipZ);
   setLynxRuntimeChipState(runtime.state, runtime.chipPos, runtime.chipZ);
 
   return {
