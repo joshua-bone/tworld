@@ -99,6 +99,9 @@ export interface PortableItemLifecycleHooks<
   TSettleContext,
 > {
   settleDrop(item: TItem, context: TSettleContext): PortableItemSettleResult;
+  activateItem?(item: TItem, actorSerial: number): void;
+  detachItemToMap?(item: TItem, pos: number, z: number): void;
+  detachItemToDrop?(item: TItem, pos: number, z: number, mode: TState["mode"]): void;
   cloneItem?(item: TItem, serial: number): TItem;
 }
 
@@ -380,6 +383,12 @@ export function carriedPortableItemForFamily<
   );
 }
 
+export function carriedPortableItem(
+  store: PortableItemStore<PortableItemRecord>,
+): PortableItemRecord | undefined {
+  return store.portableItems.find((item) => item.state.mode === "carried");
+}
+
 export function primedPortableItemForFamily<
   TFamily extends string,
   TInventorySlot extends string,
@@ -536,7 +545,7 @@ export function reconcilePortableItemFamilyProjection<
   policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
 ): PortableItemFamilyProjection {
   const projectedTileId = policy.projection.readCarriedTile(inventory);
-  const carried = carriedPortableItemForFamily(store, policy);
+  const carried = carriedPortableItem(store);
   if (projectedTileId === 0) {
     if (carried) {
       destroyPortableItem(store, carried.serial);
@@ -544,9 +553,12 @@ export function reconcilePortableItemFamilyProjection<
     return projectPortableItemFamilyState(store, inventory, policy);
   }
 
-  if (carried) {
-    carried.tileId = projectedTileId;
+  if (carried?.family === policy.family) {
+    (carried as TItem).tileId = projectedTileId;
   } else {
+    if (carried) {
+      destroyPortableItem(store, carried.serial);
+    }
     createCarriedPortableItemForFamily(store, policy, projectedTileId);
   }
   return projectPortableItemFamilyState(store, inventory, policy);
@@ -612,7 +624,7 @@ export function queuePortableItemFamilyReplacement<
     collected = createMapPortableItemForFamily(store, policy, tileId, pos, z);
   }
 
-  const displaced = carriedPortableItemForFamily(store, policy);
+  const displaced = carriedPortableItem(store);
   setPortableItemCarriedState(collected);
   if (displaced && displaced.serial !== collected.serial) {
     setPortableItemDetachedState(
@@ -639,12 +651,17 @@ export function activatePortableItemFamily<
   policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
   serial: number,
   actorSerial: number,
+  hooks?: Pick<
+    PortableItemLifecycleHooks<TFamily, TInventorySlot, TState, TItem, unknown>,
+    "activateItem"
+  >,
 ): boolean {
   const item = findPortableItemBySerial(store.portableItems, serial);
   if (!item || item.family !== policy.family) {
     return false;
   }
 
+  hooks?.activateItem?.(item as TItem, actorSerial);
   setPortableItemAttachedState(item, policy.attachmentKind, actorSerial);
   projectPortableItemFamilyState(store, inventory, policy);
   return true;
@@ -682,12 +699,17 @@ export function detachPortableItemFamilyToMap<
   serial: number,
   pos: number,
   z: number,
+  hooks?: Pick<
+    PortableItemLifecycleHooks<TFamily, TInventorySlot, TState, TItem, unknown>,
+    "detachItemToMap"
+  >,
 ): boolean {
   const item = findPortableItemBySerial(store.portableItems, serial);
   if (!item || item.family !== policy.family) {
     return false;
   }
 
+  hooks?.detachItemToMap?.(item as TItem, pos, z);
   setPortableItemMapState(item, pos, z);
   projectPortableItemFamilyState(store, inventory, policy);
   return true;
@@ -707,12 +729,17 @@ export function detachPortableItemFamilyToDrop<
   pos: number,
   z: number,
   mode: TState["mode"] = policy.primedMode,
+  hooks?: Pick<
+    PortableItemLifecycleHooks<TFamily, TInventorySlot, TState, TItem, unknown>,
+    "detachItemToDrop"
+  >,
 ): boolean {
   const item = findPortableItemBySerial(store.portableItems, serial);
   if (!item || item.family !== policy.family) {
     return false;
   }
 
+  hooks?.detachItemToDrop?.(item as TItem, pos, z, mode);
   setPortableItemDetachedState(item, mode as string, pos, z);
   projectPortableItemFamilyState(store, inventory, policy);
   return true;
@@ -829,14 +856,14 @@ export function createPortableItemFamilyLifecycle<
     queueReplacement: (store, inventory, tileId, pos, z) =>
       queuePortableItemFamilyReplacement(store, inventory, policy, tileId, pos, z),
     activateToActor: (store, inventory, serial, actorSerial) =>
-      activatePortableItemFamily(store, inventory, policy, serial, actorSerial),
+      activatePortableItemFamily(store, inventory, policy, serial, actorSerial, hooks),
     attachToActor: (store, inventory, serial, actorSerial) =>
-      activatePortableItemFamily(store, inventory, policy, serial, actorSerial),
+      activatePortableItemFamily(store, inventory, policy, serial, actorSerial, hooks),
     findAttachedToActor: (store, actorSerial) => findPortableItemFamilyAttachedToActor(store, policy, actorSerial),
     detachToMap: (store, inventory, serial, pos, z) =>
-      detachPortableItemFamilyToMap(store, inventory, policy, serial, pos, z),
+      detachPortableItemFamilyToMap(store, inventory, policy, serial, pos, z, hooks),
     detachToDrop: (store, inventory, serial, pos, z, mode) =>
-      detachPortableItemFamilyToDrop(store, inventory, policy, serial, pos, z, mode),
+      detachPortableItemFamilyToDrop(store, inventory, policy, serial, pos, z, mode, hooks),
     destroy: (store, inventory, serial) => destroyPortableItemFamily(store, inventory, policy, serial),
     clone: (store, inventory, serial) => clonePortableItemFamily(store, inventory, policy, serial, hooks.cloneItem),
     settleDrop: (store, inventory, pos, z, context) =>

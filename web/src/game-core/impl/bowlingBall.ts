@@ -38,6 +38,22 @@ export function createStillBowlingBallState(
   return createBowlingBallState("still", travelDirection);
 }
 
+export function cloneBowlingBallState(
+  state: BowlingBallState,
+): BowlingBallState {
+  return structuredClone(state);
+}
+
+export function setBowlingBallMode(
+  state: BowlingBallState,
+  mode: BowlingBallMode,
+  travelDirection: number | null = state.travelDirection,
+): BowlingBallState {
+  state.mode = mode;
+  state.travelDirection = travelDirection;
+  return state;
+}
+
 export function bowlingBallArtworkSpriteId(
   mode: BowlingBallMode,
 ): "bowling_ball_moving" | "bowling_ball_still" {

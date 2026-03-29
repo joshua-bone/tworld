@@ -5793,6 +5793,131 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Hook);
   });
 
+  it("throws a carried bowling ball into an empty forward cell through the portable action seam", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const thrownItem = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "attached");
+    const bowlingBall = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden);
+    const runtimeEntry = bowlingBall ? findStatefulActorRuntime(msStatefulActorsForTest(session.state), bowlingBall.serial) : undefined;
+
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.inventory.tools).toEqual([0]);
+    expect(thrownItem).toMatchObject({
+      family: "bowling-ball",
+      tileId: MS_TILE.BowlingBall_Still,
+      state: { mode: "attached", attachmentKind: "actor", attachmentId: bowlingBall?.serial },
+      bowlingBallState: {
+        mode: "moving",
+        travelDirection: MS_DIRECTION.east,
+      },
+    });
+    expect(bowlingBall).toMatchObject({
+      id: MS_TILE.BowlingBall,
+      pos: eastPos,
+      dir: MS_DIRECTION.east,
+    });
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east));
+    expect(runtimeEntry?.portableBacking).toEqual({
+      family: "bowling-ball",
+      portableItemSerial: thrownItem?.serial,
+    });
+    expect(runtimeEntry?.state.mode).toBe("moving");
+    expect(runtimeEntry?.state.travelDirection).toBe(MS_DIRECTION.east);
+  });
+
+  it("keeps a carried bowling ball when the forward throw path is blocked", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[eastPos]!.top.id = MS_TILE.Wall;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.BowlingBall_Still]);
+    expect(session.state.internal.portableTools.portableItems).toContainEqual(
+      expect.objectContaining({
+        family: "bowling-ball",
+        tileId: MS_TILE.BowlingBall_Still,
+        state: { mode: "carried" },
+        bowlingBallState: expect.objectContaining({
+          mode: "still",
+        }),
+      }),
+    );
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toBeUndefined();
+  });
+
+  it("primes a carried bowling ball for a still drop when Chip picks up another portable item", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(9, 9);
+    const pickupPos = pos(10, 9);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[pickupPos]!.top.id = MS_TILE.Hook;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    const carried = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried");
+    const primed = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "primed");
+
+    expect(session.state.internal.chipPos).toBe(pickupPos);
+    expect(carried).toMatchObject({
+      family: "hook",
+      tileId: MS_TILE.Hook,
+    });
+    expect(primed).toMatchObject({
+      family: "bowling-ball",
+      tileId: MS_TILE.BowlingBall_Still,
+      state: { mode: "primed", pos: pickupPos, z: 1 },
+      bowlingBallState: {
+        mode: "still",
+      },
+    });
+    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
+      tileId: MS_TILE.BowlingBall_Still,
+      pos: pickupPos,
+      z: 1,
+    });
+  });
+
   it("consumes a dropped sandbag into dirt when Chip leaves water", () => {
     const cells = createEmptyCells();
     const chipPos = pos(12, 12);

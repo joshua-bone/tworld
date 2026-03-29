@@ -87,4 +87,21 @@ describe("lynx chip arrival", () => {
     expect(queued).toEqual([{ pos: 34, tileId: MS_TILE.Hook }]);
     expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
   });
+
+  it("queues bowling-ball portable pickup through the same chip arrival seam", () => {
+    const queued: Array<{ pos: number; tileId: number }> = [];
+    const context = createContext({
+      queueCollectedTool: (pos, tileId) => {
+        queued.push({ pos, tileId });
+      },
+    });
+    context.state.map.cells[34] = createCell(34, MS_TILE.BowlingBall_Still, MS_TILE.Empty);
+
+    const arrival = applyLynxChipArrivalEffects(context, 34);
+
+    expect(arrival.status).toBe("resolved");
+    expect(arrival.soundEffects).toBe(32);
+    expect(queued).toEqual([{ pos: 34, tileId: MS_TILE.BowlingBall_Still }]);
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
+  });
 });

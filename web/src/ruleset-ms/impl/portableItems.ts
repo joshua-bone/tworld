@@ -1,7 +1,9 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import { bottomTile, pushBoardTile, replaceTopTile, topTile } from "@game-core/impl/board";
 import {
+  cloneBowlingBallState,
   createStillBowlingBallState,
+  setBowlingBallMode,
   type BowlingBallState,
 } from "@game-core/impl/bowlingBall";
 import {
@@ -229,6 +231,27 @@ const MS_PORTABLE_ITEM_LIFECYCLES = {
     MsPortableItemSettleContext
   >(MS_PORTABLE_ITEM_POLICIES["bowling-ball"], {
     settleDrop: settleMsPortableItemDrop,
+    activateItem: (item) => {
+      if (item.family === "bowling-ball" && item.bowlingBallState) {
+        setBowlingBallMode(item.bowlingBallState, "moving");
+      }
+    },
+    detachItemToMap: (item) => {
+      if (item.family === "bowling-ball" && item.bowlingBallState) {
+        setBowlingBallMode(item.bowlingBallState, "still");
+      }
+    },
+    detachItemToDrop: (item) => {
+      if (item.family === "bowling-ball" && item.bowlingBallState) {
+        setBowlingBallMode(item.bowlingBallState, "still");
+      }
+    },
+    cloneItem: (item, serial) => ({
+      ...item,
+      serial,
+      state: { ...item.state },
+      bowlingBallState: item.bowlingBallState ? cloneBowlingBallState(item.bowlingBallState) : undefined,
+    }),
   }),
 } as const satisfies Record<
   MsPortableItemFamily,
@@ -297,7 +320,7 @@ function msPortableItemLifecycleForSerial(
   return item ? msPortableItemLifecycleForFamily(item.family) : null;
 }
 
-function carriedMsPortableToolItem(store: MsPortableToolStateStore): MsPortableItem | undefined {
+export function carriedMsPortableToolItem(store: MsPortableToolStateStore): MsPortableItem | undefined {
   return store.portableItems.find((item) => item.state.mode === "carried");
 }
 

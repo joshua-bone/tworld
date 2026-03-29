@@ -1,4 +1,5 @@
 import {
+  cloneBowlingBallState,
   createMovingBowlingBallState,
   type BowlingBallState,
 } from "@game-core/impl/bowlingBall";
@@ -130,6 +131,23 @@ export function attachMsStatefulActorPortableBacking(
 ): MsStatefulActorRuntimeEntry | undefined {
   const adapter = msStatefulActorAdapterForEntry(store, actorSerial);
   return adapter?.attachPortableBacking(store, actorSerial, portableBacking);
+}
+
+export function spawnMsBowlingBallStatefulActorFromPortable(
+  store: StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>,
+  actorSerial: number,
+  portableItemSerial: number,
+  state: BowlingBallState,
+): MsStatefulActorRuntimeEntry {
+  return restoreMsStatefulActorRuntime(store, {
+    actorSerial,
+    kind: "bowling-ball",
+    portableBacking: {
+      family: "bowling-ball",
+      portableItemSerial,
+    },
+    state: cloneBowlingBallState(state),
+  });
 }
 
 export function detachMsStatefulActorPortableBacking(

@@ -3134,6 +3134,118 @@ describe("runLynxInputTrace", () => {
     expect(moved.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Hook);
   });
 
+  it("throws a carried bowling ball into an empty forward cell through the portable action seam", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const thrownItem = lynxPortableItems(session.state).find((item) => item.state.mode === "attached");
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const runtimeEntry = bowlingBall
+      ? findStatefulActorRuntime(lynxRuntimeStateForTest(session.state).statefulActors, bowlingBall.serial)
+      : undefined;
+
+    expect(session.chipPos).toBe(chipPos);
+    expect(session.state.inventory.tools).toEqual([0]);
+    expect(thrownItem).toMatchObject({
+      family: "bowling-ball",
+      tileId: MS_TILE.BowlingBall_Still,
+      state: { mode: "attached", attachmentKind: "actor", attachmentId: bowlingBall?.serial },
+      bowlingBallState: {
+        mode: "moving",
+        travelDirection: MS_DIRECTION.east,
+      },
+    });
+    expect(bowlingBall).toMatchObject({
+      id: MS_TILE.BowlingBall,
+      pos: eastPos,
+      dir: MS_DIRECTION.east,
+    });
+    expect(bowlingBall?.moving).toBeGreaterThan(0);
+    expect(bowlingBall?.frame).toBeGreaterThan(0);
+    expect(runtimeEntry?.portableBacking).toEqual({
+      family: "bowling-ball",
+      portableItemSerial: thrownItem?.serial,
+    });
+    expect(runtimeEntry?.state.mode).toBe("moving");
+    expect(runtimeEntry?.state.travelDirection).toBe(MS_DIRECTION.east);
+  });
+
+  it("keeps a carried bowling ball when the forward throw path is blocked", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Wall),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.inventory.tools).toEqual([MS_TILE.BowlingBall_Still]);
+    expect(lynxPortableItems(session.state)).toContainEqual(
+      expect.objectContaining({
+        family: "bowling-ball",
+        tileId: MS_TILE.BowlingBall_Still,
+        state: { mode: "carried" },
+        bowlingBallState: expect.objectContaining({
+          mode: "still",
+        }),
+      }),
+    );
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toBeUndefined();
+  });
+
+  it("primes a carried bowling ball for a still drop when Chip picks up another portable item", () => {
+    const chipPos = 33;
+    const pickupPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(pickupPos, MS_TILE.Hook),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceLynxTicks(session, 4, MS_DIRECTION.east);
+
+    const carried = lynxPortableItems(session.state).find((item) => item.state.mode === "carried");
+    const primed = lynxPortableItems(session.state).find((item) => item.state.mode === "primed");
+
+    expect(session.chipPos).toBe(pickupPos);
+    expect(carried).toMatchObject({
+      family: "hook",
+      tileId: MS_TILE.Hook,
+    });
+    expect(primed).toMatchObject({
+      family: "bowling-ball",
+      tileId: MS_TILE.BowlingBall_Still,
+      state: { mode: "primed", pos: pickupPos, z: 1 },
+      bowlingBallState: {
+        mode: "still",
+      },
+    });
+  });
+
   it("preserves portable item identities across a replacement pickup", () => {
     const chipPos = 33;
     const pickupPos = 34;

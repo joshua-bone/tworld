@@ -1,6 +1,7 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@game-core/api/debug";
+import { setBowlingBallMode } from "@game-core/impl/bowlingBall";
 import { findHiddenActorAtPosition, findVisibleActorAtPosition, storeActorInReusableHiddenSlot } from "@game-core/impl/actors";
 import {
   addTopTileFlags,
@@ -122,9 +123,9 @@ import {
   forcedLynxActorDirectionByStrategy,
 } from "@ruleset-lynx/impl/movementStrategies";
 import {
+  activateLynxPortableTool,
   clearLynxToolInventory,
   collectLynxPortableItemsFromLayers,
-  primeLynxToolDrop,
   primedLynxPortableToolItem,
   projectLynxPortableToolState,
   queueLynxToolInventoryReplacement,
@@ -143,9 +144,11 @@ import {
   destroyLynxStatefulActorRuntime,
   findLynxStatefulActorRuntime,
   seedLynxStatefulActorRuntime,
+  spawnLynxBowlingBallStatefulActorFromPortable,
   type LynxStatefulActorRuntimeEntry,
 } from "@ruleset-lynx/impl/statefulActors";
 import { queryLynxOccupancyTarget } from "@ruleset-lynx/impl/occupancy";
+import { applyLynxPortableToolAction } from "@ruleset-lynx/impl/portableToolActions";
 import {
   resolveLynxTeleports as resolveLynxTeleportsWithContext,
   type LynxTeleportContext,
@@ -705,6 +708,88 @@ function lynxChipRuntime(state: EngineState): LynxChipRuntimeState {
 
 function lynxPortableToolRuntime(state: EngineState): LynxPortableToolRuntimeState {
   return lynxRuntimeState(state).portableTools;
+}
+
+function tryActivateLynxBowlingBallThrow(
+  runtime: LynxAdvanceTickRuntime,
+  carried: LynxPortableToolRuntimeState["portableItems"][number],
+  dir: number,
+): boolean {
+  const targetStep = advanceToCell(runtime.state.map.cells, runtime.chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return false;
+  }
+
+  const targetOccupancy = queryLynxOccupancyOnLayer(runtime.state, runtime.actors, targetStep.pos, runtime.chipZ);
+  if (targetOccupancy.kind !== OCCUPANCY_TARGET_KIND.empty || targetOccupancy.claimed) {
+    return false;
+  }
+
+  const probeActor: LynxRuntimeActor = {
+    serial: -1,
+    id: MS_TILE.BowlingBall,
+    pos: runtime.chipPos,
+    z: runtime.chipZ,
+    dir,
+    intentDir: 0,
+    forcedDir: 0,
+    teleported: false,
+    moving: 0,
+    frame: 0,
+    moveKind: "planar",
+    ignoreIceFromAir: false,
+    hidden: false,
+    pushed: false,
+    deferPush: false,
+    deferPushArmed: false,
+    reversePending: false,
+    dormant: false,
+    animationReserved: false,
+  };
+  if (!canLynxActorStartMovementWithContext(createLynxActorMovementContext(runtime.state, runtime.actors), probeActor, dir)) {
+    return false;
+  }
+
+  if (!carried.bowlingBallState) {
+    return false;
+  }
+
+  setBowlingBallMode(carried.bowlingBallState, "moving", dir);
+  const actorSerial = allocateLynxActorSerial(runtime.state);
+  if (!activateLynxPortableTool(lynxPortableToolRuntime(runtime.state), runtime.state.inventory, carried.serial, actorSerial)) {
+    setBowlingBallMode(carried.bowlingBallState, "still", dir);
+    return false;
+  }
+
+  spawnLynxBowlingBallStatefulActorFromPortable(
+    lynxStatefulActorRuntime(runtime.state),
+    actorSerial,
+    carried.serial,
+    carried.bowlingBallState,
+  );
+  allocateLynxActorSlot(runtime.actors, {
+    serial: actorSerial,
+    id: MS_TILE.BowlingBall,
+    pos: targetStep.pos,
+    z: runtime.chipZ,
+    dir,
+    intentDir: 0,
+    forcedDir: 0,
+    teleported: false,
+    moving: 8,
+    frame: 4,
+    moveKind: "planar",
+    ignoreIceFromAir: false,
+    hidden: false,
+    pushed: false,
+    deferPush: false,
+    deferPushArmed: false,
+    reversePending: false,
+    dormant: false,
+    animationReserved: false,
+  });
+  addTopTileFlags(runtime.state.map.cells, targetStep.pos, LYNX_CELL_FLAG.Claimed);
+  return true;
 }
 
 function lynxStatefulActorRuntime(state: EngineState): LynxStatefulActorRuntimeState {
@@ -3164,7 +3249,14 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
   if (
     runtime.endGameTicksElapsed === null &&
     (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
-    primeLynxToolDrop(lynxPortableToolRuntime(runtime.state), runtime.state.inventory, runtime.chipPos, runtime.chipZ)
+    applyLynxPortableToolAction({
+      store: lynxPortableToolRuntime(runtime.state),
+      inventory: runtime.state.inventory,
+      chipPos: runtime.chipPos,
+      chipZ: runtime.chipZ,
+      chipDir: runtime.chipDir,
+      tryThrowBowlingBall: (carried, dir) => tryActivateLynxBowlingBallThrow(runtime, carried, dir),
+    })
   ) {
     if (runtime.replayMode) {
       runtime.state.lastMove = {

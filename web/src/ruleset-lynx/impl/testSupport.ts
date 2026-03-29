@@ -8,21 +8,26 @@ import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 type LynxPortableItem = {
   serial: number;
-  family: "sandbag";
+  family: "sandbag" | "hook" | "bowling-ball";
   tileId: number;
   state:
     | { mode: "map"; pos: number; z: number }
     | { mode: "carried" }
-    | { mode: "primed"; pos: number; z: number };
+    | { mode: "primed"; pos: number; z: number }
+    | { mode: "attached"; attachmentKind: string; attachmentId: number };
 };
 
 type LynxPortableToolRuntime = {
   portableItems: Array<{
     serial: number;
-    family: "sandbag";
+    family: "sandbag" | "hook" | "bowling-ball";
     tileId: number;
     inventorySlot: "tools";
-    state: { mode: "map"; pos: number; z: number } | { mode: "carried" } | { mode: "primed"; pos: number; z: number };
+    state:
+      | { mode: "map"; pos: number; z: number }
+      | { mode: "carried" }
+      | { mode: "primed"; pos: number; z: number }
+      | { mode: "attached"; attachmentKind: string; attachmentId: number };
   }>;
   nextPortableItemSerial: number;
 };

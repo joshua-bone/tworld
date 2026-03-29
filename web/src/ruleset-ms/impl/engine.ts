@@ -5,6 +5,7 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@game-core/api/debug";
+import { setBowlingBallMode } from "@game-core/impl/bowlingBall";
 import { findExistingActorAtPosition, findVisibleActorAtPosition } from "@game-core/impl/actors";
 import {
   addBottomTileFlags,
@@ -134,9 +135,9 @@ import {
   hasMsTileActivation,
 } from "@ruleset-ms/impl/tileEffects";
 import {
+  activateMsPortableTool,
   clearMsToolInventory,
   collectMsPortableItemsFromLayers,
-  primeMsToolDrop,
   primedMsPortableToolItem,
   projectMsPortableToolState,
   queueMsToolInventoryReplacement,
@@ -149,10 +150,12 @@ import {
   destroyMsStatefulActorRuntime,
   findMsStatefulActorRuntime,
   seedMsStatefulActorRuntime,
+  spawnMsBowlingBallStatefulActorFromPortable,
   type MsStatefulActorRuntimeEntry,
 } from "@ruleset-ms/impl/statefulActors";
 import { queryMsOccupancyTarget } from "@ruleset-ms/impl/occupancy";
 import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
+import { applyMsPortableToolAction } from "@ruleset-ms/impl/portableToolActions";
 import {
   moveMsChipDownOneLayer as moveMsChipDownOneLayerWithContext,
   moveMsChipPlanar as moveMsChipPlanarWithContext,
@@ -509,6 +512,90 @@ function msRandomState(internal: MsInternalState): MsRandomRuntimeState {
 
 function msPortableToolState(internal: MsInternalState): MsPortableToolRuntimeState {
   return internal.portableTools;
+}
+
+function tryActivateMsBowlingBallThrow(
+  runtime: MsAdvanceTickRuntime,
+  carried: MsPortableToolRuntimeState["portableItems"][number],
+  dir: number,
+): boolean {
+  const z = runtime.internal.chipZ ?? 1;
+  const cells = runtime.layerCellsByZ.get(z) ?? runtime.initialCells;
+  const targetStep = advanceToCell(cells, runtime.internal.chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return false;
+  }
+
+  const targetOccupancy = queryMsTargetOccupancy(cells, runtime.internal, targetStep.pos, z);
+  if (targetOccupancy.kind !== "empty") {
+    return false;
+  }
+
+  const probeCreature: MsTrackedCreature = {
+    serial: -1,
+    id: MS_TILE.BowlingBall,
+    dir,
+    tdir: MS_DIRECTION.none,
+    pos: runtime.internal.chipPos,
+    z,
+    hidden: false,
+    moving: 0,
+    frame: 0,
+    cloning: false,
+    released: runtime.internal.chipReleased,
+    turning: false,
+    hasMoved: false,
+    floorMovement: "none",
+    floorMovementDir: MS_DIRECTION.none,
+    sliding: false,
+  };
+  if (!canMoveCreatureWithOptions(cells, probeCreature, dir, false, false, runtime.internal, runtime.inventory)) {
+    return false;
+  }
+
+  if (!carried.bowlingBallState) {
+    return false;
+  }
+
+  setBowlingBallMode(carried.bowlingBallState, "moving", dir);
+  const actorSerial = runtime.internal.nextCreatureSerial;
+  if (!activateMsPortableTool(msPortableToolState(runtime.internal), runtime.inventory, carried.serial, actorSerial)) {
+    setBowlingBallMode(carried.bowlingBallState, "still", dir);
+    return false;
+  }
+
+  runtime.internal.nextCreatureSerial = actorSerial + 1;
+  runtime.internal.creatures.push({
+    serial: actorSerial,
+    id: MS_TILE.BowlingBall,
+    dir,
+    tdir: MS_DIRECTION.none,
+    pos: targetStep.pos,
+    z,
+    hidden: false,
+    moving: 0,
+    frame: 0,
+    cloning: false,
+    released: false,
+    turning: false,
+    hasMoved: false,
+    floorMovement: "none",
+    floorMovementDir: MS_DIRECTION.none,
+    sliding: false,
+  });
+  runtime.internal.creatureIndexBySerial.set(actorSerial, runtime.internal.creatures.length - 1);
+  spawnMsBowlingBallStatefulActorFromPortable(
+    runtime.internal.statefulActors,
+    actorSerial,
+    carried.serial,
+    carried.bowlingBallState,
+  );
+  pushTile(cells, targetStep.pos, { id: MS_TILE.Empty, state: 0 });
+  cells[targetStep.pos]!.top = {
+    id: msCreatureTile(MS_TILE.BowlingBall, dir),
+    state: 0,
+  };
+  return true;
 }
 
 function advanceRandom(internal: MsInternalState): bigint {
@@ -4077,12 +4164,14 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
   if (
     msTickPhaseIsPlayable(runtime) &&
     (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
-    primeMsToolDrop(
-      msPortableToolState(runtime.internal),
-      runtime.inventory,
-      runtime.internal.chipPos,
-      runtime.internal.chipZ ?? 1,
-    )
+    applyMsPortableToolAction({
+      store: msPortableToolState(runtime.internal),
+      inventory: runtime.inventory,
+      chipPos: runtime.internal.chipPos,
+      chipZ: runtime.internal.chipZ ?? 1,
+      chipDir: runtime.internal.chipDir,
+      tryThrowBowlingBall: (carried, dir) => tryActivateMsBowlingBallThrow(runtime, carried, dir),
+    })
   ) {
     runtime.toolActionTriggeredThisTick = true;
   }

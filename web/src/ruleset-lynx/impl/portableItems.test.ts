@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createStillBowlingBallState } from "@game-core/impl/bowlingBall";
+import { createMovingBowlingBallState, createStillBowlingBallState } from "@game-core/impl/bowlingBall";
 import { characterizePortableItemArchetypes } from "@game-core/impl/statefulElementTestSupport";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
@@ -183,7 +183,7 @@ describe("lynx portableItems lifecycle", () => {
     expect(attached).toMatchObject({
       family: "bowling-ball",
       tileId: MS_TILE.BowlingBall_Still,
-      bowlingBallState: createStillBowlingBallState(MS_DIRECTION.east),
+      bowlingBallState: createMovingBowlingBallState(MS_DIRECTION.east),
     });
 
     expect(detachLynxPortableToolToDrop(store, inventory, 1, 9, 2)).toBe(true);
@@ -194,7 +194,7 @@ describe("lynx portableItems lifecycle", () => {
     expect(cloned).toMatchObject({
       serial: 2,
       family: "bowling-ball",
-      bowlingBallState: createStillBowlingBallState(MS_DIRECTION.east),
+      bowlingBallState: createMovingBowlingBallState(MS_DIRECTION.east),
       state: { mode: "attached", attachmentKind: "actor", attachmentId: 41 },
     });
   });

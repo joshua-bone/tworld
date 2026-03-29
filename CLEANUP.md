@@ -402,13 +402,13 @@ Goal:
 
 Checklist:
 
-- [ ] still bowling ball can be picked up by Chip only
-- [ ] bowling ball occupies the special-item slot
-- [ ] replacing it with another special item primes a still drop exactly like sandbag
-- [ ] `Action1` attempts a forward throw through the portable activation seam
-- [ ] failed throw leaves the bowling ball in inventory
-- [ ] carried -> primed -> dropped still-form preserves the same per-instance state
-- [ ] no actor motion yet beyond activation itself
+- [x] still bowling ball can be picked up by Chip only
+- [x] bowling ball occupies the special-item slot
+- [x] replacing it with another special item primes a still drop exactly like sandbag
+- [x] `Action1` attempts a forward throw through the portable activation seam
+- [x] failed throw leaves the bowling ball in inventory
+- [x] carried -> primed -> dropped still-form preserves the same per-instance state
+- [x] no actor motion yet beyond activation itself
 
 Success condition:
 

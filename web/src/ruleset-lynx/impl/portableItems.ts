@@ -1,6 +1,8 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import {
+  cloneBowlingBallState,
   createStillBowlingBallState,
+  setBowlingBallMode,
   type BowlingBallState,
 } from "@game-core/impl/bowlingBall";
 import {
@@ -239,6 +241,27 @@ const LYNX_PORTABLE_ITEM_LIFECYCLES = {
     LynxPortableItemSettleContext
   >(LYNX_PORTABLE_ITEM_POLICIES["bowling-ball"], {
     settleDrop: settleLynxPortableItemDrop,
+    activateItem: (item) => {
+      if (item.family === "bowling-ball" && item.bowlingBallState) {
+        setBowlingBallMode(item.bowlingBallState, "moving");
+      }
+    },
+    detachItemToMap: (item) => {
+      if (item.family === "bowling-ball" && item.bowlingBallState) {
+        setBowlingBallMode(item.bowlingBallState, "still");
+      }
+    },
+    detachItemToDrop: (item) => {
+      if (item.family === "bowling-ball" && item.bowlingBallState) {
+        setBowlingBallMode(item.bowlingBallState, "still");
+      }
+    },
+    cloneItem: (item, serial) => ({
+      ...item,
+      serial,
+      state: { ...item.state },
+      bowlingBallState: item.bowlingBallState ? cloneBowlingBallState(item.bowlingBallState) : undefined,
+    }),
   }),
 } as const satisfies Record<
   LynxPortableItemFamily,
@@ -307,7 +330,7 @@ function lynxPortableItemLifecycleForSerial(
   return item ? lynxPortableItemLifecycleForFamily(item.family) : null;
 }
 
-function carriedLynxPortableToolItem(store: LynxPortableToolStateStore): LynxPortableItem | undefined {
+export function carriedLynxPortableToolItem(store: LynxPortableToolStateStore): LynxPortableItem | undefined {
   return store.portableItems.find((item) => item.state.mode === "carried");
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createStillBowlingBallState } from "@game-core/impl/bowlingBall";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { MS_SOUND, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
@@ -97,6 +98,28 @@ describe("applyMsChipEnterEffects", () => {
         family: "hook",
         tileId: MS_TILE.Hook,
         inventorySlot: "tools",
+        state: { mode: "carried" },
+      },
+    ]);
+    expect(result.movementFloorTile.id).toBe(MS_TILE.Empty);
+    expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
+  });
+
+  it("collects bowling-ball portable tools through the same portable item store", () => {
+    const cells = [makeCell(MS_TILE.BowlingBall_Still)];
+    const inventory = makeInventory();
+    const portableTools = makePortableTools();
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, portableTools), 0);
+
+    expect(inventory.tools[0]).toBe(MS_TILE.BowlingBall_Still);
+    expect(portableTools.portableItems).toEqual([
+      {
+        serial: 1,
+        family: "bowling-ball",
+        tileId: MS_TILE.BowlingBall_Still,
+        inventorySlot: "tools",
+        bowlingBallState: createStillBowlingBallState(),
         state: { mode: "carried" },
       },
     ]);
