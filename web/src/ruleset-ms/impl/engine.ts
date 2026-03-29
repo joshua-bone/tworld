@@ -5,7 +5,7 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@game-core/api/debug";
-import { cloneBowlingBallState, setBowlingBallMode } from "@game-core/impl/bowlingBall";
+import { cloneBowlingBallState, setBowlingBallMode, type BowlingBallState } from "@game-core/impl/bowlingBall";
 import { findExistingActorAtPosition, findVisibleActorAtPosition } from "@game-core/impl/actors";
 import {
   addBottomTileFlags,
@@ -876,9 +876,6 @@ function tryActivateMsBowlingBallThrow(
   }
 
   const targetOccupancy = queryMsTargetOccupancy(cells, runtime.internal, targetStep.pos, z);
-  if (targetOccupancy.kind !== "empty") {
-    return false;
-  }
   if (!carried.bowlingBallState) {
     return false;
   }
@@ -927,13 +924,63 @@ function tryActivateMsBowlingBallThrow(
     return false;
   }
 
+  const creature = spawnMsThrownBowlingBallCreature(
+    runtime,
+    carried.serial,
+    carried.bowlingBallState,
+    actorSerial,
+    runtime.internal.chipPos,
+    z,
+    dir,
+  );
+  if (targetOccupancy.kind !== "empty") {
+    resolveMsCreaturePreMoveCollision(
+      cloneBoardCells(cells),
+      cells,
+      runtime.internal,
+      runtime.inventory,
+      creature,
+      targetStep.pos,
+      dir,
+    );
+    return true;
+  }
+
+  creature.pos = targetStep.pos;
+  pushTile(cells, targetStep.pos, { id: MS_TILE.Empty, state: 0 });
+  cells[targetStep.pos]!.top = {
+    id: msCreatureTile(MS_TILE.BowlingBall, dir),
+    state: 0,
+  };
+  settleMsSpawnedBowlingBallLanding(
+    runtime,
+    cells,
+    creature,
+    dir,
+    targetTop,
+    targetTopState,
+    targetBottom,
+    targetBottomState,
+  );
+  return true;
+}
+
+function spawnMsThrownBowlingBallCreature(
+  runtime: MsAdvanceTickRuntime,
+  portableItemSerial: number,
+  bowlingBallState: BowlingBallState,
+  actorSerial: number,
+  pos: number,
+  z: number,
+  dir: number,
+): MsTrackedCreature {
   runtime.internal.nextCreatureSerial = actorSerial + 1;
-  runtime.internal.creatures.push({
+  const creature: MsTrackedCreature = {
     serial: actorSerial,
     id: MS_TILE.BowlingBall,
     dir,
     tdir: MS_DIRECTION.none,
-    pos: targetStep.pos,
+    pos,
     z,
     hidden: false,
     moving: 0,
@@ -945,30 +992,16 @@ function tryActivateMsBowlingBallThrow(
     floorMovement: "none",
     floorMovementDir: MS_DIRECTION.none,
     sliding: false,
-  });
+  };
+  runtime.internal.creatures.push(creature);
   runtime.internal.creatureIndexBySerial.set(actorSerial, runtime.internal.creatures.length - 1);
   spawnMsBowlingBallStatefulActorFromPortable(
     runtime.internal.statefulActors,
     actorSerial,
-    carried.serial,
-    carried.bowlingBallState,
+    portableItemSerial,
+    bowlingBallState,
   );
-  pushTile(cells, targetStep.pos, { id: MS_TILE.Empty, state: 0 });
-  cells[targetStep.pos]!.top = {
-    id: msCreatureTile(MS_TILE.BowlingBall, dir),
-    state: 0,
-  };
-  settleMsSpawnedBowlingBallLanding(
-    runtime,
-    cells,
-    runtime.internal.creatures[runtime.internal.creatures.length - 1]!,
-    dir,
-    targetTop,
-    targetTopState,
-    targetBottom,
-    targetBottomState,
-  );
-  return true;
+  return creature;
 }
 
 function settleMsSpawnedBowlingBallLanding(

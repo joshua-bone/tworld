@@ -6621,6 +6621,77 @@ describe("MS engine regressions", () => {
     });
   });
 
+  it("throws a carried bowling ball into an empty clone machine", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const clonerPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[clonerPos]!.bottom.id = MS_TILE.CloneMachine;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const sourceSerial = session.state.internal.cloneSourceSerialByPosition.get(`1:${clonerPos}`);
+    const portable =
+      typeof sourceSerial === "number"
+        ? session.state.internal.portableTools.portableItems.find(
+            (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === sourceSerial,
+          )
+        : undefined;
+    const heldCreature =
+      typeof sourceSerial === "number"
+        ? session.state.internal.creatures.find((creature) => creature.serial === sourceSerial)
+        : undefined;
+
+    expect(session.state.engine.inventory.tools).toEqual([0]);
+    expect(sourceSerial).toBeDefined();
+    expect(portable?.family).toBe("bowling-ball");
+    expect(heldCreature).toMatchObject({
+      pos: clonerPos,
+      dir: MS_DIRECTION.east,
+    });
+    expect(heldCreature?.hidden).toBe(true);
+    expect(session.state.engine.map.cells[clonerPos]?.top.id).toBe(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east));
+  });
+
+  it("throws a carried bowling ball into an adjacent portable item and destroys both", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const sandbagPos = pos(2, 1);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[sandbagPos]!.top.id = MS_TILE.Sandbag;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.engine.inventory.tools).toEqual([0]);
+    expect(session.state.engine.map.cells[sandbagPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toBeUndefined();
+    expect(session.state.internal.portableTools.portableItems.find((item) => item.tileId === MS_TILE.Sandbag)).toBeUndefined();
+  });
+
   it("treats ice as normal floor for a bowling ball with ice boots", () => {
     const cells = createEmptyCells();
     const chipPos = pos(1, 1);

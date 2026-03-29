@@ -983,13 +983,7 @@ function tryActivateLynxBowlingBallThrow(
   carried: LynxPortableToolRuntimeState["portableItems"][number],
   dir: number,
 ): boolean {
-  const targetStep = advanceToCell(runtime.state.map.cells, runtime.chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-  if (!targetStep) {
-    return false;
-  }
-
-  const targetOccupancy = queryLynxOccupancyOnLayer(runtime.state, runtime.actors, targetStep.pos, runtime.chipZ);
-  if (targetOccupancy.kind !== OCCUPANCY_TARGET_KIND.empty || targetOccupancy.claimed) {
+  if (!carried.bowlingBallState) {
     return false;
   }
 
@@ -1014,11 +1008,10 @@ function tryActivateLynxBowlingBallThrow(
     dormant: false,
     animationReserved: false,
   };
-  if (!canLynxActorStartMovementWithContext(createLynxActorMovementContext(runtime.state, runtime.actors), probeActor, dir)) {
-    return false;
-  }
-
-  if (!carried.bowlingBallState) {
+  const inventoryOwner = projectLynxActorInventoryOwner(MS_TILE.BowlingBall, runtime.state.inventory, {
+    localInventory: carried.bowlingBallState.localInventory,
+  });
+  if (!canLynxRuntimeActorStartMovement(runtime.state, runtime.actors, probeActor, dir, false, false, inventoryOwner)) {
     return false;
   }
 
@@ -1035,17 +1028,17 @@ function tryActivateLynxBowlingBallThrow(
     carried.serial,
     carried.bowlingBallState,
   );
-  allocateLynxActorSlot(runtime.actors, {
+  const actor = allocateLynxActorSlot(runtime.actors, {
     serial: actorSerial,
     id: MS_TILE.BowlingBall,
-    pos: targetStep.pos,
+    pos: runtime.chipPos,
     z: runtime.chipZ,
     dir,
     intentDir: 0,
     forcedDir: 0,
     teleported: false,
-    moving: 8,
-    frame: 4,
+    moving: 0,
+    frame: 0,
     moveKind: "planar",
     ignoreIceFromAir: false,
     hidden: false,
@@ -1056,7 +1049,9 @@ function tryActivateLynxBowlingBallThrow(
     dormant: false,
     animationReserved: false,
   });
-  addTopTileFlags(runtime.state.map.cells, targetStep.pos, LYNX_CELL_FLAG.Claimed);
+  if (!movementDidSucceed(startLynxRuntimeActorMovement(runtime.state, runtime.actors, actor, dir))) {
+    return false;
+  }
   runtime.justSpawnedActorSerials.add(actorSerial);
   return true;
 }
@@ -1470,18 +1465,34 @@ function addLynxCantMove(state: EngineState): void {
   state.soundEffects |= 1 << LYNX_SOUND.CantMove;
 }
 
-function canLynxCreatureEnter(state: EngineState, actor: Pick<LynxRuntimeActor, "id" | "serial">, tileId: number, dir: number): boolean {
-  const mask = lynxActorEntryMask(tileId, actor.id);
+function canLynxCreatureEnterWithInventoryOwner(
+  state: EngineState,
+  actorId: number,
+  tileId: number,
+  dir: number,
+  inventoryOwner: ActorLocalInventoryOwner,
+): boolean {
+  const mask = lynxActorEntryMask(tileId, actorId);
   if ((mask & dir) === 0) {
     return false;
   }
-  if (!canLynxActorEnterTile(tileId, state.inventory, projectLynxRuntimeActorInventoryOwner(state, actor))) {
+  if (!canLynxActorEnterTile(tileId, state.inventory, inventoryOwner)) {
     return false;
   }
-  if (lynxActorHazardOutcome(tileId, actor.id) === "deny-entry") {
+  if (lynxActorHazardOutcome(tileId, actorId) === "deny-entry") {
     return false;
   }
   return true;
+}
+
+function canLynxCreatureEnter(state: EngineState, actor: Pick<LynxRuntimeActor, "id" | "serial">, tileId: number, dir: number): boolean {
+  return canLynxCreatureEnterWithInventoryOwner(
+    state,
+    actor.id,
+    tileId,
+    dir,
+    projectLynxRuntimeActorInventoryOwner(state, actor),
+  );
 }
 
 function effectiveLynxTargetTileId(state: EngineState, tileId: number): number {
@@ -2553,6 +2564,7 @@ function canLynxRuntimeActorStartMovement(
   dir: number,
   releasing = false,
   clearAnimations = false,
+  inventoryOwnerOverride: ActorLocalInventoryOwner | null = null,
 ): boolean {
   const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
   if (targetStep) {
@@ -2568,6 +2580,20 @@ function canLynxRuntimeActorStartMovement(
     ) {
       return true;
     }
+  }
+
+  if (inventoryOwnerOverride) {
+    return canLynxActorStartMovementWithContext(
+      {
+        ...createLynxActorMovementContext(state, actors),
+        canActorEnter: (_actor, tileId, probeDir) =>
+          canLynxCreatureEnterWithInventoryOwner(state, actor.id, tileId, probeDir, inventoryOwnerOverride),
+      },
+      actor,
+      dir,
+      releasing,
+      clearAnimations,
+    );
   }
 
   return canLynxActorStartMovementWithContext(
