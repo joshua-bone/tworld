@@ -1,4 +1,92 @@
 import type { ActorCapabilityPolicy } from "./actorCapabilities";
+import {
+  ACTOR_LIFECYCLE_PHASES,
+  actorLifecyclePhaseMapToHooks,
+  actorLifecycleHooksToPhaseMap,
+  composeActorLifecycleHooks,
+  createActorLifecycleHooks,
+  lookupActorLifecycleHook,
+  type ActorLifecycleContext,
+  type ActorLifecycleHandler,
+  type ActorLifecycleHookName,
+  type ActorLifecycleHooks,
+  type ActorLifecyclePhase,
+} from "./actorLifecycle";
+import {
+  TILE_LIFECYCLE_PHASES,
+  tileLifecyclePhaseMapToHooks,
+  tileLifecycleHooksToPhaseMap,
+  composeTileLifecycleHooks,
+  createTileLifecycleHooks,
+  lookupTileLifecycleHook,
+  type TileLifecycleContext,
+  type TileLifecycleHandler,
+  type TileLifecycleHookName,
+  type TileLifecycleHooks,
+  type TileLifecyclePhase,
+} from "./tileLifecycle";
+
+export {
+  ACTOR_LIFECYCLE_HOOK_BY_PHASE,
+  ACTOR_LIFECYCLE_HOOKS,
+  ACTOR_LIFECYCLE_PHASE_BY_HOOK,
+  ACTOR_LIFECYCLE_PHASES,
+  composeActorLifecycleHooks,
+  createActorLifecycleHooks,
+  lookupActorLifecycleHook,
+  noActorLifecycleHooks,
+  actorLifecycleHooksToPhaseMap,
+  actorLifecyclePhaseMapToHooks,
+} from "./actorLifecycle";
+export type {
+  ActorArrivalContext,
+  ActorBlockedMoveContext,
+  ActorClonerCloneContext,
+  ActorClonerEntryContext,
+  ActorCollisionContext,
+  ActorFinishMoveContext,
+  ActorHeldFloorContext,
+  ActorLifecycleContext,
+  ActorLifecycleHandler,
+  ActorLifecycleHookName,
+  ActorLifecycleHooks,
+  ActorLifecyclePhase,
+  ActorPortableBackingContext,
+  ActorRenderContext,
+  ActorStartMoveContext,
+  ActorSupportContext,
+  ActorTestMoveContext,
+  ActorTrapReleaseContext,
+} from "./actorLifecycle";
+export {
+  TILE_LIFECYCLE_HOOK_BY_PHASE,
+  TILE_LIFECYCLE_HOOKS,
+  TILE_LIFECYCLE_PHASE_BY_HOOK,
+  TILE_LIFECYCLE_PHASES,
+  composeTileLifecycleHooks,
+  createTileLifecycleHooks,
+  lookupTileLifecycleHook,
+  noTileLifecycleHooks,
+  tileLifecycleHooksToPhaseMap,
+  tileLifecyclePhaseMapToHooks,
+} from "./tileLifecycle";
+export type {
+  TileActivateContext,
+  TileDecodeLoadContext,
+  TileFinishEnterContext,
+  TileFinishExitContext,
+  TileLifecycleContext,
+  TileLifecycleHandler,
+  TileLifecycleHookName,
+  TileLifecycleHooks,
+  TileLifecyclePhase,
+  TileRenderContext,
+  TileStartEnterContext,
+  TileSupportContext,
+  TileTestEnterContext,
+  TileTestExitContext,
+  TileTickContext,
+} from "./tileLifecycle";
 
 /**
  * Shared lifecycle vocabulary for the in-repo plugin architecture.
@@ -8,62 +96,6 @@ import type { ActorCapabilityPolicy } from "./actorCapabilities";
  * ruleset-specific work aligned on one set of lifecycle boundaries instead of
  * growing more ad hoc hot-path branches in the engines.
  */
-export type TileLifecyclePhase =
-  | "probe-enter"
-  | "begin-enter"
-  | "complete-enter"
-  | "probe-exit"
-  | "complete-exit"
-  | "probe-support"
-  | "activate"
-  | "tick"
-  | "render"
-  | "decode-load";
-
-export const TILE_LIFECYCLE_PHASES = [
-  "probe-enter",
-  "begin-enter",
-  "complete-enter",
-  "probe-exit",
-  "complete-exit",
-  "probe-support",
-  "activate",
-  "tick",
-  "render",
-  "decode-load",
-] as const satisfies readonly TileLifecyclePhase[];
-
-export type ActorLifecyclePhase =
-  | "probe-move"
-  | "begin-move"
-  | "complete-move"
-  | "blocked-move"
-  | "collision"
-  | "arrival"
-  | "held-floor"
-  | "trap-release"
-  | "cloner-entry"
-  | "cloner-clone"
-  | "support"
-  | "portable-backing"
-  | "render";
-
-export const ACTOR_LIFECYCLE_PHASES = [
-  "probe-move",
-  "begin-move",
-  "complete-move",
-  "blocked-move",
-  "collision",
-  "arrival",
-  "held-floor",
-  "trap-release",
-  "cloner-entry",
-  "cloner-clone",
-  "support",
-  "portable-backing",
-  "render",
-] as const satisfies readonly ActorLifecyclePhase[];
-
 export type RulesetKernelResponsibility =
   | "phase-scheduling"
   | "movement-cadence"
@@ -136,47 +168,61 @@ export const RULESET_ARCHITECTURE_CONTRACT: RulesetArchitectureContract = {
   pluginResponsibilities: RULESET_PLUGIN_RESPONSIBILITIES,
 };
 
-export interface TileBehaviorContext<TTileId extends number = number, TActorId extends number = number> {
-  readonly phase: TileLifecyclePhase;
-  readonly tileId: TTileId;
-  readonly actorId?: TActorId;
-}
-
-export type TileLifecycleHandler<TTileId extends number = number, TActorId extends number = number> = (
-  context: TileBehaviorContext<TTileId, TActorId>,
-) => void;
+export type TileBehaviorContext<TTileId extends number = number, TActorId extends number = number> = TileLifecycleContext<
+  TTileId,
+  TActorId
+>;
 
 export interface TileBehavior<TTileId extends number = number, TActorId extends number = number> {
+  readonly hooks: Readonly<TileLifecycleHooks<TTileId, TActorId>>;
   readonly phases: Readonly<Partial<Record<TileLifecyclePhase, TileLifecycleHandler<TTileId, TActorId>>>>;
 }
 
-export interface ActorBehaviorContext<TTileId extends number = number, TActorId extends number = number> {
-  readonly phase: ActorLifecyclePhase;
-  readonly actorId: TActorId;
-  readonly tileId?: TTileId;
-}
-
-export type ActorLifecycleHandler<TTileId extends number = number, TActorId extends number = number> = (
-  context: ActorBehaviorContext<TTileId, TActorId>,
-) => void;
+export type ActorBehaviorContext<TTileId extends number = number, TActorId extends number = number> =
+  ActorLifecycleContext<TTileId, TActorId>;
 
 export interface ActorBehavior<TTileId extends number = number, TActorId extends number = number> {
+  readonly hooks: Readonly<ActorLifecycleHooks<TTileId, TActorId>>;
   readonly phases: Readonly<Partial<Record<ActorLifecyclePhase, ActorLifecycleHandler<TTileId, TActorId>>>>;
 }
 
+type TileBehaviorInitializer<TTileId extends number = number, TActorId extends number = number> =
+  | Partial<Record<TileLifecyclePhase, TileLifecycleHandler<TTileId, TActorId>>>
+  | Partial<TileLifecycleHooks<TTileId, TActorId>>;
+
+type ActorBehaviorInitializer<TTileId extends number = number, TActorId extends number = number> =
+  | Partial<Record<ActorLifecyclePhase, ActorLifecycleHandler<TTileId, TActorId>>>
+  | Partial<ActorLifecycleHooks<TTileId, TActorId>>;
+
+function isTileLifecycleHookInput<TTileId extends number = number, TActorId extends number = number>(
+  input: TileBehaviorInitializer<TTileId, TActorId>,
+): input is Partial<TileLifecycleHooks<TTileId, TActorId>> {
+  return Object.keys(input).some((key) => key === "decodeLoad" || !key.includes("-"));
+}
+
+function isActorLifecycleHookInput<TTileId extends number = number, TActorId extends number = number>(
+  input: ActorBehaviorInitializer<TTileId, TActorId>,
+): input is Partial<ActorLifecycleHooks<TTileId, TActorId>> {
+  return Object.keys(input).some((key) => !key.includes("-"));
+}
+
 export function createTileBehavior<TTileId extends number = number, TActorId extends number = number>(
-  phases: Partial<Record<TileLifecyclePhase, TileLifecycleHandler<TTileId, TActorId>>> = {},
+  config: TileBehaviorInitializer<TTileId, TActorId> = {},
 ): TileBehavior<TTileId, TActorId> {
+  const hooks = isTileLifecycleHookInput(config) ? createTileLifecycleHooks(config) : tileLifecyclePhaseMapToHooks(config);
   return {
-    phases: { ...phases },
+    hooks,
+    phases: tileLifecycleHooksToPhaseMap(hooks),
   };
 }
 
 export function createActorBehavior<TTileId extends number = number, TActorId extends number = number>(
-  phases: Partial<Record<ActorLifecyclePhase, ActorLifecycleHandler<TTileId, TActorId>>> = {},
+  config: ActorBehaviorInitializer<TTileId, TActorId> = {},
 ): ActorBehavior<TTileId, TActorId> {
+  const hooks = isActorLifecycleHookInput(config) ? createActorLifecycleHooks(config) : actorLifecyclePhaseMapToHooks(config);
   return {
-    phases: { ...phases },
+    hooks,
+    phases: actorLifecycleHooksToPhaseMap(hooks),
   };
 }
 
@@ -197,31 +243,15 @@ export function noActorBehavior<TTileId extends number = number, TActorId extend
 export function composeTileBehaviors<TTileId extends number = number, TActorId extends number = number>(
   ...behaviors: ReadonlyArray<TileBehavior<TTileId, TActorId> | undefined>
 ): TileBehavior<TTileId, TActorId> | undefined {
-  const phases: Partial<Record<TileLifecyclePhase, TileLifecycleHandler<TTileId, TActorId>>> = {};
-  let hasPhase = false;
-  for (const behavior of behaviors) {
-    if (!behavior) {
-      continue;
-    }
-    Object.assign(phases, behavior.phases);
-    hasPhase ||= Object.keys(behavior.phases).length > 0;
-  }
-  return hasPhase ? createTileBehavior(phases) : undefined;
+  const hooks = composeTileLifecycleHooks(...behaviors.map((behavior) => behavior?.hooks));
+  return hooks ? createTileBehavior(hooks) : undefined;
 }
 
 export function composeActorBehaviors<TTileId extends number = number, TActorId extends number = number>(
   ...behaviors: ReadonlyArray<ActorBehavior<TTileId, TActorId> | undefined>
 ): ActorBehavior<TTileId, TActorId> | undefined {
-  const phases: Partial<Record<ActorLifecyclePhase, ActorLifecycleHandler<TTileId, TActorId>>> = {};
-  let hasPhase = false;
-  for (const behavior of behaviors) {
-    if (!behavior) {
-      continue;
-    }
-    Object.assign(phases, behavior.phases);
-    hasPhase ||= Object.keys(behavior.phases).length > 0;
-  }
-  return hasPhase ? createActorBehavior(phases) : undefined;
+  const hooks = composeActorLifecycleHooks(...behaviors.map((behavior) => behavior?.hooks));
+  return hooks ? createActorBehavior(hooks) : undefined;
 }
 
 export function lookupTileBehaviorPhase<TTileId extends number = number, TActorId extends number = number>(
@@ -231,11 +261,25 @@ export function lookupTileBehaviorPhase<TTileId extends number = number, TActorI
   return behavior.phases[phase] ?? null;
 }
 
+export function lookupTileBehaviorHook<TTileId extends number = number, TActorId extends number = number>(
+  behavior: TileBehavior<TTileId, TActorId>,
+  hook: TileLifecycleHookName,
+): TileBehavior<TTileId, TActorId>["hooks"][typeof hook] | null {
+  return lookupTileLifecycleHook(behavior.hooks, hook);
+}
+
 export function lookupActorBehaviorPhase<TTileId extends number = number, TActorId extends number = number>(
   behavior: ActorBehavior<TTileId, TActorId>,
   phase: ActorLifecyclePhase,
 ): ActorLifecycleHandler<TTileId, TActorId> | null {
   return behavior.phases[phase] ?? null;
+}
+
+export function lookupActorBehaviorHook<TTileId extends number = number, TActorId extends number = number>(
+  behavior: ActorBehavior<TTileId, TActorId>,
+  hook: ActorLifecycleHookName,
+): ActorBehavior<TTileId, TActorId>["hooks"][typeof hook] | null {
+  return lookupActorLifecycleHook(behavior.hooks, hook);
 }
 
 export type TileTag =

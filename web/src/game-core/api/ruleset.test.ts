@@ -6,8 +6,12 @@ import {
   createActorBehavior,
   createRulesetCatalog,
   createTileBehavior,
+  lookupActorBehaviorHook,
   lookupActorBehaviorPhase,
+  lookupTileBehaviorHook,
   lookupTileBehaviorPhase,
+  type ActorLifecycleHooks,
+  type TileLifecycleHooks,
 } from "@game-core/api/ruleset";
 
 describe("ruleset behavior registration", () => {
@@ -108,6 +112,20 @@ describe("ruleset behavior registration", () => {
     expect(lookupTileBehaviorPhase(behavior!, "complete-exit")).toBe(afterLeave);
   });
 
+  it("accepts named tile lifecycle hooks and exposes both hook and phase lookups", () => {
+    const tileHooks = {
+      startEnter: vi.fn(),
+      finishExit: vi.fn(),
+    } as const satisfies Partial<TileLifecycleHooks<number, number>>;
+
+    const behavior = createTileBehavior(tileHooks);
+
+    expect(lookupTileBehaviorHook(behavior, "startEnter")).toBe(tileHooks.startEnter);
+    expect(lookupTileBehaviorPhase(behavior, "begin-enter")).toBe(tileHooks.startEnter);
+    expect(lookupTileBehaviorHook(behavior, "finishExit")).toBe(tileHooks.finishExit);
+    expect(lookupTileBehaviorPhase(behavior, "complete-exit")).toBe(tileHooks.finishExit);
+  });
+
   it("composes multiple actor behaviors into one phase map", () => {
     const heldFloor = vi.fn();
     const trapRelease = vi.fn();
@@ -119,5 +137,19 @@ describe("ruleset behavior registration", () => {
 
     expect(lookupActorBehaviorPhase(behavior!, "held-floor")).toBe(heldFloor);
     expect(lookupActorBehaviorPhase(behavior!, "trap-release")).toBe(trapRelease);
+  });
+
+  it("accepts named actor lifecycle hooks and exposes both hook and phase lookups", () => {
+    const actorHooks = {
+      heldFloor: vi.fn(),
+      trapRelease: vi.fn(),
+    } as const satisfies Partial<ActorLifecycleHooks<number, number>>;
+
+    const behavior = createActorBehavior(actorHooks);
+
+    expect(lookupActorBehaviorHook(behavior, "heldFloor")).toBe(actorHooks.heldFloor);
+    expect(lookupActorBehaviorPhase(behavior, "held-floor")).toBe(actorHooks.heldFloor);
+    expect(lookupActorBehaviorHook(behavior, "trapRelease")).toBe(actorHooks.trapRelease);
+    expect(lookupActorBehaviorPhase(behavior, "trap-release")).toBe(actorHooks.trapRelease);
   });
 });

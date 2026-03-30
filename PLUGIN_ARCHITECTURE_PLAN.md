@@ -261,15 +261,15 @@ Targets:
 
 Checklist:
 
-- [ ] define tile lifecycle hook interfaces with `testEnter/startEnter/finishEnter/testExit/finishExit/support/activate/tick`
-- [ ] define actor lifecycle hook interfaces with `testMove/startMove/finishMove/blockedMove/collision/arrival/support`
-- [ ] define narrow context types so handlers do not receive giant bags of unrelated arguments
-- [ ] add defaults/null-object helpers so elements only implement the hooks they need
+- [x] define tile lifecycle hook interfaces with `testEnter/startEnter/finishEnter/testExit/finishExit/support/activate/tick`
+- [x] define actor lifecycle hook interfaces with `testMove/startMove/finishMove/blockedMove/collision/arrival/support`
+- [x] define narrow context types so handlers do not receive giant bags of unrelated arguments
+- [x] add defaults/null-object helpers so elements only implement the hooks they need
 
 Tests:
 
-- [ ] type-level registration tests
-- [ ] architecture tests proving engines depend on lifecycle dispatch, not concrete element modules
+- [x] type-level registration tests
+- [x] architecture tests proving engines depend on lifecycle dispatch, not concrete element modules
 
 ### PA12: Add Dispatch Registries And Adapters
 
