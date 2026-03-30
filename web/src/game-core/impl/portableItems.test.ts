@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   activatePortableItemFamily,
   carriedPortableItemForFamily,
+  createPortableItemFamilyDefinition,
   createPortableItemFamilyLifecycle,
   collectPortableItemsFromLayers,
   createPortableItem,
@@ -278,5 +279,22 @@ describe("portableItems", () => {
     expect(lifecycle.detachToDrop(store, inventory, 1, 13, 2)).toBe(true);
     lifecycle.settleDrop(store, inventory, 13, 2, { destroy: true });
     expect(findPortableItemBySerial(store.portableItems, 1)).toBeUndefined();
+  });
+
+  it("bundles lifecycle and Action1 behavior into one family definition", () => {
+    const applyAction1 = () => true;
+    const family = createPortableItemFamilyDefinition(
+      SANDBAG_POLICY,
+      {
+        settleDrop: () => "mapped",
+      },
+      {
+        applyAction1,
+      },
+    );
+
+    expect(family.policy).toBe(SANDBAG_POLICY);
+    expect(family.lifecycle.primeDrop).toBeTypeOf("function");
+    expect(family.applyAction1).toBe(applyAction1);
   });
 });

@@ -7,7 +7,7 @@ import {
   type BowlingBallState,
 } from "@game-core/impl/bowlingBall";
 import {
-  createPortableItemFamilyLifecycle,
+  createPortableItemFamilyDefinition,
   collectPortableItemsFromLayers,
   createPortableItem,
   findPortableItemBySerial,
@@ -18,6 +18,7 @@ import {
   type PortableItemDetachedState,
   type PortableItemDropProjection,
   type PortableItemFamilyDescriptor,
+  type PortableItemFamilyDefinition,
   type PortableItemFamilyLifecycle,
   type PortableItemFamilyPolicy,
   type PortableItemMapState,
@@ -25,7 +26,7 @@ import {
   type PortableItemStore,
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import { msIsOverlayFloorTile } from "@ruleset-ms/impl/catalog";
 import type { MsPortableItemFamily } from "@ruleset-ms/impl/catalogTiles";
 import {
@@ -58,6 +59,15 @@ export interface MsPortableToolStateStore extends PortableItemStore<MsPortableIt
   primedToolDrop: MsPrimedToolDrop | null;
   pendingToolDropAfterSettle: MsPrimedToolDrop | null;
 }
+
+type MsPortableToolDefinition = PortableItemFamilyDefinition<
+  MsPortableItemFamily,
+  "tools",
+  MsPortableItemState,
+  MsPortableItem,
+  MsToolInventoryProjection,
+  MsPortableItemSettleContext
+>;
 
 function identifyMsPortableItem(tileId: number): PortableItemFamilyDescriptor<MsPortableItemFamily, MsPortableInventorySlot> | null {
   const familyRegistration = lookupMsPortableItemFamilyRegistrationByTileId(tileId);
@@ -160,33 +170,6 @@ function createMsBowlingBallPortableItemPolicy(): PortableItemFamilyPolicy<
   };
 }
 
-const MS_PORTABLE_ITEM_POLICIES = {
-  sandbag: createMsPortableItemPolicy("sandbag"),
-  hook: createMsPortableItemPolicy("hook"),
-  "bowling-ball": createMsBowlingBallPortableItemPolicy(),
-} as const satisfies Record<
-  MsPortableItemFamily,
-  PortableItemFamilyPolicy<
-    MsPortableItemFamily,
-    "tools",
-    MsPortableItemState,
-    PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
-    MsToolInventoryProjection
-  >
->;
-
-function msPortableItemPolicyForFamily(
-  family: MsPortableItemFamily,
-): PortableItemFamilyPolicy<
-  MsPortableItemFamily,
-  "tools",
-  MsPortableItemState,
-  PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
-  MsToolInventoryProjection
-> {
-  return MS_PORTABLE_ITEM_POLICIES[family];
-}
-
 interface MsPortableItemSettleContext {
   cells: EngineMapCell[];
   pos: number;
@@ -201,69 +184,76 @@ function settleMsPortableItemDrop(item: MsPortableItem, context: MsPortableItemS
   return "mapped";
 }
 
-const MS_PORTABLE_ITEM_LIFECYCLES = {
-  sandbag: createPortableItemFamilyLifecycle<
-    MsPortableItemFamily,
-    "tools",
-    MsPortableItemState,
-    PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
-    MsToolInventoryProjection,
-    MsPortableItemSettleContext
-  >(MS_PORTABLE_ITEM_POLICIES.sandbag, {
-    settleDrop: settleMsPortableItemDrop,
-  }),
-  hook: createPortableItemFamilyLifecycle<
-    MsPortableItemFamily,
-    "tools",
-    MsPortableItemState,
-    PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
-    MsToolInventoryProjection,
-    MsPortableItemSettleContext
-  >(MS_PORTABLE_ITEM_POLICIES.hook, {
-    settleDrop: settleMsPortableItemDrop,
-  }),
-  "bowling-ball": createPortableItemFamilyLifecycle<
-    MsPortableItemFamily,
-    "tools",
-    MsPortableItemState,
-    MsPortableItem,
-    MsToolInventoryProjection,
-    MsPortableItemSettleContext
-  >(MS_PORTABLE_ITEM_POLICIES["bowling-ball"], {
-    settleDrop: settleMsPortableItemDrop,
-    activateItem: (item) => {
-      if (item.family === "bowling-ball" && item.bowlingBallState) {
+function createMsStandardPortableItemDefinition(
+  family: MsStandardPortableItemFamily,
+  applyAction1: MsPortableToolDefinition["applyAction1"],
+): MsPortableToolDefinition {
+  const policy = createMsPortableItemPolicy(family);
+  return createPortableItemFamilyDefinition(
+    policy,
+    {
+      settleDrop: settleMsPortableItemDrop,
+    },
+    {
+      applyAction1,
+    },
+  );
+}
+
+function createMsBowlingBallPortableItemDefinition(): MsPortableToolDefinition {
+  const policy = createMsBowlingBallPortableItemPolicy();
+  return createPortableItemFamilyDefinition(
+    policy,
+    {
+      settleDrop: settleMsPortableItemDrop,
+      activateItem: (item: MsBowlingBallPortableItem) => {
         setBowlingBallMode(item.bowlingBallState, "moving");
-      }
-    },
-    detachItemToMap: (item) => {
-      if (item.family === "bowling-ball" && item.bowlingBallState) {
+      },
+      detachItemToMap: (item: MsBowlingBallPortableItem) => {
         setBowlingBallMode(item.bowlingBallState, "still");
-      }
-    },
-    detachItemToDrop: (item) => {
-      if (item.family === "bowling-ball" && item.bowlingBallState) {
+      },
+      detachItemToDrop: (item: MsBowlingBallPortableItem) => {
         setBowlingBallMode(item.bowlingBallState, "still");
-      }
+      },
+      cloneItem: (item: MsBowlingBallPortableItem, serial) => ({
+        ...item,
+        serial,
+        state: { ...item.state },
+        bowlingBallState: cloneBowlingBallState(item.bowlingBallState),
+      }),
     },
-    cloneItem: (item, serial) => ({
-      ...item,
-      serial,
-      state: { ...item.state },
-      bowlingBallState: item.bowlingBallState ? cloneBowlingBallState(item.bowlingBallState) : undefined,
-    }),
-  }),
-} as const satisfies Record<
+    {
+      applyAction1: ({ carried, chipDir, hasPrimedDrop, throwMovingItem }) => {
+        if (hasPrimedDrop || chipDir === MS_DIRECTION.none) {
+          return false;
+        }
+        return throwMovingItem(carried, chipDir);
+      },
+    },
+  ) as MsPortableToolDefinition;
+}
+
+const MS_PORTABLE_ITEM_FAMILIES = {
+  sandbag: createMsStandardPortableItemDefinition("sandbag", ({ primeDrop }) => primeDrop()),
+  hook: createMsStandardPortableItemDefinition("hook", () => false),
+  "bowling-ball": createMsBowlingBallPortableItemDefinition(),
+} as const satisfies Record<MsPortableItemFamily, MsPortableToolDefinition>;
+
+export function msPortableItemDefinitionForFamily(family: MsPortableItemFamily): MsPortableToolDefinition {
+  return MS_PORTABLE_ITEM_FAMILIES[family];
+}
+
+function msPortableItemPolicyForFamily(
+  family: MsPortableItemFamily,
+): PortableItemFamilyPolicy<
   MsPortableItemFamily,
-  PortableItemFamilyLifecycle<
-    MsPortableItemFamily,
-    "tools",
-    MsPortableItemState,
-    PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
-    MsToolInventoryProjection,
-    MsPortableItemSettleContext
-  >
->;
+  "tools",
+  MsPortableItemState,
+  PortableItemBase<MsPortableItemFamily, "tools", MsPortableItemState>,
+  MsToolInventoryProjection
+> {
+  return msPortableItemDefinitionForFamily(family).policy;
+}
 
 function msPortableItemPolicyForTileId(
   tileId: number,
@@ -288,7 +278,7 @@ function msPortableItemLifecycleForFamily(
   MsToolInventoryProjection,
   MsPortableItemSettleContext
 > {
-  return MS_PORTABLE_ITEM_LIFECYCLES[family];
+  return msPortableItemDefinitionForFamily(family).lifecycle;
 }
 
 function msPortableItemLifecycleForTileId(

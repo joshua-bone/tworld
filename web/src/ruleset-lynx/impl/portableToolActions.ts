@@ -1,8 +1,8 @@
-import { MS_DIRECTION } from "@ruleset-ms/api/tiles";
 import {
   carriedLynxPortableToolItem,
-  primeLynxToolDrop,
   primedLynxPortableToolItem,
+  primeLynxToolDrop,
+  lynxPortableItemDefinitionForFamily,
   type LynxPortableItem,
   type LynxPortableToolStateStore,
   type LynxToolInventoryProjection,
@@ -23,17 +23,17 @@ export function applyLynxPortableToolAction(context: LynxPortableToolActionConte
     return false;
   }
 
-  if (carried.family === "hook") {
-    return false;
-  }
-
-  if (carried.family !== "bowling-ball") {
-    return primeLynxToolDrop(context.store, context.inventory, context.chipPos, context.chipZ);
-  }
-
-  if (primedLynxPortableToolItem(context.store) || context.chipDir === MS_DIRECTION.none) {
-    return false;
-  }
-
-  return context.tryThrowBowlingBall(carried, context.chipDir);
+  return (
+    lynxPortableItemDefinitionForFamily(carried.family).applyAction1?.({
+      store: context.store,
+      inventory: context.inventory,
+      carried,
+      chipPos: context.chipPos,
+      chipZ: context.chipZ,
+      chipDir: context.chipDir,
+      hasPrimedDrop: primedLynxPortableToolItem(context.store) !== undefined,
+      primeDrop: () => primeLynxToolDrop(context.store, context.inventory, context.chipPos, context.chipZ),
+      throwMovingItem: (item, dir) => context.tryThrowBowlingBall(item, dir),
+    }) ?? false
+  );
 }

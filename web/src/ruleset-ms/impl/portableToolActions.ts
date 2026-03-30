@@ -1,8 +1,8 @@
-import { MS_DIRECTION } from "@ruleset-ms/api/tiles";
 import {
   carriedMsPortableToolItem,
-  primeMsToolDrop,
   primedMsPortableToolItem,
+  primeMsToolDrop,
+  msPortableItemDefinitionForFamily,
   type MsPortableItem,
   type MsPortableToolStateStore,
   type MsToolInventoryProjection,
@@ -23,17 +23,17 @@ export function applyMsPortableToolAction(context: MsPortableToolActionContext):
     return false;
   }
 
-  if (carried.family === "hook") {
-    return false;
-  }
-
-  if (carried.family !== "bowling-ball") {
-    return primeMsToolDrop(context.store, context.inventory, context.chipPos, context.chipZ);
-  }
-
-  if (primedMsPortableToolItem(context.store) || context.chipDir === MS_DIRECTION.none) {
-    return false;
-  }
-
-  return context.tryThrowBowlingBall(carried, context.chipDir);
+  return (
+    msPortableItemDefinitionForFamily(carried.family).applyAction1?.({
+      store: context.store,
+      inventory: context.inventory,
+      carried,
+      chipPos: context.chipPos,
+      chipZ: context.chipZ,
+      chipDir: context.chipDir,
+      hasPrimedDrop: primedMsPortableToolItem(context.store) !== undefined,
+      primeDrop: () => primeMsToolDrop(context.store, context.inventory, context.chipPos, context.chipZ),
+      throwMovingItem: (item, dir) => context.tryThrowBowlingBall(item, dir),
+    }) ?? false
+  );
 }

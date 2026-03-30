@@ -177,6 +177,68 @@ export interface PortableItemFamilyLifecycle<
   ): void;
 }
 
+export interface PortableItemAction1Context<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+> {
+  store: PortableItemStore<TItem>;
+  inventory: TInventoryProjection;
+  carried: TItem;
+  chipPos: number;
+  chipZ: number;
+  chipDir: number;
+  hasPrimedDrop: boolean;
+  primeDrop(): boolean;
+  throwMovingItem(item: TItem, dir: number): boolean;
+}
+
+export type PortableItemAction1Handler<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+> = (context: PortableItemAction1Context<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>) => boolean;
+
+export interface PortableItemFamilyDefinition<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+  TSettleContext,
+> {
+  readonly policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>;
+  readonly lifecycle: PortableItemFamilyLifecycle<
+    TFamily,
+    TInventorySlot,
+    TState,
+    TItem,
+    TInventoryProjection,
+    TSettleContext
+  >;
+  readonly applyAction1?: PortableItemAction1Handler<
+    TFamily,
+    TInventorySlot,
+    TState,
+    TItem,
+    TInventoryProjection
+  >;
+}
+
+export interface PortableItemFamilyDefinitionOptions<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+> {
+  applyAction1?: PortableItemAction1Handler<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>;
+}
+
 type PortableItemRecord = PortableItemBase<string, string, { mode: string }>;
 
 export function collectPortableItemsFromLayers<TFamily extends string, TInventorySlot extends string, TItem>(
@@ -868,5 +930,30 @@ export function createPortableItemFamilyLifecycle<
     clone: (store, inventory, serial) => clonePortableItemFamily(store, inventory, policy, serial, hooks.cloneItem),
     settleDrop: (store, inventory, pos, z, context) =>
       settlePortableItemFamilyDrop(store, inventory, policy, pos, z, (item) => hooks.settleDrop(item, context)),
+  };
+}
+
+export function createPortableItemFamilyDefinition<
+  TFamily extends string,
+  TInventorySlot extends string,
+  TState extends { mode: string },
+  TItem extends PortableItemBase<TFamily, TInventorySlot, TState>,
+  TInventoryProjection,
+  TSettleContext,
+>(
+  policy: PortableItemFamilyPolicy<TFamily, TInventorySlot, TState, TItem, TInventoryProjection>,
+  hooks: PortableItemLifecycleHooks<TFamily, TInventorySlot, TState, TItem, TSettleContext>,
+  options: PortableItemFamilyDefinitionOptions<
+    TFamily,
+    TInventorySlot,
+    TState,
+    TItem,
+    TInventoryProjection
+  > = {},
+): PortableItemFamilyDefinition<TFamily, TInventorySlot, TState, TItem, TInventoryProjection, TSettleContext> {
+  return {
+    policy,
+    lifecycle: createPortableItemFamilyLifecycle(policy, hooks),
+    applyAction1: options.applyAction1,
   };
 }
