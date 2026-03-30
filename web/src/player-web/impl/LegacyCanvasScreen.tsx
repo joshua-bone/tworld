@@ -97,6 +97,10 @@ function drawLegacyTilesLoadingPlaceholder(
   drawLegacyText(context, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, LEGACY_COLORS.text);
 }
 
+export function shouldBypassLegacyFrameDrawMemo(session: InteractiveGameSession | null): boolean {
+  return (session?.frame.visibleLayers.length ?? 0) > 1;
+}
+
 export function LegacyCanvasScreen({
   className,
   mode,
@@ -312,8 +316,9 @@ export function LegacyCanvasScreen({
         tileset !== null,
         visualEnhancementsEnabled,
       );
+      const shouldRedrawUnconditionally = shouldBypassLegacyFrameDrawMemo(activeSession);
 
-      if (drawStateKey !== lastDrawStateKey) {
+      if (shouldRedrawUnconditionally || drawStateKey !== lastDrawStateKey) {
         measurePerfSync("renderMs", () => {
           drawFrame(context, activeSession);
         });
