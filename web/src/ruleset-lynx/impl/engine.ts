@@ -2108,14 +2108,19 @@ function queuePendingLynxBlockPush(
   targetPos: number,
   dir: number,
 ): void {
+  const normalizedDir = normalizeDirection(dir);
+  if (normalizedDir === 0) {
+    return;
+  }
+
   const block = findLynxBlockActor(actors, targetPos, activeLynxLayerZ(state));
   if (!block || block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return;
   }
 
   block.dormant = false;
-  block.intentDir = dir;
-  block.dir = dir;
+  block.intentDir = normalizedDir;
+  block.dir = normalizedDir;
   block.pushed = !isLynxHeldOpenTrapBlock(state, level, actors, block);
 }
 
@@ -3125,6 +3130,11 @@ function tryPushLynxBlock(
   pos: number,
   dir: number,
 ): boolean {
+  const normalizedDir = normalizeDirection(dir);
+  if (normalizedDir === 0) {
+    return false;
+  }
+
   const block = findLynxBlockActor(actors, pos, activeLynxLayerZ(state));
   if (!block || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return false;
@@ -3137,10 +3147,10 @@ function tryPushLynxBlock(
   block.dormant = false;
   if (
     !movementDidSucceed(
-      startLynxRuntimeActorMovement(state, actors, block, dir, heldOpenTrapRelease),
+      startLynxRuntimeActorMovement(state, actors, block, normalizedDir, heldOpenTrapRelease),
     )
   ) {
-    block.dir = dir;
+    block.dir = normalizedDir;
     block.hidden = wasHidden;
     block.dormant = wasDormant;
     return false;

@@ -3233,6 +3233,55 @@ describe("runLynxInputTrace", () => {
     expect(session.state.inventory.tools).toEqual([MS_TILE.Hook]);
   });
 
+  it("keeps the forward pushed block animated when Chip also tugs a rear block", () => {
+    const chipPos = 330;
+    const eastPos = 331;
+    const east2Pos = 332;
+    const westPos = 329;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(westPos, MS_TILE.Block_Static, MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Block_Static, MS_TILE.Empty),
+        createCell(east2Pos, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Hook];
+    const runtime = lynxRuntimeStateForTest(session.state);
+    runtime.portableTools.portableItems.push({
+      serial: runtime.portableTools.nextPortableItemSerial,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    runtime.portableTools.nextPortableItemSerial += 1;
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.east, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const frontBlock = session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden && actor.pos === east2Pos);
+    const rearBlock = session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden && actor.pos === chipPos);
+
+    expect(session.chipPos).toBe(eastPos);
+    expect(session.chipMoving).toBe(6);
+    expect(frontBlock).toMatchObject({
+      pos: east2Pos,
+      dir: MS_DIRECTION.east,
+      moving: 6,
+      frame: 3,
+    });
+    expect(rearBlock).toMatchObject({
+      pos: chipPos,
+      dir: MS_DIRECTION.east,
+      moving: 6,
+      frame: 3,
+    });
+  });
+
   it("does not tug through a thin wall on Chip's tile", () => {
     const chipPos = 33;
     const westPos = 32;
