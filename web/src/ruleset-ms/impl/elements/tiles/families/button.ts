@@ -14,7 +14,7 @@ export function createMsButtonTileFamily(options: MsButtonTileFamilyOptions): Ms
     name: options.name,
     tileIds: options.tileIds,
     policy: (id) => ({
-      tags: ["button"],
+      tags: ["walkable", "button"],
       capabilities: ["trigger-on-entry", "trigger-on-leave"],
       hooks: ["after-enter", "after-leave"],
       chipMovementMask: MS_FULL_MOVEMENT_MASK,

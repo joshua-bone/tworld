@@ -12,7 +12,7 @@ export function createMsDoorTileFamily(options: MsDoorTileFamilyOptions): MsTile
     name: options.name,
     tileIds: options.tileIds,
     policy: (id) => ({
-      tags: ["door"],
+      tags: ["walkable", "door"],
       chipMovementMask: MS_FULL_MOVEMENT_MASK,
       creatureMovementMask: 0,
       blockMovementMask: 0,

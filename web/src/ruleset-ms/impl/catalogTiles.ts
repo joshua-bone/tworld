@@ -97,6 +97,7 @@ const ACTOR_TILE_IDS = [
   MS_TILE.Paramecium,
   MS_TILE.Swimming_Chip,
   MS_TILE.Pushing_Chip,
+  MS_TILE.BowlingBall,
 ] as const;
 
 const ENTRY_MASK_BY_TILE = new Map<number, number>([
@@ -166,6 +167,7 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
   createMsFloorTileFamily({
     name: "floor",
     tileIds: [MS_TILE.Empty],
+    chipEnterAction: "clear-floor",
   }),
   createMsFloorTileFamily({
     name: "gravel",
@@ -187,7 +189,6 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
   createMsAirTileFamily({
     name: "elevator",
     tileIds: [MS_TILE.Elevator],
-    capabilities: ["forces-movement"],
     forcedFloorKind: "elevator",
   }),
   createMsFloorTileFamily({
@@ -223,6 +224,7 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
     name: "burglar",
     tileIds: [MS_TILE.Burglar],
     capabilities: ["trigger-on-entry"],
+    hooks: ["after-enter"],
     chipEnterAction: "steal-boots",
     creatureMovementMask: 0,
     blockMovementMask: 0,
@@ -237,6 +239,7 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
     tileIds: [MS_TILE.Socket],
     tags: ["socket"],
     capabilities: ["trigger-on-entry"],
+    hooks: ["after-enter"],
     chipEnterAction: "open-socket",
     creatureMovementMask: 0,
     blockMovementMask: 0,
@@ -246,6 +249,7 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
     tileIds: [MS_TILE.Exit],
     tags: ["exit"],
     capabilities: ["trigger-on-entry"],
+    hooks: ["after-enter"],
     creatureMovementMask: 0,
   }),
   createMsFloorTileFamily({
@@ -371,6 +375,7 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
   createMsWallTileFamily({
     name: "partial-walls",
     tileIds: [MS_TILE.Wall_North, MS_TILE.Wall_West, MS_TILE.Wall_South, MS_TILE.Wall_East, MS_TILE.Wall_Southeast],
+    tags: ["walkable"],
     chipMovementMask: (id) => ENTRY_MASK_BY_TILE.get(id) ?? 0,
     creatureMovementMask: (id) => ENTRY_MASK_BY_TILE.get(id) ?? 0,
     blockMovementMask: (id) => ENTRY_MASK_BY_TILE.get(id) ?? 0,
@@ -379,6 +384,7 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
   createMsWallTileFamily({
     name: "reveal-walls",
     tileIds: [MS_TILE.HiddenWall_Temp, MS_TILE.BlueWall_Real],
+    tags: ["walkable"],
     chipMovementMask: MS_FULL_MOVEMENT_MASK,
   }),
   createMsWallTileFamily({

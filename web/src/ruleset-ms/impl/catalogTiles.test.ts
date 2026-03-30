@@ -23,12 +23,17 @@ import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 describe("MS catalog tile families", () => {
   it("surfaces tags and capabilities for terrain, pickups, and buttons", () => {
     expect(msTileHasTag(MS_TILE.Button_Red, "button")).toBe(true);
+    expect(msTileHasTag(MS_TILE.Button_Red, "walkable")).toBe(true);
     expect(msTileHasTag(MS_TILE.Door_Blue, "door")).toBe(true);
+    expect(msTileHasTag(MS_TILE.Door_Blue, "walkable")).toBe(true);
     expect(msTileHasTag(MS_TILE.Key_Green, "collectible")).toBe(true);
+    expect(msTileHasTag(MS_TILE.Key_Green, "walkable")).toBe(true);
     expect(msTileHasTag(MS_TILE.Boots_Fire, "boots")).toBe(true);
     expect(msTileHasTag(MS_TILE.Teleport, "teleport")).toBe(true);
     expect(msTileHasTag(MS_TILE.Air, "walkable")).toBe(true);
     expect(msTileHasTag(MS_TILE.Cloud, "walkable")).toBe(true);
+    expect(msTileHasTag(MS_TILE.Wall_East, "walkable")).toBe(true);
+    expect(msTileHasTag(MS_TILE.HiddenWall_Temp, "walkable")).toBe(true);
     expect(msTileHasTag(MS_TILE.Beartrap, "trap")).toBe(true);
     expect(msTileHasTag(MS_TILE.CloneMachine, "cloner")).toBe(true);
     expect(msTileHasTag(MS_TILE.Ice, "ice")).toBe(true);
@@ -36,6 +41,7 @@ describe("MS catalog tile families", () => {
     expect(msTileHasCapability(MS_TILE.Key_Red, "collect-on-entry")).toBe(true);
     expect(msTileHasCapability(MS_TILE.Teleport, "forces-movement")).toBe(true);
     expect(msTileHasCapability(MS_TILE.Air, "forces-movement")).toBe(true);
+    expect(msTileHasCapability(MS_TILE.Elevator, "forces-movement")).toBe(false);
     expect(msTileHasCapability(MS_TILE.Bomb, "kills-on-entry")).toBe(true);
   });
 
@@ -68,8 +74,10 @@ describe("MS catalog tile families", () => {
   });
 
   it("provides chip-entry, button, forced-floor, and exit policy helpers", () => {
+    expect(msChipEnterAction(MS_TILE.Empty)).toBe("clear-floor");
     expect(msChipEnterAction(MS_TILE.Key_Red)).toBe("collect-item");
     expect(msChipEnterAction(MS_TILE.BowlingBall_Still)).toBe("collect-item");
+    expect(msChipEnterAction(MS_TILE.BowlingBall)).toBe("collision");
     expect(msChipEnterAction(MS_TILE.Bomb)).toBe("explode-bomb");
     expect(msChipEnterAction(MS_TILE.Water)).toBe("water-death");
     expect(msChipEnterAction(MS_TILE.Fire)).toBe("fire-death");

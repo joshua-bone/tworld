@@ -20,7 +20,7 @@ export function createMsPickupTileFamily(options: MsPickupTileFamilyOptions): Ms
     name: options.name,
     tileIds: options.tileIds,
     policy: (id) => ({
-      tags: options.tags ?? [],
+      tags: ["walkable", ...(options.tags ?? [])],
       capabilities: ["collect-on-entry"],
       chipMovementMask: MS_FULL_MOVEMENT_MASK,
       creatureMovementMask: options.creatureMovementMask ?? 0,

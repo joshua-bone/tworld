@@ -82,7 +82,8 @@ export function applyLynxChipArrivalEffects(
     const enteredTileId = cell.top.id;
     const topStateBeforeResolution = cell.top.state;
     let continueIntoRevealedLowerTile = false;
-    const beginEnter = lookupTileBehaviorPhase(lynxRulesetCatalog.getTileBehavior(enteredTileId)!, "begin-enter");
+    const tileBehavior = lynxRulesetCatalog.getTileBehavior(enteredTileId);
+    const beginEnter = tileBehavior === undefined ? null : lookupTileBehaviorPhase(tileBehavior, "begin-enter");
     if (beginEnter === null) {
       break;
     }

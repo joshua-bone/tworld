@@ -45,7 +45,8 @@ export function applyMsChipEnterEffects(
     const floor = floorTileBeforeMove.id;
     const topIdBeforeResolution = nextCell.top.id;
     const topStateBeforeResolution = nextCell.top.state;
-    const beginEnter = lookupTileBehaviorPhase(msRulesetCatalog.getTileBehavior(floor)!, "begin-enter");
+    const tileBehavior = msRulesetCatalog.getTileBehavior(floor);
+    const beginEnter = tileBehavior === undefined ? null : lookupTileBehaviorPhase(tileBehavior, "begin-enter");
     if (beginEnter !== null) {
       const behaviorContext: MsChipEnterTileBehaviorContext = {
         phase: "begin-enter",
