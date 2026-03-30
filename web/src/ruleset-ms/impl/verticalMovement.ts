@@ -5,10 +5,10 @@ import { type ActorLocalInventoryOwner } from "@game-core/impl/actorLocalInvento
 import { bottomTile, bottomTileIdOr, topTile } from "@game-core/impl/board";
 import { normalizeCardinalDirection as normalizeDirection } from "@game-core/impl/grid";
 import {
-  msActorSupportFamilyHooks,
   msIsOverlayFloorTile,
   msTileForcedFloorKind,
 } from "@ruleset-ms/impl/catalog";
+import { msActorSupportHooksFromBehavior } from "@ruleset-ms/impl/actorBehavior";
 import { projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import {
   resolveMsTileSupportBelow,
@@ -50,7 +50,7 @@ function msVerticalSupportSubject(
   inventoryOwner: ActorLocalInventoryOwner | null,
 ): MsVerticalSupportSubject {
   return {
-    airHook: msActorSupportFamilyHooks(actorId).airHook,
+    supportHooks: msActorSupportHooksFromBehavior(actorId),
     inventoryOwner,
   };
 }

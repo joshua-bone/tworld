@@ -159,7 +159,7 @@ export function resolveMsTileSupportBelow(
   const bottomId = cell.bottom.id;
   const topActorId = topId === MS_TILE.Block_Static ? MS_TILE.Block : isMsCreature(topId) ? msCreatureId(topId) : null;
 
-  if (actorUsesChipSupport(subject.airHook)) {
+  if (actorUsesChipSupport(subject.supportHooks.airHook)) {
     if (topActorId === MS_TILE.Block) {
       context.addTileOverlay(currentZ, pos, "support");
       return VERTICAL_SUPPORT_RESULT.supported;

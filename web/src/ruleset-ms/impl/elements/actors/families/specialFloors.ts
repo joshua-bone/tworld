@@ -4,8 +4,10 @@ import {
   actorClonerClonesFamilyRuntime,
   actorClonerExitStartsMovement,
   actorClonerFamilyHooks,
+  actorSupportFamilyHooks,
   actorTrapFamilyHooks,
   actorTrapReleaseStartsMovement,
+  type ActorSupportFamilyHooks,
   type ActorClonerBlockedCollisionBehavior,
   type ActorClonerEntryBehavior,
 } from "@game-core/api/actorSpecialFloorHooks";
@@ -30,6 +32,10 @@ export interface MsActorClonerCloneBehaviorContext extends ActorBehaviorContext<
   cloneFamilyRuntime: boolean;
 }
 
+export interface MsActorSupportBehaviorContext extends ActorBehaviorContext<number, number> {
+  supportHooks: ActorSupportFamilyHooks;
+}
+
 function heldFloorOutcome(
   capabilities: ActorCapabilityPolicy,
   tileId: number | undefined,
@@ -48,25 +54,29 @@ export function createMsSpecialFloorActorBehavior(
 ): ActorBehavior<number, number> | undefined {
   const trapHooks = actorTrapFamilyHooks(capabilities);
   const clonerHooks = actorClonerFamilyHooks(capabilities);
+  const supportHooks = actorSupportFamilyHooks(capabilities);
 
   return createActorBehavior({
-    "held-floor": (context) => {
+    heldFloor: (context) => {
       const behaviorContext = context as MsActorHeldFloorBehaviorContext;
       behaviorContext.heldFloorOutcome = heldFloorOutcome(capabilities, behaviorContext.tileId);
     },
-    "trap-release": (context) => {
+    trapRelease: (context) => {
       const behaviorContext = context as MsActorTrapReleaseBehaviorContext;
       behaviorContext.startsMovement = actorTrapReleaseStartsMovement(trapHooks);
     },
-    "cloner-entry": (context) => {
+    clonerEntry: (context) => {
       const behaviorContext = context as MsActorClonerEntryBehaviorContext;
       behaviorContext.entryBehavior = clonerHooks.entryBehavior;
       behaviorContext.blockedCollisionBehavior = clonerHooks.blockedCollisionBehavior;
     },
-    "cloner-clone": (context) => {
+    clonerClone: (context) => {
       const behaviorContext = context as MsActorClonerCloneBehaviorContext;
       behaviorContext.exitStartsMovement = actorClonerExitStartsMovement(clonerHooks);
       behaviorContext.cloneFamilyRuntime = actorClonerClonesFamilyRuntime(clonerHooks);
+    },
+    support: (context: ActorBehaviorContext<number, number>) => {
+      (context as MsActorSupportBehaviorContext).supportHooks = supportHooks;
     },
   });
 }

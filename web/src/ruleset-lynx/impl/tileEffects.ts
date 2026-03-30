@@ -156,7 +156,7 @@ export function resolveLynxTileSupportBelow(
   const actorBelow = context.findVisibleActorAt(pos, z);
   const topId = cell.top.id;
 
-  if (actorUsesChipSupport(subject.airHook)) {
+  if (actorUsesChipSupport(subject.supportHooks.airHook)) {
     if (actorBelow) {
       if (actorBelow.id === MS_TILE.Block) {
         context.addTileOverlay(currentZ, pos, "support");

@@ -6,9 +6,9 @@ import { addTopTileFlags, removeTopTileFlags, topTileIdOr } from "@game-core/imp
 import { normalizeCardinalDirection as normalizeDirection } from "@game-core/impl/grid";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
-  lynxActorSupportFamilyHooks,
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
+import { lynxActorSupportHooksFromBehavior } from "@ruleset-lynx/impl/actorBehavior";
 import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
 import {
   isLynxAirForcedFloor,
@@ -55,7 +55,7 @@ function lynxVerticalSupportSubject(
   inventoryOwner: ActorLocalInventoryOwner | null,
 ): LynxTileSupportSubject {
   return {
-    airHook: lynxActorSupportFamilyHooks(actorId).airHook,
+    supportHooks: lynxActorSupportHooksFromBehavior(actorId),
     inventoryOwner,
   };
 }

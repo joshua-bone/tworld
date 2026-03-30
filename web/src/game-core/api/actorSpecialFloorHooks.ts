@@ -35,6 +35,13 @@ export interface ActorSupportFamilyHooks {
   readonly fallingCollisionBehavior: ActorFallingCollisionBehavior;
 }
 
+export const DEFAULT_ACTOR_SUPPORT_FAMILY_HOOKS: ActorSupportFamilyHooks = {
+  airHook: "non-chip-support",
+  unsupportedOutcome: "fall",
+  supportLossOutcome: "fall",
+  fallingCollisionBehavior: "default",
+};
+
 function trapHeldFloorOutcome(hook: ActorTrapHook): ActorHeldFloorOutcome {
   return hook === "none" ? "none" : "hold-direction";
 }
@@ -62,10 +69,8 @@ export function actorClonerFamilyHooks(policy: ActorCapabilityPolicy): ActorClon
 
 export function actorSupportFamilyHooks(policy: ActorCapabilityPolicy): ActorSupportFamilyHooks {
   return {
+    ...DEFAULT_ACTOR_SUPPORT_FAMILY_HOOKS,
     airHook: policy.movement.airHook,
-    unsupportedOutcome: "fall",
-    supportLossOutcome: "fall",
-    fallingCollisionBehavior: "default",
   };
 }
 

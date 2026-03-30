@@ -1,8 +1,10 @@
+import { DEFAULT_ACTOR_SUPPORT_FAMILY_HOOKS, type ActorSupportFamilyHooks } from "@game-core/api/actorSpecialFloorHooks";
 import type { ActorHeldFloorOutcome } from "@game-core/api/actorInteractions";
 import {
   type MsActorClonerCloneBehaviorContext,
   type MsActorClonerEntryBehaviorContext,
   type MsActorHeldFloorBehaviorContext,
+  type MsActorSupportBehaviorContext,
   type MsActorTrapReleaseBehaviorContext,
 } from "@ruleset-ms/impl/elements/actors/families/specialFloors";
 import { lookupMsActorLifecyclePhase } from "@ruleset-ms/impl/actorLifecycleRegistration";
@@ -67,4 +69,18 @@ export function msActorClonerCloneBehavior(actorId: number): MsActorClonerCloneB
   }
   clonerClone(context);
   return context;
+}
+
+export function msActorSupportHooksFromBehavior(actorId: number): ActorSupportFamilyHooks {
+  const context: MsActorSupportBehaviorContext = {
+    phase: "support",
+    actorId,
+    supportHooks: DEFAULT_ACTOR_SUPPORT_FAMILY_HOOKS,
+  };
+  const support = lookupMsActorLifecyclePhase(actorId, "support");
+  if (support === null) {
+    return context.supportHooks;
+  }
+  support(context);
+  return context.supportHooks;
 }

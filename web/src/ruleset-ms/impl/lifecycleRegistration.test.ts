@@ -21,6 +21,7 @@ describe("MS lifecycle registration", () => {
   it("registers actor lifecycle handlers through the actor registry", () => {
     expect(getMsRegisteredActorLifecycleRegistry().behaviors.size).toBeGreaterThan(0);
     expect(lookupMsActorLifecyclePhase(MS_TILE.BowlingBall, "held-floor")).toBeTypeOf("function");
+    expect(lookupMsActorLifecyclePhase(MS_TILE.BowlingBall, "support")).toBeTypeOf("function");
     expect(lookupMsActorLifecyclePhase(msCreatureTile(MS_TILE.Glider, MS_DIRECTION.east), "trap-release")).toBeTypeOf(
       "function",
     );

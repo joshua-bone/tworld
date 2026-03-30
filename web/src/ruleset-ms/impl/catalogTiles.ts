@@ -419,7 +419,7 @@ function createMsTileDefinition(id: number): TileDefinition<number> {
     behavior: composeTileBehaviors(
       createMsChipEnterTileBehavior(policy),
       createMsLeaveTileBehavior(policy),
-      createMsSupportTileBehavior(policy, id),
+      createMsSupportTileBehavior(id),
       createMsConcreteTileBehavior(id),
     ),
   };

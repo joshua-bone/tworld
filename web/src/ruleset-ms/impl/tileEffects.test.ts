@@ -93,7 +93,12 @@ describe("ms tile effects", () => {
       2,
       1,
       {
-        airHook: "chip-support",
+        supportHooks: {
+          airHook: "chip-support",
+          unsupportedOutcome: "fall",
+          supportLossOutcome: "fall",
+          fallingCollisionBehavior: "default",
+        },
         inventoryOwner: null,
       },
     );
@@ -120,7 +125,12 @@ describe("ms tile effects", () => {
       2,
       1,
       {
-        airHook: "chip-support",
+        supportHooks: {
+          airHook: "chip-support",
+          unsupportedOutcome: "fall",
+          supportLossOutcome: "fall",
+          fallingCollisionBehavior: "default",
+        },
         inventoryOwner: null,
       },
     );
@@ -151,7 +161,12 @@ describe("ms tile effects", () => {
       2,
       1,
       {
-        airHook: "chip-support",
+        supportHooks: {
+          airHook: "chip-support",
+          unsupportedOutcome: "fall",
+          supportLossOutcome: "fall",
+          fallingCollisionBehavior: "default",
+        },
         inventoryOwner,
       },
     );
@@ -180,13 +195,107 @@ describe("ms tile effects", () => {
       2,
       1,
       {
-        airHook: "chip-support",
+        supportHooks: {
+          airHook: "chip-support",
+          unsupportedOutcome: "fall",
+          supportLossOutcome: "fall",
+          fallingCollisionBehavior: "default",
+        },
         inventoryOwner: null,
       },
     );
 
     expect(result).toBe("unsupported");
     expect(lowerCells[0]!.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("treats a fake blue wall as support for non-chip actors", () => {
+    const lowerCells = [makeCell(MS_TILE.BlueWall_Fake, MS_TILE.Empty)];
+    const result = resolveMsTileSupportBelow(
+      {
+        inventory: {
+          keys: [0, 0, 0, 0],
+          boots: [0, 0, 0, 0],
+          tools: [0],
+          chipsNeeded: 0,
+        },
+        addTileOverlay: () => {},
+        chipActsWallForMobs: () => false,
+      },
+      lowerCells,
+      0,
+      2,
+      1,
+      {
+        supportHooks: {
+          airHook: "non-chip-support",
+          unsupportedOutcome: "fall",
+          supportLossOutcome: "fall",
+          fallingCollisionBehavior: "default",
+        },
+        inventoryOwner: null,
+      },
+    );
+
+    expect(result).toBe("supported");
+    expect(lowerCells[0]!.top.id).toBe(MS_TILE.BlueWall_Fake);
+  });
+
+  it("treats a portable item as support for non-chip actors but not for Chip", () => {
+    const lowerCells = [makeCell(MS_TILE.Sandbag, MS_TILE.Empty)];
+    const supported = resolveMsTileSupportBelow(
+      {
+        inventory: {
+          keys: [0, 0, 0, 0],
+          boots: [0, 0, 0, 0],
+          tools: [0],
+          chipsNeeded: 0,
+        },
+        addTileOverlay: () => {},
+        chipActsWallForMobs: () => false,
+      },
+      lowerCells,
+      0,
+      2,
+      1,
+      {
+        supportHooks: {
+          airHook: "non-chip-support",
+          unsupportedOutcome: "fall",
+          supportLossOutcome: "fall",
+          fallingCollisionBehavior: "default",
+        },
+        inventoryOwner: null,
+      },
+    );
+    const unsupported = resolveMsTileSupportBelow(
+      {
+        inventory: {
+          keys: [0, 0, 0, 0],
+          boots: [0, 0, 0, 0],
+          tools: [0],
+          chipsNeeded: 0,
+        },
+        addTileOverlay: () => {},
+        chipActsWallForMobs: () => false,
+      },
+      lowerCells,
+      0,
+      2,
+      1,
+      {
+        supportHooks: {
+          airHook: "chip-support",
+          unsupportedOutcome: "fall",
+          supportLossOutcome: "fall",
+          fallingCollisionBehavior: "default",
+        },
+        inventoryOwner: null,
+      },
+    );
+
+    expect(supported).toBe("supported");
+    expect(unsupported).toBe("unsupported");
   });
 
   it("turns an exited top-layer cloud into air", () => {

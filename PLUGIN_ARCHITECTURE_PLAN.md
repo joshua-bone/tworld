@@ -338,10 +338,10 @@ First targets:
 
 Checklist:
 
-- [ ] introduce support-provider and support-consumer hooks
-- [ ] move tile-specific support semantics out of generic vertical helpers
-- [ ] move portable-item support/drop semantics onto shared portable/special-item families
-- [ ] keep MS/Lynx ordering differences in the ruleset runtime, not the shared hook shapes
+- [x] introduce support-provider and support-consumer hooks
+- [x] move tile-specific support semantics out of generic vertical helpers
+- [x] move portable-item support/drop semantics onto shared portable/special-item families
+- [x] keep MS/Lynx ordering differences in the ruleset runtime, not the shared hook shapes
 
 Tests:
 

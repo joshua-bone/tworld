@@ -4,6 +4,7 @@ import {
   msActorClonerCloneBehavior,
   msActorClonerEntryBehavior,
   msActorHeldFloorOutcomeFromBehavior,
+  msActorSupportHooksFromBehavior,
   msActorTrapReleaseStartsMovement,
 } from "@ruleset-ms/impl/actorBehavior";
 
@@ -22,5 +23,7 @@ describe("ms actor behavior", () => {
       exitStartsMovement: true,
       cloneFamilyRuntime: true,
     });
+    expect(msActorSupportHooksFromBehavior(MS_TILE.BowlingBall).airHook).toBe("chip-support");
+    expect(msActorSupportHooksFromBehavior(MS_TILE.Block).airHook).toBe("non-chip-support");
   });
 });

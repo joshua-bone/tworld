@@ -21,6 +21,7 @@ describe("Lynx lifecycle registration", () => {
   it("registers actor lifecycle handlers through the actor registry", () => {
     expect(getLynxRegisteredActorLifecycleRegistry().behaviors.size).toBeGreaterThan(0);
     expect(lookupLynxActorLifecyclePhase(MS_TILE.BowlingBall, "held-floor")).toBeTypeOf("function");
+    expect(lookupLynxActorLifecyclePhase(MS_TILE.BowlingBall, "support")).toBeTypeOf("function");
     expect(lookupLynxActorLifecyclePhase(msCreatureTile(MS_TILE.Glider, MS_DIRECTION.east), "trap-release")).toBeTypeOf(
       "function",
     );

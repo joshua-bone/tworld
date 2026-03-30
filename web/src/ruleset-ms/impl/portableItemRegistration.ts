@@ -6,6 +6,7 @@ export interface MsPortableItemFamilyRegistration {
   tileId: number;
   inventorySlot: "tools";
   artworkSpriteId: string;
+  supportsNonChipAirOccupants: boolean;
 }
 
 export const msPortableItemFamilyRegistrations = [
@@ -14,18 +15,21 @@ export const msPortableItemFamilyRegistrations = [
     tileId: MS_TILE.Sandbag,
     inventorySlot: "tools",
     artworkSpriteId: "sandbag",
+    supportsNonChipAirOccupants: true,
   },
   {
     familyId: "hook",
     tileId: MS_TILE.Hook,
     inventorySlot: "tools",
     artworkSpriteId: "hook",
+    supportsNonChipAirOccupants: true,
   },
   {
     familyId: "bowling-ball",
     tileId: MS_TILE.BowlingBall_Still,
     inventorySlot: "tools",
     artworkSpriteId: "bowling_ball_still",
+    supportsNonChipAirOccupants: true,
   },
 ] as const satisfies readonly MsPortableItemFamilyRegistration[];
 

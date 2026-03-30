@@ -4,6 +4,7 @@ import {
   lynxActorClonerCloneBehavior,
   lynxActorClonerEntryBehavior,
   lynxActorHeldFloorOutcomeFromBehavior,
+  lynxActorSupportHooksFromBehavior,
   lynxActorTrapReleaseStartsMovement,
 } from "@ruleset-lynx/impl/actorBehavior";
 
@@ -22,5 +23,7 @@ describe("lynx actor behavior", () => {
       exitStartsMovement: true,
       cloneFamilyRuntime: true,
     });
+    expect(lynxActorSupportHooksFromBehavior(MS_TILE.BowlingBall).airHook).toBe("chip-support");
+    expect(lynxActorSupportHooksFromBehavior(MS_TILE.Block).airHook).toBe("non-chip-support");
   });
 });

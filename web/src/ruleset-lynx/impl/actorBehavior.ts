@@ -1,8 +1,10 @@
+import { DEFAULT_ACTOR_SUPPORT_FAMILY_HOOKS, type ActorSupportFamilyHooks } from "@game-core/api/actorSpecialFloorHooks";
 import type { ActorHeldFloorOutcome } from "@game-core/api/actorInteractions";
 import {
   type LynxActorClonerCloneBehaviorContext,
   type LynxActorClonerEntryBehaviorContext,
   type LynxActorHeldFloorBehaviorContext,
+  type LynxActorSupportBehaviorContext,
   type LynxActorTrapReleaseBehaviorContext,
 } from "@ruleset-lynx/impl/elements/actors/families/specialFloors";
 import { lookupLynxActorLifecyclePhase } from "@ruleset-lynx/impl/actorLifecycleRegistration";
@@ -67,4 +69,18 @@ export function lynxActorClonerCloneBehavior(actorId: number): LynxActorClonerCl
   }
   clonerClone(context);
   return context;
+}
+
+export function lynxActorSupportHooksFromBehavior(actorId: number): ActorSupportFamilyHooks {
+  const context: LynxActorSupportBehaviorContext = {
+    phase: "support",
+    actorId,
+    supportHooks: DEFAULT_ACTOR_SUPPORT_FAMILY_HOOKS,
+  };
+  const support = lookupLynxActorLifecyclePhase(actorId, "support");
+  if (support === null) {
+    return context.supportHooks;
+  }
+  support(context);
+  return context.supportHooks;
 }

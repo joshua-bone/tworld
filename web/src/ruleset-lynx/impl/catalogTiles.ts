@@ -437,7 +437,7 @@ function createLynxTileDefinition(id: number): TileDefinition<number> {
     behavior: composeTileBehaviors(
       createLynxChipEnterTileBehavior(policy),
       createLynxLeaveTileBehavior(policy),
-      createLynxSupportTileBehavior(policy, id),
+      createLynxSupportTileBehavior(id),
       createLynxConcreteTileBehavior(id),
     ),
   };
