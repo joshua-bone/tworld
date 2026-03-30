@@ -16,6 +16,7 @@ import {
   type LynxTileSupportContext,
   type LynxTileSupportSubject,
 } from "@ruleset-lynx/impl/elements/tiles/families/support";
+import type { LynxTileExitProbeBehaviorContext } from "@ruleset-lynx/impl/elements/tiles/concrete/specialFloors";
 import { lookupLynxTileLifecyclePhase } from "@ruleset-lynx/impl/tileLifecycleRegistration";
 import { isMsCreature, MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -63,6 +64,23 @@ function applyLynxMobExitTileAction(
 
 export function applyLynxMobExitFloorEffect(cells: EngineMapCell[], pos: number): boolean {
   return applyLynxMobExitTileAction(cells, pos, "top") || applyLynxMobExitTileAction(cells, pos, "bottom");
+}
+
+export function probeLynxTileExitEffect(tileId: number, dir: number, released: boolean): boolean | null {
+  const probeExit = lookupLynxTileLifecyclePhase(tileId, "probe-exit");
+  if (probeExit === null) {
+    return null;
+  }
+
+  const behaviorContext: LynxTileExitProbeBehaviorContext = {
+    phase: "probe-exit",
+    tileId,
+    dir,
+    released,
+    allowed: true,
+  };
+  probeExit(behaviorContext);
+  return behaviorContext.allowed;
 }
 
 export function lynxChipProbeTileId(cell: EngineMapCell): number {

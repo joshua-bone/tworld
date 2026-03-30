@@ -7,7 +7,7 @@ import {
   lynxActorClonerCloneBehavior,
   lynxActorClonerEntryBehavior,
   lynxActorTrapReleaseStartsMovement,
-} from "@ruleset-lynx/impl/actorBehavior";
+} from "@ruleset-lynx/impl/actorLifecycleQueries";
 import {
   isLynxClonerSpecialFloor,
   isLynxTrapSpecialFloor,

@@ -101,4 +101,9 @@ describe("ms actor interactions", () => {
     expect(msActorArrivalOutcome(MS_TILE.Bomb, MS_TILE.Ball)).toBe("creature-bomb");
     expect(msActorArrivalOutcome(MS_TILE.Empty, MS_TILE.Ball)).toBe("none");
   });
+
+  it("preserves actor hazard immunities when arrival handlers exist", () => {
+    expect(msActorArrivalOutcome(MS_TILE.Water, MS_TILE.Glider)).toBe("none");
+    expect(msActorArrivalOutcome(MS_TILE.Fire, MS_TILE.Fireball)).toBe("none");
+  });
 });

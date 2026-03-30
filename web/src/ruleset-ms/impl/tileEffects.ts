@@ -15,6 +15,7 @@ import {
   type MsTileSupportContext,
   type MsTileSupportSubject,
 } from "@ruleset-ms/impl/elements/tiles/families/support";
+import type { MsTileExitProbeBehaviorContext } from "@ruleset-ms/impl/elements/tiles/concrete/specialFloors";
 import { lookupMsTileLifecyclePhase } from "@ruleset-ms/impl/tileLifecycleRegistration";
 import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
@@ -55,6 +56,23 @@ function applyMsMobExitTileAction(
 
 export function applyMsMobExitFloorEffect(cells: EngineMapCell[], pos: number): boolean {
   return applyMsMobExitTileAction(cells, pos, "top") || applyMsMobExitTileAction(cells, pos, "bottom");
+}
+
+export function probeMsTileExitEffect(tileId: number, dir: number, released: boolean): boolean | null {
+  const probeExit = lookupMsTileLifecyclePhase(tileId, "probe-exit");
+  if (probeExit === null) {
+    return null;
+  }
+
+  const behaviorContext: MsTileExitProbeBehaviorContext = {
+    phase: "probe-exit",
+    tileId,
+    dir,
+    released,
+    allowed: true,
+  };
+  probeExit(behaviorContext);
+  return behaviorContext.allowed;
 }
 
 export function isMsBlockedChipEnterRevealTile(tileId: number): boolean {

@@ -19,10 +19,10 @@ import {
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
 import {
-  lynxActorArrivalBehaviorFromBehavior,
-  lynxActorCollisionStrategyFromBehavior,
-  lynxActorHeldFloorOutcomeFromBehavior,
-} from "@ruleset-lynx/impl/actorBehavior";
+  lynxActorArrivalBehavior,
+  lynxActorCollisionStrategy,
+  lynxActorHeldFloorOutcome as lynxLifecycleHeldFloorOutcome,
+} from "@ruleset-lynx/impl/actorLifecycleQueries";
 
 function isLynxChipActor(actorId: number): boolean {
   return actorId === MS_TILE.Chip || actorId === MS_TILE.Swimming_Chip || actorId === MS_TILE.Pushing_Chip;
@@ -53,8 +53,8 @@ export function lynxActorInteractionOutcome(
       ? lynxInteractionTargetActorId(target)
       : null;
   return resolveActorInteractionOutcome({
-    movingStrategyId: lynxActorCollisionStrategyFromBehavior(movingActorId),
-    targetStrategyId: targetActorId === null ? null : lynxActorCollisionStrategyFromBehavior(targetActorId),
+    movingStrategyId: lynxActorCollisionStrategy(movingActorId),
+    targetStrategyId: targetActorId === null ? null : lynxActorCollisionStrategy(targetActorId),
     movingIsChip: isLynxChipActor(movingActorId),
     targetIsChip: targetActorId !== null && isLynxChipActor(targetActorId),
     defaultChipCollisionRemovesTarget: true,
@@ -117,7 +117,7 @@ export function lynxInteractionTargetFromOccupancy(
 }
 
 export function lynxActorHazardOutcome(tileId: number, actorId: number): ActorHazardOutcome {
-  return lynxActorArrivalBehaviorFromBehavior(tileId, actorId).hazardOutcome;
+  return lynxActorArrivalBehavior(tileId, actorId).hazardOutcome;
 }
 
 export function lynxActorArrivalOutcome(tileId: number, actorId: number): ActorArrivalOutcome {
@@ -130,14 +130,14 @@ export function lynxActorArrivalOutcome(tileId: number, actorId: number): ActorA
   if (tileId === MS_TILE.Key_Blue) {
     return "clear-key-blue";
   }
-  return lynxActorArrivalBehaviorFromBehavior(tileId, actorId).arrivalOutcome;
+  return lynxActorArrivalBehavior(tileId, actorId).arrivalOutcome;
 }
 
 export function lynxActorHeldFloorOutcome(
   tileId: number,
   actorId: number,
 ): ActorHeldFloorOutcome {
-  return lynxActorHeldFloorOutcomeFromBehavior(tileId, actorId);
+  return lynxLifecycleHeldFloorOutcome(tileId, actorId);
 }
 
 export function lynxActorThiefOutcome(actorId: number): ActorThiefOutcome {

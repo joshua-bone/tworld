@@ -139,6 +139,7 @@ import {
   applyMsTileActivationEffect,
   deferredMsTileActivationSound,
   hasMsTileActivation,
+  probeMsTileExitEffect,
 } from "@ruleset-ms/impl/tileEffects";
 import { msBlockedMoveFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
 import {
@@ -189,7 +190,6 @@ import {
   isMsTrapOpen,
   springMsTrap,
 } from "@ruleset-ms/impl/trapCloner";
-import { probeMsTileExitByBehavior } from "@ruleset-ms/impl/specialFloorBehavior";
 import { MsNonChipFloorQueue, type MsActiveNonChipFloorEntry } from "@ruleset-ms/impl/nonChipFloorQueue";
 import {
   moveMsCreatureDownOneLayer as moveMsCreatureDownOneLayerWithContext,
@@ -1075,7 +1075,7 @@ function canLeaveFloor(cells: EngineMapCell[], pos: number, dir: number, release
   if ((msExitMovementMask(floor) & dir) === 0) {
     return false;
   }
-  const behaviorResult = probeMsTileExitByBehavior(floor, dir, released);
+  const behaviorResult = probeMsTileExitEffect(floor, dir, released);
   if (behaviorResult !== null) {
     return behaviorResult;
   }

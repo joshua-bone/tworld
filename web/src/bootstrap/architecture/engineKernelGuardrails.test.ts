@@ -24,6 +24,7 @@ describe("engine kernel guardrails", () => {
       /\bmanualHookTugEnabled\b/,
       /\bhookTugEnabled\b/,
       /\bapplyHookTug\b/,
+      /@ruleset-ms\/impl\/specialFloorBehavior/,
     ]);
   });
 
@@ -33,6 +34,7 @@ describe("engine kernel guardrails", () => {
       /\bfunction activateMappedLynxBowlingBallsOnForceFloors\b/,
       /\bfunction seedLynxPortableBackedBowlingBallActors\b/,
       /\bapplyHookTug\b/,
+      /@ruleset-lynx\/impl\/specialFloorBehavior/,
     ]);
   });
 });

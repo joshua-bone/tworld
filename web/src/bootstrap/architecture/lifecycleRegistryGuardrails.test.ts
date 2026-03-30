@@ -26,8 +26,8 @@ describe("lifecycle registry guardrails", () => {
   it("routes MS lifecycle dispatch helpers through the lifecycle registry seam", () => {
     expectSourceToMatch("ruleset-ms/impl/chipArrival.ts", [/@ruleset-ms\/impl\/tileLifecycleRegistration/]);
     expectSourceToMatch("ruleset-ms/impl/tileEffects.ts", [/@ruleset-ms\/impl\/tileLifecycleRegistration/]);
-    expectSourceToMatch("ruleset-ms/impl/actorBehavior.ts", [/@ruleset-ms\/impl\/actorLifecycleRegistration/]);
-    for (const relativePath of ["ruleset-ms/impl/chipArrival.ts", "ruleset-ms/impl/tileEffects.ts", "ruleset-ms/impl/actorBehavior.ts"]) {
+    expectSourceToMatch("ruleset-ms/impl/actorLifecycleQueries.ts", [/@ruleset-ms\/impl\/actorLifecycleRegistration/]);
+    for (const relativePath of ["ruleset-ms/impl/chipArrival.ts", "ruleset-ms/impl/tileEffects.ts", "ruleset-ms/impl/actorLifecycleQueries.ts"]) {
       expectSourceNotToMatch(relativePath, [/\bmsRulesetCatalog\.getTileBehavior\b/, /\bmsRulesetCatalog\.getActorBehavior\b/]);
     }
   });
@@ -35,8 +35,8 @@ describe("lifecycle registry guardrails", () => {
   it("routes Lynx lifecycle dispatch helpers through the lifecycle registry seam", () => {
     expectSourceToMatch("ruleset-lynx/impl/chipArrival.ts", [/@ruleset-lynx\/impl\/tileLifecycleRegistration/]);
     expectSourceToMatch("ruleset-lynx/impl/tileEffects.ts", [/@ruleset-lynx\/impl\/tileLifecycleRegistration/]);
-    expectSourceToMatch("ruleset-lynx/impl/actorBehavior.ts", [/@ruleset-lynx\/impl\/actorLifecycleRegistration/]);
-    for (const relativePath of ["ruleset-lynx/impl/chipArrival.ts", "ruleset-lynx/impl/tileEffects.ts", "ruleset-lynx/impl/actorBehavior.ts"]) {
+    expectSourceToMatch("ruleset-lynx/impl/actorLifecycleQueries.ts", [/@ruleset-lynx\/impl\/actorLifecycleRegistration/]);
+    for (const relativePath of ["ruleset-lynx/impl/chipArrival.ts", "ruleset-lynx/impl/tileEffects.ts", "ruleset-lynx/impl/actorLifecycleQueries.ts"]) {
       expectSourceNotToMatch(relativePath, [/\blynxRulesetCatalog\.getTileBehavior\b/, /\blynxRulesetCatalog\.getActorBehavior\b/]);
     }
   });

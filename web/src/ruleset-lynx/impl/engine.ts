@@ -217,9 +217,9 @@ import {
   applyLynxMobExitFloorEffect,
   applyLynxBlockedChipEnterEffect,
   applyLynxTileActivationEffect,
+  probeLynxTileExitEffect,
 } from "@ruleset-lynx/impl/tileEffects";
 import { lynxBlockedMoveFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
-import { probeLynxTileExitByBehavior } from "@ruleset-lynx/impl/specialFloorBehavior";
 import {
   MS_DIRECTION,
   MS_GRID_HEIGHT,
@@ -1347,7 +1347,7 @@ function canLynxExitTile(state: EngineState, tileId: number, actorId: number, di
   if ((lynxExitMovementMask(tileId) & dir) === 0) {
     return false;
   }
-  const behaviorResult = probeLynxTileExitByBehavior(tileId, dir, releasing);
+  const behaviorResult = probeLynxTileExitEffect(tileId, dir, releasing);
   if (behaviorResult !== null) {
     return behaviorResult;
   }

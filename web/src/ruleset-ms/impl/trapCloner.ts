@@ -13,7 +13,7 @@ import {
   msActorClonerCloneBehavior,
   msActorClonerEntryBehavior,
   msActorTrapReleaseStartsMovement,
-} from "@ruleset-ms/impl/actorBehavior";
+} from "@ruleset-ms/impl/actorLifecycleQueries";
 import { isMsClonerSpecialFloor } from "@ruleset-ms/impl/elements/tiles/specialFloorRegistration";
 
 export interface MsTrapClonerCreatureRef {

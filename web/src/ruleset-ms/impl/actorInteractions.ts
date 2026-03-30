@@ -14,10 +14,10 @@ import {
   msActorThiefHook,
 } from "@ruleset-ms/impl/catalog";
 import {
-  msActorArrivalBehaviorFromBehavior,
-  msActorCollisionStrategyFromBehavior,
-  msActorHeldFloorOutcomeFromBehavior,
-} from "@ruleset-ms/impl/actorBehavior";
+  msActorArrivalBehavior,
+  msActorCollisionStrategy,
+  msActorHeldFloorOutcome as msLifecycleHeldFloorOutcome,
+} from "@ruleset-ms/impl/actorLifecycleQueries";
 
 function isMsChipActor(actorId: number): boolean {
   return actorId === MS_TILE.Chip || actorId === MS_TILE.Swimming_Chip || actorId === MS_TILE.Pushing_Chip;
@@ -39,8 +39,8 @@ export function msActorInteractionOutcome(
       ? msInteractionTargetActorId(target)
       : null;
   return resolveActorInteractionOutcome({
-    movingStrategyId: msActorCollisionStrategyFromBehavior(movingActorId),
-    targetStrategyId: targetActorId === null ? null : msActorCollisionStrategyFromBehavior(targetActorId),
+    movingStrategyId: msActorCollisionStrategy(movingActorId),
+    targetStrategyId: targetActorId === null ? null : msActorCollisionStrategy(targetActorId),
     movingIsChip: isMsChipActor(movingActorId),
     targetIsChip: targetActorId !== null && isMsChipActor(targetActorId),
     defaultChipCollisionRemovesTarget: false,
@@ -59,18 +59,18 @@ export function msActorCollisionOutcome(
 }
 
 export function msActorHazardOutcome(tileId: number, actorId: number): ActorHazardOutcome {
-  return msActorArrivalBehaviorFromBehavior(tileId, actorId).hazardOutcome;
+  return msActorArrivalBehavior(tileId, actorId).hazardOutcome;
 }
 
 export function msActorArrivalOutcome(tileId: number, actorId: number): ActorArrivalOutcome {
-  return msActorArrivalBehaviorFromBehavior(tileId, actorId).arrivalOutcome;
+  return msActorArrivalBehavior(tileId, actorId).arrivalOutcome;
 }
 
 export function msActorHeldFloorOutcome(
   tileId: number,
   actorId: number,
 ): ActorHeldFloorOutcome {
-  return msActorHeldFloorOutcomeFromBehavior(tileId, actorId);
+  return msLifecycleHeldFloorOutcome(tileId, actorId);
 }
 
 export function msActorThiefOutcome(actorId: number): ActorThiefOutcome {

@@ -3,7 +3,7 @@ import { actorBlockedMoveKeepsDirection, actorBlockedMoveRevertsPortable } from 
 import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { lynxChipEnterAction, lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
-import { lynxActorBlockedMoveKindFromBehavior } from "@ruleset-lynx/impl/actorBehavior";
+import { lynxActorBlockedMoveKind } from "@ruleset-lynx/impl/actorLifecycleQueries";
 import type { LynxChipEnterAction } from "@ruleset-lynx/impl/catalogTiles";
 import { lynxActorHeldFloorOutcome } from "@ruleset-lynx/impl/actorInteractions";
 
@@ -61,7 +61,7 @@ export function lynxHeldFloorImpactAction(tileId: number, actorId: number): Acto
 }
 
 export function lynxBlockedMoveFloorImpactAction(actorId: number): ActorFloorImpactAction | null {
-  const blockedMoveKind = lynxActorBlockedMoveKindFromBehavior(actorId);
+  const blockedMoveKind = lynxActorBlockedMoveKind(actorId);
   if (actorBlockedMoveRevertsPortable(blockedMoveKind)) {
     return "revert-portable";
   }

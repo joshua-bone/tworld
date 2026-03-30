@@ -8,7 +8,7 @@ import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
-import { lynxActorSupportHooksFromBehavior } from "@ruleset-lynx/impl/actorBehavior";
+import { lynxActorSupportHooks } from "@ruleset-lynx/impl/actorLifecycleQueries";
 import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
 import {
   isLynxAirForcedFloor,
@@ -55,7 +55,7 @@ function lynxVerticalSupportSubject(
   inventoryOwner: ActorLocalInventoryOwner | null,
 ): LynxTileSupportSubject {
   return {
-    supportHooks: lynxActorSupportHooksFromBehavior(actorId),
+    supportHooks: lynxActorSupportHooks(actorId),
     inventoryOwner,
   };
 }

@@ -8,7 +8,7 @@ import {
   msIsOverlayFloorTile,
   msTileForcedFloorKind,
 } from "@ruleset-ms/impl/catalog";
-import { msActorSupportHooksFromBehavior } from "@ruleset-ms/impl/actorBehavior";
+import { msActorSupportHooks } from "@ruleset-ms/impl/actorLifecycleQueries";
 import { projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import {
   resolveMsTileSupportBelow,
@@ -50,7 +50,7 @@ function msVerticalSupportSubject(
   inventoryOwner: ActorLocalInventoryOwner | null,
 ): MsVerticalSupportSubject {
   return {
-    supportHooks: msActorSupportHooksFromBehavior(actorId),
+    supportHooks: msActorSupportHooks(actorId),
     inventoryOwner,
   };
 }
