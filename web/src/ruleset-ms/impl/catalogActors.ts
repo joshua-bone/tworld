@@ -1,6 +1,7 @@
 import type { ActorCapabilityPolicy } from "@game-core/api/actorCapabilities";
 import { composeActorBehaviors, type ActorDefinition, type ActorTag } from "@game-core/api/ruleset";
 import { composeRulesetActorPolicy } from "@game-core/impl/actorFamilies";
+import { createActorInteractionBehavior } from "@game-core/impl/actorInteractionBehavior";
 import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 import { createMsBallisticActorFamily } from "@ruleset-ms/impl/elements/actors/families/ballistic";
 import { createMsBlockActorFamily } from "@ruleset-ms/impl/elements/actors/families/block";
@@ -150,6 +151,7 @@ function createMsActorDefinition(id: number): ActorDefinition<number> {
     tags: policy.tags,
     capabilities: policy.capabilities,
     behavior: composeActorBehaviors(
+      createActorInteractionBehavior(policy.capabilities),
       createMsSpecialFloorActorBehavior(policy.capabilities),
     ),
   };

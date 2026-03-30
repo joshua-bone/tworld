@@ -1,6 +1,5 @@
 import {
   ACTOR_INTERACTION_TARGET_KIND,
-  actorHazardOutcome,
   actorThiefOutcome,
   resolveActorInteractionOutcome,
   type ActorInteractionTarget,
@@ -16,12 +15,14 @@ import {
 } from "@game-core/impl/occupancy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  lynxActorCollisionStrategyId,
-  lynxActorHazardResponse,
   lynxActorThiefHook,
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
-import { lynxActorHeldFloorOutcomeFromBehavior } from "@ruleset-lynx/impl/actorBehavior";
+import {
+  lynxActorArrivalBehaviorFromBehavior,
+  lynxActorCollisionStrategyFromBehavior,
+  lynxActorHeldFloorOutcomeFromBehavior,
+} from "@ruleset-lynx/impl/actorBehavior";
 
 function isLynxChipActor(actorId: number): boolean {
   return actorId === MS_TILE.Chip || actorId === MS_TILE.Swimming_Chip || actorId === MS_TILE.Pushing_Chip;
@@ -52,8 +53,8 @@ export function lynxActorInteractionOutcome(
       ? lynxInteractionTargetActorId(target)
       : null;
   return resolveActorInteractionOutcome({
-    movingStrategyId: lynxActorCollisionStrategyId(movingActorId),
-    targetStrategyId: targetActorId === null ? null : lynxActorCollisionStrategyId(targetActorId),
+    movingStrategyId: lynxActorCollisionStrategyFromBehavior(movingActorId),
+    targetStrategyId: targetActorId === null ? null : lynxActorCollisionStrategyFromBehavior(targetActorId),
     movingIsChip: isLynxChipActor(movingActorId),
     targetIsChip: targetActorId !== null && isLynxChipActor(targetActorId),
     defaultChipCollisionRemovesTarget: true,
@@ -116,16 +117,7 @@ export function lynxInteractionTargetFromOccupancy(
 }
 
 export function lynxActorHazardOutcome(tileId: number, actorId: number): ActorHazardOutcome {
-  switch (tileId) {
-    case MS_TILE.Water:
-      return actorHazardOutcome("water", lynxActorHazardResponse(actorId, "water"));
-    case MS_TILE.Fire:
-      return actorHazardOutcome("fire", lynxActorHazardResponse(actorId, "fire"));
-    case MS_TILE.Bomb:
-      return actorHazardOutcome("bomb", lynxActorHazardResponse(actorId, "bomb"));
-    default:
-      return "none";
-  }
+  return lynxActorArrivalBehaviorFromBehavior(tileId, actorId).hazardOutcome;
 }
 
 export function lynxActorArrivalOutcome(tileId: number, actorId: number): ActorArrivalOutcome {
@@ -138,8 +130,7 @@ export function lynxActorArrivalOutcome(tileId: number, actorId: number): ActorA
   if (tileId === MS_TILE.Key_Blue) {
     return "clear-key-blue";
   }
-  const hazard = lynxActorHazardOutcome(tileId, actorId);
-  return hazard === "deny-entry" ? "none" : hazard;
+  return lynxActorArrivalBehaviorFromBehavior(tileId, actorId).arrivalOutcome;
 }
 
 export function lynxActorHeldFloorOutcome(

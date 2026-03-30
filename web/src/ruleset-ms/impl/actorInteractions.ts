@@ -1,6 +1,5 @@
 import {
   ACTOR_INTERACTION_TARGET_KIND,
-  actorHazardOutcome,
   actorThiefOutcome,
   resolveActorInteractionOutcome,
   type ActorInteractionTarget,
@@ -12,11 +11,13 @@ import {
 } from "@game-core/api/actorInteractions";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  msActorCollisionStrategyId,
-  msActorHazardResponse,
   msActorThiefHook,
 } from "@ruleset-ms/impl/catalog";
-import { msActorHeldFloorOutcomeFromBehavior } from "@ruleset-ms/impl/actorBehavior";
+import {
+  msActorArrivalBehaviorFromBehavior,
+  msActorCollisionStrategyFromBehavior,
+  msActorHeldFloorOutcomeFromBehavior,
+} from "@ruleset-ms/impl/actorBehavior";
 
 function isMsChipActor(actorId: number): boolean {
   return actorId === MS_TILE.Chip || actorId === MS_TILE.Swimming_Chip || actorId === MS_TILE.Pushing_Chip;
@@ -38,8 +39,8 @@ export function msActorInteractionOutcome(
       ? msInteractionTargetActorId(target)
       : null;
   return resolveActorInteractionOutcome({
-    movingStrategyId: msActorCollisionStrategyId(movingActorId),
-    targetStrategyId: targetActorId === null ? null : msActorCollisionStrategyId(targetActorId),
+    movingStrategyId: msActorCollisionStrategyFromBehavior(movingActorId),
+    targetStrategyId: targetActorId === null ? null : msActorCollisionStrategyFromBehavior(targetActorId),
     movingIsChip: isMsChipActor(movingActorId),
     targetIsChip: targetActorId !== null && isMsChipActor(targetActorId),
     defaultChipCollisionRemovesTarget: false,
@@ -58,21 +59,11 @@ export function msActorCollisionOutcome(
 }
 
 export function msActorHazardOutcome(tileId: number, actorId: number): ActorHazardOutcome {
-  switch (tileId) {
-    case MS_TILE.Water:
-      return actorHazardOutcome("water", msActorHazardResponse(actorId, "water"));
-    case MS_TILE.Fire:
-      return actorHazardOutcome("fire", msActorHazardResponse(actorId, "fire"));
-    case MS_TILE.Bomb:
-      return actorHazardOutcome("bomb", msActorHazardResponse(actorId, "bomb"));
-    default:
-      return "none";
-  }
+  return msActorArrivalBehaviorFromBehavior(tileId, actorId).hazardOutcome;
 }
 
 export function msActorArrivalOutcome(tileId: number, actorId: number): ActorArrivalOutcome {
-  const hazard = msActorHazardOutcome(tileId, actorId);
-  return hazard === "deny-entry" ? "none" : hazard;
+  return msActorArrivalBehaviorFromBehavior(tileId, actorId).arrivalOutcome;
 }
 
 export function msActorHeldFloorOutcome(

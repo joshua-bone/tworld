@@ -28,6 +28,9 @@ describe("MS ruleset catalog", () => {
       "function",
     );
     expect(msRulesetCatalog.getActorBehavior(MS_TILE.Chip)?.phases).toMatchObject({
+      "blocked-move": expect.any(Function),
+      collision: expect.any(Function),
+      arrival: expect.any(Function),
       "held-floor": expect.any(Function),
       "trap-release": expect.any(Function),
       "cloner-entry": expect.any(Function),

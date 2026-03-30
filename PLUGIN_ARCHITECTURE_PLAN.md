@@ -391,16 +391,16 @@ First targets:
 
 Checklist:
 
-- [ ] move collision policy from outcome translators to actor handlers
-- [ ] move blocked-move behavior to actor handlers
-- [ ] move arrival side effects to actor handlers where the actor is the real owner
-- [ ] leave kernel occupancy and scheduling intact
+- [x] move collision policy from outcome translators to actor handlers
+- [x] move blocked-move behavior to actor handlers
+- [x] move arrival side effects to actor handlers where the actor is the real owner
+- [x] leave kernel occupancy and scheduling intact
 
 Tests:
 
-- [ ] focused collision and blocked-move suites
-- [ ] bowling-ball characterization regressions
-- [ ] targeted replay sweeps for movement-heavy packs
+- [x] focused collision and blocked-move suites
+- [x] bowling-ball characterization regressions
+- [x] targeted replay sweeps for movement-heavy packs
 
 ### PA17: Introduce Concrete Family Builders
 

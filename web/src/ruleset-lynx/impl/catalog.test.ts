@@ -26,6 +26,9 @@ describe("Lynx ruleset catalog", () => {
     );
     expect(lynxRulesetCatalog.getTileBehavior(MS_TILE.Empty)?.phases).toEqual({});
     expect(lynxRulesetCatalog.getActorBehavior(MS_TILE.Chip)?.phases).toMatchObject({
+      "blocked-move": expect.any(Function),
+      collision: expect.any(Function),
+      arrival: expect.any(Function),
       "held-floor": expect.any(Function),
       "trap-release": expect.any(Function),
       "cloner-entry": expect.any(Function),

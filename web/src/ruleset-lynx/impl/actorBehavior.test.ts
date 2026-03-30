@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
+  lynxActorArrivalBehaviorFromBehavior,
+  lynxActorBlockedMoveKindFromBehavior,
   lynxActorClonerCloneBehavior,
   lynxActorClonerEntryBehavior,
+  lynxActorCollisionStrategyFromBehavior,
   lynxActorHeldFloorOutcomeFromBehavior,
   lynxActorSupportHooksFromBehavior,
   lynxActorTrapReleaseStartsMovement,
@@ -25,5 +28,17 @@ describe("lynx actor behavior", () => {
     });
     expect(lynxActorSupportHooksFromBehavior(MS_TILE.BowlingBall).airHook).toBe("chip-support");
     expect(lynxActorSupportHooksFromBehavior(MS_TILE.Block).airHook).toBe("non-chip-support");
+    expect(lynxActorBlockedMoveKindFromBehavior(MS_TILE.BowlingBall)).toBe("revert-portable");
+    expect(lynxActorBlockedMoveKindFromBehavior(MS_TILE.Ball)).toBe("stay");
+    expect(lynxActorCollisionStrategyFromBehavior(MS_TILE.BowlingBall)).toBe("ballistic-destroy");
+    expect(lynxActorCollisionStrategyFromBehavior(MS_TILE.Ball)).toBe("default");
+    expect(lynxActorArrivalBehaviorFromBehavior(MS_TILE.Water, MS_TILE.Block)).toEqual({
+      hazardOutcome: "block-water",
+      arrivalOutcome: "block-water",
+    });
+    expect(lynxActorArrivalBehaviorFromBehavior(MS_TILE.Fire, MS_TILE.Ball)).toEqual({
+      hazardOutcome: "deny-entry",
+      arrivalOutcome: "none",
+    });
   });
 });

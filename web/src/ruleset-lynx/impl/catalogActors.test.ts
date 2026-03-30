@@ -52,6 +52,9 @@ describe("lynx catalogActors", () => {
 
   it("registers actor behavior hooks for trap and cloner families", () => {
     expect(lynxRulesetCatalog.getActorBehavior(MS_TILE.BowlingBall)?.phases).toMatchObject({
+      "blocked-move": expect.any(Function),
+      collision: expect.any(Function),
+      arrival: expect.any(Function),
       "held-floor": expect.any(Function),
       "trap-release": expect.any(Function),
       "cloner-entry": expect.any(Function),

@@ -2,7 +2,8 @@ import type { ActorFloorImpactAction } from "@game-core/impl/floorImpact";
 import { actorBlockedMoveRevertsPortable, actorBlockedMoveKeepsDirection } from "@game-core/api/actorCapabilities";
 import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
-import { msActorBlockedMoveKind, msChipEnterAction } from "@ruleset-ms/impl/catalog";
+import { msChipEnterAction } from "@ruleset-ms/impl/catalog";
+import { msActorBlockedMoveKindFromBehavior } from "@ruleset-ms/impl/actorBehavior";
 import type { MsChipEnterAction } from "@ruleset-ms/impl/catalogTiles";
 import { msActorHeldFloorOutcome } from "@ruleset-ms/impl/actorInteractions";
 
@@ -55,7 +56,7 @@ export function msHeldFloorImpactAction(tileId: number, actorId: number): ActorF
 }
 
 export function msBlockedMoveFloorImpactAction(actorId: number): ActorFloorImpactAction | null {
-  const blockedMoveKind = msActorBlockedMoveKind(actorId);
+  const blockedMoveKind = msActorBlockedMoveKindFromBehavior(actorId);
   if (actorBlockedMoveRevertsPortable(blockedMoveKind)) {
     return "revert-portable";
   }

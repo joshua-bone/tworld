@@ -1,5 +1,16 @@
+import type {
+  ActorBlockedMoveKind,
+  ActorCollisionStrategyId,
+  ActorHazardName,
+} from "@game-core/api/actorCapabilities";
 import { DEFAULT_ACTOR_SUPPORT_FAMILY_HOOKS, type ActorSupportFamilyHooks } from "@game-core/api/actorSpecialFloorHooks";
-import type { ActorHeldFloorOutcome } from "@game-core/api/actorInteractions";
+import type { ActorArrivalOutcome, ActorHazardOutcome, ActorHeldFloorOutcome } from "@game-core/api/actorInteractions";
+import type {
+  ActorArrivalPolicyBehaviorContext,
+  ActorBlockedMovePolicyBehaviorContext,
+  ActorCollisionPolicyBehaviorContext,
+} from "@game-core/impl/actorInteractionBehavior";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   type MsActorClonerCloneBehaviorContext,
   type MsActorClonerEntryBehaviorContext,
@@ -8,6 +19,34 @@ import {
   type MsActorTrapReleaseBehaviorContext,
 } from "@ruleset-ms/impl/elements/actors/families/specialFloors";
 import { lookupMsActorLifecyclePhase } from "@ruleset-ms/impl/actorLifecycleRegistration";
+
+function msHazardNameForTile(tileId: number): ActorHazardName | null {
+  switch (tileId) {
+    case MS_TILE.Water:
+      return "water";
+    case MS_TILE.Fire:
+      return "fire";
+    case MS_TILE.Bomb:
+      return "bomb";
+    default:
+      return null;
+  }
+}
+
+function msDefaultArrivalFallback(
+  tileId: number,
+): { hazardOutcome: ActorHazardOutcome; arrivalOutcome: ActorArrivalOutcome } {
+  switch (msHazardNameForTile(tileId)) {
+    case "water":
+      return { hazardOutcome: "creature-water", arrivalOutcome: "creature-water" };
+    case "fire":
+      return { hazardOutcome: "creature-fire", arrivalOutcome: "creature-fire" };
+    case "bomb":
+      return { hazardOutcome: "creature-bomb", arrivalOutcome: "creature-bomb" };
+    default:
+      return { hazardOutcome: "none", arrivalOutcome: "none" };
+  }
+}
 
 export function msActorHeldFloorOutcomeFromBehavior(
   tileId: number,
@@ -83,4 +122,55 @@ export function msActorSupportHooksFromBehavior(actorId: number): ActorSupportFa
   }
   support(context);
   return context.supportHooks;
+}
+
+export function msActorBlockedMoveKindFromBehavior(actorId: number): ActorBlockedMoveKind {
+  const blockedMove = lookupMsActorLifecyclePhase(actorId, "blocked-move");
+  if (blockedMove === null) {
+    return "stay";
+  }
+  const context: ActorBlockedMovePolicyBehaviorContext = {
+    phase: "blocked-move",
+    actorId,
+    blockedMoveKind: "stay",
+  };
+  blockedMove(context);
+  return context.blockedMoveKind;
+}
+
+export function msActorCollisionStrategyFromBehavior(actorId: number): ActorCollisionStrategyId {
+  const collision = lookupMsActorLifecyclePhase(actorId, "collision");
+  if (collision === null) {
+    return "default";
+  }
+  const context: ActorCollisionPolicyBehaviorContext = {
+    phase: "collision",
+    actorId,
+    collisionStrategyId: "default",
+  };
+  collision(context);
+  return context.collisionStrategyId;
+}
+
+export function msActorArrivalBehaviorFromBehavior(
+  tileId: number,
+  actorId: number,
+): { hazardOutcome: ActorHazardOutcome; arrivalOutcome: ActorArrivalOutcome } {
+  const arrival = lookupMsActorLifecyclePhase(actorId, "arrival");
+  if (arrival === null) {
+    return msDefaultArrivalFallback(tileId);
+  }
+  const context: ActorArrivalPolicyBehaviorContext = {
+    phase: "arrival",
+    actorId,
+    tileId,
+    hazardName: msHazardNameForTile(tileId),
+    hazardOutcome: "none",
+    arrivalOutcome: "none",
+  };
+  arrival(context);
+  return {
+    hazardOutcome: context.hazardOutcome,
+    arrivalOutcome: context.arrivalOutcome,
+  };
 }

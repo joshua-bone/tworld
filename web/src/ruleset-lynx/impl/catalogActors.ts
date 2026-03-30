@@ -1,6 +1,7 @@
 import type { ActorCapabilityPolicy } from "@game-core/api/actorCapabilities";
 import { composeActorBehaviors, type ActorDefinition, type ActorTag } from "@game-core/api/ruleset";
 import { composeRulesetActorPolicy } from "@game-core/impl/actorFamilies";
+import { createActorInteractionBehavior } from "@game-core/impl/actorInteractionBehavior";
 import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 import { createLynxBallisticActorFamily } from "@ruleset-lynx/impl/elements/actors/families/ballistic";
 import { createLynxBlockActorFamily } from "@ruleset-lynx/impl/elements/actors/families/block";
@@ -143,6 +144,7 @@ function createLynxActorDefinition(id: number): ActorDefinition<number> {
     tags: policy.tags,
     capabilities: policy.capabilities,
     behavior: composeActorBehaviors(
+      createActorInteractionBehavior(policy.capabilities),
       createLynxSpecialFloorActorBehavior(policy.capabilities),
     ),
   };
