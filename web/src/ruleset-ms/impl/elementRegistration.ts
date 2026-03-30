@@ -3,7 +3,6 @@ import type {
   InteractiveGameTileOverlayRender,
 } from "@game-core/api/interactive";
 import type { ActorDefinition } from "@game-core/api/ruleset";
-import { bowlingBallArtworkSpriteId } from "@game-core/impl/bowlingBall";
 import { MS_DIRECTION } from "@ruleset-ms/api/tiles";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
@@ -15,6 +14,12 @@ import {
   type MsLevelDecodeRegistration,
 } from "@ruleset-ms/api/levelRegistration";
 import { lookupMsActorDefinition } from "@ruleset-ms/impl/catalogActors";
+import {
+  MS_BOWLING_BALL_ACTOR_FAMILY,
+  MS_BOWLING_BALL_ACTOR_ID,
+  MS_BOWLING_BALL_ACTOR_IDS,
+  projectMsBowlingBallActorRenderSprite,
+} from "@ruleset-ms/impl/elements/actors/families/bowlingBall";
 import {
   lookupMsPortableItemFamilyRegistration,
   lookupMsPortableItemFamilyRegistrationByTileId,
@@ -78,18 +83,13 @@ const MS_ACTOR_FAMILY_REGISTRATIONS = [
     actorIds: [MS_TILE.Block],
   },
   {
-    familyId: "bowling-ball",
-    actorIds: [MS_TILE.BowlingBall],
+    familyId: MS_BOWLING_BALL_ACTOR_FAMILY,
+    actorIds: MS_BOWLING_BALL_ACTOR_IDS,
     projectRenderSprite(actor, runtimeEntry) {
-      const mode = runtimeEntry?.kind === "bowling-ball" ? runtimeEntry.state.mode : "moving";
-      return {
-        kind: "creature",
-        tileId: MS_TILE.BowlingBall,
-        artworkSpriteId: bowlingBallArtworkSpriteId(mode),
-        dir: actor.dir,
-        moving: actor.moving,
-        frame: actor.frame,
-      };
+      return projectMsBowlingBallActorRenderSprite(
+        actor,
+        runtimeEntry?.kind === MS_BOWLING_BALL_ACTOR_FAMILY ? runtimeEntry.state : null,
+      );
     },
   },
   {
@@ -228,8 +228,8 @@ export function projectMsRegisteredActorRenderSprite(
   runtimeEntry: MsStatefulActorRuntimeEntry | null,
 ): InteractiveGameRenderSprite {
   const familyRegistration =
-    runtimeEntry?.kind === "bowling-ball"
-      ? msActorFamilyByActorId.get(MS_TILE.BowlingBall)
+    runtimeEntry?.kind === MS_BOWLING_BALL_ACTOR_FAMILY
+      ? msActorFamilyByActorId.get(MS_BOWLING_BALL_ACTOR_ID)
       : lookupMsActorFamilyRegistration(actor.id);
   const familyRender = familyRegistration?.projectRenderSprite;
   if (familyRender) {

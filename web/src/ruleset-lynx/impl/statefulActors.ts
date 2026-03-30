@@ -1,6 +1,5 @@
 import {
   cloneBowlingBallState,
-  createMovingBowlingBallState,
   type BowlingBallState,
 } from "@game-core/impl/bowlingBall";
 import { type StatefulActorInventoryEntry } from "@game-core/impl/statefulActorLocalInventory";
@@ -10,13 +9,17 @@ import {
   type StatefulActorPortableBacking,
   type StatefulActorRuntimeStore,
 } from "@game-core/impl/statefulActorRuntime";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
 import type { LynxPortableItemFamily } from "@ruleset-lynx/impl/catalogTiles";
+import {
+  createLynxBowlingBallInitialRuntimeState,
+  LYNX_BOWLING_BALL_ACTOR_FAMILY,
+  LYNX_BOWLING_BALL_ACTOR_ID,
+} from "@ruleset-lynx/impl/elements/actors/families/bowlingBall";
 
 export type LynxBowlingBallRuntimeState = BowlingBallState;
 
 export type LynxStatefulActorRuntimeEntry = StatefulActorInventoryEntry<
-  "bowling-ball",
+  typeof LYNX_BOWLING_BALL_ACTOR_FAMILY,
   LynxBowlingBallRuntimeState,
   LynxPortableItemFamily
 >;
@@ -27,14 +30,14 @@ const LYNX_STATEFUL_ACTOR_REGISTRY = createStatefulActorRuntimeRegistry<
   LynxPortableItemFamily
 >([
   createActorIdStatefulActorRuntimeFamilyAdapter<LynxStatefulActorRuntimeEntry, LynxPortableItemFamily>({
-    kind: "bowling-ball",
-    actorId: MS_TILE.BowlingBall,
+    kind: LYNX_BOWLING_BALL_ACTOR_FAMILY,
+    actorId: LYNX_BOWLING_BALL_ACTOR_ID,
     createEntry(actorSerial) {
       return {
         actorSerial,
-        kind: "bowling-ball",
+        kind: LYNX_BOWLING_BALL_ACTOR_FAMILY,
         portableBacking: null,
-        state: createMovingBowlingBallState(),
+        state: createLynxBowlingBallInitialRuntimeState(),
       };
     },
   }),
@@ -108,9 +111,9 @@ export function spawnLynxBowlingBallStatefulActorFromPortable(
 ): LynxStatefulActorRuntimeEntry {
   return restoreLynxStatefulActorRuntime(store, {
     actorSerial,
-    kind: "bowling-ball",
+    kind: LYNX_BOWLING_BALL_ACTOR_FAMILY,
     portableBacking: {
-      family: "bowling-ball",
+      family: LYNX_BOWLING_BALL_ACTOR_FAMILY,
       portableItemSerial,
     },
     state: cloneBowlingBallState(state),

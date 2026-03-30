@@ -1,6 +1,5 @@
 import {
   cloneBowlingBallState,
-  createMovingBowlingBallState,
   type BowlingBallState,
 } from "@game-core/impl/bowlingBall";
 import { type StatefulActorInventoryEntry } from "@game-core/impl/statefulActorLocalInventory";
@@ -10,13 +9,17 @@ import {
   type StatefulActorPortableBacking,
   type StatefulActorRuntimeStore,
 } from "@game-core/impl/statefulActorRuntime";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
 import type { MsPortableItemFamily } from "@ruleset-ms/impl/catalogTiles";
+import {
+  createMsBowlingBallInitialRuntimeState,
+  MS_BOWLING_BALL_ACTOR_FAMILY,
+  MS_BOWLING_BALL_ACTOR_ID,
+} from "@ruleset-ms/impl/elements/actors/families/bowlingBall";
 
 export type MsBowlingBallRuntimeState = BowlingBallState;
 
 export type MsStatefulActorRuntimeEntry = StatefulActorInventoryEntry<
-  "bowling-ball",
+  typeof MS_BOWLING_BALL_ACTOR_FAMILY,
   MsBowlingBallRuntimeState,
   MsPortableItemFamily
 >;
@@ -27,14 +30,14 @@ const MS_STATEFUL_ACTOR_REGISTRY = createStatefulActorRuntimeRegistry<
   MsPortableItemFamily
 >([
   createActorIdStatefulActorRuntimeFamilyAdapter<MsStatefulActorRuntimeEntry, MsPortableItemFamily>({
-    kind: "bowling-ball",
-    actorId: MS_TILE.BowlingBall,
+    kind: MS_BOWLING_BALL_ACTOR_FAMILY,
+    actorId: MS_BOWLING_BALL_ACTOR_ID,
     createEntry(actorSerial) {
       return {
         actorSerial,
-        kind: "bowling-ball",
+        kind: MS_BOWLING_BALL_ACTOR_FAMILY,
         portableBacking: null,
-        state: createMovingBowlingBallState(),
+        state: createMsBowlingBallInitialRuntimeState(),
       };
     },
   }),
@@ -108,9 +111,9 @@ export function spawnMsBowlingBallStatefulActorFromPortable(
 ): MsStatefulActorRuntimeEntry {
   return restoreMsStatefulActorRuntime(store, {
     actorSerial,
-    kind: "bowling-ball",
+    kind: MS_BOWLING_BALL_ACTOR_FAMILY,
     portableBacking: {
-      family: "bowling-ball",
+      family: MS_BOWLING_BALL_ACTOR_FAMILY,
       portableItemSerial,
     },
     state: cloneBowlingBallState(state),

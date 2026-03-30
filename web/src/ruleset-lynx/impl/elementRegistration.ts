@@ -3,9 +3,14 @@ import type {
   InteractiveGameTileOverlayRender,
 } from "@game-core/api/interactive";
 import type { ActorDefinition } from "@game-core/api/ruleset";
-import { bowlingBallArtworkSpriteId } from "@game-core/impl/bowlingBall";
 import { lynxLevelLoadRegistration, type LynxLevelLoadRegistration } from "@ruleset-lynx/api/levelLoader";
 import { lookupLynxActorDefinition } from "@ruleset-lynx/impl/catalogActors";
+import {
+  LYNX_BOWLING_BALL_ACTOR_FAMILY,
+  LYNX_BOWLING_BALL_ACTOR_ID,
+  LYNX_BOWLING_BALL_ACTOR_IDS,
+  projectLynxBowlingBallActorRenderSprite,
+} from "@ruleset-lynx/impl/elements/actors/families/bowlingBall";
 import {
   lookupLynxPortableItemFamilyRegistration,
   lookupLynxPortableItemFamilyRegistrationByTileId,
@@ -71,18 +76,13 @@ const LYNX_ACTOR_FAMILY_REGISTRATIONS = [
     actorIds: [MS_TILE.Block],
   },
   {
-    familyId: "bowling-ball",
-    actorIds: [MS_TILE.BowlingBall],
+    familyId: LYNX_BOWLING_BALL_ACTOR_FAMILY,
+    actorIds: LYNX_BOWLING_BALL_ACTOR_IDS,
     projectRenderSprite(actor, runtimeEntry) {
-      const mode = runtimeEntry?.kind === "bowling-ball" ? runtimeEntry.state.mode : "moving";
-      return {
-        kind: "creature",
-        tileId: MS_TILE.BowlingBall,
-        artworkSpriteId: bowlingBallArtworkSpriteId(mode),
-        dir: actor.dir,
-        moving: actor.moving,
-        frame: actor.frame,
-      };
+      return projectLynxBowlingBallActorRenderSprite(
+        actor,
+        runtimeEntry?.kind === LYNX_BOWLING_BALL_ACTOR_FAMILY ? runtimeEntry.state : null,
+      );
     },
   },
   {
@@ -221,8 +221,8 @@ export function projectLynxRegisteredActorRenderSprite(
   runtimeEntry: LynxStatefulActorRuntimeEntry | null,
 ): InteractiveGameRenderSprite {
   const familyRegistration =
-    runtimeEntry?.kind === "bowling-ball"
-      ? lynxActorFamilyByActorId.get(MS_TILE.BowlingBall)
+    runtimeEntry?.kind === LYNX_BOWLING_BALL_ACTOR_FAMILY
+      ? lynxActorFamilyByActorId.get(LYNX_BOWLING_BALL_ACTOR_ID)
       : lookupLynxActorFamilyRegistration(actor.id);
   const familyRender = familyRegistration?.projectRenderSprite;
   if (familyRender) {
