@@ -453,20 +453,20 @@ Targets:
 
 Checklist:
 
-- [ ] trap held/release behavior uses actor family hooks, not engine-local branches
-- [ ] cloner entry/hold/release/clone behavior uses actor family hooks
-- [ ] forced-floor hold/redirect semantics move to family modules
-- [ ] bowling-ball and future ghost/fake-player hooks fit through the same seam
+- [x] trap held/release behavior uses actor family hooks, not engine-local branches
+- [x] cloner entry/hold/release/clone behavior uses actor family hooks
+- [x] forced-floor hold/redirect semantics move to family modules
+- [x] bowling-ball and future ghost/fake-player hooks fit through the same seam
 
 Tests:
 
-- [ ] trap/cloner family tests
-- [ ] focused engine tests for trap and cloner edge cases
-- [ ] targeted replay sweeps around trap/cloner content
+- [x] trap/cloner family tests
+- [x] focused engine tests for trap and cloner edge cases
+- [x] targeted replay sweeps around trap/cloner content
 
 Exit gate:
 
-- [ ] engine controls timing, plugins control family behavior
+- [x] engine controls timing, plugins control family behavior
 
 ### PA8: Portable Item And Stateful Actor Plugin Unification
 

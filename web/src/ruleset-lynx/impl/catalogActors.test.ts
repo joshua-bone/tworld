@@ -7,6 +7,7 @@ import {
   LYNX_CREATURE_ACTOR_CAPABILITIES,
   lookupLynxActorDefinition,
 } from "@ruleset-lynx/impl/catalogActors";
+import { lynxRulesetCatalog } from "@ruleset-lynx/impl/catalog";
 
 describe("lynx catalogActors", () => {
   it("keeps the baseline actor family policies stable", () => {
@@ -47,5 +48,14 @@ describe("lynx catalogActors", () => {
 
   it("normalizes creature tiles back to their actor definitions", () => {
     expect(lookupLynxActorDefinition(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west))?.id).toBe(MS_TILE.Bug);
+  });
+
+  it("registers actor behavior hooks for trap and cloner families", () => {
+    expect(lynxRulesetCatalog.getActorBehavior(MS_TILE.BowlingBall)?.phases).toMatchObject({
+      "held-floor": expect.any(Function),
+      "trap-release": expect.any(Function),
+      "cloner-entry": expect.any(Function),
+      "cloner-clone": expect.any(Function),
+    });
   });
 });

@@ -209,6 +209,21 @@ export function composeTileBehaviors<TTileId extends number = number, TActorId e
   return hasPhase ? createTileBehavior(phases) : undefined;
 }
 
+export function composeActorBehaviors<TTileId extends number = number, TActorId extends number = number>(
+  ...behaviors: ReadonlyArray<ActorBehavior<TTileId, TActorId> | undefined>
+): ActorBehavior<TTileId, TActorId> | undefined {
+  const phases: Partial<Record<ActorLifecyclePhase, ActorLifecycleHandler<TTileId, TActorId>>> = {};
+  let hasPhase = false;
+  for (const behavior of behaviors) {
+    if (!behavior) {
+      continue;
+    }
+    Object.assign(phases, behavior.phases);
+    hasPhase ||= Object.keys(behavior.phases).length > 0;
+  }
+  return hasPhase ? createActorBehavior(phases) : undefined;
+}
+
 export function lookupTileBehaviorPhase<TTileId extends number = number, TActorId extends number = number>(
   behavior: TileBehavior<TTileId, TActorId>,
   phase: TileLifecyclePhase,

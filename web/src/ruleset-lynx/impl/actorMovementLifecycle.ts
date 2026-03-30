@@ -12,21 +12,14 @@ import { MS_TILE } from "@ruleset-ms/api/tiles";
 import type { ArrivalResult } from "@game-core/api/movementOutcomes";
 import { noArrival, removedOnArrival, resolvedArrival } from "@game-core/api/movementOutcomes";
 import { addTopTileFlags, promoteBottomTile, removeTopTileFlags, replaceTopTile } from "@game-core/impl/board";
-import { lynxArrivalAnimationKind, lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
+import { lynxArrivalAnimationKind } from "@ruleset-lynx/impl/catalog";
 import type { LynxActorMovementActor, LynxActorMovementContext } from "@ruleset-lynx/impl/actorMovement";
+import { isLynxIceForcedFloor } from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
 import {
   lynxBlockedMoveFloorImpactAction,
   lynxHeldFloorImpactAction,
   lynxRuntimeActorFloorImpactAction,
 } from "@ruleset-lynx/impl/floorImpactPolicy";
-
-function isLynxSlide(tileId: number): boolean {
-  return lynxTileForcedFloorKind(tileId) === "slide";
-}
-
-function isLynxIce(tileId: number): boolean {
-  return lynxTileForcedFloorKind(tileId) === "ice";
-}
 
 export function lynxActorHoldsDirectionOnFloor(floorId: number, actorId: number): boolean {
   return actorFloorImpactHoldsDirection(lynxHeldFloorImpactAction(floorId, actorId) ?? "none");
@@ -38,7 +31,7 @@ export function applyLynxBlockedActorMoveStart(
   attemptedDir: number,
   floorId: number,
 ): void {
-  if (isLynxIce(floorId) && context.shouldTurnBlockedIce(actor, floorId)) {
+  if (isLynxIceForcedFloor(floorId) && context.shouldTurnBlockedIce(actor, floorId)) {
     actor.dir = context.turnBlockedIceDirection(attemptedDir, floorId);
   }
 }
@@ -51,9 +44,9 @@ export function applyLynxActorEnteredCell(
   const moveKind = actor.moveKind ?? "planar";
   actor.moveKind = "planar";
   actor.ignoreIceFromAir = false;
-  if (isLynxIce(floorId) && moveKind !== "air" && moveKind !== "elevator") {
+  if (isLynxIceForcedFloor(floorId) && moveKind !== "air" && moveKind !== "elevator") {
     actor.dir = context.applyIceWallTurn(actor.dir, floorId);
-  } else if (isLynxIce(floorId) && (moveKind === "air" || moveKind === "elevator")) {
+  } else if (isLynxIceForcedFloor(floorId) && (moveKind === "air" || moveKind === "elevator")) {
     actor.ignoreIceFromAir = true;
   }
 }

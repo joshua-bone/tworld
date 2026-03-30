@@ -1,5 +1,5 @@
 import type { ActorCapabilityPolicy } from "@game-core/api/actorCapabilities";
-import type { ActorDefinition, ActorTag } from "@game-core/api/ruleset";
+import { composeActorBehaviors, type ActorDefinition, type ActorTag } from "@game-core/api/ruleset";
 import { composeRulesetActorPolicy } from "@game-core/impl/actorFamilies";
 import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 import { createLynxBallisticActorFamily } from "@ruleset-lynx/impl/elements/actors/families/ballistic";
@@ -8,6 +8,7 @@ import { createLynxMobActorFamily } from "@ruleset-lynx/impl/elements/actors/fam
 import { createLynxMonsterActorFamily } from "@ruleset-lynx/impl/elements/actors/families/monster";
 import { createLynxPlayerLikeActorFamily } from "@ruleset-lynx/impl/elements/actors/families/playerLike";
 import { createLynxPortableBackedActorFamily } from "@ruleset-lynx/impl/elements/actors/families/portableBacked";
+import { createLynxSpecialFloorActorBehavior } from "@ruleset-lynx/impl/elements/actors/families/specialFloors";
 
 const CHIP_ACTOR_IDS = [MS_TILE.Chip, MS_TILE.Swimming_Chip, MS_TILE.Pushing_Chip] as const;
 const MONSTER_ACTOR_IDS = [
@@ -141,6 +142,9 @@ function createLynxActorDefinition(id: number): ActorDefinition<number> {
     name: humanizeLynxTileName(name),
     tags: policy.tags,
     capabilities: policy.capabilities,
+    behavior: composeActorBehaviors(
+      createLynxSpecialFloorActorBehavior(policy.capabilities),
+    ),
   };
 }
 

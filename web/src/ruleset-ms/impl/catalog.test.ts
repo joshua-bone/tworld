@@ -24,7 +24,14 @@ describe("MS ruleset catalog", () => {
     expect(lookupTileBehaviorPhase(msRulesetCatalog.getTileBehavior(MS_TILE.Socket)!, "probe-support")).toBeTypeOf(
       "function",
     );
-    expect(msRulesetCatalog.getTileBehavior(MS_TILE.Empty)?.phases).toEqual({});
-    expect(msRulesetCatalog.getActorBehavior(MS_TILE.Chip)?.phases).toEqual({});
+    expect(lookupTileBehaviorPhase(msRulesetCatalog.getTileBehavior(MS_TILE.Empty)!, "begin-enter")).toBeTypeOf(
+      "function",
+    );
+    expect(msRulesetCatalog.getActorBehavior(MS_TILE.Chip)?.phases).toMatchObject({
+      "held-floor": expect.any(Function),
+      "trap-release": expect.any(Function),
+      "cloner-entry": expect.any(Function),
+      "cloner-clone": expect.any(Function),
+    });
   });
 });

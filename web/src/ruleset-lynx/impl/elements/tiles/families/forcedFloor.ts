@@ -1,5 +1,6 @@
 import type { TileCapability, TileHookName, TileTag } from "@game-core/api/ruleset";
 import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 import type { LynxChipEnterAction, LynxForcedFloorKind } from "@ruleset-lynx/impl/catalogTiles";
 import {
   LYNX_FULL_MOVEMENT_MASK,
@@ -45,4 +46,63 @@ export function createLynxForcedFloorTileFamily(options: LynxForcedFloorTileFami
       chipEnterAction: options.chipEnterAction ?? "none",
     }),
   });
+}
+
+export function lynxForcedFloorKindForTile(tileId: number): LynxForcedFloorKind {
+  switch (tileId) {
+    case MS_TILE.Slide_North:
+    case MS_TILE.Slide_West:
+    case MS_TILE.Slide_South:
+    case MS_TILE.Slide_East:
+    case MS_TILE.Slide_Random:
+      return "slide";
+    case MS_TILE.Ice:
+    case MS_TILE.IceWall_Northwest:
+    case MS_TILE.IceWall_Northeast:
+    case MS_TILE.IceWall_Southwest:
+    case MS_TILE.IceWall_Southeast:
+      return "ice";
+    case MS_TILE.Teleport:
+      return "teleport";
+    case MS_TILE.Air:
+      return "air";
+    case MS_TILE.Elevator:
+      return "elevator";
+    default:
+      return "none";
+  }
+}
+
+export function isLynxForcedFloorKind(tileId: number, kind: LynxForcedFloorKind): boolean {
+  return lynxForcedFloorKindForTile(tileId) === kind;
+}
+
+export function isLynxSlideForcedFloor(tileId: number): boolean {
+  return isLynxForcedFloorKind(tileId, "slide");
+}
+
+export function isLynxIceForcedFloor(tileId: number): boolean {
+  return isLynxForcedFloorKind(tileId, "ice");
+}
+
+export function isLynxAirForcedFloor(tileId: number): boolean {
+  return isLynxForcedFloorKind(tileId, "air");
+}
+
+export function isLynxElevatorForcedFloor(tileId: number): boolean {
+  return isLynxForcedFloorKind(tileId, "elevator");
+}
+
+export function resolveLynxForcedFloorDirection(
+  tileId: number,
+  currentDir: number,
+  slideDirection: (floorId: number) => number,
+): number {
+  if (isLynxSlideForcedFloor(tileId)) {
+    return slideDirection(tileId);
+  }
+  if (isLynxIceForcedFloor(tileId)) {
+    return currentDir;
+  }
+  return 0;
 }

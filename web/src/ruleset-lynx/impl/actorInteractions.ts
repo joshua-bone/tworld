@@ -16,13 +16,12 @@ import {
 } from "@game-core/impl/occupancy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  lynxActorClonerFamilyHooks,
   lynxActorCollisionStrategyId,
   lynxActorHazardResponse,
   lynxActorThiefHook,
-  lynxActorTrapFamilyHooks,
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
+import { lynxActorHeldFloorOutcomeFromBehavior } from "@ruleset-lynx/impl/actorBehavior";
 
 function isLynxChipActor(actorId: number): boolean {
   return actorId === MS_TILE.Chip || actorId === MS_TILE.Swimming_Chip || actorId === MS_TILE.Pushing_Chip;
@@ -147,13 +146,7 @@ export function lynxActorHeldFloorOutcome(
   tileId: number,
   actorId: number,
 ): ActorHeldFloorOutcome {
-  if (tileId === MS_TILE.Beartrap) {
-    return lynxActorTrapFamilyHooks(actorId).heldFloorOutcome;
-  }
-  if (tileId === MS_TILE.CloneMachine) {
-    return lynxActorClonerFamilyHooks(actorId).heldFloorOutcome;
-  }
-  return "none";
+  return lynxActorHeldFloorOutcomeFromBehavior(tileId, actorId);
 }
 
 export function lynxActorThiefOutcome(actorId: number): ActorThiefOutcome {

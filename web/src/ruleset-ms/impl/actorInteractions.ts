@@ -12,12 +12,11 @@ import {
 } from "@game-core/api/actorInteractions";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  msActorClonerFamilyHooks,
   msActorCollisionStrategyId,
   msActorHazardResponse,
   msActorThiefHook,
-  msActorTrapFamilyHooks,
 } from "@ruleset-ms/impl/catalog";
+import { msActorHeldFloorOutcomeFromBehavior } from "@ruleset-ms/impl/actorBehavior";
 
 function isMsChipActor(actorId: number): boolean {
   return actorId === MS_TILE.Chip || actorId === MS_TILE.Swimming_Chip || actorId === MS_TILE.Pushing_Chip;
@@ -80,13 +79,7 @@ export function msActorHeldFloorOutcome(
   tileId: number,
   actorId: number,
 ): ActorHeldFloorOutcome {
-  if (tileId === MS_TILE.Beartrap) {
-    return msActorTrapFamilyHooks(actorId).heldFloorOutcome;
-  }
-  if (tileId === MS_TILE.CloneMachine) {
-    return msActorClonerFamilyHooks(actorId).heldFloorOutcome;
-  }
-  return "none";
+  return msActorHeldFloorOutcomeFromBehavior(tileId, actorId);
 }
 
 export function msActorThiefOutcome(actorId: number): ActorThiefOutcome {

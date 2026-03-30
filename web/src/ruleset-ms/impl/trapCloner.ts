@@ -1,9 +1,4 @@
 import type { EngineMapCell } from "@game-core/api/model";
-import {
-  actorClonerClonesFamilyRuntime,
-  actorClonerExitStartsMovement,
-  actorTrapReleaseStartsMovement,
-} from "@game-core/api/actorSpecialFloorHooks";
 import { addBottomTileFlags, topTileId } from "@game-core/impl/board";
 import type { MsConnection } from "@ruleset-ms/api/level";
 import {
@@ -14,7 +9,11 @@ import {
   MS_FLOOR_STATE,
   MS_TILE,
 } from "@ruleset-ms/api/tiles";
-import { msActorClonerFamilyHooks, msActorTrapFamilyHooks } from "@ruleset-ms/impl/catalog";
+import {
+  msActorClonerCloneBehavior,
+  msActorClonerEntryBehavior,
+  msActorTrapReleaseStartsMovement,
+} from "@ruleset-ms/impl/actorBehavior";
 
 export interface MsTrapClonerCreatureRef {
   id?: number;
@@ -121,23 +120,23 @@ export function springMsTrap(args: {
   }
 
   if (trapPos === chipPos && (chipZ ?? 1) === buttonZ) {
-    if (actorTrapReleaseStartsMovement(msActorTrapFamilyHooks(MS_TILE.Chip))) {
+    if (msActorTrapReleaseStartsMovement(MS_TILE.Chip)) {
       releaseChip();
     }
   }
 
   const trappedBlock = findTrackedBlock(trapPos, buttonZ);
-  if (trappedBlock && actorTrapReleaseStartsMovement(msActorTrapFamilyHooks(trappedBlock.id ?? MS_TILE.Block))) {
+  if (trappedBlock && msActorTrapReleaseStartsMovement(trappedBlock.id ?? MS_TILE.Block)) {
     trappedBlock.released = true;
   } else if (cells[trapPos]?.top.id === MS_TILE.Block_Static) {
     const releasedBlock = releaseStaticBlock(trapPos);
-    if (actorTrapReleaseStartsMovement(msActorTrapFamilyHooks(releasedBlock.id ?? MS_TILE.Block))) {
+    if (msActorTrapReleaseStartsMovement(releasedBlock.id ?? MS_TILE.Block)) {
       releasedBlock.released = true;
     }
   }
 
   const trappedCreature = findCreature(trapPos, buttonZ);
-  if (trappedCreature && actorTrapReleaseStartsMovement(msActorTrapFamilyHooks(trappedCreature.id ?? MS_TILE.Empty))) {
+  if (trappedCreature && msActorTrapReleaseStartsMovement(trappedCreature.id ?? MS_TILE.Empty)) {
     trappedCreature.released = true;
   }
 }
@@ -174,8 +173,9 @@ export function activateMsCloner(args: {
   if (sourceId === MS_TILE.Chip) {
     return;
   }
-  const clonerHooks = msActorClonerFamilyHooks(sourceId);
-  if (clonerHooks.entryBehavior === "none" || !actorClonerExitStartsMovement(clonerHooks)) {
+  const clonerEntry = msActorClonerEntryBehavior(sourceId);
+  const clonerClone = msActorClonerCloneBehavior(sourceId);
+  if (clonerEntry.entryBehavior === "none" || !clonerClone.exitStartsMovement) {
     return;
   }
 
@@ -200,5 +200,5 @@ export function activateMsCloner(args: {
   }
 
   addBottomTileFlags(cells, sourcePos, MS_FLOOR_STATE.Cloning);
-  spawnCreatureClone(sourcePos, sourceId, sourceDir, buttonZ, actorClonerClonesFamilyRuntime(clonerHooks));
+  spawnCreatureClone(sourcePos, sourceId, sourceDir, buttonZ, clonerClone.cloneFamilyRuntime);
 }

@@ -7,6 +7,7 @@ import {
   MS_CREATURE_ACTOR_CAPABILITIES,
   lookupMsActorDefinition,
 } from "@ruleset-ms/impl/catalogActors";
+import { msRulesetCatalog } from "@ruleset-ms/impl/catalog";
 
 describe("ms catalogActors", () => {
   it("keeps the baseline actor family policies stable", () => {
@@ -48,5 +49,14 @@ describe("ms catalogActors", () => {
 
   it("normalizes creature tiles back to their actor definitions", () => {
     expect(lookupMsActorDefinition(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.east))?.id).toBe(MS_TILE.Bug);
+  });
+
+  it("registers actor behavior hooks for trap and cloner families", () => {
+    expect(msRulesetCatalog.getActorBehavior(MS_TILE.BowlingBall)?.phases).toMatchObject({
+      "held-floor": expect.any(Function),
+      "trap-release": expect.any(Function),
+      "cloner-entry": expect.any(Function),
+      "cloner-clone": expect.any(Function),
+    });
   });
 });

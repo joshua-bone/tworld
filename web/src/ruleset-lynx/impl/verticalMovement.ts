@@ -7,10 +7,14 @@ import { normalizeCardinalDirection as normalizeDirection } from "@game-core/imp
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
   lynxActorSupportFamilyHooks,
-  lynxTileForcedFloorKind,
   lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
 import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
+import {
+  isLynxAirForcedFloor,
+  isLynxElevatorForcedFloor,
+  isLynxSlideForcedFloor,
+} from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
 import {
   resolveLynxTileSupportBelow,
 } from "@ruleset-lynx/impl/tileEffects";
@@ -44,18 +48,6 @@ export interface LynxVerticalSupportContext extends LynxTileSupportContext {
 export interface LynxVerticalLayerAccess {
   cellsForZ(z: number): EngineMapCell[];
   setActiveLayer(z: number): void;
-}
-
-function isLynxAir(id: number): boolean {
-  return lynxTileForcedFloorKind(id) === "air";
-}
-
-function isLynxSlide(id: number): boolean {
-  return lynxTileForcedFloorKind(id) === "slide";
-}
-
-function isLynxElevator(id: number): boolean {
-  return lynxTileForcedFloorKind(id) === "elevator";
 }
 
 function lynxVerticalSupportSubject(
@@ -126,7 +118,7 @@ export function resolveLynxRuntimeActorSupportBelow(
 }
 
 export function isValidLynxElevatorDestinationFloor(floorId: number): boolean {
-  return isLynxAir(floorId) || isLynxSlide(floorId) || isLynxElevator(floorId) || lynxTileHasTag(floorId, "exit");
+  return isLynxAirForcedFloor(floorId) || isLynxSlideForcedFloor(floorId) || isLynxElevatorForcedFloor(floorId) || lynxTileHasTag(floorId, "exit");
 }
 
 export function canLynxChipUseElevator(
@@ -267,7 +259,7 @@ export function chipShouldStartLynxAirMove(
   context: LynxVerticalSupportContext,
   floorId: number,
 ): boolean {
-  if (!isLynxAir(floorId)) {
+  if (!isLynxAirForcedFloor(floorId)) {
     return false;
   }
 

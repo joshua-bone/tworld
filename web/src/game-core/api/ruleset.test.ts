@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ActorCapabilityPolicy } from "@game-core/api/actorCapabilities";
 import {
+  composeActorBehaviors,
   composeTileBehaviors,
   createActorBehavior,
   createRulesetCatalog,
@@ -105,5 +106,18 @@ describe("ruleset behavior registration", () => {
 
     expect(lookupTileBehaviorPhase(behavior!, "begin-enter")).toBe(beginEnter);
     expect(lookupTileBehaviorPhase(behavior!, "complete-exit")).toBe(afterLeave);
+  });
+
+  it("composes multiple actor behaviors into one phase map", () => {
+    const heldFloor = vi.fn();
+    const trapRelease = vi.fn();
+
+    const behavior = composeActorBehaviors(
+      createActorBehavior({ "held-floor": heldFloor }),
+      createActorBehavior({ "trap-release": trapRelease }),
+    );
+
+    expect(lookupActorBehaviorPhase(behavior!, "held-floor")).toBe(heldFloor);
+    expect(lookupActorBehaviorPhase(behavior!, "trap-release")).toBe(trapRelease);
   });
 });

@@ -1,14 +1,14 @@
 import type { EngineState } from "@game-core/api/model";
-import {
-  actorClonerClonesFamilyRuntime,
-  actorClonerExitStartsMovement,
-  actorTrapReleaseStartsMovement,
-} from "@game-core/api/actorSpecialFloorHooks";
 import { movementDidSucceed, type MovementAttemptResult } from "@game-core/api/movementOutcomes";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { collectLevelConnections } from "@ruleset-ms/api/level";
 import { topTileIdOr } from "@game-core/impl/board";
-import { lynxActorClonerFamilyHooks, lynxActorTrapFamilyHooks, lynxTileHasTag } from "@ruleset-lynx/impl/catalog";
+import { lynxTileHasTag } from "@ruleset-lynx/impl/catalog";
+import {
+  lynxActorClonerCloneBehavior,
+  lynxActorClonerEntryBehavior,
+  lynxActorTrapReleaseStartsMovement,
+} from "@ruleset-lynx/impl/actorBehavior";
 import { queryLynxOccupancyTarget, type LynxOccupancyPortableItemRef } from "@ruleset-lynx/impl/occupancy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -126,8 +126,9 @@ export function activateLynxCloner<TActor extends LynxTrapClonerActor>(
     if (!sourceActor || sourceActor.dir === 0 || sourceActor.deferPush) {
       return false;
     }
-    const clonerHooks = lynxActorClonerFamilyHooks(sourceActor.id);
-    if (clonerHooks.entryBehavior === "none" || !actorClonerExitStartsMovement(clonerHooks)) {
+    const clonerEntry = lynxActorClonerEntryBehavior(sourceActor.id);
+    const clonerClone = lynxActorClonerCloneBehavior(sourceActor.id);
+    if (clonerEntry.entryBehavior === "none" || !clonerClone.exitStartsMovement) {
       return false;
     }
 
@@ -142,7 +143,7 @@ export function activateLynxCloner<TActor extends LynxTrapClonerActor>(
       ...sourceSnapshot,
       hidden: false,
     });
-    if (actorClonerClonesFamilyRuntime(clonerHooks)) {
+    if (clonerClone.cloneFamilyRuntime) {
       context.cloneFamilyRuntimeForCloner(sourceActor.serial, clone.serial);
     }
     context.advanceCreature(sourceActor, context.currentTime + 1);
@@ -168,7 +169,7 @@ export function springLynxTrap<TActor extends LynxTrapClonerActor>(
     if (!sourceActor || sourceActor.dir === 0) {
       return false;
     }
-    if (!actorTrapReleaseStartsMovement(lynxActorTrapFamilyHooks(sourceActor.id))) {
+    if (!lynxActorTrapReleaseStartsMovement(sourceActor.id)) {
       return false;
     }
 

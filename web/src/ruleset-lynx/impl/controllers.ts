@@ -1,4 +1,7 @@
-import { lynxActorControlMode, lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
+import { lynxActorControlMode } from "@ruleset-lynx/impl/catalog";
+import {
+  resolveLynxForcedFloorDirection,
+} from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
 import { lynxActorHoldsDirectionOnFloor } from "@ruleset-lynx/impl/actorMovementLifecycle";
 import { MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -68,14 +71,6 @@ function back(dir: number): number {
     default:
       return 0;
   }
-}
-
-function isLynxSlide(tileId: number): boolean {
-  return lynxTileForcedFloorKind(tileId) === "slide";
-}
-
-function isLynxIce(tileId: number): boolean {
-  return lynxTileForcedFloorKind(tileId) === "ice";
 }
 
 function chooseLynxCreatureFirstDirection(
@@ -164,12 +159,11 @@ export function chooseLynxCreatureMoveForTick(
     }
 
     const floor = context.floorAt(actor.pos);
-    if (context.currentTime !== 0 && isLynxSlide(floor) && !context.treatsForcedFloorAsNormal(actor, floor)) {
-      actor.forcedDir = context.slideDirection(floor);
-      return;
-    }
-    if (context.currentTime !== 0 && isLynxIce(floor) && !context.treatsForcedFloorAsNormal(actor, floor)) {
-      actor.forcedDir = actor.dir;
+    const forcedFloorDirection = context.currentTime === 0 || context.treatsForcedFloorAsNormal(actor, floor)
+      ? 0
+      : resolveLynxForcedFloorDirection(floor, actor.dir, context.slideDirection);
+    if (forcedFloorDirection !== 0) {
+      actor.forcedDir = forcedFloorDirection;
       return;
     }
 

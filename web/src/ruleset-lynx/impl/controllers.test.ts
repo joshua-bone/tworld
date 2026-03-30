@@ -64,6 +64,35 @@ describe("lynx controllers", () => {
     expect(actor.forcedDir).toBe(0);
   });
 
+  it("routes slide and ice forced movement through the forced-floor helper", () => {
+    const slideActor = createActor({
+      id: MS_TILE.Glider,
+      dir: MS_DIRECTION.north,
+    });
+    chooseLynxCreatureMoveForTick(
+      createContext({
+        currentTime: 1,
+        floorAt: () => MS_TILE.Slide_East,
+        slideDirection: () => MS_DIRECTION.east,
+      }),
+      slideActor,
+    );
+    expect(slideActor.forcedDir).toBe(MS_DIRECTION.east);
+
+    const iceActor = createActor({
+      id: MS_TILE.Glider,
+      dir: MS_DIRECTION.south,
+    });
+    chooseLynxCreatureMoveForTick(
+      createContext({
+        currentTime: 1,
+        floorAt: () => MS_TILE.Ice,
+      }),
+      iceActor,
+    );
+    expect(iceActor.forcedDir).toBe(MS_DIRECTION.south);
+  });
+
   it("lets teeth fall back to the secondary chase direction when the primary one is blocked", () => {
     const actorPos = 1 + MS_GRID_WIDTH;
     const actor = createActor({

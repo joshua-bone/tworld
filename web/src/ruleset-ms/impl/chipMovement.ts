@@ -1,19 +1,11 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import { blockedMovement, movedMovement, type MovementAttemptResult } from "@game-core/api/movementOutcomes";
 import { MS_DIRECTION, MS_GRID_WIDTH, MS_SOUND, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
-import { msTileForcedFloorKind } from "@ruleset-ms/impl/catalog";
+import {
+  isMsIceForcedFloor,
+  msEntryRevealsForcedFloor,
+} from "@ruleset-ms/impl/elements/tiles/families/forcedFloor";
 import type { MsChipEnteredTileResolution } from "@ruleset-ms/impl/chipArrival";
-
-function isIceFloor(tileId: number): boolean {
-  return msTileForcedFloorKind(tileId) === "ice";
-}
-
-function revealsForcedFloorAfterEntry(
-  enteredTileId: number,
-  movementFloorTileId: number,
-): boolean {
-  return enteredTileId !== movementFloorTileId && msTileForcedFloorKind(movementFloorTileId) !== "none";
-}
 
 export interface MsChipMovementInternal {
   chipPos: number;
@@ -135,7 +127,7 @@ export function moveMsChipPlanar(
   const enteredEffects = context.applyEnterEffects(cells, nextPos);
   const floor = enteredEffects.floorTileBeforeMove.id;
   const movementFloorTile = enteredEffects.movementFloorTile;
-  const deferForcedFloorRefresh = revealsForcedFloorAfterEntry(floor, movementFloorTile.id);
+  const deferForcedFloorRefresh = msEntryRevealsForcedFloor(floor, movementFloorTile.id);
   soundEffects |= enteredEffects.soundEffects;
 
   context.popTile(cells, oldPos);
@@ -183,10 +175,10 @@ export function moveMsChipDownOneLayer(
   const enteredEffects = context.applyEnterEffects(targetCells, nextPos);
   const floor = enteredEffects.floorTileBeforeMove.id;
   const movementFloorTile = enteredEffects.movementFloorTile;
-  const deferForcedFloorRefresh = revealsForcedFloorAfterEntry(floor, movementFloorTile.id);
+  const deferForcedFloorRefresh = msEntryRevealsForcedFloor(floor, movementFloorTile.id);
   const suppressIceRefresh =
     !deferForcedFloorRefresh &&
-    isIceFloor(enteredFloor) &&
+    isMsIceForcedFloor(enteredFloor) &&
     !context.hasIceBoot();
   soundEffects |= enteredEffects.soundEffects;
 
@@ -257,7 +249,7 @@ export function moveMsChipUpOneLayer(
   const enteredEffects = context.applyEnterEffects(targetCells, nextPos);
   const floor = enteredEffects.floorTileBeforeMove.id;
   const movementFloorTile = enteredEffects.movementFloorTile;
-  const deferForcedFloorRefresh = revealsForcedFloorAfterEntry(floor, movementFloorTile.id);
+  const deferForcedFloorRefresh = msEntryRevealsForcedFloor(floor, movementFloorTile.id);
   soundEffects |= enteredEffects.soundEffects;
 
   context.popTile(sourceCells, oldPos);
