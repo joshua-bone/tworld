@@ -260,10 +260,10 @@ Targets:
 
 Checklist:
 
-- [ ] define tile lifecycle phases by name
-- [ ] define actor lifecycle phases by name
-- [ ] define support/activation/render/decode seam ownership
-- [ ] document “no new raw tile-id branches in engine hot paths” rule
+- [x] define tile lifecycle phases by name
+- [x] define actor lifecycle phases by name
+- [x] define support/activation/render/decode seam ownership
+- [x] document “no new raw tile-id branches in engine hot paths” rule
 
 Tests:
 
@@ -271,7 +271,7 @@ Tests:
 
 Exit gate:
 
-- [ ] the lifecycle vocabulary is stable enough that later PRs do not rename core seams again
+- [x] the lifecycle vocabulary is stable enough that later PRs do not rename core seams again
 
 ### PA2: Introduce Executable Tile And Actor Handler Interfaces
 
@@ -572,4 +572,3 @@ then the best first implementation step is:
 - PA2, then PA3, then PA4, then PA5
 
 That is the earliest point where new elements stop defaulting to engine edits.
-
