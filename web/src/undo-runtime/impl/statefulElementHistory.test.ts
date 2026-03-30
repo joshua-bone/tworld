@@ -30,10 +30,7 @@ import { createLynxUndoHistory, recordLynxUndoTick, restoreLynxUndoHistoryToTick
 import { createMsUndoHistory, recordMsUndoTick, restoreMsUndoHistoryToTick } from "@undo-runtime/impl/msHistory";
 
 describe("stateful element undo/projection characterization", () => {
-  for (const [label, tileId] of [
-    ["sandbag", MS_TILE.Sandbag],
-    ["hook", MS_TILE.Hook],
-  ] as const) {
+  for (const [label, tileId] of [["sandbag", MS_TILE.Sandbag]] as const) {
     it(`replays MS ${label} primed drops through undo restore without losing the projected overlay`, () => {
       const cells = createMsEmptyCells();
       const chipPos = msPos(8, 10);
@@ -116,6 +113,72 @@ describe("stateful element undo/projection characterization", () => {
       });
     });
   }
+
+  it("replays MS hook Action1 no-op through undo without introducing a primed overlay", () => {
+    const cells = createMsEmptyCells();
+    const chipPos = msPos(8, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createMsRequest(),
+      createMsLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Hook];
+    reconcileMsPortableToolProjection(session.state.internal.portableTools, session.state.engine.inventory);
+
+    let history = createMsUndoHistory(session, 2);
+    const actionInput = encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1);
+    session = advanceMsInteractiveSession(session, actionInput);
+    history = recordMsUndoTick(history, session, actionInput);
+    session = advanceMsInteractiveSession(session, GAME_INPUT_CODES.none);
+    history = recordMsUndoTick(history, session, GAME_INPUT_CODES.none);
+
+    const restored = restoreMsUndoHistoryToTick(history, 0);
+
+    expect(restored.replayedEventCount).toBeGreaterThan(0);
+    expect(restored.session.state.engine.inventory.tools).toEqual([MS_TILE.Hook]);
+    expect(restored.session.state.internal.portableTools.primedToolDrop).toBeNull();
+    expect(
+      restored.session.state.internal.portableTools.portableItems.find((item) => item.tileId === MS_TILE.Hook)?.state.mode,
+    ).toBe("carried");
+
+    const frame = projectMsInteractiveFrame(restored.session, "tick");
+    expect(frame.tileOverlays.find((overlay) => overlay.kind === "carried-tool" && overlay.tileId === MS_TILE.Hook)).toBeUndefined();
+  });
+
+  it("replays Lynx hook Action1 no-op through undo without introducing a primed overlay", () => {
+    const chipPos = 33;
+    let session = createLynxInteractiveSession(
+      createLynxRequest(),
+      createLynxLevel([createLynxCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east))], [chipPos]),
+    );
+    session.state.inventory.tools = [MS_TILE.Hook];
+    const runtime = lynxRuntimeStateForTest(session.state);
+    const portableTools = runtime.portableTools as LynxPortableToolStateStore;
+    reconcileLynxPortableToolProjection(portableTools, session.state.inventory);
+
+    let history = createLynxUndoHistory(session, 2);
+    const actionInput = encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1);
+    session = advanceLynxInteractiveSession(session, actionInput);
+    history = recordLynxUndoTick(history, session, actionInput);
+    session = advanceLynxInteractiveSession(session, GAME_INPUT_CODES.none);
+    history = recordLynxUndoTick(history, session, GAME_INPUT_CODES.none);
+
+    const restored = restoreLynxUndoHistoryToTick(history, 0);
+
+    expect(restored.replayedEventCount).toBeGreaterThan(0);
+    expect(restored.session.state.inventory.tools).toEqual([MS_TILE.Hook]);
+    expect((lynxRuntimeStateForTest(restored.session.state).portableTools as LynxPortableToolStateStore).primedToolDrop).toBeNull();
+    expect(lynxPortableItems(restored.session.state).find((item) => item.tileId === MS_TILE.Hook)?.state.mode).toBe(
+      "carried",
+    );
+
+    const frame = projectLynxInteractiveFrame(restored.session, "tick");
+    expect(frame.tileOverlays.find((overlay) => overlay.kind === "carried-tool" && overlay.tileId === MS_TILE.Hook)).toBeUndefined();
+  });
 
   it("restores a thrown MS bowling ball through undo with runtime inventory and moving projection intact", () => {
     const cells = createMsEmptyCells();

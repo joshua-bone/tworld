@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  createActorIdStatefulActorRuntimeFamilyAdapter,
   cloneStatefulActorRuntimeStore,
   createStatefulActorRuntimeFamilyAdapter,
+  createStatefulActorRuntimeRegistry,
   createStatefulActorRuntimeStore,
   findStatefulActorRuntime,
   forkStatefulActorRuntime,
@@ -145,5 +147,44 @@ describe("statefulActorRuntime", () => {
     adapter.destroy(store, 6);
     expect(findStatefulActorRuntime(store, 6)).toBeUndefined();
     expect(findStatefulActorRuntime(store, 7)).toBeTruthy();
+  });
+
+  it("supports actor-id gated adapters through the shared registry helper", () => {
+    const store = createStatefulActorRuntimeStore<TestActorRuntimeEntry>();
+    const registry = createStatefulActorRuntimeRegistry([
+      createActorIdStatefulActorRuntimeFamilyAdapter<TestActorRuntimeEntry>({
+        kind: "bowling-ball",
+        actorId: 71,
+        createEntry(actorSerial) {
+          return {
+            actorSerial,
+            kind: "bowling-ball",
+            portableBacking: null,
+            state: { mode: "moving" },
+          };
+        },
+      }),
+    ]);
+
+    expect(registry.createInitial(5, { actorId: 71 })).toEqual({
+      actorSerial: 5,
+      kind: "bowling-ball",
+      portableBacking: null,
+      state: { mode: "moving" },
+    });
+    expect(registry.createInitial(6, { actorId: 99 })).toBeNull();
+
+    registry.seed(store, 7, { actorId: 71 });
+    expect(registry.find(store, 7)).toMatchObject({
+      actorSerial: 7,
+      kind: "bowling-ball",
+    });
+
+    expect(registry.attachPortableBacking(store, 7, { family: "sandbag", portableItemSerial: 3 })).toMatchObject({
+      portableBacking: { family: "sandbag", portableItemSerial: 3 },
+    });
+    expect(registry.detachPortableBacking(store, 7)).toMatchObject({
+      portableBacking: null,
+    });
   });
 });

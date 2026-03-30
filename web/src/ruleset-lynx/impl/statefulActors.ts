@@ -5,13 +5,9 @@ import {
 } from "@game-core/impl/bowlingBall";
 import { type StatefulActorInventoryEntry } from "@game-core/impl/statefulActorLocalInventory";
 import {
-  createStatefulActorRuntimeFamilyAdapter,
-  findStatefulActorRuntime,
-  forkStatefulActorRuntime,
-  removeStatefulActorRuntime,
-  setStatefulActorRuntime,
+  createActorIdStatefulActorRuntimeFamilyAdapter,
+  createStatefulActorRuntimeRegistry,
   type StatefulActorPortableBacking,
-  type StatefulActorRuntimeFamilyAdapter,
   type StatefulActorRuntimeStore,
 } from "@game-core/impl/statefulActorRuntime";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
@@ -25,51 +21,30 @@ export type LynxStatefulActorRuntimeEntry = StatefulActorInventoryEntry<
   LynxPortableItemFamily
 >;
 
-type LynxStatefulActorSpawnContext = { actorId: number };
-
-const LYNX_BOWLING_BALL_RUNTIME_ADAPTER = createStatefulActorRuntimeFamilyAdapter<
+const LYNX_STATEFUL_ACTOR_REGISTRY = createStatefulActorRuntimeRegistry<
   LynxStatefulActorRuntimeEntry,
-  LynxStatefulActorSpawnContext,
+  { actorId: number },
   LynxPortableItemFamily
->({
-  kind: "bowling-ball",
-  createSpawnEntry(actorSerial, context) {
-    if (context.actorId !== MS_TILE.BowlingBall) {
-      return null;
-    }
-
-    return {
-      actorSerial,
-      kind: "bowling-ball",
-      portableBacking: null,
-      state: createMovingBowlingBallState(),
-    };
-  },
-});
-
-function lynxStatefulActorAdapterForKind(
-  kind: LynxStatefulActorRuntimeEntry["kind"],
-): StatefulActorRuntimeFamilyAdapter<LynxStatefulActorRuntimeEntry, LynxStatefulActorSpawnContext, LynxPortableItemFamily> | null {
-  return kind === "bowling-ball" ? LYNX_BOWLING_BALL_RUNTIME_ADAPTER : null;
-}
-
-function lynxStatefulActorAdapterForEntry(
-  store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
-  actorSerial: number,
-): StatefulActorRuntimeFamilyAdapter<LynxStatefulActorRuntimeEntry, LynxStatefulActorSpawnContext, LynxPortableItemFamily> | null {
-  const entry = findStatefulActorRuntime(store, actorSerial);
-  return entry ? lynxStatefulActorAdapterForKind(entry.kind) : null;
-}
+>([
+  createActorIdStatefulActorRuntimeFamilyAdapter<LynxStatefulActorRuntimeEntry, LynxPortableItemFamily>({
+    kind: "bowling-ball",
+    actorId: MS_TILE.BowlingBall,
+    createEntry(actorSerial) {
+      return {
+        actorSerial,
+        kind: "bowling-ball",
+        portableBacking: null,
+        state: createMovingBowlingBallState(),
+      };
+    },
+  }),
+]);
 
 export function createLynxInitialStatefulActorRuntime(
   actorSerial: number,
   actorId: number,
 ): LynxStatefulActorRuntimeEntry | null {
-  return LYNX_BOWLING_BALL_RUNTIME_ADAPTER.spawn(
-    { byActorSerial: new Map() },
-    actorSerial,
-    { actorId },
-  );
+  return LYNX_STATEFUL_ACTOR_REGISTRY.createInitial(actorSerial, { actorId });
 }
 
 export function seedLynxStatefulActorRuntime(
@@ -77,22 +52,21 @@ export function seedLynxStatefulActorRuntime(
   actorSerial: number,
   actorId: number,
 ): void {
-  LYNX_BOWLING_BALL_RUNTIME_ADAPTER.spawn(store, actorSerial, { actorId });
+  LYNX_STATEFUL_ACTOR_REGISTRY.seed(store, actorSerial, { actorId });
 }
 
 export function findLynxStatefulActorRuntime(
   store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
   actorSerial: number,
 ): LynxStatefulActorRuntimeEntry | undefined {
-  return findStatefulActorRuntime(store, actorSerial);
+  return LYNX_STATEFUL_ACTOR_REGISTRY.find(store, actorSerial);
 }
 
 export function restoreLynxStatefulActorRuntime(
   store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
   entry: LynxStatefulActorRuntimeEntry,
 ): LynxStatefulActorRuntimeEntry {
-  const adapter = lynxStatefulActorAdapterForKind(entry.kind);
-  return adapter ? adapter.restore(store, entry) : setStatefulActorRuntime(store, entry);
+  return LYNX_STATEFUL_ACTOR_REGISTRY.restore(store, entry);
 }
 
 export function cloneLynxStatefulActorRuntime(
@@ -100,8 +74,7 @@ export function cloneLynxStatefulActorRuntime(
   sourceActorSerial: number,
   targetActorSerial: number,
 ): LynxStatefulActorRuntimeEntry | undefined {
-  const adapter = lynxStatefulActorAdapterForEntry(store, sourceActorSerial);
-  return adapter ? adapter.clone(store, sourceActorSerial, targetActorSerial) : forkStatefulActorRuntime(store, sourceActorSerial, targetActorSerial);
+  return LYNX_STATEFUL_ACTOR_REGISTRY.clone(store, sourceActorSerial, targetActorSerial);
 }
 
 export function cloneLynxStatefulActorRuntimeForCloner(
@@ -116,12 +89,7 @@ export function destroyLynxStatefulActorRuntime(
   store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
   actorSerial: number,
 ): void {
-  const adapter = lynxStatefulActorAdapterForEntry(store, actorSerial);
-  if (adapter) {
-    adapter.destroy(store, actorSerial);
-    return;
-  }
-  removeStatefulActorRuntime(store, actorSerial);
+  LYNX_STATEFUL_ACTOR_REGISTRY.destroy(store, actorSerial);
 }
 
 export function attachLynxStatefulActorPortableBacking(
@@ -129,8 +97,7 @@ export function attachLynxStatefulActorPortableBacking(
   actorSerial: number,
   portableBacking: StatefulActorPortableBacking<LynxPortableItemFamily>,
 ): LynxStatefulActorRuntimeEntry | undefined {
-  const adapter = lynxStatefulActorAdapterForEntry(store, actorSerial);
-  return adapter?.attachPortableBacking(store, actorSerial, portableBacking);
+  return LYNX_STATEFUL_ACTOR_REGISTRY.attachPortableBacking(store, actorSerial, portableBacking);
 }
 
 export function spawnLynxBowlingBallStatefulActorFromPortable(
@@ -154,6 +121,5 @@ export function detachLynxStatefulActorPortableBacking(
   store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
   actorSerial: number,
 ): LynxStatefulActorRuntimeEntry | undefined {
-  const adapter = lynxStatefulActorAdapterForEntry(store, actorSerial);
-  return adapter?.detachPortableBacking(store, actorSerial);
+  return LYNX_STATEFUL_ACTOR_REGISTRY.detachPortableBacking(store, actorSerial);
 }

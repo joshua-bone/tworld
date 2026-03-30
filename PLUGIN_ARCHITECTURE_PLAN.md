@@ -483,20 +483,20 @@ Targets:
 
 Checklist:
 
-- [ ] define portable-item family handler interfaces
-- [ ] define actor portable-backing handler interfaces
-- [ ] move sandbag/hook/bowling-ball shared lifecycle into family helpers
-- [ ] keep local inventory and clone behavior in the plugin seam
+- [x] define portable-item family handler interfaces
+- [x] define actor portable-backing handler interfaces
+- [x] move sandbag/hook/bowling-ball shared lifecycle into family helpers
+- [x] keep local inventory and clone behavior in the plugin seam
 
 Tests:
 
-- [ ] portable item tests in both rulesets
-- [ ] stateful actor lifecycle tests
-- [ ] undo/projection tests where portable-backed state matters
+- [x] portable item tests in both rulesets
+- [x] stateful actor lifecycle tests
+- [x] undo/projection tests where portable-backed state matters
 
 Exit gate:
 
-- [ ] a portable-backed actor family can be added without editing engine hot paths
+- [x] a portable-backed actor family can be added without editing engine hot paths
 
 ### PA9: Unify Decode, Load, Render, And Behavior Registration
 

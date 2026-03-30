@@ -109,6 +109,10 @@ export interface StatefulActorRuntimeFamilyHooks<
   detachPortableBacking?(entry: TEntry): void;
 }
 
+export interface ActorIdStatefulActorSpawnContext {
+  actorId: number;
+}
+
 export function createStatefulActorRuntimeFamilyAdapter<
   TEntry extends StatefulActorRuntimeEntry,
   TSpawnContext,
@@ -175,6 +179,110 @@ export function createStatefulActorRuntimeFamilyAdapter<
         entry.portableBacking = null;
       }
       return entry;
+    },
+  };
+}
+
+export function createActorIdStatefulActorRuntimeFamilyAdapter<
+  TEntry extends StatefulActorRuntimeEntry,
+  TPortableFamily extends string = string,
+>(
+  hooks: Omit<
+    StatefulActorRuntimeFamilyHooks<TEntry, ActorIdStatefulActorSpawnContext, TPortableFamily>,
+    "createSpawnEntry"
+  > & {
+    actorId: number;
+    createEntry(actorSerial: number): TEntry;
+  },
+): StatefulActorRuntimeFamilyAdapter<TEntry, ActorIdStatefulActorSpawnContext, TPortableFamily> {
+  return createStatefulActorRuntimeFamilyAdapter({
+    ...hooks,
+    createSpawnEntry(actorSerial, context) {
+      return context.actorId === hooks.actorId ? hooks.createEntry(actorSerial) : null;
+    },
+  });
+}
+
+export interface StatefulActorRuntimeRegistry<
+  TEntry extends StatefulActorRuntimeEntry,
+  TSpawnContext,
+  TPortableFamily extends string = string,
+> {
+  createInitial(actorSerial: number, context: TSpawnContext): TEntry | null;
+  seed(store: StatefulActorRuntimeStore<TEntry>, actorSerial: number, context: TSpawnContext): void;
+  find(store: StatefulActorRuntimeStore<TEntry>, actorSerial: number): TEntry | undefined;
+  restore(store: StatefulActorRuntimeStore<TEntry>, entry: TEntry): TEntry;
+  clone(store: StatefulActorRuntimeStore<TEntry>, sourceActorSerial: number, targetActorSerial: number): TEntry | undefined;
+  destroy(store: StatefulActorRuntimeStore<TEntry>, actorSerial: number): void;
+  attachPortableBacking(
+    store: StatefulActorRuntimeStore<TEntry>,
+    actorSerial: number,
+    portableBacking: StatefulActorPortableBacking<TPortableFamily>,
+  ): TEntry | undefined;
+  detachPortableBacking(store: StatefulActorRuntimeStore<TEntry>, actorSerial: number): TEntry | undefined;
+}
+
+export function createStatefulActorRuntimeRegistry<
+  TEntry extends StatefulActorRuntimeEntry,
+  TSpawnContext,
+  TPortableFamily extends string = string,
+>(
+  adapters: ReadonlyArray<StatefulActorRuntimeFamilyAdapter<TEntry, TSpawnContext, TPortableFamily>>,
+): StatefulActorRuntimeRegistry<TEntry, TSpawnContext, TPortableFamily> {
+  const adapterByKind = new Map(adapters.map((adapter) => [adapter.kind, adapter]));
+
+  function adapterForKind(kind: TEntry["kind"]) {
+    return adapterByKind.get(kind) ?? null;
+  }
+
+  function adapterForEntry(store: StatefulActorRuntimeStore<TEntry>, actorSerial: number) {
+    const entry = findStatefulActorRuntime(store, actorSerial);
+    return entry ? adapterForKind(entry.kind) : null;
+  }
+
+  return {
+    createInitial(actorSerial, context) {
+      for (const adapter of adapters) {
+        const entry = adapter.spawn(createStatefulActorRuntimeStore<TEntry>(), actorSerial, context);
+        if (entry) {
+          return entry;
+        }
+      }
+      return null;
+    },
+    seed(store, actorSerial, context) {
+      for (const adapter of adapters) {
+        if (adapter.spawn(store, actorSerial, context)) {
+          return;
+        }
+      }
+    },
+    find(store, actorSerial) {
+      return findStatefulActorRuntime(store, actorSerial);
+    },
+    restore(store, entry) {
+      const adapter = adapterForKind(entry.kind);
+      return adapter ? adapter.restore(store, entry) : setStatefulActorRuntime(store, entry);
+    },
+    clone(store, sourceActorSerial, targetActorSerial) {
+      const adapter = adapterForEntry(store, sourceActorSerial);
+      return adapter ? adapter.clone(store, sourceActorSerial, targetActorSerial) : forkStatefulActorRuntime(store, sourceActorSerial, targetActorSerial);
+    },
+    destroy(store, actorSerial) {
+      const adapter = adapterForEntry(store, actorSerial);
+      if (adapter) {
+        adapter.destroy(store, actorSerial);
+        return;
+      }
+      removeStatefulActorRuntime(store, actorSerial);
+    },
+    attachPortableBacking(store, actorSerial, portableBacking) {
+      const adapter = adapterForEntry(store, actorSerial);
+      return adapter?.attachPortableBacking(store, actorSerial, portableBacking);
+    },
+    detachPortableBacking(store, actorSerial) {
+      const adapter = adapterForEntry(store, actorSerial);
+      return adapter?.detachPortableBacking(store, actorSerial);
     },
   };
 }
