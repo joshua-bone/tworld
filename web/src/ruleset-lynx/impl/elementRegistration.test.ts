@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createMovingBowlingBallState } from "@game-core/impl/bowlingBall";
 import { lynxLevelLoadRegistration } from "@ruleset-lynx/api/levelLoader";
 import {
   lookupLynxActorFamilyRegistration,
@@ -7,6 +8,8 @@ import {
   lookupLynxTerrainPickupFamilyRegistration,
   lookupLynxTerrainPickupTileRegistration,
   lynxElementFamilyRegistration,
+  projectLynxRegisteredActorRenderSprite,
+  projectLynxRegisteredPortableItemRender,
 } from "@ruleset-lynx/impl/elementRegistration";
 import { msBuiltinLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { msCreatureTile, MS_TILE } from "@ruleset-ms/api/tiles";
@@ -23,6 +26,7 @@ describe("Lynx element registration", () => {
 
   it("maps portable item families and portable terrain tile registration", () => {
     expect(lookupLynxPortableItemFamilyRegistration("sandbag")?.tileId).toBe(MS_TILE.Sandbag);
+    expect(lookupLynxPortableItemFamilyRegistration("sandbag")?.artworkSpriteId).toBe("sandbag");
     expect(lookupLynxPortableItemFamilyRegistrationByTileId(MS_TILE.Hook)?.familyId).toBe("hook");
     expect(lookupLynxPortableItemFamilyRegistration("bowling-ball")?.tileId).toBe(MS_TILE.BowlingBall_Still);
     expect(lookupLynxPortableItemFamilyRegistrationByTileId(MS_TILE.BowlingBall_Still)?.familyId).toBe("bowling-ball");
@@ -39,6 +43,29 @@ describe("Lynx element registration", () => {
       inventorySlot: "tools",
       inventoryIndex: 0,
       portableItemFamily: "bowling-ball",
+    });
+  });
+
+  it("owns portable item and bowling ball render registration", () => {
+    expect(projectLynxRegisteredPortableItemRender(MS_TILE.Hook, 0.25)).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.Hook,
+      artworkSpriteId: "hook",
+      alpha: 0.25,
+    });
+    expect(
+      projectLynxRegisteredActorRenderSprite(
+        { id: MS_TILE.BowlingBall, dir: 4, moving: 1, frame: 0 },
+        {
+          actorSerial: 1,
+          kind: "bowling-ball",
+          portableBacking: null,
+          state: createMovingBowlingBallState(),
+        },
+      ),
+    ).toMatchObject({
+      tileId: MS_TILE.BowlingBall,
+      artworkSpriteId: "bowling_ball_moving",
     });
   });
 

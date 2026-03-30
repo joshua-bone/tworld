@@ -1,4 +1,10 @@
+import type {
+  InteractiveGameRenderSprite,
+  InteractiveGameTileOverlayRender,
+} from "@game-core/api/interactive";
 import type { ActorDefinition } from "@game-core/api/ruleset";
+import { bowlingBallArtworkSpriteId } from "@game-core/impl/bowlingBall";
+import { MS_DIRECTION } from "@ruleset-ms/api/tiles";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   msLevelLoadRegistration,
@@ -9,6 +15,7 @@ import {
   type MsLevelDecodeRegistration,
 } from "@ruleset-ms/api/levelRegistration";
 import { lookupMsActorDefinition } from "@ruleset-ms/impl/catalogActors";
+import type { MsStatefulActorRuntimeEntry } from "@ruleset-ms/impl/statefulActors";
 import type { MsInventorySlot, MsPortableItemFamily } from "@ruleset-ms/impl/catalogTiles";
 
 export type MsActorFamilyId = "chip" | "block" | "creature" | "bowling-ball";
@@ -17,12 +24,22 @@ export type MsTerrainPickupFamilyId = "keys" | "boots" | "portable-items" | "doo
 export interface MsActorFamilyRegistration {
   familyId: MsActorFamilyId;
   actorIds: readonly number[];
+  projectRenderSprite?: (
+    actor: {
+      id: number;
+      dir: number;
+      moving: number;
+      frame: number;
+    },
+    runtimeEntry: MsStatefulActorRuntimeEntry | null,
+  ) => InteractiveGameRenderSprite;
 }
 
 export interface MsPortableItemFamilyRegistration {
   familyId: MsPortableItemFamily;
   tileId: number;
   inventorySlot: "tools";
+  artworkSpriteId: string;
 }
 
 export interface MsTerrainPickupTileRegistration {
@@ -58,6 +75,17 @@ const MS_ACTOR_FAMILY_REGISTRATIONS = [
   {
     familyId: "bowling-ball",
     actorIds: [MS_TILE.BowlingBall],
+    projectRenderSprite(actor, runtimeEntry) {
+      const mode = runtimeEntry?.kind === "bowling-ball" ? runtimeEntry.state.mode : "moving";
+      return {
+        kind: "creature",
+        tileId: MS_TILE.BowlingBall,
+        artworkSpriteId: bowlingBallArtworkSpriteId(mode),
+        dir: actor.dir,
+        moving: actor.moving,
+        frame: actor.frame,
+      };
+    },
   },
   {
     familyId: "creature",
@@ -80,16 +108,19 @@ const MS_PORTABLE_ITEM_FAMILY_REGISTRATIONS = [
     familyId: "sandbag",
     tileId: MS_TILE.Sandbag,
     inventorySlot: "tools",
+    artworkSpriteId: "sandbag",
   },
   {
     familyId: "hook",
     tileId: MS_TILE.Hook,
     inventorySlot: "tools",
+    artworkSpriteId: "hook",
   },
   {
     familyId: "bowling-ball",
     tileId: MS_TILE.BowlingBall_Still,
     inventorySlot: "tools",
+    artworkSpriteId: "bowling_ball_still",
   },
 ] as const satisfies readonly MsPortableItemFamilyRegistration[];
 
@@ -204,4 +235,48 @@ export function lookupMsTerrainPickupTileRegistration(
   tileId: number,
 ): MsTerrainPickupTileRegistration | undefined {
   return msTerrainPickupTileRegistrationByTileId.get(tileId);
+}
+
+export function projectMsRegisteredPortableItemRender(
+  tileId: number,
+  alpha: number,
+): InteractiveGameTileOverlayRender | null {
+  const registration = lookupMsPortableItemFamilyRegistrationByTileId(tileId);
+  if (!registration) {
+    return null;
+  }
+
+  return {
+    mode: "tile",
+    tileId,
+    artworkSpriteId: registration.artworkSpriteId,
+    alpha,
+  };
+}
+
+export function projectMsRegisteredActorRenderSprite(
+  actor: {
+    id: number;
+    dir: number;
+    moving: number;
+    frame: number;
+  },
+  runtimeEntry: MsStatefulActorRuntimeEntry | null,
+): InteractiveGameRenderSprite {
+  const familyRegistration =
+    runtimeEntry?.kind === "bowling-ball"
+      ? msActorFamilyByActorId.get(MS_TILE.BowlingBall)
+      : lookupMsActorFamilyRegistration(actor.id);
+  const familyRender = familyRegistration?.projectRenderSprite;
+  if (familyRender) {
+    return familyRender(actor, runtimeEntry);
+  }
+
+  return {
+    kind: "creature",
+    tileId: actor.id,
+    dir: actor.dir ?? MS_DIRECTION.none,
+    moving: actor.moving,
+    frame: actor.frame,
+  };
 }

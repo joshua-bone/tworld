@@ -515,7 +515,7 @@ Targets:
 Checklist:
 
 - [ ] tie decode/load/render/runtime behavior into one element registration object
-- [ ] make render projection lookup family-aware and element-owned
+- [x] make render projection lookup family-aware and element-owned
 - [ ] reduce cross-file registration duplication for portable items and stateful actors
 
 Tests:
