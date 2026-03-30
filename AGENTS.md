@@ -6,6 +6,16 @@
 - After each completed user-visible change, commit and push the current branch unless the user explicitly says not to or a blocker prevents it.
 - Always stage deleted files in the next commit unless the user explicitly says to keep them out.
 
+## Handling Replay Failures
+
+- When a replay failure appears recent, start with a bounded backwards history search before attempting speculative fixes.
+- Prefer the smallest possible repro: run only the failing replay file/level against the current fixtures and oracle, not a full pack sweep.
+- First verify the failure on current `HEAD` with the exact replay pack, level filter, and ruleset that the user reported.
+- Then rewind and retest in small steps, usually commit-by-commit through the most recent suspicious range, until the first bad commit is identified.
+- Once a regression boundary is found, inspect the specific files and hunks in that commit before changing code elsewhere.
+- If a replay failure turns out to be oracle stderr handling, fixture drift, or verification harness behavior rather than gameplay simulation, fix that seam narrowly and add a regression test there.
+- After fixing a replay regression, rerun the original minimal repro first, then run only the nearest targeted tests or replay checks needed to prove the fix.
+
 ## Adding New Elements Extensibly
 
 - Prefer extending the relevant ruleset catalog policy layer before adding new raw tile-id branches in engine hot paths.
