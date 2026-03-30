@@ -1231,6 +1231,54 @@ export function buildLegacyGameDrawStateKey(
     return `no-session:${presentation}:${visualEnhancementsEnabled ? 1 : 0}:${isLoading ? 1 : 0}:${message ?? ""}:${currentSeries?.filebase ?? ""}:${currentLevel?.number ?? 0}:${currentRuleset ?? "None"}`;
   }
 
+  let frameVisualHash = 0x81_1c_9d_c5;
+  for (const layer of session.frame.visibleLayers) {
+    frameVisualHash = hashLayerValue(frameVisualHash, layer.z);
+    for (const cell of layer.cells) {
+      frameVisualHash = hashLayerValue(frameVisualHash, cell.top.id);
+      frameVisualHash = hashLayerValue(frameVisualHash, cell.top.state);
+      frameVisualHash = hashLayerValue(frameVisualHash, cell.bottom.id);
+      frameVisualHash = hashLayerValue(frameVisualHash, cell.bottom.state);
+    }
+  }
+
+  for (const overlay of session.frame.tileOverlays) {
+    frameVisualHash = hashLayerValue(frameVisualHash, overlay.z);
+    frameVisualHash = hashLayerValue(frameVisualHash, overlay.pos);
+    frameVisualHash = hashLayerValue(frameVisualHash, overlay.tileId ?? 0);
+    frameVisualHash = hashLayerValue(frameVisualHash, hashOverlayRenderKind(overlay.render, overlay.kind));
+  }
+
+  const render = session.frame.render;
+  if (render?.chip) {
+    frameVisualHash = hashLayerValue(frameVisualHash, render.chip.pos);
+    frameVisualHash = hashLayerValue(frameVisualHash, render.chip.z ?? 1);
+    frameVisualHash = hashLayerValue(frameVisualHash, render.chip.dir);
+    frameVisualHash = hashLayerValue(frameVisualHash, render.chip.moving);
+    frameVisualHash = hashLayerValue(frameVisualHash, render.chip.pushing ? 1 : 0);
+    frameVisualHash = hashLayerValue(frameVisualHash, render.chip.hidden ? 1 : 0);
+    frameVisualHash = hashRenderSprite(frameVisualHash, render.chip.visual);
+  }
+
+  for (const actor of render?.actors ?? []) {
+    frameVisualHash = hashLayerValue(frameVisualHash, actor.id);
+    frameVisualHash = hashLayerValue(frameVisualHash, actor.pos);
+    frameVisualHash = hashLayerValue(frameVisualHash, actor.z ?? 1);
+    frameVisualHash = hashLayerValue(frameVisualHash, actor.dir);
+    frameVisualHash = hashLayerValue(frameVisualHash, actor.moving);
+    frameVisualHash = hashLayerValue(frameVisualHash, actor.frame);
+    frameVisualHash = hashLayerValue(frameVisualHash, actor.hidden ? 1 : 0);
+    frameVisualHash = hashRenderSprite(frameVisualHash, actor.visual);
+  }
+
+  for (const animation of render?.animations ?? []) {
+    frameVisualHash = hashLayerValue(frameVisualHash, animation.pos);
+    frameVisualHash = hashLayerValue(frameVisualHash, animation.z ?? 1);
+    frameVisualHash = hashLayerValue(frameVisualHash, animation.frame);
+    frameVisualHash = hashLayerValue(frameVisualHash, animation.tileId);
+    frameVisualHash = hashRenderSprite(frameVisualHash, animation.visual);
+  }
+
   const snapshot = session.frame.snapshot;
   return [
     presentation,
@@ -1247,6 +1295,7 @@ export function buildLegacyGameDrawStateKey(
     session.history.restoreMode,
     session.frame.visibleLayers.length,
     session.frame.tileOverlays.length,
+    frameVisualHash.toString(16),
     snapshot.chipsNeeded,
     visualEnhancementsEnabled ? 1 : 0,
     message ?? "",
