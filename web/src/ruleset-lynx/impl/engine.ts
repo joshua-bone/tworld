@@ -158,7 +158,11 @@ import {
   type LynxStatefulActorRuntimeEntry,
 } from "@ruleset-lynx/impl/statefulActors";
 import { queryLynxOccupancyTarget } from "@ruleset-lynx/impl/occupancy";
-import { applyLynxPortableToolAction } from "@ruleset-lynx/impl/portableToolActions";
+import {
+  applyLynxPortableToolAction,
+  applyLynxPortableToolPostMoveAction,
+  lynxPortableToolMoveModifierEnabled,
+} from "@ruleset-lynx/impl/portableToolActions";
 import {
   resolveLynxTeleports as resolveLynxTeleportsWithContext,
   type LynxTeleportContext,
@@ -1060,46 +1064,6 @@ function tryActivateLynxBowlingBallThrow(
   }
   runtime.justSpawnedActorSerials.add(actorSerial);
   return true;
-}
-
-function lynxHookTugEnabled(state: EngineState, inputCode: number): boolean {
-  const carried = carriedLynxPortableToolItem(lynxPortableToolRuntime(state));
-  if (carried?.family !== "hook") {
-    return false;
-  }
-
-  const { modifierMask } = decodeRuntimeInputCode(inputCode);
-  return (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0;
-}
-
-function tryApplyLynxHookTug(
-  state: EngineState,
-  level: LynxLevel,
-  actors: LynxRuntimeActor[],
-  originPos: number,
-  originZ: number,
-  moveDir: number,
-): void {
-  const sourceDir = backDirection(moveDir);
-  if (sourceDir === MS_DIRECTION.none || moveDir === MS_DIRECTION.none) {
-    return;
-  }
-
-  const sourceStep = advanceToCell(state.map.cells, originPos, sourceDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-  if (!sourceStep || topTileIdOr(state.map.cells, sourceStep.pos, MS_TILE.Empty) === MS_TILE.CloneMachine) {
-    return;
-  }
-
-  const sourceOccupancy = queryLynxOccupancyOnLayer(state, actors, sourceStep.pos, originZ);
-  if (
-    !sourceOccupancy.claimed ||
-    sourceOccupancy.kind !== OCCUPANCY_TARGET_KIND.runtimeActor ||
-    sourceOccupancy.runtimeActor?.id !== MS_TILE.Block
-  ) {
-    return;
-  }
-
-  tryPushLynxBlock(state, level, actors, sourceStep.pos, moveDir);
 }
 
 function activateMappedLynxBowlingBallsOnForceFloors(
@@ -4124,9 +4088,40 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     runtime.chipMoving = 8;
     runtime.chipMoveKind = "planar";
     setLynxRuntimeChipState(runtime.state, runtime.chipPos, runtime.chipZ);
-    if (lynxHookTugEnabled(runtime.state, runtime.runtimeInput.inputCode)) {
-      tryApplyLynxHookTug(runtime.state, runtime.level, runtime.actors, originPos, originZ, startInputCode);
-    }
+    applyLynxPortableToolPostMoveAction({
+      moveModifierEnabled: lynxPortableToolMoveModifierEnabled(
+        lynxPortableToolRuntime(runtime.state),
+        runtime.runtimeInput.inputCode,
+      ),
+      movementSucceeded: true,
+      originPos,
+      originZ,
+      landedPos: runtime.chipPos,
+      landedZ: runtime.chipZ,
+      moveDir: startInputCode,
+      applyHookTug(originPos, originZ, moveDir) {
+        const sourceDir = backDirection(moveDir);
+        if (sourceDir === MS_DIRECTION.none || moveDir === MS_DIRECTION.none) {
+          return;
+        }
+
+        const sourceStep = advanceToCell(runtime.state.map.cells, originPos, sourceDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+        if (!sourceStep || topTileIdOr(runtime.state.map.cells, sourceStep.pos, MS_TILE.Empty) === MS_TILE.CloneMachine) {
+          return;
+        }
+
+        const sourceOccupancy = queryLynxOccupancyOnLayer(runtime.state, runtime.actors, sourceStep.pos, originZ);
+        if (
+          !sourceOccupancy.claimed ||
+          sourceOccupancy.kind !== OCCUPANCY_TARGET_KIND.runtimeActor ||
+          sourceOccupancy.runtimeActor?.id !== MS_TILE.Block
+        ) {
+          return;
+        }
+
+        tryPushLynxBlock(runtime.state, runtime.level, runtime.actors, sourceStep.pos, moveDir);
+      },
+    });
     return;
   }
 

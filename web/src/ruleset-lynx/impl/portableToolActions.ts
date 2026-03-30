@@ -1,3 +1,4 @@
+import { decodeRuntimeInputCode, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
 import {
   carriedLynxPortableToolItem,
   primedLynxPortableToolItem,
@@ -15,6 +16,24 @@ export interface LynxPortableToolActionContext {
   chipZ: number;
   chipDir: number;
   tryThrowBowlingBall(item: LynxPortableItem, dir: number): boolean;
+}
+
+export interface LynxPortableToolPostMoveContext {
+  moveModifierEnabled: boolean;
+  movementSucceeded: boolean;
+  originPos: number;
+  originZ: number;
+  landedPos: number;
+  landedZ: number;
+  moveDir: number;
+  applyHookTug(originPos: number, originZ: number, moveDir: number): void;
+}
+
+function lynxHookTugModifierEnabledForCarriedItem(
+  carried: LynxPortableItem | undefined,
+  modifierMask: number,
+): boolean {
+  return carried?.family === "hook" && (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0;
 }
 
 export function applyLynxPortableToolAction(context: LynxPortableToolActionContext): boolean {
@@ -36,4 +55,29 @@ export function applyLynxPortableToolAction(context: LynxPortableToolActionConte
       throwMovingItem: (item, dir) => context.tryThrowBowlingBall(item, dir),
     }) ?? false
   );
+}
+
+export function lynxPortableToolMoveModifierEnabled(store: LynxPortableToolStateStore, inputCode: number): boolean {
+  return lynxHookTugModifierEnabledForCarriedItem(
+    carriedLynxPortableToolItem(store),
+    decodeRuntimeInputCode(inputCode).modifierMask,
+  );
+}
+
+export function lynxPortableToolMoveModifierEnabledForCarriedItem(
+  carried: LynxPortableItem | undefined,
+  modifierMask: number,
+): boolean {
+  return lynxHookTugModifierEnabledForCarriedItem(carried, modifierMask);
+}
+
+export function applyLynxPortableToolPostMoveAction(context: LynxPortableToolPostMoveContext): void {
+  if (!context.moveModifierEnabled || !context.movementSucceeded) {
+    return;
+  }
+  if (context.originPos === context.landedPos || context.originZ !== context.landedZ) {
+    return;
+  }
+
+  context.applyHookTug(context.originPos, context.originZ, context.moveDir);
 }

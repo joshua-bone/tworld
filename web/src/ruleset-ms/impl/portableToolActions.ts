@@ -1,3 +1,4 @@
+import { decodeRuntimeInputCode, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
 import {
   carriedMsPortableToolItem,
   primedMsPortableToolItem,
@@ -15,6 +16,24 @@ export interface MsPortableToolActionContext {
   chipZ: number;
   chipDir: number;
   tryThrowBowlingBall(item: MsPortableItem, dir: number): boolean;
+}
+
+export interface MsPortableToolPostMoveContext {
+  moveModifierEnabled: boolean;
+  movementSucceeded: boolean;
+  originPos: number;
+  originZ: number;
+  landedPos: number;
+  landedZ: number;
+  moveDir: number;
+  applyHookTug(originPos: number, originZ: number, moveDir: number): void;
+}
+
+function msHookTugModifierEnabledForCarriedItem(
+  carried: MsPortableItem | undefined,
+  modifierMask: number,
+): boolean {
+  return carried?.family === "hook" && (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0;
 }
 
 export function applyMsPortableToolAction(context: MsPortableToolActionContext): boolean {
@@ -36,4 +55,29 @@ export function applyMsPortableToolAction(context: MsPortableToolActionContext):
       throwMovingItem: (item, dir) => context.tryThrowBowlingBall(item, dir),
     }) ?? false
   );
+}
+
+export function msPortableToolMoveModifierEnabled(store: MsPortableToolStateStore, inputCode: number): boolean {
+  return msHookTugModifierEnabledForCarriedItem(
+    carriedMsPortableToolItem(store),
+    decodeRuntimeInputCode(inputCode).modifierMask,
+  );
+}
+
+export function msPortableToolMoveModifierEnabledForCarriedItem(
+  carried: MsPortableItem | undefined,
+  modifierMask: number,
+): boolean {
+  return msHookTugModifierEnabledForCarriedItem(carried, modifierMask);
+}
+
+export function applyMsPortableToolPostMoveAction(context: MsPortableToolPostMoveContext): void {
+  if (!context.moveModifierEnabled || !context.movementSucceeded) {
+    return;
+  }
+  if (context.originPos === context.landedPos || context.originZ !== context.landedZ) {
+    return;
+  }
+
+  context.applyHookTug(context.originPos, context.originZ, context.moveDir);
 }

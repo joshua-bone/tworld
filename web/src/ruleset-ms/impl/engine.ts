@@ -166,7 +166,12 @@ import {
 } from "@ruleset-ms/impl/statefulActors";
 import { queryMsOccupancyTarget } from "@ruleset-ms/impl/occupancy";
 import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
-import { applyMsPortableToolAction } from "@ruleset-ms/impl/portableToolActions";
+import {
+  applyMsPortableToolAction,
+  applyMsPortableToolPostMoveAction,
+  msPortableToolMoveModifierEnabled,
+  msPortableToolMoveModifierEnabledForCarriedItem,
+} from "@ruleset-ms/impl/portableToolActions";
 import {
   moveMsChipDownOneLayer as moveMsChipDownOneLayerWithContext,
   moveMsChipPlanar as moveMsChipPlanarWithContext,
@@ -1976,40 +1981,6 @@ function canMoveChip(
   }
 
   return true;
-}
-
-function msHookTugEnabled(internal: MsInternalState): boolean {
-  const carried = carriedMsPortableToolItem(msPortableToolState(internal));
-  if (carried?.family !== "hook") {
-    return false;
-  }
-
-  const { modifierMask } = decodeRuntimeInputCode(internal.currentInput);
-  return (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0;
-}
-
-function tryApplyMsHookTug(
-  cells: EngineMapCell[],
-  internal: MsInternalState,
-  originPos: number,
-  originZ: number,
-  moveDir: number,
-): void {
-  const sourceDir = backDirection(moveDir);
-  if (sourceDir === MS_DIRECTION.none || moveDir === MS_DIRECTION.none) {
-    return;
-  }
-
-  const sourceStep = advanceToCell(cells, originPos, sourceDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-  if (!sourceStep || sourceStep.cell.bottom.id === MS_TILE.CloneMachine) {
-    return;
-  }
-
-  if (queryMsTargetOccupancy(cells, internal, sourceStep.pos, originZ).kind !== "static-block") {
-    return;
-  }
-
-  pushBlock(cells, internal, sourceStep.pos, moveDir, false, true);
 }
 
 function canMoveCreature(
@@ -4458,7 +4429,7 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
     return soundEffects;
   }
   const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, internal.floorMovementDir);
-  const hookTugEnabled = msHookTugEnabled(internal);
+  const hookTugEnabled = msPortableToolMoveModifierEnabled(msPortableToolState(internal), internal.currentInput);
   if (
     canStartMsChipMoveByStrategy(
       msActorMovementStrategyId(MS_TILE.Chip),
@@ -4594,9 +4565,32 @@ function moveChipWithPushPickupReveal(
       pushedBlockPickupRevealTileId,
     );
   }
-  if (hookTugEnabled && movementDidSucceed(moveResult) && internal.chipPos !== originPos && (internal.chipZ ?? originZ) === originZ) {
-    tryApplyMsHookTug(cells, internal, originPos, originZ, dir);
-  }
+  applyMsPortableToolPostMoveAction({
+    moveModifierEnabled: hookTugEnabled,
+    movementSucceeded: movementDidSucceed(moveResult),
+    originPos,
+    originZ,
+    landedPos: internal.chipPos,
+    landedZ: internal.chipZ ?? originZ,
+    moveDir: dir,
+    applyHookTug(originPos, originZ, moveDir) {
+      const sourceDir = backDirection(moveDir);
+      if (sourceDir === MS_DIRECTION.none || moveDir === MS_DIRECTION.none) {
+        return;
+      }
+
+      const sourceStep = advanceToCell(cells, originPos, sourceDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+      if (!sourceStep || sourceStep.cell.bottom.id === MS_TILE.CloneMachine) {
+        return;
+      }
+
+      if (queryMsTargetOccupancy(cells, internal, sourceStep.pos, originZ).kind !== "static-block") {
+        return;
+      }
+
+      pushBlock(cells, internal, sourceStep.pos, moveDir, false, true);
+    },
+  });
   return moveResult;
 }
 
@@ -5039,8 +5033,7 @@ function resolveMsChipInputPhase(
   return {
     chipPosBeforeManualMovement,
     manualDir: manualChoice.dir,
-    manualHookTugEnabled:
-      (manualModifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 && carriedPortable?.family === "hook",
+    manualHookTugEnabled: msPortableToolMoveModifierEnabledForCarriedItem(carriedPortable, manualModifierMask),
     nextLastMove,
   };
 }
