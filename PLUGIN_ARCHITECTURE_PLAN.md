@@ -543,19 +543,19 @@ Targets:
 
 Checklist:
 
-- [ ] replace remaining raw element checks in engine hot paths with handler dispatch
-- [ ] keep only scheduler/order/occupancy/runtime bookkeeping in the kernel
-- [ ] add guardrails to prevent new raw tile-id branches from entering engine hot paths
+- [x] replace remaining raw element checks in engine hot paths with handler dispatch
+- [x] keep only scheduler/order/occupancy/runtime bookkeeping in the kernel
+- [x] add guardrails to prevent new raw tile-id branches from entering engine hot paths
 
 Tests:
 
-- [ ] full targeted replay sweeps for both rulesets
-- [ ] full relevant typechecks
-- [ ] focused regression suites for bowling ball, cloud, trap/cloner, air, teleports
+- [x] full targeted replay sweeps for both rulesets
+- [x] full relevant typechecks
+- [x] focused regression suites for bowling ball, cloud, trap/cloner, air, teleports
 
 Exit gate:
 
-- [ ] the engine files mostly read like phase schedulers, not element encyclopedias
+- [x] the engine files mostly read like phase schedulers, not element encyclopedias
 
 ## Recommended Order After This Plan
 

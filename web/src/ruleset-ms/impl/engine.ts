@@ -5,7 +5,7 @@ import type {
   GameDebugPhaseSnapshot,
   GameDebugTrace,
 } from "@game-core/api/debug";
-import { cloneBowlingBallState, setBowlingBallMode, type BowlingBallState } from "@game-core/impl/bowlingBall";
+import { cloneBowlingBallState } from "@game-core/impl/bowlingBall";
 import { findExistingActorAtPosition, findVisibleActorAtPosition } from "@game-core/impl/actors";
 import {
   addBottomTileFlags,
@@ -138,7 +138,6 @@ import {
 } from "@ruleset-ms/impl/tileEffects";
 import { msBlockedMoveFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
 import {
-  activateMsPortableTool,
   attachMsPortableToolToActor,
   carriedMsPortableToolItem,
   clearMsToolInventory,
@@ -161,9 +160,12 @@ import {
   destroyMsStatefulActorRuntime,
   findMsStatefulActorRuntime,
   seedMsStatefulActorRuntime,
-  spawnMsBowlingBallStatefulActorFromPortable,
   type MsStatefulActorRuntimeEntry,
 } from "@ruleset-ms/impl/statefulActors";
+import {
+  activateMsMappedBowlingBallsOnForceFloors,
+  tryActivateMsPortableBowlingBallThrow,
+} from "@ruleset-ms/impl/elements/actors/families/bowlingBallRuntime";
 import { queryMsOccupancyTarget } from "@ruleset-ms/impl/occupancy";
 import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
 import {
@@ -868,147 +870,6 @@ function msDetachedToolInventoryProjection(): Pick<EngineState["inventory"], "to
   return {
     tools: [0] as EngineState["inventory"]["tools"],
   };
-}
-
-function tryActivateMsBowlingBallThrow(
-  runtime: MsAdvanceTickRuntime,
-  carried: MsPortableToolRuntimeState["portableItems"][number],
-  dir: number,
-): boolean {
-  const z = runtime.internal.chipZ ?? 1;
-  const cells = runtime.layerCellsByZ.get(z) ?? runtime.initialCells;
-  const targetStep = advanceToCell(cells, runtime.internal.chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-  if (!targetStep) {
-    return false;
-  }
-
-  const targetOccupancy = queryMsTargetOccupancy(cells, runtime.internal, targetStep.pos, z);
-  if (!carried.bowlingBallState) {
-    return false;
-  }
-  const targetTop = cells[targetStep.pos]!.top.id;
-  const targetTopState = cells[targetStep.pos]!.top.state;
-  const targetBottom = cells[targetStep.pos]!.bottom.id;
-  const targetBottomState = cells[targetStep.pos]!.bottom.state;
-
-  const probeCreature: MsTrackedCreature = {
-    serial: -1,
-    id: MS_TILE.BowlingBall,
-    dir,
-    tdir: MS_DIRECTION.none,
-    pos: runtime.internal.chipPos,
-    z,
-    hidden: false,
-    moving: 0,
-    frame: 0,
-    cloning: false,
-    released: runtime.internal.chipReleased,
-    turning: false,
-    hasMoved: false,
-    floorMovement: "none",
-    floorMovementDir: MS_DIRECTION.none,
-    sliding: false,
-  };
-  if (
-    !canMoveCreatureWithOptions(
-      cells,
-      probeCreature,
-      dir,
-      false,
-      false,
-      runtime.internal,
-      runtime.inventory,
-      carried.bowlingBallState.localInventory,
-    )
-  ) {
-    return false;
-  }
-
-  setBowlingBallMode(carried.bowlingBallState, "moving", dir);
-  const actorSerial = runtime.internal.nextCreatureSerial;
-  if (!activateMsPortableTool(msPortableToolState(runtime.internal), runtime.inventory, carried.serial, actorSerial)) {
-    setBowlingBallMode(carried.bowlingBallState, "still", dir);
-    return false;
-  }
-
-  const creature = spawnMsThrownBowlingBallCreature(
-    runtime,
-    carried.serial,
-    carried.bowlingBallState,
-    actorSerial,
-    runtime.internal.chipPos,
-    z,
-    dir,
-  );
-  if (targetOccupancy.kind !== "empty") {
-    resolveMsCreaturePreMoveCollision(
-      cloneBoardCells(cells),
-      cells,
-      runtime.internal,
-      runtime.inventory,
-      creature,
-      targetStep.pos,
-      dir,
-    );
-    return true;
-  }
-
-  creature.pos = targetStep.pos;
-  pushTile(cells, targetStep.pos, { id: MS_TILE.Empty, state: 0 });
-  cells[targetStep.pos]!.top = {
-    id: msCreatureTile(MS_TILE.BowlingBall, dir),
-    state: 0,
-  };
-  settleMsSpawnedBowlingBallLanding(
-    runtime,
-    cells,
-    creature,
-    dir,
-    targetTop,
-    targetTopState,
-    targetBottom,
-    targetBottomState,
-  );
-  return true;
-}
-
-function spawnMsThrownBowlingBallCreature(
-  runtime: MsAdvanceTickRuntime,
-  portableItemSerial: number,
-  bowlingBallState: BowlingBallState,
-  actorSerial: number,
-  pos: number,
-  z: number,
-  dir: number,
-): MsTrackedCreature {
-  runtime.internal.nextCreatureSerial = actorSerial + 1;
-  const creature: MsTrackedCreature = {
-    serial: actorSerial,
-    id: MS_TILE.BowlingBall,
-    dir,
-    tdir: MS_DIRECTION.none,
-    pos,
-    z,
-    hidden: false,
-    moving: 0,
-    frame: 0,
-    cloning: false,
-    released: false,
-    turning: false,
-    hasMoved: false,
-    floorMovement: "none",
-    floorMovementDir: MS_DIRECTION.none,
-    sliding: false,
-  };
-  runtime.internal.creatures.push(creature);
-  runtime.internal.creatureIndexBySerial.set(actorSerial, runtime.internal.creatures.length - 1);
-  spawnMsBowlingBallStatefulActorFromPortable(
-    runtime.internal.statefulActors,
-    actorSerial,
-    portableItemSerial,
-    bowlingBallState,
-  );
-  return creature;
 }
 
 function settleMsSpawnedBowlingBallLanding(
@@ -1889,7 +1750,13 @@ export function initializeMsGameState(
   projectMsPortableToolState(msPortableToolState(internal), engine.inventory);
 
   const mapLayers = runtimeMapLayers(engine.map);
-  activateMappedBowlingBallsOnForceFloors(runtimeLayerCellsByZ(mapLayers), internal, engine.inventory);
+  activateMsMappedBowlingBallsOnForceFloors({
+    layerCellsByZ: runtimeLayerCellsByZ(mapLayers),
+    runtime: internal,
+    inventory: engine.inventory,
+    slideDirection: (floor) => slideDirection(floor, internal),
+    syncCreatureFloorMovement: (cells, creature) => syncCreatureFloorMovement(cells, creature, internal, engine.inventory),
+  });
   projectMsPortableToolState(msPortableToolState(internal), engine.inventory);
   const activeCells = runtimeCellsForZ(mapLayers, chipZ);
   engine.map.cells = activeCells;
@@ -3260,80 +3127,6 @@ function resolveChipFloorEffects(cells: EngineMapCell[], internal: MsInternalSta
   return resolveButtonFloorEffects(cells, internal, null, internal.chipPos, floor);
 }
 
-function activateMappedBowlingBallsOnForceFloors(
-  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
-  internal: MsInternalState,
-  inventory: EngineState["inventory"],
-): void {
-  for (const item of internal.portableTools.portableItems) {
-    if (
-      item.family !== "bowling-ball" ||
-      item.state.mode !== "map" ||
-      !item.bowlingBallState ||
-      item.bowlingBallState.mode !== "still"
-    ) {
-      continue;
-    }
-
-    const cells = layerCellsByZ.get(item.state.z);
-    if (!cells || cells[item.state.pos]?.top.id !== item.tileId) {
-      continue;
-    }
-
-    const floor = bottomTile(cells, item.state.pos).id;
-    if (!isSlideFloor(floor)) {
-      continue;
-    }
-
-    const dir = slideDirection(floor, internal);
-    if (dir === MS_DIRECTION.none) {
-      continue;
-    }
-
-    const pos = item.state.pos;
-    const z = item.state.z;
-    setBowlingBallMode(item.bowlingBallState, "moving", dir);
-    const actorSerial = internal.nextCreatureSerial;
-    if (!activateMsPortableTool(msPortableToolState(internal), inventory, item.serial, actorSerial)) {
-      setBowlingBallMode(item.bowlingBallState, "still", dir);
-      continue;
-    }
-
-    internal.nextCreatureSerial = actorSerial + 1;
-    const creature: MsTrackedCreature = {
-      serial: actorSerial,
-      id: MS_TILE.BowlingBall,
-      dir,
-      tdir: MS_DIRECTION.none,
-      pos,
-      z,
-      hidden: false,
-      moving: 0,
-      frame: 0,
-      cloning: false,
-      released: false,
-      turning: false,
-      hasMoved: false,
-      floorMovement: "none",
-      floorMovementDir: MS_DIRECTION.none,
-      sliding: false,
-    };
-    internal.creatures.push(creature);
-    internal.creatureIndexBySerial.set(actorSerial, internal.creatures.length - 1);
-    spawnMsBowlingBallStatefulActorFromPortable(
-      internal.statefulActors,
-      actorSerial,
-      item.serial,
-      item.bowlingBallState,
-    );
-    cells[pos]!.top = {
-      id: msCreatureTile(MS_TILE.BowlingBall, dir),
-      state: 0,
-    };
-    syncCreatureFloorMovement(cells, creature, internal, inventory);
-  }
-}
-
 function createMsCreatureMovementContext(
   internal: MsInternalState,
   inventory: EngineState["inventory"],
@@ -4053,7 +3846,13 @@ function runCreatureFloorMovements(
   const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? fallbackCells ?? [];
   const tickContext = createMsTickContext(engine, internal, inventory, layerCellsByZ);
   syncMsNonChipVerticalFloorMovements(tickContext, internal);
-  activateMappedBowlingBallsOnForceFloors(layerCellsByZ, internal, inventory);
+  activateMsMappedBowlingBallsOnForceFloors({
+    layerCellsByZ,
+    runtime: internal,
+    inventory,
+    slideDirection: (floor) => slideDirection(floor, internal),
+    syncCreatureFloorMovement: (cells, creature) => syncCreatureFloorMovement(cells, creature, internal, inventory),
+  });
 
   const queue = new MsNonChipFloorQueue({
     state: internal,
@@ -4429,7 +4228,10 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
     return soundEffects;
   }
   const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, internal.floorMovementDir);
-  const hookTugEnabled = msPortableToolMoveModifierEnabled(msPortableToolState(internal), internal.currentInput);
+  const portableToolMoveModifierEnabled = msPortableToolMoveModifierEnabled(
+    msPortableToolState(internal),
+    internal.currentInput,
+  );
   if (
     canStartMsChipMoveByStrategy(
       msActorMovementStrategyId(MS_TILE.Chip),
@@ -4447,7 +4249,7 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
       context.inventory,
       internal.floorMovementDir,
       pushedBlockPickupRevealTileId,
-      hookTugEnabled,
+      portableToolMoveModifierEnabled,
     ).soundEffects;
     internal.chipHasMoved = false;
     return soundEffects;
@@ -4547,7 +4349,7 @@ function moveChipWithPushPickupReveal(
   inventory: EngineState["inventory"],
   dir: number,
   pushedBlockPickupRevealTileId: number | null,
-  hookTugEnabled: boolean,
+  portableToolMoveModifierEnabled: boolean,
 ): MovementAttemptResult {
   const originPos = internal.chipPos;
   const originZ = internal.chipZ ?? runtimeCellZ(cells, originPos);
@@ -4566,29 +4368,22 @@ function moveChipWithPushPickupReveal(
     );
   }
   applyMsPortableToolPostMoveAction({
-    moveModifierEnabled: hookTugEnabled,
+    moveModifierEnabled: portableToolMoveModifierEnabled,
     movementSucceeded: movementDidSucceed(moveResult),
     originPos,
     originZ,
     landedPos: internal.chipPos,
     landedZ: internal.chipZ ?? originZ,
     moveDir: dir,
-    applyHookTug(originPos, originZ, moveDir) {
-      const sourceDir = backDirection(moveDir);
-      if (sourceDir === MS_DIRECTION.none || moveDir === MS_DIRECTION.none) {
-        return;
-      }
-
-      const sourceStep = advanceToCell(cells, originPos, sourceDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-      if (!sourceStep || sourceStep.cell.bottom.id === MS_TILE.CloneMachine) {
-        return;
-      }
-
-      if (queryMsTargetOccupancy(cells, internal, sourceStep.pos, originZ).kind !== "static-block") {
-        return;
-      }
-
-      pushBlock(cells, internal, sourceStep.pos, moveDir, false, true);
+    resolveSourceStep(originPos, dir) {
+      const sourceStep = advanceToCell(cells, originPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+      return sourceStep ? { pos: sourceStep.pos, supportTileId: sourceStep.cell.bottom.id } : null;
+    },
+    sourceHasMoveModifierTarget(pos, z) {
+      return queryMsTargetOccupancy(cells, internal, pos, z).kind === "static-block";
+    },
+    applyMoveModifier(pos, moveDir) {
+      pushBlock(cells, internal, pos, moveDir, false, true);
     },
   });
   return moveResult;
@@ -4600,7 +4395,7 @@ function runManualMovement(
   internal: MsInternalState,
   inventory: EngineState["inventory"],
   dir: number,
-  hookTugEnabled: boolean,
+  portableToolMoveModifierEnabled: boolean,
 ): number {
   if (dir === MS_DIRECTION.none) {
     return 0;
@@ -4637,7 +4432,7 @@ function runManualMovement(
     inventory,
     dir,
     pushedBlockPickupRevealTileId,
-    hookTugEnabled,
+    portableToolMoveModifierEnabled,
   );
   internal.chipHasMoved = internal.chipStatus === "okay";
   return moveResult.soundEffects;
@@ -4652,7 +4447,7 @@ interface MsChipFloorPhaseState {
 interface MsChipInputResolution {
   chipPosBeforeManualMovement: number;
   manualDir: number;
-  manualHookTugEnabled: boolean;
+  manualPortableToolMoveModifierEnabled: boolean;
   nextLastMove: EngineState["lastMove"];
 }
 
@@ -4891,7 +4686,40 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
       chipPos: runtime.internal.chipPos,
       chipZ: runtime.internal.chipZ ?? 1,
       chipDir: runtime.internal.chipDir,
-      tryThrowBowlingBall: (carried, dir) => tryActivateMsBowlingBallThrow(runtime, carried, dir),
+      tryActivateMovingItem: (carried, dir) =>
+        tryActivateMsPortableBowlingBallThrow({
+          layerCellsByZ: runtime.layerCellsByZ,
+          fallbackCells: runtime.initialCells,
+          runtime: runtime.internal,
+          inventory: runtime.inventory,
+          carried,
+          dir,
+          queryTargetOccupancy: (cells, pos, z) => queryMsTargetOccupancy(cells, runtime.internal, pos, z),
+          canStartMovement: (cells, creature, dir, inventory, localInventory) =>
+            canMoveCreatureWithOptions(cells, creature, dir, false, false, runtime.internal, inventory, localInventory),
+          resolvePreMoveCollision: (workingCells, cells, creature, targetPos, dir) =>
+            resolveMsCreaturePreMoveCollision(
+              workingCells,
+              cells,
+              runtime.internal,
+              runtime.inventory,
+              creature,
+              targetPos,
+              dir,
+            ),
+          settleSpawnedLanding: (cells, creature, dir, targetTop, targetTopState, targetBottom, targetBottomState) =>
+            settleMsSpawnedBowlingBallLanding(
+              runtime,
+              cells,
+              creature,
+              dir,
+              targetTop,
+              targetTopState,
+              targetBottom,
+              targetBottomState,
+            ),
+          pushTile,
+        }),
     })
   ) {
     runtime.toolActionTriggeredThisTick = true;
@@ -5033,7 +4861,10 @@ function resolveMsChipInputPhase(
   return {
     chipPosBeforeManualMovement,
     manualDir: manualChoice.dir,
-    manualHookTugEnabled: msPortableToolMoveModifierEnabledForCarriedItem(carriedPortable, manualModifierMask),
+    manualPortableToolMoveModifierEnabled: msPortableToolMoveModifierEnabledForCarriedItem(
+      carriedPortable,
+      manualModifierMask,
+    ),
     nextLastMove,
   };
 }
@@ -5084,7 +4915,7 @@ function runMsManualMovementPhase(
   runtime: MsAdvanceTickRuntime,
   nextLastMove: EngineState["lastMove"],
   manualDir: number,
-  manualHookTugEnabled: boolean,
+  manualPortableToolMoveModifierEnabled: boolean,
   chipPosBeforeManualMovement: number,
   chipFloorMovementWasActive: boolean,
   chipFloorMovementModeBeforeFloor: MsInternalState["floorMovement"],
@@ -5098,7 +4929,7 @@ function runMsManualMovementPhase(
       runtime.internal,
       runtime.inventory,
       manualDir,
-      manualHookTugEnabled,
+      manualPortableToolMoveModifierEnabled,
     );
   }
   if (!msTickPhaseIsPlayable(runtime)) {
@@ -5165,7 +4996,7 @@ function advanceMsTick(
   };
   let chipPosBeforeManualMovement = runtime.internal.chipPos;
   let manualDir: number = MS_DIRECTION.none;
-  let manualHookTugEnabled = false;
+  let manualPortableToolMoveModifierEnabled = false;
   const earlyResult = runTurnPhaseHandlers<MsAdvanceTickResult>([
     {
       name: TURN_PHASE.initialHousekeeping,
@@ -5201,7 +5032,12 @@ function advanceMsTick(
     {
       name: TURN_PHASE.chipInputResolution,
       run: () => {
-        ({ chipPosBeforeManualMovement, manualDir, manualHookTugEnabled, nextLastMove } = resolveMsChipInputPhase(runtime, replayLastMoveInputCode));
+        ({
+          chipPosBeforeManualMovement,
+          manualDir,
+          manualPortableToolMoveModifierEnabled,
+          nextLastMove,
+        } = resolveMsChipInputPhase(runtime, replayLastMoveInputCode));
         return null;
       },
     },
@@ -5216,7 +5052,7 @@ function advanceMsTick(
           runtime,
           nextLastMove,
           manualDir,
-          manualHookTugEnabled,
+          manualPortableToolMoveModifierEnabled,
           chipPosBeforeManualMovement,
           chipFloorPhaseState.chipFloorMovementWasActive,
           chipFloorPhaseState.chipFloorMovementModeBeforeFloor,

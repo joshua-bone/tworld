@@ -35,7 +35,7 @@ describe("ms portableToolActions", () => {
       state: { mode: "carried" },
     });
     const inventory = createInventory(MS_TILE.Sandbag);
-    const tryThrowBowlingBall = vi.fn();
+    const tryActivateMovingItem = vi.fn();
 
     expect(
       applyMsPortableToolAction({
@@ -44,7 +44,7 @@ describe("ms portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.east,
-        tryThrowBowlingBall,
+        tryActivateMovingItem,
       }),
     ).toBe(true);
 
@@ -53,7 +53,7 @@ describe("ms portableToolActions", () => {
       pos: 44,
       z: 1,
     });
-    expect(tryThrowBowlingBall).not.toHaveBeenCalled();
+    expect(tryActivateMovingItem).not.toHaveBeenCalled();
   });
 
   it("routes bowling-ball action to the throw callback", () => {
@@ -66,7 +66,7 @@ describe("ms portableToolActions", () => {
       state: { mode: "carried" },
     });
     const inventory = createInventory(MS_TILE.BowlingBall_Still);
-    const tryThrowBowlingBall = vi.fn(() => true);
+    const tryActivateMovingItem = vi.fn(() => true);
 
     expect(
       applyMsPortableToolAction({
@@ -75,11 +75,11 @@ describe("ms portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.east,
-        tryThrowBowlingBall,
+        tryActivateMovingItem,
       }),
     ).toBe(true);
 
-    expect(tryThrowBowlingBall).toHaveBeenCalledWith(store.portableItems[0], MS_DIRECTION.east);
+    expect(tryActivateMovingItem).toHaveBeenCalledWith(store.portableItems[0], MS_DIRECTION.east);
     expect(store.primedToolDrop).toBeNull();
     expect(inventory.tools).toEqual([MS_TILE.BowlingBall_Still]);
   });
@@ -103,7 +103,7 @@ describe("ms portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.east,
-        tryThrowBowlingBall: () => false,
+        tryActivateMovingItem: () => false,
       }),
     ).toBe(false);
 
@@ -130,7 +130,7 @@ describe("ms portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.west,
-        tryThrowBowlingBall: () => false,
+        tryActivateMovingItem: () => false,
       }),
     ).toBe(false);
 
@@ -163,7 +163,12 @@ describe("ms portableToolActions", () => {
   });
 
   it("runs post-move hook tug only after a successful same-layer move", () => {
-    const applyHookTug = vi.fn();
+    const resolveSourceStep = vi.fn((originPos: number, dir: number) => ({
+      pos: originPos + dir,
+      supportTileId: MS_TILE.Empty,
+    }));
+    const sourceHasMoveModifierTarget = vi.fn(() => true);
+    const applyMoveModifier = vi.fn();
 
     applyMsPortableToolPostMoveAction({
       moveModifierEnabled: true,
@@ -173,7 +178,9 @@ describe("ms portableToolActions", () => {
       landedPos: 11,
       landedZ: 1,
       moveDir: MS_DIRECTION.east,
-      applyHookTug,
+      resolveSourceStep,
+      sourceHasMoveModifierTarget,
+      applyMoveModifier,
     });
     applyMsPortableToolPostMoveAction({
       moveModifierEnabled: true,
@@ -183,7 +190,9 @@ describe("ms portableToolActions", () => {
       landedPos: 11,
       landedZ: 1,
       moveDir: MS_DIRECTION.east,
-      applyHookTug,
+      resolveSourceStep,
+      sourceHasMoveModifierTarget,
+      applyMoveModifier,
     });
     applyMsPortableToolPostMoveAction({
       moveModifierEnabled: true,
@@ -193,10 +202,45 @@ describe("ms portableToolActions", () => {
       landedPos: 10,
       landedZ: 1,
       moveDir: MS_DIRECTION.east,
-      applyHookTug,
+      resolveSourceStep,
+      sourceHasMoveModifierTarget,
+      applyMoveModifier,
     });
 
-    expect(applyHookTug).toHaveBeenCalledTimes(1);
-    expect(applyHookTug).toHaveBeenCalledWith(10, 1, MS_DIRECTION.east);
+    expect(resolveSourceStep).toHaveBeenCalledTimes(1);
+    expect(sourceHasMoveModifierTarget).toHaveBeenCalledTimes(1);
+    expect(applyMoveModifier).toHaveBeenCalledTimes(1);
+    expect(applyMoveModifier).toHaveBeenCalledWith(12, MS_DIRECTION.east);
+  });
+
+  it("skips the move modifier when the source step is clone-machine backed or untuggable", () => {
+    const applyMoveModifier = vi.fn();
+
+    applyMsPortableToolPostMoveAction({
+      moveModifierEnabled: true,
+      movementSucceeded: true,
+      originPos: 10,
+      originZ: 1,
+      landedPos: 11,
+      landedZ: 1,
+      moveDir: MS_DIRECTION.east,
+      resolveSourceStep: () => ({ pos: 9, supportTileId: MS_TILE.CloneMachine }),
+      sourceHasMoveModifierTarget: () => true,
+      applyMoveModifier,
+    });
+    applyMsPortableToolPostMoveAction({
+      moveModifierEnabled: true,
+      movementSucceeded: true,
+      originPos: 10,
+      originZ: 1,
+      landedPos: 11,
+      landedZ: 1,
+      moveDir: MS_DIRECTION.east,
+      resolveSourceStep: () => ({ pos: 9, supportTileId: MS_TILE.Empty }),
+      sourceHasMoveModifierTarget: () => false,
+      applyMoveModifier,
+    });
+
+    expect(applyMoveModifier).not.toHaveBeenCalled();
   });
 });

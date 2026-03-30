@@ -1,4 +1,6 @@
+import { reverseDirection as backDirection } from "@game-core/impl/grid";
 import { decodeRuntimeInputCode, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   carriedLynxPortableToolItem,
   primedLynxPortableToolItem,
@@ -15,7 +17,12 @@ export interface LynxPortableToolActionContext {
   chipPos: number;
   chipZ: number;
   chipDir: number;
-  tryThrowBowlingBall(item: LynxPortableItem, dir: number): boolean;
+  tryActivateMovingItem(item: LynxPortableItem, dir: number): boolean;
+}
+
+interface LynxPortableToolSourceStep {
+  pos: number;
+  supportTileId: number;
 }
 
 export interface LynxPortableToolPostMoveContext {
@@ -26,7 +33,9 @@ export interface LynxPortableToolPostMoveContext {
   landedPos: number;
   landedZ: number;
   moveDir: number;
-  applyHookTug(originPos: number, originZ: number, moveDir: number): void;
+  resolveSourceStep(originPos: number, dir: number): LynxPortableToolSourceStep | null;
+  sourceHasMoveModifierTarget(pos: number, z: number): boolean;
+  applyMoveModifier(pos: number, moveDir: number): void;
 }
 
 function lynxHookTugModifierEnabledForCarriedItem(
@@ -52,7 +61,7 @@ export function applyLynxPortableToolAction(context: LynxPortableToolActionConte
       chipDir: context.chipDir,
       hasPrimedDrop: primedLynxPortableToolItem(context.store) !== undefined,
       primeDrop: () => primeLynxToolDrop(context.store, context.inventory, context.chipPos, context.chipZ),
-      throwMovingItem: (item, dir) => context.tryThrowBowlingBall(item, dir),
+      throwMovingItem: (item, dir) => context.tryActivateMovingItem(item, dir),
     }) ?? false
   );
 }
@@ -78,6 +87,18 @@ export function applyLynxPortableToolPostMoveAction(context: LynxPortableToolPos
   if (context.originPos === context.landedPos || context.originZ !== context.landedZ) {
     return;
   }
+  const sourceDir = backDirection(context.moveDir);
+  if (sourceDir === MS_DIRECTION.none || context.moveDir === MS_DIRECTION.none) {
+    return;
+  }
 
-  context.applyHookTug(context.originPos, context.originZ, context.moveDir);
+  const sourceStep = context.resolveSourceStep(context.originPos, sourceDir);
+  if (!sourceStep || sourceStep.supportTileId === MS_TILE.CloneMachine) {
+    return;
+  }
+  if (!context.sourceHasMoveModifierTarget(sourceStep.pos, context.originZ)) {
+    return;
+  }
+
+  context.applyMoveModifier(sourceStep.pos, context.moveDir);
 }
