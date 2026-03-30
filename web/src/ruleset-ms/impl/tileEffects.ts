@@ -1,13 +1,11 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCapabilities";
-import { lookupTileBehaviorPhase } from "@game-core/api/ruleset";
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult } from "@game-core/api/verticalMovement";
 import { replaceBottomTile, replaceTopTile } from "@game-core/impl/board";
 import {
   msButtonAction,
   msIsOverlayFloorTile,
-  msRulesetCatalog,
 } from "@ruleset-ms/impl/catalog";
 import {
   type MsTileLeaveBehaviorContext,
@@ -18,6 +16,7 @@ import {
   type MsTileSupportSubject,
 } from "@ruleset-ms/impl/elements/tiles/families/support";
 import { msBlockedEnterEffect } from "@ruleset-ms/impl/floorImpactPolicy";
+import { lookupMsTileLifecyclePhase } from "@ruleset-ms/impl/tileLifecycleRegistration";
 import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
 export interface MsTileActivationContext<TCreature> {
@@ -39,11 +38,7 @@ function applyMsMobExitTileAction(
   }
 
   const tile = layer === "top" ? cell.top : cell.bottom;
-  const tileBehavior = msRulesetCatalog.getTileBehavior(tile.id);
-  if (!tileBehavior) {
-    return false;
-  }
-  const afterLeave = lookupTileBehaviorPhase(tileBehavior, "complete-exit");
+  const afterLeave = lookupMsTileLifecyclePhase(tile.id, "complete-exit");
   if (afterLeave === null) {
     return false;
   }
@@ -202,11 +197,7 @@ function resolveMsTileSupportByBehavior(
     if (!tile) {
       continue;
     }
-    const tileBehavior = msRulesetCatalog.getTileBehavior(tile.id);
-    if (!tileBehavior) {
-      continue;
-    }
-    const probeSupport = lookupTileBehaviorPhase(tileBehavior, "probe-support");
+    const probeSupport = lookupMsTileLifecyclePhase(tile.id, "probe-support");
     if (probeSupport === null) {
       continue;
     }

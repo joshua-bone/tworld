@@ -1,11 +1,11 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { ACTOR_INTERACTION_TARGET_KIND } from "@game-core/api/actorInteractions";
-import { lookupTileBehaviorPhase } from "@game-core/api/ruleset";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
-import { msChipEnterAction, msRulesetCatalog } from "@ruleset-ms/impl/catalog";
+import { msChipEnterAction } from "@ruleset-ms/impl/catalog";
 import { msActorInteractionOutcome } from "@ruleset-ms/impl/actorInteractions";
 import { projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import { type MsChipEnterTileBehaviorContext } from "@ruleset-ms/impl/chipEnterBehavior";
+import { lookupMsTileLifecyclePhase } from "@ruleset-ms/impl/tileLifecycleRegistration";
 import { type MsPortableToolStateStore } from "@ruleset-ms/impl/portableItems";
 
 export interface MsChipEntryState {
@@ -45,8 +45,7 @@ export function applyMsChipEnterEffects(
     const floor = floorTileBeforeMove.id;
     const topIdBeforeResolution = nextCell.top.id;
     const topStateBeforeResolution = nextCell.top.state;
-    const tileBehavior = msRulesetCatalog.getTileBehavior(floor);
-    const beginEnter = tileBehavior === undefined ? null : lookupTileBehaviorPhase(tileBehavior, "begin-enter");
+    const beginEnter = lookupMsTileLifecyclePhase(floor, "begin-enter");
     if (beginEnter !== null) {
       const behaviorContext: MsChipEnterTileBehaviorContext = {
         phase: "begin-enter",

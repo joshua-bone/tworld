@@ -1,13 +1,11 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCapabilities";
-import { lookupTileBehaviorPhase } from "@game-core/api/ruleset";
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult } from "@game-core/api/verticalMovement";
 import { promoteBottomTile, replaceBottomTile, replaceTopTile } from "@game-core/impl/board";
 import {
   lynxButtonAction,
   lynxInventorySlot,
-  lynxRulesetCatalog,
 } from "@ruleset-lynx/impl/catalog";
 import {
   type LynxTileLeaveBehaviorContext,
@@ -18,6 +16,7 @@ import {
   type LynxTileSupportSubject,
 } from "@ruleset-lynx/impl/elements/tiles/families/support";
 import { lynxBlockedEnterEffect } from "@ruleset-lynx/impl/floorImpactPolicy";
+import { lookupLynxTileLifecyclePhase } from "@ruleset-lynx/impl/tileLifecycleRegistration";
 import { isMsCreature, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxTileActivationContext {
@@ -46,11 +45,7 @@ function applyLynxMobExitTileAction(
   }
 
   const tile = layer === "top" ? cell.top : cell.bottom;
-  const tileBehavior = lynxRulesetCatalog.getTileBehavior(tile.id);
-  if (!tileBehavior) {
-    return false;
-  }
-  const afterLeave = lookupTileBehaviorPhase(tileBehavior, "complete-exit");
+  const afterLeave = lookupLynxTileLifecyclePhase(tile.id, "complete-exit");
   if (afterLeave === null) {
     return false;
   }
@@ -185,11 +180,7 @@ function resolveLynxTileSupportByBehavior(
     if (!tile) {
       continue;
     }
-    const tileBehavior = lynxRulesetCatalog.getTileBehavior(tile.id);
-    if (!tileBehavior) {
-      continue;
-    }
-    const probeSupport = lookupTileBehaviorPhase(tileBehavior, "probe-support");
+    const probeSupport = lookupLynxTileLifecyclePhase(tile.id, "probe-support");
     if (probeSupport === null) {
       continue;
     }

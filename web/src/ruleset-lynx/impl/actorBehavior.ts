@@ -1,22 +1,17 @@
-import { lookupActorBehaviorPhase } from "@game-core/api/ruleset";
 import type { ActorHeldFloorOutcome } from "@game-core/api/actorInteractions";
-import { lynxRulesetCatalog } from "@ruleset-lynx/impl/catalog";
 import {
   type LynxActorClonerCloneBehaviorContext,
   type LynxActorClonerEntryBehaviorContext,
   type LynxActorHeldFloorBehaviorContext,
   type LynxActorTrapReleaseBehaviorContext,
 } from "@ruleset-lynx/impl/elements/actors/families/specialFloors";
+import { lookupLynxActorLifecyclePhase } from "@ruleset-lynx/impl/actorLifecycleRegistration";
 
 export function lynxActorHeldFloorOutcomeFromBehavior(
   tileId: number,
   actorId: number,
 ): ActorHeldFloorOutcome {
-  const behavior = lynxRulesetCatalog.getActorBehavior(actorId);
-  if (!behavior) {
-    return "none";
-  }
-  const heldFloor = lookupActorBehaviorPhase(behavior, "held-floor");
+  const heldFloor = lookupLynxActorLifecyclePhase(actorId, "held-floor");
   if (heldFloor === null) {
     return "none";
   }
@@ -31,11 +26,7 @@ export function lynxActorHeldFloorOutcomeFromBehavior(
 }
 
 export function lynxActorTrapReleaseStartsMovement(actorId: number): boolean {
-  const behavior = lynxRulesetCatalog.getActorBehavior(actorId);
-  if (!behavior) {
-    return false;
-  }
-  const trapRelease = lookupActorBehaviorPhase(behavior, "trap-release");
+  const trapRelease = lookupLynxActorLifecyclePhase(actorId, "trap-release");
   if (trapRelease === null) {
     return false;
   }
@@ -55,11 +46,7 @@ export function lynxActorClonerEntryBehavior(actorId: number): LynxActorClonerEn
     entryBehavior: "none",
     blockedCollisionBehavior: "none",
   };
-  const behavior = lynxRulesetCatalog.getActorBehavior(actorId);
-  if (!behavior) {
-    return context;
-  }
-  const clonerEntry = lookupActorBehaviorPhase(behavior, "cloner-entry");
+  const clonerEntry = lookupLynxActorLifecyclePhase(actorId, "cloner-entry");
   if (clonerEntry === null) {
     return context;
   }
@@ -74,11 +61,7 @@ export function lynxActorClonerCloneBehavior(actorId: number): LynxActorClonerCl
     exitStartsMovement: false,
     cloneFamilyRuntime: false,
   };
-  const behavior = lynxRulesetCatalog.getActorBehavior(actorId);
-  if (!behavior) {
-    return context;
-  }
-  const clonerClone = lookupActorBehaviorPhase(behavior, "cloner-clone");
+  const clonerClone = lookupLynxActorLifecyclePhase(actorId, "cloner-clone");
   if (clonerClone === null) {
     return context;
   }

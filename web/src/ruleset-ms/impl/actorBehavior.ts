@@ -1,22 +1,17 @@
-import { lookupActorBehaviorPhase } from "@game-core/api/ruleset";
 import type { ActorHeldFloorOutcome } from "@game-core/api/actorInteractions";
-import { msRulesetCatalog } from "@ruleset-ms/impl/catalog";
 import {
   type MsActorClonerCloneBehaviorContext,
   type MsActorClonerEntryBehaviorContext,
   type MsActorHeldFloorBehaviorContext,
   type MsActorTrapReleaseBehaviorContext,
 } from "@ruleset-ms/impl/elements/actors/families/specialFloors";
+import { lookupMsActorLifecyclePhase } from "@ruleset-ms/impl/actorLifecycleRegistration";
 
 export function msActorHeldFloorOutcomeFromBehavior(
   tileId: number,
   actorId: number,
 ): ActorHeldFloorOutcome {
-  const behavior = msRulesetCatalog.getActorBehavior(actorId);
-  if (!behavior) {
-    return "none";
-  }
-  const heldFloor = lookupActorBehaviorPhase(behavior, "held-floor");
+  const heldFloor = lookupMsActorLifecyclePhase(actorId, "held-floor");
   if (heldFloor === null) {
     return "none";
   }
@@ -31,11 +26,7 @@ export function msActorHeldFloorOutcomeFromBehavior(
 }
 
 export function msActorTrapReleaseStartsMovement(actorId: number): boolean {
-  const behavior = msRulesetCatalog.getActorBehavior(actorId);
-  if (!behavior) {
-    return false;
-  }
-  const trapRelease = lookupActorBehaviorPhase(behavior, "trap-release");
+  const trapRelease = lookupMsActorLifecyclePhase(actorId, "trap-release");
   if (trapRelease === null) {
     return false;
   }
@@ -55,11 +46,7 @@ export function msActorClonerEntryBehavior(actorId: number): MsActorClonerEntryB
     entryBehavior: "none",
     blockedCollisionBehavior: "none",
   };
-  const behavior = msRulesetCatalog.getActorBehavior(actorId);
-  if (!behavior) {
-    return context;
-  }
-  const clonerEntry = lookupActorBehaviorPhase(behavior, "cloner-entry");
+  const clonerEntry = lookupMsActorLifecyclePhase(actorId, "cloner-entry");
   if (clonerEntry === null) {
     return context;
   }
@@ -74,11 +61,7 @@ export function msActorClonerCloneBehavior(actorId: number): MsActorClonerCloneB
     exitStartsMovement: false,
     cloneFamilyRuntime: false,
   };
-  const behavior = msRulesetCatalog.getActorBehavior(actorId);
-  if (!behavior) {
-    return context;
-  }
-  const clonerClone = lookupActorBehaviorPhase(behavior, "cloner-clone");
+  const clonerClone = lookupMsActorLifecyclePhase(actorId, "cloner-clone");
   if (clonerClone === null) {
     return context;
   }

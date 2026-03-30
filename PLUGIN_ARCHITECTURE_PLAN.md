@@ -284,15 +284,15 @@ Targets:
 
 Checklist:
 
-- [ ] add tile lifecycle registries to both rulesets
-- [ ] add actor lifecycle registries to both rulesets
-- [ ] wrap current enum/mask behavior in adapter handlers
-- [ ] keep behavior identical while introducing the new call shape
+- [x] add tile lifecycle registries to both rulesets
+- [x] add actor lifecycle registries to both rulesets
+- [x] wrap current enum/mask behavior in adapter handlers
+- [x] keep behavior identical while introducing the new call shape
 
 Tests:
 
-- [ ] registration coverage tests
-- [ ] focused replay checks proving no behavior drift
+- [x] registration coverage tests
+- [x] focused replay checks proving no behavior drift
 
 ### PA13: Migrate Tile Enter/Exit Behavior First
 

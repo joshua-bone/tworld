@@ -1,5 +1,4 @@
 import type { EngineState } from "@game-core/api/model";
-import { lookupTileBehaviorPhase } from "@game-core/api/ruleset";
 import { promoteBottomTile } from "@game-core/impl/board";
 import { mapHash } from "@game-core/impl/hash";
 import {
@@ -10,12 +9,12 @@ import {
 } from "@game-core/api/movementOutcomes";
 import {
   lynxButtonAction,
-  lynxRulesetCatalog,
   lynxTileForcedFloorKind,
 } from "@ruleset-lynx/impl/catalog";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { lynxTilePostEntryAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { type LynxChipEnterTileBehaviorContext } from "@ruleset-lynx/impl/chipEnterBehavior";
+import { lookupLynxTileLifecyclePhase } from "@ruleset-lynx/impl/tileLifecycleRegistration";
 import type {
   LynxEndGameResult,
   LynxEndGameState,
@@ -82,8 +81,7 @@ export function applyLynxChipArrivalEffects(
     const enteredTileId = cell.top.id;
     const topStateBeforeResolution = cell.top.state;
     let continueIntoRevealedLowerTile = false;
-    const tileBehavior = lynxRulesetCatalog.getTileBehavior(enteredTileId);
-    const beginEnter = tileBehavior === undefined ? null : lookupTileBehaviorPhase(tileBehavior, "begin-enter");
+    const beginEnter = lookupLynxTileLifecyclePhase(enteredTileId, "begin-enter");
     if (beginEnter === null) {
       break;
     }
