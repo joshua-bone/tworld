@@ -15,8 +15,20 @@ import {
   type MsLevelDecodeRegistration,
 } from "@ruleset-ms/api/levelRegistration";
 import { lookupMsActorDefinition } from "@ruleset-ms/impl/catalogActors";
+import {
+  lookupMsPortableItemFamilyRegistration,
+  lookupMsPortableItemFamilyRegistrationByTileId,
+  msPortableItemFamilyRegistrations,
+  type MsPortableItemFamilyRegistration,
+} from "@ruleset-ms/impl/portableItemRegistration";
 import type { MsStatefulActorRuntimeEntry } from "@ruleset-ms/impl/statefulActors";
 import type { MsInventorySlot, MsPortableItemFamily } from "@ruleset-ms/impl/catalogTiles";
+
+export {
+  lookupMsPortableItemFamilyRegistration,
+  lookupMsPortableItemFamilyRegistrationByTileId,
+  type MsPortableItemFamilyRegistration,
+} from "@ruleset-ms/impl/portableItemRegistration";
 
 export type MsActorFamilyId = "chip" | "block" | "creature" | "bowling-ball";
 export type MsTerrainPickupFamilyId = "keys" | "boots" | "portable-items" | "doors" | "buttons";
@@ -33,13 +45,6 @@ export interface MsActorFamilyRegistration {
     },
     runtimeEntry: MsStatefulActorRuntimeEntry | null,
   ) => InteractiveGameRenderSprite;
-}
-
-export interface MsPortableItemFamilyRegistration {
-  familyId: MsPortableItemFamily;
-  tileId: number;
-  inventorySlot: "tools";
-  artworkSpriteId: string;
 }
 
 export interface MsTerrainPickupTileRegistration {
@@ -103,27 +108,6 @@ const MS_ACTOR_FAMILY_REGISTRATIONS = [
   },
 ] as const satisfies readonly MsActorFamilyRegistration[];
 
-const MS_PORTABLE_ITEM_FAMILY_REGISTRATIONS = [
-  {
-    familyId: "sandbag",
-    tileId: MS_TILE.Sandbag,
-    inventorySlot: "tools",
-    artworkSpriteId: "sandbag",
-  },
-  {
-    familyId: "hook",
-    tileId: MS_TILE.Hook,
-    inventorySlot: "tools",
-    artworkSpriteId: "hook",
-  },
-  {
-    familyId: "bowling-ball",
-    tileId: MS_TILE.BowlingBall_Still,
-    inventorySlot: "tools",
-    artworkSpriteId: "bowling_ball_still",
-  },
-] as const satisfies readonly MsPortableItemFamilyRegistration[];
-
 const MS_TERRAIN_PICKUP_FAMILY_REGISTRATIONS = [
   {
     familyId: "keys",
@@ -145,7 +129,7 @@ const MS_TERRAIN_PICKUP_FAMILY_REGISTRATIONS = [
   },
   {
     familyId: "portable-items",
-    tiles: MS_PORTABLE_ITEM_FAMILY_REGISTRATIONS.map((registration) => ({
+    tiles: msPortableItemFamilyRegistrations.map((registration) => ({
       tileId: registration.tileId,
       inventorySlot: registration.inventorySlot,
       inventoryIndex: 0,
@@ -174,7 +158,7 @@ const MS_TERRAIN_PICKUP_FAMILY_REGISTRATIONS = [
 
 export const msElementFamilyRegistration: MsElementFamilyRegistration = {
   actorFamilies: MS_ACTOR_FAMILY_REGISTRATIONS,
-  portableItemFamilies: MS_PORTABLE_ITEM_FAMILY_REGISTRATIONS,
+  portableItemFamilies: msPortableItemFamilyRegistrations,
   terrainPickupFamilies: MS_TERRAIN_PICKUP_FAMILY_REGISTRATIONS,
   levelDecodeRegistration: msBuiltinLevelDecodeRegistration,
   levelLoadRegistration: msLevelLoadRegistration,
@@ -184,14 +168,6 @@ const msActorFamilyByActorId = new Map<number, MsActorFamilyRegistration>(
   MS_ACTOR_FAMILY_REGISTRATIONS.flatMap((registration) =>
     registration.actorIds.map((actorId) => [actorId, registration] as const),
   ),
-);
-
-const msPortableItemFamilyByFamilyId = new Map<MsPortableItemFamily, MsPortableItemFamilyRegistration>(
-  MS_PORTABLE_ITEM_FAMILY_REGISTRATIONS.map((registration) => [registration.familyId, registration] as const),
-);
-
-const msPortableItemFamilyByTileId = new Map<number, MsPortableItemFamilyRegistration>(
-  MS_PORTABLE_ITEM_FAMILY_REGISTRATIONS.map((registration) => [registration.tileId, registration] as const),
 );
 
 const msTerrainPickupFamilyByTileId = new Map<number, MsTerrainPickupFamilyRegistration>();
@@ -211,18 +187,6 @@ export function lookupMsActorFamilyRegistration(actorId: number): MsActorFamilyR
 
 export function lookupMsActorDefinitionRegistration(actorId: number): ActorDefinition<number> | undefined {
   return lookupMsActorDefinition(actorId);
-}
-
-export function lookupMsPortableItemFamilyRegistration(
-  familyId: MsPortableItemFamily,
-): MsPortableItemFamilyRegistration | undefined {
-  return msPortableItemFamilyByFamilyId.get(familyId);
-}
-
-export function lookupMsPortableItemFamilyRegistrationByTileId(
-  tileId: number,
-): MsPortableItemFamilyRegistration | undefined {
-  return msPortableItemFamilyByTileId.get(tileId);
 }
 
 export function lookupMsTerrainPickupFamilyRegistration(

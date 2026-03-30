@@ -31,8 +31,7 @@ import { msIsOverlayFloorTile } from "@ruleset-ms/impl/catalog";
 import type { MsPortableItemFamily } from "@ruleset-ms/impl/catalogTiles";
 import {
   lookupMsPortableItemFamilyRegistrationByTileId,
-  lookupMsTerrainPickupTileRegistration,
-} from "@ruleset-ms/impl/elementRegistration";
+} from "@ruleset-ms/impl/portableItemRegistration";
 
 export interface MsPrimedToolDrop extends PortableItemDropProjection {}
 
@@ -71,14 +70,12 @@ type MsPortableToolDefinition = PortableItemFamilyDefinition<
 
 function identifyMsPortableItem(tileId: number): PortableItemFamilyDescriptor<MsPortableItemFamily, MsPortableInventorySlot> | null {
   const familyRegistration = lookupMsPortableItemFamilyRegistrationByTileId(tileId);
-  const inventorySlot = lookupMsTerrainPickupTileRegistration(tileId)?.inventorySlot;
-  const family = familyRegistration?.familyId;
-  if (!family || inventorySlot !== "tools") {
+  if (!familyRegistration) {
     return null;
   }
   return {
-    family,
-    inventorySlot,
+    family: familyRegistration.familyId,
+    inventorySlot: familyRegistration.inventorySlot,
   };
 }
 

@@ -30,8 +30,7 @@ import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import type { LynxPortableItemFamily } from "@ruleset-lynx/impl/catalogTiles";
 import {
   lookupLynxPortableItemFamilyRegistrationByTileId,
-  lookupLynxTerrainPickupTileRegistration,
-} from "@ruleset-lynx/impl/elementRegistration";
+} from "@ruleset-lynx/impl/portableItemRegistration";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxPrimedToolDrop extends PortableItemDropProjection {}
@@ -71,14 +70,12 @@ type LynxPortableToolDefinition = PortableItemFamilyDefinition<
 
 function identifyLynxPortableItem(tileId: number): PortableItemFamilyDescriptor<LynxPortableItemFamily, LynxPortableInventorySlot> | null {
   const familyRegistration = lookupLynxPortableItemFamilyRegistrationByTileId(tileId);
-  const inventorySlot = lookupLynxTerrainPickupTileRegistration(tileId)?.inventorySlot;
-  const family = familyRegistration?.familyId;
-  if (!family || inventorySlot !== "tools") {
+  if (!familyRegistration) {
     return null;
   }
   return {
-    family,
-    inventorySlot,
+    family: familyRegistration.familyId,
+    inventorySlot: familyRegistration.inventorySlot,
   };
 }
 

@@ -6,8 +6,20 @@ import type { ActorDefinition } from "@game-core/api/ruleset";
 import { bowlingBallArtworkSpriteId } from "@game-core/impl/bowlingBall";
 import { lynxLevelLoadRegistration, type LynxLevelLoadRegistration } from "@ruleset-lynx/api/levelLoader";
 import { lookupLynxActorDefinition } from "@ruleset-lynx/impl/catalogActors";
+import {
+  lookupLynxPortableItemFamilyRegistration,
+  lookupLynxPortableItemFamilyRegistrationByTileId,
+  lynxPortableItemFamilyRegistrations,
+  type LynxPortableItemFamilyRegistration,
+} from "@ruleset-lynx/impl/portableItemRegistration";
 import type { LynxStatefulActorRuntimeEntry } from "@ruleset-lynx/impl/statefulActors";
 import type { LynxInventorySlot, LynxPortableItemFamily } from "@ruleset-lynx/impl/catalogTiles";
+
+export {
+  lookupLynxPortableItemFamilyRegistration,
+  lookupLynxPortableItemFamilyRegistrationByTileId,
+  type LynxPortableItemFamilyRegistration,
+} from "@ruleset-lynx/impl/portableItemRegistration";
 import { msBuiltinLevelDecodeRegistration, type MsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -26,13 +38,6 @@ export interface LynxActorFamilyRegistration {
     },
     runtimeEntry: LynxStatefulActorRuntimeEntry | null,
   ) => InteractiveGameRenderSprite;
-}
-
-export interface LynxPortableItemFamilyRegistration {
-  familyId: LynxPortableItemFamily;
-  tileId: number;
-  inventorySlot: "tools";
-  artworkSpriteId: string;
 }
 
 export interface LynxTerrainPickupTileRegistration {
@@ -96,27 +101,6 @@ const LYNX_ACTOR_FAMILY_REGISTRATIONS = [
   },
 ] as const satisfies readonly LynxActorFamilyRegistration[];
 
-const LYNX_PORTABLE_ITEM_FAMILY_REGISTRATIONS = [
-  {
-    familyId: "sandbag",
-    tileId: MS_TILE.Sandbag,
-    inventorySlot: "tools",
-    artworkSpriteId: "sandbag",
-  },
-  {
-    familyId: "hook",
-    tileId: MS_TILE.Hook,
-    inventorySlot: "tools",
-    artworkSpriteId: "hook",
-  },
-  {
-    familyId: "bowling-ball",
-    tileId: MS_TILE.BowlingBall_Still,
-    inventorySlot: "tools",
-    artworkSpriteId: "bowling_ball_still",
-  },
-] as const satisfies readonly LynxPortableItemFamilyRegistration[];
-
 const LYNX_TERRAIN_PICKUP_FAMILY_REGISTRATIONS = [
   {
     familyId: "keys",
@@ -138,7 +122,7 @@ const LYNX_TERRAIN_PICKUP_FAMILY_REGISTRATIONS = [
   },
   {
     familyId: "portable-items",
-    tiles: LYNX_PORTABLE_ITEM_FAMILY_REGISTRATIONS.map((registration) => ({
+    tiles: lynxPortableItemFamilyRegistrations.map((registration) => ({
       tileId: registration.tileId,
       inventorySlot: registration.inventorySlot,
       inventoryIndex: 0,
@@ -167,7 +151,7 @@ const LYNX_TERRAIN_PICKUP_FAMILY_REGISTRATIONS = [
 
 export const lynxElementFamilyRegistration: LynxElementFamilyRegistration = {
   actorFamilies: LYNX_ACTOR_FAMILY_REGISTRATIONS,
-  portableItemFamilies: LYNX_PORTABLE_ITEM_FAMILY_REGISTRATIONS,
+  portableItemFamilies: lynxPortableItemFamilyRegistrations,
   terrainPickupFamilies: LYNX_TERRAIN_PICKUP_FAMILY_REGISTRATIONS,
   levelDecodeRegistration: msBuiltinLevelDecodeRegistration,
   levelLoadRegistration: lynxLevelLoadRegistration,
@@ -177,14 +161,6 @@ const lynxActorFamilyByActorId = new Map<number, LynxActorFamilyRegistration>(
   LYNX_ACTOR_FAMILY_REGISTRATIONS.flatMap((registration) =>
     registration.actorIds.map((actorId) => [actorId, registration] as const),
   ),
-);
-
-const lynxPortableItemFamilyByFamilyId = new Map<LynxPortableItemFamily, LynxPortableItemFamilyRegistration>(
-  LYNX_PORTABLE_ITEM_FAMILY_REGISTRATIONS.map((registration) => [registration.familyId, registration] as const),
-);
-
-const lynxPortableItemFamilyByTileId = new Map<number, LynxPortableItemFamilyRegistration>(
-  LYNX_PORTABLE_ITEM_FAMILY_REGISTRATIONS.map((registration) => [registration.tileId, registration] as const),
 );
 
 const lynxTerrainPickupFamilyByTileId = new Map<number, LynxTerrainPickupFamilyRegistration>();
@@ -204,18 +180,6 @@ export function lookupLynxActorFamilyRegistration(actorId: number): LynxActorFam
 
 export function lookupLynxActorDefinitionRegistration(actorId: number): ActorDefinition<number> | undefined {
   return lookupLynxActorDefinition(actorId);
-}
-
-export function lookupLynxPortableItemFamilyRegistration(
-  familyId: LynxPortableItemFamily,
-): LynxPortableItemFamilyRegistration | undefined {
-  return lynxPortableItemFamilyByFamilyId.get(familyId);
-}
-
-export function lookupLynxPortableItemFamilyRegistrationByTileId(
-  tileId: number,
-): LynxPortableItemFamilyRegistration | undefined {
-  return lynxPortableItemFamilyByTileId.get(tileId);
 }
 
 export function lookupLynxTerrainPickupFamilyRegistration(
