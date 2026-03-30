@@ -21,7 +21,6 @@ import {
 } from "@game-runtime/impl/interactiveSessionRun";
 import type { InteractiveInput } from "@game-core/api/command";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
-import { prepareLoadedLynxLevel } from "@ruleset-lynx/api/levelLoader";
 import { levelHintTextAtZ } from "@ruleset-ms/api/level";
 import {
   advanceLynxInteractiveSession,
@@ -34,6 +33,7 @@ import {
   runLynxReplayTraceDebugWindow,
   type LynxInteractiveSessionState,
 } from "@ruleset-lynx/impl/engine";
+import { lynxElementFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
 import { projectLynxInteractiveFrame } from "@ruleset-lynx/impl/interactiveProjection";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import {
@@ -214,7 +214,13 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     commands: Parameters<GameEnginePort["runInputTrace"]>[1],
     maxTicks: number,
   ) {
-    return withPreparedInteractiveLevel(this.levels, request, "Lynx", "TS Lynx engine", prepareLoadedLynxLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "Lynx",
+      "TS Lynx engine",
+      lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runLynxInputTrace(loaded.request, level, commands, maxTicks),
     );
   }
@@ -224,7 +230,13 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     replay: Parameters<GameEnginePort["runReplayTrace"]>[1],
     maxTicks: number,
   ) {
-    return withPreparedInteractiveLevel(this.levels, request, "Lynx", "TS Lynx engine", prepareLoadedLynxLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "Lynx",
+      "TS Lynx engine",
+      lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runLynxReplayTrace(loaded.request, level, replay, maxTicks),
     );
   }
@@ -234,7 +246,13 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     commands: Parameters<DebugGameEnginePort["runInputTraceDebug"]>[1],
     maxTicks: number,
   ) {
-    return withPreparedInteractiveLevel(this.levels, request, "Lynx", "TS Lynx engine", prepareLoadedLynxLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "Lynx",
+      "TS Lynx engine",
+      lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runLynxInputTraceDebug(loaded.request, level, commands, maxTicks),
     );
   }
@@ -244,7 +262,13 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     replay: Parameters<DebugGameEnginePort["runReplayTraceDebug"]>[1],
     maxTicks: number,
   ) {
-    return withPreparedInteractiveLevel(this.levels, request, "Lynx", "TS Lynx engine", prepareLoadedLynxLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "Lynx",
+      "TS Lynx engine",
+      lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runLynxReplayTraceDebug(loaded.request, level, replay, maxTicks),
     );
   }
@@ -256,7 +280,13 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     windowStart: number,
     windowEndExclusive: number,
   ) {
-    return withPreparedInteractiveLevel(this.levels, request, "Lynx", "TS Lynx engine", prepareLoadedLynxLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "Lynx",
+      "TS Lynx engine",
+      lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runLynxReplayTraceDebugWindow(loaded.request, level, replay, maxTicks, windowStart, windowEndExclusive),
     );
   }
@@ -265,11 +295,18 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     request: Parameters<InteractiveGameEnginePort["startSession"]>[0],
     options?: Parameters<InteractiveGameEnginePort["startSession"]>[1],
   ): Promise<InteractiveGameSession> {
-    return withPreparedInteractiveLevel(this.levels, request, "Lynx", "TS Lynx engine", prepareLoadedLynxLevel, async (_loaded, level) => {
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "Lynx",
+      "TS Lynx engine",
+      lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      async (_loaded, level) => {
       const token = createLynxInteractiveSession(request, level);
       const runtime = createInteractiveAdapterRuntime(token, level, createLynxUndoHistory, options?.undoSettings);
       return projectLynxSession({ request, mode: "manual" }, runtime, "initial");
-    });
+      },
+    );
   }
 
   async startReplaySession(
@@ -277,11 +314,18 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     replay: ReplaySolutionPayload,
     options?: Parameters<InteractiveGameEnginePort["startReplaySession"]>[2],
   ): Promise<InteractiveGameSession> {
-    return withPreparedInteractiveLevel(this.levels, request, "Lynx", "TS Lynx engine", prepareLoadedLynxLevel, async (_loaded, level) => {
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "Lynx",
+      "TS Lynx engine",
+      lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      async (_loaded, level) => {
       const token = createLynxReplaySession(request, level, replay);
       const runtime = createInteractiveAdapterRuntime(token, level, createLynxUndoHistory, options?.undoSettings);
       return projectLynxSession({ request, mode: "replay" }, runtime, "initial");
-    });
+      },
+    );
   }
 
   async advanceSession(session: InteractiveGameSession, input: InteractiveInput): Promise<InteractiveGameSession> {

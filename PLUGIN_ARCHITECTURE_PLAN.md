@@ -514,20 +514,20 @@ Targets:
 
 Checklist:
 
-- [ ] tie decode/load/render/runtime behavior into one element registration object
+- [x] tie decode/load/render/runtime behavior into one element registration object
 - [x] make render projection lookup family-aware and element-owned
 - [x] reduce cross-file registration duplication for portable items and stateful actors
 
 Tests:
 
-- [ ] render registration tests
-- [ ] level decode/load tests
-- [ ] projection tests
-- [ ] typecheck `player-web`
+- [x] render registration tests
+- [x] level decode/load tests
+- [x] projection tests
+- [x] typecheck `player-web`
 
 Exit gate:
 
-- [ ] adding a new element means editing one registration module and one element module, not four disjoint registries
+- [x] adding a new element means editing one registration module and one element module, not four disjoint registries
 
 ### PA10: Slim The Engines To Kernel-Only Responsibilities
 

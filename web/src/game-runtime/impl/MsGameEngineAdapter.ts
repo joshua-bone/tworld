@@ -21,7 +21,6 @@ import {
 } from "@game-runtime/impl/interactiveSessionRun";
 import type { InteractiveInput } from "@game-core/api/command";
 import { levelHintTextAtZ, type MsLevel } from "@ruleset-ms/api/level";
-import { prepareLoadedMsLevel } from "@ruleset-ms/api/levelLoader";
 import {
   advanceMsInteractiveSession,
   createMsInteractiveSession,
@@ -33,6 +32,7 @@ import {
   runMsReplayTraceDebugWindow,
   type MsInteractiveSessionState,
 } from "@ruleset-ms/impl/engine";
+import { msElementFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
 import { projectMsInteractiveFrame } from "@ruleset-ms/impl/interactiveProjection";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import {
@@ -229,7 +229,13 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     commands: Parameters<GameEnginePort["runInputTrace"]>[1],
     maxTicks: number,
   ) {
-    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "MS",
+      "TS MS engine",
+      msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runMsInputTrace(loaded.request, level, commands, maxTicks),
     );
   }
@@ -239,7 +245,13 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     replay: Parameters<GameEnginePort["runReplayTrace"]>[1],
     maxTicks: number,
   ): ReturnType<GameEnginePort["runReplayTrace"]> {
-    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "MS",
+      "TS MS engine",
+      msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runMsReplayTrace(loaded.request, level, replay, maxTicks),
     );
   }
@@ -249,7 +261,13 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     commands: Parameters<DebugGameEnginePort["runInputTraceDebug"]>[1],
     maxTicks: number,
   ) {
-    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "MS",
+      "TS MS engine",
+      msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runMsInputTraceDebug(loaded.request, level, commands, maxTicks),
     );
   }
@@ -259,7 +277,13 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     replay: Parameters<DebugGameEnginePort["runReplayTraceDebug"]>[1],
     maxTicks: number,
   ) {
-    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "MS",
+      "TS MS engine",
+      msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runMsReplayTraceDebug(loaded.request, level, replay, maxTicks),
     );
   }
@@ -271,7 +295,13 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     windowStart: number,
     windowEndExclusive: number,
   ) {
-    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, (loaded, level) =>
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "MS",
+      "TS MS engine",
+      msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      (loaded, level) =>
       runMsReplayTraceDebugWindow(loaded.request, level, replay, maxTicks, windowStart, windowEndExclusive),
     );
   }
@@ -280,7 +310,13 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     request: Parameters<InteractiveGameEnginePort["startSession"]>[0],
     options?: Parameters<InteractiveGameEnginePort["startSession"]>[1],
   ): Promise<InteractiveGameSession> {
-    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, async (_loaded, level) => {
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "MS",
+      "TS MS engine",
+      msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      async (_loaded, level) => {
       const token = createMsInteractiveSession(
         request,
         level,
@@ -288,7 +324,8 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
       );
       const runtime = createInteractiveAdapterRuntime(token, level, createMsUndoHistory, options?.undoSettings);
       return projectMsSession({ request, mode: "manual" }, runtime, "initial");
-    });
+      },
+    );
   }
 
   async startReplaySession(
@@ -296,11 +333,18 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     replay: ReplaySolutionPayload,
     options?: Parameters<InteractiveGameEnginePort["startReplaySession"]>[2],
   ): Promise<InteractiveGameSession> {
-    return withPreparedInteractiveLevel(this.levels, request, "MS", "TS MS engine", prepareLoadedMsLevel, async (_loaded, level) => {
+    return withPreparedInteractiveLevel(
+      this.levels,
+      request,
+      "MS",
+      "TS MS engine",
+      msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
+      async (_loaded, level) => {
       const token = createMsReplaySession(request, level, replay);
       const runtime = createInteractiveAdapterRuntime(token, level, createMsUndoHistory, options?.undoSettings);
       return projectMsSession({ request, mode: "replay" }, runtime, "initial");
-    });
+      },
+    );
   }
 
   async advanceSession(

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createMovingBowlingBallState } from "@game-core/impl/bowlingBall";
-import { lynxLevelLoadRegistration } from "@ruleset-lynx/api/levelLoader";
 import {
   lookupLynxActorFamilyRegistration,
   lookupLynxPortableItemFamilyRegistration,
@@ -8,10 +7,11 @@ import {
   lookupLynxTerrainPickupFamilyRegistration,
   lookupLynxTerrainPickupTileRegistration,
   lynxElementFamilyRegistration,
+  lynxRegisteredLevelDecodeRegistration,
+  lynxRegisteredLevelLoadRegistration,
   projectLynxRegisteredActorRenderSprite,
   projectLynxRegisteredPortableItemRender,
 } from "@ruleset-lynx/impl/elementRegistration";
-import { msBuiltinLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { msCreatureTile, MS_TILE } from "@ruleset-ms/api/tiles";
 
 describe("Lynx element registration", () => {
@@ -76,7 +76,7 @@ describe("Lynx element registration", () => {
     expect(lookupLynxTerrainPickupFamilyRegistration(MS_TILE.Door_Yellow)?.familyId).toBe("doors");
     expect(lookupLynxTerrainPickupTileRegistration(MS_TILE.Door_Yellow)?.doorKeyIndex).toBe(2);
     expect(lookupLynxTerrainPickupFamilyRegistration(MS_TILE.Button_Brown)?.familyId).toBe("buttons");
-    expect(lynxElementFamilyRegistration.levelDecodeRegistration).toBe(msBuiltinLevelDecodeRegistration);
-    expect(lynxElementFamilyRegistration.levelLoadRegistration).toBe(lynxLevelLoadRegistration);
+    expect(lynxElementFamilyRegistration.levelDecodeRegistration).toBe(lynxRegisteredLevelDecodeRegistration);
+    expect(lynxElementFamilyRegistration.levelLoadRegistration).toBe(lynxRegisteredLevelLoadRegistration);
   });
 });

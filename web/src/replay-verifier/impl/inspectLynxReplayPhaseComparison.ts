@@ -10,7 +10,7 @@ import {
 } from "@oracle-fixtures/impl/NativeOracleGameEngineAdapter";
 import { NodeSolutionFileRepository } from "@replay-verifier/impl/NodeSolutionFileRepository";
 import { buildReplayTraceScenariosFromSolutionFile } from "@replay-verifier/impl/buildReplayTraceScenariosFromSolutionFile";
-import { prepareLoadedLynxLevel } from "@ruleset-lynx/api/levelLoader";
+import { lynxElementFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
     oraclePath: process.env.TWORLD_ORACLE_BIN ?? defaultOraclePath,
   });
   const loadedLevel = await levelRepository.loadLevel(scenario.request);
-  const level = prepareLoadedLynxLevel(loadedLevel);
+  const level = lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel(loadedLevel);
 
   const actual = await candidate.runReplayTraceDebugWindow(
     scenario.request,

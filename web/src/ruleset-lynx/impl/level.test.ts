@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { prepareLynxLevel } from "@ruleset-lynx/api/level";
-import { decodeLoadedLynxLevelData, prepareLoadedLynxLevel } from "@ruleset-lynx/api/levelLoader";
+import { decodeLoadedLynxLevelData } from "@ruleset-lynx/api/levelLoader";
+import { lynxElementFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
 import type { DecodedMsLevelData } from "@ruleset-ms/api/level";
 import { createMsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { MS_STATUS_FLAG, MS_TILE, MS_TICKS_PER_SECOND } from "@ruleset-ms/api/tiles";
@@ -190,7 +191,7 @@ describe("lynx level preparation", () => {
     const decoded = decodeLoadedLynxLevelData({
       levelData,
       layerData: [levelData],
-    });
+    }, lynxElementFamilyRegistration.levelDecodeRegistration);
 
     expect(decoded.cells[0]?.top.id).toBe(MS_TILE.BowlingBall_Still);
     expect(decoded.badTiles).toBe(false);
@@ -201,11 +202,11 @@ describe("lynx level preparation", () => {
     const single = decodeLoadedLynxLevelData({
       levelData,
       layerData: [levelData],
-    });
+    }, lynxElementFamilyRegistration.levelDecodeRegistration);
     const grouped = decodeLoadedLynxLevelData({
       levelData,
       layerData: [levelData, createSingleTopTileLevelData(0x72, 12)],
-    });
+    }, lynxElementFamilyRegistration.levelDecodeRegistration);
 
     expect(single.cells[0]?.top.id).toBe(MS_TILE.Empty);
     expect(grouped.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Empty);
@@ -215,7 +216,7 @@ describe("lynx level preparation", () => {
 
   it("prepares loaded Lynx levels through the ruleset-local load registration seam", () => {
     const levelData = createSingleTopTileLevelData(51, 11);
-    const prepared = prepareLoadedLynxLevel({
+    const prepared = lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel({
       levelData,
       layerData: [levelData],
     });

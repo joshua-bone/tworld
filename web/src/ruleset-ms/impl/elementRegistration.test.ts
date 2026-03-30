@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createMovingBowlingBallState } from "@game-core/impl/bowlingBall";
-import { msLevelLoadRegistration } from "@ruleset-ms/api/levelLoader";
-import { msBuiltinLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { msCreatureTile, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   lookupMsActorFamilyRegistration,
@@ -10,6 +8,8 @@ import {
   lookupMsTerrainPickupFamilyRegistration,
   lookupMsTerrainPickupTileRegistration,
   msElementFamilyRegistration,
+  msRegisteredLevelDecodeRegistration,
+  msRegisteredLevelLoadRegistration,
   projectMsRegisteredActorRenderSprite,
   projectMsRegisteredPortableItemRender,
 } from "@ruleset-ms/impl/elementRegistration";
@@ -76,7 +76,7 @@ describe("MS element registration", () => {
     expect(lookupMsTerrainPickupFamilyRegistration(MS_TILE.Door_Yellow)?.familyId).toBe("doors");
     expect(lookupMsTerrainPickupTileRegistration(MS_TILE.Door_Yellow)?.doorKeyIndex).toBe(2);
     expect(lookupMsTerrainPickupFamilyRegistration(MS_TILE.Button_Brown)?.familyId).toBe("buttons");
-    expect(msElementFamilyRegistration.levelDecodeRegistration).toBe(msBuiltinLevelDecodeRegistration);
-    expect(msElementFamilyRegistration.levelLoadRegistration).toBe(msLevelLoadRegistration);
+    expect(msElementFamilyRegistration.levelDecodeRegistration).toBe(msRegisteredLevelDecodeRegistration);
+    expect(msElementFamilyRegistration.levelLoadRegistration).toBe(msRegisteredLevelLoadRegistration);
   });
 });

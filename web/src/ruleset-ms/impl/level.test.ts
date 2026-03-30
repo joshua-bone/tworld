@@ -7,9 +7,9 @@ import {
   levelHintTextAtZ,
   prepareMsLevel,
 } from "@ruleset-ms/api/level";
-import { prepareLoadedMsLevel } from "@ruleset-ms/api/levelLoader";
 import { createMsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE } from "@ruleset-ms/api/tiles";
+import { msElementFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
 
 function createMinimalLevelData(levelNumber = 7): Uint8Array {
   return Uint8Array.from([
@@ -39,7 +39,7 @@ function createSingleTopTileLevelData(fileCode: number, levelNumber = 7): Uint8A
 
 describe("ms level preparation", () => {
   it("decodes DAT bytes into raw level data", () => {
-    const decoded = decodeMsLevelData(createMinimalLevelData());
+    const decoded = decodeMsLevelData(createMinimalLevelData(), msElementFamilyRegistration.levelDecodeRegistration);
 
     expect(decoded.number).toBe(7);
     expect(decoded.timeLimitSeconds).toBe(12);
@@ -51,7 +51,11 @@ describe("ms level preparation", () => {
   });
 
   it("decodes grouped level data into z-layered raw level data while keeping layer 1 metadata global", () => {
-    const decoded = decodeMsLevelGroupData([createMinimalLevelData(7), createMinimalLevelData(8)]);
+    const decoded = decodeMsLevelGroupData(
+      [createMinimalLevelData(7), createMinimalLevelData(8)],
+      undefined,
+      msElementFamilyRegistration.levelDecodeRegistration,
+    );
 
     expect(decoded.number).toBe(7);
     expect(decoded.layers).toHaveLength(2);
@@ -63,22 +67,34 @@ describe("ms level preparation", () => {
   });
 
   it("can preserve global metadata from a separate primary level while decoding normalized layer order", () => {
-    const decoded = decodeMsLevelGroupData([createMinimalLevelData(7), createMinimalLevelData(8)], createMinimalLevelData(42));
+    const decoded = decodeMsLevelGroupData(
+      [createMinimalLevelData(7), createMinimalLevelData(8)],
+      createMinimalLevelData(42),
+      msElementFamilyRegistration.levelDecodeRegistration,
+    );
 
     expect(decoded.number).toBe(42);
     expect(decoded.layers?.map((layer) => layer.number)).toEqual([7, 8]);
   });
 
   it("remaps DAT file code 32 to air on z>1 only", () => {
-    const decoded = decodeMsLevelGroupData([createSingleTopTileLevelData(32, 7), createSingleTopTileLevelData(32, 8)]);
+    const decoded = decodeMsLevelGroupData(
+      [createSingleTopTileLevelData(32, 7), createSingleTopTileLevelData(32, 8)],
+      undefined,
+      msElementFamilyRegistration.levelDecodeRegistration,
+    );
 
     expect(decoded.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Overlay_Buffer);
     expect(decoded.layers?.[1]?.cells[0]?.top.id).toBe(MS_TILE.Air);
   });
 
   it("remaps DAT file code 57 to elevator only when the grouped level has higher layers", () => {
-    const grouped = decodeMsLevelGroupData([createSingleTopTileLevelData(57, 7), createSingleTopTileLevelData(57, 8)]);
-    const single = decodeMsLevelData(createSingleTopTileLevelData(57, 7));
+    const grouped = decodeMsLevelGroupData(
+      [createSingleTopTileLevelData(57, 7), createSingleTopTileLevelData(57, 8)],
+      undefined,
+      msElementFamilyRegistration.levelDecodeRegistration,
+    );
+    const single = decodeMsLevelData(createSingleTopTileLevelData(57, 7), msElementFamilyRegistration.levelDecodeRegistration);
 
     expect(grouped.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Elevator);
     expect(grouped.layers?.[1]?.cells[0]?.top.id).toBe(MS_TILE.Elevator);
@@ -96,15 +112,19 @@ describe("ms level preparation", () => {
   });
 
   it("decodes built-in DAT file code 0x71 as a still bowling ball", () => {
-    const decoded = decodeMsLevelData(createSingleTopTileLevelData(0x71, 7));
+    const decoded = decodeMsLevelData(createSingleTopTileLevelData(0x71, 7), msElementFamilyRegistration.levelDecodeRegistration);
 
     expect(decoded.cells[0]?.top.id).toBe(MS_TILE.BowlingBall_Still);
     expect(decoded.badTiles).toBe(false);
   });
 
   it("decodes built-in DAT file code 0x72 as cloud on higher layers and floor on z1", () => {
-    const single = decodeMsLevelData(createSingleTopTileLevelData(0x72, 7));
-    const grouped = decodeMsLevelGroupData([createSingleTopTileLevelData(0x72, 7), createSingleTopTileLevelData(0x72, 8)]);
+    const single = decodeMsLevelData(createSingleTopTileLevelData(0x72, 7), msElementFamilyRegistration.levelDecodeRegistration);
+    const grouped = decodeMsLevelGroupData(
+      [createSingleTopTileLevelData(0x72, 7), createSingleTopTileLevelData(0x72, 8)],
+      undefined,
+      msElementFamilyRegistration.levelDecodeRegistration,
+    );
 
     expect(single.cells[0]?.top.id).toBe(MS_TILE.Empty);
     expect(grouped.layers?.[0]?.cells[0]?.top.id).toBe(MS_TILE.Empty);
@@ -113,7 +133,7 @@ describe("ms level preparation", () => {
   });
 
   it("decodes built-in DAT file code 0x73 as hook", () => {
-    const decoded = decodeMsLevelData(createSingleTopTileLevelData(0x73, 7));
+    const decoded = decodeMsLevelData(createSingleTopTileLevelData(0x73, 7), msElementFamilyRegistration.levelDecodeRegistration);
 
     expect(decoded.cells[0]?.top.id).toBe(MS_TILE.Hook);
     expect(decoded.badTiles).toBe(false);
@@ -121,15 +141,20 @@ describe("ms level preparation", () => {
 
   it("prepares loaded MS levels through the ruleset-local load registration seam", () => {
     const levelData = createSingleTopTileLevelData(1, 7);
-    const prepared = prepareLoadedMsLevel(
-      {
+    const prepared = msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel({
+      levelData,
+      layerData: [levelData],
+    });
+    const overridden = prepareMsLevel(
+      decodeMsLevelGroupData(
+        [levelData],
         levelData,
-        layerData: [levelData],
-      },
-      createMsLevelDecodeRegistration([{ fileCode: 1, tileId: MS_TILE.Fire }]),
+        createMsLevelDecodeRegistration([{ fileCode: 1, tileId: MS_TILE.Fire }]),
+      ),
     );
 
-    expect(prepared.cells[0]?.top.id).toBe(MS_TILE.Fire);
+    expect(prepared.cells[0]?.top.id).toBe(MS_TILE.Wall);
+    expect(overridden.cells[0]?.top.id).toBe(MS_TILE.Fire);
   });
 
   it("collects z-aware connection and creature metadata in layer order", () => {

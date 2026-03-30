@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeLevelRepository } from "@level-catalog/impl/NodeLevelRepository";
-import { prepareLoadedMsLevel } from "@ruleset-ms/api/levelLoader";
+import { msElementFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
     levelNumber,
     ruleset: "MS",
   });
-  const level = prepareLoadedMsLevel(loaded);
+  const level = msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel(loaded);
 
   const positions = positionsText
     ? positionsText

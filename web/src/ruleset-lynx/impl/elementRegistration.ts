@@ -3,7 +3,7 @@ import type {
   InteractiveGameTileOverlayRender,
 } from "@game-core/api/interactive";
 import type { ActorDefinition } from "@game-core/api/ruleset";
-import { lynxLevelLoadRegistration, type LynxLevelLoadRegistration } from "@ruleset-lynx/api/levelLoader";
+import { createLynxLevelLoadRegistration, type LynxLevelLoadRegistration } from "@ruleset-lynx/api/levelLoader";
 import { lookupLynxActorDefinition } from "@ruleset-lynx/impl/catalogActors";
 import {
   LYNX_BOWLING_BALL_ACTOR_FAMILY,
@@ -25,8 +25,9 @@ export {
   lookupLynxPortableItemFamilyRegistrationByTileId,
   type LynxPortableItemFamilyRegistration,
 } from "@ruleset-lynx/impl/portableItemRegistration";
-import { msBuiltinLevelDecodeRegistration, type MsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
+import type { MsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { msRegisteredLevelDecodeRegistration } from "@ruleset-ms/impl/elementRegistration";
 
 export type LynxActorFamilyId = "chip" | "block" | "creature" | "bowling-ball";
 export type LynxTerrainPickupFamilyId = "keys" | "boots" | "portable-items" | "doors" | "buttons";
@@ -149,12 +150,15 @@ const LYNX_TERRAIN_PICKUP_FAMILY_REGISTRATIONS = [
   },
 ] as const satisfies readonly LynxTerrainPickupFamilyRegistration[];
 
+export const lynxRegisteredLevelDecodeRegistration = msRegisteredLevelDecodeRegistration;
+export const lynxRegisteredLevelLoadRegistration = createLynxLevelLoadRegistration(lynxRegisteredLevelDecodeRegistration);
+
 export const lynxElementFamilyRegistration: LynxElementFamilyRegistration = {
   actorFamilies: LYNX_ACTOR_FAMILY_REGISTRATIONS,
   portableItemFamilies: lynxPortableItemFamilyRegistrations,
   terrainPickupFamilies: LYNX_TERRAIN_PICKUP_FAMILY_REGISTRATIONS,
-  levelDecodeRegistration: msBuiltinLevelDecodeRegistration,
-  levelLoadRegistration: lynxLevelLoadRegistration,
+  levelDecodeRegistration: lynxRegisteredLevelDecodeRegistration,
+  levelLoadRegistration: lynxRegisteredLevelLoadRegistration,
 };
 
 const lynxActorFamilyByActorId = new Map<number, LynxActorFamilyRegistration>(

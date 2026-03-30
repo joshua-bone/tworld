@@ -1,8 +1,5 @@
 import type { EngineMapCell } from "@game-core/api/model";
-import {
-  msBuiltinLevelDecodeRegistration,
-  type MsLevelDecodeRegistration,
-} from "@ruleset-ms/api/levelRegistration";
+import { type MsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
 import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface MsConnection {
@@ -248,7 +245,7 @@ function decodeMsSingleLevelData(
 export function decodeMsLevelGroupData(
   levelDataLayers: readonly Uint8Array[],
   primaryLevelData: Uint8Array = levelDataLayers[0] ?? new Uint8Array(),
-  registration: MsLevelDecodeRegistration = msBuiltinLevelDecodeRegistration,
+  registration: MsLevelDecodeRegistration,
 ): DecodedMsLevelData {
   if (levelDataLayers.length === 0) {
     throw new Error("level group must contain at least one layer");
@@ -277,7 +274,7 @@ export function decodeMsLevelGroupData(
 
 export function decodeMsLevelData(
   levelData: Uint8Array,
-  registration: MsLevelDecodeRegistration = msBuiltinLevelDecodeRegistration,
+  registration: MsLevelDecodeRegistration,
 ): DecodedMsLevelData {
   return decodeMsLevelGroupData([levelData], undefined, registration);
 }
