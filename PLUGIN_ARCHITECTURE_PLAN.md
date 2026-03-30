@@ -287,10 +287,10 @@ Targets:
 
 Checklist:
 
-- [x] add `TileBehavior` interface
-- [x] add `ActorBehavior` interface
-- [x] add default no-op behavior helpers
-- [x] keep current catalogs working through adapters
+- [ ] add `TileBehavior` interface
+- [ ] add `ActorBehavior` interface
+- [ ] add default no-op behavior helpers
+- [ ] keep current catalogs working through adapters
 
 Tests:
 
@@ -300,7 +300,7 @@ Tests:
 
 Exit gate:
 
-- [x] rulesets can register behavior objects without changing runtime behavior yet
+- [ ] rulesets can register behavior objects without changing runtime behavior yet
 
 ### PA3: Create Tile Family Builders
 

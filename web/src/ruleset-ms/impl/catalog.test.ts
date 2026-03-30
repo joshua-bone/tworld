@@ -14,7 +14,5 @@ describe("MS ruleset catalog", () => {
     expect(msRulesetCatalog.getTile(MS_TILE.Teleport)?.code).toBe("ms:teleport");
     expect(msRulesetCatalog.getTile(MS_TILE.Button_Blue)?.name).toBe("Button Blue");
     expect(msRulesetCatalog.getActor(MS_TILE.Chip)?.code).toBe("ms:chip");
-    expect(msRulesetCatalog.getTileBehavior(MS_TILE.Teleport)?.phases).toEqual({});
-    expect(msRulesetCatalog.getActorBehavior(MS_TILE.Chip)?.phases).toEqual({});
   });
 });

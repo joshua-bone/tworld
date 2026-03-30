@@ -136,78 +136,6 @@ export const RULESET_ARCHITECTURE_CONTRACT: RulesetArchitectureContract = {
   pluginResponsibilities: RULESET_PLUGIN_RESPONSIBILITIES,
 };
 
-export interface TileBehaviorContext<TTileId extends number = number, TActorId extends number = number> {
-  readonly phase: TileLifecyclePhase;
-  readonly tileId: TTileId;
-  readonly actorId?: TActorId;
-}
-
-export type TileLifecycleHandler<TTileId extends number = number, TActorId extends number = number> = (
-  context: TileBehaviorContext<TTileId, TActorId>,
-) => void;
-
-export interface TileBehavior<TTileId extends number = number, TActorId extends number = number> {
-  readonly phases: Readonly<Partial<Record<TileLifecyclePhase, TileLifecycleHandler<TTileId, TActorId>>>>;
-}
-
-export interface ActorBehaviorContext<TTileId extends number = number, TActorId extends number = number> {
-  readonly phase: ActorLifecyclePhase;
-  readonly actorId: TActorId;
-  readonly tileId?: TTileId;
-}
-
-export type ActorLifecycleHandler<TTileId extends number = number, TActorId extends number = number> = (
-  context: ActorBehaviorContext<TTileId, TActorId>,
-) => void;
-
-export interface ActorBehavior<TTileId extends number = number, TActorId extends number = number> {
-  readonly phases: Readonly<Partial<Record<ActorLifecyclePhase, ActorLifecycleHandler<TTileId, TActorId>>>>;
-}
-
-export function createTileBehavior<TTileId extends number = number, TActorId extends number = number>(
-  phases: Partial<Record<TileLifecyclePhase, TileLifecycleHandler<TTileId, TActorId>>> = {},
-): TileBehavior<TTileId, TActorId> {
-  return {
-    phases: { ...phases },
-  };
-}
-
-export function createActorBehavior<TTileId extends number = number, TActorId extends number = number>(
-  phases: Partial<Record<ActorLifecyclePhase, ActorLifecycleHandler<TTileId, TActorId>>> = {},
-): ActorBehavior<TTileId, TActorId> {
-  return {
-    phases: { ...phases },
-  };
-}
-
-export function noTileBehavior<TTileId extends number = number, TActorId extends number = number>(): TileBehavior<
-  TTileId,
-  TActorId
-> {
-  return createTileBehavior<TTileId, TActorId>();
-}
-
-export function noActorBehavior<TTileId extends number = number, TActorId extends number = number>(): ActorBehavior<
-  TTileId,
-  TActorId
-> {
-  return createActorBehavior<TTileId, TActorId>();
-}
-
-export function lookupTileBehaviorPhase<TTileId extends number = number, TActorId extends number = number>(
-  behavior: TileBehavior<TTileId, TActorId>,
-  phase: TileLifecyclePhase,
-): TileLifecycleHandler<TTileId, TActorId> | null {
-  return behavior.phases[phase] ?? null;
-}
-
-export function lookupActorBehaviorPhase<TTileId extends number = number, TActorId extends number = number>(
-  behavior: ActorBehavior<TTileId, TActorId>,
-  phase: ActorLifecyclePhase,
-): ActorLifecycleHandler<TTileId, TActorId> | null {
-  return behavior.phases[phase] ?? null;
-}
-
 export type TileTag =
   | "walkable"
   | "blocking"
@@ -265,14 +193,13 @@ export type TileHookName =
  * align with {@link TILE_LIFECYCLE_PHASES} and respect
  * {@link RULESET_ARCHITECTURE_CONTRACT}.
  */
-export interface TileDefinition<TTileId extends number = number, TActorId extends number = number> {
+export interface TileDefinition<TTileId extends number = number> {
   id: TTileId;
   code: string;
   name: string;
   tags: readonly TileTag[];
   capabilities: readonly TileCapability[];
   hooks: readonly TileHookName[];
-  behavior?: TileBehavior<TTileId, TActorId>;
 }
 
 /**
@@ -283,13 +210,12 @@ export interface TileDefinition<TTileId extends number = number, TActorId extend
  * {@link ACTOR_LIFECYCLE_PHASES} rather than adding more engine-local special
  * cases.
  */
-export interface ActorDefinition<TActorId extends number = number, TTileId extends number = number> {
+export interface ActorDefinition<TActorId extends number = number> {
   id: TActorId;
   code: string;
   name: string;
   tags: readonly ActorTag[];
   capabilities: ActorCapabilityPolicy;
-  behavior?: ActorBehavior<TTileId, TActorId>;
 }
 
 /**
@@ -301,47 +227,29 @@ export interface ActorDefinition<TActorId extends number = number, TTileId exten
  */
 export interface RulesetCatalog<TTileId extends number = number, TActorId extends number = number> {
   readonly name: string;
-  readonly tiles: ReadonlyMap<TTileId, TileDefinition<TTileId, TActorId>>;
-  readonly actors: ReadonlyMap<TActorId, ActorDefinition<TActorId, TTileId>>;
-  readonly tileBehaviors: ReadonlyMap<TTileId, TileBehavior<TTileId, TActorId>>;
-  readonly actorBehaviors: ReadonlyMap<TActorId, ActorBehavior<TTileId, TActorId>>;
-  getTile(id: TTileId): TileDefinition<TTileId, TActorId> | undefined;
-  getActor(id: TActorId): ActorDefinition<TActorId, TTileId> | undefined;
-  getTileBehavior(id: TTileId): TileBehavior<TTileId, TActorId> | undefined;
-  getActorBehavior(id: TActorId): ActorBehavior<TTileId, TActorId> | undefined;
+  readonly tiles: ReadonlyMap<TTileId, TileDefinition<TTileId>>;
+  readonly actors: ReadonlyMap<TActorId, ActorDefinition<TActorId>>;
+  getTile(id: TTileId): TileDefinition<TTileId> | undefined;
+  getActor(id: TActorId): ActorDefinition<TActorId> | undefined;
 }
 
 export function createRulesetCatalog<TTileId extends number, TActorId extends number>(config: {
   name: string;
-  tiles: readonly TileDefinition<TTileId, TActorId>[];
-  actors: readonly ActorDefinition<TActorId, TTileId>[];
+  tiles: readonly TileDefinition<TTileId>[];
+  actors: readonly ActorDefinition<TActorId>[];
 }): RulesetCatalog<TTileId, TActorId> {
   const tiles = new Map(config.tiles.map((tile) => [tile.id, tile] as const));
   const actors = new Map(config.actors.map((actor) => [actor.id, actor] as const));
-  const tileBehaviors = new Map(
-    config.tiles.map((tile) => [tile.id, tile.behavior ?? noTileBehavior<TTileId, TActorId>()] as const),
-  );
-  const actorBehaviors = new Map(
-    config.actors.map((actor) => [actor.id, actor.behavior ?? noActorBehavior<TTileId, TActorId>()] as const),
-  );
 
   return {
     name: config.name,
     tiles,
     actors,
-    tileBehaviors,
-    actorBehaviors,
     getTile(id) {
       return tiles.get(id);
     },
     getActor(id) {
       return actors.get(id);
-    },
-    getTileBehavior(id) {
-      return tileBehaviors.get(id);
-    },
-    getActorBehavior(id) {
-      return actorBehaviors.get(id);
     },
   };
 }
