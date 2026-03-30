@@ -3211,16 +3211,25 @@ describe("runLynxInputTrace", () => {
       ]),
     );
     session.state.inventory.tools = [MS_TILE.Hook];
+    const tugRuntime = lynxRuntimeStateForTest(session.state);
+    tugRuntime.portableTools.portableItems.push({
+      serial: tugRuntime.portableTools.nextPortableItemSerial,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    tugRuntime.portableTools.nextPortableItemSerial += 1;
 
     session = advanceLynxTicks(
       session,
       4,
       encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
     );
+    const block = session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
 
     expect(session.chipPos).toBe(westPos);
-    expect(session.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Block_Static);
-    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(block?.pos).toBe(chipPos);
     expect(session.state.inventory.tools).toEqual([MS_TILE.Hook]);
   });
 
@@ -3237,16 +3246,26 @@ describe("runLynxInputTrace", () => {
       ]),
     );
     session.state.inventory.tools = [MS_TILE.Hook];
+    const chipWallRuntime = lynxRuntimeStateForTest(session.state);
+    chipWallRuntime.portableTools.portableItems.push({
+      serial: chipWallRuntime.portableTools.nextPortableItemSerial,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    chipWallRuntime.portableTools.nextPortableItemSerial += 1;
 
     session = advanceLynxTicks(
       session,
       4,
       encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
     );
+    const block = session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
 
     expect(session.chipPos).toBe(westPos);
     expect(session.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Wall_East);
-    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(block?.pos).toBe(eastPos);
   });
 
   it("does not tug through a thin wall on the block tile", () => {
@@ -3262,17 +3281,26 @@ describe("runLynxInputTrace", () => {
       ]),
     );
     session.state.inventory.tools = [MS_TILE.Hook];
+    const blockWallRuntime = lynxRuntimeStateForTest(session.state);
+    blockWallRuntime.portableTools.portableItems.push({
+      serial: blockWallRuntime.portableTools.nextPortableItemSerial,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    blockWallRuntime.portableTools.nextPortableItemSerial += 1;
 
     session = advanceLynxTicks(
       session,
       4,
       encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
     );
+    const block = session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
 
     expect(session.chipPos).toBe(westPos);
-    expect(session.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
-    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
-    expect(session.state.map.cells[eastPos]?.bottom.id).toBe(MS_TILE.Wall_West);
+    expect(block?.pos).toBe(eastPos);
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Wall_West);
   });
 
   it("does not tug a block off a clone machine", () => {
@@ -3288,16 +3316,26 @@ describe("runLynxInputTrace", () => {
       ]),
     );
     session.state.inventory.tools = [MS_TILE.Hook];
+    const cloneRuntime = lynxRuntimeStateForTest(session.state);
+    cloneRuntime.portableTools.portableItems.push({
+      serial: cloneRuntime.portableTools.nextPortableItemSerial,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    cloneRuntime.portableTools.nextPortableItemSerial += 1;
 
     session = advanceLynxTicks(
       session,
       4,
       encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
     );
+    const block = session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden);
 
     expect(session.chipPos).toBe(westPos);
-    expect(session.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
-    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(block?.pos).toBe(eastPos);
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.CloneMachine);
   });
 
   it("throws a carried bowling ball into an empty forward cell through the portable action seam", () => {

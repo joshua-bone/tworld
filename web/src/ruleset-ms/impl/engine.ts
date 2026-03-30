@@ -1995,12 +1995,12 @@ function tryApplyMsHookTug(
   originZ: number,
   moveDir: number,
 ): void {
-  const tugDir = backDirection(moveDir);
-  if (tugDir === MS_DIRECTION.none) {
+  const sourceDir = backDirection(moveDir);
+  if (sourceDir === MS_DIRECTION.none || moveDir === MS_DIRECTION.none) {
     return;
   }
 
-  const sourceStep = advanceToCell(cells, originPos, tugDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  const sourceStep = advanceToCell(cells, originPos, sourceDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
   if (!sourceStep || sourceStep.cell.bottom.id === MS_TILE.CloneMachine) {
     return;
   }
@@ -2009,7 +2009,7 @@ function tryApplyMsHookTug(
     return;
   }
 
-  pushBlock(cells, internal, sourceStep.pos, tugDir, false, true);
+  pushBlock(cells, internal, sourceStep.pos, moveDir, false, true);
 }
 
 function canMoveCreature(
@@ -4606,6 +4606,7 @@ function runManualMovement(
   internal: MsInternalState,
   inventory: EngineState["inventory"],
   dir: number,
+  hookTugEnabled: boolean,
 ): number {
   if (dir === MS_DIRECTION.none) {
     return 0;
@@ -4614,7 +4615,6 @@ function runManualMovement(
   internal.chipWait = 0;
   const pressedPermanentHiddenWallPos = findPressedMsPermanentHiddenWallPos(cells, internal.chipPos, dir);
   const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, dir);
-  const hookTugEnabled = msHookTugEnabled(internal);
   if (
     !canStartMsChipMoveByStrategy(
       msActorMovementStrategyId(MS_TILE.Chip),
@@ -4658,6 +4658,7 @@ interface MsChipFloorPhaseState {
 interface MsChipInputResolution {
   chipPosBeforeManualMovement: number;
   manualDir: number;
+  manualHookTugEnabled: boolean;
   nextLastMove: EngineState["lastMove"];
 }
 
@@ -5009,6 +5010,8 @@ function resolveMsChipInputPhase(
         consumedInputCode: GAME_INPUT_CODES.none,
         dir: MS_DIRECTION.none,
       };
+  const carriedPortable = carriedMsPortableToolItem(msPortableToolState(runtime.internal));
+  const { modifierMask: manualModifierMask } = decodeRuntimeInputCode(manualChoice.consumedInputCode);
   const recordedInputCode =
     runtime.toolActionTriggeredThisTick && manualChoice.consumedInputCode === GAME_INPUT_CODES.none
       ? replayLastMoveInputCode
@@ -5036,6 +5039,8 @@ function resolveMsChipInputPhase(
   return {
     chipPosBeforeManualMovement,
     manualDir: manualChoice.dir,
+    manualHookTugEnabled:
+      (manualModifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 && carriedPortable?.family === "hook",
     nextLastMove,
   };
 }
@@ -5086,6 +5091,7 @@ function runMsManualMovementPhase(
   runtime: MsAdvanceTickRuntime,
   nextLastMove: EngineState["lastMove"],
   manualDir: number,
+  manualHookTugEnabled: boolean,
   chipPosBeforeManualMovement: number,
   chipFloorMovementWasActive: boolean,
   chipFloorMovementModeBeforeFloor: MsInternalState["floorMovement"],
@@ -5099,6 +5105,7 @@ function runMsManualMovementPhase(
       runtime.internal,
       runtime.inventory,
       manualDir,
+      manualHookTugEnabled,
     );
   }
   if (!msTickPhaseIsPlayable(runtime)) {
@@ -5165,6 +5172,7 @@ function advanceMsTick(
   };
   let chipPosBeforeManualMovement = runtime.internal.chipPos;
   let manualDir: number = MS_DIRECTION.none;
+  let manualHookTugEnabled = false;
   const earlyResult = runTurnPhaseHandlers<MsAdvanceTickResult>([
     {
       name: TURN_PHASE.initialHousekeeping,
@@ -5200,7 +5208,7 @@ function advanceMsTick(
     {
       name: TURN_PHASE.chipInputResolution,
       run: () => {
-        ({ chipPosBeforeManualMovement, manualDir, nextLastMove } = resolveMsChipInputPhase(runtime, replayLastMoveInputCode));
+        ({ chipPosBeforeManualMovement, manualDir, manualHookTugEnabled, nextLastMove } = resolveMsChipInputPhase(runtime, replayLastMoveInputCode));
         return null;
       },
     },
@@ -5215,6 +5223,7 @@ function advanceMsTick(
           runtime,
           nextLastMove,
           manualDir,
+          manualHookTugEnabled,
           chipPosBeforeManualMovement,
           chipFloorPhaseState.chipFloorMovementWasActive,
           chipFloorPhaseState.chipFloorMovementModeBeforeFloor,

@@ -5913,6 +5913,14 @@ describe("MS engine regressions", () => {
       }),
     );
     session.state.engine.inventory.tools = [MS_TILE.Hook];
+    session.state.internal.portableTools.portableItems.push({
+      serial: session.state.internal.portableTools.nextPortableItemSerial,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    session.state.internal.portableTools.nextPortableItemSerial += 1;
 
     session = advanceMsInteractiveSession(
       session,
@@ -5942,6 +5950,14 @@ describe("MS engine regressions", () => {
       }),
     );
     session.state.engine.inventory.tools = [MS_TILE.Hook];
+    session.state.internal.portableTools.portableItems.push({
+      serial: session.state.internal.portableTools.nextPortableItemSerial,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    session.state.internal.portableTools.nextPortableItemSerial += 1;
 
     session = advanceMsInteractiveSession(
       session,
@@ -5970,6 +5986,14 @@ describe("MS engine regressions", () => {
       }),
     );
     session.state.engine.inventory.tools = [MS_TILE.Hook];
+    session.state.internal.portableTools.portableItems.push({
+      serial: session.state.internal.portableTools.nextPortableItemSerial,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    session.state.internal.portableTools.nextPortableItemSerial += 1;
 
     session = advanceMsInteractiveSession(
       session,
@@ -5999,6 +6023,14 @@ describe("MS engine regressions", () => {
       }),
     );
     session.state.engine.inventory.tools = [MS_TILE.Hook];
+    session.state.internal.portableTools.portableItems.push({
+      serial: session.state.internal.portableTools.nextPortableItemSerial,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    session.state.internal.portableTools.nextPortableItemSerial += 1;
 
     session = advanceMsInteractiveSession(
       session,

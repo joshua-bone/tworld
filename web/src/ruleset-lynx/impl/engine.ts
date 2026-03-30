@@ -1080,12 +1080,12 @@ function tryApplyLynxHookTug(
   originZ: number,
   moveDir: number,
 ): void {
-  const tugDir = backDirection(moveDir);
-  if (tugDir === MS_DIRECTION.none) {
+  const sourceDir = backDirection(moveDir);
+  if (sourceDir === MS_DIRECTION.none || moveDir === MS_DIRECTION.none) {
     return;
   }
 
-  const sourceStep = advanceToCell(state.map.cells, originPos, tugDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  const sourceStep = advanceToCell(state.map.cells, originPos, sourceDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
   if (!sourceStep || topTileIdOr(state.map.cells, sourceStep.pos, MS_TILE.Empty) === MS_TILE.CloneMachine) {
     return;
   }
@@ -1099,7 +1099,7 @@ function tryApplyLynxHookTug(
     return;
   }
 
-  tryPushLynxBlock(state, level, actors, sourceStep.pos, tugDir);
+  tryPushLynxBlock(state, level, actors, sourceStep.pos, moveDir);
 }
 
 function activateMappedLynxBowlingBallsOnForceFloors(
@@ -4113,6 +4113,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     runtime.chipPos = targetPos;
     runtime.chipMoving = 8;
     runtime.chipMoveKind = "planar";
+    setLynxRuntimeChipState(runtime.state, runtime.chipPos, runtime.chipZ);
     if (lynxHookTugEnabled(runtime.state, runtime.runtimeInput.inputCode)) {
       tryApplyLynxHookTug(runtime.state, runtime.level, runtime.actors, originPos, originZ, startInputCode);
     }
