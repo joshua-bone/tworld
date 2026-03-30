@@ -4,21 +4,7 @@ import {
   type TileHookName,
   type TileTag,
 } from "@game-core/api/ruleset";
-import { composeRulesetTilePolicy, createRulesetTileFamily } from "@game-core/impl/tileFamilies";
 import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
-import { createLynxAirTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/air";
-import { createLynxButtonTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/button";
-import { createLynxClonerTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/cloner";
-import { createLynxDoorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/door";
-import { createLynxFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/floor";
-import { createLynxForcedFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
-import { createLynxPickupTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/pickup";
-import {
-  LYNX_FULL_MOVEMENT_MASK,
-  type LynxTileFamilyDefinition,
-} from "@ruleset-lynx/impl/elements/tiles/families/shared";
-import { createLynxTrapTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/trap";
-import { createLynxWallTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/wall";
 
 export type LynxInventorySlot = "keys" | "boots" | "tools";
 export type LynxPortableItemFamily = "sandbag" | "hook" | "bowling-ball";
@@ -79,8 +65,12 @@ export interface LynxChipMoveSoundOptions {
   readonly hasSlideBoots: boolean;
 }
 
+const FULL_MOVEMENT_MASK =
+  MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
+
 const KEY_TILE_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
 const BOOT_TILE_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
+const TOOL_TILE_IDS = [MS_TILE.Sandbag, MS_TILE.Hook, MS_TILE.BowlingBall_Still] as const;
 const DOOR_TILE_IDS = [MS_TILE.Door_Red, MS_TILE.Door_Blue, MS_TILE.Door_Yellow, MS_TILE.Door_Green] as const;
 const BUTTON_TILE_IDS = [
   MS_TILE.Button_Blue,
@@ -102,8 +92,90 @@ const ICE_TILE_IDS = [
   MS_TILE.IceWall_Southwest,
   MS_TILE.IceWall_Southeast,
 ] as const;
+const DEADLY_TILE_IDS = [MS_TILE.Water, MS_TILE.Fire, MS_TILE.Bomb] as const;
 
-const ENTRY_MASK_BY_TILE = new Map<number, number>([
+const KEY_TILE_SET = new Set<number>(KEY_TILE_IDS);
+const BOOT_TILE_SET = new Set<number>(BOOT_TILE_IDS);
+const TOOL_TILE_SET = new Set<number>(TOOL_TILE_IDS);
+const DOOR_TILE_SET = new Set<number>(DOOR_TILE_IDS);
+const BUTTON_TILE_SET = new Set<number>(BUTTON_TILE_IDS);
+const SLIDE_TILE_SET = new Set<number>(SLIDE_TILE_IDS);
+const ICE_TILE_SET = new Set<number>(ICE_TILE_IDS);
+const DEADLY_TILE_SET = new Set<number>(DEADLY_TILE_IDS);
+
+const CHIPPABLE_TILE_IDS = new Set<number>([
+  MS_TILE.Empty,
+  MS_TILE.Cloud,
+  MS_TILE.Air,
+  MS_TILE.Elevator,
+  ...SLIDE_TILE_IDS,
+  MS_TILE.Ice,
+  MS_TILE.Water,
+  MS_TILE.Fire,
+  MS_TILE.Bomb,
+  MS_TILE.Beartrap,
+  MS_TILE.Burglar,
+  MS_TILE.HintButton,
+  ...BUTTON_TILE_IDS,
+  MS_TILE.Teleport,
+  ...DOOR_TILE_IDS,
+  MS_TILE.Socket,
+  MS_TILE.Exit,
+  MS_TILE.ICChip,
+  ...KEY_TILE_IDS,
+  ...BOOT_TILE_IDS,
+  ...TOOL_TILE_IDS,
+  MS_TILE.Gravel,
+  MS_TILE.Dirt,
+  MS_TILE.BlueWall_Fake,
+  MS_TILE.SwitchWall_Open,
+  MS_TILE.PopupWall,
+]);
+
+const CREATURE_BLOCKED_TILE_IDS = new Set<number>([
+  MS_TILE.Gravel,
+  MS_TILE.Dirt,
+  MS_TILE.Burglar,
+  MS_TILE.HintButton,
+  MS_TILE.HiddenWall_Temp,
+  MS_TILE.BlueWall_Real,
+  MS_TILE.BlueWall_Fake,
+  MS_TILE.SwitchWall_Closed,
+  MS_TILE.PopupWall,
+  MS_TILE.CloneMachine,
+  ...DOOR_TILE_IDS,
+  MS_TILE.Socket,
+  MS_TILE.Exit,
+  MS_TILE.ICChip,
+  MS_TILE.Key_Yellow,
+  MS_TILE.Key_Green,
+  ...BOOT_TILE_IDS,
+  ...TOOL_TILE_IDS,
+  MS_TILE.Block_Static,
+]);
+
+const BLOCK_BLOCKED_TILE_IDS = new Set<number>([
+  MS_TILE.Dirt,
+  MS_TILE.Burglar,
+  MS_TILE.HintButton,
+  MS_TILE.HiddenWall_Temp,
+  MS_TILE.BlueWall_Real,
+  MS_TILE.BlueWall_Fake,
+  MS_TILE.SwitchWall_Closed,
+  MS_TILE.PopupWall,
+  MS_TILE.CloneMachine,
+  ...DOOR_TILE_IDS,
+  MS_TILE.Socket,
+  MS_TILE.Exit,
+  MS_TILE.ICChip,
+  MS_TILE.Key_Yellow,
+  MS_TILE.Key_Green,
+  ...BOOT_TILE_IDS,
+  ...TOOL_TILE_IDS,
+  MS_TILE.Block_Static,
+]);
+
+const MOVEMENT_MASK_BY_TILE = new Map<number, number>([
   [MS_TILE.IceWall_Northwest, MS_DIRECTION.south | MS_DIRECTION.east],
   [MS_TILE.IceWall_Northeast, MS_DIRECTION.south | MS_DIRECTION.west],
   [MS_TILE.IceWall_Southwest, MS_DIRECTION.north | MS_DIRECTION.east],
@@ -115,18 +187,6 @@ const ENTRY_MASK_BY_TILE = new Map<number, number>([
   [MS_TILE.Wall_Southeast, MS_DIRECTION.south | MS_DIRECTION.east],
 ]);
 
-const EXIT_MASK_BY_TILE = new Map<number, number>([
-  [MS_TILE.Wall_North, MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east],
-  [MS_TILE.Wall_West, MS_DIRECTION.north | MS_DIRECTION.south | MS_DIRECTION.east],
-  [MS_TILE.Wall_South, MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.east],
-  [MS_TILE.Wall_East, MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south],
-  [MS_TILE.Wall_Southeast, MS_DIRECTION.north | MS_DIRECTION.west],
-  [MS_TILE.IceWall_Northwest, MS_DIRECTION.north | MS_DIRECTION.west],
-  [MS_TILE.IceWall_Northeast, MS_DIRECTION.north | MS_DIRECTION.east],
-  [MS_TILE.IceWall_Southwest, MS_DIRECTION.south | MS_DIRECTION.west],
-  [MS_TILE.IceWall_Southeast, MS_DIRECTION.south | MS_DIRECTION.east],
-]);
-
 const DEFAULT_LYNX_TILE_POLICY: LynxTilePolicyDefinition = {
   tags: [],
   capabilities: [],
@@ -134,7 +194,7 @@ const DEFAULT_LYNX_TILE_POLICY: LynxTilePolicyDefinition = {
   chipMovementMask: 0,
   creatureMovementMask: 0,
   blockMovementMask: 0,
-  exitMovementMask: LYNX_FULL_MOVEMENT_MASK,
+  exitMovementMask: FULL_MOVEMENT_MASK,
   requiresReleaseToExit: false,
   creatureFloorAction: "none",
   forcedFloorKind: "none",
@@ -156,7 +216,149 @@ function humanizeLynxTileName(name: string): string {
   return name.replaceAll("_", " ");
 }
 
-function lynxButtonActionForTile(id: number): LynxButtonAction {
+function defaultLynxTileTags(id: number): TileTag[] {
+  const tags: TileTag[] = [];
+  if (CHIPPABLE_TILE_IDS.has(id) || MOVEMENT_MASK_BY_TILE.has(id) || id === MS_TILE.Air || id === MS_TILE.Elevator) {
+    tags.push("walkable");
+  }
+  if (DOOR_TILE_SET.has(id)) {
+    tags.push("door");
+  }
+  if (KEY_TILE_SET.has(id)) {
+    tags.push("key", "collectible", "walkable");
+  }
+  if (BOOT_TILE_SET.has(id)) {
+    tags.push("boots", "collectible", "walkable");
+  }
+  if (TOOL_TILE_SET.has(id)) {
+    tags.push("collectible", "walkable");
+  }
+  if (BUTTON_TILE_SET.has(id)) {
+    tags.push("button", "walkable");
+  }
+  if (SLIDE_TILE_SET.has(id)) {
+    tags.push("slide", "walkable");
+  }
+  if (ICE_TILE_SET.has(id)) {
+    tags.push("ice", "walkable");
+  }
+  if (DEADLY_TILE_SET.has(id)) {
+    tags.push("deadly", "walkable");
+  }
+  switch (id) {
+    case MS_TILE.Teleport:
+      tags.push("teleport", "walkable");
+      break;
+    case MS_TILE.Beartrap:
+      tags.push("trap", "walkable");
+      break;
+    case MS_TILE.CloneMachine:
+      tags.push("cloner");
+      break;
+    case MS_TILE.SwitchWall_Open:
+    case MS_TILE.SwitchWall_Closed:
+      tags.push("toggleable");
+      break;
+    case MS_TILE.Exit:
+      tags.push("exit");
+      break;
+    case MS_TILE.Socket:
+      tags.push("socket");
+      break;
+    case MS_TILE.HintButton:
+      tags.push("hint");
+      break;
+    case MS_TILE.Block_Static:
+      tags.push("pushable");
+      break;
+  }
+  if (
+    id === MS_TILE.Wall ||
+    id === MS_TILE.Wall_North ||
+    id === MS_TILE.Wall_West ||
+    id === MS_TILE.Wall_South ||
+    id === MS_TILE.Wall_East ||
+    id === MS_TILE.Wall_Southeast ||
+    id === MS_TILE.HiddenWall_Perm ||
+    id === MS_TILE.HiddenWall_Temp ||
+    id === MS_TILE.BlueWall_Real ||
+    id === MS_TILE.SwitchWall_Closed ||
+    id === MS_TILE.CloneMachine
+  ) {
+    tags.push("blocking");
+  }
+  return [...new Set(tags)];
+}
+
+function defaultLynxTileCapabilities(id: number): TileCapability[] {
+  const capabilities: TileCapability[] = [];
+  if (KEY_TILE_SET.has(id) || BOOT_TILE_SET.has(id) || TOOL_TILE_SET.has(id) || id === MS_TILE.ICChip) {
+    capabilities.push("collect-on-entry");
+  }
+  if (BUTTON_TILE_SET.has(id) || id === MS_TILE.Burglar || id === MS_TILE.Socket || id === MS_TILE.Exit) {
+    capabilities.push("trigger-on-entry");
+  }
+  if (id === MS_TILE.Teleport || id === MS_TILE.Air || id === MS_TILE.Elevator || SLIDE_TILE_SET.has(id) || ICE_TILE_SET.has(id)) {
+    capabilities.push("forces-movement");
+  }
+  if (DEADLY_TILE_SET.has(id)) {
+    capabilities.push("kills-on-entry");
+  }
+  if (id === MS_TILE.Block_Static) {
+    capabilities.push("accepts-blocks");
+  }
+  if (BUTTON_TILE_SET.has(id)) {
+    capabilities.push("trigger-on-leave");
+  }
+  return [...new Set(capabilities)];
+}
+
+function defaultLynxTileHooks(id: number): TileHookName[] {
+  const hooks: TileHookName[] = [];
+  if (
+    BUTTON_TILE_SET.has(id) ||
+    id === MS_TILE.Burglar ||
+    id === MS_TILE.Socket ||
+    id === MS_TILE.Exit ||
+    id === MS_TILE.Teleport ||
+    id === MS_TILE.Bomb ||
+    id === MS_TILE.Beartrap
+  ) {
+    hooks.push("after-enter");
+  }
+  if (BUTTON_TILE_SET.has(id)) {
+    hooks.push("after-leave");
+  }
+  if (defaultLynxMobExitAction(id) !== "none") {
+    hooks.push("after-leave");
+  }
+  return [...new Set(hooks)];
+}
+
+function defaultLynxForcedFloorKind(id: number): LynxForcedFloorKind {
+  if (id === MS_TILE.Teleport) {
+    return "teleport";
+  }
+  if (id === MS_TILE.Air) {
+    return "air";
+  }
+  if (id === MS_TILE.Elevator) {
+    return "elevator";
+  }
+  if (SLIDE_TILE_SET.has(id)) {
+    return "slide";
+  }
+  if (ICE_TILE_SET.has(id)) {
+    return "ice";
+  }
+  return "none";
+}
+
+function defaultLynxMobExitAction(id: number): LynxMobExitAction {
+  return id === MS_TILE.Cloud ? "turn-to-air" : "none";
+}
+
+function defaultLynxButtonAction(id: number): LynxButtonAction {
   switch (id) {
     case MS_TILE.Button_Blue:
       return "turn-tanks";
@@ -171,252 +373,159 @@ function lynxButtonActionForTile(id: number): LynxButtonAction {
   }
 }
 
-const lynxTileFamilies: readonly LynxTileFamilyDefinition[] = [
-  createLynxFloorTileFamily({
-    name: "floor",
-    tileIds: [MS_TILE.Empty],
-  }),
-  createLynxFloorTileFamily({
-    name: "gravel",
-    tileIds: [MS_TILE.Gravel],
-    creatureMovementMask: 0,
-  }),
-  createLynxAirTileFamily({
-    name: "cloud",
-    tileIds: [MS_TILE.Cloud],
-    hooks: ["after-leave"],
-    mobExitAction: "turn-to-air",
-  }),
-  createLynxAirTileFamily({
-    name: "air",
-    tileIds: [MS_TILE.Air],
-    capabilities: ["forces-movement"],
-    forcedFloorKind: "air",
-  }),
-  createLynxAirTileFamily({
-    name: "elevator",
-    tileIds: [MS_TILE.Elevator],
-    capabilities: ["forces-movement"],
-    forcedFloorKind: "elevator",
-  }),
-  createLynxFloorTileFamily({
-    name: "clear-floor",
-    tileIds: [MS_TILE.Dirt, MS_TILE.BlueWall_Fake],
-    chipEnterAction: "clear-floor",
-    creatureMovementMask: 0,
-    blockMovementMask: 0,
-  }),
-  createLynxFloorTileFamily({
-    name: "water",
-    tileIds: [MS_TILE.Water],
-    tags: ["deadly"],
-    capabilities: ["kills-on-entry"],
-    chipEnterAction: "water-death",
-  }),
-  createLynxFloorTileFamily({
-    name: "fire",
-    tileIds: [MS_TILE.Fire],
-    tags: ["deadly"],
-    capabilities: ["kills-on-entry"],
-    chipEnterAction: "fire-death",
-  }),
-  createLynxFloorTileFamily({
-    name: "bomb",
-    tileIds: [MS_TILE.Bomb],
-    tags: ["deadly"],
-    capabilities: ["kills-on-entry"],
-    hooks: ["after-enter"],
-    chipEnterAction: "explode-bomb",
-  }),
-  createLynxFloorTileFamily({
-    name: "burglar",
-    tileIds: [MS_TILE.Burglar],
-    capabilities: ["trigger-on-entry"],
-    chipEnterAction: "steal-boots",
-    creatureMovementMask: 0,
-    blockMovementMask: 0,
-  }),
-  createLynxFloorTileFamily({
-    name: "hint",
-    tileIds: [MS_TILE.HintButton],
-    tags: ["hint"],
-    creatureMovementMask: 0,
-    blockMovementMask: 0,
-  }),
-  createLynxFloorTileFamily({
-    name: "socket",
-    tileIds: [MS_TILE.Socket],
-    tags: ["socket"],
-    capabilities: ["trigger-on-entry"],
-    chipEnterAction: "open-socket",
-    creatureMovementMask: 0,
-    blockMovementMask: 0,
-  }),
-  createLynxFloorTileFamily({
-    name: "exit",
-    tileIds: [MS_TILE.Exit],
-    tags: ["exit"],
-    capabilities: ["trigger-on-entry"],
-    chipEnterAction: "exit",
-    creatureMovementMask: 0,
-    blockMovementMask: 0,
-  }),
-  createLynxFloorTileFamily({
-    name: "popup-wall",
-    tileIds: [MS_TILE.PopupWall],
-    tags: ["blocking"],
-    chipEnterAction: "popup-wall",
-    creatureMovementMask: 0,
-    blockMovementMask: 0,
-  }),
-  createLynxFloorTileFamily({
-    name: "open-toggle-wall",
-    tileIds: [MS_TILE.SwitchWall_Open],
-    tags: ["toggleable"],
-  }),
-  createLynxPickupTileFamily({
-    name: "chip-pickup",
-    tileIds: [MS_TILE.ICChip],
-    chipEnterAction: "collect-chip",
-  }),
-  createLynxPickupTileFamily({
-    name: "red-blue-keys",
-    tileIds: [MS_TILE.Key_Red, MS_TILE.Key_Blue],
-    tags: ["key", "collectible"],
-    chipEnterAction: "collect-item",
-    inventorySlot: "keys",
-    inventoryIndex: (id) => id - MS_TILE.Key_Red,
-    creatureMovementMask: LYNX_FULL_MOVEMENT_MASK,
-    blockMovementMask: LYNX_FULL_MOVEMENT_MASK,
-  }),
-  createLynxPickupTileFamily({
-    name: "yellow-green-keys",
-    tileIds: [MS_TILE.Key_Yellow, MS_TILE.Key_Green],
-    tags: ["key", "collectible"],
-    chipEnterAction: "collect-item",
-    inventorySlot: "keys",
-    inventoryIndex: (id) => id - MS_TILE.Key_Red,
-  }),
-  createLynxPickupTileFamily({
-    name: "boots",
-    tileIds: BOOT_TILE_IDS,
-    tags: ["boots", "collectible"],
-    chipEnterAction: "collect-item",
-    inventorySlot: "boots",
-    inventoryIndex: (id) => id - MS_TILE.Boots_Ice,
-  }),
-  createLynxPickupTileFamily({
-    name: "sandbag",
-    tileIds: [MS_TILE.Sandbag],
-    tags: ["collectible"],
-    chipEnterAction: "collect-item",
-    inventorySlot: "tools",
-    portableItemFamily: "sandbag",
-    inventoryIndex: () => 0,
-  }),
-  createLynxPickupTileFamily({
-    name: "hook",
-    tileIds: [MS_TILE.Hook],
-    tags: ["collectible"],
-    chipEnterAction: "collect-item",
-    inventorySlot: "tools",
-    portableItemFamily: "hook",
-    inventoryIndex: () => 0,
-  }),
-  createLynxPickupTileFamily({
-    name: "bowling-ball-still",
-    tileIds: [MS_TILE.BowlingBall_Still],
-    tags: ["collectible"],
-    chipEnterAction: "collect-item",
-    inventorySlot: "tools",
-    portableItemFamily: "bowling-ball",
-    inventoryIndex: () => 0,
-  }),
-  createLynxDoorTileFamily({
-    name: "doors",
-    tileIds: DOOR_TILE_IDS,
-    doorKeyIndex: (id) => id - MS_TILE.Door_Red,
-  }),
-  createLynxButtonTileFamily({
-    name: "buttons",
-    tileIds: BUTTON_TILE_IDS,
-    action: lynxButtonActionForTile,
-  }),
-  createLynxForcedFloorTileFamily({
-    name: "slides",
-    tileIds: SLIDE_TILE_IDS,
-    tags: ["slide"],
-    forcedFloorKind: "slide",
-  }),
-  createLynxForcedFloorTileFamily({
-    name: "ice",
-    tileIds: ICE_TILE_IDS,
-    tags: ["ice"],
-    forcedFloorKind: "ice",
-    chipMovementMask: (id) => ENTRY_MASK_BY_TILE.get(id) ?? LYNX_FULL_MOVEMENT_MASK,
-    creatureMovementMask: (id) => ENTRY_MASK_BY_TILE.get(id) ?? LYNX_FULL_MOVEMENT_MASK,
-    blockMovementMask: (id) => ENTRY_MASK_BY_TILE.get(id) ?? LYNX_FULL_MOVEMENT_MASK,
-  }),
-  createLynxForcedFloorTileFamily({
-    name: "teleport",
-    tileIds: [MS_TILE.Teleport],
-    tags: ["teleport"],
-    hooks: ["after-enter"],
-    forcedFloorKind: "teleport",
-  }),
-  createLynxTrapTileFamily({
-    name: "trap",
-    tileIds: [MS_TILE.Beartrap],
-  }),
-  createLynxClonerTileFamily({
-    name: "cloner",
-    tileIds: [MS_TILE.CloneMachine],
-  }),
-  createLynxWallTileFamily({
-    name: "solid-walls",
-    tileIds: [MS_TILE.Wall, MS_TILE.HiddenWall_Perm],
-  }),
-  createLynxWallTileFamily({
-    name: "partial-walls",
-    tileIds: [MS_TILE.Wall_North, MS_TILE.Wall_West, MS_TILE.Wall_South, MS_TILE.Wall_East, MS_TILE.Wall_Southeast],
-    chipMovementMask: (id) => ENTRY_MASK_BY_TILE.get(id) ?? 0,
-    creatureMovementMask: (id) => ENTRY_MASK_BY_TILE.get(id) ?? 0,
-    blockMovementMask: (id) => ENTRY_MASK_BY_TILE.get(id) ?? 0,
-    exitMovementMask: (id) => EXIT_MASK_BY_TILE.get(id) ?? LYNX_FULL_MOVEMENT_MASK,
-  }),
-  createLynxWallTileFamily({
-    name: "reveal-walls",
-    tileIds: [MS_TILE.HiddenWall_Temp, MS_TILE.BlueWall_Real],
-  }),
-  createLynxWallTileFamily({
-    name: "closed-toggle-wall",
-    tileIds: [MS_TILE.SwitchWall_Closed],
-    tags: ["toggleable"],
-  }),
-  createRulesetTileFamily<LynxTilePolicyDefinition, number>({
-    name: "ice-wall-exits",
-    tileIds: [
-      MS_TILE.IceWall_Northwest,
-      MS_TILE.IceWall_Northeast,
-      MS_TILE.IceWall_Southwest,
-      MS_TILE.IceWall_Southeast,
-    ],
-    policy: (id) => ({
-      exitMovementMask: EXIT_MASK_BY_TILE.get(id) ?? LYNX_FULL_MOVEMENT_MASK,
-    }),
-  }),
-  createRulesetTileFamily<LynxTilePolicyDefinition, number>({
-    name: "block-static",
-    tileIds: [MS_TILE.Block_Static],
-    policy: {
-      tags: ["pushable"],
-      capabilities: ["accepts-blocks"],
-    },
-  }),
-];
+function defaultLynxChipEnterAction(id: number): LynxChipEnterAction {
+  switch (id) {
+    case MS_TILE.Dirt:
+    case MS_TILE.BlueWall_Fake:
+      return "clear-floor";
+    case MS_TILE.ICChip:
+      return "collect-chip";
+    case MS_TILE.PopupWall:
+      return "popup-wall";
+    case MS_TILE.Door_Red:
+    case MS_TILE.Door_Blue:
+    case MS_TILE.Door_Yellow:
+    case MS_TILE.Door_Green:
+      return "open-door";
+    case MS_TILE.Key_Red:
+    case MS_TILE.Key_Blue:
+    case MS_TILE.Key_Yellow:
+    case MS_TILE.Key_Green:
+    case MS_TILE.Boots_Ice:
+    case MS_TILE.Boots_Slide:
+    case MS_TILE.Boots_Fire:
+    case MS_TILE.Boots_Water:
+    case MS_TILE.Sandbag:
+    case MS_TILE.Hook:
+    case MS_TILE.BowlingBall_Still:
+      return "collect-item";
+    case MS_TILE.Socket:
+      return "open-socket";
+    case MS_TILE.Burglar:
+      return "steal-boots";
+    case MS_TILE.Bomb:
+      return "explode-bomb";
+    case MS_TILE.Water:
+      return "water-death";
+    case MS_TILE.Fire:
+      return "fire-death";
+    case MS_TILE.Button_Blue:
+    case MS_TILE.Button_Green:
+    case MS_TILE.Button_Red:
+    case MS_TILE.Button_Brown:
+      return "button";
+    case MS_TILE.Beartrap:
+      return "trap";
+    case MS_TILE.Exit:
+      return "exit";
+    default:
+      return "none";
+  }
+}
+
+function defaultLynxChipMovementMask(id: number): number {
+  if (MOVEMENT_MASK_BY_TILE.has(id)) {
+    return MOVEMENT_MASK_BY_TILE.get(id) ?? 0;
+  }
+  return CHIPPABLE_TILE_IDS.has(id) ? FULL_MOVEMENT_MASK : 0;
+}
+
+function defaultLynxCreatureMovementMask(id: number): number {
+  if (CREATURE_BLOCKED_TILE_IDS.has(id)) {
+    return 0;
+  }
+  if (id === MS_TILE.Key_Red || id === MS_TILE.Key_Blue) {
+    return FULL_MOVEMENT_MASK;
+  }
+  return defaultLynxChipMovementMask(id);
+}
+
+function defaultLynxBlockMovementMask(id: number): number {
+  if (BLOCK_BLOCKED_TILE_IDS.has(id)) {
+    return 0;
+  }
+  if (id === MS_TILE.Gravel || id === MS_TILE.Key_Red || id === MS_TILE.Key_Blue) {
+    return FULL_MOVEMENT_MASK;
+  }
+  return defaultLynxChipMovementMask(id);
+}
+
+function defaultLynxExitMovementMask(id: number): number {
+  switch (id) {
+    case MS_TILE.Wall_North:
+      return MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
+    case MS_TILE.Wall_West:
+      return MS_DIRECTION.north | MS_DIRECTION.south | MS_DIRECTION.east;
+    case MS_TILE.Wall_South:
+      return MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.east;
+    case MS_TILE.Wall_East:
+      return MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south;
+    case MS_TILE.Wall_Southeast:
+    case MS_TILE.IceWall_Northwest:
+      return MS_DIRECTION.north | MS_DIRECTION.west;
+    case MS_TILE.IceWall_Northeast:
+      return MS_DIRECTION.north | MS_DIRECTION.east;
+    case MS_TILE.IceWall_Southwest:
+      return MS_DIRECTION.south | MS_DIRECTION.west;
+    case MS_TILE.IceWall_Southeast:
+      return MS_DIRECTION.south | MS_DIRECTION.east;
+    default:
+      return FULL_MOVEMENT_MASK;
+  }
+}
+
+function inventoryPolicy(
+  id: number,
+): Pick<LynxTilePolicyDefinition, "inventorySlot" | "portableItemFamily" | "inventoryIndex" | "doorKeyIndex"> {
+  if (KEY_TILE_SET.has(id)) {
+    return {
+      inventorySlot: "keys",
+      inventoryIndex: id - MS_TILE.Key_Red,
+    };
+  }
+  if (BOOT_TILE_SET.has(id)) {
+    return {
+      inventorySlot: "boots",
+      inventoryIndex: id - MS_TILE.Boots_Ice,
+    };
+  }
+  if (TOOL_TILE_SET.has(id)) {
+    return {
+      inventorySlot: "tools",
+      portableItemFamily:
+        id === MS_TILE.Hook
+          ? "hook"
+          : id === MS_TILE.BowlingBall_Still
+            ? "bowling-ball"
+            : "sandbag",
+      inventoryIndex: 0,
+    };
+  }
+  if (DOOR_TILE_SET.has(id)) {
+    return {
+      doorKeyIndex: id - MS_TILE.Door_Red,
+    };
+  }
+  return {};
+}
 
 function createLynxTilePolicyDefinition(id: number): LynxTilePolicyDefinition {
-  return composeRulesetTilePolicy(DEFAULT_LYNX_TILE_POLICY, id, lynxTileFamilies);
+  return {
+    tags: defaultLynxTileTags(id),
+    capabilities: defaultLynxTileCapabilities(id),
+    hooks: defaultLynxTileHooks(id),
+    chipMovementMask: defaultLynxChipMovementMask(id),
+    creatureMovementMask: defaultLynxCreatureMovementMask(id),
+    blockMovementMask: defaultLynxBlockMovementMask(id),
+    exitMovementMask: defaultLynxExitMovementMask(id),
+    requiresReleaseToExit: id === MS_TILE.Beartrap || id === MS_TILE.CloneMachine,
+    creatureFloorAction: id === MS_TILE.CloneMachine || id === MS_TILE.Beartrap ? "hold-direction" : "none",
+    forcedFloorKind: defaultLynxForcedFloorKind(id),
+    mobExitAction: defaultLynxMobExitAction(id),
+    chipEnterAction: defaultLynxChipEnterAction(id),
+    buttonAction: defaultLynxButtonAction(id),
+    ...inventoryPolicy(id),
+  };
 }
 
 function createLynxTileDefinition(id: number): TileDefinition<number> {
@@ -445,7 +554,7 @@ export function lookupLynxTilePolicy(id: number): LynxTilePolicyDefinition {
     return lynxTilePolicies.get(id)!;
   }
   if (id === MS_TILE.Block_Static) {
-    return lynxTilePolicies.get(MS_TILE.Block_Static)!;
+    return lynxTilePolicies.get(MS_TILE.Block)!;
   }
   if (isMsCreature(id)) {
     return lynxTilePolicies.get(msCreatureId(id))!;
