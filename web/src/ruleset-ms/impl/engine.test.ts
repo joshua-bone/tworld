@@ -6228,6 +6228,58 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Sandbag]);
   });
 
+  it("settles a primed sandbag before priming the next bowling-ball replacement pickup", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(9, 9);
+    const firstPickupPos = pos(10, 9);
+    const secondPickupPos = pos(11, 9);
+    const exitPos = pos(12, 9);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[firstPickupPos]!.top.id = MS_TILE.BowlingBall_Still;
+    cells[secondPickupPos]!.top.id = MS_TILE.BowlingBall_Still;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+    expect(session.state.internal.chipPos).toBe(firstPickupPos);
+    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
+      tileId: MS_TILE.Sandbag,
+      pos: firstPickupPos,
+      z: 1,
+    });
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipPos).toBe(secondPickupPos);
+    expect(session.state.engine.map.cells[firstPickupPos]?.top.id).toBe(MS_TILE.Sandbag);
+    expect(session.state.engine.map.cells[firstPickupPos]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
+      tileId: MS_TILE.BowlingBall_Still,
+      pos: secondPickupPos,
+      z: 1,
+    });
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.BowlingBall_Still]);
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipPos).toBe(exitPos);
+    expect(session.state.engine.map.cells[secondPickupPos]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+    expect(session.state.internal.portableTools.primedToolDrop).toBeNull();
+  });
+
   it("keeps a dropped sandbag's portable item identity when it settles on a teleport origin", () => {
     const cells = createEmptyCells();
     const chipPos = pos(6, 19);

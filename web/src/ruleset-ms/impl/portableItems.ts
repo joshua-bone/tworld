@@ -589,10 +589,16 @@ export function settleMsPrimedToolDrop(
   pos: number,
   z: number,
 ): void {
-  const primed = primedMsPortableToolItem(store);
-  if (!primed) {
+  const primedAtLocation = store.portableItems.filter(
+    (item): item is MsPortableItem =>
+      item.state.mode === "primed" && item.state.pos === pos && item.state.z === z,
+  );
+  if (primedAtLocation.length === 0) {
     return;
   }
-  msPortableItemLifecycleForFamily(primed.family).settleDrop(store, inventory, pos, z, { cells, pos });
+
+  for (const item of primedAtLocation) {
+    msPortableItemLifecycleForFamily(item.family).settleDrop(store, inventory, pos, z, { cells, pos });
+  }
   projectMsPortableToolState(store, inventory);
 }
