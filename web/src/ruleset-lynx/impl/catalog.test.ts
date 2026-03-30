@@ -18,6 +18,12 @@ describe("Lynx ruleset catalog", () => {
     expect(lookupTileBehaviorPhase(lynxRulesetCatalog.getTileBehavior(MS_TILE.Exit)!, "begin-enter")).toBeTypeOf(
       "function",
     );
+    expect(lookupTileBehaviorPhase(lynxRulesetCatalog.getTileBehavior(MS_TILE.Cloud)!, "complete-exit")).toBeTypeOf(
+      "function",
+    );
+    expect(lookupTileBehaviorPhase(lynxRulesetCatalog.getTileBehavior(MS_TILE.Socket)!, "probe-support")).toBeTypeOf(
+      "function",
+    );
     expect(lynxRulesetCatalog.getTileBehavior(MS_TILE.Empty)?.phases).toEqual({});
     expect(lynxRulesetCatalog.getActorBehavior(MS_TILE.Chip)?.phases).toEqual({});
   });

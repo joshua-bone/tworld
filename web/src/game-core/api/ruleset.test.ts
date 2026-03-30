@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ActorCapabilityPolicy } from "@game-core/api/actorCapabilities";
 import {
+  composeTileBehaviors,
   createActorBehavior,
   createRulesetCatalog,
   createTileBehavior,
@@ -91,5 +92,18 @@ describe("ruleset behavior registration", () => {
     expect(catalog.getActorBehavior(11)?.phases).toEqual({});
     expect(catalog.getTile(2)?.name).toBe("Test Wall");
     expect(catalog.getActor(11)?.code).toBe("test:block");
+  });
+
+  it("composes multiple tile behaviors into one phase map", () => {
+    const beginEnter = vi.fn();
+    const afterLeave = vi.fn();
+
+    const behavior = composeTileBehaviors(
+      createTileBehavior({ "begin-enter": beginEnter }),
+      createTileBehavior({ "complete-exit": afterLeave }),
+    );
+
+    expect(lookupTileBehaviorPhase(behavior!, "begin-enter")).toBe(beginEnter);
+    expect(lookupTileBehaviorPhase(behavior!, "complete-exit")).toBe(afterLeave);
   });
 });

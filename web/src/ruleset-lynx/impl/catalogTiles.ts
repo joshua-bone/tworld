@@ -1,4 +1,5 @@
 import {
+  composeTileBehaviors,
   type TileCapability,
   type TileDefinition,
   type TileHookName,
@@ -12,8 +13,10 @@ import { createLynxClonerTileFamily } from "@ruleset-lynx/impl/elements/tiles/fa
 import { createLynxDoorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/door";
 import { createLynxFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/floor";
 import { createLynxForcedFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
+import { createLynxLeaveTileBehavior } from "@ruleset-lynx/impl/elements/tiles/families/leave";
 import { createLynxPickupTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/pickup";
 import { createLynxChipEnterTileBehavior } from "@ruleset-lynx/impl/chipEnterBehavior";
+import { createLynxSupportTileBehavior } from "@ruleset-lynx/impl/elements/tiles/families/support";
 import {
   LYNX_FULL_MOVEMENT_MASK,
   type LynxTileFamilyDefinition,
@@ -430,7 +433,11 @@ function createLynxTileDefinition(id: number): TileDefinition<number> {
     tags: policy.tags,
     capabilities: policy.capabilities,
     hooks: policy.hooks,
-    behavior: createLynxChipEnterTileBehavior(policy),
+    behavior: composeTileBehaviors(
+      createLynxChipEnterTileBehavior(policy),
+      createLynxLeaveTileBehavior(policy),
+      createLynxSupportTileBehavior(policy, id),
+    ),
   };
 }
 

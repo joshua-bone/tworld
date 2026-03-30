@@ -12,9 +12,11 @@ import {
 import { projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import {
   resolveMsTileSupportBelow,
+} from "@ruleset-ms/impl/tileEffects";
+import {
   type MsTileSupportContext as MsVerticalSupportContext,
   type MsTileSupportSubject as MsVerticalSupportSubject,
-} from "@ruleset-ms/impl/tileEffects";
+} from "@ruleset-ms/impl/elements/tiles/families/support";
 import { MS_DIRECTION, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
 export type MsFloorMovement = "none" | "ice" | "slide" | "teleport" | "air" | "elevator";

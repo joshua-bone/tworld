@@ -1,16 +1,22 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCapabilities";
+import { lookupTileBehaviorPhase } from "@game-core/api/ruleset";
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult } from "@game-core/api/verticalMovement";
-import { actorInventoryUseKey, type ActorLocalInventoryOwner } from "@game-core/impl/actorLocalInventory";
 import { promoteBottomTile, replaceBottomTile, replaceTopTile } from "@game-core/impl/board";
 import {
   lynxButtonAction,
-  lynxDoorKeyIndex,
   lynxInventorySlot,
-  lynxTileMobExitAction,
-  lynxTileHasTag,
+  lynxRulesetCatalog,
 } from "@ruleset-lynx/impl/catalog";
+import {
+  type LynxTileLeaveBehaviorContext,
+} from "@ruleset-lynx/impl/elements/tiles/families/leave";
+import {
+  type LynxTileSupportBehaviorContext,
+  type LynxTileSupportContext,
+  type LynxTileSupportSubject,
+} from "@ruleset-lynx/impl/elements/tiles/families/support";
 import { lynxBlockedEnterEffect } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { isMsCreature, MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -19,43 +25,6 @@ export interface LynxTileActivationContext {
   queueTankReversals(): void;
   activateCloner(buttonPos: number): boolean;
   buttonPushedSound: number;
-}
-
-export interface LynxTileSupportContext {
-  state: EngineState;
-  chipPos: number;
-  chipZ: number;
-  addTileOverlay(z: number, pos: number, kind: InteractiveGameTileOverlayKind, ttl?: number): void;
-  chipActsWallForMobs(pos: number, z: number): boolean;
-  findVisibleActorAt(pos: number, z: number): { id: number } | null;
-}
-
-export interface LynxTileSupportSubject {
-  airHook: ActorAirHook;
-  inventoryOwner: ActorLocalInventoryOwner | null;
-}
-
-function isLynxSupportingWallTile(id: number): boolean {
-  switch (id) {
-    case MS_TILE.Wall:
-    case MS_TILE.HiddenWall_Perm:
-    case MS_TILE.HiddenWall_Temp:
-    case MS_TILE.BlueWall_Real:
-    case MS_TILE.SwitchWall_Closed:
-      return true;
-    default:
-      return false;
-  }
-}
-
-function lynxTopTileSupportsNonChipFromAbove(id: number): boolean {
-  return (
-    lynxInventorySlot(id) === "tools" ||
-    isLynxSupportingWallTile(id) ||
-    id === MS_TILE.BlueWall_Fake ||
-    lynxTileHasTag(id, "door") ||
-    id === MS_TILE.Socket
-  );
 }
 
 export function isLynxBlockedChipEnterRevealTile(tileId: number): boolean {
@@ -77,17 +46,24 @@ function applyLynxMobExitTileAction(
   }
 
   const tile = layer === "top" ? cell.top : cell.bottom;
-  if (lynxTileMobExitAction(tile.id) !== "turn-to-air") {
+  const tileBehavior = lynxRulesetCatalog.getTileBehavior(tile.id);
+  if (!tileBehavior) {
     return false;
   }
-
-  const nextTile = { ...tile, id: MS_TILE.Air, state: 0 };
-  if (layer === "top") {
-    replaceTopTile(cells, pos, nextTile);
-  } else {
-    replaceBottomTile(cells, pos, nextTile);
+  const afterLeave = lookupTileBehaviorPhase(tileBehavior, "complete-exit");
+  if (afterLeave === null) {
+    return false;
   }
-  return true;
+  const context: LynxTileLeaveBehaviorContext = {
+    phase: "complete-exit",
+    tileId: tile.id,
+    cells,
+    pos,
+    layer,
+    applied: false,
+  };
+  afterLeave(context);
+  return context.applied;
 }
 
 export function applyLynxMobExitFloorEffect(cells: EngineMapCell[], pos: number): boolean {
@@ -158,7 +134,6 @@ export function resolveLynxTileSupportBelow(
 
   const actorBelow = context.findVisibleActorAt(pos, z);
   const topId = cell.top.id;
-  const bottomId = cell.bottom.id;
 
   if (actorUsesChipSupport(subject.airHook)) {
     if (actorBelow) {
@@ -166,66 +141,19 @@ export function resolveLynxTileSupportBelow(
         context.addTileOverlay(currentZ, pos, "support");
         return VERTICAL_SUPPORT_RESULT.supported;
       }
+    }
+    const resolvedByTile = resolveLynxTileSupportByBehavior(context, lowerCells, pos, z, currentZ, subject);
+    if (resolvedByTile) {
+      return resolvedByTile;
+    }
+    if (actorBelow) {
       return VERTICAL_SUPPORT_RESULT.unsupported;
     }
-
-    if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
-    }
-
-    if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
-    }
-
-    if (isLynxSupportingWallTile(topId)) {
-      if (topId === MS_TILE.BlueWall_Real) {
-        replaceTopTile(lowerCells, pos, { ...cell.top, id: MS_TILE.Wall });
-      }
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
-    }
-
-    if (topId === MS_TILE.BlueWall_Fake) {
-      promoteBottomTile(lowerCells, pos, MS_TILE.Empty);
-      return VERTICAL_SUPPORT_RESULT.unsupported;
-    }
-
-    if (lynxTileHasTag(topId, "door")) {
-      const keyIndex = lynxDoorKeyIndex(topId);
-      if (
-        keyIndex !== null &&
-        subject.inventoryOwner &&
-        actorInventoryUseKey(subject.inventoryOwner, keyIndex, { consume: topId !== MS_TILE.Door_Green })
-      ) {
-        promoteBottomTile(lowerCells, pos, MS_TILE.Empty);
-        return VERTICAL_SUPPORT_RESULT.unsupported;
-      }
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
-    }
-
-    if (topId === MS_TILE.Socket) {
-      if (context.state.inventory.chipsNeeded === 0) {
-        promoteBottomTile(lowerCells, pos, MS_TILE.Empty);
-        return VERTICAL_SUPPORT_RESULT.unsupported;
-      }
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
-    }
-
     return VERTICAL_SUPPORT_RESULT.unsupported;
   }
-
-  if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
-  if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
+  const resolvedByTile = resolveLynxTileSupportByBehavior(context, lowerCells, pos, z, currentZ, subject);
+  if (resolvedByTile) {
+    return resolvedByTile;
   }
 
   if (context.chipZ === z && context.chipPos === pos) {
@@ -241,10 +169,47 @@ export function resolveLynxTileSupportBelow(
     return VERTICAL_SUPPORT_RESULT.supported;
   }
 
-  if (lynxTopTileSupportsNonChipFromAbove(topId)) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
   return VERTICAL_SUPPORT_RESULT.unsupported;
+}
+
+function resolveLynxTileSupportByBehavior(
+  context: LynxTileSupportContext,
+  lowerCells: EngineMapCell[],
+  pos: number,
+  z: number,
+  currentZ: number,
+  subject: LynxTileSupportSubject,
+): VerticalSupportResult | null {
+  for (const layer of ["top", "bottom"] as const) {
+    const tile = layer === "top" ? lowerCells[pos]?.top : lowerCells[pos]?.bottom;
+    if (!tile) {
+      continue;
+    }
+    const tileBehavior = lynxRulesetCatalog.getTileBehavior(tile.id);
+    if (!tileBehavior) {
+      continue;
+    }
+    const probeSupport = lookupTileBehaviorPhase(tileBehavior, "probe-support");
+    if (probeSupport === null) {
+      continue;
+    }
+    const behaviorContext: LynxTileSupportBehaviorContext = {
+      phase: "probe-support",
+      tileId: tile.id,
+      lowerCells,
+      pos,
+      z,
+      currentZ,
+      layer,
+      support: context,
+      subject,
+      resolved: false,
+      result: VERTICAL_SUPPORT_RESULT.unsupported,
+    };
+    probeSupport(behaviorContext);
+    if (behaviorContext.resolved) {
+      return behaviorContext.result;
+    }
+  }
+  return null;
 }

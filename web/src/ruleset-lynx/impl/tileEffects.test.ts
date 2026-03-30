@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
+import { createActorInventoryOwnerId, createKeysBootsActorLocalInventoryOwner } from "@game-core/impl/actorLocalInventory";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   applyLynxBlockedChipEnterEffect,
@@ -91,6 +92,91 @@ describe("lynx tile effects", () => {
   it("uses support tile effects to open fake blue walls out from under Chip", () => {
     const state = makeState(makeCell(MS_TILE.Empty));
     const lowerCells = [makeCell(MS_TILE.BlueWall_Fake, MS_TILE.Empty)];
+
+    const result = resolveLynxTileSupportBelow(
+      {
+        state,
+        chipPos: 0,
+        chipZ: 1,
+        addTileOverlay: () => {},
+        chipActsWallForMobs: () => false,
+        findVisibleActorAt: () => null,
+      },
+      lowerCells,
+      0,
+      1,
+      2,
+      {
+        airHook: "chip-support",
+        inventoryOwner: null,
+      },
+    );
+
+    expect(result).toBe("unsupported");
+    expect(lowerCells[0]!.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("uses tile support handlers to treat a lower clone machine as support", () => {
+    const state = makeState(makeCell(MS_TILE.Empty));
+    const lowerCells = [makeCell(MS_TILE.Empty, MS_TILE.CloneMachine)];
+
+    const result = resolveLynxTileSupportBelow(
+      {
+        state,
+        chipPos: 0,
+        chipZ: 1,
+        addTileOverlay: () => {},
+        chipActsWallForMobs: () => false,
+        findVisibleActorAt: () => null,
+      },
+      lowerCells,
+      0,
+      1,
+      2,
+      {
+        airHook: "chip-support",
+        inventoryOwner: null,
+      },
+    );
+
+    expect(result).toBe("supported");
+  });
+
+  it("uses tile support handlers to open a supporting green door when the actor has the key", () => {
+    const state = makeState(makeCell(MS_TILE.Empty));
+    const lowerCells = [makeCell(MS_TILE.Door_Green, MS_TILE.Empty)];
+    const inventoryOwner = createKeysBootsActorLocalInventoryOwner(createActorInventoryOwnerId("test", 1), {
+      keys: [0, 0, 0, 1],
+      boots: [0, 0, 0, 0],
+    });
+
+    const result = resolveLynxTileSupportBelow(
+      {
+        state,
+        chipPos: 0,
+        chipZ: 1,
+        addTileOverlay: () => {},
+        chipActsWallForMobs: () => false,
+        findVisibleActorAt: () => null,
+      },
+      lowerCells,
+      0,
+      1,
+      2,
+      {
+        airHook: "chip-support",
+        inventoryOwner,
+      },
+    );
+
+    expect(result).toBe("unsupported");
+    expect(lowerCells[0]!.top.id).toBe(MS_TILE.Empty);
+    expect(inventoryOwner.inventory.keys[3]).toBe(1);
+  });
+
+  it("uses tile support handlers to open a supporting socket once chips are no longer needed", () => {
+    const state = makeState(makeCell(MS_TILE.Empty));
+    const lowerCells = [makeCell(MS_TILE.Socket, MS_TILE.Empty)];
 
     const result = resolveLynxTileSupportBelow(
       {

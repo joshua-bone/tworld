@@ -18,6 +18,12 @@ describe("MS ruleset catalog", () => {
     expect(lookupTileBehaviorPhase(msRulesetCatalog.getTileBehavior(MS_TILE.Teleport)!, "begin-enter")).toBeTypeOf(
       "function",
     );
+    expect(lookupTileBehaviorPhase(msRulesetCatalog.getTileBehavior(MS_TILE.Cloud)!, "complete-exit")).toBeTypeOf(
+      "function",
+    );
+    expect(lookupTileBehaviorPhase(msRulesetCatalog.getTileBehavior(MS_TILE.Socket)!, "probe-support")).toBeTypeOf(
+      "function",
+    );
     expect(msRulesetCatalog.getTileBehavior(MS_TILE.Empty)?.phases).toEqual({});
     expect(msRulesetCatalog.getActorBehavior(MS_TILE.Chip)?.phases).toEqual({});
   });

@@ -13,9 +13,11 @@ import {
 import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
 import {
   resolveLynxTileSupportBelow,
+} from "@ruleset-lynx/impl/tileEffects";
+import {
   type LynxTileSupportContext,
   type LynxTileSupportSubject,
-} from "@ruleset-lynx/impl/tileEffects";
+} from "@ruleset-lynx/impl/elements/tiles/families/support";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export type LynxMoveKind = "planar" | "air" | "elevator";

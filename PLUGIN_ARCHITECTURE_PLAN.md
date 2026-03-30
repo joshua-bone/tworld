@@ -420,22 +420,22 @@ Targets:
 
 Checklist:
 
-- [ ] migrate `turn-to-air` exit behavior to tile handlers
-- [ ] migrate support probing for air/elevator/cloner/doors/socket/supporting walls
-- [ ] move cloud support/leave behavior into its tile module
-- [ ] keep blue-wall reveal/opening behavior shared but handler-driven
+- [x] migrate `turn-to-air` exit behavior to tile handlers
+- [x] migrate support probing for air/elevator/cloner/doors/socket/supporting walls
+- [x] move cloud support/leave behavior into its tile module
+- [x] keep blue-wall reveal/opening behavior shared but handler-driven
 
 Tests:
 
-- [ ] cloud tests
-- [ ] air support tests
-- [ ] door/socket support-drop tests
-- [ ] typecheck `ruleset-ms`
-- [ ] typecheck `ruleset-lynx`
+- [x] cloud tests
+- [x] air support tests
+- [x] door/socket support-drop tests
+- [x] typecheck `ruleset-ms`
+- [x] typecheck `ruleset-lynx`
 
 Exit gate:
 
-- [ ] adding a cloud-like tile no longer requires edits to generic tile-effects switch code
+- [x] adding a cloud-like tile no longer requires edits to generic tile-effects switch code
 
 ### PA7: Migrate Trap, Cloner, And Forced-Floor Family Behavior
 

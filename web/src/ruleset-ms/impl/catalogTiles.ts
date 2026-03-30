@@ -1,4 +1,5 @@
 import {
+  composeTileBehaviors,
   type TileCapability,
   type TileDefinition,
   type TileHookName,
@@ -12,8 +13,10 @@ import { createMsClonerTileFamily } from "@ruleset-ms/impl/elements/tiles/famili
 import { createMsDoorTileFamily } from "@ruleset-ms/impl/elements/tiles/families/door";
 import { createMsFloorTileFamily } from "@ruleset-ms/impl/elements/tiles/families/floor";
 import { createMsForcedFloorTileFamily } from "@ruleset-ms/impl/elements/tiles/families/forcedFloor";
+import { createMsLeaveTileBehavior } from "@ruleset-ms/impl/elements/tiles/families/leave";
 import { createMsPickupTileFamily } from "@ruleset-ms/impl/elements/tiles/families/pickup";
 import { MS_FULL_MOVEMENT_MASK, type MsTileFamilyDefinition } from "@ruleset-ms/impl/elements/tiles/families/shared";
+import { createMsSupportTileBehavior } from "@ruleset-ms/impl/elements/tiles/families/support";
 import { createMsTrapTileFamily } from "@ruleset-ms/impl/elements/tiles/families/trap";
 import { createMsWallTileFamily } from "@ruleset-ms/impl/elements/tiles/families/wall";
 import { createMsChipEnterTileBehavior } from "@ruleset-ms/impl/chipEnterBehavior";
@@ -406,7 +409,11 @@ function createMsTileDefinition(id: number): TileDefinition<number> {
     tags: policy.tags,
     capabilities: policy.capabilities,
     hooks: policy.hooks,
-    behavior: createMsChipEnterTileBehavior(policy),
+    behavior: composeTileBehaviors(
+      createMsChipEnterTileBehavior(policy),
+      createMsLeaveTileBehavior(policy),
+      createMsSupportTileBehavior(policy, id),
+    ),
   };
 }
 

@@ -1,17 +1,22 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCapabilities";
+import { lookupTileBehaviorPhase } from "@game-core/api/ruleset";
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult } from "@game-core/api/verticalMovement";
-import { actorInventoryUseKey, type ActorLocalInventoryOwner } from "@game-core/impl/actorLocalInventory";
-import { promoteBottomTile, replaceBottomTile, replaceTopTile } from "@game-core/impl/board";
+import { replaceBottomTile, replaceTopTile } from "@game-core/impl/board";
 import {
   msButtonAction,
-  msDoorKeyIndex,
-  msInventorySlot,
   msIsOverlayFloorTile,
-  msTileMobExitAction,
-  msTileHasTag,
+  msRulesetCatalog,
 } from "@ruleset-ms/impl/catalog";
+import {
+  type MsTileLeaveBehaviorContext,
+} from "@ruleset-ms/impl/elements/tiles/families/leave";
+import {
+  type MsTileSupportBehaviorContext,
+  type MsTileSupportContext,
+  type MsTileSupportSubject,
+} from "@ruleset-ms/impl/elements/tiles/families/support";
 import { msBlockedEnterEffect } from "@ruleset-ms/impl/floorImpactPolicy";
 import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
@@ -21,44 +26,6 @@ export interface MsTileActivationContext<TCreature> {
   activateCloner(buttonPos: number, buttonZ: number): void;
   springTrap(buttonPos: number, buttonZ: number): void;
   buttonPushedSound: number;
-}
-
-export interface MsTileSupportContext {
-  inventory: EngineState["inventory"];
-  addTileOverlay(z: number, pos: number, kind: InteractiveGameTileOverlayKind, ttl?: number, tileId?: number): void;
-  chipActsWallForMobs(pos: number, z: number): boolean;
-}
-
-export interface MsTileSupportSubject {
-  airHook: ActorAirHook;
-  inventoryOwner: ActorLocalInventoryOwner | null;
-}
-
-function isMsSupportingWallTile(id: number): boolean {
-  switch (id) {
-    case MS_TILE.Wall:
-    case MS_TILE.HiddenWall_Perm:
-    case MS_TILE.HiddenWall_Temp:
-    case MS_TILE.BlueWall_Real:
-    case MS_TILE.SwitchWall_Closed:
-      return true;
-    default:
-      return false;
-  }
-}
-
-function msTopTileSupportsNonChipFromAbove(id: number): boolean {
-  return (
-    msInventorySlot(id) === "tools" ||
-    isMsSupportingWallTile(id) ||
-    id === MS_TILE.BlueWall_Fake ||
-    msTileHasTag(id, "door") ||
-    id === MS_TILE.Socket
-  );
-}
-
-function promoteTopFloorToUnderlying(cells: EngineMapCell[], pos: number): void {
-  promoteBottomTile(cells, pos, MS_TILE.Empty);
 }
 
 function applyMsMobExitTileAction(
@@ -72,17 +39,24 @@ function applyMsMobExitTileAction(
   }
 
   const tile = layer === "top" ? cell.top : cell.bottom;
-  if (msTileMobExitAction(tile.id) !== "turn-to-air") {
+  const tileBehavior = msRulesetCatalog.getTileBehavior(tile.id);
+  if (!tileBehavior) {
     return false;
   }
-
-  const nextTile = { ...tile, id: MS_TILE.Air, state: 0 };
-  if (layer === "top") {
-    replaceTopTile(cells, pos, nextTile);
-  } else {
-    replaceBottomTile(cells, pos, nextTile);
+  const afterLeave = lookupTileBehaviorPhase(tileBehavior, "complete-exit");
+  if (afterLeave === null) {
+    return false;
   }
-  return true;
+  const context: MsTileLeaveBehaviorContext = {
+    phase: "complete-exit",
+    tileId: tile.id,
+    cells,
+    pos,
+    layer,
+    applied: false,
+  };
+  afterLeave(context);
+  return context.applied;
 }
 
 export function applyMsMobExitFloorEffect(cells: EngineMapCell[], pos: number): boolean {
@@ -187,68 +161,18 @@ export function resolveMsTileSupportBelow(
       context.addTileOverlay(currentZ, pos, "support");
       return VERTICAL_SUPPORT_RESULT.supported;
     }
-
-    if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
+    const resolvedByTile = resolveMsTileSupportByBehavior(context, lowerCells, pos, currentZ, cellZ, subject);
+    if (resolvedByTile) {
+      return resolvedByTile;
     }
-
-    if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
-    }
-
     if (topActorId !== null) {
       return VERTICAL_SUPPORT_RESULT.unsupported;
     }
-
-    if (isMsSupportingWallTile(topId)) {
-      if (topId === MS_TILE.BlueWall_Real) {
-        replaceTopTile(lowerCells, pos, { ...cell.top, id: MS_TILE.Wall });
-      }
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
-    }
-
-    if (topId === MS_TILE.BlueWall_Fake) {
-      promoteTopFloorToUnderlying(lowerCells, pos);
-      return VERTICAL_SUPPORT_RESULT.unsupported;
-    }
-
-    if (msTileHasTag(topId, "door")) {
-      const doorKeyIndex = msDoorKeyIndex(topId);
-      if (
-        doorKeyIndex !== null &&
-        subject.inventoryOwner &&
-        actorInventoryUseKey(subject.inventoryOwner, doorKeyIndex, { consume: topId !== MS_TILE.Door_Green })
-      ) {
-        promoteTopFloorToUnderlying(lowerCells, pos);
-        return VERTICAL_SUPPORT_RESULT.unsupported;
-      }
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
-    }
-
-    if (topId === MS_TILE.Socket) {
-      if (context.inventory.chipsNeeded === 0) {
-        promoteTopFloorToUnderlying(lowerCells, pos);
-        return VERTICAL_SUPPORT_RESULT.unsupported;
-      }
-      context.addTileOverlay(currentZ, pos, "support");
-      return VERTICAL_SUPPORT_RESULT.supported;
-    }
-
     return VERTICAL_SUPPORT_RESULT.unsupported;
   }
-
-  if (topId === MS_TILE.CloneMachine || bottomId === MS_TILE.CloneMachine) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
-  if (topId === MS_TILE.Elevator || bottomId === MS_TILE.Elevator) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
+  const resolvedByTile = resolveMsTileSupportByBehavior(context, lowerCells, pos, currentZ, cellZ, subject);
+  if (resolvedByTile) {
+    return resolvedByTile;
   }
 
   if (topActorId !== null) {
@@ -262,10 +186,47 @@ export function resolveMsTileSupportBelow(
     return VERTICAL_SUPPORT_RESULT.unsupported;
   }
 
-  if (msTopTileSupportsNonChipFromAbove(topId)) {
-    context.addTileOverlay(currentZ, pos, "support");
-    return VERTICAL_SUPPORT_RESULT.supported;
-  }
-
   return VERTICAL_SUPPORT_RESULT.unsupported;
+}
+
+function resolveMsTileSupportByBehavior(
+  context: MsTileSupportContext,
+  lowerCells: EngineMapCell[],
+  pos: number,
+  currentZ: number,
+  cellZ: number,
+  subject: MsTileSupportSubject,
+): VerticalSupportResult | null {
+  for (const layer of ["top", "bottom"] as const) {
+    const tile = layer === "top" ? lowerCells[pos]?.top : lowerCells[pos]?.bottom;
+    if (!tile) {
+      continue;
+    }
+    const tileBehavior = msRulesetCatalog.getTileBehavior(tile.id);
+    if (!tileBehavior) {
+      continue;
+    }
+    const probeSupport = lookupTileBehaviorPhase(tileBehavior, "probe-support");
+    if (probeSupport === null) {
+      continue;
+    }
+    const behaviorContext: MsTileSupportBehaviorContext = {
+      phase: "probe-support",
+      tileId: tile.id,
+      lowerCells,
+      pos,
+      currentZ,
+      cellZ,
+      layer,
+      support: context,
+      subject,
+      resolved: false,
+      result: VERTICAL_SUPPORT_RESULT.unsupported,
+    };
+    probeSupport(behaviorContext);
+    if (behaviorContext.resolved) {
+      return behaviorContext.result;
+    }
+  }
+  return null;
 }
