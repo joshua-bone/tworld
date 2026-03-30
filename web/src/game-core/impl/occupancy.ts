@@ -1,4 +1,5 @@
 import type { EngineMapCell } from "@game-core/api/model";
+import type { ActorCollisionOutcome } from "@game-core/api/actorInteractions";
 import { findVisibleActorAtPosition, type HiddenPositionedActor } from "@game-core/impl/actors";
 import { hasTopTileFlags } from "@game-core/impl/board";
 
@@ -25,6 +26,13 @@ export interface OccupancyTarget<
   claimed: boolean;
   runtimeActor?: TRuntimeActor;
   portableItem?: TPortableItem;
+}
+
+export function occupancyAllowsChipTeleportExitCollision(
+  target: OccupancyTarget,
+  interaction: ActorCollisionOutcome,
+): boolean {
+  return !interaction.denyMove && target.kind === OCCUPANCY_TARGET_KIND.runtimeActor;
 }
 
 export function findVisibleActorOnFlaggedTopCell<T extends HiddenPositionedActor>(

@@ -29,6 +29,7 @@ export interface LynxOccupancyQueryContext<
   chipZ?: number;
   actors?: readonly TActor[];
   portableItems?: readonly TPortableItem[];
+  includeHiddenActors?: boolean;
 }
 
 export type LynxOccupancyTarget<
@@ -103,7 +104,9 @@ export function queryLynxOccupancyTarget<
     };
   }
 
-  const runtimeActor = context.actors?.find((actor) => !actor.hidden && actor.pos === pos && (actor.z ?? 1) === z);
+  const runtimeActor = context.actors?.find(
+    (actor) => (context.includeHiddenActors || !actor.hidden) && actor.pos === pos && (actor.z ?? 1) === z,
+  );
   if (runtimeActor) {
     return {
       kind: OCCUPANCY_TARGET_KIND.runtimeActor,

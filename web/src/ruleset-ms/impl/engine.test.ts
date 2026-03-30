@@ -5406,6 +5406,38 @@ describe("MS engine regressions", () => {
     expect(next.state.engine.map.cells[laterExitTeleportPos]?.top.id).toBe(MS_TILE.Teleport);
   });
 
+  it("allows a Chip teleport exit whose first step is occupied by a trapped creature", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(20, 10);
+    const entryTeleportPos = pos(19, 10);
+    const preferredExitTeleportPos = pos(17, 10);
+    const occupiedExitStepPos = pos(18, 10);
+    const laterExitTeleportPos = pos(16, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    cells[entryTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[preferredExitTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[occupiedExitStepPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.south);
+    cells[occupiedExitStepPos]!.bottom.id = MS_TILE.Beartrap;
+    cells[laterExitTeleportPos]!.top.id = MS_TILE.Teleport;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, occupiedExitStepPos],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.west);
+
+    expect(session.state.internal.chipPos).toBe(preferredExitTeleportPos);
+    expect(session.state.engine.map.cells[preferredExitTeleportPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west));
+    expect(session.state.engine.map.cells[preferredExitTeleportPos]?.bottom.id).toBe(MS_TILE.Teleport);
+    expect(session.state.engine.map.cells[occupiedExitStepPos]?.top.id).toBe(msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.south));
+    expect(session.state.engine.map.cells[occupiedExitStepPos]?.bottom.id).toBe(MS_TILE.Beartrap);
+    expect(session.state.engine.map.cells[laterExitTeleportPos]?.top.id).toBe(MS_TILE.Teleport);
+  });
+
   it("keeps a teleported pushed block from exiting through its just-vacated source cell", () => {
     const cells = createEmptyCells();
     const chipPos = pos(13, 13);

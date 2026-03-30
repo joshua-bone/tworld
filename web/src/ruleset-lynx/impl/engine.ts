@@ -12,7 +12,11 @@ import {
   replaceTopTile,
   topTileIdOr,
 } from "@game-core/impl/board";
-import { OCCUPANCY_TARGET_KIND, type OccupancyTarget } from "@game-core/impl/occupancy";
+import {
+  OCCUPANCY_TARGET_KIND,
+  occupancyAllowsChipTeleportExitCollision,
+  type OccupancyTarget,
+} from "@game-core/impl/occupancy";
 import {
   advanceToCell,
   advancePositionIfPossible,
@@ -217,6 +221,7 @@ import {
   applyLynxMobExitFloorEffect,
   applyLynxBlockedChipEnterEffect,
   applyLynxTileActivationEffect,
+  lynxChipProbeTileId,
   probeLynxTileExitEffect,
 } from "@ruleset-lynx/impl/tileEffects";
 import { lynxBlockedMoveFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
@@ -595,6 +600,7 @@ function queryLynxOccupancyOnLayer(
   actors: LynxRuntimeActor[],
   pos: number,
   z = activeLynxLayerZ(state),
+  options: { includeHiddenActors?: boolean } = {},
 ) {
   const runtime = lynxRuntimeState(state);
   return queryLynxOccupancyTarget(
@@ -604,6 +610,7 @@ function queryLynxOccupancyOnLayer(
       chipZ: runtime.chipZ,
       actors,
       portableItems: runtime.portableTools.portableItems,
+      includeHiddenActors: options.includeHiddenActors,
     },
     pos,
     z,
@@ -1750,6 +1757,32 @@ function canLynxChipEnterCell(state: EngineState, pos: number, dir: number): boo
   return lynxChipTargetCellAllowsEntry(probeLynxChipTargetCellForState(state, pos, dir));
 }
 
+function lynxTeleportExitCollisionAllowsEntry(
+  state: EngineState,
+  target: ReturnType<typeof queryLynxOccupancyOnLayer>,
+  interaction: ReturnType<typeof lynxActorInteractionOutcome>,
+): boolean {
+  const cell = state.map.cells[target.pos];
+  return cell !== undefined &&
+    isLynxTrapSpecialFloor(lynxChipProbeTileId(cell)) &&
+    occupancyAllowsChipTeleportExitCollision(target, interaction);
+}
+
+function canLynxChipEnterTeleportExitCell(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  pos: number,
+  dir: number,
+): boolean {
+  const target = queryLynxOccupancyOnLayer(state, actors, pos, activeLynxLayerZ(state), {
+    includeHiddenActors: true,
+  });
+  const targetProbe = probeLynxChipTargetCellForState(state, pos, dir, target.claimed);
+  const interaction = lynxActorInteractionOutcome(MS_TILE.Chip, lynxInteractionTargetFromOccupancy(target, dir));
+  return (lynxChipTargetCellAllowsEntry(targetProbe) || lynxTeleportExitCollisionAllowsEntry(state, target, interaction)) &&
+    !interaction.denyMove;
+}
+
 function canLynxChipPushIntoClaimedCell(state: EngineState, pos: number, dir: number): boolean {
   return lynxChipTargetCellAllowsPush(probeLynxChipTargetCellForState(state, pos, dir, true));
 }
@@ -1780,20 +1813,26 @@ function probeLynxChipMoveDirection(
   chipPos: number,
   dir: number,
 ) {
+  const chipTeleported = lynxChipRuntime(state).chipTeleported;
   return probeLynxChipMoveDirectionWithContext(
     {
       state,
       chipPos,
       canExit: (probeDir) =>
         canLynxExitTile(state, topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), MS_TILE.Chip, probeDir, false),
-      queryTargetOccupancy: (targetPos) => queryLynxOccupancyOnLayer(state, actors, targetPos),
+      queryTargetOccupancy: (targetPos) =>
+        queryLynxOccupancyOnLayer(state, actors, targetPos, activeLynxLayerZ(state), {
+          includeHiddenActors: chipTeleported,
+        }),
       probeTargetCell: (targetPos, probeDir, claimedCell) =>
         probeLynxChipTargetCellForState(state, targetPos, probeDir, claimedCell),
       interactionOutcome: (target) => lynxActorInteractionOutcome(MS_TILE.Chip, target),
+      allowCollisionEntry: (target, interaction) =>
+        chipTeleported && lynxTeleportExitCollisionAllowsEntry(state, target, interaction),
       canPushBlock: (block, probeDir) =>
         !block.hidden &&
         block.moving <= 0 &&
-        (!block.deferPush || lynxChipRuntime(state).chipTeleported) &&
+        (!block.deferPush || chipTeleported) &&
         canLynxRuntimeActorStartMovement(
           state,
           actors,
@@ -2294,13 +2333,21 @@ function claimedLynxChipTeleportExitIsValid(
   exitPos: number,
   dir: number,
 ): boolean {
-  const target = queryLynxOccupancyOnLayer(state, actors, exitPos);
+  const target = queryLynxOccupancyOnLayer(state, actors, exitPos, activeLynxLayerZ(state), {
+    includeHiddenActors: true,
+  });
   const runtimeActor = target.kind === OCCUPANCY_TARGET_KIND.runtimeActor ? target.runtimeActor ?? null : null;
   const block =
     target.claimed && runtimeActor?.id === MS_TILE.Block
       ? runtimeActor
       : null;
   if (!block) {
+    if (runtimeActor !== null) {
+      const interaction = lynxActorInteractionOutcome(MS_TILE.Chip, lynxInteractionTargetFromOccupancy(target, dir));
+      if (lynxTeleportExitCollisionAllowsEntry(state, target, interaction)) {
+        return true;
+      }
+    }
     return (
       runtimeActor === null ||
       (canLynxExitTile(state, target.tileId, runtimeActor.id, dir, false) && canLynxChipEnterCell(state, exitPos, dir))
@@ -2320,7 +2367,7 @@ function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[
     withLayer: (z, run) => withLynxLayer(state, z, run),
     chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
     chipTeleportLandingIsClear: (teleportPos) => chipCanOccupyLynxTeleport(state, actors, teleportPos),
-    canChipEnter: (pos, dir) => canLynxChipEnterCell(state, pos, dir),
+    canChipEnter: (pos, dir) => canLynxChipEnterTeleportExitCell(state, actors, pos, dir),
     claimedChipTeleportExitIsValid: (exitPos, dir) => claimedLynxChipTeleportExitIsValid(state, actors, exitPos, dir),
     canActorEnter: (actor, tileId, dir) => canLynxCreatureEnter(state, actor as LynxRuntimeActor, tileId, dir),
     effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),

@@ -1316,6 +1316,26 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[3]?.soundEffects).toBe(1 << 9);
   });
 
+  it("treats a trapped monster exit as a valid Chip teleport destination and collides on the forced exit step", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.Teleport, MS_TILE.Empty),
+        createCell(40, MS_TILE.Teleport, MS_TILE.Empty),
+        createCell(41, MS_TILE.Empty, MS_TILE.Empty),
+        createCell(50, MS_TILE.Teleport, MS_TILE.Empty),
+        createCell(51, msCreatureTile(MS_TILE.Fireball, 8), MS_TILE.Beartrap),
+      ]),
+    );
+
+    const teleported = advanceLynxTicks(session, 4, 8);
+    const collided = advanceLynxTicks(teleported, 2);
+
+    expect(teleported.chipPos).toBe(50);
+    expect(collided.endGameResult).toBe("failed");
+  });
+
   it("skips teleports whose claimed block exit cannot actually be pushed", () => {
     const level = createLevel([
       createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),

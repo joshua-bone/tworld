@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
+import type { ActorCollisionOutcome } from "@game-core/api/actorInteractions";
 import type { EngineMapCell } from "@game-core/api/model";
-import { findVisibleActorOnFlaggedTopCell, hasVisibleActorOnFlaggedTopCell } from "@game-core/impl/occupancy";
+import {
+  findVisibleActorOnFlaggedTopCell,
+  hasVisibleActorOnFlaggedTopCell,
+  OCCUPANCY_TARGET_KIND,
+  occupancyAllowsChipTeleportExitCollision,
+} from "@game-core/impl/occupancy";
 
 interface TestActor {
   id: number;
@@ -47,5 +53,57 @@ describe("occupancy core helpers", () => {
     expect(hasVisibleActorOnFlaggedTopCell(cells, actors, 0, 0x40)).toBe(true);
     expect(hasVisibleActorOnFlaggedTopCell(cells, actors, 0, 0x40, (actor) => actor.id === 9)).toBe(false);
     expect(hasVisibleActorOnFlaggedTopCell(cells, actors, 1, 0x40)).toBe(false);
+  });
+
+  it("treats runtime-actor collisions as valid Chip teleport exits", () => {
+    const collision: ActorCollisionOutcome = {
+      chipFails: true,
+      denyMove: false,
+      removeMovingActor: false,
+      removeTargetActor: true,
+      preserveTarget: false,
+      consumeTarget: false,
+      transformTargetTileId: null,
+    };
+
+    expect(
+      occupancyAllowsChipTeleportExitCollision(
+        {
+          kind: OCCUPANCY_TARGET_KIND.runtimeActor,
+          pos: 0,
+          z: 1,
+          tileId: 99,
+          claimed: false,
+        },
+        collision,
+      ),
+    ).toBe(true);
+    expect(
+      occupancyAllowsChipTeleportExitCollision(
+        {
+          kind: OCCUPANCY_TARGET_KIND.portableItem,
+          pos: 0,
+          z: 1,
+          tileId: 99,
+          claimed: false,
+        },
+        collision,
+      ),
+    ).toBe(false);
+    expect(
+      occupancyAllowsChipTeleportExitCollision(
+        {
+          kind: OCCUPANCY_TARGET_KIND.runtimeActor,
+          pos: 0,
+          z: 1,
+          tileId: 99,
+          claimed: false,
+        },
+        {
+          ...collision,
+          denyMove: true,
+        },
+      ),
+    ).toBe(false);
   });
 });

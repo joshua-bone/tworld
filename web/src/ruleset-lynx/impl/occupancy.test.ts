@@ -43,4 +43,22 @@ describe("lynx occupancy query", () => {
     expect(claimedActor.kind).toBe(OCCUPANCY_TARGET_KIND.runtimeActor);
     expect(claimedActor.claimed).toBe(true);
   });
+
+  it("can include hidden actors when a runtime probe needs trapped occupancy", () => {
+    const cells = createBoardAtZ(1);
+    cells[35] = createCell(35, MS_TILE.Beartrap, MS_TILE.Empty);
+
+    const hiddenActor = queryLynxOccupancyTarget(
+      {
+        cells,
+        actors: [{ id: MS_TILE.Fireball, pos: 35, z: 1, hidden: true }],
+        includeHiddenActors: true,
+      },
+      35,
+      1,
+    );
+
+    expect(hiddenActor.kind).toBe(OCCUPANCY_TARGET_KIND.runtimeActor);
+    expect(hiddenActor.runtimeActor?.id).toBe(MS_TILE.Fireball);
+  });
 });

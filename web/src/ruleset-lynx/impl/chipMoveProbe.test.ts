@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { noActorCollisionOutcome } from "@game-core/api/actorInteractions";
-import { OCCUPANCY_TARGET_KIND } from "@game-core/impl/occupancy";
+import { OCCUPANCY_TARGET_KIND, occupancyAllowsChipTeleportExitCollision } from "@game-core/impl/occupancy";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
   LYNX_CHIP_TARGET_CELL_PROBE,
@@ -241,5 +241,45 @@ describe("probeLynxChipMoveDirectionWithContext", () => {
     expect(probe.canEnter).toBe(false);
     expect(probe.canMove).toBe(false);
     expect(probe.willCollide).toBe(false);
+  });
+
+  it("allows a teleport-exit collision with a hidden trapped monster", () => {
+    const state = makeState(makeCell(MS_TILE.Empty));
+    state.map.cells[1] = {
+      ...makeCell(MS_TILE.Beartrap),
+      position: { x: 1, y: 0, z: 1, pos: 1 },
+    };
+
+    const probe = probeLynxChipMoveDirectionWithContext(
+      {
+        state,
+        chipPos: 0,
+        canExit: () => true,
+        queryTargetOccupancy: (pos) => ({
+          kind: OCCUPANCY_TARGET_KIND.runtimeActor,
+          pos,
+          z: 1,
+          tileId: MS_TILE.Beartrap,
+          claimed: false,
+          runtimeActor: {
+            id: MS_TILE.Bug,
+            dir: MS_DIRECTION.west,
+            hidden: true,
+            moving: 0,
+            deferPush: false,
+          },
+        }),
+        probeTargetCell: (pos, dir, claimedCell) => probeLynxChipTargetCell(state, pos, dir, { claimedCell }),
+        interactionOutcome: (target) => lynxActorInteractionOutcome(MS_TILE.Chip, target),
+        allowCollisionEntry: (target, interaction) =>
+          target.runtimeActor?.hidden === true && occupancyAllowsChipTeleportExitCollision(target, interaction),
+        canPushBlock: () => false,
+      },
+      MS_DIRECTION.east,
+    );
+
+    expect(probe.canEnter).toBe(true);
+    expect(probe.canMove).toBe(true);
+    expect(probe.willCollide).toBe(true);
   });
 });

@@ -65,6 +65,10 @@ export interface LynxChipMoveDirectionProbeContext<
   queryTargetOccupancy(pos: number): OccupancyTarget<TActor, TPortableItem>;
   probeTargetCell(pos: number, dir: number, claimedCell: boolean): LynxChipTargetCellProbe;
   interactionOutcome(target: ReturnType<typeof lynxInteractionTargetFromOccupancy>): ActorCollisionOutcome;
+  allowCollisionEntry?(
+    target: OccupancyTarget<TActor, TPortableItem>,
+    interaction: ActorCollisionOutcome,
+  ): boolean;
   canPushBlock(actor: TActor, dir: number): boolean;
 }
 
@@ -185,7 +189,9 @@ export function probeLynxChipMoveDirectionWithContext<
   }
 
   const interaction = context.interactionOutcome(lynxInteractionTargetFromOccupancy(targetOccupancy, dir));
-  const canEnter = lynxChipTargetCellAllowsEntry(targetProbe) && !interaction.denyMove;
+  const canEnter =
+    (lynxChipTargetCellAllowsEntry(targetProbe) || context.allowCollisionEntry?.(targetOccupancy, interaction) === true) &&
+    !interaction.denyMove;
   return {
     canMove: canEnter,
     canEnter,
