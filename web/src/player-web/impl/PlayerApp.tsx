@@ -459,6 +459,7 @@ interface PlayerAppProps {
   onSelectionChange?: (selection: PlayableSelection) => void;
   playerKeyBindings?: BrowserPlayerKeyBindingsSettings;
   visualEnhancementsEnabled?: boolean;
+  debugModeEnabled?: boolean;
 }
 
 export function PlayerApp({
@@ -480,6 +481,7 @@ export function PlayerApp({
   onSelectionChange,
   playerKeyBindings: playerKeyBindingsProp,
   visualEnhancementsEnabled: visualEnhancementsEnabledProp,
+  debugModeEnabled = createDefaultBrowserProfilePreferences().debugModeEnabled,
 }: PlayerAppProps) {
   const { engines, profileStore } = services;
   const levelAttemptCountsRef = useRef<Map<string, number>>(new Map());
@@ -3416,6 +3418,7 @@ export function PlayerApp({
                 presentation="map-only"
                 selectedSeriesFile={selectedSeriesFile}
                 session={session}
+                debugModeEnabled={debugModeEnabled}
                 visualEnhancementsEnabled={visualEnhancementsEnabled}
               />
             )}
@@ -3517,6 +3520,7 @@ export function PlayerApp({
                   renderTileSize={mobileRenderTileSize}
                   selectedSeriesFile={selectedSeriesFile}
                   session={session}
+                  debugModeEnabled={debugModeEnabled}
                   visualEnhancementsEnabled={visualEnhancementsEnabled}
                 />
               </div>
@@ -3994,6 +3998,7 @@ export function PlayerApp({
         onSelectSeries={selectSeries}
         selectedSeriesFile={selectedSeriesFile}
         session={session}
+        debugModeEnabled={debugModeEnabled}
         visualEnhancementsEnabled={visualEnhancementsEnabled}
       />
       {helpOverlay}

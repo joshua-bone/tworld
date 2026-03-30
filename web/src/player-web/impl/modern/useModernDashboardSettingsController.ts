@@ -45,6 +45,7 @@ interface UseModernDashboardSettingsControllerResult {
   setAction1Key: (key: PlayerBindableKey) => void;
   setAutoDownloadReplaysOnSave: (enabled: boolean) => void;
   setAutoSaveWinningHighScoreReplays: (enabled: boolean) => void;
+  setDebugModeEnabled: (enabled: boolean) => void;
   setStoredPreferences: (preferences: BrowserProfilePreferences) => void;
   setUndoKey: (key: PlayerBindableKey) => void;
   setVisualEnhancementsEnabled: (enabled: boolean) => void;
@@ -122,6 +123,10 @@ export function useModernDashboardSettingsController({
     persistPreferences({ autoDownloadReplaysOnSave: enabled });
   });
 
+  const setDebugModeEnabled = useEffectEvent((enabled: boolean) => {
+    persistPreferences({ debugModeEnabled: enabled });
+  });
+
   const downloadProfileBackup = useEffectEvent(async () => {
     if (typeof document === "undefined") {
       setMessage("Profile download requires a browser document context.");
@@ -178,6 +183,7 @@ export function useModernDashboardSettingsController({
     setAction1Key,
     setAutoDownloadReplaysOnSave,
     setAutoSaveWinningHighScoreReplays,
+    setDebugModeEnabled,
     setStoredPreferences,
     setUndoKey,
     setVisualEnhancementsEnabled,

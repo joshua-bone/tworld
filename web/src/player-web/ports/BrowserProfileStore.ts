@@ -13,6 +13,7 @@ export interface BrowserProfilePreferences {
   defaultRuleset: BrowserPreferredRuleset;
   autoSaveWinningHighScoreReplays: boolean;
   autoDownloadReplaysOnSave: boolean;
+  debugModeEnabled: boolean;
 }
 
 export interface BrowserRecentSelectionRecord {
@@ -135,6 +136,7 @@ export function createDefaultBrowserProfilePreferences(): BrowserProfilePreferen
     defaultRuleset: "Lynx",
     autoSaveWinningHighScoreReplays: true,
     autoDownloadReplaysOnSave: false,
+    debugModeEnabled: false,
   };
 }
 

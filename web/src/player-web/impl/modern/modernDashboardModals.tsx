@@ -197,6 +197,7 @@ export function ModernDashboardSettingsModal({
   onSelectUndoKey,
   onSetAutoDownloadReplaysOnSave,
   onSetAutoSaveWinningHighScoreReplays,
+  onSetDebugModeEnabled,
   onSetVisualEnhancementsEnabled,
   playerKeyBindings,
   preferences,
@@ -210,6 +211,7 @@ export function ModernDashboardSettingsModal({
   onSelectUndoKey: (key: PlayerBindableKey) => void;
   onSetAutoDownloadReplaysOnSave: (enabled: boolean) => void;
   onSetAutoSaveWinningHighScoreReplays: (enabled: boolean) => void;
+  onSetDebugModeEnabled: (enabled: boolean) => void;
   onSetVisualEnhancementsEnabled: (enabled: boolean) => void;
   playerKeyBindings: BrowserPlayerKeyBindingsSettings;
   preferences: BrowserProfilePreferences;
@@ -333,6 +335,22 @@ export function ModernDashboardSettingsModal({
               <strong>Auto-download replays on save</strong>
               <p className="modern-dashboard__copy">
                 Download a local `.tws` or `.twsx` copy whenever a replay is saved to the browser library.
+              </p>
+            </div>
+          </label>
+
+          <label className="modern-settings-modal__option">
+            <input
+              checked={preferences.debugModeEnabled}
+              onChange={(event) => {
+                onSetDebugModeEnabled(event.currentTarget.checked);
+              }}
+              type="checkbox"
+            />
+            <div>
+              <strong>Enable Debug Mode</strong>
+              <p className="modern-dashboard__copy">
+                Show a live hover inspector over the board with projected tile, layer, overlay, and actor data.
               </p>
             </div>
           </label>

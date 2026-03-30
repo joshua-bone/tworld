@@ -54,6 +54,7 @@ function createProfileSnapshot(): BrowserProfileSnapshot {
       defaultRuleset: "Lynx",
       autoSaveWinningHighScoreReplays: true,
       autoDownloadReplaysOnSave: false,
+      debugModeEnabled: false,
     },
     importedDatFiles: [],
   };

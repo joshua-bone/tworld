@@ -149,6 +149,7 @@ export function ModernPlayerApp({
     setAction1Key,
     setAutoDownloadReplaysOnSave,
     setAutoSaveWinningHighScoreReplays,
+    setDebugModeEnabled,
     setStoredPreferences,
     setUndoKey,
     setVisualEnhancementsEnabled,
@@ -781,6 +782,7 @@ export function ModernPlayerApp({
               onSelectionChange={handleEmbeddedSelectionChange}
               playerKeyBindings={playerKeyBindings}
               services={services}
+              debugModeEnabled={preferences.debugModeEnabled}
               visualEnhancementsEnabled={visualEnhancementsEnabled}
             />
           ) : (
@@ -839,6 +841,7 @@ export function ModernPlayerApp({
           onSelectUndoKey={setUndoKey}
           onSetAutoDownloadReplaysOnSave={setAutoDownloadReplaysOnSave}
           onSetAutoSaveWinningHighScoreReplays={setAutoSaveWinningHighScoreReplays}
+          onSetDebugModeEnabled={setDebugModeEnabled}
           onSetVisualEnhancementsEnabled={setVisualEnhancementsEnabled}
           playerKeyBindings={playerKeyBindings}
           preferences={preferences}

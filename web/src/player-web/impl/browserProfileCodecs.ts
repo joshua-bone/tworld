@@ -276,5 +276,9 @@ export function parseStoredBrowserProfilePreferences(value: unknown): BrowserPro
       typeof value.autoDownloadReplaysOnSave === "boolean"
         ? value.autoDownloadReplaysOnSave
         : defaults.autoDownloadReplaysOnSave,
+    debugModeEnabled:
+      typeof value.debugModeEnabled === "boolean"
+        ? value.debugModeEnabled
+        : defaults.debugModeEnabled,
   };
 }

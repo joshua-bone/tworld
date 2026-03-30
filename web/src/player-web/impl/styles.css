@@ -4122,9 +4122,36 @@ body {
   image-rendering: pixelated;
 }
 
+.legacy-canvas-shell {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
 .legacy-canvas--drop-active {
   border-color: #ffff00;
   box-shadow: 0 0 0 2px #000000, 0 0 0 3px #ffff00, 0 18px 60px rgba(0, 0, 0, 0.65);
+}
+
+.legacy-debug-overlay {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  max-width: min(46ch, calc(100% - 16px));
+  max-height: min(50%, 18rem);
+  overflow: hidden;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(0, 0, 0, 0.82);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.legacy-debug-overlay__lines {
+  margin: 0;
+  color: #7dff9a;
+  font: 12px/1.35 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  white-space: pre-wrap;
 }
 
 .legacy-help-backdrop {

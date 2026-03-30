@@ -40,6 +40,7 @@ import {
   clearLayerCanvasCache,
   createLayerCanvasCache,
 } from "@player-web/impl/legacyLayerCanvasCache";
+import { buildLegacyCanvasDebugReadout } from "@player-web/impl/legacyCanvasDebug";
 import {
   LEGACY_COLORS,
   clamp,
@@ -82,6 +83,7 @@ interface LegacyCanvasScreenProps {
   onDatDrop?: (files: File[]) => void;
   renderTileSize?: LegacyRenderTileSize;
   visualEnhancementsEnabled?: boolean;
+  debugModeEnabled?: boolean;
 }
 
 function drawLegacyTilesLoadingPlaceholder(
@@ -117,17 +119,44 @@ export function LegacyCanvasScreen({
   onDatDrop,
   renderTileSize = LEGACY_TILE_SIZE,
   visualEnhancementsEnabled = true,
+  debugModeEnabled = false,
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scaledMapCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lowerLayerCacheRef = useRef(createLayerCanvasCache());
+  const debugReadoutKeyRef = useRef("");
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
   const [isDatDragActive, setIsDatDragActive] = useState(false);
+  const [hoveredMapPosition, setHoveredMapPosition] = useState<number | null>(null);
+  const [debugReadout, setDebugReadout] = useState<string[]>([]);
   const [seriesScrollOffset, setSeriesScrollOffset] = useState(0);
   const targetMapWidth = legacyMapPixelsForTileSize(renderTileSize);
   const targetMapHeight = legacyMapPixelsForTileSize(renderTileSize);
   const usesDefaultMapTileSize = isDefaultLegacyRenderTileSize(renderTileSize);
   const selectedSeriesIndex = catalog.findIndex((series) => series.filebase === selectedSeriesFile);
+
+  const mapPositionForCanvasPoint = useEffectEvent((
+    canvas: HTMLCanvasElement,
+    clientX: number,
+    clientY: number,
+  ): number | null => {
+    const activeSession = liveSessionRef?.current ?? session;
+    if (mode === "series-list" || !activeSession) {
+      return null;
+    }
+
+    const bounds = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / bounds.width;
+    const scaleY = canvas.height / bounds.height;
+    const x = (clientX - bounds.left) * scaleX;
+    const y = (clientY - bounds.top) * scaleY;
+    const mapScale = presentation === "map-only" ? LEGACY_TILE_SIZE / renderTileSize : 1;
+    return mapPositionAtCanvasPoint(
+      activeSession,
+      presentation === "map-only" ? x * mapScale + LEGACY_MAP_X : x,
+      presentation === "map-only" ? y * mapScale + LEGACY_MAP_Y : y,
+    );
+  });
 
   const drawFrame = useEffectEvent((
     targetContext: CanvasRenderingContext2D,
@@ -348,109 +377,146 @@ export function LegacyCanvasScreen({
     visualEnhancementsEnabled,
   ]);
 
-  return (
-    <canvas
-      className={`${className ?? "legacy-canvas"}${isDatDragActive ? " legacy-canvas--drop-active" : ""}`}
-      height={presentation === "map-only" ? targetMapHeight : LEGACY_WINDOW_HEIGHT}
-      onClick={(event) => {
-        const canvas = event.currentTarget;
-        const bounds = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / bounds.width;
-        const scaleY = canvas.height / bounds.height;
-        const x = (event.clientX - bounds.left) * scaleX;
-        const y = (event.clientY - bounds.top) * scaleY;
+  useEffect(() => {
+    if (!debugModeEnabled || mode !== "game" || hoveredMapPosition === null) {
+      debugReadoutKeyRef.current = "";
+      setDebugReadout([]);
+      return;
+    }
 
-        if (mode !== "series-list") {
-          if (!session || currentRuleset !== "MS" || !onMapClick) {
+    let animationFrameId = 0;
+    const updateDebugReadout = () => {
+      const nextReadout = buildLegacyCanvasDebugReadout(liveSessionRef?.current ?? session, hoveredMapPosition);
+      const nextKey = nextReadout.join("\n");
+      if (nextKey !== debugReadoutKeyRef.current) {
+        debugReadoutKeyRef.current = nextKey;
+        setDebugReadout(nextReadout);
+      }
+      animationFrameId = window.requestAnimationFrame(updateDebugReadout);
+    };
+
+    updateDebugReadout();
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+    };
+  }, [debugModeEnabled, hoveredMapPosition, liveSessionRef, mode, session]);
+
+  return (
+    <div className="legacy-canvas-shell">
+      <canvas
+        className={`${className ?? "legacy-canvas"}${isDatDragActive ? " legacy-canvas--drop-active" : ""}`}
+        height={presentation === "map-only" ? targetMapHeight : LEGACY_WINDOW_HEIGHT}
+        onClick={(event) => {
+          const canvas = event.currentTarget;
+          const position = mapPositionForCanvasPoint(canvas, event.clientX, event.clientY);
+
+          if (mode !== "series-list") {
+            if (currentRuleset !== "MS" || !onMapClick || position === null) {
+              return;
+            }
+
+            onMapClick(position);
             return;
           }
 
-          const mapScale = presentation === "map-only" ? LEGACY_TILE_SIZE / renderTileSize : 1;
-          const position = mapPositionAtCanvasPoint(
-            session,
-            presentation === "map-only" ? x * mapScale + LEGACY_MAP_X : x,
-            presentation === "map-only" ? y * mapScale + LEGACY_MAP_Y : y,
-          );
-          if (position !== null) {
-            onMapClick(position);
+          const bounds = canvas.getBoundingClientRect();
+          const scaleY = canvas.height / bounds.height;
+          const y = (event.clientY - bounds.top) * scaleY;
+          const index = seriesIndexAt(y, catalog.length, seriesScrollOffset);
+          if (index < 0) {
+            return;
           }
-          return;
-        }
 
-        const index = seriesIndexAt(y, catalog.length, seriesScrollOffset);
-        if (index < 0) {
-          return;
-        }
+          const selected = catalog[index];
+          if (!selected) {
+            return;
+          }
 
-        const selected = catalog[index];
-        if (!selected) {
-          return;
-        }
+          if (selected.filebase === selectedSeriesFile) {
+            onActivateSeries(selected.filebase);
+          } else {
+            onSelectSeries(selected.filebase);
+          }
+        }}
+        onDragEnter={(event) => {
+          if (!onDatDrop || !Array.from(event.dataTransfer.types).includes("Files")) {
+            return;
+          }
 
-        if (selected.filebase === selectedSeriesFile) {
-          onActivateSeries(selected.filebase);
-        } else {
-          onSelectSeries(selected.filebase);
-        }
-      }}
-      onDragEnter={(event) => {
-        if (!onDatDrop || !Array.from(event.dataTransfer.types).includes("Files")) {
-          return;
-        }
-
-        event.preventDefault();
-        setIsDatDragActive(true);
-      }}
-      onDragLeave={(event) => {
-        if (event.currentTarget !== event.target) {
-          return;
-        }
-        setIsDatDragActive(false);
-      }}
-      onDragOver={(event) => {
-        if (!onDatDrop || !Array.from(event.dataTransfer.types).includes("Files")) {
-          return;
-        }
-
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-        if (!isDatDragActive) {
+          event.preventDefault();
           setIsDatDragActive(true);
-        }
-      }}
-      onDrop={(event) => {
-        if (!onDatDrop) {
-          return;
-        }
+        }}
+        onDragLeave={(event) => {
+          if (event.currentTarget !== event.target) {
+            return;
+          }
+          setIsDatDragActive(false);
+        }}
+        onDragOver={(event) => {
+          if (!onDatDrop || !Array.from(event.dataTransfer.types).includes("Files")) {
+            return;
+          }
 
-        event.preventDefault();
-        setIsDatDragActive(false);
-        const files = Array.from(event.dataTransfer.files ?? []).filter((file) => /\.dat$/iu.test(file.name));
-        if (files.length > 0) {
-          onDatDrop(files);
-        }
-      }}
-      onWheel={(event) => {
-        if (mode !== "series-list" || catalog.length === 0) {
-          return;
-        }
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+          if (!isDatDragActive) {
+            setIsDatDragActive(true);
+          }
+        }}
+        onDrop={(event) => {
+          if (!onDatDrop) {
+            return;
+          }
 
-        event.preventDefault();
-        const currentIndex = selectedSeriesIndex >= 0 ? selectedSeriesIndex : 0;
-        const direction = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
-        if (direction === 0) {
-          return;
-        }
+          event.preventDefault();
+          setIsDatDragActive(false);
+          const files = Array.from(event.dataTransfer.files ?? []).filter((file) => /\.dat$/iu.test(file.name));
+          if (files.length > 0) {
+            onDatDrop(files);
+          }
+        }}
+        onMouseLeave={() => {
+          if (hoveredMapPosition !== null) {
+            setHoveredMapPosition(null);
+          }
+        }}
+        onMouseMove={(event) => {
+          if (!debugModeEnabled) {
+            return;
+          }
 
-        const nextIndex = clamp(currentIndex + direction, 0, catalog.length - 1);
-        const next = catalog[nextIndex];
-        if (next) {
-          onSelectSeries(next.filebase);
-        }
-      }}
-      ref={canvasRef}
-      width={presentation === "map-only" ? targetMapWidth : LEGACY_WINDOW_WIDTH}
-    />
+          const position = mapPositionForCanvasPoint(event.currentTarget, event.clientX, event.clientY);
+          if (position !== hoveredMapPosition) {
+            setHoveredMapPosition(position);
+          }
+        }}
+        onWheel={(event) => {
+          if (mode !== "series-list" || catalog.length === 0) {
+            return;
+          }
+
+          event.preventDefault();
+          const currentIndex = selectedSeriesIndex >= 0 ? selectedSeriesIndex : 0;
+          const direction = event.deltaY > 0 ? 1 : event.deltaY < 0 ? -1 : 0;
+          if (direction === 0) {
+            return;
+          }
+
+          const nextIndex = clamp(currentIndex + direction, 0, catalog.length - 1);
+          const next = catalog[nextIndex];
+          if (next) {
+            onSelectSeries(next.filebase);
+          }
+        }}
+        ref={canvasRef}
+        width={presentation === "map-only" ? targetMapWidth : LEGACY_WINDOW_WIDTH}
+      />
+      {debugModeEnabled && debugReadout.length > 0 ? (
+        <div className="legacy-debug-overlay">
+          <pre className="legacy-debug-overlay__lines">{debugReadout.join("\n")}</pre>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

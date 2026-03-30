@@ -19,6 +19,7 @@ describe("browserProfileBackup", () => {
         defaultRuleset: "Lynx",
         autoSaveWinningHighScoreReplays: true,
         autoDownloadReplaysOnSave: false,
+        debugModeEnabled: false,
       },
       recentSelections: [],
       levelProgressSummaries: [],

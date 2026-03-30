@@ -28,6 +28,7 @@ describe("IndexedDbBrowserProfileStore", () => {
       defaultRuleset: "Lynx",
       autoSaveWinningHighScoreReplays: false,
       autoDownloadReplaysOnSave: true,
+      debugModeEnabled: true,
     });
     await store.saveLevelSeedOverride({
       seriesFile: "CCLP1-MS.dac",
@@ -49,6 +50,7 @@ describe("IndexedDbBrowserProfileStore", () => {
       defaultRuleset: "Lynx",
       autoSaveWinningHighScoreReplays: false,
       autoDownloadReplaysOnSave: true,
+      debugModeEnabled: true,
     });
     expect(await store.listImportedDatFiles()).toEqual([
       {
@@ -98,12 +100,14 @@ describe("IndexedDbBrowserProfileStore", () => {
         defaultRuleset: "Lynx",
         autoSaveWinningHighScoreReplays: false,
         autoDownloadReplaysOnSave: true,
+        debugModeEnabled: true,
       }),
     ).toEqual({
       uiMode: "classic",
       defaultRuleset: "Lynx",
       autoSaveWinningHighScoreReplays: false,
       autoDownloadReplaysOnSave: true,
+      debugModeEnabled: true,
     });
   });
 
@@ -117,6 +121,7 @@ describe("IndexedDbBrowserProfileStore", () => {
       defaultRuleset: "Lynx",
       autoSaveWinningHighScoreReplays: false,
       autoDownloadReplaysOnSave: true,
+      debugModeEnabled: true,
     });
     await store.recordRecentSelection({ seriesFile: "CCLP2.dac", levelNumber: 11 });
     await store.saveLevelProgressSummary({
@@ -165,6 +170,7 @@ describe("IndexedDbBrowserProfileStore", () => {
         defaultRuleset: "Lynx",
         autoSaveWinningHighScoreReplays: false,
         autoDownloadReplaysOnSave: true,
+        debugModeEnabled: true,
       },
       levelSeedOverrides: [
         {
@@ -229,6 +235,7 @@ describe("IndexedDbBrowserProfileStore", () => {
       defaultRuleset: "Lynx",
       autoSaveWinningHighScoreReplays: false,
       autoDownloadReplaysOnSave: true,
+      debugModeEnabled: true,
     });
     expect(await restoredStore.loadRecentSelections()).toEqual([
       {
