@@ -267,7 +267,7 @@ Checklist:
 
 Tests:
 
-- [ ] none beyond typecheck
+- [x] none beyond typecheck
 
 Exit gate:
 
@@ -294,9 +294,9 @@ Checklist:
 
 Tests:
 
-- [ ] new unit tests for default handler behavior
-- [ ] typecheck `game-core`
-- [ ] typecheck `tests`
+- [x] new unit tests for default handler behavior
+- [x] typecheck `game-core`
+- [x] typecheck `tests`
 
 Exit gate:
 
