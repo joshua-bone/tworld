@@ -43,7 +43,7 @@ import {
   type TileCapability,
   type TileTag,
 } from "@game-core/api/ruleset";
-import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   msActorDefinitions,
   MS_CREATURE_ACTOR_CAPABILITIES,
@@ -65,9 +65,6 @@ import {
   lookupMsPortableItemFamilyRegistrationByTileId,
   lookupMsTerrainPickupTileRegistration,
 } from "@ruleset-ms/impl/elementRegistration";
-
-const FULL_MOVEMENT_MASK =
-  MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
 
 type MsActorArrivalAction =
   | "none"
@@ -209,9 +206,16 @@ export function msActorCollisionStrategyId(id: number): ActorCollisionStrategyId
   return actorCollisionStrategyId(msActorCapabilityPolicy(id));
 }
 
+function usesBallisticCloneMachineEntry(actorId: number): boolean {
+  return (
+    msActorMovementStrategyId(actorId) === "ballistic-like" &&
+    msActorClonerFamilyHooks(actorId).entryBehavior === "occupy-and-hold"
+  );
+}
+
 export function msActorEntryMask(tileId: number, actorId: number): number {
-  if (tileId === MS_TILE.CloneMachine && msActorClonerFamilyHooks(actorId).entryBehavior === "occupy-and-hold") {
-    return FULL_MOVEMENT_MASK;
+  if (tileId === MS_TILE.CloneMachine && usesBallisticCloneMachineEntry(actorId)) {
+    return msChipMovementMask(MS_TILE.Empty);
   }
 
   switch (msActorMovementStrategyId(actorId)) {

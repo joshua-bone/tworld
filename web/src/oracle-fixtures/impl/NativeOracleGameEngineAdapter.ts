@@ -19,19 +19,24 @@ const ORACLE_MAX_BUFFER_BYTES = 512 * 1024 * 1024;
 
 export const defaultOraclePath = resolve(defaultRepoRoot, "build-verify", "legacy_c", "tworld-oracle");
 
+const EXPECTED_ORACLE_STDERR_PATTERNS = [
+  /CHIPS\.dat unavailable/,
+  /solution file.*was recorded for a different level set/,
+  /invalid cloner wiring: no button at \(\d+ \d+\)/,
+  /disabling miswired cloner button at \(\d+ \d+\)/,
+] as const;
+
+export function isExpectedOracleStderrLine(line: string): boolean {
+  return EXPECTED_ORACLE_STDERR_PATTERNS.some((pattern) => pattern.test(line));
+}
+
 function assertExpectedStderr(stderr: string, command: string): void {
   const lines = stderr
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 
-  if (
-    lines.every(
-      (line) =>
-        line.includes("CHIPS.dat unavailable") ||
-        (line.includes("solution file") && line.includes("was recorded for a different level set")),
-    )
-  ) {
+  if (lines.every((line) => isExpectedOracleStderrLine(line))) {
     return;
   }
 

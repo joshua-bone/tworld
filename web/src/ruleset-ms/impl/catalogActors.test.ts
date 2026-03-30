@@ -66,6 +66,7 @@ describe("MS catalog actor families", () => {
     expect(msActorEntryMask(MS_TILE.CloneMachine, MS_TILE.BowlingBall)).toBe(
       msChipMovementMask(MS_TILE.Empty),
     );
+    expect(msActorEntryMask(MS_TILE.CloneMachine, MS_TILE.Ball)).toBe(0);
     expect(msActorHazardResponse(MS_TILE.Glider, "water")).toBe("ignore");
     expect(msActorHazardResponse(MS_TILE.Bug, "fire")).toBe("deny");
     expect(msActorHazardResponse(MS_TILE.BowlingBall, "fire")).toBe("destroy");
