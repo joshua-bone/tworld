@@ -3,6 +3,7 @@ import type { ActorArrivalOutcome, ActorCollisionOutcome } from "@game-core/api/
 import { actorFallingCollisionFailsChip } from "@game-core/api/actorSpecialFloorHooks";
 import {
   addTopTileFlags,
+  promoteBottomTile,
   removeTopTileFlags,
   topTileIdOr,
 } from "@game-core/impl/board";
@@ -81,6 +82,23 @@ function isLynxSlide(tileId: number): boolean {
 
 function isLynxIce(tileId: number): boolean {
   return lynxTileForcedFloorKind(tileId) === "ice";
+}
+
+function resolveLynxActorArrivalFloorId(
+  context: Pick<LynxActorMovementContext, "state">,
+  actor: Pick<LynxActorMovementActor, "pos">,
+  cell: NonNullable<EngineState["map"]["cells"][number]>,
+): number {
+  if (
+    (cell.top.id === MS_TILE.Empty || cell.top.id === MS_TILE.Nothing) &&
+    cell.bottom.id === MS_TILE.CloneMachine
+  ) {
+    promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
+    addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+    return MS_TILE.CloneMachine;
+  }
+
+  return cell.top.id;
 }
 
 export function canLynxActorStartMovement(
@@ -172,8 +190,9 @@ export function finishLynxActorMovement(
     return applyLynxActorCompletedStep(context, actor, MS_TILE.Empty);
   }
 
-  applyLynxActorEnteredCell(context, actor, cell.top.id);
-  const floorImpact = applyLynxActorFloorImpact(context, actor, cell.top.id);
+  const floorId = resolveLynxActorArrivalFloorId(context, actor, cell);
+  applyLynxActorEnteredCell(context, actor, floorId);
+  const floorImpact = applyLynxActorFloorImpact(context, actor, floorId);
   if (floorImpact.removed) {
     return removedOnArrival(floorImpact.soundEffects);
   }
@@ -186,7 +205,7 @@ export function finishLynxActorMovement(
     context.recordFallingChipCollision(actor);
   }
 
-  const completedStep = applyLynxActorCompletedStep(context, actor, cell.top.id);
+  const completedStep = applyLynxActorCompletedStep(context, actor, floorId);
   return floorImpact.soundEffects !== 0 && completedStep.status === "none"
     ? resolvedArrival(floorImpact.soundEffects)
     : completedStep;
