@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMovingBowlingBallState } from "@game-core/impl/bowlingBall";
+import { lynxActorFamilyRegistrations } from "@ruleset-lynx/impl/elements/actors/registration";
 import {
   lookupLynxActorFamilyRegistration,
   lookupLynxPortableItemFamilyRegistration,
@@ -12,6 +13,7 @@ import {
   projectLynxRegisteredActorRenderSprite,
   projectLynxRegisteredPortableItemRender,
 } from "@ruleset-lynx/impl/elementRegistration";
+import { lynxTerrainPickupFamilyRegistrations } from "@ruleset-lynx/impl/terrainPickupRegistration";
 import { msCreatureTile, MS_TILE } from "@ruleset-ms/api/tiles";
 
 describe("Lynx element registration", () => {
@@ -78,5 +80,10 @@ describe("Lynx element registration", () => {
     expect(lookupLynxTerrainPickupFamilyRegistration(MS_TILE.Button_Brown)?.familyId).toBe("buttons");
     expect(lynxElementFamilyRegistration.levelDecodeRegistration).toBe(lynxRegisteredLevelDecodeRegistration);
     expect(lynxElementFamilyRegistration.levelLoadRegistration).toBe(lynxRegisteredLevelLoadRegistration);
+  });
+
+  it("assembles dedicated actor and pickup registration bundles", () => {
+    expect(lynxElementFamilyRegistration.actorFamilies).toBe(lynxActorFamilyRegistrations);
+    expect(lynxElementFamilyRegistration.terrainPickupFamilies).toBe(lynxTerrainPickupFamilyRegistrations);
   });
 });

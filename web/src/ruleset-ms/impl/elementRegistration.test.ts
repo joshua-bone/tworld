@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createMovingBowlingBallState } from "@game-core/impl/bowlingBall";
 import { msCreatureTile, MS_TILE } from "@ruleset-ms/api/tiles";
+import { msRegisteredLevelDecodeEntries } from "@ruleset-ms/impl/builtinLevelRegistration";
+import { msActorFamilyRegistrations } from "@ruleset-ms/impl/elements/actors/registration";
 import {
   lookupMsActorFamilyRegistration,
   lookupMsPortableItemFamilyRegistration,
@@ -13,6 +15,7 @@ import {
   projectMsRegisteredActorRenderSprite,
   projectMsRegisteredPortableItemRender,
 } from "@ruleset-ms/impl/elementRegistration";
+import { msTerrainPickupFamilyRegistrations } from "@ruleset-ms/impl/terrainPickupRegistration";
 
 describe("MS element registration", () => {
   it("maps actor families through root and creature tile ids", () => {
@@ -78,5 +81,11 @@ describe("MS element registration", () => {
     expect(lookupMsTerrainPickupFamilyRegistration(MS_TILE.Button_Brown)?.familyId).toBe("buttons");
     expect(msElementFamilyRegistration.levelDecodeRegistration).toBe(msRegisteredLevelDecodeRegistration);
     expect(msElementFamilyRegistration.levelLoadRegistration).toBe(msRegisteredLevelLoadRegistration);
+  });
+
+  it("assembles dedicated actor, pickup, and decode registration bundles", () => {
+    expect(msElementFamilyRegistration.actorFamilies).toBe(msActorFamilyRegistrations);
+    expect(msElementFamilyRegistration.terrainPickupFamilies).toBe(msTerrainPickupFamilyRegistrations);
+    expect(msRegisteredLevelDecodeEntries).toHaveLength(0x74);
   });
 });

@@ -433,15 +433,15 @@ Goal:
 
 Checklist:
 
-- [ ] `elementRegistration.ts` becomes assembly only
-- [ ] concrete element modules export a single registration bundle
-- [ ] remove duplication between registration and behavior helper files
-- [ ] make new elements land in one obvious place
+- [x] `elementRegistration.ts` becomes assembly only
+- [x] concrete element modules export a single registration bundle
+- [x] remove duplication between registration and behavior helper files
+- [x] make new elements land in one obvious place
 
 Tests:
 
-- [ ] registration completeness tests
-- [ ] architecture tests forbidding behavior logic in assembly-only files
+- [x] registration completeness tests
+- [x] architecture tests forbidding behavior logic in assembly-only files
 
 ### PA19: Remove Legacy Translation Layers
 
