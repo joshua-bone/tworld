@@ -18,7 +18,7 @@ describe("ms render registration", () => {
     expect(projectMsPortableItemRender(MS_TILE.Hook, 0.25)).toEqual({
       mode: "tile",
       tileId: MS_TILE.Hook,
-      artworkSpriteId: "sandbag",
+      artworkSpriteId: "hook",
       alpha: 0.25,
     });
     expect(projectMsPortableItemRender(MS_TILE.BowlingBall_Still, 0.25)).toEqual({

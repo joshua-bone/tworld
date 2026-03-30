@@ -205,13 +205,16 @@ export function createLegacyExpansionArtworkOverrides(
   const overrides = new Map<number, LegacyTileSprite>();
   const artworkSprites = createLegacyExpansionArtworkSprites(image);
   const sandbagSprite = artworkSprites.get("sandbag") ?? null;
+  const hookSprite = artworkSprites.get("hook") ?? null;
   const bowlingBallMovingSprite = artworkSprites.get("bowling_ball_moving") ?? null;
   const bowlingBallStillSprite = artworkSprites.get("bowling_ball_still") ?? null;
   const cloudSprite = artworkSprites.get("cloud") ?? null;
 
   if (sandbagSprite) {
     overrides.set(MS_TILE.Sandbag, sandbagSprite);
-    overrides.set(MS_TILE.Hook, sandbagSprite);
+  }
+  if (hookSprite) {
+    overrides.set(MS_TILE.Hook, hookSprite);
   }
   if (bowlingBallMovingSprite) {
     for (const dir of [MS_DIRECTION.north, MS_DIRECTION.west, MS_DIRECTION.south, MS_DIRECTION.east] as const) {
@@ -232,7 +235,7 @@ export function createLegacyExpansionArtworkSprites(
   image: CanvasImageSource,
 ): ReadonlyMap<string, LegacyTileSprite> {
   const sprites = new Map<string, LegacyTileSprite>();
-  for (const spriteId of ["sandbag", "bowling_ball_moving", "bowling_ball_still", "cloud"] as const) {
+  for (const spriteId of ["sandbag", "bowling_ball_moving", "bowling_ball_still", "cloud", "hook"] as const) {
     const frame = expansionArtworkFrameRect(spriteId);
     const sprite = frame ? createLegacyArtworkSpriteFromFrame(image, frame) : null;
     if (sprite) {

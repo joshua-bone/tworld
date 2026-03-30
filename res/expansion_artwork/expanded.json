@@ -4,7 +4,7 @@
     "mode": "grid",
     "tileWidth": 48,
     "tileHeight": 48,
-    "columns": 4,
+    "columns": 5,
     "rows": 1
   },
   "sprites": {
@@ -28,6 +28,11 @@
       "row": 0,
       "transparent": true,
       "preserveLayerTransparency": true
+    },
+    "hook": {
+      "column": 4,
+      "row": 0,
+      "transparent": true
     }
   }
 }

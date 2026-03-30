@@ -5899,6 +5899,120 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Hook);
   });
 
+  it("tugs an adjacent block when Chip moves directly away with Action1 held", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const westPos = pos(9, 10);
+    const eastPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    cells[eastPos]!.top.id = MS_TILE.Block_Static;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Hook];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.internal.chipPos).toBe(westPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Hook]);
+  });
+
+  it("does not tug through a thin wall on Chip's tile", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const westPos = pos(9, 10);
+    const eastPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    cells[chipPos]!.bottom.id = MS_TILE.Wall_East;
+    cells[eastPos]!.top.id = MS_TILE.Block_Static;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Hook];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.internal.chipPos).toBe(westPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Wall_East);
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
+
+  it("does not tug through a thin wall on the block tile", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const westPos = pos(9, 10);
+    const eastPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    cells[eastPos]!.top.id = MS_TILE.Block_Static;
+    cells[eastPos]!.bottom.id = MS_TILE.Wall_West;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Hook];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.internal.chipPos).toBe(westPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.engine.map.cells[eastPos]?.bottom.id).toBe(MS_TILE.Wall_West);
+  });
+
+  it("does not tug a block off a clone machine", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const westPos = pos(9, 10);
+    const eastPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    cells[eastPos]!.top.id = MS_TILE.Block_Static;
+    cells[eastPos]!.bottom.id = MS_TILE.CloneMachine;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Hook];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.internal.chipPos).toBe(westPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.engine.map.cells[eastPos]?.bottom.id).toBe(MS_TILE.CloneMachine);
+  });
+
   it("throws a carried bowling ball into an empty forward cell through the portable action seam", () => {
     const cells = createEmptyCells();
     const chipPos = pos(8, 10);

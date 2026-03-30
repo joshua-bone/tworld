@@ -3197,6 +3197,108 @@ describe("runLynxInputTrace", () => {
     expect(moved.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Hook);
   });
 
+  it("tugs an adjacent block when Chip moves directly away with Action1 held", () => {
+    const chipPos = 33;
+    const westPos = 32;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Block_Static, MS_TILE.Empty),
+        createCell(westPos, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Hook];
+
+    session = advanceLynxTicks(
+      session,
+      4,
+      encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.chipPos).toBe(westPos);
+    expect(session.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.inventory.tools).toEqual([MS_TILE.Hook]);
+  });
+
+  it("does not tug through a thin wall on Chip's tile", () => {
+    const chipPos = 33;
+    const westPos = 32;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west), MS_TILE.Wall_East),
+        createCell(eastPos, MS_TILE.Block_Static, MS_TILE.Empty),
+        createCell(westPos, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Hook];
+
+    session = advanceLynxTicks(
+      session,
+      4,
+      encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.chipPos).toBe(westPos);
+    expect(session.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Wall_East);
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
+
+  it("does not tug through a thin wall on the block tile", () => {
+    const chipPos = 33;
+    const westPos = 32;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Block_Static, MS_TILE.Wall_West),
+        createCell(westPos, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Hook];
+
+    session = advanceLynxTicks(
+      session,
+      4,
+      encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.chipPos).toBe(westPos);
+    expect(session.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.map.cells[eastPos]?.bottom.id).toBe(MS_TILE.Wall_West);
+  });
+
+  it("does not tug a block off a clone machine", () => {
+    const chipPos = 33;
+    const westPos = 32;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Block_Static, MS_TILE.CloneMachine),
+        createCell(westPos, MS_TILE.Empty),
+      ]),
+    );
+    session.state.inventory.tools = [MS_TILE.Hook];
+
+    session = advanceLynxTicks(
+      session,
+      4,
+      encodeRuntimeInputCode(MS_DIRECTION.west, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.chipPos).toBe(westPos);
+    expect(session.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
+  });
+
   it("throws a carried bowling ball into an empty forward cell through the portable action seam", () => {
     const chipPos = 33;
     const eastPos = 34;

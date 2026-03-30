@@ -9,7 +9,7 @@ describe("expandedArtworkSheetKey", () => {
         mode: "grid",
         tileWidth: 48,
         tileHeight: 48,
-        columns: 4,
+        columns: 5,
         rows: 1,
       },
     });
@@ -52,6 +52,14 @@ describe("expansionArtworkFrameRect", () => {
       height: 48,
       transparent: true,
       preserveLayerTransparency: true,
+    });
+    expect(expansionArtworkFrameRect("hook")).toEqual({
+      x: 192,
+      y: 0,
+      width: 48,
+      height: 48,
+      transparent: true,
+      preserveLayerTransparency: false,
     });
   });
 

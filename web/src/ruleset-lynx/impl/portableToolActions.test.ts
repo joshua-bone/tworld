@@ -37,6 +37,7 @@ describe("lynx portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.east,
+        moveInputDir: MS_DIRECTION.none,
         tryThrowBowlingBall,
       }),
     ).toBe(true);
@@ -68,6 +69,7 @@ describe("lynx portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.east,
+        moveInputDir: MS_DIRECTION.none,
         tryThrowBowlingBall,
       }),
     ).toBe(true);
@@ -96,6 +98,7 @@ describe("lynx portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.east,
+        moveInputDir: MS_DIRECTION.none,
         tryThrowBowlingBall: () => false,
       }),
     ).toBe(false);
@@ -104,5 +107,31 @@ describe("lynx portableToolActions", () => {
     expect(store.portableItems[0]?.state).toEqual({ mode: "carried" });
     expect(inventory.tools).toEqual([MS_TILE.BowlingBall_Still]);
     expect(store.primedToolDrop).toBeNull();
+  });
+
+  it("does not prime a hook during directional Action1 input", () => {
+    const store = createStore({
+      serial: 1,
+      family: "hook",
+      tileId: MS_TILE.Hook,
+      inventorySlot: "tools",
+      state: { mode: "carried" },
+    });
+    const inventory = createInventory(MS_TILE.Hook);
+
+    expect(
+      applyLynxPortableToolAction({
+        store,
+        inventory,
+        chipPos: 44,
+        chipZ: 1,
+        chipDir: MS_DIRECTION.west,
+        moveInputDir: MS_DIRECTION.west,
+        tryThrowBowlingBall: () => false,
+      }),
+    ).toBe(false);
+
+    expect(store.primedToolDrop).toBeNull();
+    expect(inventory.tools).toEqual([MS_TILE.Hook]);
   });
 });

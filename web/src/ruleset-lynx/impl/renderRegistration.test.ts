@@ -18,7 +18,7 @@ describe("lynx render registration", () => {
     expect(projectLynxPortableItemRender(MS_TILE.Hook, 0.25)).toEqual({
       mode: "tile",
       tileId: MS_TILE.Hook,
-      artworkSpriteId: "sandbag",
+      artworkSpriteId: "hook",
       alpha: 0.25,
     });
     expect(projectLynxPortableItemRender(MS_TILE.BowlingBall_Still, 0.25)).toEqual({

@@ -140,6 +140,7 @@ import { msBlockedMoveFloorImpactAction } from "@ruleset-ms/impl/floorImpactPoli
 import {
   activateMsPortableTool,
   attachMsPortableToolToActor,
+  carriedMsPortableToolItem,
   clearMsToolInventory,
   cloneMsPortableTool,
   collectMsPortableItemsFromLayers,
@@ -1975,6 +1976,40 @@ function canMoveChip(
   }
 
   return true;
+}
+
+function msHookTugEnabled(internal: MsInternalState): boolean {
+  const carried = carriedMsPortableToolItem(msPortableToolState(internal));
+  if (carried?.family !== "hook") {
+    return false;
+  }
+
+  const { modifierMask } = decodeRuntimeInputCode(internal.currentInput);
+  return (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0;
+}
+
+function tryApplyMsHookTug(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  originPos: number,
+  originZ: number,
+  moveDir: number,
+): void {
+  const tugDir = backDirection(moveDir);
+  if (tugDir === MS_DIRECTION.none) {
+    return;
+  }
+
+  const sourceStep = advanceToCell(cells, originPos, tugDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!sourceStep || sourceStep.cell.bottom.id === MS_TILE.CloneMachine) {
+    return;
+  }
+
+  if (queryMsTargetOccupancy(cells, internal, sourceStep.pos, originZ).kind !== "static-block") {
+    return;
+  }
+
+  pushBlock(cells, internal, sourceStep.pos, tugDir, false, true);
 }
 
 function canMoveCreature(
@@ -4423,6 +4458,7 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
     return soundEffects;
   }
   const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, internal.floorMovementDir);
+  const hookTugEnabled = msHookTugEnabled(internal);
   if (
     canStartMsChipMoveByStrategy(
       msActorMovementStrategyId(MS_TILE.Chip),
@@ -4440,6 +4476,7 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
       context.inventory,
       internal.floorMovementDir,
       pushedBlockPickupRevealTileId,
+      hookTugEnabled,
     ).soundEffects;
     internal.chipHasMoved = false;
     return soundEffects;
@@ -4539,7 +4576,10 @@ function moveChipWithPushPickupReveal(
   inventory: EngineState["inventory"],
   dir: number,
   pushedBlockPickupRevealTileId: number | null,
+  hookTugEnabled: boolean,
 ): MovementAttemptResult {
+  const originPos = internal.chipPos;
+  const originZ = internal.chipZ ?? runtimeCellZ(cells, originPos);
   const moveResult = moveChipOnce(cells, internal, inventory, dir);
   if (
     pushedBlockPickupRevealTileId !== null &&
@@ -4553,6 +4593,9 @@ function moveChipWithPushPickupReveal(
       PUSH_BLOCK_PICKUP_REVEAL_TTL,
       pushedBlockPickupRevealTileId,
     );
+  }
+  if (hookTugEnabled && movementDidSucceed(moveResult) && internal.chipPos !== originPos && (internal.chipZ ?? originZ) === originZ) {
+    tryApplyMsHookTug(cells, internal, originPos, originZ, dir);
   }
   return moveResult;
 }
@@ -4571,6 +4614,7 @@ function runManualMovement(
   internal.chipWait = 0;
   const pressedPermanentHiddenWallPos = findPressedMsPermanentHiddenWallPos(cells, internal.chipPos, dir);
   const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, dir);
+  const hookTugEnabled = msHookTugEnabled(internal);
   if (
     !canStartMsChipMoveByStrategy(
       msActorMovementStrategyId(MS_TILE.Chip),
@@ -4599,6 +4643,7 @@ function runManualMovement(
     inventory,
     dir,
     pushedBlockPickupRevealTileId,
+    hookTugEnabled,
   );
   internal.chipHasMoved = internal.chipStatus === "okay";
   return moveResult.soundEffects;
@@ -4841,7 +4886,7 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
     runtime.internal.currentInput,
     runtime.input.inputCode,
   );
-  const { modifierMask } = decodeRuntimeInputCode(runtime.internal.currentInput);
+  const { baseCode, modifierMask } = decodeRuntimeInputCode(runtime.internal.currentInput);
   if (
     msTickPhaseIsPlayable(runtime) &&
     (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
@@ -4851,6 +4896,7 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
       chipPos: runtime.internal.chipPos,
       chipZ: runtime.internal.chipZ ?? 1,
       chipDir: runtime.internal.chipDir,
+      moveInputDir: baseCode,
       tryThrowBowlingBall: (carried, dir) => tryActivateMsBowlingBallThrow(runtime, carried, dir),
     })
   ) {

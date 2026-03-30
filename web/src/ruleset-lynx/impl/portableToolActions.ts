@@ -14,7 +14,12 @@ export interface LynxPortableToolActionContext {
   chipPos: number;
   chipZ: number;
   chipDir: number;
+  moveInputDir: number;
   tryThrowBowlingBall(item: LynxPortableItem, dir: number): boolean;
+}
+
+function shouldPrimeLynxPortableToolDrop(item: LynxPortableItem, moveInputDir: number): boolean {
+  return item.family !== "hook" || moveInputDir === MS_DIRECTION.none;
 }
 
 export function applyLynxPortableToolAction(context: LynxPortableToolActionContext): boolean {
@@ -24,6 +29,9 @@ export function applyLynxPortableToolAction(context: LynxPortableToolActionConte
   }
 
   if (carried.family !== "bowling-ball") {
+    if (!shouldPrimeLynxPortableToolDrop(carried, context.moveInputDir)) {
+      return false;
+    }
     return primeLynxToolDrop(context.store, context.inventory, context.chipPos, context.chipZ);
   }
 

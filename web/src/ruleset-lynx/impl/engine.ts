@@ -125,6 +125,7 @@ import {
 import {
   activateLynxPortableTool,
   attachLynxPortableToolToActor,
+  carriedLynxPortableToolItem,
   cloneLynxPortableTool,
   clearLynxToolInventory,
   collectLynxPortableItemsFromLayers,
@@ -1059,6 +1060,46 @@ function tryActivateLynxBowlingBallThrow(
   }
   runtime.justSpawnedActorSerials.add(actorSerial);
   return true;
+}
+
+function lynxHookTugEnabled(state: EngineState, inputCode: number): boolean {
+  const carried = carriedLynxPortableToolItem(lynxPortableToolRuntime(state));
+  if (carried?.family !== "hook") {
+    return false;
+  }
+
+  const { modifierMask } = decodeRuntimeInputCode(inputCode);
+  return (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0;
+}
+
+function tryApplyLynxHookTug(
+  state: EngineState,
+  level: LynxLevel,
+  actors: LynxRuntimeActor[],
+  originPos: number,
+  originZ: number,
+  moveDir: number,
+): void {
+  const tugDir = backDirection(moveDir);
+  if (tugDir === MS_DIRECTION.none) {
+    return;
+  }
+
+  const sourceStep = advanceToCell(state.map.cells, originPos, tugDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!sourceStep || topTileIdOr(state.map.cells, sourceStep.pos, MS_TILE.Empty) === MS_TILE.CloneMachine) {
+    return;
+  }
+
+  const sourceOccupancy = queryLynxOccupancyOnLayer(state, actors, sourceStep.pos, originZ);
+  if (
+    !sourceOccupancy.claimed ||
+    sourceOccupancy.kind !== OCCUPANCY_TARGET_KIND.runtimeActor ||
+    sourceOccupancy.runtimeActor?.id !== MS_TILE.Block
+  ) {
+    return;
+  }
+
+  tryPushLynxBlock(state, level, actors, sourceStep.pos, tugDir);
 }
 
 function activateMappedLynxBowlingBallsOnForceFloors(
@@ -3727,7 +3768,7 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
   if (runtime.replayMode && runtime.scheduledInputCode !== null) {
     runtime.state.replay.cursor += 1;
   }
-  const { modifierMask } = decodeRuntimeInputCode(runtime.runtimeInput.inputCode);
+  const { baseCode, modifierMask } = decodeRuntimeInputCode(runtime.runtimeInput.inputCode);
   if (
     runtime.endGameTicksElapsed === null &&
     (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
@@ -3737,6 +3778,7 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
       chipPos: runtime.chipPos,
       chipZ: runtime.chipZ,
       chipDir: runtime.chipDir,
+      moveInputDir: baseCode,
       tryThrowBowlingBall: (carried, dir) => tryActivateLynxBowlingBallThrow(runtime, carried, dir),
     })
   ) {
@@ -4020,6 +4062,8 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     return;
   }
 
+  const originPos = runtime.chipPos;
+  const originZ = runtime.chipZ;
   const targetPos = nextPosition(runtime.chipPos, startInputCode, MS_GRID_WIDTH);
   const target = runtime.state.map.cells[targetPos];
   const targetOccupancy =
@@ -4070,6 +4114,9 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     runtime.chipPos = targetPos;
     runtime.chipMoving = 8;
     runtime.chipMoveKind = "planar";
+    if (lynxHookTugEnabled(runtime.state, runtime.runtimeInput.inputCode)) {
+      tryApplyLynxHookTug(runtime.state, runtime.level, runtime.actors, originPos, originZ, startInputCode);
+    }
     return;
   }
 

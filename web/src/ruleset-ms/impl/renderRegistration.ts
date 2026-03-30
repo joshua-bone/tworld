@@ -13,8 +13,9 @@ import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 function msPortableItemArtworkSpriteId(tileId: number): string | null {
   switch (lookupMsPortableItemFamilyRegistrationByTileId(tileId)?.familyId) {
     case "sandbag":
-    case "hook":
       return "sandbag";
+    case "hook":
+      return "hook";
     case "bowling-ball":
       return "bowling_ball_still";
     default:

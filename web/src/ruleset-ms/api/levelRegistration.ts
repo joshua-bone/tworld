@@ -148,6 +148,7 @@ const MS_BUILTIN_DAT_TILE_IDS = [
   MS_TILE.Sandbag,
   MS_TILE.BowlingBall_Still,
   MS_TILE.Cloud,
+  MS_TILE.Hook,
 ] as const;
 
 function remapBuiltinMsTile(tileId: number, context: MsLevelDecodeContext): number {
