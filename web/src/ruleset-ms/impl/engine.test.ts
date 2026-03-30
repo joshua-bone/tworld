@@ -273,7 +273,7 @@ describe("MS engine regressions", () => {
     expect(teeth?.position.pos).toBe(teethPos);
   });
 
-  it("applies unsupported air from initial state by dropping Chip one layer on the first floor tick", () => {
+  it("arms unsupported air immediately and drops Chip on the first floor-movement cadence", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);
     const chipPos = pos(8, 8);
@@ -292,20 +292,21 @@ describe("MS engine regressions", () => {
       }),
     );
 
-    for (let tick = 0; tick < 8; tick += 1) {
-      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
-    }
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
     expect(session.state.internal.chipZ).toBe(2);
     expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.internal.floorMovement).toBe("air");
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
     expect(session.state.internal.chipZ).toBe(2);
     expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.internal.floorMovement).toBe("air");
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
 
     expect(session.state.internal.chipZ).toBe(1);
     expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.internal.floorMovement).toBe("none");
     expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
     expect(session.state.engine.map.layers?.[1]?.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
   });
