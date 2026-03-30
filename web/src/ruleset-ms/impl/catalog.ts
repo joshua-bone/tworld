@@ -50,8 +50,6 @@ import {
 } from "@ruleset-ms/impl/catalogActors";
 import {
   lookupMsTilePolicy,
-  msIceWallTurn as msIceWallTurnFromTiles,
-  msSlideDirection as msSlideDirectionFromTiles,
   msTileDefinitions,
   type MsButtonAction,
   type MsChipEnterAction,
@@ -60,6 +58,12 @@ import {
   type MsMobExitAction,
   type MsPortableItemFamily,
 } from "@ruleset-ms/impl/catalogTiles";
+import {
+  msSpecialFloorForcedFloorKind,
+  msSpecialFloorIceWallTurn,
+  msSpecialFloorRequiresReleaseToExit,
+  msSpecialFloorSlideDirection,
+} from "@ruleset-ms/impl/elements/tiles/specialFloorRegistration";
 import {
   lookupMsActorDefinitionRegistration,
   lookupMsPortableItemFamilyRegistrationByTileId,
@@ -105,7 +109,7 @@ export function msExitMovementMask(id: number): number {
 }
 
 export function msRequiresReleaseToExit(id: number): boolean {
-  return lookupMsTilePolicy(id).requiresReleaseToExit;
+  return msSpecialFloorRequiresReleaseToExit(id) || lookupMsTilePolicy(id).requiresReleaseToExit;
 }
 
 export function msInventorySlot(id: number): MsInventorySlot | null {
@@ -127,7 +131,7 @@ export function msDoorKeyIndex(id: number): number | null {
 }
 
 export function msTileForcedFloorKind(id: number): MsForcedFloorKind {
-  return lookupMsTilePolicy(id).forcedFloorKind;
+  return msSpecialFloorForcedFloorKind(id) || lookupMsTilePolicy(id).forcedFloorKind;
 }
 
 export function msTileMobExitAction(id: number): MsMobExitAction {
@@ -273,9 +277,9 @@ export function msPreservesUnderlyingFloor(id: number): boolean {
 }
 
 export function msSlideDirection(id: number, randomDirection: number): number {
-  return msSlideDirectionFromTiles(id, randomDirection);
+  return msSpecialFloorSlideDirection(id, randomDirection);
 }
 
 export function msIceWallTurn(id: number, dir: number): number {
-  return msIceWallTurnFromTiles(id, dir);
+  return msSpecialFloorIceWallTurn(id, dir);
 }

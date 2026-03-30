@@ -5,6 +5,7 @@ import { createMsCloudTileBehavior } from "./cloud";
 import { createMsHazardTileBehavior } from "./hazard";
 import { applyMsPopupWallActorArrivalEffects, createMsPopupWallTileBehavior } from "./popupWall";
 import { createMsRevealWallTileBehavior } from "./revealWall";
+import { createMsSpecialFloorTileBehavior } from "./specialFloors";
 
 export function createMsConcreteTileBehavior(tileId: number): TileBehavior<number, number> | undefined {
   return composeTileBehaviors(
@@ -13,6 +14,7 @@ export function createMsConcreteTileBehavior(tileId: number): TileBehavior<numbe
     createMsClearFloorTileBehavior(tileId),
     createMsPopupWallTileBehavior(tileId),
     createMsCloudTileBehavior(tileId),
+    createMsSpecialFloorTileBehavior(tileId),
   );
 }
 

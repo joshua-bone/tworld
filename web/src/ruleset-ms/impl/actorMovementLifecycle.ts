@@ -21,6 +21,7 @@ import {
   msRuntimeActorFloorImpactAction,
   msTilePostEntryAction,
 } from "@ruleset-ms/impl/floorImpactPolicy";
+import { isMsTrapSpecialFloor } from "@ruleset-ms/impl/elements/tiles/specialFloorRegistration";
 
 export interface MsMovementLifecycleCreature {
   id: number;
@@ -212,9 +213,9 @@ export function applyMsCreatureCompletedStep<TCreature extends MsMovementLifecyc
   soundEffects |= context.resolveButtonFloorEffects(cells, nextPos, standingFloor, creature);
   creature.moving = 0;
   creature.pos = savedPos;
-  if (standingFloor === MS_TILE.Beartrap) {
+  if (isMsTrapSpecialFloor(standingFloor)) {
     creature.released = context.isTrapOpen(cells, nextPos, oldPos, creature.z ?? context.runtimeCellZ(cells, nextPos));
-  } else if (cells[nextPos]!.bottom.id === MS_TILE.Beartrap) {
+  } else if (isMsTrapSpecialFloor(cells[nextPos]!.bottom.id)) {
     creature.released = context.hasTrapConnection(nextPos, creature.z ?? context.runtimeCellZ(cells, nextPos));
   }
   if (oldWasCloneMachine) {

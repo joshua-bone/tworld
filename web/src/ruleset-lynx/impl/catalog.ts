@@ -51,8 +51,6 @@ import {
 import {
   lookupLynxTilePolicy,
   lynxChipMoveSoundAction as lynxChipMoveSoundActionFromTiles,
-  lynxFixedSlideDirection as lynxFixedSlideDirectionFromTiles,
-  lynxIceWallTurn as lynxIceWallTurnFromTiles,
   lynxTileDefinitions,
   lynxToggledWallTileId as lynxToggledWallTileIdFromTiles,
   type LynxAnimationKind,
@@ -66,6 +64,14 @@ import {
   type LynxMobExitAction,
   type LynxPortableItemFamily,
 } from "@ruleset-lynx/impl/catalogTiles";
+import {
+  isLynxTrapSpecialFloor,
+  lynxSpecialFloorCreatureFloorAction,
+  lynxSpecialFloorFixedSlideDirection,
+  lynxSpecialFloorForcedFloorKind,
+  lynxSpecialFloorIceWallTurn,
+  lynxSpecialFloorRequiresReleaseToExit,
+} from "@ruleset-lynx/impl/elements/tiles/specialFloorRegistration";
 import {
   lookupLynxActorDefinitionRegistration,
   lookupLynxPortableItemFamilyRegistrationByTileId,
@@ -133,15 +139,15 @@ export function lynxExitMovementMask(id: number): number {
 }
 
 export function lynxRequiresReleaseToExit(id: number): boolean {
-  return lookupLynxTilePolicy(id).requiresReleaseToExit;
+  return lynxSpecialFloorRequiresReleaseToExit(id) || lookupLynxTilePolicy(id).requiresReleaseToExit;
 }
 
 export function lynxCreatureFloorAction(id: number): LynxCreatureFloorAction {
-  return lookupLynxTilePolicy(id).creatureFloorAction;
+  return lynxSpecialFloorCreatureFloorAction(id) || lookupLynxTilePolicy(id).creatureFloorAction;
 }
 
 export function lynxTileForcedFloorKind(id: number): LynxForcedFloorKind {
-  return lookupLynxTilePolicy(id).forcedFloorKind;
+  return lynxSpecialFloorForcedFloorKind(id) || lookupLynxTilePolicy(id).forcedFloorKind;
 }
 
 export function lynxTileMobExitAction(id: number): LynxMobExitAction {
@@ -241,15 +247,15 @@ export function lynxToggledWallTileId(id: number): number {
 }
 
 export function lynxFixedSlideDirection(id: number): number {
-  return lynxFixedSlideDirectionFromTiles(id);
+  return lynxSpecialFloorFixedSlideDirection(id);
 }
 
 export function lynxIceWallTurn(id: number, dir: number): number {
-  return lynxIceWallTurnFromTiles(id, dir);
+  return lynxSpecialFloorIceWallTurn(id, dir);
 }
 
 export function lynxCreatureArrivalAction(tileId: number, actorId: number): LynxCreatureArrivalAction {
-  if (tileId === MS_TILE.Beartrap) {
+  if (isLynxTrapSpecialFloor(tileId)) {
     return "trap";
   }
   if (lynxButtonAction(tileId) !== "none") {

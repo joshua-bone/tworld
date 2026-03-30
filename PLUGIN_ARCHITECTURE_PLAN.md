@@ -365,15 +365,15 @@ First targets:
 
 Checklist:
 
-- [ ] move forced-direction queries behind tile hooks
-- [ ] move trap/cloner entry and release behavior behind tile + actor hooks
-- [ ] let actor families express how they behave on those floors without raw tile-id branches
-- [ ] keep clone/trap timing differences ruleset-local
+- [x] move forced-direction queries behind tile hooks
+- [x] move trap/cloner entry and release behavior behind tile + actor hooks
+- [x] let actor families express how they behave on those floors without raw tile-id branches
+- [x] keep clone/trap timing differences ruleset-local
 
 Tests:
 
-- [ ] focused trap/cloner/teleport/ice suites
-- [ ] bounded replay sweeps for known special-floor levels
+- [x] focused trap/cloner/teleport/ice suites
+- [x] bounded replay sweeps for known special-floor levels
 
 ### PA16: Migrate Actor Collision And Arrival Ownership
 

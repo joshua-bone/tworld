@@ -14,6 +14,8 @@ describe("Lynx lifecycle registration", () => {
     expect(getLynxRegisteredTileLifecycleRegistry().behaviors.size).toBeGreaterThan(0);
     expect(lookupLynxTileLifecyclePhase(MS_TILE.Exit, "begin-enter")).toBeTypeOf("function");
     expect(lookupLynxTileLifecyclePhase(MS_TILE.Cloud, "complete-exit")).toBeTypeOf("function");
+    expect(lookupLynxTileLifecyclePhase(MS_TILE.Beartrap, "probe-exit")).toBeTypeOf("function");
+    expect(lookupLynxTileLifecyclePhase(MS_TILE.CloneMachine, "probe-exit")).toBeTypeOf("function");
     expect(lookupLynxTileLifecyclePhase(MS_TILE.Socket, "probe-support")).toBeTypeOf("function");
     expect(lookupLynxTileLifecyclePhase(msCreatureTile(MS_TILE.Ball, MS_DIRECTION.north), "begin-enter")).toBeNull();
   });

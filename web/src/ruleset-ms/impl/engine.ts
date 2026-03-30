@@ -122,6 +122,10 @@ import {
   msTileForcedFloorKind,
 } from "@ruleset-ms/impl/catalog";
 import {
+  isMsClonerSpecialFloor,
+  isMsTrapSpecialFloor,
+} from "@ruleset-ms/impl/elements/tiles/specialFloorRegistration";
+import {
   msActorArrivalOutcome,
   msActorCollisionOutcome,
   msActorHazardOutcome,
@@ -185,6 +189,7 @@ import {
   isMsTrapOpen,
   springMsTrap,
 } from "@ruleset-ms/impl/trapCloner";
+import { probeMsTileExitByBehavior } from "@ruleset-ms/impl/specialFloorBehavior";
 import { MsNonChipFloorQueue, type MsActiveNonChipFloorEntry } from "@ruleset-ms/impl/nonChipFloorQueue";
 import {
   moveMsCreatureDownOneLayer as moveMsCreatureDownOneLayerWithContext,
@@ -586,10 +591,10 @@ function shouldRevertPortableBackedCreatureOnBlockedMove(
   if (standingTile.id === MS_TILE.Teleport && (standingTile.state & MS_FLOOR_STATE.Broken) === 0) {
     return false;
   }
-  if (standingTile.id === MS_TILE.CloneMachine) {
+  if (isMsClonerSpecialFloor(standingTile.id)) {
     return false;
   }
-  if (standingTile.id === MS_TILE.Beartrap && !creature.released) {
+  if (isMsTrapSpecialFloor(standingTile.id) && !creature.released) {
     return false;
   }
   return true;
@@ -654,7 +659,7 @@ function resolveMsCreaturePreMoveCollision(
   }
   if (collisionOutcome.removeMovingActor) {
     const oldPos = creature.pos;
-    if (sourceCells[oldPos]!.bottom.id === MS_TILE.CloneMachine) {
+    if (isMsClonerSpecialFloor(sourceCells[oldPos]!.bottom.id)) {
       sourceCells[oldPos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
     } else {
       popExitedMsMobSourceTile(sourceCells, oldPos);
@@ -932,7 +937,7 @@ function settleMsSpawnedBowlingBallLanding(
   runtime.internal.pendingSoundEffects |= context.applyArrivalEffects(cells, creature);
   if (
     !creature.hidden &&
-    bottomTile(cells, creature.pos).id === MS_TILE.CloneMachine &&
+    isMsClonerSpecialFloor(bottomTile(cells, creature.pos).id) &&
     msActorClonerFamilyHooks(creature.id).entryBehavior === "occupy-and-hold"
   ) {
     holdMsCreatureOnCloneMachine(cells, runtime.internal, creature);
@@ -1070,6 +1075,10 @@ function canLeaveFloor(cells: EngineMapCell[], pos: number, dir: number, release
   if ((msExitMovementMask(floor) & dir) === 0) {
     return false;
   }
+  const behaviorResult = probeMsTileExitByBehavior(floor, dir, released);
+  if (behaviorResult !== null) {
+    return behaviorResult;
+  }
   return !msRequiresReleaseToExit(floor) || released;
 }
 
@@ -1081,7 +1090,7 @@ function pushTile(cells: EngineMapCell[], pos: number, tile: EngineMapCell["top"
 
   if (
     cell.top.id === MS_TILE.Empty &&
-    cell.bottom.id === MS_TILE.CloneMachine
+    isMsClonerSpecialFloor(cell.bottom.id)
   ) {
     cell.top = { ...tile };
     return;
@@ -1568,7 +1577,7 @@ export function initializeMsGameState(
     } else {
       const creatureId = msCreatureId(cell.top.id);
       if (creatureId === MS_TILE.Block) {
-      } else if (cell.bottom.id !== MS_TILE.CloneMachine) {
+      } else if (!isMsClonerSpecialFloor(cell.bottom.id)) {
         creatures.push({
           serial: nextCreatureSerial,
           id: creatureId,
@@ -1833,7 +1842,7 @@ function canMoveChip(
     if (!allowPushing) {
       return false;
     }
-    if (cells[to]!.bottom.id === MS_TILE.CloneMachine) {
+    if (isMsClonerSpecialFloor(cells[to]!.bottom.id)) {
       return false;
     }
     if (teleportPush && floorAt(cells, to) === MS_TILE.Block_Static) {
@@ -1843,7 +1852,7 @@ function canMoveChip(
       ...options,
       allowPushing: false,
     });
-  } else if (cells[to]!.bottom.id === MS_TILE.CloneMachine) {
+  } else if (isMsClonerSpecialFloor(cells[to]!.bottom.id)) {
     return false;
   }
 
@@ -1946,7 +1955,7 @@ function canMoveCreatureWithOptions(
     return false;
   }
   if (
-    cells[to]!.bottom.id === MS_TILE.CloneMachine &&
+    isMsClonerSpecialFloor(cells[to]!.bottom.id) &&
     msActorClonerFamilyHooks(creature.id).entryBehavior === "none"
   ) {
     return false;
@@ -1994,7 +2003,7 @@ function canMoveBlockInto(
   if ((msBlockMovementMask(targetTop) & dir) === 0) {
     return false;
   }
-  return cells[to]!.bottom.id !== MS_TILE.CloneMachine;
+  return !isMsClonerSpecialFloor(cells[to]!.bottom.id);
 }
 
 function moveBlock(
@@ -2008,7 +2017,7 @@ function moveBlock(
 ): MovementAttemptResult {
   const trackedBlock =
     findVisibleTrackedBlock(internal, pos, runtimeCellZ(cells, pos)) ?? upsertTrackedBlock(cells, internal, pos, dir);
-  const oldWasCloneMachine = cells[pos]!.bottom.id === MS_TILE.CloneMachine;
+  const oldWasCloneMachine = isMsClonerSpecialFloor(cells[pos]!.bottom.id);
   const keepSourceTile = preserveSourceTile || oldWasCloneMachine;
   if (!canLeaveFloor(cells, pos, dir, trackedBlock.released)) {
     trackedBlock.floorMovement = "none";
@@ -2066,7 +2075,7 @@ function moveBlock(
       break;
   }
 
-  if (targetBottom === MS_TILE.CloneMachine) {
+  if (isMsClonerSpecialFloor(targetBottom)) {
     trackedBlock.floorMovement = "none";
     trackedBlock.floorMovementDir = MS_DIRECTION.none;
     trackedBlock.sliding = false;
@@ -2172,7 +2181,7 @@ function pushBlock(
   const moveResult = moveBlockOnce(cells, internal, pos, dir, deferButtons, false, occupiedOriginPos);
   if (!movementDidSucceed(moveResult) && trackedBlock && !trackedBlock.hidden && !teleportPush) {
     const standingFloor = bottomTileIdOr(cells, pos, MS_TILE.Empty);
-    if (standingFloor !== MS_TILE.Beartrap && standingFloor !== MS_TILE.CloneMachine && trackedBlock.floorMovement === "none") {
+    if (!isMsTrapSpecialFloor(standingFloor) && !isMsClonerSpecialFloor(standingFloor) && trackedBlock.floorMovement === "none") {
       trackedBlock.dir = dir;
     }
   }
@@ -2851,7 +2860,7 @@ function refreshBlockFloorMovement(cells: EngineMapCell[], block: MsTrackedBlock
     return;
   }
 
-  if (floor === MS_TILE.Beartrap) {
+  if (isMsTrapSpecialFloor(floor)) {
     block.floorMovement = "slide";
     block.floorMovementDir = block.dir;
     block.sliding = false;
@@ -2903,7 +2912,7 @@ function restartBlockFloorMovementAfterBlockedAttempt(
     return;
   }
 
-  if (floor === MS_TILE.Beartrap) {
+  if (isMsTrapSpecialFloor(floor)) {
     block.floorMovement = "slide";
     block.floorMovementDir = block.dir;
     block.sliding = false;
@@ -2954,7 +2963,7 @@ function restartBlockFloorMovementAfterRetrySuccess(
     return;
   }
 
-  if (floor === MS_TILE.Beartrap) {
+  if (isMsTrapSpecialFloor(floor)) {
     block.floorMovement = "slide";
     block.floorMovementDir = block.dir;
     block.sliding = true;
@@ -3003,7 +3012,7 @@ function setBlockFloorMovementAfterSuccessfulMove(
     return;
   }
 
-  if (floor === MS_TILE.Beartrap && wasSlipping) {
+  if (isMsTrapSpecialFloor(floor) && wasSlipping) {
     block.floorMovement = "slide";
     block.floorMovementDir = block.dir;
     block.sliding = true;
@@ -3041,7 +3050,7 @@ function updateBlockReleaseAfterMove(
   targetTop: number,
   landingPos: number,
 ): void {
-  if (targetTop === MS_TILE.Beartrap) {
+  if (isMsTrapSpecialFloor(targetTop)) {
     block.released = isMsTrapOpen({
       cells,
       traps: internal.traps,
@@ -3052,7 +3061,7 @@ function updateBlockReleaseAfterMove(
     return;
   }
 
-  if (cells[landingPos]!.bottom.id === MS_TILE.Beartrap) {
+  if (isMsTrapSpecialFloor(cells[landingPos]!.bottom.id)) {
     block.released = hasMsTrapConnection(internal.traps, landingPos, block.z ?? runtimeCellZ(cells, landingPos));
     return;
   }
@@ -3307,7 +3316,7 @@ function moveCreatureOnce(
   if (
     result.status === "moved" &&
     !creature.hidden &&
-    bottomTile(cells, creature.pos).id === MS_TILE.CloneMachine &&
+    isMsClonerSpecialFloor(bottomTile(cells, creature.pos).id) &&
     msActorClonerFamilyHooks(creature.id).entryBehavior === "occupy-and-hold"
   ) {
     holdMsCreatureOnCloneMachine(cells, internal, creature);
@@ -3584,7 +3593,7 @@ function processMsBlockFloorQueueEntry(
 
   let soundEffects = 0;
   const tryMove = (dir: number): boolean => {
-    const oldWasCloneMachine = blockCells[block.pos]!.bottom.id === MS_TILE.CloneMachine;
+    const oldWasCloneMachine = isMsClonerSpecialFloor(blockCells[block.pos]!.bottom.id);
     if (!canLeaveFloor(blockCells, block.pos, dir, block.released)) {
       return false;
     }

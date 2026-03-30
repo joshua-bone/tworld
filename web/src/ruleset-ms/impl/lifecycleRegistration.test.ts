@@ -14,6 +14,8 @@ describe("MS lifecycle registration", () => {
     expect(getMsRegisteredTileLifecycleRegistry().behaviors.size).toBeGreaterThan(0);
     expect(lookupMsTileLifecyclePhase(MS_TILE.Teleport, "begin-enter")).toBeTypeOf("function");
     expect(lookupMsTileLifecyclePhase(MS_TILE.Cloud, "complete-exit")).toBeTypeOf("function");
+    expect(lookupMsTileLifecyclePhase(MS_TILE.Beartrap, "probe-exit")).toBeTypeOf("function");
+    expect(lookupMsTileLifecyclePhase(MS_TILE.CloneMachine, "probe-exit")).toBeNull();
     expect(lookupMsTileLifecyclePhase(MS_TILE.Socket, "probe-support")).toBeTypeOf("function");
     expect(lookupMsTileLifecyclePhase(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.east), "begin-enter")).toBeNull();
   });

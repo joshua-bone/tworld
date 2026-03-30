@@ -19,6 +19,7 @@ import {
 import type { OccupancyTarget } from "@game-core/impl/occupancy";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { lynxActorSupportFamilyHooks, lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
+import { isLynxClonerSpecialFloor } from "@ruleset-lynx/impl/elements/tiles/specialFloorRegistration";
 import type { LynxMoveKind } from "@ruleset-lynx/impl/verticalMovement";
 import {
   applyLynxActorCompletedStep,
@@ -91,7 +92,7 @@ function resolveLynxActorArrivalFloorId(
 ): number {
   if (
     (cell.top.id === MS_TILE.Empty || cell.top.id === MS_TILE.Nothing) &&
-    cell.bottom.id === MS_TILE.CloneMachine
+    isLynxClonerSpecialFloor(cell.bottom.id)
   ) {
     promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
     addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);

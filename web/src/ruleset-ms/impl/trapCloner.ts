@@ -14,6 +14,7 @@ import {
   msActorClonerEntryBehavior,
   msActorTrapReleaseStartsMovement,
 } from "@ruleset-ms/impl/actorBehavior";
+import { isMsClonerSpecialFloor } from "@ruleset-ms/impl/elements/tiles/specialFloorRegistration";
 
 export interface MsTrapClonerCreatureRef {
   id?: number;
@@ -181,7 +182,7 @@ export function activateMsCloner(args: {
 
   const sourceDir = msCreatureDir(sourceCell.top.id);
   if (sourceId === MS_TILE.Block) {
-    const sourceIsCloneMachine = sourceCell.bottom.id === MS_TILE.CloneMachine;
+    const sourceIsCloneMachine = isMsClonerSpecialFloor(sourceCell.bottom.id);
     if (sourceIsCloneMachine && (sourceCell.bottom.state & MS_FLOOR_STATE.Cloning) !== 0) {
       return;
     }
@@ -191,7 +192,7 @@ export function activateMsCloner(args: {
     return;
   }
 
-  if (sourceCell.bottom.id !== MS_TILE.CloneMachine || (sourceCell.bottom.state & MS_FLOOR_STATE.Cloning) !== 0) {
+  if (!isMsClonerSpecialFloor(sourceCell.bottom.id) || (sourceCell.bottom.state & MS_FLOOR_STATE.Cloning) !== 0) {
     return;
   }
 

@@ -3,12 +3,15 @@ import { movementDidSucceed, type MovementAttemptResult } from "@game-core/api/m
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { collectLevelConnections } from "@ruleset-ms/api/level";
 import { topTileIdOr } from "@game-core/impl/board";
-import { lynxTileHasTag } from "@ruleset-lynx/impl/catalog";
 import {
   lynxActorClonerCloneBehavior,
   lynxActorClonerEntryBehavior,
   lynxActorTrapReleaseStartsMovement,
 } from "@ruleset-lynx/impl/actorBehavior";
+import {
+  isLynxClonerSpecialFloor,
+  isLynxTrapSpecialFloor,
+} from "@ruleset-lynx/impl/elements/tiles/specialFloorRegistration";
 import { queryLynxOccupancyTarget, type LynxOccupancyPortableItemRef } from "@ruleset-lynx/impl/occupancy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -118,7 +121,7 @@ export function activateLynxCloner<TActor extends LynxTrapClonerActor>(
       return false;
     }
 
-    if (!lynxTileHasTag(context.state.map.cells[sourcePos]?.top.id ?? MS_TILE.Empty, "cloner")) {
+    if (!isLynxClonerSpecialFloor(context.state.map.cells[sourcePos]?.top.id ?? MS_TILE.Empty)) {
       return false;
     }
 
@@ -161,7 +164,7 @@ export function springLynxTrap<TActor extends LynxTrapClonerActor>(
     if (sourcePos === null || sourcePos < 0 || sourcePos >= context.state.map.cells.length) {
       return false;
     }
-    if (!lynxTileHasTag(topTileIdOr(context.state.map.cells, sourcePos, MS_TILE.Empty), "trap")) {
+    if (!isLynxTrapSpecialFloor(topTileIdOr(context.state.map.cells, sourcePos, MS_TILE.Empty))) {
       return false;
     }
 
