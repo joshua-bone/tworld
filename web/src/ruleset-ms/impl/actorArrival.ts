@@ -10,13 +10,12 @@ import {
 import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
 import { MS_SOUND, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
-  msChipEnterAction,
   msDoorKeyIndex,
 } from "@ruleset-ms/impl/catalog";
 import { collectMsActorTile } from "@ruleset-ms/impl/actorCollections";
 import { msActorArrivalOutcome } from "@ruleset-ms/impl/actorInteractions";
 import { applyMsConcreteTileActorArrivalEffects } from "@ruleset-ms/impl/elements/tiles/concrete/registration";
-import { msFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
+import { msTilePostEntryAction } from "@ruleset-ms/impl/floorImpactPolicy";
 import type { MsStatefulActorRuntimeEntry } from "@ruleset-ms/impl/statefulActors";
 
 export interface MsActorArrivalContext {
@@ -78,7 +77,7 @@ export function applyMsActorArrivalEffects(
   if (concreteSoundEffects !== null) {
     return concreteSoundEffects;
   }
-  const floorImpactAction = msFloorImpactAction(msChipEnterAction(floorId));
+  const floorImpactAction = msTilePostEntryAction(floorId);
   if (floorImpactAction === null) {
     return 0;
   }

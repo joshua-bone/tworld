@@ -16,6 +16,7 @@ import { lookupMsTerrainPickupFamilyRegistration } from "@ruleset-ms/impl/elemen
 import { collectMsActorTile, projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import { clearMsToolInventory, queueMsToolInventoryReplacement } from "@ruleset-ms/impl/portableItems";
 import { msActorThiefOutcome } from "@ruleset-ms/impl/actorInteractions";
+import { msFloorImpactAction, msTilePostEntryAction } from "@ruleset-ms/impl/floorImpactPolicy";
 import { lookupMsTilePolicy } from "@ruleset-ms/impl/catalogTiles";
 import type { MsTilePolicyDefinition } from "@ruleset-ms/impl/catalogTiles";
 import type { MsChipEntryContext, MsChipEntryState } from "@ruleset-ms/impl/chipArrival";
@@ -33,40 +34,11 @@ export interface MsChipEnterTileBehaviorContext extends TileBehaviorContext<numb
   floorTileBeforeMove: EngineMapCell["top"];
 }
 
-function msChipEnterFloorImpactAction(action: MsTilePolicyDefinition["chipEnterAction"]): ActorFloorImpactAction | null {
-  switch (action) {
-    case "clear-floor":
-    case "collect-chip":
-    case "collect-item":
-    case "open-door":
-    case "open-socket":
-    case "popup-wall":
-    case "none":
-      return action;
-    case "steal-boots":
-      return "steal-boots-tools";
-    case "explode-bomb":
-      return "destroy-bomb";
-    case "water-death":
-      return "destroy-water";
-    case "fire-death":
-      return "destroy-fire";
-    case "teleport":
-      return "teleport";
-    default:
-      return null;
-  }
-}
-
-function msTileChipEnterFloorImpactAction(tileId: number): ActorFloorImpactAction | null {
-  return msChipEnterFloorImpactAction(lookupMsTilePolicy(tileId).chipEnterAction);
-}
-
 function handleMsChipEnterTileBehavior(
   policy: MsTilePolicyDefinition,
   context: MsChipEnterTileBehaviorContext,
 ): void {
-  const floorImpactAction = msChipEnterFloorImpactAction(policy.chipEnterAction);
+  const floorImpactAction = msFloorImpactAction(policy.chipEnterAction);
   if (floorImpactAction === null) {
     return;
   }
@@ -114,7 +86,7 @@ function handleMsChipEnterTileBehavior(
     afterCollect: (collected) => {
       const collectedPortableItem =
         lookupMsTerrainPickupFamilyRegistration(context.tileId)?.familyId === "portable-items";
-      const revealedFloorImpact = msTileChipEnterFloorImpactAction(context.nextCell.top.id);
+      const revealedFloorImpact = msTilePostEntryAction(context.nextCell.top.id);
       context.continueIntoRevealedLowerTile = continuePortablePickupIntoRevealedLowerTile(
         collectedPortableItem,
         revealedFloorImpact,

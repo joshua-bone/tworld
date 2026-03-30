@@ -5,11 +5,11 @@ import { actorInventoryClearBoots, actorInventoryClearTools, actorInventoryHasBo
 import { mapHash } from "@game-core/impl/hash";
 import { promoteBottomTile, replaceTopTile } from "@game-core/impl/board";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
-import { lynxChipEnterAction, lynxDoorKeyIndex } from "@ruleset-lynx/impl/catalog";
+import { lynxDoorKeyIndex } from "@ruleset-lynx/impl/catalog";
 import { collectLynxActorTile } from "@ruleset-lynx/impl/actorCollections";
 import { lynxActorArrivalOutcome } from "@ruleset-lynx/impl/actorInteractions";
 import { applyLynxConcreteTileActorArrivalEffects } from "@ruleset-lynx/impl/elements/tiles/concrete/registration";
-import { lynxFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
+import { lynxTilePostEntryAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import type { LynxStatefulActorRuntimeEntry } from "@ruleset-lynx/impl/statefulActors";
 
 export interface LynxActorArrivalContext {
@@ -73,7 +73,7 @@ export function applyLynxActorArrivalEffects(
     return concreteSoundEffects;
   }
 
-  const floorImpactAction = lynxFloorImpactAction(lynxChipEnterAction(cell.top.id));
+  const floorImpactAction = lynxTilePostEntryAction(cell.top.id);
   if (floorImpactAction === null) {
     return 0;
   }

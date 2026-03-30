@@ -12,6 +12,7 @@ import { lookupLynxTerrainPickupFamilyRegistration } from "@ruleset-lynx/impl/el
 import { lookupLynxTilePolicy } from "@ruleset-lynx/impl/catalogTiles";
 import type { LynxTilePolicyDefinition } from "@ruleset-lynx/impl/catalogTiles";
 import type { LynxCompletedChipMoveContext } from "@ruleset-lynx/impl/chipArrival";
+import { lynxFloorImpactAction, lynxTilePostEntryAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxChipEnterTileBehaviorContext extends TileBehaviorContext<number, number> {
@@ -26,43 +27,11 @@ export interface LynxChipEnterTileBehaviorContext extends TileBehaviorContext<nu
   continueIntoRevealedLowerTile: boolean;
 }
 
-function lynxChipEnterFloorImpactAction(
-  action: LynxTilePolicyDefinition["chipEnterAction"],
-): ActorFloorImpactAction | null {
-  switch (action) {
-    case "clear-floor":
-    case "collect-chip":
-    case "collect-item":
-    case "open-door":
-    case "open-socket":
-    case "popup-wall":
-    case "button":
-    case "trap":
-    case "exit":
-    case "none":
-      return action;
-    case "steal-boots":
-      return "steal-boots-tools";
-    case "explode-bomb":
-      return "destroy-bomb";
-    case "water-death":
-      return "destroy-water";
-    case "fire-death":
-      return "destroy-fire";
-    default:
-      return null;
-  }
-}
-
-function lynxTileChipEnterFloorImpactAction(tileId: number): ActorFloorImpactAction | null {
-  return lynxChipEnterFloorImpactAction(lookupLynxTilePolicy(tileId).chipEnterAction);
-}
-
 function handleLynxChipEnterTileBehavior(
   policy: LynxTilePolicyDefinition,
   context: LynxChipEnterTileBehaviorContext,
 ): void {
-  const floorImpactAction = lynxChipEnterFloorImpactAction(policy.chipEnterAction);
+  const floorImpactAction = lynxFloorImpactAction(policy.chipEnterAction);
   if (floorImpactAction === null || floorImpactAction === "destroy-water" || floorImpactAction === "destroy-fire" || floorImpactAction === "destroy-bomb") {
     return;
   }
@@ -97,7 +66,7 @@ function handleLynxChipEnterTileBehavior(
       const cell = context.runtime.state.map.cells[context.pos];
       const collectedPortableItem =
         lookupLynxTerrainPickupFamilyRegistration(context.tileId)?.familyId === "portable-items";
-      const revealedFloorImpact = lynxTileChipEnterFloorImpactAction(cell?.top.id ?? MS_TILE.Empty);
+      const revealedFloorImpact = lynxTilePostEntryAction(cell?.top.id ?? MS_TILE.Empty);
       context.continueIntoRevealedLowerTile = continuePortablePickupIntoRevealedLowerTile(
         collectedPortableItem,
         revealedFloorImpact,

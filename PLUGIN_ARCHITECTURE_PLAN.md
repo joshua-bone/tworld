@@ -451,20 +451,20 @@ Goal:
 
 Checklist:
 
-- [ ] remove deprecated mask/outcome translation helpers that only exist for back-compat
-- [ ] remove now-redundant tile and actor switch statements
-- [ ] tighten architecture tests to prevent raw tile-id branches from returning
-- [ ] keep only scheduler/order/occupancy/runtime bookkeeping in the engines
+- [x] remove deprecated mask/outcome translation helpers that only exist for back-compat
+- [x] remove now-redundant tile and actor switch statements
+- [x] tighten architecture tests to prevent raw tile-id branches from returning
+- [x] keep only scheduler/order/occupancy/runtime bookkeeping in the engines
 
 Tests:
 
-- [ ] full relevant typechecks
-- [ ] broader replay sweeps for both rulesets
-- [ ] focused regression suites for migrated lifecycle seams
+- [x] full relevant typechecks
+- [x] broader replay sweeps for both rulesets
+- [x] focused regression suites for migrated lifecycle seams
 
 ## Exit Gate
 
-- [ ] the engines read primarily as schedulers and dispatchers
-- [ ] concrete element modules own most concrete gameplay behavior
-- [ ] adding `cloud`, `ghost`, `fake player`, `hook`, or similar elements is mostly local work
-- [ ] adding a genuinely new gameplay concept requires adding a new typed seam, not scattering new conditionals
+- [x] the engines read primarily as schedulers and dispatchers
+- [x] concrete element modules own most concrete gameplay behavior
+- [x] adding `cloud`, `ghost`, `fake player`, `hook`, or similar elements is mostly local work
+- [x] adding a genuinely new gameplay concept requires adding a new typed seam, not scattering new conditionals

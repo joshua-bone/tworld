@@ -27,6 +27,11 @@ describe("lifecycle registry guardrails", () => {
     expectSourceToMatch("ruleset-ms/impl/chipArrival.ts", [/@ruleset-ms\/impl\/tileLifecycleRegistration/]);
     expectSourceToMatch("ruleset-ms/impl/tileEffects.ts", [/@ruleset-ms\/impl\/tileLifecycleRegistration/]);
     expectSourceToMatch("ruleset-ms/impl/actorLifecycleQueries.ts", [/@ruleset-ms\/impl\/actorLifecycleRegistration/]);
+    expectSourceToMatch("ruleset-ms/impl/chipEnterBehavior.ts", [/@ruleset-ms\/impl\/floorImpactPolicy/]);
+    expectSourceNotToMatch("ruleset-ms/impl/chipEnterBehavior.ts", [
+      /\bfunction msChipEnterFloorImpactAction\b/,
+      /\bfunction msTileChipEnterFloorImpactAction\b/,
+    ]);
     for (const relativePath of ["ruleset-ms/impl/chipArrival.ts", "ruleset-ms/impl/tileEffects.ts", "ruleset-ms/impl/actorLifecycleQueries.ts"]) {
       expectSourceNotToMatch(relativePath, [/\bmsRulesetCatalog\.getTileBehavior\b/, /\bmsRulesetCatalog\.getActorBehavior\b/]);
     }
@@ -36,6 +41,11 @@ describe("lifecycle registry guardrails", () => {
     expectSourceToMatch("ruleset-lynx/impl/chipArrival.ts", [/@ruleset-lynx\/impl\/tileLifecycleRegistration/]);
     expectSourceToMatch("ruleset-lynx/impl/tileEffects.ts", [/@ruleset-lynx\/impl\/tileLifecycleRegistration/]);
     expectSourceToMatch("ruleset-lynx/impl/actorLifecycleQueries.ts", [/@ruleset-lynx\/impl\/actorLifecycleRegistration/]);
+    expectSourceToMatch("ruleset-lynx/impl/chipEnterBehavior.ts", [/@ruleset-lynx\/impl\/floorImpactPolicy/]);
+    expectSourceNotToMatch("ruleset-lynx/impl/chipEnterBehavior.ts", [
+      /\bfunction lynxChipEnterFloorImpactAction\b/,
+      /\bfunction lynxTileChipEnterFloorImpactAction\b/,
+    ]);
     for (const relativePath of ["ruleset-lynx/impl/chipArrival.ts", "ruleset-lynx/impl/tileEffects.ts", "ruleset-lynx/impl/actorLifecycleQueries.ts"]) {
       expectSourceNotToMatch(relativePath, [/\blynxRulesetCatalog\.getTileBehavior\b/, /\blynxRulesetCatalog\.getActorBehavior\b/]);
     }
