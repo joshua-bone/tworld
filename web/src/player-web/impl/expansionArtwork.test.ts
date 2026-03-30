@@ -9,7 +9,7 @@ describe("expandedArtworkSheetKey", () => {
         mode: "grid",
         tileWidth: 48,
         tileHeight: 48,
-        columns: 5,
+        columns: 6,
         rows: 1,
       },
     });
@@ -55,6 +55,14 @@ describe("expansionArtworkFrameRect", () => {
     });
     expect(expansionArtworkFrameRect("hook")).toEqual({
       x: 192,
+      y: 0,
+      width: 48,
+      height: 48,
+      transparent: true,
+      preserveLayerTransparency: false,
+    });
+    expect(expansionArtworkFrameRect("ice_block")).toEqual({
+      x: 240,
       y: 0,
       width: 48,
       height: 48,

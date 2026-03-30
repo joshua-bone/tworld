@@ -4,7 +4,7 @@
     "mode": "grid",
     "tileWidth": 48,
     "tileHeight": 48,
-    "columns": 5,
+    "columns": 6,
     "rows": 1
   },
   "sprites": {
@@ -31,6 +31,11 @@
     },
     "hook": {
       "column": 4,
+      "row": 0,
+      "transparent": true
+    },
+    "ice_block": {
+      "column": 5,
       "row": 0,
       "transparent": true
     }
