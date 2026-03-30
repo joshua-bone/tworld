@@ -43,7 +43,7 @@ import {
   type TileCapability,
   type TileTag,
 } from "@game-core/api/ruleset";
-import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   lynxActorDefinitions,
   LYNX_CREATURE_ACTOR_CAPABILITIES,
@@ -71,9 +71,6 @@ import {
   lookupLynxPortableItemFamilyRegistrationByTileId,
   lookupLynxTerrainPickupTileRegistration,
 } from "@ruleset-lynx/impl/elementRegistration";
-
-const FULL_MOVEMENT_MASK =
-  MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
 
 type LynxCreatureArrivalAction =
   | "none"
@@ -224,10 +221,6 @@ export function lynxActorCollisionStrategyId(id: number): ActorCollisionStrategy
 }
 
 export function lynxActorEntryMask(tileId: number, actorId: number): number {
-  if (tileId === MS_TILE.CloneMachine && lynxActorClonerFamilyHooks(actorId).entryBehavior === "occupy-and-hold") {
-    return FULL_MOVEMENT_MASK;
-  }
-
   switch (lynxActorMovementStrategyId(actorId)) {
     case "chip-like":
     case "ballistic-like":
