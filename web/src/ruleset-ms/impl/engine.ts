@@ -4673,7 +4673,10 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
     runtime.internal.chipWait += 1;
     if (runtime.internal.chipWait > 3) {
       runtime.internal.chipWait = 3;
-      if (runtime.internal.chipDir !== MS_DIRECTION.none) {
+      if (
+        runtime.internal.chipDir !== MS_DIRECTION.none &&
+        carriedMsPortableToolItem(runtime.internal.portableTools) === undefined
+      ) {
         runtime.internal.chipDir = MS_DIRECTION.south;
         updateChipTile(msAdvanceTickActiveChipCells(runtime), runtime.internal);
       }

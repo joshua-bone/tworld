@@ -2780,6 +2780,29 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.actors[0]?.dir).toBe("south");
   });
 
+  it("keeps idle Chip facing unchanged while carrying a portable item", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.Sandbag];
+
+    for (let tick = 0; tick < 13; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.internal.chipWait).toBe(3);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+    expect(session.state.engine.actors[0]?.dir).toBe("east");
+  });
+
   it("resets chipwait on a blocked Chip move attempt", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);
