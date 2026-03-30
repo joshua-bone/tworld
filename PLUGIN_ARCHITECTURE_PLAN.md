@@ -318,27 +318,27 @@ Targets:
 
 Checklist:
 
-- [ ] add `floor` family builder
-- [ ] add `wall` family builder
-- [ ] add `pickup` family builder
-- [ ] add `door` family builder
-- [ ] add `button` family builder
-- [ ] add `forcedFloor` family builder
-- [ ] add `trap` family builder
-- [ ] add `cloner` family builder
-- [ ] add `air` family builder
-- [ ] rebuild tile policy tables from family composition
+- [x] add `floor` family builder
+- [x] add `wall` family builder
+- [x] add `pickup` family builder
+- [x] add `door` family builder
+- [x] add `button` family builder
+- [x] add `forcedFloor` family builder
+- [x] add `trap` family builder
+- [x] add `cloner` family builder
+- [x] add `air` family builder
+- [x] rebuild tile policy tables from family composition
 
 Tests:
 
-- [ ] catalog tile tests in both rulesets
-- [ ] focused policy tests for masks, tags, and actions
-- [ ] typecheck `ruleset-ms`
-- [ ] typecheck `ruleset-lynx`
+- [x] catalog tile tests in both rulesets
+- [x] focused policy tests for masks, tags, and actions
+- [x] typecheck `ruleset-ms`
+- [x] typecheck `ruleset-lynx`
 
 Exit gate:
 
-- [ ] tile metadata is assembled from family composition, not large local constant sets plus special-case branches
+- [x] tile metadata is assembled from family composition, not large local constant sets plus special-case branches
 
 ### PA4: Create Actor Family Builders
 
