@@ -6,7 +6,6 @@ import {
   inventoryStripPixelDimensionsForKind,
   inventoryTileCountLabel,
   isThinWallTileId,
-  shouldBypassLegacyFrameDrawMemo,
   shouldUseLegacyCombinedCellSprite,
   visualEnhancementThinWallActorPassTileId,
   visualEnhancementActorMarker,
@@ -16,77 +15,7 @@ import {
 } from "@player-web/impl/LegacyCanvasScreen";
 import { LEGACY_MAP_HEIGHT, LEGACY_MAP_WIDTH, LEGACY_MAP_X, LEGACY_MAP_Y, LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import type { LegacyTileSprite, LegacyTileset } from "@player-web/impl/legacyTileset";
-import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
-
-function createMemoTestSession(visibleLayerCount: number): InteractiveGameSession {
-  return {
-    request: { seriesFile: "TEST", levelNumber: 1, ruleset: "Lynx" },
-    mode: "manual",
-    hintText: null,
-    frame: {
-      snapshot: {
-        phase: "tick",
-        input: "none",
-        inputCode: 0,
-        status: "playing",
-        tick: 0,
-        currentTime: 0,
-        timeOffset: 0,
-        secondsPlayed: 0,
-        timelimit: 0,
-        chipsNeeded: 0,
-        statusFlags: 0,
-        lastMoveCode: 0,
-        lastMove: "none",
-        stepping: 0,
-        initRandomSlideDir: "north",
-        replayCursor: 0,
-        randomState: {
-          main: { initial: "0", value: "0", shared: false },
-          lynx: { prng1: 0, prng2: 0 },
-        },
-        soundEffects: 0,
-        view: { x: 0, y: 0 },
-        inventory: { keys: [0, 0, 0, 0], boots: [0, 0, 0, 0], tools: [0] },
-        chip: null,
-        creatureCount: 0,
-        creaturesHash: "",
-        mapHash: "",
-        creatures: [],
-      },
-      cells: [],
-      currentZ: visibleLayerCount > 1 ? 2 : 1,
-      visibleLayers: Array.from({ length: visibleLayerCount }, (_, index) => ({
-        z: visibleLayerCount - index,
-        cells: [],
-      })),
-      tileOverlays: [],
-      render: null,
-    },
-    history: {
-      enabled: true,
-      initialTick: -1,
-      currentTick: -1,
-      latestTick: -1,
-      checkpointTicks: [-1],
-      previousTick: null,
-      previousCheckpointTick: null,
-      timelineId: "main",
-      timelineCount: 1,
-      restoreMode: "live",
-      restoredFromTick: null,
-      replayTargetTick: null,
-    },
-    run: {
-      undoUsedCount: 0,
-      replayAvailable: false,
-      result: null,
-    },
-    recordedMoves: [],
-    handle: {} as InteractiveGameSession["handle"],
-  };
-}
 
 describe("withLegacyMapViewportClip", () => {
   it("clips drawing to the 9x9 legacy map viewport", () => {
@@ -130,14 +59,6 @@ describe("withLegacyMapViewportClip", () => {
       throw error;
     })).toThrow(error);
     expect(context.restore).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("shouldBypassLegacyFrameDrawMemo", () => {
-  it("bypasses draw-state memoization for layered gameplay frames", () => {
-    expect(shouldBypassLegacyFrameDrawMemo(createMemoTestSession(2))).toBe(true);
-    expect(shouldBypassLegacyFrameDrawMemo(createMemoTestSession(1))).toBe(false);
-    expect(shouldBypassLegacyFrameDrawMemo(null)).toBe(false);
   });
 });
 

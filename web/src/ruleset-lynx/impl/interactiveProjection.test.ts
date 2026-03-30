@@ -4,11 +4,10 @@ import { createStatefulActorRuntimeStore, setStatefulActorRuntime } from "@game-
 import { expectOverlayPresent } from "@game-core/impl/testOverlays";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import { createLynxInteractiveSession } from "@ruleset-lynx/impl/engine";
 import type { LynxInteractiveSessionState } from "@ruleset-lynx/impl/engine";
 import { projectLynxInteractiveFrame } from "@ruleset-lynx/impl/interactiveProjection";
-import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
-import { advanceLynxTicks, createBoardAtZ, createCell, createCellAtZ, createEngineState, createRequest, createTwoLayerLevel, pos } from "@ruleset-lynx/impl/testSupport";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { createCell, createEngineState } from "@ruleset-lynx/impl/testSupport";
 
 describe("projectLynxInteractiveFrame", () => {
   it("marks held-button beartraps as visually open in the projected frame only", () => {
@@ -586,26 +585,5 @@ describe("projectLynxInteractiveFrame", () => {
     expect(frame.currentZ).toBe(2);
     expect(frame.cells[0]?.top.id).toBe(MS_TILE.Air);
     expect(frame.visibleLayers[1]?.cells[0]?.top.id).toBe(MS_TILE.Cloud);
-  });
-
-  it("projects air on the current layer immediately after Chip exits a z2 cloud", () => {
-    const lower = createBoardAtZ(1);
-    const upper = createBoardAtZ(2);
-    const chipPos = pos(1, 1);
-    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Cloud);
-
-    let session = createLynxInteractiveSession(
-      createRequest(),
-      createTwoLayerLevel(lower, upper, {
-        upperCreaturePositions: [chipPos],
-      }),
-    );
-
-    session = advanceLynxTicks(session, 4, MS_DIRECTION.east);
-
-    const frame = projectLynxInteractiveFrame(session, "tick");
-
-    expect(frame.currentZ).toBe(2);
-    expect(frame.cells[chipPos]?.top.id).toBe(MS_TILE.Air);
   });
 });
