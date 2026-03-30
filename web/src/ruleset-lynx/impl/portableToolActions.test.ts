@@ -37,7 +37,6 @@ describe("lynx portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.east,
-        moveInputDir: MS_DIRECTION.none,
         tryThrowBowlingBall,
       }),
     ).toBe(true);
@@ -69,7 +68,6 @@ describe("lynx portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.east,
-        moveInputDir: MS_DIRECTION.none,
         tryThrowBowlingBall,
       }),
     ).toBe(true);
@@ -98,7 +96,6 @@ describe("lynx portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.east,
-        moveInputDir: MS_DIRECTION.none,
         tryThrowBowlingBall: () => false,
       }),
     ).toBe(false);
@@ -109,7 +106,7 @@ describe("lynx portableToolActions", () => {
     expect(store.primedToolDrop).toBeNull();
   });
 
-  it("does not prime a hook during directional Action1 input", () => {
+  it("does not prime a hook through the portable Action1 flow", () => {
     const store = createStore({
       serial: 1,
       family: "hook",
@@ -126,7 +123,6 @@ describe("lynx portableToolActions", () => {
         chipPos: 44,
         chipZ: 1,
         chipDir: MS_DIRECTION.west,
-        moveInputDir: MS_DIRECTION.west,
         tryThrowBowlingBall: () => false,
       }),
     ).toBe(false);

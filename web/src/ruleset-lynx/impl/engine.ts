@@ -3768,7 +3768,7 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
   if (runtime.replayMode && runtime.scheduledInputCode !== null) {
     runtime.state.replay.cursor += 1;
   }
-  const { baseCode, modifierMask } = decodeRuntimeInputCode(runtime.runtimeInput.inputCode);
+  const { modifierMask } = decodeRuntimeInputCode(runtime.runtimeInput.inputCode);
   if (
     runtime.endGameTicksElapsed === null &&
     (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
@@ -3778,7 +3778,6 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
       chipPos: runtime.chipPos,
       chipZ: runtime.chipZ,
       chipDir: runtime.chipDir,
-      moveInputDir: baseCode,
       tryThrowBowlingBall: (carried, dir) => tryActivateLynxBowlingBallThrow(runtime, carried, dir),
     })
   ) {

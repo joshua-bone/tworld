@@ -5867,7 +5867,7 @@ describe("MS engine regressions", () => {
     expect(settledItem?.serial).toBe(primedItem?.serial);
   });
 
-  it("primes and settles a hook through the shared portable item flow", () => {
+  it("keeps a carried hook while Action1 is pressed without movement", () => {
     const cells = createEmptyCells();
     const chipPos = pos(8, 10);
     const eastPos = pos(9, 10);
@@ -5887,16 +5887,14 @@ describe("MS engine regressions", () => {
       encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
     );
 
-    expect(session.state.internal.portableTools.primedToolDrop).toMatchObject({
-      tileId: MS_TILE.Hook,
-      pos: chipPos,
-      z: 1,
-    });
+    expect(session.state.internal.portableTools.primedToolDrop).toBeNull();
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Hook]);
 
     session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
 
     expect(session.state.engine.chip?.position.pos).toBe(eastPos);
-    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Hook);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.Hook]);
   });
 
   it("tugs an adjacent block when Chip moves directly away with Action1 held", () => {

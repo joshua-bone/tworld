@@ -4886,7 +4886,7 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
     runtime.internal.currentInput,
     runtime.input.inputCode,
   );
-  const { baseCode, modifierMask } = decodeRuntimeInputCode(runtime.internal.currentInput);
+  const { modifierMask } = decodeRuntimeInputCode(runtime.internal.currentInput);
   if (
     msTickPhaseIsPlayable(runtime) &&
     (modifierMask & GAME_INPUT_MODIFIER_MASKS.action1) !== 0 &&
@@ -4896,7 +4896,6 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
       chipPos: runtime.internal.chipPos,
       chipZ: runtime.internal.chipZ ?? 1,
       chipDir: runtime.internal.chipDir,
-      moveInputDir: baseCode,
       tryThrowBowlingBall: (carried, dir) => tryActivateMsBowlingBallThrow(runtime, carried, dir),
     })
   ) {

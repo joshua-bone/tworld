@@ -3171,7 +3171,7 @@ describe("runLynxInputTrace", () => {
     expect(settledItem?.serial).toBe(primedItem?.serial);
   });
 
-  it("primes and settles a hook through the shared portable item flow", () => {
+  it("keeps a carried hook while Action1 is pressed without movement", () => {
     const chipPos = 33;
     const eastPos = 34;
     const session = createLynxInteractiveSession(
@@ -3188,13 +3188,14 @@ describe("runLynxInputTrace", () => {
       encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
     );
 
-    expect(primed.state.inventory.tools).toEqual([0]);
-    expect(lynxPortableItems(primed.state).find((item) => item.state.mode === "primed")?.tileId).toBe(MS_TILE.Hook);
+    expect(primed.state.inventory.tools).toEqual([MS_TILE.Hook]);
+    expect(lynxPortableItems(primed.state).find((item) => item.state.mode === "primed")).toBeUndefined();
 
     const moved = advanceLynxTicks(primed, 4, MS_DIRECTION.east);
 
     expect(moved.chipPos).toBe(eastPos);
-    expect(moved.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Hook);
+    expect(moved.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(moved.state.inventory.tools).toEqual([MS_TILE.Hook]);
   });
 
   it("tugs an adjacent block when Chip moves directly away with Action1 held", () => {

@@ -14,12 +14,7 @@ export interface MsPortableToolActionContext {
   chipPos: number;
   chipZ: number;
   chipDir: number;
-  moveInputDir: number;
   tryThrowBowlingBall(item: MsPortableItem, dir: number): boolean;
-}
-
-function shouldPrimeMsPortableToolDrop(item: MsPortableItem, moveInputDir: number): boolean {
-  return item.family !== "hook" || moveInputDir === MS_DIRECTION.none;
 }
 
 export function applyMsPortableToolAction(context: MsPortableToolActionContext): boolean {
@@ -28,10 +23,11 @@ export function applyMsPortableToolAction(context: MsPortableToolActionContext):
     return false;
   }
 
+  if (carried.family === "hook") {
+    return false;
+  }
+
   if (carried.family !== "bowling-ball") {
-    if (!shouldPrimeMsPortableToolDrop(carried, context.moveInputDir)) {
-      return false;
-    }
     return primeMsToolDrop(context.store, context.inventory, context.chipPos, context.chipZ);
   }
 
