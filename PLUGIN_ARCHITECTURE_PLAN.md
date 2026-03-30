@@ -1,574 +1,470 @@
-# Plugin Architecture Plan
+# Plugin Architecture Follow-On Plan
 
-This plan is for one specific architectural goal:
+This plan replaces the completed PA1-PA10 roadmap.
 
-- make new elements mostly registerable instead of hand-wired
-- keep MS and Lynx timing/order differences intact
-- reduce the number of engine-hot-path edits required for tiles like `cloud` or actors like `bowling ball`
-- move toward element modules such as `floor.ts`, `wall.ts`, `air.ts`, `mob.ts`, `monster.ts`, `ballistic.ts`
+Current baseline:
 
-This is not a proposal to build external plugin loading.
-It is a proposal to make the in-repo ruleset architecture behave like a plugin system.
+- [x] decode/load/render/runtime registration has a real ruleset seam
+- [x] portable-item runtime and stateful-actor runtime exist
+- [x] bowling-ball and hook behavior no longer live primarily in the engine entrypoints
+- [x] engine guardrails exist to keep migrated helpers out of the kernel
 
-## Summary
+That work got the codebase to "family-owned registration and runtime helpers".
+The next goal is stronger:
 
-The repo already has partial plugin structure:
+- move from metadata and helper seams toward per-element lifecycle handlers
+- let elements look more like `testEnter`, `startEnter`, `finishEnter`, `testExit`, `finishExit`
+- make concrete element modules own behavior instead of being interpreted later by masks and outcome enums
 
-- tile metadata lives in `catalogTiles.ts`
-- actor metadata lives in `catalogActors.ts`
-- decode/load wiring lives in `elementRegistration.ts`
-- render wiring lives in `renderRegistration.ts`
+This is still not a proposal for external plugin loading.
+It is an in-repo architectural cleanup to make the rulesets behave more like plugin systems.
 
-That is good, but it is still metadata-first.
-The real behavior still fans out through:
+## Motivation
 
-- `chipArrival.ts`
-- `tileEffects.ts`
-- `floorImpactPolicy.ts`
-- `actorMovement.ts`
-- `chipMovement.ts`
-- `trapCloner.ts`
-- `portableItems.ts`
-- `engine.ts`
+We have reduced engine bloat, but we still have a structural gap:
 
-So a new element still needs:
+- catalogs mostly return masks, tags, and outcome enums
+- helper layers still translate those enums into imperative behavior
+- many gameplay changes still require touching shared interpreter files instead of only the element module
 
-1. metadata registration
-2. enum translation
-3. behavior glue in helpers
-4. engine exceptions when existing seams are not expressive enough
-5. separate render and decode work
+That means a new tile or actor often still fans out across:
 
-That is why `cloud` touched many files.
+- catalog metadata
+- arrival/interaction helpers
+- floor/activation helpers
+- movement/vertical helpers
+- render/decode/load registration
+- targeted engine tests
 
-## Current Diagnosis
+For example, the current seams are good enough to add new registrations cleanly, but not yet good enough to let `cloud.ts`, `ice.ts`, `hook.ts`, or a future `ghost.ts` own most of their own rules.
 
-### What is already working
+## Goal
 
-- ruleset-specific catalogs exist
-- actor capability policy is composition-friendly
-- portable-item runtime and stateful-actor runtime already exist
-- MS and Lynx are already allowed to differ in ordering and timing
-- render and decode are at least partially registered instead of fully hardcoded
+After this follow-on plan, adding a new element should usually mean:
 
-### What is still structurally weak
-
-- registration returns enums and masks, not executable behavior
-- effectful code is interpreted later by shared `switch` statements
-- many helpers are still shared “action translators” instead of true element handlers
-- engine kernels still know too much about specific elements and families
-- render/decode/runtime registration are related but still separate seams
-
-### Why `cloud` still spread across many files
-
-`cloud` needed all of these:
-
-- DAT decode/load registration
-- tile policy registration
-- mob-exit behavior
-- support semantics
-- renderer/projection behavior
-- artwork registration
-- tests in multiple layers
-
-That spread was not because `cloud` is inherently complicated.
-It happened because there is no single element-owned behavior registration seam.
-
-## Architectural Goal
-
-After this cleanup, adding an element should usually mean:
-
-1. add one element module per ruleset, or one shared family module plus thin ruleset wrappers
-2. register decode/load/render metadata in one place
-3. register behavior handlers in one place
+1. create one concrete element module per ruleset, or a shared family factory plus thin MS/Lynx wrappers
+2. register its decode/load/render behavior in that module
+3. register its lifecycle handlers in that module
 4. add focused tests
 
-If a feature still requires editing engine hot paths, that should mean:
+It should not usually mean:
 
-- the kernel is missing a real lifecycle seam
+- editing `engine.ts`
+- adding new raw tile-id branches in shared helper interpreters
+- adding one more enum value that must later be interpreted elsewhere
 
-not:
+## Non-Goals
 
-- the element itself needs special treatment
+- no deep class hierarchy like `mob -> monster -> ant`
+- no attempt to unify MS and Lynx timing/order into one shared runtime
+- no external plugin loader
+- no giant rewrite that invalidates replay characterization all at once
 
-## Kernel vs Plugin Boundary
+## Design Principles
 
-### Kernel should own
+### Kernel responsibilities
 
-- turn order and phase scheduling
-- movement cadence and timing
-- replay integration
-- undo/history integration
+The kernel should own:
+
+- phase order and cadence
 - occupancy bookkeeping
-- runtime actor arrays / indexes
-- z-layer traversal and layer switching
-- shared board mutation primitives
-- debug projection and trace recording
+- board mutation primitives
+- actor arrays and indexes
+- replay scheduling and history
+- z-layer traversal
+- debug tracing
+- dispatch of lifecycle hooks
 
-### Element plugins should own
+The kernel should not own:
+
+- tile-specific entry/exit effects
+- actor-specific blocked-move behavior
+- support semantics for specific element families
+- ad hoc portable-item or trap/cloner exceptions
+
+### Element responsibilities
+
+Elements should own:
 
 - entry legality
 - exit legality
-- what happens when entry starts
-- what happens when entry completes
-- what happens when exit completes
-- support semantics
-- activation semantics
-- collision semantics
-- blocked-move semantics
-- clone/trap/portable family behavior
-- render metadata
-- decode/load metadata
+- start-of-entry and completion-of-entry effects
+- blocked-move effects
+- support behavior
+- activation behavior
+- trap/cloner special-floor behavior
+- collision behavior
+- local inventory semantics
+- render/decode/load registration
 
-## Inheritance Assessment
+### Composition over inheritance
 
-Deep inheritance like:
+Inheritance is still the wrong default here.
+Behavior is orthogonal, not tree-shaped.
 
-- `mob -> monster -> ant`
+Use:
 
-is not the recommended model here.
-
-Reasons:
-
-- gameplay behavior is orthogonal, not tree-shaped
-- many actors mix traits from multiple families
-- TypeScript object composition fits this codebase better than class hierarchies
-- inheritance would make MS/Lynx divergence harder to express cleanly
-
-Recommended model:
-
-- composable family builders
 - shallow interfaces
-- explicit capability bundles
+- composition helpers
+- family builders
+- capability bundles
 
-Good examples of the shape we want:
+Good targets:
 
-- `createMobActor(...)`
-- `withMonsterMovement(...)`
+- `createFloorElement(...)`
+- `withHazardEnter(...)`
+- `withTurnToAirOnExit(...)`
+- `createMonsterActor(...)`
 - `withBallisticCollision(...)`
 - `withPortableBacking(...)`
 - `withChipLikeInventory(...)`
-- `createFloorTile(...)`
-- `withTeleportExit(...)`
-- `withTurnToAirOnExit(...)`
 
-So yes, `mob.ts`, `monster.ts`, `ballistic.ts`, `floor.ts`, `wall.ts`, `air.ts` are good targets.
-They should be composition modules, not base classes.
+## Target Architecture
 
-## Proposed Model
+### Tile lifecycle contract
 
-### Tile plugin shape
+Each ruleset should be able to register tile handlers along these lines:
 
-Each ruleset should be able to register a tile behavior bundle with handlers along these lines:
-
-- `probeEnter`
-- `beginEnter`
-- `completeEnter`
-- `probeExit`
-- `completeExit`
-- `probeSupport`
-- `onActivate`
-- `onTick`
+- `testEnter`
+- `startEnter`
+- `finishEnter`
+- `testExit`
+- `finishExit`
+- `support`
+- `activate`
+- `tick`
 - `render`
-- `decode/load`
+- `decode`
+- `load`
 
-Not every tile uses every hook.
-Most tiles will be built from family helpers that fill in defaults.
+Not every tile needs every hook.
+Most tiles should be built from families that provide defaults.
 
-### Actor plugin shape
+### Actor lifecycle contract
 
-Each ruleset should be able to register an actor behavior bundle with handlers along these lines:
+Each ruleset should be able to register actor handlers along these lines:
 
-- `probeMove`
-- `beginMove`
-- `completeMove`
+- `testMove`
+- `startMove`
+- `finishMove`
 - `blockedMove`
 - `collision`
 - `arrival`
+- `support`
 - `heldFloor`
 - `trapRelease`
 - `clonerEntry`
 - `clonerClone`
-- `support`
 - `portableBacking`
 - `render`
 
-### Family modules
+### Dispatch model
 
-Target module families:
+The engine should ask dispatchers questions like:
 
-- `elements/tiles/families/floor.ts`
-- `elements/tiles/families/wall.ts`
-- `elements/tiles/families/door.ts`
-- `elements/tiles/families/button.ts`
-- `elements/tiles/families/forcedFloor.ts`
-- `elements/tiles/families/trap.ts`
-- `elements/tiles/families/cloner.ts`
-- `elements/tiles/families/air.ts`
-- `elements/tiles/families/pickup.ts`
-- `elements/actors/families/mob.ts`
-- `elements/actors/families/monster.ts`
-- `elements/actors/families/block.ts`
-- `elements/actors/families/ballistic.ts`
-- `elements/actors/families/portableBacked.ts`
-- `elements/actors/families/playerLike.ts`
+- "can this actor enter this tile?"
+- "what happens when this actor starts entering?"
+- "what happens when this tile is exited by this actor?"
+- "what supports this actor here?"
 
-Concrete elements would then become small compositions:
+It should not ask:
 
-- `tiles/cloud.ts`
-- `tiles/ice.ts`
-- `tiles/teleport.ts`
-- `actors/bowlingBall.ts`
-- `actors/glider.ts`
-- `actors/ball.ts`
+- "is this tile water/fire/bomb/cloud?"
+- "is this actor a bowling ball / hook / portable-backed special case?"
 
-## Migration Principle
+## What Still Needs To Change
 
-Do not rewrite the engine in one pass.
+Even after PA10, the remaining architectural pain is concentrated in interpreter layers like:
 
-Instead:
+- chip arrival / actor arrival helpers
+- tile-effects helpers
+- floor-impact helpers
+- vertical/support helpers
+- trap/cloner helpers
+- movement helpers that still interpret masks and outcome enums
 
-1. add handler registries and adapters
-2. route existing enum-based behavior through those adapters
+Those files are cleaner than before, but they still represent "behavior translation" more than true element ownership.
+
+## Concrete End State Examples
+
+### Cloud
+
+After this plan, `cloud.ts` should own:
+
+- decode/load behavior for `0x72`
+- render alpha
+- support behavior
+- `finishExit` turning the tile to air
+
+Adding cloud should not require edits to engine hot paths.
+
+### Bowling ball
+
+After this plan, `bowlingBall.ts` plus its family helpers should own:
+
+- moving/still lifecycle
+- throw activation
+- collision semantics
+- trap/cloner semantics
+- support semantics
+- local inventory behavior
+
+The engine should only schedule movement and dispatch handlers.
+
+### Future ghost / fake player
+
+These should be expressible by composing:
+
+- actor movement policy
+- collision policy
+- support policy
+- local inventory policy
+- tile-entry overrides
+
+without introducing one-off engine branches.
+
+## Migration Strategy
+
+Do not replace everything in one pass.
+
+Do this instead:
+
+1. define typed lifecycle contracts
+2. build dispatcher adapters around the existing helper layers
 3. migrate one seam at a time
-4. only then delete old translation layers
-
-That keeps replay stability measurable.
+4. keep MS and Lynx handlers separate even when the hook names are shared
+5. delete the old enum/mask translation layers only after replay coverage is stable
 
 ## Success Criteria
 
-- [ ] adding a floor-like tile with custom enter/exit behavior does not require editing engine hot paths
-- [ ] adding a new actor family with custom collision/blocked-move/floor-arrival behavior does not require editing engine hot paths
-- [ ] render, decode, and behavior registration for a new element are co-located
-- [ ] MS and Lynx can share family-builder shapes without being forced to share timing logic
-- [ ] cloud-like elements can be added with only element-module, art, and tests changes
-- [ ] bowling-ball-like elements can be added with only family/element-module, art, and tests changes unless a truly new kernel seam is needed
+- [ ] adding a floor-like tile with custom enter/exit/support behavior does not require engine edits
+- [ ] adding an actor with custom blocked-move/collision/arrival behavior does not require engine edits
+- [ ] render, decode, load, and behavior registration for a concrete element are co-located
+- [ ] MS and Lynx share lifecycle shapes, not forced shared logic
+- [ ] old translation layers shrink to thin dispatch adapters or disappear entirely
+- [ ] a new tile like `cloud` or `popup wall` can live mostly in its own module
+- [ ] a new actor like `ghost`, `fake player`, or `bowling ball` can live mostly in its own module
 
-## PR Roadmap
+## Roadmap
 
-### PA1: Write The Kernel Contract
+### PA11: Define Lifecycle Hook Types
 
 Goal:
 
-- freeze what belongs to the kernel versus what belongs to element plugins
+- introduce first-class tile and actor lifecycle interfaces
 
 Targets:
 
 - `web/src/game-core/api/ruleset.ts`
-- new doc comments in ruleset registration types
-- this plan can be referenced from repo docs if needed
+- new lifecycle type modules under `web/src/game-core/api/`
+- ruleset registration types
 
 Checklist:
 
-- [x] define tile lifecycle phases by name
-- [x] define actor lifecycle phases by name
-- [x] define support/activation/render/decode seam ownership
-- [x] document “no new raw tile-id branches in engine hot paths” rule
+- [ ] define tile lifecycle hook interfaces with `testEnter/startEnter/finishEnter/testExit/finishExit/support/activate/tick`
+- [ ] define actor lifecycle hook interfaces with `testMove/startMove/finishMove/blockedMove/collision/arrival/support`
+- [ ] define narrow context types so handlers do not receive giant bags of unrelated arguments
+- [ ] add defaults/null-object helpers so elements only implement the hooks they need
 
 Tests:
 
-- [x] none beyond typecheck
+- [ ] type-level registration tests
+- [ ] architecture tests proving engines depend on lifecycle dispatch, not concrete element modules
 
-Exit gate:
-
-- [x] the lifecycle vocabulary is stable enough that later PRs do not rename core seams again
-
-### PA2: Introduce Executable Tile And Actor Handler Interfaces
+### PA12: Add Dispatch Registries And Adapters
 
 Goal:
 
-- upgrade registration from metadata-only to metadata-plus-handlers
+- route existing behavior through lifecycle dispatch without changing gameplay yet
 
 Targets:
 
-- `web/src/game-core/api/ruleset.ts`
-- new files under `web/src/game-core/api/` for tile/actor handler interfaces
-- optional adapter helpers under `web/src/game-core/impl/`
+- `elementRegistration.ts` in both rulesets
+- current arrival/tile/floor interpreter seams
 
 Checklist:
 
-- [x] add `TileBehavior` interface
-- [x] add `ActorBehavior` interface
-- [x] add default no-op behavior helpers
-- [x] keep current catalogs working through adapters
+- [ ] add tile lifecycle registries to both rulesets
+- [ ] add actor lifecycle registries to both rulesets
+- [ ] wrap current enum/mask behavior in adapter handlers
+- [ ] keep behavior identical while introducing the new call shape
 
 Tests:
 
-- [x] new unit tests for default handler behavior
-- [x] typecheck `game-core`
-- [x] typecheck `tests`
+- [ ] registration coverage tests
+- [ ] focused replay checks proving no behavior drift
 
-Exit gate:
-
-- [x] rulesets can register behavior objects without changing runtime behavior yet
-
-### PA3: Create Tile Family Builders
+### PA13: Migrate Tile Enter/Exit Behavior First
 
 Goal:
 
-- replace large tile-policy sets and ad hoc tag derivation with composable family definitions
+- make tile modules own entry/exit semantics
 
-Targets:
+First targets:
 
-- `web/src/ruleset-ms/impl/catalogTiles.ts`
-- `web/src/ruleset-lynx/impl/catalogTiles.ts`
-- new family modules under:
-  - `web/src/ruleset-ms/impl/elements/tiles/families/`
-  - `web/src/ruleset-lynx/impl/elements/tiles/families/`
+- `water`
+- `fire`
+- `bomb`
+- `dirt`
+- `popup wall`
+- `blue wall` real/fake variants
+- `cloud`
 
 Checklist:
 
-- [x] add `floor` family builder
-- [x] add `wall` family builder
-- [x] add `pickup` family builder
-- [x] add `door` family builder
-- [x] add `button` family builder
-- [x] add `forcedFloor` family builder
-- [x] add `trap` family builder
-- [x] add `cloner` family builder
-- [x] add `air` family builder
-- [x] rebuild tile policy tables from family composition
+- [ ] move `testEnter` and `finishEnter` semantics into concrete tile modules
+- [ ] move `finishExit` semantics into concrete tile modules
+- [ ] reduce tile-effects and floor-impact translators accordingly
+- [ ] ensure chip and non-chip entry both use the same tile-owned seam where appropriate
 
 Tests:
 
-- [x] catalog tile tests in both rulesets
-- [x] focused policy tests for masks, tags, and actions
-- [x] typecheck `ruleset-ms`
-- [x] typecheck `ruleset-lynx`
+- [ ] focused engine tests for each migrated tile
+- [ ] bounded replay sweeps around affected packs
 
-Exit gate:
-
-- [x] tile metadata is assembled from family composition, not large local constant sets plus special-case branches
-
-### PA4: Create Actor Family Builders
+### PA14: Migrate Support And Vertical Semantics
 
 Goal:
 
-- replace flat actor capability switching with composable actor-family definitions
+- make support decisions plugin-owned instead of scattered through vertical helpers
 
-Targets:
+First targets:
 
-- `web/src/ruleset-ms/impl/catalogActors.ts`
-- `web/src/ruleset-lynx/impl/catalogActors.ts`
-- new family modules under:
-  - `web/src/ruleset-ms/impl/elements/actors/families/`
-  - `web/src/ruleset-lynx/impl/elements/actors/families/`
+- `air`
+- `cloud`
+- `elevator`
+- portable items on air
+- actor support exceptions like blocks and bowling balls
 
 Checklist:
 
-- [x] add `mob` family builder
-- [x] add `monster` family builder
-- [x] add `block` family builder
-- [x] add `ballistic` family builder
-- [x] add `portableBacked` family builder
-- [x] add `playerLike` family builder
-- [x] refactor concrete actors to compose from these families
+- [ ] introduce support-provider and support-consumer hooks
+- [ ] move tile-specific support semantics out of generic vertical helpers
+- [ ] move portable-item support/drop semantics onto shared portable/special-item families
+- [ ] keep MS/Lynx ordering differences in the ruleset runtime, not the shared hook shapes
 
 Tests:
 
-- [x] catalog actor tests in both rulesets
-- [x] focused actor capability tests for glider/fireball/bug/bowling ball
-- [x] typecheck `ruleset-ms`
-- [x] typecheck `ruleset-lynx`
+- [ ] air/cloud/elevator regression suites
+- [ ] portable-item drop/support regression suites
+- [ ] targeted replay sweeps for vertical interaction levels
 
-Exit gate:
-
-- [x] new actors can be defined by composing families instead of editing a large switch
-
-### PA5: Replace Floor-Impact Enum Translation With Tile Handlers
+### PA15: Migrate Forced Floors, Teleports, Traps, And Cloners
 
 Goal:
 
-- move chip-enter behavior out of enum translation and into tile-owned handlers
+- make special-floor behavior element-owned
 
-Targets:
+First targets:
 
-- `web/src/game-core/impl/floorImpact.ts`
-- `web/src/ruleset-ms/impl/floorImpactPolicy.ts`
-- `web/src/ruleset-lynx/impl/floorImpactPolicy.ts`
-- `web/src/ruleset-ms/impl/chipArrival.ts`
-- `web/src/ruleset-lynx/impl/chipArrival.ts`
+- `ice`
+- `force floors`
+- `teleport`
+- `beartrap`
+- `clone machine`
 
 Checklist:
 
-- [x] introduce handler-driven chip enter flow
-- [x] migrate collect/open-door/open-socket/popup/teleport/hazard behavior
-- [x] keep portable-item replacement chaining as a shared hook instead of local conditionals
-- [x] preserve MS and Lynx ordering differences
+- [ ] move forced-direction queries behind tile hooks
+- [ ] move trap/cloner entry and release behavior behind tile + actor hooks
+- [ ] let actor families express how they behave on those floors without raw tile-id branches
+- [ ] keep clone/trap timing differences ruleset-local
 
 Tests:
 
-- [x] chip arrival tests in both rulesets
-- [x] teleport, popup wall, door, socket, hazard, and portable replacement tests
-- [x] targeted replay checks for affected packs
+- [ ] focused trap/cloner/teleport/ice suites
+- [ ] bounded replay sweeps for known special-floor levels
 
-Exit gate:
-
-- [x] chip arrival no longer depends on action-enum translation switches for ordinary tile behavior
-
-### PA6: Replace Exit And Support Enums With Tile Handlers
+### PA16: Migrate Actor Collision And Arrival Ownership
 
 Goal:
 
-- move leave/support behavior into tile-owned hooks
+- make actor modules own collision, blocked-move, and arrival behavior
 
-Targets:
+First targets:
 
-- `web/src/ruleset-ms/impl/tileEffects.ts`
-- `web/src/ruleset-lynx/impl/tileEffects.ts`
-- new tile family modules for support and leave behavior
+- `block`
+- `ballistic` families
+- `bowling ball`
+- `chip-like` actors
+- core monster families
 
 Checklist:
 
-- [x] migrate `turn-to-air` exit behavior to tile handlers
-- [x] migrate support probing for air/elevator/cloner/doors/socket/supporting walls
-- [x] move cloud support/leave behavior into its tile module
-- [x] keep blue-wall reveal/opening behavior shared but handler-driven
+- [ ] move collision policy from outcome translators to actor handlers
+- [ ] move blocked-move behavior to actor handlers
+- [ ] move arrival side effects to actor handlers where the actor is the real owner
+- [ ] leave kernel occupancy and scheduling intact
 
 Tests:
 
-- [x] cloud tests
-- [x] air support tests
-- [x] door/socket support-drop tests
-- [x] typecheck `ruleset-ms`
-- [x] typecheck `ruleset-lynx`
+- [ ] focused collision and blocked-move suites
+- [ ] bowling-ball characterization regressions
+- [ ] targeted replay sweeps for movement-heavy packs
 
-Exit gate:
-
-- [x] adding a cloud-like tile no longer requires edits to generic tile-effects switch code
-
-### PA7: Migrate Trap, Cloner, And Forced-Floor Family Behavior
+### PA17: Introduce Concrete Family Builders
 
 Goal:
 
-- move trap/cloner/floor-hold semantics to family handlers while the engine keeps scheduling
+- make concrete element files small compositions instead of bespoke helper piles
 
 Targets:
 
-- `web/src/ruleset-ms/impl/trapCloner.ts`
-- `web/src/ruleset-lynx/impl/trapCloner.ts`
-- `web/src/ruleset-ms/impl/controllers.ts`
-- `web/src/ruleset-lynx/impl/controllers.ts`
-- forced-floor helpers in both engines
+- `elements/tiles/families/*`
+- `elements/actors/families/*`
 
 Checklist:
 
-- [x] trap held/release behavior uses actor family hooks, not engine-local branches
-- [x] cloner entry/hold/release/clone behavior uses actor family hooks
-- [x] forced-floor hold/redirect semantics move to family modules
-- [x] bowling-ball and future ghost/fake-player hooks fit through the same seam
+- [ ] add family builders for `floor`, `wall`, `hazard`, `forcedFloor`, `button`, `trap`, `cloner`, `air`
+- [ ] add family builders for `mob`, `monster`, `block`, `ballistic`, `portableBacked`, `playerLike`
+- [ ] make concrete element modules mostly composition declarations
+- [ ] avoid class inheritance and keep builders data-plus-hook oriented
 
 Tests:
 
-- [x] trap/cloner family tests
-- [x] focused engine tests for trap and cloner edge cases
-- [x] targeted replay sweeps around trap/cloner content
+- [ ] family builder unit tests
+- [ ] registration smoke tests for representative concrete elements
 
-Exit gate:
-
-- [x] engine controls timing, plugins control family behavior
-
-### PA8: Portable Item And Stateful Actor Plugin Unification
+### PA18: Co-Locate Concrete Element Ownership
 
 Goal:
 
-- make portable-backed actors and portable tiles first-class element plugins
-
-Targets:
-
-- `web/src/ruleset-ms/impl/portableItems.ts`
-- `web/src/ruleset-lynx/impl/portableItems.ts`
-- stateful actor runtime helpers in both rulesets
-- portable tool action helpers in both rulesets
+- put decode/load/render/behavior registration in one home per concrete element
 
 Checklist:
 
-- [x] define portable-item family handler interfaces
-- [x] define actor portable-backing handler interfaces
-- [x] move sandbag/hook/bowling-ball shared lifecycle into family helpers
-- [x] keep local inventory and clone behavior in the plugin seam
+- [ ] `elementRegistration.ts` becomes assembly only
+- [ ] concrete element modules export a single registration bundle
+- [ ] remove duplication between registration and behavior helper files
+- [ ] make new elements land in one obvious place
 
 Tests:
 
-- [x] portable item tests in both rulesets
-- [x] stateful actor lifecycle tests
-- [x] undo/projection tests where portable-backed state matters
+- [ ] registration completeness tests
+- [ ] architecture tests forbidding behavior logic in assembly-only files
 
-Exit gate:
-
-- [x] a portable-backed actor family can be added without editing engine hot paths
-
-### PA9: Unify Decode, Load, Render, And Behavior Registration
+### PA19: Remove Legacy Translation Layers
 
 Goal:
 
-- give each element one registration home
-
-Targets:
-
-- `web/src/ruleset-ms/impl/elementRegistration.ts`
-- `web/src/ruleset-lynx/impl/elementRegistration.ts`
-- `web/src/ruleset-ms/impl/renderRegistration.ts`
-- `web/src/ruleset-lynx/impl/renderRegistration.ts`
-- decode/load registration APIs
+- delete the temporary adapters once lifecycle ownership is real
 
 Checklist:
 
-- [x] tie decode/load/render/runtime behavior into one element registration object
-- [x] make render projection lookup family-aware and element-owned
-- [x] reduce cross-file registration duplication for portable items and stateful actors
+- [ ] remove deprecated mask/outcome translation helpers that only exist for back-compat
+- [ ] remove now-redundant tile and actor switch statements
+- [ ] tighten architecture tests to prevent raw tile-id branches from returning
+- [ ] keep only scheduler/order/occupancy/runtime bookkeeping in the engines
 
 Tests:
 
-- [x] render registration tests
-- [x] level decode/load tests
-- [x] projection tests
-- [x] typecheck `player-web`
+- [ ] full relevant typechecks
+- [ ] broader replay sweeps for both rulesets
+- [ ] focused regression suites for migrated lifecycle seams
 
-Exit gate:
+## Exit Gate
 
-- [x] adding a new element means editing one registration module and one element module, not four disjoint registries
-
-### PA10: Slim The Engines To Kernel-Only Responsibilities
-
-Goal:
-
-- remove migrated element knowledge from the engine entrypoints
-
-Targets:
-
-- `web/src/ruleset-ms/impl/engine.ts`
-- `web/src/ruleset-lynx/impl/engine.ts`
-- any still-large helper modules that only remain as compatibility shims
-
-Checklist:
-
-- [x] replace remaining raw element checks in engine hot paths with handler dispatch
-- [x] keep only scheduler/order/occupancy/runtime bookkeeping in the kernel
-- [x] add guardrails to prevent new raw tile-id branches from entering engine hot paths
-
-Tests:
-
-- [x] full targeted replay sweeps for both rulesets
-- [x] full relevant typechecks
-- [x] focused regression suites for bowling ball, cloud, trap/cloner, air, teleports
-
-Exit gate:
-
-- [x] the engine files mostly read like phase schedulers, not element encyclopedias
-
-## Recommended Order After This Plan
-
-If the immediate goal is future extensibility for:
-
-- bowling balls
-- ghosts
-- fake players
-- cloud-like terrain
-- new portable items
-
-then the best first implementation step is:
-
-- PA2, then PA3, then PA4, then PA5
-
-That is the earliest point where new elements stop defaulting to engine edits.
+- [ ] the engines read primarily as schedulers and dispatchers
+- [ ] concrete element modules own most concrete gameplay behavior
+- [ ] adding `cloud`, `ghost`, `fake player`, `hook`, or similar elements is mostly local work
+- [ ] adding a genuinely new gameplay concept requires adding a new typed seam, not scattering new conditionals
