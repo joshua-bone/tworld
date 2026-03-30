@@ -2,7 +2,7 @@ import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCapabilities";
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult } from "@game-core/api/verticalMovement";
-import { promoteBottomTile, replaceBottomTile, replaceTopTile } from "@game-core/impl/board";
+import { promoteBottomTile } from "@game-core/impl/board";
 import {
   lynxButtonAction,
   lynxInventorySlot,
@@ -10,12 +10,12 @@ import {
 import {
   type LynxTileLeaveBehaviorContext,
 } from "@ruleset-lynx/impl/elements/tiles/families/leave";
+import { type LynxBlockedChipEnterTileBehaviorContext } from "@ruleset-lynx/impl/elements/tiles/concrete/revealWall";
 import {
   type LynxTileSupportBehaviorContext,
   type LynxTileSupportContext,
   type LynxTileSupportSubject,
 } from "@ruleset-lynx/impl/elements/tiles/families/support";
-import { lynxBlockedEnterEffect } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { lookupLynxTileLifecyclePhase } from "@ruleset-lynx/impl/tileLifecycleRegistration";
 import { isMsCreature, MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -27,7 +27,7 @@ export interface LynxTileActivationContext {
 }
 
 export function isLynxBlockedChipEnterRevealTile(tileId: number): boolean {
-  return lynxBlockedEnterEffect(tileId) === "reveal-wall";
+  return lookupLynxTileLifecyclePhase(tileId, "probe-enter") !== null;
 }
 
 function lynxTopUsesUnderlyingFloor(topId: number): boolean {
@@ -79,12 +79,38 @@ export function applyLynxBlockedChipEnterEffect(state: EngineState, pos: number)
   }
 
   if (isLynxBlockedChipEnterRevealTile(cell.top.id)) {
-    replaceTopTile(state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
-    return true;
+    const probeEnter = lookupLynxTileLifecyclePhase(cell.top.id, "probe-enter");
+    if (probeEnter === null) {
+      return false;
+    }
+    const behaviorContext: LynxBlockedChipEnterTileBehaviorContext = {
+      phase: "probe-enter",
+      tileId: cell.top.id,
+      actorId: MS_TILE.Chip,
+      state,
+      pos,
+      layer: "top",
+      blocked: false,
+    };
+    probeEnter(behaviorContext);
+    return behaviorContext.blocked;
   }
   if (lynxTopUsesUnderlyingFloor(cell.top.id) && isLynxBlockedChipEnterRevealTile(cell.bottom.id)) {
-    replaceBottomTile(state.map.cells, pos, { ...cell.bottom, id: MS_TILE.Wall });
-    return true;
+    const probeEnter = lookupLynxTileLifecyclePhase(cell.bottom.id, "probe-enter");
+    if (probeEnter === null) {
+      return false;
+    }
+    const behaviorContext: LynxBlockedChipEnterTileBehaviorContext = {
+      phase: "probe-enter",
+      tileId: cell.bottom.id,
+      actorId: MS_TILE.Chip,
+      state,
+      pos,
+      layer: "bottom",
+      blocked: false,
+    };
+    probeEnter(behaviorContext);
+    return behaviorContext.blocked;
   }
   return false;
 }

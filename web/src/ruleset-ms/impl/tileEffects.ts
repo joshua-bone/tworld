@@ -2,7 +2,6 @@ import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import { actorUsesChipSupport, type ActorAirHook } from "@game-core/api/actorCapabilities";
 import { VERTICAL_SUPPORT_RESULT, type VerticalSupportResult } from "@game-core/api/verticalMovement";
-import { replaceBottomTile, replaceTopTile } from "@game-core/impl/board";
 import {
   msButtonAction,
   msIsOverlayFloorTile,
@@ -10,12 +9,12 @@ import {
 import {
   type MsTileLeaveBehaviorContext,
 } from "@ruleset-ms/impl/elements/tiles/families/leave";
+import { type MsBlockedChipEnterTileBehaviorContext } from "@ruleset-ms/impl/elements/tiles/concrete/revealWall";
 import {
   type MsTileSupportBehaviorContext,
   type MsTileSupportContext,
   type MsTileSupportSubject,
 } from "@ruleset-ms/impl/elements/tiles/families/support";
-import { msBlockedEnterEffect } from "@ruleset-ms/impl/floorImpactPolicy";
 import { lookupMsTileLifecyclePhase } from "@ruleset-ms/impl/tileLifecycleRegistration";
 import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
@@ -59,7 +58,7 @@ export function applyMsMobExitFloorEffect(cells: EngineMapCell[], pos: number): 
 }
 
 export function isMsBlockedChipEnterRevealTile(tileId: number): boolean {
-  return msBlockedEnterEffect(tileId) === "reveal-wall";
+  return lookupMsTileLifecyclePhase(tileId, "probe-enter") !== null;
 }
 
 function msBlockedChipEnterRevealLayer(
@@ -87,14 +86,23 @@ export function applyMsBlockedChipEnterEffect(
   if (!cell || revealLayer === null) {
     return false;
   }
-  if (exposeWalls) {
-    if (revealLayer === "top") {
-      replaceTopTile(cells, pos, { ...cell.top, id: MS_TILE.Wall });
-    } else {
-      replaceBottomTile(cells, pos, { ...cell.bottom, id: MS_TILE.Wall });
-    }
+  const tileId = revealLayer === "top" ? cell.top.id : cell.bottom.id;
+  const probeEnter = lookupMsTileLifecyclePhase(tileId, "probe-enter");
+  if (probeEnter === null) {
+    return false;
   }
-  return true;
+  const behaviorContext: MsBlockedChipEnterTileBehaviorContext = {
+    phase: "probe-enter",
+    tileId,
+    actorId: MS_TILE.Chip,
+    cells,
+    pos,
+    layer: revealLayer,
+    exposeWalls,
+    blocked: false,
+  };
+  probeEnter(behaviorContext);
+  return behaviorContext.blocked;
 }
 
 export function hasMsTileActivation(tileId: number): boolean {

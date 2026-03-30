@@ -82,6 +82,17 @@ describe("lynx chip arrival", () => {
     expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
   });
 
+  it("clears fake blue walls through the concrete tile behavior seam", () => {
+    const context = createContext();
+    context.state.map.cells[34] = createCell(34, MS_TILE.BlueWall_Fake, MS_TILE.Empty);
+
+    const arrival = applyLynxChipArrivalEffects(context, 34);
+
+    expect(arrival.status).toBe("resolved");
+    expect(arrival.soundEffects).toBe(4);
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
+  });
+
   it("leaves sockets closed when chips are still needed", () => {
     const context = createContext();
     context.state.inventory.chipsNeeded = 1;
@@ -184,6 +195,64 @@ describe("lynx chip arrival", () => {
 
     expect(completed.chipPos).toBe(34);
     expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Water);
+  });
+
+  it("drowns Chip on direct water through the complete-enter tile seam", () => {
+    let failureReason: string | null = null;
+    const context = createContext({
+      failChip: (
+        chipPos,
+        _chipDir,
+        endGameTicksElapsed,
+        endGameResult,
+        endGameAnimationTileId,
+        endGameAnimationFrame,
+        reason,
+      ) => {
+        failureReason = reason;
+        return {
+          chipPos,
+          endGameTicksElapsed,
+          endGameResult,
+          endGameAnimationTileId,
+          endGameAnimationFrame,
+        };
+      },
+    });
+    context.state.map.cells[34] = createCell(34, MS_TILE.Water, MS_TILE.Empty);
+
+    applyCompletedLynxChipMove(context, 34, MS_DIRECTION.east, "planar", null, null, null, null);
+
+    expect(failureReason).toBe("drowned");
+  });
+
+  it("burns Chip on direct fire through the complete-enter tile seam", () => {
+    let failureReason: string | null = null;
+    const context = createContext({
+      failChip: (
+        chipPos,
+        _chipDir,
+        endGameTicksElapsed,
+        endGameResult,
+        endGameAnimationTileId,
+        endGameAnimationFrame,
+        reason,
+      ) => {
+        failureReason = reason;
+        return {
+          chipPos,
+          endGameTicksElapsed,
+          endGameResult,
+          endGameAnimationTileId,
+          endGameAnimationFrame,
+        };
+      },
+    });
+    context.state.map.cells[34] = createCell(34, MS_TILE.Fire, MS_TILE.Empty);
+
+    applyCompletedLynxChipMove(context, 34, MS_DIRECTION.east, "planar", null, null, null, null);
+
+    expect(failureReason).toBe("burned");
   });
 
   it("bombs Chip after collecting a portable item that reveals a bomb", () => {

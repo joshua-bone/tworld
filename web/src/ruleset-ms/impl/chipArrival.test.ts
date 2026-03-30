@@ -114,6 +114,15 @@ describe("applyMsChipEnterEffects", () => {
     expect(result.soundEffects).toBe(1 << MS_SOUND.SocketOpened);
   });
 
+  it("clears fake blue walls through the concrete tile behavior seam", () => {
+    const cells = [makeCell(MS_TILE.BlueWall_Fake)];
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(makeInventory(), makePortableTools()), 0);
+
+    expect(cells[0]!.top.id).toBe(MS_TILE.Empty);
+    expect(result.movementFloorTile.id).toBe(MS_TILE.Empty);
+  });
+
   it("collects hook portable tools through the same portable item store", () => {
     const cells = [makeCell(MS_TILE.Hook)];
     const inventory = makeInventory();
@@ -163,6 +172,14 @@ describe("applyMsChipEnterEffects", () => {
     applyMsChipEnterEffects([makeCell(MS_TILE.Water)], chip, makeContext(makeInventory(), makePortableTools()), 0);
 
     expect(chip.chipStatus).toBe("drowned");
+  });
+
+  it("marks fire death through the concrete tile behavior seam", () => {
+    const chip = makeChipState();
+
+    applyMsChipEnterEffects([makeCell(MS_TILE.Fire)], chip, makeContext(makeInventory(), makePortableTools()), 0);
+
+    expect(chip.chipStatus).toBe("burned");
   });
 
   it("collects a portable item and then resolves the revealed lower water tile", () => {

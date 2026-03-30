@@ -1,6 +1,4 @@
 import type { EngineState } from "@game-core/api/model";
-import { promoteBottomTile } from "@game-core/impl/board";
-import { mapHash } from "@game-core/impl/hash";
 import {
   completedArrival,
   noArrival,
@@ -12,8 +10,8 @@ import {
   lynxTileForcedFloorKind,
 } from "@ruleset-lynx/impl/catalog";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
-import { lynxTilePostEntryAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { type LynxChipEnterTileBehaviorContext } from "@ruleset-lynx/impl/chipEnterBehavior";
+import { type LynxChipFinishEnterTileBehaviorContext } from "@ruleset-lynx/impl/elements/tiles/concrete/registration";
 import { lookupLynxTileLifecyclePhase } from "@ruleset-lynx/impl/tileLifecycleRegistration";
 import type {
   LynxEndGameResult,
@@ -145,57 +143,37 @@ export function applyCompletedLynxChipMove(
   }
 
   const resolvedFloorAfterMove = context.state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty;
-  const postEntryAction = lynxTilePostEntryAction(resolvedFloorAfterMove);
-  switch (postEntryAction) {
-    case "destroy-water":
-      if (!context.hasBoot(MS_TILE.Boots_Water)) {
-        return {
-          chipDir,
-          ...context.failChip(
-            chipPos,
-            chipDir,
-            endGameTicksElapsed,
-            endGameResult,
-            endGameAnimationTileId,
-            endGameAnimationFrame,
-            "drowned",
-          ),
-        };
-      }
-      break;
-    case "destroy-fire":
-      if (!context.hasBoot(MS_TILE.Boots_Fire)) {
-        return {
-          chipDir,
-          ...context.failChip(
-            chipPos,
-            chipDir,
-            endGameTicksElapsed,
-            endGameResult,
-            endGameAnimationTileId,
-            endGameAnimationFrame,
-            "burned",
-          ),
-        };
-      }
-      break;
-    case "destroy-bomb":
-      promoteBottomTile(context.state.map.cells, chipPos, MS_TILE.Empty);
-      context.state.map.hash = mapHash(context.state.map.cells);
+  const finishEnter = lookupLynxTileLifecyclePhase(resolvedFloorAfterMove, "complete-enter");
+  if (finishEnter !== null) {
+    const behaviorContext: LynxChipFinishEnterTileBehaviorContext = {
+      phase: "complete-enter",
+      tileId: resolvedFloorAfterMove,
+      actorId: MS_TILE.Chip,
+      runtime: context,
+      chipPos,
+      chipDir,
+      endGameTicksElapsed,
+      endGameResult,
+      endGameAnimationTileId,
+      endGameAnimationFrame,
+      finished: false,
+    };
+    finishEnter(behaviorContext);
+    chipPos = behaviorContext.chipPos;
+    endGameTicksElapsed = behaviorContext.endGameTicksElapsed;
+    endGameResult = behaviorContext.endGameResult;
+    endGameAnimationTileId = behaviorContext.endGameAnimationTileId;
+    endGameAnimationFrame = behaviorContext.endGameAnimationFrame;
+    if (behaviorContext.finished) {
       return {
+        chipPos,
         chipDir,
-        ...context.failChip(
-          chipPos,
-          chipDir,
-          endGameTicksElapsed,
-          endGameResult,
-          endGameAnimationTileId,
-          endGameAnimationFrame,
-          "bombed",
-        ),
+        endGameTicksElapsed,
+        endGameResult,
+        endGameAnimationTileId,
+        endGameAnimationFrame,
       };
-    default:
-      break;
+    }
   }
 
   if (lynxButtonAction(resolvedFloorAfterMove) === "spring-trap") {

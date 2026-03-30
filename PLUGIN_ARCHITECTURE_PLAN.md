@@ -312,15 +312,15 @@ First targets:
 
 Checklist:
 
-- [ ] move `testEnter` and `finishEnter` semantics into concrete tile modules
-- [ ] move `finishExit` semantics into concrete tile modules
-- [ ] reduce tile-effects and floor-impact translators accordingly
-- [ ] ensure chip and non-chip entry both use the same tile-owned seam where appropriate
+- [x] move `testEnter` and `finishEnter` semantics into concrete tile modules
+- [x] move `finishExit` semantics into concrete tile modules
+- [x] reduce tile-effects and floor-impact translators accordingly
+- [x] ensure chip and non-chip entry both use the same tile-owned seam where appropriate
 
 Tests:
 
-- [ ] focused engine tests for each migrated tile
-- [ ] bounded replay sweeps around affected packs
+- [x] focused engine tests for each migrated tile
+- [x] bounded replay sweeps around affected packs
 
 ### PA14: Migrate Support And Vertical Semantics
 

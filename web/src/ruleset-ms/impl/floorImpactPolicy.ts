@@ -1,12 +1,10 @@
 import type { ActorFloorImpactAction } from "@game-core/impl/floorImpact";
 import { actorBlockedMoveRevertsPortable, actorBlockedMoveKeepsDirection } from "@game-core/api/actorCapabilities";
 import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { msActorBlockedMoveKind, msChipEnterAction } from "@ruleset-ms/impl/catalog";
 import type { MsChipEnterAction } from "@ruleset-ms/impl/catalogTiles";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { msActorHeldFloorOutcome } from "@ruleset-ms/impl/actorInteractions";
-
-export type MsBlockedEnterEffect = "none" | "reveal-wall";
 
 export function msFloorImpactAction(action: MsChipEnterAction): ActorFloorImpactAction | null {
   switch (action) {
@@ -72,8 +70,4 @@ export function msTilePostEntryAction(tileId: number): ActorFloorImpactAction | 
     return "teleport";
   }
   return msFloorImpactAction(msChipEnterAction(tileId));
-}
-
-export function msBlockedEnterEffect(tileId: number): MsBlockedEnterEffect {
-  return tileId === MS_TILE.HiddenWall_Temp || tileId === MS_TILE.BlueWall_Real ? "reveal-wall" : "none";
 }

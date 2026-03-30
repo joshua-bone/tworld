@@ -15,6 +15,7 @@ import {
 } from "@ruleset-ms/impl/catalog";
 import { collectMsActorTile } from "@ruleset-ms/impl/actorCollections";
 import { msActorArrivalOutcome } from "@ruleset-ms/impl/actorInteractions";
+import { applyMsConcreteTileActorArrivalEffects } from "@ruleset-ms/impl/elements/tiles/concrete/registration";
 import { msFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
 import type { MsStatefulActorRuntimeEntry } from "@ruleset-ms/impl/statefulActors";
 
@@ -73,6 +74,10 @@ export function applyMsActorArrivalEffects(
 
   const floorTile = standingFloorTile(cell);
   const floorId = floorTile.id;
+  const concreteSoundEffects = applyMsConcreteTileActorArrivalEffects(cells, pos, floorId);
+  if (concreteSoundEffects !== null) {
+    return concreteSoundEffects;
+  }
   const floorImpactAction = msFloorImpactAction(msChipEnterAction(floorId));
   if (floorImpactAction === null) {
     return 0;

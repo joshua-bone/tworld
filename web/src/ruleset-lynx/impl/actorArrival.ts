@@ -8,6 +8,7 @@ import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { lynxChipEnterAction, lynxDoorKeyIndex } from "@ruleset-lynx/impl/catalog";
 import { collectLynxActorTile } from "@ruleset-lynx/impl/actorCollections";
 import { lynxActorArrivalOutcome } from "@ruleset-lynx/impl/actorInteractions";
+import { applyLynxConcreteTileActorArrivalEffects } from "@ruleset-lynx/impl/elements/tiles/concrete/registration";
 import { lynxFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import type { LynxStatefulActorRuntimeEntry } from "@ruleset-lynx/impl/statefulActors";
 
@@ -65,6 +66,11 @@ export function applyLynxActorArrivalEffects(
   const cell = context.state.map.cells[pos];
   if (!cell) {
     return 0;
+  }
+
+  const concreteSoundEffects = applyLynxConcreteTileActorArrivalEffects(context.state, pos, cell.top.id, context.soundBits);
+  if (concreteSoundEffects !== null) {
+    return concreteSoundEffects;
   }
 
   const floorImpactAction = lynxFloorImpactAction(lynxChipEnterAction(cell.top.id));

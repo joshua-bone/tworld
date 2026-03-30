@@ -10,6 +10,7 @@ import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/a
 import { createLynxAirTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/air";
 import { createLynxButtonTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/button";
 import { createLynxClonerTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/cloner";
+import { createLynxConcreteTileBehavior } from "@ruleset-lynx/impl/elements/tiles/concrete/registration";
 import { createLynxDoorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/door";
 import { createLynxFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/floor";
 import { createLynxForcedFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
@@ -437,6 +438,7 @@ function createLynxTileDefinition(id: number): TileDefinition<number> {
       createLynxChipEnterTileBehavior(policy),
       createLynxLeaveTileBehavior(policy),
       createLynxSupportTileBehavior(policy, id),
+      createLynxConcreteTileBehavior(id),
     ),
   };
 }

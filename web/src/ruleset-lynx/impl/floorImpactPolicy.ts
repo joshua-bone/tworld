@@ -1,12 +1,10 @@
 import type { ActorFloorImpactAction } from "@game-core/impl/floorImpact";
 import { actorBlockedMoveKeepsDirection, actorBlockedMoveRevertsPortable } from "@game-core/api/actorCapabilities";
 import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { lynxActorBlockedMoveKind, lynxChipEnterAction, lynxTileForcedFloorKind } from "@ruleset-lynx/impl/catalog";
 import type { LynxChipEnterAction } from "@ruleset-lynx/impl/catalogTiles";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { lynxActorHeldFloorOutcome } from "@ruleset-lynx/impl/actorInteractions";
-
-export type LynxBlockedEnterEffect = "none" | "reveal-wall";
 
 export function lynxFloorImpactAction(action: LynxChipEnterAction): ActorFloorImpactAction | null {
   switch (action) {
@@ -77,8 +75,4 @@ export function lynxTilePostEntryAction(tileId: number): ActorFloorImpactAction 
     return "teleport";
   }
   return lynxFloorImpactAction(lynxChipEnterAction(tileId));
-}
-
-export function lynxBlockedEnterEffect(tileId: number): LynxBlockedEnterEffect {
-  return tileId === MS_TILE.HiddenWall_Temp || tileId === MS_TILE.BlueWall_Real ? "reveal-wall" : "none";
 }

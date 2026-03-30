@@ -42,4 +42,72 @@ describe("applyLynxActorArrivalEffects", () => {
     expect(localInventory.keys[3]).toBe(1);
     expect(state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
   });
+
+  it("clears dirt through the concrete tile arrival seam", () => {
+    const cells = createBoardAtZ(1);
+    cells[34] = createCell(34, MS_TILE.Dirt, MS_TILE.Empty);
+    const state = createEngineState(cells);
+    const runtimeEntry = createLynxInitialStatefulActorRuntime(10, MS_TILE.BowlingBall)!;
+    const inventoryOwner = projectLynxActorInventoryOwner(MS_TILE.BowlingBall, state.inventory, {
+      actorSerial: 10,
+      runtimeEntry,
+    });
+
+    const soundEffects = applyLynxActorArrivalEffects(
+      {
+        state,
+        inventoryOwner,
+        runtimeEntry,
+        soundBits: {
+          doorOpened: 1,
+          socketOpened: 2,
+          tileEmptied: 4,
+          wallCreated: 8,
+          bootsStolen: 16,
+          itemCollected: 32,
+          icCollected: 64,
+        },
+        resolveButtonEffects: () => 0,
+      },
+      MS_TILE.BowlingBall,
+      34,
+    );
+
+    expect(soundEffects).toBe(4);
+    expect(state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("turns popup walls into walls through the concrete tile arrival seam", () => {
+    const cells = createBoardAtZ(1);
+    cells[34] = createCell(34, MS_TILE.PopupWall, MS_TILE.Empty);
+    const state = createEngineState(cells);
+    const runtimeEntry = createLynxInitialStatefulActorRuntime(11, MS_TILE.BowlingBall)!;
+    const inventoryOwner = projectLynxActorInventoryOwner(MS_TILE.BowlingBall, state.inventory, {
+      actorSerial: 11,
+      runtimeEntry,
+    });
+
+    const soundEffects = applyLynxActorArrivalEffects(
+      {
+        state,
+        inventoryOwner,
+        runtimeEntry,
+        soundBits: {
+          doorOpened: 1,
+          socketOpened: 2,
+          tileEmptied: 4,
+          wallCreated: 8,
+          bootsStolen: 16,
+          itemCollected: 32,
+          icCollected: 64,
+        },
+        resolveButtonEffects: () => 0,
+      },
+      MS_TILE.BowlingBall,
+      34,
+    );
+
+    expect(soundEffects).toBe(8);
+    expect(state.map.cells[34]?.top.id).toBe(MS_TILE.Wall);
+  });
 });

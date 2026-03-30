@@ -43,4 +43,42 @@ describe("applyMsActorArrivalEffects", () => {
     expect(cells[0]?.bottom.id).toBe(MS_TILE.Empty);
     expect(soundEffects).toBe(1 << MS_SOUND.IcCollected);
   });
+
+  it("clears dirt through the concrete tile arrival seam", () => {
+    const cells = [createCell(MS_TILE.Dirt)];
+    const inventory = createInventory();
+    const runtimeEntry = createMsInitialStatefulActorRuntime(8, MS_TILE.BowlingBall)!;
+    const inventoryOwner = projectMsActorInventoryOwner(MS_TILE.BowlingBall, inventory, {
+      actorSerial: 8,
+      runtimeEntry,
+    });
+
+    const soundEffects = applyMsActorArrivalEffects(cells, MS_TILE.BowlingBall, 0, {
+      inventory,
+      inventoryOwner,
+      runtimeEntry,
+    });
+
+    expect(soundEffects).toBe(0);
+    expect(cells[0]?.bottom.id).toBe(MS_TILE.Empty);
+  });
+
+  it("turns popup walls into walls through the concrete tile arrival seam", () => {
+    const cells = [createCell(MS_TILE.PopupWall)];
+    const inventory = createInventory();
+    const runtimeEntry = createMsInitialStatefulActorRuntime(9, MS_TILE.BowlingBall)!;
+    const inventoryOwner = projectMsActorInventoryOwner(MS_TILE.BowlingBall, inventory, {
+      actorSerial: 9,
+      runtimeEntry,
+    });
+
+    const soundEffects = applyMsActorArrivalEffects(cells, MS_TILE.BowlingBall, 0, {
+      inventory,
+      inventoryOwner,
+      runtimeEntry,
+    });
+
+    expect(soundEffects).toBe(0);
+    expect(cells[0]?.bottom.id).toBe(MS_TILE.Wall);
+  });
 });

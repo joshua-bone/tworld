@@ -10,6 +10,7 @@ import { isMsCreature, msCreatureId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/a
 import { createMsAirTileFamily } from "@ruleset-ms/impl/elements/tiles/families/air";
 import { createMsButtonTileFamily } from "@ruleset-ms/impl/elements/tiles/families/button";
 import { createMsClonerTileFamily } from "@ruleset-ms/impl/elements/tiles/families/cloner";
+import { createMsConcreteTileBehavior } from "@ruleset-ms/impl/elements/tiles/concrete/registration";
 import { createMsDoorTileFamily } from "@ruleset-ms/impl/elements/tiles/families/door";
 import { createMsFloorTileFamily } from "@ruleset-ms/impl/elements/tiles/families/floor";
 import { createMsForcedFloorTileFamily } from "@ruleset-ms/impl/elements/tiles/families/forcedFloor";
@@ -419,6 +420,7 @@ function createMsTileDefinition(id: number): TileDefinition<number> {
       createMsChipEnterTileBehavior(policy),
       createMsLeaveTileBehavior(policy),
       createMsSupportTileBehavior(policy, id),
+      createMsConcreteTileBehavior(id),
     ),
   };
 }
