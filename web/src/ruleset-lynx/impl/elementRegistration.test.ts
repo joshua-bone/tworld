@@ -21,6 +21,7 @@ describe("Lynx element registration", () => {
     expect(lookupLynxActorFamilyRegistration(MS_TILE.Chip)?.familyId).toBe("chip");
     expect(lookupLynxActorFamilyRegistration(MS_TILE.Swimming_Chip)?.familyId).toBe("chip");
     expect(lookupLynxActorFamilyRegistration(MS_TILE.Block)?.familyId).toBe("block");
+    expect(lookupLynxActorFamilyRegistration(MS_TILE.IceBlock)?.familyId).toBe("block");
     expect(lookupLynxActorFamilyRegistration(MS_TILE.BowlingBall)?.familyId).toBe("bowling-ball");
     expect(lookupLynxActorFamilyRegistration(msCreatureTile(MS_TILE.Glider, 1))?.familyId).toBe("creature");
     expect(lookupLynxActorFamilyRegistration(MS_TILE.Teleport)).toBeUndefined();

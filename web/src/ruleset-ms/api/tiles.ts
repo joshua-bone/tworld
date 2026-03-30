@@ -89,10 +89,12 @@ export const MS_TILE = {
   Swimming_Chip: 0x6c,
   Pushing_Chip: 0x70,
   BowlingBall: 0x74,
+  IceBlock: 0x78,
   Sandbag: 0x80,
   Hook: 0x81,
   BowlingBall_Still: 0x82,
   Cloud: 0x83,
+  IceBlock_Static: 0x84,
 } as const;
 
 export const MS_FLOOR_STATE = {

@@ -22,6 +22,7 @@ describe("MS element registration", () => {
     expect(lookupMsActorFamilyRegistration(MS_TILE.Chip)?.familyId).toBe("chip");
     expect(lookupMsActorFamilyRegistration(MS_TILE.Pushing_Chip)?.familyId).toBe("chip");
     expect(lookupMsActorFamilyRegistration(MS_TILE.Block)?.familyId).toBe("block");
+    expect(lookupMsActorFamilyRegistration(MS_TILE.IceBlock)?.familyId).toBe("block");
     expect(lookupMsActorFamilyRegistration(MS_TILE.BowlingBall)?.familyId).toBe("bowling-ball");
     expect(lookupMsActorFamilyRegistration(msCreatureTile(MS_TILE.Fireball, 1))?.familyId).toBe("creature");
     expect(lookupMsActorFamilyRegistration(MS_TILE.Teleport)).toBeUndefined();
@@ -86,6 +87,6 @@ describe("MS element registration", () => {
   it("assembles dedicated actor, pickup, and decode registration bundles", () => {
     expect(msElementFamilyRegistration.actorFamilies).toBe(msActorFamilyRegistrations);
     expect(msElementFamilyRegistration.terrainPickupFamilies).toBe(msTerrainPickupFamilyRegistrations);
-    expect(msRegisteredLevelDecodeEntries).toHaveLength(0x74);
+    expect(msRegisteredLevelDecodeEntries).toHaveLength(0x75);
   });
 });

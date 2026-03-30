@@ -13,6 +13,7 @@ describe("lynx catalogActors", () => {
   it("keeps the baseline actor family policies stable", () => {
     expect(LYNX_CHIP_ACTOR_CAPABILITIES.control.mode).toBe("player-input");
     expect(LYNX_BLOCK_ACTOR_CAPABILITIES.movement.strategyId).toBe("block-like");
+    expect(lookupLynxActorDefinition(MS_TILE.IceBlock)?.capabilities.movement.strategyId).toBe("block-like");
     expect(LYNX_CREATURE_ACTOR_CAPABILITIES.movement.strategyId).toBe("creature-like");
     expect(LYNX_BOWLING_BALL_ACTOR_CAPABILITIES.movement.strategyId).toBe("ballistic-like");
   });
@@ -48,6 +49,7 @@ describe("lynx catalogActors", () => {
 
   it("normalizes creature tiles back to their actor definitions", () => {
     expect(lookupLynxActorDefinition(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west))?.id).toBe(MS_TILE.Bug);
+    expect(lookupLynxActorDefinition(msCreatureTile(MS_TILE.IceBlock, MS_DIRECTION.east))?.id).toBe(MS_TILE.IceBlock);
   });
 
   it("registers actor behavior hooks for trap and cloner families", () => {

@@ -139,6 +139,13 @@ describe("ms level preparation", () => {
     expect(decoded.badTiles).toBe(false);
   });
 
+  it("decodes built-in DAT file code 0x74 as an ice block", () => {
+    const decoded = decodeMsLevelData(createSingleTopTileLevelData(0x74, 7), msElementFamilyRegistration.levelDecodeRegistration);
+
+    expect(decoded.cells[0]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(decoded.badTiles).toBe(false);
+  });
+
   it("prepares loaded MS levels through the ruleset-local load registration seam", () => {
     const levelData = createSingleTopTileLevelData(1, 7);
     const prepared = msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel({

@@ -37,12 +37,14 @@ describe("MS catalog tile families", () => {
     expect(msTileHasTag(MS_TILE.Beartrap, "trap")).toBe(true);
     expect(msTileHasTag(MS_TILE.CloneMachine, "cloner")).toBe(true);
     expect(msTileHasTag(MS_TILE.Ice, "ice")).toBe(true);
+    expect(msTileHasTag(MS_TILE.IceBlock_Static, "pushable")).toBe(true);
     expect(msTileHasTag(MS_TILE.Slide_East, "slide")).toBe(true);
     expect(msTileHasCapability(MS_TILE.Key_Red, "collect-on-entry")).toBe(true);
     expect(msTileHasCapability(MS_TILE.Teleport, "forces-movement")).toBe(true);
     expect(msTileHasCapability(MS_TILE.Air, "forces-movement")).toBe(true);
     expect(msTileHasCapability(MS_TILE.Elevator, "forces-movement")).toBe(false);
     expect(msTileHasCapability(MS_TILE.Bomb, "kills-on-entry")).toBe(true);
+    expect(msTileHasCapability(MS_TILE.IceBlock_Static, "accepts-blocks")).toBe(true);
   });
 
   it("provides movement masks for chip, creatures, and blocks", () => {
@@ -78,6 +80,7 @@ describe("MS catalog tile families", () => {
     expect(msChipEnterAction(MS_TILE.Key_Red)).toBe("collect-item");
     expect(msChipEnterAction(MS_TILE.BowlingBall_Still)).toBe("collect-item");
     expect(msChipEnterAction(MS_TILE.BowlingBall)).toBe("collision");
+    expect(msChipEnterAction(MS_TILE.IceBlock)).toBe("collision");
     expect(msChipEnterAction(MS_TILE.Bomb)).toBe("explode-bomb");
     expect(msChipEnterAction(MS_TILE.Water)).toBe("water-death");
     expect(msChipEnterAction(MS_TILE.Fire)).toBe("fire-death");

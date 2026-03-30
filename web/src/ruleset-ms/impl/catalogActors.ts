@@ -25,12 +25,9 @@ const MONSTER_ACTOR_IDS = [
 ] as const;
 const ACTIVE_MOB_ACTOR_IDS = [...CHIP_ACTOR_IDS, ...MONSTER_ACTOR_IDS, MS_TILE.BowlingBall] as const;
 
-const ACTOR_TILE_IDS = [
-  ...CHIP_ACTOR_IDS,
-  MS_TILE.Block,
-  ...MONSTER_ACTOR_IDS,
-  MS_TILE.BowlingBall,
-] as const;
+const BLOCK_ACTOR_IDS = [MS_TILE.Block, MS_TILE.IceBlock] as const;
+
+const ACTOR_TILE_IDS = [...CHIP_ACTOR_IDS, ...BLOCK_ACTOR_IDS, ...MONSTER_ACTOR_IDS, MS_TILE.BowlingBall] as const;
 
 const MS_ACTOR_BASE_POLICY = {
   tags: [],
@@ -78,7 +75,7 @@ const MS_ACTOR_FAMILIES = [
   }),
   createMsBlockActorFamily({
     name: "block",
-    actorIds: [MS_TILE.Block],
+    actorIds: BLOCK_ACTOR_IDS,
   }),
   createMsMonsterActorFamily({
     name: "monster",

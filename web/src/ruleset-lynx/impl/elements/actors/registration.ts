@@ -33,7 +33,7 @@ export const lynxActorFamilyRegistrations = [
   },
   {
     familyId: "block",
-    actorIds: [MS_TILE.Block],
+    actorIds: [MS_TILE.Block, MS_TILE.IceBlock],
   },
   {
     familyId: LYNX_BOWLING_BALL_ACTOR_FAMILY,

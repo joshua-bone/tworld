@@ -18,7 +18,7 @@ Ice block is close to dirt block, but not close enough to justify copying dirt-b
 
 ## PR Checklist
 
-- [ ] IB1: Identity, decode, and rendering
+- [x] IB1: Identity, decode, and rendering
   - Add internal `MS_TILE.IceBlock_Static` and moving `MS_TILE.IceBlock`.
   - Map DAT `0x74` to `IceBlock_Static` in builtin decode registration.
   - Register render ownership for the new artwork sprite.

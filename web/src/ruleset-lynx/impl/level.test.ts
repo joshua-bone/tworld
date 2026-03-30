@@ -214,6 +214,20 @@ describe("lynx level preparation", () => {
     expect(grouped.badTiles).toBe(false);
   });
 
+  it("decodes built-in DAT file code 0x74 as an ice block in loaded Lynx levels", () => {
+    const levelData = createSingleTopTileLevelData(0x74, 11);
+    const decoded = decodeLoadedLynxLevelData(
+      {
+        levelData,
+        layerData: [levelData],
+      },
+      lynxElementFamilyRegistration.levelDecodeRegistration,
+    );
+
+    expect(decoded.cells[0]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(decoded.badTiles).toBe(false);
+  });
+
   it("prepares loaded Lynx levels through the ruleset-local load registration seam", () => {
     const levelData = createSingleTopTileLevelData(51, 11);
     const prepared = lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel({

@@ -88,6 +88,7 @@ const ICE_TILE_IDS = [
 const ACTOR_TILE_IDS = [
   MS_TILE.Chip,
   MS_TILE.Block,
+  MS_TILE.IceBlock,
   MS_TILE.Tank,
   MS_TILE.Ball,
   MS_TILE.Glider,
@@ -263,7 +264,7 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
   }),
   createMsFloorTileFamily({
     name: "block-static",
-    tileIds: [MS_TILE.Block_Static],
+    tileIds: [MS_TILE.Block_Static, MS_TILE.IceBlock_Static],
     tags: ["pushable"],
     capabilities: ["accepts-blocks"],
     chipEnterAction: "collision",
@@ -432,8 +433,8 @@ export function lookupMsTilePolicy(id: number): MsTilePolicyDefinition {
   if (msTilePolicies.has(id)) {
     return msTilePolicies.get(id)!;
   }
-  if (id === MS_TILE.Block_Static) {
-    return msTilePolicies.get(MS_TILE.Block_Static)!;
+  if (id === MS_TILE.Block_Static || id === MS_TILE.IceBlock_Static) {
+    return msTilePolicies.get(id)!;
   }
   if (isMsCreature(id)) {
     return msTilePolicies.get(msCreatureId(id))!;

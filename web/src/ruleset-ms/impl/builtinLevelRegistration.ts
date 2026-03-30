@@ -127,6 +127,7 @@ const MS_BUILTIN_LEVEL_DECODE_ENTRIES = [
   MS_TILE.BowlingBall_Still,
   MS_TILE.Cloud,
   MS_TILE.Hook,
+  MS_TILE.IceBlock_Static,
 ] as const;
 
 function remapBuiltinMsTile(tileId: number, context: MsLevelDecodeContext): number {

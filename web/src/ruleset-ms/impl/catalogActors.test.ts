@@ -13,6 +13,7 @@ describe("ms catalogActors", () => {
   it("keeps the baseline actor family policies stable", () => {
     expect(MS_CHIP_ACTOR_CAPABILITIES.control.mode).toBe("player-input");
     expect(MS_BLOCK_ACTOR_CAPABILITIES.movement.strategyId).toBe("block-like");
+    expect(lookupMsActorDefinition(MS_TILE.IceBlock)?.capabilities.movement.strategyId).toBe("block-like");
     expect(MS_CREATURE_ACTOR_CAPABILITIES.movement.strategyId).toBe("creature-like");
     expect(MS_BOWLING_BALL_ACTOR_CAPABILITIES.movement.strategyId).toBe("ballistic-like");
   });
@@ -49,6 +50,7 @@ describe("ms catalogActors", () => {
 
   it("normalizes creature tiles back to their actor definitions", () => {
     expect(lookupMsActorDefinition(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.east))?.id).toBe(MS_TILE.Bug);
+    expect(lookupMsActorDefinition(msCreatureTile(MS_TILE.IceBlock, MS_DIRECTION.east))?.id).toBe(MS_TILE.IceBlock);
   });
 
   it("registers actor behavior hooks for trap and cloner families", () => {

@@ -34,11 +34,13 @@ describe("Lynx catalog tile families", () => {
     expect(lynxTileHasTag(MS_TILE.Beartrap, "trap")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Exit, "exit")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Ice, "ice")).toBe(true);
+    expect(lynxTileHasTag(MS_TILE.IceBlock_Static, "pushable")).toBe(true);
     expect(lynxTileHasTag(MS_TILE.Slide_East, "slide")).toBe(true);
     expect(lynxTileHasCapability(MS_TILE.Key_Red, "collect-on-entry")).toBe(true);
     expect(lynxTileHasCapability(MS_TILE.Teleport, "forces-movement")).toBe(true);
     expect(lynxTileHasCapability(MS_TILE.Air, "forces-movement")).toBe(true);
     expect(lynxTileHasCapability(MS_TILE.Bomb, "kills-on-entry")).toBe(true);
+    expect(lynxTileHasCapability(MS_TILE.IceBlock_Static, "accepts-blocks")).toBe(true);
   });
 
   it("provides inventory, button, and forced-floor lookup policy", () => {

@@ -407,7 +407,7 @@ const lynxTileFamilies: readonly LynxTileFamilyDefinition[] = [
   }),
   createRulesetTileFamily<LynxTilePolicyDefinition, number>({
     name: "block-static",
-    tileIds: [MS_TILE.Block_Static],
+    tileIds: [MS_TILE.Block_Static, MS_TILE.IceBlock_Static],
     policy: {
       tags: ["pushable"],
       capabilities: ["accepts-blocks"],
@@ -450,8 +450,8 @@ export function lookupLynxTilePolicy(id: number): LynxTilePolicyDefinition {
   if (lynxTilePolicies.has(id)) {
     return lynxTilePolicies.get(id)!;
   }
-  if (id === MS_TILE.Block_Static) {
-    return lynxTilePolicies.get(MS_TILE.Block_Static)!;
+  if (id === MS_TILE.Block_Static || id === MS_TILE.IceBlock_Static) {
+    return lynxTilePolicies.get(id)!;
   }
   if (isMsCreature(id)) {
     return lynxTilePolicies.get(msCreatureId(id))!;
