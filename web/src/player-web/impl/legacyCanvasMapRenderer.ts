@@ -1273,3 +1273,9 @@ export function buildLegacyGameDrawStateKey(
     visibleLayerKeys,
   ].join(":");
 }
+
+export function shouldBypassLegacyGameDrawStateMemoization(
+  session: InteractiveGameSession | null,
+): boolean {
+  return session?.request.ruleset === "Lynx" && (session.frame.visibleLayers.length ?? 0) > 1;
+}
