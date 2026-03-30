@@ -85,6 +85,35 @@ describe("applyMsChipEnterEffects", () => {
     expect(result.soundEffects).toBe(1 << MS_SOUND.ItemCollected);
   });
 
+  it("opens green doors without consuming the green key", () => {
+    const cells = [makeCell(MS_TILE.Door_Green)];
+    const inventory = makeInventory();
+    inventory.keys[3] = 1;
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(inventory, makePortableTools()), 0);
+
+    expect(inventory.keys[3]).toBe(1);
+    expect(cells[0]!.top.id).toBe(MS_TILE.Empty);
+    expect(result.soundEffects).toBe(1 << MS_SOUND.DoorOpened);
+  });
+
+  it("marks teleport entry through the tile behavior seam", () => {
+    const cells = [makeCell(MS_TILE.Teleport)];
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(makeInventory(), makePortableTools()), 0);
+
+    expect(result.enteredTeleport).toBe(true);
+  });
+
+  it("opens sockets through the same tile behavior seam", () => {
+    const cells = [makeCell(MS_TILE.Socket)];
+
+    const result = applyMsChipEnterEffects(cells, makeChipState(), makeContext(makeInventory(), makePortableTools()), 0);
+
+    expect(cells[0]!.top.id).toBe(MS_TILE.Empty);
+    expect(result.soundEffects).toBe(1 << MS_SOUND.SocketOpened);
+  });
+
   it("collects hook portable tools through the same portable item store", () => {
     const cells = [makeCell(MS_TILE.Hook)];
     const inventory = makeInventory();

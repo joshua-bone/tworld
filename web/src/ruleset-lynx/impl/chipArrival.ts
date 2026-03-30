@@ -1,11 +1,7 @@
 import type { EngineState } from "@game-core/api/model";
-import {
-  actorFloorImpactTeleports,
-  applyActorFloorImpactAction,
-} from "@game-core/impl/floorImpact";
-import { promoteBottomTile, replaceTopTile } from "@game-core/impl/board";
+import { lookupTileBehaviorPhase } from "@game-core/api/ruleset";
+import { promoteBottomTile } from "@game-core/impl/board";
 import { mapHash } from "@game-core/impl/hash";
-import { actorInventoryUseKey } from "@game-core/impl/actorLocalInventory";
 import {
   completedArrival,
   noArrival,
@@ -14,15 +10,12 @@ import {
 } from "@game-core/api/movementOutcomes";
 import {
   lynxButtonAction,
-  lynxChipEnterAction,
-  lynxDoorKeyIndex,
+  lynxRulesetCatalog,
   lynxTileForcedFloorKind,
 } from "@ruleset-lynx/impl/catalog";
-import { collectLynxActorTile, projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
-import { lookupLynxTerrainPickupFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
-import { lynxFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import { lynxTilePostEntryAction } from "@ruleset-lynx/impl/floorImpactPolicy";
+import { type LynxChipEnterTileBehaviorContext } from "@ruleset-lynx/impl/chipEnterBehavior";
 import type {
   LynxEndGameResult,
   LynxEndGameState,
@@ -76,7 +69,6 @@ export function applyLynxChipArrivalEffects(
   >,
   pos: number,
 ): ArrivalResult {
-  const chipInventory = projectLynxActorInventoryOwner(MS_TILE.Chip, context.state.inventory);
   let soundEffects = 0;
   let resolved = false;
   let completed = false;
@@ -90,48 +82,26 @@ export function applyLynxChipArrivalEffects(
     const enteredTileId = cell.top.id;
     const topStateBeforeResolution = cell.top.state;
     let continueIntoRevealedLowerTile = false;
-    const floorImpactAction = lynxFloorImpactAction(lynxChipEnterAction(enteredTileId));
-    if (floorImpactAction === null) {
+    const beginEnter = lookupTileBehaviorPhase(lynxRulesetCatalog.getTileBehavior(enteredTileId)!, "begin-enter");
+    if (beginEnter === null) {
       break;
     }
-
-    const arrival = applyActorFloorImpactAction(floorImpactAction, {
-      clearFloor: () => {
-        replaceTopTile(context.state.map.cells, pos, { ...cell.top, id: MS_TILE.Empty });
-        context.state.map.hash = mapHash(context.state.map.cells);
-      },
-      consumeEnteredOverlay: () => {
-        promoteBottomTile(context.state.map.cells, pos, MS_TILE.Empty);
-        context.state.map.hash = mapHash(context.state.map.cells);
-      },
-      popupWall: () => {
-        replaceTopTile(context.state.map.cells, pos, { ...cell.top, id: MS_TILE.Wall });
-        context.state.map.hash = mapHash(context.state.map.cells);
-      },
-      collectTile: () => collectLynxActorTile(MS_TILE.Chip, context.state.inventory, cell.top.id),
-      afterCollect: (resolution) => {
-        const revealedFloorImpact = lynxFloorImpactAction(lynxChipEnterAction(cell.top.id));
-        continueIntoRevealedLowerTile =
-          lookupLynxTerrainPickupFamilyRegistration(enteredTileId)?.familyId === "portable-items" &&
-          revealedFloorImpact !== null &&
-          revealedFloorImpact !== "none";
-        if (resolution.slot === "tools") {
-          context.queueCollectedTool(pos, enteredTileId);
-        }
-      },
-      tryOpenDoor: () => {
-        const keyIndex = lynxDoorKeyIndex(cell.top.id);
-        return keyIndex !== null && actorInventoryUseKey(chipInventory, keyIndex, { consume: keyIndex !== 3 });
-      },
-      tryOpenSocket: () => context.state.inventory.chipsNeeded === 0,
-      clearBootsAndTools: () => context.applyThiefHook(),
-      resolveButtonEffects: () => context.resolveButtonEffects(pos, cell.top.id),
-      soundEffects: context.soundBits,
-    });
-
-    soundEffects |= arrival.soundEffects;
-    resolved ||= arrival.status === "resolved";
-    completed ||= arrival.status === "completed";
+    const behaviorContext: LynxChipEnterTileBehaviorContext = {
+      phase: "begin-enter",
+      tileId: enteredTileId,
+      actorId: MS_TILE.Chip,
+      runtime: context,
+      pos,
+      soundEffects,
+      resolved,
+      completed,
+      continueIntoRevealedLowerTile,
+    };
+    beginEnter(behaviorContext);
+    soundEffects = behaviorContext.soundEffects;
+    resolved = behaviorContext.resolved;
+    completed = behaviorContext.completed;
+    continueIntoRevealedLowerTile = behaviorContext.continueIntoRevealedLowerTile;
     if (
       completed ||
       !continueIntoRevealedLowerTile ||

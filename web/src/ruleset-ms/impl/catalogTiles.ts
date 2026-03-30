@@ -16,6 +16,7 @@ import { createMsPickupTileFamily } from "@ruleset-ms/impl/elements/tiles/famili
 import { MS_FULL_MOVEMENT_MASK, type MsTileFamilyDefinition } from "@ruleset-ms/impl/elements/tiles/families/shared";
 import { createMsTrapTileFamily } from "@ruleset-ms/impl/elements/tiles/families/trap";
 import { createMsWallTileFamily } from "@ruleset-ms/impl/elements/tiles/families/wall";
+import { createMsChipEnterTileBehavior } from "@ruleset-ms/impl/chipEnterBehavior";
 
 export type MsInventorySlot = "keys" | "boots" | "tools";
 export type MsPortableItemFamily = "sandbag" | "hook" | "bowling-ball";
@@ -405,6 +406,7 @@ function createMsTileDefinition(id: number): TileDefinition<number> {
     tags: policy.tags,
     capabilities: policy.capabilities,
     hooks: policy.hooks,
+    behavior: createMsChipEnterTileBehavior(policy),
   };
 }
 

@@ -13,6 +13,7 @@ import { createLynxDoorTileFamily } from "@ruleset-lynx/impl/elements/tiles/fami
 import { createLynxFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/floor";
 import { createLynxForcedFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
 import { createLynxPickupTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/pickup";
+import { createLynxChipEnterTileBehavior } from "@ruleset-lynx/impl/chipEnterBehavior";
 import {
   LYNX_FULL_MOVEMENT_MASK,
   type LynxTileFamilyDefinition,
@@ -429,6 +430,7 @@ function createLynxTileDefinition(id: number): TileDefinition<number> {
     tags: policy.tags,
     capabilities: policy.capabilities,
     hooks: policy.hooks,
+    behavior: createLynxChipEnterTileBehavior(policy),
   };
 }
 

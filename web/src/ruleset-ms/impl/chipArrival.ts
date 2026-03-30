@@ -1,26 +1,12 @@
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { ACTOR_INTERACTION_TARGET_KIND } from "@game-core/api/actorInteractions";
-import { actorFloorImpactTeleports, applyActorFloorImpactAction } from "@game-core/impl/floorImpact";
-import { popBoardTile } from "@game-core/impl/board";
-import {
-  actorInventoryClearBoots,
-  actorInventoryHasBoot,
-  actorInventoryUseKey,
-} from "@game-core/impl/actorLocalInventory";
-import { MS_FLOOR_STATE, MS_SOUND, MS_TILE } from "@ruleset-ms/api/tiles";
-import {
-  msChipEnterAction,
-  msDoorKeyIndex,
-} from "@ruleset-ms/impl/catalog";
-import { lookupMsTerrainPickupFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
-import { msActorInteractionOutcome, msActorThiefOutcome } from "@ruleset-ms/impl/actorInteractions";
-import { collectMsActorTile, projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
-import { msFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
-import {
-  clearMsToolInventory,
-  queueMsToolInventoryReplacement,
-  type MsPortableToolStateStore,
-} from "@ruleset-ms/impl/portableItems";
+import { lookupTileBehaviorPhase } from "@game-core/api/ruleset";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { msChipEnterAction, msRulesetCatalog } from "@ruleset-ms/impl/catalog";
+import { msActorInteractionOutcome } from "@ruleset-ms/impl/actorInteractions";
+import { projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
+import { type MsChipEnterTileBehaviorContext } from "@ruleset-ms/impl/chipEnterBehavior";
+import { type MsPortableToolStateStore } from "@ruleset-ms/impl/portableItems";
 
 export interface MsChipEntryState {
   chipStatus: "okay" | "drowned" | "burned" | "bombed" | "outoftime" | "collided";
@@ -59,77 +45,28 @@ export function applyMsChipEnterEffects(
     const floor = floorTileBeforeMove.id;
     const topIdBeforeResolution = nextCell.top.id;
     const topStateBeforeResolution = nextCell.top.state;
-    const floorImpactAction = msFloorImpactAction(msChipEnterAction(floor));
-
-    if (floorImpactAction === "destroy-bomb") {
-      chip.chipStatus = "bombed";
-      soundEffects |= 1 << MS_SOUND.BombExplodes;
-    } else if (floorImpactAction === "destroy-water") {
-      if (!actorInventoryHasBoot(chipInventory, 3)) {
-        chip.chipStatus = "drowned";
-      }
-    } else if (floorImpactAction === "destroy-fire") {
-      if (!actorInventoryHasBoot(chipInventory, 2)) {
-        chip.chipStatus = "burned";
-      }
-    } else if (floorImpactAction !== null && actorFloorImpactTeleports(floorImpactAction)) {
-      if ((floorTileBeforeMove.state & MS_FLOOR_STATE.Broken) === 0) {
-        enteredTeleport = true;
-      }
-    } else if (floorImpactAction !== null) {
-      soundEffects |= applyActorFloorImpactAction(floorImpactAction, {
-        clearFloor: () => {
-          popBoardTile(cells, nextPos, MS_TILE.Empty);
-        },
-        popupWall: () => {
-          if (nextCell.top.id === MS_TILE.Empty) {
-            popBoardTile(cells, nextPos, MS_TILE.Empty);
-            return;
-          }
-          nextCell.top.id = MS_TILE.Wall;
-          floorTileBeforeMove.id = MS_TILE.Wall;
-        },
-        collectTile: () => collectMsActorTile(MS_TILE.Chip, context.inventory, floor),
-        afterCollect: (collected) => {
-          const revealedFloorImpact = msFloorImpactAction(msChipEnterAction(nextCell.top.id));
-          continueIntoRevealedLowerTile =
-            lookupMsTerrainPickupFamilyRegistration(floor)?.familyId === "portable-items" &&
-            revealedFloorImpact !== null &&
-            revealedFloorImpact !== "none";
-          if (collected.slot !== "tools") {
-            return;
-          }
-          queueMsToolInventoryReplacement(
-            context.portableTools,
-            context.inventory,
-            floor,
-            nextPos,
-            context.runtimeCellZ(nextPos),
-          );
-          movementFloorTile = { ...nextCell.top };
-        },
-        tryOpenDoor: () => {
-          const index = msDoorKeyIndex(floor);
-          return index !== null && actorInventoryUseKey(chipInventory, index, { consume: floor !== MS_TILE.Door_Green });
-        },
-        tryOpenSocket: () => true,
-        clearBootsAndTools: () => {
-          if (msActorThiefOutcome(MS_TILE.Chip) !== "steal-boots-tools") {
-            return false;
-          }
-          actorInventoryClearBoots(chipInventory);
-          clearMsToolInventory(context.portableTools, context.inventory);
-          return true;
-        },
-        soundEffects: {
-          doorOpened: 1 << MS_SOUND.DoorOpened,
-          socketOpened: 1 << MS_SOUND.SocketOpened,
-          bootsStolen: 1 << MS_SOUND.BootsStolen,
-          itemCollected: 1 << MS_SOUND.ItemCollected,
-          icCollected: 1 << MS_SOUND.IcCollected,
-          wallCreated: 0,
-        },
-      }).soundEffects;
+    const beginEnter = lookupTileBehaviorPhase(msRulesetCatalog.getTileBehavior(floor)!, "begin-enter");
+    if (beginEnter !== null) {
+      const behaviorContext: MsChipEnterTileBehaviorContext = {
+        phase: "begin-enter",
+        tileId: floor,
+        actorId: MS_TILE.Chip,
+        cells,
+        chip,
+        runtime: context,
+        nextPos,
+        nextCell,
+        chipInventory,
+        soundEffects,
+        enteredTeleport,
+        continueIntoRevealedLowerTile,
+        floorTileBeforeMove,
+      };
+      beginEnter(behaviorContext);
+      soundEffects = behaviorContext.soundEffects;
+      enteredTeleport = behaviorContext.enteredTeleport;
+      continueIntoRevealedLowerTile = behaviorContext.continueIntoRevealedLowerTile;
+      floorTileBeforeMove = behaviorContext.floorTileBeforeMove;
     } else {
       switch (msChipEnterAction(floor)) {
       case "collision":

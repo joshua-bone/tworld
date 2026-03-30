@@ -71,6 +71,28 @@ describe("lynx chip arrival", () => {
     expect(context.state.soundEffects & 256).not.toBe(0);
   });
 
+  it("opens sockets when the chip requirement is already satisfied", () => {
+    const context = createContext();
+    context.state.map.cells[34] = createCell(34, MS_TILE.Socket, MS_TILE.Empty);
+
+    const arrival = applyLynxChipArrivalEffects(context, 34);
+
+    expect(arrival.status).toBe("resolved");
+    expect(arrival.soundEffects).toBe(2);
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("leaves sockets closed when chips are still needed", () => {
+    const context = createContext();
+    context.state.inventory.chipsNeeded = 1;
+    context.state.map.cells[34] = createCell(34, MS_TILE.Socket, MS_TILE.Empty);
+
+    const arrival = applyLynxChipArrivalEffects(context, 34);
+
+    expect(arrival.status).toBe("none");
+    expect(context.state.map.cells[34]?.top.id).toBe(MS_TILE.Socket);
+  });
+
   it("collects tools and queues portable replacement from chip arrival", () => {
     const queued: Array<{ pos: number; tileId: number }> = [];
     const context = createContext({

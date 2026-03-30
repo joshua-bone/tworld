@@ -92,6 +92,13 @@ export function actorFloorImpactRevertsPortable(action: ActorFloorImpactAction):
   return action === "revert-portable";
 }
 
+export function continuePortablePickupIntoRevealedLowerTile(
+  portablePickupRevealsLowerTile: boolean,
+  revealedFloorAction: ActorFloorImpactAction | null,
+): boolean {
+  return portablePickupRevealsLowerTile && revealedFloorAction !== null && revealedFloorAction !== "none";
+}
+
 function consumeEnteredOverlay(
   context: ActorFloorImpactContext<ActorFloorImpactCollectionResolution>,
 ): void {

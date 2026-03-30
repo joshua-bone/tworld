@@ -3,6 +3,7 @@ import {
   lynxRulesetCatalog,
 } from "@ruleset-lynx/impl/catalog";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { lookupTileBehaviorPhase } from "@game-core/api/ruleset";
 
 describe("Lynx ruleset catalog", () => {
   it("covers every shared tile id", () => {
@@ -14,7 +15,10 @@ describe("Lynx ruleset catalog", () => {
     expect(lynxRulesetCatalog.getTile(MS_TILE.Teleport)?.code).toBe("lynx:teleport");
     expect(lynxRulesetCatalog.getTile(MS_TILE.Button_Blue)?.name).toBe("Button Blue");
     expect(lynxRulesetCatalog.getActor(MS_TILE.Chip)?.code).toBe("lynx:chip");
-    expect(lynxRulesetCatalog.getTileBehavior(MS_TILE.Teleport)?.phases).toEqual({});
+    expect(lookupTileBehaviorPhase(lynxRulesetCatalog.getTileBehavior(MS_TILE.Exit)!, "begin-enter")).toBeTypeOf(
+      "function",
+    );
+    expect(lynxRulesetCatalog.getTileBehavior(MS_TILE.Empty)?.phases).toEqual({});
     expect(lynxRulesetCatalog.getActorBehavior(MS_TILE.Chip)?.phases).toEqual({});
   });
 });

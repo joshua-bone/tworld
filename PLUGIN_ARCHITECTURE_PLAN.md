@@ -391,20 +391,20 @@ Targets:
 
 Checklist:
 
-- [ ] introduce handler-driven chip enter flow
-- [ ] migrate collect/open-door/open-socket/popup/teleport/hazard behavior
-- [ ] keep portable-item replacement chaining as a shared hook instead of local conditionals
-- [ ] preserve MS and Lynx ordering differences
+- [x] introduce handler-driven chip enter flow
+- [x] migrate collect/open-door/open-socket/popup/teleport/hazard behavior
+- [x] keep portable-item replacement chaining as a shared hook instead of local conditionals
+- [x] preserve MS and Lynx ordering differences
 
 Tests:
 
-- [ ] chip arrival tests in both rulesets
-- [ ] teleport, popup wall, door, socket, hazard, and portable replacement tests
-- [ ] targeted replay checks for affected packs
+- [x] chip arrival tests in both rulesets
+- [x] teleport, popup wall, door, socket, hazard, and portable replacement tests
+- [x] targeted replay checks for affected packs
 
 Exit gate:
 
-- [ ] chip arrival no longer depends on action-enum translation switches for ordinary tile behavior
+- [x] chip arrival no longer depends on action-enum translation switches for ordinary tile behavior
 
 ### PA6: Replace Exit And Support Enums With Tile Handlers
 
