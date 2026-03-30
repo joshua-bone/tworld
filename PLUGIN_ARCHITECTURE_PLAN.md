@@ -356,24 +356,24 @@ Targets:
 
 Checklist:
 
-- [ ] add `mob` family builder
-- [ ] add `monster` family builder
-- [ ] add `block` family builder
-- [ ] add `ballistic` family builder
-- [ ] add `portableBacked` family builder
-- [ ] add `playerLike` family builder
-- [ ] refactor concrete actors to compose from these families
+- [x] add `mob` family builder
+- [x] add `monster` family builder
+- [x] add `block` family builder
+- [x] add `ballistic` family builder
+- [x] add `portableBacked` family builder
+- [x] add `playerLike` family builder
+- [x] refactor concrete actors to compose from these families
 
 Tests:
 
-- [ ] catalog actor tests in both rulesets
-- [ ] focused actor capability tests for glider/fireball/bug/bowling ball
-- [ ] typecheck `ruleset-ms`
-- [ ] typecheck `ruleset-lynx`
+- [x] catalog actor tests in both rulesets
+- [x] focused actor capability tests for glider/fireball/bug/bowling ball
+- [x] typecheck `ruleset-ms`
+- [x] typecheck `ruleset-lynx`
 
 Exit gate:
 
-- [ ] new actors can be defined by composing families instead of editing a large switch
+- [x] new actors can be defined by composing families instead of editing a large switch
 
 ### PA5: Replace Floor-Impact Enum Translation With Tile Handlers
 

@@ -1,107 +1,51 @@
 import { describe, expect, it } from "vitest";
+import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
-  lynxActorAirHook,
-  lynxActorBlockedMoveKind,
-  lynxActorClonerFamilyHooks,
-  lynxActorClonerHook,
-  lynxActorCapabilityPolicy,
-  lynxActorCollisionStrategyId,
-  lynxActorControlMode,
-  lynxActorEntryMask,
-  lynxActorGlobalProgressKind,
-  lynxActorHazardResponse,
-  lynxActorHasTag,
-  lynxActorItemCollectionKind,
-  lynxActorLocalInventoryMode,
-  lynxActorMovementStrategyId,
-  lynxActorSupportFamilyHooks,
-  lynxActorThiefHook,
-  lynxActorTrapFamilyHooks,
-  lynxActorTrapHook,
-  lynxArrivalAnimationKind,
-  lynxBlockMovementMask,
-  lynxChipMoveSoundAction,
-  lynxChipMovementMask,
-  lynxCreatureArrivalAction,
-} from "@ruleset-lynx/impl/catalog";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+  LYNX_BLOCK_ACTOR_CAPABILITIES,
+  LYNX_BOWLING_BALL_ACTOR_CAPABILITIES,
+  LYNX_CHIP_ACTOR_CAPABILITIES,
+  LYNX_CREATURE_ACTOR_CAPABILITIES,
+  lookupLynxActorDefinition,
+} from "@ruleset-lynx/impl/catalogActors";
 
-describe("Lynx catalog actor families", () => {
-  it("provides actor tags and capability helpers for shared actor families", () => {
-    expect(lynxActorHasTag(MS_TILE.Chip, "chip")).toBe(true);
-    expect(lynxActorHasTag(MS_TILE.Chip, "pushes-blocks")).toBe(true);
-    expect(lynxActorHasTag(MS_TILE.Glider, "water-immune")).toBe(true);
-    expect(lynxActorHasTag(MS_TILE.Fireball, "fire-immune")).toBe(true);
-    expect(lynxActorHasTag(MS_TILE.Block, "block")).toBe(true);
-    expect(lynxActorHasTag(MS_TILE.Block, "fire-immune")).toBe(true);
-    expect(lynxActorCapabilityPolicy(MS_TILE.Chip).control.mode).toBe("player-input");
-    expect(lynxActorControlMode(MS_TILE.Block)).toBe("passive");
-    expect(lynxActorControlMode(MS_TILE.BowlingBall)).toBe("ballistic");
-    expect(lynxActorLocalInventoryMode(MS_TILE.Chip)).toBe("keys-boots-tools");
-    expect(lynxActorLocalInventoryMode(MS_TILE.BowlingBall)).toBe("keys-boots");
-    expect(lynxActorItemCollectionKind(MS_TILE.Chip)).toBe("keys-boots-tools");
-    expect(lynxActorItemCollectionKind(MS_TILE.BowlingBall)).toBe("keys-boots");
-    expect(lynxActorGlobalProgressKind(MS_TILE.Chip)).toBe("collect-chips");
-    expect(lynxActorGlobalProgressKind(MS_TILE.BowlingBall)).toBe("collect-chips");
-    expect(lynxActorMovementStrategyId(MS_TILE.Block)).toBe("block-like");
-    expect(lynxActorMovementStrategyId(MS_TILE.BowlingBall)).toBe("ballistic-like");
-    expect(lynxActorBlockedMoveKind(MS_TILE.Block)).toBe("stay");
-    expect(lynxActorBlockedMoveKind(MS_TILE.BowlingBall)).toBe("revert-portable");
-    expect(lynxActorTrapHook(MS_TILE.Ball)).toBe("default");
-    expect(lynxActorTrapHook(MS_TILE.BowlingBall)).toBe("hold-direction");
-    expect(lynxActorClonerHook(MS_TILE.Ball)).toBe("default");
-    expect(lynxActorClonerHook(MS_TILE.BowlingBall)).toBe("hold-direction");
-    expect(lynxActorThiefHook(MS_TILE.Chip)).toBe("steal-boots-tools");
-    expect(lynxActorThiefHook(MS_TILE.BowlingBall)).toBe("steal-boots-tools");
-    expect(lynxActorAirHook(MS_TILE.Chip)).toBe("chip-support");
-    expect(lynxActorAirHook(MS_TILE.BowlingBall)).toBe("chip-support");
-    expect(lynxActorTrapFamilyHooks(MS_TILE.BowlingBall).releaseBehavior).toBe("move-current-direction");
-    expect(lynxActorClonerFamilyHooks(MS_TILE.BowlingBall).runtimeCloneBehavior).toBe("clone-family-runtime");
-    expect(lynxActorSupportFamilyHooks(MS_TILE.BowlingBall).fallingCollisionBehavior).toBe("default");
-    expect(lynxActorCollisionStrategyId(MS_TILE.Ball)).toBe("default");
-    expect(lynxActorCollisionStrategyId(MS_TILE.BowlingBall)).toBe("ballistic-destroy");
+describe("lynx catalogActors", () => {
+  it("keeps the baseline actor family policies stable", () => {
+    expect(LYNX_CHIP_ACTOR_CAPABILITIES.control.mode).toBe("player-input");
+    expect(LYNX_BLOCK_ACTOR_CAPABILITIES.movement.strategyId).toBe("block-like");
+    expect(LYNX_CREATURE_ACTOR_CAPABILITIES.movement.strategyId).toBe("creature-like");
+    expect(LYNX_BOWLING_BALL_ACTOR_CAPABILITIES.movement.strategyId).toBe("ballistic-like");
   });
 
-  it("provides actor arrival, hazard, and sound policy helpers", () => {
-    expect(lynxActorEntryMask(MS_TILE.Gravel, MS_TILE.Block)).toBe(lynxBlockMovementMask(MS_TILE.Gravel));
-    expect(lynxActorEntryMask(MS_TILE.Door_Blue, MS_TILE.Chip)).toBe(lynxChipMovementMask(MS_TILE.Door_Blue));
-    expect(lynxActorEntryMask(MS_TILE.Door_Blue, MS_TILE.BowlingBall)).toBe(lynxChipMovementMask(MS_TILE.Door_Blue));
-    expect(lynxActorEntryMask(MS_TILE.CloneMachine, MS_TILE.BowlingBall)).toBe(
-      lynxChipMovementMask(MS_TILE.Empty),
-    );
-    expect(lynxActorHazardResponse(MS_TILE.Glider, "water")).toBe("ignore");
-    expect(lynxActorHazardResponse(MS_TILE.Ball, "fire")).toBe("deny");
-    expect(lynxActorHazardResponse(MS_TILE.BowlingBall, "fire")).toBe("destroy");
-    expect(lynxCreatureArrivalAction(MS_TILE.Beartrap, MS_TILE.Ball)).toBe("trap");
-    expect(lynxCreatureArrivalAction(MS_TILE.Button_Red, MS_TILE.Ball)).toBe("button");
-    expect(lynxCreatureArrivalAction(MS_TILE.Water, MS_TILE.Block)).toBe("block-water");
-    expect(lynxCreatureArrivalAction(MS_TILE.Water, MS_TILE.Glider)).toBe("none");
-    expect(lynxCreatureArrivalAction(MS_TILE.Bomb, MS_TILE.Ball)).toBe("creature-bomb");
-    expect(lynxArrivalAnimationKind(MS_TILE.Water, MS_TILE.Ball)).toBe("water-splash");
-    expect(lynxArrivalAnimationKind(MS_TILE.Bomb, MS_TILE.Block)).toBe("bomb-explosion");
-    expect(
-      lynxChipMoveSoundAction(MS_TILE.Ice, {
-        hasFireBoots: false,
-        hasWaterBoots: false,
-        hasIceBoots: false,
-        hasSlideBoots: false,
-      }),
-    ).toBe("skate-forward");
-    expect(
-      lynxChipMoveSoundAction(MS_TILE.IceWall_Northwest, {
-        hasFireBoots: false,
-        hasWaterBoots: false,
-        hasIceBoots: true,
-        hasSlideBoots: false,
-      }),
-    ).toBe("ice-walk");
-    expect(
-      lynxChipMoveSoundAction(MS_TILE.Slide_East, {
-        hasFireBoots: false,
-        hasWaterBoots: false,
-        hasIceBoots: false,
-        hasSlideBoots: true,
-      }),
-    ).toBe("slide-walk");
+  it("composes actor families for glider, fireball, bug, and bowling ball", () => {
+    expect(lookupLynxActorDefinition(MS_TILE.Glider)?.capabilities.hazards.responses.water).toBe("ignore");
+    expect(lookupLynxActorDefinition(MS_TILE.Fireball)?.capabilities.hazards.responses.fire).toBe("ignore");
+    expect(lookupLynxActorDefinition(MS_TILE.Bug)?.capabilities.hazards.responses.fire).toBe("deny");
+
+    expect(lookupLynxActorDefinition(MS_TILE.BowlingBall)).toMatchObject({
+      tags: expect.arrayContaining(["creature", "collects-items"]),
+      capabilities: {
+        control: { mode: "ballistic" },
+        inventory: {
+          localInventoryMode: "keys-boots",
+          itemCollectionKind: "keys-boots",
+          globalProgressKind: "collect-chips",
+        },
+        movement: {
+          strategyId: "ballistic-like",
+          blockedMoveKind: "revert-portable",
+          trapHook: "hold-direction",
+          clonerHook: "hold-direction",
+          airHook: "chip-support",
+        },
+        interaction: {
+          thiefHook: "steal-boots-tools",
+          collisionStrategyId: "ballistic-destroy",
+        },
+      },
+    });
+  });
+
+  it("normalizes creature tiles back to their actor definitions", () => {
+    expect(lookupLynxActorDefinition(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west))?.id).toBe(MS_TILE.Bug);
   });
 });

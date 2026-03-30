@@ -1,156 +1,16 @@
 import type { ActorCapabilityPolicy } from "@game-core/api/actorCapabilities";
-import type { ActorDefinition } from "@game-core/api/ruleset";
+import type { ActorDefinition, ActorTag } from "@game-core/api/ruleset";
+import { composeRulesetActorPolicy } from "@game-core/impl/actorFamilies";
 import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
+import { createMsBallisticActorFamily } from "@ruleset-ms/impl/elements/actors/families/ballistic";
+import { createMsBlockActorFamily } from "@ruleset-ms/impl/elements/actors/families/block";
+import { createMsMobActorFamily } from "@ruleset-ms/impl/elements/actors/families/mob";
+import { createMsMonsterActorFamily } from "@ruleset-ms/impl/elements/actors/families/monster";
+import { createMsPlayerLikeActorFamily } from "@ruleset-ms/impl/elements/actors/families/playerLike";
+import { createMsPortableBackedActorFamily } from "@ruleset-ms/impl/elements/actors/families/portableBacked";
 
-export const MS_CHIP_ACTOR_CAPABILITIES = {
-  control: {
-    mode: "player-input",
-  },
-  inventory: {
-    localInventoryMode: "keys-boots-tools",
-    itemCollectionKind: "keys-boots-tools",
-    globalProgressKind: "collect-chips",
-  },
-  movement: {
-    strategyId: "chip-like",
-    blockedMoveKind: "stay",
-    trapHook: "default",
-    clonerHook: "default",
-    airHook: "chip-support",
-  },
-  interaction: {
-    thiefHook: "steal-boots-tools",
-    collisionStrategyId: "default",
-  },
-  hazards: {
-    responses: {
-      water: "destroy",
-      fire: "destroy",
-      bomb: "destroy",
-    },
-  },
-} as const satisfies ActorCapabilityPolicy;
-
-export const MS_BLOCK_ACTOR_CAPABILITIES = {
-  control: {
-    mode: "passive",
-  },
-  inventory: {
-    localInventoryMode: "none",
-    itemCollectionKind: "none",
-    globalProgressKind: "none",
-  },
-  movement: {
-    strategyId: "block-like",
-    blockedMoveKind: "stay",
-    trapHook: "default",
-    clonerHook: "default",
-    airHook: "non-chip-support",
-  },
-  interaction: {
-    thiefHook: "none",
-    collisionStrategyId: "default",
-  },
-  hazards: {
-    responses: {
-      water: "transform",
-      fire: "ignore",
-      bomb: "transform",
-    },
-  },
-} as const satisfies ActorCapabilityPolicy;
-
-export const MS_CREATURE_ACTOR_CAPABILITIES = {
-  control: {
-    mode: "ai",
-  },
-  inventory: {
-    localInventoryMode: "none",
-    itemCollectionKind: "none",
-    globalProgressKind: "none",
-  },
-  movement: {
-    strategyId: "creature-like",
-    blockedMoveKind: "stay",
-    trapHook: "default",
-    clonerHook: "default",
-    airHook: "non-chip-support",
-  },
-  interaction: {
-    thiefHook: "none",
-    collisionStrategyId: "default",
-  },
-  hazards: {
-    responses: {
-      water: "destroy",
-      fire: "destroy",
-      bomb: "destroy",
-    },
-  },
-} as const satisfies ActorCapabilityPolicy;
-
-export const MS_BOWLING_BALL_ACTOR_CAPABILITIES = {
-  control: {
-    mode: "ballistic",
-  },
-  inventory: {
-    localInventoryMode: "keys-boots",
-    itemCollectionKind: "keys-boots",
-    globalProgressKind: "collect-chips",
-  },
-  movement: {
-    strategyId: "ballistic-like",
-    blockedMoveKind: "revert-portable",
-    trapHook: "hold-direction",
-    clonerHook: "hold-direction",
-    airHook: "chip-support",
-  },
-  interaction: {
-    thiefHook: "steal-boots-tools",
-    collisionStrategyId: "ballistic-destroy",
-  },
-  hazards: {
-    responses: {
-      water: "destroy",
-      fire: "destroy",
-      bomb: "destroy",
-    },
-  },
-} as const satisfies ActorCapabilityPolicy;
-
-const MS_WATER_IMMUNE_CREATURE_CAPABILITIES = {
-  ...MS_CREATURE_ACTOR_CAPABILITIES,
-  hazards: {
-    responses: {
-      ...MS_CREATURE_ACTOR_CAPABILITIES.hazards.responses,
-      water: "ignore",
-    },
-  },
-} as const satisfies ActorCapabilityPolicy;
-
-const MS_FIRE_IMMUNE_CREATURE_CAPABILITIES = {
-  ...MS_CREATURE_ACTOR_CAPABILITIES,
-  hazards: {
-    responses: {
-      ...MS_CREATURE_ACTOR_CAPABILITIES.hazards.responses,
-      fire: "ignore",
-    },
-  },
-} as const satisfies ActorCapabilityPolicy;
-
-const MS_FIRE_DENY_CREATURE_CAPABILITIES = {
-  ...MS_CREATURE_ACTOR_CAPABILITIES,
-  hazards: {
-    responses: {
-      ...MS_CREATURE_ACTOR_CAPABILITIES.hazards.responses,
-      fire: "deny",
-    },
-  },
-} as const satisfies ActorCapabilityPolicy;
-
-const ACTOR_TILE_IDS = [
-  MS_TILE.Chip,
-  MS_TILE.Block,
+const CHIP_ACTOR_IDS = [MS_TILE.Chip, MS_TILE.Swimming_Chip, MS_TILE.Pushing_Chip] as const;
+const MONSTER_ACTOR_IDS = [
   MS_TILE.Tank,
   MS_TILE.Ball,
   MS_TILE.Glider,
@@ -160,10 +20,110 @@ const ACTOR_TILE_IDS = [
   MS_TILE.Teeth,
   MS_TILE.Bug,
   MS_TILE.Paramecium,
-  MS_TILE.Swimming_Chip,
-  MS_TILE.Pushing_Chip,
+] as const;
+const ACTIVE_MOB_ACTOR_IDS = [...CHIP_ACTOR_IDS, ...MONSTER_ACTOR_IDS, MS_TILE.BowlingBall] as const;
+
+const ACTOR_TILE_IDS = [
+  ...CHIP_ACTOR_IDS,
+  MS_TILE.Block,
+  ...MONSTER_ACTOR_IDS,
   MS_TILE.BowlingBall,
 ] as const;
+
+const MS_ACTOR_BASE_POLICY = {
+  tags: [],
+  capabilities: {
+    control: {
+      mode: "passive",
+    },
+    inventory: {
+      localInventoryMode: "none",
+      itemCollectionKind: "none",
+      globalProgressKind: "none",
+    },
+    movement: {
+      strategyId: "creature-like",
+      blockedMoveKind: "stay",
+      trapHook: "none",
+      clonerHook: "none",
+      airHook: "non-chip-support",
+    },
+    interaction: {
+      thiefHook: "none",
+      collisionStrategyId: "default",
+    },
+    hazards: {
+      responses: {
+        water: "destroy",
+        fire: "destroy",
+        bomb: "destroy",
+      },
+    },
+  },
+} as const satisfies {
+  tags: readonly ActorTag[];
+  capabilities: ActorCapabilityPolicy;
+};
+
+const MS_ACTOR_FAMILIES = [
+  createMsMobActorFamily({
+    name: "active-mob",
+    actorIds: ACTIVE_MOB_ACTOR_IDS,
+  }),
+  createMsPlayerLikeActorFamily({
+    name: "chip",
+    actorIds: CHIP_ACTOR_IDS,
+  }),
+  createMsBlockActorFamily({
+    name: "block",
+    actorIds: [MS_TILE.Block],
+  }),
+  createMsMonsterActorFamily({
+    name: "monster",
+    actorIds: MONSTER_ACTOR_IDS,
+  }),
+  createMsMonsterActorFamily({
+    name: "glider",
+    actorIds: [MS_TILE.Glider],
+    hazardResponses: {
+      water: "ignore",
+    },
+  }),
+  createMsMonsterActorFamily({
+    name: "fireball",
+    actorIds: [MS_TILE.Fireball],
+    hazardResponses: {
+      fire: "ignore",
+    },
+  }),
+  createMsMonsterActorFamily({
+    name: "fire-deny",
+    actorIds: [MS_TILE.Bug, MS_TILE.Walker],
+    hazardResponses: {
+      fire: "deny",
+    },
+  }),
+  createMsBallisticActorFamily({
+    name: "ballistic",
+    actorIds: [MS_TILE.BowlingBall],
+  }),
+  createMsPortableBackedActorFamily({
+    name: "portable-backed",
+    actorIds: [MS_TILE.BowlingBall],
+    localInventoryMode: "keys-boots",
+    itemCollectionKind: "keys-boots",
+    globalProgressKind: "collect-chips",
+  }),
+] as const;
+
+function msActorPolicy(id: number) {
+  return composeRulesetActorPolicy(MS_ACTOR_BASE_POLICY, id, MS_ACTOR_FAMILIES);
+}
+
+export const MS_CHIP_ACTOR_CAPABILITIES = msActorPolicy(MS_TILE.Chip).capabilities;
+export const MS_BLOCK_ACTOR_CAPABILITIES = msActorPolicy(MS_TILE.Block).capabilities;
+export const MS_CREATURE_ACTOR_CAPABILITIES = msActorPolicy(MS_TILE.Tank).capabilities;
+export const MS_BOWLING_BALL_ACTOR_CAPABILITIES = msActorPolicy(MS_TILE.BowlingBall).capabilities;
 
 function msTileConstName(id: number): string {
   for (const [name, value] of Object.entries(MS_TILE)) {
@@ -178,49 +138,16 @@ function humanizeMsTileName(name: string): string {
   return name.replaceAll("_", " ");
 }
 
-function defaultMsActorCapabilities(id: number): ActorCapabilityPolicy {
-  switch (id) {
-    case MS_TILE.Chip:
-    case MS_TILE.Swimming_Chip:
-    case MS_TILE.Pushing_Chip:
-      return MS_CHIP_ACTOR_CAPABILITIES;
-    case MS_TILE.Block:
-      return MS_BLOCK_ACTOR_CAPABILITIES;
-    case MS_TILE.BowlingBall:
-      return MS_BOWLING_BALL_ACTOR_CAPABILITIES;
-    case MS_TILE.Glider:
-      return MS_WATER_IMMUNE_CREATURE_CAPABILITIES;
-    case MS_TILE.Fireball:
-      return MS_FIRE_IMMUNE_CREATURE_CAPABILITIES;
-    case MS_TILE.Bug:
-    case MS_TILE.Walker:
-      return MS_FIRE_DENY_CREATURE_CAPABILITIES;
-    default:
-      return MS_CREATURE_ACTOR_CAPABILITIES;
-  }
-}
-
 function createMsActorDefinition(id: number): ActorDefinition<number> {
   const name = msTileConstName(id);
-  const tags =
-    id === MS_TILE.Chip || id === MS_TILE.Swimming_Chip || id === MS_TILE.Pushing_Chip
-      ? (["chip", "collects-items"] as const)
-      : id === MS_TILE.Block
-        ? (["block"] as const)
-        : id === MS_TILE.BowlingBall
-          ? (["creature", "collects-items"] as const)
-        : id === MS_TILE.Glider
-          ? (["creature", "water-immune"] as const)
-          : id === MS_TILE.Fireball
-            ? (["creature", "fire-immune"] as const)
-            : (["creature"] as const);
+  const policy = msActorPolicy(id);
 
   return {
     id,
     code: `ms:${name.toLowerCase()}`,
     name: humanizeMsTileName(name),
-    tags,
-    capabilities: defaultMsActorCapabilities(id),
+    tags: policy.tags,
+    capabilities: policy.capabilities,
   };
 }
 

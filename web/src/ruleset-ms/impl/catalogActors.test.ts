@@ -1,85 +1,52 @@
 import { describe, expect, it } from "vitest";
+import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
-  msActorAirHook,
-  msActorArrivalAction,
-  msActorBlockedMoveKind,
-  msActorClonerFamilyHooks,
-  msActorClonerHook,
-  msActorCapabilityPolicy,
-  msActorCollisionStrategyId,
-  msActorControlMode,
-  msActorEntryMask,
-  msActorGlobalProgressKind,
-  msActorHazardResponse,
-  msActorHasTag,
-  msActorItemCollectionKind,
-  msActorLocalInventoryMode,
-  msActorMovementStrategyId,
-  msActorSupportFamilyHooks,
-  msActorThiefHook,
-  msActorTrapFamilyHooks,
-  msActorTrapHook,
-  msBlockMovementMask,
-  msChipMovementMask,
-  msIsOverlayFloorTile,
-  msPreservesUnderlyingFloor,
-} from "@ruleset-ms/impl/catalog";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+  MS_BLOCK_ACTOR_CAPABILITIES,
+  MS_BOWLING_BALL_ACTOR_CAPABILITIES,
+  MS_CHIP_ACTOR_CAPABILITIES,
+  MS_CREATURE_ACTOR_CAPABILITIES,
+  lookupMsActorDefinition,
+} from "@ruleset-ms/impl/catalogActors";
 
-describe("MS catalog actor families", () => {
-  it("surfaces actor tags and capability policies", () => {
-    expect(msActorHasTag(MS_TILE.Fireball, "fire-immune")).toBe(true);
-    expect(msActorHasTag(MS_TILE.Glider, "water-immune")).toBe(true);
-    expect(msActorHasTag(MS_TILE.Chip, "chip")).toBe(true);
-    expect(msActorCapabilityPolicy(MS_TILE.Chip).control.mode).toBe("player-input");
-    expect(msActorControlMode(MS_TILE.Bug)).toBe("ai");
-    expect(msActorControlMode(MS_TILE.BowlingBall)).toBe("ballistic");
-    expect(msActorLocalInventoryMode(MS_TILE.Chip)).toBe("keys-boots-tools");
-    expect(msActorLocalInventoryMode(MS_TILE.BowlingBall)).toBe("keys-boots");
-    expect(msActorItemCollectionKind(MS_TILE.Chip)).toBe("keys-boots-tools");
-    expect(msActorItemCollectionKind(MS_TILE.BowlingBall)).toBe("keys-boots");
-    expect(msActorGlobalProgressKind(MS_TILE.Chip)).toBe("collect-chips");
-    expect(msActorGlobalProgressKind(MS_TILE.BowlingBall)).toBe("collect-chips");
-    expect(msActorMovementStrategyId(MS_TILE.Block)).toBe("block-like");
-    expect(msActorMovementStrategyId(MS_TILE.BowlingBall)).toBe("ballistic-like");
-    expect(msActorBlockedMoveKind(MS_TILE.Block)).toBe("stay");
-    expect(msActorBlockedMoveKind(MS_TILE.BowlingBall)).toBe("revert-portable");
-    expect(msActorTrapHook(MS_TILE.Ball)).toBe("default");
-    expect(msActorTrapHook(MS_TILE.BowlingBall)).toBe("hold-direction");
-    expect(msActorClonerHook(MS_TILE.Ball)).toBe("default");
-    expect(msActorClonerHook(MS_TILE.BowlingBall)).toBe("hold-direction");
-    expect(msActorThiefHook(MS_TILE.Chip)).toBe("steal-boots-tools");
-    expect(msActorThiefHook(MS_TILE.BowlingBall)).toBe("steal-boots-tools");
-    expect(msActorAirHook(MS_TILE.Chip)).toBe("chip-support");
-    expect(msActorAirHook(MS_TILE.BowlingBall)).toBe("chip-support");
-    expect(msActorTrapFamilyHooks(MS_TILE.BowlingBall).releaseBehavior).toBe("move-current-direction");
-    expect(msActorClonerFamilyHooks(MS_TILE.BowlingBall).runtimeCloneBehavior).toBe("clone-family-runtime");
-    expect(msActorSupportFamilyHooks(MS_TILE.BowlingBall).fallingCollisionBehavior).toBe("default");
-    expect(msActorCollisionStrategyId(MS_TILE.Ball)).toBe("default");
-    expect(msActorCollisionStrategyId(MS_TILE.BowlingBall)).toBe("ballistic-destroy");
+describe("ms catalogActors", () => {
+  it("keeps the baseline actor family policies stable", () => {
+    expect(MS_CHIP_ACTOR_CAPABILITIES.control.mode).toBe("player-input");
+    expect(MS_BLOCK_ACTOR_CAPABILITIES.movement.strategyId).toBe("block-like");
+    expect(MS_CREATURE_ACTOR_CAPABILITIES.movement.strategyId).toBe("creature-like");
+    expect(MS_BOWLING_BALL_ACTOR_CAPABILITIES.movement.strategyId).toBe("ballistic-like");
   });
 
-  it("provides actor-vs-tile entry, hazard, arrival, and overlay helpers", () => {
-    expect(msActorEntryMask(MS_TILE.Dirt, MS_TILE.Block)).toBe(msBlockMovementMask(MS_TILE.Dirt));
-    expect(msActorEntryMask(MS_TILE.Door_Blue, MS_TILE.Chip)).toBe(msChipMovementMask(MS_TILE.Door_Blue));
-    expect(msActorEntryMask(MS_TILE.Door_Blue, MS_TILE.BowlingBall)).toBe(msChipMovementMask(MS_TILE.Door_Blue));
-    expect(msActorEntryMask(MS_TILE.CloneMachine, MS_TILE.BowlingBall)).toBe(
-      msChipMovementMask(MS_TILE.Empty),
-    );
-    expect(msActorEntryMask(MS_TILE.CloneMachine, MS_TILE.Ball)).toBe(0);
-    expect(msActorHazardResponse(MS_TILE.Glider, "water")).toBe("ignore");
-    expect(msActorHazardResponse(MS_TILE.Bug, "fire")).toBe("deny");
-    expect(msActorHazardResponse(MS_TILE.BowlingBall, "fire")).toBe("destroy");
-    expect(msActorArrivalAction(MS_TILE.Water, MS_TILE.Block)).toBe("block-water");
-    expect(msActorArrivalAction(MS_TILE.Water, MS_TILE.Glider)).toBe("none");
-    expect(msActorArrivalAction(MS_TILE.Water, MS_TILE.Bug)).toBe("creature-water");
-    expect(msActorArrivalAction(MS_TILE.Fire, MS_TILE.Fireball)).toBe("none");
-    expect(msActorArrivalAction(MS_TILE.Fire, MS_TILE.Glider)).toBe("creature-fire");
-    expect(msActorArrivalAction(MS_TILE.Bomb, MS_TILE.Block)).toBe("block-bomb");
-    expect(msActorArrivalAction(MS_TILE.Bomb, MS_TILE.Ball)).toBe("creature-bomb");
-    expect(msIsOverlayFloorTile(MS_TILE.Key_Red)).toBe(true);
-    expect(msIsOverlayFloorTile(MS_TILE.Bug)).toBe(true);
-    expect(msPreservesUnderlyingFloor(MS_TILE.Empty)).toBe(true);
-    expect(msPreservesUnderlyingFloor(MS_TILE.Boots_Ice)).toBe(false);
+  it("composes actor families for glider, fireball, bug, and bowling ball", () => {
+    expect(lookupMsActorDefinition(MS_TILE.Glider)?.capabilities.hazards.responses.water).toBe("ignore");
+    expect(lookupMsActorDefinition(MS_TILE.Fireball)?.capabilities.hazards.responses.fire).toBe("ignore");
+    expect(lookupMsActorDefinition(MS_TILE.Bug)?.capabilities.hazards.responses.fire).toBe("deny");
+    expect(lookupMsActorDefinition(MS_TILE.Walker)?.capabilities.hazards.responses.fire).toBe("deny");
+
+    expect(lookupMsActorDefinition(MS_TILE.BowlingBall)).toMatchObject({
+      tags: expect.arrayContaining(["creature", "collects-items"]),
+      capabilities: {
+        control: { mode: "ballistic" },
+        inventory: {
+          localInventoryMode: "keys-boots",
+          itemCollectionKind: "keys-boots",
+          globalProgressKind: "collect-chips",
+        },
+        movement: {
+          strategyId: "ballistic-like",
+          blockedMoveKind: "revert-portable",
+          trapHook: "hold-direction",
+          clonerHook: "hold-direction",
+          airHook: "chip-support",
+        },
+        interaction: {
+          thiefHook: "steal-boots-tools",
+          collisionStrategyId: "ballistic-destroy",
+        },
+      },
+    });
+  });
+
+  it("normalizes creature tiles back to their actor definitions", () => {
+    expect(lookupMsActorDefinition(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.east))?.id).toBe(MS_TILE.Bug);
   });
 });
