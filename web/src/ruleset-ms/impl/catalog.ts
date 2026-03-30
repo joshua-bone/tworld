@@ -66,6 +66,9 @@ import {
   lookupMsTerrainPickupTileRegistration,
 } from "@ruleset-ms/impl/elementRegistration";
 
+const FULL_MOVEMENT_MASK =
+  MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
+
 type MsActorArrivalAction =
   | "none"
   | "block-water"
@@ -207,6 +210,10 @@ export function msActorCollisionStrategyId(id: number): ActorCollisionStrategyId
 }
 
 export function msActorEntryMask(tileId: number, actorId: number): number {
+  if (tileId === MS_TILE.CloneMachine && msActorClonerFamilyHooks(actorId).entryBehavior === "occupy-and-hold") {
+    return FULL_MOVEMENT_MASK;
+  }
+
   switch (msActorMovementStrategyId(actorId)) {
     case "chip-like":
     case "ballistic-like":

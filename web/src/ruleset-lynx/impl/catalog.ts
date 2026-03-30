@@ -72,6 +72,9 @@ import {
   lookupLynxTerrainPickupTileRegistration,
 } from "@ruleset-lynx/impl/elementRegistration";
 
+const FULL_MOVEMENT_MASK =
+  MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
+
 type LynxCreatureArrivalAction =
   | "none"
   | "trap"
@@ -221,6 +224,10 @@ export function lynxActorCollisionStrategyId(id: number): ActorCollisionStrategy
 }
 
 export function lynxActorEntryMask(tileId: number, actorId: number): number {
+  if (tileId === MS_TILE.CloneMachine && lynxActorClonerFamilyHooks(actorId).entryBehavior === "occupy-and-hold") {
+    return FULL_MOVEMENT_MASK;
+  }
+
   switch (lynxActorMovementStrategyId(actorId)) {
     case "chip-like":
     case "ballistic-like":

@@ -143,6 +143,7 @@ export function moveMsChipPlanar(
   context.applyMobExitFloorEffect(cells, oldPos);
 
   if (enteredEffects.enteredTeleport) {
+    context.settlePrimedToolDrop(cells, nextPos, oldZ);
     const teleported = context.teleportDestination(cells, nextPos, dir);
     nextPos = teleported.destination;
     soundEffects |= teleported.soundEffects;
@@ -195,6 +196,7 @@ export function moveMsChipDownOneLayer(
   context.internal.chipZ = targetZ;
 
   if (enteredEffects.enteredTeleport) {
+    context.settlePrimedToolDrop(targetCells, nextPos, targetZ);
     const teleported = context.teleportDestination(targetCells, nextPos, context.internal.chipDir);
     nextPos = teleported.destination;
     soundEffects |= teleported.soundEffects;

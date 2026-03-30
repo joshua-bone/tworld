@@ -3,6 +3,7 @@ import type { ActorArrivalOutcome, ActorCollisionOutcome } from "@game-core/api/
 import { actorFallingCollisionFailsChip } from "@game-core/api/actorSpecialFloorHooks";
 import {
   addTopTileFlags,
+  promoteBottomTile,
   removeTopTileFlags,
   topTileIdOr,
 } from "@game-core/impl/board";
@@ -83,6 +84,13 @@ function isLynxIce(tileId: number): boolean {
   return lynxTileForcedFloorKind(tileId) === "ice";
 }
 
+function lynxRuntimeFloorTileId(topId: number, bottomId: number): number {
+  if ((topId === MS_TILE.Empty || topId === MS_TILE.Nothing) && bottomId !== MS_TILE.Empty) {
+    return bottomId;
+  }
+  return topId;
+}
+
 export function canLynxActorStartMovement(
   context: LynxActorMovementContext,
   actor: LynxActorMovementActor,
@@ -107,10 +115,11 @@ export function canLynxActorStartMovement(
 
   const targetOccupancy = context.queryTargetOccupancy(targetPos, actor.z ?? context.activeLayerZ());
   const interaction = context.interactionOutcome(actor, targetOccupancy);
+  const targetFloorId = lynxRuntimeFloorTileId(target.top.id, target.bottom.id);
   if (
     interaction.denyMove ||
     targetOccupancy.claimed ||
-    !context.canActorEnter(actor, context.effectiveTargetTileId(target.top.id), dir)
+    !context.canActorEnter(actor, context.effectiveTargetTileId(targetFloorId), dir)
   ) {
     return false;
   }
@@ -139,6 +148,9 @@ export function startLynxActorMovement(
   const { pos: targetPos, cell: target } = targetStep;
   if ((target.top.state & LYNX_CELL_FLAG.Animated) !== 0) {
     context.clearAnimationAt(targetPos);
+  }
+  if ((target.top.id === MS_TILE.Empty || target.top.id === MS_TILE.Nothing) && target.bottom.id !== MS_TILE.Empty) {
+    promoteBottomTile(context.state.map.cells, targetPos, MS_TILE.Empty);
   }
 
   if (actor.id === MS_TILE.Block) {

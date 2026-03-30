@@ -3429,6 +3429,39 @@ describe("runLynxInputTrace", () => {
     expect(portable?.family).toBe("bowling-ball");
   });
 
+  it("lets a moving bowling ball enter and stay on a clone machine", () => {
+    const chipPos = 33;
+    const bowlingBallPos = 65;
+    const clonerPos = 66;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(bowlingBallPos, msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(clonerPos, MS_TILE.Empty, MS_TILE.CloneMachine),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 4);
+
+    const bowlingBall = session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden);
+    const portable = bowlingBall
+      ? lynxPortableItems(session.state).find(
+          (item) => item.state.mode === "attached" && item.state.attachmentKind === "actor" && item.state.attachmentId === bowlingBall.serial,
+        )
+      : undefined;
+
+    expect(bowlingBall).toMatchObject({
+      pos: clonerPos,
+      dir: MS_DIRECTION.east,
+      hidden: false,
+      moving: 0,
+    });
+    expect(portable?.family).toBe("bowling-ball");
+    expect(session.state.map.cells[clonerPos]?.top.id).toBe(MS_TILE.CloneMachine);
+    expect(session.state.map.cells[clonerPos]?.bottom.id).toBe(MS_TILE.Empty);
+  });
+
   it("throws a carried bowling ball into an adjacent portable item and destroys both", () => {
     const chipPos = 33;
     const sandbagPos = 34;

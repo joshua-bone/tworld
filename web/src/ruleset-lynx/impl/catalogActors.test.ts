@@ -66,6 +66,9 @@ describe("Lynx catalog actor families", () => {
     expect(lynxActorEntryMask(MS_TILE.Gravel, MS_TILE.Block)).toBe(lynxBlockMovementMask(MS_TILE.Gravel));
     expect(lynxActorEntryMask(MS_TILE.Door_Blue, MS_TILE.Chip)).toBe(lynxChipMovementMask(MS_TILE.Door_Blue));
     expect(lynxActorEntryMask(MS_TILE.Door_Blue, MS_TILE.BowlingBall)).toBe(lynxChipMovementMask(MS_TILE.Door_Blue));
+    expect(lynxActorEntryMask(MS_TILE.CloneMachine, MS_TILE.BowlingBall)).toBe(
+      lynxChipMovementMask(MS_TILE.Empty),
+    );
     expect(lynxActorHazardResponse(MS_TILE.Glider, "water")).toBe("ignore");
     expect(lynxActorHazardResponse(MS_TILE.Ball, "fire")).toBe("deny");
     expect(lynxActorHazardResponse(MS_TILE.BowlingBall, "fire")).toBe("destroy");

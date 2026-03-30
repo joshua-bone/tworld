@@ -6057,6 +6057,34 @@ describe("MS engine regressions", () => {
     });
   });
 
+  it("settles a replaced bowling ball on a teleport pickup tile before Chip teleports away", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(6, 19);
+    const pickupPos = pos(7, 19);
+    const preferredExitTeleportPos = pos(5, 19);
+    const fallbackExitTeleportPos = pos(4, 19);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[pickupPos]!.top.id = MS_TILE.BowlingBall_Still;
+    cells[pickupPos]!.bottom.id = MS_TILE.Teleport;
+    cells[preferredExitTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[fallbackExitTeleportPos]!.top.id = MS_TILE.Teleport;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(session.state.internal.chipPos).toBe(preferredExitTeleportPos);
+    expect(session.state.engine.map.cells[pickupPos]?.top.id).toBe(MS_TILE.BowlingBall_Still);
+    expect(session.state.internal.portableTools.primedToolDrop).toBeNull();
+  });
+
   it("consumes a dropped sandbag into dirt when Chip leaves water", () => {
     const cells = createEmptyCells();
     const chipPos = pos(12, 12);
@@ -6764,6 +6792,44 @@ describe("MS engine regressions", () => {
     });
     expect(heldCreature?.hidden).toBe(true);
     expect(session.state.engine.map.cells[clonerPos]?.top.id).toBe(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east));
+  });
+
+  it("lets a moving bowling ball enter and stay on a clone machine", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const bowlingBallPos = pos(8, 10);
+    const clonerPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[bowlingBallPos]!.top.id = msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east);
+    cells[clonerPos]!.bottom.id = MS_TILE.CloneMachine;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, bowlingBallPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 8; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const sourceSerial = session.state.internal.cloneSourceSerialByPosition.get(`1:${clonerPos}`);
+    const heldCreature =
+      typeof sourceSerial === "number"
+        ? session.state.internal.creatures.find((creature) => creature.serial === sourceSerial)
+        : undefined;
+
+    expect(sourceSerial).toBeDefined();
+    expect(heldCreature).toMatchObject({
+      id: MS_TILE.BowlingBall,
+      pos: clonerPos,
+      dir: MS_DIRECTION.east,
+      hidden: true,
+    });
+    expect(session.state.engine.map.cells[clonerPos]?.top.id).toBe(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east));
+    expect(session.state.engine.map.cells[clonerPos]?.bottom.id).toBe(MS_TILE.CloneMachine);
   });
 
   it("throws a carried bowling ball into an adjacent portable item and destroys both", () => {
