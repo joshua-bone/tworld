@@ -1,5 +1,6 @@
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createBlockingTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import type { LynxCreatureFloorAction } from "@ruleset-lynx/impl/catalogTiles";
+import { LYNX_FULL_MOVEMENT_MASK } from "@ruleset-lynx/impl/elements/tiles/families/shared";
 import type { LynxTileFamilyDefinition } from "@ruleset-lynx/impl/elements/tiles/families/shared";
 
 export interface LynxClonerTileFamilyOptions {
@@ -9,15 +10,13 @@ export interface LynxClonerTileFamilyOptions {
 }
 
 export function createLynxClonerTileFamily(options: LynxClonerTileFamilyOptions): LynxTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createBlockingTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: {
-      tags: ["cloner", "blocking"],
-      chipMovementMask: 0,
-      creatureMovementMask: 0,
-      blockMovementMask: 0,
-      requiresReleaseToExit: true,
+    fullMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    baseTags: ["cloner", "blocking"],
+    requiresReleaseToExit: true,
+    extraPolicy: {
       creatureFloorAction: options.creatureFloorAction ?? "hold-direction",
     },
   });

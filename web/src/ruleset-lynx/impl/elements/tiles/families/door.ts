@@ -1,4 +1,4 @@
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createWalkableTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import {
   LYNX_FULL_MOVEMENT_MASK,
   type LynxTileFamilyDefinition,
@@ -11,14 +11,14 @@ export interface LynxDoorTileFamilyOptions {
 }
 
 export function createLynxDoorTileFamily(options: LynxDoorTileFamilyOptions): LynxTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createWalkableTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: (id) => ({
-      tags: ["door"],
-      chipMovementMask: LYNX_FULL_MOVEMENT_MASK,
-      creatureMovementMask: 0,
-      blockMovementMask: 0,
+    fullMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    baseTags: ["walkable", "door"],
+    creatureMovementMask: 0,
+    blockMovementMask: 0,
+    extraPolicy: (id) => ({
       chipEnterAction: "open-door",
       doorKeyIndex: options.doorKeyIndex(id),
     }),

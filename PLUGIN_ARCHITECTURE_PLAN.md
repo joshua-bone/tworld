@@ -415,15 +415,15 @@ Targets:
 
 Checklist:
 
-- [ ] add family builders for `floor`, `wall`, `hazard`, `forcedFloor`, `button`, `trap`, `cloner`, `air`
-- [ ] add family builders for `mob`, `monster`, `block`, `ballistic`, `portableBacked`, `playerLike`
-- [ ] make concrete element modules mostly composition declarations
-- [ ] avoid class inheritance and keep builders data-plus-hook oriented
+- [x] add family builders for `floor`, `wall`, `hazard`, `forcedFloor`, `button`, `trap`, `cloner`, `air`
+- [x] add family builders for `mob`, `monster`, `block`, `ballistic`, `portableBacked`, `playerLike`
+- [x] make concrete element modules mostly composition declarations
+- [x] avoid class inheritance and keep builders data-plus-hook oriented
 
 Tests:
 
-- [ ] family builder unit tests
-- [ ] registration smoke tests for representative concrete elements
+- [x] family builder unit tests
+- [x] registration smoke tests for representative concrete elements
 
 ### PA18: Co-Locate Concrete Element Ownership
 

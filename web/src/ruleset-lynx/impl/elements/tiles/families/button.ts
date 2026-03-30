@@ -1,4 +1,4 @@
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createWalkableTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import type { LynxButtonAction, LynxChipEnterAction } from "@ruleset-lynx/impl/catalogTiles";
 import {
   LYNX_FULL_MOVEMENT_MASK,
@@ -13,16 +13,14 @@ export interface LynxButtonTileFamilyOptions {
 }
 
 export function createLynxButtonTileFamily(options: LynxButtonTileFamilyOptions): LynxTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createWalkableTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: (id) => ({
-      tags: ["walkable", "button"],
-      capabilities: ["trigger-on-entry", "trigger-on-leave"],
-      hooks: ["after-enter", "after-leave"],
-      chipMovementMask: LYNX_FULL_MOVEMENT_MASK,
-      creatureMovementMask: LYNX_FULL_MOVEMENT_MASK,
-      blockMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    fullMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    baseTags: ["walkable", "button"],
+    capabilities: ["trigger-on-entry", "trigger-on-leave"],
+    hooks: ["after-enter", "after-leave"],
+    extraPolicy: (id) => ({
       chipEnterAction: options.chipEnterAction ?? "button",
       buttonAction: options.action(id),
     }),

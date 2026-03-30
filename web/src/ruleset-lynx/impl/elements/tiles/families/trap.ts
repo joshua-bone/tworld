@@ -1,4 +1,4 @@
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createWalkableTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import type { LynxChipEnterAction, LynxCreatureFloorAction } from "@ruleset-lynx/impl/catalogTiles";
 import {
   LYNX_FULL_MOVEMENT_MASK,
@@ -13,16 +13,14 @@ export interface LynxTrapTileFamilyOptions {
 }
 
 export function createLynxTrapTileFamily(options: LynxTrapTileFamilyOptions): LynxTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createWalkableTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: {
-      tags: ["walkable", "trap"],
-      hooks: ["after-enter"],
-      chipMovementMask: LYNX_FULL_MOVEMENT_MASK,
-      creatureMovementMask: LYNX_FULL_MOVEMENT_MASK,
-      blockMovementMask: LYNX_FULL_MOVEMENT_MASK,
-      requiresReleaseToExit: true,
+    fullMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    baseTags: ["walkable", "trap"],
+    hooks: ["after-enter"],
+    requiresReleaseToExit: true,
+    extraPolicy: {
       chipEnterAction: options.chipEnterAction ?? "trap",
       creatureFloorAction: options.creatureFloorAction ?? "hold-direction",
     },

@@ -1,6 +1,6 @@
 import type { ActorHazardResponse } from "@game-core/api/actorCapabilities";
 import type { ActorTag } from "@game-core/api/ruleset";
-import { createRulesetActorFamily } from "@game-core/impl/actorFamilies";
+import { createBlockActorFamilyDefinition } from "@game-core/impl/actorFamilyBuilders";
 import type { MsActorFamilyDefinition } from "@ruleset-ms/impl/elements/actors/families/shared";
 
 export interface MsBlockActorFamilyOptions {
@@ -11,38 +11,10 @@ export interface MsBlockActorFamilyOptions {
 }
 
 export function createMsBlockActorFamily(options: MsBlockActorFamilyOptions): MsActorFamilyDefinition {
-  return createRulesetActorFamily({
+  return createBlockActorFamilyDefinition({
     name: options.name,
     actorIds: options.actorIds,
-    policy: {
-      tags: ["block", ...(options.tags ?? [])],
-      control: {
-        mode: "passive",
-      },
-      inventory: {
-        localInventoryMode: "none",
-        itemCollectionKind: "none",
-        globalProgressKind: "none",
-      },
-      movement: {
-        strategyId: "block-like",
-        blockedMoveKind: "stay",
-        trapHook: "default",
-        clonerHook: "default",
-        airHook: "non-chip-support",
-      },
-      interaction: {
-        thiefHook: "none",
-        collisionStrategyId: "default",
-      },
-      hazards: {
-        responses: {
-          water: "transform",
-          fire: "ignore",
-          bomb: "transform",
-          ...(options.hazardResponses ?? {}),
-        },
-      },
-    },
+    tags: options.tags,
+    hazardResponses: options.hazardResponses,
   });
 }

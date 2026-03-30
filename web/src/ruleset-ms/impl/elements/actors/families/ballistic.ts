@@ -1,6 +1,6 @@
 import type { ActorHazardResponse } from "@game-core/api/actorCapabilities";
 import type { ActorTag } from "@game-core/api/ruleset";
-import { createRulesetActorFamily } from "@game-core/impl/actorFamilies";
+import { createBallisticActorFamilyDefinition } from "@game-core/impl/actorFamilyBuilders";
 import type { MsActorFamilyDefinition } from "@ruleset-ms/impl/elements/actors/families/shared";
 
 export interface MsBallisticActorFamilyOptions {
@@ -11,27 +11,10 @@ export interface MsBallisticActorFamilyOptions {
 }
 
 export function createMsBallisticActorFamily(options: MsBallisticActorFamilyOptions): MsActorFamilyDefinition {
-  return createRulesetActorFamily({
+  return createBallisticActorFamilyDefinition({
     name: options.name,
     actorIds: options.actorIds,
-    policy: {
-      tags: ["creature", ...(options.tags ?? [])],
-      control: {
-        mode: "ballistic",
-      },
-      movement: {
-        strategyId: "ballistic-like",
-        blockedMoveKind: "revert-portable",
-        trapHook: "hold-direction",
-        clonerHook: "hold-direction",
-        airHook: "chip-support",
-      },
-      interaction: {
-        collisionStrategyId: "ballistic-destroy",
-      },
-      hazards: {
-        responses: options.hazardResponses ?? {},
-      },
-    },
+    tags: options.tags,
+    hazardResponses: options.hazardResponses,
   });
 }

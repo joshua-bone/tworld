@@ -14,6 +14,7 @@ import { createLynxConcreteTileBehavior } from "@ruleset-lynx/impl/elements/tile
 import { createLynxDoorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/door";
 import { createLynxFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/floor";
 import { createLynxForcedFloorTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
+import { createLynxHazardTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/hazard";
 import { createLynxLeaveTileBehavior } from "@ruleset-lynx/impl/elements/tiles/families/leave";
 import { createLynxPickupTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/pickup";
 import { createLynxChipEnterTileBehavior } from "@ruleset-lynx/impl/chipEnterBehavior";
@@ -211,25 +212,19 @@ const lynxTileFamilies: readonly LynxTileFamilyDefinition[] = [
     creatureMovementMask: 0,
     blockMovementMask: 0,
   }),
-  createLynxFloorTileFamily({
+  createLynxHazardTileFamily({
     name: "water",
     tileIds: [MS_TILE.Water],
-    tags: ["deadly"],
-    capabilities: ["kills-on-entry"],
     chipEnterAction: "water-death",
   }),
-  createLynxFloorTileFamily({
+  createLynxHazardTileFamily({
     name: "fire",
     tileIds: [MS_TILE.Fire],
-    tags: ["deadly"],
-    capabilities: ["kills-on-entry"],
     chipEnterAction: "fire-death",
   }),
-  createLynxFloorTileFamily({
+  createLynxHazardTileFamily({
     name: "bomb",
     tileIds: [MS_TILE.Bomb],
-    tags: ["deadly"],
-    capabilities: ["kills-on-entry"],
     hooks: ["after-enter"],
     chipEnterAction: "explode-bomb",
   }),

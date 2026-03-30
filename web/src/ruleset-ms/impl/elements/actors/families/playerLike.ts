@@ -1,6 +1,6 @@
 import type { ActorGlobalProgressKind, ActorItemCollectionKind, ActorLocalInventoryMode } from "@game-core/api/actorCapabilities";
 import type { ActorTag } from "@game-core/api/ruleset";
-import { createRulesetActorFamily } from "@game-core/impl/actorFamilies";
+import { createPlayerLikeActorFamilyDefinition } from "@game-core/impl/actorFamilyBuilders";
 import type { MsActorFamilyDefinition } from "@ruleset-ms/impl/elements/actors/families/shared";
 
 export interface MsPlayerLikeActorFamilyOptions {
@@ -13,37 +13,12 @@ export interface MsPlayerLikeActorFamilyOptions {
 }
 
 export function createMsPlayerLikeActorFamily(options: MsPlayerLikeActorFamilyOptions): MsActorFamilyDefinition {
-  return createRulesetActorFamily({
+  return createPlayerLikeActorFamilyDefinition({
     name: options.name,
     actorIds: options.actorIds,
-    policy: {
-      tags: ["chip", "collects-items", ...(options.tags ?? [])],
-      control: {
-        mode: "player-input",
-      },
-      inventory: {
-        localInventoryMode: options.localInventoryMode ?? "keys-boots-tools",
-        itemCollectionKind: options.itemCollectionKind ?? "keys-boots-tools",
-        globalProgressKind: options.globalProgressKind ?? "collect-chips",
-      },
-      movement: {
-        strategyId: "chip-like",
-        blockedMoveKind: "stay",
-        trapHook: "default",
-        clonerHook: "default",
-        airHook: "chip-support",
-      },
-      interaction: {
-        thiefHook: "steal-boots-tools",
-        collisionStrategyId: "default",
-      },
-      hazards: {
-        responses: {
-          water: "destroy",
-          fire: "destroy",
-          bomb: "destroy",
-        },
-      },
-    },
+    tags: options.tags,
+    localInventoryMode: options.localInventoryMode,
+    itemCollectionKind: options.itemCollectionKind,
+    globalProgressKind: options.globalProgressKind,
   });
 }

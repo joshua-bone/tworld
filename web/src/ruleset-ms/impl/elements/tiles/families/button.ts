@@ -1,4 +1,4 @@
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createWalkableTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import type { MsButtonAction, MsChipEnterAction } from "@ruleset-ms/impl/catalogTiles";
 import { MS_FULL_MOVEMENT_MASK, type MsTileFamilyDefinition } from "@ruleset-ms/impl/elements/tiles/families/shared";
 
@@ -10,16 +10,14 @@ export interface MsButtonTileFamilyOptions {
 }
 
 export function createMsButtonTileFamily(options: MsButtonTileFamilyOptions): MsTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createWalkableTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: (id) => ({
-      tags: ["walkable", "button"],
-      capabilities: ["trigger-on-entry", "trigger-on-leave"],
-      hooks: ["after-enter", "after-leave"],
-      chipMovementMask: MS_FULL_MOVEMENT_MASK,
-      creatureMovementMask: MS_FULL_MOVEMENT_MASK,
-      blockMovementMask: MS_FULL_MOVEMENT_MASK,
+    fullMovementMask: MS_FULL_MOVEMENT_MASK,
+    baseTags: ["walkable", "button"],
+    capabilities: ["trigger-on-entry", "trigger-on-leave"],
+    hooks: ["after-enter", "after-leave"],
+    extraPolicy: (id) => ({
       chipEnterAction: options.chipEnterAction ?? "none",
       buttonAction: options.action(id),
     }),

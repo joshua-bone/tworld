@@ -8,7 +8,7 @@ import type {
   ActorTrapHook,
 } from "@game-core/api/actorCapabilities";
 import type { ActorTag } from "@game-core/api/ruleset";
-import { createRulesetActorFamily } from "@game-core/impl/actorFamilies";
+import { createMobActorFamilyDefinition } from "@game-core/impl/actorFamilyBuilders";
 import type { LynxActorFamilyDefinition } from "@ruleset-lynx/impl/elements/actors/families/shared";
 
 export interface LynxMobActorFamilyOptions {
@@ -25,31 +25,16 @@ export interface LynxMobActorFamilyOptions {
 }
 
 export function createLynxMobActorFamily(options: LynxMobActorFamilyOptions): LynxActorFamilyDefinition {
-  const movement = {
-    blockedMoveKind: options.blockedMoveKind ?? "stay",
-    trapHook: options.trapHook ?? "default",
-    clonerHook: options.clonerHook ?? "default",
-    ...(options.airHook ? { airHook: options.airHook } : {}),
-  } as const;
-
-  return createRulesetActorFamily({
+  return createMobActorFamilyDefinition({
     name: options.name,
     actorIds: options.actorIds,
-    policy: {
-      tags: options.tags ?? [],
-      movement,
-      interaction: {
-        thiefHook: options.thiefHook ?? "none",
-        collisionStrategyId: options.collisionStrategyId ?? "default",
-      },
-      hazards: {
-        responses: {
-          water: "destroy",
-          fire: "destroy",
-          bomb: "destroy",
-          ...(options.hazardResponses ?? {}),
-        },
-      },
-    },
+    tags: options.tags,
+    blockedMoveKind: options.blockedMoveKind,
+    trapHook: options.trapHook,
+    clonerHook: options.clonerHook,
+    airHook: options.airHook,
+    thiefHook: options.thiefHook,
+    collisionStrategyId: options.collisionStrategyId,
+    hazardResponses: options.hazardResponses,
   });
 }

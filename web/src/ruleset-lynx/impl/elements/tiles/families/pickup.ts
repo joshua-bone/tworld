@@ -1,5 +1,5 @@
 import type { TileTag } from "@game-core/api/ruleset";
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createWalkableTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import type {
   LynxChipEnterAction,
   LynxInventorySlot,
@@ -23,15 +23,15 @@ export interface LynxPickupTileFamilyOptions {
 }
 
 export function createLynxPickupTileFamily(options: LynxPickupTileFamilyOptions): LynxTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createWalkableTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: (id) => ({
-      tags: ["walkable", ...(options.tags ?? [])],
-      capabilities: ["collect-on-entry"],
-      chipMovementMask: LYNX_FULL_MOVEMENT_MASK,
-      creatureMovementMask: options.creatureMovementMask ?? 0,
-      blockMovementMask: options.blockMovementMask ?? 0,
+    fullMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    tags: options.tags,
+    capabilities: ["collect-on-entry"],
+    creatureMovementMask: options.creatureMovementMask ?? 0,
+    blockMovementMask: options.blockMovementMask ?? 0,
+    extraPolicy: (id) => ({
       chipEnterAction: options.chipEnterAction,
       inventorySlot: options.inventorySlot,
       portableItemFamily: options.portableItemFamily,

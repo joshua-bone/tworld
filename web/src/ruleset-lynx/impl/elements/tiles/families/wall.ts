@@ -1,5 +1,5 @@
 import type { TileCapability, TileHookName, TileTag } from "@game-core/api/ruleset";
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createBlockingTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import {
   LYNX_FULL_MOVEMENT_MASK,
   type LynxTileFamilyDefinition,
@@ -17,25 +17,17 @@ export interface LynxWallTileFamilyOptions {
   readonly exitMovementMask?: number | ((id: number) => number);
 }
 
-function resolveMask(value: LynxWallTileFamilyOptions["chipMovementMask"], id: number, fallback: number): number {
-  if (typeof value === "function") {
-    return value(id);
-  }
-  return value ?? fallback;
-}
-
 export function createLynxWallTileFamily(options: LynxWallTileFamilyOptions): LynxTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createBlockingTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: (id) => ({
-      tags: ["blocking", ...(options.tags ?? [])],
-      capabilities: options.capabilities ?? [],
-      hooks: options.hooks ?? [],
-      chipMovementMask: resolveMask(options.chipMovementMask, id, 0),
-      creatureMovementMask: resolveMask(options.creatureMovementMask, id, 0),
-      blockMovementMask: resolveMask(options.blockMovementMask, id, 0),
-      exitMovementMask: resolveMask(options.exitMovementMask, id, LYNX_FULL_MOVEMENT_MASK),
-    }),
+    fullMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    tags: options.tags,
+    capabilities: options.capabilities,
+    hooks: options.hooks,
+    chipMovementMask: options.chipMovementMask,
+    creatureMovementMask: options.creatureMovementMask,
+    blockMovementMask: options.blockMovementMask,
+    exitMovementMask: options.exitMovementMask,
   });
 }

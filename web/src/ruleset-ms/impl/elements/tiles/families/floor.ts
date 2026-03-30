@@ -1,5 +1,5 @@
 import type { TileCapability, TileHookName, TileTag } from "@game-core/api/ruleset";
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createWalkableTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import type { MsChipEnterAction, MsMobExitAction } from "@ruleset-ms/impl/catalogTiles";
 import { MS_FULL_MOVEMENT_MASK, type MsTileFamilyDefinition } from "@ruleset-ms/impl/elements/tiles/families/shared";
 
@@ -19,18 +19,19 @@ export interface MsFloorTileFamilyOptions {
 }
 
 export function createMsFloorTileFamily(options: MsFloorTileFamilyOptions): MsTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createWalkableTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: {
-      tags: ["walkable", ...(options.tags ?? [])],
-      capabilities: options.capabilities ?? [],
-      hooks: options.hooks ?? [],
-      chipMovementMask: options.chipMovementMask ?? MS_FULL_MOVEMENT_MASK,
-      creatureMovementMask: options.creatureMovementMask ?? MS_FULL_MOVEMENT_MASK,
-      blockMovementMask: options.blockMovementMask ?? MS_FULL_MOVEMENT_MASK,
-      exitMovementMask: options.exitMovementMask ?? MS_FULL_MOVEMENT_MASK,
-      requiresReleaseToExit: options.requiresReleaseToExit ?? false,
+    fullMovementMask: MS_FULL_MOVEMENT_MASK,
+    tags: options.tags,
+    capabilities: options.capabilities,
+    hooks: options.hooks,
+    chipMovementMask: options.chipMovementMask,
+    creatureMovementMask: options.creatureMovementMask,
+    blockMovementMask: options.blockMovementMask,
+    exitMovementMask: options.exitMovementMask,
+    requiresReleaseToExit: options.requiresReleaseToExit,
+    extraPolicy: {
       chipEnterAction: options.chipEnterAction ?? "none",
       mobExitAction: options.mobExitAction ?? "none",
     },

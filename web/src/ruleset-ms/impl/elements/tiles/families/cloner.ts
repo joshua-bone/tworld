@@ -1,4 +1,5 @@
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createBlockingTileFamily } from "@game-core/impl/tileFamilyBuilders";
+import { MS_FULL_MOVEMENT_MASK } from "@ruleset-ms/impl/elements/tiles/families/shared";
 import type { MsTileFamilyDefinition } from "@ruleset-ms/impl/elements/tiles/families/shared";
 
 export interface MsClonerTileFamilyOptions {
@@ -7,14 +8,10 @@ export interface MsClonerTileFamilyOptions {
 }
 
 export function createMsClonerTileFamily(options: MsClonerTileFamilyOptions): MsTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createBlockingTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: {
-      tags: ["cloner", "blocking"],
-      chipMovementMask: 0,
-      creatureMovementMask: 0,
-      blockMovementMask: 0,
-    },
+    fullMovementMask: MS_FULL_MOVEMENT_MASK,
+    baseTags: ["cloner", "blocking"],
   });
 }

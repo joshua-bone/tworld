@@ -14,6 +14,7 @@ import { createMsConcreteTileBehavior } from "@ruleset-ms/impl/elements/tiles/co
 import { createMsDoorTileFamily } from "@ruleset-ms/impl/elements/tiles/families/door";
 import { createMsFloorTileFamily } from "@ruleset-ms/impl/elements/tiles/families/floor";
 import { createMsForcedFloorTileFamily } from "@ruleset-ms/impl/elements/tiles/families/forcedFloor";
+import { createMsHazardTileFamily } from "@ruleset-ms/impl/elements/tiles/families/hazard";
 import { createMsLeaveTileBehavior } from "@ruleset-ms/impl/elements/tiles/families/leave";
 import { createMsPickupTileFamily } from "@ruleset-ms/impl/elements/tiles/families/pickup";
 import { MS_FULL_MOVEMENT_MASK, type MsTileFamilyDefinition } from "@ruleset-ms/impl/elements/tiles/families/shared";
@@ -199,25 +200,19 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
     creatureMovementMask: 0,
     blockMovementMask: 0,
   }),
-  createMsFloorTileFamily({
+  createMsHazardTileFamily({
     name: "water",
     tileIds: [MS_TILE.Water],
-    tags: ["deadly"],
-    capabilities: ["kills-on-entry"],
     chipEnterAction: "water-death",
   }),
-  createMsFloorTileFamily({
+  createMsHazardTileFamily({
     name: "fire",
     tileIds: [MS_TILE.Fire],
-    tags: ["deadly"],
-    capabilities: ["kills-on-entry"],
     chipEnterAction: "fire-death",
   }),
-  createMsFloorTileFamily({
+  createMsHazardTileFamily({
     name: "bomb",
     tileIds: [MS_TILE.Bomb],
-    tags: ["deadly"],
-    capabilities: ["kills-on-entry"],
     hooks: ["after-enter"],
     chipEnterAction: "explode-bomb",
   }),

@@ -1,5 +1,5 @@
 import type { TileCapability, TileHookName, TileTag } from "@game-core/api/ruleset";
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createWalkableTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import type { LynxForcedFloorKind, LynxMobExitAction } from "@ruleset-lynx/impl/catalogTiles";
 import {
   LYNX_FULL_MOVEMENT_MASK,
@@ -17,16 +17,14 @@ export interface LynxAirTileFamilyOptions {
 }
 
 export function createLynxAirTileFamily(options: LynxAirTileFamilyOptions): LynxTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createWalkableTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: {
-      tags: ["walkable", ...(options.tags ?? [])],
-      capabilities: options.capabilities ?? [],
-      hooks: options.hooks ?? [],
-      chipMovementMask: LYNX_FULL_MOVEMENT_MASK,
-      creatureMovementMask: LYNX_FULL_MOVEMENT_MASK,
-      blockMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    fullMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    tags: options.tags,
+    capabilities: options.capabilities,
+    hooks: options.hooks,
+    extraPolicy: {
       forcedFloorKind: options.forcedFloorKind ?? "none",
       mobExitAction: options.mobExitAction ?? "none",
     },

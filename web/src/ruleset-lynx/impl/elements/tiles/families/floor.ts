@@ -1,5 +1,5 @@
 import type { TileCapability, TileHookName, TileTag } from "@game-core/api/ruleset";
-import { createRulesetTileFamily } from "@game-core/impl/tileFamilies";
+import { createWalkableTileFamily } from "@game-core/impl/tileFamilyBuilders";
 import type { LynxChipEnterAction, LynxMobExitAction } from "@ruleset-lynx/impl/catalogTiles";
 import {
   LYNX_FULL_MOVEMENT_MASK,
@@ -22,18 +22,19 @@ export interface LynxFloorTileFamilyOptions {
 }
 
 export function createLynxFloorTileFamily(options: LynxFloorTileFamilyOptions): LynxTileFamilyDefinition {
-  return createRulesetTileFamily({
+  return createWalkableTileFamily({
     name: options.name,
     tileIds: options.tileIds,
-    policy: {
-      tags: ["walkable", ...(options.tags ?? [])],
-      capabilities: options.capabilities ?? [],
-      hooks: options.hooks ?? [],
-      chipMovementMask: options.chipMovementMask ?? LYNX_FULL_MOVEMENT_MASK,
-      creatureMovementMask: options.creatureMovementMask ?? LYNX_FULL_MOVEMENT_MASK,
-      blockMovementMask: options.blockMovementMask ?? LYNX_FULL_MOVEMENT_MASK,
-      exitMovementMask: options.exitMovementMask ?? LYNX_FULL_MOVEMENT_MASK,
-      requiresReleaseToExit: options.requiresReleaseToExit ?? false,
+    fullMovementMask: LYNX_FULL_MOVEMENT_MASK,
+    tags: options.tags,
+    capabilities: options.capabilities,
+    hooks: options.hooks,
+    chipMovementMask: options.chipMovementMask,
+    creatureMovementMask: options.creatureMovementMask,
+    blockMovementMask: options.blockMovementMask,
+    exitMovementMask: options.exitMovementMask,
+    requiresReleaseToExit: options.requiresReleaseToExit,
+    extraPolicy: {
       chipEnterAction: options.chipEnterAction ?? "none",
       mobExitAction: options.mobExitAction ?? "none",
     },
