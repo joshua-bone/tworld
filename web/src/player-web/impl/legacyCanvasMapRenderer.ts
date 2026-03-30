@@ -1232,6 +1232,24 @@ export function buildLegacyGameDrawStateKey(
   }
 
   const snapshot = session.frame.snapshot;
+  const staticHashTileset: LegacyTileset = {
+    get: () => null,
+    getCellAnimationPeriod: () => 1,
+  };
+  const visibleLayerKeys = session.frame.visibleLayers
+    .map((layer) => {
+      const cellsSummary = buildVisibleLayerCellsSummary(
+        staticHashTileset,
+        layer,
+      );
+      return [
+        layer.z,
+        cellsSummary.hash,
+        buildLayerOverlayHash(session.frame.tileOverlays, layer.z),
+        buildRenderLayerHash(session, layer.z),
+      ].join(",");
+    })
+    .join("|");
   return [
     presentation,
     session.request.seriesFile,
@@ -1245,11 +1263,13 @@ export function buildLegacyGameDrawStateKey(
     snapshot.view.y,
     session.history.currentTick,
     session.history.restoreMode,
+    session.frame.currentZ,
     session.frame.visibleLayers.length,
     session.frame.tileOverlays.length,
     snapshot.chipsNeeded,
     visualEnhancementsEnabled ? 1 : 0,
     message ?? "",
     isLoading ? 1 : 0,
+    visibleLayerKeys,
   ].join(":");
 }
