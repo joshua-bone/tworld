@@ -145,6 +145,7 @@ describe("drawInventoryTile", () => {
 
       expect(fakeInventoryContext.drawImage).toHaveBeenCalledWith(fakeCompositeCanvas, 0, 0);
       expect(fakeCompositeContext.drawImage).toHaveBeenCalledTimes(3);
+      expect(tileset.getCreature).toHaveBeenCalledWith(MS_TILE.Bug, MS_DIRECTION.north, 0, 0);
     } finally {
       vi.unstubAllGlobals();
     }

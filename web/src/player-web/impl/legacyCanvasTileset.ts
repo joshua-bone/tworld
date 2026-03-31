@@ -152,39 +152,51 @@ function createThinWallOverlaySprite(tileset: LegacyTileset, tileId: number): Le
   };
 }
 
-function drawScaledLegacySprite(
-  context: CanvasRenderingContext2D,
-  sprite: LegacyTileSprite,
-  x: number,
-  y: number,
-  scale = 1,
-): void {
-  const drawX = x + sprite.offsetX;
-  const drawY = y + sprite.offsetY;
+function petCarrierOccupantFacingDir(tileId: number): number {
+  return tileId === MS_TILE.Teeth ? MS_DIRECTION.south : MS_DIRECTION.north;
+}
 
-  if (Math.abs(scale - 1) < 0.001) {
-    context.drawImage(sprite.image, drawX, drawY);
-    return;
+function normalizePetCarrierRenderSprite(
+  visual: InteractiveGameRenderSprite,
+): InteractiveGameRenderSprite {
+  const nestedRender = visual.petCarrierRender ? normalizePetCarrierRender(visual.petCarrierRender) : undefined;
+
+  if (visual.kind === "creature") {
+    return {
+      kind: "creature",
+      tileId: visual.tileId,
+      artworkSpriteId: visual.artworkSpriteId,
+      dir: petCarrierOccupantFacingDir(visual.tileId),
+      petCarrierRender: nestedRender,
+    };
   }
 
-  context.save();
-  context.translate(drawX + sprite.image.width / 2, drawY + sprite.image.height / 2);
-  context.scale(scale, scale);
-  context.drawImage(sprite.image, -sprite.image.width / 2, -sprite.image.height / 2);
-  context.restore();
+  return {
+    kind: "tile",
+    tileId: visual.tileId,
+    artworkSpriteId: visual.artworkSpriteId,
+    petCarrierRender: nestedRender,
+  };
+}
+
+function normalizePetCarrierRender(
+  render: InteractiveGamePetCarrierRender,
+): InteractiveGamePetCarrierRender {
+  return {
+    baseTileId: render.baseTileId,
+    occupant: normalizePetCarrierRenderSprite(render.occupant),
+  };
 }
 
 function petCarrierRenderCacheKey(render: InteractiveGamePetCarrierRender): string {
-  const occupant = render.occupant;
+  const normalized = normalizePetCarrierRender(render);
+  const occupant = normalized.occupant;
   return [
-    render.baseTileId,
+    normalized.baseTileId,
     occupant.kind,
     occupant.tileId,
     occupant.artworkSpriteId ?? "",
     occupant.dir ?? 0,
-    occupant.moving ?? 0,
-    occupant.frame ?? 0,
-    occupant.alpha ?? 1,
     occupant.petCarrierRender ? petCarrierRenderCacheKey(occupant.petCarrierRender) : "",
   ].join(":");
 }
@@ -223,6 +235,7 @@ function createOccupiedPetCarrierSprite(
   render: InteractiveGamePetCarrierRender,
   timerval: number,
 ): LegacyTileSprite | null {
+  const normalizedRender = normalizePetCarrierRender(render);
   const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
   const context = canvas.getContext("2d");
   if (!context) {
@@ -231,9 +244,11 @@ function createOccupiedPetCarrierSprite(
 
   const emptyFloorSprite = tileset.get(MS_TILE.Empty);
   const baseSprite =
-    (render.baseTileId !== MS_TILE.Empty ? tileset.getCell?.(render.baseTileId, MS_TILE.Empty, timerval) : null) ??
-    tileset.get(render.baseTileId);
-  const occupantSprite = resolveLegacyRenderSprite(tileset, render.occupant);
+    (normalizedRender.baseTileId !== MS_TILE.Empty
+      ? tileset.getCell?.(normalizedRender.baseTileId, MS_TILE.Empty, timerval)
+      : null) ??
+    tileset.get(normalizedRender.baseTileId);
+  const occupantSprite = resolveLegacyRenderSprite(tileset, normalizedRender.occupant);
   const carrierSprite = tileset.getArtworkSprite?.("pet_carrier") ?? tileset.get(MS_TILE.PetCarrier);
 
   if (!baseSprite && !occupantSprite && !carrierSprite) {
@@ -247,10 +262,13 @@ function createOccupiedPetCarrierSprite(
     drawLegacySpriteImage(context, baseSprite, 0, 0);
   }
   if (occupantSprite) {
-    drawScaledLegacySprite(context, occupantSprite, 0, 8, 0.5);
+    drawLegacySpriteImage(context, occupantSprite, 0, 0);
   }
   if (carrierSprite) {
+    context.save();
+    context.globalAlpha = 0.5;
     drawLegacySpriteImage(context, carrierSprite, 0, 0);
+    context.restore();
   }
 
   return {

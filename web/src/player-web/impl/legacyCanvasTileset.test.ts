@@ -66,17 +66,19 @@ describe("getOrCreateHeldTrapSprite", () => {
 });
 
 describe("getOrCreateOccupiedPetCarrierSprite", () => {
-  it("composites and caches terrain, occupant, and carrier artwork", () => {
+  it("composites terrain, a normalized occupant render, and a half-transparent carrier overlay", () => {
     const baseImage = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const floorSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: false };
     const carrierSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: true };
     const occupantSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: true };
+    const drawAlphas: number[] = [];
     const fakeContext = {
-      drawImage: vi.fn(),
+      drawImage: vi.fn(() => drawAlphas.push(fakeContext.globalAlpha)),
       save: vi.fn(),
-      restore: vi.fn(),
-      translate: vi.fn(),
-      scale: vi.fn(),
+      restore: vi.fn(() => {
+        fakeContext.globalAlpha = 1;
+      }),
+      globalAlpha: 1,
     } as unknown as CanvasRenderingContext2D;
     const fakeCanvas = {
       width: 0,
@@ -127,7 +129,61 @@ describe("getOrCreateOccupiedPetCarrierSprite", () => {
       expect(second).toBe(first);
       expect(fakeCanvas.width).toBe(LEGACY_TILE_SIZE);
       expect(fakeCanvas.height).toBe(LEGACY_TILE_SIZE);
+      expect(tileset.getCreature).toHaveBeenCalledWith(MS_TILE.Bug, MS_DIRECTION.north, 0, 0);
       expect(fakeContext.drawImage).toHaveBeenCalledTimes(3);
+      expect(drawAlphas).toEqual([1, 1, 0.5]);
+      expect(fakeContext.save).toHaveBeenCalledTimes(1);
+      expect(fakeContext.restore).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("renders teeth facing south inside occupied carriers", () => {
+    const baseImage = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
+    const floorSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: false };
+    const carrierSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: true };
+    const occupantSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: true };
+    const fakeContext = {
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      globalAlpha: 1,
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeContext),
+    } as unknown as HTMLCanvasElement;
+    const tileset: LegacyTileset = {
+      get: vi.fn((tileId: number) => (tileId === MS_TILE.Empty ? floorSprite : null)),
+      getArtworkSprite: vi.fn((spriteId: string) => (spriteId === "pet_carrier" ? carrierSprite : null)),
+      getCreature: vi.fn((actorId: number) => (actorId === MS_TILE.Teeth ? occupantSprite : null)),
+      getCellAnimationPeriod: vi.fn(() => 1),
+    };
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCanvas;
+        }),
+      });
+
+      getOrCreateOccupiedPetCarrierSprite(tileset, {
+        baseTileId: MS_TILE.Empty,
+        occupant: {
+          kind: "creature" as const,
+          tileId: MS_TILE.Teeth,
+          dir: MS_DIRECTION.west,
+          moving: 4,
+          frame: 2,
+        },
+      }, 0);
+
+      expect(tileset.getCreature).toHaveBeenCalledWith(MS_TILE.Teeth, MS_DIRECTION.south, 0, 0);
     } finally {
       vi.unstubAllGlobals();
     }
