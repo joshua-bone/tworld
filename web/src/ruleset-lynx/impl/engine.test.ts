@@ -1432,6 +1432,33 @@ describe("runLynxInputTrace", () => {
     expect(movingBall?.moving).toBe(6);
   });
 
+  it("melts an ice block while probing a stationary fireball teleport exit", () => {
+    const session = advanceLynxTicks(
+      createLynxInteractiveSession(
+        createRequest(),
+        createLevel([
+          createCell(0, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+          createCell(2, MS_TILE.Wall, MS_TILE.Empty),
+          createCell(33, MS_TILE.Wall, MS_TILE.Empty),
+          createCell(34, msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.west), MS_TILE.Teleport),
+          createCell(35, MS_TILE.Wall, MS_TILE.Empty),
+          createCell(40, MS_TILE.Teleport, MS_TILE.Empty),
+          createCell(41, MS_TILE.Empty, MS_TILE.Empty),
+          createCell(50, MS_TILE.Teleport, MS_TILE.Empty),
+          createCell(66, MS_TILE.Wall, MS_TILE.Empty),
+          createCell(51, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        ]),
+      ),
+      1,
+    );
+
+    const fireball = session.actors.find((actor) => !actor.hidden && actor.id === MS_TILE.Fireball);
+
+    expect(fireball?.pos).toBe(40);
+    expect(session.state.map.cells[51]?.top.id).toBe(MS_TILE.Water);
+    expect(session.actors.some((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock)).toBe(false);
+  });
+
   it("collects boots on movement completion and plays CantMove on the next blocked input", () => {
     const level = createLevel([
       createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
@@ -1604,6 +1631,36 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[3]?.soundEffects).toBe(1 << 12);
     expect(ballPositions).toEqual([70, 71]);
     expect(claimedCloneSource).toBe(false);
+  });
+
+  it("melts an ice block during clone-machine exit probing before the clone releases", () => {
+    const buttonPos = 34;
+    const clonerPos = 70;
+    const exitPos = 71;
+    const session = advanceLynxTicks(
+      createLynxInteractiveSession(
+        createRequest(),
+        createLevel(
+          [
+            createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+            createCell(buttonPos, MS_TILE.Button_Red, MS_TILE.Empty),
+            createCell(clonerPos, msCreatureTile(MS_TILE.Fireball, 8), MS_TILE.CloneMachine),
+            createCell(exitPos, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+          ],
+          undefined,
+          { cloners: [{ from: buttonPos, to: clonerPos }] },
+        ),
+      ),
+      4,
+      8,
+    );
+
+    const fireballs = session.actors.filter((actor) => !actor.hidden && actor.id === MS_TILE.Fireball);
+
+    expect(fireballs).toHaveLength(2);
+    expect(fireballs.map((actor) => actor.pos).sort((left, right) => left - right)).toEqual([clonerPos, exitPos]);
+    expect(session.state.map.cells[exitPos]?.top.id).toBe(MS_TILE.Water);
+    expect(session.actors.some((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock)).toBe(false);
   });
 
   it("advances a cloner release again when the source actor is still pending in the tick loop", () => {
@@ -2339,6 +2396,44 @@ describe("runLynxInputTrace", () => {
     expect(next.state.soundEffects & (1 << LYNX_SOUND.WaterSplash)).not.toBe(0);
     expect(next.state.map.cells[35]?.top.id).toBe(MS_TILE.Water);
     expect(next.actors.some((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock)).toBe(false);
+  });
+
+  it("melts an ice block on plain floor when a fireball runs into it", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(40, msCreatureTile(MS_TILE.Fireball, 8), MS_TILE.Empty),
+        createCell(41, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 4);
+    const fireballs = next.actors.filter((actor) => !actor.hidden && actor.id === MS_TILE.Fireball);
+
+    expect(fireballs).toHaveLength(1);
+    expect(next.state.map.cells[41]?.top.id).toBe(MS_TILE.Water);
+    expect(next.actors.some((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock)).toBe(false);
+  });
+
+  it("does not melt an ice block over non-floor terrain when a fireball hits it", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(40, msCreatureTile(MS_TILE.Fireball, 8), MS_TILE.Empty),
+        createCell(41, MS_TILE.IceBlock_Static, MS_TILE.Gravel),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 4);
+    const fireballs = next.actors.filter((actor) => !actor.hidden && actor.id === MS_TILE.Fireball);
+    const iceBlock = next.actors.find((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock);
+
+    expect(fireballs).toHaveLength(1);
+    expect(iceBlock?.pos).toBe(41);
+    expect(next.state.map.cells[41]?.top.id).toBe(MS_TILE.Gravel);
+    expect(next.state.map.cells[41]?.bottom.id).toBe(MS_TILE.Empty);
   });
 
   it("keeps an unlisted static block inactive in the Lynx actor roster", () => {

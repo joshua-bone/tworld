@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canMsBlockPushBlock,
+  canMsFireballMeltIceBlock,
   lookupMsBlockSpeciesByActorId,
   lookupMsBlockSpeciesByStaticTileId,
   msActorBlockStaticTileId,
@@ -31,5 +32,13 @@ describe("MS block species helpers", () => {
     expect(canMsBlockPushBlock(MS_TILE.Block, MS_TILE.IceBlock_Static)).toBe(false);
     expect(canMsBlockPushBlock(MS_TILE.IceBlock, MS_TILE.Block_Static)).toBe(false);
     expect(canMsBlockPushBlock(MS_TILE.IceBlock, MS_TILE.IceBlock_Static)).toBe(true);
+  });
+
+  it("detects when a fireball should melt an ice block on plain floor", () => {
+    expect(canMsFireballMeltIceBlock(MS_TILE.Fireball, MS_TILE.IceBlock, MS_TILE.Empty, true)).toBe(true);
+    expect(canMsFireballMeltIceBlock(msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east), MS_TILE.IceBlock_Static, MS_TILE.Empty, true)).toBe(true);
+    expect(canMsFireballMeltIceBlock(MS_TILE.Fireball, MS_TILE.Block, MS_TILE.Empty, true)).toBe(false);
+    expect(canMsFireballMeltIceBlock(MS_TILE.Fireball, MS_TILE.IceBlock, MS_TILE.Gravel, true)).toBe(false);
+    expect(canMsFireballMeltIceBlock(MS_TILE.Fireball, MS_TILE.IceBlock, MS_TILE.Empty, false)).toBe(false);
   });
 });

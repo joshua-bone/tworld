@@ -231,6 +231,7 @@ import {
 } from "@ruleset-ms/impl/verticalMovement";
 import {
   canMsBlockPushBlock,
+  canMsFireballMeltIceBlock,
   MS_DIRECTION,
   MS_FLOOR_STATE,
   MS_GRID_HEIGHT,
@@ -541,6 +542,42 @@ function removeMsCollisionTarget(
   }
 }
 
+type MsFireballIceBlockProbeMode = "deny" | "attempt" | "probe";
+
+function canMsFireballMeltCollisionTarget(
+  cells: EngineMapCell[],
+  movingActorId: number,
+  target: ReturnType<typeof queryMsTargetOccupancy>,
+  dir: number,
+): boolean {
+  if (target.kind !== "runtime-actor" && target.kind !== "static-block") {
+    return false;
+  }
+
+  const interactionTarget = msInteractionTargetFromOccupancy(target, dir);
+  const targetActorId = interactionTarget.actorId ?? null;
+  const targetFloorId = cells[target.pos]!.bottom.id;
+  return canMsFireballMeltIceBlock(
+    movingActorId,
+    targetActorId,
+    targetFloorId,
+    (msActorEntryMask(targetFloorId, movingActorId) & dir) !== 0,
+  );
+}
+
+function applyMsFireballIceBlockMelt(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  target: ReturnType<typeof queryMsTargetOccupancy>,
+): number {
+  removeMsCollisionTarget(cells, internal, inventory, target);
+  cells[target.pos]!.top = { id: MS_TILE.Water, state: 0 };
+  const soundEffects = 1 << MS_SOUND.WaterSplash;
+  internal.pendingSoundEffects |= soundEffects;
+  return soundEffects;
+}
+
 function revertMsPortableBackedCreatureToMap(
   cells: EngineMapCell[],
   internal: MsInternalState,
@@ -643,6 +680,10 @@ function resolveMsCreaturePreMoveCollision(
   const target = queryMsTargetOccupancy(targetCells, internal, nextPos, targetZ);
   if (target.kind === "empty") {
     return null;
+  }
+
+  if (nextPos !== creature.pos && canMsFireballMeltCollisionTarget(targetCells, creature.id, target, dir)) {
+    return blockedMovement(applyMsFireballIceBlockMelt(targetCells, internal, inventory, target));
   }
 
   const collisionOutcome = msActorInteractionOutcome(creature.id, msInteractionTargetFromOccupancy(target, dir));
@@ -1891,6 +1932,7 @@ function canMoveCreatureWithOptions(
   internal: MsInternalState | null = null,
   inventory: EngineState["inventory"] | null = null,
   localInventory: MsActorLocalInventoryState = null,
+  fireballIceBlockProbeMode: MsFireballIceBlockProbeMode = "deny",
 ): boolean {
   if (!canLeaveFloor(cells, creature.pos, dir, creature.released)) {
     return false;
@@ -1915,6 +1957,17 @@ function canMoveCreatureWithOptions(
       ? msActorInteractionOutcome(creature.id, msInteractionTargetFromOccupancy(targetOccupancy, dir))
       : null;
   const removesTarget = Boolean(targetInteraction?.removeTargetActor || targetInteraction?.consumeTarget);
+  const fireballIceBlockMeltAllowed =
+    targetOccupancy !== null && canMsFireballMeltCollisionTarget(cells, creature.id, targetOccupancy, dir);
+  if (fireballIceBlockMeltAllowed) {
+    if (fireballIceBlockProbeMode === "probe" && targetOccupancy !== null && internal !== null && inventory !== null) {
+      applyMsFireballIceBlockMelt(cells, internal, inventory, targetOccupancy);
+      return false;
+    }
+    if (fireballIceBlockProbeMode === "attempt") {
+      return true;
+    }
+  }
   if (targetInteraction?.denyMove) {
     return false;
   }
@@ -2319,6 +2372,8 @@ function resolveButtonFloorEffects(
               true,
               internal,
               inventory,
+              null,
+              "probe",
             ),
           spawnCreatureClone: (sourcePos, sourceId, sourceDir, z, cloneFamilyRuntime) => {
             const clonedCreatureSerial = internal.nextCreatureSerial;
@@ -3282,6 +3337,8 @@ function createMsCreatureMovementContext(
             false,
             internal,
             inventory,
+            null,
+            "probe",
           ),
       }),
   };
@@ -3459,7 +3516,8 @@ function chooseCreatureDirection(
     setControllerDir: (dir) => {
       internal.controllerDir = dir;
     },
-    canMove: (candidate, dir) => canMoveCreature(cells, candidate as MsTrackedCreature, dir, internal, inventory),
+    canMove: (candidate, dir) =>
+      canMoveCreatureWithOptions(cells, candidate as MsTrackedCreature, dir, false, false, internal, inventory, null, "attempt"),
     updateCreatureTile: (candidate) => updateCreatureTile(cells, candidate as MsTrackedCreature),
     randomize3: (array) => randomp3(internal, array),
     randomize4: (array) => randomp4(internal, array),
@@ -4023,8 +4081,12 @@ function runCreatureMovements(
     const creatureCells = cellsForZ(creature.z ?? 1);
     const dir = chooseCreatureDirection(creatureCells, creature, internal, inventory, currentTime, stepping);
     if (dir !== MS_DIRECTION.none) {
-      if (canMoveCreature(creatureCells, creature, dir, internal, inventory)) {
-        soundEffects |= moveCreatureOnce(creatureCells, creature, dir, internal, inventory).soundEffects;
+      if (canMoveCreatureWithOptions(creatureCells, creature, dir, false, false, internal, inventory, null, "attempt")) {
+        const moveResult = moveCreatureOnce(creatureCells, creature, dir, internal, inventory);
+        soundEffects |= moveResult.soundEffects;
+        if (!movementDidSucceed(moveResult)) {
+          applyBlockedCreatureAttempt(creatureCells, creature, dir);
+        }
       } else {
         applyBlockedCreatureAttempt(creatureCells, creature, dir);
       }

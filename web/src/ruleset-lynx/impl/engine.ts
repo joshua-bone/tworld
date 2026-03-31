@@ -227,6 +227,7 @@ import {
 import { lynxBlockedMoveFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import {
   canMsBlockPushBlock,
+  canMsFireballMeltIceBlock,
   MS_DIRECTION,
   MS_GRID_HEIGHT,
   MS_GRID_WIDTH,
@@ -411,6 +412,47 @@ function removeLynxCollisionTarget(
   }
 }
 
+type LynxFireballIceBlockProbeMode = "deny" | "attempt" | "probe";
+
+function canLynxFireballMeltCollisionTarget(
+  state: EngineState,
+  movingActorId: number,
+  target: ReturnType<typeof queryLynxOccupancyOnLayer>,
+  dir: number,
+  inventoryOwnerOverride: ActorLocalInventoryOwner | null = null,
+): boolean {
+  if (target.kind !== OCCUPANCY_TARGET_KIND.runtimeActor || !target.runtimeActor) {
+    return false;
+  }
+
+  const targetFloorId = effectiveLynxTargetTileId(state, target.tileId);
+  const targetEntryAllowed = inventoryOwnerOverride
+    ? canLynxCreatureEnterWithInventoryOwner(state, movingActorId, targetFloorId, dir, inventoryOwnerOverride)
+    : canLynxCreatureEnter(state, { id: movingActorId, serial: -1 } as Pick<LynxRuntimeActor, "id" | "serial">, targetFloorId, dir);
+  return canMsFireballMeltIceBlock(movingActorId, target.runtimeActor.id, targetFloorId, targetEntryAllowed);
+}
+
+function applyLynxFireballIceBlockMelt(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  target: ReturnType<typeof queryLynxOccupancyOnLayer>,
+): number {
+  if (target.kind !== OCCUPANCY_TARGET_KIND.runtimeActor || !target.runtimeActor) {
+    return 0;
+  }
+
+  removeTopTileFlags(state.map.cells, target.pos, LYNX_CELL_FLAG.Claimed);
+  replaceTopTile(state.map.cells, target.pos, {
+    ...state.map.cells[target.pos]!.top,
+    id: MS_TILE.Water,
+  });
+  removeLynxActor(state, actors, target.runtimeActor, LYNX_ANIMATION_TILE.Water_Splash);
+  const soundEffects = 1 << LYNX_SOUND.WaterSplash;
+  state.soundEffects |= soundEffects;
+  state.map.hash = mapHash(state.map.cells);
+  return soundEffects;
+}
+
 function revealBlockedLynxBallisticEnter(
   state: EngineState,
   actor: LynxRuntimeActor,
@@ -544,6 +586,10 @@ function resolveLynxRuntimeActorPreMoveCollision(
   const target = queryLynxOccupancyOnLayer(state, actors, targetStep.pos, actor.z ?? activeLynxLayerZ(state));
   if (target.kind === OCCUPANCY_TARGET_KIND.empty || target.kind === OCCUPANCY_TARGET_KIND.chip) {
     return null;
+  }
+
+  if (canLynxFireballMeltCollisionTarget(state, actor.id, target, dir)) {
+    return blockedMovement(applyLynxFireballIceBlockMelt(state, actors, target));
   }
 
   const interaction = lynxActorInteractionOutcome(actor.id, lynxInteractionTargetFromOccupancy(target, dir));
@@ -2383,6 +2429,12 @@ function createLynxTeleportContext(state: EngineState, level: LynxLevel, actors:
     claimedChipTeleportExitIsValid: (exitPos, dir) => claimedLynxChipTeleportExitIsValid(state, level, actors, exitPos, dir),
     canActorEnter: (actor, tileId, dir) => canLynxCreatureEnter(state, actor as LynxRuntimeActor, tileId, dir),
     effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),
+    probeBlockedActorExit: (actor, exitPos) => {
+      const target = queryLynxOccupancyOnLayer(state, actors, exitPos, actor.z ?? activeLynxLayerZ(state));
+      if (canLynxFireballMeltCollisionTarget(state, actor.id, target, actor.dir)) {
+        applyLynxFireballIceBlockMelt(state, actors, target);
+      }
+    },
     markChipTeleported: () => {
       lynxChipRuntime(state).chipTeleported = true;
       state.soundEffects |= 1 << LYNX_SOUND.Teleporting;
@@ -2513,6 +2565,7 @@ function canLynxRuntimeActorStartMovement(
   releasing = false,
   clearAnimations = false,
   inventoryOwnerOverride: ActorLocalInventoryOwner | null = null,
+  fireballIceBlockProbeMode: LynxFireballIceBlockProbeMode = "deny",
 ): boolean {
   const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
   if (targetStep) {
@@ -2558,6 +2611,22 @@ function canLynxRuntimeActorStartMovement(
     }
 
     const interaction = lynxActorInteractionOutcome(actor.id, lynxInteractionTargetFromOccupancy(target, dir));
+    const fireballIceBlockMeltAllowed = canLynxFireballMeltCollisionTarget(
+      state,
+      actor.id,
+      target,
+      dir,
+      inventoryOwnerOverride,
+    );
+    if (fireballIceBlockMeltAllowed) {
+      if (fireballIceBlockProbeMode === "probe") {
+        applyLynxFireballIceBlockMelt(state, actors, target);
+        return false;
+      }
+      if (fireballIceBlockProbeMode === "attempt") {
+        return true;
+      }
+    }
     if (interaction.denyMove) {
       return false;
     }
@@ -2608,7 +2677,7 @@ function createLynxCreatureControllerContext(
     withLayer: (z, run) => withLynxLayer(state, z, run),
     floorAt: (pos) => topTileIdOr(state.map.cells, pos, MS_TILE.Empty),
     canStart: (actor, dir) =>
-      canLynxRuntimeActorStartMovement(state, level, actors, actor as LynxRuntimeActor, dir, false, true),
+      canLynxRuntimeActorStartMovement(state, level, actors, actor as LynxRuntimeActor, dir, false, true, null, "attempt"),
     chooseBlobDirection: () => {
       const clockwise = [1, 8, 4, 2];
       return clockwise[advanceLynxMainRandom4(state)] ?? 0;

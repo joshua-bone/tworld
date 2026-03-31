@@ -54,12 +54,13 @@ Ice block is close to dirt block, but not close enough to justify copying dirt-b
     - clone machine: can enter empty cloner
     - buttons: trigger and hold like other mobs
 
-- [ ] IB5: Fireball melt exception
+- [x] IB5: Fireball melt exception
   - Add a dedicated helper for the special fireball-vs-ice-block rule.
   - Implement:
     - fireball move is denied when targeting an ice block
     - if underlying terrain would otherwise allow entry and underlying terrain is plain floor, consume ice block and turn floor to water
     - move still denied
+    - teleport probing and clone probing apply the same melt side effect
   - Reuse the same helper for both rulesets.
 
 - [ ] IB6: Vertical support exception

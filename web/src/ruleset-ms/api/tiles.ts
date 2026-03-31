@@ -235,6 +235,21 @@ export function canMsBlockPushBlock(pushingBlockId: number, targetBlockId: numbe
   );
 }
 
+export function canMsFireballMeltIceBlock(
+  movingActorId: number,
+  targetBlockId: number | null,
+  targetFloorId: number,
+  targetEntryAllowed: boolean,
+): boolean {
+  return (
+    (isMsCreature(movingActorId) ? msCreatureId(movingActorId) : movingActorId) === MS_TILE.Fireball &&
+    targetEntryAllowed &&
+    targetFloorId === MS_TILE.Empty &&
+    targetBlockId !== null &&
+    lookupMsBlockSpeciesByTileId(targetBlockId)?.speciesId === "ice"
+  );
+}
+
 export function isMsKey(id: number): boolean {
   return id >= KEY_RANGE[0] && id <= KEY_RANGE[1];
 }

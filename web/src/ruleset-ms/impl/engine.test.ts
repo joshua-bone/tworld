@@ -2512,6 +2512,37 @@ describe("MS engine regressions", () => {
     expect(next.state.engine.map.cells[bombPos]?.top.id).toBe(MS_TILE.Empty);
   });
 
+  it("melts an ice block while probing a creature teleport exit", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(2, 2);
+    const fireballPos = pos(9, 10);
+    const entryTeleportPos = pos(10, 10);
+    const exitTeleportPos = pos(5, 5);
+    const blockedExitStepPos = pos(6, 5);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[fireballPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east);
+    cells[entryTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[exitTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[blockedExitStepPos]!.top.id = MS_TILE.IceBlock_Static;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, fireballPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.engine.map.cells[entryTeleportPos]?.top.id).toBe(MS_TILE.Teleport);
+    expect(session.state.engine.map.cells[exitTeleportPos]?.top.id).toBe(MS_TILE.Teleport);
+    expect(session.state.engine.map.cells[blockedExitStepPos]?.top.id).toBe(MS_TILE.Water);
+    expect(session.state.engine.actors.filter((actor) => actor.id === MS_TILE.Fireball)).toHaveLength(1);
+  });
+
   it("turns blocked teeth toward their preferred target direction", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 8);
@@ -2923,6 +2954,36 @@ describe("MS engine regressions", () => {
     expect(fireballs[0]?.position.pos).toBe(cloneMachinePos);
     expect(session.state.engine.map.cells[cloneMachinePos]?.top.id).toBe(msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east));
     expect(session.state.engine.map.cells[bombPos]?.top.id).toBe(MS_TILE.Empty);
+  });
+
+  it("melts an ice block during clone-machine exit probing", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(2, 2);
+    const redButtonPos = pos(3, 2);
+    const cloneMachinePos = pos(10, 10);
+    const iceBlockPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[redButtonPos]!.top.id = MS_TILE.Button_Red;
+    cells[cloneMachinePos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east);
+    cells[cloneMachinePos]!.bottom.id = MS_TILE.CloneMachine;
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+
+    const session = advanceMsInteractiveSession(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells,
+          cloners: [{ from: redButtonPos, to: cloneMachinePos }],
+          creaturePositions: [chipPos, cloneMachinePos],
+        }),
+      ),
+      MS_DIRECTION.east,
+    );
+
+    expect(session.state.engine.map.cells[cloneMachinePos]?.top.id).toBe(msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east));
+    expect(session.state.engine.map.cells[cloneMachinePos]?.bottom.id).toBe(MS_TILE.CloneMachine);
+    expect(session.state.engine.map.cells[iceBlockPos]?.top.id).toBe(MS_TILE.Water);
+    expect(session.state.engine.actors.filter((actor) => actor.id === MS_TILE.Fireball)).toHaveLength(1);
   });
 
   it("duplicates clone-machine creatures once they leave the machine", () => {
@@ -3397,6 +3458,60 @@ describe("MS engine regressions", () => {
         hidden: true,
       }),
     );
+  });
+
+  it("melts an ice block on plain floor when a fireball runs into it", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(2, 2);
+    const fireballPos = pos(10, 10);
+    const iceBlockPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[fireballPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, fireballPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.engine.map.cells[fireballPos]?.top.id).toBe(msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east));
+    expect(session.state.engine.map.cells[iceBlockPos]?.top.id).toBe(MS_TILE.Water);
+    expect(session.state.engine.actors.filter((actor) => actor.id === MS_TILE.Fireball)).toHaveLength(1);
+  });
+
+  it("does not melt an ice block over non-floor terrain when a fireball hits it", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(2, 2);
+    const fireballPos = pos(10, 10);
+    const iceBlockPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[fireballPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[iceBlockPos]!.bottom.id = MS_TILE.Gravel;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, fireballPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.engine.map.cells[fireballPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.map.cells[iceBlockPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(session.state.engine.map.cells[iceBlockPos]?.bottom.id).toBe(MS_TILE.Gravel);
+    expect(session.state.engine.actors.filter((actor) => actor.id === MS_TILE.Fireball)).toHaveLength(1);
   });
 
   it("keeps a hidden debug block at the source after a pushed block splashes into water", () => {

@@ -28,6 +28,7 @@ export interface LynxTeleportContext {
   claimedChipTeleportExitIsValid(exitPos: number, dir: number): boolean;
   canActorEnter(actor: LynxTeleportActor, tileId: number, dir: number): boolean;
   effectiveTargetTileId(tileId: number): number;
+  probeBlockedActorExit?(actor: LynxTeleportActor, exitPos: number): void;
   markChipTeleported(): void;
   settleChipTeleportDrop(originPos: number, originZ: number): void;
 }
@@ -157,16 +158,18 @@ export function resolveLynxActorTeleport(
       continue;
     }
 
-    if (!hasTopTileFlags(context.state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
-      addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      actor.teleported = true;
-      return;
+    if (hasTopTileFlags(context.state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
+      context.probeBlockedActorExit?.(actor, exitPos);
+      if (pos === origin) {
+        addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+        return;
+      }
+      continue;
     }
 
-    if (pos === origin) {
-      addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-      return;
-    }
+    addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+    actor.teleported = true;
+    return;
   }
 }
 
