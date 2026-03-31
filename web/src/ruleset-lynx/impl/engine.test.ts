@@ -1423,6 +1423,34 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[5]!.chip!.position.pos).toBe(41);
   });
 
+  it("prefers a visible block over a hidden actor when validating a claimed Chip teleport exit", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.Teleport, MS_TILE.Empty),
+        createCell(40, MS_TILE.Teleport, MS_TILE.Empty),
+        createCell(41, MS_TILE.Empty, MS_TILE.Empty),
+        createCell(45, msCreatureTile(MS_TILE.Bug, 8), MS_TILE.Empty),
+        createCell(50, MS_TILE.Teleport, MS_TILE.Empty),
+        createCell(51, msCreatureTile(MS_TILE.Block, 8), MS_TILE.Empty),
+        createCell(52, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+    );
+
+    const hiddenBug = session.actors.find((actor) => actor.id === MS_TILE.Bug && !actor.hidden);
+    expect(hiddenBug).toBeDefined();
+    hiddenBug!.hidden = true;
+    hiddenBug!.pos = 51;
+
+    const teleported = advanceLynxTicks(session, 4, 8);
+    const exited = advanceLynxTicks(teleported, 2);
+
+    expect(teleported.chipPos).toBe(50);
+    expect(exited.chipPos).toBe(51);
+    expect(exited.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden)?.pos).toBe(52);
+  });
+
   it("treats a claimed non-block exit as a valid Chip teleport destination", () => {
     const level = createLevel([
       createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),

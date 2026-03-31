@@ -61,4 +61,26 @@ describe("lynx occupancy query", () => {
     expect(hiddenActor.kind).toBe(OCCUPANCY_TARGET_KIND.runtimeActor);
     expect(hiddenActor.runtimeActor?.id).toBe(MS_TILE.Fireball);
   });
+
+  it("prefers a visible actor over a hidden actor at the same position", () => {
+    const cells = createBoardAtZ(1);
+    cells[35] = createCell(35, MS_TILE.Empty, MS_TILE.Empty);
+
+    const target = queryLynxOccupancyTarget(
+      {
+        cells,
+        actors: [
+          { id: MS_TILE.Fireball, pos: 35, z: 1, hidden: true },
+          { id: MS_TILE.Block, pos: 35, z: 1, hidden: false },
+        ],
+        includeHiddenActors: true,
+      },
+      35,
+      1,
+    );
+
+    expect(target.kind).toBe(OCCUPANCY_TARGET_KIND.runtimeActor);
+    expect(target.runtimeActor?.id).toBe(MS_TILE.Block);
+    expect(target.runtimeActor?.hidden).toBe(false);
+  });
 });

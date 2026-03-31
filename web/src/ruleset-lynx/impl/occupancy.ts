@@ -104,9 +104,11 @@ export function queryLynxOccupancyTarget<
     };
   }
 
-  const runtimeActor = context.actors?.find(
-    (actor) => (context.includeHiddenActors || !actor.hidden) && actor.pos === pos && (actor.z ?? 1) === z,
-  );
+  const runtimeActor =
+    context.actors?.find((actor) => !actor.hidden && actor.pos === pos && (actor.z ?? 1) === z) ??
+    (context.includeHiddenActors
+      ? context.actors?.find((actor) => actor.hidden && actor.pos === pos && (actor.z ?? 1) === z)
+      : undefined);
   if (runtimeActor) {
     return {
       kind: OCCUPANCY_TARGET_KIND.runtimeActor,
