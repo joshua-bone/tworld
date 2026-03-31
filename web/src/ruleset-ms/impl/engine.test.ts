@@ -70,6 +70,18 @@ function addCarriedMsPetCarrier(
   session.state.internal.portableTools.nextPortableItemSerial += 1;
 }
 
+function advanceMsTicksForTest(
+  session: ReturnType<typeof createMsInteractiveSession>,
+  ticks: number,
+  inputCode: number = GAME_INPUT_CODES.none,
+): ReturnType<typeof createMsInteractiveSession> {
+  let current = session;
+  for (let tick = 0; tick < ticks; tick += 1) {
+    current = advanceMsInteractiveSession(current, inputCode);
+  }
+  return current;
+}
+
 describe("MS engine regressions", () => {
   it("preserves cloned runtime map layers and z-aware connection metadata during initialization", () => {
     const cells = createEmptyCells();
@@ -7259,6 +7271,167 @@ describe("MS engine regressions", () => {
           kind: "after-snatch",
           remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS - 1,
         },
+      },
+    });
+  });
+
+  it("preserves an occupied pet carrier through replacement pickup and releases the same occupant after recollection", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const pickupPos = pos(9, 10);
+    const exitPos = pos(10, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[pickupPos]!.top.id = MS_TILE.Sandbag;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    addCarriedMsPetCarrier(
+      session,
+      createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        },
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+    const primedCarrier = session.state.internal.portableTools.portableItems.find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "primed",
+    );
+    const primedCarrierSerial = primedCarrier?.serial;
+    expect(primedCarrier).toMatchObject({
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        },
+      },
+    });
+
+    session = advanceMsTicksForTest(session, 3);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+    const mappedCarrier = session.state.internal.portableTools.portableItems.find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "map" && item.state.pos === pickupPos && item.state.z === 1,
+    );
+
+    session = advanceMsTicksForTest(session, 3);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.west);
+    const carriedCarrier = session.state.internal.portableTools.portableItems.find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "carried",
+    );
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(mappedCarrier?.serial).toBe(primedCarrierSerial);
+    expect(mappedCarrier).toMatchObject({
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        },
+      },
+    });
+    expect(carriedCarrier?.serial).toBe(primedCarrierSerial);
+    expect(session.state.internal.chipPos).toBe(pickupPos);
+    expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west));
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Bug && !creature.hidden)).toMatchObject({
+      pos: chipPos,
+      dir: MS_DIRECTION.west,
+    });
+    expect(session.state.internal.portableTools.portableItems.find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "carried",
+    )).toMatchObject({
+      petCarrierState: {
+        occupant: null,
+      },
+    });
+  });
+
+  it("auto-captures a pushed block into an unoccupied mapped pet carrier", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const blockPos = pos(9, 10);
+    const carrierPos = pos(10, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[blockPos]!.top.id = MS_TILE.Block_Static;
+    cells[carrierPos]!.top.id = MS_TILE.PetCarrier;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, blockPos],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    const mappedCarrier = session.state.internal.portableTools.portableItems.find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "map" && item.state.pos === carrierPos && item.state.z === 1,
+    );
+
+    expect(session.state.internal.chipPos).toBe(blockPos);
+    expect(session.state.engine.map.cells[carrierPos]?.top.id).toBe(MS_TILE.PetCarrier);
+    expect(session.state.internal.blocks.find((block) => !block.hidden && block.pos === carrierPos)).toBeUndefined();
+    expect(mappedCarrier).toMatchObject({
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Block,
+          dir: MS_DIRECTION.none,
+        },
+      },
+    });
+  });
+
+  it("treats an occupied mapped pet carrier as a wall to a thrown bowling ball", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[eastPos]!.top.id = MS_TILE.PetCarrier;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    const mappedCarrier = session.state.internal.portableTools.portableItems.find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "map" && item.state.pos === eastPos && item.state.z === 1,
+    );
+    if (!mappedCarrier || mappedCarrier.family !== "pet-carrier") {
+      throw new Error("expected mapped pet carrier");
+    }
+    mappedCarrier.petCarrierState = createPetCarrierState({
+      occupant: {
+        actorId: MS_TILE.Bug,
+        dir: MS_DIRECTION.south,
+      },
+    });
+    session.state.engine.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.engine.inventory.tools).toEqual([MS_TILE.BowlingBall_Still]);
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.BowlingBall && !creature.hidden)).toBeUndefined();
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.PetCarrier);
+    expect(mappedCarrier.petCarrierState).toMatchObject({
+      occupant: {
+        actorId: MS_TILE.Bug,
+        dir: MS_DIRECTION.south,
       },
     });
   });

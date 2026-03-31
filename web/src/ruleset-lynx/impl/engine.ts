@@ -142,6 +142,8 @@ import {
   sanitizeLynxPortableUnderlyingTile,
   settleLynxPrimedToolDrop,
   tickLynxPetCarrierCooldowns,
+  isLynxPetCarrierPortableItem,
+  lynxPortableItemMobOccupancyPolicy,
   type LynxToolInventoryProjection,
   type LynxPortableToolStateStore,
 } from "@ruleset-lynx/impl/portableItems";
@@ -491,6 +493,33 @@ function trySnatchLynxPetCarrierFacingTarget(
   return snapshot;
 }
 
+function tryCaptureLynxActorIntoPortableItem(
+  state: EngineState,
+  actor: LynxRuntimeActor,
+  target: ReturnType<typeof queryLynxOccupancyOnLayer>,
+): boolean {
+  if (
+    target.kind !== OCCUPANCY_TARGET_KIND.portableItem ||
+    lynxPortableItemMobOccupancyPolicy(target.portableItem, actor.id) !== "auto-capture" ||
+    !isLynxPetCarrierPortableItem(target.portableItem)
+  ) {
+    return false;
+  }
+
+  const snapshot = createLynxPetCarrierMobSnapshot(lynxStatefulActorRuntime(state), {
+    actorId: actor.id,
+    actorSerial: actor.serial,
+    dir: actor.dir,
+  });
+  if (!snapshot) {
+    return false;
+  }
+
+  target.portableItem.petCarrierState.occupant = snapshot;
+  quietlyRemoveLynxActor(state, actor);
+  return true;
+}
+
 function createLynxReleasedPetCarrierActor(
   serial: number,
   actorId: number,
@@ -779,6 +808,16 @@ function resolveLynxRuntimeActorPreMoveCollision(
   const target = queryLynxOccupancyOnLayer(state, actors, targetStep.pos, actor.z ?? activeLynxLayerZ(state));
   if (target.kind === OCCUPANCY_TARGET_KIND.empty || target.kind === OCCUPANCY_TARGET_KIND.chip) {
     return null;
+  }
+
+  if (target.kind === OCCUPANCY_TARGET_KIND.portableItem) {
+    const portablePolicy = lynxPortableItemMobOccupancyPolicy(target.portableItem, actor.id);
+    if (portablePolicy === "acting-wall") {
+      return blockedMovement();
+    }
+    if (tryCaptureLynxActorIntoPortableItem(state, actor, target)) {
+      return movedMovement();
+    }
   }
 
   if (canLynxFireballMeltCollisionTarget(state, actor.id, target, dir)) {
@@ -2767,6 +2806,15 @@ function canLynxRuntimeActorStartMovement(
   const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
   if (targetStep) {
     const target = queryLynxOccupancyOnLayer(state, actors, targetStep.pos, actor.z ?? activeLynxLayerZ(state));
+    if (target.kind === OCCUPANCY_TARGET_KIND.portableItem) {
+      const portablePolicy = lynxPortableItemMobOccupancyPolicy(target.portableItem, actor.id);
+      if (portablePolicy === "acting-wall") {
+        return false;
+      }
+      if (portablePolicy === "auto-capture") {
+        return true;
+      }
+    }
     if (
       level !== null &&
       isMsBlockActorId(actor.id) &&

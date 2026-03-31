@@ -158,6 +158,8 @@ import {
   reconcileMsPortableToolProjection,
   settleMsPrimedToolDrop,
   tickMsPetCarrierCooldowns,
+  isMsPetCarrierPortableItem,
+  msPortableItemMobOccupancyPolicy,
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
 import {
@@ -552,6 +554,18 @@ function removeMsCollisionTarget(
   }
 }
 
+function captureMsPetCarrierOccupant(
+  target: ReturnType<typeof queryMsTargetOccupancy>,
+  snapshot: ReturnType<typeof createMsPetCarrierMobSnapshot>,
+): boolean {
+  if (!snapshot || target.kind !== "portable-item" || !isMsPetCarrierPortableItem(target.portableItem)) {
+    return false;
+  }
+
+  target.portableItem.petCarrierState.occupant = snapshot;
+  return true;
+}
+
 function snapshotMsPetCarrierTarget(
   cells: EngineMapCell[],
   internal: MsInternalState,
@@ -622,6 +636,39 @@ function trySnatchMsPetCarrierFacingTarget(
 
   removeMsTargetRuntimeActor(cells, internal, inventory, targetStep.pos, chipZ);
   return snapshot;
+}
+
+function tryCaptureMsMovingCreatureIntoPortableItem(
+  sourceCells: EngineMapCell[],
+  target: ReturnType<typeof queryMsTargetOccupancy>,
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  creature: MsTrackedCreature,
+): boolean {
+  if (
+    target.kind !== "portable-item" ||
+    msPortableItemMobOccupancyPolicy(target.portableItem, creature.id) !== "auto-capture"
+  ) {
+    return false;
+  }
+
+  const snapshot = createMsPetCarrierMobSnapshot(internal.statefulActors, {
+    actorId: creature.id,
+    actorSerial: creature.serial,
+    dir: creature.dir,
+  });
+  if (!captureMsPetCarrierOccupant(target, snapshot)) {
+    return false;
+  }
+
+  const oldPos = creature.pos;
+  if (isMsClonerSpecialFloor(sourceCells[oldPos]!.bottom.id)) {
+    sourceCells[oldPos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
+  } else {
+    popExitedMsMobSourceTile(sourceCells, oldPos);
+  }
+  destroyMsTrackedCreature(internal, inventory, creature);
+  return true;
 }
 
 function isMsDirectCloneMachinePetCarrierReleaseTarget(
@@ -988,6 +1035,16 @@ function resolveMsCreaturePreMoveCollision(
   const target = queryMsTargetOccupancy(targetCells, internal, nextPos, targetZ);
   if (target.kind === "empty") {
     return null;
+  }
+
+  if (target.kind === "portable-item") {
+    const portablePolicy = msPortableItemMobOccupancyPolicy(target.portableItem, creature.id);
+    if (portablePolicy === "acting-wall") {
+      return blockedMovement();
+    }
+    if (tryCaptureMsMovingCreatureIntoPortableItem(sourceCells, target, internal, inventory, creature)) {
+      return movedMovement();
+    }
   }
 
   if (nextPos !== creature.pos && canMsFireballMeltCollisionTarget(targetCells, creature.id, target, dir)) {
@@ -2341,7 +2398,17 @@ function canMoveCreatureWithOptions(
   if (targetInteraction?.denyMove) {
     return false;
   }
-  if (targetOccupancy?.kind === "portable-item" || targetOccupancy?.kind === "static-block") {
+  if (targetOccupancy?.kind === "portable-item") {
+    const portablePolicy = msPortableItemMobOccupancyPolicy(targetOccupancy.portableItem, creature.id);
+    if (portablePolicy === "acting-wall") {
+      return false;
+    }
+    if (portablePolicy === "auto-capture") {
+      return true;
+    }
+    return removesTarget;
+  }
+  if (targetOccupancy?.kind === "static-block") {
     return removesTarget;
   }
   let floor = cells[to]!.top.id;
@@ -2441,6 +2508,13 @@ function canMoveBlockInto(
     return true;
   }
   if (targetOccupancy?.kind === "portable-item") {
+    const portablePolicy = msPortableItemMobOccupancyPolicy(targetOccupancy.portableItem, movingBlockId);
+    if (portablePolicy === "acting-wall") {
+      return false;
+    }
+    if (portablePolicy === "auto-capture") {
+      return true;
+    }
     return !msActorInteractionOutcome(movingBlockId, msInteractionTargetFromOccupancy(targetOccupancy)).denyMove;
   }
   if (targetOccupancy?.kind === "static-block") {
@@ -2516,6 +2590,29 @@ function attemptMsTrackedBlockMove(
   const nextPos = nextY * MS_GRID_WIDTH + nextX;
   if (!canMoveBlockInto(cells, nextPos, dir, occupiedOriginPos, internal, trackedBlockActorId(trackedBlock))) {
     return blockedMovement();
+  }
+  const targetOccupancy = queryMsTargetOccupancy(cells, internal, nextPos, trackedBlock.z ?? runtimeCellZ(cells, pos));
+  if (targetOccupancy.kind === "portable-item") {
+    const portablePolicy = msPortableItemMobOccupancyPolicy(targetOccupancy.portableItem, trackedBlockActorId(trackedBlock));
+    if (portablePolicy === "acting-wall") {
+      return blockedMovement();
+    }
+    if (portablePolicy === "auto-capture") {
+      const snapshot = createMsPetCarrierMobSnapshot(internal.statefulActors, {
+        actorId: trackedBlockActorId(trackedBlock),
+        dir: trackedBlock.dir,
+      });
+      if (!captureMsPetCarrierOccupant(targetOccupancy, snapshot)) {
+        return blockedMovement();
+      }
+      if (!keepSourceTile) {
+        popExitedMsMobSourceTile(cells, pos);
+      } else if (oldWasCloneMachine) {
+        cells[pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
+      }
+      hideTrackedBlockAtPos(internal, pos, dir, trackedBlock.z ?? runtimeCellZ(cells, pos), trackedBlockActorId(trackedBlock));
+      return movedMovement();
+    }
   }
   const blockingBlockId = staticBlockActorIdAtPos(cells, internal, nextPos);
   if (

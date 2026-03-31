@@ -4502,6 +4502,154 @@ describe("runLynxInputTrace", () => {
     });
   });
 
+  it("preserves an occupied pet carrier through replacement pickup and releases the same occupant after recollection", () => {
+    const chipPos = 33;
+    const pickupPos = 34;
+    const exitPos = 35;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(pickupPos, MS_TILE.Sandbag, MS_TILE.Empty),
+        createCell(exitPos, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+    );
+    addCarriedLynxPetCarrier(
+      session,
+      createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        },
+      }),
+    );
+
+    session = advanceLynxTicks(session, 4, MS_DIRECTION.east);
+    const primedCarrier = lynxPortableItems(session.state).find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "primed",
+    );
+    const primedCarrierSerial = primedCarrier?.serial;
+    expect(primedCarrier).toMatchObject({
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        },
+      },
+    });
+
+    session = advanceLynxTicks(session, 4, MS_DIRECTION.east);
+    const mappedCarrier = lynxPortableItems(session.state).find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "map" && item.state.pos === pickupPos && item.state.z === 1,
+    );
+    expect(mappedCarrier?.serial).toBe(primedCarrierSerial);
+    expect(mappedCarrier).toMatchObject({
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        },
+      },
+    });
+
+    session = advanceLynxTicks(session, 4, MS_DIRECTION.west);
+    const carriedCarrier = lynxPortableItems(session.state).find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "carried",
+    );
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    session = advanceLynxTicks(session, 4);
+
+    expect(carriedCarrier?.serial).toBe(primedCarrierSerial);
+    expect(session.chipPos).toBe(pickupPos);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.Bug && !actor.hidden)).toMatchObject({
+      pos: chipPos,
+      dir: MS_DIRECTION.west,
+    });
+    expect(lynxPortableItems(session.state).find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "carried",
+    )).toMatchObject({
+      petCarrierState: {
+        occupant: null,
+      },
+    });
+  });
+
+  it("auto-captures a pushed block into an unoccupied mapped pet carrier", () => {
+    const chipPos = 33;
+    const blockPos = 34;
+    const carrierPos = 35;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(blockPos, MS_TILE.Block_Static, MS_TILE.Empty),
+        createCell(carrierPos, MS_TILE.PetCarrier, MS_TILE.Empty),
+      ]),
+    );
+
+    session = advanceLynxTicks(session, 4, MS_DIRECTION.east);
+
+    const mappedCarrier = lynxPortableItems(session.state).find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "map" && item.state.pos === carrierPos && item.state.z === 1,
+    );
+
+    expect(session.chipPos).toBe(blockPos);
+    expect(session.state.map.cells[carrierPos]?.top.id).toBe(MS_TILE.PetCarrier);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden)).toBeUndefined();
+    expect(mappedCarrier).toMatchObject({
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Block,
+          dir: MS_DIRECTION.east,
+        },
+      },
+    });
+  });
+
+  it("treats an occupied mapped pet carrier as a wall to a thrown bowling ball", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.PetCarrier, MS_TILE.Empty),
+      ]),
+    );
+    const mappedCarrier = lynxPortableItems(session.state).find(
+      (item) => item.family === "pet-carrier" && item.state.mode === "map" && item.state.pos === eastPos && item.state.z === 1,
+    );
+    if (!mappedCarrier || mappedCarrier.family !== "pet-carrier") {
+      throw new Error("expected mapped pet carrier");
+    }
+    mappedCarrier.petCarrierState = createPetCarrierState({
+      occupant: {
+        actorId: MS_TILE.Bug,
+        dir: MS_DIRECTION.south,
+      },
+    });
+    session.state.inventory.tools = [MS_TILE.BowlingBall_Still];
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.inventory.tools).toEqual([MS_TILE.BowlingBall_Still]);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.BowlingBall && !actor.hidden)).toBeUndefined();
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.PetCarrier);
+    expect(mappedCarrier.petCarrierState).toMatchObject({
+      occupant: {
+        actorId: MS_TILE.Bug,
+        dir: MS_DIRECTION.south,
+      },
+    });
+  });
+
   it("throws a carried bowling ball into an empty forward cell through the portable action seam", () => {
     const chipPos = 33;
     const eastPos = 34;

@@ -68,7 +68,7 @@ Pet Carrier is close to the existing portable special items, but it is the first
   - Start the one-normal-move cooldown after a successful release and block snatch attempts until it expires.
   - Add MS and Lynx tests for successful releases, blocked releases, direct clone-machine releases, teleport-like push chains, direction update on release, and cooldown gating.
 
-- [ ] PC7: Map interaction and persistence flow
+- [x] PC7: Map interaction and persistence flow
   - Preserve occupied-carrier payloads and cooldown state through carried, primed, dropped, mapped, and replacement-pickup transitions.
   - Keep payload identity stable through undo/runtime projection the same way existing portable items preserve identity.
   - Implement runtime interactions where occupied carriers wall non-Chip mobs, while unoccupied carriers absorb eligible non-player entrants other than bowling balls and become occupied.
