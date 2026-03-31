@@ -565,6 +565,25 @@ function canMsFireballMeltCollisionTarget(
   );
 }
 
+function queryMsFireballMeltableSupportBelow(
+  cells: EngineMapCell[] | null,
+  internal: MsInternalState,
+  movingActorId: number,
+  pos: number,
+): ReturnType<typeof queryMsTargetOccupancy> | null {
+  if (!cells) {
+    return null;
+  }
+
+  const target = queryMsTargetOccupancy(cells, internal, pos, runtimeCellZ(cells, pos));
+  if (target.kind !== "runtime-actor" && target.kind !== "static-block") {
+    return null;
+  }
+
+  const targetActorId = msInteractionTargetFromOccupancy(target).actorId ?? null;
+  return canMsFireballMeltIceBlock(movingActorId, targetActorId, cells[target.pos]!.bottom.id, true) ? target : null;
+}
+
 function applyMsFireballIceBlockMelt(
   cells: EngineMapCell[],
   internal: MsInternalState,
@@ -2592,6 +2611,14 @@ function syncMsCreatureAirFloorMovement(context: MsTickContext, creature: MsTrac
   }
 
   const lowerCells = context.lowerCells(creature.z);
+  const meltedSupport = queryMsFireballMeltableSupportBelow(lowerCells, internal, creature.id, creature.pos);
+  if (meltedSupport) {
+    applyMsFireballIceBlockMelt(lowerCells!, internal, context.inventory, meltedSupport);
+    if (creature.floorMovement === "air") {
+      clearCreatureFloorMovement(creature, internal);
+    }
+    return;
+  }
   if (
     hasVerticalSupport(
       resolveMsRuntimeActorSupportBelow(

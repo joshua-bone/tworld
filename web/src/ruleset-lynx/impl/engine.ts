@@ -432,24 +432,59 @@ function canLynxFireballMeltCollisionTarget(
   return canMsFireballMeltIceBlock(movingActorId, target.runtimeActor.id, targetFloorId, targetEntryAllowed);
 }
 
+function queryLynxFireballMeltableSupportBelow(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  cells: EngineMapCell[] | null,
+  movingActorId: number,
+  pos: number,
+  z: number,
+): ReturnType<typeof queryLynxOccupancyOnLayer> | null {
+  if (!cells) {
+    return null;
+  }
+
+  const runtime = lynxRuntimeState(state);
+  const target = queryLynxOccupancyTarget(
+    {
+      cells,
+      chipPos: runtime.chipPos,
+      chipZ: runtime.chipZ,
+      actors,
+      portableItems: runtime.portableTools.portableItems,
+    },
+    pos,
+    z,
+  );
+  if (target.kind !== OCCUPANCY_TARGET_KIND.runtimeActor || !target.runtimeActor) {
+    return null;
+  }
+
+  const targetFloorId = effectiveLynxTargetTileId(state, target.tileId);
+  return canMsFireballMeltIceBlock(movingActorId, target.runtimeActor.id, targetFloorId, true) ? target : null;
+}
+
 function applyLynxFireballIceBlockMelt(
   state: EngineState,
   actors: LynxRuntimeActor[],
   target: ReturnType<typeof queryLynxOccupancyOnLayer>,
+  cells: EngineMapCell[] = state.map.cells,
 ): number {
   if (target.kind !== OCCUPANCY_TARGET_KIND.runtimeActor || !target.runtimeActor) {
     return 0;
   }
 
-  removeTopTileFlags(state.map.cells, target.pos, LYNX_CELL_FLAG.Claimed);
-  replaceTopTile(state.map.cells, target.pos, {
-    ...state.map.cells[target.pos]!.top,
+  removeTopTileFlags(cells, target.pos, LYNX_CELL_FLAG.Claimed);
+  replaceTopTile(cells, target.pos, {
+    ...cells[target.pos]!.top,
     id: MS_TILE.Water,
   });
   removeLynxActor(state, actors, target.runtimeActor, LYNX_ANIMATION_TILE.Water_Splash);
   const soundEffects = 1 << LYNX_SOUND.WaterSplash;
   state.soundEffects |= soundEffects;
-  state.map.hash = mapHash(state.map.cells);
+  if (cells === state.map.cells) {
+    state.map.hash = mapHash(state.map.cells);
+  }
   return soundEffects;
 }
 
@@ -2793,7 +2828,12 @@ function advanceLynxCreature(
       if (isLynxAir(floorBeforeMove)) {
         const targetZ = Math.max(1, (actor.z ?? 1) - 1);
         const lowerCells = tickContext.lowerCells(actor.z);
-        if (
+        const meltedSupport = queryLynxFireballMeltableSupportBelow(state, actors, lowerCells, actor.id, actor.pos, targetZ);
+        if (meltedSupport) {
+          applyLynxFireballIceBlockMelt(state, actors, meltedSupport, lowerCells ?? undefined);
+          actor.moveKind = "planar";
+          actor.ignoreIceFromAir = false;
+        } else if (
           !hasVerticalSupport(
             resolveLynxRuntimeActorSupportBelow(tickContext, lowerCells, actor.id, null, actor.pos, targetZ, actor.z ?? 1),
           )

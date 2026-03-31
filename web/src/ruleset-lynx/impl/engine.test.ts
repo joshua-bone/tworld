@@ -2436,6 +2436,43 @@ describe("runLynxInputTrace", () => {
     expect(next.state.map.cells[41]?.bottom.id).toBe(MS_TILE.Empty);
   });
 
+  it("melts supported ice beneath a fireball but delays the fall until the next tick", () => {
+    const chipPos = 33;
+    const fireballPos = 40;
+    const lower = createBoardAtZ(1);
+    const upper = createBoardAtZ(2);
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty);
+    lower[fireballPos] = createCell(fireballPos, MS_TILE.IceBlock_Static, MS_TILE.Empty);
+    upper[fireballPos] = createCellAtZ(fireballPos, 2, msCreatureTile(MS_TILE.Fireball, 8), MS_TILE.Air);
+    upper[8] = createCellAtZ(8, 2, MS_TILE.Wall, MS_TILE.Empty);
+    upper[39] = createCellAtZ(39, 2, MS_TILE.Wall, MS_TILE.Empty);
+    upper[41] = createCellAtZ(41, 2, MS_TILE.Wall, MS_TILE.Empty);
+    upper[72] = createCellAtZ(72, 2, MS_TILE.Wall, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, {
+        lowerCreaturePositions: [chipPos, fireballPos],
+        upperCreaturePositions: [fireballPos],
+      }),
+    );
+
+    const melted = advanceLynxTicks(session, 1);
+    const supportedFireball = melted.actors.find((actor) => !actor.hidden && actor.id === MS_TILE.Fireball);
+
+    expect(melted.state.map.layers?.[0]?.cells[fireballPos]?.top.id).toBe(MS_TILE.Water);
+    expect(melted.state.map.layers?.[1]?.cells[fireballPos]?.top.id).toBe(MS_TILE.Air);
+    expect(supportedFireball?.z).toBe(2);
+    expect(supportedFireball?.pos).toBe(fireballPos);
+
+    const fallen = advanceLynxTicks(melted, 2);
+    const fireball = fallen.actors.find((actor) => actor.id === MS_TILE.Fireball);
+
+    expect(fallen.state.map.layers?.[0]?.cells[fireballPos]?.top.id).toBe(MS_TILE.Water);
+    expect(fallen.state.map.layers?.[1]?.cells[fireballPos]?.top.id).toBe(MS_TILE.Air);
+    expect(fireball?.hidden).toBe(true);
+  });
+
   it("keeps an unlisted static block inactive in the Lynx actor roster", () => {
     const chipPos = 33;
     const blockPos = 34;

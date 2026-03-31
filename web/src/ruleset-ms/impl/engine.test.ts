@@ -3514,6 +3514,48 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.actors.filter((actor) => actor.id === MS_TILE.Fireball)).toHaveLength(1);
   });
 
+  it("melts supported ice beneath a fireball but delays the fall until the next floor tick", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(2, 2);
+    const fireballPos = pos(10, 10);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    lower[fireballPos]!.top.id = MS_TILE.IceBlock_Static;
+    upper[fireballPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east);
+    upper[fireballPos]!.bottom.id = MS_TILE.Air;
+    upper[pos(10, 9)]!.top.id = MS_TILE.Wall;
+    upper[pos(9, 10)]!.top.id = MS_TILE.Wall;
+    upper[pos(11, 10)]!.top.id = MS_TILE.Wall;
+    upper[pos(10, 11)]!.top.id = MS_TILE.Wall;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [fireballPos], hintText: "" },
+        ],
+      }),
+    );
+
+    for (let tick = 0; tick < 3; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.engine.map.layers?.[0]?.cells[fireballPos]?.top.id).toBe(MS_TILE.Water);
+    expect(session.state.engine.map.layers?.[1]?.cells[fireballPos]?.top.id).toBe(msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east));
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Fireball && !creature.hidden)?.z).toBe(2);
+
+    for (let tick = 0; tick < 2; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.engine.map.layers?.[1]?.cells[fireballPos]?.top.id).toBe(MS_TILE.Air);
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Fireball)?.hidden).toBe(true);
+  });
+
   it("keeps a hidden debug block at the source after a pushed block splashes into water", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);

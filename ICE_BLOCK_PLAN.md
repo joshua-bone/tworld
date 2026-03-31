@@ -63,11 +63,11 @@ Ice block is close to dirt block, but not close enough to justify copying dirt-b
     - teleport probing and clone probing apply the same melt side effect
   - Reuse the same helper for both rulesets.
 
-- [ ] IB6: Vertical support exception
+- [x] IB6: Vertical support exception
   - Reuse the fireball melt helper during vertical support / settling checks.
   - Implement:
     - ice block supports like dirt block by default
-    - exception: fireball over ice block on plain floor melts the block, floor becomes water, fireball settles
+    - exception: fireball over ice block on plain floor melts the block, floor becomes water, and fireball stays supported for that tick
   - Add focused support/fall tests in MS and Lynx.
 
 - [ ] IB7: Special-floor and machine coverage
