@@ -1879,7 +1879,7 @@ function isLynxHeldOpenTrapBlock(
   actor: LynxRuntimeActor,
 ): boolean {
   return (
-    actor.id === MS_TILE.Block &&
+    isMsBlockActorId(actor.id) &&
     isLynxTrapHeldOpen(
       state,
       level,

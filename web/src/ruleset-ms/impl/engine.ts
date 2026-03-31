@@ -246,6 +246,7 @@ import {
   isMsFloor,
   isMsKey,
   isMsStaticBlockTile,
+  lookupMsBlockSpeciesByTileId,
   msActorBlockStaticTileId,
   msCreatureDir,
   msCreatureId,
@@ -2115,7 +2116,10 @@ function canMoveBlockInto(
   if ((msActorEntryMask(targetTop, movingBlockId) & dir) === 0) {
     return false;
   }
-  return !isMsClonerSpecialFloor(cells[to]!.bottom.id);
+  return (
+    !isMsClonerSpecialFloor(cells[to]!.bottom.id) ||
+    msActorClonerFamilyHooks(movingBlockId).entryBehavior !== "none"
+  );
 }
 
 function msBlockArrivalReplacement(
@@ -2196,7 +2200,7 @@ function moveBlock(
     cells[nextPos]!.top.id = arrivalReplacement.tileId;
     cells[nextPos]!.top.state = 0;
     if (!keepSourceTile) {
-      popTile(cells, pos);
+      popExitedMsMobSourceTile(cells, pos);
     } else if (oldWasCloneMachine) {
       cells[pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
     }
@@ -2205,14 +2209,17 @@ function moveBlock(
     return movedMovement();
   }
 
-  if (isMsClonerSpecialFloor(targetBottom)) {
+  if (
+    isMsClonerSpecialFloor(targetBottom) &&
+    msActorClonerFamilyHooks(trackedBlockActorId(trackedBlock)).entryBehavior === "none"
+  ) {
     trackedBlock.floorMovement = "none";
     trackedBlock.floorMovementDir = MS_DIRECTION.none;
     trackedBlock.sliding = false;
     return blockedMovement();
   }
 
-  const movedTile = keepSourceTile ? { ...cells[pos]!.top } : popTile(cells, pos);
+  const movedTile = keepSourceTile ? { ...cells[pos]!.top } : popExitedMsMobSourceTile(cells, pos);
   let landingPos = nextPos;
   if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
     landingPos = findMsBlockTeleportDestination({
@@ -2894,7 +2901,7 @@ function upsertTrackedBlock(cells: EngineMapCell[], internal: MsInternalState, p
   const topId = topTileIdOr(cells, pos, MS_TILE.Empty);
 
   const block: MsTrackedBlock = {
-    id: msStaticBlockActorId(topId) ?? MS_TILE.Block,
+    id: lookupMsBlockSpeciesByTileId(topId)?.actorId ?? MS_TILE.Block,
     pos,
     z,
     dir: isMsStaticBlockTile(topId) ? MS_DIRECTION.none : dir,

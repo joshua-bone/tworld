@@ -2473,6 +2473,193 @@ describe("runLynxInputTrace", () => {
     expect(fireball?.hidden).toBe(true);
   });
 
+  it("lets Chip push an ice block into an empty clone machine", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(35, MS_TILE.Empty, MS_TILE.CloneMachine),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 4, 8);
+    const iceBlock = next.actors.find((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock);
+
+    expect(next.chipPos).toBe(34);
+    expect(iceBlock?.pos).toBe(35);
+    expect(next.state.map.cells[35]?.top.id).toBe(MS_TILE.CloneMachine);
+  });
+
+  it("duplicates clone-machine ice blocks once they leave the machine", () => {
+    const buttonPos = 34;
+    const clonerPos = 70;
+    const exitPos = 71;
+    const session = advanceLynxTicks(
+      createLynxInteractiveSession(
+        createRequest(),
+        createLevel(
+          [
+            createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+            createCell(buttonPos, MS_TILE.Button_Red, MS_TILE.Empty),
+            createCell(clonerPos, msCreatureTile(MS_TILE.IceBlock, 8), MS_TILE.CloneMachine),
+            createCell(exitPos, MS_TILE.Empty, MS_TILE.Empty),
+          ],
+          undefined,
+          { cloners: [{ from: buttonPos, to: clonerPos }] },
+        ),
+      ),
+      4,
+      8,
+    );
+
+    const iceBlocks = session.actors
+      .filter((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock)
+      .map((actor) => actor.pos)
+      .sort((left, right) => left - right);
+
+    expect(iceBlocks).toEqual([clonerPos, exitPos]);
+  });
+
+  it("plays ButtonPushed when a pushed ice block settles on a brown button", () => {
+    const buttonPos = 35;
+    const trapPos = 97;
+    const trace = runLynxInputTraceDebug(
+      { seriesFile: "intro-lynx.dac", levelNumber: 8, ruleset: "Lynx" },
+      createLevel(
+        [
+          createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+          createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+          createCell(buttonPos, MS_TILE.Button_Brown, MS_TILE.Empty),
+          createCell(65, MS_TILE.Empty, MS_TILE.Empty),
+          createCell(trapPos, msCreatureTile(MS_TILE.Ball, 1), MS_TILE.Beartrap),
+        ],
+        undefined,
+        { traps: [{ from: buttonPos, to: trapPos }] },
+      ),
+      [{ tick: 0, inputCode: 8, inputName: "east" }],
+      4,
+    );
+
+    const finalPhase = trace.steps[3]?.phases.find((phase) => phase.phase === "final");
+    const settledIceBlock = finalPhase?.blocks.find((actor) => actor.position.pos === buttonPos);
+    const releasedBall = finalPhase?.activeCreatures.find(
+      (actor) => actor.id === MS_TILE.Ball && actor.position.pos === 65,
+    );
+
+    expect(trace.steps[3]?.soundEffects).toBe((1 << 12) | (1 << 18));
+    expect(settledIceBlock?.moving).toBe(0);
+    expect(releasedBall?.moving).toBe(6);
+  });
+
+  it("lets Chip push an ice block out of a held-open beartrap", () => {
+    const buttonPos = 34;
+    const trapPos = 65;
+    const exitPos = 97;
+    const trace = runLynxInputTraceDebug(
+      { seriesFile: "intro-lynx.dac", levelNumber: 8, ruleset: "Lynx" },
+      createLevel(
+        [
+          createCell(33, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty),
+          createCell(buttonPos, MS_TILE.IceBlock_Static, MS_TILE.Button_Brown),
+          createCell(trapPos, MS_TILE.IceBlock_Static, MS_TILE.Beartrap),
+          createCell(exitPos, MS_TILE.Empty, MS_TILE.Empty),
+        ],
+        undefined,
+        { traps: [{ from: buttonPos, to: trapPos }] },
+      ),
+      [{ tick: 0, inputCode: 4, inputName: "south" }],
+      1,
+    );
+
+    const finalPhase = trace.steps[0]?.phases.find((phase) => phase.phase === "final");
+    const pushedIceBlock = finalPhase?.blocks.find((actor) => actor.position.pos === exitPos);
+
+    expect(finalPhase?.activeCreatures[0]?.position.pos).toBe(trapPos);
+    expect(finalPhase?.activeCreatures[0]?.moving).toBe(6);
+    expect(pushedIceBlock?.moving).toBe(6);
+    expect(trace.steps[0]?.soundEffects & (1 << LYNX_SOUND.CantMove)).toBe(0);
+  });
+
+  it("teleports a stationary ice block at post-teleport resolution and forces it out in its last attempted facing", () => {
+    const trace = runLynxInputTraceDebug(
+      { seriesFile: "intro-lynx.dac", levelNumber: 6, ruleset: "Lynx" },
+      createLevel([
+        createCell(0, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Teleport),
+        createCell(33, MS_TILE.Wall, MS_TILE.Empty),
+        createCell(35, MS_TILE.Wall, MS_TILE.Empty),
+        createCell(40, MS_TILE.Teleport, MS_TILE.Empty),
+        createCell(50, MS_TILE.Teleport, MS_TILE.Empty),
+        createCell(41, MS_TILE.Wall, MS_TILE.Empty),
+        createCell(51, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+      [],
+      2,
+    );
+
+    const teleportPhase = trace.steps[0]?.phases.find((phase) => phase.phase === "post-teleport-resolution");
+    const forcedMovePhase = trace.steps[1]?.phases.find((phase) => phase.phase === "final");
+    const teleportedIceBlock = teleportPhase?.blocks.find((actor) => actor.position.pos === 50);
+    const movingIceBlock = forcedMovePhase?.blocks.find((actor) => actor.position.pos === 18);
+
+    expect(teleportedIceBlock).toBeDefined();
+    expect(movingIceBlock?.moving).toBe(6);
+  });
+
+  it("turns a cloud into air when an ice block exits it", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Cloud),
+        createCell(35, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 4, 8);
+    const iceBlock = next.actors.find((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock);
+
+    expect(next.chipPos).toBe(34);
+    expect(next.state.map.cells[34]?.top.id).toBe(MS_TILE.Air);
+    expect(iceBlock?.pos).toBe(35);
+  });
+
+  it("keeps a pushed ice block moving across ice until it reaches a bomb", () => {
+    const trace = runLynxInputTrace(
+      { seriesFile: "intro-lynx.dac", levelNumber: 8, ruleset: "Lynx" },
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty),
+        createCell(65, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(97, MS_TILE.Ice, MS_TILE.Empty),
+        createCell(129, MS_TILE.Bomb, MS_TILE.Empty),
+      ]),
+      [{ tick: 0, inputCode: 4, inputName: "south" }],
+      6,
+    );
+
+    expect(trace.steps[1]?.chip?.position.pos).toBe(65);
+    expect(trace.steps[2]?.mapHash).not.toBe(trace.steps[1]?.mapHash);
+    expect(trace.steps[5]?.soundEffects).toBe(1 << 16);
+  });
+
+  it("keeps a pushed ice block moving across a slide floor", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty),
+        createCell(65, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(97, MS_TILE.Slide_South, MS_TILE.Empty),
+        createCell(129, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 8, 4);
+    const iceBlock = next.actors.find((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock);
+
+    expect(iceBlock?.pos).toBe(129);
+  });
+
   it("keeps an unlisted static block inactive in the Lynx actor roster", () => {
     const chipPos = 33;
     const blockPos = 34;

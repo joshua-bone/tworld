@@ -3556,6 +3556,251 @@ describe("MS engine regressions", () => {
     expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Fireball)?.hidden).toBe(true);
   });
 
+  it("lets Chip push an ice block into an empty clone machine", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const iceBlockPos = pos(11, 10);
+    const cloneMachinePos = pos(12, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[cloneMachinePos]!.bottom.id = MS_TILE.CloneMachine;
+
+    const next = advanceMsInteractiveSession(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells,
+          creaturePositions: [chipPos],
+        }),
+      ),
+      MS_DIRECTION.east,
+    );
+
+    expect(next.state.engine.map.cells[cloneMachinePos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(next.state.engine.map.cells[cloneMachinePos]?.bottom.id).toBe(MS_TILE.CloneMachine);
+    expect(next.state.internal.blocks.find((block) => !block.hidden && block.pos === cloneMachinePos)?.id).toBe(MS_TILE.IceBlock);
+  });
+
+  it("duplicates clone-machine ice blocks once they leave the machine", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(2, 2);
+    const redButtonPos = pos(3, 2);
+    const cloneMachinePos = pos(10, 10);
+    const exitPos = pos(11, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[redButtonPos]!.top.id = MS_TILE.Button_Red;
+    cells[cloneMachinePos]!.top.id = msCreatureTile(MS_TILE.IceBlock, MS_DIRECTION.east);
+    cells[cloneMachinePos]!.bottom.id = MS_TILE.CloneMachine;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        cloners: [{ from: redButtonPos, to: cloneMachinePos }],
+        creaturePositions: [chipPos, cloneMachinePos],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const releasedIceBlock = session.state.internal.blocks.find((block) => !block.hidden && block.pos === exitPos);
+
+    expect(session.state.engine.map.cells[cloneMachinePos]?.top.id).toBe(msCreatureTile(MS_TILE.IceBlock, MS_DIRECTION.east));
+    expect(session.state.engine.map.cells[cloneMachinePos]?.bottom.id).toBe(MS_TILE.CloneMachine);
+    expect(session.state.engine.map.cells[exitPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(releasedIceBlock?.id).toBe(MS_TILE.IceBlock);
+  });
+
+  it("releases a trapped creature when a pushed ice block lands on a brown button", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(14, 15);
+    const iceBlockPos = pos(13, 15);
+    const buttonPos = pos(12, 15);
+    const trapPos = pos(12, 13);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.west);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[buttonPos]!.top.id = MS_TILE.Button_Brown;
+    cells[trapPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.south);
+    cells[trapPos]!.bottom.id = MS_TILE.Beartrap;
+
+    const next = advanceMsInteractiveSession(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells,
+          traps: [{ from: buttonPos, to: trapPos }],
+          creaturePositions: [chipPos, trapPos],
+        }),
+      ),
+      MS_DIRECTION.west,
+    );
+
+    expect(next.state.engine.soundEffects & (1 << MS_SOUND.ButtonPushed)).not.toBe(0);
+    expect(next.state.engine.map.cells[buttonPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(next.state.internal.creatures.find((creature) => creature.pos === trapPos)?.released).toBe(true);
+    expect(next.state.internal.blocks.find((block) => !block.hidden && block.pos === buttonPos)?.id).toBe(MS_TILE.IceBlock);
+  });
+
+  it("lets Chip push an ice block out of a held-open beartrap", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const buttonPos = pos(9, 11);
+    const trapPos = pos(10, 11);
+    const exitPos = pos(10, 12);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[buttonPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[buttonPos]!.bottom.id = MS_TILE.Button_Brown;
+    cells[trapPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[trapPos]!.bottom.id = MS_TILE.Beartrap;
+
+    const next = advanceMsInteractiveSession(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells,
+          traps: [{ from: buttonPos, to: trapPos }],
+          creaturePositions: [chipPos],
+        }),
+      ),
+      MS_DIRECTION.south,
+    );
+
+    expect(next.state.engine.soundEffects & (1 << MS_SOUND.CantMove)).toBe(0);
+    expect(next.state.engine.map.cells[trapPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south));
+    expect(next.state.engine.map.cells[exitPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(next.state.internal.blocks.find((block) => !block.hidden && block.pos === exitPos)?.id).toBe(MS_TILE.IceBlock);
+  });
+
+  it("teleports a sliding ice block during block floor movement", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(2, 2);
+    const iceBlockPos = pos(14, 13);
+    const entryTeleportPos = pos(15, 13);
+    const destinationTeleportPos = pos(5, 5);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[iceBlockPos]!.bottom.id = MS_TILE.Slide_East;
+    cells[entryTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[destinationTeleportPos]!.top.id = MS_TILE.Teleport;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    session.state.internal.blocks.push({
+      id: MS_TILE.IceBlock,
+      pos: iceBlockPos,
+      dir: MS_DIRECTION.east,
+      hidden: false,
+      released: false,
+      floorMovement: "slide",
+      floorMovementDir: MS_DIRECTION.east,
+      sliding: true,
+      slideDelayPending: false,
+      slipOrder: 0,
+    });
+
+    for (let tick = 0; tick < 3; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.engine.map.cells[entryTeleportPos]?.top.id).toBe(MS_TILE.Teleport);
+    expect(session.state.engine.map.cells[destinationTeleportPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(session.state.internal.blocks).toContainEqual(
+      expect.objectContaining({
+        id: MS_TILE.IceBlock,
+        pos: destinationTeleportPos,
+        dir: MS_DIRECTION.east,
+        floorMovement: "teleport",
+        floorMovementDir: MS_DIRECTION.east,
+        sliding: true,
+      }),
+    );
+  });
+
+  it("turns a cloud into air when an ice block exits it", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const cloudPos = pos(11, 10);
+    const exitPos = pos(12, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[cloudPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[cloudPos]!.bottom.id = MS_TILE.Cloud;
+
+    const next = advanceMsInteractiveSession(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({
+          cells,
+          creaturePositions: [chipPos],
+        }),
+      ),
+      MS_DIRECTION.east,
+    );
+
+    expect(next.state.engine.map.cells[cloudPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+    expect(next.state.engine.map.cells[cloudPos]?.bottom.id).toBe(MS_TILE.Air);
+    expect(next.state.engine.map.cells[exitPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(next.state.internal.blocks.find((block) => !block.hidden && block.pos === exitPos)?.id).toBe(MS_TILE.IceBlock);
+  });
+
+  it("keeps the slide bit after a slipping ice block takes its next ice move", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(2, 2);
+    const iceBlockPos = pos(7, 15);
+    const firstIcePos = pos(8, 15);
+    const secondIcePos = pos(9, 15);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[iceBlockPos]!.bottom.id = MS_TILE.Slide_East;
+    cells[firstIcePos]!.top.id = MS_TILE.Ice;
+    cells[secondIcePos]!.top.id = MS_TILE.Ice;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    session.state.internal.blocks.push({
+      id: MS_TILE.IceBlock,
+      pos: iceBlockPos,
+      dir: MS_DIRECTION.east,
+      hidden: false,
+      released: false,
+      floorMovement: "slide",
+      floorMovementDir: MS_DIRECTION.east,
+      sliding: true,
+      slideDelayPending: false,
+      slipOrder: 0,
+    });
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    expect(session.state.engine.map.cells[secondIcePos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(session.state.internal.blocks).toContainEqual(
+      expect.objectContaining({
+        id: MS_TILE.IceBlock,
+        pos: secondIcePos,
+        dir: MS_DIRECTION.east,
+        floorMovement: "ice",
+        floorMovementDir: MS_DIRECTION.east,
+        sliding: true,
+      }),
+    );
+  });
+
   it("keeps a hidden debug block at the source after a pushed block splashes into water", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);

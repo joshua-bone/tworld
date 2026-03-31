@@ -70,7 +70,7 @@ Ice block is close to dirt block, but not close enough to justify copying dirt-b
     - exception: fireball over ice block on plain floor melts the block, floor becomes water, and fireball stays supported for that tick
   - Add focused support/fall tests in MS and Lynx.
 
-- [ ] IB7: Special-floor and machine coverage
+- [x] IB7: Special-floor and machine coverage
   - Verify ice block behavior across trap, teleport, ice, force floor, clone machine, cloud, and button interactions.
   - Add targeted tests for:
     - trap hold and release
