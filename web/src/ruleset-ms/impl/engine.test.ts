@@ -1348,6 +1348,30 @@ describe("MS engine regressions", () => {
     });
   });
 
+  it("initializes tracked ice blocks with their species id from creature positions", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const trackedBlockPos = pos(12, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[trackedBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+
+    const state = initializeMsGameState(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [trackedBlockPos],
+      }),
+    );
+
+    expect(state.internal.blocks).toHaveLength(1);
+    expect(state.internal.blocks[0]).toMatchObject({
+      id: MS_TILE.IceBlock,
+      pos: trackedBlockPos,
+      dir: MS_DIRECTION.none,
+      hidden: false,
+    });
+  });
+
   it("advances a red-button block source even when the cloner target is not a clone machine", () => {
     const cells = createEmptyCells();
     const chipPos = pos(2, 2);

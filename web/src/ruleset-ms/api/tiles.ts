@@ -97,6 +97,29 @@ export const MS_TILE = {
   IceBlock_Static: 0x84,
 } as const;
 
+export type MsBlockSpeciesId = "dirt" | "ice";
+
+export interface MsBlockSpeciesRegistration {
+  readonly speciesId: MsBlockSpeciesId;
+  readonly actorId: number;
+  readonly staticTileId: number;
+  readonly initialClonerDir?: number;
+}
+
+export const MS_BLOCK_SPECIES_REGISTRATIONS = [
+  {
+    speciesId: "dirt",
+    actorId: MS_TILE.Block,
+    staticTileId: MS_TILE.Block_Static,
+  },
+  {
+    speciesId: "ice",
+    actorId: MS_TILE.IceBlock,
+    staticTileId: MS_TILE.IceBlock_Static,
+    initialClonerDir: MS_DIRECTION.north,
+  },
+] as const satisfies readonly MsBlockSpeciesRegistration[];
+
 export const MS_FLOOR_STATE = {
   ButtonDown: 0x01,
   Cloning: 0x02,
@@ -139,6 +162,12 @@ export const MS_SOUND = {
 const KEY_RANGE = [MS_TILE.Key_Red, MS_TILE.Key_Green] as const;
 const BOOT_RANGE = [MS_TILE.Boots_Ice, MS_TILE.Boots_Water] as const;
 const CREATURE_RANGE = [MS_TILE.Chip, 0x7c] as const;
+const msBlockSpeciesByActorId = new Map<number, MsBlockSpeciesRegistration>(
+  MS_BLOCK_SPECIES_REGISTRATIONS.map((registration) => [registration.actorId, registration] as const),
+);
+const msBlockSpeciesByStaticTileId = new Map<number, MsBlockSpeciesRegistration>(
+  MS_BLOCK_SPECIES_REGISTRATIONS.map((registration) => [registration.staticTileId, registration] as const),
+);
 
 export function msDirIndex(dir: number): number {
   return (0x30210 >> (dir * 2)) & 3;
@@ -162,6 +191,35 @@ export function msCreatureDir(id: number): number {
 
 export function isMsCreature(id: number): boolean {
   return id >= CREATURE_RANGE[0] && id < CREATURE_RANGE[1];
+}
+
+export function lookupMsBlockSpeciesByActorId(actorId: number): MsBlockSpeciesRegistration | undefined {
+  const normalizedActorId = isMsCreature(actorId) ? msCreatureId(actorId) : actorId;
+  return msBlockSpeciesByActorId.get(normalizedActorId);
+}
+
+export function lookupMsBlockSpeciesByStaticTileId(tileId: number): MsBlockSpeciesRegistration | undefined {
+  return msBlockSpeciesByStaticTileId.get(tileId);
+}
+
+export function lookupMsBlockSpeciesByTileId(tileId: number): MsBlockSpeciesRegistration | undefined {
+  return lookupMsBlockSpeciesByStaticTileId(tileId) ?? lookupMsBlockSpeciesByActorId(tileId);
+}
+
+export function isMsBlockActorId(actorId: number): boolean {
+  return lookupMsBlockSpeciesByActorId(actorId) !== undefined;
+}
+
+export function isMsStaticBlockTile(tileId: number): boolean {
+  return lookupMsBlockSpeciesByStaticTileId(tileId) !== undefined;
+}
+
+export function msStaticBlockActorId(tileId: number): number | null {
+  return lookupMsBlockSpeciesByStaticTileId(tileId)?.actorId ?? null;
+}
+
+export function msActorBlockStaticTileId(actorId: number): number | null {
+  return lookupMsBlockSpeciesByActorId(actorId)?.staticTileId ?? null;
 }
 
 export function isMsKey(id: number): boolean {

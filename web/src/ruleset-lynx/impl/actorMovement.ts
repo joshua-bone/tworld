@@ -27,7 +27,7 @@ import {
   applyLynxActorFloorImpact,
   applyLynxBlockedActorMoveStart,
 } from "@ruleset-lynx/impl/actorMovementLifecycle";
-import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxActorMovementActor {
   id: number;
@@ -160,7 +160,7 @@ export function startLynxActorMovement(
     context.clearAnimationAt(targetPos);
   }
 
-  if (actor.id === MS_TILE.Block) {
+  if (isMsBlockActorId(actor.id)) {
     actor.dormant = false;
   }
 

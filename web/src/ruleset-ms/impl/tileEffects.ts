@@ -17,7 +17,7 @@ import {
 } from "@ruleset-ms/impl/elements/tiles/families/support";
 import type { MsTileExitProbeBehaviorContext } from "@ruleset-ms/impl/elements/tiles/concrete/specialFloors";
 import { lookupMsTileLifecyclePhase } from "@ruleset-ms/impl/tileLifecycleRegistration";
-import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, msStaticBlockActorId, MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
 export interface MsTileActivationContext<TCreature> {
   turnTanks(inMidMove?: TCreature | null): void;
@@ -175,10 +175,10 @@ export function resolveMsTileSupportBelow(
 
   const topId = cell.top.id;
   const bottomId = cell.bottom.id;
-  const topActorId = topId === MS_TILE.Block_Static ? MS_TILE.Block : isMsCreature(topId) ? msCreatureId(topId) : null;
+  const topActorId = msStaticBlockActorId(topId) ?? (isMsCreature(topId) ? msCreatureId(topId) : null);
 
   if (actorUsesChipSupport(subject.supportHooks.airHook)) {
-    if (topActorId === MS_TILE.Block) {
+    if (topActorId !== null && isMsBlockActorId(topActorId)) {
       context.addTileOverlay(currentZ, pos, "support");
       return VERTICAL_SUPPORT_RESULT.supported;
     }

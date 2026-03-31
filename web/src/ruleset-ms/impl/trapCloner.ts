@@ -2,7 +2,9 @@ import type { EngineMapCell } from "@game-core/api/model";
 import { addBottomTileFlags, topTileId } from "@game-core/impl/board";
 import type { MsConnection } from "@ruleset-ms/api/level";
 import {
+  isMsBlockActorId,
   isMsCreature,
+  isMsStaticBlockTile,
   msCreatureDir,
   msCreatureId,
   MS_DIRECTION,
@@ -129,7 +131,7 @@ export function springMsTrap(args: {
   const trappedBlock = findTrackedBlock(trapPos, buttonZ);
   if (trappedBlock && msActorTrapReleaseStartsMovement(trappedBlock.id ?? MS_TILE.Block)) {
     trappedBlock.released = true;
-  } else if (cells[trapPos]?.top.id === MS_TILE.Block_Static) {
+  } else if (isMsStaticBlockTile(cells[trapPos]?.top.id ?? MS_TILE.Empty)) {
     const releasedBlock = releaseStaticBlock(trapPos);
     if (msActorTrapReleaseStartsMovement(releasedBlock.id ?? MS_TILE.Block)) {
       releasedBlock.released = true;
@@ -181,7 +183,7 @@ export function activateMsCloner(args: {
   }
 
   const sourceDir = msCreatureDir(sourceCell.top.id);
-  if (sourceId === MS_TILE.Block) {
+  if (isMsBlockActorId(sourceId)) {
     const sourceIsCloneMachine = isMsClonerSpecialFloor(sourceCell.bottom.id);
     if (sourceIsCloneMachine && (sourceCell.bottom.state & MS_FLOOR_STATE.Cloning) !== 0) {
       return;

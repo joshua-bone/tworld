@@ -22,7 +22,7 @@ import {
   type LynxTileSupportContext,
   type LynxTileSupportSubject,
 } from "@ruleset-lynx/impl/elements/tiles/families/support";
-import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export type LynxMoveKind = "planar" | "air" | "elevator";
 
@@ -133,7 +133,7 @@ export function canLynxChipUseElevator(
   }
 
   const actorAbove = context.findVisibleActorAt(context.chipPos, targetZ);
-  if (!actorAbove || actorAbove.id !== MS_TILE.Block) {
+  if (!actorAbove || !isMsBlockActorId(actorAbove.id)) {
     return true;
   }
 
@@ -182,7 +182,7 @@ export function startLynxChipElevatorMovement(
   }
 
   const actorAbove = context.findVisibleActorAt(context.chipPos, targetZ);
-  if (actorAbove?.id === MS_TILE.Block) {
+  if (actorAbove && isMsBlockActorId(actorAbove.id)) {
     const pushDir = normalizeDirection(chipDir);
     if (pushDir === MS_DIRECTION.none || !tryPushBlockingBlock(pushDir, targetZ)) {
       context.addTileOverlay(context.chipZ, context.chipPos, "elevator-failure");

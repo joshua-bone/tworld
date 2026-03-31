@@ -8,7 +8,7 @@ import {
   actorFloorImpactTransformsFloor,
 } from "@game-core/impl/floorImpact";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, MS_TILE } from "@ruleset-ms/api/tiles";
 import type { ArrivalResult } from "@game-core/api/movementOutcomes";
 import { noArrival, removedOnArrival, resolvedArrival } from "@game-core/api/movementOutcomes";
 import { addTopTileFlags, promoteBottomTile, removeTopTileFlags, replaceTopTile } from "@game-core/impl/board";
@@ -143,7 +143,7 @@ export function applyLynxActorCompletedStep(
   actor: LynxActorMovementActor,
   floorId: number,
 ): ArrivalResult {
-  if (actor.id === MS_TILE.Block) {
+  if (isMsBlockActorId(actor.id)) {
     actor.deferPush = false;
     actor.deferPushArmed = false;
   }

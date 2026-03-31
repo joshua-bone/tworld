@@ -1,6 +1,6 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import { blockedMovement, movedMovement, type MovementAttemptResult } from "@game-core/api/movementOutcomes";
-import { MS_DIRECTION, MS_GRID_WIDTH, MS_SOUND, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
+import { isMsStaticBlockTile, MS_DIRECTION, MS_GRID_WIDTH, MS_SOUND, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   isMsIceForcedFloor,
   msEntryRevealsForcedFloor,
@@ -232,7 +232,7 @@ export function moveMsChipUpOneLayer(
     return blockedMovement();
   }
 
-  if (nextCell.top.id === MS_TILE.Block_Static) {
+  if (isMsStaticBlockTile(nextCell.top.id)) {
     const pushDir = context.normalizeDirection(context.internal.chipDir);
     if (pushDir === MS_DIRECTION.none || !context.pushStaticBlock(targetCells, nextPos, pushDir)) {
       return blockedMovement();

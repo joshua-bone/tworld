@@ -3,7 +3,7 @@ import {
   OCCUPANCY_TARGET_KIND,
   type OccupancyTarget,
 } from "@game-core/impl/occupancy";
-import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
+import { MS_TILE, isMsCreature, isMsStaticBlockTile, msCreatureId } from "@ruleset-ms/api/tiles";
 
 export interface MsOccupancyCreatureRef {
   id: number;
@@ -13,6 +13,7 @@ export interface MsOccupancyCreatureRef {
 }
 
 export interface MsOccupancyBlockRef {
+  id?: number;
   pos: number;
   z?: number;
   hidden: boolean;
@@ -107,7 +108,7 @@ export function queryMsOccupancyTarget<
     };
   }
 
-  if (cell.top.id === MS_TILE.Block_Static) {
+  if (isMsStaticBlockTile(cell.top.id)) {
     return {
       kind: OCCUPANCY_TARGET_KIND.staticBlock,
       pos,

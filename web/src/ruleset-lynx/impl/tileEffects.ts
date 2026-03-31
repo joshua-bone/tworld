@@ -18,7 +18,7 @@ import {
 } from "@ruleset-lynx/impl/elements/tiles/families/support";
 import type { LynxTileExitProbeBehaviorContext } from "@ruleset-lynx/impl/elements/tiles/concrete/specialFloors";
 import { lookupLynxTileLifecyclePhase } from "@ruleset-lynx/impl/tileLifecycleRegistration";
-import { isMsCreature, MS_TILE } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, isMsCreature, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxTileActivationContext {
   toggleWalls(): void;
@@ -176,7 +176,7 @@ export function resolveLynxTileSupportBelow(
 
   if (actorUsesChipSupport(subject.supportHooks.airHook)) {
     if (actorBelow) {
-      if (actorBelow.id === MS_TILE.Block) {
+      if (isMsBlockActorId(actorBelow.id)) {
         context.addTileOverlay(currentZ, pos, "support");
         return VERTICAL_SUPPORT_RESULT.supported;
       }

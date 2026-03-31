@@ -43,7 +43,7 @@ import {
   restoreLynxUndoHistoryToTick,
 } from "@undo-runtime/impl/lynxHistory";
 import type { LynxUndoHistory } from "@undo-runtime/impl/lynxHistory";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   advanceInteractiveSessionWithHistory,
   assertAdapterRuleset,
@@ -72,13 +72,14 @@ function findLynxCollisionCause(runtime: LynxInteractiveRuntime): InteractiveGam
 
   if (actor) {
     const actorName = describeMsActorName(actor.id) ?? "monster";
+    const isBlock = isMsBlockActorId(actor.id);
     return buildInteractiveFailureCause({
       actorId: actor.id,
       actorName,
-      kind: actor.id === MS_TILE.Block ? "other" : "monster",
+      kind: isBlock ? "other" : "monster",
       message:
-        actor.id === MS_TILE.Block
-          ? `Crushed by block at (${chipPos.x}, ${chipPos.y})`
+        isBlock
+          ? `Crushed by ${actorName} at (${chipPos.x}, ${chipPos.y})`
           : `Killed by ${actorName} at (${chipPos.x}, ${chipPos.y})`,
       position: chipPos,
     });

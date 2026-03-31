@@ -18,6 +18,7 @@ import {
   MS_TILE,
   isMsBoots,
   isMsCreature,
+  isMsStaticBlockTile,
   isMsKey,
   msCreatureDir,
   msCreatureId,
@@ -286,15 +287,15 @@ function buildCreatureDebugActor(
         ? "none"
         : isIceFloor(floor.id)
           ? "ice"
-          : isSlideFloor(floor.id)
-            ? "slide"
-            : floor.id === MS_TILE.Teleport
-              ? "teleport"
-              : floor.id === MS_TILE.Beartrap
-                ? "beartrap"
-                : floor.id === MS_TILE.Block_Static
-                  ? "block"
-                  : "slip";
+                : isSlideFloor(floor.id)
+                  ? "slide"
+                  : floor.id === MS_TILE.Teleport
+                    ? "teleport"
+                    : floor.id === MS_TILE.Beartrap
+                      ? "beartrap"
+                      : isMsStaticBlockTile(floor.id)
+                        ? "block"
+                        : "slip";
 
   return {
     index,
@@ -375,19 +376,19 @@ function buildBlockDebugActor(cells: EngineMapCell[], block: MsTrackedBlock, ind
         ? "none"
         : isIceFloor(debugFloor.id)
           ? "ice"
-          : isSlideFloor(debugFloor.id)
-            ? "slide"
-            : debugFloor.id === MS_TILE.Teleport
-              ? "teleport"
-              : debugFloor.id === MS_TILE.Beartrap
-                ? "beartrap"
-                : debugFloor.id === MS_TILE.Block_Static
-                  ? "block"
-                  : "slip";
+                : isSlideFloor(debugFloor.id)
+                  ? "slide"
+                  : debugFloor.id === MS_TILE.Teleport
+                    ? "teleport"
+                    : debugFloor.id === MS_TILE.Beartrap
+                      ? "beartrap"
+                      : isMsStaticBlockTile(debugFloor.id)
+                        ? "block"
+                        : "slip";
 
   return {
     index,
-    id: MS_TILE.Block,
+    id: block.id ?? MS_TILE.Block,
     dir: directionName(block.dir),
     position: debugPosition(block.pos, block.z ?? 1),
     hidden: block.hidden,

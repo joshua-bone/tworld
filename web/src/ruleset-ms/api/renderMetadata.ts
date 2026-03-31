@@ -3,7 +3,7 @@ import type {
   InteractiveGameTileOverlay,
   InteractiveGameTileOverlayRender,
 } from "@game-core/api/interactive";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, MS_TILE } from "@ruleset-ms/api/tiles";
 
 function supportFloorTileId(topId: number, bottomId: number): number | null {
   if (topId === MS_TILE.Beartrap || topId === MS_TILE.CloneMachine) {
@@ -31,7 +31,7 @@ export function projectActorSupportDecoration(
   bottomId: number,
 ): InteractiveGameActorDecoration | null {
   if (
-    actorId !== MS_TILE.Block &&
+    !isMsBlockActorId(actorId) &&
     actorId !== MS_TILE.Blob &&
     actorId !== MS_TILE.Ball &&
     actorId !== MS_TILE.Walker &&
@@ -48,7 +48,7 @@ export function projectActorSupportDecoration(
   return {
     kind: "support-marker",
     floorTileId,
-    showBlockWindow: actorId === MS_TILE.Block,
+    showBlockWindow: isMsBlockActorId(actorId),
     showDirectionArrow: true,
   };
 }
@@ -58,7 +58,7 @@ export function projectThinWallActorDecoration(
   topId: number,
   bottomId: number,
 ): InteractiveGameActorDecoration | null {
-  if (actorId !== MS_TILE.Block) {
+  if (!isMsBlockActorId(actorId)) {
     return null;
   }
   if (isThinWallTileId(topId)) {

@@ -24,7 +24,7 @@ Ice block is close to dirt block, but not close enough to justify copying dirt-b
   - Register render ownership for the new artwork sprite.
   - Update decode/registration tests in both rulesets.
 
-- [ ] IB2: Block-species seam
+- [x] IB2: Block-species seam
   - Extract a small block-species policy layer from the current single dirt-block assumption.
   - Teach registration how to map static tile id, moving actor id, and species traits.
   - Keep existing dirt-block behavior unchanged under the new seam.

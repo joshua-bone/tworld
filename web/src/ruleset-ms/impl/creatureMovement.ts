@@ -19,6 +19,7 @@ import {
   MS_SOUND,
   MS_TILE,
   isMsCreature,
+  msStaticBlockActorId,
   msCreatureId,
   msCreatureTile,
 } from "@ruleset-ms/api/tiles";
@@ -276,8 +277,7 @@ export function moveMsCreatureUpOneLayer(
   const targetTopState = targetCells[oldPos]!.top.state;
   const targetBottom = targetCells[oldPos]!.bottom.id;
   const targetBottomState = targetCells[oldPos]!.bottom.state;
-  const targetActorId =
-    targetTop === MS_TILE.Block_Static ? MS_TILE.Block : isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
+  const targetActorId = msStaticBlockActorId(targetTop) ?? (isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty);
   const standingFloor = targetActorId !== MS_TILE.Empty ? targetBottom : targetTop;
   let soundEffects = 0;
 

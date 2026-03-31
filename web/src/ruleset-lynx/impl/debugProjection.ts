@@ -10,7 +10,7 @@ import type {
 import { createRuntimeCommand } from "@game-core/api/playback";
 import { mapHash } from "@game-core/impl/hash";
 import { boardGamePosition, projectGamePosition } from "@game-core/impl/position";
-import { MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 import type { LynxRuntimeActor } from "@ruleset-lynx/impl/engine";
 
 function directionName(dir: number): string {
@@ -178,11 +178,11 @@ export function projectLynxDebugPhaseSnapshot(
     activeCreatures: [
       buildLynxChipDebugActor(state.map.cells, chipPos, chipDir, chipMoving),
       ...actors
-        .filter((actor) => actor.id !== MS_TILE.Block && !actor.hidden)
+        .filter((actor) => !isMsBlockActorId(actor.id) && !actor.hidden)
         .map((actor, index) => buildLynxDebugActor(state.map.cells, actor, index + 1)),
     ],
     blocks: actors
-      .filter((actor) => actor.id === MS_TILE.Block && !actor.hidden)
+      .filter((actor) => isMsBlockActorId(actor.id) && !actor.hidden)
       .map((actor, index) => buildLynxDebugActor(state.map.cells, actor, index)),
     slipList: [],
     boardFlags: collectLynxBoardFlags(state.map.cells),

@@ -232,9 +232,12 @@ import {
   MS_STATUS_FLAG,
   MS_TICKS_PER_SECOND,
   MS_TILE,
+  isMsBlockActorId,
   isMsCreature,
+  isMsStaticBlockTile,
   msCreatureDir,
   msCreatureId,
+  msStaticBlockActorId,
 } from "@ruleset-ms/api/tiles";
 import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
@@ -729,8 +732,8 @@ interface LynxRuntimeLayer {
 
 function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
   const stripped = cells.map((cell) => {
-    const topIsCreature = isMsCreature(cell.top.id) || cell.top.id === MS_TILE.Block_Static;
-    const bottomIsCreature = isMsCreature(cell.bottom.id) || cell.bottom.id === MS_TILE.Block_Static;
+    const topIsCreature = isMsCreature(cell.top.id) || isMsStaticBlockTile(cell.top.id);
+    const bottomIsCreature = isMsCreature(cell.bottom.id) || isMsStaticBlockTile(cell.bottom.id);
 
     if (!topIsCreature && !bottomIsCreature) {
       return {
@@ -741,14 +744,10 @@ function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
     }
 
     const topCreatureId = topIsCreature
-      ? cell.top.id === MS_TILE.Block_Static
-        ? MS_TILE.Block
-        : msCreatureId(cell.top.id)
+      ? msStaticBlockActorId(cell.top.id) ?? msCreatureId(cell.top.id)
       : null;
     const bottomCreatureId = bottomIsCreature
-      ? cell.bottom.id === MS_TILE.Block_Static
-        ? MS_TILE.Block
-        : msCreatureId(cell.bottom.id)
+      ? msStaticBlockActorId(cell.bottom.id) ?? msCreatureId(cell.bottom.id)
       : null;
     const shouldClaim = topCreatureId !== MS_TILE.Chip && bottomCreatureId !== MS_TILE.Chip;
 
@@ -885,10 +884,10 @@ function parseLynxActors(level: LynxLevel): { actors: LynxRuntimeActor[]; nextAc
   for (const layer of levelLayers(level)) {
     for (const cell of layer.cells) {
       const tile = cell.top;
-      if (tile.id === MS_TILE.Block_Static) {
+      if (isMsStaticBlockTile(tile.id)) {
         scanned.push({
           serial: nextActorSerial,
-          id: MS_TILE.Block,
+          id: msStaticBlockActorId(tile.id) ?? MS_TILE.Block,
           pos: cell.position.pos,
           z: layer.z,
           dir: 1,
@@ -1574,7 +1573,8 @@ function createLynxTrapReleaseContext(
       return (
         target.claimed &&
         target.kind === OCCUPANCY_TARGET_KIND.runtimeActor &&
-        target.runtimeActor?.id === MS_TILE.Block
+        !!target.runtimeActor &&
+        isMsBlockActorId(target.runtimeActor.id)
       );
     },
     probeTargetCell: (targetPos: number, dir: number, claimedCell: boolean) =>
@@ -2338,7 +2338,7 @@ function claimedLynxChipTeleportExitIsValid(
   });
   const runtimeActor = target.kind === OCCUPANCY_TARGET_KIND.runtimeActor ? target.runtimeActor ?? null : null;
   const block =
-    target.claimed && runtimeActor?.id === MS_TILE.Block
+    target.claimed && runtimeActor !== null && isMsBlockActorId(runtimeActor.id)
       ? runtimeActor
       : null;
   if (!block) {
@@ -2674,7 +2674,7 @@ function advanceLynxCreature(
               },
             },
       );
-      if (actor.id === MS_TILE.Block && isLynxHeldOpenTrapBlock(state, level, actors, actor)) {
+      if (isMsBlockActorId(actor.id) && isLynxHeldOpenTrapBlock(state, level, actors, actor)) {
         actor.deferPush = true;
         actor.deferPushArmed = false;
       }
@@ -2717,7 +2717,7 @@ function clearDeferredLynxBlockPushes(actors: LynxRuntimeActor[]): void {
 }
 
 function findLynxBlockActor(actors: LynxRuntimeActor[], pos: number, z = 1): LynxRuntimeActor | null {
-  return findVisibleActorAtPosition(actors, pos, (actor) => actor.id === MS_TILE.Block && (actor.z ?? 1) === z) ?? null;
+  return findVisibleActorAtPosition(actors, pos, (actor) => isMsBlockActorId(actor.id) && (actor.z ?? 1) === z) ?? null;
 }
 
 function findLynxVisibleActorAt(actors: LynxRuntimeActor[], pos: number, z = 1): LynxRuntimeActor | null {
@@ -2763,7 +2763,7 @@ function findPendingLynxFallingCollisionActor(
 
 function findClaimedLynxBlockOnActiveLayer(state: EngineState, actors: LynxRuntimeActor[], pos: number): LynxRuntimeActor | null {
   const target = queryLynxOccupancyOnLayer(state, actors, pos);
-  return target.claimed && target.kind === OCCUPANCY_TARGET_KIND.runtimeActor && target.runtimeActor?.id === MS_TILE.Block
+  return target.claimed && target.kind === OCCUPANCY_TARGET_KIND.runtimeActor && target.runtimeActor && isMsBlockActorId(target.runtimeActor.id)
     ? target.runtimeActor
     : null;
 }
@@ -3951,7 +3951,8 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
   const targetBlock =
     targetOccupancy?.claimed &&
     targetOccupancy.kind === OCCUPANCY_TARGET_KIND.runtimeActor &&
-    targetOccupancy.runtimeActor?.id === MS_TILE.Block
+    !!targetOccupancy.runtimeActor &&
+    isMsBlockActorId(targetOccupancy.runtimeActor.id)
       ? targetOccupancy.runtimeActor
       : null;
   const targetEntryProbe =
@@ -4017,7 +4018,8 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
         return (
           sourceOccupancy.claimed &&
           sourceOccupancy.kind === OCCUPANCY_TARGET_KIND.runtimeActor &&
-          sourceOccupancy.runtimeActor?.id === MS_TILE.Block
+          !!sourceOccupancy.runtimeActor &&
+          isMsBlockActorId(sourceOccupancy.runtimeActor.id)
         );
       },
       applyMoveModifier(pos, moveDir) {

@@ -102,6 +102,30 @@ describe("initializeLynxEngineState", () => {
     ]);
   });
 
+  it("initializes static ice blocks as ice-block runtime actors", () => {
+    const chipPos = 33;
+    const iceBlockPos = 34;
+    const level = createLevel([
+      createCell(chipPos, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Empty),
+      createCell(iceBlockPos, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+    ]);
+
+    const session = createLynxInteractiveSession(createRequest(), {
+      ...level,
+      creaturePositions: [chipPos, iceBlockPos],
+    });
+
+    expect(session.actors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: MS_TILE.IceBlock,
+          pos: iceBlockPos,
+          hidden: false,
+        }),
+      ]),
+    );
+  });
+
   it("turns a z2 cloud into air when Chip exits it", () => {
     const lower = createBoardAtZ(1);
     const upper = createBoardAtZ(2);

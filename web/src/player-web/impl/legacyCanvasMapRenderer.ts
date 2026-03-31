@@ -15,11 +15,13 @@ import {
 } from "@ruleset-ms/api/renderMetadata";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import {
+  isMsBlockActorId,
   MS_DIRECTION,
   MS_FLOOR_STATE,
   MS_STATUS_FLAG,
   MS_TILE,
   isMsCreature,
+  msStaticBlockActorId,
   msCreatureId,
 } from "@ruleset-ms/api/tiles";
 import {
@@ -451,8 +453,9 @@ function drawProjectedLynxRender(
 }
 
 function visualEnhancementActorId(tileId: number): number | null {
-  if (tileId === MS_TILE.Block_Static) {
-    return MS_TILE.Block;
+  const staticBlockActorId = msStaticBlockActorId(tileId);
+  if (staticBlockActorId !== null) {
+    return staticBlockActorId;
   }
   return isMsCreature(tileId) ? msCreatureId(tileId) : null;
 }
@@ -494,7 +497,7 @@ export function visualEnhancementThinWallOverlayTileId(
 ): number | null {
   if (
     (ruleset !== "MS" && ruleset !== "Lynx") ||
-    visualEnhancementActorId(topId) !== MS_TILE.Block ||
+    !isMsBlockActorId(visualEnhancementActorId(topId) ?? MS_TILE.Empty) ||
     !isThinWallTileId(bottomId)
   ) {
     return null;
@@ -509,7 +512,7 @@ export function visualEnhancementThinWallActorPassTileId(
   topId: number,
   bottomId: number,
 ): number | null {
-  if (ruleset !== "Lynx" || actorId !== MS_TILE.Block) {
+  if (ruleset !== "Lynx" || !isMsBlockActorId(actorId)) {
     return null;
   }
   const decoration = projectThinWallActorDecoration(actorId, topId, bottomId);

@@ -13,7 +13,7 @@ import {
 import { projectLynxActorInventoryOwner } from "@ruleset-lynx/impl/actorCollections";
 import { queryLynxOccupancyTarget } from "@ruleset-lynx/impl/occupancy";
 import { isLynxBlockedChipEnterRevealTile, lynxChipProbeTileId } from "@ruleset-lynx/impl/tileEffects";
-import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export const LYNX_CHIP_TARGET_CELL_PROBE = {
   blocked: "blocked",
@@ -172,7 +172,7 @@ export function probeLynxChipMoveDirectionWithContext<
   const targetOccupancy = context.queryTargetOccupancy(targetPos);
   const targetProbe = context.probeTargetCell(targetPos, dir, targetOccupancy.claimed);
 
-  if (targetOccupancy.claimed && targetOccupancy.runtimeActor?.id === MS_TILE.Block) {
+  if (targetOccupancy.claimed && targetOccupancy.runtimeActor && isMsBlockActorId(targetOccupancy.runtimeActor.id)) {
     const canPush = lynxChipTargetCellAllowsPush(targetProbe) && context.canPushBlock(targetOccupancy.runtimeActor, dir);
     const pushStopsBeforeEntry = canPush && lynxChipTargetCellStopsOnPush(targetProbe);
     const canEnter = canPush && !pushStopsBeforeEntry;

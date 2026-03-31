@@ -83,11 +83,13 @@ function findMsCollisionCause(state: MsInteractiveSessionState["state"]): Intera
     (entry) => !entry.hidden && entry.pos === state.internal.chipPos && (entry.z ?? 1) === chipZ,
   );
   if (block) {
+    const blockId = block.id ?? MS_TILE.Block;
+    const blockName = describeMsActorName(blockId) ?? "block";
     return buildInteractiveFailureCause({
-      actorId: MS_TILE.Block,
-      actorName: "block",
+      actorId: blockId,
+      actorName: blockName,
       kind: "other",
-      message: `Crushed by block at (${chipPos.x}, ${chipPos.y})`,
+      message: `Crushed by ${blockName} at (${chipPos.x}, ${chipPos.y})`,
       position: chipPos,
     });
   }

@@ -239,13 +239,17 @@ import {
   MS_SOUND,
   MS_STATUS_FLAG,
   MS_TILE,
+  isMsBlockActorId,
   isMsBoots,
   isMsCreature,
   isMsFloor,
   isMsKey,
+  isMsStaticBlockTile,
+  msActorBlockStaticTileId,
   msCreatureDir,
   msCreatureId,
   msCreatureTile,
+  msStaticBlockActorId,
 } from "@ruleset-ms/api/tiles";
 
 export interface MsTrackedCreature {
@@ -351,9 +355,7 @@ function msInteractionTargetFromOccupancy(
         actorId:
           target.runtimeActor && "id" in target.runtimeActor && typeof target.runtimeActor.id === "number"
             ? target.runtimeActor.id
-            : target.tileId === MS_TILE.Block_Static
-              ? MS_TILE.Block
-              : msCreatureId(target.tileId),
+            : msStaticBlockActorId(target.tileId) ?? msCreatureId(target.tileId),
         tileId: target.tileId,
         movingDir,
         targetDir,
@@ -363,7 +365,7 @@ function msInteractionTargetFromOccupancy(
     case "static-block":
       return {
         kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
-        actorId: MS_TILE.Block,
+        actorId: msStaticBlockActorId(target.tileId) ?? MS_TILE.Block,
         tileId: target.tileId,
         movingDir,
         targetDir: MS_DIRECTION.none,
@@ -508,11 +510,11 @@ function removeMsTargetRuntimeActor(
   const targetBlock = findVisibleTrackedBlock(internal, pos, z);
   if (targetBlock) {
     popTile(cells, pos);
-    hideTrackedBlockAtPos(internal, pos, targetBlock.dir, z);
+    hideTrackedBlockAtPos(internal, pos, targetBlock.dir, z, trackedBlockActorId(targetBlock));
     return;
   }
 
-  if (cells[pos]?.top.id === MS_TILE.Block_Static || isMsCreature(cells[pos]?.top.id ?? MS_TILE.Empty)) {
+  if (isMsStaticBlockTile(cells[pos]?.top.id ?? MS_TILE.Empty) || isMsCreature(cells[pos]?.top.id ?? MS_TILE.Empty)) {
     popTile(cells, pos);
   }
 }
@@ -696,6 +698,7 @@ function cloneMsPortableBackedActorForCloner(
 }
 
 export interface MsTrackedBlock {
+  id?: number;
   pos: number;
   z?: number;
   dir: number;
@@ -1109,13 +1112,13 @@ function popExitedMsMobSourceTile(cells: EngineMapCell[], pos: number): EngineMa
   return tile;
 }
 
-function placeStaticBlock(cells: EngineMapCell[], pos: number, state: number): void {
+function placeStaticBlock(cells: EngineMapCell[], pos: number, state: number, actorId: number = MS_TILE.Block): void {
   const cell = boardCell(cells, pos);
   if (cell.top.id !== MS_TILE.Empty) {
     pushTile(cells, pos, { id: MS_TILE.Empty, state: 0 });
   }
   cell.top = {
-    id: MS_TILE.Block_Static,
+    id: msActorBlockStaticTileId(actorId) ?? MS_TILE.Block_Static,
     state,
   };
 }
@@ -1206,7 +1209,7 @@ function findPushedMsBlockPickupRevealTileId(cells: EngineMapCell[], chipPos: nu
   }
 
   const targetCell = cells[targetStep.pos];
-  if (!targetCell || targetCell.top.id !== MS_TILE.Block_Static) {
+  if (!targetCell || !isMsStaticBlockTile(targetCell.top.id)) {
     return null;
   }
 
@@ -1245,8 +1248,9 @@ function forEachRuntimeLayer(
   }
 }
 
-function createTrackedBlockState(pos: number, dir: number, z = 1): MsTrackedBlock {
+function createTrackedBlockState(pos: number, dir: number, z = 1, id: number = MS_TILE.Block): MsTrackedBlock {
   return {
+    id,
     pos,
     z,
     dir,
@@ -1258,6 +1262,10 @@ function createTrackedBlockState(pos: number, dir: number, z = 1): MsTrackedBloc
     slideDelayPending: false,
     slipOrder: -1,
   };
+}
+
+function trackedBlockActorId(block: Pick<MsTrackedBlock, "id"> | null | undefined): number {
+  return block?.id ?? MS_TILE.Block;
 }
 
 function cloneInternalState(internal: MsInternalState): MsInternalState {
@@ -1391,7 +1399,7 @@ function updateEngine(
 function initializeBrokenFloors(cells: EngineMapCell[]): void {
   for (const cell of cells) {
     const topBase = msCreatureId(cell.top.id);
-    if (isMsFloor(cell.top.id) || topBase === MS_TILE.Chip || topBase === MS_TILE.Block) {
+    if (isMsFloor(cell.top.id) || topBase === MS_TILE.Chip || isMsBlockActorId(topBase) || isMsStaticBlockTile(cell.top.id)) {
       if (
         cell.bottom.id === MS_TILE.Teleport ||
         cell.bottom.id === MS_TILE.SwitchWall_Open ||
@@ -1562,8 +1570,8 @@ export function initializeMsGameState(
       continue;
     }
     const cell = layerCells[pos]!;
-    if (cell.top.id === MS_TILE.Block_Static) {
-      blocks.push(createTrackedBlockState(pos, MS_DIRECTION.none, z));
+    if (isMsStaticBlockTile(cell.top.id)) {
+      blocks.push(createTrackedBlockState(pos, MS_DIRECTION.none, z, msStaticBlockActorId(cell.top.id) ?? MS_TILE.Block));
       seededPositions.add(layerPositionKey(pos, z));
       continue;
     }
@@ -1576,7 +1584,7 @@ export function initializeMsGameState(
       chipDir = msCreatureDir(cell.top.id);
     } else {
       const creatureId = msCreatureId(cell.top.id);
-      if (creatureId === MS_TILE.Block) {
+      if (isMsBlockActorId(creatureId)) {
       } else if (!isMsClonerSpecialFloor(cell.bottom.id)) {
         creatures.push({
           serial: nextCreatureSerial,
@@ -1691,7 +1699,7 @@ export function initializeMsGameState(
       ((connection.toZ ?? z) === z &&
         (connection.fromZ ?? z) === z &&
         ((connection.to === internal.chipPos && (internal.chipZ ?? 1) === z) ||
-          layerCells[connection.to]?.top.id === MS_TILE.Block_Static ||
+          isMsStaticBlockTile(layerCells[connection.to]?.top.id ?? MS_TILE.Empty) ||
           isTrapButtonDown(layerCells, connection.from)))
     ) {
       springMsTrap({
@@ -1825,8 +1833,13 @@ function canMoveChip(
     return false;
   }
   if (targetOccupancy.kind === "runtime-actor" || targetOccupancy.kind === "chip") {
-    const targetId = msCreatureId(cells[to]!.top.id);
-    if (targetId === MS_TILE.Block) {
+    const targetId =
+      targetOccupancy.kind === "runtime-actor" && targetOccupancy.runtimeActor
+        ? targetOccupancy.runtimeActor.id ??
+          msStaticBlockActorId(cells[to]!.top.id) ??
+          (isMsCreature(cells[to]!.top.id) ? msCreatureId(cells[to]!.top.id) : MS_TILE.Empty)
+        : msStaticBlockActorId(cells[to]!.top.id) ?? (isMsCreature(cells[to]!.top.id) ? msCreatureId(cells[to]!.top.id) : MS_TILE.Empty);
+    if (isMsBlockActorId(targetId)) {
       return false;
     } else if (targetId === MS_TILE.Chip || targetId === MS_TILE.Swimming_Chip) {
       return false;
@@ -1845,7 +1858,7 @@ function canMoveChip(
     if (isMsClonerSpecialFloor(cells[to]!.bottom.id)) {
       return false;
     }
-    if (teleportPush && floorAt(cells, to) === MS_TILE.Block_Static) {
+    if (teleportPush && isMsStaticBlockTile(floorAt(cells, to))) {
       return true;
     }
     return canMoveChip(cells, internal, inventory, dir, {
@@ -1970,6 +1983,7 @@ function canMoveBlockInto(
   dir: number,
   occupiedOriginPos = -1,
   internal: MsInternalState | null = null,
+  movingBlockId: number = MS_TILE.Block,
 ): boolean {
   if (to < 0 || to >= cells.length) {
     return false;
@@ -1992,7 +2006,7 @@ function canMoveBlockInto(
     return true;
   }
   if (targetOccupancy?.kind === "portable-item") {
-    return !msActorInteractionOutcome(MS_TILE.Block, msInteractionTargetFromOccupancy(targetOccupancy)).denyMove;
+    return !msActorInteractionOutcome(movingBlockId, msInteractionTargetFromOccupancy(targetOccupancy)).denyMove;
   }
 
   const targetTop = cells[to]!.top.id;
@@ -2037,7 +2051,7 @@ function moveBlock(
   }
 
   const nextPos = nextY * MS_GRID_WIDTH + nextX;
-  if (!canMoveBlockInto(cells, nextPos, dir, occupiedOriginPos, internal)) {
+  if (!canMoveBlockInto(cells, nextPos, dir, occupiedOriginPos, internal, trackedBlockActorId(trackedBlock))) {
     trackedBlock.floorMovement = "none";
     trackedBlock.floorMovementDir = MS_DIRECTION.none;
     trackedBlock.sliding = false;
@@ -2048,7 +2062,7 @@ function moveBlock(
   const targetTopState = cells[nextPos]!.top.state;
   const targetBottom = cells[nextPos]!.bottom.id;
   const targetBottomState = cells[nextPos]!.bottom.state;
-  switch (msActorArrivalOutcome(targetTop, MS_TILE.Block)) {
+  switch (msActorArrivalOutcome(targetTop, trackedBlockActorId(trackedBlock))) {
     case "block-water":
       cells[nextPos]!.top.id = MS_TILE.Dirt;
       cells[nextPos]!.top.state = 0;
@@ -2057,7 +2071,7 @@ function moveBlock(
       } else if (oldWasCloneMachine) {
         cells[pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
       }
-      hideTrackedBlockAtPos(internal, pos, dir, trackedBlock.z ?? runtimeCellZ(cells, pos));
+      hideTrackedBlockAtPos(internal, pos, dir, trackedBlock.z ?? runtimeCellZ(cells, pos), trackedBlockActorId(trackedBlock));
       internal.pendingSoundEffects |= 1 << MS_SOUND.WaterSplash;
       return movedMovement();
     case "block-bomb":
@@ -2068,7 +2082,7 @@ function moveBlock(
       } else if (oldWasCloneMachine) {
         cells[pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
       }
-      hideTrackedBlockAtPos(internal, pos, dir, trackedBlock.z ?? runtimeCellZ(cells, pos));
+      hideTrackedBlockAtPos(internal, pos, dir, trackedBlock.z ?? runtimeCellZ(cells, pos), trackedBlockActorId(trackedBlock));
       internal.pendingSoundEffects |= 1 << MS_SOUND.BombExplodes;
       return movedMovement();
     default:
@@ -2090,17 +2104,17 @@ function moveBlock(
       start: nextPos,
       dir,
       occupiedOriginPos: pos,
-      canExit: (exitPos) => canMoveBlockInto(cells, exitPos, dir, pos, internal),
+      canExit: (exitPos) => canMoveBlockInto(cells, exitPos, dir, pos, internal, trackedBlockActorId(trackedBlock)),
     });
   }
 
-  placeStaticBlock(cells, landingPos, movedTile.state);
+  placeStaticBlock(cells, landingPos, movedTile.state, trackedBlockActorId(trackedBlock));
   if (oldWasCloneMachine) {
     cells[pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
   }
 
   const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-  applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(MS_TILE.Block, targetCreatureId));
+  applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(trackedBlock), targetCreatureId));
 
   const block = trackedBlock;
   block.pos = landingPos;
@@ -2150,7 +2164,11 @@ function moveBlockOnce(
   occupiedOriginPos = -1,
 ): MovementAttemptResult {
   return startMsBlockMoveByStrategy(
-    msActorMovementStrategyId(MS_TILE.Block),
+    msActorMovementStrategyId(
+      findVisibleTrackedBlock(internal, pos, runtimeCellZ(cells, pos))?.id ??
+        msStaticBlockActorId(topTileIdOr(cells, pos, MS_TILE.Empty)) ??
+        MS_TILE.Block,
+    ),
     createMsBlockMovementStrategyDispatchContext(),
     cells,
     internal,
@@ -2694,10 +2712,21 @@ function findVisibleTrackedBlock(internal: MsInternalState, pos: number, z = 1):
   return internal.blocks.find((block) => !block.hidden && block.pos === pos && (block.z ?? 1) === z);
 }
 
-function hideTrackedBlockAtPos(internal: MsInternalState, pos: number, dir: number, z = 1): MsTrackedBlock {
+function hideTrackedBlockAtPos(
+  internal: MsInternalState,
+  pos: number,
+  dir: number,
+  z = 1,
+  actorId: number = MS_TILE.Block,
+): MsTrackedBlock {
+  const fallbackActorId =
+    findVisibleTrackedBlock(internal, pos, z)?.id ??
+    internal.blocks.find((entry) => entry.pos === pos && (entry.z ?? 1) === z)?.id ??
+    actorId;
   const block =
     findVisibleTrackedBlock(internal, pos, z) ??
     internal.blocks.find((entry) => entry.pos === pos && (entry.z ?? 1) === z) ?? {
+      id: fallbackActorId,
       pos,
       z,
       dir,
@@ -2714,6 +2743,7 @@ function hideTrackedBlockAtPos(internal: MsInternalState, pos: number, dir: numb
     internal.blocks.push(block);
   }
 
+  block.id = fallbackActorId;
   block.pos = pos;
   block.z = z;
   block.dir = dir;
@@ -2738,9 +2768,10 @@ function upsertTrackedBlock(cells: EngineMapCell[], internal: MsInternalState, p
   const topId = topTileIdOr(cells, pos, MS_TILE.Empty);
 
   const block: MsTrackedBlock = {
+    id: msStaticBlockActorId(topId) ?? MS_TILE.Block,
     pos,
     z,
-    dir: topId === MS_TILE.Block_Static ? MS_DIRECTION.none : dir,
+    dir: isMsStaticBlockTile(topId) ? MS_DIRECTION.none : dir,
     hidden: false,
     released: false,
     floorMovement: "none",
@@ -3599,7 +3630,7 @@ function processMsBlockFloorQueueEntry(
     }
 
     const nextPos = nextPosition(block.pos, dir, MS_GRID_WIDTH);
-    if (!canMoveBlockInto(blockCells, nextPos, dir, -1, internal)) {
+    if (!canMoveBlockInto(blockCells, nextPos, dir, -1, internal, trackedBlockActorId(block))) {
       return false;
     }
 
@@ -3607,7 +3638,7 @@ function processMsBlockFloorQueueEntry(
     const targetTopState = blockCells[nextPos]!.top.state;
     const targetBottom = blockCells[nextPos]!.bottom.id;
     const targetBottomState = blockCells[nextPos]!.bottom.state;
-    switch (msActorArrivalOutcome(targetTop, MS_TILE.Block)) {
+    switch (msActorArrivalOutcome(targetTop, trackedBlockActorId(block))) {
       case "block-water":
         blockCells[nextPos]!.top = { id: MS_TILE.Dirt, state: 0 };
         if (!oldWasCloneMachine) {
@@ -3615,7 +3646,7 @@ function processMsBlockFloorQueueEntry(
         } else {
           blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
         }
-        hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1);
+        hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1, trackedBlockActorId(block));
         soundEffects |= 1 << MS_SOUND.WaterSplash;
         return true;
       case "block-bomb":
@@ -3625,7 +3656,7 @@ function processMsBlockFloorQueueEntry(
         } else {
           blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
         }
-        hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1);
+        hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1, trackedBlockActorId(block));
         soundEffects |= 1 << MS_SOUND.BombExplodes;
         return true;
       default:
@@ -3640,14 +3671,14 @@ function processMsBlockFloorQueueEntry(
         start: nextPos,
         dir,
         occupiedOriginPos: block.pos,
-        canExit: (exitPos) => canMoveBlockInto(blockCells, exitPos, dir, block.pos, internal),
+        canExit: (exitPos) => canMoveBlockInto(blockCells, exitPos, dir, block.pos, internal, trackedBlockActorId(block)),
       });
     }
 
-    placeStaticBlock(blockCells, landingPos, movedTile.state);
+    placeStaticBlock(blockCells, landingPos, movedTile.state, trackedBlockActorId(block));
 
     const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-    applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(MS_TILE.Block, targetCreatureId));
+    applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId));
     if (oldWasCloneMachine) {
       blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
     }
@@ -3710,18 +3741,18 @@ function processMsBlockFloorQueueEntry(
       const targetBottom = lowerCells[oldPos]!.bottom.id;
       const targetBottomState = lowerCells[oldPos]!.bottom.state;
 
-      switch (msActorArrivalOutcome(targetTop, MS_TILE.Block)) {
+      switch (msActorArrivalOutcome(targetTop, trackedBlockActorId(block))) {
         case "block-water":
           lowerCells[oldPos]!.top = { id: MS_TILE.Dirt, state: 0 };
           popExitedMsMobSourceTile(blockCells, oldPos);
-          hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ);
+          hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ, trackedBlockActorId(block));
           soundEffects |= 1 << MS_SOUND.WaterSplash;
           moved = true;
           break;
         case "block-bomb":
           lowerCells[oldPos]!.top = { id: MS_TILE.Empty, state: 0 };
           popExitedMsMobSourceTile(blockCells, oldPos);
-          hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ);
+          hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ, trackedBlockActorId(block));
           soundEffects |= 1 << MS_SOUND.BombExplodes;
           moved = true;
           break;
@@ -3733,13 +3764,13 @@ function processMsBlockFloorQueueEntry(
               cells: lowerCells,
               start: oldPos,
               dir: block.dir,
-              canExit: (exitPos) => canMoveBlockInto(lowerCells, exitPos, block.dir, -1, internal),
+              canExit: (exitPos) => canMoveBlockInto(lowerCells, exitPos, block.dir, -1, internal, trackedBlockActorId(block)),
             });
           }
 
-          placeStaticBlock(lowerCells, landingPos, movedTile.state);
+          placeStaticBlock(lowerCells, landingPos, movedTile.state, trackedBlockActorId(block));
           const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-          applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(MS_TILE.Block, targetCreatureId));
+          applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId));
 
           const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
           const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
@@ -3779,7 +3810,7 @@ function processMsBlockFloorQueueEntry(
     const upperCells = msUpperRuntimeCells(layerCellsByZ, block.z);
     if (upperCells) {
       const elevated = startMsBlockUpMoveByStrategy(
-        msActorMovementStrategyId(MS_TILE.Block),
+        msActorMovementStrategyId(trackedBlockActorId(block)),
         createMsBlockMovementStrategyDispatchContext(),
         engine,
         blockCells,
@@ -4111,7 +4142,7 @@ function moveChipDownOneLayer(
 }
 
 function elevatorDestinationFloor(cell: EngineMapCell): number {
-  if (cell.top.id === MS_TILE.Block_Static || isMsCreature(cell.top.id)) {
+  if (isMsStaticBlockTile(cell.top.id) || isMsCreature(cell.top.id)) {
     return cell.bottom.id;
   }
   return cell.top.id;
@@ -4152,7 +4183,7 @@ function moveBlockUpOneLayer(
   const targetTopState = targetCells[oldPos]!.top.state;
   const targetBottom = targetCells[oldPos]!.bottom.id;
   const targetBottomState = targetCells[oldPos]!.bottom.state;
-  const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
+  const targetCreatureId = msStaticBlockActorId(targetTop) ?? (isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty);
   const standingFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
   let soundEffects = 0;
 
@@ -4163,7 +4194,7 @@ function moveBlockUpOneLayer(
     return blockedMovement(soundEffects);
   }
   if (
-    targetTop === MS_TILE.Block_Static ||
+    isMsStaticBlockTile(targetTop) ||
     (targetCreatureId !== MS_TILE.Empty &&
       targetCreatureId !== MS_TILE.Chip &&
       targetCreatureId !== MS_TILE.Swimming_Chip)
@@ -4172,11 +4203,11 @@ function moveBlockUpOneLayer(
   }
 
   const movedTile = popExitedMsMobSourceTile(sourceCells, oldPos);
-  placeStaticBlock(targetCells, oldPos, movedTile.state);
+  placeStaticBlock(targetCells, oldPos, movedTile.state, trackedBlockActorId(block));
   block.pos = oldPos;
   block.z = targetZ;
 
-  applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(MS_TILE.Block, targetCreatureId));
+  applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId));
 
   const previousFloorMovement = block.floorMovement;
   const previousSliding = block.sliding;

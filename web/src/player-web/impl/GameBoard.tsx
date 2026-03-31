@@ -1,6 +1,6 @@
 import type { EngineMapCell } from "@game-core/api/model";
 import type { GameSnapshot } from "@game-core/api/types";
-import { MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
+import { isMsBlockActorId, isMsStaticBlockTile, MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
 interface GameBoardProps {
   cells: EngineMapCell[];
@@ -15,6 +15,7 @@ const CREATURE_LABELS: Record<number, string> = {
   [MS_TILE.Chip]: "Ch",
   [MS_TILE.Fireball]: "Fb",
   [MS_TILE.Glider]: "Gl",
+  [MS_TILE.IceBlock]: "[]",
   [MS_TILE.Paramecium]: "Pa",
   [MS_TILE.Swimming_Chip]: "Sw",
   [MS_TILE.Tank]: "Tk",
@@ -31,6 +32,7 @@ function tileLabel(id: number): string {
     case MS_TILE.Beartrap:
       return "Tr";
     case MS_TILE.Block_Static:
+    case MS_TILE.IceBlock_Static:
       return "[]";
     case MS_TILE.BlueWall_Real:
     case MS_TILE.BlueWall_Fake:
@@ -98,10 +100,14 @@ function toneClass(cell: EngineMapCell, chipPos: number | null): string {
 
   if (isMsCreature(top)) {
     const base = msCreatureId(top);
-    if (base === MS_TILE.Block) {
+    if (isMsBlockActorId(base)) {
       return "board-cell block";
     }
     return "board-cell creature";
+  }
+
+  if (isMsStaticBlockTile(top)) {
+    return "board-cell block";
   }
 
   switch (floor) {

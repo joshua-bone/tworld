@@ -30,6 +30,8 @@ export function describeMsActorName(tileId: number): string | null {
   switch (msCreatureId(tileId)) {
     case MS_TILE.Block:
       return "block";
+    case MS_TILE.IceBlock:
+      return "ice block";
     case MS_TILE.Tank:
       return "tank";
     case MS_TILE.Ball:

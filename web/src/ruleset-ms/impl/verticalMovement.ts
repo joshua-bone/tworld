@@ -17,7 +17,16 @@ import {
   type MsTileSupportContext as MsVerticalSupportContext,
   type MsTileSupportSubject as MsVerticalSupportSubject,
 } from "@ruleset-ms/impl/elements/tiles/families/support";
-import { MS_DIRECTION, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
+import {
+  isMsStaticBlockTile,
+  msStaticBlockActorId,
+  MS_DIRECTION,
+  MS_GRID_HEIGHT,
+  MS_GRID_WIDTH,
+  MS_TILE,
+  isMsCreature,
+  msCreatureId,
+} from "@ruleset-ms/api/tiles";
 
 export type MsFloorMovement = "none" | "ice" | "slide" | "teleport" | "air" | "elevator";
 
@@ -112,7 +121,7 @@ export function resolveMsNonChipSupportBelow(
 }
 
 function elevatorDestinationFloor(cell: EngineMapCell): number {
-  if (cell.top.id === MS_TILE.Block_Static || isMsCreature(cell.top.id)) {
+  if (isMsStaticBlockTile(cell.top.id) || isMsCreature(cell.top.id)) {
     return cell.bottom.id;
   }
   return cell.top.id;
@@ -150,7 +159,7 @@ export function canChipUseMsElevator(
     return false;
   }
 
-  if (nextCell.top.id !== MS_TILE.Block_Static) {
+  if (!isMsStaticBlockTile(nextCell.top.id)) {
     return true;
   }
 
@@ -194,9 +203,9 @@ export function canNonChipUseMsElevator(
   }
 
   const targetTop = nextCell.top.id;
-  const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
+  const targetCreatureId = msStaticBlockActorId(targetTop) ?? (isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty);
   return (
-    targetTop !== MS_TILE.Block_Static &&
+    !isMsStaticBlockTile(targetTop) &&
     (targetCreatureId === MS_TILE.Empty || targetCreatureId === MS_TILE.Chip || targetCreatureId === MS_TILE.Swimming_Chip)
   );
 }
