@@ -26,6 +26,24 @@ export interface LynxActorFamilyRegistration {
   ) => InteractiveGameRenderSprite;
 }
 
+function projectLynxBlockActorRenderSprite(
+  actor: {
+    id: number;
+    dir: number;
+    moving: number;
+    frame: number;
+  },
+): InteractiveGameRenderSprite {
+  return {
+    kind: "creature",
+    tileId: actor.id,
+    artworkSpriteId: actor.id === MS_TILE.IceBlock ? "ice_block" : undefined,
+    dir: actor.dir ?? MS_DIRECTION.none,
+    moving: actor.moving,
+    frame: actor.frame,
+  };
+}
+
 export const lynxActorFamilyRegistrations = [
   {
     familyId: "chip",
@@ -34,6 +52,9 @@ export const lynxActorFamilyRegistrations = [
   {
     familyId: "block",
     actorIds: [MS_TILE.Block, MS_TILE.IceBlock],
+    projectRenderSprite(actor) {
+      return projectLynxBlockActorRenderSprite(actor);
+    },
   },
   {
     familyId: LYNX_BOWLING_BALL_ACTOR_FAMILY,

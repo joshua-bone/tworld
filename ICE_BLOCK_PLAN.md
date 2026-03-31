@@ -79,9 +79,10 @@ Ice block is close to dirt block, but not close enough to justify copying dirt-b
     - button holding
     - cloud exit transform
 
-- [ ] IB8: Replay and regression pass
+- [x] IB8: Replay and regression pass
   - Run focused MS/Lynx engine suites for all new ice-block behavior.
   - Run bounded replay smoke in both rulesets.
+  - Fix Lynx moving-ice-block render ownership so runtime actors use the expansion artwork sprite.
   - Only after targeted suites are green, expand to broader replay coverage if needed.
 
 ## Exit Criteria

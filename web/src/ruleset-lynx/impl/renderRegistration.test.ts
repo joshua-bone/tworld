@@ -57,4 +57,19 @@ describe("lynx render registration", () => {
       artworkSpriteId: "bowling_ball_still",
     });
   });
+
+  it("projects ice block actor visuals through the expansion artwork sprite", () => {
+    expect(
+      projectLynxActorRenderSprite(
+        { id: MS_TILE.IceBlock, dir: MS_DIRECTION.east, moving: 4, frame: 2 },
+        null,
+      ),
+    ).toMatchObject({
+      tileId: MS_TILE.IceBlock,
+      artworkSpriteId: "ice_block",
+      dir: MS_DIRECTION.east,
+      moving: 4,
+      frame: 2,
+    });
+  });
 });
