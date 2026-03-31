@@ -1069,6 +1069,34 @@ describe("advanceLynxInteractiveSession", () => {
     );
   });
 
+  it("does not arm the head-on collision seam for forced slide movement", () => {
+    const chipPos = pos(1, 5);
+    const targetPos = pos(1, 6);
+    const ballPos = pos(1, 6);
+    const ballTargetPos = pos(2, 6);
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(chipPos, msCreatureTile(MS_TILE.Chip, 4), MS_TILE.Slide_South),
+          createCell(ballPos, msCreatureTile(MS_TILE.Ball, 8), MS_TILE.Empty),
+          createCell(ballTargetPos, MS_TILE.Empty, MS_TILE.Empty),
+        ],
+        [chipPos, ballPos],
+      ),
+    );
+    session.state.timer.currentTime = 0;
+    session.state.timer.tick = 0;
+
+    const advanced = advanceLynxInteractiveSession(session, 0);
+    const ball = advanced.actors.find((actor) => actor.id === MS_TILE.Ball && !actor.hidden);
+
+    expect(advanced.endGameResult).toBeNull();
+    expect(advanced.chipPos).toBe(targetPos);
+    expect(advanced.chipMoving).toBe(6);
+    expect(ball?.pos).toBe(ballTargetPos);
+  });
+
   it("does not carry a tapped manual input into the next tile after Chip finishes moving", () => {
     const session = createLynxInteractiveSession(
       createRequest(),

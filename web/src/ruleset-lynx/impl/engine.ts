@@ -4028,11 +4028,11 @@ function runLynxCreatureIntentPhase(runtime: LynxAdvanceTickRuntime): void {
       ? buildLynxChipMoveSelection(runtime)
       : null;
   runtime.pendingChipTargetPos =
-    runtime.latchedChipMoveSelection && runtime.latchedChipMoveSelection.startInputCode !== 0
+    runtime.latchedChipMoveSelection && runtime.latchedChipMoveSelection.chosenInputCode !== 0
       ? advanceToCell(
           runtime.state.map.cells,
           runtime.chipPos,
-          runtime.latchedChipMoveSelection.startInputCode,
+          runtime.latchedChipMoveSelection.chosenInputCode,
           MS_GRID_WIDTH,
           MS_GRID_HEIGHT,
         )?.pos ?? null
