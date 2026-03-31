@@ -3460,14 +3460,52 @@ describe("MS engine regressions", () => {
     );
   });
 
-  it("melts an ice block on plain floor when a fireball runs into it", () => {
+  it("treats portable special items as walls to pushed ice blocks", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const iceBlockPos = pos(11, 10);
+    const hookPos = pos(12, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[hookPos]!.top.id = MS_TILE.Hook;
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    const next = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(next.state.engine.soundEffects & (1 << MS_SOUND.CantMove)).not.toBe(0);
+    expect(next.state.internal.chipPos).toBe(chipPos);
+    expect(next.state.engine.map.cells[iceBlockPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(next.state.engine.map.cells[hookPos]?.top.id).toBe(MS_TILE.Hook);
+    expect(next.state.internal.blocks).toContainEqual(
+      expect.objectContaining({
+        id: MS_TILE.IceBlock,
+        pos: iceBlockPos,
+        hidden: false,
+      }),
+    );
+  });
+
+  it("melts an ice block on plain floor and stays put when no fallback move is available", () => {
     const cells = createEmptyCells();
     const chipPos = pos(2, 2);
     const fireballPos = pos(10, 10);
     const iceBlockPos = pos(11, 10);
+    const northWallPos = pos(10, 9);
+    const southWallPos = pos(10, 11);
+    const westWallPos = pos(9, 10);
     cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
     cells[fireballPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east);
     cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[northWallPos]!.top.id = MS_TILE.Wall;
+    cells[southWallPos]!.top.id = MS_TILE.Wall;
+    cells[westWallPos]!.top.id = MS_TILE.Wall;
 
     let session = createMsInteractiveSession(
       createRequest(),
@@ -3484,6 +3522,38 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[fireballPos]?.top.id).toBe(msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east));
     expect(session.state.engine.map.cells[iceBlockPos]?.top.id).toBe(MS_TILE.Water);
     expect(session.state.engine.actors.filter((actor) => actor.id === MS_TILE.Fireball)).toHaveLength(1);
+  });
+
+  it("reroutes a fireball after melting an ice block on floor", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(2, 2);
+    const fireballPos = pos(10, 10);
+    const iceBlockPos = pos(11, 10);
+    const southPos = pos(10, 11);
+    const northWallPos = pos(10, 9);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[fireballPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[northWallPos]!.top.id = MS_TILE.Wall;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, fireballPos],
+      }),
+    );
+
+    for (let tick = 0; tick < 5; tick += 1) {
+      session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    }
+
+    const fireball = session.state.engine.actors.find((actor) => actor.id === MS_TILE.Fireball);
+
+    expect(session.state.engine.map.cells[iceBlockPos]?.top.id).toBe(MS_TILE.Water);
+    expect(session.state.engine.map.cells[fireballPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.map.cells[southPos]?.top.id).toBe(msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.south));
+    expect(fireball?.position.pos).toBe(southPos);
   });
 
   it("does not melt an ice block over non-floor terrain when a fireball hits it", () => {

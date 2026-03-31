@@ -1,7 +1,6 @@
 import {
   ACTOR_INTERACTION_TARGET_KIND,
   actorThiefOutcome,
-  noActorCollisionOutcome,
   resolveActorInteractionOutcome,
   type ActorInteractionTarget,
   type ActorArrivalOutcome,
@@ -36,9 +35,6 @@ export function msActorInteractionOutcome(
   movingActorId: number,
   target: ActorInteractionTarget,
 ): ActorCollisionOutcome {
-  if (movingActorId === MS_TILE.IceBlock && target.kind === ACTOR_INTERACTION_TARGET_KIND.portableItem) {
-    return noActorCollisionOutcome();
-  }
   const targetActorId =
     target.kind === ACTOR_INTERACTION_TARGET_KIND.runtimeActor || target.kind === ACTOR_INTERACTION_TARGET_KIND.chip
       ? msInteractionTargetActorId(target)

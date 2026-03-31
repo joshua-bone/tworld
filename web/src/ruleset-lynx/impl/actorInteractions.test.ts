@@ -48,7 +48,7 @@ describe("lynx actor interactions", () => {
       }),
     ).toEqual({
       chipFails: false,
-      denyMove: false,
+      denyMove: true,
       removeMovingActor: false,
       removeTargetActor: false,
       preserveTarget: false,

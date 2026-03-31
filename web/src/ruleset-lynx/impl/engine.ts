@@ -2661,7 +2661,8 @@ function canLynxRuntimeActorStartMovement(
         return false;
       }
       if (fireballIceBlockProbeMode === "attempt") {
-        return true;
+        applyLynxFireballIceBlockMelt(state, actors, target);
+        return false;
       }
     }
     if (interaction.denyMove) {

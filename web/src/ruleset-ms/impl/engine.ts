@@ -271,6 +271,7 @@ export interface MsTrackedCreature {
   floorMovement: "none" | "ice" | "slide" | "teleport" | "air" | "elevator";
   floorMovementDir: number;
   sliding: boolean;
+  fireballIceBlockMeltBlockedDir?: number;
 }
 
 interface MsCreatureSlipEntry {
@@ -1985,7 +1986,11 @@ function canMoveCreatureWithOptions(
       return false;
     }
     if (fireballIceBlockProbeMode === "attempt") {
-      return true;
+      if (targetOccupancy !== null && internal !== null && inventory !== null) {
+        applyMsFireballIceBlockMelt(cells, internal, inventory, targetOccupancy);
+        creature.fireballIceBlockMeltBlockedDir = dir;
+      }
+      return false;
     }
   }
   if (targetInteraction?.denyMove) {

@@ -2451,13 +2451,35 @@ describe("runLynxInputTrace", () => {
     expect(next.actors.some((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock)).toBe(false);
   });
 
-  it("melts an ice block on plain floor when a fireball runs into it", () => {
+  it("treats portable special items as walls to pushed ice blocks", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(35, MS_TILE.Hook, MS_TILE.Empty),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 4, 8);
+    const iceBlock = next.actors.find((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock);
+
+    expect(next.chipPos).toBe(33);
+    expect(next.state.map.cells[35]?.top.id).toBe(MS_TILE.Hook);
+    expect(iceBlock?.pos).toBe(34);
+    expect(next.actors.some((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock && actor.pos === 35)).toBe(false);
+  });
+
+  it("melts an ice block on plain floor and stays put when no fallback move is available", () => {
     const session = createLynxInteractiveSession(
       createRequest(),
       createLevel([
         createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
         createCell(40, msCreatureTile(MS_TILE.Fireball, 8), MS_TILE.Empty),
         createCell(41, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(8, MS_TILE.Wall, MS_TILE.Empty),
+        createCell(39, MS_TILE.Wall, MS_TILE.Empty),
+        createCell(72, MS_TILE.Wall, MS_TILE.Empty),
       ]),
     );
 
@@ -2467,6 +2489,29 @@ describe("runLynxInputTrace", () => {
     expect(fireballs).toHaveLength(1);
     expect(next.state.map.cells[41]?.top.id).toBe(MS_TILE.Water);
     expect(next.actors.some((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock)).toBe(false);
+  });
+
+  it("reroutes a fireball after melting an ice block on floor", () => {
+    const fireballPos = 40;
+    const iceBlockPos = 41;
+    const southPos = 72;
+    const northWallPos = 8;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(fireballPos, msCreatureTile(MS_TILE.Fireball, 8), MS_TILE.Empty),
+        createCell(iceBlockPos, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(northWallPos, MS_TILE.Wall, MS_TILE.Empty),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 4);
+    const fireball = next.actors.find((actor) => !actor.hidden && actor.id === MS_TILE.Fireball);
+
+    expect(next.state.map.cells[iceBlockPos]?.top.id).toBe(MS_TILE.Water);
+    expect(next.state.map.cells[fireballPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(fireball?.pos).toBe(southPos);
   });
 
   it("does not melt an ice block over non-floor terrain when a fireball hits it", () => {

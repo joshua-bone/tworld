@@ -18,6 +18,7 @@ export interface MsCreatureControllerCreature {
   hasMoved: boolean;
   floorMovement: MsCreatureFloorMovement;
   floorMovementDir: number;
+  fireballIceBlockMeltBlockedDir?: number;
 }
 
 export interface MsCreatureControllerContext {
@@ -244,6 +245,7 @@ export function chooseMsCreatureDirection(
   creature: MsCreatureControllerCreature,
 ): number {
   creature.tdir = MS_DIRECTION.none;
+  creature.fireballIceBlockMeltBlockedDir = undefined;
   if (creatureSkippedForCurrentTick(context, creature)) {
     return MS_DIRECTION.none;
   }
@@ -286,6 +288,10 @@ export function chooseMsCreatureDirection(
       creature.hasMoved = true;
     }
     creature.tdir = MS_DIRECTION.none;
+    return MS_DIRECTION.none;
+  }
+
+  if (creature.fireballIceBlockMeltBlockedDir === preferredDir) {
     return MS_DIRECTION.none;
   }
 
