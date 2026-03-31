@@ -157,6 +157,7 @@ import {
   queueMsToolInventoryReplacement,
   reconcileMsPortableToolProjection,
   settleMsPrimedToolDrop,
+  tickMsPetCarrierCooldowns,
   type MsPortableToolStateStore,
 } from "@ruleset-ms/impl/portableItems";
 import {
@@ -172,8 +173,10 @@ import {
   activateMsMappedBowlingBallsOnForceFloors,
   tryActivateMsPortableBowlingBallThrow,
 } from "@ruleset-ms/impl/elements/actors/families/bowlingBallRuntime";
+import { createMsPetCarrierMobSnapshot } from "@ruleset-ms/impl/petCarrierSnapshots";
 import { queryMsOccupancyTarget } from "@ruleset-ms/impl/occupancy";
 import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
+import { isThinWallTileId } from "@ruleset-ms/api/renderMetadata";
 import {
   applyMsPortableToolAction,
   applyMsPortableToolPostMoveAction,
@@ -544,6 +547,78 @@ function removeMsCollisionTarget(
     default:
       return;
   }
+}
+
+function snapshotMsPetCarrierTarget(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  target: ReturnType<typeof queryMsTargetOccupancy>,
+): ReturnType<typeof createMsPetCarrierMobSnapshot> {
+  switch (target.kind) {
+    case "static-block": {
+      const actorId = msStaticBlockActorId(target.tileId);
+      return actorId === null
+        ? null
+        : createMsPetCarrierMobSnapshot(internal.statefulActors, {
+            actorId,
+            dir: MS_DIRECTION.none,
+          });
+    }
+    case "runtime-actor": {
+      const actorId =
+        target.runtimeActor && "id" in target.runtimeActor && typeof target.runtimeActor.id === "number"
+          ? target.runtimeActor.id
+          : msStaticBlockActorId(target.tileId) ?? (isMsCreature(target.tileId) ? msCreatureId(target.tileId) : MS_TILE.Empty);
+      const actorSerial =
+        target.runtimeActor && "serial" in target.runtimeActor && typeof target.runtimeActor.serial === "number"
+          ? target.runtimeActor.serial
+          : msCloneSourceSerialAt(internal, target.pos, target.z);
+      const dir =
+        target.runtimeActor && "dir" in target.runtimeActor && typeof target.runtimeActor.dir === "number"
+          ? target.runtimeActor.dir
+          : isMsCreature(target.tileId)
+            ? msCreatureDir(target.tileId)
+            : MS_DIRECTION.none;
+      return createMsPetCarrierMobSnapshot(internal.statefulActors, {
+        actorId,
+        actorSerial,
+        dir,
+      });
+    }
+    default:
+      return null;
+  }
+}
+
+function trySnatchMsPetCarrierFacingTarget(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+): ReturnType<typeof createMsPetCarrierMobSnapshot> {
+  const chipZ = internal.chipZ ?? runtimeCellZ(cells, internal.chipPos);
+  const dir = internal.chipDir;
+  if (dir === MS_DIRECTION.none || !canLeaveFloor(cells, internal.chipPos, dir, internal.chipReleased)) {
+    return null;
+  }
+
+  const targetStep = advanceToCell(cells, internal.chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return null;
+  }
+
+  const targetFloorId = bottomTileId(cells, targetStep.pos);
+  if (isThinWallTileId(targetFloorId) && (msChipMovementMask(targetFloorId) & dir) === 0) {
+    return null;
+  }
+
+  const target = queryMsTargetOccupancy(cells, internal, targetStep.pos, chipZ);
+  const snapshot = snapshotMsPetCarrierTarget(cells, internal, target);
+  if (!snapshot) {
+    return null;
+  }
+
+  removeMsTargetRuntimeActor(cells, internal, inventory, targetStep.pos, chipZ);
+  return snapshot;
 }
 
 type MsFireballIceBlockProbeMode = "deny" | "attempt" | "probe";
@@ -4789,6 +4864,9 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
     runtime.internal.currentInput,
     runtime.input.inputCode,
   );
+  if (msTickPhaseIsPlayable(runtime)) {
+    tickMsPetCarrierCooldowns(msPortableToolState(runtime.internal));
+  }
   const { modifierMask } = decodeRuntimeInputCode(runtime.internal.currentInput);
   if (
     msTickPhaseIsPlayable(runtime) &&
@@ -4833,6 +4911,12 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
             ),
           pushTile,
         }),
+      snatchFacingMob: () =>
+        trySnatchMsPetCarrierFacingTarget(
+          msAdvanceTickActiveChipCells(runtime),
+          runtime.internal,
+          runtime.inventory,
+        ),
     })
   ) {
     runtime.toolActionTriggeredThisTick = true;

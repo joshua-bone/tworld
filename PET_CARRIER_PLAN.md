@@ -52,7 +52,7 @@ Pet Carrier is close to the existing portable special items, but it is the first
   - Normalize invalid lower occupants by leaving the carrier empty rather than loading a forbidden payload.
   - Add characterization tests covering empty carrier, occupied carrier, excluded lower special item, and block occupant cases.
 
-- [ ] PC5: Action1 scoop behavior
+- [x] PC5: Action1 scoop behavior
   - Extend the shared portable Action1 seam so an empty carried Pet Carrier scoops an eligible adjacent mob in Chip’s facing direction.
   - Reuse occupancy lookup and actor-removal helpers so scooped mobs leave the board through the normal runtime paths, including the “mob on clone machine” case that leaves the clone machine empty.
   - Respect thin-wall barriers when determining whether the facing mob can be snatched.

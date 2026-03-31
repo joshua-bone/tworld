@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
+import {
+  PET_CARRIER_ACTION_COOLDOWN_TICKS,
+  createPetCarrierCooldownState,
+  createPetCarrierState,
+} from "@game-core/impl/petCarrier";
 import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { expectOverlayAbsent, expectOverlayPresent } from "@game-core/impl/testOverlays";
 import {
@@ -47,6 +52,22 @@ function relativeMouseMoveCode(chipPos: number, targetPos: number): number {
 
 function absoluteMouseMoveCode(targetPos: number): number {
   return 512 + targetPos;
+}
+
+function addCarriedMsPetCarrier(
+  session: ReturnType<typeof createMsInteractiveSession>,
+  petCarrierState = createPetCarrierState(),
+): void {
+  session.state.engine.inventory.tools = [MS_TILE.PetCarrier];
+  session.state.internal.portableTools.portableItems.push({
+    serial: session.state.internal.portableTools.nextPortableItemSerial,
+    family: "pet-carrier",
+    tileId: MS_TILE.PetCarrier,
+    inventorySlot: "tools",
+    petCarrierState,
+    state: { mode: "carried" },
+  });
+  session.state.internal.portableTools.nextPortableItemSerial += 1;
 }
 
 describe("MS engine regressions", () => {
@@ -6760,6 +6781,245 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[chipPos]?.top.id).toBe(MS_TILE.Empty);
     expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
     expect(session.state.engine.map.cells[eastPos]?.bottom.id).toBe(MS_TILE.CloneMachine);
+  });
+
+  it("snatches an adjacent monster into a carried pet carrier", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[eastPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.south);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, eastPos],
+      }),
+    );
+    addCarriedMsPetCarrier(session);
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const carried = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried");
+
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Bug && !creature.hidden)).toBeUndefined();
+    expect(carried).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        },
+        cooldown: {
+          kind: "after-snatch",
+          remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS,
+        },
+      },
+    });
+  });
+
+  it("snatches an adjacent block off a clone machine into a carried pet carrier", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[eastPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[eastPos]!.bottom.id = MS_TILE.CloneMachine;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, eastPos],
+      }),
+    );
+    addCarriedMsPetCarrier(session);
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const carried = session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried");
+
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.CloneMachine);
+    expect(session.state.engine.map.cells[eastPos]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(session.state.internal.blocks.find((block) => block.pos === eastPos && !block.hidden)).toBeUndefined();
+    expect(carried).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.IceBlock,
+          dir: MS_DIRECTION.none,
+        },
+      },
+    });
+  });
+
+  it("does not snatch through a thin wall on Chip's tile", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[chipPos]!.bottom.id = MS_TILE.Wall_East;
+    cells[eastPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.south);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, eastPos],
+      }),
+    );
+    addCarriedMsPetCarrier(session);
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.south));
+    expect(session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+      },
+    });
+  });
+
+  it("does not snatch through a thin wall on the target tile", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[eastPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.south);
+    cells[eastPos]!.bottom.id = MS_TILE.Wall_West;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, eastPos],
+      }),
+    );
+    addCarriedMsPetCarrier(session);
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.south));
+    expect(session.state.engine.map.cells[eastPos]?.bottom.id).toBe(MS_TILE.Wall_West);
+    expect(session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+      },
+    });
+  });
+
+  it("does not snatch adjacent special items", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[eastPos]!.top.id = MS_TILE.Sandbag;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    addCarriedMsPetCarrier(session);
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.Sandbag);
+    expect(session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+      },
+    });
+  });
+
+  it("does not snatch while the carried pet carrier cooldown is active", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    const eastPos = pos(9, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[eastPos]!.top.id = MS_TILE.Block_Static;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, eastPos],
+      }),
+    );
+    addCarriedMsPetCarrier(
+      session,
+      createPetCarrierState({
+        cooldown: createPetCarrierCooldownState("after-release"),
+      }),
+    );
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.engine.map.cells[eastPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+        cooldown: {
+          kind: "after-release",
+          remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS - 1,
+        },
+      },
+    });
+  });
+
+  it("keeps a carried pet carrier unchanged when Action1 has no adjacent mob target", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(8, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    addCarriedMsPetCarrier(session);
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.internal.chipPos).toBe(chipPos);
+    expect(session.state.internal.portableTools.portableItems.find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+      },
+    });
   });
 
   it("throws a carried bowling ball into an empty forward cell through the portable action seam", () => {

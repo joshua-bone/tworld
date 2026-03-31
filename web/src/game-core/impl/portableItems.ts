@@ -1,4 +1,5 @@
 import type { EngineMapCell, ToolInventorySlots } from "@game-core/api/model";
+import type { PetCarrierMobSnapshot } from "@game-core/impl/petCarrier";
 
 export interface PortableItemLocation {
   pos: number;
@@ -193,6 +194,7 @@ export interface PortableItemAction1Context<
   hasPrimedDrop: boolean;
   primeDrop(): boolean;
   throwMovingItem(item: TItem, dir: number): boolean;
+  snatchFacingMob?(): PetCarrierMobSnapshot | null;
 }
 
 export type PortableItemAction1Handler<

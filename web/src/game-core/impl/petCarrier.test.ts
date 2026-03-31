@@ -8,8 +8,10 @@ import {
   createPetCarrierState,
   isPetCarrierCaptureEligibleFamilyId,
   isSpecialItemClassFamilyId,
+  petCarrierCooldownActive,
   petCarrierHasOccupant,
   petCarrierMobOccupancyPolicy,
+  tickPetCarrierCooldownState,
 } from "@game-core/impl/petCarrier";
 
 describe("petCarrier helpers", () => {
@@ -66,6 +68,28 @@ describe("petCarrier helpers", () => {
     expect(state.cooldown).toEqual({
       kind: "after-snatch",
       remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS,
+    });
+  });
+
+  it("counts cooldown down to clear over four ticks", () => {
+    const state = createPetCarrierState({
+      cooldown: createPetCarrierCooldownState("after-release"),
+    });
+
+    for (let tick = PET_CARRIER_ACTION_COOLDOWN_TICKS - 1; tick >= 1; tick -= 1) {
+      tickPetCarrierCooldownState(state);
+      expect(petCarrierCooldownActive(state)).toBe(true);
+      expect(state.cooldown).toEqual({
+        kind: "after-release",
+        remainingTicks: tick,
+      });
+    }
+
+    tickPetCarrierCooldownState(state);
+    expect(petCarrierCooldownActive(state)).toBe(false);
+    expect(state.cooldown).toEqual({
+      kind: "none",
+      remainingTicks: 0,
     });
   });
 });

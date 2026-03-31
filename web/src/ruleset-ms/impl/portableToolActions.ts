@@ -1,5 +1,6 @@
 import { reverseDirection as backDirection } from "@game-core/impl/grid";
 import { decodeRuntimeInputCode, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
+import type { PetCarrierMobSnapshot } from "@game-core/impl/petCarrier";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   carriedMsPortableToolItem,
@@ -18,6 +19,7 @@ export interface MsPortableToolActionContext {
   chipZ: number;
   chipDir: number;
   tryActivateMovingItem(item: MsPortableItem, dir: number): boolean;
+  snatchFacingMob(): PetCarrierMobSnapshot | null;
 }
 
 interface MsPortableToolSourceStep {
@@ -62,6 +64,7 @@ export function applyMsPortableToolAction(context: MsPortableToolActionContext):
       hasPrimedDrop: primedMsPortableToolItem(context.store) !== undefined,
       primeDrop: () => primeMsToolDrop(context.store, context.inventory, context.chipPos, context.chipZ),
       throwMovingItem: (item, dir) => context.tryActivateMovingItem(item, dir),
+      snatchFacingMob: () => context.snatchFacingMob(),
     }) ?? false
   );
 }

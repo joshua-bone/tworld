@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { encodeRuntimeInputCode, GAME_INPUT_CODES, GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
+import {
+  PET_CARRIER_ACTION_COOLDOWN_TICKS,
+  createPetCarrierCooldownState,
+  createPetCarrierState,
+} from "@game-core/impl/petCarrier";
 import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { expectOverlayAbsent, expectOverlayPresent } from "@game-core/impl/testOverlays";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
@@ -31,6 +36,23 @@ import {
   lynxTileOverlays,
   pos,
 } from "@ruleset-lynx/impl/testSupport";
+
+function addCarriedLynxPetCarrier(
+  session: ReturnType<typeof createLynxInteractiveSession>,
+  petCarrierState = createPetCarrierState(),
+): void {
+  session.state.inventory.tools = [MS_TILE.PetCarrier];
+  const runtime = lynxRuntimeStateForTest(session.state);
+  runtime.portableTools.portableItems.push({
+    serial: runtime.portableTools.nextPortableItemSerial,
+    family: "pet-carrier",
+    tileId: MS_TILE.PetCarrier,
+    inventorySlot: "tools",
+    petCarrierState,
+    state: { mode: "carried" },
+  });
+  runtime.portableTools.nextPortableItemSerial += 1;
+}
 
 describe("initializeLynxEngineState", () => {
   it("preserves cloned runtime map layers during initialization", () => {
@@ -4054,6 +4076,215 @@ describe("runLynxInputTrace", () => {
     expect(session.chipPos).toBe(westPos);
     expect(block?.pos).toBe(eastPos);
     expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.CloneMachine);
+  });
+
+  it("snatches an adjacent monster into a carried pet carrier", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, msCreatureTile(MS_TILE.Bug, MS_DIRECTION.south), MS_TILE.Empty),
+      ]),
+    );
+    addCarriedLynxPetCarrier(session);
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const carried = lynxPortableItems(session.state).find((item) => item.state.mode === "carried");
+
+    expect(session.chipPos).toBe(chipPos);
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.Bug && !actor.hidden)).toBeUndefined();
+    expect(carried).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        },
+        cooldown: {
+          kind: "after-snatch",
+          remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS,
+        },
+      },
+    });
+  });
+
+  it("snatches an adjacent block off a clone machine into a carried pet carrier", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.IceBlock_Static, MS_TILE.CloneMachine),
+      ]),
+    );
+    addCarriedLynxPetCarrier(session);
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    const carried = lynxPortableItems(session.state).find((item) => item.state.mode === "carried");
+
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.CloneMachine);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.IceBlock && !actor.hidden)).toBeUndefined();
+    expect(carried).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.IceBlock,
+          dir: MS_DIRECTION.north,
+        },
+      },
+    });
+  });
+
+  it("does not snatch through a thin wall on Chip's tile", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Wall_East),
+        createCell(eastPos, MS_TILE.Block_Static, MS_TILE.Empty),
+      ]),
+    );
+    addCarriedLynxPetCarrier(session);
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.map.cells[chipPos]?.top.id).toBe(MS_TILE.Wall_East);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden)?.pos).toBe(eastPos);
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+      },
+    });
+  });
+
+  it("does not snatch through a thin wall on the target tile", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Block_Static, MS_TILE.Wall_West),
+      ]),
+    );
+    addCarriedLynxPetCarrier(session);
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Wall_West);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden)?.pos).toBe(eastPos);
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+      },
+    });
+  });
+
+  it("does not snatch adjacent special items", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Sandbag, MS_TILE.Empty),
+      ]),
+    );
+    addCarriedLynxPetCarrier(session);
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Sandbag);
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+      },
+    });
+  });
+
+  it("does not snatch while the carried pet carrier cooldown is active", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Block_Static, MS_TILE.Empty),
+      ]),
+    );
+    addCarriedLynxPetCarrier(
+      session,
+      createPetCarrierState({
+        cooldown: createPetCarrierCooldownState("after-release"),
+      }),
+    );
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Empty);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.Block && !actor.hidden)?.pos).toBe(eastPos);
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+        cooldown: {
+          kind: "after-release",
+          remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS - 1,
+        },
+      },
+    });
+  });
+
+  it("keeps a carried pet carrier unchanged when Action1 has no adjacent mob target", () => {
+    const chipPos = 33;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+      ]),
+    );
+    addCarriedLynxPetCarrier(session);
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.chipPos).toBe(chipPos);
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+      },
+    });
   });
 
   it("throws a carried bowling ball into an empty forward cell through the portable action seam", () => {

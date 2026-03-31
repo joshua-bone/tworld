@@ -141,6 +141,7 @@ import {
   reconcileLynxPortableToolProjection,
   sanitizeLynxPortableUnderlyingTile,
   settleLynxPrimedToolDrop,
+  tickLynxPetCarrierCooldowns,
   type LynxToolInventoryProjection,
   type LynxPortableToolStateStore,
 } from "@ruleset-lynx/impl/portableItems";
@@ -164,6 +165,7 @@ import {
   seedLynxPortableBackedBowlingBallActors,
   tryActivateLynxPortableBowlingBallThrow,
 } from "@ruleset-lynx/impl/elements/actors/families/bowlingBallRuntime";
+import { createLynxPetCarrierMobSnapshot } from "@ruleset-lynx/impl/petCarrierSnapshots";
 import { queryLynxOccupancyTarget } from "@ruleset-lynx/impl/occupancy";
 import {
   applyLynxPortableToolAction,
@@ -241,6 +243,7 @@ import {
   msCreatureId,
   msStaticBlockActorId,
 } from "@ruleset-ms/api/tiles";
+import { isThinWallTileId } from "@ruleset-ms/api/renderMetadata";
 import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
@@ -412,6 +415,77 @@ function removeLynxCollisionTarget(
     default:
       return;
   }
+}
+
+function quietlyRemoveLynxActor(
+  state: EngineState,
+  actor: LynxRuntimeActor,
+): void {
+  if (actor.pushed) {
+    actor.pushed = false;
+    state.soundEffects &= ~(1 << LYNX_SOUND.BlockMoving);
+  }
+
+  actor.hidden = true;
+  actor.moving = 0;
+  actor.frame = 0;
+  actor.intentDir = 0;
+  actor.forcedDir = 0;
+  actor.teleported = false;
+  actor.moveKind = "planar";
+  actor.ignoreIceFromAir = false;
+  actor.deferPush = false;
+  actor.deferPushArmed = false;
+  actor.reversePending = false;
+  actor.dormant = false;
+  actor.animationReserved = false;
+  removeTopTileFlags(state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
+  destroyLynxPortableBackedActorRuntime(state, actor.serial);
+}
+
+function trySnatchLynxPetCarrierFacingTarget(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  chipPos: number,
+  chipZ: number,
+  chipDir: number,
+): ReturnType<typeof createLynxPetCarrierMobSnapshot> {
+  if (
+    chipDir === MS_DIRECTION.none ||
+    !canLynxExitTile(state, topTileIdOr(state.map.cells, chipPos, MS_TILE.Empty), MS_TILE.Chip, chipDir, false)
+  ) {
+    return null;
+  }
+
+  const targetStep = advanceToCell(state.map.cells, chipPos, chipDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return null;
+  }
+
+  const targetFloorId = topTileIdOr(state.map.cells, targetStep.pos, MS_TILE.Empty);
+  if (
+    isThinWallTileId(targetFloorId) &&
+    !lynxChipTargetCellAllowsEntry(probeLynxChipTargetCellForState(state, targetStep.pos, chipDir))
+  ) {
+    return null;
+  }
+
+  const target = queryLynxOccupancyOnLayer(state, actors, targetStep.pos, chipZ);
+  if (target.kind !== OCCUPANCY_TARGET_KIND.runtimeActor || !target.runtimeActor) {
+    return null;
+  }
+
+  const snapshot = createLynxPetCarrierMobSnapshot(lynxStatefulActorRuntime(state), {
+    actorId: target.runtimeActor.id,
+    actorSerial: target.runtimeActor.serial,
+    dir: target.runtimeActor.dir,
+  });
+  if (!snapshot) {
+    return null;
+  }
+
+  quietlyRemoveLynxActor(state, target.runtimeActor);
+  return snapshot;
 }
 
 type LynxFireballIceBlockProbeMode = "deny" | "attempt" | "probe";
@@ -3940,6 +4014,9 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
   if (runtime.replayMode && runtime.scheduledInputCode !== null) {
     runtime.state.replay.cursor += 1;
   }
+  if (runtime.endGameTicksElapsed === null) {
+    tickLynxPetCarrierCooldowns(lynxPortableToolRuntime(runtime.state));
+  }
   const { modifierMask } = decodeRuntimeInputCode(runtime.runtimeInput.inputCode);
   if (
     runtime.endGameTicksElapsed === null &&
@@ -3978,6 +4055,14 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
         }
         return activated;
       },
+      snatchFacingMob: () =>
+        trySnatchLynxPetCarrierFacingTarget(
+          runtime.state,
+          runtime.actors,
+          runtime.chipPos,
+          runtime.chipZ,
+          runtime.chipDir,
+        ),
     })
   ) {
     if (runtime.replayMode) {

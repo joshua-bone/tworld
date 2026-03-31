@@ -76,6 +76,27 @@ export function clearPetCarrierCooldownState(): PetCarrierCooldownState {
   };
 }
 
+export function petCarrierCooldownActive(state: PetCarrierState | null | undefined): boolean {
+  return (state?.cooldown.kind ?? PET_CARRIER_COOLDOWN_KIND.none) !== PET_CARRIER_COOLDOWN_KIND.none;
+}
+
+export function tickPetCarrierCooldownState(state: PetCarrierState): void {
+  const current = state.cooldown;
+  if (current.kind === PET_CARRIER_COOLDOWN_KIND.none) {
+    return;
+  }
+
+  if (current.remainingTicks <= 1) {
+    state.cooldown = clearPetCarrierCooldownState();
+    return;
+  }
+
+  state.cooldown = {
+    ...current,
+    remainingTicks: current.remainingTicks - 1,
+  };
+}
+
 export function clonePetCarrierMobSnapshot(
   snapshot: PetCarrierMobSnapshot | null,
 ): PetCarrierMobSnapshot | null {

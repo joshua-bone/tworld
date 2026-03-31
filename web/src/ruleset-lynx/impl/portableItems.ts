@@ -6,13 +6,16 @@ import {
   type BowlingBallState,
 } from "@game-core/impl/bowlingBall";
 import {
+  createPetCarrierCooldownState,
   PORTABLE_ITEM_MOB_OCCUPANCY_POLICY,
   clonePetCarrierState,
   createPetCarrierState,
   isPetCarrierCaptureEligibleFamilyId,
+  petCarrierCooldownActive,
   isSpecialItemClassFamilyId,
   petCarrierHasOccupant,
   petCarrierMobOccupancyPolicy,
+  tickPetCarrierCooldownState,
   type PetCarrierState,
   type PortableItemMobOccupancyPolicy,
 } from "@game-core/impl/petCarrier";
@@ -418,7 +421,20 @@ function createLynxPetCarrierPortableItemDefinition(): LynxPortableToolDefinitio
       cloneItem: (item, serial) => cloneLynxPortableItem(item, serial),
     },
     {
-      applyAction1: () => false,
+      applyAction1: ({ carried, chipDir, snatchFacingMob }) => {
+        if (chipDir === MS_DIRECTION.none || petCarrierHasOccupant(carried.petCarrierState) || petCarrierCooldownActive(carried.petCarrierState)) {
+          return false;
+        }
+
+        const snapshot = snatchFacingMob?.() ?? null;
+        if (!snapshot) {
+          return false;
+        }
+
+        carried.petCarrierState.occupant = snapshot;
+        carried.petCarrierState.cooldown = createPetCarrierCooldownState("after-snatch");
+        return true;
+      },
     },
   ) as unknown as LynxPortableToolDefinition;
 }
@@ -583,6 +599,15 @@ export function collectLynxPortableItemsFromLayers(
         petCarrierOccupant: petCarrierOccupantsByPosition?.get(`${z}:${pos}`),
       }),
   );
+}
+
+export function tickLynxPetCarrierCooldowns(store: LynxPortableToolStateStore): void {
+  for (const item of store.portableItems) {
+    if (item.family !== "pet-carrier") {
+      continue;
+    }
+    tickPetCarrierCooldownState(item.petCarrierState);
+  }
 }
 
 export function projectLynxPortableToolState(
