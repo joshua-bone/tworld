@@ -1016,6 +1016,59 @@ describe("advanceLynxInteractiveSession", () => {
     );
   });
 
+  it("fails Chip when he starts into a creature that finished moving onto the destination tile", () => {
+    const chipPos = pos(1, 5);
+    const targetPos = pos(2, 5);
+    const ballPos = pos(3, 5);
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+          createCell(ballPos, msCreatureTile(MS_TILE.Ball, 2)),
+        ],
+        [chipPos, ballPos],
+      ),
+    );
+
+    session = advanceLynxTicks(session, 3);
+    const collided = advanceLynxInteractiveSession(session, 8);
+
+    expect(collided.endGameResult).toBe("failed");
+    expect(collided.chipPos).toBe(targetPos);
+    expect(collided.chipMoving).toBe(0);
+    expect(collided.actors.find((actor) => actor.id === MS_TILE.Ball && !actor.hidden)).toBeUndefined();
+    expect(lynxAnimations(collided.state)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ pos: targetPos, tileId: 0x76 })]),
+    );
+  });
+
+  it("fails Chip when a creature vacates his intended destination earlier that tick", () => {
+    const chipPos = pos(1, 5);
+    const targetPos = pos(2, 5);
+    const ballPos = pos(2, 5);
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel(
+        [
+          createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+          createCell(ballPos, msCreatureTile(MS_TILE.Ball, 8)),
+        ],
+        [chipPos, ballPos],
+      ),
+    );
+
+    const collided = advanceLynxInteractiveSession(session, 8);
+
+    expect(collided.endGameResult).toBe("failed");
+    expect(collided.chipPos).toBe(targetPos);
+    expect(collided.chipMoving).toBe(0);
+    expect(collided.actors.find((actor) => actor.id === MS_TILE.Ball && !actor.hidden)).toBeUndefined();
+    expect(lynxAnimations(collided.state)).toEqual(
+      expect.arrayContaining([expect.objectContaining({ pos: targetPos, tileId: 0x76 })]),
+    );
+  });
+
   it("does not carry a tapped manual input into the next tile after Chip finishes moving", () => {
     const session = createLynxInteractiveSession(
       createRequest(),

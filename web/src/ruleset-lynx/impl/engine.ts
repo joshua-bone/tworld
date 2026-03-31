@@ -301,6 +301,8 @@ interface LynxAdvanceTickRuntime {
   chipArrivedOnHeldTrapThisTick: boolean;
   justSpawnedActorSerials: Set<number>;
   pendingFallingCollisionActorSerials: number[];
+  pendingChipTargetPos: number | null;
+  pendingChipTargetCollisionActorSerial: number | null;
   latchedChipMoveSelection: LynxChipMoveSelection | null;
   recordedReplayInputCode: number;
   nextTick: number;
@@ -2962,6 +2964,10 @@ function findLynxVisibleActorAt(actors: LynxRuntimeActor[], pos: number, z = 1):
   return findVisibleActorAtPosition(actors, pos, (actor) => (actor.z ?? 1) === z) ?? null;
 }
 
+function findVisibleLynxActorBySerial(actors: LynxRuntimeActor[], actorSerial: number): LynxRuntimeActor | null {
+  return actors.find((actor) => actor.serial === actorSerial && !actor.hidden) ?? null;
+}
+
 function detectLynxChipCollision(actors: LynxRuntimeActor[], chipPos: number, chipZ: number): {
   result: CollisionResult;
   actor: LynxRuntimeActor | null;
@@ -2999,6 +3005,19 @@ function findPendingLynxFallingCollisionActor(
   return null;
 }
 
+function shouldPreserveLynxCollidedActor(
+  collisionOutcome: ReturnType<typeof lynxActorInteractionOutcome>,
+  chipMoveKind: LynxMoveKind,
+  collidedActor: LynxRuntimeActor | null,
+): boolean {
+  return (
+    collisionOutcome.preserveTarget ||
+    !collisionOutcome.removeTargetActor ||
+    isLynxVerticalMoveKind(chipMoveKind) ||
+    isLynxVerticalMoveKind(collidedActor?.moveKind)
+  );
+}
+
 function findClaimedLynxBlockOnActiveLayer(state: EngineState, actors: LynxRuntimeActor[], pos: number): LynxRuntimeActor | null {
   const target = queryLynxOccupancyOnLayer(state, actors, pos);
   return target.claimed && target.kind === OCCUPANCY_TARGET_KIND.runtimeActor && target.runtimeActor && isMsBlockActorId(target.runtimeActor.id)
@@ -3010,6 +3029,8 @@ function resolveLynxChipCollision(
   state: EngineState,
   actors: LynxRuntimeActor[],
   pendingFallingCollisionActorSerials: number[],
+  pendingChipTargetCollisionActorSerial: number | null,
+  pendingChipTargetPos: number | null,
   chipPos: number,
   chipDir: number,
   chipMoving: number,
@@ -3041,9 +3062,19 @@ function resolveLynxChipCollision(
     chipPos,
     activeLynxLayerZ(state),
   );
-  const collision = pendingFallingActor
+  let collision = pendingFallingActor
     ? { result: collided(), actor: pendingFallingActor }
     : detectLynxChipCollision(actors, chipPos, activeLynxLayerZ(state));
+  if (
+    !collisionOccurred(collision.result) &&
+    pendingChipTargetCollisionActorSerial !== null &&
+    pendingChipTargetPos === chipPos
+  ) {
+    const pendingChipTargetActor = findVisibleLynxActorBySerial(actors, pendingChipTargetCollisionActorSerial);
+    if (pendingChipTargetActor) {
+      collision = { result: collided(), actor: pendingChipTargetActor };
+    }
+  }
   if (!collisionOccurred(collision.result)) {
     return {
       chipPos,
@@ -3077,11 +3108,6 @@ function resolveLynxChipCollision(
     };
   }
 
-  const preserveCollidedActor =
-    collisionOutcome.preserveTarget ||
-    !collisionOutcome.removeTargetActor ||
-    isLynxVerticalMoveKind(chipMoveKind) ||
-    isLynxVerticalMoveKind(collision.actor?.moveKind);
   return failLynxChip(
     state,
     actors,
@@ -3094,7 +3120,7 @@ function resolveLynxChipCollision(
     endGameAnimationFrame,
     "collided",
     collision.actor,
-    preserveCollidedActor,
+    shouldPreserveLynxCollidedActor(collisionOutcome, chipMoveKind, collision.actor),
   );
 }
 
@@ -3655,6 +3681,8 @@ function createLynxAdvanceTickRuntime(
     chipArrivedOnHeldTrapThisTick: false,
     justSpawnedActorSerials: new Set(),
     pendingFallingCollisionActorSerials: [],
+    pendingChipTargetPos: null,
+    pendingChipTargetCollisionActorSerial: null,
     latchedChipMoveSelection: null,
     recordedReplayInputCode: 0,
     nextTick: state.timer.currentTime + 1,
@@ -3954,6 +3982,17 @@ function runLynxCreatureIntentPhase(runtime: LynxAdvanceTickRuntime): void {
     !isLynxTrapSpecialFloor(topTileIdOr(runtime.state.map.cells, runtime.chipPos, MS_TILE.Empty))
       ? buildLynxChipMoveSelection(runtime)
       : null;
+  runtime.pendingChipTargetPos =
+    runtime.latchedChipMoveSelection && runtime.latchedChipMoveSelection.startInputCode !== 0
+      ? advanceToCell(
+          runtime.state.map.cells,
+          runtime.chipPos,
+          runtime.latchedChipMoveSelection.startInputCode,
+          MS_GRID_WIDTH,
+          MS_GRID_HEIGHT,
+        )?.pos ?? null
+      : null;
+  runtime.pendingChipTargetCollisionActorSerial = null;
 
   if (runtime.latchedChipMoveSelection) {
     const previewInputCode = previewInputCodeForLynxChipMoveSelection(
@@ -3996,6 +4035,12 @@ function runLynxCreatureMovementPhase(runtime: LynxAdvanceTickRuntime): void {
   for (let index = runtime.actors.length - 1; index >= 0; index -= 1) {
     const actor = runtime.actors[index]!;
     const skipAdvanceThisTick = runtime.justSpawnedActorSerials.has(actor.serial);
+    const startedOnChipTarget =
+      !actor.hidden &&
+      runtime.pendingChipTargetPos !== null &&
+      actor.pos === runtime.pendingChipTargetPos &&
+      (actor.z ?? 1) === runtime.chipZ &&
+      !isMsBlockActorId(actor.id);
     if (!skipAdvanceThisTick && !skipsDormantLynxActorAdvance(runtime.state, actor, runtime.nextTick)) {
       advanceLynxCreature(
         runtime.state,
@@ -4007,6 +4052,14 @@ function runLynxCreatureMovementPhase(runtime: LynxAdvanceTickRuntime): void {
         runtime.chipZ,
         runtime.pendingFallingCollisionActorSerials,
       );
+      if (
+        startedOnChipTarget &&
+        runtime.pendingChipTargetCollisionActorSerial === null &&
+        actor.moving > 0 &&
+        (actor.moveKind ?? "planar") === "planar"
+      ) {
+        runtime.pendingChipTargetCollisionActorSerial = actor.serial;
+      }
     }
     actor.intentDir = 0;
     actor.forcedDir = 0;
@@ -4049,6 +4102,8 @@ function runLynxCreatureMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     runtime.state,
     runtime.actors,
     runtime.pendingFallingCollisionActorSerials,
+    runtime.pendingChipTargetCollisionActorSerial,
+    runtime.pendingChipTargetPos,
     runtime.chipPos,
     runtime.chipDir,
     runtime.chipMoving,
@@ -4266,6 +4321,27 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
         tryPushLynxBlock(runtime.state, runtime.level, runtime.actors, pos, moveDir);
       },
     });
+    const collision = resolveLynxChipCollision(
+      runtime.state,
+      runtime.actors,
+      [],
+      runtime.pendingChipTargetCollisionActorSerial,
+      runtime.pendingChipTargetPos,
+      runtime.chipPos,
+      runtime.chipDir,
+      runtime.chipMoving,
+      runtime.chipMoveKind,
+      runtime.endGameTicksElapsed,
+      runtime.endGameResult,
+      runtime.endGameAnimationTileId,
+      runtime.endGameAnimationFrame,
+    );
+    runtime.chipPos = collision.chipPos;
+    runtime.chipMoving = collision.endGameTicksElapsed !== null ? 0 : runtime.chipMoving;
+    runtime.endGameTicksElapsed = collision.endGameTicksElapsed;
+    runtime.endGameResult = collision.endGameResult;
+    runtime.endGameAnimationTileId = collision.endGameAnimationTileId;
+    runtime.endGameAnimationFrame = collision.endGameAnimationFrame;
     return;
   }
 
