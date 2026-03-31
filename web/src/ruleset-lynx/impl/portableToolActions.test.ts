@@ -46,6 +46,7 @@ describe("lynx portableToolActions", () => {
         chipDir: MS_DIRECTION.east,
         tryActivateMovingItem,
         snatchFacingMob: () => null,
+        releaseFacingMob: () => false,
       }),
     ).toBe(true);
 
@@ -78,6 +79,7 @@ describe("lynx portableToolActions", () => {
         chipDir: MS_DIRECTION.east,
         tryActivateMovingItem,
         snatchFacingMob: () => null,
+        releaseFacingMob: () => false,
       }),
     ).toBe(true);
 
@@ -107,6 +109,7 @@ describe("lynx portableToolActions", () => {
         chipDir: MS_DIRECTION.east,
         tryActivateMovingItem: () => false,
         snatchFacingMob: () => null,
+        releaseFacingMob: () => false,
       }),
     ).toBe(false);
 
@@ -135,6 +138,7 @@ describe("lynx portableToolActions", () => {
         chipDir: MS_DIRECTION.west,
         tryActivateMovingItem: () => false,
         snatchFacingMob: () => null,
+        releaseFacingMob: () => false,
       }),
     ).toBe(false);
 
@@ -190,6 +194,7 @@ describe("lynx portableToolActions", () => {
         chipDir: MS_DIRECTION.east,
         tryActivateMovingItem: () => false,
         snatchFacingMob,
+        releaseFacingMob: () => false,
       }),
     ).toBe(true);
 
@@ -247,6 +252,7 @@ describe("lynx portableToolActions", () => {
         chipDir: MS_DIRECTION.east,
         tryActivateMovingItem: () => false,
         snatchFacingMob,
+        releaseFacingMob: () => false,
       }),
     ).toBe(false);
     expect(
@@ -258,6 +264,7 @@ describe("lynx portableToolActions", () => {
         chipDir: MS_DIRECTION.east,
         tryActivateMovingItem: () => false,
         snatchFacingMob,
+        releaseFacingMob: () => false,
       }),
     ).toBe(false);
 
@@ -275,6 +282,132 @@ describe("lynx portableToolActions", () => {
         occupant: null,
         cooldown: {
           kind: "after-release",
+          remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS,
+        },
+      },
+    });
+  });
+
+  it("routes occupied pet carrier action to the release callback and clears on success", () => {
+    const store = createStore({
+      serial: 1,
+      family: "pet-carrier",
+      tileId: MS_TILE.PetCarrier,
+      inventorySlot: "tools",
+      petCarrierState: createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.north,
+        },
+      }),
+      state: { mode: "carried" },
+    });
+    const releaseFacingMob = vi.fn(() => true);
+
+    expect(
+      applyLynxPortableToolAction({
+        store,
+        inventory: createInventory(MS_TILE.PetCarrier),
+        chipPos: 44,
+        chipZ: 1,
+        chipDir: MS_DIRECTION.east,
+        tryActivateMovingItem: () => false,
+        snatchFacingMob: () => null,
+        releaseFacingMob,
+      }),
+    ).toBe(true);
+
+    expect(releaseFacingMob).toHaveBeenCalledWith({
+      actorId: MS_TILE.Bug,
+      dir: MS_DIRECTION.north,
+    });
+    expect(store.portableItems[0]).toMatchObject({
+      petCarrierState: {
+        occupant: null,
+        cooldown: {
+          kind: "after-release",
+          remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS,
+        },
+      },
+    });
+  });
+
+  it("keeps an occupied pet carrier unchanged when release fails or cooldown is active", () => {
+    const occupiedStore = createStore({
+      serial: 1,
+      family: "pet-carrier",
+      tileId: MS_TILE.PetCarrier,
+      inventorySlot: "tools",
+      petCarrierState: createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.west,
+        },
+      }),
+      state: { mode: "carried" },
+    });
+    const coolingStore = createStore({
+      serial: 1,
+      family: "pet-carrier",
+      tileId: MS_TILE.PetCarrier,
+      inventorySlot: "tools",
+      petCarrierState: createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.west,
+        },
+        cooldown: createPetCarrierCooldownState("after-snatch"),
+      }),
+      state: { mode: "carried" },
+    });
+    const releaseFacingMob = vi.fn(() => false);
+
+    expect(
+      applyLynxPortableToolAction({
+        store: occupiedStore,
+        inventory: createInventory(MS_TILE.PetCarrier),
+        chipPos: 44,
+        chipZ: 1,
+        chipDir: MS_DIRECTION.east,
+        tryActivateMovingItem: () => false,
+        snatchFacingMob: () => null,
+        releaseFacingMob,
+      }),
+    ).toBe(false);
+    expect(
+      applyLynxPortableToolAction({
+        store: coolingStore,
+        inventory: createInventory(MS_TILE.PetCarrier),
+        chipPos: 44,
+        chipZ: 1,
+        chipDir: MS_DIRECTION.east,
+        tryActivateMovingItem: () => false,
+        snatchFacingMob: () => null,
+        releaseFacingMob,
+      }),
+    ).toBe(false);
+
+    expect(releaseFacingMob).toHaveBeenCalledTimes(1);
+    expect(occupiedStore.portableItems[0]).toMatchObject({
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.west,
+        },
+        cooldown: {
+          kind: "none",
+          remainingTicks: 0,
+        },
+      },
+    });
+    expect(coolingStore.portableItems[0]).toMatchObject({
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.west,
+        },
+        cooldown: {
+          kind: "after-snatch",
           remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS,
         },
       },

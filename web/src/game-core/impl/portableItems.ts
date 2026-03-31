@@ -195,6 +195,7 @@ export interface PortableItemAction1Context<
   primeDrop(): boolean;
   throwMovingItem(item: TItem, dir: number): boolean;
   snatchFacingMob?(): PetCarrierMobSnapshot | null;
+  releaseFacingMob?(snapshot: PetCarrierMobSnapshot): boolean;
 }
 
 export type PortableItemAction1Handler<

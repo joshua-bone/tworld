@@ -404,9 +404,20 @@ function createMsPetCarrierPortableItemDefinition(): MsPortableToolDefinition {
       cloneItem: (item, serial) => cloneMsPortableItem(item, serial),
     },
     {
-      applyAction1: ({ carried, chipDir, snatchFacingMob }) => {
-        if (chipDir === MS_DIRECTION.none || petCarrierHasOccupant(carried.petCarrierState) || petCarrierCooldownActive(carried.petCarrierState)) {
+      applyAction1: ({ carried, chipDir, snatchFacingMob, releaseFacingMob }) => {
+        if (chipDir === MS_DIRECTION.none || petCarrierCooldownActive(carried.petCarrierState)) {
           return false;
+        }
+
+        if (petCarrierHasOccupant(carried.petCarrierState)) {
+          const occupant = carried.petCarrierState.occupant;
+          if (!occupant || !releaseFacingMob?.(occupant)) {
+            return false;
+          }
+
+          carried.petCarrierState.occupant = null;
+          carried.petCarrierState.cooldown = createPetCarrierCooldownState("after-release");
+          return true;
         }
 
         const snapshot = snatchFacingMob?.() ?? null;

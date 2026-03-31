@@ -20,6 +20,7 @@ export interface MsPortableToolActionContext {
   chipDir: number;
   tryActivateMovingItem(item: MsPortableItem, dir: number): boolean;
   snatchFacingMob(): PetCarrierMobSnapshot | null;
+  releaseFacingMob(snapshot: PetCarrierMobSnapshot): boolean;
 }
 
 interface MsPortableToolSourceStep {
@@ -65,6 +66,7 @@ export function applyMsPortableToolAction(context: MsPortableToolActionContext):
       primeDrop: () => primeMsToolDrop(context.store, context.inventory, context.chipPos, context.chipZ),
       throwMovingItem: (item, dir) => context.tryActivateMovingItem(item, dir),
       snatchFacingMob: () => context.snatchFacingMob(),
+      releaseFacingMob: (snapshot) => context.releaseFacingMob(snapshot),
     }) ?? false
   );
 }

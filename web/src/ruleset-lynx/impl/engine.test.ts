@@ -4287,6 +4287,221 @@ describe("runLynxInputTrace", () => {
     });
   });
 
+  it("releases a carried ice block into an empty forward cell", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Empty),
+      ]),
+    );
+    addCarriedLynxPetCarrier(
+      session,
+      createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.IceBlock,
+          dir: MS_DIRECTION.north,
+        },
+      }),
+    );
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    session = advanceLynxTicks(session, 4);
+
+    const releasedBlock = session.actors.find((actor) => actor.id === MS_TILE.IceBlock && !actor.hidden);
+
+    expect(releasedBlock).toMatchObject({
+      pos: eastPos,
+      dir: MS_DIRECTION.east,
+    });
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+        cooldown: {
+          kind: "none",
+          remainingTicks: 0,
+        },
+      },
+    });
+  });
+
+  it("keeps an occupied pet carrier unchanged when release into the facing cell is blocked", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Wall),
+      ]),
+    );
+    addCarriedLynxPetCarrier(
+      session,
+      createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.IceBlock,
+          dir: MS_DIRECTION.north,
+        },
+      }),
+    );
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.state.map.cells[eastPos]?.top.id).toBe(MS_TILE.Wall);
+    expect(session.actors.find((actor) => actor.id === MS_TILE.IceBlock && !actor.hidden)).toBeUndefined();
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.IceBlock,
+          dir: MS_DIRECTION.north,
+        },
+        cooldown: {
+          kind: "none",
+          remainingTicks: 0,
+        },
+      },
+    });
+  });
+
+  it("releases a carried creature directly into an empty clone machine", () => {
+    const chipPos = 33;
+    const clonerPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(clonerPos, MS_TILE.Empty, MS_TILE.CloneMachine),
+      ]),
+    );
+    addCarriedLynxPetCarrier(
+      session,
+      createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        },
+      }),
+    );
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    session = advanceLynxTicks(session, 4);
+
+    const bug = session.actors.find((actor) => actor.id === MS_TILE.Bug && !actor.hidden);
+
+    expect(bug).toMatchObject({
+      pos: clonerPos,
+      dir: MS_DIRECTION.east,
+    });
+    expect(session.state.map.cells[clonerPos]?.top.id).toBe(MS_TILE.CloneMachine);
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+        cooldown: {
+          kind: "none",
+          remainingTicks: 0,
+        },
+      },
+    });
+  });
+
+  it("releases a carried ice block through the normal push chain seam", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    const pushPos = 35;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(pushPos, MS_TILE.Empty),
+      ]),
+    );
+    addCarriedLynxPetCarrier(
+      session,
+      createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.IceBlock,
+          dir: MS_DIRECTION.south,
+        },
+      }),
+    );
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    session = advanceLynxTicks(session, 4);
+
+    const visibleIceBlocks = session.actors
+      .filter((actor) => actor.id === MS_TILE.IceBlock && !actor.hidden)
+      .map((actor) => actor.pos)
+      .sort((left, right) => left - right);
+
+    expect(visibleIceBlocks).toEqual([eastPos, pushPos]);
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: null,
+      },
+    });
+  });
+
+  it("does not release while the carried pet carrier cooldown is active", () => {
+    const chipPos = 33;
+    const eastPos = 34;
+    let session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east), MS_TILE.Empty),
+        createCell(eastPos, MS_TILE.Empty),
+      ]),
+    );
+    addCarriedLynxPetCarrier(
+      session,
+      createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.IceBlock,
+          dir: MS_DIRECTION.west,
+        },
+        cooldown: createPetCarrierCooldownState("after-snatch"),
+      }),
+    );
+
+    session = advanceLynxInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+
+    expect(session.actors.find((actor) => actor.id === MS_TILE.IceBlock && !actor.hidden)).toBeUndefined();
+    expect(lynxPortableItems(session.state).find((item) => item.state.mode === "carried")).toMatchObject({
+      family: "pet-carrier",
+      petCarrierState: {
+        occupant: {
+          actorId: MS_TILE.IceBlock,
+          dir: MS_DIRECTION.west,
+        },
+        cooldown: {
+          kind: "after-snatch",
+          remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS - 1,
+        },
+      },
+    });
+  });
+
   it("throws a carried bowling ball into an empty forward cell through the portable action seam", () => {
     const chipPos = 33;
     const eastPos = 34;

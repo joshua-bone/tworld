@@ -60,7 +60,7 @@ Pet Carrier is close to the existing portable special items, but it is the first
   - Leave the carrier unchanged when the facing cell has no eligible occupant, is blocked by a special item, is blocked by a thin wall, or the cooldown is still active.
   - Add MS and Lynx engine tests for monster capture, block capture, clone-machine snatch, thin-wall rejection, cooldown gating, excluded special-item rejection, and no-op presses.
 
-- [ ] PC6: Action1 release behavior
+- [x] PC6: Action1 release behavior
   - Extend the portable Action1 seam so an occupied carried Pet Carrier attempts to release its occupant in Chip’s facing direction, updating the released mob’s direction first.
   - Reuse the teleport / clone exit probing-and-start-move seam for both “can release?” and “actually release”, so probing and execution stay identical.
   - Allow direct release into an adjacent empty clone machine even for mobs that normally cannot enter clone machines.

@@ -173,7 +173,10 @@ import {
   activateMsMappedBowlingBallsOnForceFloors,
   tryActivateMsPortableBowlingBallThrow,
 } from "@ruleset-ms/impl/elements/actors/families/bowlingBallRuntime";
-import { createMsPetCarrierMobSnapshot } from "@ruleset-ms/impl/petCarrierSnapshots";
+import {
+  createMsPetCarrierMobSnapshot,
+  restoreMsPetCarrierMobSnapshotRuntime,
+} from "@ruleset-ms/impl/petCarrierSnapshots";
 import { queryMsOccupancyTarget } from "@ruleset-ms/impl/occupancy";
 import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
 import { isThinWallTileId } from "@ruleset-ms/api/renderMetadata";
@@ -621,6 +624,213 @@ function trySnatchMsPetCarrierFacingTarget(
   return snapshot;
 }
 
+function isMsDirectCloneMachinePetCarrierReleaseTarget(
+  targetOccupancy: ReturnType<typeof queryMsTargetOccupancy>,
+  targetTop: number,
+  targetBottom: number,
+  actorId: number,
+): boolean {
+  return (
+    targetOccupancy.kind === "empty" &&
+    targetTop === MS_TILE.Empty &&
+    isMsClonerSpecialFloor(targetBottom) &&
+    msActorClonerFamilyHooks(actorId).entryBehavior === "none"
+  );
+}
+
+function tryReleaseMsPetCarrierFacingCreature(
+  runtime: MsAdvanceTickRuntime,
+  cells: EngineMapCell[],
+  snapshot: { actorId: number; dir: number; runtimeKind?: string; runtimeState?: unknown },
+): boolean {
+  const dir = runtime.internal.chipDir;
+  if (dir === MS_DIRECTION.none) {
+    return false;
+  }
+
+  const z = runtime.internal.chipZ ?? runtimeCellZ(cells, runtime.internal.chipPos);
+  const targetStep = advanceToCell(cells, runtime.internal.chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return false;
+  }
+
+  const actorSerial = runtime.internal.nextCreatureSerial;
+  seedMsReleasedPetCarrierRuntime(runtime.internal, actorSerial, snapshot);
+
+  const probeCreature = registerMsReleasedPetCarrierCreature(
+    runtime.internal,
+    actorSerial,
+    snapshot.actorId,
+    runtime.internal.chipPos,
+    z,
+    dir,
+    runtime.internal.chipReleased,
+  );
+  probeCreature.hidden = true;
+
+  const targetPos = targetStep.pos;
+  const targetOccupancy = queryMsTargetOccupancy(cells, runtime.internal, targetPos, z);
+  const targetTop = cells[targetPos]!.top.id;
+  const targetTopState = cells[targetPos]!.top.state;
+  const targetBottom = cells[targetPos]!.bottom.id;
+  const targetBottomState = cells[targetPos]!.bottom.state;
+  const directCloneRelease = isMsDirectCloneMachinePetCarrierReleaseTarget(
+    targetOccupancy,
+    targetTop,
+    targetBottom,
+    snapshot.actorId,
+  );
+
+  const canRelease =
+    directCloneRelease ||
+    canMoveCreatureWithOptions(
+      cells,
+      probeCreature,
+      dir,
+      false,
+      false,
+      runtime.internal,
+      runtime.inventory,
+      null,
+      "probe",
+    );
+  if (!canRelease) {
+    runtime.internal.creatures.pop();
+    runtime.internal.creatureIndexBySerial.delete(actorSerial);
+    destroyMsStatefulActorRuntime(runtime.internal.statefulActors, actorSerial);
+    return false;
+  }
+
+  runtime.internal.nextCreatureSerial = actorSerial + 1;
+  probeCreature.hidden = false;
+
+  if (directCloneRelease) {
+    probeCreature.pos = targetPos;
+    placeReleasedMsCreature(cells, targetPos, snapshot.actorId, dir);
+    holdMsCreatureOnCloneMachine(cells, runtime.internal, probeCreature);
+    return true;
+  }
+
+  if (targetOccupancy.kind !== "empty") {
+    resolveMsCreaturePreMoveCollision(
+      cloneBoardCells(cells),
+      cells,
+      runtime.internal,
+      runtime.inventory,
+      probeCreature,
+      targetPos,
+      dir,
+    );
+    return true;
+  }
+
+  probeCreature.pos = targetPos;
+  placeReleasedMsCreature(cells, targetPos, snapshot.actorId, dir);
+  settleMsSpawnedCreatureLanding(
+    runtime,
+    cells,
+    probeCreature,
+    dir,
+    targetTop,
+    targetTopState,
+    targetBottom,
+    targetBottomState,
+  );
+  return true;
+}
+
+function registerMsReleasedPetCarrierBlock(
+  internal: MsInternalState,
+  actorId: number,
+  pos: number,
+  z: number,
+  dir: number,
+): MsTrackedBlock {
+  const block = createTrackedBlockState(pos, dir, z, actorId);
+  internal.blocks.push(block);
+  return block;
+}
+
+function tryReleaseMsPetCarrierFacingBlock(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  snapshot: { actorId: number; dir: number },
+): boolean {
+  const dir = internal.chipDir;
+  if (dir === MS_DIRECTION.none) {
+    return false;
+  }
+
+  const z = internal.chipZ ?? runtimeCellZ(cells, internal.chipPos);
+  const targetStep = advanceToCell(cells, internal.chipPos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (!targetStep) {
+    return false;
+  }
+
+  const targetPos = targetStep.pos;
+  if (!canMoveBlockInto(cells, targetPos, dir, internal.chipPos, internal, snapshot.actorId)) {
+    return false;
+  }
+
+  const target = queryMsTargetOccupancy(cells, internal, targetPos, z);
+  if (target.kind === "static-block" && !pushBlock(cells, internal, targetPos, dir, false, true, internal.chipPos)) {
+    return false;
+  }
+  if (target.kind !== "empty" && target.kind !== "static-block") {
+    return false;
+  }
+
+  const targetTop = cells[targetPos]!.top.id;
+  const targetTopState = cells[targetPos]!.top.state;
+  const targetBottom = cells[targetPos]!.bottom.id;
+  const targetBottomState = cells[targetPos]!.bottom.state;
+  const arrivalReplacement = msBlockArrivalReplacement(targetTop, snapshot.actorId);
+  if (arrivalReplacement !== null) {
+    cells[targetPos]!.top.id = arrivalReplacement.tileId;
+    cells[targetPos]!.top.state = 0;
+    internal.pendingSoundEffects |= arrivalReplacement.soundEffects;
+    return true;
+  }
+
+  let landingPos = targetPos;
+  if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
+    landingPos = findMsBlockTeleportDestination({
+      cells,
+      start: targetPos,
+      dir,
+      occupiedOriginPos: internal.chipPos,
+      canExit: (exitPos) => canMoveBlockInto(cells, exitPos, dir, internal.chipPos, internal, snapshot.actorId),
+    });
+  }
+
+  placeStaticBlock(cells, landingPos, 0, snapshot.actorId);
+  const block = registerMsReleasedPetCarrierBlock(internal, snapshot.actorId, landingPos, z, dir);
+  updateBlockReleaseAfterMove(cells, internal, block, internal.chipPos, targetTop, landingPos);
+  setBlockFloorMovementAfterSuccessfulMove(block, targetTop, targetTopState, internal, "none", false);
+
+  let soundEffects = 0;
+  if (
+    targetTop === MS_TILE.Button_Blue ||
+    targetTop === MS_TILE.Button_Green ||
+    targetTop === MS_TILE.Button_Red ||
+    targetTop === MS_TILE.Button_Brown
+  ) {
+    soundEffects |= resolveButtonFloorEffects(cells, internal, null, landingPos, targetTop);
+  }
+  internal.pendingSoundEffects |= soundEffects;
+  return true;
+}
+
+function tryReleaseMsPetCarrierFacingMob(
+  runtime: MsAdvanceTickRuntime,
+  cells: EngineMapCell[],
+  snapshot: { actorId: number; dir: number; runtimeKind?: string; runtimeState?: unknown },
+): boolean {
+  return isMsBlockActorId(snapshot.actorId)
+    ? tryReleaseMsPetCarrierFacingBlock(cells, runtime.internal, snapshot)
+    : tryReleaseMsPetCarrierFacingCreature(runtime, cells, snapshot);
+}
+
 type MsFireballIceBlockProbeMode = "deny" | "attempt" | "probe";
 
 function canMsFireballMeltCollisionTarget(
@@ -1019,7 +1229,23 @@ function msDetachedToolInventoryProjection(): Pick<EngineState["inventory"], "to
   };
 }
 
-function settleMsSpawnedBowlingBallLanding(
+function placeReleasedMsCreature(
+  cells: EngineMapCell[],
+  pos: number,
+  actorId: number,
+  dir: number,
+): void {
+  const cell = cells[pos]!;
+  if (cell.top.id !== MS_TILE.Empty) {
+    pushTile(cells, pos, { id: MS_TILE.Empty, state: 0 });
+  }
+  cell.top = {
+    id: msCreatureTile(actorId, dir),
+    state: 0,
+  };
+}
+
+function settleMsSpawnedCreatureLanding(
   runtime: MsAdvanceTickRuntime,
   cells: EngineMapCell[],
   creature: MsTrackedCreature,
@@ -1083,6 +1309,48 @@ function settleMsSpawnedBowlingBallLanding(
     msActorClonerFamilyHooks(creature.id).entryBehavior === "occupy-and-hold"
   ) {
     holdMsCreatureOnCloneMachine(cells, runtime.internal, creature);
+  }
+}
+
+function registerMsReleasedPetCarrierCreature(
+  internal: MsInternalState,
+  actorSerial: number,
+  actorId: number,
+  pos: number,
+  z: number,
+  dir: number,
+  released: boolean,
+): MsTrackedCreature {
+  const creature: MsTrackedCreature = {
+    serial: actorSerial,
+    id: actorId,
+    dir,
+    tdir: MS_DIRECTION.none,
+    pos,
+    z,
+    hidden: false,
+    moving: 0,
+    frame: 0,
+    cloning: false,
+    released,
+    turning: false,
+    hasMoved: false,
+    floorMovement: "none",
+    floorMovementDir: MS_DIRECTION.none,
+    sliding: false,
+  };
+  internal.creatures.push(creature);
+  internal.creatureIndexBySerial.set(actorSerial, internal.creatures.length - 1);
+  return creature;
+}
+
+function seedMsReleasedPetCarrierRuntime(
+  internal: MsInternalState,
+  actorSerial: number,
+  snapshot: { actorId: number; dir: number; runtimeKind?: string; runtimeState?: unknown },
+): void {
+  if (!restoreMsPetCarrierMobSnapshotRuntime(internal.statefulActors, actorSerial, snapshot)) {
+    seedMsStatefulActorRuntime(internal.statefulActors, actorSerial, snapshot.actorId);
   }
 }
 
@@ -4899,7 +5167,7 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
               dir,
             ),
           settleSpawnedLanding: (cells, creature, dir, targetTop, targetTopState, targetBottom, targetBottomState) =>
-            settleMsSpawnedBowlingBallLanding(
+            settleMsSpawnedCreatureLanding(
               runtime,
               cells,
               creature,
@@ -4916,6 +5184,12 @@ function runMsInitialHousekeepingPhase(runtime: MsAdvanceTickRuntime): number {
           msAdvanceTickActiveChipCells(runtime),
           runtime.internal,
           runtime.inventory,
+        ),
+      releaseFacingMob: (snapshot) =>
+        tryReleaseMsPetCarrierFacingMob(
+          runtime,
+          msAdvanceTickActiveChipCells(runtime),
+          snapshot,
         ),
     })
   ) {

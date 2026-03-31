@@ -20,6 +20,7 @@ export interface LynxPortableToolActionContext {
   chipDir: number;
   tryActivateMovingItem(item: LynxPortableItem, dir: number): boolean;
   snatchFacingMob(): PetCarrierMobSnapshot | null;
+  releaseFacingMob(snapshot: PetCarrierMobSnapshot): boolean;
 }
 
 interface LynxPortableToolSourceStep {
@@ -65,6 +66,7 @@ export function applyLynxPortableToolAction(context: LynxPortableToolActionConte
       primeDrop: () => primeLynxToolDrop(context.store, context.inventory, context.chipPos, context.chipZ),
       throwMovingItem: (item, dir) => context.tryActivateMovingItem(item, dir),
       snatchFacingMob: () => context.snatchFacingMob(),
+      releaseFacingMob: (snapshot) => context.releaseFacingMob(snapshot),
     }) ?? false
   );
 }

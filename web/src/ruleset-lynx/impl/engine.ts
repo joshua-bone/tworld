@@ -165,7 +165,10 @@ import {
   seedLynxPortableBackedBowlingBallActors,
   tryActivateLynxPortableBowlingBallThrow,
 } from "@ruleset-lynx/impl/elements/actors/families/bowlingBallRuntime";
-import { createLynxPetCarrierMobSnapshot } from "@ruleset-lynx/impl/petCarrierSnapshots";
+import {
+  createLynxPetCarrierMobSnapshot,
+  restoreLynxPetCarrierMobSnapshotRuntime,
+} from "@ruleset-lynx/impl/petCarrierSnapshots";
 import { queryLynxOccupancyTarget } from "@ruleset-lynx/impl/occupancy";
 import {
   applyLynxPortableToolAction,
@@ -486,6 +489,85 @@ function trySnatchLynxPetCarrierFacingTarget(
 
   quietlyRemoveLynxActor(state, target.runtimeActor);
   return snapshot;
+}
+
+function createLynxReleasedPetCarrierActor(
+  serial: number,
+  actorId: number,
+  pos: number,
+  z: number,
+  dir: number,
+): LynxRuntimeActor {
+  return {
+    serial,
+    id: actorId,
+    pos,
+    z,
+    dir,
+    intentDir: 0,
+    forcedDir: 0,
+    teleported: false,
+    moving: 0,
+    frame: 0,
+    moveKind: "planar",
+    ignoreIceFromAir: false,
+    hidden: false,
+    pushed: false,
+    deferPush: false,
+    deferPushArmed: false,
+    reversePending: false,
+    dormant: false,
+    animationReserved: false,
+  };
+}
+
+function seedLynxReleasedPetCarrierRuntime(
+  state: EngineState,
+  actorSerial: number,
+  snapshot: { actorId: number; dir: number; runtimeKind?: string; runtimeState?: unknown },
+): void {
+  if (!restoreLynxPetCarrierMobSnapshotRuntime(lynxStatefulActorRuntime(state), actorSerial, snapshot)) {
+    seedLynxStatefulActorRuntime(lynxStatefulActorRuntime(state), actorSerial, snapshot.actorId);
+  }
+}
+
+function tryReleaseLynxPetCarrierFacingMob(
+  state: EngineState,
+  level: LynxLevel,
+  actors: LynxRuntimeActor[],
+  chipPos: number,
+  chipZ: number,
+  chipDir: number,
+  snapshot: { actorId: number; dir: number; runtimeKind?: string; runtimeState?: unknown },
+): number | null {
+  if (chipDir === MS_DIRECTION.none) {
+    return null;
+  }
+
+  const actorSerial = lynxRuntimeState(state).nextActorSerial;
+  seedLynxReleasedPetCarrierRuntime(state, actorSerial, snapshot);
+
+  const probeActor = createLynxReleasedPetCarrierActor(actorSerial, snapshot.actorId, chipPos, chipZ, chipDir);
+  if (!canLynxRuntimeActorStartMovement(state, level, actors, probeActor, chipDir, false, false, null, "probe")) {
+    destroyLynxStatefulActorRuntime(lynxStatefulActorRuntime(state), actorSerial);
+    return null;
+  }
+
+  const actor = allocateLynxActorSlot(
+    actors,
+    createLynxReleasedPetCarrierActor(actorSerial, snapshot.actorId, chipPos, chipZ, chipDir),
+  );
+  if (!movementDidSucceed(startLynxRuntimeActorMovement(state, level, actors, actor, chipDir))) {
+    actor.hidden = true;
+    actor.moving = 0;
+    actor.frame = 0;
+    actor.animationReserved = false;
+    destroyLynxStatefulActorRuntime(lynxStatefulActorRuntime(state), actorSerial);
+    return null;
+  }
+
+  lynxRuntimeState(state).nextActorSerial = actorSerial + 1;
+  return actorSerial;
 }
 
 type LynxFireballIceBlockProbeMode = "deny" | "attempt" | "probe";
@@ -4063,6 +4145,22 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
           runtime.chipZ,
           runtime.chipDir,
         ),
+      releaseFacingMob: (snapshot) => {
+        const releasedSerial = tryReleaseLynxPetCarrierFacingMob(
+          runtime.state,
+          runtime.level,
+          runtime.actors,
+          runtime.chipPos,
+          runtime.chipZ,
+          runtime.chipDir,
+          snapshot,
+        );
+        if (releasedSerial !== null) {
+          runtime.justSpawnedActorSerials.add(releasedSerial);
+          return true;
+        }
+        return false;
+      },
     })
   ) {
     if (runtime.replayMode) {
