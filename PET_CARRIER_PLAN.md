@@ -81,7 +81,7 @@ Pet Carrier is close to the existing portable special items, but it is the first
   - Cache derived occupied-carrier render composites at the renderer seam instead of recompositing every frame.
   - Add render tests for empty carrier, occupied carrier on map, occupied carrier in inventory, and sprite-id addressability.
 
-- [ ] PC9: Focused regression pass
+- [x] PC9: Focused regression pass
   - Run targeted MS/Lynx portable-item, render, decode, undo, and engine suites for the new family.
   - Run bounded replay smoke to ensure the new portable-item family does not regress sandbag, hook, or bowling-ball behavior.
   - Only after targeted suites are green, widen coverage if the portable-item seam changes touched shared runtime code.
