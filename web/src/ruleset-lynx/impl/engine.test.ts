@@ -2393,6 +2393,58 @@ describe("runLynxInputTrace", () => {
     expect(visibleIceBlocks.map((actor) => actor.pos).sort((a, b) => a - b)).toEqual([35, 36]);
   });
 
+  it("keeps the first two ice blocks aligned while Chip chain-pushes them", () => {
+    const trace = runLynxInputTraceDebug(
+      { seriesFile: "intro-lynx.dac", levelNumber: 3, ruleset: "Lynx" },
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(35, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(36, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+      [{ tick: 0, inputCode: 8, inputName: "east" }],
+      1,
+    );
+
+    const finalPhase = trace.steps[0]?.phases.find((phase) => phase.phase === "final");
+    const movingIceBlocks = finalPhase?.blocks
+      .filter((actor) => actor.position.pos === 35 || actor.position.pos === 36)
+      .map((actor) => ({ pos: actor.position.pos, moving: actor.moving }))
+      .sort((left, right) => left.pos - right.pos);
+
+    expect(movingIceBlocks).toEqual([
+      { pos: 35, moving: 6 },
+      { pos: 36, moving: 6 },
+    ]);
+  });
+
+  it("keeps the full ice-block push chain aligned while Chip pushes three blocks", () => {
+    const trace = runLynxInputTraceDebug(
+      { seriesFile: "intro-lynx.dac", levelNumber: 3, ruleset: "Lynx" },
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(35, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(36, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(37, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+      [{ tick: 0, inputCode: 8, inputName: "east" }],
+      1,
+    );
+
+    const finalPhase = trace.steps[0]?.phases.find((phase) => phase.phase === "final");
+    const movingIceBlocks = finalPhase?.blocks
+      .filter((actor) => actor.position.pos >= 35 && actor.position.pos <= 37)
+      .map((actor) => ({ pos: actor.position.pos, moving: actor.moving }))
+      .sort((left, right) => left.pos - right.pos);
+
+    expect(movingIceBlocks).toEqual([
+      { pos: 35, moving: 6 },
+      { pos: 36, moving: 6 },
+      { pos: 37, moving: 6 },
+    ]);
+  });
+
   it("blocks an ice block from chain-pushing a dirt block", () => {
     const trace = runLynxInputTraceDebug(
       { seriesFile: "intro-lynx.dac", levelNumber: 3, ruleset: "Lynx" },

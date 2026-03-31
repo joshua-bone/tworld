@@ -2897,8 +2897,15 @@ function advanceLynxCreature(
     ) {
       speed *= 2;
     }
+    const shouldSyncStartedBlockPushChain =
+      isMsBlockActorId(actor.id) &&
+      (actor.moveKind ?? "planar") === "planar" &&
+      actor.moving === 8;
     actor.moving = Math.max(0, actor.moving - speed);
     actor.frame = Math.trunc(actor.moving / 2);
+    if (shouldSyncStartedBlockPushChain && actor.moving > 0) {
+      synchronizeLynxBlockPushChainMotion(state, actors, actor, actor.dir);
+    }
     if (actor.moving === 0) {
       finishLynxRuntimeActorMovement(
         state,
@@ -3261,6 +3268,36 @@ function tryPushLynxBlock(
     state.soundEffects |= 1 << LYNX_SOUND.BlockMoving;
   }
   return true;
+}
+
+function synchronizeLynxBlockPushChainMotion(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  block: LynxRuntimeActor,
+  dir: number,
+): void {
+  const normalizedDir = normalizeDirection(dir);
+  if (normalizedDir === 0 || block.hidden || block.moving <= 0) {
+    return;
+  }
+
+  const z = block.z ?? activeLynxLayerZ(state);
+  let currentPos = block.pos;
+  while (true) {
+    const nextStep = advanceToCell(state.map.cells, currentPos, normalizedDir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+    if (!nextStep) {
+      return;
+    }
+
+    const nextBlock = findLynxBlockActor(actors, nextStep.pos, z);
+    if (!nextBlock || nextBlock.hidden || nextBlock.dir !== normalizedDir || nextBlock.moving !== 8) {
+      return;
+    }
+
+    nextBlock.moving = block.moving;
+    nextBlock.frame = block.frame;
+    currentPos = nextBlock.pos;
+  }
 }
 
 function skipsDormantLynxActorAdvance(state: EngineState, actor: LynxRuntimeActor, currentTime: number): boolean {
