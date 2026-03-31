@@ -265,10 +265,7 @@ function createOccupiedPetCarrierSprite(
     drawLegacySpriteImage(context, occupantSprite, 0, 0);
   }
   if (carrierSprite) {
-    context.save();
-    context.globalAlpha = 0.5;
     drawLegacySpriteImage(context, carrierSprite, 0, 0);
-    context.restore();
   }
 
   return {

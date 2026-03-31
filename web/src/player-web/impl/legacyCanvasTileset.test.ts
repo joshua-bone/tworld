@@ -66,7 +66,7 @@ describe("getOrCreateHeldTrapSprite", () => {
 });
 
 describe("getOrCreateOccupiedPetCarrierSprite", () => {
-  it("composites terrain, a normalized occupant render, and a half-transparent carrier overlay", () => {
+  it("composites terrain, a normalized occupant render, and an opaque carrier overlay", () => {
     const baseImage = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const floorSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: false };
     const carrierSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: true };
@@ -131,9 +131,9 @@ describe("getOrCreateOccupiedPetCarrierSprite", () => {
       expect(fakeCanvas.height).toBe(LEGACY_TILE_SIZE);
       expect(tileset.getCreature).toHaveBeenCalledWith(MS_TILE.Bug, MS_DIRECTION.north, 0, 0);
       expect(fakeContext.drawImage).toHaveBeenCalledTimes(3);
-      expect(drawAlphas).toEqual([1, 1, 0.5]);
-      expect(fakeContext.save).toHaveBeenCalledTimes(1);
-      expect(fakeContext.restore).toHaveBeenCalledTimes(1);
+      expect(drawAlphas).toEqual([1, 1, 1]);
+      expect(fakeContext.save).not.toHaveBeenCalled();
+      expect(fakeContext.restore).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }
