@@ -95,6 +95,7 @@ export const MS_TILE = {
   BowlingBall_Still: 0x82,
   Cloud: 0x83,
   IceBlock_Static: 0x84,
+  PetCarrier: 0x85,
 } as const;
 
 export type MsBlockSpeciesId = "dirt" | "ice";

@@ -27,7 +27,7 @@ import { createLynxTrapTileFamily } from "@ruleset-lynx/impl/elements/tiles/fami
 import { createLynxWallTileFamily } from "@ruleset-lynx/impl/elements/tiles/families/wall";
 
 export type LynxInventorySlot = "keys" | "boots" | "tools";
-export type LynxPortableItemFamily = "sandbag" | "hook" | "bowling-ball";
+export type LynxPortableItemFamily = "sandbag" | "hook" | "pet-carrier" | "bowling-ball";
 export type LynxForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air" | "elevator";
 export type LynxCreatureFloorAction = "none" | "hold-direction";
 export type LynxMobExitAction = "none" | "turn-to-air";
@@ -321,6 +321,15 @@ const lynxTileFamilies: readonly LynxTileFamilyDefinition[] = [
     chipEnterAction: "collect-item",
     inventorySlot: "tools",
     portableItemFamily: "hook",
+    inventoryIndex: () => 0,
+  }),
+  createLynxPickupTileFamily({
+    name: "pet-carrier",
+    tileIds: [MS_TILE.PetCarrier],
+    tags: ["collectible"],
+    chipEnterAction: "collect-item",
+    inventorySlot: "tools",
+    portableItemFamily: "pet-carrier",
     inventoryIndex: () => 0,
   }),
   createLynxPickupTileFamily({

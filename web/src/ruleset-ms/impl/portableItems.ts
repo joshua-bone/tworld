@@ -233,6 +233,7 @@ function createMsBowlingBallPortableItemDefinition(): MsPortableToolDefinition {
 const MS_PORTABLE_ITEM_FAMILIES = {
   sandbag: createMsStandardPortableItemDefinition("sandbag", ({ primeDrop }) => primeDrop()),
   hook: createMsStandardPortableItemDefinition("hook", () => false),
+  "pet-carrier": createMsStandardPortableItemDefinition("pet-carrier", () => false),
   "bowling-ball": createMsBowlingBallPortableItemDefinition(),
 } as const satisfies Record<MsPortableItemFamily, MsPortableToolDefinition>;
 

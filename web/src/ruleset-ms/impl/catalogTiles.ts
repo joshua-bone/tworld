@@ -24,7 +24,7 @@ import { createMsWallTileFamily } from "@ruleset-ms/impl/elements/tiles/families
 import { createMsChipEnterTileBehavior } from "@ruleset-ms/impl/chipEnterBehavior";
 
 export type MsInventorySlot = "keys" | "boots" | "tools";
-export type MsPortableItemFamily = "sandbag" | "hook" | "bowling-ball";
+export type MsPortableItemFamily = "sandbag" | "hook" | "pet-carrier" | "bowling-ball";
 export type MsForcedFloorKind = "none" | "slide" | "ice" | "teleport" | "air" | "elevator";
 export type MsMobExitAction = "none" | "turn-to-air";
 export type MsChipEnterAction =
@@ -311,6 +311,15 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
     chipEnterAction: "collect-item",
     inventorySlot: "tools",
     portableItemFamily: "hook",
+    inventoryIndex: () => 0,
+  }),
+  createMsPickupTileFamily({
+    name: "pet-carrier",
+    tileIds: [MS_TILE.PetCarrier],
+    tags: ["collectible"],
+    chipEnterAction: "collect-item",
+    inventorySlot: "tools",
+    portableItemFamily: "pet-carrier",
     inventoryIndex: () => 0,
   }),
   createMsPickupTileFamily({

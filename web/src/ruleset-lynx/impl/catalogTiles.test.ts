@@ -50,6 +50,7 @@ describe("Lynx catalog tile families", () => {
     expect(lynxInventoryIndex(MS_TILE.Boots_Fire)).toBe(2);
     expect(lynxPortableItemFamily(MS_TILE.Sandbag)).toBe("sandbag");
     expect(lynxPortableItemFamily(MS_TILE.Hook)).toBe("hook");
+    expect(lynxPortableItemFamily(MS_TILE.PetCarrier)).toBe("pet-carrier");
     expect(lynxPortableItemFamily(MS_TILE.BowlingBall_Still)).toBe("bowling-ball");
     expect(lynxPortableItemFamily(MS_TILE.Key_Blue)).toBeNull();
     expect(lynxDoorKeyIndex(MS_TILE.Door_Yellow)).toBe(2);

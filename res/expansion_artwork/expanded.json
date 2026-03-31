@@ -4,7 +4,7 @@
     "mode": "grid",
     "tileWidth": 48,
     "tileHeight": 48,
-    "columns": 6,
+    "columns": 7,
     "rows": 1
   },
   "sprites": {
@@ -36,6 +36,11 @@
     },
     "ice_block": {
       "column": 5,
+      "row": 0,
+      "transparent": true
+    },
+    "pet_carrier": {
+      "column": 6,
       "row": 0,
       "transparent": true
     }

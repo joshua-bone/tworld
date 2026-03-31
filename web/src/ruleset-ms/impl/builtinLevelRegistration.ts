@@ -128,6 +128,7 @@ const MS_BUILTIN_LEVEL_DECODE_ENTRIES = [
   MS_TILE.Cloud,
   MS_TILE.Hook,
   MS_TILE.IceBlock_Static,
+  MS_TILE.PetCarrier,
 ] as const;
 
 function remapBuiltinMsTile(tileId: number, context: MsLevelDecodeContext): number {

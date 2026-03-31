@@ -25,6 +25,13 @@ export const msPortableItemFamilyRegistrations = [
     supportsNonChipAirOccupants: true,
   },
   {
+    familyId: "pet-carrier",
+    tileId: MS_TILE.PetCarrier,
+    inventorySlot: "tools",
+    artworkSpriteId: "pet_carrier",
+    supportsNonChipAirOccupants: true,
+  },
+  {
     familyId: "bowling-ball",
     tileId: MS_TILE.BowlingBall_Still,
     inventorySlot: "tools",

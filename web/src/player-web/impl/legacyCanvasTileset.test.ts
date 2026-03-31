@@ -66,7 +66,7 @@ describe("getOrCreateHeldTrapSprite", () => {
 
 describe("createLegacyExpansionArtworkOverrides", () => {
   it("maps expansion artwork sprites onto the registered portable-item and bowling-ball ids", () => {
-    const fakeImage = { width: LEGACY_TILE_SIZE * 6, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
+    const fakeImage = { width: LEGACY_TILE_SIZE * 7, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const fakeContext = {
       imageSmoothingEnabled: true,
       drawImage: vi.fn(),
@@ -91,6 +91,7 @@ describe("createLegacyExpansionArtworkOverrides", () => {
 
       expect(overrides.get(MS_TILE.Sandbag)).toMatchObject({ transparent: true });
       expect(overrides.get(MS_TILE.Hook)).toMatchObject({ transparent: true });
+      expect(overrides.get(MS_TILE.PetCarrier)).toMatchObject({ transparent: true });
       expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.north))).toMatchObject({ transparent: true });
       expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.west))).toMatchObject({ transparent: true });
       expect(overrides.get(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.south))).toMatchObject({ transparent: true });
@@ -105,14 +106,14 @@ describe("createLegacyExpansionArtworkOverrides", () => {
       expect(overrides.get(msCreatureTile(MS_TILE.IceBlock, MS_DIRECTION.west))).toMatchObject({ transparent: true });
       expect(overrides.get(msCreatureTile(MS_TILE.IceBlock, MS_DIRECTION.south))).toMatchObject({ transparent: true });
       expect(overrides.get(msCreatureTile(MS_TILE.IceBlock, MS_DIRECTION.east))).toMatchObject({ transparent: true });
-      expect(fakeContext.drawImage).toHaveBeenCalledTimes(6);
+      expect(fakeContext.drawImage).toHaveBeenCalledTimes(7);
     } finally {
       vi.unstubAllGlobals();
     }
   });
 
   it("keeps expansion artwork sprites addressable by sprite id for renderer metadata", () => {
-    const fakeImage = { width: LEGACY_TILE_SIZE * 6, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
+    const fakeImage = { width: LEGACY_TILE_SIZE * 7, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const fakeContext = {
       imageSmoothingEnabled: true,
       drawImage: vi.fn(),
@@ -149,7 +150,8 @@ describe("createLegacyExpansionArtworkOverrides", () => {
       });
       expect(overridden.getArtworkSprite?.("hook")).toMatchObject({ transparent: true });
       expect(overridden.getArtworkSprite?.("ice_block")).toMatchObject({ transparent: true });
-      expect(fakeContext.drawImage).toHaveBeenCalledTimes(6);
+      expect(overridden.getArtworkSprite?.("pet_carrier")).toMatchObject({ transparent: true });
+      expect(fakeContext.drawImage).toHaveBeenCalledTimes(7);
     } finally {
       vi.unstubAllGlobals();
     }

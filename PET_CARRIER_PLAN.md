@@ -28,7 +28,7 @@ Pet Carrier is close to the existing portable special items, but it is the first
 
 ## PR Checklist
 
-- [ ] PC1: Identity, artwork, and decode registration
+- [x] PC1: Identity, artwork, and decode registration
   - Add internal tile identity for Pet Carrier and map DAT `0x75` through the built-in decode registrations.
   - Add `pet_carrier.png` into `res/expansion_artwork/expanded.png`, extend `res/expansion_artwork/expanded.json` with the `pet_carrier` sprite key, and update artwork-frame tests.
   - Register Pet Carrier render ownership in MS and Lynx the same way the other portable special items are registered.

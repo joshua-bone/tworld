@@ -21,6 +21,12 @@ describe("ms render registration", () => {
       artworkSpriteId: "hook",
       alpha: 0.25,
     });
+    expect(projectMsPortableItemRender(MS_TILE.PetCarrier, 0.25)).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.PetCarrier,
+      artworkSpriteId: "pet_carrier",
+      alpha: 0.25,
+    });
     expect(projectMsPortableItemRender(MS_TILE.BowlingBall_Still, 0.25)).toEqual({
       mode: "tile",
       tileId: MS_TILE.BowlingBall_Still,

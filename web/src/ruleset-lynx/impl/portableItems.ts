@@ -251,6 +251,7 @@ function createLynxBowlingBallPortableItemDefinition(): LynxPortableToolDefiniti
 const LYNX_PORTABLE_ITEM_FAMILIES = {
   sandbag: createLynxStandardPortableItemDefinition("sandbag", ({ primeDrop }) => primeDrop()),
   hook: createLynxStandardPortableItemDefinition("hook", () => false),
+  "pet-carrier": createLynxStandardPortableItemDefinition("pet-carrier", () => false),
   "bowling-ball": createLynxBowlingBallPortableItemDefinition(),
 } as const satisfies Record<LynxPortableItemFamily, LynxPortableToolDefinition>;
 
