@@ -1,6 +1,19 @@
 import type { EngineMapCell } from "@game-core/api/model";
+import { createPetCarrierMobSnapshot, type PetCarrierMobSnapshot } from "@game-core/impl/petCarrier";
 import { type MsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
-import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE } from "@ruleset-ms/api/tiles";
+import {
+  MS_DIRECTION,
+  MS_GRID_HEIGHT,
+  MS_GRID_WIDTH,
+  MS_STATUS_FLAG,
+  MS_TICKS_PER_SECOND,
+  MS_TILE,
+  isMsCreature,
+  isMsStaticBlockTile,
+  msCreatureDir,
+  msCreatureId,
+  msStaticBlockActorId,
+} from "@ruleset-ms/api/tiles";
 
 export interface MsConnection {
   from: number;
@@ -14,12 +27,18 @@ export interface MsLayerPosition {
   pos: number;
 }
 
+export interface MsPetCarrierLoadEntry {
+  pos: number;
+  occupant: PetCarrierMobSnapshot;
+}
+
 export interface MsLevelLayer {
   z: number;
   cells: EngineMapCell[];
   traps: MsConnection[];
   cloners: MsConnection[];
   creaturePositions: number[];
+  petCarrierOccupants?: MsPetCarrierLoadEntry[];
   hintText: string;
 }
 
@@ -32,6 +51,7 @@ export interface MsLevel {
   traps: MsConnection[];
   cloners: MsConnection[];
   creaturePositions: number[];
+  petCarrierOccupants?: MsPetCarrierLoadEntry[];
   statusFlags: number;
   layers?: MsLevelLayer[];
 }
@@ -91,6 +111,45 @@ function createEmptyCells(z = 1): EngineMapCell[] {
     top: { id: 0, state: 0 },
     bottom: { id: 0, state: 0 },
   }));
+}
+
+const MS_PET_CARRIER_INVALID_LOAD_TILE_IDS = new Set<number>([
+  MS_TILE.Sandbag,
+  MS_TILE.Hook,
+  MS_TILE.PetCarrier,
+  MS_TILE.BowlingBall_Still,
+]);
+
+function decodeMsPetCarrierLoadOccupant(
+  tileId: number,
+): PetCarrierMobSnapshot | null | undefined {
+  if (isMsStaticBlockTile(tileId)) {
+    const actorId = msStaticBlockActorId(tileId);
+    if (actorId === null) {
+      return undefined;
+    }
+    return createPetCarrierMobSnapshot({
+      actorId,
+      dir: MS_DIRECTION.none,
+    });
+  }
+
+  if (isMsCreature(tileId)) {
+    const actorId = msCreatureId(tileId);
+    if (actorId === MS_TILE.Chip || actorId === MS_TILE.BowlingBall) {
+      return null;
+    }
+    return createPetCarrierMobSnapshot({
+      actorId,
+      dir: msCreatureDir(tileId),
+    });
+  }
+
+  if (MS_PET_CARRIER_INVALID_LOAD_TILE_IDS.has(tileId)) {
+    return null;
+  }
+
+  return undefined;
 }
 
 function decodeLayer(
@@ -279,7 +338,9 @@ export function decodeMsLevelData(
   return decodeMsLevelGroupData([levelData], undefined, registration);
 }
 
-export function levelLayers(level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "hintText" | "layers">): MsLevelLayer[] {
+export function levelLayers(
+  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "petCarrierOccupants" | "hintText" | "layers">,
+): MsLevelLayer[] {
   return level.layers ?? [
     {
       z: 1,
@@ -287,13 +348,14 @@ export function levelLayers(level: Pick<MsLevel, "cells" | "traps" | "cloners" |
       traps: level.traps.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? 1, toZ: connection.toZ ?? 1 })),
       cloners: level.cloners.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? 1, toZ: connection.toZ ?? 1 })),
       creaturePositions: [...level.creaturePositions],
+      petCarrierOccupants: [...(level.petCarrierOccupants ?? [])],
       hintText: level.hintText,
     },
   ];
 }
 
 export function collectLevelConnections(
-  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "hintText" | "layers">,
+  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "petCarrierOccupants" | "hintText" | "layers">,
   kind: "traps" | "cloners",
 ): MsConnection[] {
   return levelLayers(level).flatMap((layer) =>
@@ -306,7 +368,7 @@ export function collectLevelConnections(
 }
 
 export function collectLevelCreaturePositions(
-  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "hintText" | "layers">,
+  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "petCarrierOccupants" | "hintText" | "layers">,
 ): MsLayerPosition[] {
   return levelLayers(level).flatMap((layer) =>
     layer.creaturePositions.map((pos) => ({
@@ -316,8 +378,24 @@ export function collectLevelCreaturePositions(
   );
 }
 
+export interface MsPetCarrierLayerPosition extends MsLayerPosition {
+  occupant: PetCarrierMobSnapshot;
+}
+
+export function collectLevelPetCarrierOccupants(
+  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "petCarrierOccupants" | "hintText" | "layers">,
+): MsPetCarrierLayerPosition[] {
+  return levelLayers(level).flatMap((layer) =>
+    (layer.petCarrierOccupants ?? []).map(({ pos, occupant }) => ({
+      z: layer.z,
+      pos,
+      occupant,
+    })),
+  );
+}
+
 export function levelHintTextAtZ(
-  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "hintText" | "layers">,
+  level: Pick<MsLevel, "cells" | "traps" | "cloners" | "creaturePositions" | "petCarrierOccupants" | "hintText" | "layers">,
   z: number | undefined,
 ): string {
   const layers = levelLayers(level);
@@ -326,14 +404,59 @@ export function levelHintTextAtZ(
 }
 
 export function prepareMsLevel(decoded: DecodedMsLevelData): MsLevel {
-  const layers: MsLevelLayer[] = (decoded.layers ?? []).map((layer) => ({
-    z: layer.z,
-    cells: layer.cells,
-    traps: layer.traps.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? layer.z, toZ: connection.toZ ?? layer.z })),
-    cloners: layer.cloners.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? layer.z, toZ: connection.toZ ?? layer.z })),
-    creaturePositions: layer.creaturePositions,
-    hintText: layer.hintText,
-  }));
+  const hasExplicitLayers = decoded.layers !== undefined;
+  const sourceLayers = decoded.layers ?? [{
+    z: 1,
+    number: decoded.number,
+    timeLimitSeconds: decoded.timeLimitSeconds,
+    chipsNeeded: decoded.chipsNeeded,
+    hintText: decoded.hintText,
+    cells: decoded.cells,
+    traps: decoded.traps,
+    cloners: decoded.cloners,
+    creaturePositions: decoded.creaturePositions,
+    badTiles: decoded.badTiles,
+  }];
+  const layers: MsLevelLayer[] = sourceLayers.map((layer) => {
+    const absorbedCreaturePositions = new Set<number>();
+    const petCarrierOccupants: MsPetCarrierLoadEntry[] = [];
+    const cells = layer.cells.map((cell) => {
+      if (cell.top.id !== MS_TILE.PetCarrier) {
+        return cell;
+      }
+
+      const occupant = decodeMsPetCarrierLoadOccupant(cell.bottom.id);
+      if (occupant === undefined) {
+        return cell;
+      }
+
+      absorbedCreaturePositions.add(cell.position.pos);
+      if (occupant !== null) {
+        petCarrierOccupants.push({
+          pos: cell.position.pos,
+          occupant,
+        });
+      }
+
+      return {
+        ...cell,
+        bottom: {
+          ...cell.bottom,
+          id: MS_TILE.Empty,
+        },
+      };
+    });
+
+    return {
+      z: layer.z,
+      cells,
+      traps: layer.traps.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? layer.z, toZ: connection.toZ ?? layer.z })),
+      cloners: layer.cloners.map((connection) => ({ ...connection, fromZ: connection.fromZ ?? layer.z, toZ: connection.toZ ?? layer.z })),
+      creaturePositions: layer.creaturePositions.filter((pos) => !absorbedCreaturePositions.has(pos)),
+      petCarrierOccupants,
+      hintText: layer.hintText,
+    };
+  });
 
   return {
     number: decoded.number,
@@ -344,7 +467,8 @@ export function prepareMsLevel(decoded: DecodedMsLevelData): MsLevel {
     traps: layers[0]?.traps ?? decoded.traps,
     cloners: layers[0]?.cloners ?? decoded.cloners,
     creaturePositions: layers[0]?.creaturePositions ?? decoded.creaturePositions,
+    petCarrierOccupants: layers[0]?.petCarrierOccupants ?? [],
     statusFlags: decoded.badTiles ? MS_STATUS_FLAG.BadTiles : 0,
-    layers,
+    layers: hasExplicitLayers ? layers : undefined,
   };
 }

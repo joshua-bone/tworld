@@ -36,6 +36,7 @@ import {
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
 import { MS_DIRECTION, MS_TILE, isMsStaticBlockTile, msStaticBlockActorId } from "@ruleset-ms/api/tiles";
+import type { MsPetCarrierLoadEntry } from "@ruleset-ms/api/level";
 import { msIsOverlayFloorTile } from "@ruleset-ms/impl/catalog";
 import type { MsPortableItemFamily } from "@ruleset-ms/impl/catalogTiles";
 import {
@@ -120,6 +121,7 @@ function createMsPortableMapItem(
     inventorySlot: MsPortableInventorySlot;
     pos: number;
     z: number;
+    petCarrierOccupant?: MsPetCarrierLoadEntry["occupant"];
   },
 ): MsPortableItem {
   const state = {
@@ -144,7 +146,9 @@ function createMsPortableMapItem(
         family: "pet-carrier",
         tileId: args.tileId,
         inventorySlot: args.inventorySlot,
-        petCarrierState: createPetCarrierState(),
+        petCarrierState: createPetCarrierState({
+          occupant: args.petCarrierOccupant ?? null,
+        }),
         state,
       };
     default:
@@ -544,12 +548,21 @@ export function collectMsPortableItemsFromLayers(
     z: number;
     cells: EngineMapCell[];
   }>,
+  petCarrierOccupantsByPosition?: ReadonlyMap<string, MsPetCarrierLoadEntry["occupant"]>,
 ): MsPortableItem[] {
   return collectPortableItemsFromLayers(
     layers,
     identifyMsPortableItem,
     ({ serial, family, tileId, inventorySlot, pos, z }): MsPortableItem =>
-      createMsPortableMapItem({ serial, family, tileId, inventorySlot, pos, z }),
+      createMsPortableMapItem({
+        serial,
+        family,
+        tileId,
+        inventorySlot,
+        pos,
+        z,
+        petCarrierOccupant: petCarrierOccupantsByPosition?.get(`${z}:${pos}`),
+      }),
   );
 }
 

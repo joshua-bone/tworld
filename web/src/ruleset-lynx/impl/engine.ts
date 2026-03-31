@@ -245,7 +245,7 @@ import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import { collectLevelCreaturePositions, levelLayers } from "@ruleset-ms/api/level";
+import { collectLevelCreaturePositions, collectLevelPetCarrierOccupants, levelLayers } from "@ruleset-ms/api/level";
 import type { GameRuntimeCommand } from "@game-core/api/types";
 const LYNX_DEBUG_SCHEMA_VERSION = 2;
 const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
@@ -3543,6 +3543,9 @@ export function initializeLynxEngineState(
     (level.statusFlags & ~MS_STATUS_FLAG.ShowHint) |
     (lynxTileHasTag(topTileIdOr(cells, chipPos, MS_TILE.Empty), "hint") ? MS_STATUS_FLAG.ShowHint : 0);
   const randomSeed = normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed);
+  const petCarrierOccupantsByPosition = new Map<string, ReturnType<typeof collectLevelPetCarrierOccupants>[number]["occupant"]>(
+    collectLevelPetCarrierOccupants(level).map(({ pos, z, occupant }) => [`${z}:${pos}`, occupant] as const),
+  );
 
   const state: EngineState = {
     request: { ...request },
@@ -3598,7 +3601,10 @@ export function initializeLynxEngineState(
   };
 
   const runtime = lynxRuntimeState(state);
-  runtime.portableTools.portableItems = collectLynxPortableItemsFromLayers(lynxRuntimeLayers(state.map));
+  runtime.portableTools.portableItems = collectLynxPortableItemsFromLayers(
+    lynxRuntimeLayers(state.map),
+    petCarrierOccupantsByPosition,
+  );
   runtime.portableTools.nextPortableItemSerial = runtime.portableTools.portableItems.length + 1;
   projectLynxPortableToolState(runtime.portableTools, state.inventory);
   setLynxRuntimeChipState(state, chipPos, chipSeed.z);

@@ -47,7 +47,7 @@ Pet Carrier is close to the existing portable special items, but it is the first
   - Ensure excluded special items cannot be snapshotted, while blocks and normal monsters can.
   - Add focused unit coverage for snapshot creation, cloning, and restoration of representative occupants.
 
-- [ ] PC4: DAT load of occupied carriers
+- [x] PC4: DAT load of occupied carriers
   - Teach MS and Lynx level load/decode to interpret “Pet Carrier on top, eligible mob on bottom” as an occupied carrier with the bottom layer replaced by floor.
   - Normalize invalid lower occupants by leaving the carrier empty rather than loading a forbidden payload.
   - Add characterization tests covering empty carrier, occupied carrier, excluded lower special item, and block occupant cases.

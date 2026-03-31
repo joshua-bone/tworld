@@ -12,6 +12,7 @@ import {
   activateLynxPortableTool,
   carryLynxPortableTool,
   cloneLynxPortableTool,
+  collectLynxPortableItemsFromLayers,
   destroyLynxPortableTool,
   detachLynxPortableToolToDrop,
   detachLynxPortableToolToMap,
@@ -125,6 +126,14 @@ function createPetCarrierStore(occupied = false): LynxPortableToolStateStore {
 function createPetCarrierInventory(): LynxToolInventoryProjection {
   return {
     tools: [MS_TILE.PetCarrier],
+  };
+}
+
+function createMapCell(topId: number, bottomId = MS_TILE.Empty, z = 1, pos = 0) {
+  return {
+    position: { x: pos % 32, y: Math.floor(pos / 32), z, pos },
+    top: { id: topId, state: 0 },
+    bottom: { id: bottomId, state: 0 },
   };
 }
 
@@ -322,5 +331,29 @@ describe("lynx portableItems lifecycle", () => {
     expect(lynxPortableItemMobOccupancyPolicy(occupiedCarrier, MS_TILE.Chip)).toBe(
       PORTABLE_ITEM_MOB_OCCUPANCY_POLICY.default,
     );
+  });
+
+  it("hydrates mapped Lynx pet carriers from loaded occupant state", () => {
+    const items = collectLynxPortableItemsFromLayers(
+      [{ z: 1, cells: [createMapCell(MS_TILE.PetCarrier)] }],
+      new Map([
+        ["1:0", {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+        }],
+      ]),
+    );
+
+    expect(items).toHaveLength(1);
+    expect(isLynxPetCarrierPortableItem(items[0])).toBe(true);
+    if (!isLynxPetCarrierPortableItem(items[0])) {
+      throw new Error("expected mapped pet carrier");
+    }
+    expect(items[0].petCarrierState).toEqual(createPetCarrierState({
+      occupant: {
+        actorId: MS_TILE.Bug,
+        dir: MS_DIRECTION.south,
+      },
+    }));
   });
 });

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { prepareLynxLevel } from "@ruleset-lynx/api/level";
 import { decodeLoadedLynxLevelData } from "@ruleset-lynx/api/levelLoader";
 import { lynxElementFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
-import type { DecodedMsLevelData } from "@ruleset-ms/api/level";
+import { collectLevelCreaturePositions, collectLevelPetCarrierOccupants, type DecodedMsLevelData } from "@ruleset-ms/api/level";
 import { createMsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
-import { MS_STATUS_FLAG, MS_TILE, MS_TICKS_PER_SECOND } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_STATUS_FLAG, MS_TILE, MS_TICKS_PER_SECOND, msCreatureTile } from "@ruleset-ms/api/tiles";
 
 function createSingleTopTileLevelData(fileCode: number, levelNumber = 7): Uint8Array {
   return Uint8Array.from([
@@ -66,6 +66,14 @@ function createDecodedLevelWithSpecialTiles(): DecodedMsLevelData {
         badTiles: true,
       },
     ],
+  };
+}
+
+function createCell(topId: number, bottomId: number, z = 1, pos = 0) {
+  return {
+    position: { x: pos % 32, y: Math.floor(pos / 32), z, pos },
+    top: { id: topId, state: 0 },
+    bottom: { id: bottomId, state: 0 },
   };
 }
 
@@ -250,5 +258,77 @@ describe("lynx level preparation", () => {
     });
 
     expect(prepared.cells[0]?.top.id).toBe(MS_TILE.Wall);
+  });
+
+  it("loads an occupied pet carrier from a lower monster tile in Lynx", () => {
+    const prepared = prepareLynxLevel({
+      number: 13,
+      timeLimitSeconds: 20,
+      chipsNeeded: 0,
+      hintText: "",
+      cells: [],
+      traps: [],
+      cloners: [],
+      creaturePositions: [0],
+      badTiles: false,
+      layers: [
+        {
+          z: 1,
+          number: 13,
+          timeLimitSeconds: 20,
+          chipsNeeded: 0,
+          hintText: "",
+          cells: [createCell(MS_TILE.PetCarrier, msCreatureTile(MS_TILE.Bug, MS_DIRECTION.east))],
+          traps: [],
+          cloners: [],
+          creaturePositions: [0],
+          badTiles: false,
+        },
+      ],
+    });
+
+    expect(prepared.cells[0]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(collectLevelCreaturePositions(prepared)).toEqual([]);
+    expect(collectLevelPetCarrierOccupants(prepared)).toEqual([
+      {
+        z: 1,
+        pos: 0,
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.east,
+        },
+      },
+    ]);
+  });
+
+  it("leaves a Lynx pet carrier empty when the lower tile is a special item", () => {
+    const prepared = prepareLynxLevel({
+      number: 13,
+      timeLimitSeconds: 20,
+      chipsNeeded: 0,
+      hintText: "",
+      cells: [],
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      badTiles: false,
+      layers: [
+        {
+          z: 1,
+          number: 13,
+          timeLimitSeconds: 20,
+          chipsNeeded: 0,
+          hintText: "",
+          cells: [createCell(MS_TILE.PetCarrier, MS_TILE.Sandbag)],
+          traps: [],
+          cloners: [],
+          creaturePositions: [],
+          badTiles: false,
+        },
+      ],
+    });
+
+    expect(prepared.cells[0]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(collectLevelPetCarrierOccupants(prepared)).toEqual([]);
   });
 });

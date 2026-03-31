@@ -37,6 +37,7 @@ import {
 import { replaceTopTile } from "@game-core/impl/board";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import type { LynxPortableItemFamily } from "@ruleset-lynx/impl/catalogTiles";
+import type { MsPetCarrierLoadEntry } from "@ruleset-ms/api/level";
 import {
   type LynxActorFamilyId,
   lookupLynxActorFamilyRegistration,
@@ -120,6 +121,7 @@ function createLynxPortableMapItem(
     inventorySlot: LynxPortableInventorySlot;
     pos: number;
     z: number;
+    petCarrierOccupant?: MsPetCarrierLoadEntry["occupant"];
   },
 ): LynxPortableItem {
   const state = {
@@ -144,7 +146,9 @@ function createLynxPortableMapItem(
         family: "pet-carrier",
         tileId: args.tileId,
         inventorySlot: args.inventorySlot,
-        petCarrierState: createPetCarrierState(),
+        petCarrierState: createPetCarrierState({
+          occupant: args.petCarrierOccupant ?? null,
+        }),
         state,
       };
     default:
@@ -563,12 +567,21 @@ export function collectLynxPortableItemsFromLayers(
     z: number;
     cells: EngineMapCell[];
   }>,
+  petCarrierOccupantsByPosition?: ReadonlyMap<string, MsPetCarrierLoadEntry["occupant"]>,
 ): LynxPortableItem[] {
   return collectPortableItemsFromLayers(
     layers,
     identifyLynxPortableItem,
     ({ serial, family, tileId, inventorySlot, pos, z }): LynxPortableItem =>
-      createLynxPortableMapItem({ serial, family, tileId, inventorySlot, pos, z }),
+      createLynxPortableMapItem({
+        serial,
+        family,
+        tileId,
+        inventorySlot,
+        pos,
+        z,
+        petCarrierOccupant: petCarrierOccupantsByPosition?.get(`${z}:${pos}`),
+      }),
   );
 }
 

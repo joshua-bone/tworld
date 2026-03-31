@@ -100,6 +100,7 @@ import { projectMsActorInventoryOwner, type MsActorLocalInventoryState } from "@
 import {
   collectLevelConnections,
   collectLevelCreaturePositions,
+  collectLevelPetCarrierOccupants,
   levelLayers,
   type MsConnection,
   type MsLevel,
@@ -1621,6 +1622,9 @@ export function initializeMsGameState(
   let nextCreatureSerial = 1;
   const seededPositions = new Set<string>();
   const layerPositionKey = (pos: number, z: number) => `${z}:${pos}`;
+  const petCarrierOccupantsByPosition = new Map<string, ReturnType<typeof collectLevelPetCarrierOccupants>[number]["occupant"]>(
+    collectLevelPetCarrierOccupants(level).map(({ pos, z, occupant }) => [layerPositionKey(pos, z), occupant] as const),
+  );
   const cloneSourceSerialByPosition = new Map<string, number>();
   const statefulActors = createStatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>();
 
@@ -1749,7 +1753,7 @@ export function initializeMsGameState(
     z: layer.z,
     cells: layer.cells,
   }));
-  internal.portableTools.portableItems = collectMsPortableItemsFromLayers(runtimeLayers);
+  internal.portableTools.portableItems = collectMsPortableItemsFromLayers(runtimeLayers, petCarrierOccupantsByPosition);
   internal.portableTools.nextPortableItemSerial = internal.portableTools.portableItems.length + 1;
 
   for (const connection of internal.traps) {

@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   collectLevelConnections,
   collectLevelCreaturePositions,
+  collectLevelPetCarrierOccupants,
   decodeMsLevelData,
   decodeMsLevelGroupData,
   levelHintTextAtZ,
   prepareMsLevel,
 } from "@ruleset-ms/api/level";
 import { createMsLevelDecodeRegistration } from "@ruleset-ms/api/levelRegistration";
-import { MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_STATUS_FLAG, MS_TICKS_PER_SECOND, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import { msElementFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
 
 function createMinimalLevelData(levelNumber = 7): Uint8Array {
@@ -35,6 +36,14 @@ function createSingleTopTileLevelData(fileCode: number, levelNumber = 7): Uint8A
     0, 0,
     0, 0,
   ]);
+}
+
+function createCell(topId: number, bottomId: number, z = 1, pos = 0) {
+  return {
+    position: { x: pos % 32, y: Math.floor(pos / 32), z, pos },
+    top: { id: topId, state: 0 },
+    bottom: { id: bottomId, state: 0 },
+  };
 }
 
 describe("ms level preparation", () => {
@@ -302,5 +311,149 @@ describe("ms level preparation", () => {
     expect(prepared.hintText).toBe("hint");
     expect(prepared.layers).toHaveLength(1);
     expect(prepared.layers?.[0]?.z).toBe(1);
+  });
+
+  it("loads an occupied pet carrier from a lower monster tile and clears the lower layer", () => {
+    const prepared = prepareMsLevel({
+      number: 9,
+      timeLimitSeconds: 15,
+      chipsNeeded: 4,
+      hintText: "hint",
+      cells: [],
+      traps: [],
+      cloners: [],
+      creaturePositions: [0],
+      badTiles: false,
+      layers: [
+        {
+          z: 1,
+          number: 9,
+          timeLimitSeconds: 15,
+          chipsNeeded: 4,
+          hintText: "hint",
+          cells: [createCell(MS_TILE.PetCarrier, msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west))],
+          traps: [],
+          cloners: [],
+          creaturePositions: [0],
+          badTiles: false,
+        },
+      ],
+    });
+
+    expect(prepared.cells[0]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(collectLevelCreaturePositions(prepared)).toEqual([]);
+    expect(collectLevelPetCarrierOccupants(prepared)).toEqual([
+      {
+        z: 1,
+        pos: 0,
+        occupant: {
+          actorId: MS_TILE.Bug,
+          dir: MS_DIRECTION.west,
+        },
+      },
+    ]);
+  });
+
+  it("loads a lower static block into the pet carrier inventory", () => {
+    const prepared = prepareMsLevel({
+      number: 9,
+      timeLimitSeconds: 15,
+      chipsNeeded: 4,
+      hintText: "hint",
+      cells: [],
+      traps: [],
+      cloners: [],
+      creaturePositions: [0],
+      badTiles: false,
+      layers: [
+        {
+          z: 1,
+          number: 9,
+          timeLimitSeconds: 15,
+          chipsNeeded: 4,
+          hintText: "hint",
+          cells: [createCell(MS_TILE.PetCarrier, MS_TILE.IceBlock_Static)],
+          traps: [],
+          cloners: [],
+          creaturePositions: [0],
+          badTiles: false,
+        },
+      ],
+    });
+
+    expect(prepared.cells[0]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(collectLevelCreaturePositions(prepared)).toEqual([]);
+    expect(collectLevelPetCarrierOccupants(prepared)).toEqual([
+      {
+        z: 1,
+        pos: 0,
+        occupant: {
+          actorId: MS_TILE.IceBlock,
+          dir: MS_DIRECTION.none,
+        },
+      },
+    ]);
+  });
+
+  it("leaves a pet carrier empty when the lower tile is a special item", () => {
+    const prepared = prepareMsLevel({
+      number: 9,
+      timeLimitSeconds: 15,
+      chipsNeeded: 4,
+      hintText: "hint",
+      cells: [],
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      badTiles: false,
+      layers: [
+        {
+          z: 1,
+          number: 9,
+          timeLimitSeconds: 15,
+          chipsNeeded: 4,
+          hintText: "hint",
+          cells: [createCell(MS_TILE.PetCarrier, MS_TILE.Sandbag)],
+          traps: [],
+          cloners: [],
+          creaturePositions: [],
+          badTiles: false,
+        },
+      ],
+    });
+
+    expect(prepared.cells[0]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(collectLevelPetCarrierOccupants(prepared)).toEqual([]);
+  });
+
+  it("leaves an empty pet carrier unchanged when the lower tile is already floor", () => {
+    const prepared = prepareMsLevel({
+      number: 9,
+      timeLimitSeconds: 15,
+      chipsNeeded: 4,
+      hintText: "hint",
+      cells: [],
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      badTiles: false,
+      layers: [
+        {
+          z: 1,
+          number: 9,
+          timeLimitSeconds: 15,
+          chipsNeeded: 4,
+          hintText: "hint",
+          cells: [createCell(MS_TILE.PetCarrier, MS_TILE.Empty)],
+          traps: [],
+          cloners: [],
+          creaturePositions: [],
+          badTiles: false,
+        },
+      ],
+    });
+
+    expect(prepared.cells[0]?.bottom.id).toBe(MS_TILE.Empty);
+    expect(collectLevelPetCarrierOccupants(prepared)).toEqual([]);
   });
 });
