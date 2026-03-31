@@ -26,9 +26,7 @@ export interface LynxTeleportContext {
   chipTeleportLandingIsClear(teleportPos: number): boolean;
   canChipEnter(pos: number, dir: number): boolean;
   claimedChipTeleportExitIsValid(exitPos: number, dir: number): boolean;
-  canActorEnter(actor: LynxTeleportActor, tileId: number, dir: number): boolean;
-  effectiveTargetTileId(tileId: number): number;
-  probeBlockedActorExit?(actor: LynxTeleportActor, exitPos: number): void;
+  canActorExitTeleport(actor: LynxTeleportActor): boolean;
   markChipTeleported(): void;
   settleChipTeleportDrop(originPos: number, originZ: number): void;
 }
@@ -126,30 +124,6 @@ export function resolveLynxActorTeleport(
     removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     actor.pos = pos;
 
-    const exitStep = advanceToCell(context.state.map.cells, pos, actor.dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
-    if (!exitStep) {
-      if (pos === origin) {
-        addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-        return;
-      }
-      continue;
-    }
-    const { pos: exitPos, cell: exitCell } = exitStep;
-    if (context.chipActsWallForMobs(exitPos, actor.z ?? context.activeLayerZ())) {
-      if (pos === origin) {
-        addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-        return;
-      }
-      continue;
-    }
-    if (!context.canActorEnter(actor, context.effectiveTargetTileId(exitCell.top.id), actor.dir)) {
-      if (pos === origin) {
-        addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-        return;
-      }
-      continue;
-    }
-
     if (hasTopTileFlags(context.state.map.cells, pos, LYNX_CELL_FLAG.Claimed)) {
       if (pos === origin) {
         addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
@@ -158,8 +132,7 @@ export function resolveLynxActorTeleport(
       continue;
     }
 
-    if (hasTopTileFlags(context.state.map.cells, exitPos, LYNX_CELL_FLAG.Claimed)) {
-      context.probeBlockedActorExit?.(actor, exitPos);
+    if (!context.canActorExitTeleport(actor)) {
       if (pos === origin) {
         addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
         return;

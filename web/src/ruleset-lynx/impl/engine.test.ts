@@ -2757,6 +2757,33 @@ describe("runLynxInputTrace", () => {
     expect(movingIceBlock?.moving).toBe(6);
   });
 
+  it("teleports a stationary ice block to a destination whose forced exit pushes another ice block", () => {
+    const trace = runLynxInputTraceDebug(
+      { seriesFile: "intro-lynx.dac", levelNumber: 6, ruleset: "Lynx" },
+      createLevel([
+        createCell(0, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(50, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(82, MS_TILE.Teleport, MS_TILE.Empty),
+        createCell(98, MS_TILE.IceBlock_Static, MS_TILE.Teleport),
+      ]),
+      [],
+      2,
+    );
+
+    const teleportPhase = trace.steps[0]?.phases.find((phase) => phase.phase === "post-teleport-resolution");
+    const forcedMovePhase = trace.steps[1]?.phases.find((phase) => phase.phase === "final");
+    const teleportedIceBlock = teleportPhase?.blocks.find((actor) => actor.position.pos === 82);
+    const pushedIceBlocks = forcedMovePhase?.blocks
+      .filter((actor) => actor.position.pos === 18 || actor.position.pos === 50)
+      .map((actor) => actor.position.pos)
+      .sort((left, right) => left - right);
+    const exitingIceBlock = forcedMovePhase?.blocks.find((actor) => actor.position.pos === 50);
+
+    expect(teleportedIceBlock).toBeDefined();
+    expect(pushedIceBlocks).toEqual([18, 50]);
+    expect(exitingIceBlock?.moving).toBe(6);
+  });
+
   it("turns a cloud into air when an ice block exits it", () => {
     const session = createLynxInteractiveSession(
       createRequest(),

@@ -2145,23 +2145,19 @@ function msBlockArrivalReplacement(
   }
 }
 
-function moveBlock(
+function attemptMsTrackedBlockMove(
   cells: EngineMapCell[],
   internal: MsInternalState,
-  pos: number,
+  trackedBlock: MsTrackedBlock,
   dir: number,
   deferButtons: boolean,
   preserveSourceTile: boolean,
   occupiedOriginPos = -1,
 ): MovementAttemptResult {
-  const trackedBlock =
-    findVisibleTrackedBlock(internal, pos, runtimeCellZ(cells, pos)) ?? upsertTrackedBlock(cells, internal, pos, dir);
+  const pos = trackedBlock.pos;
   const oldWasCloneMachine = isMsClonerSpecialFloor(cells[pos]!.bottom.id);
   const keepSourceTile = preserveSourceTile || oldWasCloneMachine;
   if (!canLeaveFloor(cells, pos, dir, trackedBlock.released)) {
-    trackedBlock.floorMovement = "none";
-    trackedBlock.floorMovementDir = MS_DIRECTION.none;
-    trackedBlock.sliding = false;
     return blockedMovement();
   }
   const x = pos % MS_GRID_WIDTH;
@@ -2169,17 +2165,11 @@ function moveBlock(
   const nextX = x + (dir === MS_DIRECTION.west ? -1 : dir === MS_DIRECTION.east ? 1 : 0);
   const nextY = y + (dir === MS_DIRECTION.north ? -1 : dir === MS_DIRECTION.south ? 1 : 0);
   if (nextX < 0 || nextX >= MS_GRID_WIDTH || nextY < 0 || nextY >= MS_GRID_HEIGHT) {
-    trackedBlock.floorMovement = "none";
-    trackedBlock.floorMovementDir = MS_DIRECTION.none;
-    trackedBlock.sliding = false;
     return blockedMovement();
   }
 
   const nextPos = nextY * MS_GRID_WIDTH + nextX;
   if (!canMoveBlockInto(cells, nextPos, dir, occupiedOriginPos, internal, trackedBlockActorId(trackedBlock))) {
-    trackedBlock.floorMovement = "none";
-    trackedBlock.floorMovementDir = MS_DIRECTION.none;
-    trackedBlock.sliding = false;
     return blockedMovement();
   }
   const blockingBlockId = staticBlockActorIdAtPos(cells, internal, nextPos);
@@ -2190,9 +2180,6 @@ function moveBlock(
       !pushBlock(cells, internal, nextPos, dir, false, deferButtons, pos)
     )
   ) {
-    trackedBlock.floorMovement = "none";
-    trackedBlock.floorMovementDir = MS_DIRECTION.none;
-    trackedBlock.sliding = false;
     return blockedMovement();
   }
 
@@ -2210,17 +2197,13 @@ function moveBlock(
       cells[pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
     }
     hideTrackedBlockAtPos(internal, pos, dir, trackedBlock.z ?? runtimeCellZ(cells, pos), trackedBlockActorId(trackedBlock));
-    internal.pendingSoundEffects |= arrivalReplacement.soundEffects;
-    return movedMovement();
+    return movedMovement(arrivalReplacement.soundEffects);
   }
 
   if (
     isMsClonerSpecialFloor(targetBottom) &&
     msActorClonerFamilyHooks(trackedBlockActorId(trackedBlock)).entryBehavior === "none"
   ) {
-    trackedBlock.floorMovement = "none";
-    trackedBlock.floorMovementDir = MS_DIRECTION.none;
-    trackedBlock.sliding = false;
     return blockedMovement();
   }
 
@@ -2261,6 +2244,7 @@ function moveBlock(
   if (previousFloorMovement === "none" && block.floorMovement !== "none") {
     internal.controllerDir = block.floorMovementDir;
   }
+  let soundEffects = 0;
   const landedButtonFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
   if (
     landedButtonFloor === MS_TILE.Button_Blue ||
@@ -2271,15 +2255,46 @@ function moveBlock(
     if (deferButtons) {
       addBottomTileFlags(cells, landingPos, MS_FLOOR_STATE.ButtonDown);
       if (landedButtonFloor !== MS_TILE.Button_Green) {
-        internal.pendingSoundEffects |= 1 << MS_SOUND.ButtonPushed;
+        soundEffects |= 1 << MS_SOUND.ButtonPushed;
       }
     } else {
       const buttonSoundEffects = resolveButtonFloorEffects(cells, internal, null, landingPos, landedButtonFloor);
-      internal.pendingSoundEffects |= buttonSoundEffects;
+      soundEffects |= buttonSoundEffects;
     }
   }
 
-  return movedMovement();
+  return movedMovement(soundEffects);
+}
+
+function moveBlock(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  pos: number,
+  dir: number,
+  deferButtons: boolean,
+  preserveSourceTile: boolean,
+  occupiedOriginPos = -1,
+): MovementAttemptResult {
+  const trackedBlock =
+    findVisibleTrackedBlock(internal, pos, runtimeCellZ(cells, pos)) ?? upsertTrackedBlock(cells, internal, pos, dir);
+  const result = attemptMsTrackedBlockMove(
+    cells,
+    internal,
+    trackedBlock,
+    dir,
+    deferButtons,
+    preserveSourceTile,
+    occupiedOriginPos,
+  );
+  if (!movementDidSucceed(result)) {
+    trackedBlock.floorMovement = "none";
+    trackedBlock.floorMovementDir = MS_DIRECTION.none;
+    trackedBlock.sliding = false;
+    return result;
+  }
+
+  internal.pendingSoundEffects |= result.soundEffects;
+  return result;
 }
 
 function moveBlockOnce(
@@ -3766,82 +3781,11 @@ function processMsBlockFloorQueueEntry(
 
   let soundEffects = 0;
   const tryMove = (dir: number): boolean => {
-    const oldWasCloneMachine = isMsClonerSpecialFloor(blockCells[block.pos]!.bottom.id);
-    if (!canLeaveFloor(blockCells, block.pos, dir, block.released)) {
-      return false;
-    }
-
-    const nextPos = nextPosition(block.pos, dir, MS_GRID_WIDTH);
-    if (!canMoveBlockInto(blockCells, nextPos, dir, -1, internal, trackedBlockActorId(block))) {
-      return false;
-    }
-
-    const targetTop = blockCells[nextPos]!.top.id;
-    const targetTopState = blockCells[nextPos]!.top.state;
-    const targetBottom = blockCells[nextPos]!.bottom.id;
-    const targetBottomState = blockCells[nextPos]!.bottom.state;
-    const arrivalReplacement = msBlockArrivalReplacement(targetTop, trackedBlockActorId(block));
-    if (arrivalReplacement !== null) {
-      blockCells[nextPos]!.top = { id: arrivalReplacement.tileId, state: 0 };
-      if (!oldWasCloneMachine) {
-        popExitedMsMobSourceTile(blockCells, block.pos);
-      } else {
-        blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
-      }
-      hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1, trackedBlockActorId(block));
-      soundEffects |= arrivalReplacement.soundEffects;
-      return true;
-    }
-
-    const movedTile = oldWasCloneMachine ? { ...blockCells[block.pos]!.top } : popExitedMsMobSourceTile(blockCells, block.pos);
-    let landingPos = nextPos;
-    if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
-      landingPos = findMsBlockTeleportDestination({
-        cells: blockCells,
-        start: nextPos,
-        dir,
-        occupiedOriginPos: block.pos,
-        canExit: (exitPos) => canMoveBlockInto(blockCells, exitPos, dir, block.pos, internal, trackedBlockActorId(block)),
-      });
-    }
-
-    placeStaticBlock(blockCells, landingPos, movedTile.state, trackedBlockActorId(block));
-
-    const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-    applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId));
-    if (oldWasCloneMachine) {
-      blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
-    }
-
-    const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
-    const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
-    const sourcePos = block.pos;
-    block.pos = landingPos;
-    block.dir = dir;
-    updateBlockReleaseAfterMove(blockCells, internal, block, sourcePos, targetTop, landingPos);
-    const previousFloorMovement = block.floorMovement;
-    const previousSliding = block.sliding;
-    setBlockFloorMovementAfterSuccessfulMove(
-      block,
-      successfulFloor,
-      successfulFloorState,
-      internal,
-      previousFloorMovement,
-      previousSliding,
-    );
-    if (previousFloorMovement === "none" && block.floorMovement !== "none") {
-      internal.controllerDir = block.floorMovementDir;
-    }
-    soundEffects |= resolveDeferredOrImmediateButtonLandingEffects(
-      blockCells,
-      internal,
-      landingPos,
-      successfulFloor,
-      false,
-      null,
-      block.z ?? 1,
-    );
-    return true;
+    const pendingSoundEffectsBeforeMove = internal.pendingSoundEffects;
+    const moveResult = attemptMsTrackedBlockMove(blockCells, internal, block, dir, false, false);
+    soundEffects |= moveResult.soundEffects;
+    soundEffects |= internal.pendingSoundEffects & ~pendingSoundEffectsBeforeMove;
+    return movementDidSucceed(moveResult);
   };
 
   const originalDir = block.floorMovementDir;

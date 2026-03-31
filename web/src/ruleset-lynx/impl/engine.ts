@@ -2464,14 +2464,18 @@ function createLynxTeleportContext(state: EngineState, level: LynxLevel, actors:
     chipTeleportLandingIsClear: (teleportPos) => chipCanOccupyLynxTeleport(state, actors, teleportPos),
     canChipEnter: (pos, dir) => canLynxChipEnterTeleportExitCell(state, actors, pos, dir),
     claimedChipTeleportExitIsValid: (exitPos, dir) => claimedLynxChipTeleportExitIsValid(state, level, actors, exitPos, dir),
-    canActorEnter: (actor, tileId, dir) => canLynxCreatureEnter(state, actor as LynxRuntimeActor, tileId, dir),
-    effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),
-    probeBlockedActorExit: (actor, exitPos) => {
-      const target = queryLynxOccupancyOnLayer(state, actors, exitPos, actor.z ?? activeLynxLayerZ(state));
-      if (canLynxFireballMeltCollisionTarget(state, actor.id, target, actor.dir)) {
-        applyLynxFireballIceBlockMelt(state, actors, target);
-      }
-    },
+    canActorExitTeleport: (actor) =>
+      canLynxRuntimeActorStartMovement(
+        state,
+        level,
+        actors,
+        actor as LynxRuntimeActor,
+        actor.dir,
+        false,
+        false,
+        null,
+        "probe",
+      ),
     markChipTeleported: () => {
       lynxChipRuntime(state).chipTeleported = true;
       state.soundEffects |= 1 << LYNX_SOUND.Teleporting;

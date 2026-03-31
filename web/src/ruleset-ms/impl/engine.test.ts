@@ -6210,6 +6210,47 @@ describe("MS engine regressions", () => {
     });
   });
 
+  it("pushes a block when a teleported ice block exits into it on the next tick", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 12);
+    const pushedIceBlockPos = pos(10, 11);
+    const entryTeleportPos = pos(10, 10);
+    const destinationTeleportPos = pos(5, 5);
+    const exitBlockPos = pos(5, 4);
+    const pushedExitPos = pos(5, 3);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.north);
+    cells[pushedIceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[entryTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[destinationTeleportPos]!.top.id = MS_TILE.Teleport;
+    cells[exitBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.north);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const visibleBlocks = session.state.internal.blocks
+      .filter((block) => !block.hidden)
+      .map((block) => ({ pos: block.pos, id: block.id }))
+      .sort((left, right) => left.pos - right.pos);
+
+    expect(visibleBlocks).toEqual([
+      { pos: pushedExitPos, id: MS_TILE.IceBlock },
+      { pos: exitBlockPos, id: MS_TILE.IceBlock },
+    ]);
+    expect(session.state.engine.map.cells[entryTeleportPos]?.top.id).toBe(MS_TILE.Teleport);
+    expect(session.state.engine.map.cells[destinationTeleportPos]?.top.id).toBe(MS_TILE.Teleport);
+    expect(session.state.engine.map.cells[exitBlockPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(session.state.engine.map.cells[pushedExitPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+  });
+
   it("does not let block floor movement wrap east off the right edge", () => {
     const cells = createEmptyCells();
     const chipPos = pos(2, 2);
