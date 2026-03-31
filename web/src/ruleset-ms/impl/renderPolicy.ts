@@ -29,10 +29,13 @@ export function projectMsRenderableActor(
 export function projectMsRenderableOverlay(
   overlay: InteractiveGameTileOverlay,
 ): InteractiveGameTileOverlay {
-  if (overlay.kind === "carried-tool" && typeof overlay.tileId === "number") {
+  if (
+    (overlay.kind === "carried-tool" || overlay.kind === "portable-item-state") &&
+    typeof overlay.tileId === "number"
+  ) {
     return {
       ...overlay,
-      render: projectMsPortableItemRender(overlay.tileId, 0.25) ?? undefined,
+      render: projectMsPortableItemRender(overlay.tileId, overlay.kind === "carried-tool" ? 0.25 : 1) ?? undefined,
     };
   }
 

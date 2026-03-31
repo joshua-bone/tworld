@@ -12,6 +12,16 @@ import {
   projectLynxRenderableChip,
   projectLynxRenderableOverlay,
 } from "@ruleset-lynx/impl/renderPolicy";
+import {
+  carriedLynxPortableToolItem,
+  type LynxPetCarrierPortableItem,
+  type LynxPortableItem,
+  type LynxPortableToolStateStore,
+} from "@ruleset-lynx/impl/portableItems";
+import {
+  projectLynxOccupiedPetCarrierRender,
+  projectLynxPortableItemRender,
+} from "@ruleset-lynx/impl/renderRegistration";
 import { collectLevelConnections } from "@ruleset-ms/api/level";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -29,13 +39,7 @@ interface LynxProjectedRuntimeState {
   chipRuntime?: {
     chipTeleported?: boolean;
   };
-  portableTools?: {
-    primedToolDrop?: {
-      tileId: number;
-      pos: number;
-      z: number;
-    } | null;
-  };
+  portableTools?: LynxPortableToolStateStore;
   statefulActors?: StatefulActorRuntimeStore<StatefulActorRuntimeEntry>;
 }
 
@@ -107,12 +111,28 @@ function applyLynxTrapRenderState(frame: InteractiveGameFrame, session: LynxInte
   }
 }
 
+function lynxLayerCellsAt(
+  session: LynxInteractiveSessionState,
+  z: number,
+) {
+  return session.state.map.layers?.find((layer) => layer.z === z)?.cells ?? session.state.map.cells;
+}
+
+function isMappedOccupiedLynxPetCarrier(
+  item: LynxPortableItem,
+): item is LynxPetCarrierPortableItem & { state: Extract<LynxPetCarrierPortableItem["state"], { mode: "map" }> } {
+  return item.family === "pet-carrier" && item.state.mode === "map" && item.petCarrierState.occupant !== null;
+}
+
 export function projectLynxInteractiveFrame(
   session: LynxInteractiveSessionState,
   phase: InteractiveProjectionPhase,
 ): InteractiveGameFrame {
   const runtime = lynxProjectedRuntimeState(session.state);
   const chipVerticalMove = session.chipMoveKind === "air" || session.chipMoveKind === "elevator";
+  const portableTools = runtime?.portableTools ?? null;
+  const mappedOccupiedCarriers = portableTools?.portableItems?.filter(isMappedOccupiedLynxPetCarrier) ?? [];
+  const carriedPortableItem = portableTools?.portableItems ? carriedLynxPortableToolItem(portableTools) ?? null : null;
 
   const frame = projectInteractiveFrame(
     engineStateToSnapshot(session.state, phase, session.lastInput),
@@ -163,6 +183,22 @@ export function projectLynxInteractiveFrame(
       layers: session.state.map.layers,
       tileOverlays: [
         ...(runtime?.visuals?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectLynxRenderableOverlay(overlay)) ?? []),
+        ...mappedOccupiedCarriers.map((item) => {
+          const overlay = projectLynxRenderableOverlay({
+            z: item.state.z,
+            pos: item.state.pos,
+            kind: "portable-item-state" as const,
+            tileId: item.tileId,
+          });
+          if (overlay.render?.mode === "tile") {
+            const bottomId = lynxLayerCellsAt(session, item.state.z)[item.state.pos]?.bottom.id ?? MS_TILE.Empty;
+            overlay.render = {
+              ...overlay.render,
+              petCarrierRender: projectLynxOccupiedPetCarrierRender(bottomId, item.petCarrierState.occupant!),
+            };
+          }
+          return overlay;
+        }),
         ...(runtime?.portableTools?.primedToolDrop
           ? [
               projectLynxRenderableOverlay({
@@ -176,6 +212,18 @@ export function projectLynxInteractiveFrame(
       ],
     },
   );
+
+  if (carriedPortableItem?.family === "pet-carrier" && carriedPortableItem.petCarrierState.occupant !== null) {
+    const toolRender = projectLynxPortableItemRender(carriedPortableItem.tileId, 1);
+    frame.inventoryRender = {
+      tools: toolRender?.mode === "tile"
+        ? [{
+            ...toolRender,
+            petCarrierRender: projectLynxOccupiedPetCarrierRender(MS_TILE.Empty, carriedPortableItem.petCarrierState.occupant),
+          }]
+        : [toolRender],
+    };
+  }
 
   applyLynxTrapRenderState(frame, session);
   return frame;

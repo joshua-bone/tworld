@@ -75,7 +75,7 @@ Pet Carrier is close to the existing portable special items, but it is the first
   - Verify drop-settle, pickup replacement, auto-capture on mob entry, and occupied-carrier blocking behavior.
   - Add undo/runtime projection tests and engine tests for “drop occupied carrier, pick it back up, release same occupant”, unoccupied auto-capture, and occupied acting-wall behavior.
 
-- [ ] PC8: Occupied rendering and inventory presentation
+- [x] PC8: Occupied rendering and inventory presentation
   - Add occupied-carrier rendering in the player renderer for both map tiles and player inventory.
   - Render terrain first, or floor for inventory rendering, then the scaled occupant, then the Pet Carrier overlay sprite.
   - Cache derived occupied-carrier render composites at the renderer seam instead of recompositing every frame.

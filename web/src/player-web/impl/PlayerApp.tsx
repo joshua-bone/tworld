@@ -2962,6 +2962,7 @@ export function PlayerApp({
             className="modern-game-inventory-strip__canvas"
             currentRuleset={currentRuleset}
             inventory={session?.frame.snapshot.inventory ?? null}
+            inventoryRender={session?.frame.inventoryRender ?? null}
             kind="tools"
             visualEnhancementsEnabled={visualEnhancementsEnabled}
           />
@@ -3132,6 +3133,7 @@ export function PlayerApp({
             currentRuleset={currentRuleset}
             direction={isMobileLandscape ? "vertical" : "horizontal"}
             inventory={session?.frame.snapshot.inventory ?? null}
+            inventoryRender={session?.frame.inventoryRender ?? null}
             kind="tools"
             renderTileSize={mobileRenderTileSize}
             visualEnhancementsEnabled={visualEnhancementsEnabled}

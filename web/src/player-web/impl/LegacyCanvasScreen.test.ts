@@ -13,9 +13,10 @@ import {
   visualEnhancementThinWallOverlayTileId,
   withLegacyMapViewportClip,
 } from "@player-web/impl/LegacyCanvasScreen";
+import { drawInventoryTile } from "@player-web/impl/legacyCanvasHud";
 import { LEGACY_MAP_HEIGHT, LEGACY_MAP_WIDTH, LEGACY_MAP_X, LEGACY_MAP_Y, LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import type { LegacyTileSprite, LegacyTileset } from "@player-web/impl/legacyTileset";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 describe("withLegacyMapViewportClip", () => {
   it("clips drawing to the 9x9 legacy map viewport", () => {
@@ -73,6 +74,80 @@ describe("inventoryTileCountLabel", () => {
     expect(inventoryTileCountLabel(MS_TILE.Key_Red, 1)).toBeNull();
     expect(inventoryTileCountLabel(MS_TILE.Key_Green, 2)).toBeNull();
     expect(inventoryTileCountLabel(MS_TILE.Boots_Water, 2)).toBeNull();
+  });
+});
+
+describe("drawInventoryTile", () => {
+  it("renders occupied pet carriers through the cached composite sprite path", () => {
+    const baseImage = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
+    const floorSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: false };
+    const carrierSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: true };
+    const occupantSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: true };
+    const fakeInventoryContext = {
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      scale: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCompositeContext = {
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      scale: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const fakeCompositeCanvas = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => fakeCompositeContext),
+    } as unknown as HTMLCanvasElement;
+    const tileset: LegacyTileset = {
+      get: vi.fn((tileId: number) => (tileId === MS_TILE.Empty ? floorSprite : null)),
+      getArtworkSprite: vi.fn((spriteId: string) => (spriteId === "pet_carrier" ? carrierSprite : null)),
+      getCreature: vi.fn((actorId: number) => (actorId === MS_TILE.Bug ? occupantSprite : null)),
+      getCellAnimationPeriod: vi.fn(() => 1),
+    };
+
+    try {
+      vi.stubGlobal("document", {
+        createElement: vi.fn((tagName: string) => {
+          if (tagName !== "canvas") {
+            throw new Error(`unexpected tag: ${tagName}`);
+          }
+          return fakeCompositeCanvas;
+        }),
+      });
+
+      drawInventoryTile(
+        fakeInventoryContext,
+        tileset,
+        MS_TILE.PetCarrier,
+        {
+          mode: "tile",
+          tileId: MS_TILE.PetCarrier,
+          artworkSpriteId: "pet_carrier",
+          petCarrierRender: {
+            baseTileId: MS_TILE.Empty,
+            occupant: {
+              kind: "creature",
+              tileId: MS_TILE.Bug,
+              dir: MS_DIRECTION.east,
+              moving: 0,
+              frame: 0,
+            },
+          },
+        },
+        null,
+        0,
+        0,
+      );
+
+      expect(fakeInventoryContext.drawImage).toHaveBeenCalledWith(fakeCompositeCanvas, 0, 0);
+      expect(fakeCompositeContext.drawImage).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

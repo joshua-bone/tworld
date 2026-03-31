@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import { TIME_NIL } from "@content/api/score";
+import type { InteractiveGameTileOverlayRender } from "@game-core/api/interactive";
 import type { GameSnapshot } from "@game-core/api/types";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import {
@@ -35,6 +36,7 @@ import {
 } from "@player-web/impl/legacyCanvasMapRenderer";
 import {
   drawLegacyTile,
+  getOrCreateOccupiedPetCarrierSprite,
   useLegacyTileset,
 } from "@player-web/impl/legacyCanvasTileset";
 import type { LegacyTileset } from "@player-web/impl/legacyTileset";
@@ -170,18 +172,35 @@ export function inventoryStripPixelDimensionsForKind(
     : { height: tileCount * tileSize, width: tileSize };
 }
 
-function drawInventoryTile(
+export function drawInventoryTile(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
   overlayId: number,
+  render: InteractiveGameTileOverlayRender | null | undefined,
   countLabel: string | null,
   x: number,
   y: number,
 ): void {
-  drawLegacyTile(context, tileset, MS_TILE.Empty, x, y);
-
-  if (overlayId !== MS_TILE.Empty && overlayId !== MS_TILE.Nothing) {
-    drawLegacyTile(context, tileset, overlayId, x, y);
+  if (render?.mode === "tile" && render.petCarrierRender) {
+    const compositeSprite = getOrCreateOccupiedPetCarrierSprite(tileset, render.petCarrierRender, 0);
+    if (compositeSprite) {
+      context.drawImage(compositeSprite.image, x + compositeSprite.offsetX, y + compositeSprite.offsetY);
+      if (!countLabel) {
+        return;
+      }
+    } else {
+      drawLegacyTile(context, tileset, MS_TILE.Empty, x, y);
+      const renderTileId = render.tileId;
+      if (renderTileId !== MS_TILE.Empty && renderTileId !== MS_TILE.Nothing) {
+        drawLegacyTile(context, tileset, renderTileId, x, y);
+      }
+    }
+  } else {
+    drawLegacyTile(context, tileset, MS_TILE.Empty, x, y);
+    const renderTileId = render?.mode === "tile" ? render.tileId : overlayId;
+    if (renderTileId !== MS_TILE.Empty && renderTileId !== MS_TILE.Nothing) {
+      drawLegacyTile(context, tileset, renderTileId, x, y);
+    }
   }
 
   if (!countLabel) {
@@ -204,6 +223,7 @@ function drawInventoryStrip(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
   inventory: GameSnapshot["inventory"] | null,
+  inventoryRender: InteractiveGameSession["frame"]["inventoryRender"] | null | undefined,
   kind: LegacyInventoryStripKind,
   direction: LegacyInventoryStripDirection,
   visualEnhancementsEnabled: boolean,
@@ -220,6 +240,7 @@ function drawInventoryStrip(
       context,
       tileset,
       inventoryStripOverlayTileId(inventory, kind, index),
+      kind === "tools" ? inventoryRender?.tools?.[index] ?? null : null,
       kind === "keys" && visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
       direction === "horizontal" ? index * LEGACY_TILE_SIZE : 0,
       direction === "horizontal" ? 0 : index * LEGACY_TILE_SIZE,
@@ -333,6 +354,7 @@ export function drawLegacyGameScreen(
         context,
         tileset,
         inventoryStripOverlayTileId(snapshot.inventory, kind, columnIndex),
+        kind === "tools" ? session.frame.inventoryRender?.tools?.[columnIndex] ?? null : null,
         kind === "keys" && visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
         inventoryX + columnIndex * LEGACY_TILE_SIZE,
         inventoryY + rowIndex * LEGACY_TILE_SIZE,
@@ -415,6 +437,7 @@ export interface LegacyInventoryStripProps {
   currentRuleset: SeriesCatalogEntry["ruleset"] | null;
   direction?: LegacyInventoryStripDirection;
   inventory: GameSnapshot["inventory"] | null;
+  inventoryRender?: InteractiveGameSession["frame"]["inventoryRender"] | null;
   kind: LegacyInventoryStripKind;
   renderTileSize?: LegacyRenderTileSize;
   visualEnhancementsEnabled?: boolean;
@@ -425,6 +448,7 @@ export function LegacyInventoryStrip({
   currentRuleset,
   direction = "vertical",
   inventory,
+  inventoryRender = null,
   kind,
   renderTileSize = LEGACY_TILE_SIZE,
   visualEnhancementsEnabled = true,
@@ -452,7 +476,7 @@ export function LegacyInventoryStrip({
       context.fillStyle = LEGACY_COLORS.background;
       context.fillRect(0, 0, sourceWidth, sourceHeight);
       if (tileset) {
-        drawInventoryStrip(context, tileset, inventory, kind, direction, visualEnhancementsEnabled);
+        drawInventoryStrip(context, tileset, inventory, inventoryRender, kind, direction, visualEnhancementsEnabled);
       }
       return;
     }
@@ -469,7 +493,7 @@ export function LegacyInventoryStrip({
     scaledContext.fillStyle = LEGACY_COLORS.background;
     scaledContext.fillRect(0, 0, scaledCanvas.width, scaledCanvas.height);
     if (tileset) {
-      drawInventoryStrip(scaledContext, tileset, inventory, kind, direction, visualEnhancementsEnabled);
+      drawInventoryStrip(scaledContext, tileset, inventory, inventoryRender, kind, direction, visualEnhancementsEnabled);
     }
 
     context.clearRect(0, 0, targetWidth, targetHeight);
@@ -477,6 +501,7 @@ export function LegacyInventoryStrip({
   }, [
     direction,
     inventory,
+    inventoryRender,
     kind,
     sourceHeight,
     sourceWidth,

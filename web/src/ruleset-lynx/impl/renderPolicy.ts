@@ -80,10 +80,13 @@ export function projectLynxRenderableAnimation(
 export function projectLynxRenderableOverlay(
   overlay: InteractiveGameTileOverlay,
 ): InteractiveGameTileOverlay {
-  if (overlay.kind === "carried-tool" && typeof overlay.tileId === "number") {
+  if (
+    (overlay.kind === "carried-tool" || overlay.kind === "portable-item-state") &&
+    typeof overlay.tileId === "number"
+  ) {
     return {
       ...overlay,
-      render: projectLynxPortableItemRender(overlay.tileId, 0.25) ?? undefined,
+      render: projectLynxPortableItemRender(overlay.tileId, overlay.kind === "carried-tool" ? 0.25 : 1) ?? undefined,
     };
   }
 

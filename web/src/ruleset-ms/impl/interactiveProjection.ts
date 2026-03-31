@@ -8,6 +8,15 @@ import {
   projectMsRenderableActor,
   projectMsRenderableOverlay,
 } from "@ruleset-ms/impl/renderPolicy";
+import {
+  carriedMsPortableToolItem,
+  type MsPetCarrierPortableItem,
+  type MsPortableItem,
+} from "@ruleset-ms/impl/portableItems";
+import {
+  projectMsOccupiedPetCarrierRender,
+  projectMsPortableItemRender,
+} from "@ruleset-ms/impl/renderRegistration";
 import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
 
 type MsProjectedTileOverlay = InteractiveGameFrame["tileOverlays"][number] & { ttl?: number };
@@ -135,11 +144,27 @@ function projectMsRenderFrame(session: MsInteractiveSessionState): NonNullable<I
   };
 }
 
+function msLayerCellsAt(
+  session: MsInteractiveSessionState,
+  z: number,
+) {
+  return session.state.engine.map.layers?.find((layer) => layer.z === z)?.cells ?? session.state.engine.map.cells;
+}
+
+function isMappedOccupiedMsPetCarrier(
+  item: MsPortableItem,
+): item is MsPetCarrierPortableItem & { state: Extract<MsPetCarrierPortableItem["state"], { mode: "map" }> } {
+  return item.family === "pet-carrier" && item.state.mode === "map" && item.petCarrierState.occupant !== null;
+}
+
 export function projectMsInteractiveFrame(
   session: MsInteractiveSessionState,
   phase: InteractiveProjectionPhase,
 ): InteractiveGameFrame {
   const runtime = msProjectedRuntimeState(session.state.engine);
+  const portableTools = session.state.internal.portableTools ?? null;
+  const mappedOccupiedCarriers = portableTools?.portableItems?.filter(isMappedOccupiedMsPetCarrier) ?? [];
+  const carriedPortableItem = portableTools?.portableItems ? carriedMsPortableToolItem(portableTools) ?? null : null;
   const primedToolDrop = session.state.internal.portableTools?.primedToolDrop ?? null;
 
   const frame = projectInteractiveFrame(
@@ -151,6 +176,22 @@ export function projectMsInteractiveFrame(
       layers: session.state.engine.map.layers,
       tileOverlays: [
         ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectMsRenderableOverlay(overlay)) ?? []),
+        ...mappedOccupiedCarriers.map((item) => {
+          const overlay = projectMsRenderableOverlay({
+            z: item.state.z,
+            pos: item.state.pos,
+            kind: "portable-item-state" as const,
+            tileId: item.tileId,
+          });
+          if (overlay.render?.mode === "tile") {
+            const bottomId = msLayerCellsAt(session, item.state.z)[item.state.pos]?.bottom.id ?? MS_TILE.Empty;
+            overlay.render = {
+              ...overlay.render,
+              petCarrierRender: projectMsOccupiedPetCarrierRender(bottomId, item.petCarrierState.occupant!),
+            };
+          }
+          return overlay;
+        }),
         ...(primedToolDrop
           ? [
               projectMsRenderableOverlay({
@@ -164,6 +205,18 @@ export function projectMsInteractiveFrame(
       ],
     },
   );
+
+  if (carriedPortableItem?.family === "pet-carrier" && carriedPortableItem.petCarrierState.occupant !== null) {
+    const toolRender = projectMsPortableItemRender(carriedPortableItem.tileId, 1);
+    frame.inventoryRender = {
+      tools: toolRender?.mode === "tile"
+        ? [{
+            ...toolRender,
+            petCarrierRender: projectMsOccupiedPetCarrierRender(MS_TILE.Empty, carriedPortableItem.petCarrierState.occupant),
+          }]
+        : [toolRender],
+    };
+  }
 
   applyMsTrapRenderState(frame, session);
   return frame;

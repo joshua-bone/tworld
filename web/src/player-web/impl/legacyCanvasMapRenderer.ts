@@ -1,6 +1,8 @@
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import type {
   InteractiveGameActorDecoration,
+  InteractiveGameInventoryRender,
+  InteractiveGamePetCarrierRender,
   InteractiveGameRenderFrame,
   InteractiveGameRenderSprite,
   InteractiveGameTileOverlay,
@@ -40,6 +42,7 @@ import {
 import {
   drawLegacyTile,
   getOrCreateHeldTrapSprite,
+  getOrCreateOccupiedPetCarrierSprite,
   getOrCreateThinWallOverlaySprite,
 } from "@player-web/impl/legacyCanvasTileset";
 import {
@@ -114,6 +117,7 @@ function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverla
     hash = hashLayerValue(hash, overlay.tileId ?? 0);
     hash = hashLayerValue(hash, overlay.render?.mode === "tile" || overlay.render?.mode === "pickup-reveal" ? overlay.render.tileId : 0);
     hash = hashLayerString(hash, overlay.render?.mode === "tile" || overlay.render?.mode === "pickup-reveal" ? overlay.render.artworkSpriteId : undefined);
+    hash = hashPetCarrierRender(hash, overlay.render?.mode === "tile" ? overlay.render.petCarrierRender : undefined);
     hash = hashLayerValue(hash, overlay.render?.mode === "outline" ? (overlay.render.style === "support" ? 1 : 2) : 0);
   }
   return hash >>> 0;
@@ -135,6 +139,8 @@ function hashOverlayRenderKind(
         return 4;
       case "push-pickup-reveal":
         return 5;
+      case "portable-item-state":
+        return 7;
       default:
         return 6;
     }
@@ -152,6 +158,19 @@ function hashOverlayRenderKind(
   }
 }
 
+function hashPetCarrierRender(
+  hash: number,
+  render: InteractiveGamePetCarrierRender | undefined,
+): number {
+  if (!render) {
+    return hashLayerValue(hash, 0);
+  }
+
+  let next = hashLayerValue(hash, render.baseTileId);
+  next = hashRenderSprite(next, render.occupant);
+  return next;
+}
+
 function hashRenderSprite(hash: number, visual: InteractiveGameRenderSprite | null | undefined): number {
   if (!visual) {
     return hash;
@@ -163,6 +182,7 @@ function hashRenderSprite(hash: number, visual: InteractiveGameRenderSprite | nu
   next = hashLayerValue(next, visual.moving ?? 0);
   next = hashLayerValue(next, visual.frame ?? 0);
   next = hashLayerValue(next, Math.round((visual.alpha ?? 1) * 1000));
+  next = hashPetCarrierRender(next, visual.petCarrierRender);
   return next;
 }
 
@@ -262,6 +282,14 @@ function drawRenderSprite(
     return;
   }
 
+  if (visual.petCarrierRender) {
+    const compositeSprite = getOrCreateOccupiedPetCarrierSprite(tileset, visual.petCarrierRender, 0);
+    if (compositeSprite) {
+      drawLegacyRenderableSprite(context, compositeSprite, x, y, scale, visual.alpha);
+      return;
+    }
+  }
+
   const artworkSprite = visual.artworkSpriteId ? tileset.getArtworkSprite?.(visual.artworkSpriteId) ?? null : null;
   if (artworkSprite) {
     const movementOffset =
@@ -307,6 +335,27 @@ function drawRenderSprite(
     y,
     scale,
   );
+}
+
+function buildPetCarrierReplacementRenders(
+  overlays: ReadonlyArray<InteractiveGameTileOverlay>,
+  targetZ: number,
+): Map<number, InteractiveGamePetCarrierRender> {
+  const renders = new Map<number, InteractiveGamePetCarrierRender>();
+  for (const overlay of overlays) {
+    if (overlay.z !== targetZ || overlay.kind !== "portable-item-state") {
+      continue;
+    }
+
+    const render = overlay.render;
+    if (render?.mode !== "tile" || !render.petCarrierRender) {
+      continue;
+    }
+
+    renders.set(overlay.pos, render.petCarrierRender);
+  }
+
+  return renders;
 }
 
 function drawLegacyRenderableSprite(
@@ -712,7 +761,16 @@ function drawCompositedCell(
   y: number,
   visualEnhancementsEnabled: boolean,
   pickupRevealTileId: number | null,
+  petCarrierRender: InteractiveGamePetCarrierRender | null,
 ): void {
+  if (petCarrierRender) {
+    const compositeSprite = getOrCreateOccupiedPetCarrierSprite(tileset, petCarrierRender, timerval);
+    if (compositeSprite) {
+      context.drawImage(compositeSprite.image, x + compositeSprite.offsetX, y + compositeSprite.offsetY);
+      return;
+    }
+  }
+
   const topTrapOpen =
     visualEnhancementsEnabled &&
     topId === MS_TILE.Beartrap &&
@@ -849,6 +907,9 @@ function drawLayerOverlays(
     }
 
     if (render.mode === "tile") {
+      if (overlay.kind === "portable-item-state" && render.petCarrierRender) {
+        continue;
+      }
       if (render.visualEnhancementOnly && !visualEnhancementsEnabled) {
         continue;
       }
@@ -860,6 +921,7 @@ function drawLayerOverlays(
           tileId: render.tileId,
           artworkSpriteId: render.artworkSpriteId,
           alpha: render.alpha,
+          petCarrierRender: render.petCarrierRender,
         },
         x,
         y,
@@ -923,6 +985,7 @@ function renderMapLayerCanvas(
     layer.z,
     visualEnhancementsEnabled,
   );
+  const petCarrierRenders = buildPetCarrierReplacementRenders(session.frame.tileOverlays, layer.z);
 
   for (const cell of layer.cells) {
     const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
@@ -944,6 +1007,7 @@ function renderMapLayerCanvas(
       y,
       visualEnhancementsEnabled,
       pickupRevealTileIds.get(cell.position.pos) ?? null,
+      petCarrierRenders.get(cell.position.pos) ?? null,
     );
   }
 
@@ -998,6 +1062,7 @@ function renderCachedLowerLayerCanvas(
     layer.z,
     visualEnhancementsEnabled,
   );
+  const petCarrierRenders = buildPetCarrierReplacementRenders(session.frame.tileOverlays, layer.z);
 
   for (const cell of layer.cells) {
     const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
@@ -1015,6 +1080,7 @@ function renderCachedLowerLayerCanvas(
       y,
       visualEnhancementsEnabled,
       pickupRevealTileIds.get(cell.position.pos) ?? null,
+      petCarrierRenders.get(cell.position.pos) ?? null,
     );
   }
 
@@ -1215,6 +1281,21 @@ export function mapPositionAtCanvasPoint(
   return tileY * 32 + tileX;
 }
 
+function buildInventoryRenderHash(inventoryRender: InteractiveGameInventoryRender | undefined): number {
+  if (!inventoryRender?.tools?.length) {
+    return 0;
+  }
+
+  let hash = 0x81_1c_9d_c5;
+  for (const render of inventoryRender.tools) {
+    hash = hashLayerValue(hash, hashOverlayRenderKind(render ?? undefined, "carried-tool"));
+    hash = hashLayerValue(hash, render?.mode === "tile" ? render.tileId : 0);
+    hash = hashLayerString(hash, render?.mode === "tile" ? render.artworkSpriteId : undefined);
+    hash = hashPetCarrierRender(hash, render?.mode === "tile" ? render.petCarrierRender : undefined);
+  }
+  return hash >>> 0;
+}
+
 export function buildLegacyGameDrawStateKey(
   session: InteractiveGameSession | null,
   currentSeries: SeriesCatalogEntry | null,
@@ -1253,6 +1334,7 @@ export function buildLegacyGameDrawStateKey(
       ].join(",");
     })
     .join("|");
+  const inventoryRenderHash = buildInventoryRenderHash(session.frame.inventoryRender);
   return [
     presentation,
     session.request.seriesFile,
@@ -1262,6 +1344,7 @@ export function buildLegacyGameDrawStateKey(
     snapshot.currentTime,
     snapshot.status,
     snapshot.statusFlags,
+    inventoryRenderHash,
     snapshot.view.x,
     snapshot.view.y,
     session.history.currentTick,

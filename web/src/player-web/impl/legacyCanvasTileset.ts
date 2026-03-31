@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import lynxTilesUrl from "@res/atiles.bmp?url";
 import msTilesUrl from "@res/tiles.bmp?url";
 import expandedArtworkUrl from "@res/expansion_artwork/expanded.png?url";
+import type {
+  InteractiveGamePetCarrierRender,
+  InteractiveGameRenderSprite,
+} from "@game-core/api/interactive";
 import { expansionArtworkFrameRect, type ExpansionArtworkFrameRect } from "@player-web/impl/expansionArtwork";
 import { buildLegacyTileset, type LegacyTileSprite, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import { LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
@@ -27,6 +31,7 @@ const legacyTilesetPromiseCache = new Map<LegacyTilesetRuleset, Promise<LegacyTi
 interface LegacyDerivedSpriteCache {
   elevator?: LegacyTileSprite | null;
   heldTrap?: LegacyTileSprite | null;
+  occupiedPetCarriers?: Map<string, LegacyTileSprite | null>;
   thinWallOverlays?: Map<number, LegacyTileSprite | null>;
 }
 
@@ -147,6 +152,115 @@ function createThinWallOverlaySprite(tileset: LegacyTileset, tileId: number): Le
   };
 }
 
+function drawScaledLegacySprite(
+  context: CanvasRenderingContext2D,
+  sprite: LegacyTileSprite,
+  x: number,
+  y: number,
+  scale = 1,
+): void {
+  const drawX = x + sprite.offsetX;
+  const drawY = y + sprite.offsetY;
+
+  if (Math.abs(scale - 1) < 0.001) {
+    context.drawImage(sprite.image, drawX, drawY);
+    return;
+  }
+
+  context.save();
+  context.translate(drawX + sprite.image.width / 2, drawY + sprite.image.height / 2);
+  context.scale(scale, scale);
+  context.drawImage(sprite.image, -sprite.image.width / 2, -sprite.image.height / 2);
+  context.restore();
+}
+
+function petCarrierRenderCacheKey(render: InteractiveGamePetCarrierRender): string {
+  const occupant = render.occupant;
+  return [
+    render.baseTileId,
+    occupant.kind,
+    occupant.tileId,
+    occupant.artworkSpriteId ?? "",
+    occupant.dir ?? 0,
+    occupant.moving ?? 0,
+    occupant.frame ?? 0,
+    occupant.alpha ?? 1,
+    occupant.petCarrierRender ? petCarrierRenderCacheKey(occupant.petCarrierRender) : "",
+  ].join(":");
+}
+
+function resolveLegacyRenderSprite(
+  tileset: LegacyTileset,
+  visual: InteractiveGameRenderSprite,
+): LegacyTileSprite | null {
+  if (visual.petCarrierRender) {
+    return getOrCreateOccupiedPetCarrierSprite(tileset, visual.petCarrierRender, 0);
+  }
+
+  const artworkSprite = visual.artworkSpriteId ? tileset.getArtworkSprite?.(visual.artworkSpriteId) ?? null : null;
+  if (artworkSprite) {
+    return artworkSprite;
+  }
+
+  if (visual.kind === "tile") {
+    return tileset.get(visual.tileId);
+  }
+
+  if (tileset.getCreature) {
+    return tileset.getCreature(
+      visual.tileId,
+      visual.dir ?? MS_DIRECTION.north,
+      visual.moving ?? 0,
+      visual.frame ?? 0,
+    );
+  }
+
+  return tileset.get(msCreatureTile(visual.tileId, visual.dir ?? MS_DIRECTION.north));
+}
+
+function createOccupiedPetCarrierSprite(
+  tileset: LegacyTileset,
+  render: InteractiveGamePetCarrierRender,
+  timerval: number,
+): LegacyTileSprite | null {
+  const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  const emptyFloorSprite = tileset.get(MS_TILE.Empty);
+  const baseSprite =
+    (render.baseTileId !== MS_TILE.Empty ? tileset.getCell?.(render.baseTileId, MS_TILE.Empty, timerval) : null) ??
+    tileset.get(render.baseTileId);
+  const occupantSprite = resolveLegacyRenderSprite(tileset, render.occupant);
+  const carrierSprite = tileset.getArtworkSprite?.("pet_carrier") ?? tileset.get(MS_TILE.PetCarrier);
+
+  if (!baseSprite && !occupantSprite && !carrierSprite) {
+    return null;
+  }
+
+  if (emptyFloorSprite && shouldDrawSyntheticFloorBehindTransparentSprite(baseSprite ?? null)) {
+    drawLegacySpriteImage(context, emptyFloorSprite, 0, 0);
+  }
+  if (baseSprite) {
+    drawLegacySpriteImage(context, baseSprite, 0, 0);
+  }
+  if (occupantSprite) {
+    drawScaledLegacySprite(context, occupantSprite, 0, 8, 0.5);
+  }
+  if (carrierSprite) {
+    drawLegacySpriteImage(context, carrierSprite, 0, 0);
+  }
+
+  return {
+    image: canvas,
+    offsetX: 0,
+    offsetY: 0,
+    transparent: false,
+  };
+}
+
 export function getOrCreateHeldTrapSprite(tileset: LegacyTileset): LegacyTileSprite | null {
   const cache = legacyDerivedSpritesFor(tileset);
   if (cache.heldTrap === undefined) {
@@ -164,6 +278,25 @@ export function getOrCreateThinWallOverlaySprite(tileset: LegacyTileset, tileId:
     cache.thinWallOverlays.set(tileId, createThinWallOverlaySprite(tileset, tileId));
   }
   return cache.thinWallOverlays.get(tileId) ?? null;
+}
+
+export function getOrCreateOccupiedPetCarrierSprite(
+  tileset: LegacyTileset,
+  render: InteractiveGamePetCarrierRender,
+  timerval = 0,
+): LegacyTileSprite | null {
+  const cache = legacyDerivedSpritesFor(tileset);
+  if (!cache.occupiedPetCarriers) {
+    cache.occupiedPetCarriers = new Map();
+  }
+
+  const animationPeriod = tileset.getCellAnimationPeriod?.(MS_TILE.Empty, render.baseTileId) ?? 1;
+  const timeToken = animationPeriod <= 1 || timerval < 0 ? 0 : (timerval + 1) % animationPeriod;
+  const cacheKey = `${render.baseTileId}|${timeToken}|${petCarrierRenderCacheKey(render)}`;
+  if (!cache.occupiedPetCarriers.has(cacheKey)) {
+    cache.occupiedPetCarriers.set(cacheKey, createOccupiedPetCarrierSprite(tileset, render, timerval));
+  }
+  return cache.occupiedPetCarriers.get(cacheKey) ?? null;
 }
 
 function getOrCreateElevatorSprite(tileset: LegacyTileset): LegacyTileSprite | null {

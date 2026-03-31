@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EngineState } from "@game-core/api/model";
+import { createPetCarrierState } from "@game-core/impl/petCarrier";
 import { createStatefulActorRuntimeStore, setStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { expectOverlayPresent } from "@game-core/impl/testOverlays";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
@@ -585,5 +586,135 @@ describe("projectLynxInteractiveFrame", () => {
     expect(frame.currentZ).toBe(2);
     expect(frame.cells[0]?.top.id).toBe(MS_TILE.Air);
     expect(frame.visibleLayers[1]?.cells[0]?.top.id).toBe(MS_TILE.Cloud);
+  });
+
+  it("projects occupied pet carrier render state for mapped cells and carried inventory", () => {
+    const cells = [createCell(0, MS_TILE.PetCarrier, MS_TILE.Dirt)];
+    const engine = createEngineState(cells) as EngineState & {
+      lynxRuntimeState?: unknown;
+    };
+    engine.inventory.tools = [MS_TILE.PetCarrier];
+    engine.lynxRuntimeState = {
+      visuals: {
+        animations: [],
+        tileOverlays: [],
+      },
+      portableTools: {
+        portableItems: [
+          {
+            serial: 1,
+            family: "pet-carrier",
+            tileId: MS_TILE.PetCarrier,
+            inventorySlot: "tools",
+            petCarrierState: createPetCarrierState({
+              occupant: {
+                actorId: MS_TILE.IceBlock,
+                dir: MS_DIRECTION.west,
+              },
+            }),
+            state: {
+              mode: "map",
+              pos: 0,
+              z: 1,
+            },
+          },
+          {
+            serial: 2,
+            family: "pet-carrier",
+            tileId: MS_TILE.PetCarrier,
+            inventorySlot: "tools",
+            petCarrierState: createPetCarrierState({
+              occupant: {
+                actorId: MS_TILE.Bug,
+                dir: MS_DIRECTION.south,
+              },
+            }),
+            state: {
+              mode: "carried",
+            },
+          },
+        ],
+        nextPortableItemSerial: 3,
+        primedToolDrop: null,
+      },
+      chipRuntime: {
+        chipTeleported: false,
+      },
+      statefulActors: createStatefulActorRuntimeStore(),
+    };
+    const level = {
+      number: 1,
+      timeLimitTicks: 0,
+      chipsNeeded: 0,
+      hintText: "",
+      cells,
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      statusFlags: 0,
+    } satisfies LynxLevel;
+    const session = {
+      level,
+      state: engine,
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+      chipPos: 1,
+      chipZ: 1,
+      chipDir: 0,
+      chipMoving: 0,
+      chipMoveKind: "planar",
+      currentInputCode: 0,
+      queuedReplayInputCode: 0,
+      queuedChipInputCode: 0,
+      chipPushing: false,
+      actors: [],
+      endGameTicksElapsed: null,
+      endGameResult: null,
+      endGameAnimationTileId: null,
+      endGameAnimationFrame: null,
+    } as unknown as LynxInteractiveSessionState;
+
+    const frame = projectLynxInteractiveFrame(session, "tick");
+
+    expect(
+      frame.tileOverlays.find((overlay) => overlay.kind === "portable-item-state" && overlay.pos === 0)?.render,
+    ).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.PetCarrier,
+      artworkSpriteId: "pet_carrier",
+      alpha: 1,
+      petCarrierRender: {
+        baseTileId: MS_TILE.Dirt,
+        occupant: {
+          kind: "creature",
+          tileId: MS_TILE.IceBlock,
+          artworkSpriteId: "ice_block",
+          dir: MS_DIRECTION.west,
+          moving: 0,
+          frame: 0,
+        },
+      },
+    });
+    expect(frame.inventoryRender?.tools?.[0]).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.PetCarrier,
+      artworkSpriteId: "pet_carrier",
+      alpha: 1,
+      petCarrierRender: {
+        baseTileId: MS_TILE.Empty,
+        occupant: {
+          kind: "creature",
+          tileId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+          moving: 0,
+          frame: 0,
+        },
+      },
+    });
   });
 });

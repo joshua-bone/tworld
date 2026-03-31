@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EngineState } from "@game-core/api/model";
+import { createPetCarrierState } from "@game-core/impl/petCarrier";
 import { createStatefulActorRuntimeStore, setStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { expectOverlayPresent } from "@game-core/impl/testOverlays";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
@@ -354,6 +355,104 @@ describe("projectMsInteractiveFrame", () => {
       kind: "creature",
       tileId: MS_TILE.BowlingBall,
       artworkSpriteId: "bowling_ball_moving",
+    });
+  });
+
+  it("projects occupied pet carrier render state for mapped cells and carried inventory", () => {
+    const cells = [createCell(0, MS_TILE.PetCarrier, MS_TILE.Dirt)];
+    const engine = createEngineState(cells);
+    engine.inventory.tools = [MS_TILE.PetCarrier];
+    const session = {
+      state: {
+        engine,
+        internal: {
+          chipZ: 1,
+          traps: [],
+          portableTools: {
+            portableItems: [
+              {
+                serial: 1,
+                family: "pet-carrier",
+                tileId: MS_TILE.PetCarrier,
+                inventorySlot: "tools",
+                petCarrierState: createPetCarrierState({
+                  occupant: {
+                    actorId: MS_TILE.Bug,
+                    dir: MS_DIRECTION.south,
+                  },
+                }),
+                state: {
+                  mode: "map",
+                  pos: 0,
+                  z: 1,
+                },
+              },
+              {
+                serial: 2,
+                family: "pet-carrier",
+                tileId: MS_TILE.PetCarrier,
+                inventorySlot: "tools",
+                petCarrierState: createPetCarrierState({
+                  occupant: {
+                    actorId: MS_TILE.Block,
+                    dir: MS_DIRECTION.east,
+                  },
+                }),
+                state: {
+                  mode: "carried",
+                },
+              },
+            ],
+            nextPortableItemSerial: 3,
+            primedToolDrop: null,
+            pendingToolDropAfterSettle: null,
+          },
+        },
+      },
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+    } as unknown as MsInteractiveSessionState;
+
+    const frame = projectMsInteractiveFrame(session, "tick");
+
+    expect(
+      frame.tileOverlays.find((overlay) => overlay.kind === "portable-item-state" && overlay.pos === 0)?.render,
+    ).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.PetCarrier,
+      artworkSpriteId: "pet_carrier",
+      alpha: 1,
+      petCarrierRender: {
+        baseTileId: MS_TILE.Dirt,
+        occupant: {
+          kind: "creature",
+          tileId: MS_TILE.Bug,
+          dir: MS_DIRECTION.south,
+          moving: 0,
+          frame: 0,
+        },
+      },
+    });
+    expect(frame.inventoryRender?.tools?.[0]).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.PetCarrier,
+      artworkSpriteId: "pet_carrier",
+      alpha: 1,
+      petCarrierRender: {
+        baseTileId: MS_TILE.Empty,
+        occupant: {
+          kind: "creature",
+          tileId: MS_TILE.Block,
+          dir: MS_DIRECTION.east,
+          moving: 0,
+          frame: 0,
+        },
+      },
     });
   });
 });

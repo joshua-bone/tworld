@@ -167,6 +167,114 @@ describe("buildLegacyGameDrawStateKey", () => {
       buildLegacyGameDrawStateKey(after, null, null, "Lynx", false, null, "legacy", true, true),
     );
   });
+
+  it("changes when occupied pet carrier map render metadata changes", () => {
+    const before = createSession(MS_TILE.PetCarrier);
+    const after = createSession(MS_TILE.PetCarrier);
+    before.frame.tileOverlays = [
+      {
+        z: 2,
+        pos: 0,
+        kind: "portable-item-state",
+        tileId: MS_TILE.PetCarrier,
+        render: {
+          mode: "tile",
+          tileId: MS_TILE.PetCarrier,
+          artworkSpriteId: "pet_carrier",
+          petCarrierRender: {
+            baseTileId: MS_TILE.Empty,
+            occupant: {
+              kind: "creature",
+              tileId: MS_TILE.Bug,
+              dir: MS_DIRECTION.east,
+              moving: 0,
+              frame: 0,
+            },
+          },
+        },
+      },
+    ];
+    after.frame.tileOverlays = [
+      {
+        z: 2,
+        pos: 0,
+        kind: "portable-item-state",
+        tileId: MS_TILE.PetCarrier,
+        render: {
+          mode: "tile",
+          tileId: MS_TILE.PetCarrier,
+          artworkSpriteId: "pet_carrier",
+          petCarrierRender: {
+            baseTileId: MS_TILE.Empty,
+            occupant: {
+              kind: "creature",
+              tileId: MS_TILE.Paramecium,
+              dir: MS_DIRECTION.east,
+              moving: 0,
+              frame: 0,
+            },
+          },
+        },
+      },
+    ];
+
+    expect(
+      buildLegacyGameDrawStateKey(before, null, null, "Lynx", false, null, "legacy", true, true),
+    ).not.toBe(
+      buildLegacyGameDrawStateKey(after, null, null, "Lynx", false, null, "legacy", true, true),
+    );
+  });
+
+  it("changes when only occupied tool inventory render metadata changes", () => {
+    const before = createSession(MS_TILE.Empty);
+    const after = createSession(MS_TILE.Empty);
+    before.frame.snapshot.inventory.tools = [MS_TILE.PetCarrier];
+    after.frame.snapshot.inventory.tools = [MS_TILE.PetCarrier];
+    before.frame.inventoryRender = {
+      tools: [
+        {
+          mode: "tile",
+          tileId: MS_TILE.PetCarrier,
+          artworkSpriteId: "pet_carrier",
+          petCarrierRender: {
+            baseTileId: MS_TILE.Empty,
+            occupant: {
+              kind: "creature",
+              tileId: MS_TILE.Bug,
+              dir: MS_DIRECTION.north,
+              moving: 0,
+              frame: 0,
+            },
+          },
+        },
+      ],
+    };
+    after.frame.inventoryRender = {
+      tools: [
+        {
+          mode: "tile",
+          tileId: MS_TILE.PetCarrier,
+          artworkSpriteId: "pet_carrier",
+          petCarrierRender: {
+            baseTileId: MS_TILE.Empty,
+            occupant: {
+              kind: "creature",
+              tileId: MS_TILE.Teeth,
+              dir: MS_DIRECTION.north,
+              moving: 0,
+              frame: 0,
+            },
+          },
+        },
+      ],
+    };
+
+    expect(
+      buildLegacyGameDrawStateKey(before, null, null, "Lynx", false, null, "legacy", true, true),
+    ).not.toBe(
+      buildLegacyGameDrawStateKey(after, null, null, "Lynx", false, null, "legacy", true, true),
+    );
+  });
 });
 
 describe("shouldBypassLegacyGameDrawStateMemoization", () => {

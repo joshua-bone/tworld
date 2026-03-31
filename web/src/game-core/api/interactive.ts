@@ -9,6 +9,12 @@ export interface InteractiveGameRenderSprite {
   moving?: number;
   frame?: number;
   alpha?: number;
+  petCarrierRender?: InteractiveGamePetCarrierRender;
+}
+
+export interface InteractiveGamePetCarrierRender {
+  baseTileId: number;
+  occupant: InteractiveGameRenderSprite;
 }
 
 export type InteractiveGameActorDecoration =
@@ -30,6 +36,7 @@ export type InteractiveGameTileOverlayRender =
       artworkSpriteId?: string;
       alpha?: number;
       visualEnhancementOnly?: boolean;
+      petCarrierRender?: InteractiveGamePetCarrierRender;
     }
   | {
       mode: "outline";
@@ -89,7 +96,8 @@ export type InteractiveGameTileOverlayKind =
   | "hidden-wall-reveal"
   | "blue-wall-reveal"
   | "push-pickup-reveal"
-  | "carried-tool";
+  | "carried-tool"
+  | "portable-item-state";
 
 export interface InteractiveGameTileOverlay {
   z: number;
@@ -105,6 +113,10 @@ export interface InteractiveGameRenderFrame {
   animations: InteractiveGameRenderableAnimation[];
 }
 
+export interface InteractiveGameInventoryRender {
+  tools?: Array<InteractiveGameTileOverlayRender | null>;
+}
+
 export interface InteractiveGameFrame {
   snapshot: GameSnapshot;
   cells: EngineMapCell[];
@@ -112,4 +124,5 @@ export interface InteractiveGameFrame {
   visibleLayers: InteractiveGameVisibleLayer[];
   tileOverlays: InteractiveGameTileOverlay[];
   render: InteractiveGameRenderFrame | null;
+  inventoryRender?: InteractiveGameInventoryRender;
 }
