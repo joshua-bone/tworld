@@ -7,11 +7,20 @@ import {
   type BowlingBallState,
 } from "@game-core/impl/bowlingBall";
 import {
+  PORTABLE_ITEM_MOB_OCCUPANCY_POLICY,
+  clonePetCarrierState,
+  createPetCarrierState,
+  isPetCarrierCaptureEligibleFamilyId,
+  isSpecialItemClassFamilyId,
+  petCarrierHasOccupant,
+  petCarrierMobOccupancyPolicy,
+  type PetCarrierState,
+  type PortableItemMobOccupancyPolicy,
+} from "@game-core/impl/petCarrier";
+import {
   createPortableItemFamilyDefinition,
   collectPortableItemsFromLayers,
-  createPortableItem,
   findPortableItemBySerial,
-  mapPortableItemForFamilyAt,
   type PortableItemAttachedState,
   type PortableItemBase,
   type PortableItemCarriedState,
@@ -26,9 +35,13 @@ import {
   type PortableItemStore,
   type PortableToolInventoryProjection,
 } from "@game-core/impl/portableItems";
-import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE, isMsStaticBlockTile, msStaticBlockActorId } from "@ruleset-ms/api/tiles";
 import { msIsOverlayFloorTile } from "@ruleset-ms/impl/catalog";
 import type { MsPortableItemFamily } from "@ruleset-ms/impl/catalogTiles";
+import {
+  type MsActorFamilyId,
+  lookupMsActorFamilyRegistration,
+} from "@ruleset-ms/impl/elements/actors/registration";
 import {
   lookupMsPortableItemFamilyRegistrationByTileId,
 } from "@ruleset-ms/impl/portableItemRegistration";
@@ -37,6 +50,12 @@ export interface MsPrimedToolDrop extends PortableItemDropProjection {}
 
 export type MsToolInventoryProjection = PortableToolInventoryProjection;
 type MsPortableInventorySlot = "tools";
+type MsPortableItemBase<TFamily extends MsPortableItemFamily = MsPortableItemFamily> = PortableItemBase<
+  TFamily,
+  MsPortableInventorySlot,
+  MsPortableItemState
+>;
+type MsPlainPortableItemFamily = Exclude<MsPortableItemFamily, "bowling-ball" | "pet-carrier">;
 
 export type MsPortableItemState =
   | PortableItemMapState
@@ -45,14 +64,24 @@ export type MsPortableItemState =
   | PortableItemDetachedState<"pending-primed">
   | PortableItemAttachedState<"actor">;
 
-export interface MsPortableItem extends PortableItemBase<MsPortableItemFamily, MsPortableInventorySlot, MsPortableItemState> {
-  bowlingBallState?: BowlingBallState;
-}
+type MsStandardPortableToolItem<TFamily extends MsPlainPortableItemFamily = MsPlainPortableItemFamily> = MsPortableItemBase<TFamily> & {
+  bowlingBallState?: undefined;
+  petCarrierState?: undefined;
+};
 
-interface MsBowlingBallPortableItem
-  extends PortableItemBase<"bowling-ball", MsPortableInventorySlot, MsPortableItemState> {
+export type MsPlainPortableItem = MsStandardPortableToolItem<MsPlainPortableItemFamily>;
+
+export type MsPetCarrierPortableItem = MsPortableItemBase<"pet-carrier"> & {
+  bowlingBallState?: undefined;
+  petCarrierState: PetCarrierState;
+};
+
+export type MsBowlingBallPortableItem = MsPortableItemBase<"bowling-ball"> & {
   bowlingBallState: BowlingBallState;
-}
+  petCarrierState?: undefined;
+};
+
+export type MsPortableItem = MsPlainPortableItem | MsPetCarrierPortableItem | MsBowlingBallPortableItem;
 
 export interface MsPortableToolStateStore extends PortableItemStore<MsPortableItem> {
   primedToolDrop: MsPrimedToolDrop | null;
@@ -79,7 +108,119 @@ function identifyMsPortableItem(tileId: number): PortableItemFamilyDescriptor<Ms
   };
 }
 
-type MsStandardPortableItemFamily = Exclude<MsPortableItemFamily, "bowling-ball">;
+export type MsPetCarrierOccupantFamilyId = MsActorFamilyId | MsPortableItemFamily;
+
+type MsStandardPortableItemFamily = Exclude<MsPortableItemFamily, "bowling-ball" | "pet-carrier">;
+
+function createMsPortableMapItem(
+  args: {
+    serial: number;
+    family: MsPortableItemFamily;
+    tileId: number;
+    inventorySlot: MsPortableInventorySlot;
+    pos: number;
+    z: number;
+  },
+): MsPortableItem {
+  const state = {
+    mode: "map",
+    pos: args.pos,
+    z: args.z,
+  } as const;
+
+  switch (args.family) {
+    case "bowling-ball":
+      return {
+        serial: args.serial,
+        family: "bowling-ball",
+        tileId: args.tileId,
+        inventorySlot: args.inventorySlot,
+        bowlingBallState: createStillBowlingBallState(),
+        state,
+      };
+    case "pet-carrier":
+      return {
+        serial: args.serial,
+        family: "pet-carrier",
+        tileId: args.tileId,
+        inventorySlot: args.inventorySlot,
+        petCarrierState: createPetCarrierState(),
+        state,
+      };
+    default:
+      return {
+        serial: args.serial,
+        family: args.family as MsPlainPortableItemFamily,
+        tileId: args.tileId,
+        inventorySlot: args.inventorySlot,
+        state,
+      };
+  }
+}
+
+export function cloneMsPortableItem(item: MsPlainPortableItem, serial?: number): MsPlainPortableItem;
+export function cloneMsPortableItem(item: MsPetCarrierPortableItem, serial?: number): MsPetCarrierPortableItem;
+export function cloneMsPortableItem(item: MsBowlingBallPortableItem, serial?: number): MsBowlingBallPortableItem;
+export function cloneMsPortableItem(item: MsPortableItem, serial?: number): MsPortableItem;
+export function cloneMsPortableItem(item: MsPortableItem, serial = item.serial): MsPortableItem {
+  const state = { ...item.state };
+  switch (item.family) {
+    case "bowling-ball":
+      return {
+        ...item,
+        serial,
+        state,
+        bowlingBallState: cloneBowlingBallState(item.bowlingBallState),
+      };
+    case "pet-carrier":
+      return {
+        ...item,
+        serial,
+        state,
+        petCarrierState: clonePetCarrierState(item.petCarrierState),
+      };
+    default:
+      return {
+        ...item,
+        serial,
+        state,
+      };
+  }
+}
+
+export function msPetCarrierOccupantFamilyId(tileId: number): MsPetCarrierOccupantFamilyId | null {
+  const actorId = isMsStaticBlockTile(tileId) ? msStaticBlockActorId(tileId) : null;
+  const actorFamily = lookupMsActorFamilyRegistration(actorId ?? tileId)?.familyId ?? null;
+  return actorFamily ?? lookupMsPortableItemFamilyRegistrationByTileId(tileId)?.familyId ?? null;
+}
+
+export function isMsSpecialItemClassTileId(tileId: number): boolean {
+  return isSpecialItemClassFamilyId(msPetCarrierOccupantFamilyId(tileId));
+}
+
+export function isMsPetCarrierCaptureEligibleTileId(tileId: number): boolean {
+  return isPetCarrierCaptureEligibleFamilyId(msPetCarrierOccupantFamilyId(tileId));
+}
+
+export function isMsPetCarrierPortableItem(
+  item: MsPortableItem | null | undefined,
+): item is MsPetCarrierPortableItem {
+  return item?.family === "pet-carrier" && item.petCarrierState !== undefined;
+}
+
+export function msPortableItemMobOccupancyPolicy(
+  item: MsPortableItem | null | undefined,
+  actorId: number,
+): PortableItemMobOccupancyPolicy {
+  if (!isMsPetCarrierPortableItem(item)) {
+    return PORTABLE_ITEM_MOB_OCCUPANCY_POLICY.default;
+  }
+
+  return petCarrierMobOccupancyPolicy(
+    msPetCarrierOccupantFamilyId(actorId),
+    petCarrierHasOccupant(item.petCarrierState),
+  );
+}
 
 function createMsPortableItemPolicy<TFamily extends MsStandardPortableItemFamily>(
   family: TFamily,
@@ -115,6 +256,49 @@ function createMsPortableItemPolicy<TFamily extends MsStandardPortableItemFamily
       family: itemFamily,
       tileId,
       inventorySlot,
+      state: {
+        mode: "map",
+        pos,
+        z,
+      },
+    }),
+  };
+}
+
+function createMsPetCarrierPortableItemPolicy(): PortableItemFamilyPolicy<
+  "pet-carrier",
+  "tools",
+  MsPortableItemState,
+  MsPetCarrierPortableItem,
+  MsToolInventoryProjection
+> {
+  return {
+    family: "pet-carrier",
+    inventorySlot: "tools",
+    attachmentKind: "actor",
+    primedMode: "primed",
+    pendingPrimedMode: "pending-primed",
+    displacedMode: ({ hasActivePrimedItem }) => (hasActivePrimedItem ? "pending-primed" : "primed"),
+    projection: {
+      readCarriedTile: (inventory) => inventory.tools[0] ?? 0,
+      writeCarriedTile: (inventory, tileId) => {
+        inventory.tools = [tileId];
+      },
+    },
+    createCarriedItem: ({ serial, family, inventorySlot, tileId }) => ({
+      serial,
+      family,
+      tileId,
+      inventorySlot,
+      petCarrierState: createPetCarrierState(),
+      state: { mode: "carried" },
+    }),
+    createMapItem: ({ serial, family, inventorySlot, tileId, pos, z }) => ({
+      serial,
+      family,
+      tileId,
+      inventorySlot,
+      petCarrierState: createPetCarrierState(),
       state: {
         mode: "map",
         pos,
@@ -181,8 +365,8 @@ function settleMsPortableItemDrop(item: MsPortableItem, context: MsPortableItemS
   return "mapped";
 }
 
-function createMsStandardPortableItemDefinition(
-  family: MsStandardPortableItemFamily,
+function createMsStandardPortableItemDefinition<TFamily extends MsStandardPortableItemFamily>(
+  family: TFamily,
   applyAction1: MsPortableToolDefinition["applyAction1"],
 ): MsPortableToolDefinition {
   const policy = createMsPortableItemPolicy(family);
@@ -197,27 +381,50 @@ function createMsStandardPortableItemDefinition(
   );
 }
 
-function createMsBowlingBallPortableItemDefinition(): MsPortableToolDefinition {
-  const policy = createMsBowlingBallPortableItemPolicy();
-  return createPortableItemFamilyDefinition(
+function createMsPetCarrierPortableItemDefinition(): MsPortableToolDefinition {
+  const policy = createMsPetCarrierPortableItemPolicy();
+  return createPortableItemFamilyDefinition<
+    "pet-carrier",
+    "tools",
+    MsPortableItemState,
+    MsPetCarrierPortableItem,
+    MsToolInventoryProjection,
+    MsPortableItemSettleContext
+  >(
     policy,
     {
-      settleDrop: settleMsPortableItemDrop,
-      activateItem: (item: MsBowlingBallPortableItem) => {
+      settleDrop: (item, context) => settleMsPortableItemDrop(item, context),
+      cloneItem: (item, serial) => cloneMsPortableItem(item, serial),
+    },
+    {
+      applyAction1: () => false,
+    },
+  ) as unknown as MsPortableToolDefinition;
+}
+
+function createMsBowlingBallPortableItemDefinition(): MsPortableToolDefinition {
+  const policy = createMsBowlingBallPortableItemPolicy();
+  return createPortableItemFamilyDefinition<
+    "bowling-ball",
+    "tools",
+    MsPortableItemState,
+    MsBowlingBallPortableItem,
+    MsToolInventoryProjection,
+    MsPortableItemSettleContext
+  >(
+    policy,
+    {
+      settleDrop: (item, context) => settleMsPortableItemDrop(item, context),
+      activateItem: (item) => {
         setBowlingBallMode(item.bowlingBallState, "moving");
       },
-      detachItemToMap: (item: MsBowlingBallPortableItem) => {
+      detachItemToMap: (item) => {
         setBowlingBallMode(item.bowlingBallState, "still");
       },
-      detachItemToDrop: (item: MsBowlingBallPortableItem) => {
+      detachItemToDrop: (item) => {
         setBowlingBallMode(item.bowlingBallState, "still");
       },
-      cloneItem: (item: MsBowlingBallPortableItem, serial) => ({
-        ...item,
-        serial,
-        state: { ...item.state },
-        bowlingBallState: cloneBowlingBallState(item.bowlingBallState),
-      }),
+      cloneItem: (item, serial) => cloneMsPortableItem(item, serial),
     },
     {
       applyAction1: ({ carried, chipDir, hasPrimedDrop, throwMovingItem }) => {
@@ -227,13 +434,13 @@ function createMsBowlingBallPortableItemDefinition(): MsPortableToolDefinition {
         return throwMovingItem(carried, chipDir);
       },
     },
-  ) as MsPortableToolDefinition;
+  ) as unknown as MsPortableToolDefinition;
 }
 
 const MS_PORTABLE_ITEM_FAMILIES = {
   sandbag: createMsStandardPortableItemDefinition("sandbag", ({ primeDrop }) => primeDrop()),
   hook: createMsStandardPortableItemDefinition("hook", () => false),
-  "pet-carrier": createMsStandardPortableItemDefinition("pet-carrier", () => false),
+  "pet-carrier": createMsPetCarrierPortableItemDefinition(),
   "bowling-ball": createMsBowlingBallPortableItemDefinition(),
 } as const satisfies Record<MsPortableItemFamily, MsPortableToolDefinition>;
 
@@ -342,30 +549,7 @@ export function collectMsPortableItemsFromLayers(
     layers,
     identifyMsPortableItem,
     ({ serial, family, tileId, inventorySlot, pos, z }): MsPortableItem =>
-      family === "bowling-ball"
-        ? {
-            serial,
-            family,
-            tileId,
-            inventorySlot,
-            bowlingBallState: createStillBowlingBallState(),
-            state: {
-              mode: "map",
-              pos,
-              z,
-            },
-          }
-        : {
-            serial,
-            family,
-            tileId,
-            inventorySlot,
-            state: {
-              mode: "map",
-              pos,
-              z,
-            },
-          },
+      createMsPortableMapItem({ serial, family, tileId, inventorySlot, pos, z }),
   );
 }
 

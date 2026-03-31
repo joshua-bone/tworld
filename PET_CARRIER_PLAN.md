@@ -34,7 +34,7 @@ Pet Carrier is close to the existing portable special items, but it is the first
   - Register Pet Carrier render ownership in MS and Lynx the same way the other portable special items are registered.
   - Update decode, catalog, and render-registration tests in both rulesets.
 
-- [ ] PC2: Portable-item family and state model
+- [x] PC2: Portable-item family and state model
   - Extend the portable-item family enums and registrations in MS and Lynx with `pet-carrier`.
   - Add persistent Pet Carrier item state that can store an optional captured-mob snapshot plus the snatch/release cooldown state rather than just a bare tile id.
   - Introduce a small “special item class” / occupant-eligibility helper so capture, decode-load, and future behaviors share the same exclusion rule.

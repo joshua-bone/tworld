@@ -144,6 +144,7 @@ import { msBlockedMoveFloorImpactAction, msRuntimeActorFloorImpactAction } from 
 import {
   attachMsPortableToolToActor,
   carriedMsPortableToolItem,
+  cloneMsPortableItem,
   clearMsToolInventory,
   cloneMsPortableTool,
   collectMsPortableItemsFromLayers,
@@ -1346,10 +1347,7 @@ function cloneInternalState(internal: MsInternalState): MsInternalState {
     randomState: { ...internal.randomState },
     statefulActors: cloneStatefulActorRuntimeStore(internal.statefulActors),
     portableTools: {
-      portableItems: internal.portableTools.portableItems.map((item) => ({
-        ...item,
-        state: { ...item.state },
-      })),
+      portableItems: internal.portableTools.portableItems.map((item) => cloneMsPortableItem(item)),
       nextPortableItemSerial: internal.portableTools.nextPortableItemSerial,
       primedToolDrop: internal.portableTools.primedToolDrop ? { ...internal.portableTools.primedToolDrop } : null,
       pendingToolDropAfterSettle: internal.portableTools.pendingToolDropAfterSettle

@@ -31,15 +31,24 @@ describe("Lynx element registration", () => {
     expect(lookupLynxPortableItemFamilyRegistration("sandbag")?.tileId).toBe(MS_TILE.Sandbag);
     expect(lookupLynxPortableItemFamilyRegistration("sandbag")?.artworkSpriteId).toBe("sandbag");
     expect(lookupLynxPortableItemFamilyRegistrationByTileId(MS_TILE.Hook)?.familyId).toBe("hook");
+    expect(lookupLynxPortableItemFamilyRegistration("pet-carrier")?.tileId).toBe(MS_TILE.PetCarrier);
+    expect(lookupLynxPortableItemFamilyRegistrationByTileId(MS_TILE.PetCarrier)?.familyId).toBe("pet-carrier");
     expect(lookupLynxPortableItemFamilyRegistration("bowling-ball")?.tileId).toBe(MS_TILE.BowlingBall_Still);
     expect(lookupLynxPortableItemFamilyRegistrationByTileId(MS_TILE.BowlingBall_Still)?.familyId).toBe("bowling-ball");
     expect(lookupLynxTerrainPickupFamilyRegistration(MS_TILE.Sandbag)?.familyId).toBe("portable-items");
+    expect(lookupLynxTerrainPickupFamilyRegistration(MS_TILE.PetCarrier)?.familyId).toBe("portable-items");
     expect(lookupLynxTerrainPickupFamilyRegistration(MS_TILE.BowlingBall_Still)?.familyId).toBe("portable-items");
     expect(lookupLynxTerrainPickupTileRegistration(MS_TILE.Sandbag)).toEqual({
       tileId: MS_TILE.Sandbag,
       inventorySlot: "tools",
       inventoryIndex: 0,
       portableItemFamily: "sandbag",
+    });
+    expect(lookupLynxTerrainPickupTileRegistration(MS_TILE.PetCarrier)).toEqual({
+      tileId: MS_TILE.PetCarrier,
+      inventorySlot: "tools",
+      inventoryIndex: 0,
+      portableItemFamily: "pet-carrier",
     });
     expect(lookupLynxTerrainPickupTileRegistration(MS_TILE.BowlingBall_Still)).toEqual({
       tileId: MS_TILE.BowlingBall_Still,
@@ -50,6 +59,12 @@ describe("Lynx element registration", () => {
   });
 
   it("owns portable item and bowling ball render registration", () => {
+    expect(projectLynxRegisteredPortableItemRender(MS_TILE.PetCarrier, 0.25)).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.PetCarrier,
+      artworkSpriteId: "pet_carrier",
+      alpha: 0.25,
+    });
     expect(projectLynxRegisteredPortableItemRender(MS_TILE.Hook, 0.25)).toEqual({
       mode: "tile",
       tileId: MS_TILE.Hook,

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createMovingBowlingBallState, createStillBowlingBallState } from "@game-core/impl/bowlingBall";
+import {
+  PET_CARRIER_ACTION_COOLDOWN_TICKS,
+  PORTABLE_ITEM_MOB_OCCUPANCY_POLICY,
+  createPetCarrierCooldownState,
+  createPetCarrierState,
+} from "@game-core/impl/petCarrier";
 import { characterizePortableItemArchetypes } from "@game-core/impl/statefulElementTestSupport";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
@@ -10,6 +16,10 @@ import {
   detachLynxPortableToolToDrop,
   detachLynxPortableToolToMap,
   findLynxPortableToolAttachedToActor,
+  isLynxPetCarrierCaptureEligibleTileId,
+  isLynxPetCarrierPortableItem,
+  isLynxSpecialItemClassTileId,
+  lynxPortableItemMobOccupancyPolicy,
   projectLynxPortableToolState,
   type LynxPortableToolStateStore,
   type LynxToolInventoryProjection,
@@ -79,6 +89,42 @@ function createBowlingBallStore(): LynxPortableToolStateStore {
 function createBowlingBallInventory(): LynxToolInventoryProjection {
   return {
     tools: [MS_TILE.BowlingBall_Still],
+  };
+}
+
+function createPetCarrierStore(occupied = false): LynxPortableToolStateStore {
+  return {
+    portableItems: [
+      {
+        serial: 1,
+        family: "pet-carrier",
+        tileId: MS_TILE.PetCarrier,
+        inventorySlot: "tools",
+        petCarrierState: createPetCarrierState({
+          occupant: occupied
+            ? {
+                actorId: MS_TILE.Bug,
+                dir: MS_DIRECTION.east,
+                runtimeState: {
+                  nested: {
+                    count: 1,
+                  },
+                },
+              }
+            : null,
+          cooldown: occupied ? createPetCarrierCooldownState("after-snatch") : undefined,
+        }),
+        state: { mode: "carried" },
+      },
+    ],
+    nextPortableItemSerial: 2,
+    primedToolDrop: null,
+  };
+}
+
+function createPetCarrierInventory(): LynxToolInventoryProjection {
+  return {
+    tools: [MS_TILE.PetCarrier],
   };
 }
 
@@ -197,5 +243,84 @@ describe("lynx portableItems lifecycle", () => {
       bowlingBallState: createMovingBowlingBallState(MS_DIRECTION.east),
       state: { mode: "attached", attachmentKind: "actor", attachmentId: 41 },
     });
+  });
+
+  it("preserves pet carrier occupant and cooldown state through attach, detach, and clone", () => {
+    const store = createPetCarrierStore(true);
+    const inventory = createPetCarrierInventory();
+
+    expect(activateLynxPortableTool(store, inventory, 1, 41)).toBe(true);
+    const attached = findLynxPortableToolAttachedToActor(store, 41);
+    expect(isLynxPetCarrierPortableItem(attached)).toBe(true);
+    if (!isLynxPetCarrierPortableItem(attached)) {
+      throw new Error("expected attached pet carrier");
+    }
+    expect(attached.petCarrierState).toMatchObject({
+      occupant: {
+        actorId: MS_TILE.Bug,
+        dir: MS_DIRECTION.east,
+      },
+      cooldown: {
+        kind: "after-snatch",
+        remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS,
+      },
+    });
+
+    expect(detachLynxPortableToolToDrop(store, inventory, 1, 9, 2)).toBe(true);
+    const primed = store.portableItems[0];
+    expect(isLynxPetCarrierPortableItem(primed)).toBe(true);
+    if (!isLynxPetCarrierPortableItem(primed)) {
+      throw new Error("expected primed pet carrier");
+    }
+    expect(primed.petCarrierState.occupant?.actorId).toBe(MS_TILE.Bug);
+
+    expect(activateLynxPortableTool(store, inventory, 1, 41)).toBe(true);
+    const cloned = cloneLynxPortableTool(store, inventory, 1);
+    expect(isLynxPetCarrierPortableItem(cloned)).toBe(true);
+    if (!isLynxPetCarrierPortableItem(cloned)) {
+      throw new Error("expected cloned pet carrier");
+    }
+    expect(cloned.petCarrierState).toMatchObject({
+      occupant: {
+        actorId: MS_TILE.Bug,
+      },
+      cooldown: {
+        kind: "after-snatch",
+        remainingTicks: PET_CARRIER_ACTION_COOLDOWN_TICKS,
+      },
+    });
+
+    ((cloned.petCarrierState.occupant?.runtimeState as { nested: { count: number } }).nested).count = 9;
+    expect(((attached.petCarrierState.occupant?.runtimeState as { nested: { count: number } }).nested).count).toBe(1);
+  });
+
+  it("classifies special-item tiles and pet carrier occupancy policy through shared helpers", () => {
+    expect(isLynxSpecialItemClassTileId(MS_TILE.Sandbag)).toBe(true);
+    expect(isLynxSpecialItemClassTileId(MS_TILE.Hook)).toBe(true);
+    expect(isLynxSpecialItemClassTileId(MS_TILE.PetCarrier)).toBe(true);
+    expect(isLynxSpecialItemClassTileId(MS_TILE.BowlingBall_Still)).toBe(true);
+    expect(isLynxSpecialItemClassTileId(MS_TILE.BowlingBall)).toBe(true);
+    expect(isLynxSpecialItemClassTileId(MS_TILE.Bug)).toBe(false);
+
+    expect(isLynxPetCarrierCaptureEligibleTileId(MS_TILE.Bug)).toBe(true);
+    expect(isLynxPetCarrierCaptureEligibleTileId(MS_TILE.Block_Static)).toBe(true);
+    expect(isLynxPetCarrierCaptureEligibleTileId(MS_TILE.IceBlock_Static)).toBe(true);
+    expect(isLynxPetCarrierCaptureEligibleTileId(MS_TILE.Chip)).toBe(false);
+    expect(isLynxPetCarrierCaptureEligibleTileId(MS_TILE.BowlingBall)).toBe(false);
+
+    const emptyCarrier = createPetCarrierStore(false).portableItems[0];
+    const occupiedCarrier = createPetCarrierStore(true).portableItems[0];
+    expect(lynxPortableItemMobOccupancyPolicy(emptyCarrier, MS_TILE.Bug)).toBe(
+      PORTABLE_ITEM_MOB_OCCUPANCY_POLICY.autoCapture,
+    );
+    expect(lynxPortableItemMobOccupancyPolicy(emptyCarrier, MS_TILE.BowlingBall)).toBe(
+      PORTABLE_ITEM_MOB_OCCUPANCY_POLICY.default,
+    );
+    expect(lynxPortableItemMobOccupancyPolicy(occupiedCarrier, MS_TILE.Bug)).toBe(
+      PORTABLE_ITEM_MOB_OCCUPANCY_POLICY.actingWall,
+    );
+    expect(lynxPortableItemMobOccupancyPolicy(occupiedCarrier, MS_TILE.Chip)).toBe(
+      PORTABLE_ITEM_MOB_OCCUPANCY_POLICY.default,
+    );
   });
 });

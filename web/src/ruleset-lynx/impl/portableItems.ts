@@ -6,11 +6,20 @@ import {
   type BowlingBallState,
 } from "@game-core/impl/bowlingBall";
 import {
+  PORTABLE_ITEM_MOB_OCCUPANCY_POLICY,
+  clonePetCarrierState,
+  createPetCarrierState,
+  isPetCarrierCaptureEligibleFamilyId,
+  isSpecialItemClassFamilyId,
+  petCarrierHasOccupant,
+  petCarrierMobOccupancyPolicy,
+  type PetCarrierState,
+  type PortableItemMobOccupancyPolicy,
+} from "@game-core/impl/petCarrier";
+import {
   createPortableItemFamilyDefinition,
   collectPortableItemsFromLayers,
-  createPortableItem,
   findPortableItemBySerial,
-  mapPortableItemForFamilyAt,
   type PortableItemAttachedState,
   type PortableItemBase,
   type PortableItemCarriedState,
@@ -29,14 +38,24 @@ import { replaceTopTile } from "@game-core/impl/board";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import type { LynxPortableItemFamily } from "@ruleset-lynx/impl/catalogTiles";
 import {
+  type LynxActorFamilyId,
+  lookupLynxActorFamilyRegistration,
+} from "@ruleset-lynx/impl/elements/actors/registration";
+import {
   lookupLynxPortableItemFamilyRegistrationByTileId,
 } from "@ruleset-lynx/impl/portableItemRegistration";
-import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE, isMsStaticBlockTile, msStaticBlockActorId } from "@ruleset-ms/api/tiles";
 
 export interface LynxPrimedToolDrop extends PortableItemDropProjection {}
 
 export type LynxToolInventoryProjection = PortableToolInventoryProjection;
 type LynxPortableInventorySlot = "tools";
+type LynxPortableItemBase<TFamily extends LynxPortableItemFamily = LynxPortableItemFamily> = PortableItemBase<
+  TFamily,
+  LynxPortableInventorySlot,
+  LynxPortableItemState
+>;
+type LynxPlainPortableItemFamily = Exclude<LynxPortableItemFamily, "bowling-ball" | "pet-carrier">;
 
 export type LynxPortableItemState =
   | PortableItemMapState
@@ -44,14 +63,24 @@ export type LynxPortableItemState =
   | PortableItemDetachedState<"primed">
   | PortableItemAttachedState<"actor">;
 
-export interface LynxPortableItem extends PortableItemBase<LynxPortableItemFamily, LynxPortableInventorySlot, LynxPortableItemState> {
-  bowlingBallState?: BowlingBallState;
-}
+type LynxStandardPortableToolItem<TFamily extends LynxPlainPortableItemFamily = LynxPlainPortableItemFamily> = LynxPortableItemBase<TFamily> & {
+  bowlingBallState?: undefined;
+  petCarrierState?: undefined;
+};
 
-export interface LynxBowlingBallPortableItem
-  extends PortableItemBase<"bowling-ball", LynxPortableInventorySlot, LynxPortableItemState> {
+export type LynxPlainPortableItem = LynxStandardPortableToolItem<LynxPlainPortableItemFamily>;
+
+export type LynxPetCarrierPortableItem = LynxPortableItemBase<"pet-carrier"> & {
+  bowlingBallState?: undefined;
+  petCarrierState: PetCarrierState;
+};
+
+export type LynxBowlingBallPortableItem = LynxPortableItemBase<"bowling-ball"> & {
   bowlingBallState: BowlingBallState;
-}
+  petCarrierState?: undefined;
+};
+
+export type LynxPortableItem = LynxPlainPortableItem | LynxPetCarrierPortableItem | LynxBowlingBallPortableItem;
 
 export interface LynxPortableToolStateStore extends PortableItemStore<LynxPortableItem> {
   primedToolDrop: LynxPrimedToolDrop | null;
@@ -79,7 +108,119 @@ function identifyLynxPortableItem(tileId: number): PortableItemFamilyDescriptor<
   };
 }
 
-type LynxStandardPortableItemFamily = Exclude<LynxPortableItemFamily, "bowling-ball">;
+export type LynxPetCarrierOccupantFamilyId = LynxActorFamilyId | LynxPortableItemFamily;
+
+type LynxStandardPortableItemFamily = Exclude<LynxPortableItemFamily, "bowling-ball" | "pet-carrier">;
+
+function createLynxPortableMapItem(
+  args: {
+    serial: number;
+    family: LynxPortableItemFamily;
+    tileId: number;
+    inventorySlot: LynxPortableInventorySlot;
+    pos: number;
+    z: number;
+  },
+): LynxPortableItem {
+  const state = {
+    mode: "map",
+    pos: args.pos,
+    z: args.z,
+  } as const;
+
+  switch (args.family) {
+    case "bowling-ball":
+      return {
+        serial: args.serial,
+        family: "bowling-ball",
+        tileId: args.tileId,
+        inventorySlot: args.inventorySlot,
+        bowlingBallState: createStillBowlingBallState(),
+        state,
+      };
+    case "pet-carrier":
+      return {
+        serial: args.serial,
+        family: "pet-carrier",
+        tileId: args.tileId,
+        inventorySlot: args.inventorySlot,
+        petCarrierState: createPetCarrierState(),
+        state,
+      };
+    default:
+      return {
+        serial: args.serial,
+        family: args.family as LynxPlainPortableItemFamily,
+        tileId: args.tileId,
+        inventorySlot: args.inventorySlot,
+        state,
+      };
+  }
+}
+
+export function cloneLynxPortableItem(item: LynxPlainPortableItem, serial?: number): LynxPlainPortableItem;
+export function cloneLynxPortableItem(item: LynxPetCarrierPortableItem, serial?: number): LynxPetCarrierPortableItem;
+export function cloneLynxPortableItem(item: LynxBowlingBallPortableItem, serial?: number): LynxBowlingBallPortableItem;
+export function cloneLynxPortableItem(item: LynxPortableItem, serial?: number): LynxPortableItem;
+export function cloneLynxPortableItem(item: LynxPortableItem, serial = item.serial): LynxPortableItem {
+  const state = { ...item.state };
+  switch (item.family) {
+    case "bowling-ball":
+      return {
+        ...item,
+        serial,
+        state,
+        bowlingBallState: cloneBowlingBallState(item.bowlingBallState),
+      };
+    case "pet-carrier":
+      return {
+        ...item,
+        serial,
+        state,
+        petCarrierState: clonePetCarrierState(item.petCarrierState),
+      };
+    default:
+      return {
+        ...item,
+        serial,
+        state,
+      };
+  }
+}
+
+export function lynxPetCarrierOccupantFamilyId(tileId: number): LynxPetCarrierOccupantFamilyId | null {
+  const actorId = isMsStaticBlockTile(tileId) ? msStaticBlockActorId(tileId) : null;
+  const actorFamily = lookupLynxActorFamilyRegistration(actorId ?? tileId)?.familyId ?? null;
+  return actorFamily ?? lookupLynxPortableItemFamilyRegistrationByTileId(tileId)?.familyId ?? null;
+}
+
+export function isLynxSpecialItemClassTileId(tileId: number): boolean {
+  return isSpecialItemClassFamilyId(lynxPetCarrierOccupantFamilyId(tileId));
+}
+
+export function isLynxPetCarrierCaptureEligibleTileId(tileId: number): boolean {
+  return isPetCarrierCaptureEligibleFamilyId(lynxPetCarrierOccupantFamilyId(tileId));
+}
+
+export function isLynxPetCarrierPortableItem(
+  item: LynxPortableItem | null | undefined,
+): item is LynxPetCarrierPortableItem {
+  return item?.family === "pet-carrier" && item.petCarrierState !== undefined;
+}
+
+export function lynxPortableItemMobOccupancyPolicy(
+  item: LynxPortableItem | null | undefined,
+  actorId: number,
+): PortableItemMobOccupancyPolicy {
+  if (!isLynxPetCarrierPortableItem(item)) {
+    return PORTABLE_ITEM_MOB_OCCUPANCY_POLICY.default;
+  }
+
+  return petCarrierMobOccupancyPolicy(
+    lynxPetCarrierOccupantFamilyId(actorId),
+    petCarrierHasOccupant(item.petCarrierState),
+  );
+}
 
 function createLynxPortableItemPolicy<TFamily extends LynxStandardPortableItemFamily>(
   family: TFamily,
@@ -114,6 +255,48 @@ function createLynxPortableItemPolicy<TFamily extends LynxStandardPortableItemFa
       family: itemFamily,
       tileId,
       inventorySlot,
+      state: {
+        mode: "map",
+        pos,
+        z,
+      },
+    }),
+  };
+}
+
+function createLynxPetCarrierPortableItemPolicy(): PortableItemFamilyPolicy<
+  "pet-carrier",
+  "tools",
+  LynxPortableItemState,
+  LynxPetCarrierPortableItem,
+  LynxToolInventoryProjection
+> {
+  return {
+    family: "pet-carrier",
+    inventorySlot: "tools",
+    attachmentKind: "actor",
+    primedMode: "primed",
+    displacedMode: () => "primed",
+    projection: {
+      readCarriedTile: (inventory) => inventory.tools[0] ?? 0,
+      writeCarriedTile: (inventory, tileId) => {
+        inventory.tools = [tileId];
+      },
+    },
+    createCarriedItem: ({ serial, family, inventorySlot, tileId }) => ({
+      serial,
+      family,
+      tileId,
+      inventorySlot,
+      petCarrierState: createPetCarrierState(),
+      state: { mode: "carried" },
+    }),
+    createMapItem: ({ serial, family, inventorySlot, tileId, pos, z }) => ({
+      serial,
+      family,
+      tileId,
+      inventorySlot,
+      petCarrierState: createPetCarrierState(),
       state: {
         mode: "map",
         pos,
@@ -199,8 +382,8 @@ function settleLynxPortableItemDrop(
   });
 }
 
-function createLynxStandardPortableItemDefinition(
-  family: LynxStandardPortableItemFamily,
+function createLynxStandardPortableItemDefinition<TFamily extends LynxStandardPortableItemFamily>(
+  family: TFamily,
   applyAction1: LynxPortableToolDefinition["applyAction1"],
 ): LynxPortableToolDefinition {
   const policy = createLynxPortableItemPolicy(family);
@@ -215,27 +398,50 @@ function createLynxStandardPortableItemDefinition(
   );
 }
 
-function createLynxBowlingBallPortableItemDefinition(): LynxPortableToolDefinition {
-  const policy = createLynxBowlingBallPortableItemPolicy();
-  return createPortableItemFamilyDefinition(
+function createLynxPetCarrierPortableItemDefinition(): LynxPortableToolDefinition {
+  const policy = createLynxPetCarrierPortableItemPolicy();
+  return createPortableItemFamilyDefinition<
+    "pet-carrier",
+    "tools",
+    LynxPortableItemState,
+    LynxPetCarrierPortableItem,
+    LynxToolInventoryProjection,
+    LynxPortableItemSettleContext
+  >(
     policy,
     {
-      settleDrop: settleLynxPortableItemDrop,
-      activateItem: (item: LynxBowlingBallPortableItem) => {
+      settleDrop: (item, context) => settleLynxPortableItemDrop(item, context),
+      cloneItem: (item, serial) => cloneLynxPortableItem(item, serial),
+    },
+    {
+      applyAction1: () => false,
+    },
+  ) as unknown as LynxPortableToolDefinition;
+}
+
+function createLynxBowlingBallPortableItemDefinition(): LynxPortableToolDefinition {
+  const policy = createLynxBowlingBallPortableItemPolicy();
+  return createPortableItemFamilyDefinition<
+    "bowling-ball",
+    "tools",
+    LynxPortableItemState,
+    LynxBowlingBallPortableItem,
+    LynxToolInventoryProjection,
+    LynxPortableItemSettleContext
+  >(
+    policy,
+    {
+      settleDrop: (item, context) => settleLynxPortableItemDrop(item, context),
+      activateItem: (item) => {
         setBowlingBallMode(item.bowlingBallState, "moving");
       },
-      detachItemToMap: (item: LynxBowlingBallPortableItem) => {
+      detachItemToMap: (item) => {
         setBowlingBallMode(item.bowlingBallState, "still");
       },
-      detachItemToDrop: (item: LynxBowlingBallPortableItem) => {
+      detachItemToDrop: (item) => {
         setBowlingBallMode(item.bowlingBallState, "still");
       },
-      cloneItem: (item: LynxBowlingBallPortableItem, serial) => ({
-        ...item,
-        serial,
-        state: { ...item.state },
-        bowlingBallState: cloneBowlingBallState(item.bowlingBallState),
-      }),
+      cloneItem: (item, serial) => cloneLynxPortableItem(item, serial),
     },
     {
       applyAction1: ({ carried, chipDir, hasPrimedDrop, throwMovingItem }) => {
@@ -245,13 +451,13 @@ function createLynxBowlingBallPortableItemDefinition(): LynxPortableToolDefiniti
         return throwMovingItem(carried, chipDir);
       },
     },
-  ) as LynxPortableToolDefinition;
+  ) as unknown as LynxPortableToolDefinition;
 }
 
 const LYNX_PORTABLE_ITEM_FAMILIES = {
   sandbag: createLynxStandardPortableItemDefinition("sandbag", ({ primeDrop }) => primeDrop()),
   hook: createLynxStandardPortableItemDefinition("hook", () => false),
-  "pet-carrier": createLynxStandardPortableItemDefinition("pet-carrier", () => false),
+  "pet-carrier": createLynxPetCarrierPortableItemDefinition(),
   "bowling-ball": createLynxBowlingBallPortableItemDefinition(),
 } as const satisfies Record<LynxPortableItemFamily, LynxPortableToolDefinition>;
 
@@ -362,30 +568,7 @@ export function collectLynxPortableItemsFromLayers(
     layers,
     identifyLynxPortableItem,
     ({ serial, family, tileId, inventorySlot, pos, z }): LynxPortableItem =>
-      family === "bowling-ball"
-        ? {
-            serial,
-            family,
-            tileId,
-            inventorySlot,
-            bowlingBallState: createStillBowlingBallState(),
-            state: {
-              mode: "map",
-              pos,
-              z,
-            },
-          }
-        : {
-            serial,
-            family,
-            tileId,
-            inventorySlot,
-            state: {
-              mode: "map",
-              pos,
-              z,
-            },
-          },
+      createLynxPortableMapItem({ serial, family, tileId, inventorySlot, pos, z }),
   );
 }
 

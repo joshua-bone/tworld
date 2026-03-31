@@ -32,15 +32,24 @@ describe("MS element registration", () => {
     expect(lookupMsPortableItemFamilyRegistration("sandbag")?.tileId).toBe(MS_TILE.Sandbag);
     expect(lookupMsPortableItemFamilyRegistration("sandbag")?.artworkSpriteId).toBe("sandbag");
     expect(lookupMsPortableItemFamilyRegistrationByTileId(MS_TILE.Hook)?.familyId).toBe("hook");
+    expect(lookupMsPortableItemFamilyRegistration("pet-carrier")?.tileId).toBe(MS_TILE.PetCarrier);
+    expect(lookupMsPortableItemFamilyRegistrationByTileId(MS_TILE.PetCarrier)?.familyId).toBe("pet-carrier");
     expect(lookupMsPortableItemFamilyRegistration("bowling-ball")?.tileId).toBe(MS_TILE.BowlingBall_Still);
     expect(lookupMsPortableItemFamilyRegistrationByTileId(MS_TILE.BowlingBall_Still)?.familyId).toBe("bowling-ball");
     expect(lookupMsTerrainPickupFamilyRegistration(MS_TILE.Sandbag)?.familyId).toBe("portable-items");
+    expect(lookupMsTerrainPickupFamilyRegistration(MS_TILE.PetCarrier)?.familyId).toBe("portable-items");
     expect(lookupMsTerrainPickupFamilyRegistration(MS_TILE.BowlingBall_Still)?.familyId).toBe("portable-items");
     expect(lookupMsTerrainPickupTileRegistration(MS_TILE.Sandbag)).toEqual({
       tileId: MS_TILE.Sandbag,
       inventorySlot: "tools",
       inventoryIndex: 0,
       portableItemFamily: "sandbag",
+    });
+    expect(lookupMsTerrainPickupTileRegistration(MS_TILE.PetCarrier)).toEqual({
+      tileId: MS_TILE.PetCarrier,
+      inventorySlot: "tools",
+      inventoryIndex: 0,
+      portableItemFamily: "pet-carrier",
     });
     expect(lookupMsTerrainPickupTileRegistration(MS_TILE.BowlingBall_Still)).toEqual({
       tileId: MS_TILE.BowlingBall_Still,
@@ -51,6 +60,12 @@ describe("MS element registration", () => {
   });
 
   it("owns portable item and bowling ball render registration", () => {
+    expect(projectMsRegisteredPortableItemRender(MS_TILE.PetCarrier, 0.25)).toEqual({
+      mode: "tile",
+      tileId: MS_TILE.PetCarrier,
+      artworkSpriteId: "pet_carrier",
+      alpha: 0.25,
+    });
     expect(projectMsRegisteredPortableItemRender(MS_TILE.Hook, 0.25)).toEqual({
       mode: "tile",
       tileId: MS_TILE.Hook,
@@ -87,6 +102,6 @@ describe("MS element registration", () => {
   it("assembles dedicated actor, pickup, and decode registration bundles", () => {
     expect(msElementFamilyRegistration.actorFamilies).toBe(msActorFamilyRegistrations);
     expect(msElementFamilyRegistration.terrainPickupFamilies).toBe(msTerrainPickupFamilyRegistrations);
-    expect(msRegisteredLevelDecodeEntries).toHaveLength(0x75);
+    expect(msRegisteredLevelDecodeEntries).toHaveLength(0x76);
   });
 });
