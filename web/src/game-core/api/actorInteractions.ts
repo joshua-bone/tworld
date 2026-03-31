@@ -39,6 +39,8 @@ export type ActorArrivalOutcome =
   | "trap"
   | "button"
   | "clear-key-blue"
+  | "ice-block-water"
+  | "ice-block-fire"
   | "block-water"
   | "block-bomb"
   | "creature-water"
@@ -48,6 +50,8 @@ export type ActorArrivalOutcome =
 export type ActorHazardOutcome =
   | "none"
   | "deny-entry"
+  | "ice-block-water"
+  | "ice-block-fire"
   | "block-water"
   | "block-bomb"
   | "creature-water"

@@ -108,7 +108,6 @@ import {
   msActorClonerFamilyHooks,
   msActorEntryMask,
   msActorMovementStrategyId,
-  msBlockMovementMask,
   msButtonAction,
   msChipMovementMask,
   msDoorKeyIndex,
@@ -141,7 +140,7 @@ import {
   hasMsTileActivation,
   probeMsTileExitEffect,
 } from "@ruleset-ms/impl/tileEffects";
-import { msBlockedMoveFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
+import { msBlockedMoveFloorImpactAction, msRuntimeActorFloorImpactAction } from "@ruleset-ms/impl/floorImpactPolicy";
 import {
   attachMsPortableToolToActor,
   carriedMsPortableToolItem,
@@ -2041,10 +2040,28 @@ function canMoveBlockInto(
     const targetId = msCreatureId(targetTop);
     return targetId === MS_TILE.Chip || targetId === MS_TILE.Swimming_Chip;
   }
-  if ((msBlockMovementMask(targetTop) & dir) === 0) {
+  if ((msActorEntryMask(targetTop, movingBlockId) & dir) === 0) {
     return false;
   }
   return !isMsClonerSpecialFloor(cells[to]!.bottom.id);
+}
+
+function msBlockArrivalReplacement(
+  tileId: number,
+  actorId: number,
+): { tileId: number; soundEffects: number } | null {
+  switch (msRuntimeActorFloorImpactAction(msActorArrivalOutcome(tileId, actorId))) {
+    case "transform-to-dirt":
+      return { tileId: MS_TILE.Dirt, soundEffects: 1 << MS_SOUND.WaterSplash };
+    case "transform-to-ice":
+      return { tileId: MS_TILE.Ice, soundEffects: 1 << MS_SOUND.WaterSplash };
+    case "transform-to-water":
+      return { tileId: MS_TILE.Water, soundEffects: 1 << MS_SOUND.WaterSplash };
+    case "transform-to-empty":
+      return { tileId: MS_TILE.Empty, soundEffects: 1 << MS_SOUND.BombExplodes };
+    default:
+      return null;
+  }
 }
 
 function moveBlock(
@@ -2102,31 +2119,18 @@ function moveBlock(
   const targetTopState = cells[nextPos]!.top.state;
   const targetBottom = cells[nextPos]!.bottom.id;
   const targetBottomState = cells[nextPos]!.bottom.state;
-  switch (msActorArrivalOutcome(targetTop, trackedBlockActorId(trackedBlock))) {
-    case "block-water":
-      cells[nextPos]!.top.id = MS_TILE.Dirt;
-      cells[nextPos]!.top.state = 0;
-      if (!keepSourceTile) {
-        popTile(cells, pos);
-      } else if (oldWasCloneMachine) {
-        cells[pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
-      }
-      hideTrackedBlockAtPos(internal, pos, dir, trackedBlock.z ?? runtimeCellZ(cells, pos), trackedBlockActorId(trackedBlock));
-      internal.pendingSoundEffects |= 1 << MS_SOUND.WaterSplash;
-      return movedMovement();
-    case "block-bomb":
-      cells[nextPos]!.top.id = MS_TILE.Empty;
-      cells[nextPos]!.top.state = 0;
-      if (!keepSourceTile) {
-        popTile(cells, pos);
-      } else if (oldWasCloneMachine) {
-        cells[pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
-      }
-      hideTrackedBlockAtPos(internal, pos, dir, trackedBlock.z ?? runtimeCellZ(cells, pos), trackedBlockActorId(trackedBlock));
-      internal.pendingSoundEffects |= 1 << MS_SOUND.BombExplodes;
-      return movedMovement();
-    default:
-      break;
+  const arrivalReplacement = msBlockArrivalReplacement(targetTop, trackedBlockActorId(trackedBlock));
+  if (arrivalReplacement !== null) {
+    cells[nextPos]!.top.id = arrivalReplacement.tileId;
+    cells[nextPos]!.top.state = 0;
+    if (!keepSourceTile) {
+      popTile(cells, pos);
+    } else if (oldWasCloneMachine) {
+      cells[pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
+    }
+    hideTrackedBlockAtPos(internal, pos, dir, trackedBlock.z ?? runtimeCellZ(cells, pos), trackedBlockActorId(trackedBlock));
+    internal.pendingSoundEffects |= arrivalReplacement.soundEffects;
+    return movedMovement();
   }
 
   if (isMsClonerSpecialFloor(targetBottom)) {
@@ -3679,29 +3683,17 @@ function processMsBlockFloorQueueEntry(
     const targetTopState = blockCells[nextPos]!.top.state;
     const targetBottom = blockCells[nextPos]!.bottom.id;
     const targetBottomState = blockCells[nextPos]!.bottom.state;
-    switch (msActorArrivalOutcome(targetTop, trackedBlockActorId(block))) {
-      case "block-water":
-        blockCells[nextPos]!.top = { id: MS_TILE.Dirt, state: 0 };
-        if (!oldWasCloneMachine) {
-          popExitedMsMobSourceTile(blockCells, block.pos);
-        } else {
-          blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
-        }
-        hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1, trackedBlockActorId(block));
-        soundEffects |= 1 << MS_SOUND.WaterSplash;
-        return true;
-      case "block-bomb":
-        blockCells[nextPos]!.top = { id: MS_TILE.Empty, state: 0 };
-        if (!oldWasCloneMachine) {
-          popExitedMsMobSourceTile(blockCells, block.pos);
-        } else {
-          blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
-        }
-        hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1, trackedBlockActorId(block));
-        soundEffects |= 1 << MS_SOUND.BombExplodes;
-        return true;
-      default:
-        break;
+    const arrivalReplacement = msBlockArrivalReplacement(targetTop, trackedBlockActorId(block));
+    if (arrivalReplacement !== null) {
+      blockCells[nextPos]!.top = { id: arrivalReplacement.tileId, state: 0 };
+      if (!oldWasCloneMachine) {
+        popExitedMsMobSourceTile(blockCells, block.pos);
+      } else {
+        blockCells[block.pos]!.bottom.state &= ~MS_FLOOR_STATE.Cloning;
+      }
+      hideTrackedBlockAtPos(internal, block.pos, dir, block.z ?? 1, trackedBlockActorId(block));
+      soundEffects |= arrivalReplacement.soundEffects;
+      return true;
     }
 
     const movedTile = oldWasCloneMachine ? { ...blockCells[block.pos]!.top } : popExitedMsMobSourceTile(blockCells, block.pos);
@@ -3782,69 +3774,59 @@ function processMsBlockFloorQueueEntry(
       const targetBottom = lowerCells[oldPos]!.bottom.id;
       const targetBottomState = lowerCells[oldPos]!.bottom.state;
 
-      switch (msActorArrivalOutcome(targetTop, trackedBlockActorId(block))) {
-        case "block-water":
-          lowerCells[oldPos]!.top = { id: MS_TILE.Dirt, state: 0 };
-          popExitedMsMobSourceTile(blockCells, oldPos);
-          hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ, trackedBlockActorId(block));
-          soundEffects |= 1 << MS_SOUND.WaterSplash;
-          moved = true;
-          break;
-        case "block-bomb":
-          lowerCells[oldPos]!.top = { id: MS_TILE.Empty, state: 0 };
-          popExitedMsMobSourceTile(blockCells, oldPos);
-          hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ, trackedBlockActorId(block));
-          soundEffects |= 1 << MS_SOUND.BombExplodes;
-          moved = true;
-          break;
-        default: {
-          const movedTile = popExitedMsMobSourceTile(blockCells, oldPos);
-          let landingPos = oldPos;
-          if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
-            landingPos = findMsBlockTeleportDestination({
-              cells: lowerCells,
-              start: oldPos,
-              dir: block.dir,
-              canExit: (exitPos) => canMoveBlockInto(lowerCells, exitPos, block.dir, -1, internal, trackedBlockActorId(block)),
-            });
-          }
-
-          placeStaticBlock(lowerCells, landingPos, movedTile.state, trackedBlockActorId(block));
-          const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-          applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId));
-
-          const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
-          const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
-          block.pos = landingPos;
-          block.z = Math.max(1, sourceZ - 1);
-          updateBlockReleaseAfterMove(lowerCells, internal, block, oldPos, targetTop, landingPos);
-          const previousFloorMovement = block.floorMovement;
-          const previousSliding = block.sliding;
-          if (isIceFloor(successfulFloor)) {
-            clearBlockFloorMovement(block);
-          } else {
-            setBlockFloorMovementAfterSuccessfulMove(
-              block,
-              successfulFloor,
-              successfulFloorState,
-              internal,
-              previousFloorMovement,
-              previousSliding,
-            );
-            syncMsBlockAirFloorMovement(createMsTickContext(engine, internal, engine.inventory, layerCellsByZ), block);
-          }
-          soundEffects |= resolveDeferredOrImmediateButtonLandingEffects(
-            lowerCells,
-            internal,
-            landingPos,
-            successfulFloor,
-            false,
-            null,
-            block.z ?? 1,
-          );
-          moved = true;
-          break;
+      const arrivalReplacement = msBlockArrivalReplacement(targetTop, trackedBlockActorId(block));
+      if (arrivalReplacement !== null) {
+        lowerCells[oldPos]!.top = { id: arrivalReplacement.tileId, state: 0 };
+        popExitedMsMobSourceTile(blockCells, oldPos);
+        hideTrackedBlockAtPos(internal, oldPos, block.dir, sourceZ, trackedBlockActorId(block));
+        soundEffects |= arrivalReplacement.soundEffects;
+        moved = true;
+      } else {
+        const movedTile = popExitedMsMobSourceTile(blockCells, oldPos);
+        let landingPos = oldPos;
+        if (targetTop === MS_TILE.Teleport && (targetTopState & MS_FLOOR_STATE.Broken) === 0) {
+          landingPos = findMsBlockTeleportDestination({
+            cells: lowerCells,
+            start: oldPos,
+            dir: block.dir,
+            canExit: (exitPos) => canMoveBlockInto(lowerCells, exitPos, block.dir, -1, internal, trackedBlockActorId(block)),
+          });
         }
+
+        placeStaticBlock(lowerCells, landingPos, movedTile.state, trackedBlockActorId(block));
+        const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
+        applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId));
+
+        const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
+        const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
+        block.pos = landingPos;
+        block.z = Math.max(1, sourceZ - 1);
+        updateBlockReleaseAfterMove(lowerCells, internal, block, oldPos, targetTop, landingPos);
+        const previousFloorMovement = block.floorMovement;
+        const previousSliding = block.sliding;
+        if (isIceFloor(successfulFloor)) {
+          clearBlockFloorMovement(block);
+        } else {
+          setBlockFloorMovementAfterSuccessfulMove(
+            block,
+            successfulFloor,
+            successfulFloorState,
+            internal,
+            previousFloorMovement,
+            previousSliding,
+          );
+          syncMsBlockAirFloorMovement(createMsTickContext(engine, internal, engine.inventory, layerCellsByZ), block);
+        }
+        soundEffects |= resolveDeferredOrImmediateButtonLandingEffects(
+          lowerCells,
+          internal,
+          landingPos,
+          successfulFloor,
+          false,
+          null,
+          block.z ?? 1,
+        );
+        moved = true;
       }
     }
   } else if (block.floorMovement === "elevator") {

@@ -49,6 +49,23 @@ describe("lynx actorCollections", () => {
     expect(localInventory.boots[0]).toBe(0);
   });
 
+  it("does not let ice blocks collect chips or inventory items", () => {
+    const inventory = createChipInventory();
+
+    expect(collectLynxActorTile(MS_TILE.IceBlock, inventory, MS_TILE.ICChip)).toMatchObject({
+      collected: false,
+      collectedChip: false,
+    });
+    expect(collectLynxActorTile(MS_TILE.IceBlock, inventory, MS_TILE.Key_Red)).toMatchObject({
+      collected: false,
+      collectedChip: false,
+      slot: null,
+      index: null,
+    });
+    expect(inventory.chipsNeeded).toBe(2);
+    expect(inventory.keys[0]).toBe(0);
+  });
+
   it("projects and mutates per-instance stateful actor inventory for bowling balls", () => {
     const chipInventory = createChipInventory();
     const runtimeEntry = {

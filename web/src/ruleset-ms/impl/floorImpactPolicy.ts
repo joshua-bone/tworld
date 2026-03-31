@@ -34,6 +34,10 @@ export function msFloorImpactAction(action: MsChipEnterAction): ActorFloorImpact
 
 export function msRuntimeActorFloorImpactAction(action: ActorArrivalOutcome): ActorFloorImpactAction | null {
   switch (action) {
+    case "ice-block-water":
+      return "transform-to-ice";
+    case "ice-block-fire":
+      return "transform-to-water";
     case "block-water":
       return "transform-to-dirt";
     case "block-bomb":

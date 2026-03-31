@@ -134,6 +134,42 @@ describe("Lynx extensibility characterization", () => {
         tileId: MS_TILE.Dirt,
         expectedMask: 0,
       },
+      {
+        label: "Ice blocks can pass over IC chips",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.ICChip,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
+      {
+        label: "Ice blocks can pass over portable pickups",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.Sandbag,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
+      {
+        label: "Ice blocks can clear dirt",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.Dirt,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
+      {
+        label: "Ice blocks treat hint buttons as floor",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.HintButton,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
+      {
+        label: "Ice blocks can enter exits and sockets",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.Exit,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
+      {
+        label: "Ice blocks can attempt socket entry when chips are satisfied",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.Socket,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
     ]);
   });
 });

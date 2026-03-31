@@ -134,6 +134,36 @@ describe("MS extensibility characterization", () => {
         tileId: MS_TILE.Water,
         expectedMask: FULL_MOVEMENT_MASK,
       },
+      {
+        label: "Ice blocks can pass over IC chips",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.ICChip,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
+      {
+        label: "Ice blocks can pass over portable pickups",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.Sandbag,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
+      {
+        label: "Ice blocks can clear dirt",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.Dirt,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
+      {
+        label: "Ice blocks can enter popup walls and sockets",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.PopupWall,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
+      {
+        label: "Ice blocks can attempt socket entry when chips are satisfied",
+        actorId: MS_TILE.IceBlock,
+        tileId: MS_TILE.Socket,
+        expectedMask: FULL_MOVEMENT_MASK,
+      },
     ]);
   });
 });

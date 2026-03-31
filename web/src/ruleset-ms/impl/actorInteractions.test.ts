@@ -42,6 +42,20 @@ describe("ms actor interactions", () => {
       transformTargetTileId: null,
     });
     expect(
+      msActorInteractionOutcome(MS_TILE.IceBlock, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
+        tileId: MS_TILE.Hook,
+      }),
+    ).toEqual({
+      chipFails: false,
+      denyMove: false,
+      removeMovingActor: false,
+      removeTargetActor: false,
+      preserveTarget: false,
+      consumeTarget: false,
+      transformTargetTileId: null,
+    });
+    expect(
       msActorInteractionOutcome(MS_TILE.Chip, {
         kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
         actorId: MS_TILE.Ball,
@@ -97,6 +111,8 @@ describe("ms actor interactions", () => {
 
   it("returns typed arrival outcomes for actor landings", () => {
     expect(msActorArrivalOutcome(MS_TILE.Water, MS_TILE.Block)).toBe("block-water");
+    expect(msActorArrivalOutcome(MS_TILE.Water, MS_TILE.IceBlock)).toBe("ice-block-water");
+    expect(msActorArrivalOutcome(MS_TILE.Fire, MS_TILE.IceBlock)).toBe("ice-block-fire");
     expect(msActorArrivalOutcome(MS_TILE.Fire, MS_TILE.Glider)).toBe("creature-fire");
     expect(msActorArrivalOutcome(MS_TILE.Bomb, MS_TILE.Ball)).toBe("creature-bomb");
     expect(msActorArrivalOutcome(MS_TILE.Empty, MS_TILE.Ball)).toBe("none");

@@ -1,6 +1,7 @@
 import {
   ACTOR_INTERACTION_TARGET_KIND,
   actorThiefOutcome,
+  noActorCollisionOutcome,
   resolveActorInteractionOutcome,
   type ActorInteractionTarget,
   type ActorArrivalOutcome,
@@ -15,8 +16,8 @@ import {
 } from "@game-core/impl/occupancy";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
+  lynxCreatureArrivalAction,
   lynxActorThiefHook,
-  lynxTileHasTag,
 } from "@ruleset-lynx/impl/catalog";
 import {
   lynxActorArrivalBehavior,
@@ -48,6 +49,9 @@ export function lynxActorInteractionOutcome(
   movingActorId: number,
   target: ActorInteractionTarget,
 ): ActorCollisionOutcome {
+  if (movingActorId === MS_TILE.IceBlock && target.kind === ACTOR_INTERACTION_TARGET_KIND.portableItem) {
+    return noActorCollisionOutcome();
+  }
   const targetActorId =
     target.kind === ACTOR_INTERACTION_TARGET_KIND.runtimeActor || target.kind === ACTOR_INTERACTION_TARGET_KIND.chip
       ? lynxInteractionTargetActorId(target)
@@ -117,18 +121,17 @@ export function lynxInteractionTargetFromOccupancy(
 }
 
 export function lynxActorHazardOutcome(tileId: number, actorId: number): ActorHazardOutcome {
+  const arrivalAction = lynxCreatureArrivalAction(tileId, actorId);
+  if (arrivalAction === "ice-block-water" || arrivalAction === "ice-block-fire") {
+    return arrivalAction;
+  }
   return lynxActorArrivalBehavior(tileId, actorId).hazardOutcome;
 }
 
 export function lynxActorArrivalOutcome(tileId: number, actorId: number): ActorArrivalOutcome {
-  if (tileId === MS_TILE.Beartrap) {
-    return "trap";
-  }
-  if (lynxTileHasTag(tileId, "button")) {
-    return "button";
-  }
-  if (tileId === MS_TILE.Key_Blue) {
-    return "clear-key-blue";
+  const arrivalAction = lynxCreatureArrivalAction(tileId, actorId);
+  if (arrivalAction !== "none") {
+    return arrivalAction;
   }
   return lynxActorArrivalBehavior(tileId, actorId).arrivalOutcome;
 }

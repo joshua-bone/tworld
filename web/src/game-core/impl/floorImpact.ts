@@ -21,6 +21,8 @@ export type ActorFloorImpactAction =
   | "destroy-fire"
   | "destroy-bomb"
   | "transform-to-dirt"
+  | "transform-to-ice"
+  | "transform-to-water"
   | "transform-to-empty"
   | "hold-direction"
   | "teleport"
@@ -65,7 +67,12 @@ export function actorFloorImpactDestroysEnteringActor(action: ActorFloorImpactAc
 }
 
 export function actorFloorImpactTransformsFloor(action: ActorFloorImpactAction): boolean {
-  return action === "transform-to-dirt" || action === "transform-to-empty";
+  return (
+    action === "transform-to-dirt" ||
+    action === "transform-to-ice" ||
+    action === "transform-to-water" ||
+    action === "transform-to-empty"
+  );
 }
 
 export function actorFloorImpactTransformClearsFloor(action: ActorFloorImpactAction): boolean {
@@ -74,6 +81,14 @@ export function actorFloorImpactTransformClearsFloor(action: ActorFloorImpactAct
 
 export function actorFloorImpactTransformTurnsToDirt(action: ActorFloorImpactAction): boolean {
   return action === "transform-to-dirt";
+}
+
+export function actorFloorImpactTransformTurnsToIce(action: ActorFloorImpactAction): boolean {
+  return action === "transform-to-ice";
+}
+
+export function actorFloorImpactTransformTurnsToWater(action: ActorFloorImpactAction): boolean {
+  return action === "transform-to-water";
 }
 
 export function actorFloorImpactBombDestroys(action: ActorFloorImpactAction): boolean {
@@ -159,6 +174,8 @@ export function applyActorFloorImpactAction<
     case "destroy-fire":
     case "destroy-bomb":
     case "transform-to-dirt":
+    case "transform-to-ice":
+    case "transform-to-water":
     case "transform-to-empty":
     case "hold-direction":
     case "teleport":

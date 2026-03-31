@@ -5,6 +5,8 @@ import {
   actorFloorImpactHoldsDirection,
   actorFloorImpactTransformClearsFloor,
   actorFloorImpactTransformTurnsToDirt,
+  actorFloorImpactTransformTurnsToIce,
+  actorFloorImpactTransformTurnsToWater,
   actorFloorImpactTransformsFloor,
 } from "@game-core/impl/floorImpact";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
@@ -98,9 +100,17 @@ export function applyLynxActorFloorImpact(
   }
 
   if (actorFloorImpactTransformsFloor(floorImpactAction)) {
+    let replacementTileId: number = MS_TILE.Empty;
+    if (actorFloorImpactTransformTurnsToDirt(floorImpactAction)) {
+      replacementTileId = MS_TILE.Dirt;
+    } else if (actorFloorImpactTransformTurnsToIce(floorImpactAction)) {
+      replacementTileId = MS_TILE.Ice;
+    } else if (actorFloorImpactTransformTurnsToWater(floorImpactAction)) {
+      replacementTileId = MS_TILE.Water;
+    }
     replaceTopTile(context.state.map.cells, actor.pos, {
       ...cell.top,
-      id: actorFloorImpactTransformTurnsToDirt(floorImpactAction) ? MS_TILE.Dirt : MS_TILE.Empty,
+      id: replacementTileId,
     });
     removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     context.removeActor(

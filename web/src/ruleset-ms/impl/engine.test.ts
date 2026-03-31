@@ -3339,6 +3339,66 @@ describe("MS engine regressions", () => {
     );
   });
 
+  it("turns water into ice when Chip pushes an ice block into water", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const iceBlockPos = pos(11, 10);
+    const waterPos = pos(12, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[waterPos]!.top.id = MS_TILE.Water;
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    const next = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(next.state.engine.soundEffects & (1 << MS_SOUND.WaterSplash)).not.toBe(0);
+    expect(next.state.engine.map.cells[waterPos]?.top.id).toBe(MS_TILE.Ice);
+    expect(next.state.internal.blocks).toContainEqual(
+      expect.objectContaining({
+        id: MS_TILE.IceBlock,
+        pos: iceBlockPos,
+        hidden: true,
+      }),
+    );
+  });
+
+  it("turns fire into water when Chip pushes an ice block into fire", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const iceBlockPos = pos(11, 10);
+    const firePos = pos(12, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[firePos]!.top.id = MS_TILE.Fire;
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    const next = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(next.state.engine.soundEffects & (1 << MS_SOUND.WaterSplash)).not.toBe(0);
+    expect(next.state.engine.map.cells[firePos]?.top.id).toBe(MS_TILE.Water);
+    expect(next.state.internal.blocks).toContainEqual(
+      expect.objectContaining({
+        id: MS_TILE.IceBlock,
+        pos: iceBlockPos,
+        hidden: true,
+      }),
+    );
+  });
+
   it("keeps a hidden debug block at the source after a pushed block splashes into water", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);

@@ -14,6 +14,8 @@ describe("lynx floor impact policy", () => {
     expect(lynxTilePostEntryAction(MS_TILE.Teleport)).toBe("teleport");
     expect(lynxRuntimeActorFloorImpactAction("button")).toBe("button");
     expect(lynxRuntimeActorFloorImpactAction("clear-key-blue")).toBe("transform-to-empty");
+    expect(lynxRuntimeActorFloorImpactAction("ice-block-water")).toBe("transform-to-ice");
+    expect(lynxRuntimeActorFloorImpactAction("ice-block-fire")).toBe("transform-to-water");
     expect(lynxHeldFloorImpactAction(MS_TILE.CloneMachine, MS_TILE.BowlingBall)).toBe("hold-direction");
     expect(lynxBlockedMoveFloorImpactAction(MS_TILE.BowlingBall)).toBe("revert-portable");
   });

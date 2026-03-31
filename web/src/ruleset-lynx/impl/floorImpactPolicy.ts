@@ -41,6 +41,10 @@ export function lynxRuntimeActorFloorImpactAction(action: ActorArrivalOutcome): 
       return "button";
     case "clear-key-blue":
       return "transform-to-empty";
+    case "ice-block-water":
+      return "transform-to-ice";
+    case "ice-block-fire":
+      return "transform-to-water";
     case "block-water":
       return "transform-to-dirt";
     case "block-bomb":

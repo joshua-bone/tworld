@@ -2307,6 +2307,40 @@ describe("runLynxInputTrace", () => {
     expect(dirtBlock?.moving).toBe(0);
   });
 
+  it("turns water into ice when Chip pushes an ice block into water", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(35, MS_TILE.Water, MS_TILE.Empty),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 4, 8);
+
+    expect(next.state.soundEffects & (1 << LYNX_SOUND.WaterSplash)).not.toBe(0);
+    expect(next.state.map.cells[35]?.top.id).toBe(MS_TILE.Ice);
+    expect(next.actors.some((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock)).toBe(false);
+  });
+
+  it("turns fire into water when Chip pushes an ice block into fire", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(35, MS_TILE.Fire, MS_TILE.Empty),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 4, 8);
+
+    expect(next.state.soundEffects & (1 << LYNX_SOUND.WaterSplash)).not.toBe(0);
+    expect(next.state.map.cells[35]?.top.id).toBe(MS_TILE.Water);
+    expect(next.actors.some((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock)).toBe(false);
+  });
+
   it("keeps an unlisted static block inactive in the Lynx actor roster", () => {
     const chipPos = 33;
     const blockPos = 34;

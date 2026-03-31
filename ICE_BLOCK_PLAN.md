@@ -37,7 +37,7 @@ Ice block is close to dirt block, but not close enough to justify copying dirt-b
     - ice cannot push dirt
   - Add MS and Lynx characterization tests for successful and blocked chain pushes.
 
-- [ ] IB4: Terrain-entry policy
+- [x] IB4: Terrain-entry policy
   - Add ice-block arrival/floor-impact behavior through tile lifecycle and floor-impact seams.
   - Implement:
     - pickups: pass over, do not collect

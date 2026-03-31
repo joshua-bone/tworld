@@ -42,6 +42,20 @@ describe("lynx actor interactions", () => {
       transformTargetTileId: null,
     });
     expect(
+      lynxActorInteractionOutcome(MS_TILE.IceBlock, {
+        kind: ACTOR_INTERACTION_TARGET_KIND.portableItem,
+        tileId: MS_TILE.Hook,
+      }),
+    ).toEqual({
+      chipFails: false,
+      denyMove: false,
+      removeMovingActor: false,
+      removeTargetActor: false,
+      preserveTarget: false,
+      consumeTarget: false,
+      transformTargetTileId: null,
+    });
+    expect(
       lynxActorInteractionOutcome(MS_TILE.Chip, {
         kind: ACTOR_INTERACTION_TARGET_KIND.runtimeActor,
         actorId: MS_TILE.Ball,
@@ -99,6 +113,8 @@ describe("lynx actor interactions", () => {
     expect(lynxActorArrivalOutcome(MS_TILE.Button_Red, MS_TILE.Ball)).toBe("button");
     expect(lynxActorArrivalOutcome(MS_TILE.Beartrap, MS_TILE.Ball)).toBe("trap");
     expect(lynxActorArrivalOutcome(MS_TILE.Water, MS_TILE.Block)).toBe("block-water");
+    expect(lynxActorArrivalOutcome(MS_TILE.Water, MS_TILE.IceBlock)).toBe("ice-block-water");
+    expect(lynxActorArrivalOutcome(MS_TILE.Fire, MS_TILE.IceBlock)).toBe("ice-block-fire");
     expect(lynxActorArrivalOutcome(MS_TILE.Bomb, MS_TILE.Ball)).toBe("creature-bomb");
     expect(lynxActorArrivalOutcome(MS_TILE.Empty, MS_TILE.Ball)).toBe("none");
   });

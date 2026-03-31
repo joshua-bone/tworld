@@ -1,6 +1,7 @@
 import {
   ACTOR_INTERACTION_TARGET_KIND,
   actorThiefOutcome,
+  noActorCollisionOutcome,
   resolveActorInteractionOutcome,
   type ActorInteractionTarget,
   type ActorArrivalOutcome,
@@ -11,6 +12,7 @@ import {
 } from "@game-core/api/actorInteractions";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
 import {
+  msActorArrivalAction,
   msActorThiefHook,
 } from "@ruleset-ms/impl/catalog";
 import {
@@ -34,6 +36,9 @@ export function msActorInteractionOutcome(
   movingActorId: number,
   target: ActorInteractionTarget,
 ): ActorCollisionOutcome {
+  if (movingActorId === MS_TILE.IceBlock && target.kind === ACTOR_INTERACTION_TARGET_KIND.portableItem) {
+    return noActorCollisionOutcome();
+  }
   const targetActorId =
     target.kind === ACTOR_INTERACTION_TARGET_KIND.runtimeActor || target.kind === ACTOR_INTERACTION_TARGET_KIND.chip
       ? msInteractionTargetActorId(target)
@@ -59,10 +64,18 @@ export function msActorCollisionOutcome(
 }
 
 export function msActorHazardOutcome(tileId: number, actorId: number): ActorHazardOutcome {
+  const arrivalAction = msActorArrivalAction(tileId, actorId);
+  if (arrivalAction === "ice-block-water" || arrivalAction === "ice-block-fire") {
+    return arrivalAction;
+  }
   return msActorArrivalBehavior(tileId, actorId).hazardOutcome;
 }
 
 export function msActorArrivalOutcome(tileId: number, actorId: number): ActorArrivalOutcome {
+  const arrivalAction = msActorArrivalAction(tileId, actorId);
+  if (arrivalAction === "ice-block-water" || arrivalAction === "ice-block-fire") {
+    return arrivalAction;
+  }
   return msActorArrivalBehavior(tileId, actorId).arrivalOutcome;
 }
 

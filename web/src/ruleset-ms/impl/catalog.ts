@@ -43,7 +43,7 @@ import {
   type TileCapability,
   type TileTag,
 } from "@game-core/api/ruleset";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { lookupMsBlockSpeciesByActorId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   msActorDefinitions,
   MS_CREATURE_ACTOR_CAPABILITIES,
@@ -66,17 +66,23 @@ import {
 } from "@ruleset-ms/impl/elements/tiles/specialFloorRegistration";
 import {
   lookupMsActorDefinitionRegistration,
+  lookupMsTerrainPickupFamilyRegistration,
   lookupMsPortableItemFamilyRegistrationByTileId,
   lookupMsTerrainPickupTileRegistration,
 } from "@ruleset-ms/impl/elementRegistration";
 
 type MsActorArrivalAction =
   | "none"
+  | "ice-block-water"
+  | "ice-block-fire"
   | "block-water"
   | "block-bomb"
   | "creature-water"
   | "creature-fire"
   | "creature-bomb";
+
+const MS_FULL_DIRECTION_MASK =
+  MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
 
 export const msRulesetCatalog = createRulesetCatalog({
   name: "ms",
@@ -217,7 +223,44 @@ function usesBallisticCloneMachineEntry(actorId: number): boolean {
   );
 }
 
+function msIceBlockTerrainEntryMask(tileId: number): number | null {
+  const terrainPickupFamilyId = lookupMsTerrainPickupFamilyRegistration(tileId)?.familyId;
+  if (
+    tileId === MS_TILE.ICChip ||
+    terrainPickupFamilyId === "keys" ||
+    terrainPickupFamilyId === "boots" ||
+    terrainPickupFamilyId === "portable-items" ||
+    terrainPickupFamilyId === "buttons"
+  ) {
+    return MS_FULL_DIRECTION_MASK;
+  }
+
+  switch (tileId) {
+    case MS_TILE.Dirt:
+    case MS_TILE.Gravel:
+    case MS_TILE.Water:
+    case MS_TILE.Fire:
+    case MS_TILE.PopupWall:
+    case MS_TILE.Cloud:
+    case MS_TILE.Socket:
+    case MS_TILE.HintButton:
+    case MS_TILE.Exit:
+    case MS_TILE.Burglar:
+    case MS_TILE.CloneMachine:
+      return MS_FULL_DIRECTION_MASK;
+    default:
+      return null;
+  }
+}
+
 export function msActorEntryMask(tileId: number, actorId: number): number {
+  if (lookupMsBlockSpeciesByActorId(actorId)?.speciesId === "ice") {
+    const iceBlockEntryMask = msIceBlockTerrainEntryMask(tileId);
+    if (iceBlockEntryMask !== null) {
+      return iceBlockEntryMask;
+    }
+  }
+
   if (tileId === MS_TILE.CloneMachine && usesBallisticCloneMachineEntry(actorId)) {
     return msChipMovementMask(MS_TILE.Empty);
   }
@@ -238,6 +281,15 @@ export function msActorHazardResponse(actorId: number, hazard: ActorHazardName):
 }
 
 export function msActorArrivalAction(tileId: number, actorId: number): MsActorArrivalAction {
+  if (lookupMsBlockSpeciesByActorId(actorId)?.speciesId === "ice") {
+    if (tileId === MS_TILE.Water) {
+      return "ice-block-water";
+    }
+    if (tileId === MS_TILE.Fire) {
+      return "ice-block-fire";
+    }
+  }
+
   if (tileId === MS_TILE.Water) {
     switch (msActorHazardResponse(actorId, "water")) {
       case "transform":

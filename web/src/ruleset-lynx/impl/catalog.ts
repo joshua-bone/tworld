@@ -43,7 +43,7 @@ import {
   type TileCapability,
   type TileTag,
 } from "@game-core/api/ruleset";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { lookupMsBlockSpeciesByActorId, MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   lynxActorDefinitions,
   LYNX_CREATURE_ACTOR_CAPABILITIES,
@@ -74,6 +74,7 @@ import {
 } from "@ruleset-lynx/impl/elements/tiles/specialFloorRegistration";
 import {
   lookupLynxActorDefinitionRegistration,
+  lookupLynxTerrainPickupFamilyRegistration,
   lookupLynxPortableItemFamilyRegistrationByTileId,
   lookupLynxTerrainPickupTileRegistration,
 } from "@ruleset-lynx/impl/elementRegistration";
@@ -83,10 +84,15 @@ type LynxCreatureArrivalAction =
   | "trap"
   | "button"
   | "clear-key-blue"
+  | "ice-block-water"
+  | "ice-block-fire"
   | "block-water"
   | "block-bomb"
   | "creature-water"
   | "creature-bomb";
+
+const LYNX_FULL_DIRECTION_MASK =
+  MS_DIRECTION.north | MS_DIRECTION.west | MS_DIRECTION.south | MS_DIRECTION.east;
 
 export const lynxRulesetCatalog = createRulesetCatalog({
   name: "lynx",
@@ -226,7 +232,44 @@ export function lynxActorCollisionStrategyId(id: number): ActorCollisionStrategy
   return actorCollisionStrategyId(lynxActorCapabilityPolicy(id));
 }
 
+function lynxIceBlockTerrainEntryMask(tileId: number): number | null {
+  const terrainPickupFamilyId = lookupLynxTerrainPickupFamilyRegistration(tileId)?.familyId;
+  if (
+    tileId === MS_TILE.ICChip ||
+    terrainPickupFamilyId === "keys" ||
+    terrainPickupFamilyId === "boots" ||
+    terrainPickupFamilyId === "portable-items" ||
+    terrainPickupFamilyId === "buttons"
+  ) {
+    return LYNX_FULL_DIRECTION_MASK;
+  }
+
+  switch (tileId) {
+    case MS_TILE.Dirt:
+    case MS_TILE.Gravel:
+    case MS_TILE.Water:
+    case MS_TILE.Fire:
+    case MS_TILE.PopupWall:
+    case MS_TILE.Cloud:
+    case MS_TILE.Socket:
+    case MS_TILE.HintButton:
+    case MS_TILE.Exit:
+    case MS_TILE.Burglar:
+    case MS_TILE.CloneMachine:
+      return LYNX_FULL_DIRECTION_MASK;
+    default:
+      return null;
+  }
+}
+
 export function lynxActorEntryMask(tileId: number, actorId: number): number {
+  if (lookupMsBlockSpeciesByActorId(actorId)?.speciesId === "ice") {
+    const iceBlockEntryMask = lynxIceBlockTerrainEntryMask(tileId);
+    if (iceBlockEntryMask !== null) {
+      return iceBlockEntryMask;
+    }
+  }
+
   switch (lynxActorMovementStrategyId(actorId)) {
     case "chip-like":
     case "ballistic-like":
@@ -264,6 +307,14 @@ export function lynxCreatureArrivalAction(tileId: number, actorId: number): Lynx
   if (tileId === MS_TILE.Key_Blue) {
     return "clear-key-blue";
   }
+  if (lookupMsBlockSpeciesByActorId(actorId)?.speciesId === "ice") {
+    if (tileId === MS_TILE.Water) {
+      return "ice-block-water";
+    }
+    if (tileId === MS_TILE.Fire) {
+      return "ice-block-fire";
+    }
+  }
   if (tileId === MS_TILE.Water) {
     switch (lynxActorHazardResponse(actorId, "water")) {
       case "transform":
@@ -289,6 +340,8 @@ export function lynxCreatureArrivalAction(tileId: number, actorId: number): Lynx
 
 export function lynxArrivalAnimationKind(tileId: number, actorId: number): LynxAnimationKind {
   switch (lynxCreatureArrivalAction(tileId, actorId)) {
+    case "ice-block-water":
+    case "ice-block-fire":
     case "block-water":
     case "creature-water":
       return "water-splash";
