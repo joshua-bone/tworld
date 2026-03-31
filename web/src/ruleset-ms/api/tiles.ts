@@ -103,6 +103,7 @@ export interface MsBlockSpeciesRegistration {
   readonly speciesId: MsBlockSpeciesId;
   readonly actorId: number;
   readonly staticTileId: number;
+  readonly pushableBlockSpeciesIds: readonly MsBlockSpeciesId[];
   readonly initialClonerDir?: number;
 }
 
@@ -111,11 +112,13 @@ export const MS_BLOCK_SPECIES_REGISTRATIONS = [
     speciesId: "dirt",
     actorId: MS_TILE.Block,
     staticTileId: MS_TILE.Block_Static,
+    pushableBlockSpeciesIds: [],
   },
   {
     speciesId: "ice",
     actorId: MS_TILE.IceBlock,
     staticTileId: MS_TILE.IceBlock_Static,
+    pushableBlockSpeciesIds: ["ice"],
     initialClonerDir: MS_DIRECTION.north,
   },
 ] as const satisfies readonly MsBlockSpeciesRegistration[];
@@ -220,6 +223,16 @@ export function msStaticBlockActorId(tileId: number): number | null {
 
 export function msActorBlockStaticTileId(actorId: number): number | null {
   return lookupMsBlockSpeciesByActorId(actorId)?.staticTileId ?? null;
+}
+
+export function canMsBlockPushBlock(pushingBlockId: number, targetBlockId: number): boolean {
+  const pushingSpecies = lookupMsBlockSpeciesByTileId(pushingBlockId);
+  const targetSpecies = lookupMsBlockSpeciesByTileId(targetBlockId);
+  return (
+    pushingSpecies !== undefined &&
+    targetSpecies !== undefined &&
+    pushingSpecies.pushableBlockSpeciesIds.includes(targetSpecies.speciesId)
+  );
 }
 
 export function isMsKey(id: number): boolean {

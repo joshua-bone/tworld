@@ -3273,6 +3273,72 @@ describe("MS engine regressions", () => {
     );
   });
 
+  it("lets Chip chain-push an ice block through another ice block", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const firstBlockPos = pos(11, 10);
+    const secondBlockPos = pos(12, 10);
+    const exitPos = pos(13, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[firstBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[secondBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    const next = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(next.state.internal.chipPos).toBe(firstBlockPos);
+    expect(next.state.engine.map.cells[firstBlockPos]?.top.id).toBe(msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east));
+    expect(next.state.engine.map.cells[secondBlockPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(next.state.engine.map.cells[exitPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(
+      next.state.internal.blocks.filter((block) => !block.hidden).map((block) => ({ id: block.id, pos: block.pos })),
+    ).toEqual(
+      expect.arrayContaining([
+        { id: MS_TILE.IceBlock, pos: secondBlockPos },
+        { id: MS_TILE.IceBlock, pos: exitPos },
+      ]),
+    );
+  });
+
+  it("blocks an ice block from chain-pushing a dirt block", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(10, 10);
+    const iceBlockPos = pos(11, 10);
+    const dirtBlockPos = pos(12, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[iceBlockPos]!.top.id = MS_TILE.IceBlock_Static;
+    cells[dirtBlockPos]!.top.id = MS_TILE.Block_Static;
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+
+    const next = advanceMsInteractiveSession(session, MS_DIRECTION.east);
+
+    expect(next.state.engine.soundEffects & (1 << MS_SOUND.CantMove)).not.toBe(0);
+    expect(next.state.internal.chipPos).toBe(chipPos);
+    expect(next.state.engine.map.cells[iceBlockPos]?.top.id).toBe(MS_TILE.IceBlock_Static);
+    expect(next.state.engine.map.cells[dirtBlockPos]?.top.id).toBe(MS_TILE.Block_Static);
+    expect(next.state.internal.blocks).toContainEqual(
+      expect.objectContaining({
+        id: MS_TILE.IceBlock,
+        pos: iceBlockPos,
+        hidden: false,
+      }),
+    );
+  });
+
   it("keeps a hidden debug block at the source after a pushed block splashes into water", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);

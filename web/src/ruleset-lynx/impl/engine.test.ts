@@ -2265,6 +2265,48 @@ describe("runLynxInputTrace", () => {
     expect(trace.steps[0]?.mapHash).not.toBe(trace.initialState.mapHash);
   });
 
+  it("lets Chip chain-push an ice block through another ice block", () => {
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(35, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(36, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+    );
+
+    const next = advanceLynxTicks(session, 4, 8);
+    const visibleIceBlocks = next.actors.filter((actor) => !actor.hidden && actor.id === MS_TILE.IceBlock);
+
+    expect(next.chipPos).toBe(34);
+    expect(visibleIceBlocks.map((actor) => actor.pos).sort((a, b) => a - b)).toEqual([35, 36]);
+  });
+
+  it("blocks an ice block from chain-pushing a dirt block", () => {
+    const trace = runLynxInputTraceDebug(
+      { seriesFile: "intro-lynx.dac", levelNumber: 3, ruleset: "Lynx" },
+      createLevel([
+        createCell(33, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(35, MS_TILE.Block_Static, MS_TILE.Empty),
+        createCell(36, MS_TILE.Empty, MS_TILE.Empty),
+      ]),
+      [{ tick: 0, inputCode: 8, inputName: "east" }],
+      1,
+    );
+
+    const finalPhase = trace.steps[0]?.phases.find((phase) => phase.phase === "final");
+    const iceBlock = finalPhase?.blocks.find((actor) => actor.position.pos === 34);
+    const dirtBlock = finalPhase?.blocks.find((actor) => actor.position.pos === 35);
+
+    expect(trace.steps[0]?.soundEffects & (1 << LYNX_SOUND.CantMove)).not.toBe(0);
+    expect(finalPhase?.activeCreatures[0]?.position.pos).toBe(33);
+    expect(iceBlock?.dir).toBe("east");
+    expect(iceBlock?.moving).toBe(0);
+    expect(dirtBlock?.moving).toBe(0);
+  });
+
   it("keeps an unlisted static block inactive in the Lynx actor roster", () => {
     const chipPos = 33;
     const blockPos = 34;

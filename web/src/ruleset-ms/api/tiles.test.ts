@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canMsBlockPushBlock,
   lookupMsBlockSpeciesByActorId,
   lookupMsBlockSpeciesByStaticTileId,
   msActorBlockStaticTileId,
@@ -23,5 +24,12 @@ describe("MS block species helpers", () => {
     expect(lookupMsBlockSpeciesByActorId(msCreatureTile(MS_TILE.Block, MS_DIRECTION.west))?.speciesId).toBe("dirt");
     expect(lookupMsBlockSpeciesByActorId(msCreatureTile(MS_TILE.IceBlock, MS_DIRECTION.east))?.speciesId).toBe("ice");
     expect(lookupMsBlockSpeciesByActorId(MS_TILE.IceBlock)?.initialClonerDir).toBe(MS_DIRECTION.north);
+  });
+
+  it("encodes push compatibility by block species", () => {
+    expect(canMsBlockPushBlock(MS_TILE.Block, MS_TILE.Block_Static)).toBe(false);
+    expect(canMsBlockPushBlock(MS_TILE.Block, MS_TILE.IceBlock_Static)).toBe(false);
+    expect(canMsBlockPushBlock(MS_TILE.IceBlock, MS_TILE.Block_Static)).toBe(false);
+    expect(canMsBlockPushBlock(MS_TILE.IceBlock, MS_TILE.IceBlock_Static)).toBe(true);
   });
 });

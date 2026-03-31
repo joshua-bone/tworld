@@ -29,7 +29,7 @@ Ice block is close to dirt block, but not close enough to justify copying dirt-b
   - Teach registration how to map static tile id, moving actor id, and species traits.
   - Keep existing dirt-block behavior unchanged under the new seam.
 
-- [ ] IB3: Push compatibility
+- [x] IB3: Push compatibility
   - Route Chip push, forced push, trap release, teleport exit push, and block-vs-block push through block-species policy.
   - Implement:
     - dirt cannot push blocks, unchanged from current behavior

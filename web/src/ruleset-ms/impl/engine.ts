@@ -231,6 +231,7 @@ import {
   syncMsChipElevatorFloorMovement,
 } from "@ruleset-ms/impl/verticalMovement";
 import {
+  canMsBlockPushBlock,
   MS_DIRECTION,
   MS_FLOOR_STATE,
   MS_GRID_HEIGHT,
@@ -1977,6 +1978,18 @@ function canMoveCreatureWithOptions(
   return true;
 }
 
+function staticBlockActorIdAtPos(
+  cells: EngineMapCell[],
+  internal: MsInternalState | null,
+  pos: number,
+): number | null {
+  const tileId = topTileIdOr(cells, pos, MS_TILE.Empty);
+  if (!isMsStaticBlockTile(tileId)) {
+    return null;
+  }
+  return (internal ? findVisibleTrackedBlock(internal, pos, runtimeCellZ(cells, pos))?.id : null) ?? msStaticBlockActorId(tileId);
+}
+
 function canMoveBlockInto(
   cells: EngineMapCell[],
   to: number,
@@ -2007,6 +2020,20 @@ function canMoveBlockInto(
   }
   if (targetOccupancy?.kind === "portable-item") {
     return !msActorInteractionOutcome(movingBlockId, msInteractionTargetFromOccupancy(targetOccupancy)).denyMove;
+  }
+  if (targetOccupancy?.kind === "static-block") {
+    const targetBlockId = staticBlockActorIdAtPos(cells, internal, to);
+    if (targetBlockId === null || !canMsBlockPushBlock(movingBlockId, targetBlockId)) {
+      return false;
+    }
+    return canMoveBlockInto(
+      cells,
+      nextPosition(to, dir, MS_GRID_WIDTH),
+      dir,
+      occupiedOriginPos,
+      internal,
+      targetBlockId,
+    );
   }
 
   const targetTop = cells[to]!.top.id;
@@ -2052,6 +2079,19 @@ function moveBlock(
 
   const nextPos = nextY * MS_GRID_WIDTH + nextX;
   if (!canMoveBlockInto(cells, nextPos, dir, occupiedOriginPos, internal, trackedBlockActorId(trackedBlock))) {
+    trackedBlock.floorMovement = "none";
+    trackedBlock.floorMovementDir = MS_DIRECTION.none;
+    trackedBlock.sliding = false;
+    return blockedMovement();
+  }
+  const blockingBlockId = staticBlockActorIdAtPos(cells, internal, nextPos);
+  if (
+    blockingBlockId !== null &&
+    (
+      !canMsBlockPushBlock(trackedBlockActorId(trackedBlock), blockingBlockId) ||
+      !pushBlock(cells, internal, nextPos, dir, false, deferButtons, pos)
+    )
+  ) {
     trackedBlock.floorMovement = "none";
     trackedBlock.floorMovementDir = MS_DIRECTION.none;
     trackedBlock.sliding = false;
@@ -3322,6 +3362,7 @@ function createMsBlockMovementStrategyDispatchContext(): MsBlockMovementStrategy
         moveDir,
         -1,
         moveInternal,
+        staticBlockActorIdAtPos(moveCells, moveInternal, movePos) ?? MS_TILE.Block,
       ),
     startMove: moveBlock,
     startUpMove: (engine, sourceCells, targetCells, moveLayerCellsByZ, block, moveInternal) =>

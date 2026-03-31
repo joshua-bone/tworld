@@ -226,6 +226,7 @@ import {
 } from "@ruleset-lynx/impl/tileEffects";
 import { lynxBlockedMoveFloorImpactAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import {
+  canMsBlockPushBlock,
   MS_DIRECTION,
   MS_GRID_HEIGHT,
   MS_GRID_WIDTH,
@@ -714,6 +715,7 @@ interface LynxPortableToolRuntimeState extends LynxPortableToolStateStore {}
 interface LynxStatefulActorRuntimeState extends StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry> {}
 
 interface LynxTickContext {
+  level: LynxLevel;
   state: EngineState;
   actors: LynxRuntimeActor[];
   chipPos: number;
@@ -1061,12 +1063,14 @@ function addLynxTileOverlay(
 }
 
 function createLynxTickContext(
+  level: LynxLevel,
   state: EngineState,
   actors: LynxRuntimeActor[],
   chipPos: number,
   chipZ: number,
 ): LynxTickContext {
   return {
+    level,
     state,
     actors,
     chipPos,
@@ -1548,7 +1552,7 @@ function createLynxPostMoveContext(
       springLynxTrap(state, level, actors, pos);
     },
     resolveTeleports: (chipPos: number, chipDir: number, chipMoving: number) =>
-      resolveLynxTeleports(state, actors, chipPos, chipDir, chipMoving),
+      resolveLynxTeleports(state, level, actors, chipPos, chipDir, chipMoving),
     clearDeferredBlockPushes: () => {
       clearDeferredLynxBlockPushes(actors);
     },
@@ -1835,6 +1839,7 @@ function probeLynxChipMoveDirection(
         (!block.deferPush || chipTeleported) &&
         canLynxRuntimeActorStartMovement(
           state,
+          level,
           actors,
           block,
           probeDir,
@@ -2209,7 +2214,13 @@ function getLynxChipForcedMove(
           return false;
         }
         return withLynxLayer(context.state, targetZ, () =>
-          canLynxRuntimeActorStartMovement(context.state, context.actors, blockingActor as LynxRuntimeActor, pushDir),
+          canLynxRuntimeActorStartMovement(
+            context.state,
+            context.level,
+            context.actors,
+            blockingActor as LynxRuntimeActor,
+            pushDir,
+          ),
         );
       },
     )
@@ -2329,6 +2340,7 @@ function chipCanOccupyLynxTeleport(
 
 function claimedLynxChipTeleportExitIsValid(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   exitPos: number,
   dir: number,
@@ -2356,10 +2368,10 @@ function claimedLynxChipTeleportExitIsValid(
   if (block.hidden || block.moving > 0 || (block.deferPush && !lynxChipRuntime(state).chipTeleported)) {
     return false;
   }
-  return canLynxRuntimeActorStartMovement(state, actors, block, dir) && canLynxChipEnterCell(state, exitPos, dir);
+  return canLynxRuntimeActorStartMovement(state, level, actors, block, dir) && canLynxChipEnterCell(state, exitPos, dir);
 }
 
-function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[]): LynxTeleportContext {
+function createLynxTeleportContext(state: EngineState, level: LynxLevel, actors: LynxRuntimeActor[]): LynxTeleportContext {
   return {
     state,
     actors,
@@ -2368,7 +2380,7 @@ function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[
     chipActsWallForMobs: (pos, z) => lynxChipActsWallForMobs(state, pos, z),
     chipTeleportLandingIsClear: (teleportPos) => chipCanOccupyLynxTeleport(state, actors, teleportPos),
     canChipEnter: (pos, dir) => canLynxChipEnterTeleportExitCell(state, actors, pos, dir),
-    claimedChipTeleportExitIsValid: (exitPos, dir) => claimedLynxChipTeleportExitIsValid(state, actors, exitPos, dir),
+    claimedChipTeleportExitIsValid: (exitPos, dir) => claimedLynxChipTeleportExitIsValid(state, level, actors, exitPos, dir),
     canActorEnter: (actor, tileId, dir) => canLynxCreatureEnter(state, actor as LynxRuntimeActor, tileId, dir),
     effectiveTargetTileId: (tileId) => effectiveLynxTargetTileId(state, tileId),
     markChipTeleported: () => {
@@ -2389,12 +2401,13 @@ function createLynxTeleportContext(state: EngineState, actors: LynxRuntimeActor[
 
 function resolveLynxTeleports(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   chipPos: number,
   chipDir: number,
   chipMoving: number,
 ): number {
-  return resolveLynxTeleportsWithContext(createLynxTeleportContext(state, actors), chipPos, chipDir, chipMoving);
+  return resolveLynxTeleportsWithContext(createLynxTeleportContext(state, level, actors), chipPos, chipDir, chipMoving);
 }
 
 function resolveLynxPostChipMovement(
@@ -2443,8 +2456,57 @@ function finalizeLynxTickBookkeeping(
   );
 }
 
+function canLynxActorEnterAfterPushingBlock(
+  state: EngineState,
+  actors: LynxRuntimeActor[],
+  actor: LynxRuntimeActor,
+  dir: number,
+  releasing: boolean,
+  clearAnimations: boolean,
+  targetPos: number,
+  targetBlock: LynxRuntimeActor,
+  inventoryOwnerOverride: ActorLocalInventoryOwner | null,
+): boolean {
+  const baseContext = inventoryOwnerOverride
+    ? {
+        ...createLynxActorMovementContext(state, actors),
+        canActorEnter: (_actor: LynxRuntimeActor, tileId: number, probeDir: number) =>
+          canLynxCreatureEnterWithInventoryOwner(state, actor.id, tileId, probeDir, inventoryOwnerOverride),
+      }
+    : createLynxActorMovementContext(state, actors);
+
+  return canLynxActorStartMovementWithContext(
+    {
+      ...baseContext,
+      queryTargetOccupancy: (pos, z) => {
+        const target = queryLynxOccupancyOnLayer(state, actors, pos, z);
+        if (
+          pos === targetPos &&
+          target.claimed &&
+          target.kind === OCCUPANCY_TARGET_KIND.runtimeActor &&
+          target.runtimeActor?.serial === targetBlock.serial
+        ) {
+          return {
+            kind: OCCUPANCY_TARGET_KIND.empty,
+            pos,
+            z,
+            tileId: target.tileId,
+            claimed: false,
+          };
+        }
+        return target;
+      },
+    },
+    actor,
+    dir,
+    releasing,
+    clearAnimations,
+  );
+}
+
 function canLynxRuntimeActorStartMovement(
   state: EngineState,
+  level: LynxLevel | null,
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
   dir: number,
@@ -2455,6 +2517,46 @@ function canLynxRuntimeActorStartMovement(
   const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
   if (targetStep) {
     const target = queryLynxOccupancyOnLayer(state, actors, targetStep.pos, actor.z ?? activeLynxLayerZ(state));
+    if (
+      level !== null &&
+      isMsBlockActorId(actor.id) &&
+      target.claimed &&
+      target.kind === OCCUPANCY_TARGET_KIND.runtimeActor &&
+      !!target.runtimeActor &&
+      isMsBlockActorId(target.runtimeActor.id)
+    ) {
+      const blockingBlock = target.runtimeActor;
+      if (
+        blockingBlock.hidden ||
+        blockingBlock.moving > 0 ||
+        (blockingBlock.deferPush && !lynxChipRuntime(state).chipTeleported) ||
+        !canMsBlockPushBlock(actor.id, blockingBlock.id) ||
+        !canLynxRuntimeActorStartMovement(
+          state,
+          level,
+          actors,
+          blockingBlock,
+          dir,
+          isLynxHeldOpenTrapBlock(state, level, actors, blockingBlock),
+          clearAnimations,
+        )
+      ) {
+        return false;
+      }
+
+      return canLynxActorEnterAfterPushingBlock(
+        state,
+        actors,
+        actor,
+        dir,
+        releasing,
+        clearAnimations,
+        targetStep.pos,
+        blockingBlock,
+        inventoryOwnerOverride,
+      );
+    }
+
     const interaction = lynxActorInteractionOutcome(actor.id, lynxInteractionTargetFromOccupancy(target, dir));
     if (interaction.denyMove) {
       return false;
@@ -2493,6 +2595,7 @@ function canLynxRuntimeActorStartMovement(
 
 function createLynxCreatureControllerContext(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   chipPos: number,
   currentTime: number,
@@ -2504,7 +2607,8 @@ function createLynxCreatureControllerContext(
     stepping,
     withLayer: (z, run) => withLynxLayer(state, z, run),
     floorAt: (pos) => topTileIdOr(state.map.cells, pos, MS_TILE.Empty),
-    canStart: (actor, dir) => canLynxRuntimeActorStartMovement(state, actors, actor as LynxRuntimeActor, dir, false, true),
+    canStart: (actor, dir) =>
+      canLynxRuntimeActorStartMovement(state, level, actors, actor as LynxRuntimeActor, dir, false, true),
     chooseBlobDirection: () => {
       const clockwise = [1, 8, 4, 2];
       return clockwise[advanceLynxMainRandom4(state)] ?? 0;
@@ -2517,6 +2621,7 @@ function createLynxCreatureControllerContext(
 
 function chooseLynxCreatureMoveForTick(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
   chipPos: number,
@@ -2524,13 +2629,14 @@ function chooseLynxCreatureMoveForTick(
   stepping: number,
 ): void {
   chooseLynxCreatureMoveForTickWithContext(
-    createLynxCreatureControllerContext(state, actors, chipPos, currentTime, stepping),
+    createLynxCreatureControllerContext(state, level, actors, chipPos, currentTime, stepping),
     actor,
   );
 }
 
 function startLynxRuntimeActorMovement(
   state: EngineState,
+  level: LynxLevel,
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
   dir: number,
@@ -2542,6 +2648,29 @@ function startLynxRuntimeActorMovement(
   }
 
   const floorBeforeMove = topTileIdOr(state.map.cells, actor.pos, MS_TILE.Empty);
+  const targetStep = advanceToCell(state.map.cells, actor.pos, dir, MS_GRID_WIDTH, MS_GRID_HEIGHT);
+  if (
+    targetStep &&
+    isMsBlockActorId(actor.id) &&
+    canLynxRuntimeActorStartMovement(state, level, actors, actor, dir, releasing)
+  ) {
+    const target = queryLynxOccupancyOnLayer(state, actors, targetStep.pos, actor.z ?? activeLynxLayerZ(state));
+    if (
+      target.claimed &&
+      target.kind === OCCUPANCY_TARGET_KIND.runtimeActor &&
+      !!target.runtimeActor &&
+      isMsBlockActorId(target.runtimeActor.id)
+    ) {
+      startLynxRuntimeActorMovement(
+        state,
+        level,
+        actors,
+        target.runtimeActor,
+        dir,
+        isLynxHeldOpenTrapBlock(state, level, actors, target.runtimeActor),
+      );
+    }
+  }
   const result = startLynxActorMovementWithContext(createLynxActorMovementContext(state, actors), actor, dir, releasing);
   if (!movementDidSucceed(result)) {
     revealBlockedLynxBallisticEnter(state, actor, dir);
@@ -2584,7 +2713,7 @@ function advanceLynxCreature(
   chipZ = activeLynxLayerZ(state),
   pendingFallingCollisionActorSerials: number[] | undefined = undefined,
 ): void {
-  const tickContext = createLynxTickContext(state, actors, chipPos, chipZ);
+  const tickContext = createLynxTickContext(level, state, actors, chipPos, chipZ);
   withLynxLayer(state, actor.z ?? 1, () => {
     if (actor.hidden) {
       return;
@@ -2638,7 +2767,7 @@ function advanceLynxCreature(
         if (moveDir === 0) {
           return;
         }
-        if (!movementDidSucceed(startLynxRuntimeActorMovement(state, actors, actor, moveDir, false))) {
+        if (!movementDidSucceed(startLynxRuntimeActorMovement(state, level, actors, actor, moveDir, false))) {
           return;
         }
         if (actor.hidden || actor.moving <= 0) {
@@ -2907,7 +3036,7 @@ function createLynxTrapClonerContext(
     cloneFamilyRuntimeForCloner: (sourceActorSerial, cloneActorSerial) => {
       cloneLynxPortableBackedActorForCloner(state, sourceActorSerial, cloneActorSerial);
     },
-    startCreatureMovement: (actor, dir, releasing) => startLynxRuntimeActorMovement(state, actors, actor, dir, releasing),
+    startCreatureMovement: (actor, dir, releasing) => startLynxRuntimeActorMovement(state, level, actors, actor, dir, releasing),
     advanceCreature: (actor, currentTime) => advanceLynxCreature(state, level, actors, actor, currentTime),
     currentTime: state.timer.currentTime,
   };
@@ -2981,7 +3110,7 @@ function tryPushLynxBlock(
   block.dormant = false;
   if (
     !movementDidSucceed(
-      startLynxRuntimeActorMovement(state, actors, block, normalizedDir, heldOpenTrapRelease),
+      startLynxRuntimeActorMovement(state, level, actors, block, normalizedDir, heldOpenTrapRelease),
     )
   ) {
     block.dir = normalizedDir;
@@ -3428,7 +3557,7 @@ function createLynxAdvanceTickRuntime(
 }
 
 function currentLynxTickContext(runtime: LynxAdvanceTickRuntime): LynxTickContext {
-  return createLynxTickContext(runtime.state, runtime.actors, runtime.chipPos, runtime.chipZ);
+  return createLynxTickContext(runtime.level, runtime.state, runtime.actors, runtime.chipPos, runtime.chipZ);
 }
 
 function recordLynxTickPhase(
@@ -3645,6 +3774,7 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
           canStartMovement: (actor, dir, localInventory) =>
             canLynxRuntimeActorStartMovement(
               runtime.state,
+              runtime.level,
               runtime.actors,
               actor,
               dir,
@@ -3652,7 +3782,7 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
               false,
               projectLynxActorInventoryOwner(MS_TILE.BowlingBall, runtime.state.inventory, { localInventory }),
             ),
-          startMovement: (actor, dir) => startLynxRuntimeActorMovement(runtime.state, runtime.actors, actor, dir),
+          startMovement: (actor, dir) => startLynxRuntimeActorMovement(runtime.state, runtime.level, runtime.actors, actor, dir),
           allocateActorSlot: (actor) => allocateLynxActorSlot(runtime.actors, actor),
         });
         if (activated) {
@@ -3682,6 +3812,7 @@ function runLynxCreatureIntentPhase(runtime: LynxAdvanceTickRuntime): void {
     }
     chooseLynxCreatureMoveForTick(
       runtime.state,
+      runtime.level,
       runtime.actors,
       actor,
       runtime.chipPos,
