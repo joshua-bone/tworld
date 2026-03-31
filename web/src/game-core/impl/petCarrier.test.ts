@@ -3,6 +3,7 @@ import {
   PET_CARRIER_ACTION_COOLDOWN_TICKS,
   PORTABLE_ITEM_MOB_OCCUPANCY_POLICY,
   clonePetCarrierState,
+  createPetCarrierMobSnapshot,
   createPetCarrierCooldownState,
   createPetCarrierState,
   isPetCarrierCaptureEligibleFamilyId,
@@ -35,15 +36,18 @@ describe("petCarrier helpers", () => {
 
   it("creates and deep-clones occupant payload and cooldown state", () => {
     const state = createPetCarrierState({
-      occupant: {
+      occupant: createPetCarrierMobSnapshot({
         actorId: 0x64,
         dir: 8,
-        runtimeState: {
-          nested: {
-            value: 3,
+        runtimeSnapshot: {
+          kind: "ghost",
+          state: {
+            nested: {
+              value: 3,
+            },
           },
         },
-      },
+      }),
       cooldown: createPetCarrierCooldownState("after-snatch"),
     });
 
@@ -57,6 +61,7 @@ describe("petCarrier helpers", () => {
     ((cloned.occupant?.runtimeState as { nested: { value: number } }).nested).value = 9;
     cloned.cooldown = createPetCarrierCooldownState("after-release", 2);
 
+    expect(cloned.occupant?.runtimeKind).toBe("ghost");
     expect(((state.occupant?.runtimeState as { nested: { value: number } }).nested).value).toBe(3);
     expect(state.cooldown).toEqual({
       kind: "after-snatch",

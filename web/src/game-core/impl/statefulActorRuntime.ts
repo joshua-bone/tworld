@@ -18,6 +18,14 @@ export interface StatefulActorRuntimeStore<TEntry extends StatefulActorRuntimeEn
   byActorSerial: Map<number, TEntry>;
 }
 
+export interface StatefulActorRuntimeSnapshot<
+  TKind extends string = string,
+  TState extends object = Record<string, unknown>,
+> {
+  kind: TKind;
+  state: TState;
+}
+
 export function createStatefulActorRuntimeStore<
   TEntry extends StatefulActorRuntimeEntry = StatefulActorRuntimeEntry,
 >(): StatefulActorRuntimeStore<TEntry> {
@@ -41,6 +49,21 @@ export function findStatefulActorRuntime<TEntry extends StatefulActorRuntimeEntr
   actorSerial: number,
 ): TEntry | undefined {
   return store.byActorSerial.get(actorSerial);
+}
+
+export function snapshotStatefulActorRuntime<TEntry extends StatefulActorRuntimeEntry>(
+  store: StatefulActorRuntimeStore<TEntry>,
+  actorSerial: number,
+): StatefulActorRuntimeSnapshot<TEntry["kind"], TEntry["state"]> | null {
+  const entry = findStatefulActorRuntime(store, actorSerial);
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    kind: entry.kind,
+    state: structuredClone(entry.state),
+  };
 }
 
 export function setStatefulActorRuntime<TEntry extends StatefulActorRuntimeEntry>(

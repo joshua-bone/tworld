@@ -41,7 +41,7 @@ Pet Carrier is close to the existing portable special items, but it is the first
   - Encode the occupancy policy distinction between empty carriers that can absorb eligible non-player mobs and occupied carriers that block non-Chip mobs.
   - Keep existing sandbag, hook, and bowling-ball state flow unchanged under the new portable family.
 
-- [ ] PC3: Captured-mob snapshot seam
+- [x] PC3: Captured-mob snapshot seam
   - Add a reusable mob snapshot shape for Pet Carrier payloads that can represent at least actor id, direction, and any family-specific runtime state needed to restore the mob correctly.
   - Route snapshot creation/restoration through actor lifecycle or stateful-actor seams instead of hard-coding per-mob copies in the engines.
   - Ensure excluded special items cannot be snapshotted, while blocks and normal monsters can.

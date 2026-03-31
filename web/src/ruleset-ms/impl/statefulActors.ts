@@ -6,6 +6,8 @@ import { type StatefulActorInventoryEntry } from "@game-core/impl/statefulActorL
 import {
   createActorIdStatefulActorRuntimeFamilyAdapter,
   createStatefulActorRuntimeRegistry,
+  snapshotStatefulActorRuntime,
+  type StatefulActorRuntimeSnapshot,
   type StatefulActorPortableBacking,
   type StatefulActorRuntimeStore,
 } from "@game-core/impl/statefulActorRuntime";
@@ -22,6 +24,11 @@ export type MsStatefulActorRuntimeEntry = StatefulActorInventoryEntry<
   typeof MS_BOWLING_BALL_ACTOR_FAMILY,
   MsBowlingBallRuntimeState,
   MsPortableItemFamily
+>;
+
+export type MsStatefulActorRuntimeSnapshot = StatefulActorRuntimeSnapshot<
+  MsStatefulActorRuntimeEntry["kind"],
+  MsStatefulActorRuntimeEntry["state"]
 >;
 
 const MS_STATEFUL_ACTOR_REGISTRY = createStatefulActorRuntimeRegistry<
@@ -65,11 +72,31 @@ export function findMsStatefulActorRuntime(
   return MS_STATEFUL_ACTOR_REGISTRY.find(store, actorSerial);
 }
 
+export function snapshotMsStatefulActorRuntime(
+  store: StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>,
+  actorSerial: number,
+): MsStatefulActorRuntimeSnapshot | null {
+  return snapshotStatefulActorRuntime(store, actorSerial);
+}
+
 export function restoreMsStatefulActorRuntime(
   store: StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>,
   entry: MsStatefulActorRuntimeEntry,
 ): MsStatefulActorRuntimeEntry {
   return MS_STATEFUL_ACTOR_REGISTRY.restore(store, entry);
+}
+
+export function restoreMsStatefulActorRuntimeSnapshot(
+  store: StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>,
+  actorSerial: number,
+  snapshot: MsStatefulActorRuntimeSnapshot,
+): MsStatefulActorRuntimeEntry {
+  return restoreMsStatefulActorRuntime(store, {
+    actorSerial,
+    kind: snapshot.kind,
+    portableBacking: null,
+    state: structuredClone(snapshot.state),
+  });
 }
 
 export function cloneMsStatefulActorRuntime(

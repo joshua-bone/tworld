@@ -9,6 +9,7 @@ import {
   forkStatefulActorRuntime,
   removeStatefulActorRuntime,
   setStatefulActorRuntime,
+  snapshotStatefulActorRuntime,
   type StatefulActorRuntimeEntry,
 } from "@game-core/impl/statefulActorRuntime";
 
@@ -86,6 +87,39 @@ describe("statefulActorRuntime", () => {
 
     expect(findStatefulActorRuntime(store, 3)?.state.inventory?.keys).toEqual([0, 0, 1, 0]);
     expect(findStatefulActorRuntime(snapshot, 3)?.state.inventory?.keys).toEqual([0, 0, 5, 0]);
+  });
+
+  it("projects runtime snapshots without portable-backing aliasing", () => {
+    const store = createStatefulActorRuntimeStore<TestActorRuntimeEntry>();
+    setStatefulActorRuntime(store, {
+      actorSerial: 8,
+      kind: "bowling-ball",
+      portableBacking: { family: "sandbag", portableItemSerial: 14 },
+      state: {
+        mode: "moving",
+        inventory: { keys: [0, 0, 0, 1] },
+      },
+    });
+
+    const snapshot = snapshotStatefulActorRuntime(store, 8);
+    expect(snapshot).toEqual({
+      kind: "bowling-ball",
+      state: {
+        mode: "moving",
+        inventory: { keys: [0, 0, 0, 1] },
+      },
+    });
+
+    snapshot!.state.inventory!.keys[3] = 9;
+    expect(findStatefulActorRuntime(store, 8)).toEqual({
+      actorSerial: 8,
+      kind: "bowling-ball",
+      portableBacking: { family: "sandbag", portableItemSerial: 14 },
+      state: {
+        mode: "moving",
+        inventory: { keys: [0, 0, 0, 1] },
+      },
+    });
   });
 
   it("supports family-owned spawn, restore, clone, destroy, and portable-backing lifecycle", () => {

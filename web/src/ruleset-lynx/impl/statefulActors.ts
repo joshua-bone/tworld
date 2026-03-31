@@ -6,6 +6,8 @@ import { type StatefulActorInventoryEntry } from "@game-core/impl/statefulActorL
 import {
   createActorIdStatefulActorRuntimeFamilyAdapter,
   createStatefulActorRuntimeRegistry,
+  snapshotStatefulActorRuntime,
+  type StatefulActorRuntimeSnapshot,
   type StatefulActorPortableBacking,
   type StatefulActorRuntimeStore,
 } from "@game-core/impl/statefulActorRuntime";
@@ -22,6 +24,11 @@ export type LynxStatefulActorRuntimeEntry = StatefulActorInventoryEntry<
   typeof LYNX_BOWLING_BALL_ACTOR_FAMILY,
   LynxBowlingBallRuntimeState,
   LynxPortableItemFamily
+>;
+
+export type LynxStatefulActorRuntimeSnapshot = StatefulActorRuntimeSnapshot<
+  LynxStatefulActorRuntimeEntry["kind"],
+  LynxStatefulActorRuntimeEntry["state"]
 >;
 
 const LYNX_STATEFUL_ACTOR_REGISTRY = createStatefulActorRuntimeRegistry<
@@ -65,11 +72,31 @@ export function findLynxStatefulActorRuntime(
   return LYNX_STATEFUL_ACTOR_REGISTRY.find(store, actorSerial);
 }
 
+export function snapshotLynxStatefulActorRuntime(
+  store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
+  actorSerial: number,
+): LynxStatefulActorRuntimeSnapshot | null {
+  return snapshotStatefulActorRuntime(store, actorSerial);
+}
+
 export function restoreLynxStatefulActorRuntime(
   store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
   entry: LynxStatefulActorRuntimeEntry,
 ): LynxStatefulActorRuntimeEntry {
   return LYNX_STATEFUL_ACTOR_REGISTRY.restore(store, entry);
+}
+
+export function restoreLynxStatefulActorRuntimeSnapshot(
+  store: StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
+  actorSerial: number,
+  snapshot: LynxStatefulActorRuntimeSnapshot,
+): LynxStatefulActorRuntimeEntry {
+  return restoreLynxStatefulActorRuntime(store, {
+    actorSerial,
+    kind: snapshot.kind,
+    portableBacking: null,
+    state: structuredClone(snapshot.state),
+  });
 }
 
 export function cloneLynxStatefulActorRuntime(

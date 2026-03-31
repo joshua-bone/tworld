@@ -21,9 +21,15 @@ export type PetCarrierCooldownState =
       remainingTicks: number;
     };
 
+export interface PetCarrierMobRuntimeSnapshot {
+  kind: string;
+  state: unknown;
+}
+
 export interface PetCarrierMobSnapshot {
   actorId: number;
   dir: number;
+  runtimeKind?: string;
   runtimeState?: unknown;
 }
 
@@ -80,12 +86,34 @@ export function clonePetCarrierMobSnapshot(
   return {
     actorId: snapshot.actorId,
     dir: snapshot.dir,
+    ...(snapshot.runtimeKind === undefined
+      ? {}
+      : {
+          runtimeKind: snapshot.runtimeKind,
+        }),
     ...(snapshot.runtimeState === undefined
       ? {}
       : {
           runtimeState: structuredClone(snapshot.runtimeState),
         }),
   };
+}
+
+export function createPetCarrierMobSnapshot(args: {
+  actorId: number;
+  dir: number;
+  runtimeSnapshot?: PetCarrierMobRuntimeSnapshot | null;
+}): PetCarrierMobSnapshot {
+  return clonePetCarrierMobSnapshot({
+    actorId: args.actorId,
+    dir: args.dir,
+    ...(args.runtimeSnapshot
+      ? {
+          runtimeKind: args.runtimeSnapshot.kind,
+          runtimeState: args.runtimeSnapshot.state,
+        }
+      : {}),
+  })!;
 }
 
 export function clonePetCarrierCooldownState(cooldown: PetCarrierCooldownState): PetCarrierCooldownState {
