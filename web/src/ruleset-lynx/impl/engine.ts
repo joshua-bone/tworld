@@ -2823,6 +2823,7 @@ function advanceLynxCreature(
   chipPos = -1,
   chipZ = activeLynxLayerZ(state),
   pendingFallingCollisionActorSerials: number[] | undefined = undefined,
+  advancedBlockPushChainActorSerials: Set<number> | undefined = undefined,
 ): void {
   const tickContext = createLynxTickContext(level, state, actors, chipPos, chipZ);
   withLynxLayer(state, actor.z ?? 1, () => {
@@ -2908,7 +2909,7 @@ function advanceLynxCreature(
     actor.moving = Math.max(0, actor.moving - speed);
     actor.frame = Math.trunc(actor.moving / 2);
     if (shouldSyncStartedBlockPushChain && actor.moving > 0) {
-      synchronizeLynxBlockPushChainMotion(state, actors, actor, actor.dir);
+      synchronizeLynxBlockPushChainMotion(state, actors, actor, actor.dir, advancedBlockPushChainActorSerials);
     }
     if (actor.moving === 0) {
       finishLynxRuntimeActorMovement(
@@ -3279,6 +3280,7 @@ function synchronizeLynxBlockPushChainMotion(
   actors: LynxRuntimeActor[],
   block: LynxRuntimeActor,
   dir: number,
+  advancedBlockPushChainActorSerials: Set<number> | undefined = undefined,
 ): void {
   const normalizedDir = normalizeDirection(dir);
   if (normalizedDir === 0 || block.hidden || block.moving <= 0) {
@@ -3300,6 +3302,7 @@ function synchronizeLynxBlockPushChainMotion(
 
     nextBlock.moving = block.moving;
     nextBlock.frame = block.frame;
+    advancedBlockPushChainActorSerials?.add(nextBlock.serial);
     currentPos = nextBlock.pos;
   }
 }
@@ -4074,9 +4077,12 @@ function runLynxCreatureIntentPhase(runtime: LynxAdvanceTickRuntime): void {
 }
 
 function runLynxCreatureMovementPhase(runtime: LynxAdvanceTickRuntime): void {
+  const advancedBlockPushChainActorSerials = new Set<number>();
   for (let index = runtime.actors.length - 1; index >= 0; index -= 1) {
     const actor = runtime.actors[index]!;
-    const skipAdvanceThisTick = runtime.justSpawnedActorSerials.has(actor.serial);
+    const skipAdvanceThisTick =
+      runtime.justSpawnedActorSerials.has(actor.serial) ||
+      advancedBlockPushChainActorSerials.delete(actor.serial);
     const startedOnChipTarget =
       !actor.hidden &&
       runtime.pendingChipTargetPos !== null &&
@@ -4093,6 +4099,7 @@ function runLynxCreatureMovementPhase(runtime: LynxAdvanceTickRuntime): void {
         runtime.chipPos,
         runtime.chipZ,
         runtime.pendingFallingCollisionActorSerials,
+        advancedBlockPushChainActorSerials,
       );
       if (
         startedOnChipTarget &&

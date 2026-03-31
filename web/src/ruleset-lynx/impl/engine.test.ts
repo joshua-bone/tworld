@@ -2445,6 +2445,31 @@ describe("runLynxInputTrace", () => {
     ]);
   });
 
+  it("keeps the first two ice blocks aligned while Chip chain-pushes them west", () => {
+    const trace = runLynxInputTraceDebug(
+      { seriesFile: "intro-lynx.dac", levelNumber: 3, ruleset: "Lynx" },
+      createLevel([
+        createCell(33, MS_TILE.Empty, MS_TILE.Empty),
+        createCell(34, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(35, MS_TILE.IceBlock_Static, MS_TILE.Empty),
+        createCell(36, msCreatureTile(MS_TILE.Chip, 2), MS_TILE.Empty),
+      ]),
+      [{ tick: 0, inputCode: 2, inputName: "west" }],
+      1,
+    );
+
+    const finalPhase = trace.steps[0]?.phases.find((phase) => phase.phase === "final");
+    const movingIceBlocks = finalPhase?.blocks
+      .filter((actor) => actor.position.pos === 33 || actor.position.pos === 34)
+      .map((actor) => ({ pos: actor.position.pos, moving: actor.moving }))
+      .sort((left, right) => left.pos - right.pos);
+
+    expect(movingIceBlocks).toEqual([
+      { pos: 33, moving: 6 },
+      { pos: 34, moving: 6 },
+    ]);
+  });
+
   it("blocks an ice block from chain-pushing a dirt block", () => {
     const trace = runLynxInputTraceDebug(
       { seriesFile: "intro-lynx.dac", levelNumber: 3, ruleset: "Lynx" },
