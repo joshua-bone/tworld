@@ -956,6 +956,85 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[sharedPos]?.top.id).toBe(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west));
   });
 
+  it("arms and applies force-floor movement when teeth fall from unsupported air onto a slide floor", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(2, 2);
+    const teethPos = pos(13, 8);
+    const southPos = pos(13, 9);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    lower[teethPos]!.top.id = MS_TILE.Slide_South;
+    upper[teethPos]!.top.id = msCreatureTile(MS_TILE.Teeth, MS_DIRECTION.west);
+    upper[teethPos]!.bottom.id = MS_TILE.Air;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [teethPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+    session = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    const teethAfterLanding = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Teeth);
+    expect(teethAfterLanding?.z).toBe(1);
+    expect(teethAfterLanding?.pos).toBe(teethPos);
+    expect(teethAfterLanding?.floorMovement).toBe("slide");
+    expect(teethAfterLanding?.floorMovementDir).toBe(MS_DIRECTION.south);
+
+    session = advanceMsTicksForTest(session, 2);
+
+    const carriedTeeth = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Teeth);
+    expect(carriedTeeth?.z).toBe(1);
+    expect(carriedTeeth?.pos).toBe(southPos);
+  });
+
+  it("keeps slide movement armed when teeth walk onto unsupported air and land on a slide floor", () => {
+    const lower = createEmptyCells();
+    const upper = createEmptyCellsAtZ(2);
+    const chipPos = pos(2, 2);
+    const airPos = pos(13, 8);
+    const startPos = pos(14, 8);
+    const southPos = pos(13, 9);
+    lower[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    lower[airPos]!.top.id = MS_TILE.Slide_South;
+    upper[airPos]!.top.id = MS_TILE.Air;
+    upper[startPos]!.top.id = msCreatureTile(MS_TILE.Teeth, MS_DIRECTION.west);
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [chipPos],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+          { z: 2, cells: upper, traps: [], cloners: [], creaturePositions: [startPos], hintText: "" },
+        ],
+      }),
+    );
+
+    session = advanceMsTicksForTest(session, 9);
+
+    const teethAfterLanding = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Teeth);
+    expect(teethAfterLanding?.z).toBe(1);
+    expect(teethAfterLanding?.pos).toBe(airPos);
+    expect(teethAfterLanding?.floorMovement).toBe("slide");
+    expect(teethAfterLanding?.floorMovementDir).toBe(MS_DIRECTION.south);
+
+    session = advanceMsTicksForTest(session, 2);
+
+    const carriedTeeth = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Teeth);
+    expect(carriedTeeth?.z).toBe(1);
+    expect(carriedTeeth?.pos).toBe(southPos);
+  });
+
   it("drops a non-player after Chip opens a supporting green door beneath it", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);
