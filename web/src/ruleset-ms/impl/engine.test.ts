@@ -7262,6 +7262,69 @@ describe("MS engine regressions", () => {
     });
   });
 
+  it("carries teeth after a pet-carrier release drops through stacked air onto a slide floor", () => {
+    const lower = createEmptyCells();
+    const z2 = createEmptyCellsAtZ(2);
+    const z3 = createEmptyCellsAtZ(3);
+    const z4 = createEmptyCellsAtZ(4);
+    const z5 = createEmptyCellsAtZ(5);
+    const chipPos = pos(8, 10);
+    const dropPos = pos(9, 10);
+    const southPos = pos(9, 11);
+    z5[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    z5[dropPos]!.top.id = MS_TILE.Air;
+    z4[dropPos]!.top.id = MS_TILE.Air;
+    z3[dropPos]!.top.id = MS_TILE.Air;
+    z2[dropPos]!.top.id = MS_TILE.Air;
+    lower[dropPos]!.top.id = MS_TILE.Slide_South;
+
+    let session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells: lower,
+        creaturePositions: [],
+        layers: [
+          { z: 1, cells: lower, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 2, cells: z2, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 3, cells: z3, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 4, cells: z4, traps: [], cloners: [], creaturePositions: [], hintText: "" },
+          { z: 5, cells: z5, traps: [], cloners: [], creaturePositions: [chipPos], hintText: "" },
+        ],
+      }),
+    );
+    addCarriedMsPetCarrier(
+      session,
+      createPetCarrierState({
+        occupant: {
+          actorId: MS_TILE.Teeth,
+          dir: MS_DIRECTION.west,
+        },
+      }),
+    );
+
+    session = advanceMsInteractiveSession(
+      session,
+      encodeRuntimeInputCode(GAME_INPUT_CODES.none, GAME_INPUT_MODIFIER_MASKS.action1),
+    );
+    session = advanceMsTicksForTest(session, 8);
+
+    const landedTeeth = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Teeth);
+    expect(landedTeeth).toMatchObject({
+      z: 1,
+      pos: dropPos,
+      floorMovement: "slide",
+      floorMovementDir: MS_DIRECTION.south,
+    });
+
+    session = advanceMsTicksForTest(session, 2);
+
+    const carriedTeeth = session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Teeth);
+    expect(carriedTeeth).toMatchObject({
+      z: 1,
+      pos: southPos,
+    });
+  });
+
   it("releases a carried ice block through the normal push chain seam", () => {
     const cells = createEmptyCells();
     const chipPos = pos(8, 10);

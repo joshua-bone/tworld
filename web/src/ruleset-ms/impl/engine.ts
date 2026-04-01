@@ -1302,6 +1302,18 @@ function placeReleasedMsCreature(
   };
 }
 
+function syncMsCreatureVerticalFloorMovementForContext(
+  engine: EngineState,
+  internal: MsInternalState,
+  inventory: EngineState["inventory"],
+  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
+  creature: MsTrackedCreature,
+): void {
+  const tickContext = createMsTickContext(engine, internal, inventory, layerCellsByZ);
+  syncMsCreatureAirFloorMovement(tickContext, creature);
+  syncMsCreatureElevatorFloorMovement(tickContext, creature);
+}
+
 function settleMsSpawnedCreatureLanding(
   runtime: MsAdvanceTickRuntime,
   cells: EngineMapCell[],
@@ -1312,7 +1324,18 @@ function settleMsSpawnedCreatureLanding(
   targetBottom: number,
   targetBottomState: number,
 ): void {
-  const context = createMsCreatureMovementContext(runtime.internal, runtime.inventory);
+  const context = createMsCreatureMovementContext(
+    runtime.internal,
+    runtime.inventory,
+    (trackedCreature) =>
+      syncMsCreatureVerticalFloorMovementForContext(
+        runtime.state.engine,
+        runtime.internal,
+        runtime.inventory,
+        runtime.layerCellsByZ,
+        trackedCreature,
+      ),
+  );
   const standingFloorWasTop = !isMsCreature(targetTop);
   const standingFloor = standingFloorWasTop ? targetTop : targetBottom;
   const standingFloorState = standingFloorWasTop ? targetTopState : targetBottomState;
@@ -3882,20 +3905,32 @@ function createMsCreatureMovementStrategyDispatchContext(
         moveDir,
         () => applyMsChipCollisionOutcome(moveInternal, msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip)),
       ),
-    startDownMove: (_engine, moveSourceCells, moveTargetCells, _layerCellsByZ, moveCreature, moveInternal) =>
+    startDownMove: (moveEngine, moveSourceCells, moveTargetCells, moveLayerCellsByZ, moveCreature, moveInternal) =>
       moveMsCreatureDownOneLayerWithContext(
-        createMsCreatureMovementContext(moveInternal, inventory),
+        createMsCreatureMovementContext(moveInternal, inventory, (trackedCreature) => {
+          syncMsCreatureVerticalFloorMovementForContext(
+            moveEngine,
+            moveInternal,
+            inventory,
+            moveLayerCellsByZ,
+            trackedCreature,
+          );
+        }),
         moveSourceCells,
         moveTargetCells,
         moveCreature,
         () => applyMsChipCollisionOutcome(moveInternal, msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip)),
       ),
     startUpMove: (moveEngine, moveSourceCells, moveTargetCells, moveLayerCellsByZ, moveCreature, moveInternal) => {
-      const tickContext = createMsTickContext(moveEngine, moveInternal, moveEngine.inventory, moveLayerCellsByZ);
       return moveMsCreatureUpOneLayerWithContext(
         createMsCreatureMovementContext(moveInternal, inventory, (trackedCreature) => {
-          syncMsCreatureAirFloorMovement(tickContext, trackedCreature);
-          syncMsCreatureElevatorFloorMovement(tickContext, trackedCreature);
+          syncMsCreatureVerticalFloorMovementForContext(
+            moveEngine,
+            moveInternal,
+            inventory,
+            moveLayerCellsByZ,
+            trackedCreature,
+          );
         }),
         moveSourceCells,
         moveTargetCells,
