@@ -332,18 +332,11 @@ export function usePlayerAppInputController({
     const tickIntervalMs = isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
     const maxAccumulatedMs = tickIntervalMs * LEGACY_MAX_CATCH_UP_TICKS;
     let cancelled = false;
+    let animationFrameId = 0;
     let pumping = false;
     let immediatePumpQueued = false;
-    let scheduledPumpId: number | null = null;
     let nextTickDueAtMs = performance.now() + tickIntervalMs;
     const immediatePumpChannel = new MessageChannel();
-
-    const clearScheduledPump = () => {
-      if (scheduledPumpId !== null) {
-        window.clearTimeout(scheduledPumpId);
-        scheduledPumpId = null;
-      }
-    };
 
     const scheduleImmediatePump = () => {
       if (immediatePumpQueued) {
@@ -352,27 +345,6 @@ export function usePlayerAppInputController({
 
       immediatePumpQueued = true;
       immediatePumpChannel.port2.postMessage(0);
-    };
-
-    const scheduleDeadlinePump = () => {
-      clearScheduledPump();
-      scheduledPumpId = window.setTimeout(() => {
-        scheduledPumpId = null;
-        void pumpTicks();
-      }, Math.max(0, nextTickDueAtMs - performance.now()));
-    };
-
-    const scheduleNextPump = () => {
-      if (cancelled) {
-        return;
-      }
-
-      if (performance.now() >= nextTickDueAtMs) {
-        scheduleImmediatePump();
-        return;
-      }
-
-      scheduleDeadlinePump();
     };
 
     const nextTickInputCode = (): InteractiveInput | null => {
@@ -386,14 +358,14 @@ export function usePlayerAppInputController({
         : msInputBufferRef.current.nextTickInputCode(currentActionModifierMask());
     };
 
-    const pumpTicks = async () => {
+    const pumpTicks = async (currentNow = performance.now()) => {
       if (cancelled || pumping) {
         return;
       }
 
       pumping = true;
       try {
-        let now = performance.now();
+        let now = currentNow;
         let overdueMs = Math.max(0, now - nextTickDueAtMs);
         recordPerfMeasurement("loopDriftMs", overdueMs);
 
@@ -438,7 +410,9 @@ export function usePlayerAppInputController({
       }
       finally {
         pumping = false;
-        scheduleNextPump();
+        if (!cancelled && performance.now() >= nextTickDueAtMs) {
+          scheduleImmediatePump();
+        }
       }
     };
 
@@ -447,11 +421,26 @@ export function usePlayerAppInputController({
       void pumpTicks();
     };
 
-    scheduleNextPump();
+    const pumpFrame = (now: number) => {
+      animationFrameId = 0;
+      if (cancelled) {
+        return;
+      }
+
+      if (now >= nextTickDueAtMs) {
+        void pumpTicks(now);
+      }
+
+      animationFrameId = window.requestAnimationFrame(pumpFrame);
+    };
+
+    animationFrameId = window.requestAnimationFrame(pumpFrame);
 
     return () => {
       cancelled = true;
-      clearScheduledPump();
+      if (animationFrameId !== 0) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
       immediatePumpQueued = false;
       immediatePumpChannel.port1.onmessage = null;
       immediatePumpChannel.port1.close();

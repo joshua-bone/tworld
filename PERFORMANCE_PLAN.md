@@ -197,7 +197,7 @@ Why first:
 Status:
 
 - [x] Catch-up scheduler implemented in legacy gameplay loop
-- [x] Gameplay cadence now comes from a deadline-driven clock instead of an RAF-bound accumulator
+- [x] Gameplay cadence now comes from an RAF-heartbeat deadline clock instead of coarse timer deadlines
 - [x] Debug counters exposed for catch-up batches and dropped ticks
 - [ ] Browser gameplay validation completed across representative levels
 

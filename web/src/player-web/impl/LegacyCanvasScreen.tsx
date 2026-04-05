@@ -308,7 +308,7 @@ function updateLegacyCanvasPerfTracker(
   return {
     buildCommitHash: TWORLD_BUILD_COMMIT,
     cappedCatchUpBatches: perf.scheduler.cappedBatchCount,
-    clockMode: "deadline",
+    clockMode: "raf-deadline",
     droppedCatchUpTicks: perf.scheduler.droppedTickCount,
     frameFps: state.frameFps,
     frameFpsWindow: snapshotLegacyCanvasPerfWindow(state.frameWindowSamples, now),
