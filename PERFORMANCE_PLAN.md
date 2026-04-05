@@ -5,6 +5,7 @@
 - [x] Initial performance investigation completed
 - [x] Representative benchmark scenarios identified
 - [x] Primary bottlenecks identified
+- [ ] Debug perf overlay implemented
 - [ ] Scheduler fix implemented
 - [ ] Worker payload reduction implemented
 - [ ] Undo/history projection reduction implemented
@@ -140,6 +141,52 @@ Expected outcome after fix:
 - [ ] Introduce ruleset behavior drift for speed
 
 ## PR Plan
+
+### PR 0: Debug Perf Overlay
+
+Status:
+
+- [ ] Not started
+
+Scope:
+
+- expose visible live perf metrics when debug mode is enabled
+- reuse the existing debug overlay rather than creating a separate diagnostics surface
+- show high-signal metrics that help distinguish:
+  - render slowdown
+  - gameplay tick slowdown
+  - scheduler drift
+  - worker/main-thread backpressure
+- prefer EMA/rolling values plus last-value snapshots so spikes and sustained regressions are both visible
+
+Recommended visible metrics:
+
+- [ ] render FPS
+- [ ] effective gameplay tick rate in Hz
+- [ ] last / EMA / max tick duration in ms
+- [ ] last / EMA / max render duration in ms
+- [ ] loop drift in ms
+- [ ] session load time for new level starts
+- [ ] current ruleset, level, visible layer count, actor count, overlay count
+- [ ] undo enabled/disabled and current checkpoint count
+- [ ] worker round-trip or session advance latency if instrumented separately
+- [ ] worker payload size in KB once response slimming work begins
+- [ ] dropped or capped catch-up tick counters once scheduler work lands
+
+Acceptance:
+
+- [ ] debug mode clearly shows frame rate
+- [ ] debug mode clearly shows simulation rate separate from render rate
+- [ ] metrics are legible during active gameplay and level transitions
+- [ ] overlay is cheap enough not to materially distort the numbers it shows
+
+Risk:
+
+- low
+
+Why first:
+
+- this gives immediate visibility into whether later PRs improve rendering, simulation, scheduling, or worker overhead
 
 ### PR 1: Scheduler Correctness
 
@@ -305,6 +352,7 @@ Why sixth:
 
 ## Recommended Execution Order
 
+- [ ] PR 0: Debug Perf Overlay
 - [ ] PR 1: Scheduler Correctness
 - [ ] PR 2: Worker Response Slimming
 - [ ] PR 3: Incremental Undo/History Summaries
@@ -323,4 +371,4 @@ Why sixth:
 
 ## Current Recommendation
 
-Start with PR 1 immediately, then move directly into PR 2 and PR 3. That sequence has the best chance of turning the current user-visible lag into a measurable improvement without requiring a full rendering rewrite up front.
+Start with PR 0 so debug mode exposes the live perf picture during gameplay. Then move into PR 1, PR 2, and PR 3. That sequence gives immediate observability and then targets the biggest user-visible causes of slowdown without requiring a full rendering rewrite up front.
