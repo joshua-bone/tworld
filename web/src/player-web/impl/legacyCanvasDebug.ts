@@ -131,7 +131,9 @@ export interface LegacyCanvasPerfWindowSnapshot {
 }
 
 export interface LegacyCanvasPerfReadout {
+  buildCommitHash: string;
   cappedCatchUpBatches: number;
+  clockMode: string;
   droppedCatchUpTicks: number;
   frameFps: number;
   frameFpsWindow: LegacyCanvasPerfWindowSnapshot;
@@ -157,6 +159,7 @@ export function buildLegacyCanvasPerfReadout(
 ): string[] {
   if (!session) {
     return [
+      `build commit=${perf.buildCommitHash} clock=${perf.clockMode}`,
       `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
       `roll5 frame=${formatRollingRate(perf.frameFpsWindow, "fps")} render=${formatRollingRate(perf.renderFpsWindow, "fps")} game=${formatRollingRate(perf.gameHzWindow, "Hz")}`,
       `game sample ticks=${perf.gameSampleTickDelta} window=${perf.gameSampleElapsedMs.toFixed(1)}ms`,
@@ -177,6 +180,7 @@ export function buildLegacyCanvasPerfReadout(
     (render?.animations.length ?? 0);
 
   return [
+    `build commit=${perf.buildCommitHash} clock=${perf.clockMode}`,
     `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
     `roll5 frame=${formatRollingRate(perf.frameFpsWindow, "fps")} render=${formatRollingRate(perf.renderFpsWindow, "fps")} game=${formatRollingRate(perf.gameHzWindow, "Hz")}`,
     `game sample ticks=${perf.gameSampleTickDelta} window=${perf.gameSampleElapsedMs.toFixed(1)}ms`,

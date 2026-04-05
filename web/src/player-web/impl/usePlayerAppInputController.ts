@@ -333,9 +333,47 @@ export function usePlayerAppInputController({
     const maxAccumulatedMs = tickIntervalMs * LEGACY_MAX_CATCH_UP_TICKS;
     let cancelled = false;
     let pumping = false;
-    let animationFrameId = 0;
-    let accumulatedMs = 0;
-    let lastFrameAtMs: number | null = null;
+    let immediatePumpQueued = false;
+    let scheduledPumpId: number | null = null;
+    let nextTickDueAtMs = performance.now() + tickIntervalMs;
+    const immediatePumpChannel = new MessageChannel();
+
+    const clearScheduledPump = () => {
+      if (scheduledPumpId !== null) {
+        window.clearTimeout(scheduledPumpId);
+        scheduledPumpId = null;
+      }
+    };
+
+    const scheduleImmediatePump = () => {
+      if (immediatePumpQueued) {
+        return;
+      }
+
+      immediatePumpQueued = true;
+      immediatePumpChannel.port2.postMessage(0);
+    };
+
+    const scheduleDeadlinePump = () => {
+      clearScheduledPump();
+      scheduledPumpId = window.setTimeout(() => {
+        scheduledPumpId = null;
+        void pumpTicks();
+      }, Math.max(0, nextTickDueAtMs - performance.now()));
+    };
+
+    const scheduleNextPump = () => {
+      if (cancelled) {
+        return;
+      }
+
+      if (performance.now() >= nextTickDueAtMs) {
+        scheduleImmediatePump();
+        return;
+      }
+
+      scheduleDeadlinePump();
+    };
 
     const nextTickInputCode = (): InteractiveInput | null => {
       const activeSession = liveSessionRef.current;
@@ -349,33 +387,46 @@ export function usePlayerAppInputController({
     };
 
     const pumpTicks = async () => {
-      if (cancelled || pumping || accumulatedMs < tickIntervalMs) {
+      if (cancelled || pumping) {
         return;
       }
 
       pumping = true;
       try {
-        recordPerfMeasurement("loopDriftMs", Math.max(0, accumulatedMs - tickIntervalMs));
+        let now = performance.now();
+        let overdueMs = Math.max(0, now - nextTickDueAtMs);
+        recordPerfMeasurement("loopDriftMs", overdueMs);
 
         let capped = false;
         let droppedTicks = 0;
-        if (accumulatedMs > maxAccumulatedMs) {
+        if (overdueMs > maxAccumulatedMs) {
           capped = true;
-          droppedTicks = Math.floor((accumulatedMs - maxAccumulatedMs) / tickIntervalMs);
-          accumulatedMs = maxAccumulatedMs;
+          droppedTicks = Math.floor((overdueMs - maxAccumulatedMs) / tickIntervalMs);
+          nextTickDueAtMs += droppedTicks * tickIntervalMs;
+          overdueMs = Math.max(0, now - nextTickDueAtMs);
         }
 
         let batchTicks = 0;
-        while (!cancelled && accumulatedMs >= tickIntervalMs && batchTicks < LEGACY_MAX_CATCH_UP_TICKS) {
+        while (!cancelled && now >= nextTickDueAtMs && batchTicks < LEGACY_MAX_CATCH_UP_TICKS) {
           const inputCode = nextTickInputCode();
           if (inputCode === null) {
-            accumulatedMs = 0;
+            nextTickDueAtMs = now + tickIntervalMs;
             break;
           }
 
           await advanceTick(inputCode);
           batchTicks += 1;
-          accumulatedMs -= tickIntervalMs;
+          nextTickDueAtMs += tickIntervalMs;
+          now = performance.now();
+
+          if (now - nextTickDueAtMs > maxAccumulatedMs) {
+            const additionalDroppedTicks = Math.floor((now - nextTickDueAtMs - maxAccumulatedMs) / tickIntervalMs);
+            if (additionalDroppedTicks > 0) {
+              capped = true;
+              droppedTicks += additionalDroppedTicks;
+              nextTickDueAtMs += additionalDroppedTicks * tickIntervalMs;
+            }
+          }
         }
 
         if (batchTicks > 0 || capped || droppedTicks > 0) {
@@ -387,31 +438,24 @@ export function usePlayerAppInputController({
       }
       finally {
         pumping = false;
+        scheduleNextPump();
       }
     };
 
-    const pumpFrame = (now: number) => {
-      animationFrameId = 0;
-      if (cancelled) {
-        return;
-      }
-
-      if (lastFrameAtMs !== null) {
-        accumulatedMs += now - lastFrameAtMs;
-        void pumpTicks();
-      }
-
-      lastFrameAtMs = now;
-      animationFrameId = window.requestAnimationFrame(pumpFrame);
+    immediatePumpChannel.port1.onmessage = () => {
+      immediatePumpQueued = false;
+      void pumpTicks();
     };
 
-    animationFrameId = window.requestAnimationFrame(pumpFrame);
+    scheduleNextPump();
 
     return () => {
       cancelled = true;
-      if (animationFrameId !== 0) {
-        window.cancelAnimationFrame(animationFrameId);
-      }
+      clearScheduledPump();
+      immediatePumpQueued = false;
+      immediatePumpChannel.port1.onmessage = null;
+      immediatePumpChannel.port1.close();
+      immediatePumpChannel.port2.close();
     };
   }, [
     advanceTick,

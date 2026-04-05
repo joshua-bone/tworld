@@ -48,6 +48,7 @@ import {
   type LegacyCanvasPerfReadout,
   type LegacyCanvasPerfWindowSnapshot,
 } from "@player-web/impl/legacyCanvasDebug";
+import { TWORLD_BUILD_COMMIT } from "@player-web/impl/buildInfo";
 import {
   LEGACY_COLORS,
   clamp,
@@ -305,7 +306,9 @@ function updateLegacyCanvasPerfTracker(
   }
 
   return {
+    buildCommitHash: TWORLD_BUILD_COMMIT,
     cappedCatchUpBatches: perf.scheduler.cappedBatchCount,
+    clockMode: "deadline",
     droppedCatchUpTicks: perf.scheduler.droppedTickCount,
     frameFps: state.frameFps,
     frameFpsWindow: snapshotLegacyCanvasPerfWindow(state.frameWindowSamples, now),

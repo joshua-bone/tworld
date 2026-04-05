@@ -149,6 +149,7 @@ Status:
 - [x] Initial overlay shipped
 - [x] 5-second rolling averages shipped for live gameplay diagnostics
 - [x] One-shot capture/freeze action shipped for usable perf snapshots
+- [x] Debug overlay now shows the synced git commit hash for the running build
 
 Scope:
 
@@ -196,7 +197,7 @@ Why first:
 Status:
 
 - [x] Catch-up scheduler implemented in legacy gameplay loop
-- [x] Gameplay cadence now comes from an RAF-driven accumulator instead of `setTimeout`
+- [x] Gameplay cadence now comes from a deadline-driven clock instead of an RAF-bound accumulator
 - [x] Debug counters exposed for catch-up batches and dropped ticks
 - [ ] Browser gameplay validation completed across representative levels
 

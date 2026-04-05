@@ -202,7 +202,9 @@ function createPerfWindowSnapshot(
 
 function createPerfReadout(): LegacyCanvasPerfReadout {
   return {
+    buildCommitHash: "abcdef123456",
     cappedCatchUpBatches: 2,
+    clockMode: "deadline",
     droppedCatchUpTicks: 5,
     frameFps: 58.4,
     frameFpsWindow: createPerfWindowSnapshot(59.1, 58.4, 60.0),
@@ -267,6 +269,7 @@ describe("buildLegacyCanvasDebugReadout", () => {
 describe("buildLegacyCanvasPerfReadout", () => {
   it("includes scheduler counters alongside frame and tick metrics", () => {
     expect(buildLegacyCanvasPerfReadout(createSession(), createPerfReadout())).toEqual([
+      "build commit=abcdef123456 clock=deadline",
       "perf frame=58.4fps render=19.7fps game=14.8Hz",
       "roll5 frame=59.1fps render=20.2fps game=16.0Hz",
       "game sample ticks=8 window=500.0ms",
@@ -283,6 +286,7 @@ describe("buildLegacyCanvasPerfReadout", () => {
 
   it("renders a no-session line when gameplay is not active", () => {
     expect(buildLegacyCanvasPerfReadout(null, createPerfReadout())).toEqual([
+      "build commit=abcdef123456 clock=deadline",
       "perf frame=58.4fps render=19.7fps game=14.8Hz",
       "roll5 frame=59.1fps render=20.2fps game=16.0Hz",
       "game sample ticks=8 window=500.0ms",
