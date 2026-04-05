@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { InteractiveGameVisibleLayer } from "@game-core/api/interactive";
 import type { EngineMapCell } from "@game-core/api/model";
 import type { ReplayRecordedMove } from "@game-core/api/codec";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
@@ -9,16 +10,30 @@ import {
 } from "@game-runtime/impl/interactiveGame.worker.protocol";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
-function createCell(pos: number): EngineMapCell {
+function createCell(
+  pos: number,
+  z = 1,
+  topId: number = MS_TILE.Empty,
+  bottomId: number = MS_TILE.Empty,
+  topState = 0,
+  bottomState = 0,
+): EngineMapCell {
   return {
     position: {
       x: pos % 32,
       y: Math.floor(pos / 32),
-      z: 1,
+      z,
       pos,
     },
-    top: { id: MS_TILE.Empty, state: 0 },
-    bottom: { id: MS_TILE.Empty, state: 0 },
+    top: { id: topId, state: topState },
+    bottom: { id: bottomId, state: bottomState },
+  };
+}
+
+function createLayer(z: number, cells: EngineMapCell[]): InteractiveGameVisibleLayer {
+  return {
+    z,
+    cells,
   };
 }
 
@@ -26,6 +41,8 @@ function createSession(options: {
   checkpointTicks?: number[];
   currentTick?: number;
   currentTime?: number;
+  currentZ?: number;
+  visibleLayers?: InteractiveGameVisibleLayer[];
   hintText?: string | null;
   latestTick?: number;
   previousCheckpointTick?: number | null;
@@ -40,6 +57,11 @@ function createSession(options: {
   const currentTime = options.currentTime ?? currentTick;
   const checkpointTicks = options.checkpointTicks ?? [-1, 4];
   const recentTicks = options.recentTicks ?? (currentTick >= 0 ? [currentTick - 1] : []);
+  const visibleLayers =
+    options.visibleLayers ??
+    [
+      createLayer(1, [createCell(0, 1)]),
+    ];
 
   return {
     request: {
@@ -81,9 +103,9 @@ function createSession(options: {
         mapHash: "",
         creatures: [],
       },
-      cells: [createCell(0)],
-      currentZ: 1,
-      visibleLayers: [{ z: 1, cells: [createCell(0)] }],
+      cells: visibleLayers[0]?.cells ?? [],
+      currentZ: options.currentZ ?? visibleLayers[0]?.z ?? 1,
+      visibleLayers,
       tileOverlays: [],
       render: null,
     },
@@ -119,6 +141,7 @@ describe("interactiveGame.worker.protocol", () => {
       checkpointTicks: [-1, 4],
       currentTick: 4,
       currentTime: 4,
+      currentZ: 2,
       hintText: "lower hint",
       latestTick: 4,
       previousCheckpointTick: 4,
@@ -126,11 +149,22 @@ describe("interactiveGame.worker.protocol", () => {
       recordedMoves: [{ when: 0, dir: MS_DIRECTION.east, modifierMask: 0 }],
       recentTicks: [3, 2, 1],
       tick: 4,
+      visibleLayers: [
+        createLayer(2, [
+          createCell(0, 2, MS_TILE.Empty),
+          createCell(1, 2, MS_TILE.Empty),
+        ]),
+        createLayer(1, [
+          createCell(0, 1, MS_TILE.Empty),
+          createCell(1, 1, MS_TILE.Empty),
+        ]),
+      ],
     });
     const next = createSession({
       checkpointTicks: [-1, 4, 5],
       currentTick: 5,
       currentTime: 5,
+      currentZ: 2,
       hintText: "upper hint",
       latestTick: 5,
       previousCheckpointTick: 5,
@@ -141,6 +175,16 @@ describe("interactiveGame.worker.protocol", () => {
       ],
       recentTicks: [4, 3, 2, 1],
       tick: 5,
+      visibleLayers: [
+        createLayer(2, [
+          createCell(0, 2, MS_TILE.Empty),
+          createCell(1, 2, MS_TILE.Wall),
+        ]),
+        createLayer(1, [
+          createCell(0, 1, MS_TILE.Empty, MS_TILE.Empty, 0, 1),
+          createCell(1, 1, MS_TILE.Empty),
+        ]),
+      ],
     });
 
     const update = toWorkerInteractiveGameSessionUpdate(previous, next);
@@ -155,13 +199,29 @@ describe("interactiveGame.worker.protocol", () => {
       totalCount: 2,
       values: [{ when: 5, dir: MS_DIRECTION.north, modifierMask: 1 }],
     });
+    expect(update.frame.visibleLayers).toEqual({
+      mode: "patch",
+      layers: [
+        {
+          kind: "patch",
+          z: 2,
+          changedCells: [{ index: 1, top: { id: MS_TILE.Wall, state: 0 }, bottom: { id: MS_TILE.Empty, state: 0 } }],
+        },
+        {
+          kind: "patch",
+          z: 1,
+          changedCells: [{ index: 0, top: { id: MS_TILE.Empty, state: 0 }, bottom: { id: MS_TILE.Empty, state: 1 } }],
+        },
+      ],
+    });
     expect(applyWorkerInteractiveGameSessionUpdate(previous, update)).toEqual(next);
   });
 
-  it("falls back to replace patches when history or replay prefixes no longer match", () => {
+  it("falls back to replace patches when history, replay, or visible-layer layouts no longer match", () => {
     const previous = createSession({
       checkpointTicks: [-1, 4, 8],
       currentTick: 8,
+      currentZ: 2,
       latestTick: 8,
       previousCheckpointTick: 8,
       previousTick: 7,
@@ -171,17 +231,25 @@ describe("interactiveGame.worker.protocol", () => {
       ],
       recentTicks: [7, 6, 5, 4],
       tick: 8,
+      visibleLayers: [
+        createLayer(2, [createCell(0, 2, MS_TILE.Empty), createCell(1, 2, MS_TILE.Empty)]),
+        createLayer(1, [createCell(0, 1, MS_TILE.Empty), createCell(1, 1, MS_TILE.Empty)]),
+      ],
     });
     const next = createSession({
       checkpointTicks: [-1, 6],
       currentTick: 6,
       currentTime: 6,
+      currentZ: 1,
       latestTick: 6,
       previousCheckpointTick: 6,
       previousTick: 5,
       recordedMoves: [{ when: 2, dir: MS_DIRECTION.west, modifierMask: 0 }],
       recentTicks: [5, 4, 3, 2],
       tick: 6,
+      visibleLayers: [
+        createLayer(1, [createCell(0, 1, MS_TILE.Wall), createCell(1, 1, MS_TILE.Empty)]),
+      ],
     });
 
     const update = toWorkerInteractiveGameSessionUpdate(previous, next);
@@ -195,6 +263,10 @@ describe("interactiveGame.worker.protocol", () => {
       mode: "replace",
       totalCount: 1,
       values: [{ when: 2, dir: MS_DIRECTION.west, modifierMask: 0 }],
+    });
+    expect(update.frame.visibleLayers).toEqual({
+      mode: "replace",
+      layers: next.frame.visibleLayers,
     });
     expect(applyWorkerInteractiveGameSessionUpdate(previous, update)).toEqual(next);
   });

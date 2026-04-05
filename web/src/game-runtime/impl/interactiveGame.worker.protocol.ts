@@ -1,5 +1,13 @@
 import type { InteractiveInput } from "@game-core/api/command";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
+import type {
+  InteractiveGameFrame,
+  InteractiveGameVisibleLayer,
+} from "@game-core/api/interactive";
+import type {
+  EngineMapCell,
+  EngineTile,
+} from "@game-core/api/model";
 import type { GameRequest } from "@game-core/api/types";
 import type {
   InteractiveGameSession,
@@ -41,9 +49,46 @@ export interface WorkerInteractiveGameSessionHistoryUpdate
   checkpointTicks: WorkerInteractiveGameSessionArrayPatch<number>;
 }
 
+export interface WorkerInteractiveGameCellUpdate {
+  index: number;
+  top: EngineTile;
+  bottom: EngineTile;
+}
+
+export type WorkerInteractiveGameVisibleLayerUpdate =
+  | {
+      kind: "patch";
+      z: number;
+      changedCells: WorkerInteractiveGameCellUpdate[];
+    }
+  | {
+      kind: "replace";
+      z: number;
+      cells: EngineMapCell[];
+    };
+
+export type WorkerInteractiveGameVisibleLayersUpdate =
+  | {
+      mode: "patch";
+      layers: WorkerInteractiveGameVisibleLayerUpdate[];
+    }
+  | {
+      mode: "replace";
+      layers: InteractiveGameVisibleLayer[];
+    };
+
+export interface WorkerInteractiveGameFrameUpdate {
+  snapshot: InteractiveGameFrame["snapshot"];
+  currentZ: number;
+  visibleLayers: WorkerInteractiveGameVisibleLayersUpdate;
+  tileOverlays: InteractiveGameFrame["tileOverlays"];
+  render: InteractiveGameFrame["render"];
+  inventoryRender?: InteractiveGameFrame["inventoryRender"];
+}
+
 export interface WorkerInteractiveGameSessionUpdate {
   hintText: string | null;
-  frame: InteractiveGameSession["frame"];
+  frame: WorkerInteractiveGameFrameUpdate;
   history: WorkerInteractiveGameSessionHistoryUpdate;
   run: InteractiveGameSessionRunState;
   recordedMoves: WorkerInteractiveGameSessionArrayPatch<ReplayRecordedMove>;
@@ -52,6 +97,33 @@ export interface WorkerInteractiveGameSessionUpdate {
 function cloneRecordedMove(move: ReplayRecordedMove): ReplayRecordedMove {
   return {
     ...move,
+  };
+}
+
+function sameTile(left: EngineTile, right: EngineTile): boolean {
+  return left.id === right.id && left.state === right.state;
+}
+
+function sameCellPosition(left: EngineMapCell, right: EngineMapCell): boolean {
+  return (
+    left.position.pos === right.position.pos &&
+    left.position.x === right.position.x &&
+    left.position.y === right.position.y &&
+    (left.position.z ?? null) === (right.position.z ?? null)
+  );
+}
+
+function cloneTile(tile: EngineTile): EngineTile {
+  return {
+    ...tile,
+  };
+}
+
+function cloneCell(cell: EngineMapCell): EngineMapCell {
+  return {
+    position: { ...cell.position },
+    top: cloneTile(cell.top),
+    bottom: cloneTile(cell.bottom),
   };
 }
 
@@ -98,13 +170,143 @@ function applyArrayPatch<TValue>(
   return patch.values.map(cloneValue);
 }
 
+function buildVisibleLayerUpdate(
+  previous: InteractiveGameVisibleLayer,
+  next: InteractiveGameVisibleLayer,
+): WorkerInteractiveGameVisibleLayerUpdate | null {
+  if (
+    previous.z !== next.z ||
+    previous.cells.length !== next.cells.length ||
+    previous.cells.some((cell, index) => !sameCellPosition(cell, next.cells[index]!))
+  ) {
+    return {
+      kind: "replace",
+      z: next.z,
+      cells: next.cells,
+    };
+  }
+
+  const changedCells: WorkerInteractiveGameCellUpdate[] = [];
+  for (let index = 0; index < next.cells.length; index += 1) {
+    const previousCell = previous.cells[index]!;
+    const nextCell = next.cells[index]!;
+    if (sameTile(previousCell.top, nextCell.top) && sameTile(previousCell.bottom, nextCell.bottom)) {
+      continue;
+    }
+
+    changedCells.push({
+      index,
+      top: cloneTile(nextCell.top),
+      bottom: cloneTile(nextCell.bottom),
+    });
+  }
+
+  if (changedCells.length === 0) {
+    return null;
+  }
+
+  return {
+    kind: "patch",
+    z: next.z,
+    changedCells,
+  };
+}
+
+function buildVisibleLayersUpdate(
+  previous: InteractiveGameFrame["visibleLayers"],
+  next: InteractiveGameFrame["visibleLayers"],
+): WorkerInteractiveGameVisibleLayersUpdate {
+  const canPatch =
+    previous.length === next.length &&
+    previous.every((layer, index) => layer.z === next[index]?.z);
+
+  if (!canPatch) {
+    return {
+      mode: "replace",
+      layers: next,
+    };
+  }
+
+  return {
+    mode: "patch",
+    layers: next
+      .map((layer, index) => buildVisibleLayerUpdate(previous[index]!, layer))
+      .filter((layer): layer is WorkerInteractiveGameVisibleLayerUpdate => layer !== null),
+  };
+}
+
+function applyVisibleLayerUpdate(
+  previous: InteractiveGameVisibleLayer,
+  update: WorkerInteractiveGameVisibleLayerUpdate,
+): InteractiveGameVisibleLayer {
+  if (update.kind === "replace") {
+    return {
+      z: update.z,
+      cells: update.cells,
+    };
+  }
+
+  if (update.changedCells.length === 0) {
+    return previous;
+  }
+
+  const cells = previous.cells.slice();
+  for (const cellUpdate of update.changedCells) {
+    const previousCell = previous.cells[cellUpdate.index];
+    if (!previousCell) {
+      continue;
+    }
+
+    cells[cellUpdate.index] = {
+      position: previousCell.position,
+      top: cloneTile(cellUpdate.top),
+      bottom: cloneTile(cellUpdate.bottom),
+    };
+  }
+
+  return {
+    z: previous.z,
+    cells,
+  };
+}
+
+function applyVisibleLayersUpdate(
+  previous: InteractiveGameFrame["visibleLayers"],
+  update: WorkerInteractiveGameVisibleLayersUpdate,
+): InteractiveGameFrame["visibleLayers"] {
+  if (update.mode === "replace") {
+    return update.layers;
+  }
+
+  if (update.layers.length === 0) {
+    return previous;
+  }
+
+  const updatesByZ = new Map(update.layers.map((layer) => [layer.z, layer] as const));
+  return previous.map((layer) => {
+    const layerUpdate = updatesByZ.get(layer.z);
+    if (!layerUpdate) {
+      return layer;
+    }
+
+    return applyVisibleLayerUpdate(layer, layerUpdate);
+  });
+}
+
 export function toWorkerInteractiveGameSessionUpdate(
   previous: InteractiveGameSession,
   next: InteractiveGameSession,
 ): WorkerInteractiveGameSessionUpdate {
   return {
     hintText: next.hintText,
-    frame: next.frame,
+    frame: {
+      snapshot: next.frame.snapshot,
+      currentZ: next.frame.currentZ,
+      visibleLayers: buildVisibleLayersUpdate(previous.frame.visibleLayers, next.frame.visibleLayers),
+      tileOverlays: next.frame.tileOverlays,
+      render: next.frame.render,
+      inventoryRender: next.frame.inventoryRender,
+    },
     history: {
       enabled: next.history.enabled,
       initialTick: next.history.initialTick,
@@ -134,10 +336,20 @@ export function applyWorkerInteractiveGameSessionUpdate(
   previous: InteractiveGameSession,
   update: WorkerInteractiveGameSessionUpdate,
 ): InteractiveGameSession {
+  const visibleLayers = applyVisibleLayersUpdate(previous.frame.visibleLayers, update.frame.visibleLayers);
+
   return {
     ...previous,
     hintText: update.hintText,
-    frame: update.frame,
+    frame: {
+      snapshot: update.frame.snapshot,
+      currentZ: update.frame.currentZ,
+      visibleLayers,
+      cells: visibleLayers[0]?.cells ?? previous.frame.cells,
+      tileOverlays: update.frame.tileOverlays,
+      render: update.frame.render,
+      inventoryRender: update.frame.inventoryRender,
+    },
     history: {
       ...update.history,
       checkpointTicks: applyArrayPatch(previous.history.checkpointTicks, update.history.checkpointTicks, (value) => value),
