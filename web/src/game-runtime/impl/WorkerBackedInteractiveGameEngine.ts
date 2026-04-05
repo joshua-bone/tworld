@@ -1,6 +1,7 @@
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import type { GameRequest } from "@game-core/api/types";
 import {
+  applyWorkerInteractiveGameSessionUpdate,
   readWorkerInteractiveGameSessionId,
   type InteractiveGameWorkerRequest,
   type InteractiveGameWorkerResponse,
@@ -71,12 +72,20 @@ export class WorkerBackedInteractiveGameEngine implements InteractiveGameEngineP
     return worker;
   }
 
-  private async requestSession(request: InteractiveGameWorkerRequest): Promise<InteractiveGameSession> {
+  private async requestSession(
+    request: InteractiveGameWorkerRequest,
+    previousSession?: InteractiveGameSession,
+  ): Promise<InteractiveGameSession> {
     const response = await this.request(request);
-    if (!response.session) {
-      throw new Error(`interactive worker response for ${request.type} did not include a session`);
+    if (response.session) {
+      return response.session;
     }
-    return response.session;
+
+    if (response.sessionUpdate && previousSession) {
+      return applyWorkerInteractiveGameSessionUpdate(previousSession, response.sessionUpdate);
+    }
+
+    throw new Error(`interactive worker response for ${request.type} did not include a session payload`);
   }
 
   private request(request: InteractiveGameWorkerRequest): Promise<InteractiveGameWorkerResponse> {
@@ -147,7 +156,7 @@ export class WorkerBackedInteractiveGameEngine implements InteractiveGameEngineP
       type: "advance-session",
       sessionId: this.sessionId(session),
       input,
-    });
+    }, session);
   }
 
   async restoreSession(session: InteractiveGameSession, targetTick: number): Promise<InteractiveGameSession> {

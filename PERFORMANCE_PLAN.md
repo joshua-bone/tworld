@@ -221,7 +221,9 @@ Why first:
 
 Status:
 
-- [ ] Not started
+- [x] `advance-session` now returns a delta for stable session metadata, checkpoint ticks, and recorded moves
+- [ ] static frame/setup payload split from steady-state tick payload
+- [ ] lazy history payload introduced for non-live UI needs
 
 Scope:
 

@@ -4,6 +4,7 @@ import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter"
 import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
 import {
   readWorkerInteractiveGameSessionId,
+  toWorkerInteractiveGameSessionUpdate,
   toWorkerInteractiveGameSessionHandle,
   type InteractiveGameWorkerRequest,
   type InteractiveGameWorkerResponse,
@@ -70,7 +71,7 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
       sessions.set(request.sessionId, nextSession);
       return {
         id: request.id,
-        session: toClientSession(request.sessionId, nextSession),
+        sessionUpdate: toWorkerInteractiveGameSessionUpdate(session, nextSession),
       };
     }
     case "restore-session": {
