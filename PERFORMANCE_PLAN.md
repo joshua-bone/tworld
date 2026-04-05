@@ -147,6 +147,8 @@ Expected outcome after fix:
 Status:
 
 - [x] Initial overlay shipped
+- [x] 5-second rolling averages shipped for live gameplay diagnostics
+- [x] One-shot capture/freeze action shipped for usable perf snapshots
 
 Scope:
 
@@ -178,6 +180,7 @@ Acceptance:
 - [x] debug mode clearly shows frame rate
 - [x] debug mode clearly shows simulation rate separate from render rate
 - [x] metrics are legible during active gameplay and level transitions
+- [x] overlay can freeze a snapshot so numbers can be inspected or shared
 - [ ] overlay is cheap enough not to materially distort the numbers it shows
 
 Risk:
@@ -193,6 +196,7 @@ Why first:
 Status:
 
 - [x] Catch-up scheduler implemented in legacy gameplay loop
+- [x] Gameplay cadence now comes from an RAF-driven accumulator instead of `setTimeout`
 - [x] Debug counters exposed for catch-up batches and dropped ticks
 - [ ] Browser gameplay validation completed across representative levels
 

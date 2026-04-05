@@ -26,7 +26,12 @@ describe("runtimePerf", () => {
       avgMs: 6,
       lastMs: 8,
       maxMs: 8,
+      recentAvgMs: 6,
+      recentLastMs: 8,
+      recentMaxMs: 8,
+      recentSamples: 2,
       samples: 2,
+      windowMs: 5000,
     });
   });
 
@@ -83,13 +88,23 @@ describe("runtimePerf", () => {
         avgValue: 3072,
         lastValue: 4096,
         maxValue: 4096,
+        recentAvgValue: 3072,
+        recentLastValue: 4096,
+        recentMaxValue: 4096,
+        recentSamples: 2,
         samples: 2,
+        windowMs: 5000,
       },
       advanceRoundTripMs: {
         avgMs: 15,
         lastMs: 18,
         maxMs: 18,
+        recentAvgMs: 15,
+        recentLastMs: 18,
+        recentMaxMs: 18,
+        recentSamples: 2,
         samples: 2,
+        windowMs: 5000,
       },
     });
     expect(isPerfDiagnosticsEnabled()).toBe(true);
@@ -106,16 +121,68 @@ describe("runtimePerf", () => {
         avgValue: 0,
         lastValue: 0,
         maxValue: 0,
+        recentAvgValue: 0,
+        recentLastValue: 0,
+        recentMaxValue: 0,
+        recentSamples: 0,
         samples: 0,
+        windowMs: 5000,
       },
       advanceRoundTripMs: {
         avgMs: 0,
         lastMs: 0,
         maxMs: 0,
+        recentAvgMs: 0,
+        recentLastMs: 0,
+        recentMaxMs: 0,
+        recentSamples: 0,
         samples: 0,
+        windowMs: 5000,
       },
     });
     expect(isPerfDiagnosticsEnabled()).toBe(false);
+  });
+
+  it("tracks rolling five-second averages separately from lifetime aggregates", () => {
+    const nowSpy = vi.spyOn(performance, "now");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let now = 0;
+    nowSpy.mockImplementation(() => now);
+
+    try {
+      recordPerfMeasurement("tickMs", 10);
+      now = 1000;
+      recordPerfMeasurement("tickMs", 20);
+      now = 5900;
+      recordPerfMeasurement("tickMs", 30);
+
+      const snapshot = snapshotRuntimePerf();
+      expect(snapshot.metrics.tickMs).toMatchObject({
+        avgMs: 20,
+        lastMs: 30,
+        maxMs: 30,
+        recentAvgMs: 25,
+        recentLastMs: 30,
+        recentMaxMs: 30,
+        recentSamples: 2,
+      });
+
+      recordWorkerAdvancePayloadBytes(1024);
+      now = 6100;
+      recordWorkerAdvancePayloadBytes(4096);
+      expect(snapshotRuntimePerf().worker.advancePayloadBytes).toMatchObject({
+        avgValue: 2560,
+        lastValue: 4096,
+        maxValue: 4096,
+        recentAvgValue: 2560,
+        recentLastValue: 4096,
+        recentMaxValue: 4096,
+        recentSamples: 2,
+      });
+    } finally {
+      warnSpy.mockRestore();
+      nowSpy.mockRestore();
+    }
   });
 
   it("throttles perf warnings", () => {

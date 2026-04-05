@@ -95,8 +95,16 @@ function formatRate(value: number, suffix: string): string {
   return `${value.toFixed(1)}${suffix}`;
 }
 
+function formatRollingRate(metric: LegacyCanvasPerfWindowSnapshot, suffix: string): string {
+  return `${metric.avgValue.toFixed(1)}${suffix}`;
+}
+
 function formatMetricTriplet(metric: PerfMetricSnapshot): string {
   return `last=${metric.lastMs.toFixed(1)} ema=${metric.emaMs.toFixed(1)} max=${metric.maxMs.toFixed(1)}`;
+}
+
+function formatMetricWindow(metric: PerfMetricSnapshot): string {
+  return `avg5=${metric.recentAvgMs.toFixed(1)} max5=${metric.recentMaxMs.toFixed(1)}`;
 }
 
 function formatValueTriplet(metric: ValueMetricSnapshot, scale = 1, suffix = ""): string {
@@ -107,14 +115,32 @@ function formatValueTriplet(metric: ValueMetricSnapshot, scale = 1, suffix = "")
   ].join(" ");
 }
 
+function formatValueWindow(metric: ValueMetricSnapshot, scale = 1, suffix = ""): string {
+  return [
+    `avg5=${(metric.recentAvgValue / scale).toFixed(1)}${suffix}`,
+    `max5=${(metric.recentMaxValue / scale).toFixed(1)}${suffix}`,
+  ].join(" ");
+}
+
+export interface LegacyCanvasPerfWindowSnapshot {
+  avgValue: number;
+  lastValue: number;
+  maxValue: number;
+  samples: number;
+  windowMs: number;
+}
+
 export interface LegacyCanvasPerfReadout {
   cappedCatchUpBatches: number;
   droppedCatchUpTicks: number;
   frameFps: number;
+  frameFpsWindow: LegacyCanvasPerfWindowSnapshot;
   renderFps: number;
+  renderFpsWindow: LegacyCanvasPerfWindowSnapshot;
   gameHz: number;
   gameSampleElapsedMs: number;
   gameSampleTickDelta: number;
+  gameHzWindow: LegacyCanvasPerfWindowSnapshot;
   lastCatchUpBatchTicks: number;
   loopDriftMs: PerfMetricSnapshot;
   maxCatchUpBatchTicks: number;
@@ -132,10 +158,13 @@ export function buildLegacyCanvasPerfReadout(
   if (!session) {
     return [
       `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
+      `roll5 frame=${formatRollingRate(perf.frameFpsWindow, "fps")} render=${formatRollingRate(perf.renderFpsWindow, "fps")} game=${formatRollingRate(perf.gameHzWindow, "Hz")}`,
       `game sample ticks=${perf.gameSampleTickDelta} window=${perf.gameSampleElapsedMs.toFixed(1)}ms`,
-      `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
-      `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
-      `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
+      `tick ms ${formatMetricTriplet(perf.tickMs)} ${formatMetricWindow(perf.tickMs)}`,
+      `drift ms last=${perf.loopDriftMs.lastMs.toFixed(1)} ${formatMetricWindow(perf.loopDriftMs)}`,
+      `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+      `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} ${formatMetricWindow(perf.workerAdvanceRoundTripMs)}`,
+      `payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")} ${formatValueWindow(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
       `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
       "scene <no session>",
     ];
@@ -149,10 +178,13 @@ export function buildLegacyCanvasPerfReadout(
 
   return [
     `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
+    `roll5 frame=${formatRollingRate(perf.frameFpsWindow, "fps")} render=${formatRollingRate(perf.renderFpsWindow, "fps")} game=${formatRollingRate(perf.gameHzWindow, "Hz")}`,
     `game sample ticks=${perf.gameSampleTickDelta} window=${perf.gameSampleElapsedMs.toFixed(1)}ms`,
-    `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
-    `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
-    `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
+    `tick ms ${formatMetricTriplet(perf.tickMs)} ${formatMetricWindow(perf.tickMs)}`,
+    `drift ms last=${perf.loopDriftMs.lastMs.toFixed(1)} ${formatMetricWindow(perf.loopDriftMs)}`,
+    `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+    `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} ${formatMetricWindow(perf.workerAdvanceRoundTripMs)}`,
+    `payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")} ${formatValueWindow(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
     `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
     `scene ruleset=${session.request.ruleset} level=${session.request.levelNumber} status=${session.frame.snapshot.status} layers=${session.frame.visibleLayers.length} actors=${actorCount} overlays=${session.frame.tileOverlays.length}`,
     `history undo=${session.history.enabled ? "on" : "off"} checkpoints=${session.history.checkpointCount ?? session.history.checkpointTicks?.length ?? 0} recent=${session.history.recentTicks?.length ?? 0} restore=${session.history.restoreMode}`,

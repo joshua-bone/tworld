@@ -4147,6 +4147,34 @@ body {
   pointer-events: none;
 }
 
+.legacy-debug-overlay__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  pointer-events: auto;
+}
+
+.legacy-debug-overlay__button {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(18, 28, 18, 0.95);
+  color: #c8ffd4;
+  font: 11px/1.2 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  padding: 3px 7px;
+  cursor: pointer;
+}
+
+.legacy-debug-overlay__button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.legacy-debug-overlay__status {
+  color: rgba(200, 255, 212, 0.82);
+  font: 11px/1.2 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  text-transform: lowercase;
+}
+
 .legacy-debug-overlay__lines {
   margin: 0;
   color: #7dff9a;

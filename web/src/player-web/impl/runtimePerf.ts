@@ -19,6 +19,7 @@ interface PerfMetricState {
   emaMs: number;
   lastMs: number;
   maxMs: number;
+  recentSamples: TimedSample[];
   samples: number;
   totalMs: number;
   warnCount: number;
@@ -32,8 +33,13 @@ export interface PerfMetricSnapshot {
   label: string;
   lastMs: number;
   maxMs: number;
+  recentAvgMs: number;
+  recentLastMs: number;
+  recentMaxMs: number;
+  recentSamples: number;
   samples: number;
   warnCount: number;
+  windowMs: number;
 }
 
 export interface ValueMetricSnapshot {
@@ -41,7 +47,12 @@ export interface ValueMetricSnapshot {
   emaValue: number;
   lastValue: number;
   maxValue: number;
+  recentAvgValue: number;
+  recentLastValue: number;
+  recentMaxValue: number;
+  recentSamples: number;
   samples: number;
+  windowMs: number;
 }
 
 export interface SchedulerCatchUpSnapshot {
@@ -76,12 +87,14 @@ interface ValueMetricState {
   emaValue: number;
   lastValue: number;
   maxValue: number;
+  recentSamples: TimedSample[];
   samples: number;
   totalValue: number;
 }
 
 const PERF_WARN_THROTTLE_MS = 5000;
 const PERF_EMA_WEIGHT = 0.15;
+const PERF_ROLLING_WINDOW_MS = 5000;
 const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
   catalogBootstrapMs: {
     budgetMs: 60,
@@ -137,6 +150,7 @@ const workerPayloadBytesState: ValueMetricState = {
   emaValue: 0,
   lastValue: 0,
   maxValue: 0,
+  recentSamples: [],
   samples: 0,
   totalValue: 0,
 };
@@ -157,11 +171,17 @@ const schedulerCatchUpState: SchedulerCatchUpState = {
   maxBatchTicks: 0,
 };
 
+interface TimedSample {
+  atMs: number;
+  value: number;
+}
+
 function createPerfMetricState(): PerfMetricState {
   return {
     emaMs: 0,
     lastMs: 0,
     maxMs: 0,
+    recentSamples: [],
     samples: 0,
     totalMs: 0,
     warnCount: 0,
@@ -174,6 +194,7 @@ function createValueMetricState(): ValueMetricState {
     emaValue: 0,
     lastValue: 0,
     maxValue: 0,
+    recentSamples: [],
     samples: 0,
     totalValue: 0,
   };
@@ -192,6 +213,7 @@ function getPerfMetricState(name: PerfMetricName): PerfMetricState {
 
 function snapshotMetric(name: PerfMetricName, state: PerfMetricState): PerfMetricSnapshot {
   const config = PERF_METRIC_CONFIG[name];
+  const recent = snapshotRecentSamples(state.recentSamples);
   return {
     avgMs: state.samples > 0 ? state.totalMs / state.samples : 0,
     budgetMs: config.budgetMs,
@@ -199,18 +221,69 @@ function snapshotMetric(name: PerfMetricName, state: PerfMetricState): PerfMetri
     label: config.label,
     lastMs: state.lastMs,
     maxMs: state.maxMs,
+    recentAvgMs: recent.avgValue,
+    recentLastMs: recent.lastValue,
+    recentMaxMs: recent.maxValue,
+    recentSamples: recent.samples,
     samples: state.samples,
     warnCount: state.warnCount,
+    windowMs: PERF_ROLLING_WINDOW_MS,
   };
 }
 
 function snapshotValueMetric(state: ValueMetricState): ValueMetricSnapshot {
+  const recent = snapshotRecentSamples(state.recentSamples);
   return {
     avgValue: state.samples > 0 ? state.totalValue / state.samples : 0,
     emaValue: state.emaValue,
     lastValue: state.lastValue,
     maxValue: state.maxValue,
+    recentAvgValue: recent.avgValue,
+    recentLastValue: recent.lastValue,
+    recentMaxValue: recent.maxValue,
+    recentSamples: recent.samples,
     samples: state.samples,
+    windowMs: PERF_ROLLING_WINDOW_MS,
+  };
+}
+
+function pruneRecentSamples(samples: TimedSample[], now = performance.now()): void {
+  while (samples.length > 0 && now - samples[0]!.atMs > PERF_ROLLING_WINDOW_MS) {
+    samples.shift();
+  }
+}
+
+function snapshotRecentSamples(
+  samples: TimedSample[],
+  now = performance.now(),
+): {
+  avgValue: number;
+  lastValue: number;
+  maxValue: number;
+  samples: number;
+} {
+  pruneRecentSamples(samples, now);
+  if (samples.length === 0) {
+    return {
+      avgValue: 0,
+      lastValue: 0,
+      maxValue: 0,
+      samples: 0,
+    };
+  }
+
+  let totalValue = 0;
+  let maxValue = Number.NEGATIVE_INFINITY;
+  for (const sample of samples) {
+    totalValue += sample.value;
+    maxValue = Math.max(maxValue, sample.value);
+  }
+
+  return {
+    avgValue: totalValue / samples.length,
+    lastValue: samples[samples.length - 1]!.value,
+    maxValue,
+    samples: samples.length,
   };
 }
 
@@ -242,6 +315,7 @@ export function resetPerfMetrics(): void {
   workerPayloadBytesState.emaValue = nextWorkerPayloadState.emaValue;
   workerPayloadBytesState.lastValue = nextWorkerPayloadState.lastValue;
   workerPayloadBytesState.maxValue = nextWorkerPayloadState.maxValue;
+  workerPayloadBytesState.recentSamples = nextWorkerPayloadState.recentSamples;
   workerPayloadBytesState.samples = nextWorkerPayloadState.samples;
   workerPayloadBytesState.totalValue = nextWorkerPayloadState.totalValue;
   perfDiagnosticsEnabled = false;
@@ -314,18 +388,24 @@ function warnIfNeeded(name: PerfMetricName, durationMs: number, state: PerfMetri
 
 export function recordPerfMeasurement(name: PerfMetricName, durationMs: number): void {
   const state = getPerfMetricState(name);
+  const now = performance.now();
   state.samples += 1;
   state.lastMs = durationMs;
   state.maxMs = Math.max(state.maxMs, durationMs);
+  state.recentSamples.push({ atMs: now, value: durationMs });
+  pruneRecentSamples(state.recentSamples, now);
   state.totalMs += durationMs;
   state.emaMs = state.samples === 1 ? durationMs : state.emaMs + (durationMs - state.emaMs) * PERF_EMA_WEIGHT;
   warnIfNeeded(name, durationMs, state);
 }
 
 function recordValueMeasurement(state: ValueMetricState, value: number): void {
+  const now = performance.now();
   state.samples += 1;
   state.lastValue = value;
   state.maxValue = Math.max(state.maxValue, value);
+  state.recentSamples.push({ atMs: now, value });
+  pruneRecentSamples(state.recentSamples, now);
   state.totalValue += value;
   state.emaValue = state.samples === 1 ? value : state.emaValue + (value - state.emaValue) * PERF_EMA_WEIGHT;
 }

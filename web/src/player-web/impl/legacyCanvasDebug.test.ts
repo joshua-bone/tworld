@@ -6,6 +6,7 @@ import {
   buildLegacyCanvasDebugReadout,
   buildLegacyCanvasPerfReadout,
   type LegacyCanvasPerfReadout,
+  type LegacyCanvasPerfWindowSnapshot,
 } from "@player-web/impl/legacyCanvasDebug";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -156,8 +157,13 @@ function createPerfMetricSnapshot(lastMs: number, emaMs: number = lastMs, maxMs:
     label: "test",
     lastMs,
     maxMs,
+    recentAvgMs: lastMs,
+    recentLastMs: lastMs,
+    recentMaxMs: maxMs,
+    recentSamples: 1,
     samples: 1,
     warnCount: 0,
+    windowMs: 5000,
   };
 }
 
@@ -171,7 +177,26 @@ function createValueMetricSnapshot(
     emaValue,
     lastValue,
     maxValue,
+    recentAvgValue: lastValue,
+    recentLastValue: lastValue,
+    recentMaxValue: maxValue,
+    recentSamples: 1,
     samples: 1,
+    windowMs: 5000,
+  };
+}
+
+function createPerfWindowSnapshot(
+  avgValue: number,
+  lastValue: number = avgValue,
+  maxValue: number = Math.max(avgValue, lastValue),
+): LegacyCanvasPerfWindowSnapshot {
+  return {
+    avgValue,
+    lastValue,
+    maxValue,
+    samples: 1,
+    windowMs: 5000,
   };
 }
 
@@ -180,18 +205,41 @@ function createPerfReadout(): LegacyCanvasPerfReadout {
     cappedCatchUpBatches: 2,
     droppedCatchUpTicks: 5,
     frameFps: 58.4,
+    frameFpsWindow: createPerfWindowSnapshot(59.1, 58.4, 60.0),
     renderFps: 19.7,
+    renderFpsWindow: createPerfWindowSnapshot(20.2, 19.7, 21.0),
     gameHz: 14.8,
     gameSampleElapsedMs: 500,
     gameSampleTickDelta: 8,
+    gameHzWindow: createPerfWindowSnapshot(16.0, 14.8, 20.0),
     lastCatchUpBatchTicks: 3,
-    loopDriftMs: createPerfMetricSnapshot(11.4),
+    loopDriftMs: {
+      ...createPerfMetricSnapshot(11.4),
+      recentAvgMs: 8.3,
+      recentMaxMs: 11.4,
+    },
     maxCatchUpBatchTicks: 4,
-    renderMs: createPerfMetricSnapshot(10.2, 9.7, 14.6),
+    renderMs: {
+      ...createPerfMetricSnapshot(10.2, 9.7, 14.6),
+      recentAvgMs: 9.9,
+      recentMaxMs: 14.6,
+    },
     sessionLoadMs: createPerfMetricSnapshot(48.1, 46.8, 63.4),
-    tickMs: createPerfMetricSnapshot(18.2, 16.9, 27.5),
-    workerAdvancePayloadBytes: createValueMetricSnapshot(9216, 7168, 12288),
-    workerAdvanceRoundTripMs: createPerfMetricSnapshot(14.3, 13.1, 20.7),
+    tickMs: {
+      ...createPerfMetricSnapshot(18.2, 16.9, 27.5),
+      recentAvgMs: 17.1,
+      recentMaxMs: 23.8,
+    },
+    workerAdvancePayloadBytes: {
+      ...createValueMetricSnapshot(9216, 7168, 12288),
+      recentAvgValue: 8192,
+      recentMaxValue: 12288,
+    },
+    workerAdvanceRoundTripMs: {
+      ...createPerfMetricSnapshot(14.3, 13.1, 20.7),
+      recentAvgMs: 13.7,
+      recentMaxMs: 18.1,
+    },
   };
 }
 
@@ -220,10 +268,13 @@ describe("buildLegacyCanvasPerfReadout", () => {
   it("includes scheduler counters alongside frame and tick metrics", () => {
     expect(buildLegacyCanvasPerfReadout(createSession(), createPerfReadout())).toEqual([
       "perf frame=58.4fps render=19.7fps game=14.8Hz",
+      "roll5 frame=59.1fps render=20.2fps game=16.0Hz",
       "game sample ticks=8 window=500.0ms",
-      "tick ms last=18.2 ema=16.9 max=27.5 drift=11.4",
-      "draw ms last=10.2 ema=9.7 max=14.6 load=48.1",
-      "worker ms last=14.3 ema=13.1 max=20.7 payload last=9.0KB ema=7.0KB max=12.0KB",
+      "tick ms last=18.2 ema=16.9 max=27.5 avg5=17.1 max5=23.8",
+      "drift ms last=11.4 avg5=8.3 max5=11.4",
+      "draw ms last=10.2 ema=9.7 max=14.6 avg5=9.9 max5=14.6 load=48.1",
+      "worker ms last=14.3 ema=13.1 max=20.7 avg5=13.7 max5=18.1",
+      "payload last=9.0KB ema=7.0KB max=12.0KB avg5=8.0KB max5=12.0KB",
       "sched batch=3 max=4 capped=2 dropped=5",
       "scene ruleset=Lynx level=1 status=playing layers=2 actors=3 overlays=1",
       "history undo=on checkpoints=1 recent=0 restore=live",
@@ -233,10 +284,13 @@ describe("buildLegacyCanvasPerfReadout", () => {
   it("renders a no-session line when gameplay is not active", () => {
     expect(buildLegacyCanvasPerfReadout(null, createPerfReadout())).toEqual([
       "perf frame=58.4fps render=19.7fps game=14.8Hz",
+      "roll5 frame=59.1fps render=20.2fps game=16.0Hz",
       "game sample ticks=8 window=500.0ms",
-      "tick ms last=18.2 ema=16.9 max=27.5 drift=11.4",
-      "draw ms last=10.2 ema=9.7 max=14.6 load=48.1",
-      "worker ms last=14.3 ema=13.1 max=20.7 payload last=9.0KB ema=7.0KB max=12.0KB",
+      "tick ms last=18.2 ema=16.9 max=27.5 avg5=17.1 max5=23.8",
+      "drift ms last=11.4 avg5=8.3 max5=11.4",
+      "draw ms last=10.2 ema=9.7 max=14.6 avg5=9.9 max5=14.6 load=48.1",
+      "worker ms last=14.3 ema=13.1 max=20.7 avg5=13.7 max5=18.1",
+      "payload last=9.0KB ema=7.0KB max=12.0KB avg5=8.0KB max5=12.0KB",
       "sched batch=3 max=4 capped=2 dropped=5",
       "scene <no session>",
     ]);
