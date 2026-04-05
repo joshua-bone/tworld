@@ -100,10 +100,14 @@ function formatMetricTriplet(metric: PerfMetricSnapshot): string {
 }
 
 export interface LegacyCanvasPerfReadout {
+  cappedCatchUpBatches: number;
+  droppedCatchUpTicks: number;
   frameFps: number;
   renderFps: number;
   gameHz: number;
+  lastCatchUpBatchTicks: number;
   loopDriftMs: PerfMetricSnapshot;
+  maxCatchUpBatchTicks: number;
   renderMs: PerfMetricSnapshot;
   sessionLoadMs: PerfMetricSnapshot;
   tickMs: PerfMetricSnapshot;
@@ -118,6 +122,7 @@ export function buildLegacyCanvasPerfReadout(
       `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
       `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
       `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+      `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
       "scene <no session>",
     ];
   }
@@ -132,6 +137,7 @@ export function buildLegacyCanvasPerfReadout(
     `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
     `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
     `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+    `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
     `scene ruleset=${session.request.ruleset} level=${session.request.levelNumber} status=${session.frame.snapshot.status} layers=${session.frame.visibleLayers.length} actors=${actorCount} overlays=${session.frame.tileOverlays.length}`,
     `history undo=${session.history.enabled ? "on" : "off"} checkpoints=${session.history.checkpointTicks.length} recent=${session.history.recentTicks?.length ?? 0} restore=${session.history.restoreMode}`,
   ];

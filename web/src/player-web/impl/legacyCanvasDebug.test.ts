@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell } from "@game-core/api/model";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
-import { buildLegacyCanvasDebugReadout } from "@player-web/impl/legacyCanvasDebug";
+import type { PerfMetricSnapshot } from "@player-web/impl/runtimePerf";
+import {
+  buildLegacyCanvasDebugReadout,
+  buildLegacyCanvasPerfReadout,
+  type LegacyCanvasPerfReadout,
+} from "@player-web/impl/legacyCanvasDebug";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
 function createCell(pos: number, z: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
@@ -143,6 +148,35 @@ function createSession(): InteractiveGameSession {
   };
 }
 
+function createPerfMetricSnapshot(lastMs: number, emaMs: number = lastMs, maxMs: number = lastMs): PerfMetricSnapshot {
+  return {
+    avgMs: lastMs,
+    budgetMs: 12,
+    emaMs,
+    label: "test",
+    lastMs,
+    maxMs,
+    samples: 1,
+    warnCount: 0,
+  };
+}
+
+function createPerfReadout(): LegacyCanvasPerfReadout {
+  return {
+    cappedCatchUpBatches: 2,
+    droppedCatchUpTicks: 5,
+    frameFps: 58.4,
+    renderFps: 19.7,
+    gameHz: 14.8,
+    lastCatchUpBatchTicks: 3,
+    loopDriftMs: createPerfMetricSnapshot(11.4),
+    maxCatchUpBatchTicks: 4,
+    renderMs: createPerfMetricSnapshot(10.2, 9.7, 14.6),
+    sessionLoadMs: createPerfMetricSnapshot(48.1, 46.8, 63.4),
+    tickMs: createPerfMetricSnapshot(18.2, 16.9, 27.5),
+  };
+}
+
 describe("buildLegacyCanvasDebugReadout", () => {
   it("returns a layered readout with overlays and render occupants for the hovered cell", () => {
     expect(buildLegacyCanvasDebugReadout(createSession(), 0)).toEqual([
@@ -161,5 +195,28 @@ describe("buildLegacyCanvasDebugReadout", () => {
   it("returns no lines when there is no active session or hover target", () => {
     expect(buildLegacyCanvasDebugReadout(null, 0)).toEqual([]);
     expect(buildLegacyCanvasDebugReadout(createSession(), null)).toEqual([]);
+  });
+});
+
+describe("buildLegacyCanvasPerfReadout", () => {
+  it("includes scheduler counters alongside frame and tick metrics", () => {
+    expect(buildLegacyCanvasPerfReadout(createSession(), createPerfReadout())).toEqual([
+      "perf frame=58.4fps render=19.7fps game=14.8Hz",
+      "tick ms last=18.2 ema=16.9 max=27.5 drift=11.4",
+      "draw ms last=10.2 ema=9.7 max=14.6 load=48.1",
+      "sched batch=3 max=4 capped=2 dropped=5",
+      "scene ruleset=Lynx level=1 status=playing layers=2 actors=3 overlays=1",
+      "history undo=on checkpoints=1 recent=0 restore=live",
+    ]);
+  });
+
+  it("renders a no-session line when gameplay is not active", () => {
+    expect(buildLegacyCanvasPerfReadout(null, createPerfReadout())).toEqual([
+      "perf frame=58.4fps render=19.7fps game=14.8Hz",
+      "tick ms last=18.2 ema=16.9 max=27.5 drift=11.4",
+      "draw ms last=10.2 ema=9.7 max=14.6 load=48.1",
+      "sched batch=3 max=4 capped=2 dropped=5",
+      "scene <no session>",
+    ]);
   });
 });

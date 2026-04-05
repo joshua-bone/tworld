@@ -6,7 +6,7 @@ import {
 } from "@player-web/impl/legacyRenderPresets";
 import {
   measurePerfSync,
-  snapshotPerfMetrics,
+  snapshotRuntimePerf,
 } from "@player-web/impl/runtimePerf";
 import {
   buildLegacyGameDrawStateKey,
@@ -136,7 +136,8 @@ function updateLegacyCanvasPerfTracker(
   now: number,
   session: InteractiveGameSession | null,
 ): LegacyCanvasPerfReadout {
-  const metrics = snapshotPerfMetrics();
+  const perf = snapshotRuntimePerf();
+  const metrics = perf.metrics;
   const nextSessionKey = sessionPerfKey(session);
   if (state.sessionKey !== nextSessionKey) {
     const nextState = createLegacyCanvasPerfTrackerState();
@@ -192,10 +193,14 @@ function updateLegacyCanvasPerfTracker(
   }
 
   return {
+    cappedCatchUpBatches: perf.scheduler.cappedBatchCount,
+    droppedCatchUpTicks: perf.scheduler.droppedTickCount,
     frameFps: state.frameFps,
     renderFps: state.renderFps,
     gameHz: state.gameHz,
+    lastCatchUpBatchTicks: perf.scheduler.lastBatchTicks,
     loopDriftMs: metrics.loopDriftMs,
+    maxCatchUpBatchTicks: perf.scheduler.maxBatchTicks,
     renderMs: metrics.renderMs,
     sessionLoadMs: metrics.sessionLoadMs,
     tickMs: metrics.tickMs,

@@ -3,7 +3,9 @@ import {
   measurePerfAsync,
   measurePerfSync,
   recordPerfMeasurement,
+  recordSchedulerCatchUp,
   resetPerfMetrics,
+  snapshotRuntimePerf,
   snapshotPerfMetrics,
 } from "@player-web/impl/runtimePerf";
 
@@ -36,6 +38,33 @@ describe("runtimePerf", () => {
 
     expect(result).toBe("ok");
     expect(snapshotPerfMetrics().sessionLoadMs.samples).toBe(1);
+  });
+
+  it("tracks catch-up scheduler batches and dropped ticks", () => {
+    recordSchedulerCatchUp(2);
+    recordSchedulerCatchUp(0, { capped: true, droppedTicks: 3 });
+    recordSchedulerCatchUp(4, { capped: true, droppedTicks: 1 });
+
+    expect(snapshotRuntimePerf().scheduler).toMatchObject({
+      batchCount: 2,
+      cappedBatchCount: 2,
+      droppedTickCount: 4,
+      lastBatchTicks: 4,
+      maxBatchTicks: 4,
+    });
+  });
+
+  it("resets scheduler catch-up counters with the perf registry", () => {
+    recordSchedulerCatchUp(3, { capped: true, droppedTicks: 2 });
+    resetPerfMetrics();
+
+    expect(snapshotRuntimePerf().scheduler).toMatchObject({
+      batchCount: 0,
+      cappedBatchCount: 0,
+      droppedTickCount: 0,
+      lastBatchTicks: 0,
+      maxBatchTicks: 0,
+    });
   });
 
   it("throttles perf warnings", () => {

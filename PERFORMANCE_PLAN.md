@@ -6,7 +6,7 @@
 - [x] Representative benchmark scenarios identified
 - [x] Primary bottlenecks identified
 - [x] Debug perf overlay implemented
-- [ ] Scheduler fix implemented
+- [x] Scheduler fix implemented
 - [ ] Worker payload reduction implemented
 - [ ] Undo/history projection reduction implemented
 - [ ] Incremental frame projection implemented
@@ -171,7 +171,7 @@ Recommended visible metrics:
 - [x] undo enabled/disabled and current checkpoint count
 - [ ] worker round-trip or session advance latency if instrumented separately
 - [ ] worker payload size in KB once response slimming work begins
-- [ ] dropped or capped catch-up tick counters once scheduler work lands
+- [x] dropped or capped catch-up tick counters once scheduler work lands
 
 Acceptance:
 
@@ -192,7 +192,9 @@ Why first:
 
 Status:
 
-- [ ] Not started
+- [x] Catch-up scheduler implemented in legacy gameplay loop
+- [x] Debug counters exposed for catch-up batches and dropped ticks
+- [ ] Browser gameplay validation completed across representative levels
 
 Scope:
 
@@ -352,8 +354,8 @@ Why sixth:
 
 ## Recommended Execution Order
 
-- [ ] PR 0: Debug Perf Overlay
-- [ ] PR 1: Scheduler Correctness
+- [x] PR 0: Debug Perf Overlay
+- [x] PR 1: Scheduler Correctness
 - [ ] PR 2: Worker Response Slimming
 - [ ] PR 3: Incremental Undo/History Summaries
 - [ ] PR 4: Incremental Frame Projection

@@ -32,7 +32,10 @@ import {
 } from "@player-web/impl/legacyInput";
 import { MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
 import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
-import { recordPerfMeasurement } from "@player-web/impl/runtimePerf";
+import {
+  recordPerfMeasurement,
+  recordSchedulerCatchUp,
+} from "@player-web/impl/runtimePerf";
 import type { InteractiveInput } from "@game-core/api/command";
 import { GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
@@ -40,6 +43,7 @@ import type { LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import type { PlayerBindableKey } from "@player-web/impl/playerKeyBindingsSettings";
 
 const LEGACY_FAST_TICK_MS = 25;
+const LEGACY_MAX_CATCH_UP_TICKS = 4;
 const LEGACY_NORMAL_TICK_MS = 50;
 const UNDO_HOLD_REPEAT_DELAY_MS = 160;
 const UNDO_HOLD_REPEAT_INTERVAL_MS = 40;
@@ -326,31 +330,95 @@ export function usePlayerAppInputController({
     }
 
     const tickIntervalMs = isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
-    let nextExpectedTickAtMs = performance.now() + tickIntervalMs;
+    const maxAccumulatedMs = tickIntervalMs * LEGACY_MAX_CATCH_UP_TICKS;
+    let cancelled = false;
+    let pumping = false;
+    let scheduledPumpId: number | null = null;
+    let accumulatedMs = 0;
+    let lastPumpAtMs = performance.now();
 
-    const intervalId = window.setInterval(() => {
-      const now = performance.now();
-      const driftMs = Math.max(0, now - nextExpectedTickAtMs);
-      recordPerfMeasurement("loopDriftMs", driftMs);
-      nextExpectedTickAtMs += tickIntervalMs;
-      if (driftMs > tickIntervalMs * 4) {
-        nextExpectedTickAtMs = now + tickIntervalMs;
+    const clearScheduledPump = () => {
+      if (scheduledPumpId !== null) {
+        window.clearTimeout(scheduledPumpId);
+        scheduledPumpId = null;
       }
+    };
 
+    const scheduleNextPump = (delayMs: number) => {
+      clearScheduledPump();
+      scheduledPumpId = window.setTimeout(() => {
+        void pumpTicks();
+      }, Math.max(0, delayMs));
+    };
+
+    const nextTickInputCode = (): InteractiveInput | null => {
       const activeSession = liveSessionRef.current;
       if (!activeSession) {
+        return null;
+      }
+
+      return activeSession.request.ruleset === "Lynx"
+        ? lynxInputBufferRef.current.nextTickInputCode(currentActionModifierMask())
+        : msInputBufferRef.current.nextTickInputCode(currentActionModifierMask());
+    };
+
+    const pumpTicks = async () => {
+      if (cancelled || pumping) {
         return;
       }
 
-      const inputCode =
-        activeSession.request.ruleset === "Lynx"
-          ? lynxInputBufferRef.current.nextTickInputCode(currentActionModifierMask())
-          : msInputBufferRef.current.nextTickInputCode(currentActionModifierMask());
-      void advanceTick(inputCode);
-    }, tickIntervalMs);
+      pumping = true;
+      try {
+        const now = performance.now();
+        accumulatedMs += now - lastPumpAtMs;
+        lastPumpAtMs = now;
+
+        recordPerfMeasurement("loopDriftMs", Math.max(0, accumulatedMs - tickIntervalMs));
+
+        let capped = false;
+        let droppedTicks = 0;
+        if (accumulatedMs > maxAccumulatedMs) {
+          capped = true;
+          droppedTicks = Math.floor((accumulatedMs - maxAccumulatedMs) / tickIntervalMs);
+          accumulatedMs = maxAccumulatedMs;
+        }
+
+        let batchTicks = 0;
+        while (!cancelled && accumulatedMs >= tickIntervalMs && batchTicks < LEGACY_MAX_CATCH_UP_TICKS) {
+          const inputCode = nextTickInputCode();
+          if (inputCode === null) {
+            accumulatedMs = 0;
+            break;
+          }
+
+          await advanceTick(inputCode);
+          batchTicks += 1;
+          accumulatedMs -= tickIntervalMs;
+
+          const afterTickAtMs = performance.now();
+          accumulatedMs += afterTickAtMs - lastPumpAtMs;
+          lastPumpAtMs = afterTickAtMs;
+        }
+
+        if (batchTicks > 0 || capped || droppedTicks > 0) {
+          recordSchedulerCatchUp(batchTicks, {
+            capped,
+            droppedTicks,
+          });
+        }
+      } finally {
+        pumping = false;
+        if (!cancelled) {
+          scheduleNextPump(accumulatedMs >= tickIntervalMs ? 0 : tickIntervalMs - accumulatedMs);
+        }
+      }
+    };
+
+    scheduleNextPump(tickIntervalMs);
 
     return () => {
-      window.clearInterval(intervalId);
+      cancelled = true;
+      clearScheduledPump();
     };
   }, [
     advanceTick,

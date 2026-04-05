@@ -35,6 +35,19 @@ export interface PerfMetricSnapshot {
   warnCount: number;
 }
 
+export interface SchedulerCatchUpSnapshot {
+  batchCount: number;
+  cappedBatchCount: number;
+  droppedTickCount: number;
+  lastBatchTicks: number;
+  maxBatchTicks: number;
+}
+
+export interface RuntimePerfSnapshot {
+  metrics: Record<PerfMetricName, PerfMetricSnapshot>;
+  scheduler: SchedulerCatchUpSnapshot;
+}
+
 interface PerfRuntimeGlobal {
   reset: () => void;
   snapshot: () => Record<PerfMetricName, PerfMetricSnapshot>;
@@ -88,6 +101,22 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
 const PERF_GLOBAL_KEY = "__TWORLD_PERF__";
 const perfMetricStates = new Map<PerfMetricName, PerfMetricState>();
 
+interface SchedulerCatchUpState {
+  batchCount: number;
+  cappedBatchCount: number;
+  droppedTickCount: number;
+  lastBatchTicks: number;
+  maxBatchTicks: number;
+}
+
+const schedulerCatchUpState: SchedulerCatchUpState = {
+  batchCount: 0,
+  cappedBatchCount: 0,
+  droppedTickCount: 0,
+  lastBatchTicks: 0,
+  maxBatchTicks: 0,
+};
+
 function createPerfMetricState(): PerfMetricState {
   return {
     emaMs: 0,
@@ -140,6 +169,45 @@ export function snapshotPerfMetrics(): Record<PerfMetricName, PerfMetricSnapshot
 
 export function resetPerfMetrics(): void {
   perfMetricStates.clear();
+  schedulerCatchUpState.batchCount = 0;
+  schedulerCatchUpState.cappedBatchCount = 0;
+  schedulerCatchUpState.droppedTickCount = 0;
+  schedulerCatchUpState.lastBatchTicks = 0;
+  schedulerCatchUpState.maxBatchTicks = 0;
+}
+
+export function recordSchedulerCatchUp(
+  batchTicks: number,
+  options: { capped?: boolean; droppedTicks?: number } = {},
+): void {
+  if (batchTicks > 0) {
+    schedulerCatchUpState.batchCount += 1;
+    schedulerCatchUpState.lastBatchTicks = batchTicks;
+    schedulerCatchUpState.maxBatchTicks = Math.max(schedulerCatchUpState.maxBatchTicks, batchTicks);
+  } else {
+    schedulerCatchUpState.lastBatchTicks = 0;
+  }
+
+  if (options.capped) {
+    schedulerCatchUpState.cappedBatchCount += 1;
+  }
+
+  if ((options.droppedTicks ?? 0) > 0) {
+    schedulerCatchUpState.droppedTickCount += options.droppedTicks ?? 0;
+  }
+}
+
+export function snapshotRuntimePerf(): RuntimePerfSnapshot {
+  return {
+    metrics: snapshotPerfMetrics(),
+    scheduler: {
+      batchCount: schedulerCatchUpState.batchCount,
+      cappedBatchCount: schedulerCatchUpState.cappedBatchCount,
+      droppedTickCount: schedulerCatchUpState.droppedTickCount,
+      lastBatchTicks: schedulerCatchUpState.lastBatchTicks,
+      maxBatchTicks: schedulerCatchUpState.maxBatchTicks,
+    },
+  };
 }
 
 function warnIfNeeded(name: PerfMetricName, durationMs: number, state: PerfMetricState): void {
