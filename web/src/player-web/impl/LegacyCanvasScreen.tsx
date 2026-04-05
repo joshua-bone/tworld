@@ -10,7 +10,6 @@ import {
   snapshotRuntimePerf,
 } from "@player-web/impl/runtimePerf";
 import {
-  buildLegacyGameDrawStateKey,
   isThinWallTileId,
   mapPositionAtCanvasPoint,
   prewarmVisibleLayerCaches,
@@ -194,6 +193,28 @@ function formatPerfCaptureTimestamp(date: Date): string {
   const minutes = date.getMinutes().toString().padStart(2, "0");
   const seconds = date.getSeconds().toString().padStart(2, "0");
   return `${hours}:${minutes}:${seconds}`;
+}
+
+function buildLegacyCanvasRenderContextKey(options: {
+  currentLevel: SeriesLevel | null;
+  currentRuleset: SeriesCatalogEntry["ruleset"] | null;
+  currentSeries: SeriesCatalogEntry | null;
+  hasTileset: boolean;
+  isLoading: boolean;
+  message: string | null;
+  presentation: LegacyCanvasPresentation;
+  visualEnhancementsEnabled: boolean;
+}): string {
+  return [
+    options.currentSeries?.filebase ?? "",
+    options.currentLevel?.number ?? 0,
+    options.currentRuleset ?? "None",
+    options.isLoading ? 1 : 0,
+    options.message ?? "",
+    options.presentation,
+    options.hasTileset ? 1 : 0,
+    options.visualEnhancementsEnabled ? 1 : 0,
+  ].join(":");
 }
 
 function sessionPerfKey(session: InteractiveGameSession | null): string | null {
@@ -555,27 +576,28 @@ export function LegacyCanvasScreen({
 
     context.imageSmoothingEnabled = false;
     let animationFrameId = 0;
-    let lastDrawStateKey = "";
+    let lastRenderContextKey = "";
+    let lastRenderedSession: InteractiveGameSession | null = null;
 
     const drawLiveFrame = () => {
       const activeSession = liveSessionRef?.current ?? session;
-      const drawStateKey = buildLegacyGameDrawStateKey(
-        activeSession,
-        currentSeries,
+      const renderContextKey = buildLegacyCanvasRenderContextKey({
         currentLevel,
         currentRuleset,
+        currentSeries,
+        hasTileset: tileset !== null,
         isLoading,
         message,
         presentation,
-        tileset !== null,
         visualEnhancementsEnabled,
-      );
+      });
 
-      if (drawStateKey !== lastDrawStateKey) {
+      if (activeSession !== lastRenderedSession || renderContextKey !== lastRenderContextKey) {
         measurePerfSync("renderMs", () => {
           drawFrame(context, activeSession);
         });
-        lastDrawStateKey = drawStateKey;
+        lastRenderedSession = activeSession;
+        lastRenderContextKey = renderContextKey;
       }
 
       animationFrameId = window.requestAnimationFrame(drawLiveFrame);

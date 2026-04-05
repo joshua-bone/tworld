@@ -313,6 +313,7 @@ Status:
 - [x] Removed the unconditional multi-layer Lynx RAF redraw bypass
 - [x] Legacy draw loop now redraws only when the gameplay draw-state key changes
 - [x] Visible-layer draw-state hashing now reuses cached summaries for shared layer objects
+- [x] Legacy draw loop no longer recomputes full draw-state hashes on every RAF when the session object is unchanged
 
 Scope:
 
