@@ -4,7 +4,10 @@ import {
   legacyMapPixelsForTileSize,
   type LegacyRenderTileSize,
 } from "@player-web/impl/legacyRenderPresets";
-import { measurePerfSync } from "@player-web/impl/runtimePerf";
+import {
+  measurePerfSync,
+  snapshotPerfMetrics,
+} from "@player-web/impl/runtimePerf";
 import {
   buildLegacyGameDrawStateKey,
   isThinWallTileId,
@@ -40,7 +43,11 @@ import {
   clearLayerCanvasCache,
   createLayerCanvasCache,
 } from "@player-web/impl/legacyLayerCanvasCache";
-import { buildLegacyCanvasDebugReadout } from "@player-web/impl/legacyCanvasDebug";
+import {
+  buildLegacyCanvasDebugReadout,
+  buildLegacyCanvasPerfReadout,
+  type LegacyCanvasPerfReadout,
+} from "@player-web/impl/legacyCanvasDebug";
 import {
   LEGACY_COLORS,
   clamp,
@@ -86,6 +93,115 @@ interface LegacyCanvasScreenProps {
   debugModeEnabled?: boolean;
 }
 
+interface LegacyCanvasPerfTrackerState {
+  frameFps: number;
+  frameSampleCount: number;
+  gameHz: number;
+  lastFrameSampleAtMs: number | null;
+  lastGameSampleAtMs: number | null;
+  lastGameTick: number | null;
+  lastRenderSampleAtMs: number | null;
+  lastRenderSampleCount: number;
+  renderFps: number;
+  sessionKey: string | null;
+}
+
+const DEBUG_PERF_SAMPLE_INTERVAL_MS = 500;
+
+function createLegacyCanvasPerfTrackerState(): LegacyCanvasPerfTrackerState {
+  return {
+    frameFps: 0,
+    frameSampleCount: 0,
+    gameHz: 0,
+    lastFrameSampleAtMs: null,
+    lastGameSampleAtMs: null,
+    lastGameTick: null,
+    lastRenderSampleAtMs: null,
+    lastRenderSampleCount: 0,
+    renderFps: 0,
+    sessionKey: null,
+  };
+}
+
+function sessionPerfKey(session: InteractiveGameSession | null): string | null {
+  if (!session) {
+    return null;
+  }
+
+  return `${session.request.seriesFile}:${session.request.levelNumber}:${session.request.ruleset}`;
+}
+
+function updateLegacyCanvasPerfTracker(
+  state: LegacyCanvasPerfTrackerState,
+  now: number,
+  session: InteractiveGameSession | null,
+): LegacyCanvasPerfReadout {
+  const metrics = snapshotPerfMetrics();
+  const nextSessionKey = sessionPerfKey(session);
+  if (state.sessionKey !== nextSessionKey) {
+    const nextState = createLegacyCanvasPerfTrackerState();
+    state.frameFps = nextState.frameFps;
+    state.frameSampleCount = nextState.frameSampleCount;
+    state.gameHz = nextState.gameHz;
+    state.lastFrameSampleAtMs = nextState.lastFrameSampleAtMs;
+    state.lastGameSampleAtMs = nextState.lastGameSampleAtMs;
+    state.lastGameTick = nextState.lastGameTick;
+    state.lastRenderSampleAtMs = nextState.lastRenderSampleAtMs;
+    state.lastRenderSampleCount = nextState.lastRenderSampleCount;
+    state.renderFps = nextState.renderFps;
+    state.sessionKey = nextSessionKey;
+  }
+
+  state.frameSampleCount += 1;
+  if (state.lastFrameSampleAtMs === null) {
+    state.lastFrameSampleAtMs = now;
+  } else if (now - state.lastFrameSampleAtMs >= DEBUG_PERF_SAMPLE_INTERVAL_MS) {
+    const elapsedMs = now - state.lastFrameSampleAtMs;
+    state.frameFps = elapsedMs > 0 ? (state.frameSampleCount * 1000) / elapsedMs : 0;
+    state.frameSampleCount = 0;
+    state.lastFrameSampleAtMs = now;
+  }
+
+  if (state.lastRenderSampleAtMs === null) {
+    state.lastRenderSampleAtMs = now;
+    state.lastRenderSampleCount = metrics.renderMs.samples;
+  } else if (now - state.lastRenderSampleAtMs >= DEBUG_PERF_SAMPLE_INTERVAL_MS) {
+    const elapsedMs = now - state.lastRenderSampleAtMs;
+    const renderSamples = metrics.renderMs.samples - state.lastRenderSampleCount;
+    state.renderFps = elapsedMs > 0 ? (renderSamples * 1000) / elapsedMs : 0;
+    state.lastRenderSampleAtMs = now;
+    state.lastRenderSampleCount = metrics.renderMs.samples;
+  }
+
+  if (state.lastGameSampleAtMs === null) {
+    state.lastGameSampleAtMs = now;
+    state.lastGameTick = session?.frame.snapshot.tick ?? null;
+  } else if (now - state.lastGameSampleAtMs >= DEBUG_PERF_SAMPLE_INTERVAL_MS) {
+    const elapsedMs = now - state.lastGameSampleAtMs;
+    const currentTick = session?.frame.snapshot.tick ?? null;
+    const currentStatus = session?.frame.snapshot.status ?? null;
+    state.gameHz =
+      elapsedMs > 0 &&
+      currentStatus === "playing" &&
+      currentTick !== null &&
+      state.lastGameTick !== null
+        ? Math.max(0, ((currentTick - state.lastGameTick) * 1000) / elapsedMs)
+        : 0;
+    state.lastGameSampleAtMs = now;
+    state.lastGameTick = currentTick;
+  }
+
+  return {
+    frameFps: state.frameFps,
+    renderFps: state.renderFps,
+    gameHz: state.gameHz,
+    loopDriftMs: metrics.loopDriftMs,
+    renderMs: metrics.renderMs,
+    sessionLoadMs: metrics.sessionLoadMs,
+    tickMs: metrics.tickMs,
+  };
+}
+
 function drawLegacyTilesLoadingPlaceholder(
   context: CanvasRenderingContext2D,
   presentation: LegacyCanvasPresentation,
@@ -124,6 +240,7 @@ export function LegacyCanvasScreen({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scaledMapCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lowerLayerCacheRef = useRef(createLayerCanvasCache());
+  const perfTrackerRef = useRef(createLegacyCanvasPerfTrackerState());
   const debugReadoutKeyRef = useRef("");
   const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
   const [isDatDragActive, setIsDatDragActive] = useState(false);
@@ -378,7 +495,8 @@ export function LegacyCanvasScreen({
   ]);
 
   useEffect(() => {
-    if (!debugModeEnabled || mode !== "game" || hoveredMapPosition === null) {
+    if (!debugModeEnabled || mode !== "game") {
+      perfTrackerRef.current = createLegacyCanvasPerfTrackerState();
       debugReadoutKeyRef.current = "";
       setDebugReadout([]);
       return;
@@ -386,7 +504,17 @@ export function LegacyCanvasScreen({
 
     let animationFrameId = 0;
     const updateDebugReadout = () => {
-      const nextReadout = buildLegacyCanvasDebugReadout(liveSessionRef?.current ?? session, hoveredMapPosition);
+      const activeSession = liveSessionRef?.current ?? session;
+      const perfReadout = buildLegacyCanvasPerfReadout(
+        activeSession,
+        updateLegacyCanvasPerfTracker(perfTrackerRef.current, performance.now(), activeSession),
+      );
+      const hoverReadout = hoveredMapPosition === null
+        ? []
+        : buildLegacyCanvasDebugReadout(activeSession, hoveredMapPosition);
+      const nextReadout = hoverReadout.length > 0
+        ? [...perfReadout, "", ...hoverReadout]
+        : perfReadout;
       const nextKey = nextReadout.join("\n");
       if (nextKey !== debugReadoutKeyRef.current) {
         debugReadoutKeyRef.current = nextKey;

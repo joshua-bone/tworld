@@ -4139,7 +4139,7 @@ body {
   bottom: 8px;
   max-width: min(46ch, calc(100% - 16px));
   max-height: min(50%, 18rem);
-  overflow: hidden;
+  overflow: auto;
   padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.28);
   background: rgba(0, 0, 0, 0.82);

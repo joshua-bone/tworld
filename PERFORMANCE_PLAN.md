@@ -5,7 +5,7 @@
 - [x] Initial performance investigation completed
 - [x] Representative benchmark scenarios identified
 - [x] Primary bottlenecks identified
-- [ ] Debug perf overlay implemented
+- [x] Debug perf overlay implemented
 - [ ] Scheduler fix implemented
 - [ ] Worker payload reduction implemented
 - [ ] Undo/history projection reduction implemented
@@ -146,7 +146,7 @@ Expected outcome after fix:
 
 Status:
 
-- [ ] Not started
+- [x] Initial overlay shipped
 
 Scope:
 
@@ -161,23 +161,23 @@ Scope:
 
 Recommended visible metrics:
 
-- [ ] render FPS
-- [ ] effective gameplay tick rate in Hz
-- [ ] last / EMA / max tick duration in ms
-- [ ] last / EMA / max render duration in ms
-- [ ] loop drift in ms
-- [ ] session load time for new level starts
-- [ ] current ruleset, level, visible layer count, actor count, overlay count
-- [ ] undo enabled/disabled and current checkpoint count
+- [x] render FPS
+- [x] effective gameplay tick rate in Hz
+- [x] last / EMA / max tick duration in ms
+- [x] last / EMA / max render duration in ms
+- [x] loop drift in ms
+- [x] session load time for new level starts
+- [x] current ruleset, level, visible layer count, actor count, overlay count
+- [x] undo enabled/disabled and current checkpoint count
 - [ ] worker round-trip or session advance latency if instrumented separately
 - [ ] worker payload size in KB once response slimming work begins
 - [ ] dropped or capped catch-up tick counters once scheduler work lands
 
 Acceptance:
 
-- [ ] debug mode clearly shows frame rate
-- [ ] debug mode clearly shows simulation rate separate from render rate
-- [ ] metrics are legible during active gameplay and level transitions
+- [x] debug mode clearly shows frame rate
+- [x] debug mode clearly shows simulation rate separate from render rate
+- [x] metrics are legible during active gameplay and level transitions
 - [ ] overlay is cheap enough not to materially distort the numbers it shows
 
 Risk:

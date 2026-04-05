@@ -6,6 +6,7 @@ import type {
 } from "@game-core/api/interactive";
 import type { EngineMapCell, EngineTile } from "@game-core/api/model";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import type { PerfMetricSnapshot } from "@player-web/impl/runtimePerf";
 import { MS_DIRECTION, MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
 const TILE_NAME_BY_ID = new Map<number, string>(
@@ -88,6 +89,52 @@ function formatActor(actor: InteractiveGameRenderableActor): string {
 
 function formatAnimation(animation: InteractiveGameRenderableAnimation): string {
   return `animation z=${animation.z ?? 1} tile=${tileName(animation.tileId)}(${animation.tileId}) frame=${animation.frame}`;
+}
+
+function formatRate(value: number, suffix: string): string {
+  return `${value.toFixed(1)}${suffix}`;
+}
+
+function formatMetricTriplet(metric: PerfMetricSnapshot): string {
+  return `last=${metric.lastMs.toFixed(1)} ema=${metric.emaMs.toFixed(1)} max=${metric.maxMs.toFixed(1)}`;
+}
+
+export interface LegacyCanvasPerfReadout {
+  frameFps: number;
+  renderFps: number;
+  gameHz: number;
+  loopDriftMs: PerfMetricSnapshot;
+  renderMs: PerfMetricSnapshot;
+  sessionLoadMs: PerfMetricSnapshot;
+  tickMs: PerfMetricSnapshot;
+}
+
+export function buildLegacyCanvasPerfReadout(
+  session: InteractiveGameSession | null,
+  perf: LegacyCanvasPerfReadout,
+): string[] {
+  if (!session) {
+    return [
+      `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
+      `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
+      `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+      "scene <no session>",
+    ];
+  }
+
+  const render = session.frame.render;
+  const actorCount =
+    (render?.actors.length ?? 0) +
+    (render?.chip ? 1 : 0) +
+    (render?.animations.length ?? 0);
+
+  return [
+    `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
+    `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
+    `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+    `scene ruleset=${session.request.ruleset} level=${session.request.levelNumber} status=${session.frame.snapshot.status} layers=${session.frame.visibleLayers.length} actors=${actorCount} overlays=${session.frame.tileOverlays.length}`,
+    `history undo=${session.history.enabled ? "on" : "off"} checkpoints=${session.history.checkpointTicks.length} recent=${session.history.recentTicks?.length ?? 0} restore=${session.history.restoreMode}`,
+  ];
 }
 
 export function buildLegacyCanvasDebugReadout(
