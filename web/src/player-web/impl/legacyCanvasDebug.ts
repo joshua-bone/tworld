@@ -113,6 +113,8 @@ export interface LegacyCanvasPerfReadout {
   frameFps: number;
   renderFps: number;
   gameHz: number;
+  gameSampleElapsedMs: number;
+  gameSampleTickDelta: number;
   lastCatchUpBatchTicks: number;
   loopDriftMs: PerfMetricSnapshot;
   maxCatchUpBatchTicks: number;
@@ -130,6 +132,7 @@ export function buildLegacyCanvasPerfReadout(
   if (!session) {
     return [
       `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
+      `game sample ticks=${perf.gameSampleTickDelta} window=${perf.gameSampleElapsedMs.toFixed(1)}ms`,
       `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
       `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
       `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
@@ -146,6 +149,7 @@ export function buildLegacyCanvasPerfReadout(
 
   return [
     `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
+    `game sample ticks=${perf.gameSampleTickDelta} window=${perf.gameSampleElapsedMs.toFixed(1)}ms`,
     `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
     `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
     `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")}`,

@@ -182,6 +182,8 @@ function createPerfReadout(): LegacyCanvasPerfReadout {
     frameFps: 58.4,
     renderFps: 19.7,
     gameHz: 14.8,
+    gameSampleElapsedMs: 500,
+    gameSampleTickDelta: 8,
     lastCatchUpBatchTicks: 3,
     loopDriftMs: createPerfMetricSnapshot(11.4),
     maxCatchUpBatchTicks: 4,
@@ -218,6 +220,7 @@ describe("buildLegacyCanvasPerfReadout", () => {
   it("includes scheduler counters alongside frame and tick metrics", () => {
     expect(buildLegacyCanvasPerfReadout(createSession(), createPerfReadout())).toEqual([
       "perf frame=58.4fps render=19.7fps game=14.8Hz",
+      "game sample ticks=8 window=500.0ms",
       "tick ms last=18.2 ema=16.9 max=27.5 drift=11.4",
       "draw ms last=10.2 ema=9.7 max=14.6 load=48.1",
       "worker ms last=14.3 ema=13.1 max=20.7 payload last=9.0KB ema=7.0KB max=12.0KB",
@@ -230,6 +233,7 @@ describe("buildLegacyCanvasPerfReadout", () => {
   it("renders a no-session line when gameplay is not active", () => {
     expect(buildLegacyCanvasPerfReadout(null, createPerfReadout())).toEqual([
       "perf frame=58.4fps render=19.7fps game=14.8Hz",
+      "game sample ticks=8 window=500.0ms",
       "tick ms last=18.2 ema=16.9 max=27.5 drift=11.4",
       "draw ms last=10.2 ema=9.7 max=14.6 load=48.1",
       "worker ms last=14.3 ema=13.1 max=20.7 payload last=9.0KB ema=7.0KB max=12.0KB",

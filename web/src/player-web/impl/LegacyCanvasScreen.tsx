@@ -97,6 +97,8 @@ interface LegacyCanvasPerfTrackerState {
   frameFps: number;
   frameSampleCount: number;
   gameHz: number;
+  gameSampleElapsedMs: number;
+  gameSampleTickDelta: number;
   lastFrameSampleAtMs: number | null;
   lastGameSampleAtMs: number | null;
   lastGameTick: number | null;
@@ -113,6 +115,8 @@ function createLegacyCanvasPerfTrackerState(): LegacyCanvasPerfTrackerState {
     frameFps: 0,
     frameSampleCount: 0,
     gameHz: 0,
+    gameSampleElapsedMs: 0,
+    gameSampleTickDelta: 0,
     lastFrameSampleAtMs: null,
     lastGameSampleAtMs: null,
     lastGameTick: null,
@@ -144,6 +148,8 @@ function updateLegacyCanvasPerfTracker(
     state.frameFps = nextState.frameFps;
     state.frameSampleCount = nextState.frameSampleCount;
     state.gameHz = nextState.gameHz;
+    state.gameSampleElapsedMs = nextState.gameSampleElapsedMs;
+    state.gameSampleTickDelta = nextState.gameSampleTickDelta;
     state.lastFrameSampleAtMs = nextState.lastFrameSampleAtMs;
     state.lastGameSampleAtMs = nextState.lastGameSampleAtMs;
     state.lastGameTick = nextState.lastGameTick;
@@ -181,12 +187,18 @@ function updateLegacyCanvasPerfTracker(
     const elapsedMs = now - state.lastGameSampleAtMs;
     const currentTick = session?.frame.snapshot.tick ?? null;
     const currentStatus = session?.frame.snapshot.status ?? null;
+    const tickDelta =
+      currentTick !== null && state.lastGameTick !== null
+        ? Math.max(0, currentTick - state.lastGameTick)
+        : 0;
+    state.gameSampleElapsedMs = elapsedMs;
+    state.gameSampleTickDelta = tickDelta;
     state.gameHz =
       elapsedMs > 0 &&
       currentStatus === "playing" &&
       currentTick !== null &&
       state.lastGameTick !== null
-        ? Math.max(0, ((currentTick - state.lastGameTick) * 1000) / elapsedMs)
+        ? Math.max(0, (tickDelta * 1000) / elapsedMs)
         : 0;
     state.lastGameSampleAtMs = now;
     state.lastGameTick = currentTick;
@@ -198,6 +210,8 @@ function updateLegacyCanvasPerfTracker(
     frameFps: state.frameFps,
     renderFps: state.renderFps,
     gameHz: state.gameHz,
+    gameSampleElapsedMs: state.gameSampleElapsedMs,
+    gameSampleTickDelta: state.gameSampleTickDelta,
     lastCatchUpBatchTicks: perf.scheduler.lastBatchTicks,
     loopDriftMs: metrics.loopDriftMs,
     maxCatchUpBatchTicks: perf.scheduler.maxBatchTicks,
