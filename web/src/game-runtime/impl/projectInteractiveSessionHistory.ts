@@ -16,12 +16,15 @@ export function projectInteractiveSessionHistory<TSession>(
   currentTick: number,
   restoreState: InteractiveSessionRestoreState,
 ): InteractiveGameSessionHistory {
+  const checkpointTicks = checkpointsForTimeline(history).map((checkpoint) => checkpoint.tick);
+
   return {
     enabled: history.settingsSnapshot.enabled,
     initialTick: history.initialCheckpoint.tick,
     currentTick,
     latestTick: latestUndoTick(history),
-    checkpointTicks: checkpointsForTimeline(history).map((checkpoint) => checkpoint.tick),
+    checkpointCount: checkpointTicks.length,
+    checkpointTicks,
     recentTicks: previousUndoTicks(history, currentTick, INTERACTIVE_SESSION_RECENT_TICK_COUNT),
     previousTick: previousUndoTick(history, currentTick),
     previousCheckpointTick: previousUndoCheckpointTick(history, currentTick),

@@ -7,10 +7,12 @@ import {
   type SetStateAction,
 } from "react";
 import { buildReplayExport } from "@game-runtime/impl/buildReplayExport";
+import { hydrateInteractiveGameSession } from "@game-runtime/impl/hydrateInteractiveGameSession";
 import { importReplayForLevel } from "@game-runtime/impl/importReplayForLevel";
 import { replayTransferCodec } from "@game-core/api/replayTransferCodec";
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
+import { interactiveEngineForRuleset } from "@player-web/impl/playerAppRuntime";
 import { buildUrlLaunchHref } from "@player-web/impl/urlLaunch";
 import { copyTextToClipboard } from "@player-web/impl/clipboard";
 import type { ReplaySolutionPayload } from "@game-core/api/codec";
@@ -35,7 +37,7 @@ function isDatFile(file: File): boolean {
 
 interface UsePlayerAppReplayControllerOptions {
   autoDownloadReplaysOnSave: boolean;
-  services: Pick<BrowserAppServices, "importDatFile" | "profileStore" | "replayTransfer">;
+  services: Pick<BrowserAppServices, "engines" | "importDatFile" | "profileStore" | "replayTransfer">;
   catalog: SeriesCatalogEntry[];
   currentSeries: SeriesCatalogEntry | null;
   currentLevel: SeriesCatalogEntry["levels"][number] | null;
@@ -269,7 +271,12 @@ export function usePlayerAppReplayController({
     }
 
     try {
-      const artifact = buildReplayExport(replayContextSeries.filebase, replayContextLevel, session);
+      const replaySession = await hydrateInteractiveGameSession(
+        interactiveEngineForRuleset(session.request.ruleset, services.engines),
+        session,
+        { replayData: true },
+      );
+      const artifact = buildReplayExport(replayContextSeries.filebase, replayContextLevel, replaySession);
       if (!artifact) {
         if (options.autoTriggered) {
           return;
@@ -278,15 +285,15 @@ export function usePlayerAppReplayController({
       }
 
       const storedEntry = await saveReplayArtifactToLibrary(artifact, "saved-run", {
-        finalScore: session.run.result?.score?.finalScore ?? null,
-        result: session.run.result?.outcome ?? null,
-        undoUsedCount: session.run.undoUsedCount,
+        finalScore: replaySession.run.result?.score?.finalScore ?? null,
+        result: replaySession.run.result?.outcome ?? null,
+        undoUsedCount: replaySession.run.undoUsedCount,
       });
       const downloadedCopy = autoDownloadReplaysOnSave;
       if (downloadedCopy) {
         await services.replayTransfer.exportReplay(artifact);
       }
-      if (session.run.result) {
+      if (replaySession.run.result) {
         setReplaySaveNotice(
           storedEntry
             ? `${

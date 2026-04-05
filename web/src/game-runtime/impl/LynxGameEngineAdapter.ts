@@ -4,6 +4,7 @@ import type {
   InteractiveGameEnginePort,
   InteractiveGameSession,
   InteractiveGameSessionEndCause,
+  InteractiveGameSessionHydrationOptions,
   InteractiveGameSessionRunState,
 } from "@game-runtime/ports/InteractiveGameEngine";
 import type { LevelRepository } from "@level-catalog/ports/LevelRepository";
@@ -345,5 +346,13 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     assertAdapterRuleset(session.request, "Lynx", "TS Lynx engine");
     const runtime = fromInteractiveHandle<LynxInteractiveSessionState, LynxUndoHistory>(session.handle) as LynxInteractiveRuntime;
     return resumeInteractiveSessionFromHistory(session, runtime, lynxHistoryConfig);
+  }
+
+  async hydrateSession(
+    session: InteractiveGameSession,
+    _options: InteractiveGameSessionHydrationOptions,
+  ): Promise<InteractiveGameSession> {
+    assertAdapterRuleset(session.request, "Lynx", "TS Lynx engine");
+    return session;
   }
 }

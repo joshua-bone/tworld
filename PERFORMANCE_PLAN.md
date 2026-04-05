@@ -7,7 +7,7 @@
 - [x] Primary bottlenecks identified
 - [x] Debug perf overlay implemented
 - [x] Scheduler fix implemented
-- [ ] Worker payload reduction implemented
+- [x] Worker payload reduction implemented
 - [ ] Undo/history projection reduction implemented
 - [ ] Incremental frame projection implemented
 - [ ] 3D/Lynx render-path optimization implemented
@@ -221,9 +221,9 @@ Why first:
 
 Status:
 
-- [x] `advance-session` now returns a delta for stable session metadata, checkpoint ticks, recorded moves, and visible-layer cell changes
-- [ ] static frame/setup payload split from steady-state tick payload
-- [ ] lazy history payload introduced for non-live UI needs
+- [x] `advance-session` now returns a delta for stable session metadata, visible-layer cell changes, and scalar history/replay counts
+- [x] static frame/setup payload split from steady-state tick payload
+- [x] lazy history/replay payload introduced for non-live UI needs via explicit hydration
 
 Scope:
 
@@ -231,7 +231,7 @@ Scope:
 - split session data into:
   - static session/setup payload
   - lightweight tick/frame payload
-  - lazy history payload when needed
+  - lazy history/replay payload when needed
 - keep authoritative history and state in the worker
 
 Acceptance:

@@ -2013,7 +2013,7 @@ export function PlayerApp({
               </div>
               <div className="modern-result-sheet__row">
                 <span>Moves</span>
-                <strong>{session.recordedMoves.length}</strong>
+                <strong>{session.recordedMoveCount ?? session.recordedMoves?.length ?? 0}</strong>
               </div>
             </div>
           </section>

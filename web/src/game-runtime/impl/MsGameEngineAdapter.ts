@@ -4,6 +4,7 @@ import type {
   InteractiveGameEnginePort,
   InteractiveGameSession,
   InteractiveGameSessionEndCause,
+  InteractiveGameSessionHydrationOptions,
   InteractiveGameSessionRunState,
 } from "@game-runtime/ports/InteractiveGameEngine";
 import type { LevelRepository } from "@level-catalog/ports/LevelRepository";
@@ -368,5 +369,13 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     assertAdapterRuleset(session.request, "MS", "TS MS engine");
     const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
     return resumeInteractiveSessionFromHistory(session, runtime, msHistoryConfig);
+  }
+
+  async hydrateSession(
+    session: InteractiveGameSession,
+    _options: InteractiveGameSessionHydrationOptions,
+  ): Promise<InteractiveGameSession> {
+    assertAdapterRuleset(session.request, "MS", "TS MS engine");
+    return session;
   }
 }

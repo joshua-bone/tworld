@@ -92,7 +92,7 @@ export function buildHistoryJumpOptions(session: InteractiveGameSession | null):
   }
 
   const currentTick = session.history.currentTick;
-  const uniqueTicks = [...new Set(session.history.checkpointTicks)]
+  const uniqueTicks = [...new Set(session.history.checkpointTicks ?? [])]
     .filter((tick) => tick !== currentTick)
     .sort((left, right) => right - left);
 

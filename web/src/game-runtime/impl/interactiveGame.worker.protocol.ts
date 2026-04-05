@@ -1,5 +1,5 @@
 import type { InteractiveInput } from "@game-core/api/command";
-import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
+import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import type {
   InteractiveGameFrame,
   InteractiveGameVisibleLayer,
@@ -12,6 +12,7 @@ import type { GameRequest } from "@game-core/api/types";
 import type {
   InteractiveGameSession,
   InteractiveGameSessionHandle,
+  InteractiveGameSessionHydrationOptions,
   InteractiveGameSessionHistory,
   InteractiveGameSessionRunState,
   InteractiveGameSessionStartOptions,
@@ -38,16 +39,7 @@ export function readWorkerInteractiveGameSessionId(handle: InteractiveGameSessio
   return null;
 }
 
-export interface WorkerInteractiveGameSessionArrayPatch<TValue> {
-  mode: "append" | "replace";
-  totalCount: number;
-  values: TValue[];
-}
-
-export interface WorkerInteractiveGameSessionHistoryUpdate
-  extends Omit<InteractiveGameSessionHistory, "checkpointTicks"> {
-  checkpointTicks: WorkerInteractiveGameSessionArrayPatch<number>;
-}
+export type WorkerInteractiveGameSessionHistoryUpdate = Omit<InteractiveGameSessionHistory, "checkpointTicks">;
 
 export interface WorkerInteractiveGameCellUpdate {
   index: number;
@@ -91,13 +83,7 @@ export interface WorkerInteractiveGameSessionUpdate {
   frame: WorkerInteractiveGameFrameUpdate;
   history: WorkerInteractiveGameSessionHistoryUpdate;
   run: InteractiveGameSessionRunState;
-  recordedMoves: WorkerInteractiveGameSessionArrayPatch<ReplayRecordedMove>;
-}
-
-function cloneRecordedMove(move: ReplayRecordedMove): ReplayRecordedMove {
-  return {
-    ...move,
-  };
+  recordedMoveCount?: number;
 }
 
 function sameTile(left: EngineTile, right: EngineTile): boolean {
@@ -125,49 +111,6 @@ function cloneCell(cell: EngineMapCell): EngineMapCell {
     top: cloneTile(cell.top),
     bottom: cloneTile(cell.bottom),
   };
-}
-
-function sameRecordedMove(left: ReplayRecordedMove, right: ReplayRecordedMove): boolean {
-  return (
-    left.when === right.when &&
-    left.dir === right.dir &&
-    (left.modifierMask ?? 0) === (right.modifierMask ?? 0)
-  );
-}
-
-function buildArrayPatch<TValue>(
-  previous: readonly TValue[],
-  next: readonly TValue[],
-  sameValue: (left: TValue, right: TValue) => boolean,
-  cloneValue: (value: TValue) => TValue,
-): WorkerInteractiveGameSessionArrayPatch<TValue> {
-  const canAppend =
-    next.length >= previous.length &&
-    previous.every((value, index) => sameValue(value, next[index]!));
-
-  return canAppend
-    ? {
-        mode: "append",
-        totalCount: next.length,
-        values: next.slice(previous.length).map(cloneValue),
-      }
-    : {
-        mode: "replace",
-        totalCount: next.length,
-        values: next.map(cloneValue),
-      };
-}
-
-function applyArrayPatch<TValue>(
-  previous: readonly TValue[],
-  patch: WorkerInteractiveGameSessionArrayPatch<TValue>,
-  cloneValue: (value: TValue) => TValue,
-): TValue[] {
-  if (patch.mode === "append" && previous.length + patch.values.length === patch.totalCount) {
-    return [...previous, ...patch.values.map(cloneValue)];
-  }
-
-  return patch.values.map(cloneValue);
 }
 
 function buildVisibleLayerUpdate(
@@ -312,12 +255,7 @@ export function toWorkerInteractiveGameSessionUpdate(
       initialTick: next.history.initialTick,
       currentTick: next.history.currentTick,
       latestTick: next.history.latestTick,
-      checkpointTicks: buildArrayPatch(
-        previous.history.checkpointTicks,
-        next.history.checkpointTicks,
-        (left, right) => left === right,
-        (value) => value,
-      ),
+      checkpointCount: next.history.checkpointCount ?? next.history.checkpointTicks?.length,
       recentTicks: next.history.recentTicks ? [...next.history.recentTicks] : undefined,
       previousTick: next.history.previousTick,
       previousCheckpointTick: next.history.previousCheckpointTick,
@@ -328,7 +266,7 @@ export function toWorkerInteractiveGameSessionUpdate(
       replayTargetTick: next.history.replayTargetTick,
     },
     run: next.run,
-    recordedMoves: buildArrayPatch(previous.recordedMoves, next.recordedMoves, sameRecordedMove, cloneRecordedMove),
+    recordedMoveCount: next.recordedMoveCount ?? next.recordedMoves?.length,
   };
 }
 
@@ -352,11 +290,11 @@ export function applyWorkerInteractiveGameSessionUpdate(
     },
     history: {
       ...update.history,
-      checkpointTicks: applyArrayPatch(previous.history.checkpointTicks, update.history.checkpointTicks, (value) => value),
       recentTicks: update.history.recentTicks ? [...update.history.recentTicks] : undefined,
     },
     run: update.run,
-    recordedMoves: applyArrayPatch(previous.recordedMoves, update.recordedMoves, cloneRecordedMove),
+    recordedMoveCount: update.recordedMoveCount,
+    recordedMoves: undefined,
   };
 }
 
@@ -394,6 +332,12 @@ export type InteractiveGameWorkerRequest =
       id: number;
       type: "resume-session";
       sessionId: number;
+    }
+  | {
+      id: number;
+      type: "hydrate-session";
+      sessionId: number;
+      options: InteractiveGameSessionHydrationOptions;
     }
   | {
       id: number;

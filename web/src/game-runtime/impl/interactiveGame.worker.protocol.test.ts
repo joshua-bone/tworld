@@ -114,6 +114,7 @@ function createSession(options: {
       initialTick: -1,
       currentTick,
       latestTick,
+      checkpointCount: checkpointTicks.length,
       checkpointTicks,
       recentTicks,
       previousTick: options.previousTick ?? (currentTick > -1 ? currentTick - 1 : null),
@@ -130,14 +131,27 @@ function createSession(options: {
       replayAvailable: (options.recordedMoves?.length ?? 0) > 0,
       result: null,
     },
+    recordedMoveCount: (options.recordedMoves ?? []).length,
     recordedMoves: options.recordedMoves ?? [],
     handle: toWorkerInteractiveGameSessionHandle(7),
   };
 }
 
+function toLiveClientSession(session: InteractiveGameSession): InteractiveGameSession {
+  return {
+    ...session,
+    history: {
+      ...session.history,
+      checkpointTicks: undefined,
+      recentTicks: session.history.recentTicks ? [...session.history.recentTicks] : undefined,
+    },
+    recordedMoves: undefined,
+  };
+}
+
 describe("interactiveGame.worker.protocol", () => {
-  it("builds append patches for advancing live sessions and reconstructs the full client session", () => {
-    const previous = createSession({
+  it("builds lightweight patches for advancing live sessions and reconstructs the client session", () => {
+    const workerPrevious = createSession({
       checkpointTicks: [-1, 4],
       currentTick: 4,
       currentTime: 4,
@@ -160,7 +174,8 @@ describe("interactiveGame.worker.protocol", () => {
         ]),
       ],
     });
-    const next = createSession({
+    const clientPrevious = toLiveClientSession(workerPrevious);
+    const workerNext = createSession({
       checkpointTicks: [-1, 4, 5],
       currentTick: 5,
       currentTime: 5,
@@ -186,19 +201,12 @@ describe("interactiveGame.worker.protocol", () => {
         ]),
       ],
     });
+    const clientNext = toLiveClientSession(workerNext);
 
-    const update = toWorkerInteractiveGameSessionUpdate(previous, next);
+    const update = toWorkerInteractiveGameSessionUpdate(workerPrevious, workerNext);
 
-    expect(update.history.checkpointTicks).toEqual({
-      mode: "append",
-      totalCount: 3,
-      values: [5],
-    });
-    expect(update.recordedMoves).toEqual({
-      mode: "append",
-      totalCount: 2,
-      values: [{ when: 5, dir: MS_DIRECTION.north, modifierMask: 1 }],
-    });
+    expect(update.history.checkpointCount).toBe(3);
+    expect(update.recordedMoveCount).toBe(2);
     expect(update.frame.visibleLayers).toEqual({
       mode: "patch",
       layers: [
@@ -214,11 +222,11 @@ describe("interactiveGame.worker.protocol", () => {
         },
       ],
     });
-    expect(applyWorkerInteractiveGameSessionUpdate(previous, update)).toEqual(next);
+    expect(applyWorkerInteractiveGameSessionUpdate(clientPrevious, update)).toEqual(clientNext);
   });
 
-  it("falls back to replace patches when history, replay, or visible-layer layouts no longer match", () => {
-    const previous = createSession({
+  it("falls back to replace patches when visible-layer layouts no longer match", () => {
+    const workerPrevious = createSession({
       checkpointTicks: [-1, 4, 8],
       currentTick: 8,
       currentZ: 2,
@@ -236,7 +244,8 @@ describe("interactiveGame.worker.protocol", () => {
         createLayer(1, [createCell(0, 1, MS_TILE.Empty), createCell(1, 1, MS_TILE.Empty)]),
       ],
     });
-    const next = createSession({
+    const clientPrevious = toLiveClientSession(workerPrevious);
+    const workerNext = createSession({
       checkpointTicks: [-1, 6],
       currentTick: 6,
       currentTime: 6,
@@ -251,23 +260,16 @@ describe("interactiveGame.worker.protocol", () => {
         createLayer(1, [createCell(0, 1, MS_TILE.Wall), createCell(1, 1, MS_TILE.Empty)]),
       ],
     });
+    const clientNext = toLiveClientSession(workerNext);
 
-    const update = toWorkerInteractiveGameSessionUpdate(previous, next);
+    const update = toWorkerInteractiveGameSessionUpdate(workerPrevious, workerNext);
 
-    expect(update.history.checkpointTicks).toEqual({
-      mode: "replace",
-      totalCount: 2,
-      values: [-1, 6],
-    });
-    expect(update.recordedMoves).toEqual({
-      mode: "replace",
-      totalCount: 1,
-      values: [{ when: 2, dir: MS_DIRECTION.west, modifierMask: 0 }],
-    });
+    expect(update.history.checkpointCount).toBe(2);
+    expect(update.recordedMoveCount).toBe(1);
     expect(update.frame.visibleLayers).toEqual({
       mode: "replace",
-      layers: next.frame.visibleLayers,
+      layers: workerNext.frame.visibleLayers,
     });
-    expect(applyWorkerInteractiveGameSessionUpdate(previous, update)).toEqual(next);
+    expect(applyWorkerInteractiveGameSessionUpdate(clientPrevious, update)).toEqual(clientNext);
   });
 });

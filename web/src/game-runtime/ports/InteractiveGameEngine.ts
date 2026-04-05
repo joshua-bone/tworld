@@ -15,7 +15,8 @@ export interface InteractiveGameSessionHistory {
   initialTick: number;
   currentTick: number;
   latestTick: number;
-  checkpointTicks: number[];
+  checkpointCount?: number;
+  checkpointTicks?: number[];
   recentTicks?: number[];
   previousTick: number | null;
   previousCheckpointTick: number | null;
@@ -80,6 +81,11 @@ export interface InteractiveGameSessionStartOptions {
   msStepping?: 0 | 4;
 }
 
+export interface InteractiveGameSessionHydrationOptions {
+  historyDetails?: boolean;
+  replayData?: boolean;
+}
+
 export interface InteractiveGameSession {
   request: GameRequest;
   mode: "manual" | "replay";
@@ -87,7 +93,8 @@ export interface InteractiveGameSession {
   frame: InteractiveGameFrame;
   history: InteractiveGameSessionHistory;
   run: InteractiveGameSessionRunState;
-  recordedMoves: ReplayRecordedMove[];
+  recordedMoveCount?: number;
+  recordedMoves?: ReplayRecordedMove[];
   handle: InteractiveGameSessionHandle;
 }
 
@@ -101,5 +108,9 @@ export interface InteractiveGameEnginePort {
   advanceSession(session: InteractiveGameSession, input: InteractiveInput): Promise<InteractiveGameSession>;
   restoreSession(session: InteractiveGameSession, targetTick: number): Promise<InteractiveGameSession>;
   resumeSession(session: InteractiveGameSession): Promise<InteractiveGameSession>;
+  hydrateSession?(
+    session: InteractiveGameSession,
+    options: InteractiveGameSessionHydrationOptions,
+  ): Promise<InteractiveGameSession>;
   disposeSession?(session: InteractiveGameSession): Promise<void>;
 }

@@ -151,7 +151,7 @@ export function buildLegacyCanvasPerfReadout(
     `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
     `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
     `scene ruleset=${session.request.ruleset} level=${session.request.levelNumber} status=${session.frame.snapshot.status} layers=${session.frame.visibleLayers.length} actors=${actorCount} overlays=${session.frame.tileOverlays.length}`,
-    `history undo=${session.history.enabled ? "on" : "off"} checkpoints=${session.history.checkpointTicks.length} recent=${session.history.recentTicks?.length ?? 0} restore=${session.history.restoreMode}`,
+    `history undo=${session.history.enabled ? "on" : "off"} checkpoints=${session.history.checkpointCount ?? session.history.checkpointTicks?.length ?? 0} recent=${session.history.recentTicks?.length ?? 0} restore=${session.history.restoreMode}`,
   ];
 }
 

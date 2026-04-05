@@ -9,7 +9,10 @@ import {
   type InteractiveGameWorkerRequest,
   type InteractiveGameWorkerResponse,
 } from "@game-runtime/impl/interactiveGame.worker.protocol";
-import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import type {
+  InteractiveGameSession,
+  InteractiveGameSessionHydrationOptions,
+} from "@game-runtime/ports/InteractiveGameEngine";
 import { BrowserLevelRepository } from "@level-catalog/impl/BrowserLevelRepository";
 import { IndexedDbImportedDatCatalogStore } from "@level-catalog/impl/IndexedDbImportedDatCatalogStore";
 
@@ -32,9 +35,24 @@ function sessionForId(sessionId: number): InteractiveGameSession {
   return session;
 }
 
-function toClientSession(sessionId: number, session: InteractiveGameSession): InteractiveGameSession {
+function toClientSession(
+  sessionId: number,
+  session: InteractiveGameSession,
+  options: InteractiveGameSessionHydrationOptions = {},
+): InteractiveGameSession {
+  const includeHistoryDetails = options.historyDetails === true;
+  const includeReplayData = options.replayData === true;
+
   return {
     ...session,
+    history: {
+      ...session.history,
+      checkpointCount: session.history.checkpointCount ?? session.history.checkpointTicks?.length,
+      checkpointTicks: includeHistoryDetails ? session.history.checkpointTicks : undefined,
+      recentTicks: session.history.recentTicks ? [...session.history.recentTicks] : undefined,
+    },
+    recordedMoveCount: session.recordedMoveCount ?? session.recordedMoves?.length,
+    recordedMoves: includeReplayData ? session.recordedMoves : undefined,
     handle: toWorkerInteractiveGameSessionHandle(sessionId),
   };
 }
@@ -90,6 +108,13 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
       return {
         id: request.id,
         session: toClientSession(request.sessionId, nextSession),
+      };
+    }
+    case "hydrate-session": {
+      const session = sessionForId(request.sessionId);
+      return {
+        id: request.id,
+        session: toClientSession(request.sessionId, session, request.options),
       };
     }
     case "dispose-session":

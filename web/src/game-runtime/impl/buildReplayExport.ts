@@ -31,7 +31,8 @@ export function buildReplayExport(
   level: SeriesLevel,
   session: InteractiveGameSession,
 ): ReplayExportArtifact | null {
-  if (session.recordedMoves.length === 0) {
+  const recordedMoves = session.recordedMoves ?? [];
+  if (recordedMoves.length === 0) {
     return null;
   }
 
@@ -41,8 +42,8 @@ export function buildReplayExport(
     randomSlideDirection: getGameInputCode(randomSlideInput),
     stepping: session.frame.snapshot.stepping,
     randomSeed: Number(session.frame.snapshot.randomState.main.initial),
-    moves: session.recordedMoves.map((move) => ({ when: move.when, dir: move.dir })),
-    modifierMasks: session.recordedMoves.map((move) => move.modifierMask ?? 0),
+    moves: recordedMoves.map((move) => ({ when: move.when, dir: move.dir })),
+    modifierMasks: recordedMoves.map((move) => move.modifierMask ?? 0),
   });
 
   return {

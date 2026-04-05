@@ -9,6 +9,7 @@ import {
 import type {
   InteractiveGameEnginePort,
   InteractiveGameSession,
+  InteractiveGameSessionHydrationOptions,
   InteractiveGameSessionStartOptions,
 } from "@game-runtime/ports/InteractiveGameEngine";
 
@@ -245,6 +246,18 @@ export class WorkerBackedInteractiveGameEngine implements InteractiveGameEngineP
       id: this.nextId(),
       type: "resume-session",
       sessionId: this.sessionId(session),
+    });
+  }
+
+  async hydrateSession(
+    session: InteractiveGameSession,
+    options: InteractiveGameSessionHydrationOptions,
+  ): Promise<InteractiveGameSession> {
+    return this.requestSession({
+      id: this.nextId(),
+      type: "hydrate-session",
+      sessionId: this.sessionId(session),
+      options,
     });
   }
 

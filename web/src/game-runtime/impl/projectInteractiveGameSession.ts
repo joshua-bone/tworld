@@ -36,7 +36,7 @@ export function projectInteractiveGameSession({
     frame,
     history: {
       ...history,
-      checkpointTicks: [...history.checkpointTicks],
+      checkpointTicks: history.checkpointTicks ? [...history.checkpointTicks] : undefined,
       recentTicks: [...(history.recentTicks ?? [])],
     },
     run: {
@@ -56,6 +56,7 @@ export function projectInteractiveGameSession({
         : null,
     },
     recordedMoves: recordedMoves.map((move) => ({ ...move })),
+    recordedMoveCount: recordedMoves.length,
     handle,
   };
 }
