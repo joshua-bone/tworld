@@ -1,0 +1,114 @@
+import { interactivePerfBaseline } from "../impl/interactivePerfBaseline";
+import { evaluateInteractivePerfGuard } from "../impl/interactivePerfGuard";
+import {
+  benchmarkInteractivePerfScenarios,
+  type InteractivePerfScenarioBenchmark,
+} from "../impl/interactivePerfHarness";
+import {
+  interactivePerfScenarioById,
+  interactivePerfScenarios,
+} from "../impl/interactivePerfScenarios";
+
+interface CliOptions {
+  guard: boolean;
+  json: boolean;
+  scenarioIds: string[] | null;
+}
+
+function parseOptions(argv: readonly string[]): CliOptions {
+  const scenarioIds = argv
+    .filter((value) => value.startsWith("--scenario="))
+    .flatMap((value) => value.slice("--scenario=".length).split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return {
+    guard: argv.includes("--guard"),
+    json: argv.includes("--json"),
+    scenarioIds: scenarioIds.length > 0 ? scenarioIds : null,
+  };
+}
+
+function resolveScenarios(ids: string[] | null) {
+  if (!ids) {
+    return interactivePerfScenarios;
+  }
+
+  return ids.map((id) => {
+    const scenario = interactivePerfScenarioById(id);
+    if (!scenario) {
+      throw new Error(`Unknown perf scenario: ${id}`);
+    }
+    return scenario;
+  });
+}
+
+function formatMs(value: number): string {
+  return value.toFixed(2).padStart(8, " ");
+}
+
+function formatHz(value: number): string {
+  return value.toFixed(1).padStart(7, " ");
+}
+
+function formatBytes(value: number): string {
+  return Math.round(value).toString().padStart(8, " ");
+}
+
+function printTable(results: readonly InteractivePerfScenarioBenchmark[]): void {
+  console.log("Scenario           raw ms   tick ms update ms clone ms  payload B      Hz layers ticks");
+  for (const result of results) {
+    const label = result.label.padEnd(16, " ");
+    const layers = String(result.start.visibleLayerCount).padStart(6, " ");
+    const ticks = String(result.measuredTicks).padStart(5, " ");
+    console.log(
+      `${label} ${formatMs(result.rawTickMs.median)} ${formatMs(result.interactiveTickMs.median)} ${formatMs(result.workerUpdateMs.median)} ${formatMs(result.cloneMs.median)} ${formatBytes(result.payloadBytes.median)} ${formatHz(result.steadyStateHz)} ${layers} ${ticks}`,
+    );
+  }
+}
+
+async function main(): Promise<void> {
+  const options = parseOptions(process.argv.slice(2));
+  const scenarios = resolveScenarios(options.scenarioIds);
+  const results = await benchmarkInteractivePerfScenarios(scenarios);
+  const violations = options.guard ? evaluateInteractivePerfGuard(results, interactivePerfBaseline) : [];
+
+  if (options.json) {
+    console.log(
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          guard: {
+            ok: violations.length === 0,
+            violations,
+          },
+          results,
+        },
+        null,
+        2,
+      ),
+    );
+  } else {
+    printTable(results);
+    if (options.guard) {
+      if (violations.length === 0) {
+        console.log("");
+        console.log("perf guard: ok");
+      } else {
+        console.log("");
+        console.log("perf guard: violations");
+        for (const violation of violations) {
+          console.log(
+            `- ${violation.scenarioId} ${violation.label}: actual=${violation.actual.toFixed(2)} baseline=${violation.baseline.toFixed(2)} allowed=${violation.allowed.toFixed(2)}`,
+          );
+        }
+      }
+    }
+  }
+
+  if (options.guard && violations.length > 0) {
+    process.exitCode = 1;
+  }
+}
+
+await main();

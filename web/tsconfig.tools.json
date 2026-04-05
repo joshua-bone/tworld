@@ -6,6 +6,7 @@
     "types": ["node", "vite/client"]
   },
   "include": [
+    "src/perf",
     "src/replay-verifier",
     "src/oracle-fixtures",
     "src/level-catalog/impl/NodeLevelRepository.ts",

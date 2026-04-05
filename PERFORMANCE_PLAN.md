@@ -11,7 +11,7 @@
 - [x] Undo/history projection reduction implemented
 - [x] Incremental frame projection implemented
 - [x] 3D/Lynx render-path optimization implemented
-- [ ] Perf regression coverage added
+- [x] Perf regression coverage added
 
 ## Problem Statement
 
@@ -333,7 +333,10 @@ Why fifth:
 
 Status:
 
-- [ ] Not started
+- [x] Scenario benchmark harness added
+- [x] Stable scenario catalog checked in
+- [x] Baseline guard command added
+- [x] Scenario catalog coverage tests added
 
 Scope:
 
@@ -351,6 +354,7 @@ Acceptance:
 
 - [ ] perf regressions become visible in development and CI tooling
 - [ ] future changes can be compared against a stable baseline
+- [x] future changes can be compared against a stable baseline
 
 Risk:
 
@@ -364,11 +368,11 @@ Why sixth:
 
 - [x] PR 0: Debug Perf Overlay
 - [x] PR 1: Scheduler Correctness
-- [ ] PR 2: Worker Response Slimming
-- [ ] PR 3: Incremental Undo/History Summaries
-- [ ] PR 4: Incremental Frame Projection
-- [ ] PR 5: 3D and Lynx Render-Path Cleanup
-- [ ] PR 6: Perf Instrumentation and Regression Coverage
+- [x] PR 2: Worker Response Slimming
+- [x] PR 3: Incremental Undo/History Summaries
+- [x] PR 4: Incremental Frame Projection
+- [x] PR 5: 3D and Lynx Render-Path Cleanup
+- [x] PR 6: Perf Instrumentation and Regression Coverage
 
 ## Recommended Success Metrics
 

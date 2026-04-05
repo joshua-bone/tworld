@@ -22,7 +22,9 @@
     "typecheck:all": "tsc -b tsconfig.project.app.json && tsc -p tsconfig.tools.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "verify:ms-replays": "vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts MS",
     "verify:lynx-replays": "vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts Lynx",
-    "verify:all-replays": "vite-node src/replay-verifier/compose/verifyAllSolutionReplays.ts"
+    "verify:all-replays": "vite-node src/replay-verifier/compose/verifyAllSolutionReplays.ts",
+    "perf:bench": "vite-node src/perf/compose/benchmarkInteractiveSessions.ts",
+    "perf:guard": "vite-node src/perf/compose/benchmarkInteractiveSessions.ts --guard"
   },
   "dependencies": {
     "fast-xml-parser": "^5.2.5",
