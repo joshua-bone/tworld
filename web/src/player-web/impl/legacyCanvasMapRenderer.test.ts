@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import {
   buildLegacyGameDrawStateKey,
-  shouldBypassLegacyGameDrawStateMemoization,
 } from "@player-web/impl/legacyCanvasMapRenderer";
 import type { EngineMapCell } from "@game-core/api/model";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
@@ -274,22 +273,5 @@ describe("buildLegacyGameDrawStateKey", () => {
     ).not.toBe(
       buildLegacyGameDrawStateKey(after, null, null, "Lynx", false, null, "legacy", true, true),
     );
-  });
-});
-
-describe("shouldBypassLegacyGameDrawStateMemoization", () => {
-  it("bypasses gameplay memoization for layered Lynx sessions", () => {
-    expect(shouldBypassLegacyGameDrawStateMemoization(createSession(MS_TILE.Cloud))).toBe(true);
-  });
-
-  it("keeps memoization for non-layered sessions and non-Lynx rulesets", () => {
-    const lynxSingleLayer = createSession(MS_TILE.Empty);
-    lynxSingleLayer.frame.visibleLayers = [lynxSingleLayer.frame.visibleLayers[0]!];
-    const msLayered = createSession(MS_TILE.Cloud);
-    msLayered.request.ruleset = "MS";
-
-    expect(shouldBypassLegacyGameDrawStateMemoization(lynxSingleLayer)).toBe(false);
-    expect(shouldBypassLegacyGameDrawStateMemoization(msLayered)).toBe(false);
-    expect(shouldBypassLegacyGameDrawStateMemoization(null)).toBe(false);
   });
 });

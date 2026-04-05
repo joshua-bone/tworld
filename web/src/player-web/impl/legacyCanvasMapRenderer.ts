@@ -66,8 +66,16 @@ const ELEVATOR_FAILURE_BORDER_COLOR = "#ff4040";
 const VISUAL_ENHANCEMENT_ARROW_COLOR = "#000000";
 const BLOCK_SUPPORT_WINDOW_SOLID_BORDER_PX = 4;
 const BLOCK_SUPPORT_WINDOW_TRANSPARENT_CENTER_SIZE = 8;
+const STATIC_HASH_TILESET: LegacyTileset = {
+  get: () => null,
+  getCellAnimationPeriod: () => 1,
+};
 
 let blockSupportWindowMaskCanvas: HTMLCanvasElement | null | undefined;
+const visibleLayerCellsSummaryCache = new WeakMap<
+  InteractiveGameVisibleLayer,
+  WeakMap<LegacyTileset, { hash: number; animationPeriod: number }>
+>();
 
 function hashLayerValue(hash: number, value: number): number {
   let next = hash ^ (value & 0xff_ff_ff_ff);
@@ -91,6 +99,12 @@ function buildVisibleLayerCellsSummary(
   tileset: LegacyTileset,
   layer: InteractiveGameVisibleLayer,
 ): { hash: number; animationPeriod: number } {
+  let cacheByTileset = visibleLayerCellsSummaryCache.get(layer);
+  const cachedSummary = cacheByTileset?.get(tileset);
+  if (cachedSummary) {
+    return cachedSummary;
+  }
+
   let hash = 0x81_1c_9d_c5;
   let animationPeriod = 1;
 
@@ -102,7 +116,13 @@ function buildVisibleLayerCellsSummary(
     animationPeriod = Math.max(animationPeriod, tileset.getCellAnimationPeriod?.(cell.top.id, cell.bottom.id) ?? 1);
   }
 
-  return { hash, animationPeriod };
+  const summary = { hash, animationPeriod };
+  if (!cacheByTileset) {
+    cacheByTileset = new WeakMap<LegacyTileset, { hash: number; animationPeriod: number }>();
+    visibleLayerCellsSummaryCache.set(layer, cacheByTileset);
+  }
+  cacheByTileset.set(tileset, summary);
+  return summary;
 }
 
 function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverlay>, targetZ: number): number {
@@ -1316,14 +1336,10 @@ export function buildLegacyGameDrawStateKey(
   }
 
   const snapshot = session.frame.snapshot;
-  const staticHashTileset: LegacyTileset = {
-    get: () => null,
-    getCellAnimationPeriod: () => 1,
-  };
   const visibleLayerKeys = session.frame.visibleLayers
     .map((layer) => {
       const cellsSummary = buildVisibleLayerCellsSummary(
-        staticHashTileset,
+        STATIC_HASH_TILESET,
         layer,
       );
       return [
@@ -1358,10 +1374,4 @@ export function buildLegacyGameDrawStateKey(
     isLoading ? 1 : 0,
     visibleLayerKeys,
   ].join(":");
-}
-
-export function shouldBypassLegacyGameDrawStateMemoization(
-  session: InteractiveGameSession | null,
-): boolean {
-  return session?.request.ruleset === "Lynx" && (session.frame.visibleLayers.length ?? 0) > 1;
 }

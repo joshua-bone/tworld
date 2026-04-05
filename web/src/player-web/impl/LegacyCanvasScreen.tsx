@@ -14,7 +14,6 @@ import {
   isThinWallTileId,
   mapPositionAtCanvasPoint,
   prewarmVisibleLayerCaches,
-  shouldBypassLegacyGameDrawStateMemoization,
   shouldUseLegacyCombinedCellSprite,
   visualEnhancementActorMarker,
   visualEnhancementBlockWindowOpacity,
@@ -474,13 +473,12 @@ export function LegacyCanvasScreen({
         tileset !== null,
         visualEnhancementsEnabled,
       );
-      const bypassDrawMemoization = shouldBypassLegacyGameDrawStateMemoization(activeSession);
 
-      if (bypassDrawMemoization || drawStateKey !== lastDrawStateKey) {
+      if (drawStateKey !== lastDrawStateKey) {
         measurePerfSync("renderMs", () => {
           drawFrame(context, activeSession);
         });
-        lastDrawStateKey = bypassDrawMemoization ? "" : drawStateKey;
+        lastDrawStateKey = drawStateKey;
       }
 
       animationFrameId = window.requestAnimationFrame(drawLiveFrame);

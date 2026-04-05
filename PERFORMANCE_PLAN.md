@@ -10,7 +10,7 @@
 - [x] Worker payload reduction implemented
 - [x] Undo/history projection reduction implemented
 - [x] Incremental frame projection implemented
-- [ ] 3D/Lynx render-path optimization implemented
+- [x] 3D/Lynx render-path optimization implemented
 - [ ] Perf regression coverage added
 
 ## Problem Statement
@@ -306,7 +306,9 @@ Why fourth:
 
 Status:
 
-- [ ] Not started
+- [x] Removed the unconditional multi-layer Lynx RAF redraw bypass
+- [x] Legacy draw loop now redraws only when the gameplay draw-state key changes
+- [x] Visible-layer draw-state hashing now reuses cached summaries for shared layer objects
 
 Scope:
 
