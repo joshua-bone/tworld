@@ -37,7 +37,7 @@ export interface InteractiveAdapterHistoryConfig<TToken, TLevel, THistory extend
   forkUndoHistory: (history: THistory, token: TToken) => THistory;
   getCurrentTick: (token: TToken) => number;
   projectSession: (
-    session: Pick<InteractiveGameSession, "request" | "mode">,
+    session: Pick<InteractiveGameSession, "request" | "mode"> & Partial<Pick<InteractiveGameSession, "frame">>,
     runtime: InteractiveAdapterRuntime<TToken, TLevel, THistory>,
     phase: "initial" | "tick",
   ) => InteractiveGameSession;
@@ -52,7 +52,11 @@ export interface InteractiveAdapterHistoryConfig<TToken, TLevel, THistory extend
 
 export interface InteractiveAdapterProjectionConfig<TToken, TLevel, THistory extends UndoHistory<TToken>> {
   getCurrentTick: (token: TToken) => number;
-  projectFrame: (token: TToken, phase: "initial" | "tick") => InteractiveGameFrame;
+  projectFrame: (
+    token: TToken,
+    phase: "initial" | "tick",
+    previousFrame?: InteractiveGameFrame,
+  ) => InteractiveGameFrame;
   projectHintText: (runtime: InteractiveAdapterRuntime<TToken, TLevel, THistory>) => string | null;
   projectRunState: (
     request: InteractiveGameSession["request"],
@@ -110,13 +114,13 @@ export function createInteractiveAdapterRuntime<TToken, TLevel, THistory extends
 }
 
 export function projectInteractiveAdapterSession<TToken, TLevel, THistory extends UndoHistory<TToken>>(
-  session: Pick<InteractiveGameSession, "request" | "mode">,
+  session: Pick<InteractiveGameSession, "request" | "mode"> & Partial<Pick<InteractiveGameSession, "frame">>,
   runtime: InteractiveAdapterRuntime<TToken, TLevel, THistory>,
   phase: "initial" | "tick",
   config: InteractiveAdapterProjectionConfig<TToken, TLevel, THistory>,
   options: InteractiveAdapterProjectionOptions = {},
 ): InteractiveGameSession {
-  const frame = config.projectFrame(runtime.token, phase);
+  const frame = config.projectFrame(runtime.token, phase, session.frame);
   const includeHistoryDetails = options.includeHistoryDetails ?? phase === "initial";
   return projectInteractiveGameSession({
     request: session.request,

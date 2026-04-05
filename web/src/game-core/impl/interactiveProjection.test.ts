@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell } from "@game-core/api/model";
-import { projectInteractiveVisibleLayers } from "@game-core/impl/interactiveProjection";
+import { projectInteractiveFrame, projectInteractiveVisibleLayers } from "@game-core/impl/interactiveProjection";
 
 function createLayer(z: number): { z: number; cells: EngineMapCell[] } {
   return {
@@ -23,6 +23,28 @@ function createLayer(z: number): { z: number; cells: EngineMapCell[] } {
         },
       },
     ],
+  };
+}
+
+function createTwoCellLayer(z: number, topIds: [number, number]): { z: number; cells: EngineMapCell[] } {
+  return {
+    z,
+    cells: topIds.map((topId, pos) => ({
+      position: {
+        x: pos,
+        y: 0,
+        z,
+        pos,
+      },
+      top: {
+        id: topId,
+        state: 0,
+      },
+      bottom: {
+        id: 0,
+        state: 0,
+      },
+    })),
   };
 }
 
@@ -71,5 +93,44 @@ describe("projectInteractiveVisibleLayers", () => {
     expect(visible.map((layer) => layer.z)).toEqual([2, 1]);
     expect(visible[0]!.cells[0]!.top.id).toBe(2);
     expect(visible[1]!.cells[0]!.top.id).toBe(1);
+  });
+
+  it("reuses unchanged projected layers from the previous frame", () => {
+    const layers = [createLayer(1), createLayer(2)];
+    const previous = projectInteractiveFrame({} as never, layers[1]!.cells, null, {
+      currentZ: 2,
+      layers,
+    });
+
+    const next = projectInteractiveFrame({} as never, layers[1]!.cells, null, {
+      currentZ: 2,
+      layers,
+      previousFrame: previous,
+    });
+
+    expect(next.visibleLayers[0]).toBe(previous.visibleLayers[0]);
+    expect(next.visibleLayers[1]).toBe(previous.visibleLayers[1]);
+    expect(next.cells).toBe(previous.cells);
+  });
+
+  it("replaces only the changed projected cells when a layered board mutates", () => {
+    const layers = [createLayer(1), createTwoCellLayer(2, [2, 2])];
+    const previous = projectInteractiveFrame({} as never, layers[1]!.cells, null, {
+      currentZ: 2,
+      layers,
+    });
+
+    layers[1]!.cells[1]!.top.id = 9;
+
+    const next = projectInteractiveFrame({} as never, layers[1]!.cells, null, {
+      currentZ: 2,
+      layers,
+      previousFrame: previous,
+    });
+
+    expect(next.visibleLayers[0]).not.toBe(previous.visibleLayers[0]);
+    expect(next.visibleLayers[0]!.cells[0]).toBe(previous.visibleLayers[0]!.cells[0]);
+    expect(next.visibleLayers[0]!.cells[1]).not.toBe(previous.visibleLayers[0]!.cells[1]);
+    expect(next.visibleLayers[1]).toBe(previous.visibleLayers[1]);
   });
 });

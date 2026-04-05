@@ -194,7 +194,7 @@ const msProjectionConfig: InteractiveAdapterProjectionConfig<
   MsUndoHistory
 > = {
   getCurrentTick: (token) => token.state.engine.timer.currentTime,
-  projectFrame: (token, phase) => projectMsInteractiveFrame(token, phase),
+  projectFrame: (token, phase, previousFrame) => projectMsInteractiveFrame(token, phase, previousFrame),
   projectHintText: (runtime) => levelHintTextAtZ(runtime.level, runtime.token.state.internal.chipZ) || null,
   projectRunState: (request, runtime, frame) => projectMsRunState(request, runtime, frame),
 };

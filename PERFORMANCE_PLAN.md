@@ -9,7 +9,7 @@
 - [x] Scheduler fix implemented
 - [x] Worker payload reduction implemented
 - [x] Undo/history projection reduction implemented
-- [ ] Incremental frame projection implemented
+- [x] Incremental frame projection implemented
 - [ ] 3D/Lynx render-path optimization implemented
 - [ ] Perf regression coverage added
 
@@ -279,7 +279,9 @@ Why third:
 
 Status:
 
-- [ ] Not started
+- [x] Visible-layer projection now reuses unchanged layer and cell objects across ticks
+- [x] Ruleset interactive frame projection now receives the previous frame for structural sharing
+- [x] Worker hot path no longer reclones every visible cell when only a subset changed
 
 Scope:
 

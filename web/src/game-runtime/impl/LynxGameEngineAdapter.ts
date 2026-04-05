@@ -178,7 +178,7 @@ const lynxProjectionConfig: InteractiveAdapterProjectionConfig<
   LynxUndoHistory
 > = {
   getCurrentTick: (token) => token.state.timer.currentTime,
-  projectFrame: (token, phase) => projectLynxInteractiveFrame(token, phase),
+  projectFrame: (token, phase, previousFrame) => projectLynxInteractiveFrame(token, phase, previousFrame),
   projectHintText: (runtime) => levelHintTextAtZ(runtime.level, runtime.token.chipZ) || null,
   projectRunState: (request, runtime, frame) => projectLynxRunState(request, runtime, frame),
 };

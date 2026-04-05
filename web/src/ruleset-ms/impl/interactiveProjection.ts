@@ -160,6 +160,7 @@ function isMappedOccupiedMsPetCarrier(
 export function projectMsInteractiveFrame(
   session: MsInteractiveSessionState,
   phase: InteractiveProjectionPhase,
+  previousFrame?: InteractiveGameFrame,
 ): InteractiveGameFrame {
   const runtime = msProjectedRuntimeState(session.state.engine);
   const portableTools = session.state.internal.portableTools ?? null;
@@ -174,6 +175,7 @@ export function projectMsInteractiveFrame(
     {
       currentZ: session.state.internal.chipZ ?? 1,
       layers: session.state.engine.map.layers,
+      previousFrame,
       tileOverlays: [
         ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectMsRenderableOverlay(overlay)) ?? []),
         ...mappedOccupiedCarriers.map((item) => {

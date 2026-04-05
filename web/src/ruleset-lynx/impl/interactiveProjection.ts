@@ -127,6 +127,7 @@ function isMappedOccupiedLynxPetCarrier(
 export function projectLynxInteractiveFrame(
   session: LynxInteractiveSessionState,
   phase: InteractiveProjectionPhase,
+  previousFrame?: InteractiveGameFrame,
 ): InteractiveGameFrame {
   const runtime = lynxProjectedRuntimeState(session.state);
   const chipVerticalMove = session.chipMoveKind === "air" || session.chipMoveKind === "elevator";
@@ -181,6 +182,7 @@ export function projectLynxInteractiveFrame(
     {
       currentZ: session.chipZ ?? 1,
       layers: session.state.map.layers,
+      previousFrame,
       tileOverlays: [
         ...(runtime?.visuals?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectLynxRenderableOverlay(overlay)) ?? []),
         ...mappedOccupiedCarriers.map((item) => {
