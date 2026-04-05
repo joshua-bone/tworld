@@ -8,7 +8,7 @@
 - [x] Debug perf overlay implemented
 - [x] Scheduler fix implemented
 - [x] Worker payload reduction implemented
-- [ ] Undo/history projection reduction implemented
+- [x] Undo/history projection reduction implemented
 - [ ] Incremental frame projection implemented
 - [ ] 3D/Lynx render-path optimization implemented
 - [ ] Perf regression coverage added
@@ -252,7 +252,9 @@ Why second:
 
 Status:
 
-- [ ] Not started
+- [x] Live undo/event summaries moved to an incremental runtime cache
+- [x] Full checkpoint lists no longer materialize on normal tick/restore projection
+- [x] History details remain available through explicit hydration
 
 Scope:
 

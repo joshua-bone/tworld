@@ -55,6 +55,7 @@ import {
   withPreparedInteractiveLevel,
   type InteractiveAdapterHistoryConfig,
   type InteractiveAdapterProjectionConfig,
+  type InteractiveAdapterProjectionOptions,
   type InteractiveAdapterRuntime,
 } from "@game-runtime/impl/interactiveAdapterSkeleton";
 
@@ -186,8 +187,9 @@ function projectLynxSession(
   session: Pick<InteractiveGameSession, "request" | "mode">,
   runtime: LynxInteractiveRuntime,
   phase: "initial" | "tick",
+  options?: InteractiveAdapterProjectionOptions,
 ): InteractiveGameSession {
-  return projectInteractiveAdapterSession(session, runtime, phase, lynxProjectionConfig);
+  return projectInteractiveAdapterSession(session, runtime, phase, lynxProjectionConfig, options);
 }
 
 const lynxHistoryConfig: InteractiveAdapterHistoryConfig<
@@ -350,9 +352,20 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
 
   async hydrateSession(
     session: InteractiveGameSession,
-    _options: InteractiveGameSessionHydrationOptions,
+    options: InteractiveGameSessionHydrationOptions,
   ): Promise<InteractiveGameSession> {
     assertAdapterRuleset(session.request, "Lynx", "TS Lynx engine");
-    return session;
+    const runtime = fromInteractiveHandle<LynxInteractiveSessionState, LynxUndoHistory>(session.handle) as LynxInteractiveRuntime;
+    return projectLynxSession(
+      {
+        request: session.request,
+        mode: session.mode,
+      },
+      runtime,
+      session.history.currentTick <= session.history.initialTick ? "initial" : "tick",
+      {
+        includeHistoryDetails: options.historyDetails,
+      },
+    );
   }
 }

@@ -120,6 +120,7 @@ describe("interactive session projection", () => {
       enabled: true,
       currentTick: 0,
       latestTick: 0,
+      checkpointCount: 1,
       timelineId: "main",
       timelineCount: 1,
       previousTick: -1,
@@ -128,6 +129,7 @@ describe("interactive session projection", () => {
       restoredFromTick: null,
       replayTargetTick: null,
     });
+    expect(next.history.checkpointTicks).toBeUndefined();
     expect(next.handle).toBeTruthy();
   });
 
@@ -159,6 +161,7 @@ describe("interactive session projection", () => {
 
     expect(next.mode).toBe("replay");
     expect(next.history.currentTick).toBe(0);
+    expect(next.history.checkpointTicks).toBeUndefined();
     expect(next.recordedMoves).toEqual([{ when: 0, dir: MS_DIRECTION.east, modifierMask: 0 }]);
   });
 
@@ -191,6 +194,7 @@ describe("interactive session projection", () => {
 
     expect(next.mode).toBe("replay");
     expect(next.history.currentTick).toBe(0);
+    expect(next.history.checkpointTicks).toBeUndefined();
     expect(next.recordedMoves).toEqual([{ when: 0, dir: MS_DIRECTION.east, modifierMask: 0 }]);
   });
 
@@ -216,10 +220,29 @@ describe("interactive session projection", () => {
       currentTick: -1,
       latestTick: -1,
       checkpointTicks: [-1],
+      checkpointCount: 1,
       previousTick: null,
       previousCheckpointTick: null,
       restoreMode: "live",
     });
+  });
+
+  it("hydrates checkpoint details on demand after live play", async () => {
+    const adapter = new MsGameEngineAdapter(new NodeLevelRepository());
+    const started = await adapter.startSession({
+      seriesFile: "intro-ms.dac",
+      levelNumber: 1,
+      ruleset: "MS",
+      randomSeed: 123456789,
+    });
+    const advanced = await adapter.advanceSession(started, "none");
+
+    expect(advanced.history.checkpointTicks).toBeUndefined();
+
+    const hydrated = await adapter.hydrateSession?.(advanced, { historyDetails: true });
+
+    expect(hydrated?.history.checkpointTicks).toEqual([-1]);
+    expect(hydrated?.history.checkpointCount).toBe(1);
   });
 
   it("projects the manual MS stepping override onto the initial snapshot", async () => {

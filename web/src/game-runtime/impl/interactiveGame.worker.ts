@@ -112,9 +112,10 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
     }
     case "hydrate-session": {
       const session = sessionForId(request.sessionId);
+      const hydratedSession = (await engines[session.request.ruleset].hydrateSession?.(session, request.options)) ?? session;
       return {
         id: request.id,
-        session: toClientSession(request.sessionId, session, request.options),
+        session: toClientSession(request.sessionId, hydratedSession, request.options),
       };
     }
     case "dispose-session":

@@ -32,7 +32,8 @@ describe("restoreInteractiveGameSession", () => {
 
     expect(session.history.currentTick).toBe(8);
     expect(session.history.latestTick).toBe(8);
-    expect(session.history.checkpointTicks).toEqual([-1, 7]);
+    expect(session.history.checkpointCount).toBe(2);
+    expect(session.history.checkpointTicks).toBeUndefined();
     expect(previousInteractiveGameSessionTick(session)).toBe(7);
     expect(previousInteractiveGameSessionCheckpointTick(session)).toBe(7);
 
@@ -43,7 +44,7 @@ describe("restoreInteractiveGameSession", () => {
     expect(restored.history).toMatchObject({
       currentTick: 7,
       latestTick: 8,
-      checkpointTicks: [-1, 7],
+      checkpointCount: 2,
       timelineId: "main",
       timelineCount: 1,
       previousTick: 6,
@@ -52,6 +53,7 @@ describe("restoreInteractiveGameSession", () => {
       restoredFromTick: 7,
       replayTargetTick: null,
     });
+    expect(restored.history.checkpointTicks).toBeUndefined();
 
     const stillPaused = await adapter.advanceSession(restored, "none");
     expect(stillPaused.history).toMatchObject({
@@ -83,6 +85,9 @@ describe("restoreInteractiveGameSession", () => {
       restoredFromTick: null,
       replayTargetTick: null,
     });
+
+    const hydrated = await adapter.hydrateSession?.(restored, { historyDetails: true });
+    expect(hydrated?.history.checkpointTicks).toEqual([-1, 7]);
   });
 
   it("resets MS undo usage after rewinding all the way back to the starting tick", async () => {
@@ -120,7 +125,8 @@ describe("restoreInteractiveGameSession", () => {
 
     expect(session.history.currentTick).toBe(8);
     expect(session.history.latestTick).toBe(8);
-    expect(session.history.checkpointTicks).toEqual([-1, 7]);
+    expect(session.history.checkpointCount).toBe(2);
+    expect(session.history.checkpointTicks).toBeUndefined();
     expect(previousInteractiveGameSessionTick(session)).toBe(7);
     expect(previousInteractiveGameSessionCheckpointTick(session)).toBe(7);
 
@@ -131,7 +137,7 @@ describe("restoreInteractiveGameSession", () => {
     expect(restored.history).toMatchObject({
       currentTick: 7,
       latestTick: 8,
-      checkpointTicks: [-1, 7],
+      checkpointCount: 2,
       timelineId: "main",
       timelineCount: 1,
       previousTick: 6,
@@ -140,6 +146,7 @@ describe("restoreInteractiveGameSession", () => {
       restoredFromTick: 7,
       replayTargetTick: null,
     });
+    expect(restored.history.checkpointTicks).toBeUndefined();
 
     const stillPaused = await adapter.advanceSession(restored, "none");
     expect(stillPaused.history).toMatchObject({
@@ -171,6 +178,9 @@ describe("restoreInteractiveGameSession", () => {
       restoredFromTick: null,
       replayTargetTick: null,
     });
+
+    const hydrated = await adapter.hydrateSession?.(restored, { historyDetails: true });
+    expect(hydrated?.history.checkpointTicks).toEqual([-1, 7]);
   });
 
   it("resets Lynx undo usage after rewinding all the way back to the starting tick", async () => {

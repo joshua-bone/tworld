@@ -9,20 +9,27 @@ import {
   type InteractiveSessionRuntimeState,
 } from "@game-runtime/impl/interactiveHandle";
 import { projectInteractiveGameSession } from "@game-runtime/impl/projectInteractiveGameSession";
-import { projectInteractiveSessionHistory } from "@game-runtime/impl/projectInteractiveSessionHistory";
+import {
+  advanceInteractiveSessionHistorySummary,
+  checkpointTicksForInteractiveSessionHistory,
+  projectInteractiveSessionHistory,
+  summarizeInteractiveSessionHistory,
+  type InteractiveSessionHistorySummary,
+} from "@game-runtime/impl/projectInteractiveSessionHistory";
 import type {
   InteractiveGameSession,
   InteractiveGameSessionRunState,
 } from "@game-runtime/ports/InteractiveGameEngine";
 import type { LoadedLevelData, LevelRepository } from "@level-catalog/ports/LevelRepository";
 import type { UndoHistory, UndoSettingsSnapshot, UndoTickEvent } from "@undo-runtime/api/history";
-import { latestUndoTick, nextUndoTickEvent } from "@undo-runtime/impl/history";
+import { nextUndoTickEvent } from "@undo-runtime/impl/history";
 
 export interface InteractiveAdapterRuntime<TToken, TLevel, THistory extends UndoHistory<TToken>>
   extends InteractiveSessionRuntimeState<TToken, THistory> {
   token: TToken;
   level: TLevel;
   undoUsedCount: number;
+  historySummary: InteractiveSessionHistorySummary;
 }
 
 export interface InteractiveAdapterHistoryConfig<TToken, TLevel, THistory extends UndoHistory<TToken>> {
@@ -52,6 +59,10 @@ export interface InteractiveAdapterProjectionConfig<TToken, TLevel, THistory ext
     runtime: InteractiveAdapterRuntime<TToken, TLevel, THistory>,
     frame: InteractiveGameFrame,
   ) => InteractiveGameSessionRunState;
+}
+
+export interface InteractiveAdapterProjectionOptions {
+  includeHistoryDetails?: boolean;
 }
 
 export function assertAdapterRuleset(
@@ -87,11 +98,13 @@ export function createInteractiveAdapterRuntime<TToken, TLevel, THistory extends
   ) => THistory,
   undoSettings?: Partial<UndoSettingsSnapshot>,
 ): InteractiveAdapterRuntime<TToken, TLevel, THistory> {
+  const history = createUndoHistory(token, undoSettings ?? 8);
   return {
     token,
     level,
     undoUsedCount: 0,
-    history: createUndoHistory(token, undoSettings ?? 8),
+    history,
+    historySummary: summarizeInteractiveSessionHistory(history, history.initialCheckpoint.tick),
     restoreState: createLiveRestoreState(),
   };
 }
@@ -101,17 +114,19 @@ export function projectInteractiveAdapterSession<TToken, TLevel, THistory extend
   runtime: InteractiveAdapterRuntime<TToken, TLevel, THistory>,
   phase: "initial" | "tick",
   config: InteractiveAdapterProjectionConfig<TToken, TLevel, THistory>,
+  options: InteractiveAdapterProjectionOptions = {},
 ): InteractiveGameSession {
   const frame = config.projectFrame(runtime.token, phase);
+  const includeHistoryDetails = options.includeHistoryDetails ?? phase === "initial";
   return projectInteractiveGameSession({
     request: session.request,
     mode: session.mode,
     hintText: config.projectHintText(runtime),
     frame,
     history: projectInteractiveSessionHistory(
-      runtime.history,
-      config.getCurrentTick(runtime.token),
+      runtime.historySummary,
       runtime.restoreState,
+      includeHistoryDetails ? checkpointTicksForInteractiveSessionHistory(runtime.history) : undefined,
     ),
     run: config.projectRunState(session.request, runtime, frame),
     recordedMoves: (runtime.token as { recordedMoves?: InteractiveGameSession["recordedMoves"] }).recordedMoves ?? [],
@@ -125,15 +140,18 @@ function advanceInteractiveLiveRuntime<TToken, TLevel, THistory extends UndoHist
   source: UndoTickEvent["source"],
   config: Pick<
     InteractiveAdapterHistoryConfig<TToken, TLevel, THistory>,
-    "advanceToken" | "recordUndoTick"
+    "advanceToken" | "getCurrentTick" | "recordUndoTick"
   >,
 ): InteractiveAdapterRuntime<TToken, TLevel, THistory> {
   const token = config.advanceToken(runtime.token, inputCode);
+  const history = config.recordUndoTick(runtime.history, token, inputCode, source);
+  const currentTick = config.getCurrentTick(token);
   return {
     token,
     level: runtime.level,
     undoUsedCount: runtime.undoUsedCount,
-    history: config.recordUndoTick(runtime.history, token, inputCode, source),
+    history,
+    historySummary: advanceInteractiveSessionHistorySummary(runtime.historySummary, history, currentTick),
     restoreState: createLiveRestoreState(),
   };
 }
@@ -153,10 +171,12 @@ export function advanceInteractiveSessionWithHistory<TToken, TLevel, THistory ex
     }
 
     const futureTick = nextUndoTickEvent(runtime.history, currentTick);
-    const branchedRuntime = futureTick
+    const branchedHistory = futureTick ? config.forkUndoHistory(runtime.history, runtime.token) : null;
+    const branchedRuntime = branchedHistory
       ? {
           ...runtime,
-          history: config.forkUndoHistory(runtime.history, runtime.token),
+          history: branchedHistory,
+          historySummary: summarizeInteractiveSessionHistory(branchedHistory, currentTick),
         }
       : runtime;
     return config.projectSession(
@@ -168,9 +188,11 @@ export function advanceInteractiveSessionWithHistory<TToken, TLevel, THistory ex
 
   if (runtime.restoreState.mode === "replaying-history") {
     if (inputCode !== GAME_INPUT_CODES.none) {
+      const branchedHistory = config.forkUndoHistory(runtime.history, runtime.token);
       const branchedRuntime = {
         ...runtime,
-        history: config.forkUndoHistory(runtime.history, runtime.token),
+        history: branchedHistory,
+        historySummary: summarizeInteractiveSessionHistory(branchedHistory, currentTick),
       };
       return config.projectSession(
         session,
@@ -192,8 +214,9 @@ export function advanceInteractiveSessionWithHistory<TToken, TLevel, THistory ex
     }
 
     const token = config.advanceToken(runtime.token, historicalEvent.inputCode);
-    const replayTargetTick = runtime.restoreState.replayTargetTick ?? latestUndoTick(runtime.history);
-    const hasMoreHistoricalTicks = nextUndoTickEvent(runtime.history, config.getCurrentTick(token)) !== null;
+    const nextTick = config.getCurrentTick(token);
+    const replayTargetTick = runtime.restoreState.replayTargetTick ?? runtime.historySummary.latestTick;
+    const hasMoreHistoricalTicks = nextUndoTickEvent(runtime.history, nextTick) !== null;
     return config.projectSession(
       session,
       {
@@ -201,6 +224,9 @@ export function advanceInteractiveSessionWithHistory<TToken, TLevel, THistory ex
         level: runtime.level,
         undoUsedCount: runtime.undoUsedCount,
         history: runtime.history,
+        historySummary: advanceInteractiveSessionHistorySummary(runtime.historySummary, runtime.history, nextTick, {
+          latestTick: runtime.historySummary.latestTick,
+        }),
         restoreState: hasMoreHistoricalTicks
           ? createHistoricalReplayRestoreState(runtime.restoreState.restoredFromTick ?? currentTick, replayTargetTick)
           : createLiveRestoreState(),
@@ -241,6 +267,7 @@ export function restoreInteractiveSessionToTick<TToken, TLevel, THistory extends
       level: runtime.level,
       undoUsedCount,
       history: runtime.history,
+      historySummary: summarizeInteractiveSessionHistory(runtime.history, targetTick),
       restoreState: createPausedRestoreState(targetTick),
     },
     "tick",
@@ -255,7 +282,7 @@ export function resumeInteractiveSessionFromHistory<TToken, TLevel, THistory ext
     "getCurrentTick" | "projectSession"
   >,
 ): InteractiveGameSession {
-  const replayTargetTick = latestUndoTick(runtime.history);
+  const replayTargetTick = runtime.historySummary.latestTick;
   if (replayTargetTick <= config.getCurrentTick(runtime.token)) {
     return config.projectSession(
       session,

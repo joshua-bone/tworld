@@ -54,6 +54,7 @@ import {
   withPreparedInteractiveLevel,
   type InteractiveAdapterHistoryConfig,
   type InteractiveAdapterProjectionConfig,
+  type InteractiveAdapterProjectionOptions,
   type InteractiveAdapterRuntime,
 } from "@game-runtime/impl/interactiveAdapterSkeleton";
 
@@ -202,8 +203,9 @@ function projectMsSession(
   session: Pick<InteractiveGameSession, "request" | "mode">,
   runtime: MsInteractiveRuntime,
   phase: "initial" | "tick",
+  options?: InteractiveAdapterProjectionOptions,
 ): InteractiveGameSession {
-  return projectInteractiveAdapterSession(session, runtime, phase, msProjectionConfig);
+  return projectInteractiveAdapterSession(session, runtime, phase, msProjectionConfig, options);
 }
 
 const msHistoryConfig: InteractiveAdapterHistoryConfig<
@@ -373,9 +375,20 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
 
   async hydrateSession(
     session: InteractiveGameSession,
-    _options: InteractiveGameSessionHydrationOptions,
+    options: InteractiveGameSessionHydrationOptions,
   ): Promise<InteractiveGameSession> {
     assertAdapterRuleset(session.request, "MS", "TS MS engine");
-    return session;
+    const runtime = fromInteractiveHandle<MsInteractiveSessionState, MsUndoHistory>(session.handle) as MsInteractiveRuntime;
+    return projectMsSession(
+      {
+        request: session.request,
+        mode: session.mode,
+      },
+      runtime,
+      session.history.currentTick <= session.history.initialTick ? "initial" : "tick",
+      {
+        includeHistoryDetails: options.historyDetails,
+      },
+    );
   }
 }
