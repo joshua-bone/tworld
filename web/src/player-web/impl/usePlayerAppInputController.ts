@@ -311,6 +311,8 @@ export function usePlayerAppInputController({
     undoPreviousTickBurst();
   });
 
+  // Keep the gameplay clock independent from routine React renders. Restarting
+  // this effect on the 125ms UI sync cadence collapses normal play to 16Hz.
   useEffect(() => {
     if (mode !== "game") {
       setIsFastForwarding(false);
@@ -448,8 +450,6 @@ export function usePlayerAppInputController({
       immediatePumpChannel.port2.close();
     };
   }, [
-    advanceTick,
-    currentActionModifierMask,
     isFastForwarding,
     isPaused,
     isRunning,
