@@ -332,11 +332,13 @@ export function usePlayerAppInputController({
     const tickIntervalMs = isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
     const maxAccumulatedMs = tickIntervalMs * LEGACY_MAX_CATCH_UP_TICKS;
     let cancelled = false;
-    let animationFrameId = 0;
     let pumping = false;
     let immediatePumpQueued = false;
     let nextTickDueAtMs = performance.now() + tickIntervalMs;
     const immediatePumpChannel = new MessageChannel();
+    const clockWorker = new Worker(new URL("./gameClock.worker.ts", import.meta.url), {
+      type: "module",
+    });
 
     const scheduleImmediatePump = () => {
       if (immediatePumpQueued) {
@@ -421,26 +423,23 @@ export function usePlayerAppInputController({
       void pumpTicks();
     };
 
-    const pumpFrame = (now: number) => {
-      animationFrameId = 0;
-      if (cancelled) {
+    clockWorker.onmessage = (event: MessageEvent<{ dueAtMs: number; nowMs: number; type: "due" }>) => {
+      if (cancelled || event.data.type !== "due") {
         return;
       }
 
-      if (now >= nextTickDueAtMs) {
-        void pumpTicks(now);
-      }
-
-      animationFrameId = window.requestAnimationFrame(pumpFrame);
+      void pumpTicks(event.data.nowMs);
     };
 
-    animationFrameId = window.requestAnimationFrame(pumpFrame);
+    clockWorker.postMessage({
+      intervalMs: tickIntervalMs,
+      type: "start",
+    });
 
     return () => {
       cancelled = true;
-      if (animationFrameId !== 0) {
-        window.cancelAnimationFrame(animationFrameId);
-      }
+      clockWorker.postMessage({ type: "stop" });
+      clockWorker.terminate();
       immediatePumpQueued = false;
       immediatePumpChannel.port1.onmessage = null;
       immediatePumpChannel.port1.close();
