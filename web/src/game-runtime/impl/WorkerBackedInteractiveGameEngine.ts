@@ -23,6 +23,67 @@ interface SyncImportedDatRequest {
   filename: string;
 }
 
+const PERF_GLOBAL_KEY = "__TWORLD_PERF__";
+
+interface PerfRuntimeGlobal {
+  isDiagnosticsEnabled?: () => boolean;
+  recordWorkerAdvancePayloadBytes?: (value: number) => void;
+  recordWorkerAdvanceRoundTrip?: (durationMs: number) => void;
+}
+
+function runtimePerfGlobal(): PerfRuntimeGlobal | null {
+  const target = globalThis as typeof globalThis & {
+    [PERF_GLOBAL_KEY]?: PerfRuntimeGlobal;
+  };
+
+  return target[PERF_GLOBAL_KEY] ?? null;
+}
+
+function estimateSerializablePayloadBytes(value: unknown, seen = new Set<object>()): number {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+
+  if (typeof value === "boolean") {
+    return 4;
+  }
+
+  if (typeof value === "number") {
+    return 8;
+  }
+
+  if (typeof value === "string") {
+    return value.length * 2;
+  }
+
+  if (typeof value !== "object") {
+    return 0;
+  }
+
+  if (seen.has(value)) {
+    return 0;
+  }
+
+  seen.add(value);
+
+  if (ArrayBuffer.isView(value)) {
+    return value.byteLength;
+  }
+
+  if (value instanceof ArrayBuffer) {
+    return value.byteLength;
+  }
+
+  if (Array.isArray(value)) {
+    return value.reduce((total, entry) => total + estimateSerializablePayloadBytes(entry, seen), 0);
+  }
+
+  return Object.entries(value as Record<string, unknown>).reduce(
+    (total, [key, entry]) => total + key.length * 2 + estimateSerializablePayloadBytes(entry, seen),
+    0,
+  );
+}
+
 export class WorkerBackedInteractiveGameEngine implements InteractiveGameEnginePort {
   private worker: Worker | null = null;
   private nextRequestId = 1;
@@ -76,7 +137,18 @@ export class WorkerBackedInteractiveGameEngine implements InteractiveGameEngineP
     request: InteractiveGameWorkerRequest,
     previousSession?: InteractiveGameSession,
   ): Promise<InteractiveGameSession> {
+    const startedAtMs = request.type === "advance-session" ? performance.now() : 0;
     const response = await this.request(request);
+    if (request.type === "advance-session") {
+      const perf = runtimePerfGlobal();
+      perf?.recordWorkerAdvanceRoundTrip?.(performance.now() - startedAtMs);
+      if (perf?.isDiagnosticsEnabled?.()) {
+        perf.recordWorkerAdvancePayloadBytes?.(
+          estimateSerializablePayloadBytes(response.sessionUpdate ?? response.session ?? response),
+        );
+      }
+    }
+
     if (response.session) {
       return response.session;
     }

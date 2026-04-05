@@ -6,6 +6,7 @@ import {
 } from "@player-web/impl/legacyRenderPresets";
 import {
   measurePerfSync,
+  setPerfDiagnosticsEnabled,
   snapshotRuntimePerf,
 } from "@player-web/impl/runtimePerf";
 import {
@@ -204,6 +205,8 @@ function updateLegacyCanvasPerfTracker(
     renderMs: metrics.renderMs,
     sessionLoadMs: metrics.sessionLoadMs,
     tickMs: metrics.tickMs,
+    workerAdvancePayloadBytes: perf.worker.advancePayloadBytes,
+    workerAdvanceRoundTripMs: perf.worker.advanceRoundTripMs,
   };
 }
 
@@ -256,6 +259,13 @@ export function LegacyCanvasScreen({
   const targetMapHeight = legacyMapPixelsForTileSize(renderTileSize);
   const usesDefaultMapTileSize = isDefaultLegacyRenderTileSize(renderTileSize);
   const selectedSeriesIndex = catalog.findIndex((series) => series.filebase === selectedSeriesFile);
+
+  useEffect(() => {
+    setPerfDiagnosticsEnabled(debugModeEnabled);
+    return () => {
+      setPerfDiagnosticsEnabled(false);
+    };
+  }, [debugModeEnabled]);
 
   const mapPositionForCanvasPoint = useEffectEvent((
     canvas: HTMLCanvasElement,

@@ -169,8 +169,8 @@ Recommended visible metrics:
 - [x] session load time for new level starts
 - [x] current ruleset, level, visible layer count, actor count, overlay count
 - [x] undo enabled/disabled and current checkpoint count
-- [ ] worker round-trip or session advance latency if instrumented separately
-- [ ] worker payload size in KB once response slimming work begins
+- [x] worker round-trip or session advance latency if instrumented separately
+- [x] worker payload size in KB once response slimming work begins
 - [x] dropped or capped catch-up tick counters once scheduler work lands
 
 Acceptance:

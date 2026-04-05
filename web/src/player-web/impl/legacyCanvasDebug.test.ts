@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { EngineMapCell } from "@game-core/api/model";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
-import type { PerfMetricSnapshot } from "@player-web/impl/runtimePerf";
+import type { PerfMetricSnapshot, ValueMetricSnapshot } from "@player-web/impl/runtimePerf";
 import {
   buildLegacyCanvasDebugReadout,
   buildLegacyCanvasPerfReadout,
@@ -161,6 +161,20 @@ function createPerfMetricSnapshot(lastMs: number, emaMs: number = lastMs, maxMs:
   };
 }
 
+function createValueMetricSnapshot(
+  lastValue: number,
+  emaValue: number = lastValue,
+  maxValue: number = lastValue,
+): ValueMetricSnapshot {
+  return {
+    avgValue: lastValue,
+    emaValue,
+    lastValue,
+    maxValue,
+    samples: 1,
+  };
+}
+
 function createPerfReadout(): LegacyCanvasPerfReadout {
   return {
     cappedCatchUpBatches: 2,
@@ -174,6 +188,8 @@ function createPerfReadout(): LegacyCanvasPerfReadout {
     renderMs: createPerfMetricSnapshot(10.2, 9.7, 14.6),
     sessionLoadMs: createPerfMetricSnapshot(48.1, 46.8, 63.4),
     tickMs: createPerfMetricSnapshot(18.2, 16.9, 27.5),
+    workerAdvancePayloadBytes: createValueMetricSnapshot(9216, 7168, 12288),
+    workerAdvanceRoundTripMs: createPerfMetricSnapshot(14.3, 13.1, 20.7),
   };
 }
 
@@ -204,6 +220,7 @@ describe("buildLegacyCanvasPerfReadout", () => {
       "perf frame=58.4fps render=19.7fps game=14.8Hz",
       "tick ms last=18.2 ema=16.9 max=27.5 drift=11.4",
       "draw ms last=10.2 ema=9.7 max=14.6 load=48.1",
+      "worker ms last=14.3 ema=13.1 max=20.7 payload last=9.0KB ema=7.0KB max=12.0KB",
       "sched batch=3 max=4 capped=2 dropped=5",
       "scene ruleset=Lynx level=1 status=playing layers=2 actors=3 overlays=1",
       "history undo=on checkpoints=1 recent=0 restore=live",
@@ -215,6 +232,7 @@ describe("buildLegacyCanvasPerfReadout", () => {
       "perf frame=58.4fps render=19.7fps game=14.8Hz",
       "tick ms last=18.2 ema=16.9 max=27.5 drift=11.4",
       "draw ms last=10.2 ema=9.7 max=14.6 load=48.1",
+      "worker ms last=14.3 ema=13.1 max=20.7 payload last=9.0KB ema=7.0KB max=12.0KB",
       "sched batch=3 max=4 capped=2 dropped=5",
       "scene <no session>",
     ]);

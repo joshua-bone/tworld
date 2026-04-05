@@ -6,7 +6,8 @@ type PerfMetricName =
   | "loopDriftMs"
   | "renderMs"
   | "sessionLoadMs"
-  | "tickMs";
+  | "tickMs"
+  | "workerAdvanceRoundTripMs";
 
 interface PerfMetricConfig {
   budgetMs: number;
@@ -35,6 +36,14 @@ export interface PerfMetricSnapshot {
   warnCount: number;
 }
 
+export interface ValueMetricSnapshot {
+  avgValue: number;
+  emaValue: number;
+  lastValue: number;
+  maxValue: number;
+  samples: number;
+}
+
 export interface SchedulerCatchUpSnapshot {
   batchCount: number;
   cappedBatchCount: number;
@@ -43,14 +52,32 @@ export interface SchedulerCatchUpSnapshot {
   maxBatchTicks: number;
 }
 
+export interface WorkerRuntimePerfSnapshot {
+  advancePayloadBytes: ValueMetricSnapshot;
+  advanceRoundTripMs: PerfMetricSnapshot;
+}
+
 export interface RuntimePerfSnapshot {
   metrics: Record<PerfMetricName, PerfMetricSnapshot>;
   scheduler: SchedulerCatchUpSnapshot;
+  worker: WorkerRuntimePerfSnapshot;
 }
 
 interface PerfRuntimeGlobal {
+  isDiagnosticsEnabled: () => boolean;
+  recordWorkerAdvancePayloadBytes: (value: number) => void;
+  recordWorkerAdvanceRoundTrip: (durationMs: number) => void;
   reset: () => void;
+  setDiagnosticsEnabled: (enabled: boolean) => void;
   snapshot: () => Record<PerfMetricName, PerfMetricSnapshot>;
+}
+
+interface ValueMetricState {
+  emaValue: number;
+  lastValue: number;
+  maxValue: number;
+  samples: number;
+  totalValue: number;
 }
 
 const PERF_WARN_THROTTLE_MS = 5000;
@@ -96,10 +123,23 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
     label: "game tick",
     warnMultiplier: 2,
   },
+  workerAdvanceRoundTripMs: {
+    budgetMs: 20,
+    label: "worker advance round trip",
+    warnMultiplier: 2,
+  },
 };
 
 const PERF_GLOBAL_KEY = "__TWORLD_PERF__";
 const perfMetricStates = new Map<PerfMetricName, PerfMetricState>();
+let perfDiagnosticsEnabled = false;
+const workerPayloadBytesState: ValueMetricState = {
+  emaValue: 0,
+  lastValue: 0,
+  maxValue: 0,
+  samples: 0,
+  totalValue: 0,
+};
 
 interface SchedulerCatchUpState {
   batchCount: number;
@@ -129,6 +169,16 @@ function createPerfMetricState(): PerfMetricState {
   };
 }
 
+function createValueMetricState(): ValueMetricState {
+  return {
+    emaValue: 0,
+    lastValue: 0,
+    maxValue: 0,
+    samples: 0,
+    totalValue: 0,
+  };
+}
+
 function getPerfMetricState(name: PerfMetricName): PerfMetricState {
   const existing = perfMetricStates.get(name);
   if (existing) {
@@ -154,6 +204,16 @@ function snapshotMetric(name: PerfMetricName, state: PerfMetricState): PerfMetri
   };
 }
 
+function snapshotValueMetric(state: ValueMetricState): ValueMetricSnapshot {
+  return {
+    avgValue: state.samples > 0 ? state.totalValue / state.samples : 0,
+    emaValue: state.emaValue,
+    lastValue: state.lastValue,
+    maxValue: state.maxValue,
+    samples: state.samples,
+  };
+}
+
 export function snapshotPerfMetrics(): Record<PerfMetricName, PerfMetricSnapshot> {
   return {
     catalogBootstrapMs: snapshotMetric("catalogBootstrapMs", getPerfMetricState("catalogBootstrapMs")),
@@ -164,16 +224,27 @@ export function snapshotPerfMetrics(): Record<PerfMetricName, PerfMetricSnapshot
     renderMs: snapshotMetric("renderMs", getPerfMetricState("renderMs")),
     sessionLoadMs: snapshotMetric("sessionLoadMs", getPerfMetricState("sessionLoadMs")),
     tickMs: snapshotMetric("tickMs", getPerfMetricState("tickMs")),
+    workerAdvanceRoundTripMs: snapshotMetric(
+      "workerAdvanceRoundTripMs",
+      getPerfMetricState("workerAdvanceRoundTripMs"),
+    ),
   };
 }
 
 export function resetPerfMetrics(): void {
   perfMetricStates.clear();
+  const nextWorkerPayloadState = createValueMetricState();
   schedulerCatchUpState.batchCount = 0;
   schedulerCatchUpState.cappedBatchCount = 0;
   schedulerCatchUpState.droppedTickCount = 0;
   schedulerCatchUpState.lastBatchTicks = 0;
   schedulerCatchUpState.maxBatchTicks = 0;
+  workerPayloadBytesState.emaValue = nextWorkerPayloadState.emaValue;
+  workerPayloadBytesState.lastValue = nextWorkerPayloadState.lastValue;
+  workerPayloadBytesState.maxValue = nextWorkerPayloadState.maxValue;
+  workerPayloadBytesState.samples = nextWorkerPayloadState.samples;
+  workerPayloadBytesState.totalValue = nextWorkerPayloadState.totalValue;
+  perfDiagnosticsEnabled = false;
 }
 
 export function recordSchedulerCatchUp(
@@ -206,6 +277,13 @@ export function snapshotRuntimePerf(): RuntimePerfSnapshot {
       droppedTickCount: schedulerCatchUpState.droppedTickCount,
       lastBatchTicks: schedulerCatchUpState.lastBatchTicks,
       maxBatchTicks: schedulerCatchUpState.maxBatchTicks,
+    },
+    worker: {
+      advancePayloadBytes: snapshotValueMetric(workerPayloadBytesState),
+      advanceRoundTripMs: snapshotMetric(
+        "workerAdvanceRoundTripMs",
+        getPerfMetricState("workerAdvanceRoundTripMs"),
+      ),
     },
   };
 }
@@ -244,6 +322,30 @@ export function recordPerfMeasurement(name: PerfMetricName, durationMs: number):
   warnIfNeeded(name, durationMs, state);
 }
 
+function recordValueMeasurement(state: ValueMetricState, value: number): void {
+  state.samples += 1;
+  state.lastValue = value;
+  state.maxValue = Math.max(state.maxValue, value);
+  state.totalValue += value;
+  state.emaValue = state.samples === 1 ? value : state.emaValue + (value - state.emaValue) * PERF_EMA_WEIGHT;
+}
+
+export function setPerfDiagnosticsEnabled(enabled: boolean): void {
+  perfDiagnosticsEnabled = enabled;
+}
+
+export function isPerfDiagnosticsEnabled(): boolean {
+  return perfDiagnosticsEnabled;
+}
+
+export function recordWorkerAdvanceRoundTrip(durationMs: number): void {
+  recordPerfMeasurement("workerAdvanceRoundTripMs", durationMs);
+}
+
+export function recordWorkerAdvancePayloadBytes(value: number): void {
+  recordValueMeasurement(workerPayloadBytesState, value);
+}
+
 export async function measurePerfAsync<T>(name: PerfMetricName, work: () => Promise<T>): Promise<T> {
   const start = performance.now();
   try {
@@ -272,7 +374,11 @@ function ensurePerfGlobal(): void {
   }
 
   target[PERF_GLOBAL_KEY] = {
+    isDiagnosticsEnabled: isPerfDiagnosticsEnabled,
+    recordWorkerAdvancePayloadBytes,
+    recordWorkerAdvanceRoundTrip,
     reset: resetPerfMetrics,
+    setDiagnosticsEnabled: setPerfDiagnosticsEnabled,
     snapshot: snapshotPerfMetrics,
   };
 }

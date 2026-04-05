@@ -6,7 +6,7 @@ import type {
 } from "@game-core/api/interactive";
 import type { EngineMapCell, EngineTile } from "@game-core/api/model";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
-import type { PerfMetricSnapshot } from "@player-web/impl/runtimePerf";
+import type { PerfMetricSnapshot, ValueMetricSnapshot } from "@player-web/impl/runtimePerf";
 import { MS_DIRECTION, MS_TILE, isMsCreature, msCreatureId } from "@ruleset-ms/api/tiles";
 
 const TILE_NAME_BY_ID = new Map<number, string>(
@@ -99,6 +99,14 @@ function formatMetricTriplet(metric: PerfMetricSnapshot): string {
   return `last=${metric.lastMs.toFixed(1)} ema=${metric.emaMs.toFixed(1)} max=${metric.maxMs.toFixed(1)}`;
 }
 
+function formatValueTriplet(metric: ValueMetricSnapshot, scale = 1, suffix = ""): string {
+  return [
+    `last=${(metric.lastValue / scale).toFixed(1)}${suffix}`,
+    `ema=${(metric.emaValue / scale).toFixed(1)}${suffix}`,
+    `max=${(metric.maxValue / scale).toFixed(1)}${suffix}`,
+  ].join(" ");
+}
+
 export interface LegacyCanvasPerfReadout {
   cappedCatchUpBatches: number;
   droppedCatchUpTicks: number;
@@ -111,6 +119,8 @@ export interface LegacyCanvasPerfReadout {
   renderMs: PerfMetricSnapshot;
   sessionLoadMs: PerfMetricSnapshot;
   tickMs: PerfMetricSnapshot;
+  workerAdvancePayloadBytes: ValueMetricSnapshot;
+  workerAdvanceRoundTripMs: PerfMetricSnapshot;
 }
 
 export function buildLegacyCanvasPerfReadout(
@@ -122,6 +132,7 @@ export function buildLegacyCanvasPerfReadout(
       `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
       `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
       `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+      `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
       `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
       "scene <no session>",
     ];
@@ -137,6 +148,7 @@ export function buildLegacyCanvasPerfReadout(
     `perf frame=${formatRate(perf.frameFps, "fps")} render=${formatRate(perf.renderFps, "fps")} game=${formatRate(perf.gameHz, "Hz")}`,
     `tick ms ${formatMetricTriplet(perf.tickMs)} drift=${perf.loopDriftMs.lastMs.toFixed(1)}`,
     `draw ms ${formatMetricTriplet(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+    `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
     `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
     `scene ruleset=${session.request.ruleset} level=${session.request.levelNumber} status=${session.frame.snapshot.status} layers=${session.frame.visibleLayers.length} actors=${actorCount} overlays=${session.frame.tileOverlays.length}`,
     `history undo=${session.history.enabled ? "on" : "off"} checkpoints=${session.history.checkpointTicks.length} recent=${session.history.recentTicks?.length ?? 0} restore=${session.history.restoreMode}`,
