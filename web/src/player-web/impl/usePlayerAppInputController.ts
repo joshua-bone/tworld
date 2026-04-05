@@ -45,6 +45,7 @@ import type { PlayerBindableKey } from "@player-web/impl/playerKeyBindingsSettin
 const LEGACY_FAST_TICK_MS = 25;
 const LEGACY_MAX_CATCH_UP_TICKS = 4;
 const LEGACY_NORMAL_TICK_MS = 50;
+const LEGACY_CLOCK_HEARTBEAT_MS = 8;
 const UNDO_HOLD_REPEAT_DELAY_MS = 160;
 const UNDO_HOLD_REPEAT_INTERVAL_MS = 40;
 
@@ -331,10 +332,11 @@ export function usePlayerAppInputController({
 
     const tickIntervalMs = isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
     const maxAccumulatedMs = tickIntervalMs * LEGACY_MAX_CATCH_UP_TICKS;
+    let accumulatedMs = 0;
     let cancelled = false;
     let pumping = false;
     let immediatePumpQueued = false;
-    let nextTickDueAtMs = performance.now() + tickIntervalMs;
+    let lastClockAtMs = performance.now();
     const immediatePumpChannel = new MessageChannel();
     const clockWorker = new Worker(new URL("./gameClock.worker.ts", import.meta.url), {
       type: "module",
@@ -360,47 +362,47 @@ export function usePlayerAppInputController({
         : msInputBufferRef.current.nextTickInputCode(currentActionModifierMask());
     };
 
+    const syncClockElapsed = (now: number) => {
+      accumulatedMs += now - lastClockAtMs;
+      lastClockAtMs = now;
+    };
+
     const pumpTicks = async (currentNow = performance.now()) => {
       if (cancelled || pumping) {
         return;
       }
 
+      syncClockElapsed(currentNow);
+      if (accumulatedMs < tickIntervalMs) {
+        return;
+      }
+
       pumping = true;
       try {
-        let now = currentNow;
-        let overdueMs = Math.max(0, now - nextTickDueAtMs);
-        recordPerfMeasurement("loopDriftMs", overdueMs);
+        recordPerfMeasurement("loopDriftMs", Math.max(0, accumulatedMs - tickIntervalMs));
 
         let capped = false;
         let droppedTicks = 0;
-        if (overdueMs > maxAccumulatedMs) {
+        if (accumulatedMs > maxAccumulatedMs) {
           capped = true;
-          droppedTicks = Math.floor((overdueMs - maxAccumulatedMs) / tickIntervalMs);
-          nextTickDueAtMs += droppedTicks * tickIntervalMs;
-          overdueMs = Math.max(0, now - nextTickDueAtMs);
+          droppedTicks = Math.floor((accumulatedMs - maxAccumulatedMs) / tickIntervalMs);
+          accumulatedMs = maxAccumulatedMs;
         }
 
         let batchTicks = 0;
-        while (!cancelled && now >= nextTickDueAtMs && batchTicks < LEGACY_MAX_CATCH_UP_TICKS) {
+        while (!cancelled && accumulatedMs >= tickIntervalMs && batchTicks < LEGACY_MAX_CATCH_UP_TICKS) {
           const inputCode = nextTickInputCode();
           if (inputCode === null) {
-            nextTickDueAtMs = now + tickIntervalMs;
+            accumulatedMs = 0;
             break;
           }
 
           await advanceTick(inputCode);
           batchTicks += 1;
-          nextTickDueAtMs += tickIntervalMs;
-          now = performance.now();
+          accumulatedMs -= tickIntervalMs;
 
-          if (now - nextTickDueAtMs > maxAccumulatedMs) {
-            const additionalDroppedTicks = Math.floor((now - nextTickDueAtMs - maxAccumulatedMs) / tickIntervalMs);
-            if (additionalDroppedTicks > 0) {
-              capped = true;
-              droppedTicks += additionalDroppedTicks;
-              nextTickDueAtMs += additionalDroppedTicks * tickIntervalMs;
-            }
-          }
+          const afterTickAtMs = performance.now();
+          syncClockElapsed(afterTickAtMs);
         }
 
         if (batchTicks > 0 || capped || droppedTicks > 0) {
@@ -412,7 +414,7 @@ export function usePlayerAppInputController({
       }
       finally {
         pumping = false;
-        if (!cancelled && performance.now() >= nextTickDueAtMs) {
+        if (!cancelled && accumulatedMs >= tickIntervalMs) {
           scheduleImmediatePump();
         }
       }
@@ -423,16 +425,16 @@ export function usePlayerAppInputController({
       void pumpTicks();
     };
 
-    clockWorker.onmessage = (event: MessageEvent<{ dueAtMs: number; nowMs: number; type: "due" }>) => {
-      if (cancelled || event.data.type !== "due") {
+    clockWorker.onmessage = (event: MessageEvent<{ nowMs: number; type: "pulse" }>) => {
+      if (cancelled || event.data.type !== "pulse") {
         return;
       }
 
-      void pumpTicks(event.data.nowMs);
+      void pumpTicks(performance.now());
     };
 
     clockWorker.postMessage({
-      intervalMs: tickIntervalMs,
+      heartbeatMs: LEGACY_CLOCK_HEARTBEAT_MS,
       type: "start",
     });
 

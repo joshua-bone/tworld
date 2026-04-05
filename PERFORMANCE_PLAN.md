@@ -197,7 +197,7 @@ Why first:
 Status:
 
 - [x] Catch-up scheduler implemented in legacy gameplay loop
-- [x] Gameplay cadence now comes from a worker-driven deadline clock instead of coarse main-thread timers
+- [x] Gameplay cadence now comes from a worker-heartbeat accumulator clock instead of coarse interval wakeups
 - [x] Debug counters exposed for catch-up batches and dropped ticks
 - [ ] Browser gameplay validation completed across representative levels
 

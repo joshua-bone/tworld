@@ -1,5 +1,5 @@
 interface StartClockMessage {
-  intervalMs: number;
+  heartbeatMs: number;
   type: "start";
 }
 
@@ -10,7 +10,6 @@ interface StopClockMessage {
 type ClockWorkerMessage = StartClockMessage | StopClockMessage;
 
 let tickIntervalMs = 50;
-let nextTickDueAtMs = 0;
 let timeoutId: number | null = null;
 
 function clearScheduledTick(): void {
@@ -22,15 +21,13 @@ function clearScheduledTick(): void {
 
 function scheduleNextTick(): void {
   clearScheduledTick();
-  const delayMs = Math.max(0, nextTickDueAtMs - performance.now());
+  const delayMs = Math.max(0, tickIntervalMs);
   timeoutId = self.setTimeout(() => {
     timeoutId = null;
     self.postMessage({
-      dueAtMs: nextTickDueAtMs,
       nowMs: performance.now(),
-      type: "due",
+      type: "pulse",
     });
-    nextTickDueAtMs += tickIntervalMs;
     scheduleNextTick();
   }, delayMs);
 }
@@ -42,7 +39,6 @@ self.onmessage = (event: MessageEvent<ClockWorkerMessage>) => {
     return;
   }
 
-  tickIntervalMs = event.data.intervalMs;
-  nextTickDueAtMs = performance.now() + tickIntervalMs;
+  tickIntervalMs = event.data.heartbeatMs;
   scheduleNextTick();
 };
