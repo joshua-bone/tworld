@@ -2,187 +2,223 @@
 
 ## Status
 
-- [x] Initial performance investigation completed
-- [x] Representative benchmark scenarios identified
-- [x] Primary bottlenecks identified
-- [x] Debug perf overlay implemented
-- [x] Scheduler fix implemented
-- [x] Worker payload reduction implemented
-- [x] Undo/history projection reduction implemented
-- [x] Incremental frame projection implemented
-- [x] 3D/Lynx render-path optimization implemented
-- [x] Perf regression coverage added
+- [x] Initial steady-state performance investigation completed
+- [x] Debug perf overlay shipped
+- [x] Scheduler catch-up work shipped
+- [x] Worker response slimming shipped
+- [x] Undo/history live-summary reduction shipped
+- [x] Incremental frame projection shipped
+- [x] 3D/Lynx render-path cleanup shipped
+- [x] Perf benchmark/guard tooling shipped
+- [ ] Level-entry and first-load spike pass completed
+- [ ] Load-phase diagnostics split into worker/load/render subphases
+- [ ] First level-entry hitch reduced materially
 
-## Problem Statement
+## Scope
 
-Community reports describe the product as laggy, with gameplay running slower than real time and occasionally jumping forward. That matches the current architecture: when a gameplay tick runs long, the app tends to fall behind and skip/collapse timing rather than recover smoothly.
+This plan now has two parts:
 
-The problem is not just raw ruleset simulation speed. The larger issue is the full live pipeline:
+1. steady-state gameplay throughput work that is already shipped
+2. remaining level-entry and first-load spike work that is still open
 
-1. worker tick execution
-2. interactive session projection
-3. undo/history summarization
-4. structured-cloning a large session payload back to the main thread
-5. main-thread scheduling that drops ticks when one is still in flight
-6. render-path hashing and redraw work on top of that
+The current user-visible complaint is no longer just "gameplay runs slow all the time." The remaining complaint is that the game still hitches, especially when first loading into a level.
 
-## What Was Measured
+## What Is Already Shipped
 
-I benchmarked the current adapters with representative scenarios:
+- [x] PR 0: Debug perf overlay
+- [x] PR 1: Scheduler correctness and catch-up behavior
+- [x] PR 2: Worker response slimming
+- [x] PR 3: Incremental undo/history summaries
+- [x] PR 4: Incremental frame projection
+- [x] PR 5: 3D/Lynx render-path cleanup
+- [x] PR 6: Perf instrumentation and regression guard
 
-- typical 2D gameplay
-- actor-dense gameplay
-- multi-layer 3D gameplay
+These changes improved steady-state behavior, but they did not remove the full level-entry hitch.
 
-The harness separated:
+## Current Problem Statement
 
-- raw engine tick cost
-- full interactive tick cost
-- approximate worker-to-main-thread clone cost
-- draw-state key cost
+The remaining lag spike is a cold-start stack, not a single bottleneck.
 
-These measurements exclude actual browser paint and DOM cost, so they are a lower bound.
+On first level entry, the product can pay for all of this at once:
 
-## Key Results
+1. worker creation and worker module evaluation
+2. worker-side repository and imported-DAT hydration
+3. built-in DAT fetch and grouped-level extraction
+4. ruleset-specific level preparation
+5. initial session projection and session cloning
+6. legacy tileset decode/build
+7. synchronous render cache warmup on the main thread
+8. first-use audio element creation
 
-### With Undo Enabled
+That is why the game can feel fine after it is already running, but still hitch badly when entering a level.
 
-| Scenario | Raw tick | Interactive tick | Clone cost | Approx effective rate |
-| --- | ---: | ---: | ---: | ---: |
-| Typical MS | 5.0ms | 18.6ms | 12.2ms | 14.8 Hz |
-| Typical Lynx | 4.3ms | 18.1ms | 12.6ms | 14.8 Hz |
-| Dense MS | 3.1ms | 9.7ms | 10.1ms | 17.4 Hz |
-| Dense Lynx | 8.4ms | 38.5ms | 21.8ms | 11.4 Hz |
-| 3D MS | 13.2ms | 51.4ms | 18.9ms | 9.8 Hz |
-| 3D Lynx | 2.0ms | 29.9ms | 13.4ms | 13.0 Hz |
+## Current Findings
 
-### With Undo Disabled
+### 1. Imported DAT hydration is on the gameplay load path
 
-| Scenario | Interactive tick | Clone cost | Approx effective rate |
-| --- | ---: | ---: | ---: |
-| Typical MS | 2.8ms | 10.0ms | 18.4 Hz |
-| Typical Lynx | 2.9ms | 10.5ms | 18.8 Hz |
-| Dense MS | 4.5ms | 18.7ms | 17.4 Hz |
-| Dense Lynx | 12.5ms | 19.5ms | 17.0 Hz |
-| 3D MS | 11.3ms | 23.4ms | 15.0 Hz |
-| 3D Lynx | 2.1ms | 19.3ms | 17.3 Hz |
+`BrowserLevelRepository.loadLevel()` always calls `ensureImportedSeriesHydrated()` before loading any level, even built-in content.
 
-## Conclusions
+Relevant seams:
 
-- [x] The core ruleset engines are not the only or even primary problem.
-- [x] Undo/session projection overhead is a major contributor.
-- [x] Cross-thread session cloning is a first-order cost.
-- [x] The current scheduler turns transient slowness into permanent slow motion.
-- [x] 3D and actor-dense scenarios make the problem much worse.
-- [x] Multi-layer Lynx has extra render-path risk because draw memoization is bypassed.
+- `web/src/level-catalog/impl/BrowserLevelRepository.ts`
 
-## Root Causes
+Impact:
 
-### 1. Tick Scheduling Is Not Catch-Up Safe
+- built-in level load can block on IndexedDB-backed imported file hydration
+- users with imported packs pay extra cold-start cost even when they are not playing those packs
 
-The live loop runs on a fixed interval and skips work if a prior tick is still in flight. That means overload causes slower gameplay, not bounded recovery.
+### 2. Built-in level load parses the whole DAT before selecting one level
 
-Expected outcome after fix:
+The built-in path caches grouped levels by calling `extractGroupedDatLevels(datBytes)` for the entire DAT, then selects one level from that full index.
 
-- short spikes produce brief catch-up work
-- gameplay time stays closer to real time
-- "slow then jump" behavior is reduced
+Relevant seams:
 
-### 2. Full Session Payload Returned Every Tick
+- `web/src/level-catalog/impl/BrowserLevelRepository.ts`
 
-Each worker tick posts a full interactive session back to the main thread. That payload includes frame data, history summaries, and recorded moves. The structured clone alone is often expensive enough to materially reduce tick throughput.
+Impact:
 
-Expected outcome after fix:
+- first load pays whole-pack extraction cost
+- this is acceptable for tooling or catalog construction, but not ideal for first gameplay entry
 
-- lower per-tick clone cost
-- less GC pressure
-- lower main-thread sync overhead
+### 3. Worker warmup is too shallow
 
-### 3. Undo/History Summaries Are Recomputed Too Often
+The worker is pre-created and pinged, but the ping only proves that the worker exists. It does not preload any series config, DAT bytes, grouped level data, or prepared level state.
 
-During live play, the system repeatedly rebuilds checkpoint and recent-tick summaries from undo history. That is useful for history UI, but it is too expensive to pay every gameplay tick.
+Relevant seams:
 
-Expected outcome after fix:
+- `web/src/player-web/compose/createBrowserAppServices.ts`
+- `web/src/game-runtime/impl/WorkerBackedInteractiveGameEngine.ts`
+- `web/src/game-runtime/impl/interactiveGame.worker.ts`
 
-- lower interactive tick cost during normal play
-- same undo features, but with lazy or incremental summary work
+Impact:
 
-### 4. Frame Projection Clones Visible Cells Every Tick
+- the first real `start-session` still pays the expensive path
+- the main thread and worker do not share level repository warm state
 
-The interactive frame path clones board cells for the visible layer and lower layers. In multi-layer views this becomes significantly more expensive.
+### 4. Initial render warmup is synchronous main-thread work on level entry
 
-Expected outcome after fix:
+`LegacyCanvasScreen` clears lower-layer caches and then immediately runs `prewarmVisibleLayerCaches(...)` inside a synchronous effect when a gameplay session appears.
 
-- lower worker CPU per tick
-- smaller payloads
-- better scaling for 3D levels
+Relevant seams:
 
-### 5. Multi-Layer Lynx Redraw Path Is Too Eager
+- `web/src/player-web/impl/LegacyCanvasScreen.tsx`
+- `web/src/player-web/impl/legacyCanvasMapRenderer.ts`
 
-The legacy canvas path hashes render state every frame, and multi-layer Lynx bypasses draw memoization. That means it can redraw even when the worker side is already overloaded.
+Impact:
 
-Expected outcome after fix:
+- guaranteed hitch on level entry in legacy gameplay
+- especially bad for 3D or animated levels
+- this is likely one of the highest-signal user-facing spike sources
 
-- less redundant redraw work
-- better 3D Lynx smoothness
+### 5. Render warmup currently does more than it needs to
+
+The warmup renders the top layer plus lower layers across several future timervals, even though the persistent cache value is mainly in lower-layer canvases.
+
+Relevant seams:
+
+- `web/src/player-web/impl/legacyCanvasMapRenderer.ts`
+
+Impact:
+
+- extra synchronous work on the main thread
+- unnecessary entry cost for normal gameplay
+
+### 6. Tileset bootstrap still happens at runtime
+
+Tilesets are prewarmed at app startup, but they still require image load, canvas draw, sprite extraction, and override application at runtime.
+
+Relevant seams:
+
+- `web/src/player-web/compose/App.tsx`
+- `web/src/player-web/impl/legacyCanvasTileset.ts`
+
+Impact:
+
+- usually amortized, but still a cold-start risk
+- if prewarm loses the race with gameplay entry, level load stalls on tileset readiness
+
+### 7. First-use audio is still lazy
+
+The sound player is created on app mount, but audio elements are created on first sound playback.
+
+Relevant seams:
+
+- `web/src/player-web/impl/PlayerApp.tsx`
+- `web/src/player-web/impl/BrowserSoundEffectsPlayer.ts`
+
+Impact:
+
+- smaller than level parsing or render warmup
+- still a contributor to "first action" hitching
+
+### 8. The overlay does not split level-entry cost into actionable subphases
+
+The debug overlay shows `sessionLoadMs` and draw metrics, but not a load-phase breakdown such as:
+
+- worker startup/start-session
+- repository/load-level
+- level preparation
+- initial projection
+- tileset load
+- initial render warmup
+
+Relevant seams:
+
+- `web/src/player-web/impl/runtimePerf.ts`
+- `web/src/player-web/impl/legacyCanvasDebug.ts`
+- `web/src/player-web/impl/usePlayerAppSessionController.ts`
+
+Impact:
+
+- the remaining hitch is measurable, but not yet attributable enough
+- this slows down validation of later fixes
+
+## Immediate Highest-Value Changes
+
+The two most likely immediate wins are:
+
+- [ ] remove synchronous `prewarmVisibleLayerCaches(...)` from the level-entry critical path
+- [ ] stop unconditional imported-DAT hydration from built-in gameplay level loads
+
+These are the first two changes most likely to reduce the hitch you can actually feel.
 
 ## Goals
 
-- [ ] Restore gameplay to near-real-time pacing in typical 2D levels
-- [ ] Reduce severe slowdown in dense and 3D levels
-- [ ] Preserve ruleset correctness and replay parity
-- [ ] Keep undo and replay features intact
-- [ ] Add durable perf guardrails so regressions are visible
+- [ ] Reduce first level-entry hitch materially on built-in packs
+- [ ] Keep steady-state gameplay throughput gains intact
+- [ ] Avoid new replay or ruleset correctness regressions
+- [ ] Make load spikes measurable by subphase, not just as one total
+- [ ] Rebaseline perf guardrails after load-path fixes land
 
 ## Non-Goals
 
-- [ ] Rewrite the full rendering system in one pass
-- [ ] Remove undo or replay support as a shortcut
-- [ ] Introduce ruleset behavior drift for speed
+- [ ] Rewrite the entire rendering stack
+- [ ] Remove undo, replay, or worker architecture as a shortcut
+- [ ] Trade correctness for lower load times
 
 ## PR Plan
 
-### PR 0: Debug Perf Overlay
+### PR 7: Load-Phase Diagnostics Split
 
 Status:
 
-- [x] Initial overlay shipped
-- [x] 5-second rolling averages shipped for live gameplay diagnostics
-- [x] One-shot capture/freeze action shipped for usable perf snapshots
-- [x] Debug overlay now shows the synced git commit hash for the running build
+- [ ] Not started
 
 Scope:
 
-- expose visible live perf metrics when debug mode is enabled
-- reuse the existing debug overlay rather than creating a separate diagnostics surface
-- show high-signal metrics that help distinguish:
-  - render slowdown
-  - gameplay tick slowdown
-  - scheduler drift
-  - worker/main-thread backpressure
-- prefer EMA/rolling values plus last-value snapshots so spikes and sustained regressions are both visible
-
-Recommended visible metrics:
-
-- [x] render FPS
-- [x] effective gameplay tick rate in Hz
-- [x] last / EMA / max tick duration in ms
-- [x] last / EMA / max render duration in ms
-- [x] loop drift in ms
-- [x] session load time for new level starts
-- [x] current ruleset, level, visible layer count, actor count, overlay count
-- [x] undo enabled/disabled and current checkpoint count
-- [x] worker round-trip or session advance latency if instrumented separately
-- [x] worker payload size in KB once response slimming work begins
-- [x] dropped or capped catch-up tick counters once scheduler work lands
+- add separate perf timings for:
+  - worker/session start request
+  - repository `loadLevel`
+  - ruleset `prepareLoadedLevel`
+  - initial projection/session packaging
+  - tileset load/build
+  - initial render warmup
+- expose these in the debug overlay alongside existing `sessionLoadMs`
 
 Acceptance:
 
-- [x] debug mode clearly shows frame rate
-- [x] debug mode clearly shows simulation rate separate from render rate
-- [x] metrics are legible during active gameplay and level transitions
-- [x] overlay can freeze a snapshot so numbers can be inspected or shared
-- [ ] overlay is cheap enough not to materially distort the numbers it shows
+- [ ] level entry no longer appears as one opaque number
+- [ ] first-load hitch can be attributed to a specific subphase
 
 Risk:
 
@@ -190,87 +226,54 @@ Risk:
 
 Why first:
 
-- this gives immediate visibility into whether later PRs improve rendering, simulation, scheduling, or worker overhead
+- this makes the rest of the load-spike work provable instead of speculative
 
-### PR 1: Scheduler Correctness
+### PR 8: Move Initial Render Warmup Off the Critical Path
 
 Status:
 
-- [x] Catch-up scheduler implemented in legacy gameplay loop
-- [x] Gameplay cadence now comes from a worker-heartbeat accumulator clock instead of coarse interval wakeups
-- [x] Debug counters exposed for catch-up batches and dropped ticks
-- [ ] Browser gameplay validation completed across representative levels
+- [ ] Not started
 
 Scope:
 
-- replace the fixed `setInterval` + drop-if-busy behavior with a catch-up scheduler
-- accumulate elapsed real time
-- run up to a capped number of catch-up ticks per loop
-- expose counters for dropped/capped catch-up events
+- stop running `prewarmVisibleLayerCaches(...)` synchronously during level entry
+- defer cache warmup until after first paint
+- chunk work with `requestIdleCallback`, `requestAnimationFrame`, or bounded time slices
+- limit warmup to lower layers only
+- skip or heavily reduce warmup for single-layer sessions
 
 Acceptance:
 
-- [ ] gameplay no longer permanently slows under brief stalls
-- [ ] sustained overload degrades gracefully instead of desynchronizing badly
-- [ ] existing gameplay/replay behavior remains correct
+- [ ] first playable frame appears before cache warmup completes
+- [ ] entry hitch is materially reduced in legacy gameplay
+- [ ] multi-layer smoothness remains acceptable after the deferred warmup settles
 
 Risk:
 
 - medium
 
-Why first:
-
-- this directly addresses the user-visible "slow and jumps" symptom
-
-### PR 2: Worker Response Slimming
-
-Status:
-
-- [x] `advance-session` now returns a delta for stable session metadata, visible-layer cell changes, and scalar history/replay counts
-- [x] static frame/setup payload split from steady-state tick payload
-- [x] lazy history/replay payload introduced for non-live UI needs via explicit hydration
-
-Scope:
-
-- stop returning the full interactive session on every tick
-- split session data into:
-  - static session/setup payload
-  - lightweight tick/frame payload
-  - lazy history/replay payload when needed
-- keep authoritative history and state in the worker
-
-Acceptance:
-
-- [ ] average clone cost drops materially
-- [ ] payload size for steady-state ticks is significantly smaller
-- [ ] gameplay UI still has the data it needs
-
-Risk:
-
-- high
-
 Why second:
 
-- clone cost is consistently large even when simulation is cheap
+- this is the clearest main-thread hitch in the current level-entry path
 
-### PR 3: Incremental Undo/History Summaries
+### PR 9: Remove Imported-DAT Hydration from Built-In Gameplay Loads
 
 Status:
 
-- [x] Live undo/event summaries moved to an incremental runtime cache
-- [x] Full checkpoint lists no longer materialize on normal tick/restore projection
-- [x] History details remain available through explicit hydration
+- [ ] Not started
 
 Scope:
 
-- stop recomputing checkpoint/recent tick summaries every gameplay tick
-- maintain incremental live-play summaries in worker runtime
-- compute full checkpoint lists lazily for history UI
+- stop calling imported DAT hydration on every `loadLevel()` call
+- hydrate imports only when:
+  - listing imported content
+  - selecting an imported series
+  - explicitly syncing imported content
 
 Acceptance:
 
-- [ ] interactive tick cost with undo enabled moves much closer to undo-disabled cost
-- [ ] undo and timeline UI remain correct
+- [ ] built-in level loads no longer wait on unrelated imported-pack hydration
+- [ ] imported pack behavior still works when actually used
 
 Risk:
 
@@ -278,117 +281,136 @@ Risk:
 
 Why third:
 
-- measurements show undo is a major multiplier in normal gameplay
+- this is a pure cold-start penalty with no gameplay value for built-in content
 
-### PR 4: Incremental Frame Projection
+### PR 10: Real Worker Preload
 
 Status:
 
-- [x] Visible-layer projection now reuses unchanged layer and cell objects across ticks
-- [x] Ruleset interactive frame projection now receives the previous frame for structural sharing
-- [x] Worker hot path no longer reclones every visible cell when only a subset changed
+- [ ] Not started
 
 Scope:
 
-- stop cloning full visible board layers each tick
-- separate static board/layer data from per-tick actor and overlay changes
-- send only changed cell patches where possible
+- replace worker `ping` warmup with a real preload path
+- support preloading selected series/level data into the worker before gameplay start
+- prefer passing already-loaded bytes or prepared metadata into the worker over refetching and reparsing inside the worker
 
 Acceptance:
 
-- [ ] worker-side projection cost drops in 2D and 3D scenarios
-- [ ] 3D levels show the biggest improvement
+- [ ] first `start-session` avoids most worker cold-start overhead
+- [ ] worker and UI no longer duplicate as much level-load work
+
+Risk:
+
+- medium-high
+
+Why fourth:
+
+- current warmup only proves liveness, not readiness
+
+### PR 11: Replace Whole-DAT First-Load Extraction with Indexed or Lazy Single-Level Load
+
+Status:
+
+- [ ] Not started
+
+Scope:
+
+- stop extracting all grouped levels on the first gameplay load for built-in data
+- add either:
+  - a checked-in level offset/index manifest, or
+  - a lazy single-level extraction path
+
+Acceptance:
+
+- [ ] first built-in level load does not require whole-pack extraction
+- [ ] later navigation still benefits from caching
 
 Risk:
 
 - high
 
-Why fourth:
+Why fifth:
 
-- this attacks both CPU cost and payload size in the most structural way
+- this is structurally correct, but larger than the two easiest wins above
 
-### PR 5: 3D and Lynx Render-Path Cleanup
+### PR 12: Asset Bootstrap Smoothing
 
 Status:
 
-- [x] Removed the unconditional multi-layer Lynx RAF redraw bypass
-- [x] Legacy draw loop now redraws only when the gameplay draw-state key changes
-- [x] Visible-layer draw-state hashing now reuses cached summaries for shared layer objects
-- [x] Legacy draw loop no longer recomputes full draw-state hashes on every RAF when the session object is unchanged
+- [ ] Not started
 
 Scope:
 
-- remove or narrow unconditional multi-layer Lynx draw memoization bypass
-- key redraws off meaningful frame/version changes instead of every RAF
-- audit draw-state hashing cost in the legacy canvas path
+- make tileset prewarm more deterministic and earlier
+- ensure tileset decode/build does not race gameplay entry
+- precreate or predecode common one-shot audio after unlock
+- avoid first-sound allocation spikes during gameplay
 
 Acceptance:
 
-- [ ] reduced redraw churn in multi-layer levels
-- [ ] 3D Lynx smoothness improves
+- [ ] tileset readiness is not a common first-level blocker
+- [ ] first sound playback no longer causes noticeable hitching
 
 Risk:
 
-- medium
+- low-medium
 
-Why fifth:
+Why sixth:
 
-- renderer improvements matter, but worker/session costs are already enough to miss 20 Hz
+- useful cleanup, but not the largest remaining spike source
 
-### PR 6: Perf Instrumentation and Regression Coverage
+### PR 13: Rebaseline and Closeout
 
 Status:
 
-- [x] Scenario benchmark harness added
-- [x] Stable scenario catalog checked in
-- [x] Baseline guard command added
-- [x] Scenario catalog coverage tests added
+- [ ] Not started
 
 Scope:
 
-- keep the existing runtime perf metrics
-- add scenario benchmarks for:
-  - typical MS
-  - typical Lynx
-  - dense MS
-  - dense Lynx
-  - 3D MS
-  - 3D Lynx
-- add thresholds or trend checks that fail loudly when costs regress materially
+- rerun the perf harness and debug overlay validation after load-path changes
+- update benchmark baselines
+- confirm first-load and warm-load behavior separately
 
 Acceptance:
 
-- [ ] perf regressions become visible in development and CI tooling
-- [ ] future changes can be compared against a stable baseline
-- [x] future changes can be compared against a stable baseline
+- [ ] new baselines reflect both steady-state and level-entry behavior
+- [ ] first-level hitch is measurably lower than before this phase
 
 Risk:
 
 - low
 
-Why sixth:
+Why last:
 
-- after core fixes land, guardrails are needed to keep the gains
+- only useful after the load-path changes land
 
 ## Recommended Execution Order
 
-- [x] PR 0: Debug Perf Overlay
-- [x] PR 1: Scheduler Correctness
-- [x] PR 2: Worker Response Slimming
-- [x] PR 3: Incremental Undo/History Summaries
-- [x] PR 4: Incremental Frame Projection
-- [x] PR 5: 3D and Lynx Render-Path Cleanup
-- [x] PR 6: Perf Instrumentation and Regression Coverage
+- [ ] PR 7: Load-phase diagnostics split
+- [ ] PR 8: Move initial render warmup off the critical path
+- [ ] PR 9: Remove imported-DAT hydration from built-in gameplay loads
+- [ ] PR 10: Real worker preload
+- [ ] PR 11: Indexed or lazy single-level load
+- [ ] PR 12: Asset bootstrap smoothing
+- [ ] PR 13: Rebaseline and closeout
 
-## Recommended Success Metrics
+## Success Criteria
 
-- [ ] Typical 2D gameplay sustains close to 20 Hz in normal play
-- [ ] Typical 2D gameplay with undo enabled stays comfortably above 18 Hz
-- [ ] Dense and 3D gameplay improve materially versus current baseline
-- [ ] Per-tick worker payload size drops significantly
-- [ ] Per-tick clone cost drops significantly
-- [ ] Reported "slow and jumps" complaints stop reproducing in the known scenarios
+- [ ] first level-entry hitch is materially smaller on built-in content
+- [ ] first playable frame appears before any heavy render warmup finishes
+- [ ] built-in gameplay loads do not block on unrelated imported content
+- [ ] overlay shows which load subphase is responsible for remaining spikes
+- [ ] warm loads are consistently better than cold loads
+- [ ] steady-state gameplay performance does not regress
 
 ## Current Recommendation
 
-Start with PR 0 so debug mode exposes the live perf picture during gameplay. Then move into PR 1, PR 2, and PR 3. That sequence gives immediate observability and then targets the biggest user-visible causes of slowdown without requiring a full rendering rewrite up front.
+Start with PR 7 only if the goal is attribution first. If the goal is fastest user-visible improvement, do PR 8 and PR 9 immediately after or even ahead of the broader preload/indexing work.
+
+The current best default sequence is:
+
+1. PR 7 for visibility
+2. PR 8 for the obvious main-thread hitch
+3. PR 9 for the avoidable repository hydration penalty
+4. PR 10 and PR 11 for deeper structural cleanup
