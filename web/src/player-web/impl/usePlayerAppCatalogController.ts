@@ -37,6 +37,34 @@ interface UsePlayerAppCatalogControllerOptions {
   onSelectionChange?: ((selection: PlayableSelection) => void) | undefined;
 }
 
+interface ShouldDelayEmbeddedSelectionNotificationArgs {
+  catalog: SeriesCatalogEntry[];
+  chromeMode: UsePlayerAppCatalogControllerOptions["chromeMode"];
+  initialSelection: PlayableSelection | null;
+  lastNotifiedSelectionKey: string | null;
+  nextSelectionKey: string;
+}
+
+export function shouldDelayEmbeddedSelectionNotification({
+  catalog,
+  chromeMode,
+  initialSelection,
+  lastNotifiedSelectionKey,
+  nextSelectionKey,
+}: ShouldDelayEmbeddedSelectionNotificationArgs): boolean {
+  if (chromeMode !== "modern-embedded") {
+    return false;
+  }
+
+  const resolvedInitialSelection = resolveInitialSelection(catalog, initialSelection);
+  if (!resolvedInitialSelection) {
+    return false;
+  }
+
+  const resolvedInitialSelectionKey = `${resolvedInitialSelection.seriesFile}:${resolvedInitialSelection.levelNumber}`;
+  return nextSelectionKey !== resolvedInitialSelectionKey && lastNotifiedSelectionKey !== resolvedInitialSelectionKey;
+}
+
 export function usePlayerAppCatalogController({
   chromeMode,
   services,
@@ -190,6 +218,17 @@ export function usePlayerAppCatalogController({
     }
 
     const nextSelectionKey = `${selectedSeriesFile}:${selectedLevelNumber}`;
+    if (
+      shouldDelayEmbeddedSelectionNotification({
+        catalog,
+        chromeMode,
+        initialSelection,
+        lastNotifiedSelectionKey: notifiedSelectionKeyRef.current,
+        nextSelectionKey,
+      })
+    ) {
+      return;
+    }
     if (notifiedSelectionKeyRef.current === nextSelectionKey) {
       return;
     }
@@ -199,5 +238,5 @@ export function usePlayerAppCatalogController({
       seriesFile: selectedSeriesFile,
       levelNumber: selectedLevelNumber,
     });
-  }, [onSelectionChange, selectedLevelNumber, selectedSeriesFile]);
+  }, [catalog, chromeMode, initialSelection, onSelectionChange, selectedLevelNumber, selectedSeriesFile]);
 }
