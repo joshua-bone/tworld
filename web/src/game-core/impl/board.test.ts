@@ -40,6 +40,7 @@ describe("board core helpers", () => {
 
     expect(clone).toEqual(source);
     expect(clone[0]).not.toBe(source[0]);
+    expect(clone[0]?.position).toBe(source[0]?.position);
     expect(clone[0]?.top).not.toBe(source[0]?.top);
     expect(clone[0]?.bottom).not.toBe(source[0]?.bottom);
   });

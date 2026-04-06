@@ -2,7 +2,7 @@ import type { EngineMapCell, EngineTile } from "@game-core/api/model";
 
 export function cloneBoardCells(cells: EngineMapCell[]): EngineMapCell[] {
   return cells.map((cell) => ({
-    position: { ...cell.position },
+    position: cell.position,
     top: { ...cell.top },
     bottom: { ...cell.bottom },
   }));

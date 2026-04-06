@@ -1012,16 +1012,12 @@ interface LynxRuntimeLayer {
 }
 
 function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
-  const stripped = cells.map((cell) => {
+  for (const cell of cells) {
     const topIsCreature = isMsCreature(cell.top.id) || isMsStaticBlockTile(cell.top.id);
     const bottomIsCreature = isMsCreature(cell.bottom.id) || isMsStaticBlockTile(cell.bottom.id);
 
     if (!topIsCreature && !bottomIsCreature) {
-      return {
-        position: { ...cell.position },
-        top: { ...cell.top },
-        bottom: { ...cell.bottom },
-      };
+      continue;
     }
 
     const topCreatureId = topIsCreature
@@ -1033,43 +1029,30 @@ function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
     const shouldClaim = topCreatureId !== MS_TILE.Chip && bottomCreatureId !== MS_TILE.Chip;
 
     if (topIsCreature && bottomIsCreature) {
-      return {
-        position: { ...cell.position },
-        top: { id: MS_TILE.Empty, state: shouldClaim ? LYNX_CELL_FLAG.Claimed : 0 },
-        bottom: { id: MS_TILE.Empty, state: 0 },
-      };
+      cell.top = { id: MS_TILE.Empty, state: shouldClaim ? LYNX_CELL_FLAG.Claimed : 0 };
+      cell.bottom = { id: MS_TILE.Empty, state: 0 };
+      continue;
     }
 
     if (topIsCreature) {
-      return {
-        position: { ...cell.position },
-        top: {
-          id: cell.bottom.id,
-          state: cell.bottom.state | (topCreatureId === MS_TILE.Chip ? 0 : LYNX_CELL_FLAG.Claimed),
-        },
-        bottom: { id: MS_TILE.Empty, state: 0 },
+      cell.top = {
+        id: cell.bottom.id,
+        state: cell.bottom.state | (topCreatureId === MS_TILE.Chip ? 0 : LYNX_CELL_FLAG.Claimed),
       };
+      cell.bottom = { id: MS_TILE.Empty, state: 0 };
+      continue;
     }
 
     if (bottomIsCreature) {
-      return {
-        position: { ...cell.position },
-        top: {
-          id: cell.top.id,
-          state: cell.top.state | (bottomCreatureId === MS_TILE.Chip ? 0 : LYNX_CELL_FLAG.Claimed),
-        },
-        bottom: { id: MS_TILE.Empty, state: 0 },
+      cell.top = {
+        id: cell.top.id,
+        state: cell.top.state | (bottomCreatureId === MS_TILE.Chip ? 0 : LYNX_CELL_FLAG.Claimed),
       };
+      cell.bottom = { id: MS_TILE.Empty, state: 0 };
     }
+  }
 
-    return {
-      position: { ...cell.position },
-      top: { ...cell.top },
-      bottom: { ...cell.bottom },
-    };
-  });
-
-  for (const cell of stripped) {
+  for (const cell of cells) {
     if (isLynxTrapSpecialFloor(cell.top.id)) {
       cell.top.state |= LYNX_CELL_FLAG.Beartrap;
     }
@@ -1078,7 +1061,7 @@ function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
     }
   }
 
-  return stripped;
+  return cells;
 }
 
 function findChipSeed(level: LynxLevel): { pos: number; z: number; dir: number } {

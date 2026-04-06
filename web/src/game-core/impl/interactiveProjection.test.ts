@@ -82,6 +82,9 @@ describe("projectInteractiveVisibleLayers", () => {
 
     expect(visible.map((layer) => layer.z)).toEqual([1]);
     expect(visible[0]!.cells).not.toBe(cells);
+    expect(visible[0]!.cells[0]!.position).toBe(cells[0]!.position);
+    expect(visible[0]!.cells[0]!.top).not.toBe(cells[0]!.top);
+    expect(visible[0]!.cells[0]!.bottom).not.toBe(cells[0]!.bottom);
     expect(visible[0]!.cells[0]!.position.z).toBeUndefined();
   });
 

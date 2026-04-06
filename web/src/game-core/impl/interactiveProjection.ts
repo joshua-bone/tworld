@@ -1,4 +1,3 @@
-import { cloneBoardCells } from "@game-core/impl/board";
 import type {
   InteractiveGameFrame,
   InteractiveGameTileOverlay,
@@ -33,6 +32,10 @@ function sameTile(left: EngineMapCell["top"], right: EngineMapCell["top"]): bool
 }
 
 function sameCellPosition(left: EngineMapCell, right: EngineMapCell): boolean {
+  if (left.position === right.position) {
+    return true;
+  }
+
   return (
     left.position.pos === right.position.pos &&
     left.position.x === right.position.x &&
@@ -43,10 +46,18 @@ function sameCellPosition(left: EngineMapCell, right: EngineMapCell): boolean {
 
 function cloneProjectedCell(cell: EngineMapCell): EngineMapCell {
   return {
-    position: { ...cell.position },
+    position: cell.position,
     top: { ...cell.top },
     bottom: { ...cell.bottom },
   };
+}
+
+function cloneProjectedCells(cells: EngineMapCell[]): EngineMapCell[] {
+  const nextCells = new Array<EngineMapCell>(cells.length);
+  for (let index = 0; index < cells.length; index += 1) {
+    nextCells[index] = cloneProjectedCell(cells[index]!);
+  }
+  return nextCells;
 }
 
 function projectVisibleLayerCells(
@@ -54,7 +65,7 @@ function projectVisibleLayerCells(
   previousLayer?: InteractiveGameVisibleLayer,
 ): EngineMapCell[] {
   if (!previousLayer || previousLayer.cells.length !== cells.length) {
-    return cloneBoardCells(cells);
+    return cloneProjectedCells(cells);
   }
 
   const previousCells = previousLayer.cells;
@@ -63,7 +74,7 @@ function projectVisibleLayerCells(
     const currentCell = cells[index]!;
     const previousCell = previousCells[index];
     if (!previousCell || !sameCellPosition(currentCell, previousCell)) {
-      return cloneBoardCells(cells);
+      return cloneProjectedCells(cells);
     }
 
     if (sameTile(currentCell.top, previousCell.top) && sameTile(currentCell.bottom, previousCell.bottom)) {
@@ -127,10 +138,12 @@ export function projectInteractiveFrame(
 
   return {
     snapshot,
-    cells: visibleLayers[0]?.cells ?? cloneBoardCells(cells),
+    cells: visibleLayers[0]?.cells ?? cloneProjectedCells(cells),
     currentZ,
     visibleLayers,
-    tileOverlays: (options.tileOverlays ?? []).map((overlay) => ({ ...overlay })),
+    tileOverlays: (options.tileOverlays ?? []).length > 0
+      ? (options.tileOverlays ?? []).map((overlay) => ({ ...overlay }))
+      : [],
     render,
   };
 }

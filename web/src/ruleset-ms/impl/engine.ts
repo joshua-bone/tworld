@@ -1806,7 +1806,11 @@ function updateEngine(
   soundEffects: number,
   advanceTick = true,
   nextMapLayers: ReadonlyArray<MsRuntimeLayer> | null = null,
+  options: {
+    clonePersistedLayers?: boolean;
+  } = {},
 ): MsGameState {
+  const clonePersistedLayers = options.clonePersistedLayers ?? true;
   const mapLayers =
     nextMapLayers?.map((layer) => ({
       z: layer.z,
@@ -1817,9 +1821,9 @@ function updateEngine(
       cells: layer.cells === state.engine.map.cells ? cells : layer.cells,
     }));
   const persistedRuntimeLayers = mapLayers.map((layer) => ({
-    z: layer.z,
-    cells: layer.cells === cells ? cells : cloneBoardCells(layer.cells),
-  }));
+      z: layer.z,
+      cells: !clonePersistedLayers || layer.cells === cells ? layer.cells : cloneBoardCells(layer.cells),
+    }));
   const actors = collectMsActorsFromLayers(mapLayers);
   const chip = actors.find((actor) => actor.id === MS_TILE.Chip || actor.id === MS_TILE.Swimming_Chip) ?? null;
   const timer = advanceTimer(state.engine.timer, advanceTick ? 1 : 0, MS_TICKS_PER_SECOND);
@@ -2265,7 +2269,9 @@ export function initializeMsGameState(
   const activeCells = runtimeCellsForZ(mapLayers, chipZ);
   engine.map.cells = activeCells;
 
-  return updateEngine({ engine, internal }, activeCells, 0, false, mapLayers);
+  return updateEngine({ engine, internal }, activeCells, 0, false, mapLayers, {
+    clonePersistedLayers: false,
+  });
 }
 
 function canMoveChip(

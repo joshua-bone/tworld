@@ -13,6 +13,7 @@
 - [x] Level-entry and first-load spike pass completed
 - [x] Load-phase diagnostics split into worker/load/render subphases
 - [x] Initial projection and tileset bootstrap diagnostics split further
+- [x] Runtime-init reduction pass started from PR14 findings
 - [ ] First level-entry hitch reduced materially
 
 ## Scope
@@ -493,6 +494,50 @@ Shipped behavior:
 - `tilesetLoadMs` now has overlay-visible subphases for image load and build/override work
 - the worker start-session seam forwards the new projection metrics back to the main-thread perf registry
 
+### PR 15: Runtime Init Clone Reduction
+
+Status:
+
+- [x] Implemented
+
+Scope:
+
+- target the dominant PR14 subphase: `initialRuntimeInitMs`
+- remove avoidable cell/object cloning during session startup
+- reduce startup work that rebuilds immutable board-position data
+- avoid duplicate layer cloning during MS initial engine persistence
+
+Acceptance:
+
+- [x] startup work no longer clones immutable `position` payloads
+- [x] Lynx startup no longer double-clones cells before stripping creatures for the initial board state
+- [x] MS startup no longer reclones already-private layer cells when persisting the first engine map
+- [ ] warm-start medians are improved consistently across representative scenarios
+
+Risk:
+
+- medium
+
+Why now:
+
+- PR14 showed that frame/history/session packaging were all tiny compared with `initialRuntimeInitMs`
+- the next useful cut was reducing runtime-start cloning and one-time state construction, not projection formatting
+
+Shipped behavior:
+
+- `cloneBoardCells(...)` now reuses immutable `position` objects while still cloning mutable tile payloads
+- Lynx initial creature stripping now mutates freshly cloned startup cells in place instead of cloning them a second time
+- MS initial engine bootstrap now reuses its freshly prepared runtime layers instead of recloning those non-active layers during the first `updateEngine(...)`
+
+Current local validation:
+
+- a bounded local harness rerun on `typical-lynx` improved materially from the earlier PR14 pass:
+  - warm `initialProjectionMs` median moved from roughly `253ms` to `52ms`
+  - cold `initialProjectionMs` median moved from roughly `186ms` to `100ms`
+- heavier scenarios are still noisy and not closed out:
+  - `3d-lynx` remained high in the same harness rerun
+  - MS startup results were mixed and need another guarded rebaseline instead of a claim-by-inspection
+
 ## Recommended Execution Order
 
 - [x] PR 7: Load-phase diagnostics split
@@ -503,6 +548,7 @@ Shipped behavior:
 - [x] PR 12: Asset bootstrap smoothing
 - [x] PR 13: Rebaseline and closeout
 - [x] PR 14: Initial projection and tileset bootstrap diagnostics split
+- [x] PR 15: Runtime init clone reduction
 
 ## Success Criteria
 
@@ -517,4 +563,4 @@ Shipped behavior:
 
 The repository/load-path phase is closed. The active follow-up phase is now initial projection and browser-side render bootstrap.
 
-The remaining bottleneck is no longer repository hydration or DAT extraction. The residual entry hitch is concentrated in initial projection and browser-side render bootstrap, especially for Lynx and multi-layer sessions. The next cuts should target whichever of the new PR14 subphases dominates on the deployed build, rather than reopening the repository path.
+The remaining bottleneck is no longer repository hydration or DAT extraction. PR14 showed that the real hotspot inside `initialProjectionMs` is `initialRuntimeInitMs`, and PR15 cut obvious clone waste there. The next cuts should stay on that runtime-init seam for heavy/3D cases and then rebaseline, rather than reopening the repository path or overfitting to frame projection.
