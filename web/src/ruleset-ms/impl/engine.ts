@@ -4881,6 +4881,11 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
     return soundEffects;
   }
   const pushedBlockPickupRevealTileId = findPushedMsBlockPickupRevealTileId(cells, internal.chipPos, internal.floorMovementDir);
+  const pressedPermanentHiddenWallPos = findPressedMsPermanentHiddenWallPos(
+    cells,
+    internal.chipPos,
+    internal.floorMovementDir,
+  );
   const portableToolMoveModifierEnabled = msPortableToolMoveModifierEnabled(
     msPortableToolState(internal),
     internal.currentInput,
@@ -4909,6 +4914,15 @@ function runFloorMovement(context: MsTickContext, cells: EngineMapCell[]): numbe
   }
 
   soundEffects |= 1 << MS_SOUND.CantMove;
+  if (pressedPermanentHiddenWallPos !== null) {
+    addMsTileOverlay(
+      context.engine,
+      internal.chipZ ?? 1,
+      pressedPermanentHiddenWallPos,
+      "hidden-wall-reveal",
+      HIDDEN_WALL_REVEAL_TTL,
+    );
+  }
   resetButtons(cells);
   internal.goalPos = -1;
 

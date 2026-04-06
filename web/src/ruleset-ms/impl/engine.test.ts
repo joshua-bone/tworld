@@ -4140,6 +4140,39 @@ describe("MS engine regressions", () => {
     });
   });
 
+  it("queues a temporary reveal overlay when slide movement hits a permanent invisible wall", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(12, 10);
+    const wallPos = pos(13, 10);
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    cells[chipPos]!.bottom.id = MS_TILE.Slide_East;
+    cells[wallPos]!.top.id = MS_TILE.HiddenWall_Perm;
+
+    const session = createMsInteractiveSession(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos],
+      }),
+    );
+    session.state.internal.floorMovement = "slide";
+    session.state.internal.floorMovementDir = MS_DIRECTION.east;
+    session.state.internal.lastSlipDir = MS_DIRECTION.east;
+    session.state.internal.chipDir = MS_DIRECTION.east;
+    session.state.engine.timer.currentTime = 1;
+    session.state.engine.timer.tick = 1;
+
+    const next = advanceMsInteractiveSession(session, MS_DIRECTION.none);
+
+    expect(next.state.internal.chipPos).toBe(chipPos);
+    expectOverlayPresent(msTileOverlays(next.state.engine), {
+      z: 1,
+      pos: wallPos,
+      kind: "hidden-wall-reveal",
+      ttl: 10,
+    });
+  });
+
   it("shows pushed-under pickups beneath Chip for two extra ticks in MS mode", () => {
     const cells = createEmptyCells();
     const chipPos = pos(10, 10);
