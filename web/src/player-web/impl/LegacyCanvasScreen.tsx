@@ -6,13 +6,15 @@ import {
 } from "@player-web/impl/legacyRenderPresets";
 import {
   measurePerfSync,
+  recordPerfMeasurement,
   setPerfDiagnosticsEnabled,
   snapshotRuntimePerf,
 } from "@player-web/impl/runtimePerf";
 import {
   isThinWallTileId,
+  collectVisibleLayerCacheWarmupTasks,
   mapPositionAtCanvasPoint,
-  prewarmVisibleLayerCaches,
+  prewarmVisibleLayerCacheTask,
   shouldUseLegacyCombinedCellSprite,
   visualEnhancementActorMarker,
   visualEnhancementBlockWindowOpacity,
@@ -114,6 +116,18 @@ interface LegacyCanvasPerfTrackerState {
 
 const DEBUG_PERF_SAMPLE_INTERVAL_MS = 500;
 const DEBUG_PERF_WINDOW_MS = 5000;
+const INITIAL_RENDER_WARMUP_SLICE_BUDGET_MS = 6;
+const INITIAL_RENDER_WARMUP_IDLE_TIMEOUT_MS = 120;
+
+type IdleCallbackHandle = number;
+type IdleDeadline = {
+  didTimeout: boolean;
+  timeRemaining: () => number;
+};
+
+type BackgroundCallbackHandle =
+  | { kind: "idle"; id: IdleCallbackHandle }
+  | { kind: "timeout"; id: number };
 
 interface LegacyCanvasPerfWindowSample {
   atMs: number;
@@ -194,6 +208,51 @@ function formatPerfCaptureTimestamp(date: Date): string {
   const minutes = date.getMinutes().toString().padStart(2, "0");
   const seconds = date.getSeconds().toString().padStart(2, "0");
   return `${hours}:${minutes}:${seconds}`;
+}
+
+function requestBackgroundWarmupCallback(
+  callback: (deadline: IdleDeadline | null) => void,
+): BackgroundCallbackHandle {
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    const windowWithIdleCallback = window as Window & {
+      requestIdleCallback?: (
+        callback: (deadline: IdleDeadline) => void,
+        options?: { timeout: number },
+      ) => IdleCallbackHandle;
+    };
+    const idleId = windowWithIdleCallback.requestIdleCallback?.(callback, {
+      timeout: INITIAL_RENDER_WARMUP_IDLE_TIMEOUT_MS,
+    });
+    if (typeof idleId === "number") {
+      return {
+        kind: "idle",
+        id: idleId,
+      };
+    }
+  }
+
+  return {
+    kind: "timeout",
+    id: window.setTimeout(() => {
+      callback(null);
+    }, 16),
+  };
+}
+
+function cancelBackgroundWarmupCallback(handle: BackgroundCallbackHandle | null): void {
+  if (!handle) {
+    return;
+  }
+
+  if (handle.kind === "idle") {
+    const windowWithIdleCallback = window as Window & {
+      cancelIdleCallback?: (id: IdleCallbackHandle) => void;
+    };
+    windowWithIdleCallback.cancelIdleCallback?.(handle.id);
+    return;
+  }
+
+  window.clearTimeout(handle.id);
 }
 
 function buildLegacyCanvasRenderContextKey(options: {
@@ -509,25 +568,84 @@ export function LegacyCanvasScreen({
   }, [currentRuleset, currentSeries?.filebase, currentLevel?.number, tileset, visualEnhancementsEnabled]);
 
   useEffect(() => {
-    if (mode !== "game" || !tileset) {
+    if (mode !== "game" || !tileset || !session) {
       return;
     }
 
-    const activeSession = liveSessionRef?.current ?? session;
-    if (!activeSession) {
+    const warmupTasks = collectVisibleLayerCacheWarmupTasks(session);
+    if (warmupTasks.length === 0) {
       return;
     }
 
-    measurePerfSync("initialRenderWarmupMs", () => {
-      prewarmVisibleLayerCaches(
-        tileset,
-        activeSession,
-        currentRuleset,
-        lowerLayerCacheRef.current,
-        visualEnhancementsEnabled,
-      );
+    let cancelled = false;
+    let backgroundHandle: BackgroundCallbackHandle | null = null;
+    let animationFrameId = 0;
+    let nextTaskIndex = 0;
+    let totalWarmupWorkMs = 0;
+
+    const scheduleNextSlice = (): void => {
+      if (cancelled || nextTaskIndex >= warmupTasks.length) {
+        return;
+      }
+      backgroundHandle = requestBackgroundWarmupCallback(runWarmupSlice);
+    };
+
+    const runWarmupSlice = (deadline: IdleDeadline | null): void => {
+      backgroundHandle = null;
+      if (cancelled) {
+        return;
+      }
+
+      const sliceStartedAtMs = performance.now();
+      while (nextTaskIndex < warmupTasks.length) {
+        prewarmVisibleLayerCacheTask(
+          tileset,
+          session,
+          currentRuleset,
+          lowerLayerCacheRef.current,
+          warmupTasks[nextTaskIndex]!,
+          visualEnhancementsEnabled,
+        );
+        nextTaskIndex += 1;
+
+        const elapsedMs = performance.now() - sliceStartedAtMs;
+        if (elapsedMs >= INITIAL_RENDER_WARMUP_SLICE_BUDGET_MS) {
+          break;
+        }
+        if (deadline && !deadline.didTimeout && deadline.timeRemaining() <= 1) {
+          break;
+        }
+      }
+      totalWarmupWorkMs += performance.now() - sliceStartedAtMs;
+
+      if (nextTaskIndex >= warmupTasks.length) {
+        if (!cancelled) {
+          recordPerfMeasurement("initialRenderWarmupMs", totalWarmupWorkMs);
+        }
+        return;
+      }
+
+      scheduleNextSlice();
+    };
+
+    animationFrameId = window.requestAnimationFrame(() => {
+      scheduleNextSlice();
     });
-  }, [currentLevel?.number, currentRuleset, currentSeries?.filebase, liveSessionRef, mode, session, tileset, visualEnhancementsEnabled]);
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(animationFrameId);
+      cancelBackgroundWarmupCallback(backgroundHandle);
+    };
+  }, [
+    currentLevel?.number,
+    currentRuleset,
+    currentSeries?.filebase,
+    mode,
+    session?.handle,
+    tileset,
+    visualEnhancementsEnabled,
+  ]);
 
   useEffect(() => {
     if (mode === "game") {

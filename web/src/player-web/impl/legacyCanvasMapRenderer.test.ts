@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import {
   buildLegacyGameDrawStateKey,
+  collectVisibleLayerCacheWarmupTasks,
 } from "@player-web/impl/legacyCanvasMapRenderer";
 import type { EngineMapCell } from "@game-core/api/model";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
@@ -273,5 +274,43 @@ describe("buildLegacyGameDrawStateKey", () => {
     ).not.toBe(
       buildLegacyGameDrawStateKey(after, null, null, "Lynx", false, null, "legacy", true, true),
     );
+  });
+});
+
+describe("collectVisibleLayerCacheWarmupTasks", () => {
+  it("skips single-layer sessions", () => {
+    const session = createSession(MS_TILE.Empty);
+    session.frame.currentZ = 1;
+    session.frame.cells = session.frame.visibleLayers[1]!.cells;
+    session.frame.visibleLayers = [{ z: 1, cells: session.frame.visibleLayers[1]!.cells }];
+
+    expect(collectVisibleLayerCacheWarmupTasks(session)).toEqual([]);
+  });
+
+  it("warms lower layers only across the initial timerval window", () => {
+    const session = createSession(MS_TILE.Empty);
+    const middleCells = [createCell(0, 2, MS_TILE.Cloud)];
+    const topCells = [createCell(0, 3, MS_TILE.Chip)];
+    session.frame.snapshot.currentTime = 7;
+    session.frame.currentZ = 3;
+    session.frame.cells = topCells;
+    session.frame.visibleLayers = [
+      { z: 3, cells: topCells },
+      { z: 2, cells: middleCells },
+      { z: 1, cells: session.frame.visibleLayers[1]!.cells },
+    ];
+
+    expect(collectVisibleLayerCacheWarmupTasks(session)).toEqual([
+      { layerIndex: 2, layerZ: 1, timerval: 7 },
+      { layerIndex: 1, layerZ: 2, timerval: 7 },
+      { layerIndex: 2, layerZ: 1, timerval: 8 },
+      { layerIndex: 1, layerZ: 2, timerval: 8 },
+      { layerIndex: 2, layerZ: 1, timerval: 9 },
+      { layerIndex: 1, layerZ: 2, timerval: 9 },
+      { layerIndex: 2, layerZ: 1, timerval: 10 },
+      { layerIndex: 1, layerZ: 2, timerval: 10 },
+      { layerIndex: 2, layerZ: 1, timerval: 11 },
+      { layerIndex: 1, layerZ: 2, timerval: 11 },
+    ]);
   });
 });

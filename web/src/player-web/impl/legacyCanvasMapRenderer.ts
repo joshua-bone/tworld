@@ -1231,6 +1231,62 @@ function collectInitialWarmupTimervals(session: InteractiveGameSession): number[
   return [...values];
 }
 
+export interface LegacyVisibleLayerCacheWarmupTask {
+  layerIndex: number;
+  layerZ: number;
+  timerval: number;
+}
+
+export function collectVisibleLayerCacheWarmupTasks(
+  session: InteractiveGameSession,
+): LegacyVisibleLayerCacheWarmupTask[] {
+  const visibleLayers = session.frame.visibleLayers;
+  if (visibleLayers.length <= 1) {
+    return [];
+  }
+
+  const tasks: LegacyVisibleLayerCacheWarmupTask[] = [];
+  for (const timerval of collectInitialWarmupTimervals(session)) {
+    for (let layerIndex = visibleLayers.length - 1; layerIndex >= 1; layerIndex -= 1) {
+      const layer = visibleLayers[layerIndex];
+      if (!layer) {
+        continue;
+      }
+
+      tasks.push({
+        layerIndex,
+        layerZ: layer.z,
+        timerval,
+      });
+    }
+  }
+  return tasks;
+}
+
+export function prewarmVisibleLayerCacheTask(
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  lowerLayerCache: LegacyLayerCanvasCache,
+  task: LegacyVisibleLayerCacheWarmupTask,
+  visualEnhancementsEnabled: boolean,
+): void {
+  const layer = session.frame.visibleLayers[task.layerIndex];
+  if (!layer || task.layerIndex === 0 || layer.z !== task.layerZ) {
+    return;
+  }
+
+  getOrRenderCachedLowerLayerCanvas(
+    lowerLayerCache,
+    tileset,
+    session,
+    ruleset,
+    layer,
+    task.timerval,
+    visualEnhancementsEnabled,
+  );
+}
+
 export function prewarmVisibleLayerCaches(
   tileset: LegacyTileset,
   session: InteractiveGameSession,
@@ -1238,30 +1294,15 @@ export function prewarmVisibleLayerCaches(
   lowerLayerCache: LegacyLayerCanvasCache,
   visualEnhancementsEnabled: boolean,
 ): void {
-  const snapshot = session.frame.snapshot;
-  const visibleLayers = session.frame.visibleLayers;
-  if (visibleLayers.length === 0) {
-    return;
-  }
-
-  const viewX = clamp(snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
-  const viewY = clamp(snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
-
-  for (const timerval of collectInitialWarmupTimervals(session)) {
-    renderMapLayerCanvas(tileset, session, ruleset, visibleLayers[0]!, timerval, viewX, viewY, 0, visualEnhancementsEnabled);
-
-    for (let index = visibleLayers.length - 1; index >= 1; index -= 1) {
-      const layer = visibleLayers[index]!;
-      getOrRenderCachedLowerLayerCanvas(
-        lowerLayerCache,
-        tileset,
-        session,
-        ruleset,
-        layer,
-        timerval,
-        visualEnhancementsEnabled,
-      );
-    }
+  for (const task of collectVisibleLayerCacheWarmupTasks(session)) {
+    prewarmVisibleLayerCacheTask(
+      tileset,
+      session,
+      ruleset,
+      lowerLayerCache,
+      task,
+      visualEnhancementsEnabled,
+    );
   }
 }
 

@@ -177,7 +177,7 @@ Impact:
 
 The two most likely immediate wins are:
 
-- [ ] remove synchronous `prewarmVisibleLayerCaches(...)` from the level-entry critical path
+- [x] remove synchronous `prewarmVisibleLayerCaches(...)` from the level-entry critical path
 - [ ] stop unconditional imported-DAT hydration from built-in gameplay level loads
 
 These are the first two changes most likely to reduce the hitch you can actually feel.
@@ -242,7 +242,7 @@ Shipped diagnostics:
 
 Status:
 
-- [ ] Not started
+- [x] Implemented
 
 Scope:
 
@@ -254,7 +254,7 @@ Scope:
 
 Acceptance:
 
-- [ ] first playable frame appears before cache warmup completes
+- [x] first playable frame appears before cache warmup completes
 - [ ] entry hitch is materially reduced in legacy gameplay
 - [ ] multi-layer smoothness remains acceptable after the deferred warmup settles
 
@@ -265,6 +265,14 @@ Risk:
 Why second:
 
 - this is the clearest main-thread hitch in the current level-entry path
+
+Shipped behavior:
+
+- warmup now starts after first paint instead of blocking level entry
+- warmup runs in bounded background slices instead of one synchronous effect
+- only lower-layer caches are prewarmed
+- single-layer sessions skip warmup entirely
+- warmup is keyed to session start, so later UI syncs do not restart it for the same run
 
 ### PR 9: Remove Imported-DAT Hydration from Built-In Gameplay Loads
 
@@ -398,7 +406,7 @@ Why last:
 ## Recommended Execution Order
 
 - [x] PR 7: Load-phase diagnostics split
-- [ ] PR 8: Move initial render warmup off the critical path
+- [x] PR 8: Move initial render warmup off the critical path
 - [ ] PR 9: Remove imported-DAT hydration from built-in gameplay loads
 - [ ] PR 10: Real worker preload
 - [ ] PR 11: Indexed or lazy single-level load
@@ -408,7 +416,7 @@ Why last:
 ## Success Criteria
 
 - [ ] first level-entry hitch is materially smaller on built-in content
-- [ ] first playable frame appears before any heavy render warmup finishes
+- [x] first playable frame appears before any heavy render warmup finishes
 - [ ] built-in gameplay loads do not block on unrelated imported content
 - [ ] overlay shows which load subphase is responsible for remaining spikes
 - [ ] warm loads are consistently better than cold loads
