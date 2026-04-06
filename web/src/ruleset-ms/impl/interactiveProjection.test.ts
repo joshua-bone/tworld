@@ -34,6 +34,50 @@ describe("projectMsInteractiveFrame", () => {
     expect(session.state.engine.map.cells[1]?.top.state & MS_FLOOR_STATE.TrapOpen).toBe(0);
   });
 
+  it("does not mutate the previous projected trap cell when a held-open render state appears", () => {
+    const previousSession = {
+      state: {
+        engine: createEngineState([createCell(0, MS_TILE.Button_Brown), createCell(1, MS_TILE.Beartrap)]),
+        internal: {
+          chipZ: 1,
+          traps: [{ from: 0, to: 1 }],
+        },
+      },
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+    } as unknown as MsInteractiveSessionState;
+
+    const previousFrame = projectMsInteractiveFrame(previousSession, "tick");
+
+    const nextSession = {
+      state: {
+        engine: createEngineState([createCell(0, MS_TILE.Block_Static, MS_TILE.Button_Brown), createCell(1, MS_TILE.Beartrap)]),
+        internal: {
+          chipZ: 1,
+          traps: [{ from: 0, to: 1 }],
+        },
+      },
+      lastInput: {
+        tick: 1,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+    } as unknown as MsInteractiveSessionState;
+
+    const nextFrame = projectMsInteractiveFrame(nextSession, "tick", previousFrame);
+
+    expect(previousFrame.cells[1]?.top.state & MS_FLOOR_STATE.TrapOpen).toBe(0);
+    expect(nextFrame.cells[1]?.top.state & MS_FLOOR_STATE.TrapOpen).not.toBe(0);
+    expect(nextFrame.cells[1]).not.toBe(previousFrame.cells[1]);
+  });
+
   it("projects hidden-wall reveal overlays from runtime state", () => {
     const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.HiddenWall_Perm)];
     const engine = createEngineState(cells) as EngineState & {

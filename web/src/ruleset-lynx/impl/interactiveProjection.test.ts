@@ -76,6 +76,84 @@ describe("projectLynxInteractiveFrame", () => {
     expect(session.state.map.cells[1]?.top.state & LYNX_CELL_FLAG.TrapOpen).toBe(0);
   });
 
+  it("does not mutate the previous projected trap cell when a held-open render state appears", () => {
+    const cells = [createCell(0, MS_TILE.Button_Brown), createCell(1, MS_TILE.Beartrap)];
+    const level = {
+      number: 1,
+      timeLimitTicks: 0,
+      chipsNeeded: 0,
+      hintText: "",
+      cells,
+      traps: [{ from: 0, to: 1 }],
+      cloners: [],
+      creaturePositions: [],
+      statusFlags: 0,
+    } satisfies LynxLevel;
+
+    const previousSession = {
+      level,
+      state: createEngineState(cells),
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+      chipPos: 2,
+      chipZ: 1,
+      chipDir: 0,
+      chipMoving: 8,
+      chipMoveKind: "planar",
+      currentInputCode: 0,
+      queuedReplayInputCode: 0,
+      queuedChipInputCode: 0,
+      chipPushing: false,
+      actors: [],
+      endGameTicksElapsed: null,
+      endGameResult: null,
+      endGameAnimationTileId: null,
+      endGameAnimationFrame: null,
+    } as unknown as LynxInteractiveSessionState;
+    const previousFrame = projectLynxInteractiveFrame(previousSession, "tick");
+
+    const nextSession = {
+      ...previousSession,
+      lastInput: {
+        tick: 1,
+        inputCode: 0,
+        inputName: "none",
+      },
+      actors: [
+        {
+          serial: 1,
+          id: MS_TILE.Block,
+          pos: 0,
+          z: 1,
+          dir: 0,
+          intentDir: 0,
+          forcedDir: 0,
+          teleported: false,
+          moving: 0,
+          frame: 0,
+          hidden: false,
+          pushed: false,
+          deferPush: false,
+          deferPushArmed: false,
+          reversePending: false,
+          dormant: false,
+          animationReserved: false,
+        },
+      ],
+    } as unknown as LynxInteractiveSessionState;
+
+    const nextFrame = projectLynxInteractiveFrame(nextSession, "tick", previousFrame);
+
+    expect(previousFrame.cells[1]?.top.state & LYNX_CELL_FLAG.TrapOpen).toBe(0);
+    expect(nextFrame.cells[1]?.top.state & LYNX_CELL_FLAG.TrapOpen).not.toBe(0);
+    expect(nextFrame.cells[1]).not.toBe(previousFrame.cells[1]);
+  });
+
   it("projects hidden-wall reveal overlays from runtime state", () => {
     const cells = [createCell(0, MS_TILE.Empty), createCell(1, MS_TILE.HiddenWall_Perm)];
     const engine = createEngineState(cells) as EngineState & {

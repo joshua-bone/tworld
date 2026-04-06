@@ -1,6 +1,6 @@
 import type { InteractiveGameFrame } from "@game-core/api/interactive";
 import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-core/impl/interactiveProjection";
-import type { EngineState } from "@game-core/api/model";
+import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import type { MsInteractiveSessionState } from "@ruleset-ms/impl/engine";
@@ -28,8 +28,64 @@ function msProjectedRuntimeState(state: EngineState): { tileOverlays?: MsProject
   return runtime.msRuntimeState ?? null;
 }
 
+function ensureMutableProjectedCell(
+  frame: InteractiveGameFrame,
+  layerIndexesByZ: ReadonlyMap<number, number>,
+  clonedLayerIndexes: Set<number>,
+  clonedCellKeys: Set<string>,
+  z: number,
+  pos: number,
+): EngineMapCell | null {
+  const layerIndex = layerIndexesByZ.get(z);
+  if (layerIndex === undefined) {
+    return null;
+  }
+
+  if (!clonedLayerIndexes.has(layerIndex)) {
+    const nextVisibleLayers = frame.visibleLayers.slice();
+    const previousLayer = nextVisibleLayers[layerIndex];
+    if (!previousLayer) {
+      return null;
+    }
+
+    const nextLayer = {
+      ...previousLayer,
+      cells: previousLayer.cells.slice(),
+    };
+    nextVisibleLayers[layerIndex] = nextLayer;
+    frame.visibleLayers = nextVisibleLayers;
+    if (layerIndex === 0) {
+      frame.cells = nextLayer.cells;
+    }
+    clonedLayerIndexes.add(layerIndex);
+  }
+
+  const layer = frame.visibleLayers[layerIndex];
+  const currentCell = layer?.cells[pos];
+  if (!currentCell) {
+    return null;
+  }
+
+  const cellKey = `${layerIndex}:${pos}`;
+  if (!clonedCellKeys.has(cellKey)) {
+    const nextCell: EngineMapCell = {
+      position: currentCell.position,
+      top: { ...currentCell.top },
+      bottom: { ...currentCell.bottom },
+    };
+    layer.cells[pos] = nextCell;
+    clonedCellKeys.add(cellKey);
+    return nextCell;
+  }
+
+  return currentCell;
+}
+
 function applyMsTrapRenderState(frame: InteractiveGameFrame, session: MsInteractiveSessionState): void {
   const visibleLayersByZ = new Map(frame.visibleLayers.map((layer) => [layer.z, layer.cells] as const));
+  const layerIndexesByZ = new Map(frame.visibleLayers.map((layer, index) => [layer.z, index] as const));
+  const clonedLayerIndexes = new Set<number>();
+  const clonedCellKeys = new Set<string>();
 
   for (const connection of session.state.internal.traps) {
     const z = connection.toZ ?? connection.fromZ ?? 1;
@@ -47,7 +103,14 @@ function applyMsTrapRenderState(frame: InteractiveGameFrame, session: MsInteract
       continue;
     }
 
-    const trapCell = cells[connection.to];
+    const trapCell = ensureMutableProjectedCell(
+      frame,
+      layerIndexesByZ,
+      clonedLayerIndexes,
+      clonedCellKeys,
+      z,
+      connection.to,
+    );
     if (!trapCell) {
       continue;
     }
