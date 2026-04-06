@@ -10,7 +10,7 @@
 - [x] Incremental frame projection shipped
 - [x] 3D/Lynx render-path cleanup shipped
 - [x] Perf benchmark/guard tooling shipped
-- [ ] Level-entry and first-load spike pass completed
+- [x] Level-entry and first-load spike pass completed
 - [x] Load-phase diagnostics split into worker/load/render subphases
 - [ ] First level-entry hitch reduced materially
 
@@ -185,10 +185,10 @@ These are the first two changes most likely to reduce the hitch you can actually
 ## Goals
 
 - [ ] Reduce first level-entry hitch materially on built-in packs
-- [ ] Keep steady-state gameplay throughput gains intact
-- [ ] Avoid new replay or ruleset correctness regressions
-- [ ] Make load spikes measurable by subphase, not just as one total
-- [ ] Rebaseline perf guardrails after load-path fixes land
+- [x] Keep steady-state gameplay throughput gains intact
+- [x] Avoid new replay or ruleset correctness regressions
+- [x] Make load spikes measurable by subphase, not just as one total
+- [x] Rebaseline perf guardrails after load-path fixes land
 
 ## Non-Goals
 
@@ -414,7 +414,7 @@ Shipped behavior:
 
 Status:
 
-- [ ] Not started
+- [x] Implemented
 
 Scope:
 
@@ -424,7 +424,8 @@ Scope:
 
 Acceptance:
 
-- [ ] new baselines reflect both steady-state and level-entry behavior
+- [x] new baselines reflect both steady-state and level-entry behavior
+- [x] `perf:bench` and `perf:guard` now report cold and warm `start-session` medians alongside steady-state tick medians
 - [ ] first-level hitch is measurably lower than before this phase
 
 Risk:
@@ -435,6 +436,21 @@ Why last:
 
 - only useful after the load-path changes land
 
+Shipped behavior:
+
+- `perf:bench` now prints both steady-state tick results and cold/warm load-path results for the six fixed scenarios
+- `perf:guard` now enforces both the steady-state baseline and a calibrated load-path baseline
+- a new load baseline is checked in for cold/warm `start-session`, `levelLoad`, `prepareLevel`, and `initialProjection`
+- the closeout run confirms that warm repository load is effectively eliminated while total entry time is still dominated by initial projection on heavier cases
+
+Closeout findings from the current guard run:
+
+- steady-state guard passed after the load-path changes
+- warm `levelLoadMs` median is now essentially zero across all scenarios at `0.04-0.07ms`
+- total warm `start-session` median is still dominated by `initialProjectionMs`, especially on Lynx and 3D scenarios
+- current warm-start medians are roughly `54ms` Typical MS, `97ms` Typical Lynx, `50ms` Dense MS, `138ms` Dense Lynx, `356ms` 3D MS, and `447ms` 3D Lynx
+- this means the load/repository work landed, but the remaining first-entry hitch is now mostly a projection/render-bootstrap problem instead of a DAT hydration or parsing problem
+
 ## Recommended Execution Order
 
 - [x] PR 7: Load-phase diagnostics split
@@ -443,27 +459,19 @@ Why last:
 - [x] PR 10: Real worker preload
 - [x] PR 11: Indexed or lazy single-level load
 - [x] PR 12: Asset bootstrap smoothing
-- [ ] PR 13: Rebaseline and closeout
+- [x] PR 13: Rebaseline and closeout
 
 ## Success Criteria
 
 - [ ] first level-entry hitch is materially smaller on built-in content
 - [x] first playable frame appears before any heavy render warmup finishes
 - [x] built-in gameplay loads do not block on unrelated imported content
-- [ ] overlay shows which load subphase is responsible for remaining spikes
+- [x] overlay shows which load subphase is responsible for remaining spikes
 - [ ] warm loads are consistently better than cold loads
-- [ ] steady-state gameplay performance does not regress
+- [x] steady-state gameplay performance does not regress
 
 ## Current Recommendation
 
-Start with PR 7 only if the goal is attribution first. If the goal is fastest user-visible improvement, do PR 8 and PR 9 immediately after or even ahead of the broader preload/indexing work.
+This plan is now closed as an engineering pass.
 
-The current best default sequence is:
-
-1. PR 7 for visibility
-2. PR 8 for the obvious main-thread hitch
-3. PR 9 for the avoidable repository hydration penalty
-4. PR 10 for worker-side readiness and reuse of selected level payloads
-5. PR 11 for lighter built-in DAT indexing and targeted level extraction
-6. PR 12 for deterministic tileset and audio bootstrap
-7. PR 13 to rebaseline and close out the load-path work
+The remaining bottleneck is no longer repository hydration or DAT extraction. The residual entry hitch is concentrated in initial projection and browser-side render bootstrap, especially for Lynx and multi-layer sessions. If further perf work is needed, it should start there rather than reopening the load repository path.

@@ -1,5 +1,11 @@
 import { interactivePerfBaseline } from "../impl/interactivePerfBaseline";
 import { evaluateInteractivePerfGuard } from "../impl/interactivePerfGuard";
+import { interactiveLoadPerfBaseline } from "../impl/interactiveLoadPerfBaseline";
+import { evaluateInteractiveLoadPerfGuard } from "../impl/interactiveLoadPerfGuard";
+import {
+  benchmarkInteractiveLoadPerfScenarios,
+  type InteractiveLoadPerfScenarioBenchmark,
+} from "../impl/interactiveLoadPerfHarness";
 import {
   benchmarkInteractivePerfScenarios,
   type InteractivePerfScenarioBenchmark,
@@ -55,7 +61,7 @@ function formatBytes(value: number): string {
   return Math.round(value).toString().padStart(8, " ");
 }
 
-function printTable(results: readonly InteractivePerfScenarioBenchmark[]): void {
+function printInteractiveTable(results: readonly InteractivePerfScenarioBenchmark[]): void {
   console.log("Scenario           raw ms   tick ms update ms clone ms  payload B      Hz layers ticks");
   for (const result of results) {
     const label = result.label.padEnd(16, " ");
@@ -67,11 +73,25 @@ function printTable(results: readonly InteractivePerfScenarioBenchmark[]): void 
   }
 }
 
+function printLoadTable(results: readonly InteractiveLoadPerfScenarioBenchmark[]): void {
+  console.log("");
+  console.log("Scenario          cold ms  warm ms cold load warm load cold prep warm prep cold proj warm proj");
+  for (const result of results) {
+    const label = result.label.padEnd(16, " ");
+    console.log(
+      `${label} ${formatMs(result.coldStartMs.median)} ${formatMs(result.warmStartMs.median)} ${formatMs(result.coldLevelLoadMs.median)} ${formatMs(result.warmLevelLoadMs.median)} ${formatMs(result.coldPrepareLevelMs.median)} ${formatMs(result.warmPrepareLevelMs.median)} ${formatMs(result.coldInitialProjectionMs.median)} ${formatMs(result.warmInitialProjectionMs.median)}`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   const scenarios = resolveScenarios(options.scenarioIds);
-  const results = await benchmarkInteractivePerfScenarios(scenarios);
-  const violations = options.guard ? evaluateInteractivePerfGuard(results, interactivePerfBaseline) : [];
+  const interactiveResults = await benchmarkInteractivePerfScenarios(scenarios);
+  const loadResults = await benchmarkInteractiveLoadPerfScenarios(scenarios);
+  const interactiveViolations = options.guard ? evaluateInteractivePerfGuard(interactiveResults, interactivePerfBaseline) : [];
+  const loadViolations = options.guard ? evaluateInteractiveLoadPerfGuard(loadResults, interactiveLoadPerfBaseline) : [];
+  const violations = [...interactiveViolations, ...loadViolations];
 
   if (options.json) {
     console.log(
@@ -80,16 +100,20 @@ async function main(): Promise<void> {
           generatedAt: new Date().toISOString(),
           guard: {
             ok: violations.length === 0,
+            interactiveViolations,
+            loadViolations,
             violations,
           },
-          results,
+          interactiveResults,
+          loadResults,
         },
         null,
         2,
       ),
     );
   } else {
-    printTable(results);
+    printInteractiveTable(interactiveResults);
+    printLoadTable(loadResults);
     if (options.guard) {
       if (violations.length === 0) {
         console.log("");
@@ -97,9 +121,14 @@ async function main(): Promise<void> {
       } else {
         console.log("");
         console.log("perf guard: violations");
-        for (const violation of violations) {
+        for (const violation of interactiveViolations) {
           console.log(
-            `- ${violation.scenarioId} ${violation.label}: actual=${violation.actual.toFixed(2)} baseline=${violation.baseline.toFixed(2)} allowed=${violation.allowed.toFixed(2)}`,
+            `- interactive ${violation.scenarioId} ${violation.label}: actual=${violation.actual.toFixed(2)} baseline=${violation.baseline.toFixed(2)} allowed=${violation.allowed.toFixed(2)}`,
+          );
+        }
+        for (const violation of loadViolations) {
+          console.log(
+            `- load ${violation.scenarioId} ${violation.label}: actual=${violation.actual.toFixed(2)} baseline=${violation.baseline.toFixed(2)} allowed=${violation.allowed.toFixed(2)}`,
           );
         }
       }
