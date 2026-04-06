@@ -253,7 +253,7 @@ import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import { collectLevelCreaturePositions, collectLevelPetCarrierOccupants, levelLayers } from "@ruleset-ms/api/level";
+import { levelLayers, type MsLevelLayer } from "@ruleset-ms/api/level";
 import type { GameRuntimeCommand } from "@game-core/api/types";
 const LYNX_DEBUG_SCHEMA_VERSION = 2;
 const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
@@ -1064,19 +1064,106 @@ function stripCreaturesForInitialHash(cells: EngineMapCell[]): EngineMapCell[] {
   return cells;
 }
 
-function findChipSeed(level: LynxLevel): { pos: number; z: number; dir: number } {
-  for (const layer of levelLayers(level)) {
-    for (const cell of layer.cells) {
-      if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
-        return { pos: cell.position.pos, z: layer.z, dir: msCreatureDir(cell.top.id) };
-      }
-      if (isMsCreature(cell.bottom.id) && msCreatureId(cell.bottom.id) === MS_TILE.Chip) {
-        return { pos: cell.position.pos, z: layer.z, dir: msCreatureDir(cell.bottom.id) };
-      }
+interface LynxStartupActorSeed {
+  dir: number;
+  dormant: boolean;
+  id: number;
+  pos: number;
+  serial: number;
+  z: number;
+}
+
+interface LynxStartupAnalysis {
+  actorSeeds: LynxStartupActorSeed[];
+  chipSeed: {
+    dir: number;
+    pos: number;
+    z: number;
+  };
+  nextActorSerial: number;
+  petCarrierOccupantsByPosition: Map<string, NonNullable<MsLevelLayer["petCarrierOccupants"]>[number]["occupant"]>;
+}
+
+function lynxLayerPositionKey(pos: number, z: number): string {
+  return `${z}:${pos}`;
+}
+
+function analyzeLynxStartupLevel(level: LynxLevel): LynxStartupAnalysis {
+  const layers = levelLayers(level);
+  const orderedCreaturePositions = new Set<string>();
+  const petCarrierOccupantsByPosition = new Map<
+    string,
+    NonNullable<MsLevelLayer["petCarrierOccupants"]>[number]["occupant"]
+  >();
+
+  for (const layer of layers) {
+    for (const pos of layer.creaturePositions) {
+      orderedCreaturePositions.add(lynxLayerPositionKey(pos, layer.z));
+    }
+    for (const occupant of layer.petCarrierOccupants ?? []) {
+      petCarrierOccupantsByPosition.set(lynxLayerPositionKey(occupant.pos, layer.z), occupant.occupant);
     }
   }
 
-  return { pos: 0, z: 1, dir: 0 };
+  let chipSeed = { pos: 0, z: 1, dir: 0 };
+  let chipSeedFound = false;
+  let nextActorSerial = 1;
+  const actorSeeds: LynxStartupActorSeed[] = [];
+
+  for (const layer of layers) {
+    for (const cell of layer.cells) {
+      const pos = cell.position.pos;
+      if (!chipSeedFound) {
+        if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
+          chipSeed = { pos, z: layer.z, dir: msCreatureDir(cell.top.id) };
+          chipSeedFound = true;
+        } else if (isMsCreature(cell.bottom.id) && msCreatureId(cell.bottom.id) === MS_TILE.Chip) {
+          chipSeed = { pos, z: layer.z, dir: msCreatureDir(cell.bottom.id) };
+          chipSeedFound = true;
+        }
+      }
+
+      const topId = cell.top.id;
+      if (isMsStaticBlockTile(topId)) {
+        actorSeeds.push({
+          serial: nextActorSerial,
+          id: msStaticBlockActorId(topId) ?? MS_TILE.Block,
+          pos,
+          z: layer.z,
+          dir: 1,
+          dormant: !orderedCreaturePositions.has(lynxLayerPositionKey(pos, layer.z)),
+        });
+        nextActorSerial += 1;
+        continue;
+      }
+
+      if (!isMsCreature(topId)) {
+        continue;
+      }
+
+      const actorId = msCreatureId(topId);
+      const serial = nextActorSerial;
+      nextActorSerial += 1;
+      if (actorId === MS_TILE.Chip) {
+        continue;
+      }
+      actorSeeds.push({
+        serial,
+        id: actorId,
+        pos,
+        z: layer.z,
+        dir: msCreatureDir(topId),
+        dormant: false,
+      });
+    }
+  }
+
+  return {
+    actorSeeds,
+    chipSeed,
+    nextActorSerial,
+    petCarrierOccupantsByPosition,
+  };
 }
 
 function lynxRuntimeLayers(map: EngineState["map"]): LynxRuntimeLayer[] {
@@ -1138,80 +1225,27 @@ function isLynxVerticalMoveKind(moveKind: LynxMoveKind | undefined): boolean {
   return moveKind === "air" || moveKind === "elevator";
 }
 
-function parseLynxActors(level: LynxLevel): { actors: LynxRuntimeActor[]; nextActorSerial: number } {
-  const scanned: LynxRuntimeActor[] = [];
-  let nextActorSerial = 1;
-  const orderedCreaturePositions = new Set(
-    collectLevelCreaturePositions(level).map(({ pos, z }) => `${z}:${pos}`),
-  );
-
-  for (const layer of levelLayers(level)) {
-    for (const cell of layer.cells) {
-      const tile = cell.top;
-      if (isMsStaticBlockTile(tile.id)) {
-        scanned.push({
-          serial: nextActorSerial,
-          id: msStaticBlockActorId(tile.id) ?? MS_TILE.Block,
-          pos: cell.position.pos,
-          z: layer.z,
-          dir: 1,
-          intentDir: 0,
-          forcedDir: 0,
-          teleported: false,
-          moving: 0,
-          frame: 0,
-          moveKind: "planar",
-          ignoreIceFromAir: false,
-          hidden: false,
-          pushed: false,
-          deferPush: false,
-          deferPushArmed: false,
-          reversePending: false,
-          dormant: !orderedCreaturePositions.has(`${layer.z}:${cell.position.pos}`),
-          animationReserved: false,
-        });
-        nextActorSerial += 1;
-        continue;
-      }
-
-      if (!isMsCreature(tile.id)) {
-        continue;
-      }
-      scanned.push({
-        serial: nextActorSerial,
-        id: msCreatureId(tile.id),
-        pos: cell.position.pos,
-        z: layer.z,
-        dir: msCreatureDir(tile.id),
-        intentDir: 0,
-        forcedDir: 0,
-        teleported: false,
-        moving: 0,
-        frame: 0,
-        moveKind: "planar",
-        ignoreIceFromAir: false,
-        hidden: false,
-        pushed: false,
-        deferPush: false,
-        deferPushArmed: false,
-        reversePending: false,
-        dormant: false,
-        animationReserved: false,
-      });
-      nextActorSerial += 1;
-    }
-  }
-
-  const chipIndex = scanned.findIndex((actor) => actor.id === MS_TILE.Chip);
-  if (chipIndex > 0) {
-    const chip = scanned[chipIndex]!;
-    scanned[chipIndex] = scanned[0]!;
-    scanned[0] = chip;
-  }
-
+function createLynxActorFromSeed(seed: LynxStartupActorSeed): LynxRuntimeActor {
   return {
-    actors: scanned.filter((actor) => actor.id !== MS_TILE.Chip),
-    nextActorSerial,
+    serial: seed.serial,
+    id: seed.id,
+    pos: seed.pos,
+    z: seed.z,
+    dir: seed.dir,
+    intentDir: 0,
+    forcedDir: 0,
+    teleported: false,
+    moving: 0,
+    frame: 0,
+    moveKind: "planar",
+    ignoreIceFromAir: false,
+    hidden: false,
+    pushed: false,
+    deferPush: false,
+    deferPushArmed: false,
+    reversePending: false,
+    dormant: seed.dormant,
+    animationReserved: false,
   };
 }
 
@@ -3721,7 +3755,7 @@ function springLynxSandbagHeldBrownButtons(
   };
 }
 
-export function initializeLynxEngineState(
+function initializeLynxEngineStateFromStartup(
   request: GameRequest,
   level: LynxLevel,
   replay:
@@ -3730,8 +3764,8 @@ export function initializeLynxEngineState(
         bestTimeTicks?: number;
       })
     | null = null,
+  startup: LynxStartupAnalysis,
 ): EngineState {
-  const chipSeed = findChipSeed(level);
   const layers = levelLayers(level).map((layer) => ({
     z: layer.z,
     cells: stripCreaturesForInitialHash(cloneBoardCells(layer.cells)),
@@ -3744,16 +3778,13 @@ export function initializeLynxEngineState(
       cells: layers[0]?.cells ?? stripCreaturesForInitialHash(cloneBoardCells(level.cells)),
       layers,
     },
-    chipSeed.z,
+    startup.chipSeed.z,
   );
-  const chipPos = chipSeed.pos;
+  const chipPos = startup.chipSeed.pos;
   const initialStatusFlags =
     (level.statusFlags & ~MS_STATUS_FLAG.ShowHint) |
     (lynxTileHasTag(topTileIdOr(cells, chipPos, MS_TILE.Empty), "hint") ? MS_STATUS_FLAG.ShowHint : 0);
   const randomSeed = normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed);
-  const petCarrierOccupantsByPosition = new Map<string, ReturnType<typeof collectLevelPetCarrierOccupants>[number]["occupant"]>(
-    collectLevelPetCarrierOccupants(level).map(({ pos, z, occupant }) => [`${z}:${pos}`, occupant] as const),
-  );
 
   const state: EngineState = {
     request: { ...request },
@@ -3811,12 +3842,25 @@ export function initializeLynxEngineState(
   const runtime = lynxRuntimeState(state);
   runtime.portableTools.portableItems = collectLynxPortableItemsFromLayers(
     lynxRuntimeLayers(state.map),
-    petCarrierOccupantsByPosition,
+    startup.petCarrierOccupantsByPosition,
   );
   runtime.portableTools.nextPortableItemSerial = runtime.portableTools.portableItems.length + 1;
   projectLynxPortableToolState(runtime.portableTools, state.inventory);
-  setLynxRuntimeChipState(state, chipPos, chipSeed.z);
+  setLynxRuntimeChipState(state, chipPos, startup.chipSeed.z);
   return state;
+}
+
+export function initializeLynxEngineState(
+  request: GameRequest,
+  level: LynxLevel,
+  replay:
+    | (Pick<ReplaySolutionPayload, "randomSeed" | "stepping" | "randomSlideDirection"> & {
+        moveCount?: number;
+        bestTimeTicks?: number;
+      })
+    | null = null,
+): EngineState {
+  return initializeLynxEngineStateFromStartup(request, level, replay, analyzeLynxStartupLevel(level));
 }
 
 function createLynxInteractiveToken(
@@ -3829,12 +3873,12 @@ function createLynxInteractiveToken(
       })
     | null = null,
 ): LynxInteractiveSessionState {
-  const chipSeed = findChipSeed(level);
-  const parsedActors = parseLynxActors(level);
-  const state = initializeLynxEngineState(request, level, replay);
+  const startup = analyzeLynxStartupLevel(level);
+  const state = initializeLynxEngineStateFromStartup(request, level, replay, startup);
   const runtime = lynxRuntimeState(state);
-  runtime.nextActorSerial = parsedActors.nextActorSerial;
-  for (const actor of parsedActors.actors) {
+  runtime.nextActorSerial = startup.nextActorSerial;
+  const actors = startup.actorSeeds.map((seed) => createLynxActorFromSeed(seed));
+  for (const actor of actors) {
     seedLynxStatefulActorRuntime(
       runtime.statefulActors as unknown as StatefulActorRuntimeStore<LynxStatefulActorRuntimeEntry>,
       actor.serial,
@@ -3843,14 +3887,14 @@ function createLynxInteractiveToken(
   }
   activateMappedLynxBowlingBallsOnForceFloors({
     state,
-    actors: parsedActors.actors,
+    actors,
     runtime,
     cellsForZ: (z) => lynxCellsForZ(state.map, z),
     slideDirection: (floor) => getLynxSlideDirection(state, floor, true),
-    allocateActorSlot: (actor) => allocateLynxActorSlot(parsedActors.actors, actor),
+    allocateActorSlot: (actor) => allocateLynxActorSlot(actors, actor),
   });
   seedLynxPortableBackedBowlingBallActors({
-    actors: parsedActors.actors,
+    actors,
     runtime,
     runtimeEntry: (actorSerial) => lynxRuntimeActorEntry(state, actorSerial),
   });
@@ -3865,16 +3909,16 @@ function createLynxInteractiveToken(
         }))
       : [],
     replayPlan: replay ? createReplayPlan(replay) : null,
-    chipPos: chipSeed.pos,
-    chipZ: chipSeed.z,
-    chipDir: chipSeed.dir,
+    chipPos: startup.chipSeed.pos,
+    chipZ: startup.chipSeed.z,
+    chipDir: startup.chipSeed.dir,
     chipMoving: 0,
     chipMoveKind: "planar",
     currentInputCode: 0,
     queuedReplayInputCode: 0,
     queuedChipInputCode: 0,
     chipPushing: false,
-    actors: parsedActors.actors,
+    actors,
     endGameTicksElapsed: null,
     endGameResult: null,
     endGameAnimationTileId: null,

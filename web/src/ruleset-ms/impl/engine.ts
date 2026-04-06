@@ -98,12 +98,10 @@ import {
 } from "@ruleset-ms/impl/controllers";
 import { projectMsActorInventoryOwner, type MsActorLocalInventoryState } from "@ruleset-ms/impl/actorCollections";
 import {
-  collectLevelConnections,
-  collectLevelCreaturePositions,
-  collectLevelPetCarrierOccupants,
   levelLayers,
   type MsConnection,
   type MsLevel,
+  type MsLevelLayer,
 } from "@ruleset-ms/api/level";
 import {
   msActorClonerFamilyHooks,
@@ -2029,6 +2027,135 @@ function refreshFloorMovementFromEnteredTile(
   internal.floorMovementDir = MS_DIRECTION.none;
 }
 
+interface MsStartupCreatureSeed {
+  dir: number;
+  id: number;
+  pos: number;
+  serial: number;
+  z: number;
+}
+
+interface MsStartupBlockSeed {
+  id: number;
+  pos: number;
+  z: number;
+}
+
+interface MsStartupStatefulActorSeed {
+  id: number;
+  serial: number;
+}
+
+interface MsStartupAnalysis {
+  blockSeeds: MsStartupBlockSeed[];
+  chipDir: number;
+  chipPos: number;
+  chipZ: number;
+  cloneSourceSerialByPositionEntries: Array<[string, number]>;
+  cloners: MsConnection[];
+  creatureSeeds: MsStartupCreatureSeed[];
+  nextCreatureSerial: number;
+  petCarrierOccupantsByPosition: Map<string, NonNullable<MsLevelLayer["petCarrierOccupants"]>[number]["occupant"]>;
+  statefulActorSeeds: MsStartupStatefulActorSeed[];
+  traps: MsConnection[];
+}
+
+function analyzeMsStartupLevel(layers: ReadonlyArray<MsLevelLayer>): MsStartupAnalysis {
+  let chipPos = 0;
+  let chipZ = 1;
+  let chipDir: number = MS_DIRECTION.south;
+  let nextCreatureSerial = 1;
+  const creatureSeeds: MsStartupCreatureSeed[] = [];
+  const blockSeeds: MsStartupBlockSeed[] = [];
+  const statefulActorSeeds: MsStartupStatefulActorSeed[] = [];
+  const cloneSourceSerialByPositionEntries: Array<[string, number]> = [];
+  const traps: MsConnection[] = [];
+  const cloners: MsConnection[] = [];
+  const petCarrierOccupantsByPosition = new Map<
+    string,
+    NonNullable<MsLevelLayer["petCarrierOccupants"]>[number]["occupant"]
+  >();
+
+  for (const layer of layers) {
+    for (const connection of layer.traps) {
+      traps.push({
+        ...connection,
+        fromZ: connection.fromZ ?? layer.z,
+        toZ: connection.toZ ?? layer.z,
+      });
+    }
+    for (const connection of layer.cloners) {
+      cloners.push({
+        ...connection,
+        fromZ: connection.fromZ ?? layer.z,
+        toZ: connection.toZ ?? layer.z,
+      });
+    }
+    for (const occupant of layer.petCarrierOccupants ?? []) {
+      petCarrierOccupantsByPosition.set(msLayerPositionKey(occupant.pos, layer.z), occupant.occupant);
+    }
+
+    for (const cell of layer.cells) {
+      const pos = cell.position.pos;
+      const topId = cell.top.id;
+      if (isMsStaticBlockTile(topId)) {
+        blockSeeds.push({
+          id: msStaticBlockActorId(topId) ?? MS_TILE.Block,
+          pos,
+          z: layer.z,
+        });
+        continue;
+      }
+      if (!isMsCreature(topId)) {
+        continue;
+      }
+
+      const creatureId = msCreatureId(topId);
+      if (creatureId === MS_TILE.Chip) {
+        chipPos = pos;
+        chipZ = layer.z;
+        // Native MS seeds Chip's runtime direction from the lower tile
+        // when Chip starts on an upper layer.
+        chipDir = layer.z > 1 ? msCreatureDir(cell.bottom.id) : msCreatureDir(topId);
+        continue;
+      }
+
+      if (isMsBlockActorId(creatureId)) {
+        continue;
+      }
+
+      const serial = nextCreatureSerial;
+      statefulActorSeeds.push({ serial, id: creatureId });
+      if (isMsClonerSpecialFloor(cell.bottom.id)) {
+        cloneSourceSerialByPositionEntries.push([msLayerPositionKey(pos, layer.z), serial]);
+      } else {
+        creatureSeeds.push({
+          serial,
+          id: creatureId,
+          dir: msCreatureDir(topId),
+          pos,
+          z: layer.z,
+        });
+      }
+      nextCreatureSerial += 1;
+    }
+  }
+
+  return {
+    blockSeeds,
+    chipDir,
+    chipPos,
+    chipZ,
+    cloneSourceSerialByPositionEntries,
+    cloners,
+    creatureSeeds,
+    nextCreatureSerial,
+    petCarrierOccupantsByPosition,
+    statefulActorSeeds,
+    traps,
+  };
+}
+
 export function initializeMsGameState(
   request: GameRequest,
   level: MsLevel,
@@ -2037,103 +2164,38 @@ export function initializeMsGameState(
   const cells = cloneBoardCells(level.cells);
   initializeBrokenFloors(cells);
   const layers = levelLayers(level);
-  const layerCellsByZ = new Map<number, EngineMapCell[]>(
-    layers.map((layer) => [layer.z, layer.z === 1 ? cells : layer.cells]),
+  const startup = analyzeMsStartupLevel(layers);
+  const creatures = startup.creatureSeeds.map((seed) => ({
+    serial: seed.serial,
+    id: seed.id,
+    dir: seed.dir,
+    tdir: MS_DIRECTION.none,
+    pos: seed.pos,
+    z: seed.z,
+    hidden: false,
+    moving: 0,
+    frame: 0,
+    cloning: false,
+    released: false,
+    turning: false,
+    hasMoved: false,
+    floorMovement: "none" as const,
+    floorMovementDir: MS_DIRECTION.none,
+    sliding: false,
+  }));
+  const blocks = startup.blockSeeds.map((seed) =>
+    createTrackedBlockState(seed.pos, MS_DIRECTION.none, seed.z, seed.id),
   );
-
-  let chipPos = 0;
-  let chipZ = 1;
-  let chipDir: number = MS_DIRECTION.south;
-  const creatures: MsTrackedCreature[] = [];
-  const blocks: MsTrackedBlock[] = [];
-  let nextCreatureSerial = 1;
-  const seededPositions = new Set<string>();
-  const layerPositionKey = (pos: number, z: number) => `${z}:${pos}`;
-  const petCarrierOccupantsByPosition = new Map<string, ReturnType<typeof collectLevelPetCarrierOccupants>[number]["occupant"]>(
-    collectLevelPetCarrierOccupants(level).map(({ pos, z, occupant }) => [layerPositionKey(pos, z), occupant] as const),
-  );
-  const cloneSourceSerialByPosition = new Map<string, number>();
+  const cloneSourceSerialByPosition = new Map(startup.cloneSourceSerialByPositionEntries);
   const statefulActors = createStatefulActorRuntimeStore<MsStatefulActorRuntimeEntry>();
-
-  for (const { pos, z } of collectLevelCreaturePositions(level)) {
-    const layerCells = layerCellsByZ.get(z);
-    if (!layerCells || pos < 0 || pos >= layerCells.length) {
-      continue;
-    }
-    const cell = layerCells[pos]!;
-    if (isMsStaticBlockTile(cell.top.id)) {
-      blocks.push(createTrackedBlockState(pos, MS_DIRECTION.none, z, msStaticBlockActorId(cell.top.id) ?? MS_TILE.Block));
-      seededPositions.add(layerPositionKey(pos, z));
-      continue;
-    }
-    if (!isMsCreature(cell.top.id)) {
-      continue;
-    }
-    if (msCreatureId(cell.top.id) === MS_TILE.Chip) {
-      chipPos = pos;
-      chipZ = z;
-      chipDir = msCreatureDir(cell.top.id);
-    } else {
-      const creatureId = msCreatureId(cell.top.id);
-      if (isMsBlockActorId(creatureId)) {
-      } else if (!isMsClonerSpecialFloor(cell.bottom.id)) {
-        creatures.push({
-          serial: nextCreatureSerial,
-          id: creatureId,
-          dir: msCreatureDir(cell.top.id),
-          tdir: MS_DIRECTION.none,
-          pos,
-          z,
-          hidden: false,
-          moving: 0,
-          frame: 0,
-          cloning: false,
-          released: false,
-          turning: false,
-          hasMoved: false,
-          floorMovement: "none",
-          floorMovementDir: MS_DIRECTION.none,
-          sliding: false,
-        });
-        seedMsStatefulActorRuntime(
-          statefulActors,
-          nextCreatureSerial,
-          creatureId,
-        );
-        nextCreatureSerial += 1;
-      } else {
-        cloneSourceSerialByPosition.set(layerPositionKey(pos, z), nextCreatureSerial);
-        seedMsStatefulActorRuntime(
-          statefulActors,
-          nextCreatureSerial,
-          creatureId,
-        );
-        nextCreatureSerial += 1;
-      }
-    }
-    seededPositions.add(layerPositionKey(pos, z));
-  }
-
-  for (const layer of layers) {
-    const layerCells = layerCellsByZ.get(layer.z) ?? layer.cells;
-    for (const cell of layerCells) {
-      if (seededPositions.has(layerPositionKey(cell.position.pos, layer.z))) {
-        continue;
-      }
-      if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
-        chipPos = cell.position.pos;
-        chipZ = layer.z;
-        // Native MS seeds Chip's runtime direction from the lower tile
-        // when Chip starts on the top layer.
-        chipDir = msCreatureDir(cell.bottom.id);
-      }
-    }
+  for (const seed of startup.statefulActorSeeds) {
+    seedMsStatefulActorRuntime(statefulActors, seed.serial, seed.id);
   }
 
   const internal: MsInternalState = {
-    chipPos,
-    chipZ,
-    chipDir,
+    chipPos: startup.chipPos,
+    chipZ: startup.chipZ,
+    chipDir: startup.chipDir,
     chipTDir: MS_DIRECTION.none,
     currentInput: MS_DIRECTION.none,
     goalPos: -1,
@@ -2151,11 +2213,11 @@ export function initializeMsGameState(
     creatureSlipList: [],
     blocks,
     cloneSourceSerialByPosition,
-    traps: collectLevelConnections(level, "traps"),
-    cloners: collectLevelConnections(level, "cloners"),
+    traps: startup.traps,
+    cloners: startup.cloners,
     pendingCloners: [],
     pendingSoundEffects: 0,
-    nextCreatureSerial,
+    nextCreatureSerial: startup.nextCreatureSerial,
     nextSlipOrder: 0,
     randomState: {
       initial: normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed),
@@ -2172,7 +2234,7 @@ export function initializeMsGameState(
     runtimeLayers: [],
   };
   const normalizedRandomSeed = normalizeRandomSeed(replay?.randomSeed ?? request.randomSeed);
-  const runtimeLayers = (level.layers ?? [{ z: 1, cells, traps: [], cloners: [], creaturePositions: [], hintText: "" }]).map((layer) => ({
+  const runtimeLayers = layers.map((layer) => ({
     z: layer.z,
     cells: layer.z === 1 ? cells : cloneBoardCells(layer.cells),
   }));
@@ -2180,7 +2242,7 @@ export function initializeMsGameState(
     z: layer.z,
     cells: layer.cells,
   }));
-  internal.portableTools.portableItems = collectMsPortableItemsFromLayers(runtimeLayers, petCarrierOccupantsByPosition);
+  internal.portableTools.portableItems = collectMsPortableItemsFromLayers(runtimeLayers, startup.petCarrierOccupantsByPosition);
   internal.portableTools.nextPortableItemSerial = internal.portableTools.portableItems.length + 1;
 
   for (const connection of internal.traps) {
@@ -2266,7 +2328,7 @@ export function initializeMsGameState(
     syncCreatureFloorMovement: (cells, creature) => syncCreatureFloorMovement(cells, creature, internal, engine.inventory),
   });
   projectMsPortableToolState(msPortableToolState(internal), engine.inventory);
-  const activeCells = runtimeCellsForZ(mapLayers, chipZ);
+  const activeCells = runtimeCellsForZ(mapLayers, internal.chipZ);
   engine.map.cells = activeCells;
 
   return updateEngine({ engine, internal }, activeCells, 0, false, mapLayers, {

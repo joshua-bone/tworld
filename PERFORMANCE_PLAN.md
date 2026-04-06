@@ -589,6 +589,68 @@ Current local validation:
   - `3D Lynx`: `9.06ms` cold, `24.27ms` warm
 - that local harness result is directionally encouraging on typical starts but does not close out the heavier browser-visible hitch yet
 
+### PR 17: Collapse Redundant Startup Scans
+
+Status:
+
+- [x] Implemented
+
+Scope:
+
+- remove repeated whole-level startup scans in both MS and Lynx constructors
+- collapse chip-seed, actor-seed, pet-carrier, trap, and cloner discovery into one startup analysis pass per session build
+- preserve existing runtime semantics and actor ordering while reducing temporary collections and repeated layer walks
+
+Acceptance:
+
+- [x] MS startup no longer builds separate flattened creature, connection, and pet-carrier collections before runtime construction
+- [x] Lynx startup no longer scans the level once for chip seed and again for actor seeding
+- [x] targeted initialization, restore, and 3D start/advance tests still pass
+- [x] local load-path medians improve materially on the representative 2D and 3D scenarios
+
+Risk:
+
+- medium
+
+Why now:
+
+- PR14 through PR16 showed that the remaining engine-side cost was still concentrated in startup/runtime initialization
+- both rulesets were still doing extra whole-level passes just to rediscover the same startup metadata in slightly different shapes
+- this cut reduces actual work rather than merely moving it between load subphases
+
+Shipped behavior:
+
+- MS startup now performs one normalized level-analysis pass that derives:
+  - chip seed
+  - creature seeds
+  - static-block seeds
+  - stateful-actor seeds
+  - normalized trap/cloner connections
+  - pet-carrier occupant lookup
+- Lynx startup now performs one normalized level-analysis pass that derives:
+  - chip seed
+  - actor seeds with preserved z-order
+  - dormant static-block state
+  - pet-carrier occupant lookup
+- Lynx session construction now reuses that same startup analysis for both engine-state creation and actor seeding instead of recomputing those views separately
+
+Current local validation:
+
+- targeted correctness coverage passed:
+  - `src/ruleset-ms/impl/engine.test.ts` initialization/ordering regressions
+  - `src/ruleset-lynx/impl/engine.test.ts` initialization/ordering regressions
+  - `src/game-runtime/impl/interactiveSessionProjection.test.ts`
+  - `src/game-runtime/impl/restoreInteractiveGameSession.test.ts`
+  - targeted `3DINTRO` start/advance smoke tests for both rulesets
+- a clean bounded local perf rerun now reports these cold/warm `start-session` medians:
+  - `Typical MS`: `3.79ms` cold, `5.14ms` warm
+  - `Typical Lynx`: `5.38ms` cold, `2.74ms` warm
+  - `3D MS`: `5.07ms` cold, `3.41ms` warm
+  - `3D Lynx`: `10.27ms` cold, `7.33ms` warm
+- compared with the PR16 snapshot, the heavy 3D warm starts improved materially, especially:
+  - `3D MS`: `11.80ms` -> `3.41ms`
+  - `3D Lynx`: `24.27ms` -> `7.33ms`
+
 ## Recommended Execution Order
 
 - [x] PR 7: Load-phase diagnostics split
@@ -601,6 +663,7 @@ Current local validation:
 - [x] PR 14: Initial projection and tileset bootstrap diagnostics split
 - [x] PR 15: Runtime init clone reduction
 - [x] PR 16: Lazy initial undo checkpoint materialization
+- [x] PR 17: Collapse redundant startup scans
 
 ## Success Criteria
 
@@ -613,6 +676,6 @@ Current local validation:
 
 ## Current Recommendation
 
-The repository/load-path phase is closed. The active follow-up phase is now initial projection and browser-side render bootstrap.
+The repository/load-path phase is closed. The engine-side startup phase is no longer the dominant local problem on the sampled scenarios.
 
-The remaining bottleneck is no longer repository hydration or DAT extraction. PR14 showed that the real hotspot inside `initialProjectionMs` is `initialRuntimeInitMs`, PR15 cut the obvious board/runtime clone waste there, and PR16 removed eager initial undo checkpoint capture from the interactive startup path. The next cuts should stay on that runtime-init seam for heavy/3D cases and then rebaseline, rather than reopening the repository path or overfitting to frame projection.
+PR14 showed that the remaining hotspot was `initialRuntimeInitMs`. PR15 cut clone waste, PR16 removed eager initial undo snapshot work, and PR17 collapsed redundant level-start scans. With local `start-session` medians now down into single-digit milliseconds on the sampled scenarios, the next cuts should shift back toward browser-side render/bootstrap work and deployed-build validation rather than more speculative engine-constructor churn.
