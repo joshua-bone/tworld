@@ -5,6 +5,7 @@ import type { BrowserProfileStore } from "@player-web/ports/BrowserProfileStore"
 import type { PlayableSelectionStore } from "@player-web/ports/PlayableSelectionStore";
 import type { SeriesCatalogEntry } from "@content/api/series";
 import type { PersistedImportedDatSource } from "@level-catalog/ports/ImportedDatCatalogStore";
+import type { GameRequest } from "@game-core/api/types";
 
 export interface BrowserAppServices {
   fixtureRepository: CharacterizationFixtureRepository;
@@ -20,4 +21,5 @@ export interface BrowserAppServices {
   ) => Promise<SeriesCatalogEntry[]>;
   deleteImportedDatFile: (filename: string) => Promise<void>;
   listImportedCatalogEntries: () => Promise<SeriesCatalogEntry[]>;
+  preloadGameRequest?: (request: GameRequest) => Promise<void>;
 }

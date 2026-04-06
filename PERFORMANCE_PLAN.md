@@ -311,7 +311,7 @@ Shipped behavior:
 
 Status:
 
-- [ ] Not started
+- [x] Implemented
 
 Scope:
 
@@ -321,8 +321,9 @@ Scope:
 
 Acceptance:
 
-- [ ] first `start-session` avoids most worker cold-start overhead
-- [ ] worker and UI no longer duplicate as much level-load work
+- [x] selection changes can preload the chosen level before gameplay start
+- [x] worker warmup no longer stops at a liveness-only `ping`
+- [x] worker and UI can reuse the same loaded level payload instead of refetching and reparsing it separately
 
 Risk:
 
@@ -331,6 +332,15 @@ Risk:
 Why fourth:
 
 - current warmup only proves liveness, not readiness
+
+Shipped behavior:
+
+- worker warmup now instantiates the worker instead of issuing a fake `ping`
+- the app exposes a best-effort preload path for a concrete `GameRequest`
+- catalog selection changes now trigger preload for playable series/levels
+- the main-thread repository can prime the exact loaded level payload
+- the worker accepts a `preload-level` request and primes its own repository from that payload
+- later `start-session` calls can reuse the primed loaded level instead of repeating the full cold load path
 
 ### PR 11: Replace Whole-DAT First-Load Extraction with Indexed or Lazy Single-Level Load
 
@@ -414,7 +424,7 @@ Why last:
 - [x] PR 7: Load-phase diagnostics split
 - [x] PR 8: Move initial render warmup off the critical path
 - [x] PR 9: Remove imported-DAT hydration from built-in gameplay loads
-- [ ] PR 10: Real worker preload
+- [x] PR 10: Real worker preload
 - [ ] PR 11: Indexed or lazy single-level load
 - [ ] PR 12: Asset bootstrap smoothing
 - [ ] PR 13: Rebaseline and closeout
@@ -437,4 +447,5 @@ The current best default sequence is:
 1. PR 7 for visibility
 2. PR 8 for the obvious main-thread hitch
 3. PR 9 for the avoidable repository hydration penalty
-4. PR 10 and PR 11 for deeper structural cleanup
+4. PR 10 for worker-side readiness and reuse of selected level payloads
+5. PR 11 for deeper repository/data-load structural cleanup

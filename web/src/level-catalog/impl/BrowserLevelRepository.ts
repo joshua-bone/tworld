@@ -16,6 +16,7 @@ import {
 import { normalizeBrowserAssetLoadError } from "@level-catalog/impl/browserAssetLoadError";
 
 type GroupedLevelIndex = Map<number, RawDatLevelGroup>;
+type PrimedLevelCacheKey = string;
 
 interface ImportedDatSeries {
   filename: string;
@@ -38,6 +39,18 @@ function createGroupedLevelIndex(levels: RawDatLevelGroup[]): GroupedLevelIndex 
   return new Map(levels.map((level) => [level.number, level] satisfies [number, RawDatLevelGroup]));
 }
 
+function levelCacheKey(request: Pick<LoadedLevelData["request"], "seriesFile" | "levelNumber" | "ruleset">): PrimedLevelCacheKey {
+  return `${request.seriesFile}:${request.levelNumber}:${request.ruleset}`;
+}
+
+function cloneLoadedLevelData(loaded: LoadedLevelData): LoadedLevelData {
+  return {
+    request: { ...loaded.request },
+    levelData: new Uint8Array(loaded.levelData),
+    layerData: loaded.layerData.map((entry) => new Uint8Array(entry)),
+  };
+}
+
 export class BrowserLevelRepository implements LevelRepository {
   constructor(private readonly importedDatStore: ImportedDatCatalogStore | null = null) {}
 
@@ -56,6 +69,7 @@ export class BrowserLevelRepository implements LevelRepository {
   private readonly dataCache = new Map<string, Promise<Uint8Array>>();
   private readonly groupedLevelCache = new Map<string, Promise<GroupedLevelIndex>>();
   private readonly importedSeries = new Map<string, ImportedDatSeries>();
+  private readonly primedLevels = new Map<PrimedLevelCacheKey, LoadedLevelData>();
   private importedSeriesHydration: Promise<void> | null = null;
 
   private hasBundledSeriesConfig(seriesFile: string): boolean {
@@ -221,7 +235,16 @@ export class BrowserLevelRepository implements LevelRepository {
     return [...this.importedSeries.values()].map(({ entry }) => entry);
   }
 
+  primeLoadedLevel(loaded: LoadedLevelData): void {
+    this.primedLevels.set(levelCacheKey(loaded.request), cloneLoadedLevelData(loaded));
+  }
+
   async loadLevel(request: LoadedLevelData["request"]): Promise<LoadedLevelData> {
+    const primed = this.primedLevels.get(levelCacheKey(request));
+    if (primed) {
+      return cloneLoadedLevelData(primed);
+    }
+
     if (!this.hasBundledSeriesConfig(request.seriesFile)) {
       await this.ensureImportedSeriesHydrated();
       const imported = this.importedSeries.get(request.seriesFile);

@@ -8,6 +8,11 @@ import type { PersistedImportedDatSource } from "@level-catalog/ports/ImportedDa
 import { IndexedDbBrowserProfileStore } from "@player-web/impl/IndexedDbBrowserProfileStore";
 import { BrowserReplayTransfer } from "@player-web/impl/BrowserReplayTransfer";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
+import type { GameRequest } from "@game-core/api/types";
+
+function requestKey(request: Pick<GameRequest, "seriesFile" | "levelNumber" | "ruleset">): string {
+  return `${request.seriesFile}:${request.levelNumber}:${request.ruleset}`;
+}
 
 export function createBrowserAppServices(): BrowserAppServices {
   const profileStore = new IndexedDbBrowserProfileStore();
@@ -24,6 +29,7 @@ export function createBrowserAppServices(): BrowserAppServices {
       }
     : directEngines;
   workerEngine?.warmup();
+  const preloadPromises = new Map<string, Promise<void>>();
 
   const importDatBytes = async (filename: string, datBytes: Uint8Array, source?: PersistedImportedDatSource) => {
     const datHash = await computeDatContentHash(datBytes);
@@ -34,6 +40,32 @@ export function createBrowserAppServices(): BrowserAppServices {
       datBytes: new Uint8Array(datBytes),
     });
     return entries;
+  };
+
+  const preloadGameRequest = async (request: GameRequest): Promise<void> => {
+    const key = requestKey(request);
+    const cached = preloadPromises.get(key);
+    if (cached) {
+      await cached;
+      return;
+    }
+
+    const preloadPromise = (async () => {
+      const loaded = await levelRepository.loadLevel(request);
+      if (!workerEngine) {
+        return;
+      }
+      await workerEngine.preloadLevel(loaded);
+    })();
+
+    preloadPromises.set(key, preloadPromise);
+    try {
+      await preloadPromise;
+    } finally {
+      if (preloadPromises.get(key) === preloadPromise) {
+        preloadPromises.delete(key);
+      }
+    }
   };
 
   return {
@@ -49,5 +81,6 @@ export function createBrowserAppServices(): BrowserAppServices {
       await workerEngine?.deleteImportedDatFile(filename);
     },
     listImportedCatalogEntries: async () => levelRepository.listImportedCatalogEntries(),
+    preloadGameRequest,
   };
 }

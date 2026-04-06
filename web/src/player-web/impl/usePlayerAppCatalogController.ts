@@ -166,6 +166,25 @@ export function usePlayerAppCatalogController({
   }, [selectedLevelNumber, selectedSeriesFile, services.selectionStore, setMessage]);
 
   useEffect(() => {
+    if (!services.preloadGameRequest || !selectedSeriesFile || !selectedLevelNumber) {
+      return;
+    }
+
+    const selectedSeries = catalog.find((series) => series.filebase === selectedSeriesFile);
+    if (!selectedSeries || selectedSeries.ruleset === "None") {
+      return;
+    }
+
+    void services.preloadGameRequest({
+      seriesFile: selectedSeriesFile,
+      levelNumber: selectedLevelNumber,
+      ruleset: selectedSeries.ruleset,
+    }).catch(() => {
+      // Preload is best-effort and should not disrupt selection or gameplay.
+    });
+  }, [catalog, selectedLevelNumber, selectedSeriesFile, services]);
+
+  useEffect(() => {
     if (!selectedSeriesFile || !selectedLevelNumber || !onSelectionChange) {
       return;
     }

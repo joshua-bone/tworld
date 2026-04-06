@@ -13,6 +13,7 @@ import type {
   InteractiveGameSessionHydrationOptions,
   InteractiveGameSessionStartOptions,
 } from "@game-runtime/ports/InteractiveGameEngine";
+import type { LoadedLevelData } from "@level-catalog/ports/LevelRepository";
 
 interface PendingInteractiveGameWorkerRequest {
   resolve: (response: InteractiveGameWorkerResponse) => void;
@@ -155,11 +156,18 @@ export class WorkerBackedInteractiveGameEngine implements InteractiveGameEngineP
   }
 
   warmup(): void {
-    void this.request({
-      id: this.nextId(),
-      type: "ping",
-    }).catch(() => {
+    try {
+      this.getWorker();
+    } catch {
       // Ignore warmup failures; gameplay will surface real worker issues later.
+    }
+  }
+
+  async preloadLevel(loaded: LoadedLevelData): Promise<void> {
+    await this.request({
+      id: this.nextId(),
+      type: "preload-level",
+      loaded,
     });
   }
 

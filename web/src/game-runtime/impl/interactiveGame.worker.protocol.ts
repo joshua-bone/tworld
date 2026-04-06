@@ -17,6 +17,7 @@ import type {
   InteractiveGameSessionRunState,
   InteractiveGameSessionStartOptions,
 } from "@game-runtime/ports/InteractiveGameEngine";
+import type { LoadedLevelData } from "@level-catalog/ports/LevelRepository";
 
 export interface WorkerInteractiveGameSessionHandlePayload {
   sessionId: number;
@@ -355,6 +356,11 @@ export type InteractiveGameWorkerRequest =
       id: number;
       type: "delete-imported-dat";
       filename: string;
+    }
+  | {
+      id: number;
+      type: "preload-level";
+      loaded: LoadedLevelData;
     };
 
 export interface InteractiveGameWorkerResponse {

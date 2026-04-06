@@ -127,6 +127,9 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
     case "delete-imported-dat":
       await levelRepository.deleteImportedDatFile(request.filename);
       return { id: request.id };
+    case "preload-level":
+      levelRepository.primeLoadedLevel(request.loaded);
+      return { id: request.id };
     default: {
       const exhaustiveCheck: never = request;
       return exhaustiveCheck;

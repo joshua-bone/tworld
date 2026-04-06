@@ -234,4 +234,38 @@ describe("BrowserLevelRepository", () => {
     expect(loaded.levelData).toEqual(loaded.layerData[0]);
     expect(store.listImportedDatFilesCallCount).toBe(1);
   });
+
+  it("returns a primed level before consulting bundled assets", async () => {
+    const repository = new BrowserLevelRepository() as BrowserLevelRepository & {
+      dataFiles: Record<string, () => Promise<string>>;
+      seriesConfigs: Record<string, () => Promise<string>>;
+    };
+    repository.seriesConfigs = {};
+    repository.dataFiles = {};
+    repository.primeLoadedLevel({
+      request: {
+        seriesFile: "Primed.dac",
+        levelNumber: 7,
+        ruleset: "MS",
+      },
+      levelData: Uint8Array.from([1, 2, 3]),
+      layerData: [Uint8Array.from([1, 2, 3]), Uint8Array.from([4, 5])],
+    });
+
+    const loaded = await repository.loadLevel({
+      seriesFile: "Primed.dac",
+      levelNumber: 7,
+      ruleset: "MS",
+    });
+
+    expect(loaded).toEqual({
+      request: {
+        seriesFile: "Primed.dac",
+        levelNumber: 7,
+        ruleset: "MS",
+      },
+      levelData: Uint8Array.from([1, 2, 3]),
+      layerData: [Uint8Array.from([1, 2, 3]), Uint8Array.from([4, 5])],
+    });
+  });
 });
