@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import {
   buildLegacyGameDrawStateKey,
+  buildCachedLowerLayerKey,
   collectVisibleLayerCacheWarmupTasks,
+  hasCachedLowerLayerCanvas,
 } from "@player-web/impl/legacyCanvasMapRenderer";
+import { createLayerCanvasCache, storeCachedLayerCanvas } from "@player-web/impl/legacyLayerCanvasCache";
 import type { EngineMapCell } from "@game-core/api/model";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import type { LegacyTileset } from "@player-web/impl/legacyTileset";
 
 function createCell(pos: number, z: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
   return {
@@ -312,5 +316,27 @@ describe("collectVisibleLayerCacheWarmupTasks", () => {
       { layerIndex: 2, layerZ: 1, timerval: 11 },
       { layerIndex: 1, layerZ: 2, timerval: 11 },
     ]);
+  });
+});
+
+describe("hasCachedLowerLayerCanvas", () => {
+  it("treats uncached lower layers as transient until warmup fills the cache", () => {
+    const session = createSession(MS_TILE.Empty);
+    const layer = session.frame.visibleLayers[1]!;
+    const cache = createLayerCanvasCache();
+    const tileset: LegacyTileset = {
+      get: () => null,
+      getCellAnimationPeriod: () => 1,
+    };
+
+    expect(hasCachedLowerLayerCanvas(cache, tileset, session, "Lynx", layer, 10, true)).toBe(false);
+
+    storeCachedLayerCanvas(
+      cache,
+      buildCachedLowerLayerKey(tileset, session, "Lynx", layer, 10, true),
+      {} as HTMLCanvasElement,
+    );
+
+    expect(hasCachedLowerLayerCanvas(cache, tileset, session, "Lynx", layer, 10, true)).toBe(true);
   });
 });

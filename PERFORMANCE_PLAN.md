@@ -651,6 +651,52 @@ Current local validation:
   - `3D MS`: `11.80ms` -> `3.41ms`
   - `3D Lynx`: `24.27ms` -> `7.33ms`
 
+### PR 18: Defer Full Lower-Layer Cache Fills Off the First 3D Paint
+
+Status:
+
+- [x] Implemented
+
+Scope:
+
+- stop filling full board-sized lower-layer canvas caches synchronously on the first cold 3D render
+- use a transient viewport-sized lower-layer render for immediate display when the cache is cold
+- leave full cached lower-layer rasterization on the deferred warmup/background path
+
+Acceptance:
+
+- [x] first visible 3D draw no longer forces a full lower-layer cache build on the critical path
+- [x] deferred warmup still uses the existing full-cache path
+- [x] targeted legacy canvas renderer and screen tests still pass
+- [ ] deployed 3D level entry hitch is measurably reduced
+
+Risk:
+
+- medium
+
+Why now:
+
+- after PR17, the sampled engine-side startup costs were down to single-digit milliseconds
+- the remaining likely hitch on the real browser path was lower-layer raster bootstrap, especially when a multi-layer session hit a cold cache
+- the previous renderer still backfilled a full board-sized lower-layer cache the first time a 3D frame needed it
+
+Shipped behavior:
+
+- `drawVisibleLayerStack(...)` now checks for a ready lower-layer cache entry before drawing
+- when the cache is warm, rendering is unchanged and still uses the cached board-sized canvas
+- when the cache is cold, the renderer now draws a transient viewport-sized lower-layer canvas for that frame instead of populating the full cache synchronously
+- deferred warmup continues to populate the full lower-layer cache in background slices after first paint
+
+Current local validation:
+
+- targeted browser-render tests passed:
+  - `src/player-web/impl/legacyCanvasMapRenderer.test.ts`
+  - `src/player-web/impl/LegacyCanvasScreen.test.ts`
+- the new unit seam explicitly checks the intended cold-cache behavior:
+  - uncached lower layers are treated as transient
+  - once a matching cache entry exists, the renderer recognizes it as cached
+- this PR is aimed at deployed/browser hitch reduction, so the next required validation is on the Pages build rather than the Node perf harness
+
 ## Recommended Execution Order
 
 - [x] PR 7: Load-phase diagnostics split
@@ -664,6 +710,7 @@ Current local validation:
 - [x] PR 15: Runtime init clone reduction
 - [x] PR 16: Lazy initial undo checkpoint materialization
 - [x] PR 17: Collapse redundant startup scans
+- [x] PR 18: Defer full lower-layer cache fills off the first 3D paint
 
 ## Success Criteria
 
@@ -678,4 +725,4 @@ Current local validation:
 
 The repository/load-path phase is closed. The engine-side startup phase is no longer the dominant local problem on the sampled scenarios.
 
-PR14 showed that the remaining hotspot was `initialRuntimeInitMs`. PR15 cut clone waste, PR16 removed eager initial undo snapshot work, and PR17 collapsed redundant level-start scans. With local `start-session` medians now down into single-digit milliseconds on the sampled scenarios, the next cuts should shift back toward browser-side render/bootstrap work and deployed-build validation rather than more speculative engine-constructor churn.
+PR14 showed that the remaining hotspot was `initialRuntimeInitMs`. PR15 cut clone waste, PR16 removed eager initial undo snapshot work, and PR17 collapsed redundant level-start scans. PR18 then moved the browser-side 3D cold-cache raster fill off the first paint path. The next cuts should stay focused on deployed-build browser behavior and overlay-verified hitch reduction rather than more speculative engine-constructor churn.

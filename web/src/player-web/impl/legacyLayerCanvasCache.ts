@@ -32,6 +32,10 @@ export function getCachedLayerCanvas(cache: LegacyLayerCanvasCache, key: string)
   return cached.canvas;
 }
 
+export function peekCachedLayerCanvas(cache: LegacyLayerCanvasCache, key: string): HTMLCanvasElement | null {
+  return cache.entries.get(key)?.canvas ?? null;
+}
+
 export function storeCachedLayerCanvas(
   cache: LegacyLayerCanvasCache,
   key: string,

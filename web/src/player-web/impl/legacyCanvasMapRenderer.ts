@@ -47,6 +47,7 @@ import {
 } from "@player-web/impl/legacyCanvasTileset";
 import {
   getCachedLayerCanvas,
+  peekCachedLayerCanvas,
   storeCachedLayerCanvas,
   type LegacyLayerCanvasCache,
 } from "@player-web/impl/legacyLayerCanvasCache";
@@ -420,7 +421,7 @@ function animationFrameToken(animationPeriod: number, timerval: number): number 
   return (timerval + 1) % animationPeriod;
 }
 
-function buildCachedLowerLayerKey(
+export function buildCachedLowerLayerKey(
   tileset: LegacyTileset,
   session: InteractiveGameSession,
   ruleset: SeriesCatalogEntry["ruleset"] | null,
@@ -433,6 +434,19 @@ function buildCachedLowerLayerKey(
   const renderHash = buildRenderLayerHash(session, layer.z);
   const timeToken = animationFrameToken(cellsSummary.animationPeriod, timerval);
   return `${ruleset ?? "None"}:${visualEnhancementsEnabled ? 1 : 0}:${layer.z}:${cellsSummary.hash.toString(16)}:${timeToken}:${overlayHash.toString(16)}:${renderHash.toString(16)}`;
+}
+
+export function hasCachedLowerLayerCanvas(
+  cache: LegacyLayerCanvasCache,
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  layer: InteractiveGameVisibleLayer,
+  timerval: number,
+  visualEnhancementsEnabled: boolean,
+): boolean {
+  const key = buildCachedLowerLayerKey(tileset, session, ruleset, layer, timerval, visualEnhancementsEnabled);
+  return peekCachedLayerCanvas(cache, key) !== null;
 }
 
 function drawLynxActorSprite(
@@ -1155,6 +1169,19 @@ function getOrRenderCachedLowerLayerCanvas(
   );
 }
 
+function getCachedLowerLayerCanvasIfReady(
+  cache: LegacyLayerCanvasCache,
+  tileset: LegacyTileset,
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+  layer: InteractiveGameVisibleLayer,
+  timerval: number,
+  visualEnhancementsEnabled: boolean,
+): HTMLCanvasElement | null {
+  const key = buildCachedLowerLayerKey(tileset, session, ruleset, layer, timerval, visualEnhancementsEnabled);
+  return getCachedLayerCanvas(cache, key);
+}
+
 export function drawVisibleLayerStack(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
@@ -1186,7 +1213,7 @@ export function drawVisibleLayerStack(
   withLegacyMapViewportClip(context, () => {
     for (let index = visibleLayers.length - 1; index >= 1; index -= 1) {
       const layer = visibleLayers[index]!;
-      const layerCanvas = getOrRenderCachedLowerLayerCanvas(
+      const cachedLayerCanvas = getCachedLowerLayerCanvasIfReady(
         lowerLayerCache,
         tileset,
         session,
@@ -1209,7 +1236,22 @@ export function drawVisibleLayerStack(
 
       context.save();
       context.filter = `blur(${LOWER_LAYER_BLUR_PX}px) brightness(${brightness})`;
-      context.drawImage(layerCanvas, sourceX, sourceY, sourceSize, sourceSize, x, y, width, height);
+      if (cachedLayerCanvas) {
+        context.drawImage(cachedLayerCanvas, sourceX, sourceY, sourceSize, sourceSize, x, y, width, height);
+      } else {
+        const transientLayerCanvas = renderMapLayerCanvas(
+          tileset,
+          session,
+          ruleset,
+          layer,
+          timerval,
+          viewX,
+          viewY,
+          index,
+          visualEnhancementsEnabled,
+        );
+        context.drawImage(transientLayerCanvas, x, y, width, height);
+      }
       context.restore();
     }
 
