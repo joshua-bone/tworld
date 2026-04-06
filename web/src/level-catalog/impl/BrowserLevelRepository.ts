@@ -58,6 +58,10 @@ export class BrowserLevelRepository implements LevelRepository {
   private readonly importedSeries = new Map<string, ImportedDatSeries>();
   private importedSeriesHydration: Promise<void> | null = null;
 
+  private hasBundledSeriesConfig(seriesFile: string): boolean {
+    return Object.keys(this.seriesConfigs).some((path) => path.endsWith(`/sets/${seriesFile}`));
+  }
+
   private async loadBySuffix<T>(files: Record<string, () => Promise<T>>, suffix: string): Promise<T> {
     const match = Object.entries(files).find(([path]) => path.endsWith(suffix));
     if (!match) {
@@ -218,19 +222,21 @@ export class BrowserLevelRepository implements LevelRepository {
   }
 
   async loadLevel(request: LoadedLevelData["request"]): Promise<LoadedLevelData> {
-    await this.ensureImportedSeriesHydrated();
-    const imported = this.importedSeries.get(request.seriesFile);
-    if (imported) {
-      const level = imported.groupedLevels.find((candidate) => candidate.number === request.levelNumber);
-      if (!level) {
-        throw new Error(`level ${request.levelNumber} not found in imported ${imported.filename}`);
-      }
+    if (!this.hasBundledSeriesConfig(request.seriesFile)) {
+      await this.ensureImportedSeriesHydrated();
+      const imported = this.importedSeries.get(request.seriesFile);
+      if (imported) {
+        const level = imported.groupedLevels.find((candidate) => candidate.number === request.levelNumber);
+        if (!level) {
+          throw new Error(`level ${request.levelNumber} not found in imported ${imported.filename}`);
+        }
 
-      return {
-        request: { ...request },
-        levelData: new Uint8Array(level.levelData),
-        layerData: level.layerData.map((entry) => new Uint8Array(entry)),
-      };
+        return {
+          request: { ...request },
+          levelData: new Uint8Array(level.levelData),
+          layerData: level.layerData.map((entry) => new Uint8Array(entry)),
+        };
+      }
     }
 
     const config = await this.loadParsedSeriesConfig(request.seriesFile);

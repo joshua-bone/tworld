@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BrowserLevelRepository } from "@level-catalog/impl/BrowserLevelRepository";
 import type { ImportedDatCatalogStore, PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
 
@@ -53,8 +53,10 @@ function createDatFile(levels: Uint8Array[]): Uint8Array {
 
 class MemoryImportedDatCatalogStore implements ImportedDatCatalogStore {
   private readonly entries = new Map<string, PersistedImportedDatFile>();
+  listImportedDatFilesCallCount = 0;
 
   async listImportedDatFiles(): Promise<PersistedImportedDatFile[]> {
+    this.listImportedDatFilesCallCount += 1;
     return [...this.entries.values()].map((entry) => ({
       filename: entry.filename,
       datHash: entry.datHash,
@@ -167,5 +169,69 @@ describe("BrowserLevelRepository", () => {
     const entries = await repository.listImportedCatalogEntries();
     expect(entries.map((entry) => entry.filebase)).toEqual(["MyPack (MS)", "MyPack (Lynx)"]);
     expect(entries.find((entry) => entry.ruleset === "MS")?.levels.map((level) => level.name)).toEqual(["Updated Level"]);
+  });
+
+  it("does not hydrate imported DAT storage when loading a built-in series", async () => {
+    const store = new MemoryImportedDatCatalogStore();
+    await store.saveImportedDatFile({
+      filename: "Imported.dat",
+      datHash: "hash",
+      datBytes: createDatFile([createLevelData(1, "Imported Solo", 2, 0)]),
+    });
+    const repository = new BrowserLevelRepository(store) as BrowserLevelRepository & {
+      dataFiles: Record<string, () => Promise<string>>;
+      seriesConfigs: Record<string, () => Promise<string>>;
+    };
+
+    repository.seriesConfigs = {
+      "/virtual/sets/TestBuiltIn.dac": async () => "file=TestBuiltIn.dat\nruleset=MS\n",
+    };
+    repository.dataFiles = {
+      "/virtual/data/TestBuiltIn.dat": async () => "https://example.invalid/TestBuiltIn.dat",
+    };
+
+    const response = {
+      ok: true,
+      async arrayBuffer() {
+        const dat = createDatFile([createLevelData(1, "Built In", 4, 0)]);
+        return dat.buffer.slice(dat.byteOffset, dat.byteOffset + dat.byteLength);
+      },
+    };
+    const fetchMock = vi.fn(async () => response as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const loaded = await repository.loadLevel({
+        seriesFile: "TestBuiltIn.dac",
+        levelNumber: 1,
+        ruleset: "MS",
+      });
+
+      expect(loaded.layerData.length).toBeGreaterThan(0);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(store.listImportedDatFilesCallCount).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("hydrates imported DAT storage on demand when an imported series is requested", async () => {
+    const store = new MemoryImportedDatCatalogStore();
+    const dat = createDatFile([createLevelData(1, "Imported Solo", 2, 0)]);
+    await store.saveImportedDatFile({
+      filename: "Imported.dat",
+      datHash: "hash",
+      datBytes: dat,
+    });
+    const repository = new BrowserLevelRepository(store);
+
+    const loaded = await repository.loadLevel({
+      seriesFile: "Imported (MS)",
+      levelNumber: 1,
+      ruleset: "MS",
+    });
+
+    expect(loaded.levelData).toEqual(loaded.layerData[0]);
+    expect(store.listImportedDatFilesCallCount).toBe(1);
   });
 });

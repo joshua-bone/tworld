@@ -178,7 +178,7 @@ Impact:
 The two most likely immediate wins are:
 
 - [x] remove synchronous `prewarmVisibleLayerCaches(...)` from the level-entry critical path
-- [ ] stop unconditional imported-DAT hydration from built-in gameplay level loads
+- [x] stop unconditional imported-DAT hydration from built-in gameplay level loads
 
 These are the first two changes most likely to reduce the hitch you can actually feel.
 
@@ -278,7 +278,7 @@ Shipped behavior:
 
 Status:
 
-- [ ] Not started
+- [x] Implemented
 
 Scope:
 
@@ -290,8 +290,8 @@ Scope:
 
 Acceptance:
 
-- [ ] built-in level loads no longer wait on unrelated imported-pack hydration
-- [ ] imported pack behavior still works when actually used
+- [x] built-in level loads no longer wait on unrelated imported-pack hydration
+- [x] imported pack behavior still works when actually used
 
 Risk:
 
@@ -300,6 +300,12 @@ Risk:
 Why third:
 
 - this is a pure cold-start penalty with no gameplay value for built-in content
+
+Shipped behavior:
+
+- built-in `loadLevel()` requests now go straight to bundled series/data assets
+- imported DAT hydration only happens on imported-content paths
+- loading an imported series still hydrates persistent imported DAT storage on demand
 
 ### PR 10: Real Worker Preload
 
@@ -407,7 +413,7 @@ Why last:
 
 - [x] PR 7: Load-phase diagnostics split
 - [x] PR 8: Move initial render warmup off the critical path
-- [ ] PR 9: Remove imported-DAT hydration from built-in gameplay loads
+- [x] PR 9: Remove imported-DAT hydration from built-in gameplay loads
 - [ ] PR 10: Real worker preload
 - [ ] PR 11: Indexed or lazy single-level load
 - [ ] PR 12: Asset bootstrap smoothing
@@ -417,7 +423,7 @@ Why last:
 
 - [ ] first level-entry hitch is materially smaller on built-in content
 - [x] first playable frame appears before any heavy render warmup finishes
-- [ ] built-in gameplay loads do not block on unrelated imported content
+- [x] built-in gameplay loads do not block on unrelated imported content
 - [ ] overlay shows which load subphase is responsible for remaining spikes
 - [ ] warm loads are consistently better than cold loads
 - [ ] steady-state gameplay performance does not regress
