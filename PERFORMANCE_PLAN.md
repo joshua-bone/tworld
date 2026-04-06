@@ -538,6 +538,57 @@ Current local validation:
   - `3d-lynx` remained high in the same harness rerun
   - MS startup results were mixed and need another guarded rebaseline instead of a claim-by-inspection
 
+### PR 16: Lazy Initial Undo Checkpoint Materialization
+
+Status:
+
+- [x] Implemented
+
+Scope:
+
+- reduce `initialRuntimeInitMs` further by removing eager initial undo snapshot cloning from interactive session startup
+- keep generic undo-history APIs exact by default
+- preserve Lynx restore correctness by materializing the lazy initial snapshot before the first live mutation
+- keep runtime and branch checkpoints eager so later restore points do not drift with mutable engine state
+
+Acceptance:
+
+- [x] interactive session startup no longer clones the initial undo checkpoint eagerly
+- [x] direct undo-history creation remains exact by default outside the interactive adapter path
+- [x] MS and Lynx restore/fork flows still pass after the lazy-start change
+- [ ] warm-start medians show a consistent reduction on the heavier browser-visible cases
+
+Risk:
+
+- medium
+
+Why now:
+
+- PR14 and PR15 both pointed at runtime initialization rather than frame/history/session packaging
+- the initial undo checkpoint was still doing a full `structuredClone(...)` plus digest at session start even though most sessions never restore immediately
+- this cut is narrow enough to be low-risk if the laziness is limited to the interactive adapter path
+
+Shipped behavior:
+
+- `createMsUndoHistory(...)` and `createLynxUndoHistory(...)` now support an explicit `lazyInitialCheckpoint` option instead of always deciding eagerly
+- the interactive adapter path opts into that laziness for live session startup only
+- direct undo-history utilities keep eager initial checkpoint capture unless the caller explicitly opts in
+- the adapter primes the initial checkpoint on the first live advance before engine mutation, which preserves exact restore semantics for mutable Lynx state
+- later checkpoints and fork checkpoints still capture eagerly, so mid-run restores do not drift
+
+Current local validation:
+
+- targeted undo and restore coverage passed after the change:
+  - `src/undo-runtime/impl/history.test.ts`
+  - `src/game-runtime/impl/restoreInteractiveGameSession.test.ts`
+  - `src/game-runtime/impl/interactiveSessionProjection.test.ts`
+- a bounded local perf rerun currently reports these cold/warm `start-session` medians:
+  - `Typical MS`: `37.78ms` cold, `17.31ms` warm
+  - `Typical Lynx`: `8.04ms` cold, `3.10ms` warm
+  - `3D MS`: `11.89ms` cold, `11.80ms` warm
+  - `3D Lynx`: `9.06ms` cold, `24.27ms` warm
+- that local harness result is directionally encouraging on typical starts but does not close out the heavier browser-visible hitch yet
+
 ## Recommended Execution Order
 
 - [x] PR 7: Load-phase diagnostics split
@@ -549,6 +600,7 @@ Current local validation:
 - [x] PR 13: Rebaseline and closeout
 - [x] PR 14: Initial projection and tileset bootstrap diagnostics split
 - [x] PR 15: Runtime init clone reduction
+- [x] PR 16: Lazy initial undo checkpoint materialization
 
 ## Success Criteria
 
@@ -563,4 +615,4 @@ Current local validation:
 
 The repository/load-path phase is closed. The active follow-up phase is now initial projection and browser-side render bootstrap.
 
-The remaining bottleneck is no longer repository hydration or DAT extraction. PR14 showed that the real hotspot inside `initialProjectionMs` is `initialRuntimeInitMs`, and PR15 cut obvious clone waste there. The next cuts should stay on that runtime-init seam for heavy/3D cases and then rebaseline, rather than reopening the repository path or overfitting to frame projection.
+The remaining bottleneck is no longer repository hydration or DAT extraction. PR14 showed that the real hotspot inside `initialProjectionMs` is `initialRuntimeInitMs`, PR15 cut the obvious board/runtime clone waste there, and PR16 removed eager initial undo checkpoint capture from the interactive startup path. The next cuts should stay on that runtime-init seam for heavy/3D cases and then rebaseline, rather than reopening the repository path or overfitting to frame projection.

@@ -15,9 +15,14 @@ import {
 
 export type LynxUndoHistory = UndoHistory<LynxInteractiveSessionState>;
 
+interface CreateLynxUndoHistoryOptions {
+  lazyInitialCheckpoint?: boolean;
+}
+
 export function createLynxUndoHistory(
   session: LynxInteractiveSessionState,
   settings: number | Partial<UndoSettingsSnapshot> = 8,
+  options: CreateLynxUndoHistoryOptions = {},
 ): LynxUndoHistory {
   const settingsSnapshot =
     typeof settings === "number"
@@ -26,7 +31,9 @@ export function createLynxUndoHistory(
         })
       : createUndoSettingsSnapshot(settings);
   return createUndoHistory(
-    captureLynxUndoCheckpoint(session, UNDO_MAIN_TIMELINE_ID),
+    captureLynxUndoCheckpoint(session, UNDO_MAIN_TIMELINE_ID, {
+      lazySnapshot: options.lazyInitialCheckpoint ?? false,
+    }),
     settingsSnapshot,
   );
 }

@@ -153,6 +153,14 @@ export function createInteractiveAdapterRuntime<TToken, TLevel, THistory extends
   };
 }
 
+function primeInitialUndoCheckpointIfNeeded<TToken>(history: UndoHistory<TToken>): void {
+  if (!history.settingsSnapshot.enabled) {
+    return;
+  }
+
+  void history.initialCheckpoint.sessionToken;
+}
+
 export function projectInteractiveAdapterSession<TToken, TLevel, THistory extends UndoHistory<TToken>>(
   session: Pick<InteractiveGameSession, "request" | "mode" | "loadPerf"> & Partial<Pick<InteractiveGameSession, "frame">>,
   runtime: InteractiveAdapterRuntime<TToken, TLevel, THistory>,
@@ -260,6 +268,7 @@ export function advanceInteractiveSessionWithHistory<TToken, TLevel, THistory ex
   input: InteractiveInput,
   config: InteractiveAdapterHistoryConfig<TToken, TLevel, THistory>,
 ): InteractiveGameSession {
+  primeInitialUndoCheckpointIfNeeded(runtime.history);
   const inputCode = resolveGameInputCode(input);
   const currentTick = config.getCurrentTick(runtime.token);
 

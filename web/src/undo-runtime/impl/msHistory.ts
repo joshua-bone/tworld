@@ -15,9 +15,14 @@ import {
 
 export type MsUndoHistory = UndoHistory<MsInteractiveSessionState>;
 
+interface CreateMsUndoHistoryOptions {
+  lazyInitialCheckpoint?: boolean;
+}
+
 export function createMsUndoHistory(
   session: MsInteractiveSessionState,
   settings: number | Partial<UndoSettingsSnapshot> = 8,
+  options: CreateMsUndoHistoryOptions = {},
 ): MsUndoHistory {
   const settingsSnapshot =
     typeof settings === "number"
@@ -26,7 +31,9 @@ export function createMsUndoHistory(
         })
       : createUndoSettingsSnapshot(settings);
   return createUndoHistory(
-    captureMsUndoCheckpoint(session, UNDO_MAIN_TIMELINE_ID),
+    captureMsUndoCheckpoint(session, UNDO_MAIN_TIMELINE_ID, {
+      lazySnapshot: options.lazyInitialCheckpoint ?? false,
+    }),
     settingsSnapshot,
   );
 }

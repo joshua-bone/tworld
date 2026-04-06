@@ -311,7 +311,12 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     const projectionStartedAtMs = performance.now();
     const runtimeInitStartedAtMs = projectionStartedAtMs;
     const token = createLynxInteractiveSession(request, prepared.level);
-    const runtime = createInteractiveAdapterRuntime(token, prepared.level, createLynxUndoHistory, options?.undoSettings);
+    const runtime = createInteractiveAdapterRuntime(
+      token,
+      prepared.level,
+      (session, settings) => createLynxUndoHistory(session, settings, { lazyInitialCheckpoint: true }),
+      options?.undoSettings,
+    );
     const initialRuntimeInitMs = performance.now() - runtimeInitStartedAtMs;
     const { perf: projectionPerf, session } = projectInitialInteractiveAdapterSessionProfiled(
       { request, mode: "manual" },
@@ -344,7 +349,12 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     const projectionStartedAtMs = performance.now();
     const runtimeInitStartedAtMs = projectionStartedAtMs;
     const token = createLynxReplaySession(request, prepared.level, replay);
-    const runtime = createInteractiveAdapterRuntime(token, prepared.level, createLynxUndoHistory, options?.undoSettings);
+    const runtime = createInteractiveAdapterRuntime(
+      token,
+      prepared.level,
+      (session, settings) => createLynxUndoHistory(session, settings, { lazyInitialCheckpoint: true }),
+      options?.undoSettings,
+    );
     const initialRuntimeInitMs = performance.now() - runtimeInitStartedAtMs;
     const { perf: projectionPerf, session } = projectInitialInteractiveAdapterSessionProfiled(
       { request, mode: "replay" },

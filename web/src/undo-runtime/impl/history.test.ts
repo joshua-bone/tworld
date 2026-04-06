@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { EngineMapCell } from "@game-core/api/model";
 import { GAME_INPUT_CODES } from "@game-core/api/command";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
@@ -205,6 +205,25 @@ describe("Lynx undo checkpoints", () => {
 });
 
 describe("MS undo history", () => {
+  it("lazily materializes the initial checkpoint snapshot", () => {
+    const session = createScenarioSession();
+    const cloneSpy = vi.spyOn(globalThis, "structuredClone");
+
+    try {
+      const history = createMsUndoHistory(session, 2, { lazyInitialCheckpoint: true });
+
+      expect(cloneSpy).not.toHaveBeenCalled();
+
+      void history.initialCheckpoint.sessionToken;
+      expect(cloneSpy).toHaveBeenCalledTimes(1);
+
+      void history.initialCheckpoint.stateDigest;
+      expect(cloneSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      cloneSpy.mockRestore();
+    }
+  });
+
   it("records every tick including none inputs", () => {
     let session = createScenarioSession();
     let history = createMsUndoHistory(session, 2);
@@ -333,6 +352,25 @@ describe("MS undo history", () => {
 });
 
 describe("Lynx undo history", () => {
+  it("lazily materializes the initial checkpoint snapshot", () => {
+    const session = createLynxReplayScenarioSession();
+    const cloneSpy = vi.spyOn(globalThis, "structuredClone");
+
+    try {
+      const history = createLynxUndoHistory(session, 2, { lazyInitialCheckpoint: true });
+
+      expect(cloneSpy).not.toHaveBeenCalled();
+
+      void history.initialCheckpoint.sessionToken;
+      expect(cloneSpy).toHaveBeenCalledTimes(1);
+
+      void history.initialCheckpoint.stateDigest;
+      expect(cloneSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      cloneSpy.mockRestore();
+    }
+  });
+
   it("records every tick including none inputs", () => {
     let session = createLynxReplayScenarioSession();
     let history = createLynxUndoHistory(session, 2);

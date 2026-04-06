@@ -331,7 +331,12 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
       prepared.level,
       options?.msStepping === undefined ? null : { stepping: options.msStepping },
     );
-    const runtime = createInteractiveAdapterRuntime(token, prepared.level, createMsUndoHistory, options?.undoSettings);
+    const runtime = createInteractiveAdapterRuntime(
+      token,
+      prepared.level,
+      (session, settings) => createMsUndoHistory(session, settings, { lazyInitialCheckpoint: true }),
+      options?.undoSettings,
+    );
     const initialRuntimeInitMs = performance.now() - runtimeInitStartedAtMs;
     const { perf: projectionPerf, session } = projectInitialInteractiveAdapterSessionProfiled(
       { request, mode: "manual" },
@@ -364,7 +369,12 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     const projectionStartedAtMs = performance.now();
     const runtimeInitStartedAtMs = projectionStartedAtMs;
     const token = createMsReplaySession(request, prepared.level, replay);
-    const runtime = createInteractiveAdapterRuntime(token, prepared.level, createMsUndoHistory, options?.undoSettings);
+    const runtime = createInteractiveAdapterRuntime(
+      token,
+      prepared.level,
+      (session, settings) => createMsUndoHistory(session, settings, { lazyInitialCheckpoint: true }),
+      options?.undoSettings,
+    );
     const initialRuntimeInitMs = performance.now() - runtimeInitStartedAtMs;
     const { perf: projectionPerf, session } = projectInitialInteractiveAdapterSessionProfiled(
       { request, mode: "replay" },
