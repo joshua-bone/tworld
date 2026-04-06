@@ -63,6 +63,18 @@ export interface RawDatLevelGroup {
   layerNumbers: number[];
 }
 
+export interface IndexedDatLevelGroupLayer {
+  number: number;
+  start: number;
+  size: number;
+}
+
+export interface IndexedDatLevelGroup {
+  index: number;
+  number: number;
+  layers: IndexedDatLevelGroupLayer[];
+}
+
 interface ParsedLegacyLevelMetadata {
   author: string;
   chipsRequired: number;
@@ -85,6 +97,14 @@ interface ThreeDLevelRun {
   endExclusive: number;
   baseName: string | null;
   descending: boolean;
+}
+
+interface IndexedDatLevel {
+  index: number;
+  number: number;
+  name: string;
+  start: number;
+  size: number;
 }
 
 function decodePasswordField(field: Uint8Array): string {
@@ -138,6 +158,40 @@ function levelContainsSpecialToolFileId(levelData: Uint8Array): boolean {
 
   const lowerSize = readUint16(levelData, lowerSizeOffset);
   return layerContainsSpecialToolFileId(levelData, lowerSizeOffset + 2, lowerSize);
+}
+
+function parseLegacyLevelName(levelData: Uint8Array): string {
+  if (levelData.length < 10) {
+    throw new Error("invalid level data");
+  }
+
+  const number = readUint16(levelData, 0);
+  let cursor = 10 + readUint16(levelData, 8);
+  if (cursor + 2 >= levelData.length) {
+    throw new Error(`level ${number}: invalid level data`);
+  }
+
+  cursor += readUint16(levelData, cursor);
+  cursor += 2;
+  if (cursor + 2 > levelData.length) {
+    throw new Error(`level ${number}: invalid metadata block`);
+  }
+
+  const metadataSize = readUint16(levelData, cursor);
+  cursor += 2;
+  const metadataEnd = Math.min(cursor + metadataSize, levelData.length);
+
+  while (cursor + 2 < metadataEnd) {
+    const fieldId = levelData[cursor];
+    const fieldSize = Math.min(levelData[cursor + 1] ?? 0, metadataEnd - cursor - 2);
+    const fieldStart = cursor + 2;
+    if (fieldId === 3) {
+      return trimNulls(decodeLatin1(levelData.subarray(fieldStart, fieldStart + fieldSize)));
+    }
+    cursor = fieldStart + fieldSize;
+  }
+
+  return "";
 }
 
 function parseLegacyLevelMetadata(levelData: Uint8Array): ParsedLegacyLevelMetadata {
@@ -424,6 +478,50 @@ export function extractDatLevels(data: Uint8Array): {
   };
 }
 
+function indexDatLevels(data: Uint8Array): {
+  headerRuleset: Exclude<RulesetName, "None">;
+  levels: IndexedDatLevel[];
+} {
+  let cursor = 0;
+  const signature = readUint16(data, cursor);
+  cursor += 2;
+  if (signature !== DAT_FILE_SIGNATURE) {
+    throw new Error("not a valid data file");
+  }
+
+  const headerRuleset = parseDatRulesetSignature(readUint16(data, cursor));
+  cursor += 2;
+  const declaredLevelCount = readUint16(data, cursor);
+  cursor += 2;
+  if (declaredLevelCount <= 0) {
+    throw new Error("file contains no maps");
+  }
+
+  const levels: IndexedDatLevel[] = [];
+  for (let index = 0; index < declaredLevelCount; index += 1) {
+    const levelSize = readUint16(data, cursor);
+    cursor += 2;
+    if (cursor + levelSize > data.length) {
+      throw new Error(`unexpected EOF while reading level ${index + 1}`);
+    }
+    const start = cursor;
+    const levelData = data.subarray(start, start + levelSize);
+    levels.push({
+      index,
+      number: readUint16(levelData, 0),
+      name: parseLegacyLevelName(levelData),
+      start,
+      size: levelSize,
+    });
+    cursor += levelSize;
+  }
+
+  return {
+    headerRuleset,
+    levels,
+  };
+}
+
 export function parseDatFile(data: Uint8Array, options: { ruleset?: RulesetName } = {}): ParsedDatFile {
   const extracted = extractDatLevels(data);
   const parsedLevels = extracted.levels.map((level, index) => parseLevel(level.levelData, index));
@@ -471,5 +569,45 @@ export function extractGroupedDatLevels(data: Uint8Array): {
         layerNumbers: logicalLayers.map((layer) => layer.number),
       };
     }),
+  };
+}
+
+export function indexGroupedDatLevels(data: Uint8Array): {
+  headerRuleset: Exclude<RulesetName, "None">;
+  levels: IndexedDatLevelGroup[];
+} {
+  const indexed = indexDatLevels(data);
+  const runs = groupContiguousThreeDLevelRuns(indexed.levels);
+
+  return {
+    headerRuleset: indexed.headerRuleset,
+    levels: runs.map((run, groupedIndex) => {
+      const layers = indexed.levels.slice(run.start, run.endExclusive);
+      const logicalLayers = run.descending ? [...layers].reverse() : layers;
+      return {
+        index: groupedIndex,
+        number: groupedIndex + 1,
+        layers: logicalLayers.map((layer) => ({
+          number: layer.number,
+          start: layer.start,
+          size: layer.size,
+        })),
+      };
+    }),
+  };
+}
+
+export function extractIndexedGroupedDatLevel(data: Uint8Array, indexedLevel: IndexedDatLevelGroup): RawDatLevelGroup {
+  const primary = indexedLevel.layers[0];
+  if (!primary) {
+    throw new Error(`grouped level ${indexedLevel.number} has no layers`);
+  }
+
+  return {
+    index: indexedLevel.index,
+    number: indexedLevel.number,
+    levelData: data.slice(primary.start, primary.start + primary.size),
+    layerData: indexedLevel.layers.map((layer) => data.slice(layer.start, layer.start + layer.size)),
+    layerNumbers: indexedLevel.layers.map((layer) => layer.number),
   };
 }

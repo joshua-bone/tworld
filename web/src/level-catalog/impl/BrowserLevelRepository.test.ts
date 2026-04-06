@@ -235,6 +235,57 @@ describe("BrowserLevelRepository", () => {
     expect(store.listImportedDatFilesCallCount).toBe(1);
   });
 
+  it("loads grouped built-in levels by logical number from indexed DAT metadata", async () => {
+    const repository = new BrowserLevelRepository() as BrowserLevelRepository & {
+      dataFiles: Record<string, () => Promise<string>>;
+      seriesConfigs: Record<string, () => Promise<string>>;
+    };
+
+    repository.seriesConfigs = {
+      "/virtual/sets/TestBuiltIn3d.dac": async () => "file=TestBuiltIn3d.dat\nruleset=MS\n",
+    };
+    repository.dataFiles = {
+      "/virtual/data/TestBuiltIn3d.dat": async () => "https://example.invalid/TestBuiltIn3d.dat",
+    };
+
+    const response = {
+      ok: true,
+      async arrayBuffer() {
+        const dat = createDatFile([
+          createLevelData(1, "Stacked\\1", 4, 0, "ABCD"),
+          createLevelData(2, "Stacked\\2", 5, 0, "EFGH"),
+          createLevelData(3, "Solo", 6, 0, "IJKL"),
+        ]);
+        return dat.buffer.slice(dat.byteOffset, dat.byteOffset + dat.byteLength);
+      },
+    };
+    const fetchMock = vi.fn(async () => response as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const stacked = await repository.loadLevel({
+        seriesFile: "TestBuiltIn3d.dac",
+        levelNumber: 1,
+        ruleset: "MS",
+      });
+      const solo = await repository.loadLevel({
+        seriesFile: "TestBuiltIn3d.dac",
+        levelNumber: 2,
+        ruleset: "MS",
+      });
+
+      expect(stacked.layerData).toHaveLength(2);
+      expect(stacked.levelData).toEqual(stacked.layerData[0]);
+      expect(stacked.layerData[0]).toEqual(createLevelData(1, "Stacked\\1", 4, 0, "ABCD"));
+      expect(stacked.layerData[1]).toEqual(createLevelData(2, "Stacked\\2", 5, 0, "EFGH"));
+      expect(solo.layerData).toHaveLength(1);
+      expect(solo.levelData).toEqual(createLevelData(3, "Solo", 6, 0, "IJKL"));
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("returns a primed level before consulting bundled assets", async () => {
     const repository = new BrowserLevelRepository() as BrowserLevelRepository & {
       dataFiles: Record<string, () => Promise<string>>;

@@ -1,8 +1,11 @@
 import type { SeriesCatalogEntry } from "@content/api/series";
 import {
+  extractIndexedGroupedDatLevel,
   extractGroupedDatLevels,
+  indexGroupedDatLevels,
   parseDatFile,
   parseSeriesConfig,
+  type IndexedDatLevelGroup,
   type RawDatLevelGroup,
   type SeriesConfig,
 } from "@content/api/series-file";
@@ -15,7 +18,7 @@ import {
 } from "@level-catalog/impl/importedDatIdentity";
 import { normalizeBrowserAssetLoadError } from "@level-catalog/impl/browserAssetLoadError";
 
-type GroupedLevelIndex = Map<number, RawDatLevelGroup>;
+type GroupedLevelIndex = Map<number, IndexedDatLevelGroup>;
 type PrimedLevelCacheKey = string;
 
 interface ImportedDatSeries {
@@ -35,8 +38,8 @@ function cloneGroupedLevel(level: RawDatLevelGroup): RawDatLevelGroup {
   };
 }
 
-function createGroupedLevelIndex(levels: RawDatLevelGroup[]): GroupedLevelIndex {
-  return new Map(levels.map((level) => [level.number, level] satisfies [number, RawDatLevelGroup]));
+function createGroupedLevelIndex(levels: IndexedDatLevelGroup[]): GroupedLevelIndex {
+  return new Map(levels.map((level) => [level.number, level] satisfies [number, IndexedDatLevelGroup]));
 }
 
 function levelCacheKey(request: Pick<LoadedLevelData["request"], "seriesFile" | "levelNumber" | "ruleset">): PrimedLevelCacheKey {
@@ -134,7 +137,7 @@ export class BrowserLevelRepository implements LevelRepository {
       return cached;
     }
 
-    const promise = this.loadDataFile(filename).then((datBytes) => createGroupedLevelIndex(extractGroupedDatLevels(datBytes).levels));
+    const promise = this.loadDataFile(filename).then((datBytes) => createGroupedLevelIndex(indexGroupedDatLevels(datBytes).levels));
     this.groupedLevelCache.set(filename, promise);
     return promise;
   }
@@ -263,12 +266,14 @@ export class BrowserLevelRepository implements LevelRepository {
     }
 
     const config = await this.loadParsedSeriesConfig(request.seriesFile);
-    const levels = await this.loadGroupedLevels(config.mapFile);
-    const level = levels.get(request.levelNumber);
+    const [datBytes, levels] = await Promise.all([this.loadDataFile(config.mapFile), this.loadGroupedLevels(config.mapFile)]);
+    const indexedLevel = levels.get(request.levelNumber);
 
-    if (!level) {
+    if (!indexedLevel) {
       throw new Error(`level ${request.levelNumber} not found in ${request.seriesFile}`);
     }
+
+    const level = extractIndexedGroupedDatLevel(datBytes, indexedLevel);
 
     return {
       request: { ...request },

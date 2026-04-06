@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractGroupedDatLevels, parseDatFile } from "@content/api/series-file";
+import { extractGroupedDatLevels, extractIndexedGroupedDatLevel, indexGroupedDatLevels, parseDatFile } from "@content/api/series-file";
 import {
   buildSyntheticMsDatFile,
   buildSyntheticMsDatLevel,
@@ -77,5 +77,28 @@ describe("3D DAT grouping", () => {
 
     expect(parsed.levels[0]?.hasSpecialTools).toBe(true);
     expect(parsed.levels[1]?.hasSpecialTools).toBe(false);
+  });
+
+  it("can reconstruct grouped levels from a lightweight DAT index", () => {
+    const dat = buildSyntheticMsDatFile([
+      buildSyntheticMsDatLevel(1, "Stacked\\1", "ABCD"),
+      buildSyntheticMsDatLevel(2, "Stacked\\2", "EFGH"),
+      buildSyntheticMsDatLevel(3, "Descending\\3", "IJKL"),
+      buildSyntheticMsDatLevel(4, "Descending\\2", "MNOP"),
+      buildSyntheticMsDatLevel(5, "Descending\\1", "QRST"),
+      buildSyntheticMsDatLevel(6, "Solo", "UVWX"),
+    ]);
+
+    const grouped = extractGroupedDatLevels(dat);
+    const indexed = indexGroupedDatLevels(dat);
+
+    expect(indexed.levels.map((level) => level.number)).toEqual([1, 2, 3]);
+    expect(indexed.levels.map((level) => level.layers.map((layer) => layer.number))).toEqual([
+      [1, 2],
+      [5, 4, 3],
+      [6],
+    ]);
+
+    expect(indexed.levels.map((level) => extractIndexedGroupedDatLevel(dat, level))).toEqual(grouped.levels);
   });
 });

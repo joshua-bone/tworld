@@ -346,7 +346,7 @@ Shipped behavior:
 
 Status:
 
-- [ ] Not started
+- [x] Implemented
 
 Scope:
 
@@ -357,8 +357,8 @@ Scope:
 
 Acceptance:
 
-- [ ] first built-in level load does not require whole-pack extraction
-- [ ] later navigation still benefits from caching
+- [x] first built-in level load no longer materializes the full grouped level payload for the entire DAT
+- [x] later navigation can reuse cached DAT bytes plus a lightweight grouped-level index
 
 Risk:
 
@@ -367,6 +367,14 @@ Risk:
 Why fifth:
 
 - this is structurally correct, but larger than the two easiest wins above
+
+Shipped behavior:
+
+- built-in DAT files now build a lightweight grouped-level index instead of eagerly extracting every grouped level payload
+- the grouped index stores layer offsets and sizes, not cloned level byte arrays
+- built-in level loads now slice only the requested grouped level and its layers from cached DAT bytes
+- the same index+slice path now exists in both browser and Node level repositories
+- 3D grouped numbering and descending-layer ordering are covered by parser-level regression tests
 
 ### PR 12: Asset Bootstrap Smoothing
 
@@ -425,7 +433,7 @@ Why last:
 - [x] PR 8: Move initial render warmup off the critical path
 - [x] PR 9: Remove imported-DAT hydration from built-in gameplay loads
 - [x] PR 10: Real worker preload
-- [ ] PR 11: Indexed or lazy single-level load
+- [x] PR 11: Indexed or lazy single-level load
 - [ ] PR 12: Asset bootstrap smoothing
 - [ ] PR 13: Rebaseline and closeout
 
@@ -448,4 +456,5 @@ The current best default sequence is:
 2. PR 8 for the obvious main-thread hitch
 3. PR 9 for the avoidable repository hydration penalty
 4. PR 10 for worker-side readiness and reuse of selected level payloads
-5. PR 11 for deeper repository/data-load structural cleanup
+5. PR 11 for lighter built-in DAT indexing and targeted level extraction
+6. PR 12 and PR 13 to smooth remaining asset spikes and rebaseline
