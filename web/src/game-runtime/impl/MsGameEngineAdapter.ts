@@ -52,6 +52,7 @@ import {
   restoreInteractiveSessionToTick,
   resumeInteractiveSessionFromHistory,
   withPreparedInteractiveLevel,
+  withPreparedInteractiveLevelProfiled,
   type InteractiveAdapterHistoryConfig,
   type InteractiveAdapterProjectionConfig,
   type InteractiveAdapterProjectionOptions,
@@ -315,22 +316,28 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     request: Parameters<InteractiveGameEnginePort["startSession"]>[0],
     options?: Parameters<InteractiveGameEnginePort["startSession"]>[1],
   ): Promise<InteractiveGameSession> {
-    return withPreparedInteractiveLevel(
+    const prepared = await withPreparedInteractiveLevelProfiled(
       this.levels,
       request,
       "MS",
       "TS MS engine",
       msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
-      async (_loaded, level) => {
-      const token = createMsInteractiveSession(
-        request,
-        level,
-        options?.msStepping === undefined ? null : { stepping: options.msStepping },
-      );
-      const runtime = createInteractiveAdapterRuntime(token, level, createMsUndoHistory, options?.undoSettings);
-      return projectMsSession({ request, mode: "manual" }, runtime, "initial");
-      },
     );
+    const projectionStartedAtMs = performance.now();
+    const token = createMsInteractiveSession(
+      request,
+      prepared.level,
+      options?.msStepping === undefined ? null : { stepping: options.msStepping },
+    );
+    const runtime = createInteractiveAdapterRuntime(token, prepared.level, createMsUndoHistory, options?.undoSettings);
+    const session = projectMsSession({ request, mode: "manual" }, runtime, "initial");
+    return {
+      ...session,
+      loadPerf: {
+        ...prepared.perf,
+        initialProjectionMs: performance.now() - projectionStartedAtMs,
+      },
+    };
   }
 
   async startReplaySession(
@@ -338,18 +345,24 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
     replay: ReplaySolutionPayload,
     options?: Parameters<InteractiveGameEnginePort["startReplaySession"]>[2],
   ): Promise<InteractiveGameSession> {
-    return withPreparedInteractiveLevel(
+    const prepared = await withPreparedInteractiveLevelProfiled(
       this.levels,
       request,
       "MS",
       "TS MS engine",
       msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
-      async (_loaded, level) => {
-      const token = createMsReplaySession(request, level, replay);
-      const runtime = createInteractiveAdapterRuntime(token, level, createMsUndoHistory, options?.undoSettings);
-      return projectMsSession({ request, mode: "replay" }, runtime, "initial");
-      },
     );
+    const projectionStartedAtMs = performance.now();
+    const token = createMsReplaySession(request, prepared.level, replay);
+    const runtime = createInteractiveAdapterRuntime(token, prepared.level, createMsUndoHistory, options?.undoSettings);
+    const session = projectMsSession({ request, mode: "replay" }, runtime, "initial");
+    return {
+      ...session,
+      loadPerf: {
+        ...prepared.perf,
+        initialProjectionMs: performance.now() - projectionStartedAtMs,
+      },
+    };
   }
 
   async advanceSession(

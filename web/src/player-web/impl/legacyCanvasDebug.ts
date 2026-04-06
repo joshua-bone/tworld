@@ -143,12 +143,18 @@ export interface LegacyCanvasPerfReadout {
   gameSampleElapsedMs: number;
   gameSampleTickDelta: number;
   gameHzWindow: LegacyCanvasPerfWindowSnapshot;
+  initialProjectionMs: PerfMetricSnapshot;
+  initialRenderWarmupMs: PerfMetricSnapshot;
   lastCatchUpBatchTicks: number;
+  levelLoadMs: PerfMetricSnapshot;
   loopDriftMs: PerfMetricSnapshot;
   maxCatchUpBatchTicks: number;
+  prepareLevelMs: PerfMetricSnapshot;
   renderMs: PerfMetricSnapshot;
   sessionLoadMs: PerfMetricSnapshot;
   tickMs: PerfMetricSnapshot;
+  tilesetLoadMs: PerfMetricSnapshot;
+  workerSessionStartMs: PerfMetricSnapshot;
   workerAdvancePayloadBytes: ValueMetricSnapshot;
   workerAdvanceRoundTripMs: PerfMetricSnapshot;
 }
@@ -165,7 +171,11 @@ export function buildLegacyCanvasPerfReadout(
       `game sample ticks=${perf.gameSampleTickDelta} window=${perf.gameSampleElapsedMs.toFixed(1)}ms`,
       `tick ms ${formatMetricTriplet(perf.tickMs)} ${formatMetricWindow(perf.tickMs)}`,
       `drift ms last=${perf.loopDriftMs.lastMs.toFixed(1)} ${formatMetricWindow(perf.loopDriftMs)}`,
-      `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+      `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)}`,
+      `load ms total=${perf.sessionLoadMs.lastMs.toFixed(1)} worker=${perf.workerSessionStartMs.lastMs.toFixed(1)} level=${perf.levelLoadMs.lastMs.toFixed(1)} prepare=${perf.prepareLevelMs.lastMs.toFixed(1)} project=${perf.initialProjectionMs.lastMs.toFixed(1)}`,
+      `load5 total=${perf.sessionLoadMs.recentAvgMs.toFixed(1)} worker=${perf.workerSessionStartMs.recentAvgMs.toFixed(1)} level=${perf.levelLoadMs.recentAvgMs.toFixed(1)} prepare=${perf.prepareLevelMs.recentAvgMs.toFixed(1)} project=${perf.initialProjectionMs.recentAvgMs.toFixed(1)}`,
+      `boot ms tileset=${perf.tilesetLoadMs.lastMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.lastMs.toFixed(1)}`,
+      `boot5 tileset=${perf.tilesetLoadMs.recentAvgMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.recentAvgMs.toFixed(1)}`,
       `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} ${formatMetricWindow(perf.workerAdvanceRoundTripMs)}`,
       `payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")} ${formatValueWindow(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
       `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
@@ -186,7 +196,11 @@ export function buildLegacyCanvasPerfReadout(
     `game sample ticks=${perf.gameSampleTickDelta} window=${perf.gameSampleElapsedMs.toFixed(1)}ms`,
     `tick ms ${formatMetricTriplet(perf.tickMs)} ${formatMetricWindow(perf.tickMs)}`,
     `drift ms last=${perf.loopDriftMs.lastMs.toFixed(1)} ${formatMetricWindow(perf.loopDriftMs)}`,
-    `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)} load=${perf.sessionLoadMs.lastMs.toFixed(1)}`,
+    `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)}`,
+    `load ms total=${perf.sessionLoadMs.lastMs.toFixed(1)} worker=${perf.workerSessionStartMs.lastMs.toFixed(1)} level=${perf.levelLoadMs.lastMs.toFixed(1)} prepare=${perf.prepareLevelMs.lastMs.toFixed(1)} project=${perf.initialProjectionMs.lastMs.toFixed(1)}`,
+    `load5 total=${perf.sessionLoadMs.recentAvgMs.toFixed(1)} worker=${perf.workerSessionStartMs.recentAvgMs.toFixed(1)} level=${perf.levelLoadMs.recentAvgMs.toFixed(1)} prepare=${perf.prepareLevelMs.recentAvgMs.toFixed(1)} project=${perf.initialProjectionMs.recentAvgMs.toFixed(1)}`,
+    `boot ms tileset=${perf.tilesetLoadMs.lastMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.lastMs.toFixed(1)}`,
+    `boot5 tileset=${perf.tilesetLoadMs.recentAvgMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.recentAvgMs.toFixed(1)}`,
     `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} ${formatMetricWindow(perf.workerAdvanceRoundTripMs)}`,
     `payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")} ${formatValueWindow(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
     `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,

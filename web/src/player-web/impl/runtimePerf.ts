@@ -3,10 +3,15 @@ type PerfMetricName =
   | "catalogHydrationBatchMs"
   | "catalogImportedMs"
   | "initialRenderWarmupMs"
+  | "initialProjectionMs"
+  | "levelLoadMs"
   | "loopDriftMs"
+  | "prepareLevelMs"
   | "renderMs"
   | "sessionLoadMs"
   | "tickMs"
+  | "tilesetLoadMs"
+  | "workerSessionStartMs"
   | "workerAdvanceRoundTripMs";
 
 interface PerfMetricConfig {
@@ -76,6 +81,7 @@ export interface RuntimePerfSnapshot {
 
 interface PerfRuntimeGlobal {
   isDiagnosticsEnabled: () => boolean;
+  recordSessionLoadPhases: (metrics: SessionLoadPhaseMetrics) => void;
   recordWorkerAdvancePayloadBytes: (value: number) => void;
   recordWorkerAdvanceRoundTrip: (durationMs: number) => void;
   reset: () => void;
@@ -116,9 +122,24 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
     label: "initial render warmup",
     warnMultiplier: 2,
   },
+  initialProjectionMs: {
+    budgetMs: 30,
+    label: "initial session projection",
+    warnMultiplier: 2,
+  },
+  levelLoadMs: {
+    budgetMs: 90,
+    label: "level load",
+    warnMultiplier: 2,
+  },
   loopDriftMs: {
     budgetMs: 20,
     label: "game loop drift",
+    warnMultiplier: 2,
+  },
+  prepareLevelMs: {
+    budgetMs: 40,
+    label: "prepare loaded level",
     warnMultiplier: 2,
   },
   renderMs: {
@@ -134,6 +155,16 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
   tickMs: {
     budgetMs: 12,
     label: "game tick",
+    warnMultiplier: 2,
+  },
+  tilesetLoadMs: {
+    budgetMs: 80,
+    label: "legacy tileset load",
+    warnMultiplier: 2,
+  },
+  workerSessionStartMs: {
+    budgetMs: 120,
+    label: "worker start session",
     warnMultiplier: 2,
   },
   workerAdvanceRoundTripMs: {
@@ -174,6 +205,13 @@ const schedulerCatchUpState: SchedulerCatchUpState = {
 interface TimedSample {
   atMs: number;
   value: number;
+}
+
+export interface SessionLoadPhaseMetrics {
+  initialProjectionMs?: number;
+  levelLoadMs?: number;
+  prepareLevelMs?: number;
+  workerSessionStartMs?: number;
 }
 
 function createPerfMetricState(): PerfMetricState {
@@ -293,10 +331,15 @@ export function snapshotPerfMetrics(): Record<PerfMetricName, PerfMetricSnapshot
     catalogHydrationBatchMs: snapshotMetric("catalogHydrationBatchMs", getPerfMetricState("catalogHydrationBatchMs")),
     catalogImportedMs: snapshotMetric("catalogImportedMs", getPerfMetricState("catalogImportedMs")),
     initialRenderWarmupMs: snapshotMetric("initialRenderWarmupMs", getPerfMetricState("initialRenderWarmupMs")),
+    initialProjectionMs: snapshotMetric("initialProjectionMs", getPerfMetricState("initialProjectionMs")),
+    levelLoadMs: snapshotMetric("levelLoadMs", getPerfMetricState("levelLoadMs")),
     loopDriftMs: snapshotMetric("loopDriftMs", getPerfMetricState("loopDriftMs")),
+    prepareLevelMs: snapshotMetric("prepareLevelMs", getPerfMetricState("prepareLevelMs")),
     renderMs: snapshotMetric("renderMs", getPerfMetricState("renderMs")),
     sessionLoadMs: snapshotMetric("sessionLoadMs", getPerfMetricState("sessionLoadMs")),
     tickMs: snapshotMetric("tickMs", getPerfMetricState("tickMs")),
+    tilesetLoadMs: snapshotMetric("tilesetLoadMs", getPerfMetricState("tilesetLoadMs")),
+    workerSessionStartMs: snapshotMetric("workerSessionStartMs", getPerfMetricState("workerSessionStartMs")),
     workerAdvanceRoundTripMs: snapshotMetric(
       "workerAdvanceRoundTripMs",
       getPerfMetricState("workerAdvanceRoundTripMs"),
@@ -399,6 +442,21 @@ export function recordPerfMeasurement(name: PerfMetricName, durationMs: number):
   warnIfNeeded(name, durationMs, state);
 }
 
+export function recordSessionLoadPhases(metrics: SessionLoadPhaseMetrics): void {
+  if (metrics.workerSessionStartMs !== undefined) {
+    recordPerfMeasurement("workerSessionStartMs", metrics.workerSessionStartMs);
+  }
+  if (metrics.levelLoadMs !== undefined) {
+    recordPerfMeasurement("levelLoadMs", metrics.levelLoadMs);
+  }
+  if (metrics.prepareLevelMs !== undefined) {
+    recordPerfMeasurement("prepareLevelMs", metrics.prepareLevelMs);
+  }
+  if (metrics.initialProjectionMs !== undefined) {
+    recordPerfMeasurement("initialProjectionMs", metrics.initialProjectionMs);
+  }
+}
+
 function recordValueMeasurement(state: ValueMetricState, value: number): void {
   const now = performance.now();
   state.samples += 1;
@@ -455,6 +513,7 @@ function ensurePerfGlobal(): void {
 
   target[PERF_GLOBAL_KEY] = {
     isDiagnosticsEnabled: isPerfDiagnosticsEnabled,
+    recordSessionLoadPhases,
     recordWorkerAdvancePayloadBytes,
     recordWorkerAdvanceRoundTrip,
     reset: resetPerfMetrics,

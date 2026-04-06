@@ -86,6 +86,12 @@ export interface InteractiveGameSessionHydrationOptions {
   replayData?: boolean;
 }
 
+export interface InteractiveGameSessionLoadPerf {
+  levelLoadMs?: number;
+  prepareLevelMs?: number;
+  initialProjectionMs?: number;
+}
+
 export interface InteractiveGameSession {
   request: GameRequest;
   mode: "manual" | "replay";
@@ -93,6 +99,7 @@ export interface InteractiveGameSession {
   frame: InteractiveGameFrame;
   history: InteractiveGameSessionHistory;
   run: InteractiveGameSessionRunState;
+  loadPerf?: InteractiveGameSessionLoadPerf;
   recordedMoveCount?: number;
   recordedMoves?: ReplayRecordedMove[];
   handle: InteractiveGameSessionHandle;

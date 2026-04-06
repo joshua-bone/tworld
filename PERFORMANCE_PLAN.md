@@ -11,7 +11,7 @@
 - [x] 3D/Lynx render-path cleanup shipped
 - [x] Perf benchmark/guard tooling shipped
 - [ ] Level-entry and first-load spike pass completed
-- [ ] Load-phase diagnostics split into worker/load/render subphases
+- [x] Load-phase diagnostics split into worker/load/render subphases
 - [ ] First level-entry hitch reduced materially
 
 ## Scope
@@ -202,7 +202,7 @@ These are the first two changes most likely to reduce the hitch you can actually
 
 Status:
 
-- [ ] Not started
+- [x] Implemented
 
 Scope:
 
@@ -217,8 +217,8 @@ Scope:
 
 Acceptance:
 
-- [ ] level entry no longer appears as one opaque number
-- [ ] first-load hitch can be attributed to a specific subphase
+- [x] level entry no longer appears as one opaque number
+- [x] first-load hitch can be attributed to a specific subphase
 
 Risk:
 
@@ -227,6 +227,16 @@ Risk:
 Why first:
 
 - this makes the rest of the load-spike work provable instead of speculative
+
+Shipped diagnostics:
+
+- `sessionLoadMs` remains the end-to-end total
+- `workerSessionStartMs` captures the main-thread worker start-session round trip
+- `levelLoadMs` captures repository `loadLevel`
+- `prepareLevelMs` captures ruleset `prepareLoadedLevel`
+- `initialProjectionMs` captures initial session projection and packaging
+- `tilesetLoadMs` captures legacy tileset decode/build
+- `initialRenderWarmupMs` is now surfaced in the overlay as a first-class boot metric
 
 ### PR 8: Move Initial Render Warmup Off the Critical Path
 
@@ -387,7 +397,7 @@ Why last:
 
 ## Recommended Execution Order
 
-- [ ] PR 7: Load-phase diagnostics split
+- [x] PR 7: Load-phase diagnostics split
 - [ ] PR 8: Move initial render warmup off the critical path
 - [ ] PR 9: Remove imported-DAT hydration from built-in gameplay loads
 - [ ] PR 10: Real worker preload

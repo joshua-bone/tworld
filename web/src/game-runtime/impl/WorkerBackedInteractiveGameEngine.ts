@@ -29,6 +29,12 @@ const PERF_GLOBAL_KEY = "__TWORLD_PERF__";
 
 interface PerfRuntimeGlobal {
   isDiagnosticsEnabled?: () => boolean;
+  recordSessionLoadPhases?: (metrics: {
+    initialProjectionMs?: number;
+    levelLoadMs?: number;
+    prepareLevelMs?: number;
+    workerSessionStartMs?: number;
+  }) => void;
   recordWorkerAdvancePayloadBytes?: (value: number) => void;
   recordWorkerAdvanceRoundTrip?: (durationMs: number) => void;
 }
@@ -94,7 +100,12 @@ export class WorkerBackedInteractiveGameEngine implements InteractiveGameEngineP
     request: InteractiveGameWorkerRequest,
     previousSession?: InteractiveGameSession,
   ): Promise<InteractiveGameSession> {
-    const startedAtMs = request.type === "advance-session" ? performance.now() : 0;
+    const startedAtMs =
+      request.type === "advance-session" ||
+      request.type === "start-session" ||
+      request.type === "start-replay-session"
+        ? performance.now()
+        : 0;
     const response = await this.request(request);
     if (request.type === "advance-session") {
       const perf = runtimePerfGlobal();
@@ -104,6 +115,13 @@ export class WorkerBackedInteractiveGameEngine implements InteractiveGameEngineP
           estimateSerializablePayloadBytes(response.sessionUpdate ?? response.session ?? response),
         );
       }
+    } else if (request.type === "start-session" || request.type === "start-replay-session") {
+      runtimePerfGlobal()?.recordSessionLoadPhases?.({
+        workerSessionStartMs: performance.now() - startedAtMs,
+        levelLoadMs: response.session?.loadPerf?.levelLoadMs,
+        prepareLevelMs: response.session?.loadPerf?.prepareLevelMs,
+        initialProjectionMs: response.session?.loadPerf?.initialProjectionMs,
+      });
     }
 
     if (response.session) {

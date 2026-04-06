@@ -15,6 +15,7 @@ interface ProjectInteractiveGameSessionParams {
   frame: InteractiveGameFrame;
   history: InteractiveGameSessionHistory;
   run: InteractiveGameSessionRunState;
+  loadPerf?: InteractiveGameSession["loadPerf"];
   recordedMoves: ReplayRecordedMove[];
   handle: InteractiveGameSessionHandle;
 }
@@ -26,6 +27,7 @@ export function projectInteractiveGameSession({
   frame,
   history,
   run,
+  loadPerf,
   recordedMoves,
   handle,
 }: ProjectInteractiveGameSessionParams): InteractiveGameSession {
@@ -55,6 +57,7 @@ export function projectInteractiveGameSession({
           }
         : null,
     },
+    loadPerf: loadPerf ? { ...loadPerf } : undefined,
     recordedMoves: recordedMoves.map((move) => ({ ...move })),
     recordedMoveCount: recordedMoves.length,
     handle,

@@ -4,6 +4,7 @@ import {
   measurePerfAsync,
   measurePerfSync,
   recordPerfMeasurement,
+  recordSessionLoadPhases,
   recordSchedulerCatchUp,
   recordWorkerAdvancePayloadBytes,
   recordWorkerAdvanceRoundTrip,
@@ -47,6 +48,38 @@ describe("runtimePerf", () => {
 
     expect(result).toBe("ok");
     expect(snapshotPerfMetrics().sessionLoadMs.samples).toBe(1);
+  });
+
+  it("records split session-load phases into the public snapshot", () => {
+    recordSessionLoadPhases({
+      workerSessionStartMs: 64,
+      levelLoadMs: 28,
+      prepareLevelMs: 9,
+      initialProjectionMs: 6,
+    });
+
+    expect(snapshotPerfMetrics()).toMatchObject({
+      workerSessionStartMs: {
+        lastMs: 64,
+        maxMs: 64,
+        samples: 1,
+      },
+      levelLoadMs: {
+        lastMs: 28,
+        maxMs: 28,
+        samples: 1,
+      },
+      prepareLevelMs: {
+        lastMs: 9,
+        maxMs: 9,
+        samples: 1,
+      },
+      initialProjectionMs: {
+        lastMs: 6,
+        maxMs: 6,
+        samples: 1,
+      },
+    });
   });
 
   it("tracks catch-up scheduler batches and dropped ticks", () => {

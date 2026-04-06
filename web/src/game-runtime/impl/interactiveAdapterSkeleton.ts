@@ -37,7 +37,7 @@ export interface InteractiveAdapterHistoryConfig<TToken, TLevel, THistory extend
   forkUndoHistory: (history: THistory, token: TToken) => THistory;
   getCurrentTick: (token: TToken) => number;
   projectSession: (
-    session: Pick<InteractiveGameSession, "request" | "mode"> & Partial<Pick<InteractiveGameSession, "frame">>,
+    session: Pick<InteractiveGameSession, "request" | "mode" | "loadPerf"> & Partial<Pick<InteractiveGameSession, "frame">>,
     runtime: InteractiveAdapterRuntime<TToken, TLevel, THistory>,
     phase: "initial" | "tick",
   ) => InteractiveGameSession;
@@ -69,6 +69,11 @@ export interface InteractiveAdapterProjectionOptions {
   includeHistoryDetails?: boolean;
 }
 
+export interface PreparedInteractiveLevelPerf {
+  levelLoadMs: number;
+  prepareLevelMs: number;
+}
+
 export function assertAdapterRuleset(
   request: Pick<GameRequest, "ruleset">,
   expectedRuleset: GameRequest["ruleset"],
@@ -79,6 +84,30 @@ export function assertAdapterRuleset(
   }
 }
 
+export async function withPreparedInteractiveLevelProfiled<TLevel>(
+  levels: LevelRepository,
+  request: GameRequest,
+  expectedRuleset: GameRequest["ruleset"],
+  label: string,
+  prepareLevel: (loaded: LoadedLevelData) => TLevel,
+): Promise<{ loaded: LoadedLevelData; level: TLevel; perf: PreparedInteractiveLevelPerf }> {
+  assertAdapterRuleset(request, expectedRuleset, label);
+  const loadStartedAtMs = performance.now();
+  const loaded = await levels.loadLevel(request);
+  const levelLoadMs = performance.now() - loadStartedAtMs;
+  const prepareStartedAtMs = performance.now();
+  const level = prepareLevel(loaded);
+  const prepareLevelMs = performance.now() - prepareStartedAtMs;
+  return {
+    loaded,
+    level,
+    perf: {
+      levelLoadMs,
+      prepareLevelMs,
+    },
+  };
+}
+
 export async function withPreparedInteractiveLevel<TLevel, TResult>(
   levels: LevelRepository,
   request: GameRequest,
@@ -87,9 +116,13 @@ export async function withPreparedInteractiveLevel<TLevel, TResult>(
   prepareLevel: (loaded: LoadedLevelData) => TLevel,
   run: (loaded: LoadedLevelData, level: TLevel) => TResult | Promise<TResult>,
 ): Promise<TResult> {
-  assertAdapterRuleset(request, expectedRuleset, label);
-  const loaded = await levels.loadLevel(request);
-  const level = prepareLevel(loaded);
+  const { loaded, level } = await withPreparedInteractiveLevelProfiled(
+    levels,
+    request,
+    expectedRuleset,
+    label,
+    prepareLevel,
+  );
   return run(loaded, level);
 }
 
@@ -114,7 +147,7 @@ export function createInteractiveAdapterRuntime<TToken, TLevel, THistory extends
 }
 
 export function projectInteractiveAdapterSession<TToken, TLevel, THistory extends UndoHistory<TToken>>(
-  session: Pick<InteractiveGameSession, "request" | "mode"> & Partial<Pick<InteractiveGameSession, "frame">>,
+  session: Pick<InteractiveGameSession, "request" | "mode" | "loadPerf"> & Partial<Pick<InteractiveGameSession, "frame">>,
   runtime: InteractiveAdapterRuntime<TToken, TLevel, THistory>,
   phase: "initial" | "tick",
   config: InteractiveAdapterProjectionConfig<TToken, TLevel, THistory>,
@@ -133,6 +166,7 @@ export function projectInteractiveAdapterSession<TToken, TLevel, THistory extend
       includeHistoryDetails ? checkpointTicksForInteractiveSessionHistory(runtime.history) : undefined,
     ),
     run: config.projectRunState(session.request, runtime, frame),
+    loadPerf: session.loadPerf,
     recordedMoves: (runtime.token as { recordedMoves?: InteractiveGameSession["recordedMoves"] }).recordedMoves ?? [],
     handle: toInteractiveHandle(runtime),
   });

@@ -53,6 +53,7 @@ import {
   restoreInteractiveSessionToTick,
   resumeInteractiveSessionFromHistory,
   withPreparedInteractiveLevel,
+  withPreparedInteractiveLevelProfiled,
   type InteractiveAdapterHistoryConfig,
   type InteractiveAdapterProjectionConfig,
   type InteractiveAdapterProjectionOptions,
@@ -299,18 +300,24 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     request: Parameters<InteractiveGameEnginePort["startSession"]>[0],
     options?: Parameters<InteractiveGameEnginePort["startSession"]>[1],
   ): Promise<InteractiveGameSession> {
-    return withPreparedInteractiveLevel(
+    const prepared = await withPreparedInteractiveLevelProfiled(
       this.levels,
       request,
       "Lynx",
       "TS Lynx engine",
       lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
-      async (_loaded, level) => {
-      const token = createLynxInteractiveSession(request, level);
-      const runtime = createInteractiveAdapterRuntime(token, level, createLynxUndoHistory, options?.undoSettings);
-      return projectLynxSession({ request, mode: "manual" }, runtime, "initial");
-      },
     );
+    const projectionStartedAtMs = performance.now();
+    const token = createLynxInteractiveSession(request, prepared.level);
+    const runtime = createInteractiveAdapterRuntime(token, prepared.level, createLynxUndoHistory, options?.undoSettings);
+    const session = projectLynxSession({ request, mode: "manual" }, runtime, "initial");
+    return {
+      ...session,
+      loadPerf: {
+        ...prepared.perf,
+        initialProjectionMs: performance.now() - projectionStartedAtMs,
+      },
+    };
   }
 
   async startReplaySession(
@@ -318,18 +325,24 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
     replay: ReplaySolutionPayload,
     options?: Parameters<InteractiveGameEnginePort["startReplaySession"]>[2],
   ): Promise<InteractiveGameSession> {
-    return withPreparedInteractiveLevel(
+    const prepared = await withPreparedInteractiveLevelProfiled(
       this.levels,
       request,
       "Lynx",
       "TS Lynx engine",
       lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
-      async (_loaded, level) => {
-      const token = createLynxReplaySession(request, level, replay);
-      const runtime = createInteractiveAdapterRuntime(token, level, createLynxUndoHistory, options?.undoSettings);
-      return projectLynxSession({ request, mode: "replay" }, runtime, "initial");
-      },
     );
+    const projectionStartedAtMs = performance.now();
+    const token = createLynxReplaySession(request, prepared.level, replay);
+    const runtime = createInteractiveAdapterRuntime(token, prepared.level, createLynxUndoHistory, options?.undoSettings);
+    const session = projectLynxSession({ request, mode: "replay" }, runtime, "initial");
+    return {
+      ...session,
+      loadPerf: {
+        ...prepared.perf,
+        initialProjectionMs: performance.now() - projectionStartedAtMs,
+      },
+    };
   }
 
   async advanceSession(session: InteractiveGameSession, input: InteractiveInput): Promise<InteractiveGameSession> {
