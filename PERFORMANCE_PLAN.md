@@ -12,14 +12,16 @@
 - [x] Perf benchmark/guard tooling shipped
 - [x] Level-entry and first-load spike pass completed
 - [x] Load-phase diagnostics split into worker/load/render subphases
+- [x] Initial projection and tileset bootstrap diagnostics split further
 - [ ] First level-entry hitch reduced materially
 
 ## Scope
 
-This plan now has two parts:
+This plan now has three parts:
 
 1. steady-state gameplay throughput work that is already shipped
 2. remaining level-entry and first-load spike work that is still open
+3. the reopened projection/render-bootstrap pass now that repository load is no longer the main cost
 
 The current user-visible complaint is no longer just "gameplay runs slow all the time." The remaining complaint is that the game still hitches, especially when first loading into a level.
 
@@ -451,6 +453,46 @@ Closeout findings from the current guard run:
 - current warm-start medians are roughly `54ms` Typical MS, `97ms` Typical Lynx, `50ms` Dense MS, `138ms` Dense Lynx, `356ms` 3D MS, and `447ms` 3D Lynx
 - this means the load/repository work landed, but the remaining first-entry hitch is now mostly a projection/render-bootstrap problem instead of a DAT hydration or parsing problem
 
+### PR 14: Initial Projection and Tileset Bootstrap Diagnostics Split
+
+Status:
+
+- [x] Implemented
+
+Scope:
+
+- split `initialProjectionMs` into:
+  - runtime init
+  - frame projection
+  - history projection
+  - session-state projection
+  - final session packaging
+- split `tilesetLoadMs` into:
+  - image load/decode
+  - tileset build/override application
+- surface those subphases in the debug overlay without adding per-tick profiling overhead
+
+Acceptance:
+
+- [x] initial projection is no longer a single opaque number
+- [x] tileset bootstrap is no longer a single opaque number
+- [ ] we can identify the dominant remaining cold-start subphase on the deployed build
+
+Risk:
+
+- low
+
+Why now:
+
+- the guard run already showed that repository load is no longer the main issue
+- the next useful cut depends on knowing whether the remaining hitch is frame projection, session packaging, or browser-side tileset work
+
+Shipped behavior:
+
+- `initialProjectionMs` now has overlay-visible subphases for runtime init, frame projection, history projection, state projection, and session packaging
+- `tilesetLoadMs` now has overlay-visible subphases for image load and build/override work
+- the worker start-session seam forwards the new projection metrics back to the main-thread perf registry
+
 ## Recommended Execution Order
 
 - [x] PR 7: Load-phase diagnostics split
@@ -460,6 +502,7 @@ Closeout findings from the current guard run:
 - [x] PR 11: Indexed or lazy single-level load
 - [x] PR 12: Asset bootstrap smoothing
 - [x] PR 13: Rebaseline and closeout
+- [x] PR 14: Initial projection and tileset bootstrap diagnostics split
 
 ## Success Criteria
 
@@ -472,6 +515,6 @@ Closeout findings from the current guard run:
 
 ## Current Recommendation
 
-This plan is now closed as an engineering pass.
+The repository/load-path phase is closed. The active follow-up phase is now initial projection and browser-side render bootstrap.
 
-The remaining bottleneck is no longer repository hydration or DAT extraction. The residual entry hitch is concentrated in initial projection and browser-side render bootstrap, especially for Lynx and multi-layer sessions. If further perf work is needed, it should start there rather than reopening the load repository path.
+The remaining bottleneck is no longer repository hydration or DAT extraction. The residual entry hitch is concentrated in initial projection and browser-side render bootstrap, especially for Lynx and multi-layer sessions. The next cuts should target whichever of the new PR14 subphases dominates on the deployed build, rather than reopening the repository path.

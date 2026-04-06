@@ -7,7 +7,7 @@ import type {
   InteractiveGameRenderSprite,
 } from "@game-core/api/interactive";
 import { expansionArtworkFrameRect, type ExpansionArtworkFrameRect } from "@player-web/impl/expansionArtwork";
-import { measurePerfAsync } from "@player-web/impl/runtimePerf";
+import { measurePerfAsync, measurePerfSync } from "@player-web/impl/runtimePerf";
 import { buildLegacyTileset, type LegacyTileSprite, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import { LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import { createCanvas, drawLegacySpriteImage, loadLegacyImage } from "@player-web/impl/legacyCanvasShared";
@@ -500,25 +500,29 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
   }
 
   const nextPromise = measurePerfAsync("tilesetLoadMs", async () => {
-    const [image, expandedArtworkImage] = await Promise.all([
-      loadLegacyImage(LEGACY_TILESET_URLS[ruleset]),
-      loadLegacyImage(expandedArtworkUrl),
-    ]);
-    const canvas = document.createElement("canvas");
-    canvas.width = image.width;
-    canvas.height = image.height;
-    const context = canvas.getContext("2d");
-    if (!context) {
-      throw new Error("Unable to create legacy tileset canvas");
-    }
-
-    context.drawImage(image, 0, 0);
-    const artworkSprites = createLegacyExpansionArtworkSprites(expandedArtworkImage);
-    const tileset = applyLegacyTileOverrides(
-      buildLegacyTileset(canvas, ruleset),
-      createLegacyExpansionArtworkOverrides(expandedArtworkImage),
-      artworkSprites,
+    const [image, expandedArtworkImage] = await measurePerfAsync("tilesetImageLoadMs", () =>
+      Promise.all([
+        loadLegacyImage(LEGACY_TILESET_URLS[ruleset]),
+        loadLegacyImage(expandedArtworkUrl),
+      ]),
     );
+    const tileset = measurePerfSync("tilesetBuildMs", () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext("2d");
+      if (!context) {
+        throw new Error("Unable to create legacy tileset canvas");
+      }
+
+      context.drawImage(image, 0, 0);
+      const artworkSprites = createLegacyExpansionArtworkSprites(expandedArtworkImage);
+      return applyLegacyTileOverrides(
+        buildLegacyTileset(canvas, ruleset),
+        createLegacyExpansionArtworkOverrides(expandedArtworkImage),
+        artworkSprites,
+      );
+    });
     legacyTilesetCache.set(ruleset, tileset);
     return tileset;
   });

@@ -52,13 +52,28 @@ describe("runtimePerf", () => {
 
   it("records split session-load phases into the public snapshot", () => {
     recordSessionLoadPhases({
+      initialFrameProjectionMs: 3,
+      initialHistoryProjectionMs: 2,
       workerSessionStartMs: 64,
       levelLoadMs: 28,
       prepareLevelMs: 9,
       initialProjectionMs: 6,
+      initialRuntimeInitMs: 5,
+      initialSessionPackagingMs: 1,
+      initialSessionStateMs: 4,
     });
 
     expect(snapshotPerfMetrics()).toMatchObject({
+      initialFrameProjectionMs: {
+        lastMs: 3,
+        maxMs: 3,
+        samples: 1,
+      },
+      initialHistoryProjectionMs: {
+        lastMs: 2,
+        maxMs: 2,
+        samples: 1,
+      },
       workerSessionStartMs: {
         lastMs: 64,
         maxMs: 64,
@@ -77,6 +92,21 @@ describe("runtimePerf", () => {
       initialProjectionMs: {
         lastMs: 6,
         maxMs: 6,
+        samples: 1,
+      },
+      initialRuntimeInitMs: {
+        lastMs: 5,
+        maxMs: 5,
+        samples: 1,
+      },
+      initialSessionPackagingMs: {
+        lastMs: 1,
+        maxMs: 1,
+        samples: 1,
+      },
+      initialSessionStateMs: {
+        lastMs: 4,
+        maxMs: 4,
         samples: 1,
       },
     });

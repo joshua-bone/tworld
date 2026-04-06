@@ -90,6 +90,11 @@ export interface InteractiveGameSessionLoadPerf {
   levelLoadMs?: number;
   prepareLevelMs?: number;
   initialProjectionMs?: number;
+  initialRuntimeInitMs?: number;
+  initialFrameProjectionMs?: number;
+  initialHistoryProjectionMs?: number;
+  initialSessionStateMs?: number;
+  initialSessionPackagingMs?: number;
 }
 
 export interface InteractiveGameSession {

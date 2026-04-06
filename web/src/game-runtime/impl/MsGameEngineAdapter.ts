@@ -48,6 +48,7 @@ import {
   advanceInteractiveSessionWithHistory,
   assertAdapterRuleset,
   createInteractiveAdapterRuntime,
+  projectInitialInteractiveAdapterSessionProfiled,
   projectInteractiveAdapterSession,
   restoreInteractiveSessionToTick,
   resumeInteractiveSessionFromHistory,
@@ -324,18 +325,26 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
       msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
     );
     const projectionStartedAtMs = performance.now();
+    const runtimeInitStartedAtMs = projectionStartedAtMs;
     const token = createMsInteractiveSession(
       request,
       prepared.level,
       options?.msStepping === undefined ? null : { stepping: options.msStepping },
     );
     const runtime = createInteractiveAdapterRuntime(token, prepared.level, createMsUndoHistory, options?.undoSettings);
-    const session = projectMsSession({ request, mode: "manual" }, runtime, "initial");
+    const initialRuntimeInitMs = performance.now() - runtimeInitStartedAtMs;
+    const { perf: projectionPerf, session } = projectInitialInteractiveAdapterSessionProfiled(
+      { request, mode: "manual" },
+      runtime,
+      msProjectionConfig,
+    );
     return {
       ...session,
       loadPerf: {
         ...prepared.perf,
         initialProjectionMs: performance.now() - projectionStartedAtMs,
+        initialRuntimeInitMs,
+        ...projectionPerf,
       },
     };
   }
@@ -353,14 +362,22 @@ export class MsGameEngineAdapter implements GameEnginePort, DebugGameEnginePort,
       msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
     );
     const projectionStartedAtMs = performance.now();
+    const runtimeInitStartedAtMs = projectionStartedAtMs;
     const token = createMsReplaySession(request, prepared.level, replay);
     const runtime = createInteractiveAdapterRuntime(token, prepared.level, createMsUndoHistory, options?.undoSettings);
-    const session = projectMsSession({ request, mode: "replay" }, runtime, "initial");
+    const initialRuntimeInitMs = performance.now() - runtimeInitStartedAtMs;
+    const { perf: projectionPerf, session } = projectInitialInteractiveAdapterSessionProfiled(
+      { request, mode: "replay" },
+      runtime,
+      msProjectionConfig,
+    );
     return {
       ...session,
       loadPerf: {
         ...prepared.perf,
         initialProjectionMs: performance.now() - projectionStartedAtMs,
+        initialRuntimeInitMs,
+        ...projectionPerf,
       },
     };
   }

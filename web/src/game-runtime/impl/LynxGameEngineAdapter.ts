@@ -49,6 +49,7 @@ import {
   advanceInteractiveSessionWithHistory,
   assertAdapterRuleset,
   createInteractiveAdapterRuntime,
+  projectInitialInteractiveAdapterSessionProfiled,
   projectInteractiveAdapterSession,
   restoreInteractiveSessionToTick,
   resumeInteractiveSessionFromHistory,
@@ -308,14 +309,22 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
       lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
     );
     const projectionStartedAtMs = performance.now();
+    const runtimeInitStartedAtMs = projectionStartedAtMs;
     const token = createLynxInteractiveSession(request, prepared.level);
     const runtime = createInteractiveAdapterRuntime(token, prepared.level, createLynxUndoHistory, options?.undoSettings);
-    const session = projectLynxSession({ request, mode: "manual" }, runtime, "initial");
+    const initialRuntimeInitMs = performance.now() - runtimeInitStartedAtMs;
+    const { perf: projectionPerf, session } = projectInitialInteractiveAdapterSessionProfiled(
+      { request, mode: "manual" },
+      runtime,
+      lynxProjectionConfig,
+    );
     return {
       ...session,
       loadPerf: {
         ...prepared.perf,
         initialProjectionMs: performance.now() - projectionStartedAtMs,
+        initialRuntimeInitMs,
+        ...projectionPerf,
       },
     };
   }
@@ -333,14 +342,22 @@ export class LynxGameEngineAdapter implements GameEnginePort, DebugGameEnginePor
       lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel,
     );
     const projectionStartedAtMs = performance.now();
+    const runtimeInitStartedAtMs = projectionStartedAtMs;
     const token = createLynxReplaySession(request, prepared.level, replay);
     const runtime = createInteractiveAdapterRuntime(token, prepared.level, createLynxUndoHistory, options?.undoSettings);
-    const session = projectLynxSession({ request, mode: "replay" }, runtime, "initial");
+    const initialRuntimeInitMs = performance.now() - runtimeInitStartedAtMs;
+    const { perf: projectionPerf, session } = projectInitialInteractiveAdapterSessionProfiled(
+      { request, mode: "replay" },
+      runtime,
+      lynxProjectionConfig,
+    );
     return {
       ...session,
       loadPerf: {
         ...prepared.perf,
         initialProjectionMs: performance.now() - projectionStartedAtMs,
+        initialRuntimeInitMs,
+        ...projectionPerf,
       },
     };
   }

@@ -3,14 +3,21 @@ type PerfMetricName =
   | "catalogBootstrapMs"
   | "catalogHydrationBatchMs"
   | "catalogImportedMs"
+  | "initialFrameProjectionMs"
+  | "initialHistoryProjectionMs"
   | "initialRenderWarmupMs"
   | "initialProjectionMs"
+  | "initialRuntimeInitMs"
+  | "initialSessionPackagingMs"
+  | "initialSessionStateMs"
   | "levelLoadMs"
   | "loopDriftMs"
   | "prepareLevelMs"
   | "renderMs"
   | "sessionLoadMs"
   | "tickMs"
+  | "tilesetBuildMs"
+  | "tilesetImageLoadMs"
   | "tilesetLoadMs"
   | "workerSessionStartMs"
   | "workerAdvanceRoundTripMs";
@@ -123,6 +130,16 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
     label: "catalog imported batch",
     warnMultiplier: 2,
   },
+  initialFrameProjectionMs: {
+    budgetMs: 18,
+    label: "initial frame projection",
+    warnMultiplier: 2,
+  },
+  initialHistoryProjectionMs: {
+    budgetMs: 12,
+    label: "initial history projection",
+    warnMultiplier: 2,
+  },
   initialRenderWarmupMs: {
     budgetMs: 40,
     label: "initial render warmup",
@@ -131,6 +148,21 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
   initialProjectionMs: {
     budgetMs: 30,
     label: "initial session projection",
+    warnMultiplier: 2,
+  },
+  initialRuntimeInitMs: {
+    budgetMs: 16,
+    label: "initial runtime init",
+    warnMultiplier: 2,
+  },
+  initialSessionPackagingMs: {
+    budgetMs: 12,
+    label: "initial session packaging",
+    warnMultiplier: 2,
+  },
+  initialSessionStateMs: {
+    budgetMs: 10,
+    label: "initial session state",
     warnMultiplier: 2,
   },
   levelLoadMs: {
@@ -161,6 +193,16 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
   tickMs: {
     budgetMs: 12,
     label: "game tick",
+    warnMultiplier: 2,
+  },
+  tilesetBuildMs: {
+    budgetMs: 50,
+    label: "legacy tileset build",
+    warnMultiplier: 2,
+  },
+  tilesetImageLoadMs: {
+    budgetMs: 40,
+    label: "legacy tileset image load",
     warnMultiplier: 2,
   },
   tilesetLoadMs: {
@@ -214,7 +256,12 @@ interface TimedSample {
 }
 
 export interface SessionLoadPhaseMetrics {
+  initialFrameProjectionMs?: number;
+  initialHistoryProjectionMs?: number;
   initialProjectionMs?: number;
+  initialRuntimeInitMs?: number;
+  initialSessionPackagingMs?: number;
+  initialSessionStateMs?: number;
   levelLoadMs?: number;
   prepareLevelMs?: number;
   workerSessionStartMs?: number;
@@ -337,14 +384,30 @@ export function snapshotPerfMetrics(): Record<PerfMetricName, PerfMetricSnapshot
     catalogBootstrapMs: snapshotMetric("catalogBootstrapMs", getPerfMetricState("catalogBootstrapMs")),
     catalogHydrationBatchMs: snapshotMetric("catalogHydrationBatchMs", getPerfMetricState("catalogHydrationBatchMs")),
     catalogImportedMs: snapshotMetric("catalogImportedMs", getPerfMetricState("catalogImportedMs")),
+    initialFrameProjectionMs: snapshotMetric(
+      "initialFrameProjectionMs",
+      getPerfMetricState("initialFrameProjectionMs"),
+    ),
+    initialHistoryProjectionMs: snapshotMetric(
+      "initialHistoryProjectionMs",
+      getPerfMetricState("initialHistoryProjectionMs"),
+    ),
     initialRenderWarmupMs: snapshotMetric("initialRenderWarmupMs", getPerfMetricState("initialRenderWarmupMs")),
     initialProjectionMs: snapshotMetric("initialProjectionMs", getPerfMetricState("initialProjectionMs")),
+    initialRuntimeInitMs: snapshotMetric("initialRuntimeInitMs", getPerfMetricState("initialRuntimeInitMs")),
+    initialSessionPackagingMs: snapshotMetric(
+      "initialSessionPackagingMs",
+      getPerfMetricState("initialSessionPackagingMs"),
+    ),
+    initialSessionStateMs: snapshotMetric("initialSessionStateMs", getPerfMetricState("initialSessionStateMs")),
     levelLoadMs: snapshotMetric("levelLoadMs", getPerfMetricState("levelLoadMs")),
     loopDriftMs: snapshotMetric("loopDriftMs", getPerfMetricState("loopDriftMs")),
     prepareLevelMs: snapshotMetric("prepareLevelMs", getPerfMetricState("prepareLevelMs")),
     renderMs: snapshotMetric("renderMs", getPerfMetricState("renderMs")),
     sessionLoadMs: snapshotMetric("sessionLoadMs", getPerfMetricState("sessionLoadMs")),
     tickMs: snapshotMetric("tickMs", getPerfMetricState("tickMs")),
+    tilesetBuildMs: snapshotMetric("tilesetBuildMs", getPerfMetricState("tilesetBuildMs")),
+    tilesetImageLoadMs: snapshotMetric("tilesetImageLoadMs", getPerfMetricState("tilesetImageLoadMs")),
     tilesetLoadMs: snapshotMetric("tilesetLoadMs", getPerfMetricState("tilesetLoadMs")),
     workerSessionStartMs: snapshotMetric("workerSessionStartMs", getPerfMetricState("workerSessionStartMs")),
     workerAdvanceRoundTripMs: snapshotMetric(
@@ -461,6 +524,21 @@ export function recordSessionLoadPhases(metrics: SessionLoadPhaseMetrics): void 
   }
   if (metrics.initialProjectionMs !== undefined) {
     recordPerfMeasurement("initialProjectionMs", metrics.initialProjectionMs);
+  }
+  if (metrics.initialRuntimeInitMs !== undefined) {
+    recordPerfMeasurement("initialRuntimeInitMs", metrics.initialRuntimeInitMs);
+  }
+  if (metrics.initialFrameProjectionMs !== undefined) {
+    recordPerfMeasurement("initialFrameProjectionMs", metrics.initialFrameProjectionMs);
+  }
+  if (metrics.initialHistoryProjectionMs !== undefined) {
+    recordPerfMeasurement("initialHistoryProjectionMs", metrics.initialHistoryProjectionMs);
+  }
+  if (metrics.initialSessionStateMs !== undefined) {
+    recordPerfMeasurement("initialSessionStateMs", metrics.initialSessionStateMs);
+  }
+  if (metrics.initialSessionPackagingMs !== undefined) {
+    recordPerfMeasurement("initialSessionPackagingMs", metrics.initialSessionPackagingMs);
   }
 }
 

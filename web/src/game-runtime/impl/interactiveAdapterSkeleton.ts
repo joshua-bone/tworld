@@ -74,6 +74,13 @@ export interface PreparedInteractiveLevelPerf {
   prepareLevelMs: number;
 }
 
+export interface ProfiledInitialInteractiveAdapterSessionPerf {
+  initialFrameProjectionMs: number;
+  initialHistoryProjectionMs: number;
+  initialSessionPackagingMs: number;
+  initialSessionStateMs: number;
+}
+
 export function assertAdapterRuleset(
   request: Pick<GameRequest, "ruleset">,
   expectedRuleset: GameRequest["ruleset"],
@@ -170,6 +177,59 @@ export function projectInteractiveAdapterSession<TToken, TLevel, THistory extend
     recordedMoves: (runtime.token as { recordedMoves?: InteractiveGameSession["recordedMoves"] }).recordedMoves ?? [],
     handle: toInteractiveHandle(runtime),
   });
+}
+
+export function projectInitialInteractiveAdapterSessionProfiled<
+  TToken,
+  TLevel,
+  THistory extends UndoHistory<TToken>,
+>(
+  session: Pick<InteractiveGameSession, "request" | "mode" | "loadPerf"> & Partial<Pick<InteractiveGameSession, "frame">>,
+  runtime: InteractiveAdapterRuntime<TToken, TLevel, THistory>,
+  config: InteractiveAdapterProjectionConfig<TToken, TLevel, THistory>,
+  options: InteractiveAdapterProjectionOptions = {},
+): { perf: ProfiledInitialInteractiveAdapterSessionPerf; session: InteractiveGameSession } {
+  const frameStartedAtMs = performance.now();
+  const frame = config.projectFrame(runtime.token, "initial", session.frame);
+  const initialFrameProjectionMs = performance.now() - frameStartedAtMs;
+
+  const includeHistoryDetails = options.includeHistoryDetails ?? true;
+  const historyStartedAtMs = performance.now();
+  const history = projectInteractiveSessionHistory(
+    runtime.historySummary,
+    runtime.restoreState,
+    includeHistoryDetails ? checkpointTicksForInteractiveSessionHistory(runtime.history) : undefined,
+  );
+  const initialHistoryProjectionMs = performance.now() - historyStartedAtMs;
+
+  const sessionStateStartedAtMs = performance.now();
+  const hintText = config.projectHintText(runtime);
+  const run = config.projectRunState(session.request, runtime, frame);
+  const initialSessionStateMs = performance.now() - sessionStateStartedAtMs;
+
+  const sessionPackagingStartedAtMs = performance.now();
+  const nextSession = projectInteractiveGameSession({
+    request: session.request,
+    mode: session.mode,
+    hintText,
+    frame,
+    history,
+    run,
+    loadPerf: session.loadPerf,
+    recordedMoves: (runtime.token as { recordedMoves?: InteractiveGameSession["recordedMoves"] }).recordedMoves ?? [],
+    handle: toInteractiveHandle(runtime),
+  });
+  const initialSessionPackagingMs = performance.now() - sessionPackagingStartedAtMs;
+
+  return {
+    perf: {
+      initialFrameProjectionMs,
+      initialHistoryProjectionMs,
+      initialSessionPackagingMs,
+      initialSessionStateMs,
+    },
+    session: nextSession,
+  };
 }
 
 function advanceInteractiveLiveRuntime<TToken, TLevel, THistory extends UndoHistory<TToken>>(

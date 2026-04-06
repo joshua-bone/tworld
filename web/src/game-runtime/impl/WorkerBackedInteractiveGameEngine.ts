@@ -31,7 +31,12 @@ const PERF_GLOBAL_KEY = "__TWORLD_PERF__";
 interface PerfRuntimeGlobal {
   isDiagnosticsEnabled?: () => boolean;
   recordSessionLoadPhases?: (metrics: {
+    initialFrameProjectionMs?: number;
+    initialHistoryProjectionMs?: number;
     initialProjectionMs?: number;
+    initialRuntimeInitMs?: number;
+    initialSessionPackagingMs?: number;
+    initialSessionStateMs?: number;
     levelLoadMs?: number;
     prepareLevelMs?: number;
     workerSessionStartMs?: number;
@@ -122,6 +127,11 @@ export class WorkerBackedInteractiveGameEngine implements InteractiveGameEngineP
         levelLoadMs: response.session?.loadPerf?.levelLoadMs,
         prepareLevelMs: response.session?.loadPerf?.prepareLevelMs,
         initialProjectionMs: response.session?.loadPerf?.initialProjectionMs,
+        initialRuntimeInitMs: response.session?.loadPerf?.initialRuntimeInitMs,
+        initialFrameProjectionMs: response.session?.loadPerf?.initialFrameProjectionMs,
+        initialHistoryProjectionMs: response.session?.loadPerf?.initialHistoryProjectionMs,
+        initialSessionStateMs: response.session?.loadPerf?.initialSessionStateMs,
+        initialSessionPackagingMs: response.session?.loadPerf?.initialSessionPackagingMs,
       });
     }
 
