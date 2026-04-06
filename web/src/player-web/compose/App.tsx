@@ -77,22 +77,7 @@ export function App() {
 
   useEffect(() => {
     prewarmLegacyTileset("Lynx");
-
-    if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(() => {
-        prewarmLegacyTileset("MS");
-      });
-      return () => {
-        window.cancelIdleCallback(idleId);
-      };
-    }
-
-    const timeoutId = globalThis.setTimeout(() => {
-      prewarmLegacyTileset("MS");
-    }, 500);
-    return () => {
-      globalThis.clearTimeout(timeoutId);
-    };
+    prewarmLegacyTileset("MS");
   }, []);
 
   const navigateToShell = (nextMode: AppShellMode, options: { replace?: boolean } = {}) => {

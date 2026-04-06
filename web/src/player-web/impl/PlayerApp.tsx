@@ -949,6 +949,7 @@ export function PlayerApp({
     soundPlayerRef.current = player;
     player.setMuted(soundMuted);
     player.setVolume(soundVolume);
+    player.prewarm();
 
     return () => {
       player.dispose();

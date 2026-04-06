@@ -1,5 +1,7 @@
 import type { LegacyTileSprite } from "@player-web/impl/legacyTileset";
 
+const legacyImagePromiseCache = new Map<string, Promise<HTMLImageElement>>();
+
 export const LEGACY_COLORS = {
   background: "#000000",
   text: "#ffffff",
@@ -41,12 +43,46 @@ export function drawLegacySpriteImage(
 }
 
 export function loadLegacyImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
+  const cached = legacyImagePromiseCache.get(url);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
+    let settled = false;
+
+    const resolveDecodedImage = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (typeof image.decode === "function") {
+        void image.decode().catch(() => {}).finally(() => {
+          resolve(image);
+        });
+        return;
+      }
+      resolve(image);
+    };
+
+    image.onload = () => resolveDecodedImage();
+    image.onerror = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      legacyImagePromiseCache.delete(url);
+      reject(new Error(`Failed to load image asset: ${url}`));
+    };
     image.src = url;
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Failed to load image asset: ${url}`));
+    if (image.complete && image.naturalWidth > 0) {
+      resolveDecodedImage();
+    }
   });
+
+  legacyImagePromiseCache.set(url, promise);
+  return promise;
 }
 
 export function drawLegacyText(

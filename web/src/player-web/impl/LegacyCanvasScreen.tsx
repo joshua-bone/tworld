@@ -365,6 +365,7 @@ function updateLegacyCanvasPerfTracker(
   }
 
   return {
+    audioBootstrapMs: metrics.audioBootstrapMs,
     buildCommitHash: TWORLD_BUILD_COMMIT,
     cappedCatchUpBatches: perf.scheduler.cappedBatchCount,
     clockMode: "worker-accumulator",

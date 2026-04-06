@@ -380,7 +380,7 @@ Shipped behavior:
 
 Status:
 
-- [ ] Not started
+- [x] Implemented
 
 Scope:
 
@@ -391,8 +391,8 @@ Scope:
 
 Acceptance:
 
-- [ ] tileset readiness is not a common first-level blocker
-- [ ] first sound playback no longer causes noticeable hitching
+- [x] legacy tileset warmup is deterministic instead of depending on idle timing
+- [x] first sound playback can reuse precreated audio elements instead of allocating them on demand
 
 Risk:
 
@@ -401,6 +401,14 @@ Risk:
 Why sixth:
 
 - useful cleanup, but not the largest remaining spike source
+
+Shipped behavior:
+
+- app startup now prewarms both legacy tilesets immediately instead of deferring MS warmup behind idle/timeout heuristics
+- legacy image loading now uses a shared decoded-image promise cache so repeated tileset builds do not refetch or re-decode the same bitmap assets
+- the sound player now precreates one-shot pools and loop audio elements as part of bootstrap instead of allocating them on first playback
+- audio bootstrap is triggered on player mount and again after unlock as a no-op safety path
+- the debug perf overlay now reports `audioBootstrapMs` alongside tileset and render warmup boot metrics
 
 ### PR 13: Rebaseline and Closeout
 
@@ -434,7 +442,7 @@ Why last:
 - [x] PR 9: Remove imported-DAT hydration from built-in gameplay loads
 - [x] PR 10: Real worker preload
 - [x] PR 11: Indexed or lazy single-level load
-- [ ] PR 12: Asset bootstrap smoothing
+- [x] PR 12: Asset bootstrap smoothing
 - [ ] PR 13: Rebaseline and closeout
 
 ## Success Criteria
@@ -457,4 +465,5 @@ The current best default sequence is:
 3. PR 9 for the avoidable repository hydration penalty
 4. PR 10 for worker-side readiness and reuse of selected level payloads
 5. PR 11 for lighter built-in DAT indexing and targeted level extraction
-6. PR 12 and PR 13 to smooth remaining asset spikes and rebaseline
+6. PR 12 for deterministic tileset and audio bootstrap
+7. PR 13 to rebaseline and close out the load-path work

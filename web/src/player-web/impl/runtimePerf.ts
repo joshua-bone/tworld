@@ -1,4 +1,5 @@
 type PerfMetricName =
+  | "audioBootstrapMs"
   | "catalogBootstrapMs"
   | "catalogHydrationBatchMs"
   | "catalogImportedMs"
@@ -102,6 +103,11 @@ const PERF_WARN_THROTTLE_MS = 5000;
 const PERF_EMA_WEIGHT = 0.15;
 const PERF_ROLLING_WINDOW_MS = 5000;
 const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
+  audioBootstrapMs: {
+    budgetMs: 40,
+    label: "sound bootstrap",
+    warnMultiplier: 2,
+  },
   catalogBootstrapMs: {
     budgetMs: 60,
     label: "catalog bootstrap",
@@ -327,6 +333,7 @@ function snapshotRecentSamples(
 
 export function snapshotPerfMetrics(): Record<PerfMetricName, PerfMetricSnapshot> {
   return {
+    audioBootstrapMs: snapshotMetric("audioBootstrapMs", getPerfMetricState("audioBootstrapMs")),
     catalogBootstrapMs: snapshotMetric("catalogBootstrapMs", getPerfMetricState("catalogBootstrapMs")),
     catalogHydrationBatchMs: snapshotMetric("catalogHydrationBatchMs", getPerfMetricState("catalogHydrationBatchMs")),
     catalogImportedMs: snapshotMetric("catalogImportedMs", getPerfMetricState("catalogImportedMs")),

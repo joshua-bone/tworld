@@ -202,6 +202,7 @@ function createPerfWindowSnapshot(
 
 function createPerfReadout(): LegacyCanvasPerfReadout {
   return {
+    audioBootstrapMs: createPerfMetricSnapshot(18.4, 16.2, 27.1),
     buildCommitHash: "abcdef123456",
     cappedCatchUpBatches: 2,
     clockMode: "worker-accumulator",
@@ -284,8 +285,8 @@ describe("buildLegacyCanvasPerfReadout", () => {
       "draw ms last=10.2 ema=9.7 max=14.6 avg5=9.9 max5=14.6",
       "load ms total=48.1 worker=45.4 level=31.6 prepare=8.8 project=6.4",
       "load5 total=48.1 worker=45.4 level=31.6 prepare=8.8 project=6.4",
-      "boot ms tileset=37.9 warm=21.7",
-      "boot5 tileset=37.9 warm=21.7",
+      "boot ms tileset=37.9 warm=21.7 sound=18.4",
+      "boot5 tileset=37.9 warm=21.7 sound=18.4",
       "worker ms last=14.3 ema=13.1 max=20.7 avg5=13.7 max5=18.1",
       "payload last=9.0KB ema=7.0KB max=12.0KB avg5=8.0KB max5=12.0KB",
       "sched batch=3 max=4 capped=2 dropped=5",
@@ -305,8 +306,8 @@ describe("buildLegacyCanvasPerfReadout", () => {
       "draw ms last=10.2 ema=9.7 max=14.6 avg5=9.9 max5=14.6",
       "load ms total=48.1 worker=45.4 level=31.6 prepare=8.8 project=6.4",
       "load5 total=48.1 worker=45.4 level=31.6 prepare=8.8 project=6.4",
-      "boot ms tileset=37.9 warm=21.7",
-      "boot5 tileset=37.9 warm=21.7",
+      "boot ms tileset=37.9 warm=21.7 sound=18.4",
+      "boot5 tileset=37.9 warm=21.7 sound=18.4",
       "worker ms last=14.3 ema=13.1 max=20.7 avg5=13.7 max5=18.1",
       "payload last=9.0KB ema=7.0KB max=12.0KB avg5=8.0KB max5=12.0KB",
       "sched batch=3 max=4 capped=2 dropped=5",

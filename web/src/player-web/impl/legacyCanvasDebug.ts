@@ -131,6 +131,7 @@ export interface LegacyCanvasPerfWindowSnapshot {
 }
 
 export interface LegacyCanvasPerfReadout {
+  audioBootstrapMs: PerfMetricSnapshot;
   buildCommitHash: string;
   cappedCatchUpBatches: number;
   clockMode: string;
@@ -174,8 +175,8 @@ export function buildLegacyCanvasPerfReadout(
       `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)}`,
       `load ms total=${perf.sessionLoadMs.lastMs.toFixed(1)} worker=${perf.workerSessionStartMs.lastMs.toFixed(1)} level=${perf.levelLoadMs.lastMs.toFixed(1)} prepare=${perf.prepareLevelMs.lastMs.toFixed(1)} project=${perf.initialProjectionMs.lastMs.toFixed(1)}`,
       `load5 total=${perf.sessionLoadMs.recentAvgMs.toFixed(1)} worker=${perf.workerSessionStartMs.recentAvgMs.toFixed(1)} level=${perf.levelLoadMs.recentAvgMs.toFixed(1)} prepare=${perf.prepareLevelMs.recentAvgMs.toFixed(1)} project=${perf.initialProjectionMs.recentAvgMs.toFixed(1)}`,
-      `boot ms tileset=${perf.tilesetLoadMs.lastMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.lastMs.toFixed(1)}`,
-      `boot5 tileset=${perf.tilesetLoadMs.recentAvgMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.recentAvgMs.toFixed(1)}`,
+      `boot ms tileset=${perf.tilesetLoadMs.lastMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.lastMs.toFixed(1)} sound=${perf.audioBootstrapMs.lastMs.toFixed(1)}`,
+      `boot5 tileset=${perf.tilesetLoadMs.recentAvgMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.recentAvgMs.toFixed(1)} sound=${perf.audioBootstrapMs.recentAvgMs.toFixed(1)}`,
       `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} ${formatMetricWindow(perf.workerAdvanceRoundTripMs)}`,
       `payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")} ${formatValueWindow(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
       `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
@@ -199,8 +200,8 @@ export function buildLegacyCanvasPerfReadout(
     `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)}`,
     `load ms total=${perf.sessionLoadMs.lastMs.toFixed(1)} worker=${perf.workerSessionStartMs.lastMs.toFixed(1)} level=${perf.levelLoadMs.lastMs.toFixed(1)} prepare=${perf.prepareLevelMs.lastMs.toFixed(1)} project=${perf.initialProjectionMs.lastMs.toFixed(1)}`,
     `load5 total=${perf.sessionLoadMs.recentAvgMs.toFixed(1)} worker=${perf.workerSessionStartMs.recentAvgMs.toFixed(1)} level=${perf.levelLoadMs.recentAvgMs.toFixed(1)} prepare=${perf.prepareLevelMs.recentAvgMs.toFixed(1)} project=${perf.initialProjectionMs.recentAvgMs.toFixed(1)}`,
-    `boot ms tileset=${perf.tilesetLoadMs.lastMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.lastMs.toFixed(1)}`,
-    `boot5 tileset=${perf.tilesetLoadMs.recentAvgMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.recentAvgMs.toFixed(1)}`,
+    `boot ms tileset=${perf.tilesetLoadMs.lastMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.lastMs.toFixed(1)} sound=${perf.audioBootstrapMs.lastMs.toFixed(1)}`,
+    `boot5 tileset=${perf.tilesetLoadMs.recentAvgMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.recentAvgMs.toFixed(1)} sound=${perf.audioBootstrapMs.recentAvgMs.toFixed(1)}`,
     `worker ms ${formatMetricTriplet(perf.workerAdvanceRoundTripMs)} ${formatMetricWindow(perf.workerAdvanceRoundTripMs)}`,
     `payload ${formatValueTriplet(perf.workerAdvancePayloadBytes, 1024, "KB")} ${formatValueWindow(perf.workerAdvancePayloadBytes, 1024, "KB")}`,
     `sched batch=${perf.lastCatchUpBatchTicks} max=${perf.maxCatchUpBatchTicks} capped=${perf.cappedCatchUpBatches} dropped=${perf.droppedCatchUpTicks}`,
