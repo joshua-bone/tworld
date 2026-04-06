@@ -27,6 +27,7 @@ import { MS_TILE } from "@ruleset-ms/api/tiles";
 
 interface LynxProjectedAnimationState {
   pos: number;
+  z?: number;
   frame: number;
   tileId: number;
 }

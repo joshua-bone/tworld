@@ -7,6 +7,7 @@ import {
 } from "@game-core/impl/petCarrier";
 import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { expectOverlayAbsent, expectOverlayPresent } from "@game-core/impl/testOverlays";
+import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import {
   advanceLynxInteractiveSession,
@@ -509,6 +510,25 @@ describe("advanceLynxInteractiveSession", () => {
     expect(block?.pos).toBe(pushedBlockPos);
   });
 
+  it("marks Chip as pushing for the display tick when an elevator rise pushes an upper-layer block", () => {
+    const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
+    const upper = createBoardAtZ(2);
+    const chipPos = 43;
+    lower[chipPos] = createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8), MS_TILE.Elevator);
+    upper[chipPos] = createCellAtZ(chipPos, 2, MS_TILE.Block_Static, MS_TILE.Air);
+    upper[44] = createCellAtZ(44, 2, MS_TILE.Empty);
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+
+    const elevated = advanceLynxInteractiveSession(session, 0);
+
+    expect(elevated.chipPushing).toBe(true);
+    expect(elevated.chipZ).toBe(2);
+  });
+
   it("forces a Lynx elevator push before rising even if a different lateral input is held", () => {
     const lower = Array.from({ length: 32 * 32 }, (_, pos) => createCell(pos, MS_TILE.Empty));
     const upper = createBoardAtZ(2);
@@ -963,6 +983,25 @@ describe("advanceLynxInteractiveSession", () => {
     expect(settled.chipPushing).toBe(false);
   });
 
+  it("marks Chip as pushing for the display tick when a block push succeeds", () => {
+    const chipPos = 33;
+    const blockPos = 34;
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createLevel([
+        createCell(chipPos, msCreatureTile(MS_TILE.Chip, 8)),
+        createCell(blockPos, MS_TILE.Block_Static),
+        createCell(35, MS_TILE.Empty),
+      ]),
+    );
+
+    const pushed = advanceLynxInteractiveSession(session, 8);
+
+    expect(pushed.chipPushing).toBe(true);
+    expect(pushed.chipPos).toBe(blockPos);
+    expect(pushed.chipMoving).toBeGreaterThan(0);
+  });
+
   it("queues a temporary reveal overlay when Chip presses a permanent invisible wall", () => {
     const chipPos = 33;
     const wallPos = 34;
@@ -1089,6 +1128,40 @@ describe("advanceLynxInteractiveSession", () => {
     expect(lynxAnimations(collided.state)).toEqual(
       expect.arrayContaining([expect.objectContaining({ pos: targetPos, tileId: 0x76 })]),
     );
+  });
+
+  it("clears a lower-layer Lynx animation even while Chip remains on another layer", () => {
+    const lower = createBoardAtZ(1);
+    const upper = createBoardAtZ(2);
+    const animationPos = 34;
+    const chipPos = 65;
+    lower[animationPos] = createCell(animationPos, MS_TILE.Dirt);
+    upper[chipPos] = createCellAtZ(chipPos, 2, msCreatureTile(MS_TILE.Chip, 8));
+
+    const session = createLynxInteractiveSession(
+      createRequest(),
+      createTwoLayerLevel(lower, upper, { upperCreaturePositions: [chipPos] }),
+    );
+    const runtimeLower = session.state.map.layers?.find((layer) => layer.z === 1)?.cells ?? session.state.map.cells;
+    const runtime = session.state as typeof session.state & {
+      lynxRuntimeState?: {
+        visuals?: {
+          animations?: Array<{ pos: number; z: number; frame: number; tileId: number }>;
+        };
+      };
+    };
+    runtime.lynxRuntimeState?.visuals?.animations?.push({
+      pos: animationPos,
+      z: 1,
+      frame: 0,
+      tileId: 0x75,
+    });
+    runtimeLower[animationPos]!.top.state |= LYNX_CELL_FLAG.Animated;
+
+    const advanced = advanceLynxInteractiveSession(session, 0);
+
+    expect(lynxAnimations(advanced.state)).toEqual([]);
+    expect(runtimeLower[animationPos]!.top.state & LYNX_CELL_FLAG.Animated).toBe(0);
   });
 
   it("does not arm the head-on collision seam for forced slide movement", () => {

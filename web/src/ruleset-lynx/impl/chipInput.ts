@@ -44,6 +44,7 @@ export type LynxChipMoveSelection = {
   startInputCode: number;
   startAirMove: boolean;
   startElevatorMove: boolean;
+  queuedPushVisual: boolean;
 };
 
 export function resolveLynxChipInputDirection(
@@ -109,6 +110,7 @@ export function selectLynxChipMoveForTick(request: LynxChipMoveSelectionRequest)
     startInputCode: request.chipMoving === 0 ? chosenInputCode || request.forcedMove.dir : 0,
     startAirMove: request.chipMoving === 0 && chosenInputCode === 0 && request.forcedMove.moveKind === "air",
     startElevatorMove: request.chipMoving === 0 && chosenInputCode === 0 && request.forcedMove.moveKind === "elevator",
+    queuedPushVisual: false,
   };
 }
 

@@ -59,7 +59,7 @@ export interface LynxActorMovementContext {
   chipActsWallForMobs(pos: number, z: number): boolean;
   queryTargetOccupancy(pos: number, z: number): OccupancyTarget<LynxActorMovementActor>;
   interactionOutcome(actor: LynxActorMovementActor, target: OccupancyTarget<LynxActorMovementActor>): ActorCollisionOutcome;
-  clearAnimationAt(pos: number): void;
+  clearAnimationAt(pos: number, z: number): void;
   applyMobExitFloorEffect(pos: number, z: number): void;
   canActorEnter(actor: LynxActorMovementActor, tileId: number, dir: number): boolean;
   arrivalOutcome(actor: LynxActorMovementActor, floorId: number): ActorArrivalOutcome;
@@ -135,7 +135,7 @@ export function canLynxActorStartMovement(
   }
 
   if (clearAnimations && targetOccupancy.kind === "blocked-visual") {
-    context.clearAnimationAt(targetPos);
+    context.clearAnimationAt(targetPos, actor.z ?? context.activeLayerZ());
   }
 
   return true;
@@ -157,7 +157,7 @@ export function startLynxActorMovement(
 
   const { pos: targetPos, cell: target } = targetStep;
   if ((target.top.state & LYNX_CELL_FLAG.Animated) !== 0) {
-    context.clearAnimationAt(targetPos);
+    context.clearAnimationAt(targetPos, actor.z ?? context.activeLayerZ());
   }
 
   if (isMsBlockActorId(actor.id)) {

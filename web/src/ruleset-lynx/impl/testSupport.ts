@@ -18,6 +18,7 @@ type LynxRuntimeOverlay = {
 
 type LynxRuntimeAnimation = {
   pos: number;
+  z?: number;
   frame: number;
   tileId: number;
 };
