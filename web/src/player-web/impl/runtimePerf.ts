@@ -3,6 +3,8 @@ type PerfMetricName =
   | "catalogBootstrapMs"
   | "catalogHydrationBatchMs"
   | "catalogImportedMs"
+  | "firstCanvasPaintMs"
+  | "firstInteractiveDrawMs"
   | "initialFrameProjectionMs"
   | "initialHistoryProjectionMs"
   | "initialRenderWarmupMs"
@@ -130,6 +132,16 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
     label: "catalog imported batch",
     warnMultiplier: 2,
   },
+  firstCanvasPaintMs: {
+    budgetMs: 80,
+    label: "first canvas paint",
+    warnMultiplier: 2,
+  },
+  firstInteractiveDrawMs: {
+    budgetMs: 120,
+    label: "first interactive draw",
+    warnMultiplier: 2,
+  },
   initialFrameProjectionMs: {
     budgetMs: 18,
     label: "initial frame projection",
@@ -225,6 +237,7 @@ const PERF_METRIC_CONFIG: Record<PerfMetricName, PerfMetricConfig> = {
 const PERF_GLOBAL_KEY = "__TWORLD_PERF__";
 const perfMetricStates = new Map<PerfMetricName, PerfMetricState>();
 let perfDiagnosticsEnabled = false;
+let pendingSessionVisualLoadCapture: PendingSessionVisualLoadCapture | null = null;
 const workerPayloadBytesState: ValueMetricState = {
   emaValue: 0,
   lastValue: 0,
@@ -253,6 +266,24 @@ const schedulerCatchUpState: SchedulerCatchUpState = {
 interface TimedSample {
   atMs: number;
   value: number;
+}
+
+interface SessionVisualLoadTarget {
+  levelNumber: number;
+  ruleset: string;
+  seriesFile: string;
+}
+
+interface SessionVisualLoadRequest extends SessionVisualLoadTarget {
+  randomSeed?: number | string;
+}
+
+interface PendingSessionVisualLoadCapture {
+  firstCanvasPaintRecorded: boolean;
+  firstInteractiveDrawRecorded: boolean;
+  levelKey: string;
+  sessionKey: string;
+  startedAtMs: number;
 }
 
 export interface SessionLoadPhaseMetrics {
@@ -384,6 +415,11 @@ export function snapshotPerfMetrics(): Record<PerfMetricName, PerfMetricSnapshot
     catalogBootstrapMs: snapshotMetric("catalogBootstrapMs", getPerfMetricState("catalogBootstrapMs")),
     catalogHydrationBatchMs: snapshotMetric("catalogHydrationBatchMs", getPerfMetricState("catalogHydrationBatchMs")),
     catalogImportedMs: snapshotMetric("catalogImportedMs", getPerfMetricState("catalogImportedMs")),
+    firstCanvasPaintMs: snapshotMetric("firstCanvasPaintMs", getPerfMetricState("firstCanvasPaintMs")),
+    firstInteractiveDrawMs: snapshotMetric(
+      "firstInteractiveDrawMs",
+      getPerfMetricState("firstInteractiveDrawMs"),
+    ),
     initialFrameProjectionMs: snapshotMetric(
       "initialFrameProjectionMs",
       getPerfMetricState("initialFrameProjectionMs"),
@@ -420,6 +456,7 @@ export function snapshotPerfMetrics(): Record<PerfMetricName, PerfMetricSnapshot
 export function resetPerfMetrics(): void {
   perfMetricStates.clear();
   const nextWorkerPayloadState = createValueMetricState();
+  pendingSessionVisualLoadCapture = null;
   schedulerCatchUpState.batchCount = 0;
   schedulerCatchUpState.cappedBatchCount = 0;
   schedulerCatchUpState.droppedTickCount = 0;
@@ -540,6 +577,61 @@ export function recordSessionLoadPhases(metrics: SessionLoadPhaseMetrics): void 
   if (metrics.initialSessionPackagingMs !== undefined) {
     recordPerfMeasurement("initialSessionPackagingMs", metrics.initialSessionPackagingMs);
   }
+}
+
+export function createSessionVisualLoadLevelKey(target: SessionVisualLoadTarget): string {
+  return `${target.seriesFile}:${target.levelNumber}:${target.ruleset}`;
+}
+
+export function createSessionVisualLoadSessionKey(request: SessionVisualLoadRequest): string {
+  return `${createSessionVisualLoadLevelKey(request)}:${request.randomSeed ?? "none"}`;
+}
+
+export function beginSessionVisualLoadCapture(request: SessionVisualLoadRequest): void {
+  pendingSessionVisualLoadCapture = {
+    firstCanvasPaintRecorded: false,
+    firstInteractiveDrawRecorded: false,
+    levelKey: createSessionVisualLoadLevelKey(request),
+    sessionKey: createSessionVisualLoadSessionKey(request),
+    startedAtMs: performance.now(),
+  };
+}
+
+export function recordSessionVisualLoadPaint(options: {
+  interactive: boolean;
+  levelKey: string;
+  sessionKey?: string | null;
+}): void {
+  const pendingCapture = pendingSessionVisualLoadCapture;
+  if (!pendingCapture || pendingCapture.levelKey !== options.levelKey) {
+    return;
+  }
+
+  const matchesPendingSession =
+    options.sessionKey !== undefined &&
+    options.sessionKey !== null &&
+    options.sessionKey === pendingCapture.sessionKey;
+  const elapsedMs = performance.now() - pendingCapture.startedAtMs;
+
+  if (!pendingCapture.firstCanvasPaintRecorded && (options.sessionKey == null || matchesPendingSession)) {
+    recordPerfMeasurement("firstCanvasPaintMs", elapsedMs);
+    pendingCapture.firstCanvasPaintRecorded = true;
+  }
+
+  if (!options.interactive || !matchesPendingSession || pendingCapture.firstInteractiveDrawRecorded) {
+    if (pendingCapture.firstCanvasPaintRecorded && pendingCapture.firstInteractiveDrawRecorded) {
+      pendingSessionVisualLoadCapture = null;
+    }
+    return;
+  }
+
+  if (!pendingCapture.firstCanvasPaintRecorded) {
+    recordPerfMeasurement("firstCanvasPaintMs", elapsedMs);
+    pendingCapture.firstCanvasPaintRecorded = true;
+  }
+  recordPerfMeasurement("firstInteractiveDrawMs", elapsedMs);
+  pendingCapture.firstInteractiveDrawRecorded = true;
+  pendingSessionVisualLoadCapture = null;
 }
 
 function recordValueMeasurement(state: ValueMetricState, value: number): void {

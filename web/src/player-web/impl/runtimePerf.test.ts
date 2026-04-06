@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  beginSessionVisualLoadCapture,
+  createSessionVisualLoadLevelKey,
+  createSessionVisualLoadSessionKey,
   isPerfDiagnosticsEnabled,
   measurePerfAsync,
   measurePerfSync,
   recordPerfMeasurement,
   recordSessionLoadPhases,
+  recordSessionVisualLoadPaint,
   recordSchedulerCatchUp,
   recordWorkerAdvancePayloadBytes,
   recordWorkerAdvanceRoundTrip,
@@ -171,6 +175,111 @@ describe("runtimePerf", () => {
       },
     });
     expect(isPerfDiagnosticsEnabled()).toBe(true);
+  });
+
+  it("captures first canvas paint and first interactive draw for the pending session", () => {
+    const nowSpy = vi.spyOn(performance, "now");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let now = 100;
+    nowSpy.mockImplementation(() => now);
+
+    try {
+      const request = {
+        levelNumber: 5,
+        randomSeed: 777,
+        ruleset: "Lynx",
+        seriesFile: "CCLP1.dat",
+      } as const;
+      beginSessionVisualLoadCapture(request);
+
+      now = 140;
+      recordSessionVisualLoadPaint({
+        interactive: false,
+        levelKey: createSessionVisualLoadLevelKey(request),
+        sessionKey: null,
+      });
+
+      now = 165;
+      recordSessionVisualLoadPaint({
+        interactive: true,
+        levelKey: createSessionVisualLoadLevelKey(request),
+        sessionKey: createSessionVisualLoadSessionKey(request),
+      });
+
+      now = 220;
+      recordSessionVisualLoadPaint({
+        interactive: true,
+        levelKey: createSessionVisualLoadLevelKey(request),
+        sessionKey: createSessionVisualLoadSessionKey(request),
+      });
+
+      expect(snapshotPerfMetrics()).toMatchObject({
+        firstCanvasPaintMs: {
+          lastMs: 40,
+          maxMs: 40,
+          recentAvgMs: 40,
+          samples: 1,
+        },
+        firstInteractiveDrawMs: {
+          lastMs: 65,
+          maxMs: 65,
+          recentAvgMs: 65,
+          samples: 1,
+        },
+      });
+    } finally {
+      warnSpy.mockRestore();
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("ignores stale session paints and backfills first paint from the first matching interactive draw", () => {
+    const nowSpy = vi.spyOn(performance, "now");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    let now = 1000;
+    nowSpy.mockImplementation(() => now);
+
+    try {
+      const request = {
+        levelNumber: 12,
+        randomSeed: 314,
+        ruleset: "MS",
+        seriesFile: "CHIPS.dat",
+      } as const;
+      beginSessionVisualLoadCapture(request);
+
+      now = 1020;
+      recordSessionVisualLoadPaint({
+        interactive: false,
+        levelKey: createSessionVisualLoadLevelKey(request),
+        sessionKey: `${createSessionVisualLoadSessionKey(request)}:stale`,
+      });
+
+      now = 1060;
+      recordSessionVisualLoadPaint({
+        interactive: true,
+        levelKey: createSessionVisualLoadLevelKey(request),
+        sessionKey: createSessionVisualLoadSessionKey(request),
+      });
+
+      expect(snapshotPerfMetrics()).toMatchObject({
+        firstCanvasPaintMs: {
+          lastMs: 60,
+          maxMs: 60,
+          recentAvgMs: 60,
+          samples: 1,
+        },
+        firstInteractiveDrawMs: {
+          lastMs: 60,
+          maxMs: 60,
+          recentAvgMs: 60,
+          samples: 1,
+        },
+      });
+    } finally {
+      warnSpy.mockRestore();
+      nowSpy.mockRestore();
+    }
   });
 
   it("resets worker diagnostics and disables debug sampling", () => {

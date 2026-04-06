@@ -14,6 +14,7 @@
 - [x] Load-phase diagnostics split into worker/load/render subphases
 - [x] Initial projection and tileset bootstrap diagnostics split further
 - [x] Runtime-init reduction pass started from PR14 findings
+- [x] Browser-side first-paint and first-interactive-draw capture shipped
 - [ ] First level-entry hitch reduced materially
 
 ## Scope
@@ -697,6 +698,54 @@ Current local validation:
   - once a matching cache entry exists, the renderer recognizes it as cached
 - this PR is aimed at deployed/browser hitch reduction, so the next required validation is on the Pages build rather than the Node perf harness
 
+### PR 19: Browser First-Paint And First-Interactive-Draw Capture
+
+Status:
+
+- [x] Implemented
+
+Scope:
+
+- add one-shot browser-side capture metrics for:
+  - first canvas paint after a session load begins
+  - first interactive draw for the matching loaded session
+- key those captures to the pending session request so stale paints from the previous session do not count
+- expose the new metrics directly in the debug overlay and frozen overlay snapshots
+
+Acceptance:
+
+- [x] overlay shows `paint ms` for first canvas paint and first interactive draw
+- [x] overlay shows rolling `paint5` averages for recent level-entry runs
+- [x] pending-load capture is keyed to the matching request rather than any random redraw
+- [x] targeted runtime perf and overlay tests pass
+- [ ] Pages validation shows whether browser-side first paint is actually improving after PR18
+
+Risk:
+
+- low
+
+Why now:
+
+- PR18 moved a likely browser-side cold-paint hitch off the critical path, but the deployed build still needed a direct way to prove whether the first visible paint and the first real interactive frame were getting better
+- existing load metrics stopped at worker/startup/projection/bootstrap phases and could not show the wall-clock delay until the canvas actually displayed the new level
+
+Shipped behavior:
+
+- session launch now opens a keyed pending visual-load capture when a level start request is created
+- the legacy canvas records:
+  - first canvas paint once the pending level actually reaches the canvas
+  - first interactive draw once the matching loaded session is drawn
+- stale draws from an older still-visible session do not satisfy the capture for the new pending session
+- the debug overlay now shows:
+  - `paint ms first=... interactive=...`
+  - `paint5 first=... interactive=...`
+
+Current local validation:
+
+- targeted runtime/overlay coverage passed:
+  - `src/player-web/impl/runtimePerf.test.ts`
+  - `src/player-web/impl/legacyCanvasDebug.test.ts`
+
 ## Recommended Execution Order
 
 - [x] PR 7: Load-phase diagnostics split
@@ -711,6 +760,7 @@ Current local validation:
 - [x] PR 16: Lazy initial undo checkpoint materialization
 - [x] PR 17: Collapse redundant startup scans
 - [x] PR 18: Defer full lower-layer cache fills off the first 3D paint
+- [x] PR 19: Browser first-paint and first-interactive-draw capture
 
 ## Success Criteria
 

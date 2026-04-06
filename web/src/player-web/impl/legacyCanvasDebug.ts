@@ -138,6 +138,8 @@ export interface LegacyCanvasPerfReadout {
   droppedCatchUpTicks: number;
   frameFps: number;
   frameFpsWindow: LegacyCanvasPerfWindowSnapshot;
+  firstCanvasPaintMs: PerfMetricSnapshot;
+  firstInteractiveDrawMs: PerfMetricSnapshot;
   renderFps: number;
   renderFpsWindow: LegacyCanvasPerfWindowSnapshot;
   gameHz: number;
@@ -181,8 +183,10 @@ export function buildLegacyCanvasPerfReadout(
       `drift ms last=${perf.loopDriftMs.lastMs.toFixed(1)} ${formatMetricWindow(perf.loopDriftMs)}`,
       `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)}`,
       `load ms total=${perf.sessionLoadMs.lastMs.toFixed(1)} worker=${perf.workerSessionStartMs.lastMs.toFixed(1)} level=${perf.levelLoadMs.lastMs.toFixed(1)} prepare=${perf.prepareLevelMs.lastMs.toFixed(1)} project=${perf.initialProjectionMs.lastMs.toFixed(1)}`,
+      `paint ms first=${perf.firstCanvasPaintMs.lastMs.toFixed(1)} interactive=${perf.firstInteractiveDrawMs.lastMs.toFixed(1)}`,
       `project ms runtime=${perf.initialRuntimeInitMs.lastMs.toFixed(1)} frame=${perf.initialFrameProjectionMs.lastMs.toFixed(1)} history=${perf.initialHistoryProjectionMs.lastMs.toFixed(1)} state=${perf.initialSessionStateMs.lastMs.toFixed(1)} pack=${perf.initialSessionPackagingMs.lastMs.toFixed(1)}`,
       `load5 total=${perf.sessionLoadMs.recentAvgMs.toFixed(1)} worker=${perf.workerSessionStartMs.recentAvgMs.toFixed(1)} level=${perf.levelLoadMs.recentAvgMs.toFixed(1)} prepare=${perf.prepareLevelMs.recentAvgMs.toFixed(1)} project=${perf.initialProjectionMs.recentAvgMs.toFixed(1)}`,
+      `paint5 first=${perf.firstCanvasPaintMs.recentAvgMs.toFixed(1)} interactive=${perf.firstInteractiveDrawMs.recentAvgMs.toFixed(1)}`,
       `project5 runtime=${perf.initialRuntimeInitMs.recentAvgMs.toFixed(1)} frame=${perf.initialFrameProjectionMs.recentAvgMs.toFixed(1)} history=${perf.initialHistoryProjectionMs.recentAvgMs.toFixed(1)} state=${perf.initialSessionStateMs.recentAvgMs.toFixed(1)} pack=${perf.initialSessionPackagingMs.recentAvgMs.toFixed(1)}`,
       `boot ms tileset=${perf.tilesetLoadMs.lastMs.toFixed(1)} image=${perf.tilesetImageLoadMs.lastMs.toFixed(1)} build=${perf.tilesetBuildMs.lastMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.lastMs.toFixed(1)} sound=${perf.audioBootstrapMs.lastMs.toFixed(1)}`,
       `boot5 tileset=${perf.tilesetLoadMs.recentAvgMs.toFixed(1)} image=${perf.tilesetImageLoadMs.recentAvgMs.toFixed(1)} build=${perf.tilesetBuildMs.recentAvgMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.recentAvgMs.toFixed(1)} sound=${perf.audioBootstrapMs.recentAvgMs.toFixed(1)}`,
@@ -208,8 +212,10 @@ export function buildLegacyCanvasPerfReadout(
     `drift ms last=${perf.loopDriftMs.lastMs.toFixed(1)} ${formatMetricWindow(perf.loopDriftMs)}`,
     `draw ms ${formatMetricTriplet(perf.renderMs)} ${formatMetricWindow(perf.renderMs)}`,
     `load ms total=${perf.sessionLoadMs.lastMs.toFixed(1)} worker=${perf.workerSessionStartMs.lastMs.toFixed(1)} level=${perf.levelLoadMs.lastMs.toFixed(1)} prepare=${perf.prepareLevelMs.lastMs.toFixed(1)} project=${perf.initialProjectionMs.lastMs.toFixed(1)}`,
+    `paint ms first=${perf.firstCanvasPaintMs.lastMs.toFixed(1)} interactive=${perf.firstInteractiveDrawMs.lastMs.toFixed(1)}`,
     `project ms runtime=${perf.initialRuntimeInitMs.lastMs.toFixed(1)} frame=${perf.initialFrameProjectionMs.lastMs.toFixed(1)} history=${perf.initialHistoryProjectionMs.lastMs.toFixed(1)} state=${perf.initialSessionStateMs.lastMs.toFixed(1)} pack=${perf.initialSessionPackagingMs.lastMs.toFixed(1)}`,
     `load5 total=${perf.sessionLoadMs.recentAvgMs.toFixed(1)} worker=${perf.workerSessionStartMs.recentAvgMs.toFixed(1)} level=${perf.levelLoadMs.recentAvgMs.toFixed(1)} prepare=${perf.prepareLevelMs.recentAvgMs.toFixed(1)} project=${perf.initialProjectionMs.recentAvgMs.toFixed(1)}`,
+    `paint5 first=${perf.firstCanvasPaintMs.recentAvgMs.toFixed(1)} interactive=${perf.firstInteractiveDrawMs.recentAvgMs.toFixed(1)}`,
     `project5 runtime=${perf.initialRuntimeInitMs.recentAvgMs.toFixed(1)} frame=${perf.initialFrameProjectionMs.recentAvgMs.toFixed(1)} history=${perf.initialHistoryProjectionMs.recentAvgMs.toFixed(1)} state=${perf.initialSessionStateMs.recentAvgMs.toFixed(1)} pack=${perf.initialSessionPackagingMs.recentAvgMs.toFixed(1)}`,
     `boot ms tileset=${perf.tilesetLoadMs.lastMs.toFixed(1)} image=${perf.tilesetImageLoadMs.lastMs.toFixed(1)} build=${perf.tilesetBuildMs.lastMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.lastMs.toFixed(1)} sound=${perf.audioBootstrapMs.lastMs.toFixed(1)}`,
     `boot5 tileset=${perf.tilesetLoadMs.recentAvgMs.toFixed(1)} image=${perf.tilesetImageLoadMs.recentAvgMs.toFixed(1)} build=${perf.tilesetBuildMs.recentAvgMs.toFixed(1)} warm=${perf.initialRenderWarmupMs.recentAvgMs.toFixed(1)} sound=${perf.audioBootstrapMs.recentAvgMs.toFixed(1)}`,

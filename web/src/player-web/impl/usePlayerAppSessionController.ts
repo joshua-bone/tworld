@@ -28,7 +28,7 @@ import {
 } from "@player-web/impl/playerAppRuntime";
 import { resolveLegacySessionRandomSeed } from "@player-web/impl/legacySharedRandomSeed";
 import { findLevelSeedOverride } from "@player-web/impl/levelSeedOverrides";
-import { measurePerfAsync } from "@player-web/impl/runtimePerf";
+import { beginSessionVisualLoadCapture, measurePerfAsync } from "@player-web/impl/runtimePerf";
 import type { BrowserLevelSeedOverride } from "@player-web/ports/BrowserProfileStore";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import type { InteractiveInput } from "@game-core/api/command";
@@ -228,6 +228,7 @@ export function usePlayerAppSessionController({
       ruleset: currentSeriesRuleset,
       randomSeed: resolveLegacySessionRandomSeed(queuedReplay?.replay.randomSeed, Date.now(), manualSeedOverride),
     } as const;
+    beginSessionVisualLoadCapture(request);
     const manualSessionStartOptions =
       currentSeriesRuleset === "MS"
         ? {

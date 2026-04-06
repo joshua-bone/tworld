@@ -5,8 +5,11 @@ import {
   type LegacyRenderTileSize,
 } from "@player-web/impl/legacyRenderPresets";
 import {
+  createSessionVisualLoadLevelKey,
+  createSessionVisualLoadSessionKey,
   measurePerfSync,
   recordPerfMeasurement,
+  recordSessionVisualLoadPaint,
   setPerfDiagnosticsEnabled,
   snapshotRuntimePerf,
 } from "@player-web/impl/runtimePerf";
@@ -285,6 +288,26 @@ function sessionPerfKey(session: InteractiveGameSession | null): string | null {
   return `${session.request.seriesFile}:${session.request.levelNumber}:${session.request.ruleset}`;
 }
 
+function selectedLevelPerfKey(options: {
+  currentRuleset: SeriesCatalogEntry["ruleset"] | null;
+  selectedLevelNumber: number | null;
+  selectedSeriesFile: string | null;
+}): string | null {
+  if (
+    !options.selectedSeriesFile ||
+    options.selectedLevelNumber === null ||
+    (options.currentRuleset !== "MS" && options.currentRuleset !== "Lynx")
+  ) {
+    return null;
+  }
+
+  return createSessionVisualLoadLevelKey({
+    seriesFile: options.selectedSeriesFile,
+    levelNumber: options.selectedLevelNumber,
+    ruleset: options.currentRuleset,
+  });
+}
+
 function updateLegacyCanvasPerfTracker(
   state: LegacyCanvasPerfTrackerState,
   now: number,
@@ -372,6 +395,8 @@ function updateLegacyCanvasPerfTracker(
     droppedCatchUpTicks: perf.scheduler.droppedTickCount,
     frameFps: state.frameFps,
     frameFpsWindow: snapshotLegacyCanvasPerfWindow(state.frameWindowSamples, now),
+    firstCanvasPaintMs: metrics.firstCanvasPaintMs,
+    firstInteractiveDrawMs: metrics.firstInteractiveDrawMs,
     renderFps: state.renderFps,
     renderFpsWindow: snapshotLegacyCanvasPerfWindow(state.renderWindowSamples, now),
     gameHz: state.gameHz,
@@ -731,6 +756,26 @@ export function LegacyCanvasScreen({
         measurePerfSync("renderMs", () => {
           drawFrame(context, activeSession);
         });
+        if (activeSession) {
+          recordSessionVisualLoadPaint({
+            interactive: tileset !== null && !isLoading,
+            levelKey: createSessionVisualLoadLevelKey(activeSession.request),
+            sessionKey: createSessionVisualLoadSessionKey(activeSession.request),
+          });
+        } else {
+          const levelKey = selectedLevelPerfKey({
+            currentRuleset,
+            selectedLevelNumber: currentLevel?.number ?? null,
+            selectedSeriesFile,
+          });
+          if (levelKey) {
+            recordSessionVisualLoadPaint({
+              interactive: false,
+              levelKey,
+              sessionKey: null,
+            });
+          }
+        }
         lastRenderedSession = activeSession;
         lastRenderContextKey = renderContextKey;
       }
@@ -753,6 +798,7 @@ export function LegacyCanvasScreen({
     mode,
     presentation,
     renderTileSize,
+    selectedSeriesFile,
     session,
     targetMapHeight,
     targetMapWidth,
