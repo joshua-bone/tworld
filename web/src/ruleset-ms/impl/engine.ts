@@ -2060,7 +2060,10 @@ interface MsStartupAnalysis {
   traps: MsConnection[];
 }
 
-function analyzeMsStartupLevel(layers: ReadonlyArray<MsLevelLayer>): MsStartupAnalysis {
+function analyzeMsStartupLevel(
+  layers: ReadonlyArray<MsLevelLayer>,
+  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
+): MsStartupAnalysis {
   let chipPos = 0;
   let chipZ = 1;
   let chipDir: number = MS_DIRECTION.south;
@@ -2075,6 +2078,7 @@ function analyzeMsStartupLevel(layers: ReadonlyArray<MsLevelLayer>): MsStartupAn
     string,
     NonNullable<MsLevelLayer["petCarrierOccupants"]>[number]["occupant"]
   >();
+  const seededPositions = new Set<string>();
 
   for (const layer of layers) {
     for (const connection of layer.traps) {
@@ -2094,9 +2098,15 @@ function analyzeMsStartupLevel(layers: ReadonlyArray<MsLevelLayer>): MsStartupAn
     for (const occupant of layer.petCarrierOccupants ?? []) {
       petCarrierOccupantsByPosition.set(msLayerPositionKey(occupant.pos, layer.z), occupant.occupant);
     }
+  }
 
-    for (const cell of layer.cells) {
-      const pos = cell.position.pos;
+  for (const layer of layers) {
+    const layerCells = layerCellsByZ.get(layer.z) ?? layer.cells;
+    for (const pos of layer.creaturePositions) {
+      if (pos < 0 || pos >= layerCells.length) {
+        continue;
+      }
+      const cell = layerCells[pos]!;
       const topId = cell.top.id;
       if (isMsStaticBlockTile(topId)) {
         blockSeeds.push({
@@ -2104,6 +2114,7 @@ function analyzeMsStartupLevel(layers: ReadonlyArray<MsLevelLayer>): MsStartupAn
           pos,
           z: layer.z,
         });
+        seededPositions.add(msLayerPositionKey(pos, layer.z));
         continue;
       }
       if (!isMsCreature(topId)) {
@@ -2114,13 +2125,13 @@ function analyzeMsStartupLevel(layers: ReadonlyArray<MsLevelLayer>): MsStartupAn
       if (creatureId === MS_TILE.Chip) {
         chipPos = pos;
         chipZ = layer.z;
-        // Native MS seeds Chip's runtime direction from the lower tile
-        // when Chip starts on an upper layer.
-        chipDir = layer.z > 1 ? msCreatureDir(cell.bottom.id) : msCreatureDir(topId);
+        chipDir = msCreatureDir(topId);
+        seededPositions.add(msLayerPositionKey(pos, layer.z));
         continue;
       }
 
       if (isMsBlockActorId(creatureId)) {
+        seededPositions.add(msLayerPositionKey(pos, layer.z));
         continue;
       }
 
@@ -2138,6 +2149,24 @@ function analyzeMsStartupLevel(layers: ReadonlyArray<MsLevelLayer>): MsStartupAn
         });
       }
       nextCreatureSerial += 1;
+      seededPositions.add(msLayerPositionKey(pos, layer.z));
+    }
+  }
+
+  for (const layer of layers) {
+    const layerCells = layerCellsByZ.get(layer.z) ?? layer.cells;
+    for (const cell of layerCells) {
+      const pos = cell.position.pos;
+      if (seededPositions.has(msLayerPositionKey(pos, layer.z))) {
+        continue;
+      }
+      if (isMsCreature(cell.top.id) && msCreatureId(cell.top.id) === MS_TILE.Chip) {
+        chipPos = pos;
+        chipZ = layer.z;
+        // Native MS seeds Chip's runtime direction from the lower tile
+        // when Chip starts on an upper layer.
+        chipDir = msCreatureDir(cell.bottom.id);
+      }
     }
   }
 
@@ -2164,7 +2193,10 @@ export function initializeMsGameState(
   const cells = cloneBoardCells(level.cells);
   initializeBrokenFloors(cells);
   const layers = levelLayers(level);
-  const startup = analyzeMsStartupLevel(layers);
+  const layerCellsByZ = new Map<number, EngineMapCell[]>(
+    layers.map((layer) => [layer.z, layer.z === 1 ? cells : layer.cells]),
+  );
+  const startup = analyzeMsStartupLevel(layers, layerCellsByZ);
   const creatures = startup.creatureSeeds.map((seed) => ({
     serial: seed.serial,
     id: seed.id,

@@ -1108,7 +1108,7 @@ function analyzeLynxStartupLevel(level: LynxLevel): LynxStartupAnalysis {
   let chipSeed = { pos: 0, z: 1, dir: 0 };
   let chipSeedFound = false;
   let nextActorSerial = 1;
-  const actorSeeds: LynxStartupActorSeed[] = [];
+  const scannedActorSeeds: LynxStartupActorSeed[] = [];
 
   for (const layer of layers) {
     for (const cell of layer.cells) {
@@ -1125,7 +1125,7 @@ function analyzeLynxStartupLevel(level: LynxLevel): LynxStartupAnalysis {
 
       const topId = cell.top.id;
       if (isMsStaticBlockTile(topId)) {
-        actorSeeds.push({
+        scannedActorSeeds.push({
           serial: nextActorSerial,
           id: msStaticBlockActorId(topId) ?? MS_TILE.Block,
           pos,
@@ -1144,10 +1144,7 @@ function analyzeLynxStartupLevel(level: LynxLevel): LynxStartupAnalysis {
       const actorId = msCreatureId(topId);
       const serial = nextActorSerial;
       nextActorSerial += 1;
-      if (actorId === MS_TILE.Chip) {
-        continue;
-      }
-      actorSeeds.push({
+      scannedActorSeeds.push({
         serial,
         id: actorId,
         pos,
@@ -1157,6 +1154,17 @@ function analyzeLynxStartupLevel(level: LynxLevel): LynxStartupAnalysis {
       });
     }
   }
+
+  // Native Lynx seeds Chip into the scanned actor list, swaps Chip to the
+  // front, then removes Chip from the runtime actor array.
+  const chipIndex = scannedActorSeeds.findIndex((seed) => seed.id === MS_TILE.Chip);
+  if (chipIndex > 0) {
+    const chipSeedEntry = scannedActorSeeds[chipIndex]!;
+    scannedActorSeeds[chipIndex] = scannedActorSeeds[0]!;
+    scannedActorSeeds[0] = chipSeedEntry;
+  }
+
+  const actorSeeds = scannedActorSeeds.filter((seed) => seed.id !== MS_TILE.Chip);
 
   return {
     actorSeeds,

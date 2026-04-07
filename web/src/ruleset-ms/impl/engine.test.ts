@@ -166,6 +166,35 @@ describe("MS engine regressions", () => {
     ]);
   });
 
+  it("seeds runtime creature order from creaturePositions instead of row-major cell order", () => {
+    const cells = createEmptyCells();
+    const chipPos = pos(1, 1);
+    const earlyBugPos = pos(2, 1);
+    const lateFireballPos = pos(10, 10);
+
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+    cells[earlyBugPos]!.top.id = msCreatureTile(MS_TILE.Bug, MS_DIRECTION.east);
+    cells[lateFireballPos]!.top.id = msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.north);
+
+    const state = initializeMsGameState(
+      createRequest(),
+      createLevel({
+        cells,
+        creaturePositions: [chipPos, lateFireballPos, earlyBugPos],
+      }),
+    );
+
+    expect(
+      state.internal.creatures.map((creature) => ({
+        id: creature.id,
+        pos: creature.pos,
+      })),
+    ).toEqual([
+      { id: MS_TILE.Fireball, pos: lateFireballPos },
+      { id: MS_TILE.Bug, pos: earlyBugPos },
+    ]);
+  });
+
   it("turns a z2 cloud into air when Chip exits it", () => {
     const lower = createEmptyCells();
     const upper = createEmptyCellsAtZ(2);
