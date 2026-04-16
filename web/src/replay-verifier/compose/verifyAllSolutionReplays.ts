@@ -16,6 +16,7 @@ import {
 } from "@replay-verifier/impl/buildReplayTraceScenariosFromSolutionFile";
 import { createAllReplayVerifierTerminalReporter, summarizeReplayVerifierError } from "@replay-verifier/impl/allReplayVerifierTerminalReporter";
 import { discoverReplaySweepSolutionFiles, matchesReplayFilter } from "@replay-verifier/impl/replaySweepSupport";
+import { maybeRunParallelReplaySweep, type ReplaySweepShardFile } from "@replay-verifier/impl/parallelReplaySweepSupport";
 import type { GameEnginePort } from "@game-runtime/ports/GameEngine";
 import type { SupportedReplaySweepRuleset } from "@replay-verifier/impl/solutionFileReplaySweepTypes";
 
@@ -38,8 +39,44 @@ function discoverSolutionFiles(): string[] {
   });
 }
 
+async function discoverShardFiles(): Promise<ReplaySweepShardFile[]> {
+  const solutionRepository = new NodeSolutionFileRepository();
+  const shardFiles: ReplaySweepShardFile[] = [];
+
+  for (const path of discoverSolutionFiles()) {
+    const loaded = await solutionRepository.loadSolutionFile(path);
+    const replayCount = loaded.file.entries.filter((entry) => entry.expandedSolution !== null).length;
+    shardFiles.push({
+      path: loaded.path,
+      label: loaded.label,
+      weight: Math.max(1, replayCount),
+    });
+  }
+
+  return shardFiles;
+}
+
 async function main(): Promise<void> {
-  const solutionFiles = discoverSolutionFiles();
+  if (!process.env.TWORLD_ORACLE_BIN && !NativeOracleGameEngineAdapter.hasDefaultOracle()) {
+    console.log("Skipping replay verification because no native oracle binary is available.");
+    return;
+  }
+
+  const shardFiles = await discoverShardFiles();
+  if (
+    await maybeRunParallelReplaySweep({
+      repoRoot,
+      scriptName: "verify:all-replays",
+      description: "All-ruleset replay verification",
+      solutionFileEnvName: "TWORLD_SOLUTION_FILE",
+      files: shardFiles,
+      jobsEnvValue: process.env.TWORLD_REPLAY_SWEEP_JOBS?.trim() || null,
+    })
+  ) {
+    return;
+  }
+
+  const solutionFiles = shardFiles.map((file) => file.path);
   if (solutionFiles.length === 0) {
     console.log("No solution files found.");
     return;

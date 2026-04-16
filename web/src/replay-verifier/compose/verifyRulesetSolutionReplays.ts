@@ -12,6 +12,7 @@ import {
 import { NodeSolutionFileRepository } from "@replay-verifier/impl/NodeSolutionFileRepository";
 import { createRulesetReplaySweepTerminalReporter } from "@replay-verifier/impl/rulesetReplaySweepTerminalReporter";
 import { discoverReplaySweepSolutionFiles, envPrefixForRuleset, readReplaySweepEnv } from "@replay-verifier/impl/replaySweepSupport";
+import { maybeRunParallelReplaySweep, type ReplaySweepShardFile } from "@replay-verifier/impl/parallelReplaySweepSupport";
 import {
   runSolutionFileReplaySweep,
   type SolutionFileReplaySweepOptions,
@@ -44,16 +45,53 @@ function discoverSolutionFiles(ruleset: SupportedReplaySweepRuleset): string[] {
   });
 }
 
+async function discoverRulesetShardFiles(ruleset: SupportedReplaySweepRuleset): Promise<ReplaySweepShardFile[]> {
+  const solutionRepository = new NodeSolutionFileRepository();
+  const files = discoverSolutionFiles(ruleset);
+  const shardFiles: ReplaySweepShardFile[] = [];
+
+  for (const path of files) {
+    const loaded = await solutionRepository.loadSolutionFile(path);
+    if (loaded.file.ruleset !== ruleset) {
+      continue;
+    }
+
+    const replayCount = loaded.file.entries.filter((entry) => entry.expandedSolution !== null).length;
+    shardFiles.push({
+      path: loaded.path,
+      label: loaded.label,
+      weight: Math.max(1, replayCount),
+    });
+  }
+
+  return shardFiles;
+}
+
 async function main(): Promise<void> {
   const ruleset = parseRulesetArg(process.argv);
   const envPrefix = envPrefixForRuleset(ruleset);
   const replayScenarioFilter = readReplaySweepEnv(`TWORLD_${envPrefix}_REPLAY_FILTER`, "TWORLD_REPLAY_FILTER");
-  const solutionFiles = discoverSolutionFiles(ruleset);
 
   if (!process.env.TWORLD_ORACLE_BIN && !NativeOracleGameEngineAdapter.hasDefaultOracle()) {
     console.log(`Skipping ${ruleset} replay verification because no native oracle binary is available.`);
     return;
   }
+
+  const shardFiles = await discoverRulesetShardFiles(ruleset);
+  if (
+    await maybeRunParallelReplaySweep({
+      repoRoot,
+      scriptName: ruleset === "MS" ? "verify:ms-replays" : "verify:lynx-replays",
+      description: `${ruleset} replay verification`,
+      solutionFileEnvName: `TWORLD_${envPrefix}_SOLUTION_FILE`,
+      files: shardFiles,
+      jobsEnvValue: readReplaySweepEnv(`TWORLD_${envPrefix}_REPLAY_SWEEP_JOBS`, "TWORLD_REPLAY_SWEEP_JOBS"),
+    })
+  ) {
+    return;
+  }
+
+  const solutionFiles = shardFiles.map((file) => file.path);
 
   if (solutionFiles.length === 0) {
     console.log("No solution files found.");
