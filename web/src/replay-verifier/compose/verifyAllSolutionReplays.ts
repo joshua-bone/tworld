@@ -14,9 +14,14 @@ import {
   buildReplayTraceScenariosFromSolutionFile,
   isUnsupportedReplaySeries,
 } from "@replay-verifier/impl/buildReplayTraceScenariosFromSolutionFile";
-import { createAllReplayVerifierTerminalReporter, summarizeReplayVerifierError } from "@replay-verifier/impl/allReplayVerifierTerminalReporter";
+import {
+  createAllReplayVerifierTerminalReporter,
+  createCoordinatedAllReplayVerifierTerminalReporter,
+  summarizeReplayVerifierError,
+} from "@replay-verifier/impl/allReplayVerifierTerminalReporter";
 import { discoverReplaySweepSolutionFiles, matchesReplayFilter } from "@replay-verifier/impl/replaySweepSupport";
 import { maybeRunParallelReplaySweep, type ReplaySweepShardFile } from "@replay-verifier/impl/parallelReplaySweepSupport";
+import { REPLAY_SWEEP_COORDINATED_ENV } from "@replay-verifier/impl/replaySweepCoordination";
 import type { GameEnginePort } from "@game-runtime/ports/GameEngine";
 import type { SupportedReplaySweepRuleset } from "@replay-verifier/impl/solutionFileReplaySweepTypes";
 
@@ -71,6 +76,7 @@ async function main(): Promise<void> {
       solutionFileEnvName: "TWORLD_SOLUTION_FILE",
       files: shardFiles,
       jobsEnvValue: process.env.TWORLD_REPLAY_SWEEP_JOBS?.trim() || null,
+      summaryKind: "all",
     })
   ) {
     return;
@@ -93,7 +99,9 @@ async function main(): Promise<void> {
     MS: new MsGameEngineAdapter(levelRepository),
   };
   const seriesCatalog = await loadNodeReplaySweepSeriesCatalog(fixtureRepository, repoRoot);
-  const reporter = createAllReplayVerifierTerminalReporter(useColor);
+  const reporter = process.env[REPLAY_SWEEP_COORDINATED_ENV] === "1"
+    ? createCoordinatedAllReplayVerifierTerminalReporter()
+    : createAllReplayVerifierTerminalReporter(useColor);
 
   for (const solutionPath of solutionFiles) {
     const loaded = await solutionRepository.loadSolutionFile(solutionPath);

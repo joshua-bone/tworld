@@ -1,4 +1,5 @@
 import { summarizeSolutionFileReplaySweepFailure } from "@replay-verifier/impl/solutionFileReplaySweepReport";
+import { emitReplaySweepCoordinationEvent } from "@replay-verifier/impl/replaySweepCoordination";
 import { formatReplaySweepOutcomeBar, formatReplaySweepPackPrefix } from "@replay-verifier/impl/replaySweepTerminalFormat";
 import type {
   SolutionFileReplaySweepProgressReporter,
@@ -39,6 +40,14 @@ function printSummaryLine(prefix: string, counts: SummaryCounts): void {
 export interface RulesetReplaySweepTerminalReporter {
   progress: SolutionFileReplaySweepProgressReporter;
   finish(report: SolutionFileReplaySweepReport): number;
+}
+
+function formatRulesetFailureLine(
+  scenarioName: string,
+  levelNumber: number,
+  failure: Parameters<typeof summarizeSolutionFileReplaySweepFailure>[0],
+): string {
+  return `FAIL L${String(levelNumber).padStart(3, "0")} ${scenarioName} | ${summarizeSolutionFileReplaySweepFailure(failure)}`;
 }
 
 export function createRulesetReplaySweepTerminalReporter(
@@ -107,6 +116,81 @@ export function createRulesetReplaySweepTerminalReporter(
 
       if (report.replayCount === 0) {
         console.log(`No matching ${ruleset} replays were checked.`);
+        return 1;
+      }
+
+      return report.unsupportedFiles.length > 0 || report.failures.length > 0 ? 1 : 0;
+    },
+  };
+}
+
+export function createCoordinatedRulesetReplaySweepReporter(
+  ruleset: SupportedReplaySweepRuleset,
+): RulesetReplaySweepTerminalReporter {
+  let currentFilePackName = "";
+  let currentFileLabel = "";
+  let currentFileStartMs = 0;
+  let currentFileCounts: SummaryCounts = {
+    checked: 0,
+    passed: 0,
+    failed: 0,
+  };
+  let currentFileFailureLines: string[] = [];
+
+  return {
+    progress: {
+      onUnsupportedFile({ solutionFile }) {
+        emitReplaySweepCoordinationEvent({
+          type: "unsupported-file",
+          solutionLabel: solutionFile.label,
+        });
+      },
+      onSolutionFileStart({ solutionFile, plan, scenarios }) {
+        currentFilePackName = plan.series.filebase;
+        currentFileLabel = solutionFile.label;
+        currentFileStartMs = Date.now();
+        currentFileCounts = {
+          checked: 0,
+          passed: 0,
+          failed: 0,
+        };
+        currentFileFailureLines = [];
+        emitReplaySweepCoordinationEvent({
+          type: "file-start",
+          packName: currentFilePackName,
+          solutionLabel: currentFileLabel,
+          ruleset,
+          replayCount: scenarios.length,
+        });
+      },
+      onScenarioComplete({ scenario, failure }) {
+        currentFileCounts.checked += 1;
+        if (!failure) {
+          currentFileCounts.passed += 1;
+          return;
+        }
+
+        currentFileCounts.failed += 1;
+        currentFileFailureLines.push(formatRulesetFailureLine(scenario.name, scenario.request.levelNumber, failure));
+      },
+      onSolutionFileComplete() {
+        emitReplaySweepCoordinationEvent({
+          type: "file-complete",
+          packName: currentFilePackName,
+          solutionLabel: currentFileLabel,
+          ruleset,
+          checked: currentFileCounts.checked,
+          passed: currentFileCounts.passed,
+          failed: currentFileCounts.failed,
+          tsFailed: currentFileCounts.failed,
+          legacyFailed: 0,
+          elapsedMs: Math.max(0, Date.now() - currentFileStartMs),
+          failureLines: currentFileFailureLines,
+        });
+      },
+    },
+    finish(report) {
+      if (report.replayCount === 0) {
         return 1;
       }
 

@@ -1,4 +1,5 @@
 import { collectTraceMismatches, type TraceMismatch } from "@replay-verifier/impl/engine/comparators/traceComparison";
+import { emitReplaySweepCoordinationEvent } from "@replay-verifier/impl/replaySweepCoordination";
 import { formatReplaySweepValue } from "@replay-verifier/impl/replaySweepSupport";
 import { formatReplaySweepOutcomeBar, formatReplaySweepPackPrefix } from "@replay-verifier/impl/replaySweepTerminalFormat";
 import type { GameTrace } from "@game-core/api/types";
@@ -182,6 +183,113 @@ export function createAllReplayVerifierTerminalReporter(useColor: boolean): AllR
         printSummaryLine(`${totals.ruleset}:`, totals);
       }
 
+      if (failOnErrors && (totalCounts.legacyFailed > 0 || totalCounts.tsFailed > 0)) {
+        process.exitCode = 1;
+      }
+    },
+    compareTraces(actual, expected) {
+      const mismatches: TraceMismatch[] = [];
+      collectTraceMismatches(actual, expected, "$", mismatches, 25);
+      return mismatches;
+    },
+  };
+}
+
+export function createCoordinatedAllReplayVerifierTerminalReporter(): AllReplayVerifierTerminalReporter {
+  const plainColors = createColors(false);
+  const totalCounts: SummaryCounts = {
+    checked: 0,
+    passed: 0,
+    legacyFailed: 0,
+    tsFailed: 0,
+  };
+  let filePackName = "";
+  let fileLabel = "";
+  let fileRuleset: SupportedReplaySweepRuleset = "MS";
+  let fileStartMs = 0;
+  let fileCounts: SummaryCounts = {
+    checked: 0,
+    passed: 0,
+    legacyFailed: 0,
+    tsFailed: 0,
+  };
+  let fileFailureLines: string[] = [];
+
+  return {
+    onUnsupportedFile(label) {
+      emitReplaySweepCoordinationEvent({
+        type: "unsupported-file",
+        solutionLabel: label,
+      });
+    },
+    onSolutionFileStart(label, seriesFilebase, ruleset, replayCount) {
+      filePackName = seriesFilebase;
+      fileLabel = label;
+      fileRuleset = ruleset;
+      fileStartMs = Date.now();
+      fileCounts = {
+        checked: 0,
+        passed: 0,
+        legacyFailed: 0,
+        tsFailed: 0,
+      };
+      fileFailureLines = [];
+      emitReplaySweepCoordinationEvent({
+        type: "file-start",
+        packName: filePackName,
+        solutionLabel: fileLabel,
+        ruleset,
+        replayCount,
+      });
+    },
+    onLegacyFailure(scenarioName, levelNumber, _ruleset, detail, _status) {
+      totalCounts.checked += 1;
+      totalCounts.legacyFailed += 1;
+      fileCounts.checked += 1;
+      fileCounts.legacyFailed += 1;
+      fileFailureLines.push(
+        formatFailureOutcomeLine({
+          scenarioName,
+          levelNumber,
+          detail,
+        }, plainColors),
+      );
+    },
+    onPass(_scenarioName, _levelNumber, _ruleset) {
+      totalCounts.checked += 1;
+      totalCounts.passed += 1;
+      fileCounts.checked += 1;
+      fileCounts.passed += 1;
+    },
+    onTraceComparisonFailure(scenarioName, levelNumber, _ruleset, mismatch) {
+      totalCounts.checked += 1;
+      totalCounts.tsFailed += 1;
+      fileCounts.checked += 1;
+      fileCounts.tsFailed += 1;
+      fileFailureLines.push(
+        formatFailureOutcomeLine({
+          scenarioName,
+          levelNumber,
+          detail: summarizeMismatchShort(mismatch),
+        }, plainColors),
+      );
+    },
+    onSolutionFileComplete() {
+      emitReplaySweepCoordinationEvent({
+        type: "file-complete",
+        packName: filePackName,
+        solutionLabel: fileLabel,
+        ruleset: fileRuleset,
+        checked: fileCounts.checked,
+        passed: fileCounts.passed,
+        failed: fileCounts.tsFailed + fileCounts.legacyFailed,
+        tsFailed: fileCounts.tsFailed,
+        legacyFailed: fileCounts.legacyFailed,
+        elapsedMs: Math.max(0, Date.now() - fileStartMs),
+        failureLines: fileFailureLines,
+      });
+    },
+    finish(failOnErrors) {
       if (failOnErrors && (totalCounts.legacyFailed > 0 || totalCounts.tsFailed > 0)) {
         process.exitCode = 1;
       }

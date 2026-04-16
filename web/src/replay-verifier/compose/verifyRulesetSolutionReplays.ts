@@ -10,9 +10,13 @@ import {
   defaultOraclePath,
 } from "@oracle-fixtures/impl/NativeOracleGameEngineAdapter";
 import { NodeSolutionFileRepository } from "@replay-verifier/impl/NodeSolutionFileRepository";
-import { createRulesetReplaySweepTerminalReporter } from "@replay-verifier/impl/rulesetReplaySweepTerminalReporter";
+import {
+  createCoordinatedRulesetReplaySweepReporter,
+  createRulesetReplaySweepTerminalReporter,
+} from "@replay-verifier/impl/rulesetReplaySweepTerminalReporter";
 import { discoverReplaySweepSolutionFiles, envPrefixForRuleset, readReplaySweepEnv } from "@replay-verifier/impl/replaySweepSupport";
 import { maybeRunParallelReplaySweep, type ReplaySweepShardFile } from "@replay-verifier/impl/parallelReplaySweepSupport";
+import { REPLAY_SWEEP_COORDINATED_ENV } from "@replay-verifier/impl/replaySweepCoordination";
 import {
   runSolutionFileReplaySweep,
   type SolutionFileReplaySweepOptions,
@@ -86,6 +90,8 @@ async function main(): Promise<void> {
       solutionFileEnvName: `TWORLD_${envPrefix}_SOLUTION_FILE`,
       files: shardFiles,
       jobsEnvValue: readReplaySweepEnv(`TWORLD_${envPrefix}_REPLAY_SWEEP_JOBS`, "TWORLD_REPLAY_SWEEP_JOBS"),
+      summaryKind: "ruleset",
+      ruleset,
     })
   ) {
     return;
@@ -109,7 +115,10 @@ async function main(): Promise<void> {
     oraclePath: process.env.TWORLD_ORACLE_BIN ?? defaultOraclePath,
   });
   const seriesCatalog = await loadNodeReplaySweepSeriesCatalog(fixtureRepository, repoRoot);
-  const reporter = createRulesetReplaySweepTerminalReporter(ruleset, useColor);
+  const coordinated = process.env[REPLAY_SWEEP_COORDINATED_ENV] === "1";
+  const reporter = coordinated
+    ? createCoordinatedRulesetReplaySweepReporter(ruleset)
+    : createRulesetReplaySweepTerminalReporter(ruleset, useColor);
 
   const options: SolutionFileReplaySweepOptions = {
     scenarioNameIncludes: replayScenarioFilter,
