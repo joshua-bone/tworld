@@ -187,10 +187,6 @@ export async function maybeRunParallelReplaySweep(options: RunParallelReplaySwee
     return false;
   }
 
-  if (parseReplaySweepJobs(options.jobsEnvValue) === null) {
-    return false;
-  }
-
   const jobCount = resolveReplaySweepJobs(options.files.length, options.jobsEnvValue);
   if (jobCount <= 1 || options.files.length <= 1) {
     return false;

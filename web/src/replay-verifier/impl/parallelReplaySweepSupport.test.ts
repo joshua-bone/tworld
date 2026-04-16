@@ -29,6 +29,12 @@ describe("resolveReplaySweepJobs", () => {
     expect(resolveReplaySweepJobs(3, "8")).toBe(3);
   });
 
+  it("defaults to an automatic worker count when no jobs value is provided", () => {
+    const jobs = resolveReplaySweepJobs(4, null);
+    expect(jobs).toBeGreaterThanOrEqual(1);
+    expect(jobs).toBeLessThanOrEqual(4);
+  });
+
   it("falls back to one worker for single-file sweeps", () => {
     expect(resolveReplaySweepJobs(1, "8")).toBe(1);
     expect(resolveReplaySweepJobs(1, null)).toBe(1);
