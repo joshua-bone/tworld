@@ -46,6 +46,7 @@ interface ReplaySweepShardAggregate {
   failed: number;
   tsFailed: number;
   legacyFailed: number;
+  failureLines: string[];
   byRuleset: Record<SupportedReplaySweepRuleset, {
     checked: number;
     passed: number;
@@ -54,6 +55,14 @@ interface ReplaySweepShardAggregate {
     legacyFailed: number;
   }>;
 }
+
+const ANSI = {
+  green: "\x1b[32m",
+  red: "\x1b[31m",
+  yellow: "\x1b[33m",
+  gray: "\x1b[90m",
+  reset: "\x1b[0m",
+} as const;
 
 function systemParallelism(): number {
   const detected = typeof availableParallelism === "function" ? availableParallelism() : cpus().length;
@@ -135,6 +144,16 @@ function npmCommand(): string {
   return process.platform === "win32" ? "npm.cmd" : "npm";
 }
 
+function createColors(useColor: boolean) {
+  const color = (text: string, code: string): string => (useColor ? `${code}${text}${ANSI.reset}` : text);
+  return {
+    green: (text: string) => color(text, ANSI.green),
+    red: (text: string) => color(text, ANSI.red),
+    yellow: (text: string) => color(text, ANSI.yellow),
+    gray: (text: string) => color(text, ANSI.gray),
+  };
+}
+
 function createReplaySweepShardAggregate(): ReplaySweepShardAggregate {
   return {
     supportedFileCount: 0,
@@ -144,6 +163,7 @@ function createReplaySweepShardAggregate(): ReplaySweepShardAggregate {
     failed: 0,
     tsFailed: 0,
     legacyFailed: 0,
+    failureLines: [],
     byRuleset: {
       MS: { checked: 0, passed: 0, failed: 0, tsFailed: 0, legacyFailed: 0 },
       Lynx: { checked: 0, passed: 0, failed: 0, tsFailed: 0, legacyFailed: 0 },
@@ -151,32 +171,58 @@ function createReplaySweepShardAggregate(): ReplaySweepShardAggregate {
   };
 }
 
-function formatElapsedDuration(elapsedMs: number): string {
-  if (elapsedMs < 1000) {
-    return `${elapsedMs}ms`;
-  }
-
-  if (elapsedMs < 60_000) {
-    return `${(elapsedMs / 1000).toFixed(1)}s`;
-  }
-
-  const totalSeconds = Math.round(elapsedMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}m ${seconds}s`;
+function inferReplayFailureKind(line: string): "ts" | "legacy" {
+  return /\blegacy\b/i.test(line) ? "legacy" : "ts";
 }
 
-function printReplaySweepSummaryLine(prefix: string, counts: Pick<ReplaySweepShardAggregate, "checked" | "passed" | "failed">): void {
-  console.log(`${prefix} checked ${counts.checked} | passed ${counts.passed} | failed ${counts.failed}`);
+function formatPassedSegment(value: number, colors: ReturnType<typeof createColors>): string {
+  return colors.green(`passed ${value}`);
+}
+
+function formatFailureSegment(
+  label: "failed" | "ts-failed" | "legacy-failed",
+  value: number,
+  colors: ReturnType<typeof createColors>,
+): string {
+  const rendered = `${label} ${value}`;
+  if (label === "legacy-failed") {
+    return value === 0 ? colors.green(rendered) : colors.yellow(rendered);
+  }
+
+  return value === 0 ? colors.green(rendered) : colors.red(rendered);
+}
+
+function formatWallClockPrefix(startedAtMs: number, nowMs = Date.now(), colors = createColors(false)): string {
+  return colors.gray(`[${((nowMs - startedAtMs) / 1000).toFixed(1)}s]`);
+}
+
+function printReplaySweepSummaryLine(
+  prefix: string,
+  counts: Pick<ReplaySweepShardAggregate, "checked" | "passed" | "failed">,
+  colors: ReturnType<typeof createColors>,
+  startedAtMs: number,
+): void {
+  console.log(
+    `${formatWallClockPrefix(startedAtMs, Date.now(), colors)} ${prefix} checked ${counts.checked} | ${formatPassedSegment(counts.passed, colors)} | ${formatFailureSegment("failed", counts.failed, colors)}`,
+  );
 }
 
 function printAllReplaySweepSummaryLine(
   prefix: string,
   counts: Pick<ReplaySweepShardAggregate, "checked" | "passed" | "tsFailed" | "legacyFailed">,
+  colors: ReturnType<typeof createColors>,
+  startedAtMs: number,
 ): void {
   console.log(
-    `${prefix} checked ${counts.checked} | passed ${counts.passed} | ts-failed ${counts.tsFailed} | legacy-failed ${counts.legacyFailed}`,
+    `${formatWallClockPrefix(startedAtMs, Date.now(), colors)} ${prefix} checked ${counts.checked} | ${formatPassedSegment(counts.passed, colors)} | ${formatFailureSegment("ts-failed", counts.tsFailed, colors)} | ${formatFailureSegment("legacy-failed", counts.legacyFailed, colors)}`,
   );
+}
+
+function colorReplayFailureLine(
+  line: string,
+  colors: ReturnType<typeof createColors>,
+): string {
+  return inferReplayFailureKind(line) === "legacy" ? colors.yellow(line) : colors.red(line);
 }
 
 function handleReplaySweepCoordinationEvent(
@@ -185,14 +231,17 @@ function handleReplaySweepCoordinationEvent(
   shardIndex: number,
   shardCount: number,
   event: ReplaySweepCoordinationEvent,
+  colors: ReturnType<typeof createColors>,
+  startedAtMs: number,
 ): void {
   const shardLabel = `[${shardIndex + 1}/${shardCount}]`;
+  const prefix = formatWallClockPrefix(startedAtMs, Date.now(), colors);
 
   switch (event.type) {
     case "file-start": {
       const replayLabel = event.replayCount === 1 ? "1 replay" : `${event.replayCount} replays`;
       const rulesetPrefix = options.summaryKind === "all" ? `${event.ruleset} ` : "";
-      console.log(`start ${shardLabel} ${rulesetPrefix}${trimReplaySweepPackName(event.packName)} | ${replayLabel}`);
+      console.log(`${prefix} start ${shardLabel} ${rulesetPrefix}${trimReplaySweepPackName(event.packName)} | ${replayLabel}`);
       return;
     }
     case "file-complete": {
@@ -208,25 +257,26 @@ function handleReplaySweepCoordinationEvent(
       rulesetTotals.failed += event.failed;
       rulesetTotals.tsFailed += event.tsFailed;
       rulesetTotals.legacyFailed += event.legacyFailed;
+      aggregate.failureLines.push(...event.failureLines);
 
       const rulesetPrefix = options.summaryKind === "all" ? `${event.ruleset} ` : "";
       if (options.summaryKind === "all") {
         console.log(
-          `done  ${shardLabel} ${rulesetPrefix}${trimReplaySweepPackName(event.packName)} | checked ${event.checked} | passed ${event.passed} | ts-failed ${event.tsFailed} | legacy-failed ${event.legacyFailed} | ${formatElapsedDuration(event.elapsedMs)}`,
+          `${prefix} done  ${shardLabel} ${rulesetPrefix}${trimReplaySweepPackName(event.packName)} | checked ${event.checked} | ${formatPassedSegment(event.passed, colors)} | ${formatFailureSegment("ts-failed", event.tsFailed, colors)} | ${formatFailureSegment("legacy-failed", event.legacyFailed, colors)}`,
         );
       } else {
         console.log(
-          `done  ${shardLabel} ${rulesetPrefix}${trimReplaySweepPackName(event.packName)} | checked ${event.checked} | passed ${event.passed} | failed ${event.failed} | ${formatElapsedDuration(event.elapsedMs)}`,
+          `${prefix} done  ${shardLabel} ${rulesetPrefix}${trimReplaySweepPackName(event.packName)} | checked ${event.checked} | ${formatPassedSegment(event.passed, colors)} | ${formatFailureSegment("failed", event.failed, colors)}`,
         );
       }
       for (const failureLine of event.failureLines) {
-        console.log(`  ${failureLine}`);
+        console.log(`  ${colorReplayFailureLine(failureLine, colors)}`);
       }
       return;
     }
     case "unsupported-file":
       aggregate.unsupportedFiles.push(event.solutionLabel);
-      console.log(`skip  ${shardLabel} ${event.solutionLabel} | unsupported`);
+      console.log(`${prefix} skip  ${shardLabel} ${event.solutionLabel} | unsupported`);
       return;
   }
 }
@@ -234,19 +284,30 @@ function handleReplaySweepCoordinationEvent(
 function printReplaySweepAggregateSummary(
   aggregate: ReplaySweepShardAggregate,
   options: RunParallelReplaySweepOptions,
+  colors: ReturnType<typeof createColors>,
+  startedAtMs: number,
 ): void {
-  console.log("== total summary ==");
-  console.log(`solution files checked: ${aggregate.supportedFileCount}`);
-  console.log(`unsupported files: ${aggregate.unsupportedFiles.length > 0 ? aggregate.unsupportedFiles.join(", ") : "(none)"}`);
+  const prefix = formatWallClockPrefix(startedAtMs, Date.now(), colors);
+  console.log(`${prefix} == total summary ==`);
+  console.log(`${prefix} solution files checked: ${aggregate.supportedFileCount}`);
+  console.log(`${prefix} unsupported files: ${aggregate.unsupportedFiles.length > 0 ? aggregate.unsupportedFiles.join(", ") : "(none)"}`);
 
   if (options.summaryKind === "all") {
-    printAllReplaySweepSummaryLine("all replays:", aggregate);
-    printAllReplaySweepSummaryLine("MS:", aggregate.byRuleset.MS);
-    printAllReplaySweepSummaryLine("Lynx:", aggregate.byRuleset.Lynx);
+    printAllReplaySweepSummaryLine("all replays:", aggregate, colors, startedAtMs);
+    printAllReplaySweepSummaryLine("MS:", aggregate.byRuleset.MS, colors, startedAtMs);
+    printAllReplaySweepSummaryLine("Lynx:", aggregate.byRuleset.Lynx, colors, startedAtMs);
+  } else {
+    printReplaySweepSummaryLine(`${options.ruleset ?? "replays"}:`, aggregate, colors, startedAtMs);
+  }
+
+  if (aggregate.failureLines.length === 0) {
     return;
   }
 
-  printReplaySweepSummaryLine(`${options.ruleset ?? "replays"}:`, aggregate);
+  console.log(`${prefix} failing levels:`);
+  for (const failureLine of aggregate.failureLines) {
+    console.log(`  ${colorReplayFailureLine(failureLine, colors)}`);
+  }
 }
 
 async function runReplaySweepShard(
@@ -259,6 +320,8 @@ async function runReplaySweepShard(
   totalWeight: number,
   options: RunParallelReplaySweepOptions,
   aggregate: ReplaySweepShardAggregate,
+  colors: ReturnType<typeof createColors>,
+  startedAtMs: number,
 ): Promise<ReplaySweepShardResult> {
   return await new Promise<ReplaySweepShardResult>((resolve, reject) => {
     const child = spawn(
@@ -285,7 +348,7 @@ async function runReplaySweepShard(
       if (isStdout) {
         const event = parseReplaySweepCoordinationLine(line);
         if (event) {
-          handleReplaySweepCoordinationEvent(aggregate, options, shardIndex, shardCount, event);
+          handleReplaySweepCoordinationEvent(aggregate, options, shardIndex, shardCount, event, colors, startedAtMs);
           return;
         }
         stdout += `${line}\n`;
@@ -372,8 +435,10 @@ export async function maybeRunParallelReplaySweep(options: RunParallelReplaySwee
   }
 
   const shards = partitionReplaySweepFiles(options.files, jobCount);
+  const colors = createColors(process.stdout.isTTY && process.env.NO_COLOR === undefined);
+  const startedAtMs = Date.now();
   console.log(
-    `${options.description}: sharding ${options.files.length} solution files across ${shards.length} workers`,
+    `${formatWallClockPrefix(startedAtMs, startedAtMs, colors)} ${options.description}: sharding ${options.files.length} solution files across ${shards.length} workers`,
   );
 
   const aggregate = createReplaySweepShardAggregate();
@@ -390,6 +455,8 @@ export async function maybeRunParallelReplaySweep(options: RunParallelReplaySwee
         shard.totalWeight,
         options,
         aggregate,
+        colors,
+        startedAtMs,
       ),
     ),
   );
@@ -406,7 +473,7 @@ export async function maybeRunParallelReplaySweep(options: RunParallelReplaySwee
     printBufferedChunk(result.stderr, process.stderr);
   }
 
-  printReplaySweepAggregateSummary(aggregate, options);
+  printReplaySweepAggregateSummary(aggregate, options, colors, startedAtMs);
   process.exitCode = results.some((result) => result.exitCode !== 0) ? 1 : 0;
   return true;
 }
