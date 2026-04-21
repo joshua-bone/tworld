@@ -503,6 +503,7 @@ export function LegacyCanvasScreen({
     const mapScale = presentation === "map-only" ? LEGACY_TILE_SIZE / renderTileSize : 1;
     return mapPositionAtCanvasPoint(
       activeSession,
+      currentRuleset,
       presentation === "map-only" ? x * mapScale + LEGACY_MAP_X : x,
       presentation === "map-only" ? y * mapScale + LEGACY_MAP_Y : y,
     );

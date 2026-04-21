@@ -5,6 +5,7 @@ import {
   buildCachedLowerLayerKey,
   collectVisibleLayerCacheWarmupTasks,
   hasCachedLowerLayerCanvas,
+  resolveLegacyMapViewport,
 } from "@player-web/impl/legacyCanvasMapRenderer";
 import { createLayerCanvasCache, storeCachedLayerCanvas } from "@player-web/impl/legacyLayerCanvasCache";
 import type { EngineMapCell } from "@game-core/api/model";
@@ -278,6 +279,52 @@ describe("buildLegacyGameDrawStateKey", () => {
     ).not.toBe(
       buildLegacyGameDrawStateKey(after, null, null, "Lynx", false, null, "legacy", true, true),
     );
+  });
+});
+
+describe("resolveLegacyMapViewport", () => {
+  it("uses the preserved Lynx failed-chip slide when the render frame still carries movement", () => {
+    const session = createSession(MS_TILE.Empty, {
+      chip: {
+        pos: 660,
+        z: 2,
+        dir: MS_DIRECTION.east,
+        moving: 6,
+        pushing: false,
+        hidden: false,
+        failed: true,
+        endGameAnimationTileId: 0x76,
+        endGameAnimationFrame: 3,
+      },
+    });
+    session.frame.snapshot.view = { x: 160, y: 160 };
+
+    expect(resolveLegacyMapViewport(session, "Lynx")).toEqual({
+      viewX: 67,
+      viewY: 64,
+    });
+  });
+
+  it("falls back to the snapshot view for non-Lynx renders", () => {
+    const session = createSession(MS_TILE.Empty, {
+      chip: {
+        pos: 660,
+        z: 2,
+        dir: MS_DIRECTION.east,
+        moving: 6,
+        pushing: false,
+        hidden: false,
+        failed: true,
+        endGameAnimationTileId: 0x76,
+        endGameAnimationFrame: 3,
+      },
+    });
+    session.frame.snapshot.view = { x: 160, y: 160 };
+
+    expect(resolveLegacyMapViewport(session, "MS")).toEqual({
+      viewX: 64,
+      viewY: 64,
+    });
   });
 });
 

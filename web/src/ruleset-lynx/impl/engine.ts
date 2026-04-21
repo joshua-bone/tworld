@@ -2060,7 +2060,7 @@ function hasLynxBoots(state: EngineState, tileId: number): boolean {
   return inventorySlot === "boots" && inventoryIndex !== null ? actorInventoryHasBoot(chipInventory, inventoryIndex) : false;
 }
 
-function lynxChipMovementSpeed(state: EngineState, floorId: number, moveKind: LynxMoveKind = "planar"): number {
+export function lynxChipMovementSpeed(state: EngineState, floorId: number, moveKind: LynxMoveKind = "planar"): number {
   let speed = 2;
 
   if (moveKind === "air" || moveKind === "elevator") {

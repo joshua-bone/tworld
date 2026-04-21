@@ -1348,8 +1348,51 @@ export function prewarmVisibleLayerCaches(
   }
 }
 
+function renderedLynxViewFromChip(
+  chip: InteractiveGameRenderFrame["chip"],
+): { x: number; y: number } | null {
+  if (!chip || !chip.failed || chip.hidden || chip.moving <= 0) {
+    return null;
+  }
+
+  let x = (chip.pos % 32) * 8;
+  let y = Math.floor(chip.pos / 32) * 8;
+
+  switch (chip.dir) {
+    case MS_DIRECTION.north:
+      y += chip.moving;
+      break;
+    case MS_DIRECTION.east:
+      x += chip.moving;
+      break;
+    case MS_DIRECTION.south:
+      y -= chip.moving;
+      break;
+    case MS_DIRECTION.west:
+      x -= chip.moving;
+      break;
+    default:
+      break;
+  }
+
+  return { x, y };
+}
+
+export function resolveLegacyMapViewport(
+  session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+): { viewX: number; viewY: number } {
+  const renderView = ruleset === "Lynx" ? renderedLynxViewFromChip(session.frame.render?.chip) : null;
+  const sourceView = renderView ?? session.frame.snapshot.view;
+  return {
+    viewX: clamp(sourceView.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4),
+    viewY: clamp(sourceView.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4),
+  };
+}
+
 export function mapPositionAtCanvasPoint(
   session: InteractiveGameSession,
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
   canvasX: number,
   canvasY: number,
 ): number | null {
@@ -1362,16 +1405,7 @@ export function mapPositionAtCanvasPoint(
     return null;
   }
 
-  const viewX = clamp(
-    session.frame.snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4),
-    0,
-    (32 - LEGACY_MAP_TILES) * 4,
-  );
-  const viewY = clamp(
-    session.frame.snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4),
-    0,
-    (32 - LEGACY_MAP_TILES) * 4,
-  );
+  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset);
   const xOrigin = LEGACY_MAP_X - (viewX * LEGACY_TILE_SIZE) / 4;
   const yOrigin = LEGACY_MAP_Y - (viewY * LEGACY_TILE_SIZE) / 4;
   const tileX = Math.floor((canvasX - xOrigin) / LEGACY_TILE_SIZE);

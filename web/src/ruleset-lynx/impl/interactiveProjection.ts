@@ -5,7 +5,7 @@ import { engineStateToSnapshot } from "@game-core/impl/snapshot";
 import type { StatefulActorRuntimeStore, StatefulActorRuntimeEntry } from "@game-core/impl/statefulActorRuntime";
 import { findStatefulActorRuntime } from "@game-core/impl/statefulActorRuntime";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import type { LynxInteractiveSessionState } from "@ruleset-lynx/impl/engine";
+import { lynxChipMovementSpeed, type LynxInteractiveSessionState } from "@ruleset-lynx/impl/engine";
 import {
   projectLynxRenderableActor,
   projectLynxRenderableAnimation,
@@ -182,6 +182,41 @@ function lynxLayerCellsAt(
   return session.state.map.layers?.find((layer) => layer.z === z)?.cells ?? session.state.map.cells;
 }
 
+function projectLynxRenderableChipMoving(
+  session: LynxInteractiveSessionState,
+  previousFrame?: InteractiveGameFrame,
+): number {
+  const chipMoveKind = session.chipMoveKind ?? "planar";
+  if (chipMoveKind === "air" || chipMoveKind === "elevator") {
+    return 0;
+  }
+
+  if (session.endGameResult !== "failed" || session.chipMoving > 0) {
+    return session.chipMoving;
+  }
+
+  const previousChip = previousFrame?.render?.chip;
+  if (!previousChip || previousChip.hidden || previousChip.moving <= 0) {
+    return 0;
+  }
+
+  if (
+    previousChip.pos !== session.chipPos ||
+    (previousChip.z ?? 1) !== (session.chipZ ?? 1) ||
+    previousChip.dir !== session.chipDir
+  ) {
+    return 0;
+  }
+
+  if (!previousChip.failed) {
+    return previousChip.moving;
+  }
+
+  const floorId = lynxLayerCellsAt(session, session.chipZ ?? 1)[session.chipPos]?.top.id ?? MS_TILE.Empty;
+  const speed = lynxChipMovementSpeed(session.state, floorId, chipMoveKind);
+  return Math.max(0, previousChip.moving - speed);
+}
+
 function isMappedOccupiedLynxPetCarrier(
   item: LynxPortableItem,
 ): item is LynxPetCarrierPortableItem & { state: Extract<LynxPetCarrierPortableItem["state"], { mode: "map" }> } {
@@ -195,6 +230,7 @@ export function projectLynxInteractiveFrame(
 ): InteractiveGameFrame {
   const runtime = lynxProjectedRuntimeState(session.state);
   const chipVerticalMove = session.chipMoveKind === "air" || session.chipMoveKind === "elevator";
+  const renderChipMoving = projectLynxRenderableChipMoving(session, previousFrame);
   const portableTools = runtime?.portableTools ?? null;
   const mappedOccupiedCarriers = portableTools?.portableItems?.filter(isMappedOccupiedLynxPetCarrier) ?? [];
   const carriedPortableItem = portableTools?.portableItems ? carriedLynxPortableToolItem(portableTools) ?? null : null;
@@ -207,7 +243,7 @@ export function projectLynxInteractiveFrame(
         pos: session.chipPos,
         z: session.chipZ,
         dir: session.chipDir,
-        moving: chipVerticalMove ? 0 : session.chipMoving,
+        moving: chipVerticalMove ? 0 : renderChipMoving,
         pushing: session.chipPushing,
         hidden: runtime?.chipRuntime?.chipTeleported === true,
         failed: session.endGameResult === "failed",

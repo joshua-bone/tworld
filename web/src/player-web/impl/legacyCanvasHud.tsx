@@ -33,6 +33,7 @@ import {
 } from "@player-web/impl/legacyCanvasShared";
 import {
   drawVisibleLayerStack,
+  resolveLegacyMapViewport,
 } from "@player-web/impl/legacyCanvasMapRenderer";
 import {
   drawLegacyTile,
@@ -324,8 +325,7 @@ export function drawLegacyGameScreen(
   }
 
   const snapshot = session.frame.snapshot;
-  const viewX = clamp(snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
-  const viewY = clamp(snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
+  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset);
   const timerval = (snapshot.statusFlags & MS_STATUS_FLAG.NoAnimation) !== 0 ? -1 : snapshot.currentTime;
   drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY, lowerLayerCache, visualEnhancementsEnabled);
 
@@ -422,8 +422,7 @@ export function drawLegacyGameMapOnly(
   }
 
   const snapshot = session.frame.snapshot;
-  const viewX = clamp(snapshot.view.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
-  const viewY = clamp(snapshot.view.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4);
+  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset);
   const timerval = (snapshot.statusFlags & MS_STATUS_FLAG.NoAnimation) !== 0 ? -1 : snapshot.currentTime;
 
   context.save();

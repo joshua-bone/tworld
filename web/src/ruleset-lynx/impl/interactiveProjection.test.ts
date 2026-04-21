@@ -518,6 +518,139 @@ describe("projectLynxInteractiveFrame", () => {
     });
   });
 
+  it("preserves the predeath chip slide on the first failed render frame", () => {
+    const cells = [createCell(0, MS_TILE.Empty)];
+    const level = {
+      number: 1,
+      timeLimitTicks: 0,
+      chipsNeeded: 0,
+      hintText: "",
+      cells,
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      statusFlags: 0,
+    } satisfies LynxLevel;
+
+    const movingState = createEngineState(cells);
+    movingState.view = { x: 22, y: 8 };
+    const movingSession = {
+      level,
+      state: movingState,
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+      chipPos: 34,
+      chipZ: 1,
+      chipDir: MS_DIRECTION.east,
+      chipMoving: 6,
+      chipMoveKind: "planar",
+      currentInputCode: 0,
+      queuedReplayInputCode: 0,
+      queuedChipInputCode: 0,
+      chipPushing: false,
+      actors: [],
+      endGameTicksElapsed: null,
+      endGameResult: null,
+      endGameAnimationTileId: null,
+      endGameAnimationFrame: null,
+    } as unknown as LynxInteractiveSessionState;
+    const previousFrame = projectLynxInteractiveFrame(movingSession, "tick");
+
+    const failedState = createEngineState(cells);
+    failedState.view = { x: 16, y: 8 };
+    const failedSession = {
+      ...movingSession,
+      state: failedState,
+      chipMoving: 0,
+      endGameTicksElapsed: 0,
+      endGameResult: "failed",
+      endGameAnimationTileId: 0x76,
+      endGameAnimationFrame: 3,
+    } as const satisfies LynxInteractiveSessionState;
+
+    const frame = projectLynxInteractiveFrame(failedSession, "tick", previousFrame);
+
+    expect(frame.snapshot.view).toEqual({ x: 16, y: 8 });
+    expect(frame.render?.chip).toMatchObject({
+      failed: true,
+      moving: 6,
+      endGameAnimationTileId: 0x76,
+    });
+  });
+
+  it("continues decaying the preserved failed chip slide across later endgame frames", () => {
+    const cells = [createCell(0, MS_TILE.Empty)];
+    const level = {
+      number: 1,
+      timeLimitTicks: 0,
+      chipsNeeded: 0,
+      hintText: "",
+      cells,
+      traps: [],
+      cloners: [],
+      creaturePositions: [],
+      statusFlags: 0,
+    } satisfies LynxLevel;
+
+    const movingState = createEngineState(cells);
+    movingState.view = { x: 22, y: 8 };
+    const movingSession = {
+      level,
+      state: movingState,
+      lastInput: {
+        tick: 0,
+        inputCode: 0,
+        inputName: "none",
+      },
+      recordedMoves: [],
+      replayPlan: null,
+      chipPos: 34,
+      chipZ: 1,
+      chipDir: MS_DIRECTION.east,
+      chipMoving: 6,
+      chipMoveKind: "planar",
+      currentInputCode: 0,
+      queuedReplayInputCode: 0,
+      queuedChipInputCode: 0,
+      chipPushing: false,
+      actors: [],
+      endGameTicksElapsed: null,
+      endGameResult: null,
+      endGameAnimationTileId: null,
+      endGameAnimationFrame: null,
+    } as unknown as LynxInteractiveSessionState;
+    const preDeathFrame = projectLynxInteractiveFrame(movingSession, "tick");
+
+    const failedState = createEngineState(cells);
+    failedState.view = { x: 16, y: 8 };
+    const failedSession = {
+      ...movingSession,
+      state: failedState,
+      chipMoving: 0,
+      endGameTicksElapsed: 0,
+      endGameResult: "failed",
+      endGameAnimationTileId: 0x76,
+      endGameAnimationFrame: 3,
+    } as const satisfies LynxInteractiveSessionState;
+    const failedFrame = projectLynxInteractiveFrame(failedSession, "tick", preDeathFrame);
+
+    const laterFailedSession = {
+      ...failedSession,
+      endGameTicksElapsed: 1,
+      endGameAnimationFrame: 2,
+    } as const satisfies LynxInteractiveSessionState;
+
+    const laterFrame = projectLynxInteractiveFrame(laterFailedSession, "tick", failedFrame);
+
+    expect(failedFrame.render?.chip?.moving).toBe(6);
+    expect(laterFrame.render?.chip?.moving).toBe(4);
+  });
+
   it("projects bowling ball visuals from stateful actor runtime kind", () => {
     const cells = [createCell(0, MS_TILE.Empty)];
     const engine = createEngineState(cells) as EngineState & {
