@@ -656,6 +656,19 @@ export function shouldDrawOpenTrapOccupant(
   return !hasMovingRenderableAtPos && topId !== MS_TILE.Air && topId !== MS_TILE.Nothing && topId !== MS_TILE.Empty;
 }
 
+export function visualEnhancementActorDecorationPosition(
+  x: number,
+  y: number,
+  dir: number,
+  moving: number,
+): { actorX: number; actorY: number } {
+  const movementOffset = legacyCreatureMovementOffset(dir, moving, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+  return {
+    actorX: x + movementOffset.offsetX,
+    actorY: y + movementOffset.offsetY,
+  };
+}
+
 function createBlockSupportWindowMask(): HTMLCanvasElement | null {
   const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
   const context = canvas.getContext("2d");
@@ -738,15 +751,17 @@ function drawVisualEnhancementSupportWindow(
   tileset: LegacyTileset,
   actorTileId: number,
   floorId: number,
-  x: number,
-  y: number,
+  floorX: number,
+  floorY: number,
+  actorX: number,
+  actorY: number,
 ): void {
   const maskCanvas = getOrCreateBlockSupportWindowMask();
   const blockCanvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
   const blockContext = blockCanvas.getContext("2d");
   if (!blockContext || !maskCanvas) {
-    drawLegacyTile(context, tileset, floorId, x, y);
-    drawLegacyTile(context, tileset, actorTileId, x, y);
+    drawLegacyTile(context, tileset, floorId, floorX, floorY);
+    drawLegacyTile(context, tileset, actorTileId, actorX, actorY);
     return;
   }
 
@@ -756,8 +771,8 @@ function drawVisualEnhancementSupportWindow(
   blockContext.drawImage(maskCanvas, 0, 0);
   blockContext.restore();
 
-  drawLegacyTile(context, tileset, floorId, x, y);
-  context.drawImage(blockCanvas, x, y);
+  drawLegacyTile(context, tileset, floorId, floorX, floorY);
+  context.drawImage(blockCanvas, actorX, actorY);
 }
 
 function drawActorVisualEnhancements(
@@ -787,6 +802,7 @@ function drawActorVisualEnhancements(
 
     const x = xOrigin + (actor.pos % 32) * LEGACY_TILE_SIZE;
     const y = yOrigin + Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE;
+    const { actorX, actorY } = visualEnhancementActorDecorationPosition(x, y, actor.dir, actor.moving);
     for (const decoration of actor.decorations ?? []) {
       if (decoration.kind === "thin-wall-overlay") {
         const overlaySprite = getOrCreateThinWallOverlaySprite(tileset, decoration.tileId);
@@ -804,10 +820,12 @@ function drawActorVisualEnhancements(
           decoration.floorTileId,
           x,
           y,
+          actorX,
+          actorY,
         );
       }
       if (decoration.showDirectionArrow) {
-        drawVisualEnhancementArrow(context, actor.dir, x, y);
+        drawVisualEnhancementArrow(context, actor.dir, actorX, actorY);
       }
     }
   }
@@ -1401,13 +1419,13 @@ function renderedLynxViewFromChip(
     case MS_DIRECTION.north:
       y += chip.moving;
       break;
-    case MS_DIRECTION.east:
+    case MS_DIRECTION.west:
       x += chip.moving;
       break;
     case MS_DIRECTION.south:
       y -= chip.moving;
       break;
-    case MS_DIRECTION.west:
+    case MS_DIRECTION.east:
       x -= chip.moving;
       break;
     default:

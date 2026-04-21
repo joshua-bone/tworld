@@ -7,6 +7,7 @@ import {
   hasCachedLowerLayerCanvas,
   resolveLegacyMapViewport,
   shouldDrawOpenTrapOccupant,
+  visualEnhancementActorDecorationPosition,
 } from "@player-web/impl/legacyCanvasMapRenderer";
 import { createLayerCanvasCache, storeCachedLayerCanvas } from "@player-web/impl/legacyLayerCanvasCache";
 import type { EngineMapCell } from "@game-core/api/model";
@@ -301,7 +302,7 @@ describe("resolveLegacyMapViewport", () => {
     session.frame.snapshot.view = { x: 160, y: 160 };
 
     expect(resolveLegacyMapViewport(session, "Lynx")).toEqual({
-      viewX: 67,
+      viewX: 61,
       viewY: 64,
     });
   });
@@ -337,6 +338,26 @@ describe("shouldDrawOpenTrapOccupant", () => {
   it("keeps drawing stationary open-trap occupants for the enhancement overlay", () => {
     expect(shouldDrawOpenTrapOccupant(MS_TILE.Block, false)).toBe(true);
     expect(shouldDrawOpenTrapOccupant(MS_TILE.Empty, false)).toBe(false);
+  });
+});
+
+describe("visualEnhancementActorDecorationPosition", () => {
+  it("keeps moving enhancement overlays aligned with eastbound actor motion", () => {
+    expect(
+      visualEnhancementActorDecorationPosition(100, 200, MS_DIRECTION.east, 6),
+    ).toEqual({
+      actorX: 64,
+      actorY: 200,
+    });
+  });
+
+  it("keeps moving enhancement overlays aligned with southbound actor motion", () => {
+    expect(
+      visualEnhancementActorDecorationPosition(100, 200, MS_DIRECTION.south, 4),
+    ).toEqual({
+      actorX: 100,
+      actorY: 176,
+    });
   });
 });
 
