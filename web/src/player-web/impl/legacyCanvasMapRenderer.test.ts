@@ -6,6 +6,7 @@ import {
   collectVisibleLayerCacheWarmupTasks,
   hasCachedLowerLayerCanvas,
   resolveLegacyMapViewport,
+  shouldDrawOpenTrapOccupant,
 } from "@player-web/impl/legacyCanvasMapRenderer";
 import { createLayerCanvasCache, storeCachedLayerCanvas } from "@player-web/impl/legacyLayerCanvasCache";
 import type { EngineMapCell } from "@game-core/api/model";
@@ -325,6 +326,17 @@ describe("resolveLegacyMapViewport", () => {
       viewX: 64,
       viewY: 64,
     });
+  });
+});
+
+describe("shouldDrawOpenTrapOccupant", () => {
+  it("suppresses the enhancement-only destination occupant when a Lynx actor is still sliding in", () => {
+    expect(shouldDrawOpenTrapOccupant(MS_TILE.Block, true)).toBe(false);
+  });
+
+  it("keeps drawing stationary open-trap occupants for the enhancement overlay", () => {
+    expect(shouldDrawOpenTrapOccupant(MS_TILE.Block, false)).toBe(true);
+    expect(shouldDrawOpenTrapOccupant(MS_TILE.Empty, false)).toBe(false);
   });
 });
 

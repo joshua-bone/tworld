@@ -379,6 +379,30 @@ function buildPetCarrierReplacementRenders(
   return renders;
 }
 
+function buildMovingRenderablePositions(
+  render: InteractiveGameRenderFrame | null,
+  targetZ: number,
+): Set<number> {
+  const movingPositions = new Set<number>();
+  if (!render) {
+    return movingPositions;
+  }
+
+  const chip = render.chip;
+  if (chip && (chip.z ?? 1) === targetZ && !chip.hidden && chip.moving > 0) {
+    movingPositions.add(chip.pos);
+  }
+
+  for (const actor of render.actors) {
+    if ((actor.z ?? 1) !== targetZ || actor.hidden || actor.moving <= 0) {
+      continue;
+    }
+    movingPositions.add(actor.pos);
+  }
+
+  return movingPositions;
+}
+
 function drawLegacyRenderableSprite(
   context: CanvasRenderingContext2D,
   sprite: LegacyTileSprite,
@@ -625,6 +649,13 @@ export function visualEnhancementBlockWindowOpacity(squareDistanceFromCenterPx: 
   return (clampedDistance - transparentHalfSize) / (solidStartDistance - transparentHalfSize);
 }
 
+export function shouldDrawOpenTrapOccupant(
+  topId: number,
+  hasMovingRenderableAtPos: boolean,
+): boolean {
+  return !hasMovingRenderableAtPos && topId !== MS_TILE.Air && topId !== MS_TILE.Nothing && topId !== MS_TILE.Empty;
+}
+
 function createBlockSupportWindowMask(): HTMLCanvasElement | null {
   const canvas = createCanvas(LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
   const context = canvas.getContext("2d");
@@ -786,6 +817,7 @@ function drawCompositedCell(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
   ruleset: SeriesCatalogEntry["ruleset"] | null,
+  pos: number,
   topId: number,
   topState: number,
   bottomId: number,
@@ -796,6 +828,7 @@ function drawCompositedCell(
   visualEnhancementsEnabled: boolean,
   pickupRevealTileId: number | null,
   petCarrierRender: InteractiveGamePetCarrierRender | null,
+  movingRenderablePositions: ReadonlySet<number>,
 ): void {
   if (petCarrierRender) {
     const compositeSprite = getOrCreateOccupiedPetCarrierSprite(tileset, petCarrierRender, timerval);
@@ -827,7 +860,7 @@ function drawCompositedCell(
       context.restore();
     }
 
-    if (bottomTrapOpen && topId !== MS_TILE.Air && topId !== MS_TILE.Nothing && topId !== MS_TILE.Empty) {
+    if (bottomTrapOpen && shouldDrawOpenTrapOccupant(topId, movingRenderablePositions.has(pos))) {
       drawLegacyTile(context, tileset, topId, x, y);
     }
     return;
@@ -1020,6 +1053,7 @@ function renderMapLayerCanvas(
     visualEnhancementsEnabled,
   );
   const petCarrierRenders = buildPetCarrierReplacementRenders(session.frame.tileOverlays, layer.z);
+  const movingRenderablePositions = buildMovingRenderablePositions(session.frame.render, layer.z);
 
   for (const cell of layer.cells) {
     const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
@@ -1032,6 +1066,7 @@ function renderMapLayerCanvas(
       context,
       tileset,
       ruleset,
+      cell.position.pos,
       cell.top.id,
       cell.top.state,
       cell.bottom.id,
@@ -1042,6 +1077,7 @@ function renderMapLayerCanvas(
       visualEnhancementsEnabled,
       pickupRevealTileIds.get(cell.position.pos) ?? null,
       petCarrierRenders.get(cell.position.pos) ?? null,
+      movingRenderablePositions,
     );
   }
 
@@ -1097,6 +1133,7 @@ function renderCachedLowerLayerCanvas(
     visualEnhancementsEnabled,
   );
   const petCarrierRenders = buildPetCarrierReplacementRenders(session.frame.tileOverlays, layer.z);
+  const movingRenderablePositions = buildMovingRenderablePositions(session.frame.render, layer.z);
 
   for (const cell of layer.cells) {
     const x = xOrigin + cell.position.x * LEGACY_TILE_SIZE;
@@ -1105,6 +1142,7 @@ function renderCachedLowerLayerCanvas(
       context,
       tileset,
       ruleset,
+      cell.position.pos,
       cell.top.id,
       cell.top.state,
       cell.bottom.id,
@@ -1115,6 +1153,7 @@ function renderCachedLowerLayerCanvas(
       visualEnhancementsEnabled,
       pickupRevealTileIds.get(cell.position.pos) ?? null,
       petCarrierRenders.get(cell.position.pos) ?? null,
+      movingRenderablePositions,
     );
   }
 
