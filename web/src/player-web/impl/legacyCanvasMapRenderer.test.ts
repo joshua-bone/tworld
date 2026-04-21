@@ -285,6 +285,28 @@ describe("buildLegacyGameDrawStateKey", () => {
 });
 
 describe("resolveLegacyMapViewport", () => {
+  it("uses the Lynx render-chip slide when snapshot view has already advanced to the destination tile", () => {
+    const session = createSession(MS_TILE.Empty, {
+      chip: {
+        pos: 660,
+        z: 2,
+        dir: MS_DIRECTION.east,
+        moving: 2,
+        pushing: false,
+        hidden: false,
+        failed: false,
+        endGameAnimationTileId: null,
+        endGameAnimationFrame: null,
+      },
+    });
+    session.frame.snapshot.view = { x: 160, y: 160 };
+
+    expect(resolveLegacyMapViewport(session, "Lynx")).toEqual({
+      viewX: 63,
+      viewY: 64,
+    });
+  });
+
   it("uses the preserved Lynx failed-chip slide when the render frame still carries movement", () => {
     const session = createSession(MS_TILE.Empty, {
       chip: {

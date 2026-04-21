@@ -1408,7 +1408,7 @@ export function prewarmVisibleLayerCaches(
 function renderedLynxViewFromChip(
   chip: InteractiveGameRenderFrame["chip"] | undefined,
 ): { x: number; y: number } | null {
-  if (!chip || !chip.failed || chip.hidden || chip.moving <= 0) {
+  if (!chip || chip.hidden || chip.moving <= 0) {
     return null;
   }
 
