@@ -253,36 +253,48 @@ evidence. Any generated use of them is explicit in the quirk ledger.
 
 ## Corpus and provenance
 
-The following planning baseline was audited against Tile World commit
-`5c47907507f5fdc6cebaa6f6125d8b93d3d92d44`:
+The P1A corpus manifest is generated from 193 exact source files pinned by byte
+length and SHA-256 at Tile World commit
+`42c78d0db343621f887fefce581315479d9a8be3`:
 
-- 2,440 official CCLP1-through-CCLP5 and CCLP5-voting map entries;
+- 2,440 official CCLP1-through-CCLP5 and CCLP5-voting map occurrences,
+  represented by 4,880 separate MS/Lynx target records;
 - 2,257 exact same-map entries with both MS and Lynx donors;
 - 562 paired official entries: 149 each from CCLP1, CCLP3, and CCLP4,
   plus 115 from CCLP5;
 - 1,695 paired entries across 34 CCLP5 voting packs;
-- 470 older HybridCC-Python winning replays, 391 overlapping the paired queue;
-  and
+- 4,664 donor-backed target records in total: both targets for the 2,257
+  paired cases plus 150 MS-only cases;
 - no direct level-number pairing between the CCLP2 MS pack and CCLXP2 Lynx
   pack: their pack/map bytes differ, so cases are paired only where generated
   canonical gameplay-map digests actually match.
 
-These are audited planning numbers, not hard-coded product facts. The generated
-manifest recomputes denominators from pinned bytes and reports them per pack.
+The generator recomputes these denominators from pinned bytes, checks them as
+acceptance invariants, and reports them per pack. The checked-in canonical
+manifest is repository truth for this corpus revision; changing a source pin or
+registry entry requires an intentional regeneration and review.
 
-Each `CorpusCase` records:
+The older HybridCC-Python repository separately contains 470 audited winning
+replays, 391 overlapping this paired queue. Those private-repository wins are a
+planning baseline only: they are not among the 193 Tile World source pins and
+do not appear in the P1A manifest.
+
+Each implemented P1A manifest map record contains:
 
 - a stable occurrence ID and canonical level-content digest;
-- source repository/API identity, path or URL, revision, and byte digest;
-- pack and level metadata without using titles as identity;
-- DAT decoder and normalization profile;
-- zero or more donor records, each with TWS entry digest, ruleset, seed,
-  stepping, random-slide state, ticks, input features, and oracle validation;
-- semantic-analysis and strategy artifact versions;
-- a target record for each claimed ruleset, containing its own attempts,
-  candidate replay, certificate lineage, and explicit status; and
-- an aggregate display status derived from target records, never used in place
-  of their asymmetric MS/Lynx state.
+- exact DAT member paths, byte spans, lengths, and SHA-256 digests;
+- pack/level metadata plus the DAT normalization profile and gameplay digest;
+- one ordered target record for MS and one for Lynx; and
+- an optional donor reference per target containing its TWS path, entry ordinal,
+  entry digest/length, password, ticks, flags, seed, stepping, random-slide
+  state, move count, and diagonal/mouse-input indicators.
+
+The manifest does not yet execute or oracle-validate donors, reference static
+analysis or strategy artifacts, or track solving attempts and certificates.
+Those mutable workflow facts belong in the separate versioned `CorpusCaseV1`
+ledger established by the artifact kernel. As solving begins, each target's
+ledger state will retain its own attempts, candidate replay, certificate
+lineage, and explicit status; any aggregate display status remains derived.
 
 Initial statuses are `awaiting-import`, `import-blocked`, `ready`,
 `analyzed`, `candidate-generated`, `needs-local-repair`, `needs-route-replan`,
@@ -324,15 +336,39 @@ The versioned static `LevelFacts` artifact includes:
 - force-floor and ice placements, teleport networks, and exits; and
 - source uncertainties that must not be silently normalized away.
 
-Later derived static-analysis artifacts add passability and
-capability-dependent connectivity, rooms, corridors, chokepoints,
-articulation boundaries, block destinations and dead squares, resource
-dependencies, forced conduits, irreversible actions, and suspected deadlocks.
-Keeping imported observations separate from deductions makes every dossier
-claim traceable and lets improved analyzers coexist with the same source facts.
+P1A adds target-specific topology evidence without changing `LevelFactsV1`.
+Every logical cell records effective/supporting placement exposure, directional
+entry and exit policy, an `open`, `blocked`, `conditional`, `dynamic`, or
+`unknown` classification, typed caveats, and initial occupancy. The evidence is
+bound to exact level-facts content, target, level identity, geometry, and policy
+revision. A complete, disjoint effective/supporting partition prevents silent
+placement omission.
+
+The pure P1A analyzer derives a certain-open directed graph, weak connected
+regions, iterative articulation points, conditional/dynamic/unknown boundaries,
+candidate resource dependencies, ordered transport incidences, region
+attachments, explicit uncertainty, and exact count features. Unknown or
+conditional evidence never becomes certain connectivity; cardinal adjacency
+never crosses z layers implicitly. The analyzer uses policy evidence rather
+than raw tile IDs or semantic-type name matching.
+
+This initial graph is not yet a semantic room decomposition or solvability
+proof. Later static-analysis slices add capability-dependent routing, block
+destinations and dead squares, forced conduits, irreversible actions, suspected
+deadlocks, and reviewed puzzle-area structure. Keeping imported observations,
+target policy, and deductions separate makes every dossier claim traceable and
+lets improved analyzers coexist with the same source facts.
 
 Static facts are conservative. The target engine decides whether a concrete
 move is legal.
+
+The P1A evidence producer and Intro level 8 golden currently target MS only.
+The manifest still retains independent MS and Lynx target/donor records, and the
+pure analyzer accepts either target once an exact policy-evidence producer
+exists. Topology evidence, static analysis, and basic dossier data remain
+canonical content-addressed previews, not frozen root artifact schemas, until
+cross-ruleset evidence justifies that compatibility commitment. See
+[P1A pinned corpus and static analysis](p1a-static-analysis.md).
 
 ## Semantic observations and causal events
 

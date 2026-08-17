@@ -9,6 +9,7 @@
     "src/perf",
     "src/replay-verifier",
     "src/oracle-fixtures",
+    "src/ccsolver-runtime/compose/runP1aStaticAnalysis.ts",
     "src/level-catalog/impl/NodeLevelRepository.ts",
     "src/level-catalog/impl/loadDashboardSummary.ts",
     "src/level-catalog/impl/loadNodeReplaySweepSeriesCatalog.ts",

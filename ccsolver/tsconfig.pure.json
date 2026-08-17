@@ -8,6 +8,7 @@
   "include": [
     "src/index.ts",
     "src/domain/**/*.ts",
+    "src/analyze/**/*.ts",
     "src/ports/**/*.ts",
     "src/application/**/*.ts"
   ]

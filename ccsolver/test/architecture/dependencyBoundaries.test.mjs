@@ -30,6 +30,8 @@ test("rejects representative dependency-boundary violations", () => {
     { path: "src/domain/adapter.ts", source: 'import "../adapters/index.js";' },
     { path: "src/ports/site.ts", source: 'export * from "../site/index.js";' },
     { path: "src/application/render.ts", source: 'import "../render/index.js";' },
+    { path: "src/analyze/node.ts", source: 'import "node:fs";' },
+    { path: "src/analyze/application.ts", source: 'import "../application/index.js";' },
     {
       path: "src/application/web.ts",
       source: 'import "../../../web/src/game-runtime/ports/InteractiveGameEngine.js";',
@@ -38,11 +40,13 @@ test("rejects representative dependency-boundary violations", () => {
     { path: "src/adapters/data.ts", source: 'import "@data/private-level";' },
   ]);
 
-  assert.equal(violations.length, 10);
+  assert.equal(violations.length, 12);
   assert.deepEqual(
     new Set(violations.map((violation) => violation.reason)),
     new Set([
       "application cannot depend on render",
+      "analyze cannot depend on application",
+      "analyze cannot import Node runtime modules",
       "CCSolver cannot import files outside its source tree",
       "CCSolver cannot import Tile World web or ruleset internals",
       "domain cannot depend on adapters",

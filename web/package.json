@@ -24,6 +24,8 @@
     "verify:ms-replays": "vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts MS",
     "verify:lynx-replays": "vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts Lynx",
     "verify:all-replays": "vite-node src/replay-verifier/compose/verifyAllSolutionReplays.ts",
+    "ccsolver:corpus": "vite-node src/ccsolver-runtime/compose/p1a-corpus/runCorpusManifest.ts",
+    "ccsolver:analysis": "vite-node src/ccsolver-runtime/compose/runP1aStaticAnalysis.ts",
     "verify:ms-replays:parallel": "TWORLD_MS_REPLAY_SWEEP_JOBS=${TWORLD_MS_REPLAY_SWEEP_JOBS:-999} vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts MS",
     "verify:lynx-replays:parallel": "TWORLD_LYNX_REPLAY_SWEEP_JOBS=${TWORLD_LYNX_REPLAY_SWEEP_JOBS:-999} vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts Lynx",
     "verify:all-replays:parallel": "TWORLD_REPLAY_SWEEP_JOBS=${TWORLD_REPLAY_SWEEP_JOBS:-999} vite-node src/replay-verifier/compose/verifyAllSolutionReplays.ts",

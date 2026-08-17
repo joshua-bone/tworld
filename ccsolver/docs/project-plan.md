@@ -106,11 +106,35 @@ P0 is delivered as reviewable slices:
 Build a donor-independent, deterministic description of the initial world and
 select the first curriculum from measured complexity.
 
+### Status and delivery slices
+
+P1 is in progress.
+
+- **P1A — Pinned corpus manifest and MS static-analysis vertical slice:
+  complete.** The checked-in canonical manifest verifies 193 exact sources at
+  revision `42c78d0db343621f887fefce581315479d9a8be3` and derives 39 packs,
+  2,440 map cases, 4,880 target records, and 4,664 donor-backed targets. A
+  target-policy evidence seam and pure certain-only analyzer are covered by a
+  synthetic mechanic postcard, shuffled-input and invalid-binding ATDD, a
+  65,536-cell iterative articulation case, and deterministic MS Intro level 8
+  level-facts/evidence/analysis/dossier goldens.
+- **P1B — Cross-ruleset topology evidence and curriculum freeze: proposed.**
+  Add a Lynx policy-evidence producer, paired MS/Lynx static goldens and
+  divergence characterization, then use measured features to freeze the Phase-A
+  synthetic curriculum and first donor-hidden evaluation wave with explicit
+  budgets. Decide which derived values merit frozen root-artifact schemas only
+  after both targets exercise them.
+
+P1A does not complete the whole P1 exit gate: Lynx evidence, semantic room and
+dead-square analysis, curriculum selection, and evaluation budgets remain P1B
+work. The dossier UI and runtime observation remain P4 and P2 respectively.
+
 ### Deliverables
 
 - Generate the pinned corpus manifest and recompute pack denominators.
-- Reconcile the current audited baseline of 2,440 target entries, 2,257 paired
-  donor cases, and 470 older Hybrid wins.
+- Reconcile the current audited baseline of 2,440 map occurrences, 4,880
+  separate target records, 2,257 paired donor cases, 4,664 donor-backed target
+  records, and 470 older Hybrid wins.
 - Adapt existing DAT/CCX content APIs without copying parser logic.
 - Produce normalized `LevelFacts` with zero-based `(x, y, z)` coordinates.
 - Inventory cells, strata, actors, resources, exits, doors, sockets, buttons,
@@ -600,22 +624,23 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-With P0C1 complete, begin **P1A — Pinned corpus manifest and static-analysis
-vertical slice** using ATDD:
+Proceed with **P1B — Cross-ruleset topology evidence and curriculum freeze**
+using ATDD:
 
-1. generate a reproducible manifest from the source pins already recorded in
-   this repository, retaining pack occurrences and separate MS/Lynx targets;
-2. adapt the `level-facts` builder across the bundled legacy corpus without
-   copying DAT parser logic into CCSolver;
-3. define a derived-analysis artifact only after executable analyzers produce
-   rooms, connectivity, gates, resource dependencies, forced/transport
-   networks, and uncertainties;
-4. run that analyzer first on a tiny synthetic curriculum and the bundled
-   Intro level 8 golden, then select the first measured real-level curriculum;
-5. emit deterministic machine-readable dossier data, without yet designing the
-   dossier UI or runtime event journal; and
-6. preserve the 65,536-cell budget, exact source byte chain, stable identities,
-   and unknown-element diagnostics established by P0C1.
+1. define the Lynx topology-policy adapter against Lynx catalog/engine seams,
+   preserving real target differences rather than translating MS evidence;
+2. run the same pure analyzer over paired synthetic fixtures and selected
+   bundled levels, with explicit MS/Lynx comparison records and uncertainty;
+3. extend goldens with at least one paired real level and characterize whether
+   each topology difference is source, policy, or analyzer behavior;
+4. add the first measured complexity report, then freeze the foundational
+   Phase-A synthetic curriculum, donor-visible training cases, and first
+   donor-hidden evaluation wave with explicit budgets;
+5. add semantic room/corridor and obvious block dead-square deductions only
+   where focused fixtures make their claims reviewable; and
+6. decide whether topology evidence, static analysis, and dossier data have
+   enough two-target evidence to enter the frozen root artifact protocol.
 
-Runtime event journals, goal/plan graphs, contracts, witnesses, donor
-alignment, search, and media remain separate evidence-backed review slices.
+P1B still excludes runtime event journals, goal/plan graphs, contracts,
+witnesses, donor alignment, search, replay construction, dossier UI, and media;
+those remain separate evidence-backed milestones.

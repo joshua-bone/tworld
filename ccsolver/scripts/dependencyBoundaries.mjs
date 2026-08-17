@@ -9,17 +9,18 @@ const builtins = new Set(
 );
 
 const allowedInternalLayers = new Map([
-  ["root", new Set(["application", "domain", "ports"])],
+  ["root", new Set(["analyze", "application", "domain", "ports"])],
   ["domain", new Set(["domain"])],
   ["ports", new Set(["domain", "ports"])],
-  ["application", new Set(["application", "domain", "ports"])],
-  ["adapters", new Set(["adapters", "application", "domain", "ports"])],
-  ["render", new Set(["application", "domain", "ports", "render"])],
-  ["site", new Set(["application", "domain", "ports", "render", "site"])],
-  ["cli", new Set(["adapters", "application", "cli", "domain", "ports", "render", "site"])],
+  ["analyze", new Set(["analyze", "domain"])],
+  ["application", new Set(["analyze", "application", "domain", "ports"])],
+  ["adapters", new Set(["adapters", "analyze", "application", "domain", "ports"])],
+  ["render", new Set(["analyze", "application", "domain", "ports", "render"])],
+  ["site", new Set(["analyze", "application", "domain", "ports", "render", "site"])],
+  ["cli", new Set(["adapters", "analyze", "application", "cli", "domain", "ports", "render", "site"])],
 ]);
 
-const pureLayers = new Set(["application", "domain", "ports", "root"]);
+const pureLayers = new Set(["analyze", "application", "domain", "ports", "root"]);
 const webAliases = new Set([
   "@bootstrap",
   "@content",

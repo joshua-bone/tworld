@@ -53,6 +53,18 @@ test("registers CCSolver as a first-class root workspace", async () => {
   }
   assert.match(rootPackage.scripts["ccsolver:facade"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:integration"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:corpus:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:corpus:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:analysis:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:analysis:generate"], /--workspace web/);
+  for (const command of [
+    "ccsolver:corpus:check",
+    "ccsolver:corpus:generate",
+    "ccsolver:analysis:check",
+    "ccsolver:analysis:generate",
+  ]) {
+    assert.match(rootPackage.scripts[command], /npm run ccsolver:build/);
+  }
 });
 
 test("uses one deterministic root lockfile for both workspaces", async () => {
@@ -80,6 +92,7 @@ test("creates explicit source boundaries and a narrow public package surface", a
   for (const boundary of [
     "domain",
     "application",
+    "analyze",
     "ports",
     "adapters",
     "cli",
@@ -92,7 +105,7 @@ test("creates explicit source boundaries and a narrow public package surface", a
   const ccsolverPackage = await readJson("ccsolver/package.json");
   assert.deepEqual(
     new Set(Object.keys(ccsolverPackage.exports)),
-    new Set([".", "./domain", "./application", "./ports", "./adapters/web-crypto"]),
+    new Set([".", "./domain", "./application", "./analyze", "./ports", "./adapters/web-crypto"]),
   );
 
   const dependencyGroups = [
@@ -150,6 +163,8 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "npm run ccsolver:build",
     "npm run ccsolver:facade",
     "npm run ccsolver:integration",
+    "npm run ccsolver:corpus:check",
+    "npm run ccsolver:analysis:check",
     "npm run ccsolver:cli -- --help",
     "npm run ccsolver:dossier -- --help",
     "npm run typecheck",

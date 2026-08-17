@@ -15,16 +15,25 @@ native oracle remain authoritative for legacy replay results.
 - [Project plan](docs/project-plan.md)
 - [Artifact kernel v1](docs/artifact-kernel-v1.md)
 - [Level facts v1](docs/level-facts-v1.md)
+- [P1A pinned corpus and static analysis](docs/p1a-static-analysis.md)
 
 ## Status
 
-The project is in P0. P0A established the workspace, dependency boundaries,
-root commands, and CI installation model. P0B established the first strict,
-content-addressed artifact kernel: canonical JSON, portable SHA-256 identities,
-corpus cases, replay certificates, semantic identity primitives, schemas, and
-conformance fixtures. P0C1 adds the first static `level-facts` root artifact,
-exact import provenance, and a narrow adapter for bundled Tile World DAT levels.
-Derived topology, semantic events, goals, plans, and witnesses remain later
+P0 established the workspace, dependency boundaries, canonical artifact kernel,
+and the first static `level-facts` root artifact. P1A is now implemented: a
+checked-in manifest derives 2,440 map cases and 4,880 separate target records
+from 193 byte-pinned repository sources, and a target-policy evidence seam feeds
+a pure, conservative static analyzer. Synthetic ATDD and an MS Intro level 8
+golden cover directed connectivity, weak regions, conditional boundaries,
+resource and transport incidence, iterative articulation analysis, uncertainty,
+and basic machine-readable dossier data.
+
+The P1A gameplay-analysis adapter is MS-only. The corpus manifest records MS and
+Lynx target/donor availability, and the pure analyzer accepts target-specific
+evidence, but there is not yet a Lynx topology-evidence producer. Static
+analysis and dossier values are canonical and content-addressed previews rather
+than frozen root artifact schemas. Lynx parity, curriculum selection, runtime
+events, goals, plans, search, replay generation, and the dossier UI remain later
 review slices.
 
 CCSolver inherits Tile World's GPL-2.0-or-later license. Generated dossier pages

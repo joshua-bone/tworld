@@ -10,7 +10,8 @@
     "src/ccsolver-runtime/compose/**/*.ts"
   ],
   "exclude": [
-    "src/**/*.test.ts"
+    "src/**/*.test.ts",
+    "src/ccsolver-runtime/compose/runP1aStaticAnalysis.ts"
   ],
   "references": [
     { "path": "../ccsolver/tsconfig.json" },
