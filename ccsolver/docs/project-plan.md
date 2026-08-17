@@ -49,6 +49,17 @@ events exist. Search depends on both topology and exact checkpoint execution.
 Create a compilable CCSolver workspace with enforceable dependency boundaries
 and the first versioned artifact vocabulary.
 
+P0 is delivered as reviewable slices:
+
+- **P0A — Workspace foundation:** workspace/lockfile ownership, package
+  boundaries, one-way Tile World facade, root commands, and CI.
+- **P0B — Canonical artifact kernel:** strict canonical JSON, portable SHA-256,
+  corpus cases, replay certificates, semantic identity primitives, schemas, and
+  conformance fixtures.
+- **P0C — Semantic artifact vocabulary:** level facts/events, strategy and goal
+  graphs, expanded plans, contracts, contextual witnesses, dossier manifests,
+  and provenance, grounded in the P0B identity kernel.
+
 ### Deliverables
 
 - Choose one coherent npm installation/lockfile model for the current root and
@@ -588,16 +599,19 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-Implement P0 only:
+After P0A and P0B, begin **P0C1 — Source provenance and static level facts**:
 
-1. choose and test the repository installation/lockfile model;
-2. add the workspace, supported web facade, and dependency-bound package
-   skeleton;
-3. check in the first artifact schemas, provisional interchange fixture, and
-   invalid examples;
-4. add canonical JSON/hash support and architecture tests;
-5. expose root `ccsolver:*` commands; and
-6. keep the existing web build and replay tests green.
+1. define content-addressed source, import-profile, level-occurrence, and
+   normalized-map references without copying DAT parser logic;
+2. define the first `level-facts` root artifact using zero-based coordinates,
+   stable placement/actor identities, explicit z layers, and the 65,536-total-
+   cell limit;
+3. cover core resources, exits, doors, sockets, buttons/wiring, transports,
+   forced surfaces, hazards, actors, time limits, and unknown catalog semantics;
+4. adapt one synthetic and one bundled level through a narrow web-side seam;
+5. freeze valid/invalid conformance fixtures and deterministic identities; and
+6. keep P0B's kernel, package boundaries, and existing web behavior green.
 
-Do not begin donor alignment, search, or media generation before these contracts
-can round-trip deterministically.
+Semantic event journals, goal/plan graphs, contracts, witnesses, donor
+alignment, search, and media follow as separate review slices. Do not invent
+their wire formats inside P0C1.

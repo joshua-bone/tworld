@@ -18,7 +18,9 @@ jobs:
       - name: Check CCSolver workspace
         run: |
           npm run ccsolver:typecheck
+          npm run ccsolver:typecheck:browser
           npm run ccsolver:test
+          npm run ccsolver:conformance
           npm run ccsolver:build
           npm run ccsolver:facade
           npm run ccsolver:cli -- --help

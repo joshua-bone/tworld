@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/replay-certificate.schema.json",
+  "$defs": {
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "toolRevision",
+        "result",
+        "terminalTick"
+      ],
+      "properties": {
+        "toolRevision": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/revisionId"
+        },
+        "result": {
+          "const": "win"
+        },
+        "terminalTick": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/uint32"
+        }
+      }
+    },
+    "verifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "typescript",
+        "nativeOracle"
+      ],
+      "properties": {
+        "typescript": {
+          "$ref": "#/$defs/verification"
+        },
+        "nativeOracle": {
+          "$ref": "#/$defs/verification"
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caseId",
+        "producerRevision",
+        "level",
+        "target",
+        "attemptId",
+        "replay",
+        "plan",
+        "verifications",
+        "lineage"
+      ],
+      "properties": {
+        "caseId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "producerRevision": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/revisionId"
+        },
+        "level": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/levelIdentity"
+        },
+        "target": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/rulesetTarget"
+        },
+        "attemptId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "replay": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/replayReference"
+        },
+        "plan": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/planReference"
+            }
+          ]
+        },
+        "verifications": {
+          "$ref": "#/$defs/verifications"
+        },
+        "lineage": {
+          "type": "array",
+          "maxItems": 65536,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/artifactReference"
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "protocolVersion",
+    "artifactType",
+    "schemaVersion",
+    "payload"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "ccsolver-artifact"
+    },
+    "protocolVersion": {
+      "const": 1
+    },
+    "artifactType": {
+      "const": "replay-certificate"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "payload": {
+      "$ref": "#/$defs/payload"
+    }
+  }
+}

@@ -1,0 +1,375 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json",
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9._:-]{0,126}[a-z0-9])?$"
+    },
+    "revisionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[^\\r]*$"
+    },
+    "durableText": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "pattern": "^[^\\r]*$"
+    },
+    "sha256Digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "placementId": {
+      "type": "string",
+      "pattern": "^placement:sha256:[0-9a-f]{64}$"
+    },
+    "actorId": {
+      "type": "string",
+      "pattern": "^actor:sha256:[0-9a-f]{64}$"
+    },
+    "uint16": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "uint32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "positiveUint32": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4294967295
+    },
+    "nonnegativeSafeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "rulesetTarget": {
+      "enum": [
+        "ms",
+        "lynx"
+      ]
+    },
+    "artifactReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocolVersion",
+        "artifactType",
+        "schemaVersion",
+        "digest"
+      ],
+      "properties": {
+        "protocolVersion": {
+          "const": 1
+        },
+        "artifactType": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/positiveUint32"
+        },
+        "digest": {
+          "$ref": "#/$defs/sha256Digest"
+        }
+      }
+    },
+    "corpusCaseReference": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifactReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "artifactType": {
+              "const": "corpus-case"
+            },
+            "schemaVersion": {
+              "const": 1
+            }
+          }
+        }
+      ]
+    },
+    "replayCertificateReference": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifactReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "artifactType": {
+              "const": "replay-certificate"
+            },
+            "schemaVersion": {
+              "const": 1
+            }
+          }
+        }
+      ]
+    },
+    "levelFactsReference": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifactReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "artifactType": {
+              "const": "level-facts"
+            }
+          }
+        }
+      ]
+    },
+    "expandedPlanArtifactReference": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifactReference"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "artifactType": {
+              "const": "expanded-plan"
+            }
+          }
+        }
+      ]
+    },
+    "planReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact",
+        "goalId",
+        "subgoalId"
+      ],
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/expandedPlanArtifactReference"
+        },
+        "goalId": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/stableId"
+            }
+          ]
+        },
+        "subgoalId": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/stableId"
+            }
+          ]
+        }
+      }
+    },
+    "blobReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "digest",
+        "byteLength"
+      ],
+      "properties": {
+        "digest": {
+          "$ref": "#/$defs/sha256Digest"
+        },
+        "byteLength": {
+          "$ref": "#/$defs/nonnegativeSafeInteger"
+        }
+      }
+    },
+    "replayReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "content"
+      ],
+      "properties": {
+        "format": {
+          "const": "tws"
+        },
+        "content": {
+          "$ref": "#/$defs/blobReference"
+        }
+      }
+    },
+    "levelIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "occurrenceId",
+        "normalizationProfile",
+        "normalizedGameplayDigest"
+      ],
+      "properties": {
+        "occurrenceId": {
+          "$ref": "#/$defs/stableId"
+        },
+        "normalizationProfile": {
+          "$ref": "#/$defs/stableId"
+        },
+        "normalizedGameplayDigest": {
+          "$ref": "#/$defs/sha256Digest"
+        }
+      }
+    },
+    "coordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y",
+        "z"
+      ],
+      "properties": {
+        "x": {
+          "$ref": "#/$defs/uint16"
+        },
+        "y": {
+          "$ref": "#/$defs/uint16"
+        },
+        "z": {
+          "$ref": "#/$defs/uint16"
+        }
+      }
+    },
+    "placementStratum": {
+      "enum": [
+        "terrain",
+        "overlay",
+        "pickup",
+        "actor",
+        "side"
+      ]
+    },
+    "staticPlacementDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityType",
+        "identityVersion",
+        "levelDigest",
+        "coordinate",
+        "stratum",
+        "semanticType",
+        "discriminator"
+      ],
+      "properties": {
+        "identityType": {
+          "const": "static-placement"
+        },
+        "identityVersion": {
+          "const": 1
+        },
+        "levelDigest": {
+          "$ref": "#/$defs/sha256Digest"
+        },
+        "coordinate": {
+          "$ref": "#/$defs/coordinate"
+        },
+        "stratum": {
+          "$ref": "#/$defs/placementStratum"
+        },
+        "semanticType": {
+          "$ref": "#/$defs/stableId"
+        },
+        "discriminator": {
+          "$ref": "#/$defs/uint16"
+        }
+      }
+    },
+    "initialActorIdentityDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityType",
+        "identityVersion",
+        "kind",
+        "placementId",
+        "sourceActorOrder"
+      ],
+      "properties": {
+        "identityType": {
+          "const": "actor"
+        },
+        "identityVersion": {
+          "const": 1
+        },
+        "kind": {
+          "const": "initial"
+        },
+        "placementId": {
+          "$ref": "#/$defs/placementId"
+        },
+        "sourceActorOrder": {
+          "$ref": "#/$defs/uint16"
+        }
+      }
+    },
+    "cloneActorIdentityDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityType",
+        "identityVersion",
+        "kind",
+        "parentActorId",
+        "sourcePlacementId",
+        "cloneOrdinal"
+      ],
+      "properties": {
+        "identityType": {
+          "const": "actor"
+        },
+        "identityVersion": {
+          "const": 1
+        },
+        "kind": {
+          "const": "clone"
+        },
+        "parentActorId": {
+          "$ref": "#/$defs/actorId"
+        },
+        "sourcePlacementId": {
+          "$ref": "#/$defs/placementId"
+        },
+        "cloneOrdinal": {
+          "$ref": "#/$defs/positiveUint32"
+        }
+      }
+    },
+    "actorIdentityDescriptor": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/initialActorIdentityDescriptor"
+        },
+        {
+          "$ref": "#/$defs/cloneActorIdentityDescriptor"
+        }
+      ]
+    }
+  }
+}

@@ -13,13 +13,16 @@ native oracle remain authoritative for legacy replay results.
 
 - [Design](docs/design.md)
 - [Project plan](docs/project-plan.md)
+- [Artifact kernel v1](docs/artifact-kernel-v1.md)
 
 ## Status
 
-The project is in P0. The P0A workspace foundation provides the package,
-dependency boundaries, root commands, and CI installation model. P0B will add
-the first artifact schemas, canonical JSON, and hashing; those semantics are not
-part of the foundation package yet.
+The project is in P0. P0A established the workspace, dependency boundaries,
+root commands, and CI installation model. P0B establishes the first strict,
+content-addressed artifact kernel: canonical JSON, portable SHA-256 identities,
+corpus cases, replay certificates, semantic identity primitives, schemas, and
+conformance fixtures. Rich level facts and semantic plan schemas remain P0C
+work and are intentionally opaque references in v1.
 
 CCSolver inherits Tile World's GPL-2.0-or-later license. Generated dossier pages
 will be publicly reachable under the existing GitHub Pages deployment but will

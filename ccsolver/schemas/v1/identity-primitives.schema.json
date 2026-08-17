@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/identity-primitives.schema.json",
+  "$defs": {
+    "placementIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "descriptor",
+        "expectedId"
+      ],
+      "properties": {
+        "descriptor": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/staticPlacementDescriptor"
+        },
+        "expectedId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/placementId"
+        }
+      }
+    },
+    "initialActorIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "descriptor",
+        "expectedId"
+      ],
+      "properties": {
+        "descriptor": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/initialActorIdentityDescriptor"
+        },
+        "expectedId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/actorId"
+        }
+      }
+    },
+    "cloneActorIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "descriptor",
+        "expectedId"
+      ],
+      "properties": {
+        "descriptor": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/cloneActorIdentityDescriptor"
+        },
+        "expectedId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/actorId"
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "placement",
+    "initialActor",
+    "cloneActor"
+  ],
+  "properties": {
+    "placement": {
+      "$ref": "#/$defs/placementIdentity"
+    },
+    "initialActor": {
+      "$ref": "#/$defs/initialActorIdentity"
+    },
+    "cloneActor": {
+      "$ref": "#/$defs/cloneActorIdentity"
+    }
+  }
+}

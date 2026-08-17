@@ -7,6 +7,7 @@ test("loads every supported CCSolver package export after the package build", as
     "@tworld/ccsolver/application",
     "@tworld/ccsolver/domain",
     "@tworld/ccsolver/ports",
+    "@tworld/ccsolver/adapters/web-crypto",
   ]) {
     assert.equal(typeof await import(specifier), "object");
   }

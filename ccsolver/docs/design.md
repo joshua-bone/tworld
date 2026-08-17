@@ -12,9 +12,12 @@ and renderer directly. Proprietary HybridCC2026 source never enters this
 repository. Future Hybrid integration uses versioned files or a separate
 process, with the private adapter implemented in HybridCC2026.
 
-Names and exact JSON shapes remain provisional until their schemas are checked
-in. The semantic roles and correctness boundaries in this document are design
-decisions, not placeholders.
+The [artifact kernel v1](artifact-kernel-v1.md) freezes the envelope,
+canonicalization, corpus-case, replay-certificate, and identity shapes checked
+in under `ccsolver/schemas/v1/`. Names and shapes for later semantic artifacts
+remain provisional until their own schemas are checked in. The semantic roles
+and correctness boundaries in this document are design decisions, not
+placeholders.
 
 ## Executive summary
 
@@ -592,7 +595,7 @@ cloner production, and Sokoban dead squares.
 Every attempt records separate dimensions:
 
 - donor availability: paired, single-ruleset, or none;
-- donor exposure: blind, terminal-only feedback, semantic-guided, or full-input;
+- donor exposure: blind, terminal-only, semantic-guided, or full-input;
 - construction method: from-scratch, tactic-composed, semantic-guided,
   input-translated, or manual-assisted; and
 - evaluation cohort and frozen budget revision.
@@ -712,9 +715,11 @@ schedule, not every ordinary test invocation.
 
 ## Determinism and versioning
 
-Canonical artifacts use sorted keys, explicit integer widths/ranges where
-relevant, stable IDs, normalized newlines, and representation-independent
-SHA-256 digests. They contain no generation timestamp in semantic identity.
+Canonical artifacts use the safe-integer, UTF-16-key-ordered JSON profile
+specified by [artifact kernel v1](artifact-kernel-v1.md), with no BOM,
+insignificant whitespace, Unicode normalization, or trailing newline. SHA-256
+covers those exact UTF-8 bytes. Artifacts contain no generation timestamp or
+self-digest in semantic identity.
 
 Every artifact records schema version, producer commit, source digests, engine
 and oracle revisions, ruleset, solver configuration/budgets, deterministic

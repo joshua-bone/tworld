@@ -43,7 +43,9 @@ test("registers CCSolver as a first-class root workspace", async () => {
   for (const script of [
     "ccsolver:build",
     "ccsolver:typecheck",
+    "ccsolver:typecheck:browser",
     "ccsolver:test",
+    "ccsolver:conformance",
     "ccsolver:cli",
     "ccsolver:dossier",
   ]) {
@@ -89,7 +91,7 @@ test("creates explicit source boundaries and a narrow public package surface", a
   const ccsolverPackage = await readJson("ccsolver/package.json");
   assert.deepEqual(
     new Set(Object.keys(ccsolverPackage.exports)),
-    new Set([".", "./domain", "./application", "./ports"]),
+    new Set([".", "./domain", "./application", "./ports", "./adapters/web-crypto"]),
   );
 
   const dependencyGroups = [
@@ -141,7 +143,9 @@ test("runs the workspace foundation gate on pull requests", async () => {
   assert.match(workflow, /npm ci --include=optional/);
   for (const command of [
     "npm run ccsolver:typecheck",
+    "npm run ccsolver:typecheck:browser",
     "npm run ccsolver:test",
+    "npm run ccsolver:conformance",
     "npm run ccsolver:build",
     "npm run ccsolver:facade",
     "npm run ccsolver:cli -- --help",

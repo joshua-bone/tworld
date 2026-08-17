@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "lib": ["ES2022", "DOM"],
+    "types": [],
+    "noEmit": true
+  },
+  "include": [
+    "src/domain/canonicalJson.ts",
+    "src/ports/Sha256Port.ts",
+    "src/adapters/web-crypto/**/*.ts"
+  ]
+}

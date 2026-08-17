@@ -1,0 +1,81 @@
+{
+  "fixtureManifestVersion": 1,
+  "canonicalProfile": "ccsolver-canonical-json-v1",
+  "evidenceScope": "synthetic-protocol-only",
+  "validArtifacts": [
+    {
+      "path": "valid/corpus-case.v1.json",
+      "artifactType": "corpus-case",
+      "schema": "corpus-case.schema.json",
+      "expectedArtifactId": "sha256:eeff1af7e9100a095489cbf6d7312479dde19a54056fe0d04fc4d3d3feca1a98"
+    },
+    {
+      "path": "valid/replay-certificate.v1.json",
+      "artifactType": "replay-certificate",
+      "schema": "replay-certificate.schema.json",
+      "expectedArtifactId": "sha256:6dc0070a3a580ffd8334d21ed62aeb5231949865dbe301e5581fa417b361c411"
+    }
+  ],
+  "validValues": [
+    {
+      "path": "valid/identity-primitives.v1.json",
+      "schema": "identity-primitives.schema.json"
+    }
+  ],
+  "invalidArtifacts": [
+    {
+      "path": "invalid/unsupported-schema-version.json",
+      "expectedCode": "artifact.unsupported-schema-version",
+      "expectedPath": "/schemaVersion",
+      "schemaValid": false
+    },
+    {
+      "path": "invalid/unknown-envelope-member.json",
+      "expectedCode": "artifact.invalid-envelope",
+      "expectedPath": "/extra",
+      "schemaValid": false
+    },
+    {
+      "path": "invalid/gapped-attempt-sequence.json",
+      "expectedCode": "artifact.invariant-invalid",
+      "expectedPath": "/payload/targets/0/attempts/0/sequence",
+      "schemaValid": true
+    },
+    {
+      "path": "invalid/dangling-state-attempt.json",
+      "expectedCode": "artifact.invariant-invalid",
+      "expectedPath": "/payload/targets/1/state/attemptId",
+      "schemaValid": true
+    },
+    {
+      "path": "invalid/certificate-tick-mismatch.json",
+      "expectedCode": "artifact.invariant-invalid",
+      "expectedPath": "/payload/verifications/nativeOracle/terminalTick",
+      "schemaValid": true
+    },
+    {
+      "path": "invalid/malformed-digest.json",
+      "expectedCode": "artifact.schema-invalid",
+      "expectedPath": "/payload/replay/content/digest",
+      "schemaValid": false
+    },
+    {
+      "path": "invalid/noncanonical-whitespace.json",
+      "expectedCode": "artifact.non-canonical-json",
+      "expectedPath": "",
+      "schemaValid": true
+    },
+    {
+      "path": "invalid/reversed-target-order.json",
+      "expectedCode": "artifact.invariant-invalid",
+      "expectedPath": "/payload/targets",
+      "schemaValid": true
+    },
+    {
+      "path": "invalid/unsafe-integer.json",
+      "expectedCode": "artifact.invalid-json-value",
+      "expectedPath": "/payload/replay/content/byteLength",
+      "schemaValid": false
+    }
+  ]
+}
