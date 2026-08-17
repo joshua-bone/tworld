@@ -15,6 +15,7 @@
     "typecheck:undo-runtime": "tsc -b tsconfig.project.undo-runtime.json",
     "typecheck:browser-support": "tsc -b tsconfig.project.browser-support.json",
     "typecheck:game-runtime": "tsc -b tsconfig.project.game-runtime.json",
+    "typecheck:ccsolver-runtime": "tsc -b tsconfig.project.ccsolver-runtime.json",
     "typecheck:player-web": "tsc -b tsconfig.project.player-web.json",
     "typecheck:app": "tsc -b tsconfig.project.app.json",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
@@ -30,6 +31,7 @@
     "perf:guard": "vite-node src/perf/compose/benchmarkInteractiveSessions.ts --guard"
   },
   "dependencies": {
+    "@tworld/ccsolver": "0.0.0",
     "fast-xml-parser": "^5.2.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

@@ -2,6 +2,35 @@ name: Ubuntu-CI
 on: [push, pull_request]
 
 jobs:
+  web-and-ccsolver:
+    runs-on: ubuntu-latest
+    env:
+      BASE_PATH: /tworld/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Check CCSolver workspace
+        run: |
+          npm run ccsolver:typecheck
+          npm run ccsolver:test
+          npm run ccsolver:build
+          npm run ccsolver:facade
+          npm run ccsolver:cli -- --help
+          npm run ccsolver:dossier -- --help
+      - name: Check browser workspace
+        run: |
+          npm run typecheck
+          npm test -- \
+            src/bootstrap/architecture/hexagonalBoundaries.test.ts \
+            src/game-core/api/ruleset.test.ts
+          npm run build
+
   build-qt6:
     runs-on: ubuntu-latest
     steps:

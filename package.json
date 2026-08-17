@@ -1,8 +1,14 @@
 {
   "name": "tworld",
   "private": true,
+  "packageManager": "npm@10.9.4",
+  "engines": {
+    "node": "22.x",
+    "npm": "10.x"
+  },
   "workspaces": [
-    "web"
+    "web",
+    "ccsolver"
   ],
   "scripts": {
     "dev": "npm --workspace web run dev --",
@@ -12,6 +18,12 @@
     "legacy": "./scripts/run_legacy.sh",
     "perf:bench": "npm --workspace web run perf:bench --",
     "perf:guard": "npm --workspace web run perf:guard --",
+    "ccsolver:build": "npm --workspace @tworld/ccsolver run build --",
+    "ccsolver:typecheck": "npm --workspace @tworld/ccsolver run typecheck --",
+    "ccsolver:test": "node --test test/ccsolver-workspace-foundation.test.mjs && npm --workspace @tworld/ccsolver run test --",
+    "ccsolver:facade": "npm --workspace web run typecheck:ccsolver-runtime --",
+    "ccsolver:cli": "npm --workspace @tworld/ccsolver run cli --",
+    "ccsolver:dossier": "npm --workspace @tworld/ccsolver run dossier --",
     "verify:ms-replays": "npm --workspace web run verify:ms-replays --",
     "verify:lynx-replays": "npm --workspace web run verify:lynx-replays --",
     "verify:all-replays": "npm --workspace web run verify:all-replays --",

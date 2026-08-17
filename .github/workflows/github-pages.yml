@@ -26,17 +26,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: package-lock.json
       - uses: actions/configure-pages@v5
-      - name: Install web dependencies
-        run: npm install --include=optional
-        working-directory: web
-      - name: Ensure Rollup native package on Linux
-        run: npm install --no-save @rollup/rollup-linux-x64-gnu@4.59.0
-        working-directory: web
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
       - name: Build web app for GitHub Pages
         run: npm run build
-        working-directory: web
       - name: Add SPA fallback page
         run: cp web/dist/index.html web/dist/404.html
       - uses: actions/upload-pages-artifact@v3

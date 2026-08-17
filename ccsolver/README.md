@@ -16,9 +16,10 @@ native oracle remain authoritative for legacy replay results.
 
 ## Status
 
-The project is in its design milestone. No CCSolver package or artifact schema
-has been implemented yet. The documents above define the boundaries and gates
-for that implementation.
+The project is in P0. The P0A workspace foundation provides the package,
+dependency boundaries, root commands, and CI installation model. P0B will add
+the first artifact schemas, canonical JSON, and hashing; those semantics are not
+part of the foundation package yet.
 
 CCSolver inherits Tile World's GPL-2.0-or-later license. Generated dossier pages
 will be publicly reachable under the existing GitHub Pages deployment but will

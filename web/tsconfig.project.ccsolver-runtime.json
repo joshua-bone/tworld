@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.project-base.json",
+  "compilerOptions": {
+    "outDir": "./.tsbuild/ccsolver-runtime",
+    "tsBuildInfoFile": "./.tsbuild/ccsolver-runtime.tsbuildinfo"
+  },
+  "files": [
+    "src/ccsolver-runtime/ports/ccsolverPackageBoundary.ts"
+  ],
+  "references": [
+    { "path": "../ccsolver/tsconfig.json" }
+  ]
+}
