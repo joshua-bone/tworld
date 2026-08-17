@@ -43,8 +43,10 @@ snippet composes in the original level.
 
 The static dossier site is a first-class development surface. Every active
 level receives a human description, map overlays, strategy graph, subgoal
-contracts, MS/Lynx evidence, interactive playback, short GIFs, current failures,
-and exact provenance. The site is public but unlisted: its app-relative route is
+contracts, mandatory annotated entry/end state panels, MS/Lynx evidence,
+optional bounded playback or focused animation where motion adds explanatory
+value, current failures, and exact provenance. The site is public but unlisted:
+its app-relative route is
 `/ccsolver/`, deployed beneath the repository's configured Pages base path,
 without links from the Tile World homepage or player navigation.
 
@@ -61,12 +63,15 @@ CCSolver must:
 - produce valid target-specific MS and Lynx TWS files from a semantic plan;
 - prefer strategies with shared causal meaning across rulesets when reasonable;
 - represent materially different ruleset plans without forcing false parity;
+- reason backward from terminal outcomes while proving every realization
+  through forward execution;
 - isolate and repeatedly test short subgoals from exact reachable checkpoints;
 - verify every accepted full replay through the TypeScript target engine and
   pinned native oracle;
 - support donor-guided training, donor-hidden validation, and genuinely unseen
   level evaluation;
-- publish deterministic, reviewable level dossiers and focused animations; and
+- publish deterministic, reviewable level dossiers with annotated subgoal
+  entry/end states and focused animation when it adds explanatory value; and
 - export engine-neutral, content-hashed strategy artifacts suitable for later
   compilation by HybridCC2026.
 
@@ -92,6 +97,8 @@ The initial project does not aim to:
   second implementation of tile legality.
 - A full replay from canonical initialization is the final proof.
 - Semantic plans explain intent; exact witnesses prove one realization.
+- Terminal-first regression proposes obligations; only forward target-engine
+  execution proves that they can be realized.
 - Prefer parity where it exists; record divergence where it does not.
 - Valid and robust comes before optimized.
 - Coordinates alone are weak evidence. Causal events and resource state matter.
@@ -173,7 +180,10 @@ DAT / local TWS / documented external sources
           |                    |
           +---------+----------+
                     v
-       level theory and StrategyPortfolio
+       level theory and terminal-first GoalGraph
+                    |
+                    v
+              StrategyPortfolio
                     |
           +---------+----------+
           |                    |
@@ -207,6 +217,8 @@ ccsolver/
       bitbusters/
     analyze/
     align/
+    plan/
+      regression/
     snippets/
     search/
     render/
@@ -226,6 +238,9 @@ web/src/ccsolver-runtime/
 ```
 
 The domain layer contains only typed semantic values and pure transformations.
+The future `plan` layer is likewise pure, may depend only on reviewed
+domain/static-analysis surfaces, and exposes a narrow package entrypoint;
+architecture tests must declare that layer before P3A adds its first source.
 Adapters translate the existing engines, codecs, files, API responses, and
 renderer projections into those values. Composition roots select concrete
 adapters for CLI, tests, dossier generation, or CI.
@@ -451,6 +466,64 @@ A level may revisit a room, oscillate while waiting, or operate a cloner many
 times. Those loops belong in tactics or expanded occurrences; the dependency
 graph must not imply that revisiting space creates a logical cycle.
 
+## Terminal-first goal regression
+
+CCSolver begins high-level decomposition from the desired terminal state. Each
+eligible exit creates an alternative root goal such as `ReachExit` together
+with the target-specific conditions for winning there. A closed, declarative
+operator schema identifies effects that can establish the desired predicates,
+then regresses them into predecessor obligations: requirements, invariants,
+resource flow, actor or block stance, time bounds, and predicates that the
+operator must not clobber. The result is an AND/OR `GoalGraph`; a selected
+`ExpandedPlan` remains ordered for forward execution.
+
+Regression records durable derivation provenance. Each inferred edge identifies
+the desired postcondition, selected achiever, residual prerequisites,
+alternatives considered, rejected contradictions, target scope, operator
+revision, supporting static/runtime/donor evidence, assumptions, and unresolved
+facts. Initial derivation values distinguish `authored`, `forward-derived`,
+`backward-regressed`, `bidirectional-joined`, and `donor-inferred`. These fields
+explain why a subgoal exists without claiming that the inference is executable.
+
+The pure regression kernel belongs under `ccsolver/src/plan/regression`. Its
+operators describe semantic effects, requirements, resource consumption,
+footprints, and target scope; they do not reproduce tile-entry legality. Runtime
+tactics later bind those operator meanings to forward engine execution. The
+initial vocabulary stays narrow—terminal, region, resource, gate, actor/block
+location, and time predicates with `ReachExit`, `Reach`, `Collect`, and `Unlock`
+achievers—then expands only through focused evidence.
+
+Backward reasoning is semantic constraint regression, not reverse gameplay
+simulation. Collection, doors, sockets, bombs, cloning, and other mutations
+discard information; blocks cannot be legally pulled merely because a reverse
+push picture is convenient; transports and forced movement may be many-to-one;
+and actor order, time, and RNG are not generally invertible. Reverse-pull block
+analysis may identify dead squares or candidate push chains, but it never
+becomes a legal move. Monster, device, deadline, and RNG reasoning produces
+explicit control, clearance, lower-bound, seed, or phase obligations that must
+be realized forward.
+
+Planning may compare two abstract frontiers:
+
+- a backward obligation frontier grown from a terminal alternative; and
+- a forward reach, capability, and resource frontier grown from initial facts.
+
+A compatible predicate set is an `abstract-meet`, not an `exact-join`. CCSolver
+must still obtain a reachable checkpoint and execute the candidate subgoals
+forward through the real target engine. Exact joins, complete replay execution,
+and native-oracle certification retain their existing authority. Exact
+bidirectional engine search is allowed only in a deliberately bounded,
+reversible microdomain whose predecessor table was itself generated and checked
+through forward transitions.
+
+Donors are optional ranked evidence. A donor-blind attempt can build the graph
+from level facts, target policy, and terminal requirements. When donor exposure
+is allowed, hard anchors may be traversed backward from the donor terminal to
+suggest missing prerequisites or alternatives, but optimized quirks do not
+override a simpler robust causal plan. MS and Lynx regression occurs separately
+where target policies differ, then shared semantic structure is retained only
+where honest.
+
 ## Subgoal contracts
 
 A `SubgoalContract` uses a closed, versioned predicate vocabulary. It contains:
@@ -507,6 +580,74 @@ renderer crops to the causal region while the engine retains the whole map.
 A `ReducedScenario` is constructed only after the contextual witness works. It
 may be found through causal slicing or delta reduction and is labeled
 `illustrative` unless independently proved against the original continuation.
+
+## Subgoal visual explanations
+
+Every target-specific semantic subgoal has a reviewable visual explanation.
+Its mandatory form is a pair of annotated static map sections:
+
+1. **Starting State**, bound to the expected entry predicates and, once a
+   contextual witness exists, its exact entry observation, boundary, and digest;
+2. **Ending State**, bound to the expected postconditions and, once executed,
+   the observed end or first-failure observation, boundary, and digest.
+
+Expected and observed state are separate dimensions. A proposed ending may be
+shown before it has a witness, but it is visibly labeled as expected and cannot
+be presented as observed or verified. When expectation and observation differ,
+the view highlights the failed predicate, unexpected event, or changed cell.
+
+The provisional `SubgoalEvidenceView` binds the level, facts, plan, subgoal,
+target ruleset, contract, contextual witness when available, state-observation
+references, engine and renderer revisions, and review status. It defines one or
+more deterministic viewports: normally one fixed causal crop shared by entry
+and end, plus bounded insets for remote buttons, devices, actors, teleport
+destinations, or other offscreen dependencies. Map panels are accompanied by a
+compact summary of important nonspatial state such as inventory, remaining
+collectibles, time, channel/device state, actor order, and RNG/phase bindings.
+
+Overlays are semantic data rather than painted pixels. Initial primitives cover
+player and mob route polylines, numbered waypoints and event anchors, points of
+interest, regions, wiring and transport edges, state-change highlights, and
+`must-change`, `may-change`, and `must-not-change` footprints. Every primitive
+has stable placement, actor, event, predicate, or coordinate references where
+available; a concise label and textual equivalent; target scope; provenance;
+and a basis such as `regressed-requirement`, `backward-candidate`,
+`plan-intent`, `observed-witness`, or `donor-evidence`. Planned, donor, backward,
+and witnessed paths remain visually and semantically distinct.
+
+Where both planning directions contribute, the ending panel shows the backward
+obligation cone, the starting panel and route overlay show forward reach or the
+forward witness, and any compatible frontier is labeled as an abstract meet.
+The view must expose unresolved obligations between those layers rather than
+drawing one apparently continuous proven route before a witness exists.
+
+The causal viewport is derived from referenced routes, points of interest,
+changed cells, footprints, and remote endpoints with a bounded margin. Large
+worlds use tiled viewports and insets rather than an unbounded full-resolution
+bitmap. Cropping never changes simulation: observed entry/end base maps and
+observed routes come from exact full-world execution. Expected-only panels are
+plan projections, visibly labeled as such, and acquire observed status only
+from a contextual witness. Human review notes and overrides are a separate
+layer so regeneration cannot silently overwrite feedback.
+Review state is `unreviewed`, `reviewed`, or `changes-requested`; it gates the
+reviewed dossier/canary claim, not the mechanical validity of an independently
+certified replay.
+
+`ccsolver/src/render` owns the engine-neutral view model, validation, canonical
+ordering, crop/inset resolution, and generated textual equivalent. A Tile World
+composition adapter binds exact MS/Lynx observations, frames, events, and stable
+identities to that model. The web renderer may reuse tileset drawing primitives
+but does not infer gameplay semantics; a pinned exporter derives SVG/PNG poster
+frames, frame sequences, GIF/WebM, and a content-addressed media manifest from
+the same scene. Compressed-media byte identity is required only inside its
+pinned exporter environment.
+
+Static entry and end panels remain required even when animation is valuable.
+Interactive playback, GIF, video, or a contact sheet is a derived explanation
+between those keyframes, never the semantic authority. The view model remains
+provisional until synthetic and real dual-target contextual witnesses exercise
+it; it does not enter the frozen root artifact protocol merely because the
+renderer can display it.
 
 ## Join semantics and composition
 
@@ -593,15 +734,27 @@ be compressed away.
 
 CCSolver develops in layers:
 
-1. follow realized donor visits and hard anchors through an online intent
-   follower;
-2. try MS and Lynx paths plus aligned branch combinations;
-3. repair the first failed subgoal with bounded input/timing search from an
-   exact checkpoint;
-4. search between hard semantic anchors using goal predicates;
-5. replan room, resource, and dependency order when local repair cannot work;
-   and
-6. use human/AI takeover to create or correct tactics for the residual cases.
+1. seed one terminal alternative per eligible exit and regress its semantic
+   requirements toward the initial state;
+2. compare the backward obligation frontier with forward static reach,
+   capability, and resource facts, retaining alternatives and contradictions;
+3. select a causal plan and realize it forward through target-specific tactics,
+   initially without donor input when the evaluation mode requires that;
+4. when donor exposure is allowed, use realized visits, hard anchors, and
+   aligned MS/Lynx branches as ranked evidence, validation, or repair hints;
+5. repair the first failed subgoal with bounded input/timing search from an
+   exact checkpoint, or search forward between semantic anchors;
+6. re-regress room, resource, and dependency choices when local repair cannot
+   realize the selected obligations; and
+7. use human/AI takeover to create or correct tactics for residual cases while
+   preserving the rejected hypotheses as evidence.
+
+Backward reach and distance indexes may be derived from target-specific
+directed adjacency, but conditional or dynamic boundaries create obligations
+rather than certain reverse edges. Forced surfaces, teleports, gates, blocks,
+monsters, and RNG retain their explicit target-policy and uncertainty records.
+An abstract frontier meet can prioritize forward work; it cannot splice or
+certify a suffix.
 
 Initial local search uses deterministic beam search or weighted A*. Candidate
 actions are generated only at engine-declared input-influence boundaries when
@@ -694,12 +847,17 @@ Each level page contains:
 3. a zoomable whole-level map with coordinates, layers, wiring, teleports,
    forced networks, regions, resources, and path overlays;
 4. the semantic goal graph and an accessible equivalent table;
-5. one card per subgoal with contract, evidence, footprint, join, failures, and
-   ruleset implementations;
-6. semantically synchronized MS/Lynx playback with independent clocks;
-7. pre/post state and event deltas;
-8. a ruleset-quirk ledger; and
-9. downloadable verified TWS files and certificates where available.
+5. one card per target-specific subgoal containing its contract, derivation,
+   evidence, footprint, join, failures, and a mandatory annotated **Starting
+   State** panel;
+6. optional bounded interactive playback or derived animation when motion adds
+   explanatory value, followed by the mandatory annotated **Ending State** or
+   actual failure panel;
+7. planned, regressed, donor, and observed player/mob routes, points of
+   interest, offscreen dependency insets, and pre/post state and event deltas;
+8. optional semantically synchronized MS/Lynx playback with independent clocks;
+9. a ruleset-quirk ledger; and
+10. downloadable verified TWS files and certificates where available.
 
 Stable app-relative routes use IDs such as
 `/ccsolver/levels/cclp3/016-two-sets-of-rules/`. Production prepends Vite's
@@ -712,22 +870,33 @@ SPA `404.html` fallback are tested as distinct deployment paths.
 
 ## Playback and media
 
-The primary review UI replays deterministic frame data through the existing
-canvas renderer and supports play, pause, frame step, speed, semantic-anchor
-jumps, and synchronized comparison. Semantic alignment is the default; raw tick
-and wall-time modes remain available for mechanics diagnosis.
+When bounded motion evidence is retained, the primary motion-review UI replays
+deterministic frame data through the existing canvas renderer and supports play,
+pause, frame step, speed, semantic-anchor jumps, and synchronized comparison.
+Semantic alignment is the default; raw tick and wall-time modes remain
+available for mechanics diagnosis.
 
-Each short subgoal also produces a GIF with:
+Every subgoal always renders the static Starting State and Ending State panels
+from the same `SubgoalEvidenceView`. Animation supplements rather than replaces
+those comparison frames. A deterministic selection policy recommends animation
+for timing-sensitive movement, multiple relevant actors, remote effects,
+forced/transport sequences, or route-order ambiguity; an authored override may
+accept or reject the recommendation with a reason.
 
-- a fixed causal viewport while the complete world simulates;
+A selected short animation uses:
+
+- the same fixed causal viewport and insets while the complete world simulates;
 - ruleset, level, subgoal, tick, and input labels;
-- relevant cells and actors highlighted;
-- a short precondition and postcondition pause; and
-- a poster image and equivalent prose.
+- relevant cells, actors, routes, event anchors, and state changes highlighted;
+- a short entry and end hold; and
+- the required static panels and equivalent prose as poster/accessibility
+  alternatives.
 
-Long snippets use interactive playback plus an optional WebM/MP4 or contact
-sheet rather than an enormous GIF. Pages honor reduced-motion preferences and
-do not autoplay.
+When motion review is selected, long snippets prefer interactive playback plus
+an optional WebM/MP4 or contact sheet rather than an enormous GIF. Pages honor
+reduced-motion preferences and do not autoplay. Bulk compressed media remains
+derived; the contract, witness, semantic scene, and static keyframes carry the
+reviewable truth.
 
 Media generation uses explicit simulation ticks, fixed tilesets and scale,
 disabled smoothing, a pinned headless browser and encoder, stripped metadata,
@@ -799,17 +968,22 @@ Required test layers are:
 - semantic event and causal-order goldens;
 - static topology and motif detector fixtures;
 - donor alignment and repeated-event tests;
+- terminal-first regression, alternative-achiever, resource-flow,
+  contradiction, and abstract-meet tests;
 - subgoal predicate, footprint, evidence, and join tests;
 - capsule composition and deliberate broken-join tests;
 - TWS encode/decode round-trip tests;
 - TypeScript/native-oracle replay certification;
-- deterministic dossier, graph, and frame generation tests;
+- deterministic dossier, graph, annotated entry/end scene, route overlay, and
+  frame generation tests;
 - link, accessibility, reduced-motion, and noindex checks; and
 - bounded performance and memory tests.
 
 The canary portfolio must include:
 
 - a synthetic one-room navigation/exit level;
+- terminal-first chips/socket, key/door, alternative-exit, and impossible-goal
+  cases;
 - several corpus levels selected by measured low static complexity;
 - keys, doors, chips, sockets, and one block puzzle;
 - force/ice timing, including CCLP1 level 105 Tunnel Clearance;
@@ -819,6 +993,18 @@ The canary portfolio must include:
 - buttons, traps, cloners, monsters, and RNG; and
 - injected timing, illegal-shortcut, alternative-branch, and version-change
   failures that demonstrate repair and lineage.
+
+Visual ATDD additionally covers a remote button/device inset, a moving-monster
+route, a proposed ending that must not be labeled observed, a first-failure
+panel, distinct MS/Lynx routes for one semantic goal, dangling-reference
+rejection, preservation of reviewed notes across machine regeneration with
+stale-review detection when evidence changes, textual equivalence, reduced
+motion, deterministic bounded media, and proof that viewport selection cannot
+change checkpoint or replay state.
+Backward-planning ATDD proves that reverse-pull and coordinate symmetry never
+become gameplay legality, target-specific forced/transport predecessors remain
+conditional, RNG remains an unresolved binding, and every accepted abstract
+meet fails closed until a continuous forward witness exists.
 
 Full replay sweeps, search jobs, media generation, and fixture production obey
 the repository requirement for explicit time and work bounds.
@@ -845,11 +1031,15 @@ local filesystem paths, or unpublished secrets enter generated artifacts.
   and explicitly modeled.
 - Contracts and narratives may be authored, inferred, or reviewed; provenance
   is always visible.
+- Terminal-first semantic regression is the default high-level decomposition;
+  target-engine execution and certification remain strictly forward.
 - Donor-visible training and donor-hidden validation are separate from the
   beginning.
 - Dossier pages are public but unlisted from the main Tile World experience.
-- Interactive playback is primary and short downloadable GIFs are also
-  produced.
+- Every target-specific subgoal has static annotated entry/end panels and a
+  textual equivalent. When motion evidence is useful, interactive playback is
+  preferred over compressed media; both playback and GIF/video output remain
+  conditional on explanatory value and bounded policy.
 
 ## Deferred measurement decisions
 
