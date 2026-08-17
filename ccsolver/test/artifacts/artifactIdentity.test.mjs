@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   ArtifactProtocolError,
+  identifyBytes,
   identifyCanonicalJson,
   parseArtifactId,
   verifyArtifactIdentity,
@@ -26,6 +27,14 @@ test("matches frozen SHA-256 vectors", async () => {
   }
 });
 
+test("hashes exact source bytes without UTF-8 reinterpretation", async () => {
+  const digest = await identifyBytes(Uint8Array.from([0x00, 0xff, 0x61, 0x80]), sha256);
+  assert.equal(
+    digest,
+    "sha256:b04d8c327a36f532f52b6c9fa7600c8281f14b2fcd4ba2f522e183e8808cbc6a",
+  );
+});
+
 test("parses, verifies, and rejects malformed artifact identities", async () => {
   const expected = parseArtifactId(
     "sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
@@ -48,7 +57,10 @@ test("parses, verifies, and rejects malformed artifact identities", async () => 
 
 test("rejects a hashing port that does not return exactly 256 bits", async () => {
   await assert.rejects(
-    identifyCanonicalJson("{}", { digestUtf8: async () => new Uint8Array(31) }),
+    identifyCanonicalJson("{}", {
+      digestBytes: async () => new Uint8Array(31),
+      digestUtf8: async () => new Uint8Array(31),
+    }),
     (error) => error instanceof ArtifactProtocolError && error.code === "artifact.hash-failed",
   );
 });

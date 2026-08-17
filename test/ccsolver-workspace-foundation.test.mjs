@@ -52,6 +52,7 @@ test("registers CCSolver as a first-class root workspace", async () => {
     assert.match(rootPackage.scripts[script], /--workspace @tworld\/ccsolver/);
   }
   assert.match(rootPackage.scripts["ccsolver:facade"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:integration"], /--workspace web/);
 });
 
 test("uses one deterministic root lockfile for both workspaces", async () => {
@@ -148,6 +149,7 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "npm run ccsolver:conformance",
     "npm run ccsolver:build",
     "npm run ccsolver:facade",
+    "npm run ccsolver:integration",
     "npm run ccsolver:cli -- --help",
     "npm run ccsolver:dossier -- --help",
     "npm run typecheck",

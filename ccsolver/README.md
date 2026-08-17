@@ -14,15 +14,18 @@ native oracle remain authoritative for legacy replay results.
 - [Design](docs/design.md)
 - [Project plan](docs/project-plan.md)
 - [Artifact kernel v1](docs/artifact-kernel-v1.md)
+- [Level facts v1](docs/level-facts-v1.md)
 
 ## Status
 
 The project is in P0. P0A established the workspace, dependency boundaries,
-root commands, and CI installation model. P0B establishes the first strict,
+root commands, and CI installation model. P0B established the first strict,
 content-addressed artifact kernel: canonical JSON, portable SHA-256 identities,
 corpus cases, replay certificates, semantic identity primitives, schemas, and
-conformance fixtures. Rich level facts and semantic plan schemas remain P0C
-work and are intentionally opaque references in v1.
+conformance fixtures. P0C1 adds the first static `level-facts` root artifact,
+exact import provenance, and a narrow adapter for bundled Tile World DAT levels.
+Derived topology, semantic events, goals, plans, and witnesses remain later
+review slices.
 
 CCSolver inherits Tile World's GPL-2.0-or-later license. Generated dossier pages
 will be publicly reachable under the existing GitHub Pages deployment but will

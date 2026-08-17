@@ -10,6 +10,12 @@
       "expectedArtifactId": "sha256:eeff1af7e9100a095489cbf6d7312479dde19a54056fe0d04fc4d3d3feca1a98"
     },
     {
+      "path": "valid/level-facts.v1.json",
+      "artifactType": "level-facts",
+      "schema": "level-facts.schema.json",
+      "expectedArtifactId": "sha256:1ce3be95dd2b1d22efc6ace3eb1bd54c575f414b0c0969d6cc4bfa91c11f6183"
+    },
+    {
       "path": "valid/replay-certificate.v1.json",
       "artifactType": "replay-certificate",
       "schema": "replay-certificate.schema.json",
@@ -76,6 +82,36 @@
       "expectedCode": "artifact.invalid-json-value",
       "expectedPath": "/payload/replay/content/byteLength",
       "schemaValid": false
+    },
+    {
+      "path": "invalid/level-facts-too-many-cells.json",
+      "expectedCode": "artifact.invariant-invalid",
+      "expectedPath": "/payload/geometry",
+      "schemaValid": true
+    },
+    {
+      "path": "invalid/level-facts-normalized-digest-mismatch.json",
+      "expectedCode": "artifact.invariant-invalid",
+      "expectedPath": "/payload/provenance/normalizedMap/content/digest",
+      "schemaValid": true
+    },
+    {
+      "path": "invalid/level-facts-out-of-bounds-placement.json",
+      "expectedCode": "artifact.invariant-invalid",
+      "expectedPath": "/payload/placements/0/descriptor/coordinate/x",
+      "schemaValid": true
+    },
+    {
+      "path": "invalid/level-facts-declared-actor-order-gap.json",
+      "expectedCode": "artifact.invariant-invalid",
+      "expectedPath": "/payload/actors/0/declaredSourceOrder",
+      "schemaValid": true
+    },
+    {
+      "path": "invalid/level-facts-dangling-wiring.json",
+      "expectedCode": "artifact.invariant-invalid",
+      "expectedPath": "/payload/wiring/0/descriptor/targetPlacementId",
+      "schemaValid": true
     }
   ]
 }

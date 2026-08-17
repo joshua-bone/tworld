@@ -24,6 +24,7 @@
     "ccsolver:test": "node --test test/ccsolver-workspace-foundation.test.mjs && npm --workspace @tworld/ccsolver run test --",
     "ccsolver:conformance": "npm --workspace @tworld/ccsolver run test:conformance --",
     "ccsolver:facade": "npm --workspace web run typecheck:ccsolver-runtime --",
+    "ccsolver:integration": "npm --workspace web run test -- --run src/ruleset-ms/impl/level.test.ts src/ccsolver-runtime/impl/decodedLegacyLevelProjection.test.ts src/ccsolver-runtime/compose/tworldMsLevelProjection.test.ts src/ccsolver-runtime/compose/buildTworldMsLevelFacts.test.ts",
     "ccsolver:cli": "npm --workspace @tworld/ccsolver run cli --",
     "ccsolver:dossier": "npm --workspace @tworld/ccsolver run dossier --",
     "verify:ms-replays": "npm --workspace web run verify:ms-replays --",

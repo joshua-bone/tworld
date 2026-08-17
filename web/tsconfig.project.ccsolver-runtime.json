@@ -4,10 +4,16 @@
     "outDir": "./.tsbuild/ccsolver-runtime",
     "tsBuildInfoFile": "./.tsbuild/ccsolver-runtime.tsbuildinfo"
   },
-  "files": [
-    "src/ccsolver-runtime/ports/ccsolverPackageBoundary.ts"
+  "include": [
+    "src/ccsolver-runtime/ports/**/*.ts",
+    "src/ccsolver-runtime/impl/**/*.ts",
+    "src/ccsolver-runtime/compose/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
   ],
   "references": [
-    { "path": "../ccsolver/tsconfig.json" }
+    { "path": "../ccsolver/tsconfig.json" },
+    { "path": "./tsconfig.project.ruleset-ms.json" }
   ]
 }

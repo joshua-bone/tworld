@@ -133,12 +133,30 @@ describe("hexagonal boundaries", () => {
       name: "ports purity",
       roots: [
         "game-runtime/ports",
+        "ccsolver-runtime/ports",
         "level-catalog/ports",
         "oracle-fixtures/ports",
         "player-web/ports",
         "replay-verifier/ports",
       ],
       forbidden: [/^@bootstrap(\/|$)/, /^react$/, /^react-dom$/, /^node:/],
+    });
+  });
+
+  it("keeps CCSolver adapter implementation independent of concrete engines and hosts", () => {
+    assertNoForbiddenImports({
+      name: "CCSolver adapter implementation purity",
+      roots: ["ccsolver-runtime/impl"],
+      forbidden: [
+        /^@bootstrap(\/|$)/,
+        /^@game-(?:core|runtime)(\/|$)/,
+        /^@level-catalog(\/|$)/,
+        /^@ruleset-(?:ms|lynx)(\/|$)/,
+        /^@undo-runtime(\/|$)/,
+        /^react$/,
+        /^react-dom$/,
+        /^node:/,
+      ],
     });
   });
 

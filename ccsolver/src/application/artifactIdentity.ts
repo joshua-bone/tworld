@@ -57,6 +57,35 @@ function formatArtifactId(digest: Uint8Array): ArtifactId {
   return `sha256:${hex}` as ArtifactId;
 }
 
+function validateDigestResult(digest: Uint8Array): ArtifactId {
+  if (!(digest instanceof Uint8Array) || digest.byteLength !== 32) {
+    throw new ArtifactProtocolError(
+      "artifact.hash-failed",
+      "",
+      "SHA-256 adapter must return exactly 32 bytes",
+    );
+  }
+  return formatArtifactId(digest);
+}
+
+export async function identifyBytes(
+  bytes: Uint8Array,
+  sha256: Sha256Port,
+): Promise<ArtifactId> {
+  let digest: Uint8Array;
+  try {
+    digest = await sha256.digestBytes(bytes);
+  } catch (error) {
+    throw new ArtifactProtocolError(
+      "artifact.hash-failed",
+      "",
+      "SHA-256 adapter failed to digest source bytes",
+      { cause: error },
+    );
+  }
+  return validateDigestResult(digest);
+}
+
 export async function identifyCanonicalJson(
   canonicalText: CanonicalJson,
   sha256: Sha256Port,
@@ -87,14 +116,7 @@ export async function identifyCanonicalJson(
     );
   }
 
-  if (!(digest instanceof Uint8Array) || digest.byteLength !== 32) {
-    throw new ArtifactProtocolError(
-      "artifact.hash-failed",
-      "",
-      "SHA-256 adapter must return exactly 32 bytes",
-    );
-  }
-  return formatArtifactId(digest);
+  return validateDigestResult(digest);
 }
 
 export async function verifyArtifactIdentity(

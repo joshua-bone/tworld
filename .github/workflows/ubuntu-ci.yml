@@ -23,6 +23,7 @@ jobs:
           npm run ccsolver:conformance
           npm run ccsolver:build
           npm run ccsolver:facade
+          npm run ccsolver:integration
           npm run ccsolver:cli -- --help
           npm run ccsolver:dossier -- --help
       - name: Check browser workspace

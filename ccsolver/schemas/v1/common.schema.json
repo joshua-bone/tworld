@@ -32,6 +32,10 @@
       "type": "string",
       "pattern": "^actor:sha256:[0-9a-f]{64}$"
     },
+    "wiringId": {
+      "type": "string",
+      "pattern": "^wiring:sha256:[0-9a-f]{64}$"
+    },
     "uint16": {
       "type": "integer",
       "minimum": 0,
@@ -56,6 +60,14 @@
       "enum": [
         "ms",
         "lynx"
+      ]
+    },
+    "direction": {
+      "enum": [
+        "north",
+        "east",
+        "south",
+        "west"
       ]
     },
     "artifactReference": {
@@ -130,6 +142,9 @@
           "properties": {
             "artifactType": {
               "const": "level-facts"
+            },
+            "schemaVersion": {
+              "const": 1
             }
           }
         }
@@ -370,6 +385,46 @@
           "$ref": "#/$defs/cloneActorIdentityDescriptor"
         }
       ]
+    },
+    "staticWiringDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityType",
+        "identityVersion",
+        "levelDigest",
+        "kind",
+        "sourceOrder",
+        "sourcePlacementId",
+        "targetPlacementId",
+        "discriminator"
+      ],
+      "properties": {
+        "identityType": {
+          "const": "static-wiring"
+        },
+        "identityVersion": {
+          "const": 1
+        },
+        "levelDigest": {
+          "$ref": "#/$defs/sha256Digest"
+        },
+        "kind": {
+          "$ref": "#/$defs/stableId"
+        },
+        "sourceOrder": {
+          "$ref": "#/$defs/uint32"
+        },
+        "sourcePlacementId": {
+          "$ref": "#/$defs/placementId"
+        },
+        "targetPlacementId": {
+          "$ref": "#/$defs/placementId"
+        },
+        "discriminator": {
+          "$ref": "#/$defs/uint16"
+        }
+      }
     }
   }
 }

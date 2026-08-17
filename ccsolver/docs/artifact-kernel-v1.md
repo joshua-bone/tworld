@@ -14,13 +14,15 @@ Version 1 deliberately defines only:
 - corpus cases with append-only per-ruleset attempts and current state;
 - replay certificates independently verified by Tile World's TypeScript engine
   and native oracle;
-- normalized level, static-placement, and actor-lineage identities; and
-- opaque references to future level-facts and expanded-plan artifacts.
+- static level facts with exact source/import provenance;
+- normalized level, static-placement, actor-lineage, and static-wiring
+  identities; and
+- opaque references to future expanded-plan artifacts.
 
-Level facts, semantic events, goal graphs, expanded plans, subgoal contracts,
-contextual witnesses, dossiers, and native Hybrid replays are not v1 root
-artifacts yet. Their schemas will be based on execution evidence in later
-milestones rather than guessed in P0B.
+Derived topology, semantic events, goal graphs, expanded plans, subgoal
+contracts, contextual witnesses, dossiers, and native Hybrid replays are not
+v1 root artifacts yet. Their schemas will be based on execution evidence in
+later milestones rather than guessed ahead of their producing code.
 
 ## Envelope and references
 
@@ -36,7 +38,8 @@ Every root artifact is a closed object:
 }
 ```
 
-The only v1 root types are `corpus-case` and `replay-certificate`. Unknown
+The v1 root types are `corpus-case`, `replay-certificate`, and `level-facts`.
+Unknown
 protocols, protocol versions, artifact types, and schema versions fail before
 payload decoding. Artifact references repeat the target artifact type, protocol
 version, schema version, and digest, but do not embed the referenced value.
@@ -49,8 +52,8 @@ sha256:<64 lowercase hexadecimal digits>
 
 The digest covers the exact canonical UTF-8 bytes of the complete envelope.
 Static placement and actor IDs use the same primitive with `placement:` and
-`actor:` prefixes. What is hashed is the versioned descriptor, never an object
-that already contains its derived ID.
+`actor:` prefixes; static wiring uses `wiring:`. What is hashed is the
+versioned descriptor, never an object that already contains its derived ID.
 
 ## Canonical JSON profile
 
@@ -145,6 +148,26 @@ Clone identity derives from its parent actor ID, source placement ID, and a
 positive clone ordinal. These descriptors make lineage stable without using
 runtime array positions as durable identity.
 
+A static wiring descriptor contains the normalized gameplay-map digest,
+semantic kind, source declaration order, source and target placement IDs, and a
+discriminator. Source order participates in identity because legacy DAT
+connection declaration order can be gameplay-significant.
+
+## Static level facts
+
+`level-facts` records a target-specific conservative projection of imported
+static gameplay data: uniform zero-based geometry, placements, complete initial
+actor order, time and resource requirements, exits, wiring, transports, forced
+surfaces, hazards, and explicit source uncertainties. Exact container,
+occurrence-member, and normalized gameplay-map byte references make its source
+chain independently verifiable.
+
+The normalized gameplay map is target-neutral; the facts projection is
+target-specific because MS and Lynx may interpret the same placement
+differently. The artifact is not a rules engine and does not assert runtime
+legality, topology, goals, or solution behavior. The complete contract is in
+[Level facts v1](level-facts-v1.md).
+
 ## Errors and ordering
 
 Protocol failures expose a stable `artifact.*` code and JSON Pointer path.
@@ -165,7 +188,7 @@ IDs. Invalid fixtures freeze representative error codes and paths. Both the
 runtime decoder and Draft 2020-12 schemas run in tests; Ajv is a development
 dependency only and is not part of the runtime protocol.
 
-The P0B fixtures are explicitly synthetic protocol examples. Their map and TWS
+Protocol conformance fixtures are explicitly synthetic examples. Their map and TWS
 digests name deterministic fixture byte labels, and their verifier revisions
 are `fixture-*` labels; they do not claim that a real replay was run. Likewise,
 `verifyCertificateBundle` proves internal content-addressed linkage, not that a

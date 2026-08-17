@@ -13,9 +13,12 @@ export class WebCryptoSha256 implements Sha256Port {
     private readonly encoder: Pick<TextEncoder, "encode"> = new TextEncoder(),
   ) {}
 
-  async digestUtf8(value: CanonicalJson): Promise<Uint8Array> {
-    const bytes = this.encoder.encode(value);
-    const digest = await this.cryptoProvider.subtle.digest("SHA-256", toArrayBuffer(bytes));
+  async digestBytes(value: Uint8Array): Promise<Uint8Array> {
+    const digest = await this.cryptoProvider.subtle.digest("SHA-256", toArrayBuffer(value));
     return new Uint8Array(digest);
+  }
+
+  async digestUtf8(value: CanonicalJson): Promise<Uint8Array> {
+    return this.digestBytes(this.encoder.encode(value));
   }
 }

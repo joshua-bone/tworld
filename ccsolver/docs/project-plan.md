@@ -56,9 +56,10 @@ P0 is delivered as reviewable slices:
 - **P0B — Canonical artifact kernel:** strict canonical JSON, portable SHA-256,
   corpus cases, replay certificates, semantic identity primitives, schemas, and
   conformance fixtures.
-- **P0C — Semantic artifact vocabulary:** level facts/events, strategy and goal
-  graphs, expanded plans, contracts, contextual witnesses, dossier manifests,
-  and provenance, grounded in the P0B identity kernel.
+- **P0C — Semantic artifact vocabulary:** small evidence-backed schema slices,
+  beginning with P0C1 source provenance and static level facts, then adding
+  events, plans, contracts, witnesses, and dossier manifests only alongside
+  their producing vertical slices.
 
 ### Deliverables
 
@@ -72,11 +73,11 @@ P0 is delivered as reviewable slices:
   path aliases directly from CCSolver domain code.
 - Establish `domain`, `application`, `ports`, `adapters`, `cli`, `render`, and
   `site` package boundaries.
-- Define initial types and schemas for:
+- Define versioned types and schemas incrementally for:
   - `LevelIdentity` and `CorpusCase`, including per-target attempts, statuses,
     replay candidates, and certificates;
   - coordinates, regions, semantic placements, actors, and lineage;
-  - semantic facts and events;
+  - static semantic facts, followed separately by runtime events;
   - goal graphs, orthogonal plan-shape/dependency/resolution fields, and
     expanded plans;
   - subgoal contracts and contextual witnesses;
@@ -599,19 +600,22 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-After P0A and P0B, begin **P0C1 — Source provenance and static level facts**:
+With P0C1 complete, begin **P1A — Pinned corpus manifest and static-analysis
+vertical slice** using ATDD:
 
-1. define content-addressed source, import-profile, level-occurrence, and
-   normalized-map references without copying DAT parser logic;
-2. define the first `level-facts` root artifact using zero-based coordinates,
-   stable placement/actor identities, explicit z layers, and the 65,536-total-
-   cell limit;
-3. cover core resources, exits, doors, sockets, buttons/wiring, transports,
-   forced surfaces, hazards, actors, time limits, and unknown catalog semantics;
-4. adapt one synthetic and one bundled level through a narrow web-side seam;
-5. freeze valid/invalid conformance fixtures and deterministic identities; and
-6. keep P0B's kernel, package boundaries, and existing web behavior green.
+1. generate a reproducible manifest from the source pins already recorded in
+   this repository, retaining pack occurrences and separate MS/Lynx targets;
+2. adapt the `level-facts` builder across the bundled legacy corpus without
+   copying DAT parser logic into CCSolver;
+3. define a derived-analysis artifact only after executable analyzers produce
+   rooms, connectivity, gates, resource dependencies, forced/transport
+   networks, and uncertainties;
+4. run that analyzer first on a tiny synthetic curriculum and the bundled
+   Intro level 8 golden, then select the first measured real-level curriculum;
+5. emit deterministic machine-readable dossier data, without yet designing the
+   dossier UI or runtime event journal; and
+6. preserve the 65,536-cell budget, exact source byte chain, stable identities,
+   and unknown-element diagnostics established by P0C1.
 
-Semantic event journals, goal/plan graphs, contracts, witnesses, donor
-alignment, search, and media follow as separate review slices. Do not invent
-their wire formats inside P0C1.
+Runtime event journals, goal/plan graphs, contracts, witnesses, donor
+alignment, search, and media remain separate evidence-backed review slices.

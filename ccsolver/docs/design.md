@@ -13,11 +13,12 @@ repository. Future Hybrid integration uses versioned files or a separate
 process, with the private adapter implemented in HybridCC2026.
 
 The [artifact kernel v1](artifact-kernel-v1.md) freezes the envelope,
-canonicalization, corpus-case, replay-certificate, and identity shapes checked
-in under `ccsolver/schemas/v1/`. Names and shapes for later semantic artifacts
-remain provisional until their own schemas are checked in. The semantic roles
-and correctness boundaries in this document are design decisions, not
-placeholders.
+canonicalization, corpus-case, replay-certificate, level-facts, and identity
+shapes checked in under `ccsolver/schemas/v1/`. The detailed static contract is
+in [Level facts v1](level-facts-v1.md). Names and shapes for later semantic
+artifacts remain provisional until their own schemas are checked in. The
+semantic roles and correctness boundaries in this document are design
+decisions, not placeholders.
 
 ## Executive summary
 
@@ -149,16 +150,13 @@ CCSolver becomes a root npm workspace named `@tworld/ccsolver`. Its domain code
 must not depend on React, canvas, or ruleset implementation modules. Those
 dependencies live behind adapters.
 
-The existing `web` workspace is private and exposes internal path aliases, not
-a supported package API. P0 must therefore choose and test one explicit seam:
-either a small public TypeScript facade/project reference consumed by CCSolver,
-or a concrete CCSolver adapter composed on the `web` side. CCSolver domain code
-must never reach through that seam into engine implementation paths.
-
-The repository currently has both a root lockfile and a `web` lockfile, while
-the Pages workflow installs from `web`. P0 must select one coherent workspace
-installation model and update local commands, CI installation, and cache keys
-together before adding a second workspace.
+The repository root is the sole npm project and lockfile authority for the
+`web` and `ccsolver` workspaces. Local development, CI, and Pages install once
+from the root lock. The private `web` workspace composes concrete Tile World
+adapters and depends one way on the narrow `@tworld/ccsolver` package; CCSolver
+never imports private web aliases. Architecture tests keep engine/catalog
+imports in `web/src/ccsolver-runtime/compose`, while its `impl` and `ports`
+remain engine- and host-neutral.
 
 ## Architecture
 
@@ -220,6 +218,11 @@ ccsolver/
   fixtures/golden/
   generated/       # ignored
   .cache/           # ignored
+
+web/src/ccsolver-runtime/
+  ports/             # narrow package/facade declarations
+  impl/              # engine-neutral projections and adapters
+  compose/           # Tile World ruleset/catalog/repository composition
 ```
 
 The domain layer contains only typed semantic values and pure transformations.
@@ -301,7 +304,8 @@ Stable IDs are semantic and source-derived:
 
 - static placements use normalized map digest, coordinate, cell stratum, type,
   and a placement discriminator;
-- wiring and channels use normalized source/target identities;
+- static wiring uses normalized map digest, semantic kind, source declaration
+  order, source/target placement identities, and a discriminator;
 - initial actors use placement identity plus source actor order;
 - spawned actors use deterministic lineage, such as source plus clone ordinal;
   and
@@ -311,16 +315,21 @@ When exact actor correspondence is irrelevant or differs by ruleset, contracts
 use typed selectors such as “some movable block occupies region B” rather than
 inventing false identity.
 
-`LevelFacts` includes:
+The versioned static `LevelFacts` artifact includes:
 
-- geometry, cell strata, elements, actors, inventory sources, and terminal tiles;
-- passability and capability-dependent connectivity;
-- rooms, regions, corridors, chokepoints, and articulation boundaries;
+- geometry, cell strata, elements, actors, inventory sources, and terminal
+  tiles;
 - keys, doors, chips, sockets, boots, hazards, bombs, and consumable resources;
-- block destinations, dead squares, buttons, traps, cloners, and wiring;
-- force-floor and ice conduits, teleport networks, and exits;
-- irreversible actions and suspected deadlocks; and
-- uncertainties or facts that require runtime evidence.
+- buttons, traps, cloners, and wiring;
+- force-floor and ice placements, teleport networks, and exits; and
+- source uncertainties that must not be silently normalized away.
+
+Later derived static-analysis artifacts add passability and
+capability-dependent connectivity, rooms, corridors, chokepoints,
+articulation boundaries, block destinations and dead squares, resource
+dependencies, forced conduits, irreversible actions, and suspected deadlocks.
+Keeping imported observations separate from deductions makes every dossier
+claim traceable and lets improved analyzers coexist with the same source facts.
 
 Static facts are conservative. The target engine decides whether a concrete
 move is legal.
@@ -721,11 +730,13 @@ insignificant whitespace, Unicode normalization, or trailing newline. SHA-256
 covers those exact UTF-8 bytes. Artifacts contain no generation timestamp or
 self-digest in semantic identity.
 
-Every artifact records schema version, producer commit, source digests, engine
-and oracle revisions, ruleset, solver configuration/budgets, deterministic
-search seed, and parent lineage. During pre-release development schemas may
-break deliberately, but migrations or explicit regeneration make the change
-visible.
+Every artifact records its schema version and the provenance relevant to its
+claim. Static facts bind producer/import revisions and exact source digests;
+runtime evidence additionally binds ruleset and engine/oracle revisions;
+search attempts add solver configuration, budgets, seed, and lineage. Fields
+that do not apply are not filled with invented placeholders. During pre-release
+development schemas may break deliberately, but migrations or explicit
+regeneration make the change visible.
 
 An engine or semantic-analysis change never overwrites an accepted result. Each
 case is reclassified as:
