@@ -31,7 +31,7 @@ export function isLynxBlockedChipEnterRevealTile(tileId: number): boolean {
   return lookupLynxTileLifecyclePhase(tileId, "probe-enter") !== null;
 }
 
-function lynxTopUsesUnderlyingFloor(topId: number): boolean {
+export function lynxChipProbeUsesUnderlyingFloor(topId: number): boolean {
   return isMsCreature(topId) || lynxInventorySlot(topId) !== null;
 }
 
@@ -84,7 +84,7 @@ export function probeLynxTileExitEffect(tileId: number, dir: number, released: b
 }
 
 export function lynxChipProbeTileId(cell: EngineMapCell): number {
-  if (lynxTopUsesUnderlyingFloor(cell.top.id) && cell.bottom.id !== MS_TILE.Empty) {
+  if (lynxChipProbeUsesUnderlyingFloor(cell.top.id) && cell.bottom.id !== MS_TILE.Empty) {
     return cell.bottom.id;
   }
   return cell.top.id;
@@ -113,7 +113,7 @@ export function applyLynxBlockedChipEnterEffect(state: EngineState, pos: number)
     probeEnter(behaviorContext);
     return behaviorContext.blocked;
   }
-  if (lynxTopUsesUnderlyingFloor(cell.top.id) && isLynxBlockedChipEnterRevealTile(cell.bottom.id)) {
+  if (lynxChipProbeUsesUnderlyingFloor(cell.top.id) && isLynxBlockedChipEnterRevealTile(cell.bottom.id)) {
     const probeEnter = lookupLynxTileLifecyclePhase(cell.bottom.id, "probe-enter");
     if (probeEnter === null) {
       return false;

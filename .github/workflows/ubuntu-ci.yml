@@ -26,8 +26,14 @@ jobs:
           npm run ccsolver:integration
           npm run ccsolver:corpus:check
           npm run ccsolver:analysis:check
+          npm --workspace web run typecheck:tools
           npm run ccsolver:cli -- --help
           npm run ccsolver:dossier -- --help
+      - name: Check P1B full-corpus artifacts
+        timeout-minutes: 90
+        env:
+          TWORLD_P1B_ANALYSIS_JOBS: 4
+        run: npm run ccsolver:p1b:check
       - name: Check browser workspace
         run: |
           npm run typecheck

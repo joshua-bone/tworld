@@ -1,6 +1,6 @@
 import type { CanonicalJsonValue, DirectionV1 } from "@tworld/ccsolver/domain";
 import type { DecodedMsLevelData } from "@ruleset-ms/api/level";
-import type { MsLoadedLevelSource } from "@ruleset-ms/api/levelLoader";
+import type { LynxLoadedLevelSource } from "@ruleset-lynx/api/levelLoader";
 import {
   MS_DIRECTION,
   MS_GRID_HEIGHT,
@@ -13,16 +13,16 @@ import {
   msStaticBlockActorId,
 } from "@ruleset-ms/api/tiles";
 import {
-  msButtonAction,
-  msChipEnterAction,
-  msDoorKeyIndex,
-  msRulesetCatalog,
-  msSlideDirection,
-  msTileForcedFloorKind,
-  msTileHasCapability,
-  msTileHasTag,
-} from "@ruleset-ms/impl/catalog";
-import { msElementFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
+  lynxButtonAction,
+  lynxChipEnterAction,
+  lynxDoorKeyIndex,
+  lynxFixedSlideDirection,
+  lynxRulesetCatalog,
+  lynxTileForcedFloorKind,
+  lynxTileHasCapability,
+  lynxTileHasTag,
+} from "@ruleset-lynx/impl/catalog";
+import { lynxElementFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
 import {
   normalizeDecodedTworldLevelWithPolicy,
   projectLoadedTworldLevel,
@@ -38,17 +38,17 @@ export interface ProjectedTworldSourceMaterial extends SharedProjectedTworldSour
   readonly members: readonly ProjectedTworldSourceMember[];
 }
 
-export interface ProjectedTworldMsLevel extends ProjectedTworldLevel {
+export interface ProjectedTworldLynxLevel extends ProjectedTworldLevel {
   readonly source: ProjectedTworldSourceMaterial;
 }
 
-export interface ProjectLoadedTworldMsLevelInput {
+export interface ProjectLoadedTworldLynxLevelInput {
   readonly catalogRevision: string;
   readonly containerBytes: Uint8Array;
-  readonly loaded: MsLoadedLevelSource;
+  readonly loaded: LynxLoadedLevelSource;
 }
 
-function directionForMsValue(direction: number): DirectionV1 | null {
+function directionForLynxValue(direction: number): DirectionV1 | null {
   switch (direction) {
     case MS_DIRECTION.north:
       return "north";
@@ -63,11 +63,11 @@ function directionForMsValue(direction: number): DirectionV1 | null {
   }
 }
 
-const MS_PROJECTION_POLICY: TworldLevelProjectionPolicy<MsLoadedLevelSource> = {
-  target: "ms",
-  catalogId: "tworld:ruleset-ms",
-  implicitFloorSourceToken: "tworld:ruleset-ms/implicit-floor",
-  layerCountErrorSubject: "Tile World source",
+const LYNX_PROJECTION_POLICY: TworldLevelProjectionPolicy<LynxLoadedLevelSource> = {
+  target: "lynx",
+  catalogId: "tworld:ruleset-lynx",
+  implicitFloorSourceToken: "tworld:ruleset-lynx/implicit-floor",
+  layerCountErrorSubject: "Tile World Lynx source",
   width: MS_GRID_WIDTH,
   height: MS_GRID_HEIGHT,
   tileIds: {
@@ -82,31 +82,31 @@ const MS_PROJECTION_POLICY: TworldLevelProjectionPolicy<MsLoadedLevelSource> = {
     petCarrier: MS_TILE.PetCarrier,
   },
   decodeLoadedLevel: (loaded) => (
-    msElementFamilyRegistration.levelLoadRegistration.decodeLoadedLevel(loaded)
+    lynxElementFamilyRegistration.levelLoadRegistration.decodeLoadedLevel(loaded)
   ),
-  directionForSourceValue: directionForMsValue,
+  directionForSourceValue: directionForLynxValue,
   isCreature: isMsCreature,
   creatureDirection: msCreatureDir,
   creatureId: msCreatureId,
   isStaticBlockTile: isMsStaticBlockTile,
   staticBlockActorId: msStaticBlockActorId,
-  tileCode: (elementId) => msRulesetCatalog.getTile(elementId)?.code ?? null,
-  actorCode: (actorId) => msRulesetCatalog.getActor(actorId)?.code ?? null,
-  chipEnterAction: msChipEnterAction,
-  doorKeyIndex: msDoorKeyIndex,
-  forcedFloorKind: msTileForcedFloorKind,
-  slideDirection: (elementId) => msSlideDirection(elementId, MS_DIRECTION.none),
-  tileHasCapability: (elementId, capability) => msTileHasCapability(elementId, capability),
-  tileHasTag: (elementId, tag) => msTileHasTag(elementId, tag),
-  buttonAction: msButtonAction,
+  tileCode: (elementId) => lynxRulesetCatalog.getTile(elementId)?.code ?? null,
+  actorCode: (actorId) => lynxRulesetCatalog.getActor(actorId)?.code ?? null,
+  chipEnterAction: lynxChipEnterAction,
+  doorKeyIndex: lynxDoorKeyIndex,
+  forcedFloorKind: lynxTileForcedFloorKind,
+  slideDirection: lynxFixedSlideDirection,
+  tileHasCapability: (elementId, capability) => lynxTileHasCapability(elementId, capability),
+  tileHasTag: (elementId, tag) => lynxTileHasTag(elementId, tag),
+  buttonAction: lynxButtonAction,
 };
 
-export function normalizeDecodedTworldLevel(decoded: DecodedMsLevelData): CanonicalJsonValue {
-  return normalizeDecodedTworldLevelWithPolicy(decoded, MS_PROJECTION_POLICY);
+export function normalizeDecodedTworldLynxLevel(decoded: DecodedMsLevelData): CanonicalJsonValue {
+  return normalizeDecodedTworldLevelWithPolicy(decoded, LYNX_PROJECTION_POLICY);
 }
 
-export function projectLoadedTworldMsLevel(
-  input: ProjectLoadedTworldMsLevelInput,
-): ProjectedTworldMsLevel {
-  return projectLoadedTworldLevel(input, MS_PROJECTION_POLICY);
+export function projectLoadedTworldLynxLevel(
+  input: ProjectLoadedTworldLynxLevelInput,
+): ProjectedTworldLynxLevel {
+  return projectLoadedTworldLevel(input, LYNX_PROJECTION_POLICY);
 }

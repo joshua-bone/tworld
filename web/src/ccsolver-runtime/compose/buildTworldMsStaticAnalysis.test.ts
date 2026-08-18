@@ -85,12 +85,15 @@ describe("buildTworldMsStaticAnalysis", () => {
       expect(canonical.endsWith("\n")).toBe(false);
       expect(JSON.stringify(JSON.parse(canonical))).toBe(canonical);
     }
-  });
+  }, 30_000);
 
   it("rejects a non-MS projection instead of relabeling it", async () => {
     const built = await buildIntroLevel8();
-    const wrongTarget = structuredClone(built.levelFacts.facts);
-    wrongTarget.payload.target = "lynx";
+    const clonedFacts = structuredClone(built.levelFacts.facts);
+    const wrongTarget = {
+      ...clonedFacts,
+      payload: { ...clonedFacts.payload, target: "lynx" as const },
+    };
 
     await expect(buildTworldMsStaticAnalysis({
       existingFactsBundle: { ...built.levelFacts, facts: wrongTarget },

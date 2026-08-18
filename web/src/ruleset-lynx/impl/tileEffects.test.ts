@@ -6,6 +6,7 @@ import {
   applyLynxBlockedChipEnterEffect,
   applyLynxMobExitFloorEffect,
   applyLynxTileActivationEffect,
+  lynxChipProbeUsesUnderlyingFloor,
   resolveLynxTileSupportBelow,
 } from "@ruleset-lynx/impl/tileEffects";
 
@@ -55,6 +56,14 @@ function makeState(cell: EngineMapCell): EngineState {
 }
 
 describe("lynx tile effects", () => {
+  it("exposes exactly which upper tiles defer Chip's movement probe to the lower floor", () => {
+    expect(lynxChipProbeUsesUnderlyingFloor(msCreatureTile(MS_TILE.Bug, MS_DIRECTION.west))).toBe(true);
+    expect(lynxChipProbeUsesUnderlyingFloor(MS_TILE.Key_Red)).toBe(true);
+    expect(lynxChipProbeUsesUnderlyingFloor(MS_TILE.PetCarrier)).toBe(true);
+    expect(lynxChipProbeUsesUnderlyingFloor(MS_TILE.ICChip)).toBe(false);
+    expect(lynxChipProbeUsesUnderlyingFloor(MS_TILE.Button_Red)).toBe(false);
+  });
+
   it("reveals blocked hidden walls through the blocked-enter effect", () => {
     const state = makeState(makeCell(MS_TILE.BlueWall_Real));
 

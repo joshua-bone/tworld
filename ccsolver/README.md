@@ -16,25 +16,32 @@ native oracle remain authoritative for legacy replay results.
 - [Artifact kernel v1](docs/artifact-kernel-v1.md)
 - [Level facts v1](docs/level-facts-v1.md)
 - [P1A pinned corpus and static analysis](docs/p1a-static-analysis.md)
+- [P1B cross-ruleset topology and curriculum](docs/p1b-cross-ruleset-topology.md)
 
 ## Status
 
 P0 established the workspace, dependency boundaries, canonical artifact kernel,
-and the first static `level-facts` root artifact. P1A is now implemented: a
-checked-in manifest derives 2,440 map cases and 4,880 separate target records
-from 193 byte-pinned repository sources, and a target-policy evidence seam feeds
-a pure, conservative static analyzer. Synthetic ATDD and an MS Intro level 8
-golden cover directed connectivity, weak regions, conditional boundaries,
-resource and transport incidence, iterative articulation analysis, uncertainty,
-and basic machine-readable dossier data.
+and the first static `level-facts` root artifact. P1A pinned 193 repository
+sources and derived 2,440 map occurrences and 4,880 target records. P1B is now
+implemented: genuine MS and Lynx policy adapters feed shared engine-neutral
+facts and analysis kernels, and a pure comparator explains differences as
+source facts, target policy, or policy-derived features.
 
-The P1A gameplay-analysis adapter is MS-only. The corpus manifest records MS and
-Lynx target/donor availability, and the pure analyzer accepts target-specific
-evidence, but there is not yet a Lynx topology-evidence producer. Static
-analysis and dossier values are canonical and content-addressed previews rather
-than frozen root artifact schemas. Lynx parity, curriculum selection, runtime
-events, goals, plans, search, replay generation, and the dossier UI remain later
-review slices.
+The P1B corpus audit quarantines 55 DATTools-invalid occurrences before ruleset
+interpretation, leaving 2,251 valid paired occurrences as the production scope
+of the donor-redacted measured-report pipeline. The checked static comparison
+finds 770 parity cases and 1,481 cases with explicit target differences. Its
+curriculum builder freezes
+eight declarative Phase-A ASCII cases, five donor-visible training levels, six
+donor-hidden evaluation levels, normalized-gameplay-digest cohort isolation,
+and provisional size-based budgets. Key Pyramid is the paired golden target for
+both analysis pipelines and their comparison. The ASCII cases are declarations
+for later execution, and the
+`blind` label is policy rather than capability-enforced donor isolation until
+P8. Topology evidence, comparisons, reports, curriculum data, and basic dossier
+data remain canonical content-addressed previews rather than frozen root
+artifact schemas. Runtime observation, checkpoints, and render projection are
+the next slice; semantic rooms and block dead-square proofs remain unimplemented.
 
 CCSolver inherits Tile World's GPL-2.0-or-later license. Generated dossier pages
 will be publicly reachable under the existing GitHub Pages deployment but will

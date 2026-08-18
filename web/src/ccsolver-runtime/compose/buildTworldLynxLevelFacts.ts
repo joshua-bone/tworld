@@ -4,13 +4,13 @@ import {
   type TworldLevelFactsBundle,
 } from "../impl/buildTworldLevelFacts";
 import {
-  projectLoadedTworldMsLevel,
-  type ProjectLoadedTworldMsLevelInput,
-} from "./tworldMsLevelProjection";
+  projectLoadedTworldLynxLevel,
+  type ProjectLoadedTworldLynxLevelInput,
+} from "./tworldLynxLevelProjection";
 
-const ADAPTER_ID = "tworld-ms-level-facts";
+const ADAPTER_ID = "tworld-lynx-level-facts";
 
-export interface BuildTworldMsLevelFactsInput extends ProjectLoadedTworldMsLevelInput {
+export interface BuildTworldLynxLevelFactsInput extends ProjectLoadedTworldLynxLevelInput {
   readonly occurrenceId: string;
   readonly producerRevision: string;
   readonly repository: string;
@@ -21,12 +21,12 @@ export interface BuildTworldMsLevelFactsInput extends ProjectLoadedTworldMsLevel
   readonly analyzerRevision: string;
 }
 
-export type TworldMsLevelFactsBundle = TworldLevelFactsBundle;
+export type TworldLynxLevelFactsBundle = TworldLevelFactsBundle;
 
-export async function buildTworldMsLevelFacts(
-  input: BuildTworldMsLevelFactsInput,
+export async function buildTworldLynxLevelFacts(
+  input: BuildTworldLynxLevelFactsInput,
   sha256: Sha256Port,
-): Promise<TworldMsLevelFactsBundle> {
+): Promise<TworldLynxLevelFactsBundle> {
   return buildTworldLevelFactsFromProjection({
     occurrenceId: input.occurrenceId,
     producerRevision: input.producerRevision,
@@ -37,6 +37,6 @@ export async function buildTworldMsLevelFacts(
     adapterRevision: input.adapterRevision,
     importProfileRevision: input.importProfileRevision,
     analyzerRevision: input.analyzerRevision,
-    projected: projectLoadedTworldMsLevel(input),
+    projected: projectLoadedTworldLynxLevel(input),
   }, sha256);
 }

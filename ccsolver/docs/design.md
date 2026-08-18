@@ -289,6 +289,15 @@ acceptance invariants, and reports them per pack. The checked-in canonical
 manifest is repository truth for this corpus revision; changing a source pin or
 registry entry requires an intentional regeneration and review.
 
+P1B applies the DATTools cell-validity policy before target interpretation.
+That audit quarantines 55 invalid occurrences: 49 from CCLP2 and six paired
+CCLP5 Voting occurrences. Quarantine means that CCSolver retains exact evidence
+but neither repairs the bytes nor invents gameplay semantics. It leaves 2,251
+valid paired occurrences for cross-target measurement. Duplicate-map and
+curriculum isolation use the normalized gameplay digest rather than occurrence
+paths; aliases therefore cannot leak the same map across training and
+evaluation cohorts.
+
 The older HybridCC-Python repository separately contains 470 audited winning
 replays, 391 overlapping this paired queue. Those private-repository wins are a
 planning baseline only: they are not among the 193 Tile World source pins and
@@ -368,7 +377,8 @@ never crosses z layers implicitly. The analyzer uses policy evidence rather
 than raw tile IDs or semantic-type name matching.
 
 This initial graph is not yet a semantic room decomposition or solvability
-proof. Later static-analysis slices add capability-dependent routing, block
+proof. P1B does not add block destinations or dead-square proof. Later
+static-analysis and mechanics slices add capability-dependent routing, block
 destinations and dead squares, forced conduits, irreversible actions, suspected
 deadlocks, and reviewed puzzle-area structure. Keeping imported observations,
 target policy, and deductions separate makes every dossier claim traceable and
@@ -377,13 +387,30 @@ lets improved analyzers coexist with the same source facts.
 Static facts are conservative. The target engine decides whether a concrete
 move is legal.
 
-The P1A evidence producer and Intro level 8 golden currently target MS only.
-The manifest still retains independent MS and Lynx target/donor records, and the
-pure analyzer accepts either target once an exact policy-evidence producer
-exists. Topology evidence, static analysis, and basic dossier data remain
-canonical content-addressed previews, not frozen root artifact schemas, until
-cross-ruleset evidence justifies that compatibility commitment. See
-[P1A pinned corpus and static analysis](p1a-static-analysis.md).
+P1A's Intro level 8 golden remains the historical MS vertical slice. P1B adds a
+genuine Lynx projection and topology-policy producer. The MS and Lynx adapters
+use their own catalog policies while sharing engine-neutral projection,
+`LevelFactsV1`, topology, and static-analysis kernels. A pure paired comparator
+classifies differences as source facts, target policy, or features derived from
+target policy and rejects unexplained downstream divergence. Key Pyramid is the
+paired golden target for both pipelines and the comparison.
+
+P1B's donor-redacted measurement runner has a production scope of all 2,251
+valid paired occurrences. It retains exact source and target feature vectors
+rather than inventing a scalar complexity score. The frozen first curriculum
+contains eight declarative Phase-A ASCII sources, five donor-visible training
+cases, and six donor-hidden evaluation cases, with cohort isolation by
+normalized gameplay identity and provisional size-based budgets. The ASCII
+sources are not yet executable engine fixtures. `blind` is a declared exposure
+policy, not an enforced donor-access capability; P8 supplies that enforcement
+and audit.
+
+`LevelFactsV1` remains part of the frozen artifact kernel. Topology evidence,
+static analysis, paired comparison, P1B reports and curriculum, and basic
+dossier data remain canonical content-addressed preview shapes rather than new
+root artifact schemas. See [P1A pinned corpus and static
+analysis](p1a-static-analysis.md) and [P1B cross-ruleset topology and
+curriculum](p1b-cross-ruleset-topology.md).
 
 ## Semantic observations and causal events
 
@@ -805,6 +832,9 @@ cannot remain in an untouched holdout; a later wave is frozen before further
 tuning. A lesson counts as generalization only when, under the same declared
 budget, it newly certifies a different frozen case or advances it to a
 predeclared semantic anchor. Failed blind attempts remain append-only evidence.
+The P1B evaluation wave is donor-redacted and labeled `blind`, but that label
+does not become a strong isolation claim until P8 restricts and audits donor
+access as a capability.
 
 ## TWS construction and certification
 
@@ -1043,13 +1073,22 @@ local filesystem paths, or unpublished secrets enter generated artifacts.
 
 ## Deferred measurement decisions
 
-The project plan does not invent these values:
+P1B declares a provisional size-only allowance of 1,024 node expansions per
+logical cell, 16 simulated decisions per node expansion, at most 64 replay
+decisions per logical cell capped at 65,536, and one deterministic attempt per
+target. Its 60-second and 512-MiB safety cutoffs classify exhaustion as
+infrastructure-inconclusive. These constants make the first frozen cohorts
+comparable; they are policy, not measured solver-performance claims.
+
+The project plan still does not invent these values:
 
 - exact event-buffer, trace-window, and checkpoint-cache sizes;
-- default search node/time/memory budgets by mechanic class;
+- mechanic-specific search budgets or replacements for the provisional
+  size-only policy;
 - the snapshot interval and threshold for copy-on-write or reversible journals;
 - media length and size thresholds for GIF versus video;
-- parallel worker count for local and CI corpus jobs; and
+- parallel worker counts for later runtime, search, and oracle jobs (P1B fixes
+  its static-analysis generator separately); and
 - the point at which optimization passes become cost-effective.
 
 Each is frozen only after representative measurements and a regression gate.

@@ -160,6 +160,29 @@ describe("hexagonal boundaries", () => {
     });
   });
 
+  it("keeps CCSolver target composition free of the other target's implementation policy", () => {
+    assertFilesHaveNoForbiddenImports({
+      name: "CCSolver Lynx policy isolation",
+      files: [
+        "ccsolver-runtime/compose/tworldLynxLevelProjection.ts",
+        "ccsolver-runtime/compose/buildTworldLynxLevelFacts.ts",
+        "ccsolver-runtime/compose/buildTworldLynxTopologyEvidence.ts",
+        "ccsolver-runtime/compose/buildTworldLynxStaticAnalysis.ts",
+      ],
+      forbidden: [/^@ruleset-ms\/impl(\/|$)/],
+    });
+    assertFilesHaveNoForbiddenImports({
+      name: "CCSolver MS policy isolation",
+      files: [
+        "ccsolver-runtime/compose/tworldMsLevelProjection.ts",
+        "ccsolver-runtime/compose/buildTworldMsLevelFacts.ts",
+        "ccsolver-runtime/compose/buildTworldMsTopologyEvidence.ts",
+        "ccsolver-runtime/compose/buildTworldMsStaticAnalysis.ts",
+      ],
+      forbidden: [/^@ruleset-lynx\/impl(\/|$)/],
+    });
+  });
+
   it("keeps pure implementation services free of bootstrap, react, and node runtime imports", () => {
     assertFilesHaveNoForbiddenImports({
       name: "pure implementation service purity",

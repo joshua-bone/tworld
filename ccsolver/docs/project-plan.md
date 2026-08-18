@@ -111,7 +111,9 @@ select the first curriculum from measured complexity.
 
 ### Status and delivery slices
 
-P1 is in progress.
+The scoped P1 foundation and P1B checked-data gate are complete. Semantic room
+decomposition and block dead-square proof are explicitly deferred; P1B does not
+claim either result.
 
 - **P1A — Pinned corpus manifest and MS static-analysis vertical slice:
   complete.** The checked-in canonical manifest verifies 193 exact sources at
@@ -121,16 +123,26 @@ P1 is in progress.
   synthetic mechanic postcard, shuffled-input and invalid-binding ATDD, a
   65,536-cell iterative articulation case, and deterministic MS Intro level 8
   level-facts/evidence/analysis/dossier goldens.
-- **P1B — Cross-ruleset topology evidence and curriculum freeze: proposed.**
-  Add a Lynx policy-evidence producer, paired MS/Lynx static goldens and
-  divergence characterization, then use measured features to freeze the Phase-A
-  synthetic curriculum and first donor-hidden evaluation wave with explicit
-  budgets. Decide which derived values merit frozen root-artifact schemas only
-  after both targets exercise them.
+- **P1B — Cross-ruleset topology evidence and curriculum freeze: complete.** A
+  genuine Lynx policy adapter and the MS adapter now feed shared engine-neutral
+  facts and analysis kernels. Paired comparisons distinguish source-fact,
+  target-policy, and policy-derived differences. A DATTools-derived validity
+  gate quarantines 55 invalid occurrences (49 CCLP2 and six paired Voting), and
+  the donor-redacted measured-report production scope contains all 2,251
+  remaining valid paired occurrences: 770 static-parity cases and 1,481 with
+  explicit target differences. Eight declarative Phase-A ASCII cases,
+  five donor-visible training cases, six declared donor-hidden evaluation
+  cases, digest-level cohort isolation, and provisional size-based budgets are
+  frozen. Key Pyramid
+  is the paired golden target for MS, Lynx, and comparison output. The bounded
+  full generator and independent byte-for-byte check both succeeded.
 
-P1A does not complete the whole P1 exit gate: Lynx evidence, semantic room and
-dead-square analysis, curriculum selection, and evaluation budgets remain P1B
-work. The dossier UI and runtime observation remain P4 and P2 respectively.
+P1B keeps topology evidence, comparison, reports, curriculum, and basic dossier
+data as content-addressed preview shapes rather than freezing new root artifact
+schemas. Its Phase-A ASCII sources are declarations, not yet executable engine
+fixtures, and its `blind` policy is not capability-enforced until P8. See
+[P1B cross-ruleset topology and curriculum](p1b-cross-ruleset-topology.md).
+The dossier UI and runtime observation remain P4 and P2 respectively.
 
 ### Deliverables
 
@@ -143,14 +155,17 @@ work. The dossier UI and runtime observation remain P4 and P2 respectively.
 - Inventory cells, strata, actors, resources, exits, doors, sockets, buttons,
   wiring, traps, cloners, teleports, forced surfaces, hazards, and time limits.
 - Detect initial connected regions, chokepoints, articulation boundaries,
-  transport networks, gates, resource dependencies, and obvious dead squares.
+  transport networks, gates, and candidate resource dependencies. Defer
+  semantic room/corridor structure and block dead-square proof until the
+  mechanics work has executable push evidence.
 - Compute an explainable static-complexity feature vector.
 - Select and freeze:
   - a foundational Phase-A synthetic curriculum used by P7;
-  - the later expanded mechanic curriculum used by P9;
   - donor-visible training cases;
   - the first frozen donor-hidden evaluation wave; and
   - adversarial architecture canaries.
+- Leave the expanded executable mechanics curriculum to P9, after the runtime
+  and search seams needed to exercise it exist.
 - Emit a deterministic basic dossier JSON for at least one level.
 
 ### Exit gate
@@ -160,6 +175,9 @@ work. The dossier UI and runtime observation remain P4 and P2 respectively.
   larger/overflowing shapes fail cleanly.
 - At least one synthetic and one bundled level show correct layers, identities,
   actors, wiring, resources, and source hashes.
+- Invalid legacy source is rejected before target interpretation, and the
+  measured-report runner scopes production to every valid paired occurrence
+  without donor inputs.
 - The first evaluation-wave manifest and budgets are committed before solver
   heuristics are tuned.
 
@@ -169,6 +187,20 @@ work. The dossier UI and runtime observation remain P4 and P2 respectively.
 
 Observe exact MS and Lynx execution through a narrow, non-mutating CCSolver
 port.
+
+### Status and delivery slices
+
+P2 has not started.
+
+- **P2A — Runtime Observation, Checkpoint, and Render Projection Port** — next.
+  Define the minimum preview port and implement independent MS and Lynx adapters
+  over the existing session and undo seams. Prove deterministic read-only
+  observation, exact branch/restore behavior, true replay-start and recorded
+  no-change advancement, and deterministic render projections before adding
+  planning or search.
+- **P2B — Causal semantic event journal: later.** Expand the proven P2A seam
+  with the complete bounded event taxonomy, causal linkage, failure reasons,
+  and native diagnostic adaptation required by the rest of the P2 exit gate.
 
 ### Deliverables
 
@@ -356,8 +388,9 @@ paired level before scaling decomposition and search.
 
 ### Deliverables
 
-- Select the lowest-complexity paired real level from P1. CCLP1 level 1,
-  Key Pyramid, is the initial candidate rather than a fixed assumption.
+- Use CCLP1 level 1, Key Pyramid, selected in P1B and covered by its paired
+  static golden, as the initial real end-to-end level. Record an explicit
+  evidence-based revision if runtime measurements later make it unsuitable.
 - Seed each target analysis from its exit alternatives, construct and review a
   backward-planning trace and prerequisite graph, then select a forward
   `ExpandedPlan` whose subgoals connect the real initial state to victory.
@@ -686,10 +719,10 @@ Synthetic levels are implemented first so each failure has one cause:
 10. RNG consumption and predicate-based waiting; and
 11. an offscreen effect proving full-world capsule execution.
 
-Real cases are selected after P1 measures them. Key Pyramid is the candidate for
-the first vertical slice. Booster Shots, Tunnel Clearance, Teleport Trouble, and
-Two Sets of Rules are adversarial architecture canaries, not expected early
-solver wins.
+P1B freezes the first real training and evaluation cohorts. Key Pyramid is the
+selected first vertical slice. Booster Shots, Tunnel Clearance, Teleport
+Trouble, and Two Sets of Rules remain adversarial architecture canaries, not
+expected early solver wins.
 
 ## Test matrix
 
@@ -775,23 +808,32 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-Proceed with **P1B — Cross-ruleset topology evidence and curriculum freeze**
+Proceed with **P2A — Runtime Observation, Checkpoint, and Render Projection Port**
 using ATDD:
 
-1. define the Lynx topology-policy adapter against Lynx catalog/engine seams,
-   preserving real target differences rather than translating MS evidence;
-2. run the same pure analyzer over paired synthetic fixtures and selected
-   bundled levels, with explicit MS/Lynx comparison records and uncertainty;
-3. extend goldens with at least one paired real level and characterize whether
-   each topology difference is source, policy, or analyzer behavior;
-4. add the first measured complexity report, then freeze the foundational
-   Phase-A synthetic curriculum, donor-visible training cases, and first
-   donor-hidden evaluation wave with explicit budgets;
-5. add semantic room/corridor and obvious block dead-square deductions only
-   where focused fixtures make their claims reviewable; and
-6. decide whether topology evidence, static analysis, and dossier data have
-   enough two-target evidence to enter the frozen root artifact protocol.
+1. define a narrow, target-neutral preview port for canonical initialization,
+   true replay initialization, one recorded decision or explicit no-change
+   advance, observation, checkpoint, clone, restore, terminal result, and
+   deterministic render projection;
+2. implement independent MS and Lynx composition adapters over the existing
+   gameplay-session and undo/checkpoint seams, without duplicating transition
+   rules or exposing raw ruleset implementation types to CCSolver;
+3. make observations sufficient to query map, player, actor, inventory, timing,
+   device, and terminal state while preserving native target timing, replay
+   input state, RNG/slide state, and actor ordering needed for continuation;
+4. define a read-only render projection with stable semantic identities and
+   enough whole-map state for later annotated entry/end panels; rendering and
+   media generation themselves remain out of scope;
+5. prove for both targets that observation and render projection cannot change
+   gameplay, that uninterrupted execution equals checkpoint/restore execution,
+   that cloned branches are independent, and that the same fixed prefix yields
+   byte-stable observations and projections; and
+6. characterize true replay start, held/released input, explicit no-change, and
+   terminal-state behavior with focused fixtures, retaining explicit bounded
+   errors for unsupported or exhausted host facilities.
 
-P1B still excludes runtime event journals, goal/plan graphs, contracts,
-witnesses, donor alignment, search, replay construction, dossier UI, and media;
-those remain separate evidence-backed milestones.
+P2A does not add goal/plan graphs, contracts, contextual witnesses, donor
+alignment, search, replay construction, dossier UI, media, or the full causal
+event taxonomy. Those remain later evidence-backed slices; P2B expands the
+runtime seam into the complete semantic journal after P2A proves it is
+non-mutating and restorable.

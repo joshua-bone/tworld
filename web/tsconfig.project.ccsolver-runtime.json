@@ -11,10 +11,14 @@
   ],
   "exclude": [
     "src/**/*.test.ts",
-    "src/ccsolver-runtime/compose/runP1aStaticAnalysis.ts"
+    "src/ccsolver-runtime/compose/runP1aStaticAnalysis.ts",
+    "src/ccsolver-runtime/compose/p1b-curriculum/runP1bCheckedArtifacts.ts",
+    "src/ccsolver-runtime/compose/p1b-curriculum/runP1bMeasuredShard.ts",
+    "src/ccsolver-runtime/compose/p1b-curriculum/writeFixedOutputsTransactionally.ts"
   ],
   "references": [
     { "path": "../ccsolver/tsconfig.json" },
-    { "path": "./tsconfig.project.ruleset-ms.json" }
+    { "path": "./tsconfig.project.ruleset-ms.json" },
+    { "path": "./tsconfig.project.ruleset-lynx.json" }
   ]
 }

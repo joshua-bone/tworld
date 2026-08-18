@@ -57,11 +57,15 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.match(rootPackage.scripts["ccsolver:corpus:generate"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:analysis:check"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:analysis:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p1b:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p1b:generate"], /--workspace web/);
   for (const command of [
     "ccsolver:corpus:check",
     "ccsolver:corpus:generate",
     "ccsolver:analysis:check",
     "ccsolver:analysis:generate",
+    "ccsolver:p1b:check",
+    "ccsolver:p1b:generate",
   ]) {
     assert.match(rootPackage.scripts[command], /npm run ccsolver:build/);
   }
@@ -165,6 +169,8 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "npm run ccsolver:integration",
     "npm run ccsolver:corpus:check",
     "npm run ccsolver:analysis:check",
+    "npm run ccsolver:p1b:check",
+    "npm --workspace web run typecheck:tools",
     "npm run ccsolver:cli -- --help",
     "npm run ccsolver:dossier -- --help",
     "npm run typecheck",
@@ -172,4 +178,8 @@ test("runs the workspace foundation gate on pull requests", async () => {
   ]) {
     assert.match(workflow, new RegExp(command.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+  assert.match(
+    workflow,
+    /- name: Check P1B full-corpus artifacts\n\s+timeout-minutes: 90\n\s+env:\n\s+TWORLD_P1B_ANALYSIS_JOBS: 4\n\s+run: npm run ccsolver:p1b:check/,
+  );
 });
