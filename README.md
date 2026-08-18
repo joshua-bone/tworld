@@ -118,7 +118,6 @@ Running `make install` as root will install a `tworld2` binary and the required 
 - Bit Busters Club: https://bitbusters.club
 - Chip Wiki: https://wiki.bitbusters.club
 - Scores: https://scores.bitbusters.club
-- Legacy Tile World repo: https://github.com/SicklySilverMoon/tworld
 - Tile World 2 homepage: https://tw2.bitbusters.club
 - Original Tile World 1 homepage: http://muppetlabs.com/~breadbox/software/tworld
 - Optimized TWS solutions: https://davidstolp.com/old/chips/tws/

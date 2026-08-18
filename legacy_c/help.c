@@ -65,7 +65,7 @@ static char const* vourzhon_items[] = {
     " warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR"
     " PURPOSE. See the GNU General Public License for more details.",
     "1+*", "1!Bug reports are appreciated, and can be submitted at "
-    "https://github.com/SicklySilverMoon/tworld/issues."
+    "https://github.com/joshua-bone/tworld/issues."
 };
 static tablespec const vourzhon_table = {6, 2, 1, -1, vourzhon_items};
 tablespec const* vourzhon = &vourzhon_table;
