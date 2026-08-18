@@ -18,6 +18,7 @@ native oracle remain authoritative for legacy replay results.
 - [P1A pinned corpus and static analysis](docs/p1a-static-analysis.md)
 - [P1B cross-ruleset topology and curriculum](docs/p1b-cross-ruleset-topology.md)
 - [P2A runtime observation and human-review packets](docs/p2a-runtime-observation.md)
+- [P3 terminal-first planning and contextual witnesses](docs/p3-terminal-planning-and-witness.md)
 
 ## Status
 
@@ -65,12 +66,29 @@ button evidence. The packet set is authoritative runtime-characterization
 evidence only after generation and an independent byte-for-byte
 `npm run ccsolver:p2a:check` pass; Markdown reviews are derived aids.
 
-P2A is perception, not solver reasoning. It does not yet produce a goal graph,
-subgoal witness, route, or replay. The next human-checkable reasoning slice is
-P3A's terminal-first backward prerequisite graph, followed by P3B exact
-witnesses, P4A annotated maps, and P5 full-level proof. P2B's complete causal
-event journal remains a separate later expansion. Semantic rooms and block
-dead-square proofs remain unimplemented.
+P3A and P3B are now implemented as the first reasoning vertical slice. A pure
+terminal-first planner distinguishes inventory from remaining requirements,
+retains every exit alternative, and emits bounded unresolved diagnostics rather
+than reverse-simulating gameplay. A pure contextual-witness executor then checks
+one candidate segment forward in the real target runtime, including exact
+checkpoint joins, full-world observation, content-addressed boundary renders,
+contract predicates, and state footprints.
+
+Key Pyramid is the first real human-checkable reasoning result. Its MS and Lynx
+terminal theories work backward from the exit through the socket and ten exact
+chip placements but remain deliberately unresolved. A placement-bound red-key
+segment selected from that unresolved parent is verified from a donor-independent
+fixed seed in both targets; the adjacent blue key remains a documented
+alternative. The compact paired
+review includes textual start/end map crops and is reproducible with
+`npm run ccsolver:p3:check`. Verifying that segment does not claim a full
+solution.
+
+P4A is next: it will turn these exact entry/end captures into graphical
+annotated panels with distinct plan-intent and observed evidence, plus the first
+failed-attempt review. P5 follows with continuous full-level execution and
+certification. P2B's complete causal event journal remains a separate later
+expansion. Semantic rooms and block dead-square proofs remain unimplemented.
 
 CCSolver inherits Tile World's GPL-2.0-or-later license. Generated dossier pages
 will be publicly reachable under the existing GitHub Pages deployment but will

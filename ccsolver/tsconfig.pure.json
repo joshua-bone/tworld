@@ -9,7 +9,9 @@
     "src/index.ts",
     "src/domain/**/*.ts",
     "src/analyze/**/*.ts",
+    "src/plan/**/*.ts",
     "src/ports/**/*.ts",
+    "src/snippets/**/*.ts",
     "src/application/**/*.ts"
   ]
 }
