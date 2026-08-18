@@ -139,6 +139,27 @@ test("keeps contextual snippets pure and dependent only on plan contracts and po
   );
 });
 
+test("keeps subgoal evidence rendering pure and below site composition", () => {
+  const violations = findBoundaryViolations([
+    { path: "src/render/node.ts", source: 'import "node:fs";' },
+    { path: "src/render/react.ts", source: 'import "react";' },
+    { path: "src/render/application.ts", source: 'import "../application/index.js";' },
+    { path: "src/render/analyze.ts", source: 'import "../analyze/index.js";' },
+    { path: "src/render/runtime.ts", source: 'import "../../../web/src/game-runtime/index.js";' },
+  ]);
+
+  assert.deepEqual(
+    new Set(violations.map((violation) => violation.reason)),
+    new Set([
+      "CCSolver cannot import files outside its source tree",
+      "render cannot depend on analyze",
+      "render cannot depend on application",
+      "render cannot import Node runtime modules",
+      "render cannot import UI or canvas packages",
+    ]),
+  );
+});
+
 test("keeps the checked-in CCSolver source inside its declared boundaries", async () => {
   assert.deepEqual(await scanSourceTree(workspaceRoot), []);
 });

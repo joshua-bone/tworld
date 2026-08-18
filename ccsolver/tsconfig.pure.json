@@ -11,6 +11,7 @@
     "src/analyze/**/*.ts",
     "src/plan/**/*.ts",
     "src/ports/**/*.ts",
+    "src/render/**/*.ts",
     "src/snippets/**/*.ts",
     "src/application/**/*.ts"
   ]

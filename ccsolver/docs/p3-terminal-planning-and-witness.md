@@ -22,9 +22,9 @@ P3A terminal-first theory  <--- delivered here
               |
 P3B exact leaf witness     <--- delivered here
               |
-P4A annotated map panels   <--- next human-review surface
+P4A annotated map panels   <--- delivered graphical review
               |
-P5 continuous full-level replay and certification
+P5 continuous full-level replay and certification <--- next
 ```
 
 P3 answers two different questions:
@@ -140,8 +140,9 @@ restored-versus-uninterrupted execution reproduce the complete canonical
 witness.
 
 The Markdown contains compact textual start/end map crops and plan-intent POIs.
-They are useful early review aids, but they are not yet P4A's graphical,
-content-addressed annotation surface and do not prove a full route.
+They remain useful early review aids; P4A now derives the separate graphical,
+content-addressed annotation surface from these checked bytes. Neither view
+proves a full route.
 
 ## Checked outputs and commands
 
@@ -172,9 +173,9 @@ slice changes neither static analysis nor cohort selection.
 
 ## Limits and next human checkpoint
 
-P3 does not yet provide a solved Key Pyramid replay, a causal event journal, a
-complete route, or graphical route overlays. P4A is next. It will turn the exact
-entry/end semantic renders and plan-intent POIs into mandatory annotated map
-panels, distinguish planned from observed routing, and add a failed-attempt view
-plus durable human review status. P5 will then require all reviewed subgoals to
-execute continuously into a certified full-level win.
+P3 does not provide a solved Key Pyramid replay, a causal event journal, or a
+complete route. P4A now turns these exact boundaries into mandatory annotated
+map panels, keeps planned routing distinct from observed endpoints, and adds a
+failed-attempt view plus durable human review status. P5 is the next checkpoint:
+all reviewed subgoals must execute continuously into a certified full-level
+win.

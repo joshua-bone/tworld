@@ -63,6 +63,8 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.match(rootPackage.scripts["ccsolver:p2a:generate"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:p3:check"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:p3:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p4a:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p4a:generate"], /--workspace web/);
   for (const command of [
     "ccsolver:corpus:check",
     "ccsolver:corpus:generate",
@@ -74,6 +76,8 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "ccsolver:p2a:generate",
     "ccsolver:p3:check",
     "ccsolver:p3:generate",
+    "ccsolver:p4a:check",
+    "ccsolver:p4a:generate",
   ]) {
     assert.match(rootPackage.scripts[command], /npm run ccsolver:build/);
   }
@@ -91,6 +95,12 @@ test("registers CCSolver as a first-class root workspace", async () => {
   );
   assert.equal(webPackage.scripts["ccsolver:p3:check"], "npm run ccsolver:p3 -- --check");
   assert.equal(webPackage.scripts["ccsolver:p3:generate"], "npm run ccsolver:p3 -- --write");
+  assert.equal(
+    webPackage.scripts["ccsolver:p4a"],
+    "vite-node src/ccsolver-runtime/compose/p4a-review/runP4aReviewOutputs.ts",
+  );
+  assert.equal(webPackage.scripts["ccsolver:p4a:check"], "npm run ccsolver:p4a -- --check");
+  assert.equal(webPackage.scripts["ccsolver:p4a:generate"], "npm run ccsolver:p4a -- --write");
   for (const p2aTest of [
     "src/ccsolver-runtime/compose/sourceValidity/analyzeTworldSolverSourceScope.test.ts",
     "src/ccsolver-runtime/compose/sourceValidity/tworldSolverSourceScopeAcceptance.test.ts",
@@ -107,6 +117,10 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.match(
     rootPackage.scripts["ccsolver:integration"],
     /src\/ccsolver-runtime\/compose\/p3-review\/buildP3ReviewOutputs\.test\.ts/,
+  );
+  assert.match(
+    rootPackage.scripts["ccsolver:integration"],
+    /src\/ccsolver-runtime\/compose\/p4a-review\/buildP4aReviewOutputs\.test\.ts/,
   );
 });
 
@@ -157,6 +171,7 @@ test("creates explicit source boundaries and a narrow public package surface", a
       "./analyze",
       "./ports",
       "./plan",
+      "./render",
       "./snippets",
       "./adapters/web-crypto",
     ]),
@@ -221,6 +236,7 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "npm run ccsolver:analysis:check",
     "npm run ccsolver:p1b:check",
     "npm run ccsolver:p3:check",
+    "npm run ccsolver:p4a:check",
     "npm --workspace web run typecheck:tools",
     "npm run ccsolver:cli -- --help",
     "npm run ccsolver:dossier -- --help",
@@ -241,6 +257,34 @@ test("runs the workspace foundation gate on pull requests", async () => {
     workflow,
     /- name: Check P2A runtime observation artifacts\n\s+timeout-minutes: 10\n\s+run: npm run ccsolver:p2a:check/,
   );
+  assert.match(
+    workflow,
+    /- name: Check P4A graphical subgoal evidence artifacts\n\s+timeout-minutes: 2\n\s+run: npm run ccsolver:p4a:check/,
+  );
+});
+
+test("registers the bounded P4A graphical evidence review gate", async () => {
+  for (const path of [
+    "ccsolver/docs/p4a-subgoal-evidence.md",
+    "ccsolver/fixtures/golden/p4a/cclp1-001/ms/red-key-evidence.json",
+    "ccsolver/fixtures/golden/p4a/cclp1-001/lynx/red-key-evidence.json",
+    "ccsolver/fixtures/golden/p4a/synthetic-standard-failed-red-key/evidence.json",
+    "ccsolver/fixtures/golden/p4a/manifest.json",
+    "ccsolver/fixtures/golden/p4a/review.html",
+    "ccsolver/reviews/p4a/cclp1-001/ms/red-key.review.v1.json",
+    "ccsolver/reviews/p4a/cclp1-001/lynx/red-key.review.v1.json",
+    "ccsolver/reviews/p4a/synthetic-standard-failed-red-key.review.v1.json",
+  ]) {
+    assert.equal(await exists(path), true, `missing P4A release asset: ${path}`);
+  }
+
+  const tools = await readJson("web/tsconfig.tools.json");
+  assert.ok(tools.include.includes(
+    "src/ccsolver-runtime/compose/p4a-review/buildP4aReviewOutputs.ts",
+  ));
+  assert.ok(tools.include.includes(
+    "src/ccsolver-runtime/compose/p4a-review/runP4aReviewOutputs.ts",
+  ));
 });
 
 test("registers the bounded P2A runtime-observation review gate", async () => {
