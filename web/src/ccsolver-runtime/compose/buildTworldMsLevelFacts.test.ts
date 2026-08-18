@@ -15,6 +15,7 @@ import { buildTworldMsLevelFacts } from "./buildTworldMsLevelFacts";
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
 const sha256 = new WebCryptoSha256();
+const CELL_COUNT = 32 * 32;
 
 async function buildIntroLevel8() {
   const loaded = await new NodeLevelRepository(repoRoot).loadLevel({
@@ -44,25 +45,47 @@ function fileCodeForTile(tileId: number): number {
   return entry.fileCode;
 }
 
-function oneCellFileCode(
+function singleSubjectCellFileCode(
   topFileCode: number,
   bottomFileCode = fileCodeForTile(MS_TILE.Empty),
 ): Uint8Array {
+  const encodePlane = (sourceCodes: readonly number[]): number[] => {
+    const encoded: number[] = [];
+    for (let start = 0; start < sourceCodes.length;) {
+      const sourceCode = sourceCodes[start]!;
+      let count = 1;
+      while (
+        start + count < sourceCodes.length
+        && sourceCodes[start + count] === sourceCode
+        && count < 0xff
+      ) count += 1;
+      if (count === 1 && sourceCode !== 0xff) encoded.push(sourceCode);
+      else encoded.push(0xff, count, sourceCode);
+      start += count;
+    }
+    return encoded;
+  };
+  const upper = Array<number>(CELL_COUNT).fill(fileCodeForTile(MS_TILE.Empty));
+  const lower = Array<number>(CELL_COUNT).fill(fileCodeForTile(MS_TILE.Empty));
+  upper[0] = topFileCode;
+  lower[0] = bottomFileCode;
+  const encodedUpper = encodePlane(upper);
+  const encodedLower = encodePlane(lower);
   return Uint8Array.from([
     1, 0,
     0, 0,
     0, 0,
     0, 0,
-    1, 0,
-    topFileCode,
-    1, 0,
-    bottomFileCode,
+    encodedUpper.length & 0xff, encodedUpper.length >> 8,
+    ...encodedUpper,
+    encodedLower.length & 0xff, encodedLower.length >> 8,
+    ...encodedLower,
     0, 0,
   ]);
 }
 
-function oneCellLevel(topTile: number, bottomTile = MS_TILE.Empty): Uint8Array {
-  return oneCellFileCode(fileCodeForTile(topTile), fileCodeForTile(bottomTile));
+function singleSubjectCellLevel(topTile: number, bottomTile = MS_TILE.Empty): Uint8Array {
+  return singleSubjectCellFileCode(fileCodeForTile(topTile), fileCodeForTile(bottomTile));
 }
 
 describe("buildTworldMsLevelFacts", () => {
@@ -148,8 +171,8 @@ describe("buildTworldMsLevelFacts", () => {
   });
 
   it("keeps teleport routing networks local to each z layer", async () => {
-    const lower = oneCellLevel(MS_TILE.Teleport);
-    const upper = oneCellLevel(MS_TILE.Teleport);
+    const lower = singleSubjectCellLevel(MS_TILE.Teleport);
+    const upper = singleSubjectCellLevel(MS_TILE.Teleport);
     const containerBytes = Uint8Array.from([...lower, ...upper]);
     const { facts } = await buildTworldMsLevelFacts({
       occurrenceId: "fixture:two-layer-teleports",
@@ -175,7 +198,7 @@ describe("buildTworldMsLevelFacts", () => {
   });
 
   it("preserves an unknown DAT element through the final facts artifact", async () => {
-    const levelBytes = oneCellFileCode(0xfe);
+    const levelBytes = singleSubjectCellFileCode(0xfe);
     const { facts } = await buildTworldMsLevelFacts({
       occurrenceId: "fixture:unknown-dat-element",
       producerRevision: "test:producer",

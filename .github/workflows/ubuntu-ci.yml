@@ -34,6 +34,9 @@ jobs:
         env:
           TWORLD_P1B_ANALYSIS_JOBS: 4
         run: npm run ccsolver:p1b:check
+      - name: Check P2A runtime observation artifacts
+        timeout-minutes: 10
+        run: npm run ccsolver:p2a:check
       - name: Check browser workspace
         run: |
           npm run typecheck

@@ -33,6 +33,28 @@ Invalid source is quarantined, not repaired or assigned invented gameplay
 semantics. This is an intentional implementation of the decision that such
 legacy layouts may be ignored.
 
+A separate CCSolver source-scope guard excludes Tile World's six nonstandard
+DAT extensions: `0x70` Sandbag, `0x71` Bowling Ball, `0x72` Cloud, `0x73`
+Hook, `0x74` Ice Block, and `0x75` Pet Carrier. It applies on both planes and
+all source layers, including Cloud in a 3D layer. These codes are not
+misreported as DATTools cell-validity failures: they are valid engine
+extensions that CCSolver deliberately declines to analyze. The guard runs
+before corpus normalization, LevelFacts construction, paired analysis, and
+runtime entry. The pinned corpus contains zero occurrences, so all P1B counts
+and checked bytes remain unchanged.
+
+| Raw DAT code | Expanded name | Tile World decoded catalog ID |
+| --- | --- | --- |
+| `0x70` | Sandbag | `MS_TILE.Sandbag` (`0x80`) |
+| `0x71` | Bowling Ball | `MS_TILE.BowlingBall_Still` (`0x82`) |
+| `0x72` | Cloud | `MS_TILE.Cloud` (`0x83`) |
+| `0x73` | Hook | `MS_TILE.Hook` (`0x81`) |
+| `0x74` | Ice Block | `MS_TILE.IceBlock_Static` (`0x84`) |
+| `0x75` | Pet Carrier | `MS_TILE.PetCarrier` (`0x85`) |
+
+The decoded IDs remain engine implementation details and do not enter solver
+facts or runtime observations.
+
 The full 2,440-occurrence audit found 55 invalid occurrences and 1,745 invalid
 cells:
 
@@ -216,6 +238,8 @@ P1B still does not provide:
 - donor alignment, search, replay construction, or certification; or
 - the dossier UI and generated media.
 
-The immediate next slice is **P2A — Runtime Observation, Checkpoint, and Render Projection Port**.
-It will establish read-only runtime evidence and exact branch/restore behavior
+The immediate next slice at P1B completion was **P2A — Runtime Observation,
+Checkpoint, and Render Projection Port**. It is now delivered; see
+[P2A runtime observation](p2a-runtime-observation.md).
+It establishes read-only runtime evidence and exact branch/restore behavior
 for both rulesets before planning or search begins.

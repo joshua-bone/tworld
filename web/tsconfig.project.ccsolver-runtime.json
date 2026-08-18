@@ -12,6 +12,8 @@
   "exclude": [
     "src/**/*.test.ts",
     "src/ccsolver-runtime/compose/runP1aStaticAnalysis.ts",
+    "src/ccsolver-runtime/compose/p2a-review/buildP2aRuntimeReviewOutputs.ts",
+    "src/ccsolver-runtime/compose/p2a-review/runP2aRuntimeReviewPackets.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bCheckedArtifacts.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bMeasuredShard.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/writeFixedOutputsTransactionally.ts"
@@ -19,6 +21,7 @@
   "references": [
     { "path": "../ccsolver/tsconfig.json" },
     { "path": "./tsconfig.project.ruleset-ms.json" },
-    { "path": "./tsconfig.project.ruleset-lynx.json" }
+    { "path": "./tsconfig.project.ruleset-lynx.json" },
+    { "path": "./tsconfig.project.undo-runtime.json" }
   ]
 }

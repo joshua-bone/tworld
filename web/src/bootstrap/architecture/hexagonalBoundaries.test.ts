@@ -168,6 +168,8 @@ describe("hexagonal boundaries", () => {
         "ccsolver-runtime/compose/buildTworldLynxLevelFacts.ts",
         "ccsolver-runtime/compose/buildTworldLynxTopologyEvidence.ts",
         "ccsolver-runtime/compose/buildTworldLynxStaticAnalysis.ts",
+        "ccsolver-runtime/compose/runtime/TworldLynxSolverRuntimeAdapter.ts",
+        "ccsolver-runtime/compose/runtime/lynxSolverRuntimeSemantics.ts",
       ],
       forbidden: [/^@ruleset-ms\/impl(\/|$)/],
     });
@@ -178,6 +180,8 @@ describe("hexagonal boundaries", () => {
         "ccsolver-runtime/compose/buildTworldMsLevelFacts.ts",
         "ccsolver-runtime/compose/buildTworldMsTopologyEvidence.ts",
         "ccsolver-runtime/compose/buildTworldMsStaticAnalysis.ts",
+        "ccsolver-runtime/compose/runtime/TworldMsSolverRuntimeAdapter.ts",
+        "ccsolver-runtime/compose/runtime/msSolverRuntimeSemantics.ts",
       ],
       forbidden: [/^@ruleset-lynx\/impl(\/|$)/],
     });

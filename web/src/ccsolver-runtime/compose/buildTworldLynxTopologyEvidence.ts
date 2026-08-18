@@ -37,8 +37,16 @@ import {
   type InitialChipTopologyEvidenceBundle,
   type InitialChipTopologyPolicy,
 } from "../impl/buildInitialChipTopologyEvidence";
-import type { TworldLynxLevelFactsBundle } from "./buildTworldLynxLevelFacts";
-import type { ProjectedTworldLynxLevel } from "./tworldLynxLevelProjection";
+import {
+  composeTworldLynxLevelFacts,
+  type BuildTworldLynxLevelFactsInput,
+  type TworldLynxLevelFactsBundle,
+} from "./buildTworldLynxLevelFacts";
+import { projectVerifiedTworldLevelFacts } from "./projectVerifiedTworldLevelFacts";
+import {
+  projectLoadedTworldLynxLevel,
+  type ProjectedTworldLynxLevel,
+} from "./tworldLynxLevelProjection";
 
 const POLICY_ID = "tworld-lynx-initial-chip-topology-v1";
 
@@ -53,8 +61,20 @@ export type TworldLynxStaticTopologyEvidenceBundle = InitialChipTopologyEvidence
 
 export interface BuildTworldLynxTopologyEvidenceInput {
   readonly factsBundle: TworldLynxLevelFactsBundle;
-  readonly projected: ProjectedTworldLynxLevel;
   readonly policyRevision: string;
+}
+
+export interface ComposedTworldLynxTopologyEvidence {
+  readonly projected: ProjectedTworldLynxLevel;
+  readonly topology: TworldLynxStaticTopologyEvidenceBundle;
+}
+
+export interface BuildFreshTworldLynxTopologyEvidenceInput extends BuildTworldLynxLevelFactsInput {
+  readonly policyRevision: string;
+}
+
+export interface ComposedFreshTworldLynxTopologyEvidence extends ComposedTworldLynxTopologyEvidence {
+  readonly levelFacts: TworldLynxLevelFactsBundle;
 }
 
 function tileIdBySourceToken(): ReadonlyMap<string, number> {
@@ -102,12 +122,56 @@ const LYNX_TOPOLOGY_POLICY: InitialChipTopologyPolicy = {
   chipEnterAction: lynxChipEnterAction,
 };
 
-export async function buildTworldLynxTopologyEvidence(
+async function buildTworldLynxTopologyEvidenceFromFreshProjection(
   input: BuildTworldLynxTopologyEvidenceInput,
+  projected: ProjectedTworldLynxLevel,
   sha256: Sha256Port,
 ): Promise<TworldLynxStaticTopologyEvidenceBundle> {
   return buildInitialChipTopologyEvidence({
     ...input,
+    projected,
     policy: LYNX_TOPOLOGY_POLICY,
   }, sha256);
+}
+
+/**
+ * Raw-source composition path used by static analysis. The projection cannot
+ * be supplied independently: it is created together with the facts it feeds.
+ */
+export async function composeFreshTworldLynxTopologyEvidence(
+  input: BuildFreshTworldLynxTopologyEvidenceInput,
+  sha256: Sha256Port,
+): Promise<ComposedFreshTworldLynxTopologyEvidence> {
+  const { levelFacts, projected } = await composeTworldLynxLevelFacts(input, sha256);
+  const topology = await buildTworldLynxTopologyEvidenceFromFreshProjection({
+    factsBundle: levelFacts,
+    policyRevision: input.policyRevision,
+  }, projected, sha256);
+  return { levelFacts, projected, topology };
+}
+
+export async function composeTworldLynxTopologyEvidence(
+  input: BuildTworldLynxTopologyEvidenceInput,
+  sha256: Sha256Port,
+): Promise<ComposedTworldLynxTopologyEvidence> {
+  const projected = await projectVerifiedTworldLevelFacts({
+    factsBundle: input.factsBundle,
+    target: "lynx",
+    targetLabel: "Lynx",
+    catalogId: "tworld:ruleset-lynx",
+    project: projectLoadedTworldLynxLevel,
+  }, sha256);
+  const topology = await buildTworldLynxTopologyEvidenceFromFreshProjection(
+    input,
+    projected,
+    sha256,
+  );
+  return { projected, topology };
+}
+
+export async function buildTworldLynxTopologyEvidence(
+  input: BuildTworldLynxTopologyEvidenceInput,
+  sha256: Sha256Port,
+): Promise<TworldLynxStaticTopologyEvidenceBundle> {
+  return (await composeTworldLynxTopologyEvidence(input, sha256)).topology;
 }

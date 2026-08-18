@@ -19,12 +19,12 @@ import {
   buildTworldMsLevelFacts,
   type BuildTworldMsLevelFactsInput,
 } from "./buildTworldMsLevelFacts";
-import { projectLoadedTworldMsLevel } from "./tworldMsLevelProjection";
 import { buildTworldMsTopologyEvidence } from "./buildTworldMsTopologyEvidence";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
 const sha256 = new WebCryptoSha256();
+const CELL_COUNT = 32 * 32;
 
 function fileCodeForTile(tileId: number): number {
   const entry = msRegisteredLevelDecodeEntries.find((candidate) => candidate.tileId === tileId);
@@ -33,15 +33,37 @@ function fileCodeForTile(tileId: number): number {
 }
 
 function twoPlaneFixture(topFileCode: number, bottomFileCode: number): Uint8Array {
+  const encodePlane = (sourceCodes: readonly number[]): number[] => {
+    const encoded: number[] = [];
+    for (let start = 0; start < sourceCodes.length;) {
+      const sourceCode = sourceCodes[start]!;
+      let count = 1;
+      while (
+        start + count < sourceCodes.length
+        && sourceCodes[start + count] === sourceCode
+        && count < 0xff
+      ) count += 1;
+      if (count === 1 && sourceCode !== 0xff) encoded.push(sourceCode);
+      else encoded.push(0xff, count, sourceCode);
+      start += count;
+    }
+    return encoded;
+  };
+  const upper = Array<number>(CELL_COUNT).fill(fileCodeForTile(MS_TILE.Empty));
+  const lower = Array<number>(CELL_COUNT).fill(fileCodeForTile(MS_TILE.Empty));
+  upper[0] = topFileCode;
+  lower[0] = bottomFileCode;
+  const encodedUpper = encodePlane(upper);
+  const encodedLower = encodePlane(lower);
   return Uint8Array.from([
     1, 0,
     0, 0,
     0, 0,
     0, 0,
-    1, 0,
-    topFileCode,
-    1, 0,
-    bottomFileCode,
+    encodedUpper.length & 0xff, encodedUpper.length >> 8,
+    ...encodedUpper,
+    encodedLower.length & 0xff, encodedLower.length >> 8,
+    ...encodedLower,
     0, 0,
   ]);
 }
@@ -71,7 +93,6 @@ async function buildSynthetic(
   return (await buildTworldMsTopologyEvidence({
     factsBundle: await buildTworldMsLevelFacts(input, sha256),
     policyRevision: "test:ms-topology-policy",
-    projected: projectLoadedTworldMsLevel(input),
   }, sha256)).evidence;
 }
 
@@ -81,7 +102,6 @@ async function buildUnknown() {
   return (await buildTworldMsTopologyEvidence({
     factsBundle: await buildTworldMsLevelFacts(input, sha256),
     policyRevision: "test:ms-topology-policy",
-    projected: projectLoadedTworldMsLevel(input),
   }, sha256)).evidence;
 }
 
@@ -136,51 +156,64 @@ describe("buildTworldMsTopologyEvidence", () => {
       "hazard",
       MS_TILE.Water,
       ["north", "east", "south", "west"],
-      "underlying-hazard",
+      ["north", "east", "south", "west"],
+      "hazard-entry",
       "hazard",
+      "conditional",
     ],
     [
       "directional exit policy",
       MS_TILE.Wall_North,
+      ["north", "east", "west"],
       ["east", "south", "west"],
       null,
       null,
+      "open",
     ],
     [
       "forced movement",
       MS_TILE.Slide_East,
       ["north", "east", "south", "west"],
-      "underlying-forced-movement",
+      ["north", "east", "south", "west"],
+      "forced-movement-on-entry",
       "target-policy",
+      "dynamic",
     ],
     [
       "resource gate",
       MS_TILE.Door_Red,
       ["north", "east", "south", "west"],
+      ["north", "east", "south", "west"],
       "resource-gate-consume",
       "resource-gate",
+      "conditional",
     ],
-  ] as const)("keeps lower-plane %s policy behind an initially Empty upper plane", async (
+  ] as const)("keeps lower-plane %s policy under a valid initial player actor", async (
     _label,
     lowerTile,
+    entryDirections,
     exitDirections,
     policyCaveatId,
     policyCaveatKind,
+    classification,
   ) => {
-    const evidence = await buildSynthetic(MS_TILE.Empty, lowerTile);
+    const evidence = await buildSynthetic(
+      msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south),
+      lowerTile,
+    );
     const first = evidence.cells[0];
 
     expect(first).toMatchObject({
-      classification: "dynamic",
-      effective: { sourcePlane: "upper" },
-      entryDirections: ["north", "east", "south", "west"],
+      classification,
+      effective: { sourcePlane: "lower" },
+      entryDirections,
       exitDirections,
-      occupant: { kind: "none" },
-      supporting: [expect.objectContaining({ sourcePlane: "lower" })],
+      occupant: { kind: "player-start" },
+      supporting: [expect.objectContaining({ sourcePlane: "upper" })],
     });
     expect(first?.caveats).toContainEqual(expect.objectContaining({
-      caveatId: "empty-top-preserves-underlying-floor",
-      kind: "state-dependent",
+      caveatId: "initial-player-occupancy",
+      kind: "actor-occupancy",
     }));
     if (policyCaveatId !== null) {
       expect(first?.caveats).toContainEqual(expect.objectContaining({
@@ -190,14 +223,14 @@ describe("buildTworldMsTopologyEvidence", () => {
     }
   });
 
-  it("distinguishes a collectible overlay from an Empty upper plane", async () => {
-    const evidence = await buildSynthetic(MS_TILE.Key_Red, MS_TILE.Wall_North);
+  it("represents a collectible overlay on its valid standard floor", async () => {
+    const evidence = await buildSynthetic(MS_TILE.Key_Red, MS_TILE.Empty);
 
     expect(evidence.cells[0]).toMatchObject({
       classification: "dynamic",
       effective: { sourcePlane: "lower" },
-      entryDirections: ["north", "east", "west"],
-      exitDirections: ["east", "south", "west"],
+      entryDirections: ["north", "east", "south", "west"],
+      exitDirections: ["north", "east", "south", "west"],
       supporting: [expect.objectContaining({ sourcePlane: "upper" })],
     });
     expect(evidence.cells[0]?.caveats).toContainEqual(expect.objectContaining({
@@ -246,23 +279,6 @@ describe("buildTworldMsTopologyEvidence", () => {
     });
   });
 
-  it("uses an implicit exposed floor and keeps a pet-carrier occupant conditional", async () => {
-    const evidence = await buildSynthetic(
-      MS_TILE.PetCarrier,
-      msCreatureTile(MS_TILE.Ball, MS_DIRECTION.east),
-    );
-
-    expect(evidence.cells[0]).toMatchObject({
-      classification: "conditional",
-      effective: { sourcePlane: "implicit" },
-      occupant: { kind: "contained" },
-      supporting: [
-        expect.objectContaining({ sourcePlane: "upper" }),
-        expect.objectContaining({ sourcePlane: "lower" }),
-      ],
-    });
-  });
-
   it("preserves an unknown upper-plane element instead of using the known floor below it", async () => {
     const evidence = await buildUnknown();
 
@@ -299,16 +315,13 @@ describe("buildTworldMsTopologyEvidence", () => {
       loaded,
     };
     const factsBundle = await buildTworldMsLevelFacts(input, sha256);
-    const projected = projectLoadedTworldMsLevel(input);
     const firstBundle = await buildTworldMsTopologyEvidence({
       factsBundle,
       policyRevision: "test:ms-topology-policy",
-      projected,
     }, sha256);
     const secondBundle = await buildTworldMsTopologyEvidence({
       factsBundle,
       policyRevision: "test:ms-topology-policy",
-      projected,
     }, sha256);
     const first = firstBundle.evidence;
     const analysis = analyzeStaticTopology({

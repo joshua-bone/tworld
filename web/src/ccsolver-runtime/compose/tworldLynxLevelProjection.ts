@@ -31,6 +31,7 @@ import {
   type ProjectedTworldSourceMember as SharedProjectedTworldSourceMember,
   type TworldLevelProjectionPolicy,
 } from "../impl/tworldLevelProjection";
+import { assertTworldSolverSourceEligibility } from "./sourceValidity/assertTworldSolverSourceEligibility";
 
 export interface ProjectedTworldSourceMember extends SharedProjectedTworldSourceMember {}
 
@@ -79,7 +80,6 @@ const LYNX_PROJECTION_POLICY: TworldLevelProjectionPolicy<LynxLoadedLevelSource>
     redKey: MS_TILE.Key_Red,
     greenDoor: MS_TILE.Door_Green,
     cloneMachine: MS_TILE.CloneMachine,
-    petCarrier: MS_TILE.PetCarrier,
   },
   decodeLoadedLevel: (loaded) => (
     lynxElementFamilyRegistration.levelLoadRegistration.decodeLoadedLevel(loaded)
@@ -108,5 +108,6 @@ export function normalizeDecodedTworldLynxLevel(decoded: DecodedMsLevelData): Ca
 export function projectLoadedTworldLynxLevel(
   input: ProjectLoadedTworldLynxLevelInput,
 ): ProjectedTworldLynxLevel {
+  assertTworldSolverSourceEligibility({ layerData: input.loaded.layerData });
   return projectLoadedTworldLevel(input, LYNX_PROJECTION_POLICY);
 }

@@ -261,10 +261,6 @@ function classifyCell(
     }
   }
   const supporting = records.filter((record) => record !== effective);
-  const revealedLower = effective?.projected.sourcePlane === "upper"
-    && effective.tileId === policy.emptyTileId
-    ? records.find((record) => record.projected.sourcePlane === "lower") ?? null
-    : null;
   const hasUnknownPolicy = records.some((record) => (
     record.projected.interpretation === "unknown"
     || record.tileId === null
@@ -313,7 +309,7 @@ function classifyCell(
       || enterAction === "steal-boots";
     const effectiveCollectible = indexes.resourceSourceIds.has(effective.placementId);
     const supportingCollectible = supporting.some((record) => (
-      record !== revealedLower && indexes.resourceSourceIds.has(record.placementId)
+      indexes.resourceSourceIds.has(record.placementId)
     ));
 
     if (gate !== undefined) {
@@ -399,88 +395,6 @@ function classifyCell(
         caveatId: supportingCollectible || effectiveCollectible ? "collects-on-entry" : "local-map-mutation",
         kind: "state-dependent",
         placementId: mutationPlacement,
-      });
-    }
-  }
-
-  if (!hasUnknownPolicy && revealedLower !== null && revealedLower.tileId !== null) {
-    const lowerTileId = revealedLower.tileId;
-    classification = "dynamic";
-    exitDirections = directionsForMask(policy.exitMovementMask(lowerTileId), policy);
-    addCaveat(caveats, {
-      caveatId: "empty-top-preserves-underlying-floor",
-      kind: "state-dependent",
-      placementId: revealedLower.placementId,
-    });
-
-    const lowerGate = indexes.gateByPlacementId.get(revealedLower.placementId);
-    const lowerHazard = indexes.hazardByPlacementId.get(revealedLower.placementId);
-    const lowerReleaseRequired = policy.requiresReleaseToExit(lowerTileId);
-    const lowerForced = indexes.forcedIds.has(revealedLower.placementId)
-      || policy.tileForcedFloorKind(lowerTileId) !== "none";
-    const lowerTransported = indexes.transportIds.has(revealedLower.placementId);
-    const lowerTerminal = indexes.exitIds.has(revealedLower.placementId)
-      || policy.tileHasTag(lowerTileId, "exit");
-    const lowerActivation = policy.buttonAction(lowerTileId) !== "none";
-    const lowerStateful = policy.isBlockedChipEnterRevealTile(lowerTileId)
-      || policy.tileHasTag(lowerTileId, "toggleable")
-      || policy.chipEnterAction(lowerTileId) !== "none"
-      || indexes.resourceSourceIds.has(revealedLower.placementId);
-
-    if (lowerGate !== undefined) {
-      addCaveat(caveats, {
-        caveatId: `resource-gate-${lowerGate.kind}`,
-        kind: "resource-gate",
-        placementId: lowerGate.placementId,
-      });
-    }
-    if (lowerHazard !== undefined) {
-      addCaveat(caveats, {
-        caveatId: "underlying-hazard",
-        kind: "hazard",
-        placementId: lowerHazard.placementId,
-      });
-    }
-    if (lowerReleaseRequired) {
-      addCaveat(caveats, {
-        caveatId: "exit-requires-release",
-        kind: "requires-release",
-        placementId: revealedLower.placementId,
-      });
-    }
-    if (lowerForced) {
-      addCaveat(caveats, {
-        caveatId: "underlying-forced-movement",
-        kind: "target-policy",
-        placementId: revealedLower.placementId,
-      });
-    }
-    if (lowerTransported) {
-      addCaveat(caveats, {
-        caveatId: "underlying-transport-policy",
-        kind: "state-dependent",
-        placementId: revealedLower.placementId,
-      });
-    }
-    if (lowerTerminal) {
-      addCaveat(caveats, {
-        caveatId: "terminal-entry",
-        kind: "target-policy",
-        placementId: revealedLower.placementId,
-      });
-    }
-    if (lowerActivation) {
-      addCaveat(caveats, {
-        caveatId: "underlying-activation-policy",
-        kind: "state-dependent",
-        placementId: revealedLower.placementId,
-      });
-    }
-    if (lowerStateful) {
-      addCaveat(caveats, {
-        caveatId: "underlying-stateful-floor",
-        kind: "state-dependent",
-        placementId: revealedLower.placementId,
       });
     }
   }

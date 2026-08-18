@@ -5,18 +5,13 @@ import {
   type TworldStaticAnalysisBundle,
 } from "../impl/buildTworldStaticAnalysis";
 import {
-  buildTworldMsLevelFacts,
   type BuildTworldMsLevelFactsInput,
-  type TworldMsLevelFactsBundle,
 } from "./buildTworldMsLevelFacts";
 import {
-  buildTworldMsTopologyEvidence,
+  composeFreshTworldMsTopologyEvidence,
   type TworldMsStaticTopologyEvidenceBundle,
 } from "./buildTworldMsTopologyEvidence";
-import {
-  projectLoadedTworldMsLevel,
-  type ProjectedTworldMsLevel,
-} from "./tworldMsLevelProjection";
+import type { ProjectedTworldMsLevel } from "./tworldMsLevelProjection";
 
 export type BasicDossierDataV1 = TworldBasicDossierDataV1<"ms">;
 
@@ -25,12 +20,7 @@ interface AnalysisRevisions {
   readonly staticAnalyzerRevision: string;
 }
 
-export type BuildTworldMsStaticAnalysisInput =
-  | (BuildTworldMsLevelFactsInput & AnalysisRevisions)
-  | ({
-      readonly existingFactsBundle: TworldMsLevelFactsBundle;
-      readonly existingProjection: ProjectedTworldMsLevel;
-    } & AnalysisRevisions);
+export type BuildTworldMsStaticAnalysisInput = BuildTworldMsLevelFactsInput & AnalysisRevisions;
 
 export type TworldMsStaticAnalysisBundle = TworldStaticAnalysisBundle<
   "ms",
@@ -42,18 +32,10 @@ export async function buildTworldMsStaticAnalysis(
   input: BuildTworldMsStaticAnalysisInput,
   sha256: Sha256Port,
 ): Promise<TworldMsStaticAnalysisBundle> {
-  const existing = "existingFactsBundle" in input;
-  const levelFacts = existing
-    ? input.existingFactsBundle
-    : await buildTworldMsLevelFacts(input, sha256);
-  const projected = existing
-    ? input.existingProjection
-    : projectLoadedTworldMsLevel(input);
-  const topology = await buildTworldMsTopologyEvidence({
-    factsBundle: levelFacts,
-    projected,
-    policyRevision: input.policyRevision,
-  }, sha256);
+  const { levelFacts, projected, topology } = await composeFreshTworldMsTopologyEvidence(
+    input,
+    sha256,
+  );
   return buildTworldStaticAnalysisFromParts({
     target: "ms",
     levelFacts,

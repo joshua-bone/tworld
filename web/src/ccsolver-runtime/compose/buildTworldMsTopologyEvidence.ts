@@ -35,8 +35,16 @@ import {
   type InitialChipTopologyEvidenceBundle,
   type InitialChipTopologyPolicy,
 } from "../impl/buildInitialChipTopologyEvidence";
-import type { TworldMsLevelFactsBundle } from "./buildTworldMsLevelFacts";
-import type { ProjectedTworldMsLevel } from "./tworldMsLevelProjection";
+import {
+  composeTworldMsLevelFacts,
+  type BuildTworldMsLevelFactsInput,
+  type TworldMsLevelFactsBundle,
+} from "./buildTworldMsLevelFacts";
+import { projectVerifiedTworldLevelFacts } from "./projectVerifiedTworldLevelFacts";
+import {
+  projectLoadedTworldMsLevel,
+  type ProjectedTworldMsLevel,
+} from "./tworldMsLevelProjection";
 
 const POLICY_ID = "tworld-ms-initial-chip-topology-v1";
 
@@ -51,8 +59,20 @@ export type TworldMsStaticTopologyEvidenceBundle = InitialChipTopologyEvidenceBu
 
 export interface BuildTworldMsTopologyEvidenceInput {
   readonly factsBundle: TworldMsLevelFactsBundle;
-  readonly projected: ProjectedTworldMsLevel;
   readonly policyRevision: string;
+}
+
+export interface ComposedTworldMsTopologyEvidence {
+  readonly projected: ProjectedTworldMsLevel;
+  readonly topology: TworldMsStaticTopologyEvidenceBundle;
+}
+
+export interface BuildFreshTworldMsTopologyEvidenceInput extends BuildTworldMsLevelFactsInput {
+  readonly policyRevision: string;
+}
+
+export interface ComposedFreshTworldMsTopologyEvidence extends ComposedTworldMsTopologyEvidence {
+  readonly levelFacts: TworldMsLevelFactsBundle;
 }
 
 function tileIdBySourceToken(): ReadonlyMap<string, number> {
@@ -100,12 +120,56 @@ const MS_TOPOLOGY_POLICY: InitialChipTopologyPolicy = {
   chipEnterAction: msChipEnterAction,
 };
 
-export async function buildTworldMsTopologyEvidence(
+async function buildTworldMsTopologyEvidenceFromFreshProjection(
   input: BuildTworldMsTopologyEvidenceInput,
+  projected: ProjectedTworldMsLevel,
   sha256: Sha256Port,
 ): Promise<TworldMsStaticTopologyEvidenceBundle> {
   return buildInitialChipTopologyEvidence({
     ...input,
+    projected,
     policy: MS_TOPOLOGY_POLICY,
   }, sha256);
+}
+
+/**
+ * Raw-source composition path used by static analysis. The projection cannot
+ * be supplied independently: it is created together with the facts it feeds.
+ */
+export async function composeFreshTworldMsTopologyEvidence(
+  input: BuildFreshTworldMsTopologyEvidenceInput,
+  sha256: Sha256Port,
+): Promise<ComposedFreshTworldMsTopologyEvidence> {
+  const { levelFacts, projected } = await composeTworldMsLevelFacts(input, sha256);
+  const topology = await buildTworldMsTopologyEvidenceFromFreshProjection({
+    factsBundle: levelFacts,
+    policyRevision: input.policyRevision,
+  }, projected, sha256);
+  return { levelFacts, projected, topology };
+}
+
+export async function composeTworldMsTopologyEvidence(
+  input: BuildTworldMsTopologyEvidenceInput,
+  sha256: Sha256Port,
+): Promise<ComposedTworldMsTopologyEvidence> {
+  const projected = await projectVerifiedTworldLevelFacts({
+    factsBundle: input.factsBundle,
+    target: "ms",
+    targetLabel: "MS",
+    catalogId: "tworld:ruleset-ms",
+    project: projectLoadedTworldMsLevel,
+  }, sha256);
+  const topology = await buildTworldMsTopologyEvidenceFromFreshProjection(
+    input,
+    projected,
+    sha256,
+  );
+  return { projected, topology };
+}
+
+export async function buildTworldMsTopologyEvidence(
+  input: BuildTworldMsTopologyEvidenceInput,
+  sha256: Sha256Port,
+): Promise<TworldMsStaticTopologyEvidenceBundle> {
+  return (await composeTworldMsTopologyEvidence(input, sha256)).topology;
 }

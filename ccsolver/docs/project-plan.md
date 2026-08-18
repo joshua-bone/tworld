@@ -45,6 +45,32 @@ Domain/schema work precedes everything. Runtime observation and static analysis
 can then proceed in parallel. Dossier work begins as soon as stable facts and
 events exist. Search depends on both topology and exact checkpoint execution.
 
+## Human review checkpoints
+
+Each major proof dependency produces something a human can inspect before the
+next layer is trusted:
+
+1. **P2A — exact runtime perception (available now):** checked canonical JSON
+   and self-contained derived Markdown expose source/runtime provenance,
+   coordinates, native ticks, player/actor/device state, inventory and remaining
+   requirements, input ownership, and changed-cell semantics for Key Pyramid
+   and Intro 8. This judges whether CCSolver sees the world accurately; it does
+   not judge solver reasoning.
+2. **P3A — backward prerequisite graph:** terminal-first AND/OR graphs and
+   human-language decomposition make the solver's theory, alternatives, and
+   rejected achievers reviewable.
+3. **P3B — exact contextual witnesses:** forward-executed subgoal segments from
+   full-world checkpoints make each selected graph edge independently
+   testable.
+4. **P4A — annotated map evidence:** starting/ending map sections show player
+   and mob routes, points of interest, state deltas, and optional animation.
+5. **P5 — full-level proof:** a composed forward execution and certified replay
+   from canonical initialization show that the reviewed pieces actually join.
+
+P2A output is authoritative runtime-characterization evidence only after a
+fresh generation is followed by a successful byte-for-byte
+`npm run ccsolver:p2a:check`. Its Markdown is a derived review aid.
+
 ## P0: project and artifact foundation
 
 ### Objective
@@ -142,7 +168,17 @@ data as content-addressed preview shapes rather than freezing new root artifact
 schemas. Its Phase-A ASCII sources are declarations, not yet executable engine
 fixtures, and its `blind` policy is not capability-enforced until P8. See
 [P1B cross-ruleset topology and curriculum](p1b-cross-ruleset-topology.md).
-The dossier UI and runtime observation remain P4 and P2 respectively.
+The dossier UI remains P4. Runtime observation is now delivered by P2A; the
+complete causal journal remains P2B.
+
+All CCSolver phases permanently use only the standard CC1 tile vocabulary. Raw codes `0x70`–`0x75`
+(Sandbag, Bowling Ball, Cloud, Hook, Ice Block, and Pet Carrier) are Tile World
+engine extensions, not solver mechanics. A shared source-scope gate rejects
+them before corpus identity, facts, analysis, runtime, planning, or curriculum
+selection, without removing their support from the legacy engines or excluding
+valid multi-layer geometry. The current
+manifest contains none, so the frozen P1B denominators and artifacts do not
+move.
 
 ### Deliverables
 
@@ -164,8 +200,8 @@ The dossier UI and runtime observation remain P4 and P2 respectively.
   - donor-visible training cases;
   - the first frozen donor-hidden evaluation wave; and
   - adversarial architecture canaries.
-- Leave the expanded executable mechanics curriculum to P9, after the runtime
-  and search seams needed to exercise it exist.
+- Keep Tile World's six expanded tiles permanently outside every mechanics,
+  planning, search, and curriculum phase; no later milestone admits them.
 - Emit a deterministic basic dossier JSON for at least one level.
 
 ### Exit gate
@@ -190,28 +226,49 @@ port.
 
 ### Status and delivery slices
 
-P2 has not started.
+P2A is implemented and bounded; the complete P2 causal journal remains open.
 
-- **P2A — Runtime Observation, Checkpoint, and Render Projection Port** — next.
-  Define the minimum preview port and implement independent MS and Lynx adapters
-  over the existing session and undo seams. Prove deterministic read-only
-  observation, exact branch/restore behavior, true replay-start and recorded
-  no-change advancement, and deterministic render projections before adding
-  planning or search.
+- **P2A — Runtime Observation, Checkpoint, and Render Projection Port:
+  complete.** A pure preview contract,
+  engine-neutral authority kernel, and independent MS/Lynx adapters compose the
+  existing sessions and undo seams. Focused ATDD covers detached read-only
+  observation, transactional failure behavior, exact branch/restore,
+  target-native manual polling, true replay ownership, first-terminal latching,
+  and deterministic render projections. Key Pyramid and Intro 8 supply checked
+  canonical runtime packets plus compact human reviews. See
+  [P2A runtime observation](p2a-runtime-observation.md).
 - **P2B — Causal semantic event journal: later.** Expand the proven P2A seam
   with the complete bounded event taxonomy, causal linkage, failure reasons,
   and native diagnostic adaptation required by the rest of the P2 exit gate.
 
-### Deliverables
+### P2A delivered
 
-- Define `SolverRuntimePort` operations for start, true replay start, recorded
-  decision/no-change advance, bounded run, observe, checkpoint, clone, restore,
-  event drain, terminal result, and render projection.
+- Define `SolverRuntimePort` operations for manual start, true replay start, one
+  target-native manual poll or replay-owned tick, observe, terminal result,
+  checkpoint, independent clone/restore, render projection, and disposal.
 - Implement MS and Lynx adapters over existing TypeScript sessions and undo
   checkpoints.
 - Preserve replay-mode input carry, release, diagonal, mouse, seed, stepping,
-  and random-slide state.
-- Add stable semantic observations independent of raw tile IDs.
+  initial random-slide header metadata, and target-native random state in the
+  exact checkpoint token plus explicit observation input/randomness fields;
+  native-state fingerprint entries cover only the target state they expose.
+- Add stable semantic observations independent of raw tile IDs, including
+  exact source/facts/provenance bindings, timing, input, randomness, cells,
+  player, deterministic observation actor order with optional exact
+  target-collection positions, inventory, remaining requirements, devices,
+  fingerprints, and terminal state.
+- Add deterministic semantic render-region projection bound to the exact source
+  observation without consuming engine state.
+- Enforce opaque run/checkpoint ownership, mode and target compatibility,
+  capacity, disposal, independent checkpoint restore, and nonmutating errors.
+- Freeze first terminal evidence while permitting the target engine's
+  post-terminal world progression.
+- Generate bounded Key Pyramid donor-runtime and Intro 8 manual
+  characterization packets; include full values, compact semantic deltas, and
+  derived human review pages without durable handles or timestamps.
+
+### P2B remaining
+
 - Add bounded causal events for movement, collection, inventory, map mutation,
   devices, teleports, actor lifecycle, death, and victory.
 - Expose causal plan/command IDs and first-failure reasons where existing engines
@@ -220,7 +277,29 @@ P2 has not started.
   diagnosis. Add a new delta-oriented semantic exporter only if representative
   measurements show that the existing seam is insufficient.
 
-### Exit gate
+### P2A exit gate
+
+- Observation, terminal, and render reads are detached and do not advance or
+  mutate gameplay in either target.
+- Uninterrupted and checkpoint/restore continuations agree exactly at focused
+  boundaries; cloned branches are independent.
+- Manual and replay modes reject mismatched advances, preserve target-native
+  input semantics, and retain replay seed, stepping, slide, cursor, and deadline
+  state.
+- MS reports its in-engine replay-deadline failure explicitly; Lynx reports the
+  header deadline without inventing MS enforcement, leaving the outer run bound
+  to the verifier.
+- The first terminal record remains stable while later target logic may advance.
+- Key Pyramid binds exact MS/Lynx donor TWS and entry bytes, labels every
+  replay-derived point `donor-runtime-characterization`, and finds the first
+  resource change under strict measured bounds.
+- Intro 8 proves the east poll stationary before calling it blocked and keeps
+  no-input versus second-east followup causes explicit.
+- A generate followed by independent `--check` reproduces the four canonical
+  JSON packets and two Markdown reviews byte-for-byte under an explicit CI
+  timeout.
+
+### Complete P2 exit gate (after P2B)
 
 - Existing donor replays retain their current results and engine state hashes
   with observation enabled and disabled.
@@ -808,32 +887,27 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-Proceed with **P2A — Runtime Observation, Checkpoint, and Render Projection Port**
-using ATDD:
+Proceed with **P3A — Terminal-First GoalGraph and Backward Planning Trace** using
+ATDD:
 
-1. define a narrow, target-neutral preview port for canonical initialization,
-   true replay initialization, one recorded decision or explicit no-change
-   advance, observation, checkpoint, clone, restore, terminal result, and
-   deterministic render projection;
-2. implement independent MS and Lynx composition adapters over the existing
-   gameplay-session and undo/checkpoint seams, without duplicating transition
-   rules or exposing raw ruleset implementation types to CCSolver;
-3. make observations sufficient to query map, player, actor, inventory, timing,
-   device, and terminal state while preserving native target timing, replay
-   input state, RNG/slide state, and actor ordering needed for continuation;
-4. define a read-only render projection with stable semantic identities and
-   enough whole-map state for later annotated entry/end panels; rendering and
-   media generation themselves remain out of scope;
-5. prove for both targets that observation and render projection cannot change
-   gameplay, that uninterrupted execution equals checkpoint/restore execution,
-   that cloned branches are independent, and that the same fixed prefix yields
-   byte-stable observations and projections; and
-6. characterize true replay start, held/released input, explicit no-change, and
-   terminal-state behavior with focused fixtures, retaining explicit bounded
-   errors for unsupported or exhausted host facilities.
+1. declare the pure `ccsolver/src/plan` layer, its narrow package surface, and
+   architecture tests before adding implementation;
+2. define the closed initial predicate/achiever vocabulary and target-scoped
+   terminal roots, preserving every exit as an explicit alternative;
+3. regress deterministically from terminal predicates through region,
+   collection, key/door, and chip/socket prerequisites without reverse-running
+   either gameplay engine;
+4. retain selected achievers, residual prerequisites, alternatives, rejections,
+   uncertainty, static-evidence references, and hard bounds in a canonical
+   backward-planning trace;
+5. prove stable graphs for a one-room exit, key-and-door route,
+   chip-and-socket route, and two-exit canary, with explicit bounded diagnostics
+   for cycles, resource inconsistency, and missing achievers; and
+6. render the first compact human review of those graphs and level-language
+   descriptions so Joshua can judge CCSolver's reasoning before P3B attempts an
+   exact execution witness.
 
-P2A does not add goal/plan graphs, contracts, contextual witnesses, donor
-alignment, search, replay construction, dossier UI, media, or the full causal
-event taxonomy. Those remain later evidence-backed slices; P2B expands the
-runtime seam into the complete semantic journal after P2A proves it is
-non-mutating and restorable.
+P3A proposes semantic obligations; it does not prove an executable route.
+Forward target-engine proof begins with P3B contextual witnesses, annotated map
+evidence follows in P4A, and full-level composition follows in P5. P2B remains
+the separate later expansion for the complete causal semantic journal.

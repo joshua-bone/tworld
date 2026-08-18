@@ -123,7 +123,6 @@ export interface TworldLevelProjectionPolicy<TLoaded extends TworldLoadedLevelSo
     readonly redKey: number;
     readonly greenDoor: number;
     readonly cloneMachine: number;
-    readonly petCarrier: number;
   };
   decodeLoadedLevel(loaded: TLoaded): TworldDecodedLevel;
   directionForSourceValue(direction: number): DirectionV1 | null;
@@ -332,7 +331,7 @@ function projectCatalogElement<TLoaded extends TworldLoadedLevelSource>(
     facing: null,
     initialState: encodedInitialState(state),
     redundantEmptyFloor,
-    containsActors: elementId === policy.tileIds.cloneMachine || elementId === policy.tileIds.petCarrier,
+    containsActors: elementId === policy.tileIds.cloneMachine,
     exit: policy.tileHasTag(elementId, "exit") || undefined,
     resourceSource: resourceSourceFor(elementId, semanticType, policy),
     resourceGate: resourceGateFor(elementId, policy),

@@ -24,6 +24,7 @@ import {
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
+const CELL_COUNT = 32 * 32;
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -38,15 +39,37 @@ function fileCodeForTile(tileId: number): number {
 }
 
 function twoPlaneFixture(topFileCode: number, bottomFileCode: number): Uint8Array {
+  const encodePlane = (sourceCodes: readonly number[]): number[] => {
+    const encoded: number[] = [];
+    for (let start = 0; start < sourceCodes.length;) {
+      const sourceCode = sourceCodes[start]!;
+      let count = 1;
+      while (
+        start + count < sourceCodes.length
+        && sourceCodes[start + count] === sourceCode
+        && count < 0xff
+      ) count += 1;
+      if (count === 1 && sourceCode !== 0xff) encoded.push(sourceCode);
+      else encoded.push(0xff, count, sourceCode);
+      start += count;
+    }
+    return encoded;
+  };
+  const upper = Array<number>(CELL_COUNT).fill(fileCodeForTile(MS_TILE.Empty));
+  const lower = Array<number>(CELL_COUNT).fill(fileCodeForTile(MS_TILE.Empty));
+  upper[0] = topFileCode;
+  lower[0] = bottomFileCode;
+  const encodedUpper = encodePlane(upper);
+  const encodedLower = encodePlane(lower);
   return Uint8Array.from([
     1, 0,
     0, 0,
     0, 0,
     0, 0,
-    1, 0,
-    topFileCode,
-    1, 0,
-    bottomFileCode,
+    encodedUpper.length & 0xff, encodedUpper.length >> 8,
+    ...encodedUpper,
+    encodedLower.length & 0xff, encodedLower.length >> 8,
+    ...encodedLower,
     0, 0,
   ]);
 }
@@ -221,13 +244,6 @@ describe("projectLoadedTworldMsLevel", () => {
       expect.objectContaining({ kind: "unknown-catalog-element", sourceToken: "0xfe" }),
     ]));
 
-    const petCarrier = projectOneCell(
-      fileCodeForTile(MS_TILE.PetCarrier),
-      fileCodeForTile(msCreatureTile(MS_TILE.Ball, MS_DIRECTION.east)),
-    );
-    expect(petCarrier.actors).toEqual([
-      expect.objectContaining({ disposition: "contained", semanticType: "cc1:ball" }),
-    ]);
   });
 
   it("rejects loaded bytes that are not part of the claimed source chain", () => {

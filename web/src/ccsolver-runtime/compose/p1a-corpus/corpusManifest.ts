@@ -12,6 +12,7 @@ import {
 import { parseSeriesConfig } from "@content/api/seriesConfig";
 import { msElementFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
 import { normalizeDecodedTworldLevel } from "../tworldMsLevelProjection";
+import { assertTworldSolverSourceScope } from "../sourceValidity/analyzeTworldSolverSourceScope";
 import {
   CCSOLVER_CORPUS_SOURCE_REVISION,
   CORPUS_PACK_REGISTRY,
@@ -314,6 +315,7 @@ export async function normalizedGameplayReferenceForMembers(
   if (members.length === 0) {
     throw new Error("normalized gameplay identity requires at least one source member");
   }
+  assertTworldSolverSourceScope({ layerData: members });
   const decoded = msElementFamilyRegistration.levelLoadRegistration.decodeLoadedLevel({
     levelData: members[0]!,
     layerData: members,

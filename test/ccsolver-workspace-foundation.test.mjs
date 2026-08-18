@@ -59,6 +59,8 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.match(rootPackage.scripts["ccsolver:analysis:generate"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:p1b:check"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:p1b:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p2a:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p2a:generate"], /--workspace web/);
   for (const command of [
     "ccsolver:corpus:check",
     "ccsolver:corpus:generate",
@@ -66,8 +68,31 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "ccsolver:analysis:generate",
     "ccsolver:p1b:check",
     "ccsolver:p1b:generate",
+    "ccsolver:p2a:check",
+    "ccsolver:p2a:generate",
   ]) {
     assert.match(rootPackage.scripts[command], /npm run ccsolver:build/);
+  }
+
+  const webPackage = await readJson("web/package.json");
+  assert.equal(
+    webPackage.scripts["ccsolver:p2a"],
+    "vite-node src/ccsolver-runtime/compose/p2a-review/runP2aRuntimeReviewPackets.ts",
+  );
+  assert.equal(webPackage.scripts["ccsolver:p2a:check"], "npm run ccsolver:p2a -- --check");
+  assert.equal(webPackage.scripts["ccsolver:p2a:generate"], "npm run ccsolver:p2a -- --write");
+  for (const p2aTest of [
+    "src/ccsolver-runtime/compose/sourceValidity/analyzeTworldSolverSourceScope.test.ts",
+    "src/ccsolver-runtime/compose/sourceValidity/tworldSolverSourceScopeAcceptance.test.ts",
+    "src/ccsolver-runtime/impl/runtime/createSolverRuntimeKernel.test.ts",
+    "src/ccsolver-runtime/compose/runtime/tworldSolverRuntimeAdapters.test.ts",
+    "src/ccsolver-runtime/compose/runtime/tworldSolverRuntimeSemantics.test.ts",
+    "src/ccsolver-runtime/compose/p2a-review/buildP2aRuntimeReviewPacket.test.ts",
+    "src/ccsolver-runtime/compose/p2a-review/buildP2aRuntimeReviewOutputs.test.ts",
+  ]) {
+    assert.match(rootPackage.scripts["ccsolver:integration"], new RegExp(
+      p2aTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    ));
   }
 });
 
@@ -182,4 +207,30 @@ test("runs the workspace foundation gate on pull requests", async () => {
     workflow,
     /- name: Check P1B full-corpus artifacts\n\s+timeout-minutes: 90\n\s+env:\n\s+TWORLD_P1B_ANALYSIS_JOBS: 4\n\s+run: npm run ccsolver:p1b:check/,
   );
+  assert.match(
+    workflow,
+    /- name: Check P2A runtime observation artifacts\n\s+timeout-minutes: 10\n\s+run: npm run ccsolver:p2a:check/,
+  );
+});
+
+test("registers the bounded P2A runtime-observation review gate", async () => {
+  for (const path of [
+    "ccsolver/docs/p2a-runtime-observation.md",
+    "ccsolver/fixtures/golden/p2a/cclp1-001/ms/runtime-review.json",
+    "ccsolver/fixtures/golden/p2a/cclp1-001/lynx/runtime-review.json",
+    "ccsolver/fixtures/golden/p2a/cclp1-001/review.md",
+    "ccsolver/fixtures/golden/p2a/intro-008/ms/runtime-review.json",
+    "ccsolver/fixtures/golden/p2a/intro-008/lynx/runtime-review.json",
+    "ccsolver/fixtures/golden/p2a/intro-008/review.md",
+  ]) {
+    assert.equal(await exists(path), true, `missing P2A release asset: ${path}`);
+  }
+
+  const tools = await readJson("web/tsconfig.tools.json");
+  assert.ok(tools.include.includes(
+    "src/ccsolver-runtime/compose/p2a-review/buildP2aRuntimeReviewOutputs.ts",
+  ));
+  assert.ok(tools.include.includes(
+    "src/ccsolver-runtime/compose/p2a-review/runP2aRuntimeReviewPackets.ts",
+  ));
 });

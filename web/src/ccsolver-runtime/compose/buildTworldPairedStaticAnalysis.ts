@@ -19,10 +19,11 @@ import {
   buildTworldMsStaticAnalysis,
   type TworldMsStaticAnalysisBundle,
 } from "./buildTworldMsStaticAnalysis";
+import type { TworldLegacySourceValidityReportV1 } from "./sourceValidity/analyzeTworldLegacySourceValidity";
 import {
-  analyzeTworldLegacySourceValidity,
-  type TworldLegacySourceValidityReportV1,
-} from "./sourceValidity/analyzeTworldLegacySourceValidity";
+  TworldSolverSourceValidityError,
+  assertTworldSolverSourceEligibility,
+} from "./sourceValidity/assertTworldSolverSourceEligibility";
 
 export type TworldPairedStaticAnalysisErrorCode = "paired-analysis.source-invalid";
 
@@ -68,11 +69,16 @@ export async function buildTworldPairedStaticAnalysis(
   input: BuildTworldPairedStaticAnalysisInput,
   sha256: Sha256Port,
 ): Promise<TworldPairedStaticAnalysisBundle> {
-  const validity = analyzeTworldLegacySourceValidity({
-    layerData: input.loaded.layerData,
-  });
-  if (validity.status !== "valid") {
-    throw new TworldPairedStaticAnalysisError("paired-analysis.source-invalid", validity);
+  let validity: TworldLegacySourceValidityReportV1;
+  try {
+    validity = assertTworldSolverSourceEligibility({
+      layerData: input.loaded.layerData,
+    }).legacyValidity;
+  } catch (error) {
+    if (error instanceof TworldSolverSourceValidityError) {
+      throw new TworldPairedStaticAnalysisError("paired-analysis.source-invalid", error.report);
+    }
+    throw error;
   }
 
   const common = {

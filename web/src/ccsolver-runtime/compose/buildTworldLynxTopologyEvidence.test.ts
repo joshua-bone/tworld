@@ -8,12 +8,11 @@ import {
 import { msRegisteredLevelDecodeEntries } from "@ruleset-ms/impl/elementRegistration";
 import { buildTworldMsLevelFacts } from "./buildTworldMsLevelFacts";
 import { buildTworldMsTopologyEvidence } from "./buildTworldMsTopologyEvidence";
-import { projectLoadedTworldMsLevel } from "./tworldMsLevelProjection";
 import { buildTworldLynxLevelFacts } from "./buildTworldLynxLevelFacts";
 import { buildTworldLynxTopologyEvidence } from "./buildTworldLynxTopologyEvidence";
-import { projectLoadedTworldLynxLevel } from "./tworldLynxLevelProjection";
 
 const sha256 = new WebCryptoSha256();
+const CELL_COUNT = 32 * 32;
 
 function fileCodeForTile(tileId: number): number {
   const entry = msRegisteredLevelDecodeEntries.find((candidate) => candidate.tileId === tileId);
@@ -22,15 +21,37 @@ function fileCodeForTile(tileId: number): number {
 }
 
 function twoPlaneFixture(topTile: number, bottomTile: number = MS_TILE.Empty): Uint8Array {
+  const encodePlane = (sourceCodes: readonly number[]): number[] => {
+    const encoded: number[] = [];
+    for (let start = 0; start < sourceCodes.length;) {
+      const sourceCode = sourceCodes[start]!;
+      let count = 1;
+      while (
+        start + count < sourceCodes.length
+        && sourceCodes[start + count] === sourceCode
+        && count < 0xff
+      ) count += 1;
+      if (count === 1 && sourceCode !== 0xff) encoded.push(sourceCode);
+      else encoded.push(0xff, count, sourceCode);
+      start += count;
+    }
+    return encoded;
+  };
+  const upper = Array<number>(CELL_COUNT).fill(fileCodeForTile(MS_TILE.Empty));
+  const lower = Array<number>(CELL_COUNT).fill(fileCodeForTile(MS_TILE.Empty));
+  upper[0] = fileCodeForTile(topTile);
+  lower[0] = fileCodeForTile(bottomTile);
+  const encodedUpper = encodePlane(upper);
+  const encodedLower = encodePlane(lower);
   return Uint8Array.from([
     1, 0,
     0, 0,
     0, 0,
     0, 0,
-    1, 0,
-    fileCodeForTile(topTile),
-    1, 0,
-    fileCodeForTile(bottomTile),
+    encodedUpper.length & 0xff, encodedUpper.length >> 8,
+    ...encodedUpper,
+    encodedLower.length & 0xff, encodedLower.length >> 8,
+    ...encodedLower,
     0, 0,
   ]);
 }
@@ -57,26 +78,21 @@ async function buildPair(topTile: number, bottomTile: number = MS_TILE.Empty) {
     buildTworldMsLevelFacts(input, sha256),
     buildTworldLynxLevelFacts(input, sha256),
   ]);
-  const msProjected = projectLoadedTworldMsLevel(input);
-  const lynxProjected = projectLoadedTworldLynxLevel(input);
   const [ms, lynx, lynxAgain] = await Promise.all([
     buildTworldMsTopologyEvidence({
       factsBundle: msFacts,
-      projected: msProjected,
       policyRevision: "test:ms-policy",
     }, sha256),
     buildTworldLynxTopologyEvidence({
       factsBundle: lynxFacts,
-      projected: lynxProjected,
       policyRevision: "test:lynx-policy",
     }, sha256),
     buildTworldLynxTopologyEvidence({
       factsBundle: lynxFacts,
-      projected: lynxProjected,
       policyRevision: "test:lynx-policy",
     }, sha256),
   ]);
-  return { lynx, lynxAgain, lynxFacts, lynxProjected, ms, msFacts };
+  return { lynx, lynxAgain, lynxFacts, ms, msFacts };
 }
 
 describe("buildTworldLynxTopologyEvidence", () => {
@@ -116,7 +132,7 @@ describe("buildTworldLynxTopologyEvidence", () => {
       caveatId: "exit-requires-release",
       kind: "requires-release",
     }));
-  });
+  }, 30_000);
 
   it("keeps the IC chip as the probe surface while retaining collectible dynamics", async () => {
     const { lynx, ms } = await buildPair(MS_TILE.ICChip);
@@ -155,11 +171,10 @@ describe("buildTworldLynxTopologyEvidence", () => {
   });
 
   it("rejects MS facts instead of relabeling them as Lynx evidence", async () => {
-    const { lynxProjected, msFacts } = await buildPair(MS_TILE.Empty);
+    const { msFacts } = await buildPair(MS_TILE.Empty);
 
     await expect(buildTworldLynxTopologyEvidence({
       factsBundle: msFacts,
-      projected: lynxProjected,
       policyRevision: "test:lynx-policy",
     }, sha256)).rejects.toThrow(/requires Lynx facts/u);
   });

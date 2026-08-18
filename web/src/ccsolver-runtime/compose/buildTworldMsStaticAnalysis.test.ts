@@ -87,19 +87,4 @@ describe("buildTworldMsStaticAnalysis", () => {
     }
   }, 30_000);
 
-  it("rejects a non-MS projection instead of relabeling it", async () => {
-    const built = await buildIntroLevel8();
-    const clonedFacts = structuredClone(built.levelFacts.facts);
-    const wrongTarget = {
-      ...clonedFacts,
-      payload: { ...clonedFacts.payload, target: "lynx" as const },
-    };
-
-    await expect(buildTworldMsStaticAnalysis({
-      existingFactsBundle: { ...built.levelFacts, facts: wrongTarget },
-      existingProjection: built.projected,
-      policyRevision: "test:ms-topology-policy",
-      staticAnalyzerRevision: "test:static-analyzer",
-    }, sha256)).rejects.toThrow(/requires MS facts/u);
-  });
 });
