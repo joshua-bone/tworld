@@ -56,12 +56,13 @@ next layer is trusted:
    requirements, input ownership, and changed-cell semantics for Key Pyramid
    and Intro 8. This judges whether CCSolver sees the world accurately; it does
    not judge solver reasoning.
-2. **P3A — backward prerequisite graph:** terminal-first AND/OR graphs and
-   human-language decomposition make the solver's theory, alternatives, and
-   rejected achievers reviewable.
-3. **P3B — exact contextual witnesses:** forward-executed subgoal segments from
-   full-world checkpoints make each selected graph edge independently
-   testable.
+2. **P3A — backward prerequisite graph (available now):** checked Key Pyramid
+   MS/Lynx terminal theories expose the exit-rooted AND/OR graph, alternatives,
+   exact resource occurrences, uncertainty, and unresolved obligations.
+3. **P3B — exact contextual witnesses (available now):** checked Key Pyramid
+   MS/Lynx red-key witnesses execute one selected segment forward from the
+   complete start state and compare uninterrupted execution with an exact
+   restored branch.
 4. **P4A — annotated map evidence:** starting/ending map sections show player
    and mob routes, points of interest, state deltas, and optional animation.
 5. **P5 — full-level proof:** a composed forward execution and certified replay
@@ -70,6 +71,10 @@ next layer is trusted:
 P2A output is authoritative runtime-characterization evidence only after a
 fresh generation is followed by a successful byte-for-byte
 `npm run ccsolver:p2a:check`. Its Markdown is a derived review aid.
+
+P3 planning/witness output is authoritative preview evidence only after
+`npm run ccsolver:p3:check`. Its compact textual map crops are early review aids;
+P4A still owns the graphical annotated evidence surface.
 
 ## P0: project and artifact foundation
 
@@ -319,10 +324,20 @@ P2A is implemented and bounded; the complete P2 causal journal remains open.
 Turn each target's exits into explicit desired terminal predicates and derive a
 reviewable prerequisite graph before choosing a forward execution.
 
+### Status
+
+Complete for the initial closed vocabulary and Key Pyramid vertical slice. The
+pure `plan` layer, deterministic regression kernel, synthetic ATDD, and checked
+MS/Lynx parent theories are described in
+[P3 terminal-first planning and contextual witnesses](p3-terminal-planning-and-witness.md).
+The Key Pyramid parent plans intentionally remain unresolved.
+
 ### Deliverables
 
-- Implement the closed predicate vocabulary for `requires`, `ensures`,
-  invariants, event assertions, footprints, forbidden events, and stop bounds.
+- Implement the closed initial planning predicate and declarative-achiever
+  vocabulary for exits, regions, placement-bound collections, and resource
+  gates. Runtime contract predicates and footprints belong to P3B; causal event
+  assertions remain deferred until P2B supplies the journal.
 - Create a target-scoped terminal root for every exit placement and coordinate;
   represent multiple exits as explicit alternatives rather than silently
   choosing one.
@@ -372,21 +387,31 @@ reviewable prerequisite graph before choosing a forward execution.
 Make selected subgoals independently repeatable, forward-verifiable, and
 visually inspectable without falsifying their full-world context.
 
+### Status
+
+Complete for the pure executor and first real dual-target leaf. The checked
+Key Pyramid witness collects the exact adjacent red-key placement under a fixed
+donor-independent manual seed in MS and Lynx. It binds one exact selected
+segment of the unresolved parent theory; verification never upgrades that
+parent.
+
 ### Deliverables
 
 - Define prefix-derived contextual-witness identity from level, ruleset, seed,
   replay/prefix digest, entry boundary, and state digest.
 - Cache opaque engine checkpoints by complete implementation dependency; do not
   make them durable schema data.
-- Add authored, inferred, observed, reviewed, and verified provenance.
-- Add separate evidence-coverage, ruleset-scope, and robustness fields, plus join
-  states: exact, replanned, semantic-only, and broken.
+- Add separate derivation, observation, review, and verification provenance.
+- Add separate evidence-coverage, ruleset-scope, and robustness fields. This
+  executor emits exact, semantic-only, or broken joins; replanned composition is
+  reserved for the later live-composition layer.
 - Implement exact state/effect diffs and contract validation.
 - Implement prefix replay, checkpoint caching, repeated short-interval execution,
   and cropped render projection over full-world simulation.
 - Capture exact starting and ending ticks, normalized observations, state
-  digests, deterministic render frames, semantic events, and their content
-  references for every contextual witness.
+  digests, deterministic render frames, noncausal observed state changes, and
+  their content references for every contextual witness. Ordered causal events
+  remain P2B work.
 - Capture a fixed causal viewport and annotation inputs for the two boundary
   frames. A bounded intermediate frame sequence may be retained for animation,
   but it is optional and derivative.
@@ -887,27 +912,27 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-Proceed with **P3A — Terminal-First GoalGraph and Backward Planning Trace** using
-ATDD:
+Proceed with **P4A — Minimum Subgoal Evidence Surface** using ATDD:
 
-1. declare the pure `ccsolver/src/plan` layer, its narrow package surface, and
-   architecture tests before adding implementation;
-2. define the closed initial predicate/achiever vocabulary and target-scoped
-   terminal roots, preserving every exit as an explicit alternative;
-3. regress deterministically from terminal predicates through region,
-   collection, key/door, and chip/socket prerequisites without reverse-running
-   either gameplay engine;
-4. retain selected achievers, residual prerequisites, alternatives, rejections,
-   uncertainty, static-evidence references, and hard bounds in a canonical
-   backward-planning trace;
-5. prove stable graphs for a one-room exit, key-and-door route,
-   chip-and-socket route, and two-exit canary, with explicit bounded diagnostics
-   for cycles, resource inconsistency, and missing achievers; and
-6. render the first compact human review of those graphs and level-language
-   descriptions so Joshua can judge CCSolver's reasoning before P3B attempts an
-   exact execution witness.
+1. define a provisional, pure `SubgoalEvidenceView` bound to the exact P3B
+   witness, contract, target, entry/end content references, fixed viewport, and
+   review state;
+2. derive typed overlays for the selected red-key placement, retained blue-key
+   alternative, later red door, plan-intent route, observed player boundary
+   positions, and changed cells, keeping every overlay's evidence basis
+   explicit;
+3. render mandatory graphical **Starting State** and **Ending State** panels for
+   the MS and Lynx Key Pyramid leaf, with the same crop/scale, accessible textual
+   equivalents, inventory/requirement deltas, and exact tick/digest labels;
+4. add one bounded failed synthetic witness whose expected ending, actual stop,
+   and first failed predicate are visibly distinct;
+5. add durable `unreviewed | reviewed | changes-requested` status and separate
+   human notes/overrides, proving regeneration cannot silently overwrite review
+   and a changed witness invalidates prior approval; and
+6. make optional animation a deterministic heuristic/override fed by the same
+   semantic scene, while keeping static boundary panels complete without it.
 
-P3A proposes semantic obligations; it does not prove an executable route.
-Forward target-engine proof begins with P3B contextual witnesses, annotated map
-evidence follows in P4A, and full-level composition follows in P5. P2B remains
-the separate later expansion for the complete causal semantic journal.
+P4A makes the first exact leaf visually debuggable; it does not solve Key
+Pyramid or certify a replay. P5 follows with backward-decomposed subgoals joined
+through one continuous forward run. P2B remains the separate later expansion
+for the complete causal semantic journal.

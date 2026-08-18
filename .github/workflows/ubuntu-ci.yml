@@ -37,6 +37,9 @@ jobs:
       - name: Check P2A runtime observation artifacts
         timeout-minutes: 10
         run: npm run ccsolver:p2a:check
+      - name: Check P3 terminal planning and contextual witness artifacts
+        timeout-minutes: 10
+        run: npm run ccsolver:p3:check
       - name: Check browser workspace
         run: |
           npm run typecheck

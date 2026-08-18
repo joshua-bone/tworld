@@ -20,6 +20,13 @@ artifacts remain provisional until their own schemas are checked in. The
 semantic roles and correctness boundaries in this document are design
 decisions, not placeholders.
 
+The pure terminal-first planner and exact contextual-witness executor are now
+implemented as provisional P3 preview contracts. Their first dual-target real
+slice and checked Key Pyramid review are documented in
+[P3 terminal-first planning and contextual witnesses](p3-terminal-planning-and-witness.md).
+The whole Key Pyramid theory remains unresolved; only its adjacent red-key leaf
+is forward-verified.
+
 ## Executive summary
 
 CCSolver turns a map and optional donor replays into an explicit theory of the
@@ -238,9 +245,11 @@ web/src/ccsolver-runtime/
 ```
 
 The domain layer contains only typed semantic values and pure transformations.
-The future `plan` layer is likewise pure, may depend only on reviewed
-domain/static-analysis surfaces, and exposes a narrow package entrypoint;
-architecture tests must declare that layer before P3A adds its first source.
+The `plan` and `snippets` layers are likewise pure. Planning may depend only on
+reviewed domain/static-analysis surfaces; snippets may depend only on domain,
+planning values, and runtime ports. Both expose narrow package entrypoints, and
+architecture tests reject imports from host, renderer, ruleset, or application
+implementation layers.
 Adapters translate the existing engines, codecs, files, API responses, and
 renderer projections into those values. Composition roots select concrete
 adapters for CLI, tests, dossier generation, or CI.
@@ -512,7 +521,7 @@ facts. Initial derivation values distinguish `authored`, `forward-derived`,
 `backward-regressed`, `bidirectional-joined`, and `donor-inferred`. These fields
 explain why a subgoal exists without claiming that the inference is executable.
 
-The pure regression kernel belongs under `ccsolver/src/plan/regression`. Its
+The pure regression kernel belongs under `ccsolver/src/plan`. Its
 operators describe semantic effects, requirements, resource consumption,
 footprints, and target scope; they do not reproduce tile-entry legality. Runtime
 tactics later bind those operator meanings to forward engine execution. The
@@ -572,6 +581,12 @@ block occupancy, wiring/channel state, terminal state, time bounds, and opaque
 seed/phase binding when truly required. Arbitrary JavaScript predicates are not
 durable corpus data.
 
+The initial P3B implementation covers predicates and noncausal boundary-change
+footprints that can be evaluated from P2A observations. Ordered or causal event
+assertions remain inactive until P2B supplies the complete semantic journal;
+P3B does not infer collection, opening, or device causality from coincident
+before/after changes.
+
 Evidence coverage is `single-witness`, `reachable-envelope`, or `exhaustive`.
 The last is used only when a finite start space was actually enumerated.
 Ruleset scope is recorded separately as MS, Lynx, both independently, or a
@@ -599,6 +614,12 @@ Durable source data stores the prefix identity, boundary, entry digest, relative
 decisions or tactic reference, event assertions, end digest, and contract. Raw
 engine checkpoint objects are cache entries keyed by engine build; they are not
 a stable checked-in format.
+
+The delivered P3B preview stores content references for exact entry/end
+observations and semantic renders plus a sorted `observedChanges` boundary
+delta. It intentionally has no causal event assertions yet. It executes an
+uninterrupted run and an independently restored checkpoint branch in lockstep;
+only complete exact agreement can verify the leaf.
 
 During focused development, a persistent worker replays the prefix once, caches
 the checkpoint, and repeatedly restores it to test only the short interval. The

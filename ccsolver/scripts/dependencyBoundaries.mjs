@@ -9,18 +9,20 @@ const builtins = new Set(
 );
 
 const allowedInternalLayers = new Map([
-  ["root", new Set(["analyze", "application", "domain", "ports"])],
+  ["root", new Set(["analyze", "application", "domain", "plan", "ports", "snippets"])],
   ["domain", new Set(["domain"])],
   ["ports", new Set(["domain", "ports"])],
   ["analyze", new Set(["analyze", "domain"])],
-  ["application", new Set(["analyze", "application", "domain", "ports"])],
-  ["adapters", new Set(["adapters", "analyze", "application", "domain", "ports"])],
-  ["render", new Set(["analyze", "application", "domain", "ports", "render"])],
-  ["site", new Set(["analyze", "application", "domain", "ports", "render", "site"])],
-  ["cli", new Set(["adapters", "analyze", "application", "cli", "domain", "ports", "render", "site"])],
+  ["plan", new Set(["analyze", "domain", "plan"])],
+  ["snippets", new Set(["domain", "plan", "ports", "snippets"])],
+  ["application", new Set(["analyze", "application", "domain", "plan", "ports"])],
+  ["adapters", new Set(["adapters", "analyze", "application", "domain", "plan", "ports", "snippets"])],
+  ["render", new Set(["analyze", "application", "domain", "plan", "ports", "render", "snippets"])],
+  ["site", new Set(["analyze", "application", "domain", "plan", "ports", "render", "site", "snippets"])],
+  ["cli", new Set(["adapters", "analyze", "application", "cli", "domain", "plan", "ports", "render", "site", "snippets"])],
 ]);
 
-const pureLayers = new Set(["analyze", "application", "domain", "ports", "root"]);
+const pureLayers = new Set(["analyze", "application", "domain", "plan", "ports", "root", "snippets"]);
 const webAliases = new Set([
   "@bootstrap",
   "@content",

@@ -103,6 +103,42 @@ test("keeps the public root entrypoint inside the purity boundary", () => {
   );
 });
 
+test("keeps terminal-first planning pure and below orchestration layers", () => {
+  const violations = findBoundaryViolations([
+    { path: "src/plan/node.ts", source: 'import "node:fs";' },
+    { path: "src/plan/application.ts", source: 'import "../application/index.js";' },
+    { path: "src/plan/runtime.ts", source: 'import "../../../web/src/game-runtime/index.js";' },
+  ]);
+
+  assert.deepEqual(
+    new Set(violations.map((violation) => violation.reason)),
+    new Set([
+      "CCSolver cannot import files outside its source tree",
+      "plan cannot depend on application",
+      "plan cannot import Node runtime modules",
+    ]),
+  );
+});
+
+test("keeps contextual snippets pure and dependent only on plan contracts and ports", () => {
+  const violations = findBoundaryViolations([
+    { path: "src/snippets/node.ts", source: 'import "node:fs";' },
+    { path: "src/snippets/application.ts", source: 'import "../application/index.js";' },
+    { path: "src/snippets/analyze.ts", source: 'import "../analyze/index.js";' },
+    { path: "src/snippets/runtime.ts", source: 'import "../../../web/src/game-runtime/index.js";' },
+  ]);
+
+  assert.deepEqual(
+    new Set(violations.map((violation) => violation.reason)),
+    new Set([
+      "CCSolver cannot import files outside its source tree",
+      "snippets cannot depend on analyze",
+      "snippets cannot depend on application",
+      "snippets cannot import Node runtime modules",
+    ]),
+  );
+});
+
 test("keeps the checked-in CCSolver source inside its declared boundaries", async () => {
   assert.deepEqual(await scanSourceTree(workspaceRoot), []);
 });

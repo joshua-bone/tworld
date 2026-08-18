@@ -61,6 +61,8 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.match(rootPackage.scripts["ccsolver:p1b:generate"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:p2a:check"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:p2a:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p3:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p3:generate"], /--workspace web/);
   for (const command of [
     "ccsolver:corpus:check",
     "ccsolver:corpus:generate",
@@ -70,6 +72,8 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "ccsolver:p1b:generate",
     "ccsolver:p2a:check",
     "ccsolver:p2a:generate",
+    "ccsolver:p3:check",
+    "ccsolver:p3:generate",
   ]) {
     assert.match(rootPackage.scripts[command], /npm run ccsolver:build/);
   }
@@ -81,6 +85,12 @@ test("registers CCSolver as a first-class root workspace", async () => {
   );
   assert.equal(webPackage.scripts["ccsolver:p2a:check"], "npm run ccsolver:p2a -- --check");
   assert.equal(webPackage.scripts["ccsolver:p2a:generate"], "npm run ccsolver:p2a -- --write");
+  assert.equal(
+    webPackage.scripts["ccsolver:p3"],
+    "vite-node src/ccsolver-runtime/compose/p3-review/runP3ReviewOutputs.ts",
+  );
+  assert.equal(webPackage.scripts["ccsolver:p3:check"], "npm run ccsolver:p3 -- --check");
+  assert.equal(webPackage.scripts["ccsolver:p3:generate"], "npm run ccsolver:p3 -- --write");
   for (const p2aTest of [
     "src/ccsolver-runtime/compose/sourceValidity/analyzeTworldSolverSourceScope.test.ts",
     "src/ccsolver-runtime/compose/sourceValidity/tworldSolverSourceScopeAcceptance.test.ts",
@@ -94,6 +104,10 @@ test("registers CCSolver as a first-class root workspace", async () => {
       p2aTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     ));
   }
+  assert.match(
+    rootPackage.scripts["ccsolver:integration"],
+    /src\/ccsolver-runtime\/compose\/p3-review\/buildP3ReviewOutputs\.test\.ts/,
+  );
 });
 
 test("uses one deterministic root lockfile for both workspaces", async () => {
@@ -123,6 +137,8 @@ test("creates explicit source boundaries and a narrow public package surface", a
     "application",
     "analyze",
     "ports",
+    "plan",
+    "snippets",
     "adapters",
     "cli",
     "render",
@@ -134,7 +150,16 @@ test("creates explicit source boundaries and a narrow public package surface", a
   const ccsolverPackage = await readJson("ccsolver/package.json");
   assert.deepEqual(
     new Set(Object.keys(ccsolverPackage.exports)),
-    new Set([".", "./domain", "./application", "./analyze", "./ports", "./adapters/web-crypto"]),
+    new Set([
+      ".",
+      "./domain",
+      "./application",
+      "./analyze",
+      "./ports",
+      "./plan",
+      "./snippets",
+      "./adapters/web-crypto",
+    ]),
   );
 
   const dependencyGroups = [
@@ -195,6 +220,7 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "npm run ccsolver:corpus:check",
     "npm run ccsolver:analysis:check",
     "npm run ccsolver:p1b:check",
+    "npm run ccsolver:p3:check",
     "npm --workspace web run typecheck:tools",
     "npm run ccsolver:cli -- --help",
     "npm run ccsolver:dossier -- --help",
@@ -206,6 +232,10 @@ test("runs the workspace foundation gate on pull requests", async () => {
   assert.match(
     workflow,
     /- name: Check P1B full-corpus artifacts\n\s+timeout-minutes: 90\n\s+env:\n\s+TWORLD_P1B_ANALYSIS_JOBS: 4\n\s+run: npm run ccsolver:p1b:check/,
+  );
+  assert.match(
+    workflow,
+    /- name: Check P3 terminal planning and contextual witness artifacts\n\s+timeout-minutes: 10\n\s+run: npm run ccsolver:p3:check/,
   );
   assert.match(
     workflow,
