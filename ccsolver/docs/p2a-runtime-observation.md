@@ -152,15 +152,15 @@ finished replay:
 1. **P2A — exact perception (available now):** inspect exact JSON plus the
    compact Markdown summaries for coordinates, ticks, input ownership,
    inventory/requirements, actors, devices, and changed cells.
-2. **P3A — backward prerequisite graph:** inspect terminal-first AND/OR graphs,
+2. **P3A — backward prerequisite graph (available now):** inspect terminal-first AND/OR graphs,
    alternatives, rejected achievers, and the human-language theory of the
    level. This is the first checkpoint for judging solver reasoning.
-3. **P3B — exact contextual witnesses:** inspect executable subgoal segments
+3. **P3B — exact contextual witnesses (available now):** inspect executable subgoal segments
    from exact full-world checkpoints, including entry/exit observations and
    contract deltas.
-4. **P4A — annotated map evidence:** inspect starting/ending map sections,
-   player and mob routes, points of interest, annotations, and optional bounded
-   animation.
+4. **P4A — annotated map evidence (available now):** inspect graphical
+   starting/ending map sections, plan-intent routing, exact observed endpoints,
+   points of interest, state changes, and the separate failed-canary states.
 5. **P5 — full-level proof:** inspect a composed forward execution and certified
    replay from canonical initialization.
 
@@ -170,6 +170,7 @@ that CCSolver understands why a level works or can solve it.
 ## Deferred work
 
 P2B adds the complete causal semantic event journal and bounded failure
-diagnostics. P3A adds terminal-first symbolic regression. P3B adds exact
-contextual subgoal witnesses. Dossier rendering and annotated media remain P4,
-and full-level composition/certification remains P5 and later milestones.
+diagnostics. P3A terminal-first regression, P3B exact contextual witnesses, and
+P4A annotated boundary evidence are now delivered previews. The full P4B
+dossier and full-level composition/certification remain P5 and later
+milestones.

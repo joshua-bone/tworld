@@ -40,6 +40,9 @@ jobs:
       - name: Check P3 terminal planning and contextual witness artifacts
         timeout-minutes: 10
         run: npm run ccsolver:p3:check
+      - name: Check P4A graphical subgoal evidence artifacts
+        timeout-minutes: 2
+        run: npm run ccsolver:p4a:check
       - name: Check browser workspace
         run: |
           npm run typecheck

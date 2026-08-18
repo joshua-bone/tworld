@@ -27,6 +27,12 @@ slice and checked Key Pyramid review are documented in
 The whole Key Pyramid theory remains unresolved; only its adjacent red-key leaf
 is forward-verified.
 
+The first graphical evidence slice is implemented as a provisional P4A preview
+and documented in [P4A graphical subgoal evidence](p4a-subgoal-evidence.md).
+It derives deterministic semantic SVG and a static comparison page from checked
+P3 bytes, with durable human review stored separately from regenerated machine
+evidence. P4A does not upgrade the leaf into a complete solution.
+
 ## Executive summary
 
 CCSolver turns a map and optional donor replays into an explicit theory of the
@@ -646,12 +652,12 @@ the view highlights the failed predicate, unexpected event, or changed cell.
 
 The provisional `SubgoalEvidenceView` binds the level, facts, plan, subgoal,
 target ruleset, contract, contextual witness when available, state-observation
-references, engine and renderer revisions, and review status. It defines one or
-more deterministic viewports: normally one fixed causal crop shared by entry
-and end, plus bounded insets for remote buttons, devices, actors, teleport
-destinations, or other offscreen dependencies. Map panels are accompanied by a
-compact summary of important nonspatial state such as inventory, remaining
-collectibles, time, channel/device state, actor order, and RNG/phase bindings.
+references, and renderer revision. Its first implementation defines one fixed,
+bounded causal crop shared by entry and end. Future bounded insets may show
+remote buttons, devices, actors, teleport destinations, or other offscreen
+dependencies. Map panels are accompanied by a compact summary of important
+nonspatial state such as inventory, remaining collectibles, time,
+channel/device state, actor order, and RNG/phase bindings.
 
 Overlays are semantic data rather than painted pixels. Initial primitives cover
 player and mob route polylines, numbered waypoints and event anchors, points of
@@ -679,23 +685,26 @@ from a contextual witness. Human review notes and overrides are a separate
 layer so regeneration cannot silently overwrite feedback.
 Review state is `unreviewed`, `reviewed`, or `changes-requested`; it gates the
 reviewed dossier/canary claim, not the mechanical validity of an independently
-certified replay.
+certified replay. Machine evidence does not embed its review state because that
+would create a content-address cycle. A resolved page validates a separate
+`ReviewStateV1` against the exact evidence and witness content references.
 
 `ccsolver/src/render` owns the engine-neutral view model, validation, canonical
-ordering, crop/inset resolution, and generated textual equivalent. A Tile World
-composition adapter binds exact MS/Lynx observations, frames, events, and stable
-identities to that model. The web renderer may reuse tileset drawing primitives
-but does not infer gameplay semantics; a pinned exporter derives SVG/PNG poster
-frames, frame sequences, GIF/WebM, and a content-addressed media manifest from
-the same scene. Compressed-media byte identity is required only inside its
-pinned exporter environment.
+ordering, deterministic semantic SVG, and generated textual equivalent. A Tile
+World composition adapter binds exact MS/Lynx observations, frames, and stable
+identities to that model. The P4A exporter intentionally renders literal
+semantic item stacks rather than inferring hidden terrain or importing live
+canvas/tile-art behavior. Future pinned exporters may add SVG/PNG poster frames,
+frame sequences, GIF/WebM, and a content-addressed media manifest from the same
+scene. Compressed-media byte identity is required only inside its pinned
+exporter environment.
 
 Static entry and end panels remain required even when animation is valuable.
 Interactive playback, GIF, video, or a contact sheet is a derived explanation
 between those keyframes, never the semantic authority. The view model remains
-provisional until synthetic and real dual-target contextual witnesses exercise
-it; it does not enter the frozen root artifact protocol merely because the
-renderer can display it.
+provisional even after the failed synthetic and real dual-target contextual
+witnesses exercise it; it does not enter the frozen root artifact protocol
+merely because the renderer can display it.
 
 ## Join semantics and composition
 

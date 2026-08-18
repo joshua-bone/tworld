@@ -19,6 +19,7 @@ native oracle remain authoritative for legacy replay results.
 - [P1B cross-ruleset topology and curriculum](docs/p1b-cross-ruleset-topology.md)
 - [P2A runtime observation and human-review packets](docs/p2a-runtime-observation.md)
 - [P3 terminal-first planning and contextual witnesses](docs/p3-terminal-planning-and-witness.md)
+- [P4A graphical subgoal evidence](docs/p4a-subgoal-evidence.md)
 
 ## Status
 
@@ -84,11 +85,18 @@ review includes textual start/end map crops and is reproducible with
 `npm run ccsolver:p3:check`. Verifying that segment does not claim a full
 solution.
 
-P4A is next: it will turn these exact entry/end captures into graphical
-annotated panels with distinct plan-intent and observed evidence, plus the first
-failed-attempt review. P5 follows with continuous full-level execution and
-certification. P2B's complete causal event journal remains a separate later
-expansion. Semantic rooms and block dead-square proofs remain unimplemented.
+P4A is now implemented. A pure evidence contract and deterministic semantic SVG
+renderer turn the exact P3 boundaries into graphical Key Pyramid MS/Lynx
+Starting and Ending panels while keeping plan intent distinct from observed
+evidence. A separate standard-only failed canary shows intended versus actual
+stop state and its first failed predicate. Durable review sidecars preserve
+human notes and overrides across regeneration and mark changed bindings stale.
+The static comparison is reproducible with `npm run ccsolver:p4a:check`.
+
+P5 is next: it must expand the reviewed leaf into continuous full-level
+execution and certified MS/Lynx replays. P2B's complete causal event journal
+remains a separate later expansion. Semantic rooms and block dead-square proofs
+remain unimplemented.
 
 CCSolver inherits Tile World's GPL-2.0-or-later license. Generated dossier pages
 will be publicly reachable under the existing GitHub Pages deployment but will

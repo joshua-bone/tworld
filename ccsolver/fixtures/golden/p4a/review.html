@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Key Pyramid P4A subgoal evidence review</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:1400px;margin:auto;padding:2rem;color:#20242a;background:#f8f8f5}h1,h2,h3,h4,h5{line-height:1.2}section{border-top:2px solid #777;padding-top:1rem;margin-top:2.5rem}article,aside{margin:1rem 0;padding:1rem;background:#fff;border:1px solid #bbb;min-width:0}figure{margin:1rem 0}img{display:block;max-width:100%;height:auto;border:1px solid #777}figcaption{margin-top:.6rem}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{border:1px solid #999;padding:.45rem;text-align:left;vertical-align:top}code{overflow-wrap:anywhere}.warning{border-left:5px solid #9c3d10;padding:.8rem;background:#fff4ed}.panel-grid,.summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:start}.panel-grid article{margin:0}.panel-grid table{font-size:.85rem}@media(max-width:900px){.panel-grid,.summary-grid{grid-template-columns:1fr}}@media(prefers-color-scheme:dark){body{color:#eee;background:#17191c}article,aside{background:#22262a}a{color:#8bc5ff}}</style>
+</head>
+<body>
+<main>
+<h1>Key Pyramid P4A subgoal evidence review</h1>
+<p class="warning">Static boundary panels are complete without motion. Motion is not recommended: <code>no-intermediate-semantic-scenes</code>. No animation asset was generated.</p>
+<p>The two Key Pyramid views are projections of cryptographically bound checked P3 JSON; their gameplay engines were not rerun. The failed standard-only view is explicitly synthetic and was executed through a bounded fake runtime port and the P3B contextual-witness validator.</p>
+<h2>Cross-view comparison</h2>
+<table><thead><tr><th scope="col">View</th><th scope="col">Target</th><th scope="col">Outcome</th><th scope="col">Start tick</th><th scope="col">Observed stop tick</th><th scope="col">Red-key comparison</th><th scope="col">Review</th></tr></thead><tbody>
+<tr><th scope="row">view:key-pyramid:lynx:adjacent-red-key</th><td>lynx</td><td>verified</td><td>-1</td><td>3</td><td>Observed red-key inventory 0 → 1</td><td>unreviewed</td></tr>
+<tr><th scope="row">view:key-pyramid:ms:adjacent-red-key</th><td>ms</td><td>verified</td><td>-1</td><td>0</td><td>Observed red-key inventory 0 → 1</td><td>unreviewed</td></tr>
+<tr><th scope="row">view:synthetic:ms:failed-red-key-canary</th><td>ms</td><td>failed</td><td>-1</td><td>0</td><td>Expected inventory 1; actual inventory 0</td><td>unreviewed</td></tr>
+</tbody></table>
+<section aria-labelledby="paired-key-pyramid-heading">
+<h2 id="paired-key-pyramid-heading">Key Pyramid verified segment — paired panels</h2>
+<div class="summary-grid">
+<aside aria-labelledby="view:key-pyramid:ms:adjacent-red-key-summary-heading">
+<h3 id="view:key-pyramid:ms:adjacent-red-key-summary-heading">MS review binding</h3>
+<p><strong>Outcome:</strong> verified. <strong>Effective human review:</strong> unreviewed. Binding is current.</p>
+<p>Review the exact selected segment only; the whole Key Pyramid plan remains unresolved. Full-world contextual witness data is authoritative; every crop below is a derivative review aid.</p>
+<p><a href="cclp1-001/ms/red-key-evidence.json">Canonical machine evidence JSON</a></p>
+<p>No human review notes have been recorded.</p>
+</aside>
+<aside aria-labelledby="view:key-pyramid:lynx:adjacent-red-key-summary-heading">
+<h3 id="view:key-pyramid:lynx:adjacent-red-key-summary-heading">LYNX review binding</h3>
+<p><strong>Outcome:</strong> verified. <strong>Effective human review:</strong> unreviewed. Binding is current.</p>
+<p>Review the exact selected segment only; the whole Key Pyramid plan remains unresolved. Full-world contextual witness data is authoritative; every crop below is a derivative review aid.</p>
+<p><a href="cclp1-001/lynx/red-key-evidence.json">Canonical machine evidence JSON</a></p>
+<p>No human review notes have been recorded.</p>
+</aside>
+</div>
+<h3>Starting State comparison</h3>
+<div class="panel-grid">
+<article aria-labelledby="panel:key-pyramid:ms:starting-state-heading">
+<h4 id="panel:key-pyramid:ms:starting-state-heading">Starting State</h4>
+<figure>
+<img src="assets/cclp1-001-ms-adjacent-red-key-starting-82c907f5ddc94c782313e2bada15c9f02205a22042c4e930c473a3df25268f8b.svg" alt="Observed MS start at native tick -1: player (15,19,0), red-key inventory 0, ten chips remaining. The cell table preserves every supplied semantic stack literally.">
+<figcaption>Observed native tick -1; exact fingerprint sha256:3fdbbc66e67a8a8e6560b3fce6c3a34ee1298dcd95530e25a101c47dfc89abaf. Observed MS start at native tick -1: player (15,19,0), red-key inventory 0, ten chips remaining. The cell table preserves every supplied semantic stack literally.</figcaption>
+</figure>
+<h5>Annotation textual equivalents</h5>
+<table class="annotation-equivalents"><thead><tr><th scope="col">Overlay label</th><th scope="col">Evidence basis</th><th scope="col">Text equivalent</th></tr></thead><tbody>
+<tr><th scope="row">Later red-door requirement</th><td><code>regressed-requirement</code></td><td>The later red door at (14,16,0) is a backward-regressed requirement, not an observed consequence of this segment.</td></tr>
+<tr><th scope="row">Retained blue-key candidate</th><td><code>backward-candidate</code></td><td>The blue key at (14,19,0) remains a distinct backward candidate.</td></tr>
+<tr><th scope="row">Selected red-key candidate</th><td><code>backward-candidate</code></td><td>The exact selected red-key placement is the backward candidate at (16,19,0).</td></tr>
+<tr><th scope="row">One-step plan intent</th><td><code>plan-intent</code></td><td>Plan intent proposes (15,19,0) to (16,19,0); P3 explicitly records no observed full route.</td></tr>
+<tr><th scope="row">Observed start player position</th><td><code>observed-witness</code></td><td>The exact observed player start is (15,19,0) at native tick -1.</td></tr>
+</tbody></table>
+<h5>Cell-stack textual equivalent</h5>
+<table><thead><tr><th scope="col">Coordinate</th><th scope="col">Exact supplied semantic stack</th></tr></thead><tbody>
+<tr><th scope="row">(13,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,16,0)</th><td>terrain:cc1:door-red</td></tr>
+<tr><th scope="row">(15,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(16,16,0)</th><td>terrain:cc1:door-yellow</td></tr>
+<tr><th scope="row">(17,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,17,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,17,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(15,17,0)</th><td>terrain:cc1:hintbutton</td></tr>
+<tr><th scope="row">(16,17,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(17,17,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,18,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(15,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(16,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(17,18,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,19,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,19,0)</th><td>pickup:cc1:key-blue</td></tr>
+<tr><th scope="row">(15,19,0)</th><td>actor:cc1:chip</td></tr>
+<tr><th scope="row">(16,19,0)</th><td>pickup:cc1:key-red</td></tr>
+<tr><th scope="row">(17,19,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(15,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(16,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(17,20,0)</th><td>terrain:cc1:wall</td></tr>
+</tbody></table>
+</article>
+<article aria-labelledby="panel:key-pyramid:lynx:starting-state-heading">
+<h4 id="panel:key-pyramid:lynx:starting-state-heading">Starting State</h4>
+<figure>
+<img src="assets/cclp1-001-lynx-adjacent-red-key-starting-cb9cabe319e17ef2c6ac2eb3149955b2c2410d7b95d7b8e32a7563db8d512367.svg" alt="Observed LYNX start at native tick -1: player (15,19,0), red-key inventory 0, ten chips remaining. The cell table preserves every supplied semantic stack literally.">
+<figcaption>Observed native tick -1; exact fingerprint sha256:c31b7499a71c9ea89ebb17a715da5ba42043d5491ba94391ee5c027cfd68dda1. Observed LYNX start at native tick -1: player (15,19,0), red-key inventory 0, ten chips remaining. The cell table preserves every supplied semantic stack literally.</figcaption>
+</figure>
+<h5>Annotation textual equivalents</h5>
+<table class="annotation-equivalents"><thead><tr><th scope="col">Overlay label</th><th scope="col">Evidence basis</th><th scope="col">Text equivalent</th></tr></thead><tbody>
+<tr><th scope="row">Later red-door requirement</th><td><code>regressed-requirement</code></td><td>The later red door at (14,16,0) is a backward-regressed requirement, not an observed consequence of this segment.</td></tr>
+<tr><th scope="row">Retained blue-key candidate</th><td><code>backward-candidate</code></td><td>The blue key at (14,19,0) remains a distinct backward candidate.</td></tr>
+<tr><th scope="row">Selected red-key candidate</th><td><code>backward-candidate</code></td><td>The exact selected red-key placement is the backward candidate at (16,19,0).</td></tr>
+<tr><th scope="row">One-step plan intent</th><td><code>plan-intent</code></td><td>Plan intent proposes (15,19,0) to (16,19,0); P3 explicitly records no observed full route.</td></tr>
+<tr><th scope="row">Observed start player position</th><td><code>observed-witness</code></td><td>The exact observed player start is (15,19,0) at native tick -1.</td></tr>
+</tbody></table>
+<h5>Cell-stack textual equivalent</h5>
+<table><thead><tr><th scope="col">Coordinate</th><th scope="col">Exact supplied semantic stack</th></tr></thead><tbody>
+<tr><th scope="row">(13,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,16,0)</th><td>terrain:cc1:door-red</td></tr>
+<tr><th scope="row">(15,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(16,16,0)</th><td>terrain:cc1:door-yellow</td></tr>
+<tr><th scope="row">(17,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,17,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,17,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(15,17,0)</th><td>terrain:cc1:hintbutton</td></tr>
+<tr><th scope="row">(16,17,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(17,17,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,18,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(15,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(16,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(17,18,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,19,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,19,0)</th><td>pickup:cc1:key-blue</td></tr>
+<tr><th scope="row">(15,19,0)</th><td>terrain:cc1:floor + actor:cc1:chip</td></tr>
+<tr><th scope="row">(16,19,0)</th><td>pickup:cc1:key-red</td></tr>
+<tr><th scope="row">(17,19,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(15,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(16,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(17,20,0)</th><td>terrain:cc1:wall</td></tr>
+</tbody></table>
+</article>
+</div>
+<h3>Ending State comparison</h3>
+<div class="panel-grid">
+<article aria-labelledby="panel:key-pyramid:ms:ending-state-heading">
+<h4 id="panel:key-pyramid:ms:ending-state-heading">Ending State</h4>
+<figure>
+<img src="assets/cclp1-001-ms-adjacent-red-key-ending-56cdcdbff1737dd2b0f5dfdc6a199f40c70b4c19fd70e533384fb388c33f1c1b.svg" alt="Verified selected-segment stop at native tick 0: player (16,19,0), red-key inventory 1, ten chips remaining. Changed-cell callouts are observed boundary deltas; no continuous route is claimed.">
+<figcaption>Observed native tick 0; exact fingerprint sha256:73c643d01e1a421f0b9cc3d222846881bf1d3ad58123ff8b1241ecf57033da30. Verified selected-segment stop at native tick 0: player (16,19,0), red-key inventory 1, ten chips remaining. Changed-cell callouts are observed boundary deltas; no continuous route is claimed.</figcaption>
+</figure>
+<h5>Annotation textual equivalents</h5>
+<table class="annotation-equivalents"><thead><tr><th scope="col">Overlay label</th><th scope="col">Evidence basis</th><th scope="col">Text equivalent</th></tr></thead><tbody>
+<tr><th scope="row">Selected red-key candidate</th><td><code>backward-candidate</code></td><td>The exact selected red-key placement is the backward candidate at (16,19,0).</td></tr>
+<tr><th scope="row">One-step plan intent</th><td><code>plan-intent</code></td><td>Plan intent proposes (15,19,0) to (16,19,0); P3 explicitly records no observed full route.</td></tr>
+<tr><th scope="row">Observed ending player position</th><td><code>observed-witness</code></td><td>The exact observed player stop is (16,19,0) at native tick 0; the two boundary positions are not an observed route.</td></tr>
+<tr><th scope="row">Observed changed cell (15,19,0)</th><td><code>observed-witness</code></td><td>The exact supplied semantic stack at (15,19,0) changed from actor:cc1:chip to terrain:cc1:floor.</td></tr>
+<tr><th scope="row">Observed changed cell (16,19,0)</th><td><code>observed-witness</code></td><td>The exact supplied semantic stack at (16,19,0) changed from pickup:cc1:key-red to actor:cc1:chip.</td></tr>
+</tbody></table>
+<h5>Cell-stack textual equivalent</h5>
+<table><thead><tr><th scope="col">Coordinate</th><th scope="col">Exact supplied semantic stack</th></tr></thead><tbody>
+<tr><th scope="row">(13,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,16,0)</th><td>terrain:cc1:door-red</td></tr>
+<tr><th scope="row">(15,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(16,16,0)</th><td>terrain:cc1:door-yellow</td></tr>
+<tr><th scope="row">(17,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,17,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,17,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(15,17,0)</th><td>terrain:cc1:hintbutton</td></tr>
+<tr><th scope="row">(16,17,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(17,17,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,18,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(15,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(16,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(17,18,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,19,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,19,0)</th><td>pickup:cc1:key-blue</td></tr>
+<tr><th scope="row">(15,19,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(16,19,0)</th><td>actor:cc1:chip</td></tr>
+<tr><th scope="row">(17,19,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(15,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(16,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(17,20,0)</th><td>terrain:cc1:wall</td></tr>
+</tbody></table>
+</article>
+<article aria-labelledby="panel:key-pyramid:lynx:ending-state-heading">
+<h4 id="panel:key-pyramid:lynx:ending-state-heading">Ending State</h4>
+<figure>
+<img src="assets/cclp1-001-lynx-adjacent-red-key-ending-bb621cf199bf7143d42e13f28c309c6089f2942226eb9b5130b8fc4acb544e76.svg" alt="Verified selected-segment stop at native tick 3: player (16,19,0), red-key inventory 1, ten chips remaining. Changed-cell callouts are observed boundary deltas; no continuous route is claimed.">
+<figcaption>Observed native tick 3; exact fingerprint sha256:9bdd553ccca0890d12878d5a5a5631943c5b051f0f876b662f93a6c8a09daf24. Verified selected-segment stop at native tick 3: player (16,19,0), red-key inventory 1, ten chips remaining. Changed-cell callouts are observed boundary deltas; no continuous route is claimed.</figcaption>
+</figure>
+<h5>Annotation textual equivalents</h5>
+<table class="annotation-equivalents"><thead><tr><th scope="col">Overlay label</th><th scope="col">Evidence basis</th><th scope="col">Text equivalent</th></tr></thead><tbody>
+<tr><th scope="row">Selected red-key candidate</th><td><code>backward-candidate</code></td><td>The exact selected red-key placement is the backward candidate at (16,19,0).</td></tr>
+<tr><th scope="row">One-step plan intent</th><td><code>plan-intent</code></td><td>Plan intent proposes (15,19,0) to (16,19,0); P3 explicitly records no observed full route.</td></tr>
+<tr><th scope="row">Observed ending player position</th><td><code>observed-witness</code></td><td>The exact observed player stop is (16,19,0) at native tick 3; the two boundary positions are not an observed route.</td></tr>
+<tr><th scope="row">Observed changed cell (15,19,0)</th><td><code>observed-witness</code></td><td>The exact supplied semantic stack at (15,19,0) changed from terrain:cc1:floor + actor:cc1:chip to terrain:cc1:floor.</td></tr>
+<tr><th scope="row">Observed changed cell (16,19,0)</th><td><code>observed-witness</code></td><td>The exact supplied semantic stack at (16,19,0) changed from pickup:cc1:key-red to terrain:cc1:floor + actor:cc1:chip.</td></tr>
+</tbody></table>
+<h5>Cell-stack textual equivalent</h5>
+<table><thead><tr><th scope="col">Coordinate</th><th scope="col">Exact supplied semantic stack</th></tr></thead><tbody>
+<tr><th scope="row">(13,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,16,0)</th><td>terrain:cc1:door-red</td></tr>
+<tr><th scope="row">(15,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(16,16,0)</th><td>terrain:cc1:door-yellow</td></tr>
+<tr><th scope="row">(17,16,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,17,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,17,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(15,17,0)</th><td>terrain:cc1:hintbutton</td></tr>
+<tr><th scope="row">(16,17,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(17,17,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,18,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(15,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(16,18,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(17,18,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,19,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,19,0)</th><td>pickup:cc1:key-blue</td></tr>
+<tr><th scope="row">(15,19,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(16,19,0)</th><td>terrain:cc1:floor + actor:cc1:chip</td></tr>
+<tr><th scope="row">(17,19,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(13,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(14,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(15,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(16,20,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(17,20,0)</th><td>terrain:cc1:wall</td></tr>
+</tbody></table>
+</article>
+</div>
+</section>
+<section aria-labelledby="synthetic-canary-heading">
+<h2 id="synthetic-canary-heading">Failed standard-only synthetic canary</h2>
+<aside aria-labelledby="view:synthetic:ms:failed-red-key-canary-summary-heading">
+<h3 id="view:synthetic:ms:failed-red-key-canary-summary-heading">MS review binding</h3>
+<p><strong>Outcome:</strong> failed. <strong>Effective human review:</strong> unreviewed. Binding is current.</p>
+<p>A bounded fake standard-ruleset runtime stops with the red-key postcondition unsatisfied; this is a canary, not a gameplay-engine claim. Full-world contextual witness data is authoritative; every crop below is a derivative review aid.</p>
+<p><a href="synthetic-standard-failed-red-key/evidence.json">Canonical machine evidence JSON</a></p>
+<p>No human review notes have been recorded.</p>
+</aside>
+<article aria-labelledby="panel:synthetic:ms:starting-state-heading">
+<h3 id="panel:synthetic:ms:starting-state-heading">Starting State</h3>
+<figure>
+<img src="assets/synthetic-standard-failed-red-key-starting-689cdf3df38ea1611c3d6c01ee9a1fccddb579fc03719cc22f6c53d3241c752b.svg" alt="Synthetic observed start at native tick -1: player at (1,1,0), red key present at (2,1,0), red-key inventory 0, two chips remaining.">
+<figcaption>Observed native tick -1; exact fingerprint sha256:304eda32dd6b3f1d7fd269e8eea5f11e4f121b276eab7160395accbac73ba191. Synthetic observed start at native tick -1: player at (1,1,0), red key present at (2,1,0), red-key inventory 0, two chips remaining.</figcaption>
+</figure>
+<h4>Annotation textual equivalents</h4>
+<table class="annotation-equivalents"><thead><tr><th scope="col">Overlay label</th><th scope="col">Evidence basis</th><th scope="col">Text equivalent</th></tr></thead><tbody>
+<tr><th scope="row">Expected red-key candidate</th><td><code>backward-candidate</code></td><td>The synthetic contract expects the red key at (2,1,0) to be collected.</td></tr>
+<tr><th scope="row">Synthetic one-step plan intent</th><td><code>plan-intent</code></td><td>The bounded synthetic plan intends one east step from (1,1,0) to (2,1,0).</td></tr>
+<tr><th scope="row">Synthetic observed start</th><td><code>observed-witness</code></td><td>The fake runtime exactly observes the player at (1,1,0) before the bounded decision.</td></tr>
+</tbody></table>
+<h4>Cell-stack textual equivalent</h4>
+<table><thead><tr><th scope="col">Coordinate</th><th scope="col">Exact supplied semantic stack</th></tr></thead><tbody>
+<tr><th scope="row">(0,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(1,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(2,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(3,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(4,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(0,1,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(1,1,0)</th><td>terrain:cc1:floor + actor:cc1:chip</td></tr>
+<tr><th scope="row">(2,1,0)</th><td>terrain:cc1:floor + pickup:cc1:key-red</td></tr>
+<tr><th scope="row">(3,1,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(4,1,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(0,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(1,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(2,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(3,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(4,2,0)</th><td>terrain:cc1:wall</td></tr>
+</tbody></table>
+</article>
+<article aria-labelledby="panel:synthetic:ms:intended-ending-heading">
+<h3 id="panel:synthetic:ms:intended-ending-heading">Intended Ending State</h3>
+<figure>
+<img src="assets/synthetic-standard-failed-red-key-expected-ending-e4f7bad254b2b636382d033cec9e75840d0bc09f26e169c493a043ae3ee58cd7.svg" alt="Expected-only synthetic ending: player at (2,1,0), red key absent, red-key inventory 1, two chips remaining. This content-addressed scene is a contract projection and was not observed.">
+<figcaption>Expected-only contract projection sha256:5aca08779cd43bcce09b60805a3cc982841e95a193a351f7f1b0892acc73e38d. Expected-only synthetic ending: player at (2,1,0), red key absent, red-key inventory 1, two chips remaining. This content-addressed scene is a contract projection and was not observed.</figcaption>
+</figure>
+<h4>Annotation textual equivalents</h4>
+<table class="annotation-equivalents"><thead><tr><th scope="col">Overlay label</th><th scope="col">Evidence basis</th><th scope="col">Text equivalent</th></tr></thead><tbody>
+<tr><th scope="row">Expected red-key candidate</th><td><code>backward-candidate</code></td><td>The synthetic contract expects the red key at (2,1,0) to be collected.</td></tr>
+<tr><th scope="row">Synthetic one-step plan intent</th><td><code>plan-intent</code></td><td>The bounded synthetic plan intends one east step from (1,1,0) to (2,1,0).</td></tr>
+</tbody></table>
+<h4>Cell-stack textual equivalent</h4>
+<table><thead><tr><th scope="col">Coordinate</th><th scope="col">Exact supplied semantic stack</th></tr></thead><tbody>
+<tr><th scope="row">(0,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(1,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(2,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(3,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(4,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(0,1,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(1,1,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(2,1,0)</th><td>terrain:cc1:floor + actor:cc1:chip</td></tr>
+<tr><th scope="row">(3,1,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(4,1,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(0,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(1,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(2,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(3,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(4,2,0)</th><td>terrain:cc1:wall</td></tr>
+</tbody></table>
+</article>
+<article aria-labelledby="panel:synthetic:ms:actual-failure-heading">
+<h3 id="panel:synthetic:ms:actual-failure-heading">Actual Stop / Failure State</h3>
+<figure>
+<img src="assets/synthetic-standard-failed-red-key-actual-failure-183ec27b127d3a2993ac05757d404e4949d3da68d18928d8df9dbe066fef6d84.svg" alt="Actual synthetic stop at native tick 0: player still at (1,1,0), red key still present at (2,1,0), red-key inventory 0, one chip remaining. The failed expected and actual states remain separate.">
+<figcaption>Observed native tick 0; exact fingerprint sha256:2a9be5784debd9c70204bf0403aa98026f02cdf9cc5d1ff5c599eef56fe8e120. Actual synthetic stop at native tick 0: player still at (1,1,0), red key still present at (2,1,0), red-key inventory 0, one chip remaining. The failed expected and actual states remain separate.</figcaption>
+</figure>
+<h4>Annotation textual equivalents</h4>
+<table class="annotation-equivalents"><thead><tr><th scope="col">Overlay label</th><th scope="col">Evidence basis</th><th scope="col">Text equivalent</th></tr></thead><tbody>
+<tr><th scope="row">Expected red-key candidate</th><td><code>backward-candidate</code></td><td>The synthetic contract expects the red key at (2,1,0) to be collected.</td></tr>
+<tr><th scope="row">Synthetic one-step plan intent</th><td><code>plan-intent</code></td><td>The bounded synthetic plan intends one east step from (1,1,0) to (2,1,0).</td></tr>
+<tr><th scope="row">Synthetic observed stop</th><td><code>observed-witness</code></td><td>The fake runtime exactly observes the player still at (1,1,0), while the red key remains at (2,1,0).</td></tr>
+</tbody></table>
+<h4>Cell-stack textual equivalent</h4>
+<table><thead><tr><th scope="col">Coordinate</th><th scope="col">Exact supplied semantic stack</th></tr></thead><tbody>
+<tr><th scope="row">(0,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(1,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(2,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(3,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(4,0,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(0,1,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(1,1,0)</th><td>terrain:cc1:floor + actor:cc1:chip</td></tr>
+<tr><th scope="row">(2,1,0)</th><td>terrain:cc1:floor + pickup:cc1:key-red</td></tr>
+<tr><th scope="row">(3,1,0)</th><td>terrain:cc1:floor</td></tr>
+<tr><th scope="row">(4,1,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(0,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(1,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(2,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(3,2,0)</th><td>terrain:cc1:wall</td></tr>
+<tr><th scope="row">(4,2,0)</th><td>terrain:cc1:wall</td></tr>
+</tbody></table>
+</article>
+</section>
+<section aria-labelledby="provenance-heading">
+<h2 id="provenance-heading">Full provenance</h2>
+<p>Key Pyramid authority: checked P3 JSON. Gameplay engines executed for this build: no. Synthetic canary authority: bounded fake SolverRuntimePort through P3B. Network access: no. Renderer revision: <code>ccsolver:p4a-semantic-svg-v1</code>.</p>
+<h3>Checked P3 source bytes</h3>
+<table><thead><tr><th scope="col">Source</th><th scope="col">Repository path</th><th scope="col">SHA-256</th><th scope="col">Bytes</th></tr></thead><tbody>
+<tr><th scope="row">lynx P3 terminal plan</th><td>ccsolver/fixtures/golden/p3/cclp1-001/lynx/terminal-plan.json</td><td><code>sha256:95b83b600331619ed27a68353e8c4487ee98fb63d6d0548e2ee716130eff1509</code></td><td>55328</td></tr>
+<tr><th scope="row">lynx P3 contextual witness</th><td>ccsolver/fixtures/golden/p3/cclp1-001/lynx/red-key-witness.json</td><td><code>sha256:4ddb735fd358ce56bffcbe0bfa370e57545d1e57be31f9843ab88fd0da1668ba</code></td><td>39391</td></tr>
+<tr><th scope="row">ms P3 terminal plan</th><td>ccsolver/fixtures/golden/p3/cclp1-001/ms/terminal-plan.json</td><td><code>sha256:ce824690aa0422857a2bfe1082364dc43713b7ae250d5104aa08c077da0806dc</code></td><td>55110</td></tr>
+<tr><th scope="row">ms P3 contextual witness</th><td>ccsolver/fixtures/golden/p3/cclp1-001/ms/red-key-witness.json</td><td><code>sha256:fc4295909a31ba74be3ad314518ab1f1c2d59808b79bff225fefcec4163853cb</code></td><td>36020</td></tr>
+</tbody></table>
+<h3>Evidence, witness, and expected-scene content</h3>
+<table><thead><tr><th scope="col">Bound value</th><th scope="col">SHA-256</th><th scope="col">Bytes</th></tr></thead><tbody>
+<tr><th scope="row">view:key-pyramid:lynx:adjacent-red-key machine evidence</th><td><code>sha256:bca19684232a06cc0484b316850d4e7ce7488546d93d2729c3d8979b127ee539</code></td><td>25528</td></tr>
+<tr><th scope="row">view:key-pyramid:lynx:adjacent-red-key authoritative witness</th><td><code>sha256:abddffa2820eb23dccb045766a7696f4957e3083019fa73cbf7d5b64c2bd047f</code></td><td>682760</td></tr>
+<tr><th scope="row">view:key-pyramid:ms:adjacent-red-key machine evidence</th><td><code>sha256:1053278c9396d3ddb9e562856f3e231f55422d09609e8b1776859edb22e529cb</code></td><td>24875</td></tr>
+<tr><th scope="row">view:key-pyramid:ms:adjacent-red-key authoritative witness</th><td><code>sha256:8e484f39c75c7a53e796cdc7b5763040c5f69a72a20ac4c42a86d55e2a024105</code></td><td>679352</td></tr>
+<tr><th scope="row">view:synthetic:ms:failed-red-key-canary machine evidence</th><td><code>sha256:1ca96a51046894d7d07b5ce2139ad589697079ebc74273d5af5a05728317d806</code></td><td>24004</td></tr>
+<tr><th scope="row">view:synthetic:ms:failed-red-key-canary authoritative witness</th><td><code>sha256:7a54fbceb496d7ebb50ad96562dbcae665b4364bfec5c6a06530c33d8d2d623c</code></td><td>36880</td></tr>
+<tr><th scope="row">view:synthetic:ms:failed-red-key-canary expected scene</th><td><code>sha256:294eeac3af833e8e6c43f910a70e08633b216ea041fdcec3174efc5adaf58686</code></td><td>5686</td></tr>
+</tbody></table>
+<h3>Human-owned review inputs</h3>
+<table><thead><tr><th scope="col">View</th><th scope="col">Repository path</th><th scope="col">SHA-256</th><th scope="col">Bytes</th></tr></thead><tbody>
+<tr><th scope="row">view:key-pyramid:lynx:adjacent-red-key</th><td>ccsolver/reviews/p4a/cclp1-001/lynx/red-key.review.v1.json</td><td><code>sha256:29589409d780b1c61585b3af082b8c0acc5aa86a80bb19f72b0878d989bfa2a6</code></td><td>356</td></tr>
+<tr><th scope="row">view:key-pyramid:ms:adjacent-red-key</th><td>ccsolver/reviews/p4a/cclp1-001/ms/red-key.review.v1.json</td><td><code>sha256:9bc211c9472eaea4cbefb728fa0f05f797e8caf0aa02a4e864d3c8c7a2c931fe</code></td><td>356</td></tr>
+<tr><th scope="row">view:synthetic:ms:failed-red-key-canary</th><td>ccsolver/reviews/p4a/synthetic-standard-failed-red-key.review.v1.json</td><td><code>sha256:699a4f767cdf4cc6009d5ff18d99e1796703b1626d5e8aef4e2b7cefd3b530c0</code></td><td>355</td></tr>
+</tbody></table>
+</section>
+</main>
+</body>
+</html>

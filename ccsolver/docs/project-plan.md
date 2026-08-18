@@ -63,8 +63,11 @@ next layer is trusted:
    MS/Lynx red-key witnesses execute one selected segment forward from the
    complete start state and compare uninterrupted execution with an exact
    restored branch.
-4. **P4A — annotated map evidence:** starting/ending map sections show player
-   and mob routes, points of interest, state deltas, and optional animation.
+4. **P4A — annotated map evidence (available now):** checked graphical
+   Key Pyramid MS/Lynx boundaries show plan intent, exact observed endpoints,
+   points of interest, and state deltas. A failed standard-only canary keeps its
+   intended ending separate from the observed stop. Animation is deliberately
+   omitted because P3 retained no intermediate semantic scenes.
 5. **P5 — full-level proof:** a composed forward execution and certified replay
    from canonical initialization show that the reviewed pieces actually join.
 
@@ -74,7 +77,11 @@ fresh generation is followed by a successful byte-for-byte
 
 P3 planning/witness output is authoritative preview evidence only after
 `npm run ccsolver:p3:check`. Its compact textual map crops are early review aids;
-P4A still owns the graphical annotated evidence surface.
+P4A owns the graphical annotated evidence surface.
+
+P4A graphical output is authoritative preview evidence only after
+`npm run ccsolver:p4a:check`. Human review sidecars are separate durable inputs,
+not regenerated machine output.
 
 ## P0: project and artifact foundation
 
@@ -433,6 +440,8 @@ parent.
 
 ## P4A: minimum subgoal evidence surface
 
+**Status:** delivered as a checked preview; P4B remains future work.
+
 ### Objective
 
 Make one exact subgoal understandable from a static page before using the
@@ -448,23 +457,23 @@ presentation model on the first real end-to-end level.
      observation, digest, viewport, and accessible prose;
   2. optional bounded interactive playback or generated animation; and
   3. an annotated **Ending State** panel bound to the exact witness stop tick,
-     observation, digest, viewport, accessible prose, and state/event delta.
+     observation, digest, viewport, accessible prose, and observed state delta.
 - Keep panels and textual equivalents usable when no animation is generated.
 - Label generated frames, posters, GIFs, and videos as derivative review aids;
   the contextual witness and forward engine execution remain authoritative.
 - Add a minimal durable review layer with `unreviewed`, `reviewed`, and
   `changes-requested` status, human notes, and reviewed overlay overrides kept
   separate from regenerated machine annotations.
-- Generate a deterministic static page and content-addressed assets for at least
-  one successful and one failed synthetic contextual witness. The failed view
-  shows its Starting State, intended Ending State, actual stop/failure state,
-  and first failed predicate or divergent event without conflating expected and
-  observed evidence.
+- Generate a deterministic static page and content-addressed assets for one
+  successful real dual-target contextual witness and one failed standard-only
+  synthetic contextual witness. The failed view shows its Starting State,
+  intended Ending State, actual stop/failure state, and first failed predicate
+  or observed divergence without conflating expected and observed evidence.
 
 ### Exit gate
 
-- The synthetic subgoal page and its two boundary panels regenerate identically
-  from canonical witness data.
+- The real and synthetic subgoal views and their boundary panels regenerate
+  identically from canonical evidence data.
 - Removing either the Starting State or Ending State binding fails validation or
   generation; removing optional animation does not.
 - Panel annotations identify the target, level, subgoal, boundary tick, viewport,
@@ -476,7 +485,8 @@ presentation model on the first real end-to-end level.
   a changed bound witness sets their review state to `changes-requested` with a
   stale-binding reason rather than silently carrying approval forward.
 - The failed synthetic case visibly distinguishes its intended ending from its
-  actual failure observation and identifies the first failed predicate or event.
+  actual failure observation and identifies the first failed predicate or
+  observed divergence.
 - The page never implies that a cropped frame or animation proves full-world
   correctness.
 
@@ -912,27 +922,27 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-Proceed with **P4A — Minimum Subgoal Evidence Surface** using ATDD:
+Proceed with **P5 — First Manually Guided End-to-End Level** using ATDD:
 
-1. define a provisional, pure `SubgoalEvidenceView` bound to the exact P3B
-   witness, contract, target, entry/end content references, fixed viewport, and
-   review state;
-2. derive typed overlays for the selected red-key placement, retained blue-key
-   alternative, later red door, plan-intent route, observed player boundary
-   positions, and changed cells, keeping every overlay's evidence basis
-   explicit;
-3. render mandatory graphical **Starting State** and **Ending State** panels for
-   the MS and Lynx Key Pyramid leaf, with the same crop/scale, accessible textual
-   equivalents, inventory/requirement deltas, and exact tick/digest labels;
-4. add one bounded failed synthetic witness whose expected ending, actual stop,
-   and first failed predicate are visibly distinct;
-5. add durable `unreviewed | reviewed | changes-requested` status and separate
-   human notes/overrides, proving regeneration cannot silently overwrite review
-   and a changed witness invalidates prior approval; and
-6. make optional animation a deterministic heuristic/override fed by the same
-   semantic scene, while keeping static boundary panels complete without it.
+1. close Key Pyramid's unresolved terminal theory with explicit target-scoped
+   achievers and a reviewed forward plan covering all ten chips, relevant
+   key/door choices, socket, and exit without treating static candidates as
+   runtime proof;
+2. author exact observation contracts and bounded MS/Lynx realizations for each
+   selected subgoal, preserving target-specific timing or route branches where
+   required;
+3. execute the complete selected sequence continuously from canonical
+   initialization through one live target state, proving every adjacent join is
+   exact or explicitly replanned and rejecting any semantic-only gap;
+4. record the complete decision streams, encode target-specific TWS files, and
+   prove codec round-trip without copying donor replay bytes;
+5. replay both outputs from level start in the TypeScript target engines and the
+   pinned native oracle, retaining exact terminal/certificate evidence; and
+6. regenerate the complete P4A boundary-panel set for every selected subgoal,
+   publish the plan, witnesses, replays, certificates, and a compact human
+   review, then gate them with a bounded byte-for-byte check.
 
-P4A makes the first exact leaf visually debuggable; it does not solve Key
-Pyramid or certify a replay. P5 follows with backward-decomposed subgoals joined
-through one continuous forward run. P2B remains the separate later expansion
-for the complete causal semantic journal.
+P5 is the first point where a person can inspect a complete route and decide
+whether the reviewed pieces actually join into a win. P2B remains the separate
+later expansion for a complete causal semantic journal, and P4B follows P5 with
+the full dossier laboratory.

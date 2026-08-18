@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="panel-synthetic-ms-intended-ending-title panel-synthetic-ms-intended-ending-description" viewBox="0 0 640 480" width="640" height="480">
+<title id="panel-synthetic-ms-intended-ending-title">Intended Ending State — Synthetic red-key postcondition failure</title>
+<desc id="panel-synthetic-ms-intended-ending-description">Expected-only synthetic ending: player at (2,1,0), red key absent, red-key inventory 1, two chips remaining. This content-addressed scene is a contract projection and was not observed. The synthetic contract expects the red key at (2,1,0) to be collected. The bounded synthetic plan intends one east step from (1,1,0) to (2,1,0). Exact supplied cell stacks: (0,0,0) terrain:cc1:wall; (1,0,0) terrain:cc1:wall; (2,0,0) terrain:cc1:wall; (3,0,0) terrain:cc1:wall; (4,0,0) terrain:cc1:wall; (0,1,0) terrain:cc1:wall; (1,1,0) terrain:cc1:floor; (2,1,0) terrain:cc1:floor + actor:cc1:chip; (3,1,0) terrain:cc1:floor; (4,1,0) terrain:cc1:wall; (0,2,0) terrain:cc1:wall; (1,2,0) terrain:cc1:wall; (2,2,0) terrain:cc1:wall; (3,2,0) terrain:cc1:wall; (4,2,0) terrain:cc1:wall</desc>
+<metadata>{&quot;binding&quot;:{&quot;contractContent&quot;:{&quot;byteLength&quot;:2536,&quot;digest&quot;:&quot;sha256:5aca08779cd43bcce09b60805a3cc982841e95a193a351f7f1b0892acc73e38d&quot;},&quot;kind&quot;:&quot;expected&quot;,&quot;predicateIds&quot;:[&quot;predicate:synthetic:red-key-inventory-one&quot;],&quot;predicateIdsOrder&quot;:&quot;predicate-id&quot;},&quot;caseId&quot;:&quot;synthetic-standard-failed-red-key&quot;,&quot;contract&quot;:{&quot;byteLength&quot;:2536,&quot;digest&quot;:&quot;sha256:5aca08779cd43bcce09b60805a3cc982841e95a193a351f7f1b0892acc73e38d&quot;},&quot;correctness&quot;:{&quot;croppedPanelsAreReviewOnly&quot;:true,&quot;fullWorldWitnessIsAuthority&quot;:true},&quot;levelFacts&quot;:{&quot;byteLength&quot;:151,&quot;digest&quot;:&quot;sha256:41579962b33372a4ea65d6053b7d714b613724fbd83828153795de41970a4777&quot;},&quot;metadataType&quot;:&quot;p4a-semantic-svg-panel&quot;,&quot;metadataVersion&quot;:1,&quot;panelId&quot;:&quot;panel:synthetic:ms:intended-ending&quot;,&quot;panelKind&quot;:&quot;intended-ending&quot;,&quot;plan&quot;:{&quot;byteLength&quot;:788,&quot;digest&quot;:&quot;sha256:9f68553dbcec2c102ddd5e34f8e8325a5926592a156efb04ccf5ebf15f464e4b&quot;},&quot;selection&quot;:&quot;expected-ending&quot;,&quot;subgoalId&quot;:&quot;subgoal:synthetic:ms:failed-red-key-canary&quot;,&quot;target&quot;:&quot;ms&quot;,&quot;viewId&quot;:&quot;view:synthetic:ms:failed-red-key-canary&quot;,&quot;viewport&quot;:{&quot;kind&quot;:&quot;box&quot;,&quot;maximum&quot;:{&quot;x&quot;:4,&quot;y&quot;:2,&quot;z&quot;:0},&quot;minimum&quot;:{&quot;x&quot;:0,&quot;y&quot;:0,&quot;z&quot;:0}},&quot;witness&quot;:{&quot;byteLength&quot;:36880,&quot;digest&quot;:&quot;sha256:7a54fbceb496d7ebb50ad96562dbcae665b4364bfec5c6a06530c33d8d2d623c&quot;}}</metadata>
+<style>
+      svg { --bg:#f7f7f3; --fg:#1f2328; --muted:#59636e; --line:#8b949e; --cell:#eceee8; --wall:#4c5661; --wall-line:#78838d; --red:#a3392f; --yellow:#d6aa2d; --blue:#276a9b; --hint:#c8b963; --player:#293f7a; --actor:#5f4779; --requirement:#9c3d10; --candidate:#7a5700; --plan:#7a3e76; --observed:#005a8d; --donor:#006b4f; --failure:#b42318; }
+      @media (prefers-color-scheme: dark) { svg { --bg:#16181b; --fg:#f0f2f4; --muted:#aab2bb; --line:#6e7781; --cell:#24282d; --wall:#5c6773; --wall-line:#8b949e; --yellow:#d6aa2d; --requirement:#ff9b75; --candidate:#ffd166; --plan:#e6a6e3; --observed:#7cc7ff; --donor:#71d6b5; --failure:#ff8f8a; } }
+      text { fill:var(--fg); font-family:ui-sans-serif,system-ui,sans-serif; font-weight:400; }
+      .background { fill:var(--bg); }
+      .title { font-size:20px; font-weight:500; }
+      .status { font-size:13px; font-weight:500; letter-spacing:.6px; }
+      .meta,.coordinate-label,.legend-basis,.metric-label,.footer { fill:var(--muted); font-size:11px; }
+      .coordinate-label { text-anchor:middle; }
+      .cell-canvas { fill:var(--cell); stroke:var(--line); stroke-width:1; }
+      .floor-mark { fill:var(--line); }
+      .wall { fill:var(--wall); stroke:var(--wall-line); stroke-width:2; }
+      .door-red,.key-red { fill:var(--red); }
+      .door-yellow { fill:var(--yellow); }
+      .key-blue { fill:var(--blue); }
+      .hint { fill:var(--hint); }
+      .player { fill:var(--player); stroke:var(--fg); stroke-width:2; }
+      .facing-arrow { fill:#fff; stroke:var(--fg); stroke-width:.75; }
+      .actor { fill:var(--actor); stroke:var(--fg); stroke-width:2; }
+      .tile-glyph { fill:#fff; font-size:15px; font-weight:500; text-anchor:middle; }
+      .tile-glyph.dark { fill:#20242a; }
+      .unknown-glyph { fill:var(--muted); font-size:17px; text-anchor:middle; }
+      .route { fill:none; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; }
+      .poi { fill:none; stroke-width:3; }
+      .state-change { fill:none; stroke-width:4; stroke-dasharray:4 3; }
+      .basis-regressed-requirement { stroke:var(--requirement); stroke-dasharray:10 4 2 4; }
+      .basis-backward-candidate { stroke:var(--candidate); stroke-dasharray:2 4; }
+      .basis-plan-intent { stroke:var(--plan); stroke-dasharray:9 5; }
+      .basis-observed-witness { stroke:var(--observed); }
+      .basis-donor-evidence { stroke:var(--donor); stroke-dasharray:10 4 2 4; }
+      .basis-text-regressed-requirement { fill:var(--requirement); }
+      .basis-text-backward-candidate { fill:var(--candidate); }
+      .basis-text-plan-intent { fill:var(--plan); }
+      .basis-text-observed-witness { fill:var(--observed); }
+      .basis-text-donor-evidence { fill:var(--donor); }
+      .overlay-number { fill:var(--fg); stroke:var(--bg); stroke-width:3px; paint-order:stroke fill; font-size:11px; font-weight:500; text-anchor:middle; }
+      .legend-symbol { font-size:15px; font-weight:500; text-anchor:middle; }
+      .legend-label { font-size:12px; }
+      .metric-value { font-size:13px; font-weight:500; }
+      .divider { stroke:var(--line); stroke-width:1; }
+      .failure-text { fill:var(--failure); font-size:12px; font-weight:500; }
+      .expected-layer { fill:url(#expected-hatch); pointer-events:none; }
+      .failure-layer { fill:url(#failure-hatch); pointer-events:none; }
+    </style>
+<defs><marker id="arrow-backward-candidate" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path class="basis-text-backward-candidate" d="M0,0 L0,6 L8,3 z"/></marker><marker id="arrow-plan-intent" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path class="basis-text-plan-intent" d="M0,0 L0,6 L8,3 z"/></marker><pattern id="expected-hatch" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M-2,2 L2,-2 M0,10 L10,0 M8,12 L12,8" stroke="var(--muted)" stroke-width="1" opacity=".28"/></pattern><pattern id="failure-hatch" width="12" height="12" patternUnits="userSpaceOnUse"><path d="M0,0 L12,12 M12,0 L0,12" stroke="var(--failure)" stroke-width="1" opacity=".22"/></pattern></defs>
+<rect class="background" x="0" y="0" width="640" height="480"/>
+<text class="title" x="24" y="32">Intended Ending State · MS</text>
+<text class="status" x="24" y="58">EXPECTED — NOT OBSERVED</text>
+<text class="meta" x="24" y="78">synthetic-standard-failed-red-key · subgoal:synthetic:ms:failed-red-key-canary · tick projected · viewport x0..4 y0..2 z0</text>
+<text class="coordinate-label" x="80" y="100">x0</text>
+<text class="coordinate-label" x="128" y="100">x1</text>
+<text class="coordinate-label" x="176" y="100">x2</text>
+<text class="coordinate-label" x="224" y="100">x3</text>
+<text class="coordinate-label" x="272" y="100">x4</text>
+<text class="coordinate-label" x="42" y="140" text-anchor="end">y0</text>
+<g aria-label="(0,0,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="56" y="112" width="48" height="48"/>
+<rect class="wall" x="58" y="114" width="44" height="44" rx="3"/>
+</g>
+<g aria-label="(1,0,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="104" y="112" width="48" height="48"/>
+<rect class="wall" x="106" y="114" width="44" height="44" rx="3"/>
+</g>
+<g aria-label="(2,0,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="152" y="112" width="48" height="48"/>
+<rect class="wall" x="154" y="114" width="44" height="44" rx="3"/>
+</g>
+<g aria-label="(3,0,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="200" y="112" width="48" height="48"/>
+<rect class="wall" x="202" y="114" width="44" height="44" rx="3"/>
+</g>
+<g aria-label="(4,0,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="248" y="112" width="48" height="48"/>
+<rect class="wall" x="250" y="114" width="44" height="44" rx="3"/>
+</g>
+<text class="coordinate-label" x="42" y="188" text-anchor="end">y1</text>
+<g aria-label="(0,1,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="56" y="160" width="48" height="48"/>
+<rect class="wall" x="58" y="162" width="44" height="44" rx="3"/>
+</g>
+<g aria-label="(1,1,0) terrain:cc1:floor">
+<rect class="cell-canvas" x="104" y="160" width="48" height="48"/>
+<circle class="floor-mark" cx="128" cy="184" r="2"/>
+</g>
+<g aria-label="(2,1,0) terrain:cc1:floor + actor:cc1:chip">
+<rect class="cell-canvas" x="152" y="160" width="48" height="48"/>
+<circle class="floor-mark" cx="176" cy="184" r="2"/>
+<circle class="player" cx="176" cy="184" r="16" data-facing="east"/><polygon class="facing-arrow" points="194,184 186,180 186,188"/><text class="tile-glyph" x="176" y="190">P</text>
+</g>
+<g aria-label="(3,1,0) terrain:cc1:floor">
+<rect class="cell-canvas" x="200" y="160" width="48" height="48"/>
+<circle class="floor-mark" cx="224" cy="184" r="2"/>
+</g>
+<g aria-label="(4,1,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="248" y="160" width="48" height="48"/>
+<rect class="wall" x="250" y="162" width="44" height="44" rx="3"/>
+</g>
+<text class="coordinate-label" x="42" y="236" text-anchor="end">y2</text>
+<g aria-label="(0,2,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="56" y="208" width="48" height="48"/>
+<rect class="wall" x="58" y="210" width="44" height="44" rx="3"/>
+</g>
+<g aria-label="(1,2,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="104" y="208" width="48" height="48"/>
+<rect class="wall" x="106" y="210" width="44" height="44" rx="3"/>
+</g>
+<g aria-label="(2,2,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="152" y="208" width="48" height="48"/>
+<rect class="wall" x="154" y="210" width="44" height="44" rx="3"/>
+</g>
+<g aria-label="(3,2,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="200" y="208" width="48" height="48"/>
+<rect class="wall" x="202" y="210" width="44" height="44" rx="3"/>
+</g>
+<g aria-label="(4,2,0) terrain:cc1:wall">
+<rect class="cell-canvas" x="248" y="208" width="48" height="48"/>
+<rect class="wall" x="250" y="210" width="44" height="44" rx="3"/>
+</g>
+<rect class="expected-layer" x="56" y="112" width="240" height="144"/>
+<path class="poi basis-backward-candidate" d="M 176 166 L 194 184 L 176 202 L 158 184 Z"/><text class="overlay-number" x="191" y="171">1</text>
+<polyline class="route basis-plan-intent" points="140,181 159.9375,181" marker-end="url(#arrow-plan-intent)"/>
+<text class="status" x="320" y="120">Evidence overlays</text>
+<text class="legend-symbol basis-text-backward-candidate" x="320" y="150">1</text>
+<text class="legend-basis" x="342" y="142">Backward candidate</text>
+<text class="legend-label" x="342" y="158">Expected red-key candidate</text>
+<text class="legend-symbol basis-text-plan-intent" x="320" y="179">→</text>
+<text class="legend-basis" x="342" y="171">Plan intent</text>
+<text class="legend-label" x="342" y="187">Synthetic one-step plan intent</text>
+<line class="divider" x1="320" y1="233" x2="592" y2="233"/>
+<text class="status" x="320" y="251">Boundary state</text>
+<text class="metric-label" x="320" y="275">Expected chips remaining</text><text class="metric-value" x="580" y="275" text-anchor="end">2</text>
+<text class="metric-label" x="320" y="302">Expected red-key inventory</text><text class="metric-value" x="580" y="302" text-anchor="end">1</text>
+<text class="metric-label" x="320" y="329">Scene SHA-256</text><text class="metric-value" x="580" y="329" text-anchor="end">294e…8686 · 5686 B</text>
+<line class="divider" x1="24" y1="364" x2="616" y2="364"/>
+<text class="footer" x="24" y="384">Contract sha256:5aca08779cd43bcce09b60805a3cc982841e95a193a351f7f1b0892acc73e38d</text>
+<text class="footer" x="24" y="403">Expected predicates predicate:synthetic:red-key-inventory-one</text>
+<text class="footer" x="24" y="428">Expected predicates: predicate:synthetic:red-key-inventory-one</text>
+<text class="footer" x="24" y="452">FAILED SYNTHETIC CANARY · EXPECTED AND OBSERVED REMAIN DISTINCT</text>
+</svg>
