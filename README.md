@@ -16,19 +16,21 @@ The modern browser UI lives under [`web/`](./web). It keeps the legacy interface
 ### Browser UI development
 
 ```sh
-cd web
-npm install
+npm ci --include=optional
 npm run dev
 ```
 
 Useful browser build commands:
 
 ```sh
-cd web
 npm run test
 npm run typecheck
 npm run build
 ```
+
+The root npm workspace and root `package-lock.json` are authoritative for both
+the browser UI and CCSolver. Run dependency installation from the repository
+root rather than from an individual workspace.
 
 ## Engine Parity
 

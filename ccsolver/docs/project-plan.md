@@ -20,6 +20,9 @@ replays come before score optimization.
 - Give every long replay, search, fixture, media, and corpus command explicit
   time, work, memory, and output bounds.
 - Preserve exact input/replay mode, seed, stepping, and source provenance.
+- Build explanatory plans backward from explicit terminal predicates, but
+  execute and verify every selected implementation forward in the real target
+  engine.
 - Commit normative schemas, recipes, narratives, and small goldens. Generate
   large traces and media outside ordinary source history.
 - Do not expose the dossier through the main Tile World navigation, homepage, or
@@ -42,12 +45,50 @@ Domain/schema work precedes everything. Runtime observation and static analysis
 can then proceed in parallel. Dossier work begins as soon as stable facts and
 events exist. Search depends on both topology and exact checkpoint execution.
 
+## Human review checkpoints
+
+Each major proof dependency produces something a human can inspect before the
+next layer is trusted:
+
+1. **P2A — exact runtime perception (available now):** checked canonical JSON
+   and self-contained derived Markdown expose source/runtime provenance,
+   coordinates, native ticks, player/actor/device state, inventory and remaining
+   requirements, input ownership, and changed-cell semantics for Key Pyramid
+   and Intro 8. This judges whether CCSolver sees the world accurately; it does
+   not judge solver reasoning.
+2. **P3A — backward prerequisite graph:** terminal-first AND/OR graphs and
+   human-language decomposition make the solver's theory, alternatives, and
+   rejected achievers reviewable.
+3. **P3B — exact contextual witnesses:** forward-executed subgoal segments from
+   full-world checkpoints make each selected graph edge independently
+   testable.
+4. **P4A — annotated map evidence:** starting/ending map sections show player
+   and mob routes, points of interest, state deltas, and optional animation.
+5. **P5 — full-level proof:** a composed forward execution and certified replay
+   from canonical initialization show that the reviewed pieces actually join.
+
+P2A output is authoritative runtime-characterization evidence only after a
+fresh generation is followed by a successful byte-for-byte
+`npm run ccsolver:p2a:check`. Its Markdown is a derived review aid.
+
 ## P0: project and artifact foundation
 
 ### Objective
 
 Create a compilable CCSolver workspace with enforceable dependency boundaries
 and the first versioned artifact vocabulary.
+
+P0 is delivered as reviewable slices:
+
+- **P0A — Workspace foundation:** workspace/lockfile ownership, package
+  boundaries, one-way Tile World facade, root commands, and CI.
+- **P0B — Canonical artifact kernel:** strict canonical JSON, portable SHA-256,
+  corpus cases, replay certificates, semantic identity primitives, schemas, and
+  conformance fixtures.
+- **P0C — Semantic artifact vocabulary:** small evidence-backed schema slices,
+  beginning with P0C1 source provenance and static level facts, then adding
+  events, plans, contracts, witnesses, and dossier manifests only alongside
+  their producing vertical slices.
 
 ### Deliverables
 
@@ -61,11 +102,11 @@ and the first versioned artifact vocabulary.
   path aliases directly from CCSolver domain code.
 - Establish `domain`, `application`, `ports`, `adapters`, `cli`, `render`, and
   `site` package boundaries.
-- Define initial types and schemas for:
+- Define versioned types and schemas incrementally for:
   - `LevelIdentity` and `CorpusCase`, including per-target attempts, statuses,
     replay candidates, and certificates;
   - coordinates, regions, semantic placements, actors, and lineage;
-  - semantic facts and events;
+  - static semantic facts, followed separately by runtime events;
   - goal graphs, orthogonal plan-shape/dependency/resolution fields, and
     expanded plans;
   - subgoal contracts and contextual witnesses;
@@ -94,24 +135,73 @@ and the first versioned artifact vocabulary.
 Build a donor-independent, deterministic description of the initial world and
 select the first curriculum from measured complexity.
 
+### Status and delivery slices
+
+The scoped P1 foundation and P1B checked-data gate are complete. Semantic room
+decomposition and block dead-square proof are explicitly deferred; P1B does not
+claim either result.
+
+- **P1A — Pinned corpus manifest and MS static-analysis vertical slice:
+  complete.** The checked-in canonical manifest verifies 193 exact sources at
+  revision `42c78d0db343621f887fefce581315479d9a8be3` and derives 39 packs,
+  2,440 map cases, 4,880 target records, and 4,664 donor-backed targets. A
+  target-policy evidence seam and pure certain-only analyzer are covered by a
+  synthetic mechanic postcard, shuffled-input and invalid-binding ATDD, a
+  65,536-cell iterative articulation case, and deterministic MS Intro level 8
+  level-facts/evidence/analysis/dossier goldens.
+- **P1B — Cross-ruleset topology evidence and curriculum freeze: complete.** A
+  genuine Lynx policy adapter and the MS adapter now feed shared engine-neutral
+  facts and analysis kernels. Paired comparisons distinguish source-fact,
+  target-policy, and policy-derived differences. A DATTools-derived validity
+  gate quarantines 55 invalid occurrences (49 CCLP2 and six paired Voting), and
+  the donor-redacted measured-report production scope contains all 2,251
+  remaining valid paired occurrences: 770 static-parity cases and 1,481 with
+  explicit target differences. Eight declarative Phase-A ASCII cases,
+  five donor-visible training cases, six declared donor-hidden evaluation
+  cases, digest-level cohort isolation, and provisional size-based budgets are
+  frozen. Key Pyramid
+  is the paired golden target for MS, Lynx, and comparison output. The bounded
+  full generator and independent byte-for-byte check both succeeded.
+
+P1B keeps topology evidence, comparison, reports, curriculum, and basic dossier
+data as content-addressed preview shapes rather than freezing new root artifact
+schemas. Its Phase-A ASCII sources are declarations, not yet executable engine
+fixtures, and its `blind` policy is not capability-enforced until P8. See
+[P1B cross-ruleset topology and curriculum](p1b-cross-ruleset-topology.md).
+The dossier UI remains P4. Runtime observation is now delivered by P2A; the
+complete causal journal remains P2B.
+
+All CCSolver phases permanently use only the standard CC1 tile vocabulary. Raw codes `0x70`–`0x75`
+(Sandbag, Bowling Ball, Cloud, Hook, Ice Block, and Pet Carrier) are Tile World
+engine extensions, not solver mechanics. A shared source-scope gate rejects
+them before corpus identity, facts, analysis, runtime, planning, or curriculum
+selection, without removing their support from the legacy engines or excluding
+valid multi-layer geometry. The current
+manifest contains none, so the frozen P1B denominators and artifacts do not
+move.
+
 ### Deliverables
 
 - Generate the pinned corpus manifest and recompute pack denominators.
-- Reconcile the current audited baseline of 2,440 target entries, 2,257 paired
-  donor cases, and 470 older Hybrid wins.
+- Reconcile the current audited baseline of 2,440 map occurrences, 4,880
+  separate target records, 2,257 paired donor cases, 4,664 donor-backed target
+  records, and 470 older Hybrid wins.
 - Adapt existing DAT/CCX content APIs without copying parser logic.
 - Produce normalized `LevelFacts` with zero-based `(x, y, z)` coordinates.
 - Inventory cells, strata, actors, resources, exits, doors, sockets, buttons,
   wiring, traps, cloners, teleports, forced surfaces, hazards, and time limits.
 - Detect initial connected regions, chokepoints, articulation boundaries,
-  transport networks, gates, resource dependencies, and obvious dead squares.
+  transport networks, gates, and candidate resource dependencies. Defer
+  semantic room/corridor structure and block dead-square proof until the
+  mechanics work has executable push evidence.
 - Compute an explainable static-complexity feature vector.
 - Select and freeze:
   - a foundational Phase-A synthetic curriculum used by P7;
-  - the later expanded mechanic curriculum used by P9;
   - donor-visible training cases;
   - the first frozen donor-hidden evaluation wave; and
   - adversarial architecture canaries.
+- Keep Tile World's six expanded tiles permanently outside every mechanics,
+  planning, search, and curriculum phase; no later milestone admits them.
 - Emit a deterministic basic dossier JSON for at least one level.
 
 ### Exit gate
@@ -121,6 +211,9 @@ select the first curriculum from measured complexity.
   larger/overflowing shapes fail cleanly.
 - At least one synthetic and one bundled level show correct layers, identities,
   actors, wiring, resources, and source hashes.
+- Invalid legacy source is rejected before target interpretation, and the
+  measured-report runner scopes production to every valid paired occurrence
+  without donor inputs.
 - The first evaluation-wave manifest and budgets are committed before solver
   heuristics are tuned.
 
@@ -131,16 +224,51 @@ select the first curriculum from measured complexity.
 Observe exact MS and Lynx execution through a narrow, non-mutating CCSolver
 port.
 
-### Deliverables
+### Status and delivery slices
 
-- Define `SolverRuntimePort` operations for start, true replay start, recorded
-  decision/no-change advance, bounded run, observe, checkpoint, clone, restore,
-  event drain, terminal result, and render projection.
+P2A is implemented and bounded; the complete P2 causal journal remains open.
+
+- **P2A — Runtime Observation, Checkpoint, and Render Projection Port:
+  complete.** A pure preview contract,
+  engine-neutral authority kernel, and independent MS/Lynx adapters compose the
+  existing sessions and undo seams. Focused ATDD covers detached read-only
+  observation, transactional failure behavior, exact branch/restore,
+  target-native manual polling, true replay ownership, first-terminal latching,
+  and deterministic render projections. Key Pyramid and Intro 8 supply checked
+  canonical runtime packets plus compact human reviews. See
+  [P2A runtime observation](p2a-runtime-observation.md).
+- **P2B — Causal semantic event journal: later.** Expand the proven P2A seam
+  with the complete bounded event taxonomy, causal linkage, failure reasons,
+  and native diagnostic adaptation required by the rest of the P2 exit gate.
+
+### P2A delivered
+
+- Define `SolverRuntimePort` operations for manual start, true replay start, one
+  target-native manual poll or replay-owned tick, observe, terminal result,
+  checkpoint, independent clone/restore, render projection, and disposal.
 - Implement MS and Lynx adapters over existing TypeScript sessions and undo
   checkpoints.
 - Preserve replay-mode input carry, release, diagonal, mouse, seed, stepping,
-  and random-slide state.
-- Add stable semantic observations independent of raw tile IDs.
+  initial random-slide header metadata, and target-native random state in the
+  exact checkpoint token plus explicit observation input/randomness fields;
+  native-state fingerprint entries cover only the target state they expose.
+- Add stable semantic observations independent of raw tile IDs, including
+  exact source/facts/provenance bindings, timing, input, randomness, cells,
+  player, deterministic observation actor order with optional exact
+  target-collection positions, inventory, remaining requirements, devices,
+  fingerprints, and terminal state.
+- Add deterministic semantic render-region projection bound to the exact source
+  observation without consuming engine state.
+- Enforce opaque run/checkpoint ownership, mode and target compatibility,
+  capacity, disposal, independent checkpoint restore, and nonmutating errors.
+- Freeze first terminal evidence while permitting the target engine's
+  post-terminal world progression.
+- Generate bounded Key Pyramid donor-runtime and Intro 8 manual
+  characterization packets; include full values, compact semantic deltas, and
+  derived human review pages without durable handles or timestamps.
+
+### P2B remaining
+
 - Add bounded causal events for movement, collection, inventory, map mutation,
   devices, teleports, actor lifecycle, death, and victory.
 - Expose causal plan/command IDs and first-failure reasons where existing engines
@@ -149,7 +277,29 @@ port.
   diagnosis. Add a new delta-oriented semantic exporter only if representative
   measurements show that the existing seam is insufficient.
 
-### Exit gate
+### P2A exit gate
+
+- Observation, terminal, and render reads are detached and do not advance or
+  mutate gameplay in either target.
+- Uninterrupted and checkpoint/restore continuations agree exactly at focused
+  boundaries; cloned branches are independent.
+- Manual and replay modes reject mismatched advances, preserve target-native
+  input semantics, and retain replay seed, stepping, slide, cursor, and deadline
+  state.
+- MS reports its in-engine replay-deadline failure explicitly; Lynx reports the
+  header deadline without inventing MS enforcement, leaving the outer run bound
+  to the verifier.
+- The first terminal record remains stable while later target logic may advance.
+- Key Pyramid binds exact MS/Lynx donor TWS and entry bytes, labels every
+  replay-derived point `donor-runtime-characterization`, and finds the first
+  resource change under strict measured bounds.
+- Intro 8 proves the east poll stationary before calling it blocked and keeps
+  no-input versus second-east followup causes explicit.
+- A generate followed by independent `--check` reproduces the four canonical
+  JSON packets and two Markdown reviews byte-for-byte under an explicit CI
+  timeout.
+
+### Complete P2 exit gate (after P2B)
 
 - Existing donor replays retain their current results and engine state hashes
   with observation enabled and disabled.
@@ -162,11 +312,65 @@ port.
   prove it safe.
 - Event-sink exhaustion is explicit and cannot change gameplay.
 
-## P3: exact contextual capsules and contracts
+## P3A: terminal-first predicates and symbolic regression
 
 ### Objective
 
-Make subgoals independently repeatable without falsifying their world context.
+Turn each target's exits into explicit desired terminal predicates and derive a
+reviewable prerequisite graph before choosing a forward execution.
+
+### Deliverables
+
+- Implement the closed predicate vocabulary for `requires`, `ensures`,
+  invariants, event assertions, footprints, forbidden events, and stop bounds.
+- Create a target-scoped terminal root for every exit placement and coordinate;
+  represent multiple exits as explicit alternatives rather than silently
+  choosing one.
+- Build deterministic AND/OR `GoalGraph` candidates by symbolic regression over
+  typed achiever declarations for the initial terminal, region, collection, and
+  resource-gate vocabulary. This slice defines declarative semantics, not the
+  general tactic controllers or search algorithms deferred to P7.
+- Declare `ccsolver/src/plan` as a pure source layer before adding the regression
+  kernel, define its reviewed dependencies on domain/static-analysis surfaces,
+  expose a narrow package entrypoint, and add architecture tests that reject
+  host, renderer, runtime, and ruleset implementation imports.
+- Record each desired postcondition, selected achiever, residual prerequisites,
+  alternatives, rejections, static-evidence references, uncertainty, and bounds
+  in a reviewable backward-planning trace.
+- Treat P1 regions, boundaries, resource dependencies, transports, and exit
+  attachments as candidate evidence only. Unknown or dynamic topology never
+  proves a prerequisite or traversal.
+- Keep the selected `ExpandedPlan` in forward execution order and distinguish it
+  from both the backward-planning trace and the target-specific
+  `ExecutionWitness`. Give repeated operations distinct occurrence IDs or
+  bounded expansions.
+- Detect cyclic regression, inconsistent resource consumption, and unresolved
+  prerequisites deterministically.
+- Never reverse-simulate gameplay, actors, or RNG. Engine authority remains
+  forward checkpoint-and-advance execution through P2.
+
+### Exit gate
+
+- Terminal-first regression produces stable, reviewable graphs for a one-room
+  exit, a key-and-door route, and a chip-and-socket route.
+- A synthetic level with two exits retains both alternatives and records why a
+  selected branch was chosen or rejected.
+- Shuffled equivalent inputs produce byte-identical graph and regression data.
+- The package build and architecture gate accept the declared pure `plan` layer
+  and reject a representative forbidden dependency from it.
+- Unknown or dynamic topology remains an explicit unresolved condition rather
+  than becoming an open path.
+- Cyclic, resource-inconsistent, and no-achiever cases return bounded,
+  reproducible diagnostics.
+- Target-specific premises may yield different MS and Lynx graphs; parity is
+  preferred but is not an invariant.
+
+## P3B: exact contextual witnesses and start/end capture
+
+### Objective
+
+Make selected subgoals independently repeatable, forward-verifiable, and
+visually inspectable without falsifying their full-world context.
 
 ### Deliverables
 
@@ -174,14 +378,18 @@ Make subgoals independently repeatable without falsifying their world context.
   replay/prefix digest, entry boundary, and state digest.
 - Cache opaque engine checkpoints by complete implementation dependency; do not
   make them durable schema data.
-- Implement the closed predicate vocabulary for `requires`, `ensures`,
-  invariants, event assertions, footprints, forbidden events, and stop bounds.
 - Add authored, inferred, observed, reviewed, and verified provenance.
 - Add separate evidence-coverage, ruleset-scope, and robustness fields, plus join
   states: exact, replanned, semantic-only, and broken.
 - Implement exact state/effect diffs and contract validation.
 - Implement prefix replay, checkpoint caching, repeated short-interval execution,
   and cropped render projection over full-world simulation.
+- Capture exact starting and ending ticks, normalized observations, state
+  digests, deterministic render frames, semantic events, and their content
+  references for every contextual witness.
+- Capture a fixed causal viewport and annotation inputs for the two boundary
+  frames. A bounded intermediate frame sequence may be retained for animation,
+  but it is optional and derivative.
 - Explicitly retain input-latch, time, RNG, actor-order, and global device state.
 
 ### Exit gate
@@ -192,13 +400,121 @@ Make subgoals independently repeatable without falsifying their world context.
 - Changing level, seed, prefix, boundary, or engine build invalidates the cache.
 - Synthetic offscreen-actor, RNG, teleport, actor-order, and held-input cases
   prove that spatial cropping is never treated as correctness.
+- Starting and ending observations, digests, and frames regenerate identically
+  and refer to the exact entry and stop boundaries of the witness.
+- Omitting an optional intermediate frame sequence does not invalidate an exact
+  witness or its two boundary captures.
 - Two capsules compose only by executing consecutively through one live state.
 
-## P4: dossier and evidence surface
+## P4A: minimum subgoal evidence surface
 
 ### Objective
 
-Give the user and agent a compact, static laboratory for reviewing every claim.
+Make one exact subgoal understandable from a static page before using the
+presentation model on the first real end-to-end level.
+
+### Deliverables
+
+- Define provisional content-addressed subgoal-evidence data alongside its
+  producing slice rather than extending the P1 basic dossier summary or
+  prematurely freezing a root artifact schema.
+- Render one target-specific subgoal section in this mandatory order:
+  1. an annotated **Starting State** panel bound to the exact witness entry tick,
+     observation, digest, viewport, and accessible prose;
+  2. optional bounded interactive playback or generated animation; and
+  3. an annotated **Ending State** panel bound to the exact witness stop tick,
+     observation, digest, viewport, accessible prose, and state/event delta.
+- Keep panels and textual equivalents usable when no animation is generated.
+- Label generated frames, posters, GIFs, and videos as derivative review aids;
+  the contextual witness and forward engine execution remain authoritative.
+- Add a minimal durable review layer with `unreviewed`, `reviewed`, and
+  `changes-requested` status, human notes, and reviewed overlay overrides kept
+  separate from regenerated machine annotations.
+- Generate a deterministic static page and content-addressed assets for at least
+  one successful and one failed synthetic contextual witness. The failed view
+  shows its Starting State, intended Ending State, actual stop/failure state,
+  and first failed predicate or divergent event without conflating expected and
+  observed evidence.
+
+### Exit gate
+
+- The synthetic subgoal page and its two boundary panels regenerate identically
+  from canonical witness data.
+- Removing either the Starting State or Ending State binding fails validation or
+  generation; removing optional animation does not.
+- Panel annotations identify the target, level, subgoal, boundary tick, viewport,
+  and relevant cells or actors, with equivalent text.
+- Backward obligation, forward intent, donor evidence, and observed routes use
+  distinct labels; an abstract frontier meet is never rendered as a proven
+  continuous route.
+- Regenerating machine annotations preserves reviewed notes and overrides, while
+  a changed bound witness sets their review state to `changes-requested` with a
+  stale-binding reason rather than silently carrying approval forward.
+- The failed synthetic case visibly distinguishes its intended ending from its
+  actual failure observation and identifies the first failed predicate or event.
+- The page never implies that a cropped frame or animation proves full-world
+  correctness.
+
+Delivery order is P4A, then P5, then P4B. P4 is complete only after P4B passes
+its exit gate.
+
+## P5: first manually guided end-to-end level
+
+### Objective
+
+Prove the terminal-first semantic-plan-to-certified-TWS pipeline on one real
+paired level before scaling decomposition and search.
+
+### Deliverables
+
+- Use CCLP1 level 1, Key Pyramid, selected in P1B and covered by its paired
+  static golden, as the initial real end-to-end level. Record an explicit
+  evidence-based revision if runtime measurements later make it unsuitable.
+- Seed each target analysis from its exit alternatives, construct and review a
+  backward-planning trace and prerequisite graph, then select a forward
+  `ExpandedPlan` whose subgoals connect the real initial state to victory.
+- Write a reviewed human description, static theory, goal graph, and contracts.
+- Materialize exact MS and Lynx witnesses for each selected subgoal.
+- Use one shared plan where honest, with target-specific local implementations
+  or different prerequisite branches as needed.
+- Execute the selected subgoals continuously through one full target state.
+- Publish the mandatory annotated Starting State and Ending State panels for
+  every selected target-specific subgoal; animation remains optional.
+- Record decisions, assemble complete target-specific TWS files, and round-trip
+  them through the existing codec.
+- Certify both generated replays in the target TypeScript engine and native
+  oracle.
+- Validate the provisional external artifact protocol against this first real
+  vertical slice and publish the resulting conformance fixture.
+- Publish the P4A evidence surface and replay certificates as the real input to
+  P4B's full dossier work.
+
+### Exit gate
+
+- The reviewed backward-planning trace starts at an explicit target exit,
+  accounts for every selected subgoal prerequisite, and yields the forward plan
+  used to generate the replay.
+- The MS and Lynx TWS files are generated from checked-in semantic artifacts,
+  not copied donor bytes.
+- The MS replay wins from the original level start in the TypeScript MS engine
+  and native MS oracle; the Lynx replay likewise wins in the TypeScript Lynx
+  engine and native Lynx oracle.
+- Every selected edge is exact or successfully replanned; no semantic-only edge
+  appears as complete.
+- Every selected target-specific subgoal has exact, annotated Starting State and
+  Ending State panels even when it has no animation.
+- Deleting generated outputs and rebuilding reproduces the planning trace,
+  certificates, and evidence surface.
+
+Passing P5 proves the certified replay pipeline. The first real level reaches
+the global level definition of done only after P4B adds its complete dossier.
+
+## P4B: full dossier and evidence surface
+
+### Objective
+
+Expand the P4A subgoal proof into a compact, static laboratory for reviewing the
+first real level and every later claim.
 
 ### Deliverables
 
@@ -212,9 +528,12 @@ Give the user and agent a compact, static laboratory for reviewing every claim.
   subgoal overlays.
 - Render human narrative, strategy portfolio, accessible graph table, subgoal
   contracts, evidence, joins, state/event diffs, failures, and provenance.
-- Add deterministic interactive playback with semantic, raw-tick, and wall-time
-  comparison modes.
-- Add short focused GIF export with poster frames and reduced-motion support.
+- Retain the mandatory annotated Starting State and Ending State panels from
+  P4A for every target-specific subgoal.
+- Support optional deterministic interactive playback with semantic, raw-tick,
+  and wall-time comparison modes when a bounded frame sequence exists.
+- Support optional short focused GIF export with poster frames and
+  reduced-motion behavior; a dossier must remain complete without it.
 - Generate graphs from canonical plan data; do not maintain a separate hand
   edited graph source.
 - Update the Pages workflow's install and cache steps to include the selected
@@ -227,46 +546,14 @@ Give the user and agent a compact, static laboratory for reviewing every claim.
 - A direct static-directory request and the SPA `404.html` fallback are tested
   separately.
 - No discoverability link exists in the ordinary Tile World experience.
-- Dossier sources regenerate identically.
-- Interactive playback is usable without GIF output, and all visual information
-  has a textual equivalent.
-- Media generation is pinned, bounded, and deterministic for golden snippets.
-
-## P5: first manually guided end-to-end level
-
-### Objective
-
-Prove the complete semantic-plan-to-certified-TWS pipeline before automating
-decomposition.
-
-### Deliverables
-
-- Select the lowest-complexity paired real level from P1. CCLP1 level 1,
-  Key Pyramid, is the initial candidate rather than a fixed assumption.
-- Write a reviewed human description, static theory, goal graph, and contracts.
-- Materialize exact MS and Lynx witnesses for each selected subgoal.
-- Use one shared plan where honest, with target-specific local implementations
-  as needed.
-- Execute the selected subgoals continuously through one full target state.
-- Record decisions, assemble complete target-specific TWS files, and round-trip
-  them through the existing codec.
-- Certify both generated replays in the target TypeScript engine and native
-  oracle.
-- Validate the provisional external artifact protocol against this first real
-  vertical slice and publish the resulting conformance fixture.
-- Publish the complete dossier and replay certificates.
-
-### Exit gate
-
-- The MS and Lynx TWS files are generated from checked-in semantic artifacts,
-  not copied donor bytes.
-- The MS replay wins from the original level start in the TypeScript MS engine
-  and native MS oracle; the Lynx replay likewise wins in the TypeScript Lynx
-  engine and native Lynx oracle.
-- Every selected edge is exact or successfully replanned; no semantic-only edge
-  appears as complete.
-- Deleting generated outputs and rebuilding reproduces the certificates and
-  dossier.
+- Dossier sources, the P5 real-level page, and mandatory boundary panels
+  regenerate identically.
+- The P5 case satisfies the global level definition of done with its complete
+  dossier and replay certificates.
+- Every subgoal remains understandable from its two annotated boundary panels
+  and textual evidence without interactive playback, GIF, or video.
+- When optional playback or media is generated, it is pinned, bounded, and
+  deterministic for golden snippets.
 
 ## P6: donor alignment and strategy portfolios
 
@@ -308,9 +595,9 @@ donor input.
 
 ### Deliverables
 
-- Add initial operators such as `Reach`, `Collect`, `Unlock`, `PushTo`,
-  `Activate`, `WaitUntil`, `ClearRoute`, `TraverseForced`, `Teleport`, and
-  `ReachExit`.
+- Expand the declarative achiever vocabulary introduced in P3A into executable
+  operators such as `Reach`, `Collect`, `Unlock`, `PushTo`, `Activate`,
+  `WaitUntil`, `ClearRoute`, `TraverseForced`, `Teleport`, and `ReachExit`.
 - Add tactic/controller interfaces separate from compiled input witnesses.
 - Evaluate candidates authoritatively by checkpoint, real-engine advance, and
   restore. Add a pure planner probe only as an equivalence-tested optimization.
@@ -499,38 +786,43 @@ Evaluate level understanding and planning on content with no donor solution.
 
 Synthetic levels are implemented first so each failure has one cause:
 
-1. one-room route to exit;
-2. collect chips and clear a socket;
-3. key/inventory/door order;
-4. one safe block push and one deadlock;
-5. button-to-device effects;
-6. ice and force movement with a blocked forced direction;
-7. teleport routing and repeated coordinates;
-8. moving-actor and actor-order interference;
-9. RNG consumption and predicate-based waiting; and
-10. an offscreen effect proving full-world capsule execution.
+1. one-room route rooted backward from an explicit exit;
+2. two exits retained as explicit terminal alternatives;
+3. collect chips and clear a socket;
+4. key/inventory/door order;
+5. one safe block push and one deadlock;
+6. button-to-device effects;
+7. ice and force movement with a blocked forced direction;
+8. teleport routing and repeated coordinates;
+9. moving-actor and actor-order interference;
+10. RNG consumption and predicate-based waiting; and
+11. an offscreen effect proving full-world capsule execution.
 
-Real cases are selected after P1 measures them. Key Pyramid is the candidate for
-the first vertical slice. Booster Shots, Tunnel Clearance, Teleport Trouble, and
-Two Sets of Rules are adversarial architecture canaries, not expected early
-solver wins.
+P1B freezes the first real training and evaluation cohorts. Key Pyramid is the
+selected first vertical slice. Booster Shots, Tunnel Clearance, Teleport
+Trouble, and Two Sets of Rules remain adversarial architecture canaries, not
+expected early solver wins.
 
 ## Test matrix
 
 ### Unit
 
 - schema validation, canonicalization, IDs, predicates, graph rules, facts,
-  events, and operator semantics.
+  events, symbolic regression, cycle/resource diagnostics, and operator
+  semantics.
 
 ### Golden
 
 - representative artifacts, event journals, topology, contracts, selected
-  dossiers, graph SVGs, and short render sequences.
+  backward-planning traces, dossiers, graph SVGs, annotated starting/ending
+  panels, and short render sequences.
 
 ### Metamorphic
 
 - uninterrupted versus checkpoint/restore;
 - cache retained versus rebuilt;
+- canonical backward graph versus shuffled equivalent evidence;
+- boundary panels with versus without an optional intermediate frame sequence;
 - TWS encode/decode/replay;
 - semantic observer enabled versus disabled; and
 - equivalent candidate actions and deterministic search reruns.
@@ -543,8 +835,8 @@ solver wins.
 
 ### Contract and integration
 
-- deliberate precondition, invariant, footprint, postcondition, join, and
-  certification failures;
+- deliberate unresolved-regression, precondition, invariant, footprint,
+  postcondition, missing-boundary-panel, join, and certification failures;
 - one complete plan through target-specific TWS and dossier generation.
 
 ### Corpus and performance
@@ -563,8 +855,12 @@ Every failed attempt should be reducible to a compact packet containing:
 - solver, engine, and oracle revisions;
 - donor availability/exposure, construction method, evaluation cohort, and
   donor-access audit;
-- plan/subgoal and exact entry derivation;
+- terminal goal, backward-planning trace, selected plan/subgoal, and exact entry
+  derivation;
+- first unresolved prerequisite or rejected achiever when decomposition fails;
 - first failed predicate or divergent semantic event;
+- the annotated Starting State, intended Ending State, and actual stop/failure
+  evidence references when contextual execution exists;
 - local state/event window and relevant map region;
 - attempted decisions and bounded search summary;
 - category, current hypothesis, and next recommended action; and
@@ -575,12 +871,15 @@ This packet is the default context for an agent or human taking over the case.
 ## Definitions of done
 
 A subgoal is done only when its contract, provenance, exact witness, state/event
-evidence, bounds, and live composition status are recorded.
+evidence, bounds, live composition status, and annotated Starting State and
+Ending State panels with textual equivalents are recorded. Animation is
+optional and never substitutes for either boundary panel.
 
-A level is done only when its analysis, reviewed narrative, strategy portfolio,
-selected execution, generated replay for each claimed target, TypeScript/native
-certificates, and dossier regenerate from pinned inputs. A reviewed exception
-with retained evidence is the only alternative.
+A level is done only when its analysis, reviewed narrative, terminal-rooted
+backward-planning trace, strategy portfolio, selected forward execution,
+generated replay for each claimed target, TypeScript/native certificates, and
+dossier regenerate from pinned inputs. A reviewed exception with retained
+evidence is the only alternative.
 
 The paired-corpus effort is done only when every in-scope target-ruleset record
 has been attempted and is either certified or explicitly reviewed. A coverage
@@ -588,16 +887,27 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-Implement P0 only:
+Proceed with **P3A — Terminal-First GoalGraph and Backward Planning Trace** using
+ATDD:
 
-1. choose and test the repository installation/lockfile model;
-2. add the workspace, supported web facade, and dependency-bound package
-   skeleton;
-3. check in the first artifact schemas, provisional interchange fixture, and
-   invalid examples;
-4. add canonical JSON/hash support and architecture tests;
-5. expose root `ccsolver:*` commands; and
-6. keep the existing web build and replay tests green.
+1. declare the pure `ccsolver/src/plan` layer, its narrow package surface, and
+   architecture tests before adding implementation;
+2. define the closed initial predicate/achiever vocabulary and target-scoped
+   terminal roots, preserving every exit as an explicit alternative;
+3. regress deterministically from terminal predicates through region,
+   collection, key/door, and chip/socket prerequisites without reverse-running
+   either gameplay engine;
+4. retain selected achievers, residual prerequisites, alternatives, rejections,
+   uncertainty, static-evidence references, and hard bounds in a canonical
+   backward-planning trace;
+5. prove stable graphs for a one-room exit, key-and-door route,
+   chip-and-socket route, and two-exit canary, with explicit bounded diagnostics
+   for cycles, resource inconsistency, and missing achievers; and
+6. render the first compact human review of those graphs and level-language
+   descriptions so Joshua can judge CCSolver's reasoning before P3B attempts an
+   exact execution witness.
 
-Do not begin donor alignment, search, or media generation before these contracts
-can round-trip deterministically.
+P3A proposes semantic obligations; it does not prove an executable route.
+Forward target-engine proof begins with P3B contextual witnesses, annotated map
+evidence follows in P4A, and full-level composition follows in P5. P2B remains
+the separate later expansion for the complete causal semantic journal.

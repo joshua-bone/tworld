@@ -120,6 +120,20 @@ describe("ms level preparation", () => {
     expect(decoded.cells[0]?.top.id).toBe(MS_TILE.Fire);
   });
 
+  it("retains source locations and tokens when an unregistered DAT tile is substituted", () => {
+    const decoded = decodeMsLevelData(
+      createSingleTopTileLevelData(0xfe, 7),
+      msElementFamilyRegistration.levelDecodeRegistration,
+    );
+
+    expect(decoded.badTiles).toBe(true);
+    expect(decoded.cells[0]?.top.id).toBe(MS_TILE.Wall);
+    expect(decoded.unknownTiles).toEqual([
+      { fileCode: 0xfe, plane: "upper", pos: 0, z: 1 },
+    ]);
+    expect(decoded.layers?.[0]?.unknownTiles).toEqual(decoded.unknownTiles);
+  });
+
   it("decodes built-in DAT file code 0x71 as a still bowling ball", () => {
     const decoded = decodeMsLevelData(createSingleTopTileLevelData(0x71, 7), msElementFamilyRegistration.levelDecodeRegistration);
 

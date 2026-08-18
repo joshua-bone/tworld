@@ -1,0 +1,57 @@
+{
+  "name": "@tworld/ccsolver",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./domain": {
+      "types": "./dist/domain/index.d.ts",
+      "import": "./dist/domain/index.js"
+    },
+    "./application": {
+      "types": "./dist/application/index.d.ts",
+      "import": "./dist/application/index.js"
+    },
+    "./analyze": {
+      "types": "./dist/analyze/index.d.ts",
+      "import": "./dist/analyze/index.js"
+    },
+    "./ports": {
+      "types": "./dist/ports/index.d.ts",
+      "import": "./dist/ports/index.js"
+    },
+    "./adapters/web-crypto": {
+      "types": "./dist/adapters/web-crypto/index.d.ts",
+      "import": "./dist/adapters/web-crypto/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --build tsconfig.json --force",
+    "pretest": "npm run build",
+    "pretest:conformance": "npm run build",
+    "typecheck": "tsc --project tsconfig.pure.json && tsc --project tsconfig.json --noEmit",
+    "typecheck:browser": "tsc --project tsconfig.browser.json",
+    "test": "node --test",
+    "test:conformance": "node --test \"test/artifacts/*.test.mjs\"",
+    "test:architecture": "node --test test/architecture/dependencyBoundaries.test.mjs",
+    "cli": "node src/cli/main.mjs",
+    "dossier": "node src/site/dossierCli.mjs"
+  },
+  "engines": {
+    "node": "22.x",
+    "npm": "10.x"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "ajv": "8.17.1",
+    "typescript": "^5.8.3"
+  }
+}

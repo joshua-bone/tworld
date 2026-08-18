@@ -1,0 +1,468 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/corpus-case.schema.json",
+  "$defs": {
+    "attemptContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "donorAvailability",
+        "donorExposure",
+        "constructionMethod",
+        "evaluationCohort",
+        "budgetRevision",
+        "solverRevision",
+        "searchSeed"
+      ],
+      "properties": {
+        "donorAvailability": {
+          "enum": [
+            "paired",
+            "single-ruleset",
+            "none"
+          ]
+        },
+        "donorExposure": {
+          "enum": [
+            "blind",
+            "terminal-only",
+            "semantic-guided",
+            "full-input"
+          ]
+        },
+        "constructionMethod": {
+          "enum": [
+            "from-scratch",
+            "tactic-composed",
+            "semantic-guided",
+            "input-translated",
+            "manual-assisted"
+          ]
+        },
+        "evaluationCohort": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+            }
+          ]
+        },
+        "budgetRevision": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/revisionId"
+        },
+        "solverRevision": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/revisionId"
+        },
+        "searchSeed": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/uint32"
+            }
+          ]
+        }
+      }
+    },
+    "candidateGeneratedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "replay"
+      ],
+      "properties": {
+        "kind": {
+          "const": "candidate-generated"
+        },
+        "replay": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/replayReference"
+        }
+      }
+    },
+    "certifiedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "replay",
+        "certificate"
+      ],
+      "properties": {
+        "kind": {
+          "const": "certified"
+        },
+        "replay": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/replayReference"
+        },
+        "certificate": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/replayCertificateReference"
+        }
+      }
+    },
+    "failedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "category",
+        "evidence",
+        "nextAction"
+      ],
+      "properties": {
+        "kind": {
+          "const": "failed"
+        },
+        "category": {
+          "enum": [
+            "import",
+            "runtime-oracle",
+            "observation",
+            "decomposition",
+            "local-repair-exhausted",
+            "route-replan-exhausted",
+            "ruleset-divergence",
+            "fixture",
+            "reviewed-nonportable",
+            "cancelled"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "maxItems": 65536,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/artifactReference"
+          }
+        },
+        "nextAction": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/durableText"
+        }
+      }
+    },
+    "attemptResult": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/candidateGeneratedResult"
+        },
+        {
+          "$ref": "#/$defs/certifiedResult"
+        },
+        {
+          "$ref": "#/$defs/failedResult"
+        }
+      ]
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attemptId",
+        "sequence",
+        "context",
+        "plan",
+        "result"
+      ],
+      "properties": {
+        "attemptId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "sequence": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/positiveUint32"
+        },
+        "context": {
+          "$ref": "#/$defs/attemptContext"
+        },
+        "plan": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/planReference"
+            }
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/attemptResult"
+        }
+      }
+    },
+    "targetState": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "awaiting-import"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason",
+            "evidence"
+          ],
+          "properties": {
+            "status": {
+              "const": "import-blocked"
+            },
+            "reason": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/durableText"
+            },
+            "evidence": {
+              "type": "array",
+              "maxItems": 65536,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/artifactReference"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "ready"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "levelFacts"
+          ],
+          "properties": {
+            "status": {
+              "const": "analyzed"
+            },
+            "levelFacts": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/levelFactsReference"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "attemptId"
+          ],
+          "properties": {
+            "status": {
+              "const": "candidate-generated"
+            },
+            "attemptId": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "attemptId"
+          ],
+          "properties": {
+            "status": {
+              "const": "needs-local-repair"
+            },
+            "attemptId": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "attemptId"
+          ],
+          "properties": {
+            "status": {
+              "const": "needs-route-replan"
+            },
+            "attemptId": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "attemptId"
+          ],
+          "properties": {
+            "status": {
+              "const": "solved-current"
+            },
+            "attemptId": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "attemptId",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "needs-reverify"
+            },
+            "attemptId": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+            },
+            "reason": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/durableText"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason",
+            "evidence",
+            "reviewRevision"
+          ],
+          "properties": {
+            "status": {
+              "const": "excluded-reviewed"
+            },
+            "reason": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/durableText"
+            },
+            "evidence": {
+              "type": "array",
+              "maxItems": 65536,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/artifactReference"
+              }
+            },
+            "reviewRevision": {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/revisionId"
+            }
+          }
+        }
+      ]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "attempts",
+        "state"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/rulesetTarget"
+        },
+        "attempts": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "$ref": "#/$defs/attempt"
+          }
+        },
+        "state": {
+          "$ref": "#/$defs/targetState"
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caseId",
+        "producerRevision",
+        "previous",
+        "level",
+        "targets"
+      ],
+      "properties": {
+        "caseId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "producerRevision": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/revisionId"
+        },
+        "previous": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/corpusCaseReference"
+            }
+          ]
+        },
+        "level": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/levelIdentity"
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/target"
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "protocolVersion",
+    "artifactType",
+    "schemaVersion",
+    "payload"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "ccsolver-artifact"
+    },
+    "protocolVersion": {
+      "const": 1
+    },
+    "artifactType": {
+      "const": "corpus-case"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "payload": {
+      "$ref": "#/$defs/payload"
+    }
+  }
+}

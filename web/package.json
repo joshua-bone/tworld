@@ -15,6 +15,7 @@
     "typecheck:undo-runtime": "tsc -b tsconfig.project.undo-runtime.json",
     "typecheck:browser-support": "tsc -b tsconfig.project.browser-support.json",
     "typecheck:game-runtime": "tsc -b tsconfig.project.game-runtime.json",
+    "typecheck:ccsolver-runtime": "tsc -b tsconfig.project.ccsolver-runtime.json",
     "typecheck:player-web": "tsc -b tsconfig.project.player-web.json",
     "typecheck:app": "tsc -b tsconfig.project.app.json",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
@@ -23,6 +24,12 @@
     "verify:ms-replays": "vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts MS",
     "verify:lynx-replays": "vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts Lynx",
     "verify:all-replays": "vite-node src/replay-verifier/compose/verifyAllSolutionReplays.ts",
+    "ccsolver:corpus": "vite-node src/ccsolver-runtime/compose/p1a-corpus/runCorpusManifest.ts",
+    "ccsolver:analysis": "vite-node src/ccsolver-runtime/compose/runP1aStaticAnalysis.ts",
+    "ccsolver:p1b": "vite-node src/ccsolver-runtime/compose/p1b-curriculum/runP1bCheckedArtifacts.ts",
+    "ccsolver:p2a": "vite-node src/ccsolver-runtime/compose/p2a-review/runP2aRuntimeReviewPackets.ts",
+    "ccsolver:p2a:check": "npm run ccsolver:p2a -- --check",
+    "ccsolver:p2a:generate": "npm run ccsolver:p2a -- --write",
     "verify:ms-replays:parallel": "TWORLD_MS_REPLAY_SWEEP_JOBS=${TWORLD_MS_REPLAY_SWEEP_JOBS:-999} vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts MS",
     "verify:lynx-replays:parallel": "TWORLD_LYNX_REPLAY_SWEEP_JOBS=${TWORLD_LYNX_REPLAY_SWEEP_JOBS:-999} vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts Lynx",
     "verify:all-replays:parallel": "TWORLD_REPLAY_SWEEP_JOBS=${TWORLD_REPLAY_SWEEP_JOBS:-999} vite-node src/replay-verifier/compose/verifyAllSolutionReplays.ts",
@@ -30,6 +37,7 @@
     "perf:guard": "vite-node src/perf/compose/benchmarkInteractiveSessions.ts --guard"
   },
   "dependencies": {
+    "@tworld/ccsolver": "0.0.0",
     "fast-xml-parser": "^5.2.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

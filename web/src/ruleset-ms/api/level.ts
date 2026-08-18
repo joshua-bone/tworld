@@ -67,6 +67,14 @@ export interface DecodedMsLevelLayerData {
   cloners: MsConnection[];
   creaturePositions: number[];
   badTiles: boolean;
+  unknownTiles?: DecodedMsUnknownTile[];
+}
+
+export interface DecodedMsUnknownTile {
+  z: number;
+  pos: number;
+  plane: "upper" | "lower";
+  fileCode: number;
 }
 
 export interface DecodedMsLevelData {
@@ -79,6 +87,7 @@ export interface DecodedMsLevelData {
   cloners: MsConnection[];
   creaturePositions: number[];
   badTiles: boolean;
+  unknownTiles?: DecodedMsUnknownTile[];
   layers?: DecodedMsLevelLayerData[];
 }
 
@@ -164,10 +173,12 @@ function decodeLayer(
 ): {
   nextOffset: number;
   badTiles: boolean;
+  unknownTiles: DecodedMsUnknownTile[];
 } {
   let offset = startOffset;
   let pos = 0;
   let badTiles = false;
+  const unknownTiles: DecodedMsUnknownTile[] = [];
 
   while (offset < startOffset + size && pos < target.length) {
     let count = 1;
@@ -190,6 +201,14 @@ function decodeLayer(
     }
 
     while (count > 0 && pos < target.length) {
+      if (tileId === undefined) {
+        unknownTiles.push({
+          z,
+          pos,
+          plane: key === "top" ? "upper" : "lower",
+          fileCode: fileId,
+        });
+      }
       target[pos]![key] = { id: resolvedId, state: 0 };
       pos += 1;
       count -= 1;
@@ -199,6 +218,7 @@ function decodeLayer(
   return {
     nextOffset: startOffset + size,
     badTiles,
+    unknownTiles,
   };
 }
 
@@ -298,6 +318,7 @@ function decodeMsSingleLevelData(
     cloners,
     creaturePositions,
     badTiles: upperResult.badTiles || lowerResult.badTiles,
+    unknownTiles: [...upperResult.unknownTiles, ...lowerResult.unknownTiles],
   };
 }
 
@@ -327,6 +348,7 @@ export function decodeMsLevelGroupData(
     cloners: first.cloners,
     creaturePositions: first.creaturePositions,
     badTiles: layers.some((layer) => layer.badTiles),
+    unknownTiles: first.unknownTiles,
     layers,
   };
 }

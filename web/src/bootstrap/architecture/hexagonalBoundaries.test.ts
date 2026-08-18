@@ -133,12 +133,57 @@ describe("hexagonal boundaries", () => {
       name: "ports purity",
       roots: [
         "game-runtime/ports",
+        "ccsolver-runtime/ports",
         "level-catalog/ports",
         "oracle-fixtures/ports",
         "player-web/ports",
         "replay-verifier/ports",
       ],
       forbidden: [/^@bootstrap(\/|$)/, /^react$/, /^react-dom$/, /^node:/],
+    });
+  });
+
+  it("keeps CCSolver adapter implementation independent of concrete engines and hosts", () => {
+    assertNoForbiddenImports({
+      name: "CCSolver adapter implementation purity",
+      roots: ["ccsolver-runtime/impl"],
+      forbidden: [
+        /^@bootstrap(\/|$)/,
+        /^@game-(?:core|runtime)(\/|$)/,
+        /^@level-catalog(\/|$)/,
+        /^@ruleset-(?:ms|lynx)(\/|$)/,
+        /^@undo-runtime(\/|$)/,
+        /^react$/,
+        /^react-dom$/,
+        /^node:/,
+      ],
+    });
+  });
+
+  it("keeps CCSolver target composition free of the other target's implementation policy", () => {
+    assertFilesHaveNoForbiddenImports({
+      name: "CCSolver Lynx policy isolation",
+      files: [
+        "ccsolver-runtime/compose/tworldLynxLevelProjection.ts",
+        "ccsolver-runtime/compose/buildTworldLynxLevelFacts.ts",
+        "ccsolver-runtime/compose/buildTworldLynxTopologyEvidence.ts",
+        "ccsolver-runtime/compose/buildTworldLynxStaticAnalysis.ts",
+        "ccsolver-runtime/compose/runtime/TworldLynxSolverRuntimeAdapter.ts",
+        "ccsolver-runtime/compose/runtime/lynxSolverRuntimeSemantics.ts",
+      ],
+      forbidden: [/^@ruleset-ms\/impl(\/|$)/],
+    });
+    assertFilesHaveNoForbiddenImports({
+      name: "CCSolver MS policy isolation",
+      files: [
+        "ccsolver-runtime/compose/tworldMsLevelProjection.ts",
+        "ccsolver-runtime/compose/buildTworldMsLevelFacts.ts",
+        "ccsolver-runtime/compose/buildTworldMsTopologyEvidence.ts",
+        "ccsolver-runtime/compose/buildTworldMsStaticAnalysis.ts",
+        "ccsolver-runtime/compose/runtime/TworldMsSolverRuntimeAdapter.ts",
+        "ccsolver-runtime/compose/runtime/msSolverRuntimeSemantics.ts",
+      ],
+      forbidden: [/^@ruleset-lynx\/impl(\/|$)/],
     });
   });
 
