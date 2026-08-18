@@ -5,7 +5,6 @@ import type { BrowserProfilePreferences, BrowserPreferredRuleset } from "@player
 
 const ABOUT_LINKS = {
   browserPortRepo: "https://github.com/joshua-bone/tworld",
-  tileWorldRepo: "https://github.com/SicklySilverMoon/tworld",
   bitbustersClub: "https://bitbusters.club",
   bitbustersWiki: "https://wiki.bitbusters.club",
   discord: "https://discord.gg/Xd4dUY9",
@@ -464,10 +463,6 @@ export function ModernDashboardAboutModal({
             <div className="modern-set-card__links modern-about-modal__links">
               <a className="modern-inline-link" href={ABOUT_LINKS.browserPortRepo} rel="noreferrer" target="_blank">
                 Tile World Online repo
-              </a>
-              <span aria-hidden="true">|</span>
-              <a className="modern-inline-link" href={ABOUT_LINKS.tileWorldRepo} rel="noreferrer" target="_blank">
-                Tile World repo
               </a>
               <span aria-hidden="true">|</span>
               <a className="modern-inline-link" href={ABOUT_LINKS.bitbustersClub} rel="noreferrer" target="_blank">
