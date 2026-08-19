@@ -47,7 +47,7 @@ jobs:
         timeout-minutes: 5
         run: |
           sudo apt-get -y update
-          sudo apt-get -y install cmake libsdl2-dev
+          sudo apt-get -y install cmake libsdl1.2-dev
           cmake -S . -B build-verify -DOSHW=sdl -DCMAKE_BUILD_TYPE=Debug
           cmake --build build-verify --target tworld-oracle --parallel 4
       - name: Check P5 certified Key Pyramid artifacts

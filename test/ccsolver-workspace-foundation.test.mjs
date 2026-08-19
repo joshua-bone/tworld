@@ -341,6 +341,10 @@ test("runs the workspace foundation gate on pull requests", async () => {
   );
   assert.match(
     workflow,
+    /- name: Build native replay oracle for P5[\s\S]*?sudo apt-get -y install cmake libsdl1\.2-dev[\s\S]*?cmake -S \. -B build-verify -DOSHW=sdl/,
+  );
+  assert.match(
+    workflow,
     /- name: Check P5 certified Key Pyramid artifacts\n\s+timeout-minutes: 15\n\s+run: npm run ccsolver:p5:check/,
   );
   assert.match(
