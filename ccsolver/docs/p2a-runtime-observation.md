@@ -28,8 +28,9 @@ curriculum scope.
 Initial actors retain LevelFacts placement identities. Actors that appear only
 at runtime receive target-scoped projected identities whose continuity is
 preserved by exact checkpoints; P2A does not claim causal clone lineage.
-Source-plus-clone-ordinal lineage requires the P2B event journal and remains a
-later contract.
+The delivered P2B causal-journal foundation adds source-plus-clone-ordinal
+lineage to authoritative spawn events. It does not retroactively turn P2A's
+state-only actor projection into a causal claim.
 
 ## Delivered seam
 
@@ -173,7 +174,9 @@ that CCSolver understands why a level works or can solve it.
 
 ## Deferred work
 
-P2B adds the complete causal semantic event journal and bounded failure
-diagnostics. P3A terminal-first regression, P3B exact contextual witnesses,
+The P2B foundation now adds bounded causal semantic journals for the Key
+Pyramid slice and named standard-mechanic canaries. Full P2 mechanics coverage,
+native diagnostic-window adaptation, and causal-contract integration remain
+follow-on work. P3A terminal-first regression, P3B exact contextual witnesses,
 P4A annotated boundary evidence, P5 composition/certification, and the P4B
 whole-level dossier are delivered for the Key Pyramid reference slice.

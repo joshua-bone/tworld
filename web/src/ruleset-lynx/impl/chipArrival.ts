@@ -9,7 +9,7 @@ import {
   lynxButtonAction,
   lynxTileForcedFloorKind,
 } from "@ruleset-lynx/impl/catalog";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 import { type LynxChipEnterTileBehaviorContext } from "@ruleset-lynx/impl/chipEnterBehavior";
 import { type LynxChipFinishEnterTileBehaviorContext } from "@ruleset-lynx/impl/elements/tiles/concrete/registration";
 import { lookupLynxTileLifecyclePhase } from "@ruleset-lynx/impl/tileLifecycleRegistration";
@@ -18,6 +18,7 @@ import type {
   LynxEndGameState,
 } from "@ruleset-lynx/impl/turnState";
 import type { LynxMoveKind } from "@ruleset-lynx/impl/verticalMovement";
+import type { LynxNativeCausalEventSeed } from "@ruleset-lynx/impl/causalEvents";
 
 export interface LynxCompletedChipMoveContext {
   state: EngineState;
@@ -38,6 +39,8 @@ export interface LynxCompletedChipMoveContext {
   springTrap(pos: number): void;
   hasBoot(tileId: number): boolean;
   applyIceWallTurn(dir: number, floorId: number): number;
+  activeLayerZ(): number;
+  recordCausalEvent?(event: LynxNativeCausalEventSeed): void;
   failChip(
     chipPos: number,
     chipDir: number,
@@ -46,6 +49,7 @@ export interface LynxCompletedChipMoveContext {
     endGameAnimationTileId: number | null,
     endGameAnimationFrame: number | null,
     reason: "drowned" | "burned" | "bombed",
+    hazardTileId: number,
   ): LynxEndGameState & { chipPos: number };
   startCompletedEndGame(
     endGameTicksElapsed: number | null,
@@ -59,10 +63,30 @@ function isLynxIce(tileId: number): boolean {
   return lynxTileForcedFloorKind(tileId) === "ice";
 }
 
+function isLynxSlide(tileId: number): boolean {
+  return lynxTileForcedFloorKind(tileId) === "slide";
+}
+
+function planarOrigin(pos: number, dir: number): number | null {
+  switch (dir) {
+    case MS_DIRECTION.north: return pos + MS_GRID_WIDTH;
+    case MS_DIRECTION.east: return pos - 1;
+    case MS_DIRECTION.south: return pos - MS_GRID_WIDTH;
+    case MS_DIRECTION.west: return pos + 1;
+    default: return null;
+  }
+}
+
 export function applyLynxChipArrivalEffects(
   context: Pick<
     LynxCompletedChipMoveContext,
-    "state" | "soundBits" | "resolveButtonEffects" | "applyThiefHook" | "queueCollectedTool"
+    | "state"
+    | "soundBits"
+    | "resolveButtonEffects"
+    | "applyThiefHook"
+    | "queueCollectedTool"
+    | "activeLayerZ"
+    | "recordCausalEvent"
   >,
   pos: number,
 ): ArrivalResult {
@@ -127,9 +151,41 @@ export function applyCompletedLynxChipMove(
   endGameAnimationTileId: number | null,
   endGameAnimationFrame: number | null,
 ): LynxEndGameState & { chipPos: number; chipDir: number } {
+  const activeZ = context.activeLayerZ();
+  const moveOrigin = chipMoveKind === "planar" ? planarOrigin(chipPos, chipDir) : null;
+  const originFloor = moveOrigin === null
+    ? null
+    : context.state.map.cells[moveOrigin]?.top.id ?? MS_TILE.Empty;
+  const movementRole = chipMoveKind !== "planar"
+    || (originFloor !== null && isLynxSlide(originFloor) && !context.hasBoot(MS_TILE.Boots_Slide))
+    || (originFloor !== null && isLynxIce(originFloor) && !context.hasBoot(MS_TILE.Boots_Ice))
+    ? "forced" as const
+    : "self" as const;
+  const resolvedFloorAtCommit = context.state.map.cells[chipPos]?.top.id ?? MS_TILE.Empty;
+  context.recordCausalEvent?.({
+    kind: "move-completed",
+    actorId: MS_TILE.Chip,
+    actorSerial: null,
+    tileId: resolvedFloorAtCommit,
+    direction: chipDir,
+    movementRole,
+    before: moveOrigin === null ? null : { pos: moveOrigin, z: activeZ },
+    after: { pos: chipPos, z: activeZ },
+    phase: "movement-commit",
+  });
   const arrival = applyLynxChipArrivalEffects(context, chipPos);
   context.state.soundEffects |= arrival.soundEffects;
   if (arrival.status === "completed" && endGameTicksElapsed === null) {
+    context.recordCausalEvent?.({
+      kind: "complete-level",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: resolvedFloorAtCommit,
+      direction: chipDir,
+      before: { pos: chipPos, z: activeZ },
+      after: { pos: chipPos, z: activeZ },
+      phase: "terminal-latch",
+    });
     const endGame = context.startCompletedEndGame(
       endGameTicksElapsed,
       endGameResult,

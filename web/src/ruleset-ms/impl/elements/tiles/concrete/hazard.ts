@@ -11,6 +11,7 @@ export function createMsHazardTileBehavior(tileId: number): TileBehavior<number,
       return createTileBehavior({
         "begin-enter": (context) => {
           const behaviorContext = context as MsChipEnterTileBehaviorContext;
+          const statusBefore = behaviorContext.chip.chipStatus;
           switch (tileId) {
             case MS_TILE.Water:
               if (!actorInventoryHasBoot(behaviorContext.chipInventory, 3)) {
@@ -26,6 +27,22 @@ export function createMsHazardTileBehavior(tileId: number): TileBehavior<number,
               behaviorContext.chip.chipStatus = "bombed";
               behaviorContext.soundEffects |= 1 << MS_SOUND.BombExplodes;
               break;
+          }
+          if (statusBefore === "okay" && behaviorContext.chip.chipStatus !== "okay") {
+            const z = behaviorContext.runtime.runtimeCellZ(behaviorContext.nextPos);
+            behaviorContext.runtime.recordCausalEvent?.({
+              kind: "player-died",
+              actorId: MS_TILE.Chip,
+              actorSerial: null,
+              tileId,
+              sourceTileId: tileId,
+              sourcePosition: { pos: behaviorContext.nextPos, z },
+              sourceStratum: "terrain",
+              cause: `cc1:${behaviorContext.chip.chipStatus}`,
+              before: { pos: behaviorContext.nextPos, z },
+              after: { pos: behaviorContext.nextPos, z },
+              phase: "terminal-latch",
+            });
           }
         },
       });

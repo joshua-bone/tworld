@@ -288,6 +288,35 @@ function createFakeDriver(options: {
       }
       return maybeAsync(token);
     },
+    readEvents(token, request) {
+      return maybeAsync({
+        journalVersion: 1,
+        target: token.target,
+        mode: token.mode,
+        level,
+        levelFacts,
+        provenance,
+        requested: structuredClone(request),
+        eventsOrder: "sequence",
+        events: [],
+        window: {
+          firstAvailableSequence: null,
+          availableThroughSequence: null,
+          firstReturnedSequence: null,
+          lastReturnedSequence: null,
+          nextAfterSequence: request.afterSequence,
+          status: "complete",
+        },
+        retention: { status: "complete" },
+      });
+    },
+    causalJournalCheckpoint() {
+      return maybeAsync({
+        nextSequence: 0,
+        retainedEventCount: 0,
+        retention: { status: "complete" },
+      });
+    },
     observe(token) {
       counters.observations += 1;
       const observation = observationFor(token);
@@ -1152,6 +1181,104 @@ function boxBeforeMutation(
 }
 
 describe("createSolverRuntimeKernel lifecycle guards", () => {
+  it.each(["phantom-range", "wrong-binding"] as const)(
+    "rejects a valid-looking %s causal page and preserves the live run",
+    async (variant) => {
+      const { driver } = createFakeDriver();
+      const adversarial: SolverRuntimeDriver<FakeToken, FakeSource, FakeReplaySource> = {
+        ...driver,
+        async readEvents(token, request) {
+          const empty = await driver.readEvents(token, request);
+          if (variant === "wrong-binding") {
+            return { ...empty, target: token.target === "ms" ? "lynx" : "ms" };
+          }
+          return {
+            ...empty,
+            events: [{
+              eventVersion: 1,
+              sequence: 0,
+              occurrenceOrdinal: 0,
+              target: token.target,
+              mode: token.mode,
+              boundary: { nativeTick: token.tick, phase: "command" },
+              authority: {
+                basis: "runtime-command",
+                evidence: "authoritative",
+                causality: "explicit",
+              },
+              subject: {
+                semanticType: "cc1:player",
+                actorId: PLAYER_ID,
+                placementId: null,
+                deviceId: null,
+              },
+              source: null,
+              coordinates: { before: coordinate(token.x, token.y), after: null },
+              commandId: "fixture:phantom-command",
+              planId: null,
+              causedBySequences: [],
+              kind: "command",
+              detail: {
+                requestKind: "manual-poll",
+                inputCode: 1,
+                influence: "applied",
+                failureReason: null,
+              },
+            }],
+            window: {
+              firstAvailableSequence: 0,
+              availableThroughSequence: 0,
+              firstReturnedSequence: 0,
+              lastReturnedSequence: 0,
+              nextAfterSequence: 0,
+              status: "complete",
+            },
+          };
+        },
+      };
+      const runtime = createRuntime(adversarial);
+      const run = await runtime.startManual({ sourceId: `causal-${variant}` });
+      const before = await runtime.observe(run);
+
+      await expectRuntimeError(
+        () => runtime.readEvents(run, { afterSequence: null, maximumEvents: 8 }),
+        "runtime.adapter-failure",
+        "readEvents",
+      );
+      expect(await runtime.observe(run)).toEqual(before);
+    },
+  );
+
+  it.each(["event-read", "journal-metadata"] as const)(
+    "rejects mutation during causal %s inspection and preserves the live run",
+    async (variant) => {
+      const { driver } = createFakeDriver();
+      let armed = false;
+      const adversarial: SolverRuntimeDriver<FakeToken, FakeSource, FakeReplaySource> = {
+        ...driver,
+        async readEvents(token, request) {
+          if (armed && variant === "event-read") token.x += 1;
+          return driver.readEvents(token, request);
+        },
+        async causalJournalCheckpoint(token) {
+          if (armed && variant === "journal-metadata") token.x += 1;
+          return driver.causalJournalCheckpoint(token);
+        },
+      };
+      const runtime = createRuntime(adversarial);
+      const run = await runtime.startManual({ sourceId: `causal-mutating-${variant}` });
+      const before = await runtime.observe(run);
+      armed = true;
+
+      await expectRuntimeError(
+        () => runtime.readEvents(run, { afterSequence: null, maximumEvents: 8 }),
+        "runtime.adapter-failure",
+        "readEvents",
+      );
+      expect(await runtime.observe(run)).toEqual(before);
+    },
+  );
+
   it("detaches a start source before an asynchronous driver can observe caller mutation", async () => {
     const { driver } = createFakeDriver();
     const delayedDriver: SolverRuntimeDriver<FakeToken, FakeSource, FakeReplaySource> = {

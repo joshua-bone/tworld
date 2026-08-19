@@ -28,6 +28,7 @@ import {
   topTileIdOr,
 } from "@game-core/impl/board";
 import {
+  advancePositionIfPossible,
   advanceToCell,
   directionName,
   nextPosition,
@@ -179,6 +180,13 @@ import {
 } from "@ruleset-ms/impl/petCarrierSnapshots";
 import { queryMsOccupancyTarget } from "@ruleset-ms/impl/occupancy";
 import { applyMsChipEnterEffects } from "@ruleset-ms/impl/chipArrival";
+import {
+  attachMsNativeCausalWriter,
+  recordMsNativeCausalEvent,
+  type MsCausalEventOptions,
+  type MsNativeCausalEvent,
+  type MsNativeCausalEventSeed,
+} from "@ruleset-ms/impl/causalEvents";
 import { isThinWallTileId } from "@ruleset-ms/api/renderMetadata";
 import {
   applyMsPortableToolAction,
@@ -193,6 +201,8 @@ import {
 } from "@ruleset-ms/impl/chipMovement";
 import {
   activateMsCloner,
+  findMsClonerTarget,
+  findMsTrapTarget,
   hasMsTrapConnection,
   isMsTrapOpen,
   springMsTrap,
@@ -404,10 +414,41 @@ function msInteractionTargetFromOccupancy(
   }
 }
 
-function applyMsChipCollisionOutcome(internal: MsInternalState, outcome: ReturnType<typeof msActorCollisionOutcome>): void {
-  if (outcome.chipFails) {
+interface MsChipCollisionSource {
+  readonly actorId: number;
+  readonly actorSerial?: number | null;
+  readonly actorRuntimeKey?: string | null;
+}
+
+function markMsChipCollided(
+  internal: MsInternalState,
+  source: MsChipCollisionSource | null = null,
+): void {
+  if (internal.chipStatus === "okay") {
     internal.chipStatus = "collided";
+    const z = internal.chipZ ?? 1;
+    recordMsNativeCausalEvent(internal, {
+      kind: "player-died",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: null,
+      sourceActorId: source?.actorId ?? null,
+      sourceActorSerial: source?.actorSerial ?? null,
+      sourceActorRuntimeKey: source?.actorRuntimeKey ?? null,
+      cause: "cc1:collided",
+      before: { pos: internal.chipPos, z },
+      after: { pos: internal.chipPos, z },
+      phase: "terminal-latch",
+    });
   }
+}
+
+function applyMsChipCollisionOutcome(
+  internal: MsInternalState,
+  outcome: ReturnType<typeof msActorCollisionOutcome>,
+  source: MsChipCollisionSource | null = null,
+): void {
+  if (outcome.chipFails) markMsChipCollided(internal, source);
 }
 
 function msPortableBackedActorItemSerial(
@@ -485,6 +526,19 @@ function destroyMsTrackedCreature(
   inventory: EngineState["inventory"],
   creature: MsTrackedCreature,
 ): void {
+  if (!creature.hidden) {
+    const z = creature.z ?? 1;
+    recordMsNativeCausalEvent(internal, {
+      kind: "actor-destroyed",
+      actorId: creature.id,
+      actorSerial: creature.serial,
+      tileId: null,
+      cause: "cc1:native-destruction",
+      before: { pos: creature.pos, z },
+      after: { pos: creature.pos, z },
+      phase: "actor-lifecycle",
+    });
+  }
   creature.hidden = true;
   creature.released = false;
   creature.turning = false;
@@ -1061,7 +1115,10 @@ function resolveMsCreaturePreMoveCollision(
     removeMsCollisionTarget(targetCells, internal, inventory, target);
   }
   if (collisionOutcome.chipFails) {
-    applyMsChipCollisionOutcome(internal, collisionOutcome);
+    applyMsChipCollisionOutcome(internal, collisionOutcome, {
+      actorId: creature.id,
+      actorSerial: creature.serial,
+    });
   }
   if (collisionOutcome.removeMovingActor) {
     const oldPos = creature.pos;
@@ -1378,7 +1435,10 @@ function settleMsSpawnedCreatureLanding(
     standingFloor,
   );
   applyMsCreatureCollisionAfterCompletedStep(cells, creature.pos, () => {
-    runtime.internal.chipStatus = "collided";
+    markMsChipCollided(runtime.internal, {
+      actorId: creature.id,
+      actorSerial: creature.serial,
+    });
   });
   runtime.internal.pendingSoundEffects |= context.applyArrivalEffects(cells, creature);
   if (
@@ -2697,8 +2757,35 @@ function attemptMsTrackedBlockMove(
   occupiedOriginPos = -1,
 ): MovementAttemptResult {
   const pos = trackedBlock.pos;
+  const blockRuntimeIndex = internal.blocks.indexOf(trackedBlock);
+  const blockZ = trackedBlock.z ?? runtimeCellZ(cells, pos);
+  const movementRole = preserveSourceTile || trackedBlock.floorMovement !== "none"
+    ? "forced" as const
+    : "push" as const;
   const oldWasCloneMachine = isMsClonerSpecialFloor(cells[pos]!.bottom.id);
   const keepSourceTile = preserveSourceTile || oldWasCloneMachine;
+  const clonedStandardBlock = oldWasCloneMachine && trackedBlockActorId(trackedBlock) === MS_TILE.Block;
+  const recordCloneSpawn = (): void => {
+    if (!clonedStandardBlock || blockRuntimeIndex < 0) return;
+    const runtimeKey = `ms-block-slot:${blockRuntimeIndex}`;
+    recordMsNativeCausalEvent(internal, {
+      kind: "actor-spawned",
+      actorId: MS_TILE.Block,
+      actorSerial: null,
+      actorRuntimeKey: runtimeKey,
+      tileId: MS_TILE.CloneMachine,
+      sourceTileId: MS_TILE.CloneMachine,
+      sourcePosition: { pos, z: blockZ },
+      sourceStratum: "terrain",
+      parentActorSerial: null,
+      parentActorRuntimeKey: `ms-cloner-source-block-slot:${blockRuntimeIndex}`,
+      spawnOrdinal: null,
+      cause: "cc1:cloner",
+      before: null,
+      after: { pos, z: blockZ },
+      phase: "actor-lifecycle",
+    });
+  };
   if (!canLeaveFloor(cells, pos, dir, trackedBlock.released)) {
     return blockedMovement();
   }
@@ -2754,6 +2841,33 @@ function attemptMsTrackedBlockMove(
   const targetBottomState = cells[nextPos]!.bottom.state;
   const arrivalReplacement = msBlockArrivalReplacement(targetTop, trackedBlockActorId(trackedBlock));
   if (arrivalReplacement !== null) {
+    recordCloneSpawn();
+    recordMsNativeCausalEvent(internal, {
+      kind: "move-completed",
+      actorId: trackedBlockActorId(trackedBlock),
+      actorSerial: null,
+      actorRuntimeKey: blockRuntimeIndex < 0 ? null : `ms-block-slot:${blockRuntimeIndex}`,
+      tileId: targetTop,
+      direction: dir,
+      movementRole,
+      before: { pos, z: blockZ },
+      after: { pos: nextPos, z: blockZ },
+      phase: "movement-commit",
+    });
+    recordMsNativeCausalEvent(internal, {
+      kind: "actor-destroyed",
+      actorId: trackedBlockActorId(trackedBlock),
+      actorSerial: null,
+      actorRuntimeKey: blockRuntimeIndex < 0 ? null : `ms-block-slot:${blockRuntimeIndex}`,
+      tileId: targetTop,
+      sourceTileId: targetTop,
+      sourcePosition: { pos: nextPos, z: blockZ },
+      sourceStratum: "terrain",
+      cause: "cc1:floor-hazard",
+      before: { pos: nextPos, z: blockZ },
+      after: { pos: nextPos, z: blockZ },
+      phase: "actor-lifecycle",
+    });
     cells[nextPos]!.top.id = arrivalReplacement.tileId;
     cells[nextPos]!.top.state = 0;
     if (!keepSourceTile) {
@@ -2771,6 +2885,8 @@ function attemptMsTrackedBlockMove(
   ) {
     return blockedMovement();
   }
+
+  recordCloneSpawn();
 
   const movedTile = keepSourceTile ? { ...cells[pos]!.top } : popExitedMsMobSourceTile(cells, pos);
   let landingPos = nextPos;
@@ -2790,7 +2906,14 @@ function attemptMsTrackedBlockMove(
   }
 
   const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-  applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(trackedBlock), targetCreatureId));
+  applyMsChipCollisionOutcome(
+    internal,
+    msActorCollisionOutcome(trackedBlockActorId(trackedBlock), targetCreatureId),
+    {
+      actorId: trackedBlockActorId(trackedBlock),
+      actorRuntimeKey: blockRuntimeIndex < 0 ? null : `ms-block-slot:${blockRuntimeIndex}`,
+    },
+  );
 
   const block = trackedBlock;
   block.pos = landingPos;
@@ -2826,6 +2949,33 @@ function attemptMsTrackedBlockMove(
       const buttonSoundEffects = resolveButtonFloorEffects(cells, internal, null, landingPos, landedButtonFloor);
       soundEffects |= buttonSoundEffects;
     }
+  }
+
+  recordMsNativeCausalEvent(internal, {
+    kind: "move-completed",
+    actorId: trackedBlockActorId(block),
+    actorSerial: null,
+    actorRuntimeKey: blockRuntimeIndex < 0 ? null : `ms-block-slot:${blockRuntimeIndex}`,
+    tileId: targetTop,
+    direction: dir,
+    movementRole,
+    before: { pos, z: blockZ },
+    after: { pos: nextPos, z: blockZ },
+    phase: "movement-commit",
+  });
+  if (landingPos !== nextPos) {
+    recordMsNativeCausalEvent(internal, {
+      kind: "teleport",
+      actorId: trackedBlockActorId(block),
+      actorSerial: null,
+      actorRuntimeKey: blockRuntimeIndex < 0 ? null : `ms-block-slot:${blockRuntimeIndex}`,
+      tileId: MS_TILE.Teleport,
+      direction: dir,
+      movementRole,
+      before: { pos: nextPos, z: blockZ },
+      after: { pos: landingPos, z: blockZ },
+      phase: "teleport-resolution",
+    });
   }
 
   return movedMovement(soundEffects);
@@ -2934,14 +3084,76 @@ function resolveButtonFloorEffects(
   floor: number,
   inMidMove: MsTrackedCreature | null = null,
   buttonZ = inMidMove?.z ?? internal.chipZ ?? 1,
+  activatorIsChip = false,
 ): number {
+  const recordButtonActivation = (
+    targetPos: number,
+    targetZ: number,
+    targetTileId: number,
+    targetStratum: "terrain" | "overlay",
+    action: string,
+  ): void => {
+    recordMsNativeCausalEvent(internal, {
+      kind: "device-activated",
+      actorId: inMidMove?.id ?? (activatorIsChip ? MS_TILE.Chip : MS_TILE.Empty),
+      actorSerial: inMidMove?.serial ?? null,
+      tileId: targetTileId,
+      targetStratum,
+      sourceTileId: floor,
+      sourcePosition: { pos: buttonPos, z: buttonZ },
+      sourceStratum: "overlay",
+      action,
+      before: { pos: targetPos, z: targetZ },
+      after: { pos: targetPos, z: targetZ },
+      phase: "device-action",
+    });
+  };
   return applyMsTileActivationEffect(
     {
-      turnTanks: (activeCreature) => turnTanks(cells, internal, activeCreature ?? null),
+      turnTanks: (activeCreature) => {
+        recordButtonActivation(buttonPos, buttonZ, MS_TILE.Button_Blue, "overlay", "cc1:turn-tanks");
+        turnTanks(cells, internal, activeCreature ?? null);
+      },
       toggleWalls: () => {
-        toggleWalls(internal.runtimeLayers);
+        toggleWalls(internal.runtimeLayers, (targetPos, targetZ, beforeTileId, afterTileId) => {
+          recordMsNativeCausalEvent(internal, {
+            kind: "device-state-changed",
+            actorId: inMidMove?.id ?? (activatorIsChip ? MS_TILE.Chip : MS_TILE.Empty),
+            actorSerial: inMidMove?.serial ?? null,
+            tileId: beforeTileId,
+            resultingTileId: afterTileId,
+            sourceTileId: floor,
+            sourcePosition: { pos: buttonPos, z: buttonZ },
+            sourceStratum: "overlay",
+            action: "cc1:toggle-walls",
+            beforeState: beforeTileId === MS_TILE.SwitchWall_Open ? "cc1:open" : "cc1:closed",
+            afterState: afterTileId === MS_TILE.SwitchWall_Open ? "cc1:open" : "cc1:closed",
+            before: { pos: targetPos, z: targetZ },
+            after: { pos: targetPos, z: targetZ },
+            phase: "device-action",
+          });
+        });
       },
       activateCloner: (activationButtonPos, activationButtonZ) => {
+        const clonerZ = activationButtonZ ?? buttonZ;
+        const cloneSourcePos = findMsClonerTarget(
+          internal.cloners,
+          activationButtonPos,
+          clonerZ,
+        );
+        const capturedSourceSerial = cloneSourcePos === null
+          ? undefined
+          : creatureAtPos(internal, cloneSourcePos, clonerZ)?.serial
+            ?? internal.cloneSourceSerialByPosition.get(`${clonerZ}:${cloneSourcePos}`);
+        if (cloneSourcePos !== null) {
+          recordButtonActivation(
+            cloneSourcePos,
+            clonerZ,
+            MS_TILE.CloneMachine,
+            "terrain",
+            "cc1:activate-cloner",
+          );
+        }
         activateMsCloner({
           cells,
           cloners: internal.cloners,
@@ -2988,8 +3200,7 @@ function resolveButtonFloorEffects(
             ),
           spawnCreatureClone: (sourcePos, sourceId, sourceDir, z, cloneFamilyRuntime) => {
             const clonedCreatureSerial = internal.nextCreatureSerial;
-            const sourceCreature = creatureAtPos(internal, sourcePos, z);
-            const sourceSerial = sourceCreature?.serial ?? internal.cloneSourceSerialByPosition.get(`${z}:${sourcePos}`);
+            const sourceSerial = capturedSourceSerial;
             internal.creatures.push({
               serial: clonedCreatureSerial,
               id: sourceId,
@@ -3013,10 +3224,36 @@ function resolveButtonFloorEffects(
               cloneMsPortableBackedActorForCloner(internal, sourceSerial, clonedCreatureSerial);
             }
             internal.nextCreatureSerial = clonedCreatureSerial + 1;
+            recordMsNativeCausalEvent(internal, {
+              kind: "actor-spawned",
+              actorId: sourceId,
+              actorSerial: clonedCreatureSerial,
+              tileId: MS_TILE.CloneMachine,
+              sourceTileId: MS_TILE.CloneMachine,
+              sourcePosition: { pos: sourcePos, z },
+              sourceStratum: "terrain",
+              parentActorSerial: sourceSerial ?? null,
+              spawnOrdinal: null,
+              cause: "cc1:cloner",
+              before: null,
+              after: { pos: sourcePos, z },
+              phase: "actor-lifecycle",
+            });
           },
         });
       },
       springTrap: (activationButtonPos, activationButtonZ) => {
+        const trapZ = activationButtonZ ?? buttonZ;
+        const trapPos = findMsTrapTarget(internal.traps, activationButtonPos, trapZ);
+        if (trapPos !== null) {
+          recordButtonActivation(
+            trapPos,
+            trapZ,
+            MS_TILE.Beartrap,
+            "terrain",
+            "cc1:spring-trap",
+          );
+        }
         springMsTrap({
           cells,
           traps: internal.traps,
@@ -3856,20 +4093,27 @@ function turnTanks(cells: EngineMapCell[], internal: MsInternalState, inMidMove:
   }
 }
 
-function toggleWalls(layers: ReadonlyArray<MsRuntimeLayer>): void {
-  forEachRuntimeLayer(layers, (cells) => {
-    for (const cell of cells) {
+function toggleWalls(
+  layers: ReadonlyArray<MsRuntimeLayer>,
+  onToggle?: (pos: number, z: number, beforeTileId: number, afterTileId: number) => void,
+): void {
+  forEachRuntimeLayer(layers, (cells, z) => {
+    for (const [pos, cell] of cells.entries()) {
       if (
         (cell.top.id === MS_TILE.SwitchWall_Open || cell.top.id === MS_TILE.SwitchWall_Closed) &&
         (cell.top.state & MS_FLOOR_STATE.Broken) === 0
       ) {
+        const beforeTileId = cell.top.id;
         cell.top.id ^= MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed;
+        onToggle?.(pos, z, beforeTileId, cell.top.id);
       }
       if (
         (cell.bottom.id === MS_TILE.SwitchWall_Open || cell.bottom.id === MS_TILE.SwitchWall_Closed) &&
         (cell.bottom.state & MS_FLOOR_STATE.Broken) === 0
       ) {
+        const beforeTileId = cell.bottom.id;
         cell.bottom.id ^= MS_TILE.SwitchWall_Open ^ MS_TILE.SwitchWall_Closed;
+        onToggle?.(pos, z, beforeTileId, cell.bottom.id);
       }
     }
   });
@@ -3882,7 +4126,7 @@ function resolveCreatureFloorEffects(cells: EngineMapCell[], creature: MsTracked
 
 function resolveChipFloorEffects(cells: EngineMapCell[], internal: MsInternalState): number {
   const floor = bottomTileId(cells, internal.chipPos);
-  return resolveButtonFloorEffects(cells, internal, null, internal.chipPos, floor);
+  return resolveButtonFloorEffects(cells, internal, null, internal.chipPos, floor, null, undefined, true);
 }
 
 function createMsCreatureMovementContext(
@@ -3931,6 +4175,22 @@ function createMsCreatureMovementContext(
     removeStatefulActor: (creature: MsTrackedCreature) => {
       destroyMsPortableBackedActorRuntime(internal, inventory, creature.serial);
     },
+    recordActorDestroyed: (creature: MsTrackedCreature, pos: number, floorId: number) => {
+      const z = creature.z ?? 1;
+      recordMsNativeCausalEvent(internal, {
+        kind: "actor-destroyed",
+        actorId: creature.id,
+        actorSerial: creature.serial,
+        tileId: floorId,
+        sourceTileId: floorId,
+        sourcePosition: { pos, z },
+        sourceStratum: "terrain",
+        cause: "cc1:floor-hazard",
+        before: { pos, z },
+        after: { pos, z },
+        phase: "actor-lifecycle",
+      });
+    },
     findTeleportDestination: (
       cells: EngineMapCell[],
       start: number,
@@ -3960,6 +4220,39 @@ function createMsCreatureMovementContext(
             "probe",
           ),
       }),
+    recordTeleport: (creature: MsTrackedCreature, beforePos: number, afterPos: number) => {
+      const z = creature.z ?? 1;
+      recordMsNativeCausalEvent(internal, {
+        kind: "teleport",
+        actorId: creature.id,
+        actorSerial: creature.serial,
+        tileId: MS_TILE.Teleport,
+        direction: creature.dir,
+        before: { pos: beforePos, z },
+        after: { pos: afterPos, z },
+        phase: "teleport-resolution",
+      });
+    },
+    recordMoveCompleted: (
+      creature: MsTrackedCreature,
+      beforePos: number,
+      afterPos: number,
+      standingFloor: number,
+      movementRole: "self" | "forced",
+    ) => {
+      const z = creature.z ?? 1;
+      recordMsNativeCausalEvent(internal, {
+        kind: "move-completed",
+        actorId: creature.id,
+        actorSerial: creature.serial,
+        tileId: standingFloor,
+        direction: creature.dir,
+        movementRole,
+        before: { pos: beforePos, z },
+        after: { pos: afterPos, z },
+        phase: "movement-commit",
+      });
+    },
   };
 }
 
@@ -4003,7 +4296,11 @@ function createMsCreatureMovementStrategyDispatchContext(
         moveCells,
         moveCreature,
         moveDir,
-        () => applyMsChipCollisionOutcome(moveInternal, msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip)),
+        () => applyMsChipCollisionOutcome(
+          moveInternal,
+          msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip),
+          { actorId: moveCreature.id, actorSerial: moveCreature.serial },
+        ),
       ),
     startDownMove: (moveEngine, moveSourceCells, moveTargetCells, moveLayerCellsByZ, moveCreature, moveInternal) =>
       moveMsCreatureDownOneLayerWithContext(
@@ -4019,7 +4316,11 @@ function createMsCreatureMovementStrategyDispatchContext(
         moveSourceCells,
         moveTargetCells,
         moveCreature,
-        () => applyMsChipCollisionOutcome(moveInternal, msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip)),
+        () => applyMsChipCollisionOutcome(
+          moveInternal,
+          msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip),
+          { actorId: moveCreature.id, actorSerial: moveCreature.serial },
+        ),
       ),
     startUpMove: (moveEngine, moveSourceCells, moveTargetCells, moveLayerCellsByZ, moveCreature, moveInternal) => {
       return moveMsCreatureUpOneLayerWithContext(
@@ -4035,7 +4336,11 @@ function createMsCreatureMovementStrategyDispatchContext(
         moveSourceCells,
         moveTargetCells,
         moveCreature,
-        () => applyMsChipCollisionOutcome(moveInternal, msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip)),
+        () => applyMsChipCollisionOutcome(
+          moveInternal,
+          msActorCollisionOutcome(moveCreature.id, MS_TILE.Chip),
+          { actorId: moveCreature.id, actorSerial: moveCreature.serial },
+        ),
         isValidElevatorDestinationFloor,
       );
     },
@@ -4413,7 +4718,14 @@ function processMsBlockFloorQueueEntry(
 
         placeStaticBlock(lowerCells, landingPos, movedTile.state, trackedBlockActorId(block));
         const targetCreatureId = isMsCreature(targetTop) ? msCreatureId(targetTop) : MS_TILE.Empty;
-        applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId));
+        applyMsChipCollisionOutcome(
+          internal,
+          msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId),
+          {
+            actorId: trackedBlockActorId(block),
+            actorRuntimeKey: `ms-block-slot:${internal.blocks.indexOf(block)}`,
+          },
+        );
 
         const successfulFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
         const successfulFloorState = targetCreatureId !== MS_TILE.Empty ? targetBottomState : targetTopState;
@@ -4700,6 +5012,19 @@ function teleportDestination(
   });
 
   internal.pendingSoundEffects = teleported.pendingSoundEffects;
+  if (teleported.destination !== start) {
+    const z = internal.chipZ ?? runtimeCellZ(cells, start);
+    recordMsNativeCausalEvent(internal, {
+      kind: "teleport",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: MS_TILE.Teleport,
+      direction: dir,
+      before: { pos: start, z },
+      after: { pos: teleported.destination, z },
+      phase: "teleport-resolution",
+    });
+  }
   return {
     destination: teleported.destination,
     soundEffects: teleported.soundEffects,
@@ -4723,6 +5048,7 @@ function createMsChipMovementContext(
           runtimeCellZ: (pos) => runtimeCellZ(cells, pos),
           removeRuntimeActor: (runtimeCells: EngineMapCell[], pos: number) =>
             removeMsTargetRuntimeActor(runtimeCells, internal, inventory, pos, runtimeCellZ(runtimeCells, pos)),
+          recordCausalEvent: (event: MsNativeCausalEventSeed) => recordMsNativeCausalEvent(internal, event),
         },
         nextPos,
       ),
@@ -4737,7 +5063,7 @@ function createMsChipMovementContext(
       cell.top.id === MS_TILE.Empty && msPreservesUnderlyingFloor(cell.bottom.id),
     updateChipTile: (cells: EngineMapCell[]) => updateChipTile(cells, internal),
     resolveButtonFloorEffects: (cells: EngineMapCell[], pos: number, floor: number, z?: number) =>
-      resolveButtonFloorEffects(cells, internal, inventory, pos, floor, undefined, z),
+      resolveButtonFloorEffects(cells, internal, inventory, pos, floor, undefined, z, true),
     isTrapOpen: (cells: EngineMapCell[], trapPos: number, skipButtonPos: number, z: number) =>
       isMsTrapOpen({ cells, traps: internal.traps, trapPos, skipButtonPos, z }),
     hasTrapConnection: (pos: number, z: number) => hasMsTrapConnection(internal.traps, pos, z),
@@ -4751,6 +5077,7 @@ function createMsChipMovementContext(
     pushStaticBlock: (targetCells: EngineMapCell[], pos: number, pushDir: number) =>
       pushBlock(targetCells, internal, pos, pushDir, false, true),
     normalizeDirection,
+    recordCausalEvent: (event: MsNativeCausalEventSeed) => recordMsNativeCausalEvent(internal, event),
   };
 }
 
@@ -4852,7 +5179,14 @@ function moveBlockUpOneLayer(
   block.pos = oldPos;
   block.z = targetZ;
 
-  applyMsChipCollisionOutcome(internal, msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId));
+  applyMsChipCollisionOutcome(
+    internal,
+    msActorCollisionOutcome(trackedBlockActorId(block), targetCreatureId),
+    {
+      actorId: trackedBlockActorId(block),
+      actorRuntimeKey: `ms-block-slot:${internal.blocks.indexOf(block)}`,
+    },
+  );
 
   const previousFloorMovement = block.floorMovement;
   const previousSliding = block.sliding;
@@ -5113,6 +5447,27 @@ function runManualMovement(
       dir,
     )
   ) {
+    const z = internal.chipZ ?? runtimeCellZ(cells, internal.chipPos);
+    recordMsNativeCausalEvent(internal, {
+      kind: "movement-blocked",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: floorAt(cells, internal.chipPos),
+      direction: dir,
+      movementRole: "self",
+      failureReason: "cc1:blocked-entry",
+      before: { pos: internal.chipPos, z },
+      after: (() => {
+        const attemptedPos = advancePositionIfPossible(
+          internal.chipPos,
+          dir,
+          MS_GRID_WIDTH,
+          MS_GRID_HEIGHT,
+        );
+        return attemptedPos === null ? null : { pos: attemptedPos, z };
+      })(),
+      phase: "movement-commit",
+    });
     if (pressedPermanentHiddenWallPos !== null) {
       addMsTileOverlay(engine, internal.chipZ ?? 1, pressedPermanentHiddenWallPos, "hidden-wall-reveal", HIDDEN_WALL_REVEAL_TTL);
     }
@@ -5596,6 +5951,17 @@ function runMsTimerPhase(
   runtime.timeOffset = 0;
   if (runtime.state.engine.timer.timeLimit > 0 && runtime.nextTick >= runtime.state.engine.timer.timeLimit) {
     runtime.internal.chipStatus = "outoftime";
+    const z = runtime.internal.chipZ ?? 1;
+    recordMsNativeCausalEvent(runtime.internal, {
+      kind: "player-died",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: null,
+      cause: "cc1:outoftime",
+      before: { pos: runtime.internal.chipPos, z },
+      after: { pos: runtime.internal.chipPos, z },
+      phase: "terminal-latch",
+    });
     runtime.soundEffects |= 1 << MS_SOUND.TimeOut;
     return {
       state: updateEngine(
@@ -5692,8 +6058,15 @@ function advanceMsTick(
   state: MsGameState,
   input: GameRuntimeCommand,
   debugRecorder: TurnDebugPhaseRecorder<GameDebugPhaseSnapshot> | null = null,
+  causalEventOptions?: MsCausalEventOptions,
 ): MsAdvanceTickResult {
   const runtime = createMsAdvanceTickRuntime(state, input, debugRecorder);
+  const detachCausalWriter = attachMsNativeCausalWriter(
+    runtime.internal,
+    runtime.nextTick,
+    causalEventOptions,
+  );
+  try {
 
   if (
     runtime.state.engine.replay.cursor >= 0 &&
@@ -5701,6 +6074,17 @@ function advanceMsTick(
     runtime.nextTick + runtime.state.engine.timer.timeOffset - 1 > runtime.state.engine.replay.bestTimeTicks
   ) {
     runtime.internal.replayDeadlineFailed = true;
+    const z = runtime.internal.chipZ ?? 1;
+    recordMsNativeCausalEvent(runtime.internal, {
+      kind: "terminal-failed",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: null,
+      cause: "cc1:replay-deadline",
+      before: { pos: runtime.internal.chipPos, z },
+      after: { pos: runtime.internal.chipPos, z },
+      phase: "terminal-latch",
+    });
     return finishMsTick(runtime, runtime.state.engine.lastMove, runtime.state.engine.timer.timeOffset, false);
   }
 
@@ -5782,6 +6166,9 @@ function advanceMsTick(
     },
   ]);
   return earlyResult ?? runMsCloneReleasePhase(runtime, nextLastMove);
+  } finally {
+    detachCausalWriter();
+  }
 }
 
 export function runMsInputTrace(request: GameRequest, level: MsLevel, commands: GameCommand[], maxTicks: number): GameTrace {
@@ -6010,6 +6397,7 @@ export function createMsReplaySession(
 export function advanceMsInteractiveSession(
   session: MsInteractiveSessionState,
   inputCode: number,
+  causalEventOptions?: MsCausalEventOptions,
 ): MsInteractiveSessionState {
   const tick = session.state.engine.timer.currentTime + 1;
   const scheduledInput = createRuntimeCommand(inputCode, tick);
@@ -6038,6 +6426,8 @@ export function advanceMsInteractiveSession(
         }
       : session.state,
     input,
+    null,
+    causalEventOptions,
   );
   const nextState = advanceResult.state;
 
@@ -6052,3 +6442,5 @@ export function advanceMsInteractiveSession(
     replayPlan,
   };
 }
+
+export type { MsNativeCausalEvent };

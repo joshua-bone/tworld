@@ -16,6 +16,10 @@
       "types": "./dist/domain/index.d.ts",
       "import": "./dist/domain/index.js"
     },
+    "./events": {
+      "types": "./dist/events/index.d.ts",
+      "import": "./dist/events/index.js"
+    },
     "./application": {
       "types": "./dist/application/index.d.ts",
       "import": "./dist/application/index.js"
@@ -23,6 +27,10 @@
     "./analyze": {
       "types": "./dist/analyze/index.d.ts",
       "import": "./dist/analyze/index.js"
+    },
+    "./alignment": {
+      "types": "./dist/alignment/index.d.ts",
+      "import": "./dist/alignment/index.js"
     },
     "./ports": {
       "types": "./dist/ports/index.d.ts",

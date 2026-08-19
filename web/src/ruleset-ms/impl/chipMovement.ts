@@ -6,6 +6,7 @@ import {
   msEntryRevealsForcedFloor,
 } from "@ruleset-ms/impl/elements/tiles/families/forcedFloor";
 import type { MsChipEnteredTileResolution } from "@ruleset-ms/impl/chipArrival";
+import type { MsNativeCausalEventSeed } from "@ruleset-ms/impl/causalEvents";
 
 export interface MsChipMovementInternal {
   chipPos: number;
@@ -41,6 +42,7 @@ export interface MsChipMovementContext {
   isValidElevatorDestinationFloor(floor: number): boolean;
   pushStaticBlock(targetCells: EngineMapCell[], pos: number, pushDir: number): boolean;
   normalizeDirection(dir: number): number;
+  recordCausalEvent?(event: MsNativeCausalEventSeed): void;
 }
 
 function chipTileId(internal: MsChipMovementInternal, dir: number): number {
@@ -67,7 +69,10 @@ function placeChipOnDestination(
   floorMovementTileState: number,
   oldZ: number,
   targetZ: number,
+  causalMovementAfterPos: number,
+  movementRole: "self" | "forced",
   refreshFloorMovement: boolean = true,
+  recordMovement: boolean = true,
 ): number {
   const landingCell = cells[nextPos]!;
   if (!context.preservesUnderlyingFloor(landingCell)) {
@@ -94,12 +99,39 @@ function placeChipOnDestination(
   } else if (cells[nextPos]!.bottom.id === MS_TILE.Beartrap) {
     context.internal.chipReleased = context.hasTrapConnection(nextPos, targetZ);
   }
-  if (context.internal.chipStatus === "okay" && context.isExitFloor(cells[nextPos]!.bottom.id)) {
+  const completedBeforeMove = context.internal.completed;
+  const exitTileId = cells[nextPos]!.bottom.id;
+  if (context.internal.chipStatus === "okay" && context.isExitFloor(exitTileId)) {
     context.internal.completed = true;
   }
 
   if (refreshFloorMovement) {
     context.refreshFloorMovement(cells, floorMovementTileId, floorMovementTileState);
+  }
+  if (recordMovement) {
+    context.recordCausalEvent?.({
+      kind: "move-completed",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: floor,
+      direction: dir,
+      movementRole,
+      before: { pos: oldPos, z: oldZ },
+      after: { pos: causalMovementAfterPos, z: targetZ },
+      phase: "movement-commit",
+    });
+  }
+  if (!completedBeforeMove && context.internal.completed) {
+    context.recordCausalEvent?.({
+      kind: "complete-level",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: exitTileId,
+      direction: dir,
+      before: { pos: nextPos, z: targetZ },
+      after: { pos: nextPos, z: targetZ },
+      phase: "terminal-latch",
+    });
   }
   soundEffects |= context.handleDeferredButtons(cells);
   return soundEffects;
@@ -112,6 +144,7 @@ export function moveMsChipPlanar(
 ): MovementAttemptResult {
   const oldPos = context.internal.chipPos;
   const oldZ = context.internal.chipZ ?? context.runtimeCellZ(cells, oldPos);
+  const movementRole = context.internal.floorMovement === "none" ? "self" : "forced";
   let nextPos =
     oldPos +
     (dir === MS_DIRECTION.north
@@ -124,6 +157,19 @@ export function moveMsChipPlanar(
   let soundEffects = 0;
   context.internal.chipReleased = false;
 
+  const movementAfterPos = nextPos;
+  const movementTileId = cells[nextPos]!.top.id;
+  context.recordCausalEvent?.({
+    kind: "move-completed",
+    actorId: MS_TILE.Chip,
+    actorSerial: null,
+    tileId: movementTileId,
+    direction: dir,
+    movementRole,
+    before: { pos: oldPos, z: oldZ },
+    after: { pos: movementAfterPos, z: oldZ },
+    phase: "movement-commit",
+  });
   const enteredEffects = context.applyEnterEffects(cells, nextPos);
   const floor = enteredEffects.floorTileBeforeMove.id;
   const movementFloorTile = enteredEffects.movementFloorTile;
@@ -153,6 +199,10 @@ export function moveMsChipPlanar(
     deferForcedFloorRefresh ? enteredEffects.floorTileBeforeMove.state : movementFloorTile.state,
     oldZ,
     oldZ,
+    movementAfterPos,
+    movementRole,
+    true,
+    false,
   );
 
   return movedMovement(soundEffects);
@@ -166,12 +216,25 @@ export function moveMsChipDownOneLayer(
   const oldPos = context.internal.chipPos;
   const oldZ = context.internal.chipZ ?? context.runtimeCellZ(sourceCells, oldPos);
   const targetZ = Math.max(1, oldZ - 1);
+  const movementRole = context.internal.floorMovement === "none" ? "self" : "forced";
   let nextPos = oldPos;
   let soundEffects = 0;
   context.internal.chipReleased = false;
 
   const enteredFloor = targetCells[nextPos]!.top.id;
   const enteredFloorState = targetCells[nextPos]!.top.state;
+  const movementAfterPos = nextPos;
+  context.recordCausalEvent?.({
+    kind: "move-completed",
+    actorId: MS_TILE.Chip,
+    actorSerial: null,
+    tileId: enteredFloor,
+    direction: context.internal.chipDir,
+    movementRole,
+    before: { pos: oldPos, z: oldZ },
+    after: { pos: movementAfterPos, z: targetZ },
+    phase: "movement-commit",
+  });
   const enteredEffects = context.applyEnterEffects(targetCells, nextPos);
   const floor = enteredEffects.floorTileBeforeMove.id;
   const movementFloorTile = enteredEffects.movementFloorTile;
@@ -206,7 +269,10 @@ export function moveMsChipDownOneLayer(
     deferForcedFloorRefresh ? enteredEffects.floorTileBeforeMove.state : enteredFloorState,
     oldZ,
     targetZ,
+    movementAfterPos,
+    movementRole,
     !suppressIceRefresh && !deferForcedFloorRefresh,
+    false,
   );
 
   if (suppressIceRefresh || deferForcedFloorRefresh) {
@@ -225,6 +291,7 @@ export function moveMsChipUpOneLayer(
   const oldPos = context.internal.chipPos;
   const oldZ = context.internal.chipZ ?? context.runtimeCellZ(sourceCells, oldPos);
   const targetZ = oldZ + 1;
+  const movementRole = context.internal.floorMovement === "none" ? "self" : "forced";
   let nextPos = oldPos;
   let nextCell = targetCells[nextPos]!;
   let destinationFloor = context.elevatorDestinationFloor(nextCell);
@@ -246,6 +313,17 @@ export function moveMsChipUpOneLayer(
 
   let soundEffects = 0;
   context.internal.chipReleased = false;
+  context.recordCausalEvent?.({
+    kind: "move-completed",
+    actorId: MS_TILE.Chip,
+    actorSerial: null,
+    tileId: nextCell.top.id,
+    direction: context.internal.chipDir,
+    movementRole,
+    before: { pos: oldPos, z: oldZ },
+    after: { pos: nextPos, z: targetZ },
+    phase: "movement-commit",
+  });
   const enteredEffects = context.applyEnterEffects(targetCells, nextPos);
   const floor = enteredEffects.floorTileBeforeMove.id;
   const movementFloorTile = enteredEffects.movementFloorTile;
@@ -268,6 +346,10 @@ export function moveMsChipUpOneLayer(
     deferForcedFloorRefresh ? enteredEffects.floorTileBeforeMove.state : movementFloorTile.state,
     oldZ,
     targetZ,
+    nextPos,
+    movementRole,
+    true,
+    false,
   );
 
   return movedMovement(soundEffects);

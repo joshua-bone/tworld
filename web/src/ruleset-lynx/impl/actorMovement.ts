@@ -7,7 +7,7 @@ import {
   removeTopTileFlags,
   topTileIdOr,
 } from "@game-core/impl/board";
-import { advanceToCell } from "@game-core/impl/grid";
+import { advanceToCell, nextPosition, reverseDirection } from "@game-core/impl/grid";
 import {
   blockedMovement,
   movedMovement,
@@ -30,6 +30,7 @@ import {
 import { isMsBlockActorId, MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxActorMovementActor {
+  serial?: number;
   id: number;
   pos: number;
   z?: number;
@@ -67,14 +68,27 @@ export interface LynxActorMovementContext {
   turnBlockedIceDirection(dir: number, floorId: number): number;
   shouldTurnBlockedIce(actor: LynxActorMovementActor, floorId: number): boolean;
   applyIceWallTurn(dir: number, floorId: number): number;
+  treatsForcedFloorAsNormal(actor: LynxActorMovementActor, floorId: number): boolean;
   resolveButtonEffects(pos: number, tileId: number): number;
-  removeActor(actor: LynxActorMovementActor, animationTileId: number): void;
+  removeActor(
+    actor: LynxActorMovementActor,
+    animationTileId: number,
+    destruction?: { readonly floorId: number; readonly cause: string },
+  ): void;
   animationTileId(kind: "water-splash" | "bomb-explosion" | "none"): number | null;
   waterSplashTileId: number;
   bombExplosionTileId: number;
   applyArrivalEffects(actor: LynxActorMovementActor): number;
   isChipAt(pos: number, z: number): boolean;
   recordFallingChipCollision(actor: LynxActorMovementActor): void;
+  recordMoveCompleted?(
+    actor: LynxActorMovementActor,
+    floorId: number,
+    beforePos: number,
+    beforeZ: number,
+    movementDirection: number,
+    movementRole: "self" | "push" | "forced",
+  ): void;
 }
 
 function isLynxSlide(tileId: number): boolean {
@@ -186,12 +200,37 @@ export function finishLynxActorMovement(
 ): ArrivalResult {
   const moveKind = actor.moveKind ?? "planar";
   const actorZ = actor.z ?? context.activeLayerZ();
+  const movementDirection = actor.dir;
+  const beforePos = moveKind === "planar"
+    ? nextPosition(actor.pos, reverseDirection(movementDirection), MS_GRID_WIDTH)
+    : actor.pos;
+  const beforeZ = moveKind === "air"
+    ? actorZ + 1
+    : moveKind === "elevator"
+      ? actorZ - 1
+      : actorZ;
+  const originFloor = context.state.map.cells[beforePos]?.top.id ?? MS_TILE.Empty;
+  const forcedPlanar = (isLynxSlide(originFloor) || isLynxIce(originFloor))
+    && !context.treatsForcedFloorAsNormal(actor, originFloor);
+  const movementRole = actor.pushed
+    ? "push" as const
+    : moveKind !== "planar" || forcedPlanar
+      ? "forced" as const
+      : "self" as const;
   const cell = context.state.map.cells[actor.pos];
   if (!cell) {
     return applyLynxActorCompletedStep(context, actor, MS_TILE.Empty);
   }
 
   const floorId = resolveLynxActorArrivalFloorId(context, actor, cell);
+  context.recordMoveCompleted?.(
+    actor,
+    floorId,
+    beforePos,
+    beforeZ,
+    movementDirection,
+    movementRole,
+  );
   applyLynxActorEnteredCell(context, actor, floorId);
   const floorImpact = applyLynxActorFloorImpact(context, actor, floorId);
   if (floorImpact.removed) {

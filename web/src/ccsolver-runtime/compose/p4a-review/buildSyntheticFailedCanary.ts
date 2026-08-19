@@ -256,6 +256,7 @@ function checkpointFor(
   const observation = observeState(state);
   return {
     handle,
+    causalJournal: null,
     metadata: {
       target: observation.target,
       mode: observation.mode,
@@ -319,6 +320,9 @@ function createSyntheticRuntime(): SolverRuntimePort<SyntheticSource, never> {
     },
     terminal(_handle): SolverTerminalResult {
       return { kind: "running" };
+    },
+    readEvents() {
+      throw new Error("synthetic standard canary does not enable causal-event capture");
     },
     captureCheckpoint(handle) {
       return createCheckpoint(runState(handle));

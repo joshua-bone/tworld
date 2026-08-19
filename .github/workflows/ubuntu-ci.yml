@@ -56,6 +56,9 @@ jobs:
       - name: Check P4B whole-level dossier artifacts
         timeout-minutes: 5
         run: npm run ccsolver:p4b:check
+      - name: Check P2B/P6A causal alignment artifacts
+        timeout-minutes: 15
+        run: npm run ccsolver:p6a:check
       - name: Check browser workspace
         run: |
           npm run typecheck

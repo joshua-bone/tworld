@@ -20,6 +20,8 @@ native oracle remain authoritative for legacy replay results.
 - [P2A runtime observation and human-review packets](docs/p2a-runtime-observation.md)
 - [P3 terminal-first planning and contextual witnesses](docs/p3-terminal-planning-and-witness.md)
 - [P4A graphical subgoal evidence](docs/p4a-subgoal-evidence.md)
+- [P5 certified route and P4B whole-level dossier](docs/p5-p4b-key-pyramid.md)
+- [P2B causal journals and P6A semantic alignment](docs/p2b-p6a-causal-alignment.md)
 
 ## Status
 
@@ -93,10 +95,17 @@ stop state and its first failed predicate. Durable review sidecars preserve
 human notes and overrides across regeneration and mark changed bindings stale.
 The static comparison is reproducible with `npm run ccsolver:p4a:check`.
 
-P5 is next: it must expand the reviewed leaf into continuous full-level
-execution and certified MS/Lynx replays. P2B's complete causal event journal
-remains a separate later expansion. Semantic rooms and block dead-square proofs
-remain unimplemented.
+P5 and P4B are implemented for Key Pyramid: a pre-execution candidate plan
+selects the continuous route, complete MS/Lynx TWS files pass TypeScript and
+native-oracle certification, and the public-but-unlisted dossier presents the
+whole solution plus six navigable subgoals per target.
+
+The P2B causal-journal foundation and P6A alignment preview are implemented for
+that same route context. Runtime capture is opt-in and bounded, preserves exact
+checkpoint continuation, and keeps ambiguous command influence unattributed.
+The pure aligner retains target timing differences and emits a provisional
+strategy portfolio. Full P2 mechanics coverage, cross-level P6 canaries,
+semantic rooms, and block dead-square proofs remain open.
 
 CCSolver inherits Tile World's GPL-2.0-or-later license. Generated dossier pages
 will be publicly reachable under the existing GitHub Pages deployment but will

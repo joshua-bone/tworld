@@ -42,6 +42,7 @@ function createContext(overrides: Partial<LynxActorMovementContext> = {}): LynxA
     },
     activeLayerZ: () => 1,
     canExitTile: () => true,
+    treatsForcedFloorAsNormal: () => false,
     chipActsWallForMobs: () => false,
     queryTargetOccupancy: (pos, z) => ({
       kind: OCCUPANCY_TARGET_KIND.empty,

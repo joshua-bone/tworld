@@ -49,6 +49,7 @@ export function createLynxHazardTileBehavior(tileId: number): TileBehavior<numbe
             behaviorContext.endGameAnimationTileId,
             behaviorContext.endGameAnimationFrame,
             tileId === MS_TILE.Water ? "drowned" : tileId === MS_TILE.Fire ? "burned" : "bombed",
+            tileId,
           );
           behaviorContext.chipPos = failed.chipPos;
           behaviorContext.endGameTicksElapsed = failed.endGameTicksElapsed;

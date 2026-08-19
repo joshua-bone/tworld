@@ -24,6 +24,7 @@
     "src/ccsolver-runtime/compose/p5-review/runExactKeyPyramidNativeReplay.ts",
     "src/ccsolver-runtime/compose/p5-review/runP5ReviewOutputs.ts",
     "src/ccsolver-runtime/compose/p4b-dossier/**/*.ts",
+    "src/ccsolver-runtime/compose/p6a-review/**/*.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bCheckedArtifacts.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bMeasuredShard.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/writeFixedOutputsTransactionally.ts"

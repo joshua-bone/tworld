@@ -9,9 +9,11 @@ const builtins = new Set(
 );
 
 const allowedInternalLayers = new Map([
-  ["root", new Set(["analyze", "application", "domain", "plan", "ports", "render", "snippets"])],
+  ["root", new Set(["alignment", "analyze", "application", "domain", "events", "plan", "ports", "render", "snippets"])],
+  ["alignment", new Set(["alignment", "domain", "events"])],
   ["domain", new Set(["domain"])],
-  ["ports", new Set(["domain", "ports"])],
+  ["events", new Set(["domain", "events"])],
+  ["ports", new Set(["domain", "events", "ports"])],
   ["analyze", new Set(["analyze", "domain"])],
   ["plan", new Set(["analyze", "domain", "plan"])],
   ["snippets", new Set(["domain", "plan", "ports", "snippets"])],
@@ -22,7 +24,7 @@ const allowedInternalLayers = new Map([
   ["cli", new Set(["adapters", "analyze", "application", "cli", "domain", "plan", "ports", "render", "site", "snippets"])],
 ]);
 
-const pureLayers = new Set(["analyze", "application", "domain", "plan", "ports", "render", "root", "snippets"]);
+const pureLayers = new Set(["alignment", "analyze", "application", "domain", "events", "plan", "ports", "render", "root", "snippets"]);
 const webAliases = new Set([
   "@bootstrap",
   "@content",

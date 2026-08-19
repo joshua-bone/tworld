@@ -23,6 +23,18 @@ export function createLynxClearFloorTileBehavior(tileId: number): TileBehavior<n
           }
           replaceTopTile(behaviorContext.runtime.state.map.cells, behaviorContext.pos, { ...cell.top, id: MS_TILE.Empty });
           behaviorContext.runtime.state.map.hash = mapHash(behaviorContext.runtime.state.map.cells);
+          const z = behaviorContext.runtime.activeLayerZ();
+          behaviorContext.runtime.recordCausalEvent?.({
+            kind: "map-mutated",
+            actorId: MS_TILE.Chip,
+            actorSerial: null,
+            tileId: behaviorContext.tileId,
+            resultingTileId: behaviorContext.runtime.state.map.cells[behaviorContext.pos]?.top.id ?? MS_TILE.Empty,
+            action: "cc1:clear-floor",
+            before: { pos: behaviorContext.pos, z },
+            after: { pos: behaviorContext.pos, z },
+            phase: "arrival-effect",
+          });
         },
         soundEffects: behaviorContext.runtime.soundBits,
       }).soundEffects;

@@ -16,6 +16,7 @@ import { lookupMsTerrainPickupFamilyRegistration } from "@ruleset-ms/impl/elemen
 import { collectMsActorTile, projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections";
 import { clearMsToolInventory, queueMsToolInventoryReplacement } from "@ruleset-ms/impl/portableItems";
 import { msActorThiefOutcome } from "@ruleset-ms/impl/actorInteractions";
+import { msInventoryIndex, msInventorySlot } from "@ruleset-ms/impl/catalog";
 import { msFloorImpactAction, msTilePostEntryAction } from "@ruleset-ms/impl/floorImpactPolicy";
 import { lookupMsTilePolicy } from "@ruleset-ms/impl/catalogTiles";
 import type { MsTilePolicyDefinition } from "@ruleset-ms/impl/catalogTiles";
@@ -44,7 +45,23 @@ function handleMsChipEnterTileBehavior(
   }
 
   if (floorImpactAction === "destroy-bomb") {
-    context.chip.chipStatus = "bombed";
+    if (context.chip.chipStatus === "okay") {
+      context.chip.chipStatus = "bombed";
+      const z = context.runtime.runtimeCellZ(context.nextPos);
+      context.runtime.recordCausalEvent?.({
+        kind: "player-died",
+        actorId: MS_TILE.Chip,
+        actorSerial: null,
+        tileId: context.tileId,
+        sourceTileId: context.tileId,
+        sourcePosition: { pos: context.nextPos, z },
+        sourceStratum: "terrain",
+        cause: "cc1:bombed",
+        before: { pos: context.nextPos, z },
+        after: { pos: context.nextPos, z },
+        phase: "terminal-latch",
+      });
+    }
     context.soundEffects |= 1 << MS_SOUND.BombExplodes;
     return;
   }
@@ -52,6 +69,20 @@ function handleMsChipEnterTileBehavior(
   if (floorImpactAction === "destroy-water") {
     if (!actorInventoryHasBoot(context.chipInventory, 3)) {
       context.chip.chipStatus = "drowned";
+      const z = context.runtime.runtimeCellZ(context.nextPos);
+      context.runtime.recordCausalEvent?.({
+        kind: "player-died",
+        actorId: MS_TILE.Chip,
+        actorSerial: null,
+        tileId: context.tileId,
+        sourceTileId: context.tileId,
+        sourcePosition: { pos: context.nextPos, z },
+        sourceStratum: "terrain",
+        cause: "cc1:drowned",
+        before: { pos: context.nextPos, z },
+        after: { pos: context.nextPos, z },
+        phase: "terminal-latch",
+      });
     }
     return;
   }
@@ -59,6 +90,20 @@ function handleMsChipEnterTileBehavior(
   if (floorImpactAction === "destroy-fire") {
     if (!actorInventoryHasBoot(context.chipInventory, 2)) {
       context.chip.chipStatus = "burned";
+      const z = context.runtime.runtimeCellZ(context.nextPos);
+      context.runtime.recordCausalEvent?.({
+        kind: "player-died",
+        actorId: MS_TILE.Chip,
+        actorSerial: null,
+        tileId: context.tileId,
+        sourceTileId: context.tileId,
+        sourcePosition: { pos: context.nextPos, z },
+        sourceStratum: "terrain",
+        cause: "cc1:burned",
+        before: { pos: context.nextPos, z },
+        after: { pos: context.nextPos, z },
+        phase: "terminal-latch",
+      });
     }
     return;
   }
@@ -70,7 +115,25 @@ function handleMsChipEnterTileBehavior(
     return;
   }
 
-  context.soundEffects |= applyActorFloorImpactAction(floorImpactAction, {
+  const resourceSlot = floorImpactAction === "collect-chip"
+    ? "chips-needed"
+    : floorImpactAction === "open-door"
+      ? "keys"
+      : msInventorySlot(context.tileId);
+  const resourceIndex = floorImpactAction === "open-door"
+    ? lookupMsTilePolicy(context.tileId).doorKeyIndex ?? null
+    : msInventoryIndex(context.tileId);
+  const resourceCount = (): number | null => {
+    if (resourceSlot === "chips-needed") return context.runtime.inventory.chipsNeeded;
+    if (resourceSlot === "keys" || resourceSlot === "boots" || resourceSlot === "tools") {
+      if (resourceIndex === null) return null;
+      return context.runtime.inventory[resourceSlot][resourceIndex] ?? null;
+    }
+    return null;
+  };
+  const resourceBeforeCount = resourceCount();
+
+  const arrival = applyActorFloorImpactAction(floorImpactAction, {
     clearFloor: () => {
       popBoardTile(context.cells, context.nextPos, MS_TILE.Empty);
     },
@@ -114,8 +177,30 @@ function handleMsChipEnterTileBehavior(
       if (msActorThiefOutcome(MS_TILE.Chip) !== "steal-boots-tools") {
         return false;
       }
+      const bootsBefore = [...context.runtime.inventory.boots];
       actorInventoryClearBoots(context.chipInventory);
       clearMsToolInventory(context.runtime.portableTools, context.runtime.inventory);
+      const z = context.runtime.runtimeCellZ(context.nextPos);
+      for (const [index, beforeCount] of bootsBefore.entries()) {
+        const afterCount = context.runtime.inventory.boots[index] ?? 0;
+        if (beforeCount === afterCount) continue;
+        context.runtime.recordCausalEvent?.({
+          kind: "inventory-changed",
+          actorId: MS_TILE.Chip,
+          actorSerial: null,
+          tileId: context.tileId,
+          resourceCounter: {
+            slot: "boots",
+            index,
+            beforeCount,
+            afterCount,
+          },
+          action: "cc1:thief-stole",
+          before: { pos: context.nextPos, z },
+          after: { pos: context.nextPos, z },
+          phase: "arrival-effect",
+        });
+      }
       return true;
     },
     soundEffects: {
@@ -126,7 +211,37 @@ function handleMsChipEnterTileBehavior(
       icCollected: 1 << MS_SOUND.IcCollected,
       wallCreated: 0,
     },
-  }).soundEffects;
+  });
+  context.soundEffects |= arrival.soundEffects;
+  if (arrival.status !== "resolved") return;
+  const kind = floorImpactAction === "collect-chip" || floorImpactAction === "collect-item"
+    ? "collect"
+    : floorImpactAction === "open-door"
+      ? "open-door"
+      : floorImpactAction === "open-socket"
+        ? "open-socket"
+        : null;
+  if (kind !== null) {
+    const z = context.runtime.runtimeCellZ(context.nextPos);
+    context.runtime.recordCausalEvent?.({
+      kind,
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: context.tileId,
+      resultingTileId: context.nextCell.top.id,
+      resourceCounter: resourceSlot !== null && resourceBeforeCount !== null
+        ? {
+            slot: resourceSlot,
+            index: resourceIndex,
+            beforeCount: resourceBeforeCount,
+            afterCount: resourceCount() ?? resourceBeforeCount,
+          }
+        : null,
+      before: { pos: context.nextPos, z },
+      after: { pos: context.nextPos, z },
+      phase: "arrival-effect",
+    });
+  }
 }
 
 export function createMsChipEnterTileBehavior(

@@ -118,6 +118,7 @@ export function applyLynxActorFloorImpact(
       actorFloorImpactTransformClearsFloor(floorImpactAction)
         ? arrivalAnimationTileId ?? context.bombExplosionTileId
         : arrivalAnimationTileId ?? context.waterSplashTileId,
+      { floorId, cause: "cc1:floor-hazard" },
     );
     const soundEffects = actorFloorImpactTransformClearsFloor(floorImpactAction)
       ? context.soundBits.bombExplodes
@@ -129,7 +130,11 @@ export function applyLynxActorFloorImpact(
 
   if (actorFloorImpactDestroysEnteringActor(floorImpactAction) && !actorFloorImpactBombDestroys(floorImpactAction)) {
     removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    context.removeActor(actor, arrivalAnimationTileId ?? context.waterSplashTileId);
+    context.removeActor(
+      actor,
+      arrivalAnimationTileId ?? context.waterSplashTileId,
+      { floorId, cause: "cc1:floor-hazard" },
+    );
     const soundEffects = floorImpactAction === "destroy-water" ? context.soundBits.waterSplash : 0;
     context.state.soundEffects |= soundEffects;
     context.state.map.hash = mapHash(context.state.map.cells);
@@ -139,7 +144,11 @@ export function applyLynxActorFloorImpact(
   if (actorFloorImpactBombDestroys(floorImpactAction)) {
     promoteBottomTile(context.state.map.cells, actor.pos, MS_TILE.Empty);
     removeTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
-    context.removeActor(actor, arrivalAnimationTileId ?? context.bombExplosionTileId);
+    context.removeActor(
+      actor,
+      arrivalAnimationTileId ?? context.bombExplosionTileId,
+      { floorId, cause: "cc1:floor-hazard" },
+    );
     context.state.soundEffects |= context.soundBits.bombExplodes;
     context.state.map.hash = mapHash(context.state.map.cells);
     return { removed: true, soundEffects: context.soundBits.bombExplodes, hashChanged: true };

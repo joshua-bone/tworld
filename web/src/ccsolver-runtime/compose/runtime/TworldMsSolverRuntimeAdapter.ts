@@ -27,6 +27,7 @@ import {
   type MsInteractiveSessionState,
   type MsTrackedBlock,
   type MsTrackedCreature,
+  type MsNativeCausalEvent,
 } from "@ruleset-ms/impl/engine";
 import { msElementFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
 import {
@@ -83,6 +84,21 @@ import {
   isMsSolverBrownButtonHeld,
   msSolverCreatureLifecycle,
 } from "./msSolverRuntimeSemantics";
+import {
+  appendTworldAppliedCommand,
+  projectTworldNativeCausalEvents,
+} from "./projectTworldNativeCausalEvents";
+import { bindTworldCloneLineage } from "./tworldCloneLineage";
+import {
+  assertTworldCausalEventCapacity,
+  cloneTworldCausalJournal,
+  createTworldCausalJournal,
+  readTworldCausalEventPage,
+  tworldCausalJournalCheckpoint,
+  tworldCausalJournalFingerprintValue,
+  type TworldCausalCommandLink,
+  type TworldCausalJournal,
+} from "./tworldCausalJournal";
 
 interface MsSolverToken {
   readonly mode: "manual" | "replay";
@@ -91,6 +107,7 @@ interface MsSolverToken {
   readonly session: MsInteractiveSessionState;
   readonly lastPolledInputCode: number | null;
   readonly blockInitialCoordinates: ReadonlyMap<string, ReturnType<typeof solverCoordinate>>;
+  readonly causalJournal: TworldCausalJournal | null;
 }
 
 interface MsDormantBlockSource {
@@ -106,6 +123,7 @@ export interface CreateTworldMsSolverRuntimeAdapterOptions {
   readonly engineRevision: string;
   readonly maximumLiveRuns?: number;
   readonly maximumLiveCheckpoints?: number;
+  readonly maximumCausalEvents?: number;
 }
 
 const STRATUM_RANK: Record<PlacementStratumV1, number> = {
@@ -346,6 +364,7 @@ async function startMsToken(
   sha256: Sha256Port,
   expectedProvenance: SolverRuntimeProvenance,
   replaySource?: TworldSolverReplayStartSource,
+  maximumCausalEvents: number | null = null,
 ): Promise<MsSolverToken> {
   const operation = mode === "manual" ? "startManual" : "startReplay";
   await assertTworldRuntimeSource(source, "ms", sha256, operation, expectedProvenance);
@@ -383,6 +402,9 @@ async function startMsToken(
     session,
     lastPolledInputCode: null,
     blockInitialCoordinates: new Map(),
+    causalJournal: maximumCausalEvents === null
+      ? null
+      : createTworldCausalJournal(maximumCausalEvents),
     bindings: await buildRuntimeActorBindings(detachedSource, "ms", playerSeed, actorSeeds, sha256, operation),
   };
 }
@@ -811,6 +833,9 @@ async function exactMsFingerprint(token: MsSolverToken, sha256: Sha256Port): Pro
         coordinate.y,
         coordinate.z,
       ]),
+    ...(token.causalJournal === null ? {} : {
+      causalJournal: tworldCausalJournalFingerprintValue(token.causalJournal),
+    }),
   }), sha256);
 }
 
@@ -860,15 +885,24 @@ async function projectMsObservation(token: MsSolverToken, sha256: Sha256Port): P
 function createMsDriver(
   sha256: Sha256Port,
   expectedProvenance: SolverRuntimeProvenance,
+  maximumCausalEvents: number | null,
 ): SolverRuntimeDriver<MsSolverToken, TworldSolverManualStartSource, TworldSolverReplayStartSource> {
   return {
-    startManual: (source) => startMsToken(source, "manual", sha256, expectedProvenance),
+    startManual: (source) => startMsToken(
+      source,
+      "manual",
+      sha256,
+      expectedProvenance,
+      undefined,
+      maximumCausalEvents,
+    ),
     startReplay: (source) => startMsToken(
       source.level,
       "replay",
       sha256,
       expectedProvenance,
       source,
+      maximumCausalEvents,
     ),
     cloneToken(token) {
       const checkpoint = captureMsUndoCheckpoint(token.session, "ccsolver-p2a");
@@ -879,6 +913,9 @@ function createMsDriver(
         session: restoreMsUndoCheckpoint(checkpoint),
         lastPolledInputCode: token.lastPolledInputCode,
         blockInitialCoordinates: new Map(token.blockInitialCoordinates),
+        causalJournal: token.causalJournal === null
+          ? null
+          : cloneTworldCausalJournal(token.causalJournal),
       };
     },
     async advanceTick(token, request) {
@@ -888,9 +925,13 @@ function createMsDriver(
         pos: token.session.state.internal.chipPos,
         z: token.session.state.internal.chipZ ?? 1,
       };
+      const nativeEvents: MsNativeCausalEvent[] = [];
       const session = advanceMsInteractiveSession(
         token.session,
         request.kind === "manual-poll" ? request.inputCode : 0,
+        token.causalJournal === null
+          ? undefined
+          : { causalEventSink: (event) => nativeEvents.push(event) },
       );
       const blockInitialCoordinates = new Map(token.blockInitialCoordinates);
       const assignedSources = new Set(
@@ -922,14 +963,156 @@ function createMsDriver(
             ...advanced,
             bindings: withoutRuntimeActorBindings(refreshedBindings, splitRuntimeKeys),
           }, sha256);
-      return {
+      let result = {
         ...advanced,
         // Cloner activation can grow the runtime actor collections. Refresh
         // bindings before the next observation so new actors always have a
         // deterministic semantic identity.
         bindings,
       };
+      const journal = result.causalJournal;
+      if (journal !== null) {
+        const combinedActors = new Map([
+          ...token.bindings.actors,
+          ...result.bindings.actors,
+        ]);
+        for (const event of nativeEvents) {
+          if (
+            event.kind !== "actor-spawned"
+            || event.parentActorRuntimeKey == null
+            || event.actorRuntimeKey == null
+          ) continue;
+          const parent = token.bindings.actors.get(event.actorRuntimeKey);
+          if (parent !== undefined) combinedActors.set(event.parentActorRuntimeKey, parent);
+        }
+        const combinedBindings: RuntimeActorBindings = {
+          player: result.bindings.player,
+          actors: combinedActors,
+        };
+        const lineage = await bindTworldCloneLineage({
+          events: nativeEvents,
+          source: result.source,
+          bindings: combinedBindings,
+          journal,
+          sha256,
+          actorRuntimeKey: (event) => event.actorRuntimeKey
+            ?? (event.actorSerial === null ? null : `ms-creature:${event.actorSerial}`),
+          actorRuntimeKeyBySerial: (serial) => `ms-creature:${serial}`,
+          actorSemanticType: msActorSemanticType,
+          tileSemanticType: msTileSemanticType,
+        });
+        const currentActors = new Map(result.bindings.actors);
+        for (const event of lineage.events) {
+          if (event.kind !== "actor-spawned") continue;
+          const runtimeKey = event.actorRuntimeKey
+            ?? (event.actorSerial === null ? null : `ms-creature:${event.actorSerial}`);
+          if (runtimeKey === null) continue;
+          const binding = lineage.bindings.actors.get(runtimeKey);
+          if (binding !== undefined) currentActors.set(runtimeKey, binding);
+        }
+        result = {
+          ...result,
+          bindings: { player: result.bindings.player, actors: currentActors },
+        };
+        const causalBindings = lineage.bindings;
+        const projectionContext = {
+          target: "ms" as const,
+          mode: result.mode,
+          source: result.source,
+          bindings: causalBindings,
+          journal,
+          actorRuntimeKey: (serial: number) => `ms-creature:${serial}`,
+          actorSemanticType: msActorSemanticType,
+          tileSemanticType: msTileSemanticType,
+          terminal: projectMsTerminal(result),
+        };
+        const playerMovementOutcome = lineage.events.find((event) => (
+          event.actorId === MS_TILE.Chip
+          && event.actorSerial === null
+          && (event.kind === "movement-blocked" || event.kind === "move-completed")
+          && event.movementRole === "self"
+        ));
+        const appliedInputCode = session.lastInput.inputCode;
+        const currentPollOwnsAppliedInput = request.kind === "replay-tick"
+          ? appliedInputCode !== 0
+          : request.inputCode !== 0 && request.inputCode === appliedInputCode;
+        const influence = request.kind === "manual-poll" && !currentPollOwnsAppliedInput
+          ? request.inputCode === 0 ? "ignored" as const : "held" as const
+          : appliedInputCode === 0
+          ? "ignored" as const
+          : playerMovementOutcome?.kind === "move-completed"
+            ? "applied" as const
+            : playerMovementOutcome?.kind === "movement-blocked"
+              ? "blocked" as const
+              : "held" as const;
+        const commandLink = appendTworldAppliedCommand({
+          context: projectionContext,
+          request,
+          appliedInputCode,
+          nativeTick: session.state.engine.timer.currentTime,
+          playerCoordinateBefore: solverCoordinate(previousChip.pos, previousChip.z, MS_GRID_WIDTH),
+          influence,
+          failureReason: playerMovementOutcome?.kind === "movement-blocked"
+            ? playerMovementOutcome.failureReason ?? "cc1:blocked"
+            : null,
+        });
+        const movementCommandLink = currentPollOwnsAppliedInput ? commandLink : null;
+        let activePlayerMovementLink: TworldCausalCommandLink | null = null;
+        for (const event of lineage.events) {
+          const playerEvent = event.actorId === MS_TILE.Chip && event.actorSerial === null;
+          if (
+            playerEvent
+            && (event.kind === "movement-blocked" || event.kind === "move-completed")
+          ) {
+            activePlayerMovementLink = event.movementRole === "self" ? movementCommandLink : null;
+          }
+          const playerSettlementEvent = playerEvent && (
+            event.kind === "movement-blocked"
+            || event.kind === "move-completed"
+            || event.kind === "teleport"
+            || event.kind === "collect"
+            || event.kind === "open-door"
+            || event.kind === "open-socket"
+            || event.kind === "inventory-changed"
+            || event.kind === "map-mutated"
+            || event.kind === "device-activated"
+            || event.kind === "device-state-changed"
+            || event.kind === "complete-level"
+            || (event.kind === "player-died" && event.cause !== "cc1:outoftime")
+          );
+          projectTworldNativeCausalEvents(
+            [event],
+            projectionContext,
+            playerSettlementEvent ? activePlayerMovementLink : null,
+          );
+        }
+      }
+      return result;
     },
+    readEvents: (token, request) => {
+      if (token.causalJournal === null) {
+        throw new SolverRuntimeError(
+          "runtime.unsupported-option",
+          "readEvents",
+          "causal event capture was not enabled when this run started",
+        );
+      }
+      return readTworldCausalEventPage(token.causalJournal, {
+        target: "ms",
+        mode: token.mode,
+        level: token.source.levelFacts.facts.payload.level,
+        levelFacts: {
+          protocolVersion: 1,
+          artifactType: "level-facts",
+          schemaVersion: 1,
+          digest: token.source.levelFactsContent.digest,
+        },
+        provenance: token.source.provenance,
+      }, request);
+    },
+    causalJournalCheckpoint: (token) => token.causalJournal === null
+      ? null
+      : tworldCausalJournalCheckpoint(token.causalJournal),
     observe: (token) => projectMsObservation(token, sha256),
     semanticFingerprint: (observation) => (
       identifyTworldSolverObservationSemantic(observation, sha256)
@@ -941,6 +1124,9 @@ function createMsDriver(
 export function createTworldMsSolverRuntimeAdapter(
   options: CreateTworldMsSolverRuntimeAdapterOptions,
 ): SolverRuntimePort<TworldSolverManualStartSource, TworldSolverReplayStartSource> {
+  const maximumCausalEvents = options.maximumCausalEvents === undefined
+    ? null
+    : assertTworldCausalEventCapacity(options.maximumCausalEvents);
   const provenance: SolverRuntimeProvenance = {
     adapterId: "tworld-ms-solver-runtime",
     adapterRevision: options.adapterRevision,
@@ -948,7 +1134,7 @@ export function createTworldMsSolverRuntimeAdapter(
     engineRevision: options.engineRevision,
   };
   return createSolverRuntimeKernel({
-    driver: createMsDriver(options.sha256, provenance),
+    driver: createMsDriver(options.sha256, provenance, maximumCausalEvents),
     ownerId: "tworld-ms-solver-runtime",
     target: "ms",
     maximumLiveRuns: options.maximumLiveRuns ?? 64,
