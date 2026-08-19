@@ -174,7 +174,8 @@ The first implementation should adapt, not duplicate, these seams:
 - `web/src/player-web/impl/legacyCanvasMapRenderer.ts` and
   `legacyCanvasHud.tsx` provide deterministic legacy rendering. The current
   map-only helper is a focused viewport, so dossiers also need a dedicated
-  fit-to-view whole-level renderer plus cropped segment views.
+  full-width whole-level renderer plus cropped segment views with switchable
+  local/whole-route visit labels and human-readable resource summaries.
 - `web/src/replay-verifier/` and the native oracle certify legacy replays.
 - `.github/workflows/github-pages.yml` already publishes `web/dist`.
 
