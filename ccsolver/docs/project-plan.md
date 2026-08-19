@@ -68,8 +68,14 @@ next layer is trusted:
    points of interest, and state deltas. A failed standard-only canary keeps its
    intended ending separate from the observed stop. Animation is deliberately
    omitted because P3 retained no intermediate semantic scenes.
-5. **P5 — full-level proof:** a composed forward execution and certified replay
-   from canonical initialization show that the reviewed pieces actually join.
+5. **P5 — full-level proof (available now):** a pre-execution terminal-first
+   candidate plan supplies the exact forward decisions; composed executions
+   and certified MS/Lynx replays from canonical initialization show that the
+   six reviewed subgoals actually join into a win.
+6. **P4B — whole-level dossier (available now):** an unlisted static page built
+   only from checked P5 bytes exposes the paired maps, terminal-first graph,
+   every exact start/end pair, timing differences, provenance, certificates,
+   and replay downloads. This is the first complete-level human checkpoint.
 
 P2A output is authoritative runtime-characterization evidence only after a
 fresh generation is followed by a successful byte-for-byte
@@ -82,6 +88,12 @@ P4A owns the graphical annotated evidence surface.
 P4A graphical output is authoritative preview evidence only after
 `npm run ccsolver:p4a:check`. Human review sidecars are separate durable inputs,
 not regenerated machine output.
+
+P5 certification is authoritative only after the native oracle is rebuilt and
+`npm run ccsolver:p5:check` reproduces the complete checked file set. P4B's
+compact authority follows after `npm run ccsolver:p4b:check`; the HTML/SVG site
+is derived by `npm run ccsolver:p4b:emit-dist` and never approves its own human
+review state.
 
 ## P0: project and artifact foundation
 
@@ -440,7 +452,7 @@ parent.
 
 ## P4A: minimum subgoal evidence surface
 
-**Status:** delivered as a checked preview; P4B remains future work.
+**Status:** delivered as a checked preview; P4B is now delivered below.
 
 ### Objective
 
@@ -495,6 +507,13 @@ its exit gate.
 
 ## P5: first manually guided end-to-end level
 
+**Status:** delivered for the paired Key Pyramid reference case. The checked
+bundle retains a canonical `expanded-plan` root and six exact same-run joins per
+target, complete TWS files, and matching TypeScript/native traces. The plan is
+honestly `candidate`; its witness, certificate, and corpus record share the
+same non-null plan reference and establish `solved-current`. MS
+triggers/settles at 644/644; Lynx triggers/settles at 647/660.
+
 ### Objective
 
 Prove the terminal-first semantic-plan-to-certified-TWS pipeline on one real
@@ -545,6 +564,11 @@ Passing P5 proves the certified replay pipeline. The first real level reaches
 the global level definition of done only after P4B adds its complete dossier.
 
 ## P4B: full dossier and evidence surface
+
+**Status:** delivered for Key Pyramid as a checked compact manifest/review and
+a deterministic static bundle emitted under `web/dist/ccsolver/`. The page is
+complete without JavaScript and remains `unreviewed` until a person records a
+decision.
 
 ### Objective
 
@@ -922,27 +946,30 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-Proceed with **P5 — First Manually Guided End-to-End Level** using ATDD:
+First perform the **Key Pyramid P4B human review**. A person should inspect both
+whole-level maps, the six paired boundary transitions per target, the direct
+resource prerequisites, the MS/Lynx timing ledger, replay downloads, and donor
+disclosure. Record concrete changes requested rather than treating successful
+generation as human approval.
 
-1. close Key Pyramid's unresolved terminal theory with explicit target-scoped
-   achievers and a reviewed forward plan covering all ten chips, relevant
-   key/door choices, socket, and exit without treating static candidates as
-   runtime proof;
-2. author exact observation contracts and bounded MS/Lynx realizations for each
-   selected subgoal, preserving target-specific timing or route branches where
-   required;
-3. execute the complete selected sequence continuously from canonical
-   initialization through one live target state, proving every adjacent join is
-   exact or explicitly replanned and rejecting any semantic-only gap;
-4. record the complete decision streams, encode target-specific TWS files, and
-   prove codec round-trip without copying donor replay bytes;
-5. replay both outputs from level start in the TypeScript target engines and the
-   pinned native oracle, retaining exact terminal/certificate evidence; and
-6. regenerate the complete P4A boundary-panel set for every selected subgoal,
-   publish the plan, witnesses, replays, certificates, and a compact human
-   review, then gate them with a bounded byte-for-byte check.
+After that checkpoint is accepted, proceed with one large
+**P2B + P6A causal-alignment vertical slice** using ATDD:
 
-P5 is the first point where a person can inspect a complete route and decide
-whether the reviewed pieces actually join into a win. P2B remains the separate
-later expansion for a complete causal semantic journal, and P4B follows P5 with
-the full dossier laboratory.
+1. define the bounded target-neutral causal event envelope and exact command,
+   actor, placement, device, and terminal links without changing gameplay;
+2. adapt MS and Lynx native state into deterministic event journals and prove
+   observer-on versus observer-off replay parity, checkpoint continuity, event
+   bounds, and explicit exhaustion;
+3. regenerate Key Pyramid with ordered collection, inventory, door, socket, and
+   victory evidence, keeping target trigger/settlement differences intact;
+4. align the paired Key Pyramid journals into hard/medium/soft anchors and a
+   first strategy portfolio without treating chronological proximity as
+   causality;
+5. add one focused disagreement canary and one repeated-coordinate canary so
+   the aligner cannot pass by naïve coordinate matching; and
+6. extend the dossier with causal-event inspection while retaining the current
+   P5/P4B bytes as a regression baseline.
+
+This ordering makes the next large chunk useful: P2B supplies the trustworthy
+event vocabulary that P6 needs, while P6A immediately tests that vocabulary on
+real paired evidence instead of letting it harden in isolation.

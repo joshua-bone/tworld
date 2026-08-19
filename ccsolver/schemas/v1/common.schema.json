@@ -160,6 +160,9 @@
           "properties": {
             "artifactType": {
               "const": "expanded-plan"
+            },
+            "schemaVersion": {
+              "const": 1
             }
           }
         }

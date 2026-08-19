@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/expanded-plan.schema.json",
+  "$defs": {
+    "contentDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "content"
+      ],
+      "properties": {
+        "format": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "content": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/blobReference"
+        }
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producerRevision",
+        "caseId",
+        "level",
+        "target",
+        "planId",
+        "rootId",
+        "goalId",
+        "exitId",
+        "status",
+        "document",
+        "selectedImplementation",
+        "lineage"
+      ],
+      "properties": {
+        "producerRevision": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/revisionId"
+        },
+        "caseId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "level": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/levelIdentity"
+        },
+        "target": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/rulesetTarget"
+        },
+        "planId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "rootId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "goalId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "exitId": {
+          "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/stableId"
+        },
+        "status": {
+          "enum": [
+            "candidate",
+            "unresolved"
+          ]
+        },
+        "document": {
+          "$ref": "#/$defs/contentDescriptor"
+        },
+        "selectedImplementation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/contentDescriptor"
+            }
+          ]
+        },
+        "lineage": {
+          "type": "array",
+          "maxItems": 65536,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "https://github.com/joshua-bone/tworld/ccsolver/schemas/v1/common.schema.json#/$defs/artifactReference"
+          }
+        }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "protocolVersion",
+    "artifactType",
+    "schemaVersion",
+    "payload"
+  ],
+  "properties": {
+    "protocol": {
+      "const": "ccsolver-artifact"
+    },
+    "protocolVersion": {
+      "const": 1
+    },
+    "artifactType": {
+      "const": "expanded-plan"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "payload": {
+      "$ref": "#/$defs/payload"
+    }
+  }
+}

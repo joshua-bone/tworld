@@ -5,6 +5,7 @@ import type {
   ArtifactV1,
   CorpusCaseV1,
   CorpusTargetV1,
+  ExpandedPlanArtifactV1,
   LevelFactsV1,
   PlacementIdV1,
   ReplayCertificateV1,
@@ -264,6 +265,12 @@ function validateLevelIdentity(value: unknown, path: string): void {
   expectStableId(record.occurrenceId, pointer(path, "occurrenceId"));
   expectStableId(record.normalizationProfile, pointer(path, "normalizationProfile"));
   expectArtifactId(record.normalizedGameplayDigest, pointer(path, "normalizedGameplayDigest"));
+}
+
+function validateExpandedPlanContentDescriptor(value: unknown, path: string): void {
+  const record = expectObject(value, path, ["format", "content"]);
+  expectStableId(record.format, pointer(path, "format"));
+  validateBlobReference(record.content, pointer(path, "content"));
 }
 
 function validateDirectionOrNull(value: unknown, path: string): void {
@@ -1182,13 +1189,49 @@ function validateLevelFacts(value: JsonRecord): LevelFactsV1 {
 
 function validatePlanReference(value: unknown, path: string): void {
   const record = expectObject(value, path, ["artifact", "goalId", "subgoalId"]);
-  validateArtifactReference(record.artifact, pointer(path, "artifact"), "expanded-plan");
+  validateArtifactReference(record.artifact, pointer(path, "artifact"), "expanded-plan", 1);
   for (const key of ["goalId", "subgoalId"] as const) {
     const entry = record[key];
     if (entry !== null) {
       expectStableId(entry, pointer(path, key));
     }
   }
+}
+
+function validateExpandedPlan(value: JsonRecord): ExpandedPlanArtifactV1 {
+  const payloadPath = "/payload";
+  const payload = expectObject(value.payload, payloadPath, [
+    "producerRevision",
+    "caseId",
+    "level",
+    "target",
+    "planId",
+    "rootId",
+    "goalId",
+    "exitId",
+    "status",
+    "document",
+    "selectedImplementation",
+    "lineage",
+  ]);
+  expectString(payload.producerRevision, pointer(payloadPath, "producerRevision"), 256);
+  expectStableId(payload.caseId, pointer(payloadPath, "caseId"));
+  validateLevelIdentity(payload.level, pointer(payloadPath, "level"));
+  expectEnum(payload.target, pointer(payloadPath, "target"), ["ms", "lynx"] as const);
+  expectStableId(payload.planId, pointer(payloadPath, "planId"));
+  expectStableId(payload.rootId, pointer(payloadPath, "rootId"));
+  expectStableId(payload.goalId, pointer(payloadPath, "goalId"));
+  expectStableId(payload.exitId, pointer(payloadPath, "exitId"));
+  expectEnum(payload.status, pointer(payloadPath, "status"), ["candidate", "unresolved"] as const);
+  validateExpandedPlanContentDescriptor(payload.document, pointer(payloadPath, "document"));
+  if (payload.selectedImplementation !== null) {
+    validateExpandedPlanContentDescriptor(
+      payload.selectedImplementation,
+      pointer(payloadPath, "selectedImplementation"),
+    );
+  }
+  validateReferenceArray(payload.lineage, pointer(payloadPath, "lineage"));
+  return value as unknown as ExpandedPlanArtifactV1;
 }
 
 function validateAttemptContext(value: unknown, path: string): void {
@@ -1553,6 +1596,7 @@ function validateEnvelope(value: unknown): ArtifactV1 {
   }
   if (
     value.artifactType !== "corpus-case"
+    && value.artifactType !== "expanded-plan"
     && value.artifactType !== "replay-certificate"
     && value.artifactType !== "level-facts"
   ) {
@@ -1576,6 +1620,9 @@ function validateEnvelope(value: unknown): ArtifactV1 {
 
   if (value.artifactType === "corpus-case") {
     return validateCorpusCase(value);
+  }
+  if (value.artifactType === "expanded-plan") {
+    return validateExpandedPlan(value);
   }
   return value.artifactType === "replay-certificate"
     ? validateReplayCertificate(value)

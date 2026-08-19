@@ -15,11 +15,12 @@ Version 1 deliberately defines only:
 - replay certificates independently verified by Tile World's TypeScript engine
   and native oracle;
 - static level facts with exact source/import provenance;
+- expanded-plan roots that bind a planning document and an optional selected
+  implementation by exact content;
 - normalized level, static-placement, actor-lineage, and static-wiring
-  identities; and
-- opaque references to future expanded-plan artifacts.
+  identities.
 
-Derived topology, semantic events, goal graphs, expanded plans, subgoal
+Derived topology, semantic events, subgoal
 contracts, contextual witnesses, dossiers, and native Hybrid replays are not
 v1 root artifacts yet. Their schemas will be based on execution evidence in
 later milestones rather than guessed ahead of their producing code.
@@ -38,8 +39,8 @@ Every root artifact is a closed object:
 }
 ```
 
-The v1 root types are `corpus-case`, `replay-certificate`, and `level-facts`.
-Unknown
+The v1 root types are `corpus-case`, `expanded-plan`, `replay-certificate`, and
+`level-facts`. Unknown
 protocols, protocol versions, artifact types, and schema versions fail before
 payload decoding. Artifact references repeat the target artifact type, protocol
 version, schema version, and digest, but do not embed the referenced value.
@@ -101,9 +102,8 @@ Attempt context records independent dimensions:
 - optional deterministic search seed.
 
 An attempt is a generated candidate, a certified replay, or a categorized
-failure. Its optional plan reference identifies an opaque future expanded plan
-and may narrow that reference to a goal or subgoal ID. The plan's payload is not
-defined by this kernel.
+failure. Its optional plan reference identifies a schema-version-1
+`expanded-plan` root and may narrow that reference to a goal or subgoal ID.
 
 Current target state is a discriminated union. States that refer to an attempt
 must resolve inside the same target and must agree with its result kind:
@@ -119,6 +119,31 @@ case uses `previous`; older attempts and certificate references remain evidence.
 case and level identities are unchanged, every prior target remains, and each
 prior attempt is an exact prefix of the successor history. Validating either
 artifact alone cannot establish those cross-artifact facts.
+
+## Expanded plans
+
+An `expanded-plan` root is a deliberately compact, planner-independent binding.
+Its payload names the producer, corpus case, normalized level, ruleset target,
+plan, root goal, selected goal, exit, and provisional status. Status is either
+`candidate` or `unresolved`; execution evidence upgrades a corpus attempt, not
+this pre-execution planning claim.
+
+`document` identifies the exact canonical planning-document bytes with a stable
+format ID and blob reference. `selectedImplementation` has the same descriptor
+shape and is either null or binds exact bytes selected to implement the plan,
+such as a tile route. The artifact does not interpret either format and does not
+embed planner-domain DTOs. This keeps the root usable by later planners while
+making the actual planning and implementation bytes independently checkable.
+`planId`, `rootId`, `goalId`, `exitId`, and `status` are copied into the root so
+consumers can route and sanity-check the opaque document without claiming to
+decode it.
+
+Lineage is a unique set-like artifact-reference array ordered by artifact type,
+numeric schema version, then digest. The expanded-plan artifact digest covers
+the complete canonical envelope; it never substitutes a digest of the embedded
+planning document or selected implementation. A caller resolving a plan
+reference must identify the supplied expanded-plan envelope and separately
+verify the two blob references against their supplied bytes.
 
 ## Replay certificates
 

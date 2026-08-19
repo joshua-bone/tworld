@@ -43,6 +43,19 @@ jobs:
       - name: Check P4A graphical subgoal evidence artifacts
         timeout-minutes: 2
         run: npm run ccsolver:p4a:check
+      - name: Build native replay oracle for P5
+        timeout-minutes: 5
+        run: |
+          sudo apt-get -y update
+          sudo apt-get -y install cmake libsdl2-dev
+          cmake -S . -B build-verify -DOSHW=sdl -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build-verify --target tworld-oracle --parallel 4
+      - name: Check P5 certified Key Pyramid artifacts
+        timeout-minutes: 15
+        run: npm run ccsolver:p5:check
+      - name: Check P4B whole-level dossier artifacts
+        timeout-minutes: 5
+        run: npm run ccsolver:p4b:check
       - name: Check browser workspace
         run: |
           npm run typecheck

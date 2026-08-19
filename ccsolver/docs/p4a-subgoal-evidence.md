@@ -151,9 +151,9 @@ P4A consumes checked P3 bytes.
 
 ## Next human checkpoint
 
-P5 is the next decisive checkpoint. It must expand the reviewed Key Pyramid
-leaf into a complete target-specific subgoal sequence, execute every segment
-continuously from canonical initialization to victory, write complete TWS
-files, and certify both targets in the TypeScript engines and native oracle.
-Only then can a human judge the full route and whether individually credible
-pieces actually join.
+P5 now expands the reviewed Key Pyramid leaf into complete target-specific
+subgoal sequences, executes every segment continuously from canonical
+initialization to victory, writes complete TWS files, and certifies both targets
+in the TypeScript engines and native oracle. P4B is therefore the next human
+checkpoint: judge the full route, exact subgoal joins, timing, certificates,
+and donor disclosure in the whole-level dossier.

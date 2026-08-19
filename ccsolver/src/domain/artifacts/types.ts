@@ -281,8 +281,38 @@ export interface LevelFactsV1 {
   readonly payload: LevelFactsPayloadV1;
 }
 
+export interface ExpandedPlanContentDescriptorV1 {
+  readonly format: StableIdV1;
+  readonly content: BlobReferenceV1;
+}
+
+export interface ExpandedPlanPayloadV1 {
+  readonly producerRevision: RevisionIdV1;
+  readonly caseId: StableIdV1;
+  readonly level: LevelIdentityV1;
+  readonly target: RulesetTargetV1;
+  readonly planId: StableIdV1;
+  readonly rootId: StableIdV1;
+  readonly goalId: StableIdV1;
+  readonly exitId: StableIdV1;
+  readonly status: "candidate" | "unresolved";
+  /** Exact canonical planning document bytes interpreted according to format. */
+  readonly document: ExpandedPlanContentDescriptorV1;
+  /** Optional exact implementation selected by the planning document. */
+  readonly selectedImplementation: ExpandedPlanContentDescriptorV1 | null;
+  readonly lineage: readonly ArtifactReferenceV1[];
+}
+
+export interface ExpandedPlanArtifactV1 {
+  readonly protocol: "ccsolver-artifact";
+  readonly protocolVersion: 1;
+  readonly artifactType: "expanded-plan";
+  readonly schemaVersion: 1;
+  readonly payload: ExpandedPlanPayloadV1;
+}
+
 export interface PlanReferenceV1 {
-  readonly artifact: ArtifactReferenceV1<"expanded-plan">;
+  readonly artifact: ArtifactReferenceV1<"expanded-plan", 1>;
   readonly goalId: StableIdV1 | null;
   readonly subgoalId: StableIdV1 | null;
 }
@@ -428,4 +458,8 @@ export interface ReplayCertificateV1 {
   readonly payload: ReplayCertificatePayloadV1;
 }
 
-export type ArtifactV1 = CorpusCaseV1 | ReplayCertificateV1 | LevelFactsV1;
+export type ArtifactV1 =
+  | CorpusCaseV1
+  | ExpandedPlanArtifactV1
+  | ReplayCertificateV1
+  | LevelFactsV1;
