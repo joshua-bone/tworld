@@ -164,6 +164,10 @@ test("registers CCSolver as a first-class root workspace", async () => {
     rootPackage.scripts["ccsolver:integration"],
     /src\/ccsolver-runtime\/compose\/p4a-review\/buildP4aReviewOutputs\.test\.ts/,
   );
+  assert.match(
+    rootPackage.scripts["ccsolver:integration"],
+    /src\/ccsolver-runtime\/compose\/p5-review\/runExactKeyPyramidNativeReplay\.test\.ts/,
+  );
   for (const p4bReleaseTest of [
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierPage.test.ts",
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierVisuals.test.ts",
