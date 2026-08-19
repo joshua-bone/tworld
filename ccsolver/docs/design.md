@@ -40,9 +40,10 @@ evidence. P4A does not upgrade the leaf into a complete solution.
 The first complete-level slice is now implemented and documented in
 [P5 certified route and P4B whole-level dossier](p5-p4b-key-pyramid.md). P5
 checks complete MS/Lynx TWS bytes against both TypeScript and the isolated
-native oracle. P4B verifies and consumes only the checked P5 bundle to emit the
-unlisted, no-JavaScript-complete Key Pyramid dossier. Machine generation leaves
-its human review status `unreviewed`.
+native oracle. P4B verifies the checked P5 bundle as gameplay authority and
+uses only the standard repository runtime tilesets as presentation artwork to
+emit the unlisted, no-JavaScript-complete Key Pyramid dossier. Machine
+generation leaves its human review status `unreviewed`.
 
 ## Executive summary
 
@@ -173,7 +174,7 @@ The first implementation should adapt, not duplicate, these seams:
 - `web/src/player-web/impl/legacyCanvasMapRenderer.ts` and
   `legacyCanvasHud.tsx` provide deterministic legacy rendering. The current
   map-only helper is a focused viewport, so dossiers also need a dedicated
-  zoomable whole-level renderer.
+  fit-to-view whole-level renderer plus cropped segment views.
 - `web/src/replay-verifier/` and the native oracle certify legacy replays.
 - `.github/workflows/github-pages.yml` already publishes `web/dist`.
 
@@ -915,8 +916,8 @@ Each level page contains:
 
 1. identity and provenance;
 2. a human-language puzzle and room description;
-3. a zoomable whole-level map with coordinates, layers, wiring, teleports,
-   forced networks, regions, resources, and path overlays;
+3. a fit-to-view whole-level artwork map with coordinates, layers, wiring,
+   teleports, forced networks, regions, resources, and path overlays;
 4. the semantic goal graph and an accessible equivalent table;
 5. one card per target-specific subgoal containing its contract, derivation,
    evidence, footprint, join, failures, and a mandatory annotated **Starting
@@ -931,8 +932,8 @@ Each level page contains:
 10. downloadable verified TWS files and certificates where available.
 
 Stable app-relative routes use IDs such as
-`/ccsolver/levels/cclp3/016-two-sets-of-rules/`. Production prepends Vite's
-configured `BASE_PATH` (currently yielding `/tworld/ccsolver/...` on project
+`/dev/ccsolver/levels/cclp3/016-two-sets-of-rules/`. Production prepends Vite's
+configured `BASE_PATH` (currently yielding `/tworld/dev/ccsolver/...` on project
 Pages). The CCSolver master index and level pages are included in the GitHub
 Pages artifact but are not linked from the main Tile World page, player
 navigation, or sitemap. Generated pages include `noindex` metadata. This is
@@ -994,7 +995,7 @@ Do not check in by default:
 - downloaded third-party source bytes already managed by content-addressed
   local storage.
 
-CI builds changed dossier/media artifacts into `web/dist/ccsolver/`. Large or
+CI builds changed dossier/media artifacts into `web/dist/dev/ccsolver/`. Large or
 full-corpus regeneration runs only through an explicitly bounded job or
 schedule, not every ordinary test invocation.
 

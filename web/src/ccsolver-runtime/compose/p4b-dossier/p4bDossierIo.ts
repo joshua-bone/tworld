@@ -29,9 +29,9 @@ export function resolveP4bTransactionTargets(repositoryRoot: string): P4bTransac
   const root = resolve(repositoryRoot);
   const repositoryCcsolverRoot = resolve(root, "ccsolver");
   const checkedOutputRoot = resolve(root, P4B_CHECKED_OUTPUT_ROOT);
-  const distOutputRoot = resolve(root, "web/dist/ccsolver");
+  const distOutputRoot = resolve(root, "web/dist/dev/ccsolver");
   const expectedCheckedSuffix = ["fixtures", "golden", "p4b", "cclp1-001"].join(sep);
-  const expectedDistSuffix = "ccsolver";
+  const expectedDistSuffix = ["dev", "ccsolver"].join(sep);
   if (
     checkedOutputRoot === repositoryCcsolverRoot
     || distOutputRoot === repositoryCcsolverRoot
@@ -231,7 +231,7 @@ export async function installP4bDistTransactionally(
 ): Promise<void> {
   if (outputs.length === 0) throw new Error("P4B dist transaction requires at least one file");
   const distRoot = resolve(repositoryRoot, "web/dist");
-  const dossierRoot = resolve(distRoot, "ccsolver");
+  const dossierRoot = resolve(distRoot, "dev/ccsolver");
   const targets = resolveP4bTransactionTargets(repositoryRoot);
   if (dossierRoot !== targets.distOutputRoot) {
     throw new Error("P4B dist output target drifted");
@@ -253,10 +253,11 @@ export async function installP4bDistTransactionally(
   let preserveStagingDirectory = false;
   try {
     // Dist output paths are relative to web/dist (for example
-    // `ccsolver/index.html`), so validate their logical `ccsolver` root before
+    // `dev/ccsolver/index.html`), so validate their logical dossier root before
     // staging that subtree beneath the already-built dist directory.
-    await stageOutputs(repositoryRoot, "ccsolver", stagedDossier, outputs);
+    await stageOutputs(repositoryRoot, "dev/ccsolver", stagedDossier, outputs);
     await writeFile(stagedFallback, nextFallback, "utf8");
+    await mkdir(dirname(dossierRoot), { recursive: true });
     try {
       await rename(dossierRoot, backupDossier);
       oldDossierMoved = true;

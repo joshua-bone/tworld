@@ -2,11 +2,11 @@
 
 ## Big-picture checkpoint
 
-P4B turns the checked P5 proof into a static-first human review surface. Machine verification is complete; human review remains `unreviewed` until a person checks the paired maps, all 12 target-specific subgoal capsules, and all 24 start/end panel instances.
+P4B turns the checked P5 proof into a static-first human review surface. Machine verification is complete; human review remains `unreviewed` until a person checks the paired artwork maps, all 12 cropped and numbered route segments, and all 24 exact boundary records.
 
 ## Evidence boundary
 
-P4B verified all 32 files listed by `ccsolver/fixtures/golden/p5/cclp1-001/manifest.json` by exact byte length and SHA-256 before composition. It read no P1 or P3 file and ran no engine. The full route line is plan intent; observed evidence is restricted to exact boundary captures.
+P4B verified all 32 files listed by `ccsolver/fixtures/golden/p5/cclp1-001/manifest.json` by exact byte length and SHA-256 before composition. It read no P1 or P3 file and ran no engine. Gameplay evidence comes only from checked P5 bytes; presentation artwork is digest-bound from `res/tiles.bmp` and `res/atiles.bmp`, with expanded artwork excluded. The full route line is plan intent; observed evidence is restricted to exact boundary captures.
 
 | Target | Route steps | Capsules | Unique boundaries | Trigger tick | Trace-settled tick | Complete TWS digest |
 |---|---:|---:|---:|---:|---:|---|
@@ -15,11 +15,12 @@ P4B verified all 32 files listed by `ccsolver/fixtures/golden/p5/cclp1-001/manif
 
 ## Human review checkpoints
 
-1. Compare both literal 32×32 initial maps and their evidence-basis legends.
-2. Review six adjacent start/end pairs for MS and six for Lynx; each pair is an exact same-run join.
-3. Check the literal cell stacks, remaining-chip counts, resource/gate route events, socket, and won exit boundary.
-4. Confirm the MS 644/644 and Lynx 647/660 trigger/trace-settlement distinction.
-5. Download both complete TWS files and follow their digests to the checked certificate/report bytes.
-6. Retain the paired/full-input/manual-assisted donor disclosure; this is not donor-blind.
+1. Compare both 32×32 initial maps rendered with their corresponding standard MS/Lynx artwork and evidence overlays.
+2. Use the target tabs and six-step navigator; each cropped segment shows its complete plan-intent line and local ordered visits.
+3. Review six adjacent start/end pairs for MS and six for Lynx; each pair is an exact same-run join.
+4. Check the literal cell stacks, remaining-chip counts, resource/gate route events, socket, and won exit boundary.
+5. Confirm the MS 644/644 and Lynx 647/660 trigger/trace-settlement distinction.
+6. Download both complete TWS files and follow their digests to the checked certificate/report bytes.
+7. Retain the paired/full-input/manual-assisted donor disclosure; this is not donor-blind.
 
-The generated static bundle contains 57 bounded files and uses relative links for both root and repository Pages bases. JavaScript is optional display enhancement only.
+The generated static bundle contains 71 bounded files and uses relative links for both root and repository Pages bases. JavaScript is optional display enhancement only.
