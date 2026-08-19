@@ -18,6 +18,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       BASE_PATH: /${{ github.event.repository.name }}/
     steps:
@@ -30,19 +31,16 @@ jobs:
       - uses: actions/configure-pages@v5
       - name: Install workspace dependencies
         run: npm ci --include=optional
-      - name: Check P4B dossier sources
-        run: npm run ccsolver:p4b:check
-      - name: Check P2B/P6A causal alignment sources
-        timeout-minutes: 15
-        run: npm run ccsolver:p6a:check
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
       - name: Build web app for GitHub Pages
         run: npm run build
       - name: Add SPA fallback page
         run: cp web/dist/index.html web/dist/404.html
       - name: Emit unlisted CCSolver dossier bundle
-        run: npm run ccsolver:p4b:emit-dist
+        run: npm run ccsolver:p4b:emit-dist:prepared
       - name: Emit unlisted causal alignment bundle
-        run: npm run ccsolver:p6a:emit-dist
+        run: npm run ccsolver:p6a:emit-dist:prepared
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

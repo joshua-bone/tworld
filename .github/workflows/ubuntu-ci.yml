@@ -1,74 +1,20 @@
 name: Ubuntu-CI
-on: [push, pull_request]
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ubuntu-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  web-and-ccsolver:
-    runs-on: ubuntu-latest
-    env:
-      BASE_PATH: /tworld/
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Check CCSolver workspace
-        run: |
-          npm run ccsolver:typecheck
-          npm run ccsolver:typecheck:browser
-          npm run ccsolver:test
-          npm run ccsolver:conformance
-          npm run ccsolver:build
-          npm run ccsolver:facade
-          npm run ccsolver:integration
-          npm run ccsolver:corpus:check
-          npm run ccsolver:analysis:check
-          npm --workspace web run typecheck:tools
-          npm run ccsolver:cli -- --help
-          npm run ccsolver:dossier -- --help
-      - name: Check P1B full-corpus artifacts
-        timeout-minutes: 90
-        env:
-          TWORLD_P1B_ANALYSIS_JOBS: 4
-        run: npm run ccsolver:p1b:check
-      - name: Check P2A runtime observation artifacts
-        timeout-minutes: 10
-        run: npm run ccsolver:p2a:check
-      - name: Check P3 terminal planning and contextual witness artifacts
-        timeout-minutes: 10
-        run: npm run ccsolver:p3:check
-      - name: Check P4A graphical subgoal evidence artifacts
-        timeout-minutes: 2
-        run: npm run ccsolver:p4a:check
-      - name: Build native replay oracle for P5
-        timeout-minutes: 5
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install cmake libsdl1.2-dev
-          cmake -S . -B build-verify -DOSHW=sdl -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build-verify --target tworld-oracle --parallel 4
-      - name: Check P5 certified Key Pyramid artifacts
-        timeout-minutes: 15
-        run: npm run ccsolver:p5:check
-      - name: Check P4B whole-level dossier artifacts
-        timeout-minutes: 5
-        run: npm run ccsolver:p4b:check
-      - name: Check P2B/P6A causal alignment artifacts
-        timeout-minutes: 15
-        run: npm run ccsolver:p6a:check
-      - name: Check browser workspace
-        run: |
-          npm run typecheck
-          npm test -- \
-            src/bootstrap/architecture/hexagonalBoundaries.test.ts \
-            src/game-core/api/ruleset.test.ts
-          npm run build
-
   build-qt6:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Install QT6
@@ -84,6 +30,7 @@ jobs:
 
   build-qt5:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Install QT5
@@ -100,6 +47,7 @@ jobs:
 
   build-sdl1:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Install SDL1
@@ -116,3 +64,171 @@ jobs:
         run: |
           cd build-sdl
           ctest --output-on-failure
+      - name: Upload native replay oracle
+        uses: actions/upload-artifact@v4
+        with:
+          name: tworld-oracle-${{ github.sha }}
+          path: build-sdl/legacy_c/tworld-oracle
+          if-no-files-found: error
+          retention-days: 1
+
+  ccsolver-p5-preflight:
+    needs: build-sdl1
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
+      - name: Prove exact native replay input isolation
+        run: npm --workspace web run test -- --run src/ccsolver-runtime/compose/p5-review/runExactKeyPyramidNativeReplay.test.ts
+      - name: Download native replay oracle
+        uses: actions/download-artifact@v4
+        with:
+          name: tworld-oracle-${{ github.sha }}
+          path: build-verify/legacy_c
+      - name: Restore native replay oracle executable mode
+        run: chmod +x build-verify/legacy_c/tworld-oracle
+      - name: Check P5 certified Key Pyramid artifacts
+        run: npm run ccsolver:p5:check:prepared
+
+  ccsolver-workspace:
+    needs: ccsolver-p5-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      BASE_PATH: /tworld/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Check CCSolver workspace
+        run: |
+          npm run ccsolver:build
+          npm run ccsolver:typecheck
+          npm run ccsolver:typecheck:browser
+          npm run ccsolver:test
+          npm run ccsolver:conformance
+          npm run ccsolver:facade
+          npm run ccsolver:integration:fast
+          npm run ccsolver:corpus:check:prepared
+          npm run ccsolver:analysis:check:prepared
+          npm --workspace web run typecheck:tools
+          npm run ccsolver:cli -- --help
+          npm run ccsolver:dossier -- --help
+
+  ccsolver-p1b:
+    needs: ccsolver-p5-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TWORLD_P1B_ANALYSIS_JOBS: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
+      - name: Check P1B full-corpus artifacts
+        run: npm run ccsolver:p1b:check:prepared
+
+  ccsolver-reviews:
+    needs: ccsolver-p5-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
+      - name: Check P2A runtime observation artifacts
+        run: npm run ccsolver:p2a:check:prepared
+      - name: Check P3 terminal planning and contextual witness artifacts
+        run: npm run ccsolver:p3:check:prepared
+      - name: Check P4A graphical subgoal evidence artifacts
+        run: npm run ccsolver:p4a:check:prepared
+      - name: Check P4B whole-level dossier artifacts
+        run: npm run ccsolver:p4b:check:prepared
+
+  ccsolver-p6a:
+    needs: ccsolver-p5-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
+      - name: Check P2B/P6A causal alignment artifacts
+        run: npm run ccsolver:p6a:check:prepared
+
+  browser-workspace:
+    needs: ccsolver-p5-preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_PATH: /tworld/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Check browser workspace
+        run: |
+          npm run typecheck
+          npm test -- \
+            src/bootstrap/architecture/hexagonalBoundaries.test.ts \
+            src/game-core/api/ruleset.test.ts
+          npm run build
+
+  web-and-ccsolver:
+    name: web-and-ccsolver
+    if: ${{ always() }}
+    needs:
+      - ccsolver-p5-preflight
+      - ccsolver-workspace
+      - ccsolver-p1b
+      - ccsolver-reviews
+      - ccsolver-p6a
+      - browser-workspace
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every web and CCSolver gate
+        if: ${{ needs.ccsolver-p5-preflight.result != 'success' || needs.ccsolver-workspace.result != 'success' || needs.ccsolver-p1b.result != 'success' || needs.ccsolver-reviews.result != 'success' || needs.ccsolver-p6a.result != 'success' || needs.browser-workspace.result != 'success' }}
+        run: exit 1
+      - name: Confirm every web and CCSolver gate
+        run: echo "All required web and CCSolver gates passed."
