@@ -46,19 +46,25 @@ cmake -S . -B build-verify -DOSHW=sdl -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-verify --target tworld-oracle --parallel 4
 npm run ccsolver:p5:check
 npm run ccsolver:p4b:check
+npm run ccsolver:p6a:check
 ```
 
 After `npm run build`, copy the normal SPA fallback and run
 `npm run ccsolver:p4b:emit-dist` to add the dossier beneath
-`web/dist/dev/ccsolver/`. The dossier remains absent from the Tile World
+`web/dist/dev/ccsolver/`. Then run `npm run ccsolver:p6a:emit-dist` to add the
+checked causal-alignment leaf. The dossier remains absent from the Tile World
 homepage, player navigation, and sitemap. Its public Key Pyramid URL is
 `https://joshua-bone.github.io/tworld/dev/ccsolver/levels/cclp1/001-key-pyramid/`.
 The review UI fills the available viewport, supports MS/Lynx tabs and
 arrow-key segment navigation, and can label each cropped route with either
 local or whole-route visit numbers.
+The paired causal-event alignment is available at
+`https://joshua-bone.github.io/tworld/dev/ccsolver/levels/cclp1/001-key-pyramid/causal-alignment/`.
 See the
 [P5/P4B Key Pyramid review guide](./ccsolver/docs/p5-p4b-key-pyramid.md) for the
-evidence limits and human review checkpoints.
+whole-level evidence limits and
+[P2B/P6A causal alignment](./ccsolver/docs/p2b-p6a-causal-alignment.md) for the
+journal, alignment, and remaining-scope boundaries.
 
 ## Engine Parity
 

@@ -7,6 +7,7 @@ import { projectMsActorInventoryOwner } from "@ruleset-ms/impl/actorCollections"
 import { type MsChipEnterTileBehaviorContext } from "@ruleset-ms/impl/chipEnterBehavior";
 import { lookupMsTileLifecyclePhase } from "@ruleset-ms/impl/tileLifecycleRegistration";
 import { type MsPortableToolStateStore } from "@ruleset-ms/impl/portableItems";
+import type { MsNativeCausalEventSeed } from "@ruleset-ms/impl/causalEvents";
 
 export interface MsChipEntryState {
   chipStatus: "okay" | "drowned" | "burned" | "bombed" | "outoftime" | "collided";
@@ -17,6 +18,7 @@ export interface MsChipEntryContext {
   portableTools: MsPortableToolStateStore;
   runtimeCellZ(pos: number): number;
   removeRuntimeActor(cells: EngineMapCell[], pos: number): void;
+  recordCausalEvent?(event: MsNativeCausalEventSeed): void;
 }
 
 export interface MsChipEnteredTileResolution {

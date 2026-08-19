@@ -252,7 +252,8 @@ port.
 
 ### Status and delivery slices
 
-P2A is implemented and bounded; the complete P2 causal journal remains open.
+P2A is implemented and bounded. The P2B causal-journal foundation needed by
+the first P6 alignment slice is delivered; the complete P2 exit remains open.
 
 - **P2A — Runtime Observation, Checkpoint, and Render Projection Port:
   complete.** A pure preview contract,
@@ -263,9 +264,13 @@ P2A is implemented and bounded; the complete P2 causal journal remains open.
   and deterministic render projections. Key Pyramid and Intro 8 supply checked
   canonical runtime packets plus compact human reviews. See
   [P2A runtime observation](p2a-runtime-observation.md).
-- **P2B — Causal semantic event journal: later.** Expand the proven P2A seam
-  with the complete bounded event taxonomy, causal linkage, failure reasons,
-  and native diagnostic adaptation required by the rest of the P2 exit gate.
+- **P2B — Causal semantic event journal foundation: delivered.** The runtime
+  now provides explicit opt-in, bounded, non-consuming event pages; native
+  action authority; exact checkpoint continuation; deterministic
+  source-plus-clone-ordinal lineage; and honest command attribution for the
+  Key Pyramid P6A slice plus focused standard-mechanic canaries. Ambiguous
+  held/queued effects stay unattributed rather than inheriting a nearby poll.
+  See [P2B/P6A causal alignment](p2b-p6a-causal-alignment.md).
 
 ### P2A delivered
 
@@ -293,15 +298,16 @@ P2A is implemented and bounded; the complete P2 causal journal remains open.
   characterization packets; include full values, compact semantic deltas, and
   derived human review pages without durable handles or timestamps.
 
-### P2B remaining
+### P2B follow-on work
 
-- Add bounded causal events for movement, collection, inventory, map mutation,
-  devices, teleports, actor lifecycle, death, and victory.
-- Expose causal plan/command IDs and first-failure reasons where existing engines
-  permit them; add narrow observation seams where they do not.
-- Adapt the native oracle's existing bounded/window trace commands for
-  diagnosis. Add a new delta-oriented semantic exporter only if representative
-  measurements show that the existing seam is insufficient.
+- Extend the delivered named map seams to hazard-driven floor mutations and
+  any standard mechanics not yet represented by a native action canary.
+- Preserve additional held/queued command lineage only where a target-native
+  seam can prove it; keep every ambiguous effect explicitly unattributed.
+- Adapt the native oracle's existing bounded/window trace commands when a
+  measured diagnostic gap requires it. Add a new delta-oriented semantic
+  exporter only if representative evidence shows the existing seam is
+  insufficient.
 
 ### P2A exit gate
 
@@ -628,6 +634,17 @@ first real level and every later claim.
 Infer useful semantic structure from donor execution while preserving real
 ruleset divergence.
 
+### Status
+
+**P6A causal alignment foundation: delivered.** The pure bounded aligner uses
+hard, medium, and soft semantic anchors, retains repeated-event ordinals,
+supports bounded one-to-many movement spans, and reports unmatched or causal
+divergence explicitly. The checked Key Pyramid slice aligns the two fresh
+target journals without using coordinates or native ticks as hard identity and
+produces the first provisional strategy portfolio. Broader cross-level plan
+shape acceptance remains P6 follow-on work. See
+[P2B/P6A causal alignment](p2b-p6a-causal-alignment.md).
+
 ### Deliverables
 
 - Extract hard, medium, and soft anchors from realized semantic events.
@@ -953,37 +970,35 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-First perform the **Key Pyramid P4B human review**. A person should inspect both
-whole-level maps, the six paired boundary transitions per target, the direct
-resource prerequisites, the MS/Lynx timing ledger, replay downloads, and donor
-disclosure. Record concrete changes requested rather than treating successful
-generation as human approval.
+After human review of the checked Key Pyramid causal-alignment page, proceed
+with one large **P6B portfolio-canary + P7A tactic-realization vertical slice**
+using ATDD. This advances from explaining one known route to constructing and
+repairing bounded semantic work; it does not broaden the P2B foundation by
+speculation.
 
-After that checkpoint is accepted, proceed with one large
-**P2B + P6A causal-alignment vertical slice** using ATDD:
+1. freeze standard-only, DATTools-valid P6B acceptance cases for a shared plan
+   with different local timing, a shared subgoal with a different local route,
+   alternative branches with a proven rejoin, and a genuinely different plan;
+2. include the named real canaries CCLP3 level 16 (different plans) and CCLP1
+   level 67 (causal donor disagreement), while keeping any donor-derived
+   evidence explicitly labeled and non-authoritative;
+3. extend the portfolio artifact so each proposed plan family binds its exact
+   aligned evidence, target scope, dependencies, confidence, unresolved gaps,
+   and review state without upgrading a proposal to a proof;
+4. implement the first executable P7A operators for the smallest useful
+   `Reach`/`Collect`/`Unlock`/`WaitUntil` subset, with target-specific tactic
+   implementations behind one semantic contract;
+5. evaluate every candidate through exact checkpoint, real-engine advance, and
+   restore under explicit work, tick, branch, and memory bounds; a pure planner
+   probe may be added only after an equivalence canary exists;
+6. prove deterministic exhaustion diagnostics, inject one decision failure,
+   and repair or recompile only the affected suffix; and
+7. publish one non-Key checked dossier that shows the proposed portfolio,
+   selected tactic realization, exact witness, failure/repair evidence, and the
+   boundary between donor guidance and solver construction.
 
-The phase label does not mean reverting the delivered vertical slice. P2A
-intentionally stopped at exact boundary-state perception; ordered causal event
-evidence was deferred. P3 through P5 could plan, witness, execute, and certify
-from exact states, but P6 alignment must not infer causality from chronology.
-P2B therefore names the missing event-perception capability that P6A consumes,
-and the two ship together as the next forward slice.
-
-1. define the bounded target-neutral causal event envelope and exact command,
-   actor, placement, device, and terminal links without changing gameplay;
-2. adapt MS and Lynx native state into deterministic event journals and prove
-   observer-on versus observer-off replay parity, checkpoint continuity, event
-   bounds, and explicit exhaustion;
-3. regenerate Key Pyramid with ordered collection, inventory, door, socket, and
-   victory evidence, keeping target trigger/settlement differences intact;
-4. align the paired Key Pyramid journals into hard/medium/soft anchors and a
-   first strategy portfolio without treating chronological proximity as
-   causality;
-5. add one focused disagreement canary and one repeated-coordinate canary so
-   the aligner cannot pass by naïve coordinate matching; and
-6. extend the dossier with causal-event inspection while retaining the current
-   P5/P4B bytes as a regression baseline.
-
-This ordering makes the next large chunk useful: P2B supplies the trustworthy
-event vocabulary that P6 needs, while P6A immediately tests that vocabulary on
-real paired evidence instead of letting it harden in isolation.
+The cycle is complete only when the canaries reject false parity, the selected
+tactic succeeds from canonical initialization without a canned full input
+stream, the exact replay is independently certified, and regeneration is
+byte-stable. Full-corpus sweeps remain unjustified until these bounded cases
+establish that the abstractions are useful.

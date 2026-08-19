@@ -8,6 +8,7 @@ import { lynxTilePostEntryAction } from "@ruleset-lynx/impl/floorImpactPolicy";
 import { MS_GRID_HEIGHT, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 
 export interface LynxTeleportActor {
+  serial?: number;
   id: number;
   pos: number;
   z?: number;
@@ -29,6 +30,7 @@ export interface LynxTeleportContext {
   canActorExitTeleport(actor: LynxTeleportActor): boolean;
   markChipTeleported(): void;
   settleChipTeleportDrop(originPos: number, originZ: number): void;
+  recordActorTeleport?(actor: LynxTeleportActor, originPos: number, destinationPos: number): void;
 }
 
 function findLynxTeleportDestination(
@@ -142,6 +144,7 @@ export function resolveLynxActorTeleport(
 
     addTopTileFlags(context.state.map.cells, actor.pos, LYNX_CELL_FLAG.Claimed);
     actor.teleported = true;
+    context.recordActorTeleport?.(actor, origin, actor.pos);
     return;
   }
 }

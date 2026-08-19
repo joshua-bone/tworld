@@ -221,6 +221,9 @@ function createFakeRuntime(
     },
     observe: (run) => observationFor(target, stateFor(run)),
     terminal: () => ({ kind: "running" }),
+    readEvents: () => {
+      throw new Error("not used by review-packet tests");
+    },
     captureCheckpoint: unsupportedCheckpoint,
     cloneCheckpoint: (_checkpoint: SolverCheckpointHandle) => unsupportedCheckpoint(),
     restoreCheckpoint: (_checkpoint: SolverCheckpointHandle) => {

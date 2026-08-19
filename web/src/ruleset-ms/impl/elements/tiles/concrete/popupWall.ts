@@ -18,6 +18,18 @@ export function createMsPopupWallTileBehavior(tileId: number): TileBehavior<numb
           }
           behaviorContext.nextCell.top.id = MS_TILE.Wall;
           behaviorContext.floorTileBeforeMove.id = MS_TILE.Wall;
+          const z = behaviorContext.runtime.runtimeCellZ(behaviorContext.nextPos);
+          behaviorContext.runtime.recordCausalEvent?.({
+            kind: "map-mutated",
+            actorId: MS_TILE.Chip,
+            actorSerial: null,
+            tileId: behaviorContext.tileId,
+            resultingTileId: MS_TILE.Wall,
+            action: "cc1:popup-wall",
+            before: { pos: behaviorContext.nextPos, z },
+            after: { pos: behaviorContext.nextPos, z },
+            phase: "arrival-effect",
+          });
         },
         soundEffects: {
           wallCreated: 0,

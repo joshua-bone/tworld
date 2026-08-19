@@ -103,6 +103,28 @@ test("keeps the public root entrypoint inside the purity boundary", () => {
   );
 });
 
+test("keeps causal event contracts pure and below runtime ports and adapters", () => {
+  const violations = findBoundaryViolations([
+    { path: "src/events/node.ts", source: 'import "node:fs";' },
+    { path: "src/events/react.ts", source: 'import "react";' },
+    { path: "src/events/port.ts", source: 'import "../ports/index.js";' },
+    {
+      path: "src/events/runtime.ts",
+      source: 'import "../../../web/src/game-runtime/index.js";',
+    },
+  ]);
+
+  assert.deepEqual(
+    new Set(violations.map((violation) => violation.reason)),
+    new Set([
+      "CCSolver cannot import files outside its source tree",
+      "events cannot depend on ports",
+      "events cannot import Node runtime modules",
+      "events cannot import UI or canvas packages",
+    ]),
+  );
+});
+
 test("keeps terminal-first planning pure and below orchestration layers", () => {
   const violations = findBoundaryViolations([
     { path: "src/plan/node.ts", source: 'import "node:fs";' },

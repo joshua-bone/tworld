@@ -46,6 +46,13 @@ export interface LynxTrapClonerContext<TActor extends LynxTrapClonerActor> {
   cloneFamilyRuntimeForCloner(sourceActorSerial: number, cloneActorSerial: number): void;
   startCreatureMovement(actor: TActor, dir: number, releasing: boolean): MovementAttemptResult;
   advanceCreature(actor: TActor, currentTime: number): void;
+  recordActorSpawned?(
+    actor: TActor,
+    parentActor: TActor,
+    clonerPos: number,
+    buttonPos: number,
+    z: number,
+  ): void;
   currentTime: number;
 }
 
@@ -149,6 +156,7 @@ export function activateLynxCloner<TActor extends LynxTrapClonerActor>(
     if (clonerClone.cloneFamilyRuntime) {
       context.cloneFamilyRuntimeForCloner(sourceActor.serial, clone.serial);
     }
+    context.recordActorSpawned?.(clone, sourceActor, sourcePos, buttonPos, buttonZ);
     context.advanceCreature(sourceActor, context.currentTime + 1);
     return true;
   });

@@ -27,6 +27,7 @@ function createContext(overrides: Partial<LynxCompletedChipMoveContext> = {}): L
     applyThiefHook: () => false,
     queueCollectedTool: () => {},
     springTrap: () => {},
+    activeLayerZ: () => 1,
     hasBoot: () => false,
     applyIceWallTurn: (dir) => dir,
     failChip: (chipPos, _chipDir, endGameTicksElapsed, endGameResult, endGameAnimationTileId, endGameAnimationFrame) => ({

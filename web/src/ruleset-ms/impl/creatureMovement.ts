@@ -82,6 +82,13 @@ export interface MsCreatureMovementContext {
     occupiedOriginPos: number | undefined,
     creature: MsCreatureMovementCreature,
   ): number;
+  recordMoveCompleted?(
+    creature: MsCreatureMovementCreature,
+    beforePos: number,
+    afterPos: number,
+    standingFloor: number,
+    movementRole: "self" | "forced",
+  ): void;
 }
 
 export function moveMsCreaturePlanar(
@@ -95,6 +102,7 @@ export function moveMsCreaturePlanar(
   const arrivalActorId = msCreatureId(cells[oldPos]!.top.id);
   const arrivalCreature = arrivalActorId === creature.id ? creature : { ...creature, id: arrivalActorId };
   const oldWasCloneMachine = cells[oldPos]!.bottom.id === MS_TILE.CloneMachine;
+  const movementRole = creature.floorMovement === "none" ? "self" : "forced";
   let nextPos = nextPosition(oldPos, dir, MS_GRID_WIDTH);
   const preMoveCollision = context.handlePreMoveCollision(cells, cells, creature, nextPos, dir);
   if (preMoveCollision) {
@@ -130,6 +138,14 @@ export function moveMsCreaturePlanar(
   }
   const standingFloor = standingFloorWasTop ? targetTop : targetBottom;
   const standingFloorState = standingFloorWasTop ? targetTopState : targetBottomState;
+  const movementAfterPos = nextPos;
+  context.recordMoveCompleted?.(
+    creature,
+    oldPos,
+    movementAfterPos,
+    standingFloor,
+    movementRole,
+  );
   nextPos = applyMsCreatureEnteredCell(
     context,
     cells,
@@ -165,7 +181,18 @@ export function moveMsCreaturePlanar(
     context.popTile(cells, oldPos);
     context.applyMobExitFloorEffect(cells, oldPos);
   }
-  soundEffects |= applyMsCreatureCompletedStep(context, cells, oldPos, oldWasCloneMachine, creature, nextPos, standingFloor);
+  soundEffects |= applyMsCreatureCompletedStep(
+    context,
+    cells,
+    oldPos,
+    oldWasCloneMachine,
+    creature,
+    nextPos,
+    standingFloor,
+    true,
+    movementAfterPos,
+    false,
+  );
   applyMsCreatureCollisionAfterCompletedStep(cells, nextPos, setChipCollided);
   soundEffects |= context.applyArrivalEffects(cells, creature);
   return movedMovement(soundEffects);
@@ -209,6 +236,7 @@ export function moveMsCreatureDownOneLayer(
 
   const standingFloor = standingFloorWasTop ? targetTop : targetBottom;
   const standingFloorState = standingFloorWasTop ? targetTopState : targetBottomState;
+  const movementAfterPos = nextPos;
   nextPos = applyMsCreatureEnteredCell(
     context,
     targetCells,
@@ -246,7 +274,17 @@ export function moveMsCreatureDownOneLayer(
 
   context.popTile(sourceCells, oldPos);
   context.applyMobExitFloorEffect(sourceCells, oldPos);
-  soundEffects |= applyMsCreatureCompletedStep(context, targetCells, oldPos, false, creature, nextPos, standingFloor, false);
+  soundEffects |= applyMsCreatureCompletedStep(
+    context,
+    targetCells,
+    oldPos,
+    false,
+    creature,
+    nextPos,
+    standingFloor,
+    false,
+    movementAfterPos,
+  );
   applyMsCreatureFallingCollision(creature, targetCells, nextPos, setChipCollided);
   if (isMsIceForcedFloor(standingFloor)) {
     context.clearCreatureFloorMovement(creature);

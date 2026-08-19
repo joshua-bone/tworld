@@ -120,6 +120,7 @@ export type SolverActorMovement =
 
 export type SolverActorIdentityProvenance =
   | "initial-placement"
+  | "clone-lineage"
   | "runtime-projected";
 
 export type SolverActorNativePosition = {

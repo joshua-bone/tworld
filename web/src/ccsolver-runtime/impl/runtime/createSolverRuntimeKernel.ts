@@ -9,6 +9,15 @@ import type {
 } from "@tworld/ccsolver/domain";
 import { canonicalizeJson } from "@tworld/ccsolver/domain";
 import {
+  assertSolverCausalEventPageV1,
+  assertSolverCausalEventPageCheckpointCoherenceV1,
+  assertSolverCausalEventReadRequestV1,
+  assertSolverCausalJournalCheckpointV1,
+  type SolverCausalEventPageV1,
+  type SolverCausalEventReadRequestV1,
+  type SolverCausalJournalCheckpointV1,
+} from "@tworld/ccsolver/events";
+import {
   SolverRuntimeError,
   type SolverAdvanceRequest,
   type SolverCheckpoint,
@@ -37,6 +46,13 @@ export interface SolverRuntimeDriver<
    * continuation state without disposal-sensitive aliases to `token`.
    */
   advanceTick(token: Token, request: SolverAdvanceRequest): SolverRuntimeResult<Token>;
+  /** Detached, non-consuming causal journal page read. */
+  readEvents(
+    token: Token,
+    request: SolverCausalEventReadRequestV1,
+  ): SolverRuntimeResult<SolverCausalEventPageV1>;
+  /** Exact public continuation companion for checkpoint capture and restore. */
+  causalJournalCheckpoint(token: Token): SolverRuntimeResult<SolverCausalJournalCheckpointV1 | null>;
   observe(token: Token): SolverRuntimeResult<SolverObservation>;
   /**
    * Re-identifies the complete public semantic observation after the kernel
@@ -73,6 +89,7 @@ type HandleAuthority = {
 
 const runAuthorities = new WeakMap<object, HandleAuthority>();
 const checkpointAuthorities = new WeakMap<object, HandleAuthority>();
+const STABLE_ID_PATTERN = /^[a-z0-9](?:[a-z0-9._:-]{0,126}[a-z0-9])?$/u;
 
 type RunEntry<Token> = {
   status: "live" | "disposed";
@@ -90,6 +107,7 @@ type CheckpointEntry<Token> = {
   readonly binding: RuntimeObservationBinding;
   readonly terminal: SolverTerminalResult;
   readonly metadata: SolverCheckpointMetadata;
+  readonly causalJournal: SolverCausalJournalCheckpointV1 | null;
   queue: Promise<void>;
 };
 
@@ -1091,6 +1109,24 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
     }
   }
 
+  async function causalJournalCheckpoint(
+    token: Token,
+    operation: SolverRuntimeOperation,
+  ): Promise<SolverCausalJournalCheckpointV1 | null> {
+    const before = await exactRestoreDigest(token, operation);
+    const checkpoint = copy(await driver.causalJournalCheckpoint(token));
+    const after = await exactRestoreDigest(token, operation);
+    if (before !== after) {
+      throw error(
+        "runtime.adapter-failure",
+        operation,
+        "the runtime driver mutated exact continuation while reading causal journal metadata",
+      );
+    }
+    if (checkpoint !== null) assertSolverCausalJournalCheckpointV1(checkpoint);
+    return checkpoint;
+  }
+
   function registerRun(
     token: Token,
     mode: SolverRuntimeMode,
@@ -1115,6 +1151,7 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
     mode: SolverRuntimeMode,
     terminal: SolverTerminalResult,
     metadata: SolverCheckpointMetadata,
+    causalJournal: SolverCausalJournalCheckpointV1 | null,
     binding: RuntimeObservationBinding,
   ): SolverCheckpoint {
     const handle = mintCheckpointHandle();
@@ -1126,10 +1163,15 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
       binding: copy(binding),
       terminal: copy(terminal),
       metadata: detachedMetadata,
+      causalJournal: copy(causalJournal),
       queue: Promise.resolve(),
     });
     liveCheckpoints += 1;
-    return { handle, metadata: copy(detachedMetadata) };
+    return {
+      handle,
+      metadata: copy(detachedMetadata),
+      causalJournal: copy(causalJournal),
+    };
   }
 
   async function start(
@@ -1200,6 +1242,38 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
       throw error("runtime.invalid-request", "advanceTick", "the advance request must be an object");
     }
     const candidate = request as unknown as Record<string, unknown>;
+    const detachCausalContext = () => {
+      if (!Object.hasOwn(candidate, "causalContext")) return undefined;
+      if (!isObject(candidate.causalContext)) {
+        throw error(
+          "runtime.invalid-request",
+          "advanceTick",
+          "causalContext must be an object when supplied",
+        );
+      }
+      const context = candidate.causalContext as Record<string, unknown>;
+      if (typeof context.commandId !== "string" || !STABLE_ID_PATTERN.test(context.commandId)) {
+        throw error(
+          "runtime.invalid-request",
+          "advanceTick",
+          "causalContext.commandId must be a non-empty stable identity",
+        );
+      }
+      if (
+        context.planId !== null
+        && (typeof context.planId !== "string" || !STABLE_ID_PATTERN.test(context.planId))
+      ) {
+        throw error(
+          "runtime.invalid-request",
+          "advanceTick",
+          "causalContext.planId must be null or a non-empty stable identity",
+        );
+      }
+      return {
+        commandId: context.commandId,
+        planId: context.planId as string | null,
+      };
+    };
     if (candidate.kind === "manual-poll") {
       if (!Number.isSafeInteger(candidate.inputCode) || Object.is(candidate.inputCode, -0)) {
         throw error(
@@ -1208,7 +1282,10 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
           "a manual poll requires one safe integer native input code",
         );
       }
-      return { kind: "manual-poll", inputCode: candidate.inputCode as number };
+      const causalContext = detachCausalContext();
+      return causalContext === undefined
+        ? { kind: "manual-poll", inputCode: candidate.inputCode as number }
+        : { kind: "manual-poll", inputCode: candidate.inputCode as number, causalContext };
     }
     if (candidate.kind === "replay-tick") {
       if (Object.hasOwn(candidate, "inputCode")) {
@@ -1218,9 +1295,30 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
           "a replay tick cannot carry external input",
         );
       }
-      return { kind: "replay-tick" };
+      const causalContext = detachCausalContext();
+      return causalContext === undefined
+        ? { kind: "replay-tick" }
+        : { kind: "replay-tick", causalContext };
     }
     throw error("runtime.invalid-request", "advanceTick", "the advance request kind is unknown");
+  }
+
+  function detachCausalEventReadRequest(
+    request: SolverCausalEventReadRequestV1,
+  ): SolverCausalEventReadRequestV1 {
+    const detached = copy(request);
+    try {
+      assertSolverCausalEventReadRequestV1(detached);
+      return detached;
+    } catch (cause) {
+      throw new SolverRuntimeError(
+        "runtime.invalid-request",
+        "readEvents",
+        "the causal event read request is invalid",
+        undefined,
+        { cause },
+      );
+    }
   }
 
   function detachRenderRegionRequest(
@@ -1308,6 +1406,7 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
         entry.binding,
       );
       const digest = await exactRestoreDigest(checkpointToken, "captureCheckpoint");
+      const causalJournal = await causalJournalCheckpoint(checkpointToken, "captureCheckpoint");
       if (observed.fingerprints.exact !== digest) {
         throw error(
           "runtime.invalid-checkpoint",
@@ -1321,6 +1420,7 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
         entry.mode,
         entry.terminal,
         checkpointMetadataFor(observed, digest),
+        causalJournal,
         entry.binding,
       );
       checkpointToken = undefined;
@@ -1364,9 +1464,11 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
     }
     const observed = await observeToken(token, entry.mode, operation, entry.binding);
     const observedMetadata = checkpointMetadataFor(observed, digest);
+    const causalJournal = await causalJournalCheckpoint(token, operation);
     if (
       observed.fingerprints.exact !== digest
       || canonicalizeJson(observedMetadata) !== canonicalizeJson(entry.metadata)
+      || canonicalizeJson(causalJournal) !== canonicalizeJson(entry.causalJournal)
     ) {
       throw error(
         "runtime.invalid-checkpoint",
@@ -1387,6 +1489,58 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
       runEntry(run, "advanceTick");
       const detachedRequest = detachAdvanceRequest(request);
       return queueRun(run, "advanceTick", (entry) => advance(entry, detachedRequest));
+    },
+    readEvents(run, request) {
+      runEntry(run, "readEvents");
+      const detachedRequest = detachCausalEventReadRequest(request);
+      return queueRun(run, "readEvents", async (entry) => {
+        const source = entry.token;
+        if (source === null) {
+          throw error("runtime.run-disposed", "readEvents", "the run has been disposed");
+        }
+        const probe = await cloneToken(source, "readEvents");
+        try {
+          const before = await exactRestoreDigest(probe, "readEvents");
+          const page = copy(await driver.readEvents(probe, detachedRequest));
+          const companion = copy(await driver.causalJournalCheckpoint(probe));
+          const after = await exactRestoreDigest(probe, "readEvents");
+          if (before !== after) {
+            throw error(
+              "runtime.adapter-failure",
+              "readEvents",
+              "the runtime driver mutated causal journal continuation while reading it",
+            );
+          }
+          assertSolverCausalEventPageV1(page);
+          if (companion === null) {
+            throw error(
+              "runtime.adapter-failure",
+              "readEvents",
+              "the runtime driver returned events while causal capture is disabled",
+            );
+          }
+          assertSolverCausalJournalCheckpointV1(companion);
+          assertSolverCausalEventPageCheckpointCoherenceV1(page, companion);
+          if (!sameObservationBinding(entry.binding, {
+            target: page.target,
+            level: page.level,
+            levelFacts: page.levelFacts,
+            provenance: page.provenance,
+            geometry: entry.binding.geometry,
+          }) || page.mode !== entry.mode) {
+            throw error(
+              "runtime.adapter-failure",
+              "readEvents",
+              "the causal journal page does not match its run binding",
+            );
+          }
+          return page;
+        } catch (cause) {
+          throw adapterError(cause, "readEvents", "the runtime driver could not read causal events");
+        } finally {
+          await disposeTokenQuietly(probe);
+        }
+      });
     },
     observe(run) {
       return queueRun(run, "observe", async (entry) => {
@@ -1422,6 +1576,7 @@ export function createSolverRuntimeKernel<Token extends object, ManualSource, Re
             entry.mode,
             entry.terminal,
             entry.metadata,
+            entry.causalJournal,
             entry.binding,
           );
           cloned = undefined;

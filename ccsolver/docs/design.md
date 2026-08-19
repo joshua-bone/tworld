@@ -45,6 +45,13 @@ uses only the standard repository runtime tilesets as presentation artwork to
 emit the unlisted, no-JavaScript-complete Key Pyramid dossier. Machine
 generation leaves its human review status `unreviewed`.
 
+The first causal-alignment slice is also implemented and documented in
+[P2B causal journals and P6A semantic alignment](p2b-p6a-causal-alignment.md).
+It adds opt-in bounded runtime journals, authoritative named mutation seams,
+checkpointed event continuation, and a pure bounded MS/Lynx aligner. Its Key
+Pyramid portfolio is one reviewed-route context, not the complete P2 mechanics
+gate or cross-level P6 acceptance.
+
 ## Executive summary
 
 CCSolver turns a map and optional donor replays into an explicit theory of the
@@ -601,10 +608,11 @@ seed/phase binding when truly required. Arbitrary JavaScript predicates are not
 durable corpus data.
 
 The initial P3B implementation covers predicates and noncausal boundary-change
-footprints that can be evaluated from P2A observations. Ordered or causal event
-assertions remain inactive until P2B supplies the complete semantic journal;
-P3B does not infer collection, opening, or device causality from coincident
-before/after changes.
+footprints that can be evaluated from P2A observations. The P2B foundation now
+supplies bounded causal journals for the Key Pyramid slice and named canaries,
+but causal predicates are not yet part of the P3B contract and full mechanics
+coverage remains open. P3B does not infer collection, opening, or device
+causality from coincident before/after changes.
 
 Evidence coverage is `single-witness`, `reachable-envelope`, or `exhaustive`.
 The last is used only when a finite start space was actually enumerated.

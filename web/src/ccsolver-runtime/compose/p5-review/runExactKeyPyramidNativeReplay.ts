@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { access, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -15,6 +15,7 @@ const ORACLE_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 export type ExactKeyPyramidNativeReplayRequest = {
   readonly oraclePath: string;
   readonly args: readonly string[];
+  readonly seriesDirectory: string;
   readonly saveDirectory: string;
   readonly solutionFilename: string;
 };
@@ -76,9 +77,26 @@ export async function runExactKeyPyramidNativeReplay(input: {
   }
   const seriesFile = input.target === "ms" ? "CCLP1-MS.dac" : "CCLP1-Lynx.dac";
   const solutionFilename = `${seriesFile}.tws`;
-  const saveDirectory = await mkdtemp(join(tmpdir(), "tworld-p5-native-save-"));
+  const workingDirectory = await mkdtemp(join(tmpdir(), "tworld-p5-native-"));
+  const seriesDirectory = resolve(workingDirectory, "sets");
+  const saveDirectory = resolve(workingDirectory, "save");
+  await mkdir(seriesDirectory);
+  await mkdir(saveDirectory);
+  const sourceSeriesPath = resolve(input.repositoryRoot, "sets", seriesFile);
+  const stagedSeriesPath = resolve(seriesDirectory, seriesFile);
   const solutionPath = resolve(saveDirectory, solutionFilename);
   try {
+    const sourceSeriesBytes = new Uint8Array(await readFile(sourceSeriesPath));
+    await writeFile(stagedSeriesPath, sourceSeriesBytes);
+    const stagedSeriesFiles = await readdir(seriesDirectory);
+    const stagedSeriesBytes = new Uint8Array(await readFile(stagedSeriesPath));
+    if (
+      stagedSeriesFiles.length !== 1
+      || stagedSeriesFiles[0] !== seriesFile
+      || !bytesEqual(stagedSeriesBytes, sourceSeriesBytes)
+    ) {
+      throw new Error("P5 native replay did not isolate the exact target series configuration");
+    }
     if ((await readdir(saveDirectory)).length !== 0) {
       throw new Error("P5 native replay temporary save directory was not empty");
     }
@@ -91,6 +109,8 @@ export async function runExactKeyPyramidNativeReplay(input: {
     const args = [
       "--root",
       input.repositoryRoot,
+      "--series-dir",
+      seriesDirectory,
       "--save-dir",
       saveDirectory,
       "replay-trace",
@@ -101,6 +121,7 @@ export async function runExactKeyPyramidNativeReplay(input: {
     const trace = await (input.execute ?? executeNativeOracle)({
       oraclePath: input.oraclePath,
       args,
+      seriesDirectory,
       saveDirectory,
       solutionFilename,
     });
@@ -116,6 +137,6 @@ export async function runExactKeyPyramidNativeReplay(input: {
       },
     };
   } finally {
-    await rm(saveDirectory, { recursive: true, force: true });
+    await rm(workingDirectory, { recursive: true, force: true });
   }
 }

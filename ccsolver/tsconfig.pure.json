@@ -7,7 +7,9 @@
   },
   "include": [
     "src/index.ts",
+    "src/alignment/**/*.ts",
     "src/domain/**/*.ts",
+    "src/events/**/*.ts",
     "src/analyze/**/*.ts",
     "src/plan/**/*.ts",
     "src/ports/**/*.ts",

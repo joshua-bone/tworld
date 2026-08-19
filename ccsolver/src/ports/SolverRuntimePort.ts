@@ -1,5 +1,11 @@
 import type { CanonicalJsonValue } from "../domain/canonicalJson.js";
 import type {
+  SolverCausalEventPageV1,
+  SolverCausalEventReadRequestV1,
+  SolverCausalJournalCheckpointV1,
+  SolverCommandCausalContextV1,
+} from "../events/index.js";
+import type {
   SolverCheckpointMetadata,
   SolverObservation,
   SolverRenderProjection,
@@ -23,6 +29,9 @@ export type SolverCheckpointHandle = {
 export type SolverCheckpoint = {
   readonly handle: SolverCheckpointHandle;
   readonly metadata: SolverCheckpointMetadata;
+  /** Public journal continuation metadata; retained events stay in the opaque handle. */
+  /** Null when this run was started without explicit causal capture. */
+  readonly causalJournal: SolverCausalJournalCheckpointV1 | null;
 };
 
 export type SolverAdvanceRequest =
@@ -30,16 +39,21 @@ export type SolverAdvanceRequest =
       /** One native manual input poll. The adapter owns input-code interpretation. */
       readonly kind: "manual-poll";
       readonly inputCode: number;
+      /** Optional caller-owned plan/command authority copied onto causal events. */
+      readonly causalContext?: SolverCommandCausalContextV1;
     }
   | {
       /** No external input: the run's replay stream owns this native tick. */
       readonly kind: "replay-tick";
+      /** Optional caller-owned plan/command authority copied onto causal events. */
+      readonly causalContext?: SolverCommandCausalContextV1;
     };
 
 export type SolverRuntimeOperation =
   | "startManual"
   | "startReplay"
   | "advanceTick"
+  | "readEvents"
   | "observe"
   | "terminal"
   | "captureCheckpoint"
@@ -107,6 +121,11 @@ export interface SolverRuntimePort<TManualSource, TReplaySource> {
     run: SolverRunHandle,
     request: SolverAdvanceRequest,
   ): SolverRuntimeResult<void>;
+  /** Detached, non-consuming bounded read of the run's causal journal. */
+  readEvents(
+    run: SolverRunHandle,
+    request: SolverCausalEventReadRequestV1,
+  ): SolverRuntimeResult<SolverCausalEventPageV1>;
   observe(run: SolverRunHandle): SolverRuntimeResult<SolverObservation>;
   terminal(run: SolverRunHandle): SolverRuntimeResult<SolverTerminalResult>;
   captureCheckpoint(run: SolverRunHandle): SolverRuntimeResult<SolverCheckpoint>;

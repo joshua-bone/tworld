@@ -8,6 +8,7 @@ import type {
   SolverRuntimeProvenance,
   SolverTerminalResult,
 } from "../../src/domain/runtime/index.js";
+import type { SolverCausalEventPageV1 } from "../../src/events/index.js";
 import {
   RuntimePortError,
   type SolverCheckpoint,
@@ -191,15 +192,45 @@ const checkpointMetadata: SolverCheckpointMetadata = {
   provenance,
 };
 
+const causalEventPage: SolverCausalEventPageV1 = {
+  journalVersion: 1,
+  target: "ms",
+  mode: "manual",
+  level: observation.level,
+  levelFacts: observation.levelFacts,
+  provenance,
+  requested: {
+    afterSequence: null,
+    maximumEvents: 1,
+  },
+  eventsOrder: "sequence",
+  events: [],
+  window: {
+    firstAvailableSequence: null,
+    availableThroughSequence: null,
+    firstReturnedSequence: null,
+    lastReturnedSequence: null,
+    nextAfterSequence: null,
+    status: "complete",
+  },
+  retention: { status: "complete" },
+};
+
 const checkpoint: SolverCheckpoint = {
   handle: checkpointHandle,
   metadata: checkpointMetadata,
+  causalJournal: {
+    nextSequence: 0,
+    retainedEventCount: 0,
+    retention: { status: "complete" },
+  },
 };
 
 const port: SolverRuntimePort<ManualSource, ReplaySource> = {
   startManual: async (_source) => run,
   startReplay: async (_source) => run,
   advanceTick: async (_run, _request) => undefined,
+  readEvents: async (_run, _request) => causalEventPage,
   observe: async (_run) => observation,
   terminal: async (_run) => terminal,
   captureCheckpoint: async (_run) => checkpoint,
@@ -220,6 +251,7 @@ void port.startManual({ kind: "manual-fixture", fixtureId: "manual" });
 void port.startReplay({ kind: "replay-fixture", fixtureId: "replay", replayId: "r1" });
 void port.advanceTick(run, manualPoll);
 void port.advanceTick(run, replayTick);
+void port.readEvents(run, { afterSequence: null, maximumEvents: 1 });
 void port.projectRender(run, { kind: "full-map" });
 void port.projectRender(run, {
   kind: "box",
@@ -232,7 +264,9 @@ function acceptsCanonicalValue(_value: CanonicalJsonValue): void {}
 acceptsCanonicalValue(observation);
 acceptsCanonicalValue(projection);
 acceptsCanonicalValue(terminal);
+acceptsCanonicalValue(causalEventPage);
 acceptsCanonicalValue(checkpoint.metadata);
+acceptsCanonicalValue(checkpoint.causalJournal);
 
 const error = new SolverRuntimeError(
   "runtime.mode-mismatch",

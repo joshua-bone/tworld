@@ -88,6 +88,13 @@ import {
   applyCompletedLynxChipMove as applyCompletedLynxChipMoveWithContext,
 } from "@ruleset-lynx/impl/chipArrival";
 import {
+  attachLynxNativeCausalWriter,
+  recordLynxNativeCausalEvent,
+  type LynxCausalEventOptions,
+  type LynxNativeCausalEvent,
+  type LynxNativeCausalEventSeed,
+} from "@ruleset-lynx/impl/causalEvents";
+import {
   advanceLynxChipTrapRelease as advanceLynxChipTrapReleaseWithContext,
   finalizeLynxTickBookkeeping as finalizeLynxTickBookkeepingWithContext,
   resolveLynxPostChipMovement as resolveLynxPostChipMovementWithContext,
@@ -183,6 +190,7 @@ import {
 } from "@ruleset-lynx/impl/teleports";
 import {
   activateLynxCloner as activateLynxClonerWithContext,
+  findLynxClonerTarget,
   findLynxTrapTarget as findLynxTrapTargetInLevel,
   isLynxTrapHeldOpen,
   springLynxTrap as springLynxTrapWithContext,
@@ -1475,7 +1483,24 @@ function removeLynxActor(
   actors: LynxRuntimeActor[],
   actor: LynxRuntimeActor,
   animationTileId: number = LYNX_ANIMATION_TILE.Entity_Explosion,
+  destruction?: { readonly floorId: number; readonly cause: string },
 ): void {
+  if (!actor.hidden) {
+    const z = actor.z ?? activeLynxLayerZ(state);
+    recordLynxNativeCausalEvent(state, {
+      kind: "actor-destroyed",
+      actorId: actor.id,
+      actorSerial: actor.serial,
+      tileId: destruction?.floorId ?? state.map.cells[actor.pos]?.top.id ?? null,
+      sourceTileId: destruction?.floorId ?? null,
+      sourcePosition: destruction === undefined ? null : { pos: actor.pos, z },
+      sourceStratum: "terrain",
+      cause: destruction?.cause ?? "cc1:native-destruction",
+      before: { pos: actor.pos, z },
+      after: { pos: actor.pos, z },
+      phase: "actor-lifecycle",
+    });
+  }
   if (actor.moving > 0) {
     if ((actor.moveKind ?? "planar") === "planar") {
       actor.pos = nextPosition(actor.pos, backDirection(actor.dir), MS_GRID_WIDTH);
@@ -1537,7 +1562,28 @@ function failLynxChip(
   reason: "drowned" | "burned" | "bombed" | "outoftime" | "collided",
   collidedActor: LynxRuntimeActor | null = null,
   preserveCollidedActor = false,
+  hazardTileIdOverride?: number,
 ): LynxEndGameState & { chipPos: number } {
+  if (endGameTicksElapsed === null) {
+    const z = activeLynxLayerZ(state);
+    const hazardTileId = hazardTileIdOverride
+      ?? (reason === "outoftime" ? null : state.map.cells[chipPos]?.top.id ?? null);
+    recordLynxNativeCausalEvent(state, {
+      kind: "player-died",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: hazardTileId,
+      sourceTileId: hazardTileId,
+      sourcePosition: hazardTileId === null ? null : { pos: chipPos, z },
+      sourceStratum: "terrain",
+      sourceActorId: reason === "collided" ? collidedActor?.id ?? null : null,
+      sourceActorSerial: reason === "collided" ? collidedActor?.serial ?? null : null,
+      cause: `cc1:${reason}`,
+      before: { pos: chipPos, z },
+      after: { pos: chipPos, z },
+      phase: "terminal-latch",
+    });
+  }
   if (collidedActor && !collidedActor.hidden && !preserveCollidedActor) {
     removeTopTileFlags(state.map.cells, collidedActor.pos, LYNX_CELL_FLAG.Claimed);
     removeLynxActor(state, actors, collidedActor, LYNX_ANIMATION_TILE.Entity_Explosion);
@@ -1725,9 +1771,12 @@ function createLynxActorMovementContext(
     shouldTurnBlockedIce: (actor, floorId) =>
       lynxBlockedMoveFloorImpactAction(actor.id) === null || !lynxActorTreatsForcedFloorAsNormal(state, actor as LynxRuntimeActor, floorId),
     applyIceWallTurn: applyLynxIceWallTurn,
+    treatsForcedFloorAsNormal: (actor, floorId) => (
+      lynxActorTreatsForcedFloorAsNormal(state, actor as LynxRuntimeActor, floorId)
+    ),
     resolveButtonEffects,
-    removeActor: (actor, animationTileId) => {
-      removeLynxActor(state, actors, actor as LynxRuntimeActor, animationTileId);
+    removeActor: (actor, animationTileId, destruction) => {
+      removeLynxActor(state, actors, actor as LynxRuntimeActor, animationTileId, destruction);
     },
     animationTileId: lynxAnimationTileId,
     waterSplashTileId: LYNX_ANIMATION_TILE.Water_Splash,
@@ -1737,6 +1786,27 @@ function createLynxActorMovementContext(
       if (fallingCollision !== undefined) {
         fallingCollision.recordCollision(actor as LynxRuntimeActor);
       }
+    },
+    recordMoveCompleted: (
+      actor: LynxRuntimeActor,
+      floorId: number,
+      beforePos: number,
+      beforeZ: number,
+      movementDirection: number,
+      movementRole: "self" | "push" | "forced",
+    ) => {
+      const z = actor.z ?? activeLynxLayerZ(state);
+      recordLynxNativeCausalEvent(state, {
+        kind: "move-completed",
+        actorId: actor.id,
+        actorSerial: actor.serial,
+        tileId: floorId,
+        direction: movementDirection,
+        movementRole,
+        before: { pos: beforePos, z: beforeZ },
+        after: { pos: actor.pos, z },
+        phase: "movement-commit",
+      });
     },
     applyArrivalEffects: (actor) =>
       applyLynxActorArrivalEffects(
@@ -1779,7 +1849,14 @@ function createLynxCompletedChipMoveContext(
       trapEntered: 1 << LYNX_SOUND.TrapEntered,
       chipWins: 1 << LYNX_SOUND.ChipWins,
     },
-    resolveButtonEffects: (pos: number, tileId: number) => resolveLynxButtonEffects(state, level, actors, pos, tileId),
+    resolveButtonEffects: (pos: number, tileId: number) => resolveLynxButtonEffects(
+      state,
+      level,
+      actors,
+      pos,
+      tileId,
+      { actorId: MS_TILE.Chip, actorSerial: null },
+    ),
     applyThiefHook: () =>
       applyLynxActorThiefHook(state, MS_TILE.Chip, projectLynxActorInventoryOwner(MS_TILE.Chip, state.inventory)),
     queueCollectedTool: (pos: number, tileId: number) => {
@@ -1796,6 +1873,8 @@ function createLynxCompletedChipMoveContext(
     },
     hasBoot: (tileId: number) => hasLynxBoots(state, tileId),
     applyIceWallTurn: applyLynxIceWallTurn,
+    activeLayerZ: () => activeLynxLayerZ(state),
+    recordCausalEvent: (event: LynxNativeCausalEventSeed) => recordLynxNativeCausalEvent(state, event),
     failChip: (
       chipPos: number,
       chipDir: number,
@@ -1804,6 +1883,7 @@ function createLynxCompletedChipMoveContext(
       endGameAnimationTileId: number | null,
       endGameAnimationFrame: number | null,
       reason: "drowned" | "burned" | "bombed",
+      hazardTileId: number,
     ) =>
       failLynxChip(
         state,
@@ -1816,6 +1896,9 @@ function createLynxCompletedChipMoveContext(
         endGameAnimationTileId,
         endGameAnimationFrame,
         reason,
+        null,
+        false,
+        hazardTileId,
       ),
     startCompletedEndGame: (
       endGameTicksElapsed: number | null,
@@ -2335,13 +2418,85 @@ function shouldPreviewLynxForcedSlidePush(
   return !!block && !block.hidden && block.dormant;
 }
 
-function resolveLynxButtonEffects(state: EngineState, level: LynxLevel, actors: LynxRuntimeActor[], pos: number, tileId: number): number {
+function resolveLynxButtonEffects(
+  state: EngineState,
+  level: LynxLevel,
+  actors: LynxRuntimeActor[],
+  pos: number,
+  tileId: number,
+  activator: { readonly actorId: number; readonly actorSerial: number | null } | null = null,
+): number {
+  const buttonZ = activeLynxLayerZ(state);
+  const recordButtonActivation = (
+    targetPos: number,
+    targetTileId: number,
+    targetStratum: "terrain" | "overlay",
+    action: string,
+  ): void => {
+    recordLynxNativeCausalEvent(state, {
+      kind: "device-activated",
+      actorId: activator?.actorId ?? MS_TILE.Empty,
+      actorSerial: activator?.actorSerial ?? null,
+      tileId: targetTileId,
+      targetStratum,
+      sourceTileId: tileId,
+      sourcePosition: { pos, z: buttonZ },
+      sourceStratum: "overlay",
+      action,
+      before: { pos: targetPos, z: buttonZ },
+      after: { pos: targetPos, z: buttonZ },
+      phase: "device-action",
+    });
+  };
+  switch (lynxButtonAction(tileId)) {
+    case "turn-tanks":
+      recordButtonActivation(pos, MS_TILE.Button_Blue, "overlay", "cc1:turn-tanks");
+      break;
+    case "activate-cloner": {
+      const clonerPos = findLynxClonerTarget(level, pos, buttonZ);
+      if (clonerPos !== null) {
+        recordButtonActivation(clonerPos, MS_TILE.CloneMachine, "terrain", "cc1:activate-cloner");
+      }
+      break;
+    }
+    case "spring-trap": {
+      const trapPos = findLynxTrapTargetInLevel(level, pos, buttonZ);
+      if (trapPos !== null) {
+        recordButtonActivation(trapPos, MS_TILE.Beartrap, "terrain", "cc1:spring-trap");
+      }
+      break;
+    }
+  }
   return applyLynxTileActivationEffect(
     {
       queueTankReversals: () => {
         queueLynxTankReversals(state, actors);
       },
       toggleWalls: () => {
+        for (const layer of state.map.layers ?? [{ z: buttonZ, cells: state.map.cells }]) {
+          for (const [targetPos, cell] of layer.cells.entries()) {
+            for (const target of [cell.top, cell.bottom]) {
+              if (!lynxTileHasTag(target.id, "toggleable")) continue;
+              const resultingTileId = lynxToggledWallTileId(target.id);
+              recordLynxNativeCausalEvent(state, {
+                kind: "device-activated",
+                actorId: activator?.actorId ?? MS_TILE.Empty,
+                actorSerial: activator?.actorSerial ?? null,
+                tileId: target.id,
+                resultingTileId,
+                sourceTileId: tileId,
+                sourcePosition: { pos, z: buttonZ },
+                sourceStratum: "overlay",
+                action: "cc1:toggle-walls-queued",
+                beforeState: `cc1:device-state-${target.id}`,
+                afterState: `cc1:device-state-${resultingTileId}`,
+                before: { pos: targetPos, z: layer.z },
+                after: { pos: targetPos, z: layer.z },
+                phase: "device-action",
+              });
+            }
+          }
+        }
         lynxRuntimeState(state).toggleWallsPending = !lynxRuntimeState(state).toggleWallsPending;
       },
       activateCloner: (buttonPos) => activateLynxCloner(state, level, actors, buttonPos),
@@ -2476,12 +2631,40 @@ function resetLynxFloorSounds(state: EngineState): void {
 
 function toggleLynxWalls(state: EngineState): void {
   for (const layer of state.map.layers ?? [{ z: state.map.cells[0]?.position.z ?? 1, cells: state.map.cells }]) {
-    for (const cell of layer.cells) {
+    for (const [pos, cell] of layer.cells.entries()) {
       if (lynxTileHasTag(cell.top.id, "toggleable")) {
+        const beforeTileId = cell.top.id;
         cell.top.id = lynxToggledWallTileId(cell.top.id);
+        recordLynxNativeCausalEvent(state, {
+          kind: "device-state-changed",
+          actorId: MS_TILE.Empty,
+          actorSerial: null,
+          tileId: beforeTileId,
+          resultingTileId: cell.top.id,
+          action: "cc1:toggle-walls",
+          beforeState: `cc1:device-state-${beforeTileId}`,
+          afterState: `cc1:device-state-${cell.top.id}`,
+          before: { pos, z: layer.z },
+          after: { pos, z: layer.z },
+          phase: "device-action",
+        });
       }
       if (lynxTileHasTag(cell.bottom.id, "toggleable")) {
+        const beforeTileId = cell.bottom.id;
         cell.bottom.id = lynxToggledWallTileId(cell.bottom.id);
+        recordLynxNativeCausalEvent(state, {
+          kind: "device-state-changed",
+          actorId: MS_TILE.Empty,
+          actorSerial: null,
+          tileId: beforeTileId,
+          resultingTileId: cell.bottom.id,
+          action: "cc1:toggle-walls",
+          beforeState: `cc1:device-state-${beforeTileId}`,
+          afterState: `cc1:device-state-${cell.bottom.id}`,
+          before: { pos, z: layer.z },
+          after: { pos, z: layer.z },
+          phase: "device-action",
+        });
       }
     }
   }
@@ -2730,6 +2913,20 @@ function createLynxTeleportContext(state: EngineState, level: LynxLevel, actors:
         originZ,
         (layerZ, run) => withLynxLayer(state, layerZ, run),
       ),
+    recordActorTeleport: (actor, originPos, destinationPos) => {
+      const runtimeActor = actor as LynxRuntimeActor;
+      const z = runtimeActor.z ?? activeLynxLayerZ(state);
+      recordLynxNativeCausalEvent(state, {
+        kind: "teleport",
+        actorId: runtimeActor.id,
+        actorSerial: runtimeActor.serial,
+        tileId: MS_TILE.Teleport,
+        direction: runtimeActor.dir,
+        before: { pos: originPos, z },
+        after: { pos: destinationPos, z },
+        phase: "teleport-resolution",
+      });
+    },
   };
 }
 
@@ -2741,7 +2938,27 @@ function resolveLynxTeleports(
   chipDir: number,
   chipMoving: number,
 ): number {
-  return resolveLynxTeleportsWithContext(createLynxTeleportContext(state, level, actors), chipPos, chipDir, chipMoving);
+  const originPos = chipPos;
+  const z = activeLynxLayerZ(state);
+  const destinationPos = resolveLynxTeleportsWithContext(
+    createLynxTeleportContext(state, level, actors),
+    chipPos,
+    chipDir,
+    chipMoving,
+  );
+  if (destinationPos !== originPos) {
+    recordLynxNativeCausalEvent(state, {
+      kind: "teleport",
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: MS_TILE.Teleport,
+      direction: chipDir,
+      before: { pos: originPos, z },
+      after: { pos: destinationPos, z },
+      phase: "teleport-resolution",
+    });
+  }
+  return destinationPos;
 }
 
 function resolveLynxPostChipMovement(
@@ -3057,7 +3274,14 @@ function finishLynxRuntimeActorMovement(
     createLynxActorMovementContext(
       state,
       actors,
-      (pos, tileId) => resolveLynxButtonEffects(state, level, actors, pos, tileId),
+      (pos, tileId) => resolveLynxButtonEffects(
+        state,
+        level,
+        actors,
+        pos,
+        tileId,
+        { actorId: actor.id, actorSerial: actor.serial },
+      ),
       fallingCollision,
     ),
     actor,
@@ -3433,6 +3657,23 @@ function createLynxTrapClonerContext(
     allocateCloneSlot: (snapshot) => allocateLynxActorSlot(actors, snapshot),
     cloneFamilyRuntimeForCloner: (sourceActorSerial, cloneActorSerial) => {
       cloneLynxPortableBackedActorForCloner(state, sourceActorSerial, cloneActorSerial);
+    },
+    recordActorSpawned: (actor, parentActor, clonerPos, _buttonPos, z) => {
+      recordLynxNativeCausalEvent(state, {
+        kind: "actor-spawned",
+        actorId: actor.id,
+        actorSerial: actor.serial,
+        tileId: MS_TILE.CloneMachine,
+        sourceTileId: MS_TILE.CloneMachine,
+        sourcePosition: { pos: clonerPos, z },
+        sourceStratum: "terrain",
+        parentActorSerial: parentActor.serial,
+        spawnOrdinal: null,
+        cause: "cc1:cloner",
+        before: null,
+        after: { pos: actor.pos, z: actor.z ?? z },
+        phase: "actor-lifecycle",
+      });
     },
     startCreatureMovement: (actor, dir, releasing) => startLynxRuntimeActorMovement(state, level, actors, actor, dir, releasing),
     advanceCreature: (actor, currentTime) => advanceLynxCreature(state, level, actors, actor, currentTime),
@@ -4482,7 +4723,9 @@ function runLynxCreatureMovementPhase(runtime: LynxAdvanceTickRuntime): void {
 function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
   const chipMoveSelection = resolveLynxChipMoveSelectionForRuntime(runtime);
   const floorBeforeMove = chipMoveSelection.floorBeforeMove;
-  const heldButtonConsumedReplayInput = runtime.queuedReplayInputCode !== 0;
+  const hadQueuedReplayInput = runtime.queuedReplayInputCode !== 0;
+  const hadQueuedChipInput = runtime.queuedChipInputCode !== 0;
+  const heldButtonConsumedReplayInput = hadQueuedReplayInput;
   const rawRequestedInputCode = chipMoveSelection.rawRequestedInputCode;
   if (runtime.chipMoving === 0 && !shouldSuppressLynxChipMoveSelectionForRuntime(runtime)) {
     runtime.currentInputCode = 0;
@@ -4500,6 +4743,34 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
   const chosenInputCode = chipMoveSelection.chosenInputCode;
   runtime.queuedChipInputCode = 0;
   const startInputCode = chipMoveSelection.startInputCode;
+  const movementRole = (
+    (isLynxSlide(floorBeforeMove) && !hasLynxBoots(runtime.state, MS_TILE.Boots_Slide))
+    || (isLynxIce(floorBeforeMove) && !hasLynxBoots(runtime.state, MS_TILE.Boots_Ice))
+  ) ? "forced" as const : "self" as const;
+  const decisionSource = movementRole === "forced"
+    ? "forced" as const
+    : hadQueuedReplayInput || hadQueuedChipInput
+      ? "queued-input" as const
+      : "current-input" as const;
+  const recordPlanarDecision = (
+    kind: "movement-started" | "movement-blocked",
+    targetPos: number | null,
+    failureReason: string | null,
+  ) => {
+    recordLynxNativeCausalEvent(runtime.state, {
+      kind,
+      actorId: MS_TILE.Chip,
+      actorSerial: null,
+      tileId: floorBeforeMove,
+      direction: startInputCode,
+      movementRole,
+      decisionSource,
+      failureReason,
+      before: { pos: runtime.chipPos, z: runtime.chipZ },
+      after: targetPos === null ? null : { pos: targetPos, z: runtime.chipZ },
+      phase: "movement-commit",
+    });
+  };
 
   if (
     startInputCode === 0 &&
@@ -4584,6 +4855,16 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
 
   updateLynxChipStartMovementState(runtime.state, floorBeforeMove, chosenInputCode);
   if (!canLynxExitTile(runtime.state, floorBeforeMove, MS_TILE.Chip, startInputCode, false)) {
+    recordPlanarDecision(
+      "movement-blocked",
+      advancePositionIfPossible(
+        runtime.chipPos,
+        startInputCode,
+        MS_GRID_WIDTH,
+        MS_GRID_HEIGHT,
+      ),
+      "cc1:blocked-exit",
+    );
     runtime.chipPushing = true;
     runtime.chipDir = turnLynxChipAroundOnBlockedIce(runtime.state, floorBeforeMove, startInputCode);
     addLynxCantMove(runtime.state);
@@ -4591,6 +4872,11 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
   }
 
   if (!canAdvanceLynxPosition(runtime.chipPos, startInputCode, MS_GRID_WIDTH, MS_GRID_HEIGHT)) {
+    recordPlanarDecision(
+      "movement-blocked",
+      null,
+      "cc1:out-of-bounds",
+    );
     runtime.chipPushing = true;
     runtime.chipDir = turnLynxChipAroundOnBlockedIce(runtime.state, floorBeforeMove, startInputCode);
     addLynxCantMove(runtime.state);
@@ -4636,6 +4922,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     runtime.chipPushing = true;
   }
   if (canEnterTarget) {
+    recordPlanarDecision("movement-started", targetPos, null);
     clearLynxCouldntMove(runtime.state);
     settleLynxPrimedToolDrop(
       runtime.state,
@@ -4715,6 +5002,7 @@ function runLynxChipMovementPhase(runtime: LynxAdvanceTickRuntime): void {
     );
   }
   runtime.chipPushing = true;
+  recordPlanarDecision("movement-blocked", targetPos, "cc1:blocked-entry");
   runtime.chipDir = turnLynxChipAroundOnBlockedIce(runtime.state, floorBeforeMove, startInputCode);
   addLynxCantMove(runtime.state);
 }
@@ -4764,8 +5052,15 @@ function advanceLynxInteractiveTick(
   session: LynxInteractiveSessionState,
   scheduledInputCode: number | null,
   debugRecorder: TurnDebugPhaseRecorder<GameDebugPhaseSnapshot> | null = null,
+  causalEventOptions?: LynxCausalEventOptions,
 ): LynxInteractiveSessionState {
   const runtime = createLynxAdvanceTickRuntime(session, scheduledInputCode, debugRecorder);
+  const detachCausalWriter = attachLynxNativeCausalWriter(
+    runtime.state,
+    runtime.nextTick,
+    causalEventOptions,
+  );
+  try {
 
   runTurnPhaseHandlers<void>([
     {
@@ -4813,6 +5108,9 @@ function advanceLynxInteractiveTick(
   ]);
 
   return finishLynxInteractiveTick(runtime);
+  } finally {
+    detachCausalWriter();
+  }
 }
 
 export function createLynxInteractiveSession(request: GameRequest, level: LynxLevel): LynxInteractiveSessionState {
@@ -4841,9 +5139,17 @@ function replayBestTimeTicks(replay: ReplaySolutionPayload): number | undefined 
 export function advanceLynxInteractiveSession(
   session: LynxInteractiveSessionState,
   inputCode: number,
+  causalEventOptions?: LynxCausalEventOptions,
 ): LynxInteractiveSessionState {
-  return advanceLynxInteractiveTick(session, inputCode === 0 ? null : inputCode);
+  return advanceLynxInteractiveTick(
+    session,
+    inputCode === 0 ? null : inputCode,
+    null,
+    causalEventOptions,
+  );
 }
+
+export type { LynxNativeCausalEvent };
 
 function runLynxTrace(
   request: GameRequest,

@@ -24,6 +24,7 @@ import {
   createLynxReplaySession,
   type LynxInteractiveSessionState,
   type LynxRuntimeActor,
+  type LynxNativeCausalEvent,
 } from "@ruleset-lynx/impl/engine";
 import { lynxElementFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
 import {
@@ -79,6 +80,20 @@ import {
   isLynxSolverButtonPressed,
   isLynxSolverBrownButtonHeld,
 } from "./lynxSolverRuntimeSemantics";
+import {
+  appendTworldAppliedCommand,
+  projectTworldNativeCausalEvents,
+} from "./projectTworldNativeCausalEvents";
+import { bindTworldCloneLineage } from "./tworldCloneLineage";
+import {
+  assertTworldCausalEventCapacity,
+  cloneTworldCausalJournal,
+  createTworldCausalJournal,
+  readTworldCausalEventPage,
+  tworldCausalJournalCheckpoint,
+  tworldCausalJournalFingerprintValue,
+  type TworldCausalJournal,
+} from "./tworldCausalJournal";
 
 interface LynxSolverToken {
   readonly mode: "manual" | "replay";
@@ -86,6 +101,7 @@ interface LynxSolverToken {
   readonly bindings: RuntimeActorBindings;
   readonly session: LynxInteractiveSessionState;
   readonly lastPolledInputCode: number | null;
+  readonly causalJournal: TworldCausalJournal | null;
 }
 
 export interface CreateTworldLynxSolverRuntimeAdapterOptions {
@@ -94,6 +110,7 @@ export interface CreateTworldLynxSolverRuntimeAdapterOptions {
   readonly engineRevision: string;
   readonly maximumLiveRuns?: number;
   readonly maximumLiveCheckpoints?: number;
+  readonly maximumCausalEvents?: number;
 }
 
 const STRATUM_RANK: Record<PlacementStratumV1, number> = {
@@ -179,6 +196,7 @@ async function startLynxToken(
   sha256: Sha256Port,
   expectedProvenance: SolverRuntimeProvenance,
   replaySource?: TworldSolverReplayStartSource,
+  maximumCausalEvents: number | null = null,
 ): Promise<LynxSolverToken> {
   const operation = mode === "manual" ? "startManual" : "startReplay";
   await assertTworldRuntimeSource(source, "lynx", sha256, operation, expectedProvenance);
@@ -207,6 +225,9 @@ async function startLynxToken(
     source: detachedSource,
     session,
     lastPolledInputCode: null,
+    causalJournal: maximumCausalEvents === null
+      ? null
+      : createTworldCausalJournal(maximumCausalEvents),
     bindings: await buildRuntimeActorBindings(
       detachedSource,
       "lynx",
@@ -605,6 +626,9 @@ async function exactLynxFingerprint(
           binding.sourcePlacementId,
         ]),
     },
+    ...(token.causalJournal === null ? {} : {
+      causalJournal: tworldCausalJournalFingerprintValue(token.causalJournal),
+    }),
   }), sha256);
 }
 
@@ -668,15 +692,24 @@ async function projectLynxObservation(
 function createLynxDriver(
   sha256: Sha256Port,
   expectedProvenance: SolverRuntimeProvenance,
+  maximumCausalEvents: number | null,
 ): SolverRuntimeDriver<LynxSolverToken, TworldSolverManualStartSource, TworldSolverReplayStartSource> {
   return {
-    startManual: (source) => startLynxToken(source, "manual", sha256, expectedProvenance),
+    startManual: (source) => startLynxToken(
+      source,
+      "manual",
+      sha256,
+      expectedProvenance,
+      undefined,
+      maximumCausalEvents,
+    ),
     startReplay: (source) => startLynxToken(
       source.level,
       "replay",
       sha256,
       expectedProvenance,
       source,
+      maximumCausalEvents,
     ),
     cloneToken(token) {
       const checkpoint = captureLynxUndoCheckpoint(token.session, "ccsolver-p2a", {
@@ -688,22 +721,183 @@ function createLynxDriver(
         bindings: cloneBindings(token.bindings),
         session: restoreLynxUndoCheckpoint(checkpoint),
         lastPolledInputCode: token.lastPolledInputCode,
+        causalJournal: token.causalJournal === null
+          ? null
+          : cloneTworldCausalJournal(token.causalJournal),
       };
     },
     async advanceTick(token, request) {
+      const previousChip = solverCoordinate(
+        token.session.chipPos,
+        token.session.chipZ,
+        MS_GRID_WIDTH,
+      );
+      const nativeEvents: LynxNativeCausalEvent[] = [];
       const advanced = {
         ...token,
         session: advanceLynxInteractiveSession(
           token.session,
           request.kind === "manual-poll" ? request.inputCode : 0,
+          token.causalJournal === null
+            ? undefined
+            : { causalEventSink: (event) => nativeEvents.push(event) },
         ),
         lastPolledInputCode: request.kind === "manual-poll" ? request.inputCode : null,
       };
-      return {
+      let result = {
         ...advanced,
         bindings: await refreshLynxBindings(advanced, sha256),
       };
+      const journal = result.causalJournal;
+      if (journal !== null) {
+        const combinedBindings: RuntimeActorBindings = {
+          player: result.bindings.player,
+          actors: new Map([
+            ...token.bindings.actors,
+            ...result.bindings.actors,
+          ]),
+        };
+        const lineage = await bindTworldCloneLineage({
+          events: nativeEvents,
+          source: result.source,
+          bindings: combinedBindings,
+          journal,
+          sha256,
+          actorRuntimeKey: (event) => event.actorRuntimeKey
+            ?? (event.actorSerial === null ? null : `lynx-actor:${event.actorSerial}`),
+          actorRuntimeKeyBySerial: (serial) => `lynx-actor:${serial}`,
+          actorSemanticType: lynxActorSemanticType,
+          tileSemanticType: lynxTileSemanticType,
+        });
+        const currentActors = new Map(result.bindings.actors);
+        for (const event of lineage.events) {
+          if (event.kind !== "actor-spawned" || event.actorSerial === null) continue;
+          const runtimeKey = event.actorRuntimeKey ?? `lynx-actor:${event.actorSerial}`;
+          const binding = lineage.bindings.actors.get(runtimeKey);
+          if (binding !== undefined) currentActors.set(runtimeKey, binding);
+        }
+        result = {
+          ...result,
+          bindings: { player: result.bindings.player, actors: currentActors },
+        };
+        const causalBindings = lineage.bindings;
+        const projectionContext = {
+          target: "lynx" as const,
+          mode: result.mode,
+          source: result.source,
+          bindings: causalBindings,
+          journal,
+          actorRuntimeKey: (serial: number) => `lynx-actor:${serial}`,
+          actorSemanticType: lynxActorSemanticType,
+          tileSemanticType: lynxTileSemanticType,
+          terminal: projectLynxTerminal(result),
+        };
+        const decisionEvents = lineage.events.filter((event) => (
+          event.actorId === MS_TILE.Chip
+          && event.actorSerial === null
+          && (event.kind === "movement-started" || event.kind === "movement-blocked")
+          && event.decisionSource === "current-input"
+        ));
+        const settlingCommand = journal.pendingPlayerCommand;
+        const decision = decisionEvents[0];
+        const appliedInputCode = result.session.lastInput.inputCode;
+        const nextCommand = appendTworldAppliedCommand({
+          context: projectionContext,
+          request,
+          appliedInputCode,
+          nativeTick: result.session.state.timer.currentTime,
+          playerCoordinateBefore: previousChip,
+          influence: appliedInputCode === 0
+            ? "ignored"
+            : decision?.kind === "movement-started"
+              ? "applied"
+              : decision?.kind === "movement-blocked"
+                ? "blocked"
+                : "held",
+          failureReason: decision?.kind === "movement-blocked"
+            ? decision.failureReason ?? "cc1:blocked"
+            : null,
+        });
+        const decisionLink = decision === undefined ? null : nextCommand;
+        let playerMovementSettled = false;
+        for (const event of lineage.events) {
+          const decisionEvent = event.actorId === MS_TILE.Chip
+            && event.actorSerial === null
+            && (event.kind === "movement-started" || event.kind === "movement-blocked")
+            && event.decisionSource === "current-input";
+          const playerSettlementEvent = event.actorId === MS_TILE.Chip
+            && event.actorSerial === null
+            && (
+              event.kind === "move-completed"
+              || event.kind === "teleport"
+              || event.kind === "collect"
+              || event.kind === "open-door"
+              || event.kind === "open-socket"
+              || event.kind === "inventory-changed"
+              || event.kind === "map-mutated"
+              || event.kind === "device-activated"
+              || event.kind === "device-state-changed"
+              || event.kind === "complete-level"
+              || (
+                event.kind === "player-died"
+                && playerMovementSettled
+                && event.cause !== "cc1:outoftime"
+              )
+            );
+          projectTworldNativeCausalEvents(
+            [event],
+            projectionContext,
+            decisionEvent ? decisionLink : playerSettlementEvent ? settlingCommand : null,
+          );
+          if (
+            event.actorId === MS_TILE.Chip
+            && event.actorSerial === null
+            && event.kind === "move-completed"
+          ) {
+            playerMovementSettled = true;
+          }
+        }
+        if (lineage.events.some((event) => (
+          event.actorId === MS_TILE.Chip
+          && event.actorSerial === null
+          && (
+            event.kind === "move-completed"
+            || event.kind === "complete-level"
+            || event.kind === "player-died"
+          )
+        ))) {
+          journal.pendingPlayerCommand = null;
+        }
+        if (decisionLink !== null && decision?.kind === "movement-started") {
+          journal.pendingPlayerCommand = decisionLink;
+        }
+      }
+      return result;
     },
+    readEvents: (token, request) => {
+      if (token.causalJournal === null) {
+        throw new SolverRuntimeError(
+          "runtime.unsupported-option",
+          "readEvents",
+          "causal event capture was not enabled when this run started",
+        );
+      }
+      return readTworldCausalEventPage(token.causalJournal, {
+        target: "lynx",
+        mode: token.mode,
+        level: token.source.levelFacts.facts.payload.level,
+        levelFacts: {
+          protocolVersion: 1,
+          artifactType: "level-facts",
+          schemaVersion: 1,
+          digest: token.source.levelFactsContent.digest,
+        },
+        provenance: token.source.provenance,
+      }, request);
+    },
+    causalJournalCheckpoint: (token) => token.causalJournal === null
+      ? null
+      : tworldCausalJournalCheckpoint(token.causalJournal),
     observe: (token) => projectLynxObservation(token, sha256),
     semanticFingerprint: (observation) => (
       identifyTworldSolverObservationSemantic(observation, sha256)
@@ -715,6 +909,9 @@ function createLynxDriver(
 export function createTworldLynxSolverRuntimeAdapter(
   options: CreateTworldLynxSolverRuntimeAdapterOptions,
 ): SolverRuntimePort<TworldSolverManualStartSource, TworldSolverReplayStartSource> {
+  const maximumCausalEvents = options.maximumCausalEvents === undefined
+    ? null
+    : assertTworldCausalEventCapacity(options.maximumCausalEvents);
   const provenance: SolverRuntimeProvenance = {
     adapterId: "tworld-lynx-solver-runtime",
     adapterRevision: options.adapterRevision,
@@ -722,7 +919,7 @@ export function createTworldLynxSolverRuntimeAdapter(
     engineRevision: options.engineRevision,
   };
   return createSolverRuntimeKernel({
-    driver: createLynxDriver(options.sha256, provenance),
+    driver: createLynxDriver(options.sha256, provenance, maximumCausalEvents),
     ownerId: "tworld-lynx-solver-runtime",
     target: "lynx",
     maximumLiveRuns: options.maximumLiveRuns ?? 64,

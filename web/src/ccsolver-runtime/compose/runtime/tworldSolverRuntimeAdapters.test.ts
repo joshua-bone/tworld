@@ -68,11 +68,51 @@ function syntheticLevelBytes(input: {
   readonly top: ReadonlyMap<number, number>;
   readonly bottom?: ReadonlyMap<number, number>;
   readonly creaturePositions: readonly number[];
+  readonly cloners?: readonly {
+    readonly from: number;
+    readonly to: number;
+  }[];
+  readonly traps?: readonly {
+    readonly from: number;
+    readonly to: number;
+  }[];
+  readonly timeLimitSeconds?: number;
 }): Uint8Array {
   const upper = encodedPlane(input.top);
   const lower = encodedPlane(input.bottom ?? new Map());
   const creaturePayload = input.creaturePositions.flatMap((pos) => [pos % 32, Math.floor(pos / 32)]);
-  const metadata = [10, creaturePayload.length, ...creaturePayload];
+  const clonerPayload = (input.cloners ?? []).flatMap(({ from, to }) => [
+    from % 32,
+    0,
+    Math.floor(from / 32),
+    0,
+    to % 32,
+    0,
+    Math.floor(to / 32),
+    0,
+  ]);
+  const trapPayload = (input.traps ?? []).flatMap(({ from, to }) => [
+    from % 32,
+    0,
+    Math.floor(from / 32),
+    0,
+    to % 32,
+    0,
+    Math.floor(to / 32),
+    0,
+    0,
+    0,
+  ]);
+  const metadata = [
+    ...(input.timeLimitSeconds === undefined
+      ? []
+      : [1, 2, ...uint16(input.timeLimitSeconds)]),
+    ...(trapPayload.length === 0 ? [] : [4, trapPayload.length, ...trapPayload]),
+    ...(clonerPayload.length === 0 ? [] : [5, clonerPayload.length, ...clonerPayload]),
+    10,
+    creaturePayload.length,
+    ...creaturePayload,
+  ];
   return Uint8Array.from([
     ...uint16(1),
     ...uint16(0),
@@ -962,7 +1002,9 @@ describe.each([
     const switchPlacement = source.levelFacts.facts.payload.placements.find((placement) => (
       placement.descriptor.semanticType === "cc1:switchwall-closed"
     ));
-    const runtime = create();
+    const runtime = target === "ms"
+      ? createTworldMsSolverRuntimeAdapter({ ...runtimeAdapterOptions, maximumCausalEvents: 64 })
+      : createTworldLynxSolverRuntimeAdapter({ ...runtimeAdapterOptions, maximumCausalEvents: 64 });
     const run = await runtime.startManual(source);
     expect(deviceAt(await runtime.observe(run), source, {
       x: switchWallPos % 32,
@@ -975,6 +1017,10 @@ describe.each([
       await runtime.advanceTick(run, {
         kind: "manual-poll",
         inputCode: GAME_INPUT_CODES.east,
+        causalContext: {
+          commandId: `command:${target}:switch:${tick}`,
+          planId: "plan:switch-wall",
+        },
       });
     }
     const observation = await runtime.observe(run);
@@ -992,6 +1038,646 @@ describe.each([
       semanticType: "cc1:switchwall-open",
       identity: { kind: "placement", placementId: switchPlacement?.placementId },
     }));
+    const causal = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 64 });
+    const deviceEvent = causal.events.find((event) => (
+      event.kind === (target === "ms" ? "device-state-changed" : "device-activated")
+    ));
+    expect(deviceEvent).toMatchObject({
+      commandId: `command:${target}:switch:0`,
+      planId: "plan:switch-wall",
+      authority: {
+        basis: "native-action-hook",
+        evidence: "authoritative",
+        causality: "explicit",
+      },
+      subject: {
+        placementId: switchPlacement?.placementId,
+        deviceId: switchPlacement?.placementId,
+      },
+      source: {
+        placementId: expect.any(String),
+        deviceId: expect.any(String),
+      },
+    });
+  }, 30_000);
+});
+
+describe.each(["ms", "lynx"] as const)("%s P2B focused causal seams", (target) => {
+  const createRuntime = (maximumCausalEvents = 256) => target === "ms"
+    ? createTworldMsSolverRuntimeAdapter({ ...runtimeAdapterOptions, maximumCausalEvents })
+    : createTworldLynxSolverRuntimeAdapter({ ...runtimeAdapterOptions, maximumCausalEvents });
+
+  it("keeps movement before an exact bomb death and its terminal latch", async () => {
+    const chipPos = 33;
+    const bombPos = 34;
+    const source = await buildSyntheticSource(target, `${target}-causal-bomb`, syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)],
+        [bombPos, MS_TILE.Bomb],
+      ]),
+      creaturePositions: [chipPos],
+    }));
+    const bombPlacement = source.levelFacts.facts.payload.placements.find((placement) => (
+      placement.descriptor.coordinate.x === bombPos % 32
+      && placement.descriptor.coordinate.y === Math.floor(bombPos / 32)
+      && placement.descriptor.semanticType === "cc1:bomb"
+    ));
+    const runtime = createRuntime();
+    const run = await runtime.startManual(source);
+
+    for (let tick = 0; tick < 8 && (await runtime.terminal(run)).kind === "running"; tick += 1) {
+      await runtime.advanceTick(run, {
+        kind: "manual-poll",
+        inputCode: tick === 0 ? GAME_INPUT_CODES.east : GAME_INPUT_CODES.none,
+        causalContext: {
+          commandId: `command:${target}:bomb:${tick}`,
+          planId: "plan:causal-bomb",
+        },
+      });
+    }
+
+    expect(await runtime.terminal(run)).not.toMatchObject({ kind: "running" });
+    const page = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 256 });
+    const movement = page.events.find((event) => event.kind === "movement-completed");
+    const death = page.events.find((event) => event.kind === "player-died");
+    const terminal = page.events.find((event) => event.kind === "terminal-reached");
+    expect(movement).toMatchObject({ commandId: `command:${target}:bomb:0` });
+    expect(death).toMatchObject({
+      commandId: `command:${target}:bomb:0`,
+      source: { placementId: bombPlacement?.placementId },
+      detail: {
+        cause: "cc1:bombed",
+        hazardPlacementId: bombPlacement?.placementId,
+      },
+    });
+    expect(terminal).toMatchObject({
+      authority: { basis: "terminal-latch", evidence: "authoritative", causality: "explicit" },
+      causedBySequences: expect.arrayContaining([death?.sequence]),
+    });
+    expect(movement!.sequence).toBeLessThan(death!.sequence);
+    expect(death!.sequence).toBeLessThan(terminal!.sequence);
+    expect(page.events.at(-1)?.kind).toBe("terminal-reached");
+  }, 30_000);
+
+  it("records actor arrival before exact water destruction", async () => {
+    const chipPos = 33;
+    const ballPos = 5 * 32 + 5;
+    const waterPos = ballPos + 1;
+    const source = await buildSyntheticSource(target, `${target}-causal-actor-water`, syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south)],
+        [ballPos, msCreatureTile(MS_TILE.Ball, MS_DIRECTION.east)],
+        [waterPos, MS_TILE.Water],
+      ]),
+      creaturePositions: [chipPos, ballPos],
+    }));
+    const waterPlacement = source.levelFacts.facts.payload.placements.find((placement) => (
+      placement.descriptor.coordinate.x === waterPos % 32
+      && placement.descriptor.coordinate.y === Math.floor(waterPos / 32)
+      && placement.descriptor.semanticType === "cc1:water"
+    ));
+    const runtime = createRuntime();
+    const run = await runtime.startManual(source);
+    for (let tick = 0; tick < 12; tick += 1) {
+      await runtime.advanceTick(run, {
+        kind: "manual-poll",
+        inputCode: GAME_INPUT_CODES.none,
+        causalContext: { commandId: `command:${target}:actor-water:${tick}`, planId: null },
+      });
+    }
+
+    const page = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 256 });
+    const destruction = page.events.find((event) => event.kind === "actor-destroyed");
+    const movement = page.events.find((event) => (
+      event.kind === "movement-completed"
+      && event.subject?.actorId === destruction?.subject?.actorId
+    ));
+    expect(destruction).toMatchObject({
+      subject: { actorId: expect.any(String), semanticType: "cc1:ball" },
+      source: { placementId: waterPlacement?.placementId },
+      detail: { after: "destroyed", reason: "cc1:floor-hazard" },
+    });
+    expect(movement).toMatchObject({
+      authority: { basis: "native-action-hook", evidence: "authoritative" },
+      detail: { movementRole: "self" },
+    });
+    expect(movement!.sequence).toBeLessThan(destruction!.sequence);
+  }, 30_000);
+
+  it("emits an authoritative timeout death and terminal result", async () => {
+    const chipPos = 33;
+    const source = await buildSyntheticSource(target, `${target}-causal-timeout`, syntheticLevelBytes({
+      top: new Map([[chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)]]),
+      creaturePositions: [chipPos],
+      timeLimitSeconds: 1,
+    }));
+    const runtime = createRuntime();
+    const run = await runtime.startManual(source);
+    for (let tick = 0; tick < 40 && (await runtime.terminal(run)).kind === "running"; tick += 1) {
+      await runtime.advanceTick(run, {
+        kind: "manual-poll",
+        inputCode: GAME_INPUT_CODES.none,
+        causalContext: { commandId: `command:${target}:timeout:${tick}`, planId: null },
+      });
+    }
+
+    expect(await runtime.terminal(run)).toMatchObject({ kind: "timed-out" });
+    const page = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 256 });
+    const death = page.events.find((event) => event.kind === "player-died");
+    const terminal = page.events.find((event) => event.kind === "terminal-reached");
+    expect(death).toMatchObject({
+      commandId: null,
+      detail: { cause: "cc1:outoftime", hazardPlacementId: null },
+    });
+    expect(terminal).toMatchObject({
+      causedBySequences: [death?.sequence],
+      detail: { result: { kind: "timed-out" } },
+    });
+    expect(page.events.at(-1)?.kind).toBe("terminal-reached");
+  }, 30_000);
+
+  it("distinguishes explicit manual zero and blocked polls from replay settlement", async () => {
+    const chipPos = 33;
+    const wallPos = 34;
+    const source = await buildSyntheticSource(target, `${target}-causal-command`, syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)],
+        [wallPos, MS_TILE.Wall],
+      ]),
+      creaturePositions: [chipPos],
+    }));
+    const runtime = createRuntime();
+    const manual = await runtime.startManual(source);
+    await runtime.advanceTick(manual, {
+      kind: "manual-poll",
+      inputCode: GAME_INPUT_CODES.none,
+      causalContext: { commandId: `command:${target}:manual-zero`, planId: null },
+    });
+    await runtime.advanceTick(manual, {
+      kind: "manual-poll",
+      inputCode: GAME_INPUT_CODES.east,
+      causalContext: { commandId: `command:${target}:blocked`, planId: null },
+    });
+    const manualPage = await runtime.readEvents(manual, { afterSequence: null, maximumEvents: 256 });
+    expect(manualPage.events).toContainEqual(expect.objectContaining({
+      kind: "command",
+      commandId: `command:${target}:manual-zero`,
+      detail: expect.objectContaining({ influence: "ignored", inputCode: GAME_INPUT_CODES.none }),
+    }));
+    const blockedCommand = manualPage.events.find((event) => (
+      event.kind === "command" && event.commandId === `command:${target}:blocked`
+    ));
+    expect(blockedCommand).toMatchObject({ detail: { influence: "blocked", failureReason: "cc1:blocked-entry" } });
+    expect(manualPage.events).toContainEqual(expect.objectContaining({
+      kind: "movement-blocked",
+      commandId: `command:${target}:blocked`,
+      causedBySequences: [blockedCommand?.sequence],
+    }));
+
+    const replay = await runtime.startReplay(replaySource(source, { moves: [] }));
+    await runtime.advanceTick(replay, { kind: "replay-tick" });
+    const replayPage = await runtime.readEvents(replay, { afterSequence: null, maximumEvents: 256 });
+    expect(replayPage.events.filter((event) => event.kind === "command")).toEqual([]);
+
+    const boundarySource = await buildSyntheticSource(target, `${target}-causal-boundary`, syntheticLevelBytes({
+      top: new Map([[0, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.north)]]),
+      creaturePositions: [0],
+    }));
+    const boundary = await runtime.startManual(boundarySource);
+    await runtime.advanceTick(boundary, {
+      kind: "manual-poll",
+      inputCode: GAME_INPUT_CODES.north,
+      causalContext: { commandId: `command:${target}:boundary`, planId: null },
+    });
+    const boundaryPage = await runtime.readEvents(boundary, { afterSequence: null, maximumEvents: 256 });
+    expect(boundaryPage.events).toContainEqual(expect.objectContaining({
+      kind: "movement-blocked",
+      coordinates: { before: { x: 0, y: 0, z: 0 }, after: null },
+      detail: expect.objectContaining({ attemptedCoordinate: null }),
+    }));
+  }, 30_000);
+
+  it("never attributes forced movement to an unrelated current poll", async () => {
+    const chipPos = 33;
+    const slidePos = 34;
+    const source = await buildSyntheticSource(target, `${target}-causal-forced`, syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)],
+        [slidePos, MS_TILE.Slide_East],
+      ]),
+      creaturePositions: [chipPos],
+    }));
+    const runtime = createRuntime();
+    const run = await runtime.startManual(source);
+    for (let tick = 0; tick < 8; tick += 1) {
+      await runtime.advanceTick(run, {
+        kind: "manual-poll",
+        inputCode: tick === 0 ? GAME_INPUT_CODES.east : GAME_INPUT_CODES.west,
+        causalContext: {
+          commandId: `command:${target}:forced:${tick}`,
+          planId: "plan:causal-forced",
+        },
+      });
+    }
+    const page = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 256 });
+    expect(page.events).toContainEqual(expect.objectContaining({
+      kind: "command",
+      detail: expect.objectContaining({ influence: "held", inputCode: GAME_INPUT_CODES.west }),
+    }));
+    expect(page.events).toContainEqual(expect.objectContaining({
+      kind: "movement-completed",
+      commandId: null,
+      planId: null,
+      detail: expect.objectContaining({ movementRole: "forced", direction: "east" }),
+    }));
+  }, 30_000);
+
+  it("carries source-scoped clone lineage and ordinal through checkpoint restore", async () => {
+    const chipPos = 33;
+    const buttonPos = 34;
+    const clonerPos = 10 * 32 + 10;
+    const source = await buildSyntheticSource(target, `${target}-causal-clone-lineage`, syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)],
+        [buttonPos, MS_TILE.Button_Red],
+        [clonerPos, msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east)],
+      ]),
+      bottom: new Map([[clonerPos, MS_TILE.CloneMachine]]),
+      creaturePositions: [chipPos, clonerPos],
+      cloners: [{ from: buttonPos, to: clonerPos }],
+    }));
+    const clonerPlacement = source.levelFacts.facts.payload.placements.find((placement) => (
+      placement.descriptor.coordinate.x === clonerPos % 32
+      && placement.descriptor.coordinate.y === Math.floor(clonerPos / 32)
+      && placement.descriptor.semanticType === "cc1:clonemachine"
+    ));
+    const runtime = createRuntime(512);
+    const run = await runtime.startManual(source);
+    const drive = async (
+      branch: typeof run,
+      inputCode: number,
+      targetX: number,
+      commandStem: string,
+    ) => {
+      for (let tick = 0; tick < 12; tick += 1) {
+        await runtime.advanceTick(branch, {
+          kind: "manual-poll",
+          inputCode: tick === 0 ? inputCode : GAME_INPUT_CODES.none,
+          causalContext: {
+            commandId: `command:${target}:${commandStem}:${tick}`,
+            planId: "plan:clone-lineage",
+          },
+        });
+        const observation = await runtime.observe(branch);
+        if (observation.player.coordinate?.x === targetX && observation.player.movement === "stationary") {
+          return;
+        }
+      }
+      throw new Error(`${target} clone-lineage fixture did not settle at x=${targetX}`);
+    };
+
+    await drive(run, GAME_INPUT_CODES.east, buttonPos % 32, "clone-first");
+    const firstPage = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 512 });
+    const firstSpawn = firstPage.events.find((event) => event.kind === "actor-spawned");
+    expect(firstSpawn).toMatchObject({
+      subject: {
+        actorId: expect.any(String),
+        placementId: clonerPlacement?.placementId,
+      },
+      source: {
+        placementId: clonerPlacement?.placementId,
+        deviceId: clonerPlacement?.placementId,
+      },
+      detail: {
+        parentActorId: expect.any(String),
+        spawnOrdinal: 1,
+        reason: "cc1:cloner",
+      },
+    });
+    expect((await runtime.observe(run)).actors).toContainEqual(expect.objectContaining({
+      actorId: firstSpawn?.subject?.actorId,
+      identityProvenance: "clone-lineage",
+      sourcePlacementId: clonerPlacement?.placementId,
+    }));
+
+    const checkpoint = await runtime.captureCheckpoint(run);
+    const restored = await runtime.restoreCheckpoint(checkpoint.handle);
+    for (const [branch, stem] of [[run, "original"], [restored, "restored"]] as const) {
+      await drive(branch, GAME_INPUT_CODES.west, chipPos % 32, `${stem}-off`);
+      await drive(branch, GAME_INPUT_CODES.east, buttonPos % 32, `${stem}-second`);
+      const page = await runtime.readEvents(branch, { afterSequence: null, maximumEvents: 512 });
+      expect(page.events.filter((event) => event.kind === "actor-spawned").map((event) => (
+        event.kind === "actor-spawned" ? event.detail.spawnOrdinal : null
+      ))).toEqual([1, 2]);
+    }
+    const originalSpawns = (await runtime.readEvents(run, {
+      afterSequence: null,
+      maximumEvents: 512,
+    })).events.filter((event) => event.kind === "actor-spawned");
+    const restoredSpawns = (await runtime.readEvents(restored, {
+      afterSequence: null,
+      maximumEvents: 512,
+    })).events.filter((event) => event.kind === "actor-spawned");
+    expect(restoredSpawns.map((event) => event.subject?.actorId)).toEqual(
+      originalSpawns.map((event) => event.subject?.actorId),
+    );
+  }, 30_000);
+
+  it("records an excess IC pickup even when its requirement counter is saturated", async () => {
+    const chipPos = 33;
+    const chipPickupPos = 34;
+    const source = await buildSyntheticSource(target, `${target}-causal-excess-chip`, syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)],
+        [chipPickupPos, MS_TILE.ICChip],
+      ]),
+      creaturePositions: [chipPos],
+    }));
+    const runtime = createRuntime();
+    const run = await runtime.startManual(source);
+    for (let tick = 0; tick < 6; tick += 1) {
+      await runtime.advanceTick(run, {
+        kind: "manual-poll",
+        inputCode: tick === 0 ? GAME_INPUT_CODES.east : GAME_INPUT_CODES.none,
+        causalContext: { commandId: `command:${target}:excess-chip:${tick}`, planId: null },
+      });
+    }
+    const page = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 256 });
+    expect(page.events).toContainEqual(expect.objectContaining({
+      kind: "resource-collected",
+      detail: expect.objectContaining({
+        resourceType: "cc1:icchip",
+        amount: 1,
+        remainingBefore: 0,
+        remainingAfter: 0,
+      }),
+    }));
+    expect(page.events.filter((event) => event.kind === "requirement-changed")).toEqual([]);
+    expect(page.events).toContainEqual(expect.objectContaining({
+      kind: "map-mutated",
+      detail: expect.objectContaining({ mutation: "cc1:pickup-consumed" }),
+    }));
+  }, 30_000);
+
+  it("records standard blue, brown, and red button activations at their native action seams", async () => {
+    const chipPos = 33;
+    const blueButtonPos = 34;
+    const brownButtonPos = 35;
+    const redButtonPos = 36;
+    const trapPos = 10 * 32 + 10;
+    const clonerPos = trapPos + 1;
+    const source = await buildSyntheticSource(target, `${target}-causal-button-matrix`, syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)],
+        [blueButtonPos, MS_TILE.Button_Blue],
+        [brownButtonPos, MS_TILE.Button_Brown],
+        [redButtonPos, MS_TILE.Button_Red],
+        [trapPos, MS_TILE.Beartrap],
+        [clonerPos, msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east)],
+      ]),
+      bottom: new Map([[clonerPos, MS_TILE.CloneMachine]]),
+      creaturePositions: [chipPos, clonerPos],
+      traps: [{ from: brownButtonPos, to: trapPos }],
+      cloners: [{ from: redButtonPos, to: clonerPos }],
+    }));
+    const runtime = createRuntime(512);
+    const run = await runtime.startManual(source);
+    const driveEast = async (targetX: number, stem: string): Promise<void> => {
+      for (let tick = 0; tick < 12; tick += 1) {
+        await runtime.advanceTick(run, {
+          kind: "manual-poll",
+          inputCode: tick === 0 ? GAME_INPUT_CODES.east : GAME_INPUT_CODES.none,
+          causalContext: {
+            commandId: `command:${target}:buttons:${stem}:${tick}`,
+            planId: "plan:button-matrix",
+          },
+        });
+        const observation = await runtime.observe(run);
+        if (observation.player.coordinate?.x === targetX && observation.player.movement === "stationary") return;
+      }
+      throw new Error(`${target} button ${stem} did not settle at x=${targetX}`);
+    };
+    await driveEast(blueButtonPos % 32, "blue");
+    await driveEast(brownButtonPos % 32, "brown");
+    await driveEast(redButtonPos % 32, "red");
+
+    const page = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 512 });
+    const activations = page.events.filter((event) => event.kind === "device-activated");
+    for (const action of ["cc1:turn-tanks", "cc1:spring-trap", "cc1:activate-cloner"] as const) {
+      expect(activations).toContainEqual(expect.objectContaining({
+        authority: expect.objectContaining({
+          basis: "native-action-hook",
+          evidence: "authoritative",
+        }),
+        subject: expect.objectContaining({
+          placementId: expect.any(String),
+          deviceId: expect.any(String),
+        }),
+        source: expect.objectContaining({
+          placementId: expect.any(String),
+          deviceId: expect.any(String),
+        }),
+        detail: expect.objectContaining({ action }),
+      }));
+    }
+    if (target === "ms") {
+      for (const action of ["cc1:spring-trap", "cc1:activate-cloner"] as const) {
+        expect(activations).toContainEqual(expect.objectContaining({
+          commandId: null,
+          authority: {
+            basis: "native-action-hook",
+            evidence: "authoritative",
+            causality: "unattributed",
+          },
+          detail: expect.objectContaining({ action }),
+        }));
+      }
+    }
+    expect(page.events.findIndex((event) => (
+      event.kind === "device-activated" && event.detail.action === "cc1:activate-cloner"
+    ))).toBeLessThan(page.events.findIndex((event) => event.kind === "actor-spawned"));
+  }, 30_000);
+
+  it("records standard thief boot loss and clear-floor map mutation", async () => {
+    const chipPos = 33;
+    const bootsPos = 34;
+    const thiefPos = 35;
+    const fakeWallPos = 36;
+    const popupWallPos = 37;
+    const source = await buildSyntheticSource(target, `${target}-causal-thief-clear-floor`, syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)],
+        [bootsPos, MS_TILE.Boots_Ice],
+        [thiefPos, MS_TILE.Burglar],
+        [fakeWallPos, MS_TILE.BlueWall_Fake],
+        [popupWallPos, MS_TILE.PopupWall],
+      ]),
+      creaturePositions: [chipPos],
+    }));
+    const runtime = createRuntime();
+    const run = await runtime.startManual(source);
+    const driveEast = async (targetX: number, stem: string): Promise<void> => {
+      for (let tick = 0; tick < 12; tick += 1) {
+        await runtime.advanceTick(run, {
+          kind: "manual-poll",
+          inputCode: tick === 0 ? GAME_INPUT_CODES.east : GAME_INPUT_CODES.none,
+          causalContext: {
+            commandId: `command:${target}:thief-clear:${stem}:${tick}`,
+            planId: "plan:thief-clear-floor",
+          },
+        });
+        const observation = await runtime.observe(run);
+        if (observation.player.coordinate?.x === targetX && observation.player.movement === "stationary") return;
+      }
+      throw new Error(`${target} thief/clear-floor fixture did not settle at x=${targetX}`);
+    };
+    await driveEast(bootsPos % 32, "boots");
+    await driveEast(thiefPos % 32, "thief");
+    await driveEast(fakeWallPos % 32, "fake-wall");
+    await driveEast(popupWallPos % 32, "popup-wall");
+
+    const page = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 256 });
+    expect(page.events).toContainEqual(expect.objectContaining({
+      kind: "inventory-changed",
+      detail: {
+        resourceType: "cc1:boots-ice",
+        beforeCount: 1,
+        afterCount: 0,
+        reason: "cc1:thief-stole",
+      },
+      source: expect.objectContaining({ semanticType: "cc1:burglar", placementId: expect.any(String) }),
+    }));
+    expect(page.events).toContainEqual(expect.objectContaining({
+      kind: "map-mutated",
+      detail: {
+        mutation: "cc1:clear-floor",
+        beforeSemanticType: "cc1:bluewall-fake",
+        beforeState: null,
+        afterSemanticType: "cc1:floor",
+        afterState: null,
+      },
+      subject: expect.objectContaining({ placementId: expect.any(String) }),
+    }));
+    expect(page.events).toContainEqual(expect.objectContaining({
+      kind: "map-mutated",
+      detail: {
+        mutation: "cc1:popup-wall",
+        beforeSemanticType: "cc1:popupwall",
+        beforeState: null,
+        afterSemanticType: "cc1:wall",
+        afterState: null,
+      },
+      subject: expect.objectContaining({ placementId: expect.any(String) }),
+    }));
+  }, 30_000);
+});
+
+describe("MS P2B valid buried-cloner block lineage", () => {
+  it("keeps the contained source and gives its emitted standard block clone lineage", async () => {
+    const clonerPos = 10 * 32 + 10;
+    const chipPos = clonerPos - 1;
+    const source = await buildSyntheticSource("ms", "ms-causal-buried-cloner-block", syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)],
+        [clonerPos, MS_TILE.Block_Static],
+      ]),
+      bottom: new Map([[clonerPos, MS_TILE.CloneMachine]]),
+      creaturePositions: [chipPos, clonerPos],
+    }));
+    const clonerPlacement = source.levelFacts.facts.payload.placements.find((placement) => (
+      placement.descriptor.coordinate.x === clonerPos % 32
+      && placement.descriptor.coordinate.y === Math.floor(clonerPos / 32)
+      && placement.descriptor.semanticType === "cc1:clonemachine"
+    ));
+    const containedBlock = source.levelFacts.facts.payload.actors.find((actor) => (
+      actor.disposition === "contained" && actor.semanticType === "cc1:block"
+    ));
+    const runtime = createTworldMsSolverRuntimeAdapter({ ...runtimeAdapterOptions, maximumCausalEvents: 256 });
+    const run = await runtime.startManual(source);
+    await runtime.advanceTick(run, {
+      kind: "manual-poll",
+      inputCode: GAME_INPUT_CODES.east,
+      causalContext: {
+        commandId: "command:ms:buried-cloner-block:0",
+        planId: "plan:buried-cloner-block",
+      },
+    });
+
+    const page = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 256 });
+    const spawn = page.events.find((event) => event.kind === "actor-spawned");
+    expect(spawn).toMatchObject({
+      subject: {
+        actorId: expect.any(String),
+        placementId: clonerPlacement?.placementId,
+      },
+      source: {
+        placementId: clonerPlacement?.placementId,
+        deviceId: clonerPlacement?.placementId,
+      },
+      detail: {
+        parentActorId: containedBlock?.actorId,
+        spawnOrdinal: 1,
+        reason: "cc1:cloner",
+      },
+    });
+    expect(page.events.findIndex((event) => event.kind === "actor-spawned")).toBeLessThan(
+      page.events.findIndex((event) => event.kind === "movement-completed" && event.subject?.actorId === spawn?.subject?.actorId),
+    );
+    const observation = await runtime.observe(run);
+    expect(observation.actors).toContainEqual(expect.objectContaining({
+      actorId: containedBlock?.actorId,
+      identityProvenance: "initial-placement",
+      sourcePlacementId: containedBlock?.descriptor.placementId,
+      lifecycle: "contained",
+    }));
+    expect(observation.actors).toContainEqual(expect.objectContaining({
+      actorId: spawn?.subject?.actorId,
+      identityProvenance: "clone-lineage",
+      sourcePlacementId: clonerPlacement?.placementId,
+      lifecycle: "active",
+    }));
+  }, 30_000);
+});
+
+describe("P2B cross-target clone lineage identity", () => {
+  it("assigns an equivalent first cloner spawn the same semantic ActorId", async () => {
+    const chipPos = 33;
+    const buttonPos = 34;
+    const clonerPos = 10 * 32 + 10;
+    const levelBytes = syntheticLevelBytes({
+      top: new Map([
+        [chipPos, msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east)],
+        [buttonPos, MS_TILE.Button_Red],
+        [clonerPos, msCreatureTile(MS_TILE.Fireball, MS_DIRECTION.east)],
+      ]),
+      bottom: new Map([[clonerPos, MS_TILE.CloneMachine]]),
+      creaturePositions: [chipPos, clonerPos],
+      cloners: [{ from: buttonPos, to: clonerPos }],
+    });
+    const actorIds: string[] = [];
+    for (const target of ["ms", "lynx"] as const) {
+      const source = await buildSyntheticSource(target, "cross-target-clone-lineage", levelBytes);
+      const runtime = target === "ms"
+        ? createTworldMsSolverRuntimeAdapter({ ...runtimeAdapterOptions, maximumCausalEvents: 256 })
+        : createTworldLynxSolverRuntimeAdapter({ ...runtimeAdapterOptions, maximumCausalEvents: 256 });
+      const run = await runtime.startManual(source);
+      for (let tick = 0; tick < 8; tick += 1) {
+        await runtime.advanceTick(run, {
+          kind: "manual-poll",
+          inputCode: tick === 0 ? GAME_INPUT_CODES.east : GAME_INPUT_CODES.none,
+          causalContext: {
+            commandId: `command:${target}:cross-target-clone:${tick}`,
+            planId: "plan:cross-target-clone",
+          },
+        });
+      }
+      const page = await runtime.readEvents(run, { afterSequence: null, maximumEvents: 256 });
+      const spawn = page.events.find((event) => event.kind === "actor-spawned");
+      expect(spawn?.detail).toMatchObject({ spawnOrdinal: 1, reason: "cc1:cloner" });
+      expect(spawn?.subject?.actorId).toEqual(expect.any(String));
+      actorIds.push(spawn!.subject!.actorId!);
+    }
+    expect(actorIds[1]).toBe(actorIds[0]);
   }, 30_000);
 });
 

@@ -24,6 +24,7 @@ import {
 import { isMsTrapSpecialFloor } from "@ruleset-ms/impl/elements/tiles/specialFloorRegistration";
 
 export interface MsMovementLifecycleCreature {
+  serial?: number;
   id: number;
   dir: number;
   pos: number;
@@ -52,12 +53,14 @@ export interface MsEnteredCellLifecycleContext<TCreature extends MsMovementLifec
     occupiedOriginPos: number | undefined,
     creature: TCreature,
   ): number;
+  recordTeleport?(creature: TCreature, beforePos: number, afterPos: number): void;
 }
 
 export interface MsFloorImpactLifecycleContext<TCreature extends MsMovementLifecycleCreature> {
   popTile(cells: EngineMapCell[], pos: number): void;
   clearCreatureFloorMovement(creature: TCreature): void;
   removeStatefulActor(creature: TCreature): void;
+  recordActorDestroyed?(creature: TCreature, pos: number, floorId: number): void;
 }
 
 export interface MsCompletedStepLifecycleContext<TCreature extends MsMovementLifecycleCreature> {
@@ -66,6 +69,13 @@ export interface MsCompletedStepLifecycleContext<TCreature extends MsMovementLif
   hasTrapConnection(pos: number, z: number): boolean;
   runtimeCellZ(cells: EngineMapCell[], pos: number): number;
   syncCreatureFloorMovement(cells: EngineMapCell[], creature: TCreature): void;
+  recordMoveCompleted?(
+    creature: TCreature,
+    beforePos: number,
+    afterPos: number,
+    standingFloor: number,
+    movementRole: "self" | "forced",
+  ): void;
 }
 
 export function msActorHoldsDirectionOnFloor(floorId: number, actorId: number): boolean {
@@ -127,6 +137,7 @@ export function applyMsCreatureEnteredCell<TCreature extends MsMovementLifecycle
   if (creature.turning) {
     context.updateCreatureTile(cells, creature);
   }
+  context.recordTeleport?.(creature, nextPos, teleportedPos);
   return teleportedPos;
 }
 
@@ -139,6 +150,9 @@ function removeCreatureOnFloorImpact<TCreature extends MsMovementLifecycleCreatu
   replacementTop: EngineMapCell["top"],
   replacementBottom: EngineMapCell["bottom"],
 ): void {
+  const destroyedPos = creature.pos;
+  const floorId = cells[destroyedPos]?.bottom.id ?? MS_TILE.Empty;
+  context.recordActorDestroyed?.(creature, destroyedPos, floorId);
   cells[creature.pos]!.top = replacementTop;
   cells[creature.pos]!.bottom = replacementBottom;
   if (!oldWasCloneMachine) {
@@ -203,8 +217,11 @@ export function applyMsCreatureCompletedStep<TCreature extends MsMovementLifecyc
   nextPos: number,
   standingFloor: number,
   syncFloorMovement: boolean = true,
+  causalMovementAfterPos: number = nextPos,
+  recordMovement: boolean = true,
 ): number {
   let soundEffects = 0;
+  const movementRole = creature.floorMovement === "none" ? "self" : "forced";
   const savedPos = creature.pos;
   creature.pos = oldPos;
   if (standingFloor === MS_TILE.Button_Red) {
@@ -223,6 +240,15 @@ export function applyMsCreatureCompletedStep<TCreature extends MsMovementLifecyc
   }
   if (syncFloorMovement) {
     context.syncCreatureFloorMovement(cells, creature);
+  }
+  if (recordMovement && oldPos !== nextPos) {
+    context.recordMoveCompleted?.(
+      creature,
+      oldPos,
+      causalMovementAfterPos,
+      standingFloor,
+      movementRole,
+    );
   }
   return soundEffects;
 }
