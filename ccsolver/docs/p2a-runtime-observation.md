@@ -161,8 +161,12 @@ finished replay:
 4. **P4A — annotated map evidence (available now):** inspect graphical
    starting/ending map sections, plan-intent routing, exact observed endpoints,
    points of interest, state changes, and the separate failed-canary states.
-5. **P5 — full-level proof:** inspect a composed forward execution and certified
-   replay from canonical initialization.
+5. **P5 — full-level proof (available now):** inspect the pre-execution plan,
+   composed forward execution, and certified replay from canonical
+   initialization.
+6. **P4B — whole-level dossier (available now):** inspect paired 32-by-32 maps,
+   the terminal-rooted plan, every exact subgoal boundary, certificates, and
+   downloadable replay files in one static review surface.
 
 P2A can prove that CCSolver sees a runtime state accurately. It cannot yet prove
 that CCSolver understands why a level works or can solve it.
@@ -170,7 +174,6 @@ that CCSolver understands why a level works or can solve it.
 ## Deferred work
 
 P2B adds the complete causal semantic event journal and bounded failure
-diagnostics. P3A terminal-first regression, P3B exact contextual witnesses, and
-P4A annotated boundary evidence are now delivered previews. The full P4B
-dossier and full-level composition/certification remain P5 and later
-milestones.
+diagnostics. P3A terminal-first regression, P3B exact contextual witnesses,
+P4A annotated boundary evidence, P5 composition/certification, and the P4B
+whole-level dossier are delivered for the Key Pyramid reference slice.

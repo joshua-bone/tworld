@@ -17,12 +17,14 @@ async function createValidators() {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   const common = await readJson(resolve(schemaRoot, "common.schema.json"));
   const corpusCase = await readJson(resolve(schemaRoot, "corpus-case.schema.json"));
+  const expandedPlan = await readJson(resolve(schemaRoot, "expanded-plan.schema.json"));
   const certificate = await readJson(resolve(schemaRoot, "replay-certificate.schema.json"));
   const levelFacts = await readJson(resolve(schemaRoot, "level-facts.schema.json"));
   const identities = await readJson(resolve(schemaRoot, "identity-primitives.schema.json"));
   ajv.addSchema(common);
   return {
     "corpus-case": ajv.compile(corpusCase),
+    "expanded-plan": ajv.compile(expandedPlan),
     "replay-certificate": ajv.compile(certificate),
     "level-facts": ajv.compile(levelFacts),
     identities: ajv.compile(identities),

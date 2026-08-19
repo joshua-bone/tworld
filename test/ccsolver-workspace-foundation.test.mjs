@@ -65,6 +65,11 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.match(rootPackage.scripts["ccsolver:p3:generate"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:p4a:check"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:p4a:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p5:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p5:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p4b:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p4b:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p4b:emit-dist"], /--workspace web/);
   for (const command of [
     "ccsolver:corpus:check",
     "ccsolver:corpus:generate",
@@ -78,6 +83,11 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "ccsolver:p3:generate",
     "ccsolver:p4a:check",
     "ccsolver:p4a:generate",
+    "ccsolver:p5:check",
+    "ccsolver:p5:generate",
+    "ccsolver:p4b:check",
+    "ccsolver:p4b:generate",
+    "ccsolver:p4b:emit-dist",
   ]) {
     assert.match(rootPackage.scripts[command], /npm run ccsolver:build/);
   }
@@ -101,6 +111,25 @@ test("registers CCSolver as a first-class root workspace", async () => {
   );
   assert.equal(webPackage.scripts["ccsolver:p4a:check"], "npm run ccsolver:p4a -- --check");
   assert.equal(webPackage.scripts["ccsolver:p4a:generate"], "npm run ccsolver:p4a -- --write");
+  assert.equal(
+    webPackage.scripts["ccsolver:p5"],
+    "vite-node src/ccsolver-runtime/compose/p5-review/runP5ReviewOutputs.ts",
+  );
+  assert.equal(
+    webPackage.scripts["ccsolver:p5:check"],
+    "npm run ccsolver:p5 -- --check --oracle ../build-verify/legacy_c/tworld-oracle",
+  );
+  assert.equal(
+    webPackage.scripts["ccsolver:p5:generate"],
+    "npm run ccsolver:p5 -- --write --oracle ../build-verify/legacy_c/tworld-oracle",
+  );
+  assert.equal(
+    webPackage.scripts["ccsolver:p4b"],
+    "vite-node src/ccsolver-runtime/compose/p4b-dossier/runP4bDossierOutputs.ts",
+  );
+  assert.equal(webPackage.scripts["ccsolver:p4b:check"], "npm run ccsolver:p4b -- --check");
+  assert.equal(webPackage.scripts["ccsolver:p4b:generate"], "npm run ccsolver:p4b -- --write");
+  assert.equal(webPackage.scripts["ccsolver:p4b:emit-dist"], "npm run ccsolver:p4b -- --emit-dist");
   for (const p2aTest of [
     "src/ccsolver-runtime/compose/sourceValidity/analyzeTworldSolverSourceScope.test.ts",
     "src/ccsolver-runtime/compose/sourceValidity/tworldSolverSourceScopeAcceptance.test.ts",
@@ -122,6 +151,14 @@ test("registers CCSolver as a first-class root workspace", async () => {
     rootPackage.scripts["ccsolver:integration"],
     /src\/ccsolver-runtime\/compose\/p4a-review\/buildP4aReviewOutputs\.test\.ts/,
   );
+  for (const p4bReleaseTest of [
+    "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierIo.test.ts",
+    "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierSafety.test.ts",
+  ]) {
+    assert.match(rootPackage.scripts["ccsolver:integration"], new RegExp(
+      p4bReleaseTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    ));
+  }
 });
 
 test("uses one deterministic root lockfile for both workspaces", async () => {
@@ -210,6 +247,8 @@ test("builds GitHub Pages from the authoritative root install", async () => {
   assert.match(workflow, /cache-dependency-path: package-lock\.json/);
   assert.match(workflow, /run: npm ci --include=optional/);
   assert.match(workflow, /run: npm run build/);
+  assert.match(workflow, /run: npm run ccsolver:p4b:check/);
+  assert.match(workflow, /run: npm run ccsolver:p4b:emit-dist/);
   assert.doesNotMatch(workflow, /web\/package-lock\.json/);
   assert.doesNotMatch(workflow, /working-directory: web/);
   assert.doesNotMatch(workflow, /npm install --no-save/);
@@ -237,6 +276,8 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "npm run ccsolver:p1b:check",
     "npm run ccsolver:p3:check",
     "npm run ccsolver:p4a:check",
+    "npm run ccsolver:p5:check",
+    "npm run ccsolver:p4b:check",
     "npm --workspace web run typecheck:tools",
     "npm run ccsolver:cli -- --help",
     "npm run ccsolver:dossier -- --help",
@@ -261,6 +302,38 @@ test("runs the workspace foundation gate on pull requests", async () => {
     workflow,
     /- name: Check P4A graphical subgoal evidence artifacts\n\s+timeout-minutes: 2\n\s+run: npm run ccsolver:p4a:check/,
   );
+  assert.match(
+    workflow,
+    /- name: Check P5 certified Key Pyramid artifacts\n\s+timeout-minutes: 15\n\s+run: npm run ccsolver:p5:check/,
+  );
+  assert.match(
+    workflow,
+    /- name: Check P4B whole-level dossier artifacts\n\s+timeout-minutes: 5\n\s+run: npm run ccsolver:p4b:check/,
+  );
+});
+
+test("registers the P5 certification and P4B whole-level review gates", async () => {
+  for (const path of [
+    "ccsolver/docs/p5-p4b-key-pyramid.md",
+    "ccsolver/fixtures/golden/p5/cclp1-001/manifest.json",
+    "ccsolver/fixtures/golden/p5/cclp1-001/corpus-case.v1.json",
+    "ccsolver/fixtures/golden/p5/cclp1-001/ms/key-pyramid-ms.tws",
+    "ccsolver/fixtures/golden/p5/cclp1-001/lynx/key-pyramid-lynx.tws",
+    "ccsolver/fixtures/golden/p4b/cclp1-001/manifest.json",
+    "ccsolver/fixtures/golden/p4b/cclp1-001/review.md",
+  ]) {
+    assert.equal(await exists(path), true, `missing P5/P4B release asset: ${path}`);
+  }
+
+  const tools = await readJson("web/tsconfig.tools.json");
+  for (const path of [
+    "src/ccsolver-runtime/compose/p5-review/buildP5ReviewOutputs.ts",
+    "src/ccsolver-runtime/compose/p5-review/runP5ReviewOutputs.ts",
+    "src/ccsolver-runtime/compose/p4b-dossier/buildP4bDossierOutputs.ts",
+    "src/ccsolver-runtime/compose/p4b-dossier/runP4bDossierOutputs.ts",
+  ]) {
+    assert.ok(tools.include.includes(path), `missing tools boundary: ${path}`);
+  }
 });
 
 test("registers the bounded P4A graphical evidence review gate", async () => {

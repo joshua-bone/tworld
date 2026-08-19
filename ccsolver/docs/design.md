@@ -24,14 +24,25 @@ The pure terminal-first planner and exact contextual-witness executor are now
 implemented as provisional P3 preview contracts. Their first dual-target real
 slice and checked Key Pyramid review are documented in
 [P3 terminal-first planning and contextual witnesses](p3-terminal-planning-and-witness.md).
-The whole Key Pyramid theory remains unresolved; only its adjacent red-key leaf
-is forward-verified.
+The historical whole Key Pyramid P3 theory remains unresolved; only its
+adjacent red-key leaf is forward-verified within that P3 artifact. P5 retains
+that history rather than rewriting it, then publishes a separate pre-execution
+candidate plan. Its continuous witnesses and replay certificates independently
+prove that the selected implementation wins, while the plan itself remains a
+candidate rather than being retroactively relabeled.
 
 The first graphical evidence slice is implemented as a provisional P4A preview
 and documented in [P4A graphical subgoal evidence](p4a-subgoal-evidence.md).
 It derives deterministic semantic SVG and a static comparison page from checked
 P3 bytes, with durable human review stored separately from regenerated machine
 evidence. P4A does not upgrade the leaf into a complete solution.
+
+The first complete-level slice is now implemented and documented in
+[P5 certified route and P4B whole-level dossier](p5-p4b-key-pyramid.md). P5
+checks complete MS/Lynx TWS bytes against both TypeScript and the isolated
+native oracle. P4B verifies and consumes only the checked P5 bundle to emit the
+unlisted, no-JavaScript-complete Key Pyramid dossier. Machine generation leaves
+its human review status `unreviewed`.
 
 ## Executive summary
 

@@ -32,6 +32,27 @@ The root npm workspace and root `package-lock.json` are authoritative for both
 the browser UI and CCSolver. Run dependency installation from the repository
 root rather than from an individual workspace.
 
+## CCSolver review pipeline
+
+CCSolver now has one complete paired reference case: CCLP1 level 1, Key
+Pyramid. Its checked P5 artifacts contain a continuous winning route, complete
+MS and Lynx TWS files, and exact TypeScript/native replay certificates. P4B
+builds an unlisted, static whole-level dossier from those checked P5 bytes.
+
+```sh
+cmake -S . -B build-verify -DOSHW=sdl -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-verify --target tworld-oracle --parallel 4
+npm run ccsolver:p5:check
+npm run ccsolver:p4b:check
+```
+
+After `npm run build`, copy the normal SPA fallback and run
+`npm run ccsolver:p4b:emit-dist` to add the dossier beneath
+`web/dist/ccsolver/`. The dossier remains absent from the Tile World homepage,
+player navigation, and sitemap. See the
+[P5/P4B Key Pyramid review guide](./ccsolver/docs/p5-p4b-key-pyramid.md) for the
+evidence limits and human review checkpoints.
+
 ## Engine Parity
 
 Core gameplay logic has been verified on over 2,500 replays per ruleset in an attempt to ensure exact behavior parity with legacy Tile World. That said, the TypeScript port runs in a fundamentally different runtime environment than the original C implementation, and there are likely to be subtle differences between the engines. There may also be outright bugs remaining in the code that will only be uncovered through further playtesting.

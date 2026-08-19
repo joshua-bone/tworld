@@ -140,7 +140,7 @@ test("links a certified attempt to its independently content-addressed certifica
   );
 });
 
-test("round-trips structured plan references without freezing the future plan payload", async () => {
+test("round-trips structured references to the defined expanded-plan root", async () => {
   const corpus = decodeCanonicalArtifact(await readText("valid/corpus-case.v1.json"));
   const lynxAttempt = corpus.payload.targets[1].attempts[0];
   lynxAttempt.context.donorExposure = "terminal-only";

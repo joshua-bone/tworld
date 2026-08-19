@@ -173,9 +173,8 @@ slice changes neither static analysis nor cohort selection.
 
 ## Limits and next human checkpoint
 
-P3 does not provide a solved Key Pyramid replay, a causal event journal, or a
-complete route. P4A now turns these exact boundaries into mandatory annotated
-map panels, keeps planned routing distinct from observed endpoints, and adds a
-failed-attempt view plus durable human review status. P5 is the next checkpoint:
-all reviewed subgoals must execute continuously into a certified full-level
-win.
+P3 does not itself provide a solved Key Pyramid replay, a causal event journal,
+or a complete route. P4A turns these exact boundaries into mandatory annotated
+map panels, while the delivered P5/P4B slice composes a separate
+pre-execution candidate plan into certified full-level wins and a whole-level
+review dossier. The historical P3 terminal theory remains unresolved.
