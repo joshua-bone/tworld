@@ -26,6 +26,15 @@ function findLockedPackage(lockfile, packageName) {
   ));
 }
 
+function workflowJob(workflow, jobName) {
+  const marker = `  ${jobName}:\n`;
+  const start = workflow.indexOf(marker);
+  assert.notEqual(start, -1, `missing workflow job: ${jobName}`);
+  const following = workflow.slice(start + marker.length);
+  const next = following.search(/^  [a-zA-Z0-9_-]+:\n/m);
+  return workflow.slice(start, next === -1 ? undefined : start + marker.length + next);
+}
+
 test("registers CCSolver as a first-class root workspace", async () => {
   const rootPackage = await readJson("package.json");
   assert.deepEqual(new Set(rootPackage.workspaces), new Set(["web", "ccsolver"]));
@@ -52,27 +61,27 @@ test("registers CCSolver as a first-class root workspace", async () => {
     assert.match(rootPackage.scripts[script], /--workspace @tworld\/ccsolver/);
   }
   assert.match(rootPackage.scripts["ccsolver:facade"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:integration"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:corpus:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:integration"], /ccsolver:integration:fast/);
+  assert.match(rootPackage.scripts["ccsolver:corpus:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:corpus:generate"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:analysis:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:analysis:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:analysis:generate"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:p1b:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p1b:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p1b:generate"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:p2a:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p2a:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p2a:generate"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:p3:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p3:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p3:generate"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:p4a:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p4a:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p4a:generate"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:p5:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p5:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p5:generate"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:p4b:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p4b:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p4b:generate"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:p4b:emit-dist"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:p6a:check"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p4b:emit-dist"], /:prepared/);
+  assert.match(rootPackage.scripts["ccsolver:p6a:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p6a:generate"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:p6a:emit-dist"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p6a:emit-dist"], /:prepared/);
   for (const command of [
     "ccsolver:corpus:check",
     "ccsolver:corpus:generate",
@@ -97,6 +106,40 @@ test("registers CCSolver as a first-class root workspace", async () => {
   ]) {
     assert.match(rootPackage.scripts[command], /npm run ccsolver:build/);
   }
+  for (const command of [
+    "ccsolver:corpus:check",
+    "ccsolver:analysis:check",
+    "ccsolver:p1b:check",
+    "ccsolver:p2a:check",
+    "ccsolver:p3:check",
+    "ccsolver:p4a:check",
+    "ccsolver:p5:check",
+    "ccsolver:p4b:check",
+    "ccsolver:p4b:emit-dist",
+    "ccsolver:p6a:check",
+    "ccsolver:p6a:emit-dist",
+  ]) {
+    const prepared = `${command}:prepared`;
+    assert.match(rootPackage.scripts[prepared], /--workspace web/);
+    assert.doesNotMatch(rootPackage.scripts[prepared], /ccsolver:build/);
+    assert.equal(
+      rootPackage.scripts[command],
+      `npm run ccsolver:build && npm run ${prepared}`,
+    );
+  }
+  assert.match(rootPackage.scripts["ccsolver:integration:fast"], /--workspace web/);
+  assert.doesNotMatch(
+    rootPackage.scripts["ccsolver:integration:fast"],
+    /records, pages, reruns, checkpoints/,
+  );
+  assert.match(
+    rootPackage.scripts["ccsolver:integration:causal-proof"],
+    /records, pages, reruns, checkpoints/,
+  );
+  assert.equal(
+    rootPackage.scripts["ccsolver:integration"],
+    "npm run ccsolver:integration:fast && npm run ccsolver:integration:causal-proof",
+  );
 
   const webPackage = await readJson("web/package.json");
   assert.equal(
@@ -152,20 +195,20 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "src/ccsolver-runtime/compose/p2a-review/buildP2aRuntimeReviewPacket.test.ts",
     "src/ccsolver-runtime/compose/p2a-review/buildP2aRuntimeReviewOutputs.test.ts",
   ]) {
-    assert.match(rootPackage.scripts["ccsolver:integration"], new RegExp(
+    assert.match(rootPackage.scripts["ccsolver:integration:fast"], new RegExp(
       p2aTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     ));
   }
   assert.match(
-    rootPackage.scripts["ccsolver:integration"],
+    rootPackage.scripts["ccsolver:integration:fast"],
     /src\/ccsolver-runtime\/compose\/p3-review\/buildP3ReviewOutputs\.test\.ts/,
   );
   assert.match(
-    rootPackage.scripts["ccsolver:integration"],
+    rootPackage.scripts["ccsolver:integration:fast"],
     /src\/ccsolver-runtime\/compose\/p4a-review\/buildP4aReviewOutputs\.test\.ts/,
   );
   assert.match(
-    rootPackage.scripts["ccsolver:integration"],
+    rootPackage.scripts["ccsolver:integration:fast"],
     /src\/ccsolver-runtime\/compose\/p5-review\/runExactKeyPyramidNativeReplay\.test\.ts/,
   );
   for (const p4bReleaseTest of [
@@ -174,7 +217,7 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierIo.test.ts",
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierSafety.test.ts",
   ]) {
-    assert.match(rootPackage.scripts["ccsolver:integration"], new RegExp(
+    assert.match(rootPackage.scripts["ccsolver:integration:fast"], new RegExp(
       p4bReleaseTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     ));
   }
@@ -186,7 +229,7 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.test.ts",
     "src/ccsolver-runtime/compose/p6a-review/p6aReviewIo.test.ts",
   ]) {
-    assert.match(rootPackage.scripts["ccsolver:integration"], new RegExp(
+    assert.match(rootPackage.scripts["ccsolver:integration:fast"], new RegExp(
       p2bP6aTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     ));
   }
@@ -281,14 +324,25 @@ test("builds GitHub Pages from the authoritative root install", async () => {
 
   assert.match(workflow, /cache-dependency-path: package-lock\.json/);
   assert.match(workflow, /run: npm ci --include=optional/);
+  assert.equal((workflow.match(/run: npm run ccsolver:build/g) ?? []).length, 1);
   assert.match(workflow, /run: npm run build/);
-  assert.match(workflow, /run: npm run ccsolver:p4b:check/);
-  assert.match(workflow, /run: npm run ccsolver:p4b:emit-dist/);
-  assert.match(
-    workflow,
-    /- name: Check P2B\/P6A causal alignment sources\n\s+timeout-minutes: 15\n\s+run: npm run ccsolver:p6a:check/,
+  assert.match(workflow, /run: npm run ccsolver:p4b:emit-dist:prepared/);
+  assert.match(workflow, /run: npm run ccsolver:p6a:emit-dist:prepared/);
+  assert.doesNotMatch(workflow, /ccsolver:p4b:check/);
+  assert.doesNotMatch(workflow, /ccsolver:p6a:check/);
+  assert.doesNotMatch(workflow, /tworld-oracle|--oracle/);
+  assert.ok(
+    workflow.indexOf("run: npm run ccsolver:build")
+      < workflow.indexOf("run: npm run build"),
   );
-  assert.match(workflow, /run: npm run ccsolver:p6a:emit-dist/);
+  assert.ok(
+    workflow.indexOf("run: npm run build")
+      < workflow.indexOf("run: npm run ccsolver:p4b:emit-dist:prepared"),
+  );
+  assert.ok(
+    workflow.indexOf("run: npm run ccsolver:p4b:emit-dist:prepared")
+      < workflow.indexOf("run: npm run ccsolver:p6a:emit-dist:prepared"),
+  );
   assert.doesNotMatch(workflow, /web\/package-lock\.json/);
   assert.doesNotMatch(workflow, /working-directory: web/);
   assert.doesNotMatch(workflow, /npm install --no-save/);
@@ -300,7 +354,12 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "utf8",
   );
 
-  assert.match(workflow, /web-and-ccsolver:/);
+  assert.match(workflow, /on:\n\s+push:\n\s+branches:\n\s+- master\n\s+pull_request:/);
+  assert.doesNotMatch(workflow, /on: \[push, pull_request\]/);
+  assert.match(
+    workflow,
+    /concurrency:\n\s+group: ubuntu-ci-\$\{\{ github\.event\.pull_request\.number \|\| github\.ref \}\}\n\s+cancel-in-progress: true/,
+  );
   assert.match(workflow, /cache-dependency-path: package-lock\.json/);
   assert.match(workflow, /npm ci --include=optional/);
   for (const command of [
@@ -310,15 +369,15 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "npm run ccsolver:conformance",
     "npm run ccsolver:build",
     "npm run ccsolver:facade",
-    "npm run ccsolver:integration",
-    "npm run ccsolver:corpus:check",
-    "npm run ccsolver:analysis:check",
-    "npm run ccsolver:p1b:check",
-    "npm run ccsolver:p3:check",
-    "npm run ccsolver:p4a:check",
-    "npm run ccsolver:p5:check",
-    "npm run ccsolver:p4b:check",
-    "npm run ccsolver:p6a:check",
+    "npm run ccsolver:integration:fast",
+    "npm run ccsolver:corpus:check:prepared",
+    "npm run ccsolver:analysis:check:prepared",
+    "npm run ccsolver:p1b:check:prepared",
+    "npm run ccsolver:p3:check:prepared",
+    "npm run ccsolver:p4a:check:prepared",
+    "npm run ccsolver:p5:check:prepared",
+    "npm run ccsolver:p4b:check:prepared",
+    "npm run ccsolver:p6a:check:prepared",
     "npm --workspace web run typecheck:tools",
     "npm run ccsolver:cli -- --help",
     "npm run ccsolver:dossier -- --help",
@@ -327,38 +386,56 @@ test("runs the workspace foundation gate on pull requests", async () => {
   ]) {
     assert.match(workflow, new RegExp(command.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
+
+  const preflight = workflowJob(workflow, "ccsolver-p5-preflight");
+  assert.match(preflight, /needs: build-sdl1/);
+  assert.match(preflight, /actions\/download-artifact@v4/);
+  assert.match(preflight, /runExactKeyPyramidNativeReplay\.test\.ts/);
+  assert.match(preflight, /run: npm run ccsolver:p5:check:prepared/);
+  assert.doesNotMatch(preflight, /apt-get|cmake -S|ccsolver:p1b|ccsolver:p6a/);
+
+  const sdl = workflowJob(workflow, "build-sdl1");
+  assert.match(sdl, /timeout-minutes: 30/);
+  assert.match(sdl, /actions\/upload-artifact@v4/);
+  assert.match(sdl, /build-sdl\/legacy_c\/tworld-oracle/);
+
+  assert.match(workflowJob(workflow, "build-qt6"), /timeout-minutes: 40/);
+
+  for (const jobName of [
+    "ccsolver-workspace",
+    "ccsolver-p1b",
+    "ccsolver-reviews",
+    "ccsolver-p6a",
+    "browser-workspace",
+  ]) {
+    assert.match(workflowJob(workflow, jobName), /needs: ccsolver-p5-preflight/);
+  }
+  assert.doesNotMatch(workflowJob(workflow, "ccsolver-p1b"), /ccsolver:p5|ccsolver:p6a/);
+  assert.doesNotMatch(workflowJob(workflow, "ccsolver-p6a"), /ccsolver:p1b|ccsolver:p5/);
+
   assert.match(
-    workflow,
-    /- name: Check P1B full-corpus artifacts\n\s+timeout-minutes: 90\n\s+env:\n\s+TWORLD_P1B_ANALYSIS_JOBS: 4\n\s+run: npm run ccsolver:p1b:check/,
+    workflowJob(workflow, "ccsolver-p1b"),
+    /timeout-minutes: 90[\s\S]*TWORLD_P1B_ANALYSIS_JOBS: 4[\s\S]*run: npm run ccsolver:p1b:check:prepared/,
   );
   assert.match(
-    workflow,
-    /- name: Check P3 terminal planning and contextual witness artifacts\n\s+timeout-minutes: 10\n\s+run: npm run ccsolver:p3:check/,
+    workflowJob(workflow, "ccsolver-p6a"),
+    /timeout-minutes: 15[\s\S]*run: npm run ccsolver:p6a:check:prepared/,
   );
-  assert.match(
-    workflow,
-    /- name: Check P2A runtime observation artifacts\n\s+timeout-minutes: 10\n\s+run: npm run ccsolver:p2a:check/,
-  );
-  assert.match(
-    workflow,
-    /- name: Check P4A graphical subgoal evidence artifacts\n\s+timeout-minutes: 2\n\s+run: npm run ccsolver:p4a:check/,
-  );
-  assert.match(
-    workflow,
-    /- name: Build native replay oracle for P5[\s\S]*?sudo apt-get -y install cmake libsdl1\.2-dev[\s\S]*?cmake -S \. -B build-verify -DOSHW=sdl/,
-  );
-  assert.match(
-    workflow,
-    /- name: Check P5 certified Key Pyramid artifacts\n\s+timeout-minutes: 15\n\s+run: npm run ccsolver:p5:check/,
-  );
-  assert.match(
-    workflow,
-    /- name: Check P4B whole-level dossier artifacts\n\s+timeout-minutes: 5\n\s+run: npm run ccsolver:p4b:check/,
-  );
-  assert.match(
-    workflow,
-    /- name: Check P2B\/P6A causal alignment artifacts\n\s+timeout-minutes: 15\n\s+run: npm run ccsolver:p6a:check/,
-  );
+
+  const aggregate = workflowJob(workflow, "web-and-ccsolver");
+  assert.match(aggregate, /if: \$\{\{ always\(\) \}\}/);
+  for (const dependency of [
+    "ccsolver-p5-preflight",
+    "ccsolver-workspace",
+    "ccsolver-p1b",
+    "ccsolver-reviews",
+    "ccsolver-p6a",
+    "browser-workspace",
+  ]) {
+    assert.match(aggregate, new RegExp(dependency));
+  }
+  assert.match(aggregate, /result != 'success'/);
+  assert.doesNotMatch(aggregate, /actions\/checkout|npm ci|npm run build|npm test/);
 });
 
 test("registers the P5 certification and P4B whole-level review gates", async () => {
