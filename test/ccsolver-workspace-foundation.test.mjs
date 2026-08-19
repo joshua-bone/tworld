@@ -395,8 +395,11 @@ test("runs the workspace foundation gate on pull requests", async () => {
   assert.doesNotMatch(preflight, /apt-get|cmake -S|ccsolver:p1b|ccsolver:p6a/);
 
   const sdl = workflowJob(workflow, "build-sdl1");
+  assert.match(sdl, /timeout-minutes: 30/);
   assert.match(sdl, /actions\/upload-artifact@v4/);
   assert.match(sdl, /build-sdl\/legacy_c\/tworld-oracle/);
+
+  assert.match(workflowJob(workflow, "build-qt6"), /timeout-minutes: 40/);
 
   for (const jobName of [
     "ccsolver-workspace",
