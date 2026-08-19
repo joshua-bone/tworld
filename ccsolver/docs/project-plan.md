@@ -584,8 +584,9 @@ first real level and every later claim.
   configured Pages base path.
 - Exclude CCSolver routes from the player UI, homepage, and sitemap; add
   `noindex` metadata.
-- Build a fit-to-view whole-level renderer with authentic standard game
-  artwork, evidence overlays, and cropped locally numbered segment routes.
+- Build a full-width, fit-to-view whole-level renderer with authentic standard
+  game artwork, evidence overlays, and cropped segment routes whose labels can
+  switch between local and whole-route visit order.
 - Add layer, region, wiring, teleport, force/ice, resource, donor-path, and
   subgoal overlays.
 - Render human narrative, strategy portfolio, accessible graph table, subgoal
@@ -614,6 +615,9 @@ first real level and every later claim.
   dossier and replay certificates.
 - Every subgoal remains understandable from its two annotated boundary panels
   and textual evidence without interactive playback, GIF, or video.
+- Boundary summaries expose human-readable chips, keys, boots, player state,
+  and terminal state while machine identities and hashes remain in linked raw
+  evidence rather than the primary review surface.
 - When optional playback or media is generated, it is pinned, bounded, and
   deterministic for golden snippets.
 
@@ -957,6 +961,13 @@ generation as human approval.
 
 After that checkpoint is accepted, proceed with one large
 **P2B + P6A causal-alignment vertical slice** using ATDD:
+
+The phase label does not mean reverting the delivered vertical slice. P2A
+intentionally stopped at exact boundary-state perception; ordered causal event
+evidence was deferred. P3 through P5 could plan, witness, execute, and certify
+from exact states, but P6 alignment must not infer causality from chronology.
+P2B therefore names the missing event-perception capability that P6A consumes,
+and the two ship together as the next forward slice.
 
 1. define the bounded target-neutral causal event envelope and exact command,
    actor, placement, device, and terminal links without changing gameplay;

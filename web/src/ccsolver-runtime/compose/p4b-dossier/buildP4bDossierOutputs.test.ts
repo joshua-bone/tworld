@@ -91,6 +91,7 @@ describe("P4B checked Key Pyramid dossier", () => {
       `${P4B_CHECKED_OUTPUT_ROOT}/review.md`,
     ]);
     const checkedManifest = JSON.parse(decoder.decode(result.checkedOutputs[0]!.content));
+    const checkedReview = decoder.decode(result.checkedOutputs[1]!.content);
     expect(checkedManifest.reviewState).toEqual({ status: "unreviewed", humanApproved: false });
     expect(checkedManifest.counts).toMatchObject({
       targets: 2,
@@ -101,6 +102,10 @@ describe("P4B checked Key Pyramid dossier", () => {
       segmentRouteViews: 12,
       artworkAtlases: 2,
     });
+    expect(checkedReview).toContain("local or whole-route visit labels");
+    expect(checkedReview).toContain("chips, keys, boots, player state, and terminal state");
+    expect(checkedReview).not.toContain("sha256:");
+    expect(checkedReview).not.toContain("TWS digest");
   }, 30_000);
 
   it("toggles the hidden attribute on SVG overlay groups and restores checked visibility", () => {

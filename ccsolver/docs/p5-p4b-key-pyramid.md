@@ -80,8 +80,12 @@ artwork, an accessible plan graph and table, six cropped and locally numbered
 subgoal routes per target, 24 exact boundary records backed by 14 shared
 boundary scenes, exact join and timing tables, provenance, certificates, and
 downloadable TWS files. JavaScript progressively adds MS/Lynx tabs, a compact
-segment navigator, overlay toggles, and hover/focus/touch detail. There are no
-zoom sliders, autoplay, or fabricated animations.
+segment navigator with left/right-arrow shortcuts, switchable local or
+whole-route visit labels, overlay toggles, and hover/focus/touch detail.
+Boundary cards summarize chips, colored keys, boots, player state, and terminal
+state in human language. Integrity hashes remain in the linked machine
+artifacts and are not printed in the review UI. There are no zoom sliders,
+autoplay, or fabricated animations.
 
 The public unlisted level URL is
 `https://joshua-bone.github.io/tworld/dev/ccsolver/levels/cclp1/001-key-pyramid/`.
@@ -124,17 +128,19 @@ checked output bytes.
    region, resource/gate, plan-intent, and observed-boundary evidence while
    checking that semantic cell stacks remain literal.
 3. Walk all six cropped route segments for each target. Check the line and
-   local numbered visits, including repeated coordinates; every Ending State
-   must be the exact checked Starting State of the next capsule, with digest,
-   tick, coordinate, remaining-chip, and terminal evidence available under
-   disclosure.
+   both local and whole-route numbered visits, including repeated coordinates;
+   use the previous/next controls or left/right arrow keys. Every Ending State
+   must be the exact checked Starting State of the next capsule, with tick,
+   coordinate, chips, keys, boots, player state, and terminal evidence
+   available under disclosure. Machine identity and integrity hashes remain in
+   the linked raw evidence instead of the human summary.
 4. Inspect the terminal-first graph/table. Direct key, chip, socket, and exit
    prerequisites must be distinct from the noncausal chronological predecessor
    field; reusable green keys must not appear consumed.
 5. Confirm MS reports trigger/settle 644/644 and Lynx 647/660 rather than
    flattening the target timing difference.
-6. Download both TWS files and compare their displayed digest and certificate
-   reference with the P5 manifest.
+6. Download both TWS files and follow their human-labeled certificate and
+   manifest links when machine-level integrity inspection is needed.
 7. Confirm the donor ledger remains paired/full-input/manual-assisted and the
    page makes no donor-blind, score-optimal, full-causal-journal, or human-
    reviewed claim.

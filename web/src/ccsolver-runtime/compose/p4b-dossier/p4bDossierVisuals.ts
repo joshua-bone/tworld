@@ -44,6 +44,38 @@ const PANEL_CELL_SIZE = 48;
 const PANEL_CROP_RADIUS = 2;
 const SEGMENT_CROP_PADDING = 1;
 
+const HUMAN_SEMANTIC_LABELS = Object.freeze({
+  "cc1:chip": "Chip",
+  "cc1:door-blue": "Blue door",
+  "cc1:door-green": "Green door",
+  "cc1:door-red": "Red door",
+  "cc1:door-yellow": "Yellow door",
+  "cc1:exit": "Exit",
+  "cc1:floor": "Floor",
+  "cc1:hintbutton": "Hint tile",
+  "cc1:icchip": "Computer chip",
+  "cc1:key-blue": "Blue key",
+  "cc1:key-green": "Green key",
+  "cc1:key-red": "Red key",
+  "cc1:key-yellow": "Yellow key",
+  "cc1:socket": "Socket",
+  "cc1:wall": "Wall",
+} as const);
+
+const HUMAN_STRATUM_LABELS = Object.freeze({
+  actor: "actor layer",
+  pickup: "pickup layer",
+  terrain: "terrain layer",
+} as const);
+
+const HUMAN_EVENT_ACTIONS = Object.freeze({
+  "collect-chip": "Collect",
+  "collect-key": "Collect",
+  "open-door": "Open",
+  "open-socket": "Open",
+  "reach-exit": "Reach",
+} as const);
+
 const SVG_STYLESHEET = `<style>
   .map-background{fill:#10151b}
   .game-artwork-cell{shape-rendering:crispEdges}
@@ -61,6 +93,9 @@ const SVG_STYLESHEET = `<style>
   .route-visit-badge{cursor:help;pointer-events:all}
   .route-visit-badge rect{fill:#fff;fill-opacity:.9;stroke:#111;stroke-width:1.25;vector-effect:non-scaling-stroke}
   .route-visit-badge text,.segment-marker text{fill:#111;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-stretch:normal;font-variant-numeric:tabular-nums;font-weight:750;text-anchor:middle;dominant-baseline:middle}
+  .route-label--global{display:none}
+  [data-route-numbering="global"] .route-label--local{display:none}
+  [data-route-numbering="global"] .route-label--global{display:inline}
   .segment-marker{cursor:help;pointer-events:all}
   .segment-marker circle{stroke:#111;stroke-width:1.5;vector-effect:non-scaling-stroke}
   .segment-marker--start circle{fill:#b9fbc0}
@@ -88,25 +123,41 @@ function coordinatesEqual(left: Coordinate, right: Coordinate): boolean {
   return left.x === right.x && left.y === right.y && left.z === right.z;
 }
 
-function identityText(item: JsonRecord): string {
-  if (item.identity?.kind === "placement") return item.identity.placementId;
-  if (item.identity?.kind === "actor") return item.identity.actorId;
-  return item.identity?.semanticId ?? "unknown-identity";
+function humanSemanticLabel(semanticType: unknown): string {
+  const label = typeof semanticType === "string"
+    ? HUMAN_SEMANTIC_LABELS[semanticType as keyof typeof HUMAN_SEMANTIC_LABELS]
+    : undefined;
+  if (label === undefined) {
+    throw new Error(`P4B has no standard CC1 artwork mapping for ${String(semanticType)}`);
+  }
+  return label;
+}
+
+function humanStratumLabel(stratum: unknown): string {
+  const label = typeof stratum === "string"
+    ? HUMAN_STRATUM_LABELS[stratum as keyof typeof HUMAN_STRATUM_LABELS]
+    : undefined;
+  if (label === undefined) throw new Error(`P4B has no human label for stratum ${String(stratum)}`);
+  return label;
+}
+
+function humanEventAction(kind: unknown): string {
+  const label = typeof kind === "string"
+    ? HUMAN_EVENT_ACTIONS[kind as keyof typeof HUMAN_EVENT_ACTIONS]
+    : undefined;
+  if (label === undefined) throw new Error(`P4B has no human label for route event ${String(kind)}`);
+  return label;
 }
 
 function itemText(item: JsonRecord): string {
-  const details = [
-    `${item.semanticType} [${item.stratum}]`,
-    `identity ${identityText(item)}`,
-    `source ${item.source}`,
-  ];
+  const details = [`${humanSemanticLabel(item.semanticType)} — ${humanStratumLabel(item.stratum)}`];
   if (item.facing !== null) details.push(`facing ${item.facing}`);
-  if (item.state !== null) details.push(`state ${item.state}`);
-  return details.join(", ");
+  if (item.state !== null) details.push(String(item.state));
+  return details.join("; ");
 }
 
 function compactCellText(cell: JsonRecord): string {
-  const semantics = cell.items.map((item: JsonRecord) => item.semanticType).join(" + ");
+  const semantics = cell.items.map((item: JsonRecord) => humanSemanticLabel(item.semanticType)).join(" + ");
   return `Cell ${coordinateText(cell.coordinate)}: ${semantics || "no supplied semantic items"}`;
 }
 
@@ -129,7 +180,7 @@ function wholeLevelOverlays(target: VerifiedP5Target): readonly JsonRecord[] {
       kind: "region",
       basis: "static-topology",
       label: `Static region ${index + 1}`,
-      textEquivalent: `Checked static topology groups ${region.cellOrdinals.length} supplied cells as ${region.regionId}. This membership does not establish a traversable runtime path.`,
+      textEquivalent: `Checked static topology groups ${region.cellOrdinals.length} supplied cells into one region. This membership does not establish a traversable runtime path.`,
       regionId: region.regionId,
       cellOrdinalsOrder: "cell-ordinal",
       cellOrdinals: region.cellOrdinals,
@@ -144,8 +195,8 @@ function wholeLevelOverlays(target: VerifiedP5Target): readonly JsonRecord[] {
       overlayId: `overlay:key-pyramid:${target.target}:resource-source:${String(index).padStart(2, "0")}`,
       kind: "resource-source",
       basis: "source-fact",
-      label: `Resource source ${index + 1}: ${source.resourceType}`,
-      textEquivalent: `Checked source facts place amount ${source.amount} of ${source.resourceType} at ${coordinateText(coordinate as Coordinate)}.`,
+      label: `Resource source ${index + 1}: ${humanSemanticLabel(source.resourceType)}`,
+      textEquivalent: `Checked source facts place amount ${source.amount} of ${humanSemanticLabel(source.resourceType)} at ${coordinateText(coordinate as Coordinate)}.`,
       placementId: source.placementId,
       resourceType: source.resourceType,
       amount: source.amount,
@@ -161,8 +212,8 @@ function wholeLevelOverlays(target: VerifiedP5Target): readonly JsonRecord[] {
       overlayId: `overlay:key-pyramid:${target.target}:resource-gate:${String(index).padStart(2, "0")}`,
       kind: "resource-gate",
       basis: "source-fact",
-      label: `Resource gate ${index + 1}: ${gate.resourceType}`,
-      textEquivalent: `Checked source facts place a ${gate.kind} gate for ${gate.resourceType} at ${coordinateText(coordinate as Coordinate)}.`,
+      label: `Resource gate ${index + 1}: ${humanSemanticLabel(gate.resourceType)}`,
+      textEquivalent: `Checked source facts place a ${gate.kind} gate for ${humanSemanticLabel(gate.resourceType)} at ${coordinateText(coordinate as Coordinate)}.`,
       placementId: gate.placementId,
       resourceType: gate.resourceType,
       gateKind: gate.kind,
@@ -576,7 +627,7 @@ function plannedEventsAtVisits(
   const arrivalStepOrders = new Set(globalVisits.filter((visit) => visit > 0).map((visit) => visit - 1));
   return (target.route.events as JsonRecord[])
     .filter((event) => arrivalStepOrders.has(event.afterStepOrder))
-    .map((event) => `event ${event.eventOrder}: ${event.kind} ${event.semanticType} (plan intent)`);
+    .map((event) => `Event ${event.eventOrder + 1}: ${humanEventAction(event.kind)} — ${humanSemanticLabel(event.semanticType)} (plan intent)`);
 }
 
 function renderRouteVisitBadges(
@@ -594,19 +645,24 @@ function renderRouteVisitBadges(
       : cell.items.map((item: JsonRecord) => itemText(item)).join("; ");
     const artworkNames = cell.items.length === 0
       ? "empty-floor presentation underlay only"
-      : cell.items.map((item: JsonRecord) => item.semanticType).join(", ");
+      : cell.items.map((item: JsonRecord) => humanSemanticLabel(item.semanticType)).join(", ");
     const events = plannedEventsAtVisits(target, group.global);
-    const lines = wrapVisitLabels(group.local);
+    const localLines = wrapVisitLabels(group.local);
+    const globalLines = wrapVisitLabels(group.global);
+    const allLines = [...localLines, ...globalLines];
     const fontSize = 9;
     const lineHeight = 10;
-    const longest = Math.max(...lines.map((line) => line.length));
+    const longest = Math.max(...allLines.map((line) => line.length));
     const width = Math.min(SEGMENT_CELL_SIZE - 5, Math.max(18, longest * 5.6 + 8));
-    const height = Math.min(SEGMENT_CELL_SIZE - 5, lines.length * lineHeight + 6);
+    const height = Math.min(
+      SEGMENT_CELL_SIZE - 5,
+      Math.max(localLines.length, globalLines.length) * lineHeight + 6,
+    );
     const top = point.y - height / 2;
     const title = `Local visits ${group.local.join(", ")} at ${coordinateText(group.coordinate)}; corresponding whole-route visits ${group.global.join(", ")}. Ordered movement arrivals only; waits omitted.`;
     const detail = [
       title,
-      `Segment ${view.subgoalOrder + 1}: ${subgoal.title} (${subgoal.subgoalId}).`,
+      `Segment ${view.subgoalOrder + 1}: ${subgoal.title}.`,
       `Starting boundary ${String(view.sceneBoundaryOrder).padStart(2, "0")} at native tick ${sceneTick}.`,
       `Artwork tiles: ${artworkNames}.`,
       `Exact starting-scene semantic stack: ${exactStack}.`,
@@ -617,8 +673,11 @@ function renderRouteVisitBadges(
       `<g class="route-visit-badge" tabindex="0" data-local-visits="${group.local.join(",")}" data-global-visits="${group.global.join(",")}" data-coordinate="${group.coordinate.x},${group.coordinate.y},${group.coordinate.z}" data-route-detail="${escapeXml(detail)}" data-tooltip="${escapeXml(title)}" aria-label="${escapeXml(detail)}">`,
       `<title>${escapeXml(detail)}</title>`,
       `<rect x="${point.x - width / 2}" y="${top}" width="${width}" height="${height}" rx="4"/>`,
-      ...lines.map((line, lineIndex) => (
-        `<text x="${point.x}" y="${top + 6 + lineIndex * lineHeight + lineHeight / 2}" font-size="${fontSize}">${escapeXml(line)}</text>`
+      ...localLines.map((line, lineIndex) => (
+        `<text class="route-label route-label--local" x="${point.x}" y="${point.y + (lineIndex - (localLines.length - 1) / 2) * lineHeight}" font-size="${fontSize}">${escapeXml(line)}</text>`
+      )),
+      ...globalLines.map((line, lineIndex) => (
+        `<text class="route-label route-label--global" x="${point.x}" y="${point.y + (lineIndex - (globalLines.length - 1) / 2) * lineHeight}" font-size="${fontSize}">${escapeXml(line)}</text>`
       )),
       "</g>",
     ].join("");
@@ -657,22 +716,29 @@ export function renderKeyPyramidSegmentSvg(
   const height = rows * SEGMENT_CELL_SIZE;
   const targetLabel = target.target === "ms" ? "MS" : "Lynx";
   const segmentLabel = String(subgoalOrder + 1).padStart(2, "0");
-  const description = `${targetLabel} Key Pyramid segment ${segmentLabel}. Starting boundary ${String(view.sceneBoundaryOrder).padStart(2, "0")} artwork substrate. The complete segment route is plan intent and uses local visit numbers 0 through ${view.routeCoordinates.length - 1}; waits are omitted. Exact observed start and end coordinates are marked separately. End marker is exact observed coordinate evidence; the underlying artwork remains the starting scene. Transparent standard game sprites use a presentation-only empty-floor artwork underlay that is not added to the exact semantic stack.`;
+  const description = `${targetLabel} Key Pyramid segment ${segmentLabel}. Starting boundary ${String(view.sceneBoundaryOrder).padStart(2, "0")} artwork substrate. The complete segment route is plan intent and defaults to local visit numbers 0 through ${view.routeCoordinates.length - 1}; corresponding whole-route visit numbers are also embedded, and waits are omitted. Exact observed start and end coordinates are marked separately. End marker is exact observed coordinate evidence; the underlying artwork remains the starting scene. Transparent standard game sprites use a presentation-only empty-floor artwork underlay that is not added to the exact semantic stack.`;
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" class="p4b-artwork-root p4b-segment-artwork" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="p4b-${target.target}-segment-${subgoalOrder}-title p4b-${target.target}-segment-${subgoalOrder}-description" data-artwork-source="${escapeXml(artwork.sourcePath)}" data-subgoal-order="${subgoalOrder}" data-scene-boundary-order="${view.sceneBoundaryOrder}" data-crop="${view.crop.minimumX},${view.crop.minimumY},${view.crop.maximumX},${view.crop.maximumY}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" class="p4b-artwork-root p4b-segment-artwork" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="p4b-${target.target}-segment-${subgoalOrder}-title p4b-${target.target}-segment-${subgoalOrder}-description" data-artwork-source="${escapeXml(artwork.sourcePath)}" data-subgoal-order="${subgoalOrder}" data-scene-boundary-order="${view.sceneBoundaryOrder}" data-crop="${view.crop.minimumX},${view.crop.minimumY},${view.crop.maximumX},${view.crop.maximumY}" data-route-numbering="local">`,
     `<title id="p4b-${target.target}-segment-${subgoalOrder}-title">${escapeXml(`${targetLabel} Key Pyramid segment ${segmentLabel}`)}</title>`,
     `<desc id="p4b-${target.target}-segment-${subgoalOrder}-description">${escapeXml(description)}</desc>`,
     `<metadata>${escapeXml(JSON.stringify({
       artwork: { expandedArtworkIncluded: false, sourcePath: artwork.sourcePath, target: artwork.target },
       crop: view.crop,
       evidence: { endMarker: "observed-witness-coordinate", route: "plan-intent", sceneBoundaryOrder: view.sceneBoundaryOrder },
-      numbering: { localStart: 0, localEnd: view.routeCoordinates.length - 1, waits: "omitted" },
+      numbering: {
+        default: "local",
+        globalStart: view.globalVisitOrders[0],
+        globalEnd: view.globalVisitOrders.at(-1),
+        localStart: 0,
+        localEnd: view.routeCoordinates.length - 1,
+        waits: "omitted",
+      },
       scene: scene.renderContent,
     }))}</metadata>`,
     SVG_STYLESHEET,
     `<rect class="map-background" width="${width}" height="${height}"/>`,
     renderArtworkCells(scene, view.crop, SEGMENT_CELL_SIZE, artwork),
-    `<g class="overlay overlay--plan-intent-route" data-tooltip="Complete segment route: plan intent; waits omitted"><title>Complete segment route line and local movement visit order. Plan intent; not intermediate observed evidence. Waits omitted.</title>${routeLines(view.routeCoordinates, view.crop, SEGMENT_CELL_SIZE)}${renderRouteVisitBadges(target, view, scene)}</g>`,
+    `<g class="overlay overlay--plan-intent-route" data-tooltip="Complete segment route: plan intent; waits omitted"><title>Complete segment route line and selected movement visit order; local numbering is the default. Plan intent; not intermediate observed evidence. Waits omitted.</title>${routeLines(view.routeCoordinates, view.crop, SEGMENT_CELL_SIZE)}${renderRouteVisitBadges(target, view, scene)}</g>`,
     renderObservedSegmentBoundaries(target, view),
     "</svg>",
   ].join("\n");

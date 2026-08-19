@@ -53,6 +53,9 @@ After `npm run build`, copy the normal SPA fallback and run
 `web/dist/dev/ccsolver/`. The dossier remains absent from the Tile World
 homepage, player navigation, and sitemap. Its public Key Pyramid URL is
 `https://joshua-bone.github.io/tworld/dev/ccsolver/levels/cclp1/001-key-pyramid/`.
+The review UI fills the available viewport, supports MS/Lynx tabs and
+arrow-key segment navigation, and can label each cropped route with either
+local or whole-route visit numbers.
 See the
 [P5/P4B Key Pyramid review guide](./ccsolver/docs/p5-p4b-key-pyramid.md) for the
 evidence limits and human review checkpoints.
