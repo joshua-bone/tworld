@@ -1,7 +1,7 @@
 export const P4B_STATIC_DOCUMENTS = Object.freeze({
-  "ccsolver/": "ccsolver/index.html",
-  "ccsolver/levels/cclp1/001-key-pyramid/":
-    "ccsolver/levels/cclp1/001-key-pyramid/index.html",
+  "dev/ccsolver/": "dev/ccsolver/index.html",
+  "dev/ccsolver/levels/cclp1/001-key-pyramid/":
+    "dev/ccsolver/levels/cclp1/001-key-pyramid/index.html",
 } as const);
 
 export type P4bStaticRouteResolution =
@@ -26,7 +26,7 @@ export function resolveP4bStaticRoute(
   const absoluteBase = `/${normalizedBase}`;
   if (!pathname.startsWith(absoluteBase)) return { kind: "not-dossier" };
   const relative = pathname.slice(absoluteBase.length);
-  if (relative !== "ccsolver" && !relative.startsWith("ccsolver/")) {
+  if (relative !== "dev/ccsolver" && !relative.startsWith("dev/ccsolver/")) {
     return { kind: "not-dossier" };
   }
   const exact = P4B_STATIC_DOCUMENTS[relative as keyof typeof P4B_STATIC_DOCUMENTS];
@@ -45,7 +45,7 @@ export function resolveP4bStaticRoute(
  * through unchanged.
  */
 export function createP4bStaticFallbackScript(): string {
-  return `(()=>{const p=location.pathname;const known=["/ccsolver","/ccsolver/levels/cclp1/001-key-pyramid"];const hit=known.find((suffix)=>p.endsWith(suffix));if(hit!==undefined){location.replace(p+"/"+location.search+location.hash);return}const marker="/ccsolver/";const at=p.indexOf(marker);if(at<0&& !p.endsWith("/ccsolver"))return;document.open();document.write(${JSON.stringify([
+  return `(()=>{const p=location.pathname;const known=["/dev/ccsolver","/dev/ccsolver/levels/cclp1/001-key-pyramid"];const hit=known.find((suffix)=>p.endsWith(suffix));if(hit!==undefined){location.replace(p+"/"+location.search+location.hash);return}const marker="/dev/ccsolver/";const at=p.indexOf(marker);if(at<0&& !p.endsWith("/dev/ccsolver"))return;document.open();document.write(${JSON.stringify([
     "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">",
     "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
     "<meta name=\"robots\" content=\"noindex,nofollow\"><title>Dossier not found</title>",

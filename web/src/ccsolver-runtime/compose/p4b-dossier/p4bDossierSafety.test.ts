@@ -13,7 +13,7 @@ describe("P4B destructive-operation scope", () => {
         repositoryRoot,
         "ccsolver/fixtures/golden/p4b/cclp1-001",
       ),
-      distOutputRoot: resolve(repositoryRoot, "web/dist/ccsolver"),
+      distOutputRoot: resolve(repositoryRoot, "web/dist/dev/ccsolver"),
     });
     expect(targets.checkedOutputRoot).not.toBe(targets.repositoryCcsolverRoot);
     expect(targets.distOutputRoot).not.toBe(targets.repositoryCcsolverRoot);

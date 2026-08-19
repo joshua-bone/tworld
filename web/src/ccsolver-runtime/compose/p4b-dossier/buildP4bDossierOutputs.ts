@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { WebCryptoSha256 } from "@tworld/ccsolver/adapters/web-crypto";
 import { referenceSourceBytes } from "@tworld/ccsolver/application";
 import { canonicalizeJson, type CanonicalJsonValue } from "@tworld/ccsolver/domain";
@@ -15,11 +17,19 @@ import {
 } from "./p4bDossierPage";
 import {
   renderExactBoundaryPanelSvg,
+  renderKeyPyramidSegmentSvg,
   renderKeyPyramidWholeLevelSvg,
 } from "./p4bDossierVisuals";
+import {
+  bindP4bLegacyArtworkHref,
+  createP4bLegacyArtworkSheet,
+  type P4bArtworkTarget,
+  type P4bLegacyArtworkSheet,
+} from "./p4bLegacyArtwork";
 
 export const P4B_CHECKED_OUTPUT_ROOT = "ccsolver/fixtures/golden/p4b/cclp1-001" as const;
-export const P4B_LEVEL_ROUTE = "ccsolver/levels/cclp1/001-key-pyramid" as const;
+export const P4B_DIST_ROOT = "dev/ccsolver" as const;
+export const P4B_LEVEL_ROUTE = `${P4B_DIST_ROOT}/levels/cclp1/001-key-pyramid` as const;
 
 const encoder = new TextEncoder();
 
@@ -27,6 +37,7 @@ export type P4bDossierMediaType =
   | "application/json"
   | "application/javascript"
   | "application/vnd.tworld.tws"
+  | "image/png"
   | "image/svg+xml"
   | "text/css"
   | "text/html"
@@ -85,7 +96,7 @@ async function contentAddressedAsset(input: {
   return {
     filename,
     output: {
-      path: `ccsolver/assets/${filename}`,
+      path: `${P4B_DIST_ROOT}/assets/${filename}`,
       mediaType: input.mediaType,
       content: input.content,
     },
@@ -97,7 +108,7 @@ function p5DataPath(sourcePath: string): string {
   if (!sourcePath.startsWith(prefix)) {
     throw new Error(`P4B cannot publish non-P5 checked path: ${sourcePath}`);
   }
-  return `ccsolver/data/p5/${sourcePath.slice(prefix.length)}`;
+  return `${P4B_DIST_ROOT}/data/p5/${sourcePath.slice(prefix.length)}`;
 }
 
 async function outputReference(output: P4bDossierOutput, sha256: WebCryptoSha256) {
@@ -119,11 +130,11 @@ function renderCheckedReview(source: VerifiedP5DossierInput, distFileCount: numb
     "",
     "## Big-picture checkpoint",
     "",
-    "P4B turns the checked P5 proof into a static-first human review surface. Machine verification is complete; human review remains `unreviewed` until a person checks the paired maps, all 12 target-specific subgoal capsules, and all 24 start/end panel instances.",
+    "P4B turns the checked P5 proof into a static-first human review surface. Machine verification is complete; human review remains `unreviewed` until a person checks the paired artwork maps, all 12 cropped and numbered route segments, and all 24 exact boundary records.",
     "",
     "## Evidence boundary",
     "",
-    `P4B verified all ${source.sourceAudit.checkedP5FilesVerified} files listed by \`${source.manifestPath}\` by exact byte length and SHA-256 before composition. It read no P1 or P3 file and ran no engine. The full route line is plan intent; observed evidence is restricted to exact boundary captures.`,
+    `P4B verified all ${source.sourceAudit.checkedP5FilesVerified} files listed by \`${source.manifestPath}\` by exact byte length and SHA-256 before composition. It read no P1 or P3 file and ran no engine. Gameplay evidence comes only from checked P5 bytes; presentation artwork is digest-bound from \`res/tiles.bmp\` and \`res/atiles.bmp\`, with expanded artwork excluded. The full route line is plan intent; observed evidence is restricted to exact boundary captures.`,
     "",
     "| Target | Route steps | Capsules | Unique boundaries | Trigger tick | Trace-settled tick | Complete TWS digest |",
     "|---|---:|---:|---:|---:|---:|---|",
@@ -131,12 +142,13 @@ function renderCheckedReview(source: VerifiedP5DossierInput, distFileCount: numb
     "",
     "## Human review checkpoints",
     "",
-    "1. Compare both literal 32×32 initial maps and their evidence-basis legends.",
-    "2. Review six adjacent start/end pairs for MS and six for Lynx; each pair is an exact same-run join.",
-    "3. Check the literal cell stacks, remaining-chip counts, resource/gate route events, socket, and won exit boundary.",
-    "4. Confirm the MS 644/644 and Lynx 647/660 trigger/trace-settlement distinction.",
-    "5. Download both complete TWS files and follow their digests to the checked certificate/report bytes.",
-    "6. Retain the paired/full-input/manual-assisted donor disclosure; this is not donor-blind.",
+    "1. Compare both 32×32 initial maps rendered with their corresponding standard MS/Lynx artwork and evidence overlays.",
+    "2. Use the target tabs and six-step navigator; each cropped segment shows its complete plan-intent line and local ordered visits.",
+    "3. Review six adjacent start/end pairs for MS and six for Lynx; each pair is an exact same-run join.",
+    "4. Check the literal cell stacks, remaining-chip counts, resource/gate route events, socket, and won exit boundary.",
+    "5. Confirm the MS 644/644 and Lynx 647/660 trigger/trace-settlement distinction.",
+    "6. Download both complete TWS files and follow their digests to the checked certificate/report bytes.",
+    "7. Retain the paired/full-input/manual-assisted donor disclosure; this is not donor-blind.",
     "",
     `The generated static bundle contains ${distFileCount} bounded files and uses relative links for both root and repository Pages bases. JavaScript is optional display enhancement only.`,
     "",
@@ -147,6 +159,7 @@ export async function buildP4bDossierOutputs(
   repositoryRoot: string,
   options: {
     readonly readBytes?: P5ReadBytes;
+    readonly readArtworkBytes?: P5ReadBytes;
     readonly sha256?: WebCryptoSha256;
   } = {},
 ): Promise<P4bDossierBuild> {
@@ -170,23 +183,87 @@ export async function buildP4bDossierOutputs(
     sha256,
   });
   const assetOutputs: P4bDossierOutput[] = [cssAsset.output, jsAsset.output];
+  const artworkSheets = new Map<P4bArtworkTarget, P4bLegacyArtworkSheet>();
+  const artworkAssets = new Map<P4bArtworkTarget, string>();
+  const artworkSources = new Map<P4bArtworkTarget, {
+    readonly sourcePath: "res/tiles.bmp" | "res/atiles.bmp";
+    readonly sourceContent: Awaited<ReturnType<typeof referenceSourceBytes>>;
+    readonly publishedContent: Awaited<ReturnType<typeof referenceSourceBytes>>;
+  }>();
+  const readArtworkBytes = options.readArtworkBytes ?? (async (path: string) => (
+    new Uint8Array(await readFile(path))
+  ));
+  for (const artworkSource of [
+    { target: "ms", sourcePath: "res/tiles.bmp" },
+    { target: "lynx", sourcePath: "res/atiles.bmp" },
+  ] as const) {
+    const sourceBytes = await readArtworkBytes(resolve(repositoryRoot, artworkSource.sourcePath));
+    const sheet = createP4bLegacyArtworkSheet({ ...artworkSource, bytes: sourceBytes });
+    const asset = await contentAddressedAsset({
+      stem: `standard-artwork-${artworkSource.target}`,
+      extension: "png",
+      mediaType: "image/png",
+      content: sheet.pngBytes,
+      sha256,
+    });
+    artworkSheets.set(artworkSource.target, sheet);
+    artworkAssets.set(artworkSource.target, asset.filename);
+    artworkSources.set(artworkSource.target, {
+      sourcePath: artworkSource.sourcePath,
+      sourceContent: await referenceSourceBytes(sourceBytes, sha256),
+      publishedContent: await referenceSourceBytes(sheet.pngBytes, sha256),
+    });
+    assetOutputs.push(asset.output);
+  }
   const fullMapSvgs = new Map<string, string>();
   const fullMapAssets = new Map<string, string>();
   const panelAssets = new Map<string, string>();
+  const segmentSvgs = new Map<string, string>();
+  const segmentAssets = new Map<string, string>();
   for (const target of source.targets) {
-    const fullMapSvg = renderKeyPyramidWholeLevelSvg(target);
+    const artworkSheet = artworkSheets.get(target.target);
+    const artworkAssetName = artworkAssets.get(target.target);
+    if (artworkSheet === undefined || artworkAssetName === undefined) {
+      throw new Error(`${target.target} P4B standard artwork asset missing`);
+    }
+    const standaloneArtwork = bindP4bLegacyArtworkHref(artworkSheet, artworkAssetName);
+    const embeddedArtwork = bindP4bLegacyArtworkHref(
+      artworkSheet,
+      `../../../assets/${artworkAssetName}`,
+    );
+    const fullMapSvg = renderKeyPyramidWholeLevelSvg(target, embeddedArtwork);
+    const standaloneFullMapSvg = renderKeyPyramidWholeLevelSvg(target, standaloneArtwork);
     const fullMapAsset = await contentAddressedAsset({
       stem: `key-pyramid-${target.target}`,
       extension: "svg",
       mediaType: "image/svg+xml",
-      content: utf8(fullMapSvg),
+      content: utf8(standaloneFullMapSvg),
       sha256,
     });
     fullMapSvgs.set(target.target, fullMapSvg);
     fullMapAssets.set(target.target, fullMapAsset.filename);
     assetOutputs.push(fullMapAsset.output);
+    for (let subgoalOrder = 0; subgoalOrder < 6; subgoalOrder += 1) {
+      const key = `${target.target}:${subgoalOrder}`;
+      const segmentSvg = renderKeyPyramidSegmentSvg(target, subgoalOrder, embeddedArtwork);
+      const standaloneSegmentSvg = renderKeyPyramidSegmentSvg(
+        target,
+        subgoalOrder,
+        standaloneArtwork,
+      );
+      const segmentAsset = await contentAddressedAsset({
+        stem: `segment-${target.target}-${String(subgoalOrder + 1).padStart(2, "0")}`,
+        extension: "svg",
+        mediaType: "image/svg+xml",
+        content: utf8(standaloneSegmentSvg),
+        sha256,
+      });
+      segmentSvgs.set(key, segmentSvg);
+      segmentAssets.set(key, segmentAsset.filename);
+      assetOutputs.push(segmentAsset.output);
+    }
     for (let boundaryOrder = 0; boundaryOrder < 7; boundaryOrder += 1) {
-      const panelSvg = renderExactBoundaryPanelSvg(target, boundaryOrder);
+      const panelSvg = renderExactBoundaryPanelSvg(target, boundaryOrder, standaloneArtwork);
       const panelAsset = await contentAddressedAsset({
         stem: `boundary-${target.target}-${String(boundaryOrder).padStart(2, "0")}`,
         extension: "svg",
@@ -200,7 +277,7 @@ export async function buildP4bDossierOutputs(
   }
 
   const dataOutputs: P4bDossierOutput[] = [{
-    path: "ccsolver/data/p5/manifest.json",
+    path: `${P4B_DIST_ROOT}/data/p5/manifest.json`,
     mediaType: "application/json",
     content: source.manifestBytes,
   }];
@@ -218,7 +295,7 @@ export async function buildP4bDossierOutputs(
     const filename = `key-pyramid-${target.target}-${digest}.tws`;
     twsDownloads.set(target.target, filename);
     downloadOutputs.push({
-      path: `ccsolver/downloads/${filename}`,
+      path: `${P4B_DIST_ROOT}/downloads/${filename}`,
       mediaType: "application/vnd.tworld.tws",
       content: target.files.tws.bytes,
     });
@@ -227,8 +304,8 @@ export async function buildP4bDossierOutputs(
     routesType: "p4b-static-routes",
     routesVersion: 1,
     routes: [
-      { route: "/ccsolver/", document: "ccsolver/index.html" },
-      { route: "/ccsolver/levels/cclp1/001-key-pyramid/", document: `${P4B_LEVEL_ROUTE}/index.html` },
+      { route: "/dev/ccsolver/", document: `${P4B_DIST_ROOT}/index.html` },
+      { route: "/dev/ccsolver/levels/cclp1/001-key-pyramid/", document: `${P4B_LEVEL_ROUTE}/index.html` },
     ],
     basePolicy: "relative-links-support-root-and-repository-pages",
     unknownDossierRoute: "noindex-static-404",
@@ -240,13 +317,10 @@ export async function buildP4bDossierOutputs(
     fullMapSvgs,
     fullMapAssets,
     panelAssets,
+    segmentSvgs,
+    segmentAssets,
     twsDownloads,
-  }).replace(
-    "<h2 id=\"checkpoint-title\">What can be human-checked here</h2>",
-    "<h2 id=\"checkpoint-title\">What can be human-checked here</h2>"
-      + "<p>Twelve target-specific capsules contain 24 exact start/end panel instances "
-      + "backed by 14 unique checked boundary scenes.</p>",
-  );
+  });
   const pageOutput: P4bDossierOutput = {
     path: `${P4B_LEVEL_ROUTE}/index.html`,
     mediaType: "text/html",
@@ -257,15 +331,36 @@ export async function buildP4bDossierOutputs(
     ...dataOutputs,
     ...downloadOutputs,
     {
-      path: "ccsolver/index.html",
+      path: `${P4B_DIST_ROOT}/index.html`,
       mediaType: "text/html",
       content: utf8(renderP4bDossierIndex({ cssAsset: cssAsset.filename })),
     },
-    { path: "ccsolver/routes.v1.json", mediaType: "application/json", content: json(routes) },
+    { path: `${P4B_DIST_ROOT}/routes.v1.json`, mediaType: "application/json", content: json(routes) },
     pageOutput,
   ]);
   const initialReferences = await Promise.all(initialDist.map((output) => outputReference(output, sha256)));
   const sourceManifestContent = await referenceSourceBytes(source.manifestBytes, sha256);
+  const artworkReferences = (["ms", "lynx"] as const).map((target) => {
+    const sourceReference = artworkSources.get(target);
+    const assetName = artworkAssets.get(target);
+    if (sourceReference === undefined || assetName === undefined) {
+      throw new Error(`${target} P4B artwork provenance missing`);
+    }
+    return {
+      target,
+      source: {
+        path: sourceReference.sourcePath,
+        content: sourceReference.sourceContent,
+      },
+      published: {
+        path: `${P4B_DIST_ROOT}/assets/${assetName}`,
+        mediaType: "image/png",
+        content: sourceReference.publishedContent,
+      },
+      role: "standard-runtime-artwork-presentation-only",
+      expandedArtworkIncluded: false,
+    } as const;
+  });
   const bundleManifestValue = {
     manifestType: "p4b-static-dossier-bundle",
     manifestVersion: 1,
@@ -277,6 +372,8 @@ export async function buildP4bDossierOutputs(
       p1Reads: 0,
       p3Reads: 0,
       engineRuns: 0,
+      gameplayEvidence: "checked-p5-only",
+      artwork: artworkReferences,
     },
     counts: {
       targets: 2,
@@ -284,13 +381,15 @@ export async function buildP4bDossierOutputs(
       renderedPanelInstances: 24,
       uniqueBoundaryPanels: 14,
       fullMapViews: 2,
+      segmentRouteViews: 12,
+      artworkAtlases: 2,
       filesExcludingManifest: initialDist.length,
     },
     routes: routes.routes,
     files: initialReferences,
   } as const;
   const bundleManifestOutput: P4bDossierOutput = {
-    path: "ccsolver/manifest.v1.json",
+    path: `${P4B_DIST_ROOT}/manifest.v1.json`,
     mediaType: "application/json",
     content: json(bundleManifestValue),
   };
@@ -310,12 +409,17 @@ export async function buildP4bDossierOutputs(
       donorBlind: false,
       generatedReplayBytesCopiedFromDonor: false,
       donorReplayInputReadByGenerator: false,
+      gameplayEvidence: "checked-p5-only",
+      artwork: artworkReferences,
     },
     evidencePolicy: {
       routeLine: "plan-intent-not-per-step-observed",
       observedWitness: "exact-captured-boundary-endpoints-only",
       staticTopologyDoesNotEstablishRuntimeCausality: true,
       rendererInventsNoTiles: true,
+      artworkProjection: "standard-runtime-atlas-presentation-only",
+      artworkDoesNotAlterSemanticStack: true,
+      expandedArtworkIncluded: false,
     },
     counts: {
       targets: 2,
@@ -323,6 +427,8 @@ export async function buildP4bDossierOutputs(
       renderedPanelInstances: 24,
       uniqueBoundaryPanels: 14,
       fullMapViews: 2,
+      segmentRouteViews: 12,
+      artworkAtlases: 2,
       distFiles: distOutputs.length,
     },
     targets: source.targets.map((target) => ({

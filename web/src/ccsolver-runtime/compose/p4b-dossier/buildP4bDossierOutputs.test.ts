@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildP4bDossierOutputs,
   P4B_CHECKED_OUTPUT_ROOT,
+  P4B_DIST_ROOT,
   P4B_LEVEL_ROUTE,
 } from "./buildP4bDossierOutputs";
 import {
@@ -23,7 +24,7 @@ const repositoryRoot = resolve(import.meta.dirname, "../../../../..");
 const decoder = new TextDecoder();
 
 describe("P4B checked Key Pyramid dossier", () => {
-  it("builds the complete static-first human review page only from checked P5 bytes", async () => {
+  it("builds the complete static-first review with checked-P5 gameplay evidence and pinned standard artwork", async () => {
     const result = await buildP4bDossierOutputs(repositoryRoot);
     const paths = result.distOutputs.map(({ path }) => path);
     const page = result.distOutputs.find(({ path }) => path === `${P4B_LEVEL_ROUTE}/index.html`);
@@ -36,15 +37,19 @@ describe("P4B checked Key Pyramid dossier", () => {
       p3Reads: 0,
       engineRuns: 0,
     });
-    expect(paths).toContain("ccsolver/index.html");
-    expect(paths).toContain("ccsolver/routes.v1.json");
+    expect(paths).toContain(`${P4B_DIST_ROOT}/index.html`);
+    expect(paths).toContain(`${P4B_DIST_ROOT}/routes.v1.json`);
     expect(paths).toContain(`${P4B_LEVEL_ROUTE}/index.html`);
-    expect(paths.filter((path) => /^ccsolver\/assets\/key-pyramid-(ms|lynx)-[a-f0-9]{64}\.svg$/u.test(path)))
+    expect(paths.filter((path) => /^dev\/ccsolver\/assets\/standard-artwork-(ms|lynx)-[a-f0-9]{64}\.png$/u.test(path)))
       .toHaveLength(2);
-    expect(paths.filter((path) => /^ccsolver\/assets\/boundary-(ms|lynx)-\d\d-[a-f0-9]{64}\.svg$/u.test(path)))
+    expect(paths.filter((path) => /^dev\/ccsolver\/assets\/key-pyramid-(ms|lynx)-[a-f0-9]{64}\.svg$/u.test(path)))
+      .toHaveLength(2);
+    expect(paths.filter((path) => /^dev\/ccsolver\/assets\/segment-(ms|lynx)-\d\d-[a-f0-9]{64}\.svg$/u.test(path)))
+      .toHaveLength(12);
+    expect(paths.filter((path) => /^dev\/ccsolver\/assets\/boundary-(ms|lynx)-\d\d-[a-f0-9]{64}\.svg$/u.test(path)))
       .toHaveLength(14);
-    expect(paths.filter((path) => path.startsWith("ccsolver/data/p5/"))).toHaveLength(33);
-    expect(paths.filter((path) => path.endsWith(".tws") && path.startsWith("ccsolver/downloads/")))
+    expect(paths.filter((path) => path.startsWith(`${P4B_DIST_ROOT}/data/p5/`))).toHaveLength(33);
+    expect(paths.filter((path) => path.endsWith(".tws") && path.startsWith(`${P4B_DIST_ROOT}/downloads/`)))
       .toHaveLength(2);
 
     expect(page?.mediaType).toBe("text/html");
@@ -52,10 +57,13 @@ describe("P4B checked Key Pyramid dossier", () => {
     expect(html).toContain("Key Pyramid · verified whole-level dossier");
     expect(html).toContain("Human review: unreviewed");
     expect(html).toContain("This dossier is not donor-blind");
-    expect(html).toContain("24 exact start/end panel instances");
+    expect(html).toContain("24 exact boundary records");
     expect(html.match(/class="boundary-panel"/gu)).toHaveLength(24);
     expect(html.match(/class="subgoal-capsule"/gu)).toHaveLength(12);
     expect(html.match(/class="whole-map"/gu)).toHaveLength(2);
+    expect(html.match(/class="segment-panel"/gu)).toHaveLength(12);
+    expect(html.match(/role="tab" data-ruleset-tab/gu)).toHaveLength(2);
+    expect(html.match(/role="tab" data-segment-tab/gu)).toHaveLength(12);
     expect(html).toContain("MS trigger/settled tick");
     expect(html).toContain("Lynx trigger/settled tick");
     expect(html).toContain("Exact same-run joins");
@@ -67,9 +75,12 @@ describe("P4B checked Key Pyramid dossier", () => {
     expect(html.match(/class="plan-node"/gu)).toHaveLength(58);
     expect(html).toContain("No tile or causal relationship is inferred by this page");
     expect(html).toContain("<noscript>This complete dossier does not require JavaScript.</noscript>");
-    expect(html.match(/<input type="checkbox" checked/gu)).toHaveLength(4);
-    expect(html).not.toMatch(/<input type="checkbox"(?! checked)/u);
-    expect(html.match(/<input type="range"[^>]*value="100"/gu)).toHaveLength(2);
+    expect(html).not.toContain('type="range"');
+    expect(html).not.toContain("SOURCE FACT");
+    expect(html).toContain("standard MS game artwork");
+    expect(html).toContain("standard Lynx game artwork");
+    expect(html).toContain("data-route-detail=");
+    expect(html).not.toMatch(/<svg[^>]*\bclass="[^"]*"[^>]*\bclass="/u);
     expect(html).not.toContain("autoplay");
     expect(html).not.toContain("sitemap");
     expect(html).not.toMatch(/(?:href|src)=["'][^"']*(?:player|index-[^"']+\.js)/u);
@@ -87,6 +98,8 @@ describe("P4B checked Key Pyramid dossier", () => {
       renderedPanelInstances: 24,
       uniqueBoundaryPanels: 14,
       fullMapViews: 2,
+      segmentRouteViews: 12,
+      artworkAtlases: 2,
     });
   }, 30_000);
 
@@ -181,9 +194,15 @@ describe("P4B checked Key Pyramid dossier", () => {
       },
     };
     const panelAssets = new Map<string, string>();
+    const segmentSvgs = new Map<string, string>();
+    const segmentAssets = new Map<string, string>();
     for (const target of ["ms", "lynx"]) {
       for (let boundaryOrder = 0; boundaryOrder < 7; boundaryOrder += 1) {
         panelAssets.set(`${target}:${boundaryOrder}`, `${target}-${boundaryOrder}.svg`);
+      }
+      for (let segmentOrder = 0; segmentOrder < 6; segmentOrder += 1) {
+        segmentSvgs.set(`${target}:${segmentOrder}`, `<svg data-segment="${target}:${segmentOrder}"></svg>`);
+        segmentAssets.set(`${target}:${segmentOrder}`, `${target}-segment-${segmentOrder}.svg`);
       }
     }
 
@@ -194,6 +213,8 @@ describe("P4B checked Key Pyramid dossier", () => {
       fullMapSvgs: new Map([["ms", "<svg ></svg>"], ["lynx", "<svg ></svg>"]]),
       fullMapAssets: new Map([["ms", "ms.svg"], ["lynx", "lynx.svg"]]),
       panelAssets,
+      segmentSvgs,
+      segmentAssets,
       twsDownloads: new Map([["ms", "ms.tws"], ["lynx", "lynx.tws"]]),
     })).toThrow(/exact 29-edge selected-route predecessor-state chain/u);
   }, 30_000);

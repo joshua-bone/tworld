@@ -6,8 +6,9 @@ P5 and P4B close the first complete, human-reviewable CCSolver vertical slice
 for CCLP1 level 1, Key Pyramid. P5 turns the earlier static theory and local
 witnesses into one uninterrupted winning execution per ruleset, complete TWS
 files, and TypeScript/native replay certificates. P4B consumes only those
-checked P5 bytes and turns them into the unlisted whole-level dossier under
-`web/dist/ccsolver/`.
+checked P5 bytes as gameplay evidence, combines them with the repository's
+standard MS/Lynx runtime artwork for presentation, and emits the unlisted
+whole-level dossier under `web/dist/dev/ccsolver/`.
 
 The historical P3 terminal theory remains `unresolved`; it is retained as
 provenance and is not silently upgraded. P5 publishes a separate
@@ -72,13 +73,18 @@ authority is:
 - `ccsolver/fixtures/golden/p4b/cclp1-001/manifest.json`;
 - `ccsolver/fixtures/golden/p4b/cclp1-001/review.md`.
 
-The derived `web/dist/ccsolver/` bundle is static-first and complete without
-JavaScript. It includes an index, the stable Key Pyramid level route, paired
-whole-level maps, an accessible plan graph and table, six subgoal capsules per
-target, 24 Starting State/Ending State panel instances backed by 14 shared
+The derived `web/dist/dev/ccsolver/` bundle is static-first and complete
+without JavaScript. It includes an index, the stable Key Pyramid level route,
+paired whole-level maps rendered with the corresponding standard game
+artwork, an accessible plan graph and table, six cropped and locally numbered
+subgoal routes per target, 24 exact boundary records backed by 14 shared
 boundary scenes, exact join and timing tables, provenance, certificates, and
-downloadable TWS files. Small JavaScript enhancements may toggle overlays and
-zoom, but there is no autoplay or fabricated animation.
+downloadable TWS files. JavaScript progressively adds MS/Lynx tabs, a compact
+segment navigator, overlay toggles, and hover/focus/touch detail. There are no
+zoom sliders, autoplay, or fabricated animations.
+
+The public unlisted level URL is
+`https://joshua-bone.github.io/tworld/dev/ccsolver/levels/cclp1/001-key-pyramid/`.
 
 The dossier is intentionally absent from the ordinary Tile World homepage,
 player navigation, and sitemap. Generated pages carry `noindex,nofollow`; this
@@ -114,13 +120,14 @@ checked output bytes.
 
 1. Open the generated dossier index, then Key Pyramid. Confirm the page says
    `Human review: unreviewed`; generation never approves itself.
-2. Compare the MS and Lynx 32×32 maps. Toggle source, region, resource/gate,
-   plan-intent, and observed-boundary evidence while checking that semantic
-   cell stacks remain literal.
-3. Walk all six subgoal capsules for each target. Every Ending State must be the
-   exact checked Starting State of the next capsule, with digest, tick,
-   coordinate, inventory, remaining-chip, and terminal evidence visible in
-   text as well as graphics.
+2. Use the MS and Lynx tabs to compare the two 32×32 artwork maps. Toggle
+   region, resource/gate, plan-intent, and observed-boundary evidence while
+   checking that semantic cell stacks remain literal.
+3. Walk all six cropped route segments for each target. Check the line and
+   local numbered visits, including repeated coordinates; every Ending State
+   must be the exact checked Starting State of the next capsule, with digest,
+   tick, coordinate, remaining-chip, and terminal evidence available under
+   disclosure.
 4. Inspect the terminal-first graph/table. Direct key, chip, socket, and exit
    prerequisites must be distinct from the noncausal chronological predecessor
    field; reusable green keys must not appear consumed.

@@ -47,14 +47,14 @@ describe("P4B transactional output IO", () => {
       "<!doctype html><html><head></head><body>PLAYER_FALLBACK_SENTINEL</body></html>",
     );
     const outputs: readonly P4bDossierOutput[] = [
-      { path: "ccsolver/index.html", mediaType: "text/html", content: encoder.encode("DOSSIER") },
-      { path: "ccsolver/data/x.json", mediaType: "application/json", content: encoder.encode("{}") },
+      { path: "dev/ccsolver/index.html", mediaType: "text/html", content: encoder.encode("DOSSIER") },
+      { path: "dev/ccsolver/data/x.json", mediaType: "application/json", content: encoder.encode("{}") },
     ];
 
     await installP4bDistTransactionally(repositoryRoot, outputs);
     await installP4bDistTransactionally(repositoryRoot, outputs);
 
-    expect(await readFile(resolve(dist, "ccsolver/index.html"), "utf8")).toBe("DOSSIER");
+    expect(await readFile(resolve(dist, "dev/ccsolver/index.html"), "utf8")).toBe("DOSSIER");
     const fallback = await readFile(resolve(dist, "404.html"), "utf8");
     expect(fallback).toContain("PLAYER_FALLBACK_SENTINEL");
     expect(fallback).toContain("data-ccsolver-dossier-fallback");

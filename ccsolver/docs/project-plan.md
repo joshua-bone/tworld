@@ -72,10 +72,12 @@ next layer is trusted:
    candidate plan supplies the exact forward decisions; composed executions
    and certified MS/Lynx replays from canonical initialization show that the
    six reviewed subgoals actually join into a win.
-6. **P4B — whole-level dossier (available now):** an unlisted static page built
-   only from checked P5 bytes exposes the paired maps, terminal-first graph,
-   every exact start/end pair, timing differences, provenance, certificates,
-   and replay downloads. This is the first complete-level human checkpoint.
+6. **P4B — whole-level dossier (available now):** an unlisted static page uses
+   checked P5 bytes for gameplay evidence and the standard repository runtime
+   tilesets for presentation. It exposes paired artwork maps, cropped numbered
+   route segments, the terminal-first graph, every exact boundary pair, timing
+   differences, provenance, certificates, and replay downloads. This is the
+   first complete-level human checkpoint.
 
 P2A output is authoritative runtime-characterization evidence only after a
 fresh generation is followed by a successful byte-for-byte
@@ -566,7 +568,7 @@ the global level definition of done only after P4B adds its complete dossier.
 ## P4B: full dossier and evidence surface
 
 **Status:** delivered for Key Pyramid as a checked compact manifest/review and
-a deterministic static bundle emitted under `web/dist/ccsolver/`. The page is
+a deterministic static bundle emitted under `web/dist/dev/ccsolver/`. The page is
 complete without JavaScript and remains `unreviewed` until a person records a
 decision.
 
@@ -577,12 +579,13 @@ first real level and every later claim.
 
 ### Deliverables
 
-- Add an independent static bundle under `web/dist/ccsolver/`.
+- Add an independent static bundle under `web/dist/dev/ccsolver/`.
 - Add a direct master route and stable per-level routes beneath Vite's
   configured Pages base path.
 - Exclude CCSolver routes from the player UI, homepage, and sitemap; add
   `noindex` metadata.
-- Build a zoomable whole-level renderer using existing tile/frame projections.
+- Build a fit-to-view whole-level renderer with authentic standard game
+  artwork, evidence overlays, and cropped locally numbered segment routes.
 - Add layer, region, wiring, teleport, force/ice, resource, donor-path, and
   subgoal overlays.
 - Render human narrative, strategy portfolio, accessible graph table, subgoal
@@ -600,7 +603,7 @@ first real level and every later claim.
 
 ### Exit gate
 
-- The app-relative `/ccsolver/` index and one level URL work beneath the
+- The app-relative `/dev/ccsolver/` index and one level URL work beneath the
   production `BASE_PATH` (currently `/tworld/` on project Pages).
 - A direct static-directory request and the SPA `404.html` fallback are tested
   separately.

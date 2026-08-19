@@ -152,6 +152,8 @@ test("registers CCSolver as a first-class root workspace", async () => {
     /src\/ccsolver-runtime\/compose\/p4a-review\/buildP4aReviewOutputs\.test\.ts/,
   );
   for (const p4bReleaseTest of [
+    "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierPage.test.ts",
+    "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierVisuals.test.ts",
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierIo.test.ts",
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierSafety.test.ts",
   ]) {
