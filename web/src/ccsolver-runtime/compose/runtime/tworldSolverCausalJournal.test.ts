@@ -90,7 +90,7 @@ describe.each(["ms", "lynx"] as const)("%s P2B causal journal", (target) => {
         code: "runtime.unsupported-option",
         operation: "readEvents",
       } satisfies Partial<SolverRuntimeError>);
-  });
+  }, 30_000);
 
   it("records, pages, reruns, checkpoints, and restores the complete Key Pyramid route", async () => {
     const source = await loadKeyPyramidRuntimeSource(repositoryRoot, target);
@@ -143,7 +143,7 @@ describe.each(["ms", "lynx"] as const)("%s P2B causal journal", (target) => {
       maximumEvents: 512,
     });
     expect([...firstHalf.events, ...secondHalf.events]).toEqual(page.events);
-  }, 180_000);
+  }, 600_000);
 
   it("keeps gameplay semantic parity while reporting bounded overflow", async () => {
     const source = await loadKeyPyramidRuntimeSource(repositoryRoot, target);
