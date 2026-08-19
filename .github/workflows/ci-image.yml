@@ -1,0 +1,120 @@
+name: Publish CI Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      - .github/ci/**
+      - .github/workflows/ci-image.yml
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ci-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/tworld-ci
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Define image metadata
+        id: metadata
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-,format=long
+            type=raw,value=ubuntu-24.04
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Build and publish the CI image
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .github/ci
+          file: .github/ci/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          build-args: |
+            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Verify public package visibility
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          package_url="https://api.github.com/users/${OWNER}/packages/container/tworld-ci"
+          for attempt in {1..5}; do
+            if response="$(curl --fail --silent --show-error --max-time 5 \
+              --header 'Accept: application/vnd.github+json' \
+              --header 'X-GitHub-Api-Version: 2026-03-10' \
+              "$package_url" 2>/dev/null)"; then
+              visibility="$(jq -r '.visibility // empty' <<< "$response")"
+              if [[ "$visibility" == "public" ]]; then
+                echo "GHCR package is publicly visible."
+                break
+              fi
+            fi
+
+            if [[ "$attempt" == 5 ]]; then
+              echo "GHCR package did not become anonymously visible." >&2
+              echo "Confirm that it inherits visibility from the public source repository." >&2
+              exit 1
+            fi
+            sleep 3
+          done
+
+      - name: Record immutable image reference
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Build did not return a valid OCI digest." >&2
+            exit 1
+          fi
+
+          image_reference="${REGISTRY}/${IMAGE_NAME}@${IMAGE_DIGEST}"
+          printf '%s\n' "$image_reference" > ci-image-reference.txt
+          {
+            echo '### Immutable CI image'
+            echo
+            printf '`%s`\n' "$image_reference"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload immutable image reference
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-image-reference-${{ github.sha }}
+          path: ci-image-reference.txt
+          if-no-files-found: error
+          retention-days: 30
