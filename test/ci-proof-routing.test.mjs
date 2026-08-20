@@ -87,6 +87,7 @@ test("classifies first and makes every expensive gate conditional", async () => 
     "ci-changed-web-tests.test.mjs",
     "ci-proof-receipt.test.mjs",
     "ci-proof-gates.test.mjs",
+    "ci-p1b-shards.test.mjs",
     "ci-proof-routing.test.mjs",
   ]) {
     assert.match(classify, new RegExp(policyTest.replaceAll(".", "\\.")));
@@ -184,6 +185,8 @@ test("keeps expensive duplicate proofs off the critical path", async () => {
     "web/src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Execution.test.ts",
   );
   const staticCorpus = workflowJob(workflow, "ccsolver-static-corpus");
+  const p1bPrepare = workflowJob(workflow, "ccsolver-p1b-prepare");
+  const p1bShard = workflowJob(workflow, "ccsolver-p1b-shard");
   const p1b = workflowJob(workflow, "ccsolver-p1b");
   const runtime = workflowJob(workflow, "ccsolver-runtime");
   const p6a = workflowJob(workflow, "ccsolver-p6a");
@@ -192,10 +195,13 @@ test("keeps expensive duplicate proofs off the critical path", async () => {
   assert.match(staticCorpus, /ccsolver:integration:static/);
   assert.match(staticCorpus, /ccsolver:integration:corpus/);
   assert.doesNotMatch(staticCorpus, /ccsolver:p1b:check:prepared/);
-  assert.match(p1b, /ccsolver:corpus:check:prepared/);
-  assert.match(p1b, /ccsolver:p1b:check:prepared/);
+  assert.match(p1bPrepare, /ccsolver:corpus:check:prepared/);
+  assert.match(p1bPrepare, /p1b-shards\.mjs prepare/);
+  assert.match(p1bShard, /p1b-shards\.mjs run/);
+  assert.match(p1b, /p1b-shards\.mjs finalize/);
   assert.match(p1b, /outputs\['heavy-p1b'\]/);
-  assert.doesNotMatch(p1b, /ccsolver:integration:(?:static|corpus)/);
+  assert.doesNotMatch(`${p1bPrepare}\n${p1bShard}\n${p1b}`, /ccsolver:integration:(?:static|corpus)/);
+  assert.doesNotMatch(`${p1bPrepare}\n${p1bShard}\n${p1b}`, /ccsolver:p1b:check:prepared/);
   assert.match(runtime, /ccsolver:integration:runtime/);
   assert.doesNotMatch(runtime, /ccsolver:integration:causal-proof/);
   assert.match(runtime, /outputs\['runtime-p6-evidence'\]/);
@@ -268,6 +274,8 @@ test("splits cheap integration from corpus, runtime, and review proofs", async (
   assert.doesNotMatch(scripts["ccsolver:integration:smoke"], /buildP2aRuntimeReviewOutputs|buildP3ReviewOutputs/);
   assert.doesNotMatch(scripts["ccsolver:integration:smoke"], /p5-review\/.*\.test\.ts/);
   assert.match(scripts["ccsolver:integration:corpus"], /corpusValidityReport/);
+  assert.match(scripts["ccsolver:integration:corpus"], /measuredCorpusShardContract/);
+  assert.match(scripts["ccsolver:integration:corpus"], /p1bCheckedArtifacts/);
   assert.match(scripts["ccsolver:integration:runtime"], /tworldSolverRuntimeAdapters/);
   assert.match(scripts["ccsolver:integration:reviews"], /buildP3ReviewOutputs/);
 });

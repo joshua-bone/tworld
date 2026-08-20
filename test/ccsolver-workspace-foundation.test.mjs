@@ -188,6 +188,8 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "p1b-curriculum/corpusValidityReport.test.ts",
     "p1b-curriculum/deriveMeasuredCorpusCase.test.ts",
     "p1b-curriculum/measuredCorpusReport.test.ts",
+    "p1b-curriculum/measuredCorpusShardContract.test.ts",
+    "p1b-curriculum/p1bCheckedArtifacts.test.ts",
     "p1b-curriculum/curriculumManifest.test.ts",
     "p1b-curriculum/writeFixedOutputsTransactionally.test.ts",
   ]) {
@@ -439,7 +441,10 @@ test("runs the fail-closed proof graph only on pull requests", async () => {
     "npm run ccsolver:integration:reviews",
     "npm run ccsolver:corpus:check:prepared",
     "npm run ccsolver:analysis:check:prepared",
-    "npm run ccsolver:p1b:check:prepared",
+    "node scripts/ci/p1b-shards.mjs prepare",
+    "node scripts/ci/p1b-shards.mjs run",
+    "node scripts/ci/p1b-shards.mjs forward",
+    "node scripts/ci/p1b-shards.mjs finalize",
     "npm run ccsolver:p2a:check:prepared",
     "npm run ccsolver:p3:check:prepared",
     "npm run ccsolver:p4a:check:prepared",
@@ -458,6 +463,7 @@ test("runs the fail-closed proof graph only on pull requests", async () => {
   const classify = workflowJob(workflow, "classify");
   assert.match(classify, /fetch-depth: 0/);
   assert.match(classify, /changed-gates\.mjs/);
+  assert.match(classify, /test\/ci-p1b-shards\.test\.mjs/);
 
   const preflight = workflowJob(workflow, "ccsolver-p5-preflight");
   assert.match(preflight, /build-sdl1/);
@@ -492,11 +498,17 @@ test("runs the fail-closed proof graph only on pull requests", async () => {
   assert.match(staticCorpus, /ccsolver:analysis:check:prepared/);
   assert.doesNotMatch(staticCorpus, /ccsolver:p1b:check:prepared/);
 
+  const p1bPrepare = workflowJob(workflow, "ccsolver-p1b-prepare");
+  const p1bShard = workflowJob(workflow, "ccsolver-p1b-shard");
   const p1b = workflowJob(workflow, "ccsolver-p1b");
-  assert.doesNotMatch(p1b, /ccsolver:integration:(?:static|corpus)/);
-  assert.match(p1b, /ccsolver:corpus:check:prepared/);
-  assert.match(p1b, /ccsolver:p1b:check:prepared/);
-  assert.doesNotMatch(p1b, /ccsolver:integration:(?:runtime|reviews|causal-proof)|ccsolver:p5|ccsolver:p6a/);
+  const p1bGraph = `${p1bPrepare}\n${p1bShard}\n${p1b}`;
+  assert.doesNotMatch(p1bGraph, /ccsolver:integration:(?:static|corpus)/);
+  assert.match(p1bPrepare, /ccsolver:corpus:check:prepared/);
+  assert.match(p1bPrepare, /p1b-shards\.mjs prepare/);
+  assert.match(p1bShard, /p1b-shards\.mjs run/);
+  assert.match(p1b, /p1b-shards\.mjs finalize/);
+  assert.doesNotMatch(p1bGraph, /ccsolver:p1b:check:prepared/);
+  assert.doesNotMatch(p1bGraph, /ccsolver:integration:(?:runtime|reviews|causal-proof)|ccsolver:p5|ccsolver:p6a/);
 
   const reviews = workflowJob(workflow, "ccsolver-reviews");
   assert.match(reviews, /ccsolver:integration:reviews/);
@@ -512,10 +524,10 @@ test("runs the fail-closed proof graph only on pull requests", async () => {
 
   assert.doesNotMatch(workflowJob(workflow, "ccsolver-p6a"), /ccsolver:p1b|ccsolver:p5/);
 
-  assert.match(
-    p1b,
-    /timeout-minutes: 90[\s\S]*TWORLD_P1B_ANALYSIS_JOBS: 4[\s\S]*run: npm run ccsolver:p1b:check:prepared/,
-  );
+  assert.match(p1bPrepare, /timeout-minutes: 10/);
+  assert.match(p1bShard, /timeout-minutes: 45[\s\S]*max-parallel: 8/);
+  assert.match(p1bShard, /TWORLD_P1B_ANALYSIS_JOBS: 1/);
+  assert.match(p1b, /timeout-minutes: 15/);
   assert.match(
     workflowJob(workflow, "ccsolver-p6a"),
     /timeout-minutes: 15[\s\S]*run: npm run ccsolver:p6a:check:prepared/,

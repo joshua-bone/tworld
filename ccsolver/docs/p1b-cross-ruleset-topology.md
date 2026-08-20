@@ -223,11 +223,24 @@ drift. `npm run ccsolver:p1b:generate` intentionally rewrites the checked
 outputs when source pins or reviewed P1B policy change.
 
 The full measured phase uses deterministic process shards rather than
-single-process promise concurrency. `TWORLD_P1B_ANALYSIS_JOBS` selects one
-through eight worker processes; the default and maximum are eight, and larger
-values fail instead of being silently clamped. Sharding changes scheduling, not
-canonical output order. CI uses four workers to bound peak memory and gives the
-production check a 90-minute bound.
+single-process promise concurrency. The local generator/checker keeps its
+bounded process-worker mode. CI uses a separate fixed-eight map/reduce proof:
+one coordinator recomputes source validity and the canonical contiguous shard
+plan, eight isolated jobs measure one shard each, and a reducer independently
+recomputes the current plan and all 12 checked outputs. Every request and result
+is canonical, content-addressed, and bound to the exact workflow commit, run,
+plan, and occurrence interval; missing, extra, duplicated, stale, or foreign
+artifacts fail closed. Timing and memory diagnostics remain outside canonical
+result bytes.
+
+On pull requests, the coordinator may reconstruct a shard from the trusted
+merge-base only when the prior checked proof receipt is valid and the complete
+causal request bytes are identical. The result is rebound to the current
+manifest before use. GitHub artifact caches are never proof authority, and the
+reducer still verifies the complete checked result. The coordinator, each
+worker, and the reducer have explicit 10-, 45-, and 15-minute bounds,
+respectively. Sharding and reuse change scheduling, not canonical output order
+or the P1B evidence contract.
 
 P1B still does not provide:
 
