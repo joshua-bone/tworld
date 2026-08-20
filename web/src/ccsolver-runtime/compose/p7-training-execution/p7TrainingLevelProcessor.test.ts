@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { WebCryptoSha256 } from "@tworld/ccsolver/adapters/web-crypto";
 import { describe, expect, it } from "vitest";
+import { CCLP1_FOUNDATION_LIMITS } from "../p7b-cohort/cclp1FoundationCohort";
 import { loadCheckedTrainingCorpusInventory } from "../p7c-p7e-inventory/loadCheckedTrainingCorpusInventory";
 import type { P7TrainingLevelInventory } from "../p7c-p7e-inventory/trainingCorpusInventory";
 import type { P7GeneratedEvidenceSidecarV1 } from "./p7GeneratedEvidenceSidecar";
@@ -71,6 +72,97 @@ describe("production P7 training row processor", () => {
     expect(persisted!.index.entries.length).toBeGreaterThan(0);
     expect(persisted!.payload.byteLength).toBe(persisted!.index.payloadContent.byteLength);
   }, 30_000);
+
+  it("keeps full-corpus portable segment parity on the first three production canaries", async () => {
+    const inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot);
+    for (const occurrenceId of ["cclp1/024", "cclp1/080", "cclp1/109"] as const) {
+      const source = row(inventory, occurrenceId);
+      const output = await processP7TrainingLevel(source, sha256);
+      await expect(validateAndPersistP7TrainingLevelProcessOutput(
+        source,
+        output,
+        sha256,
+        repositoryRoot,
+        async () => undefined,
+      )).resolves.toBeDefined();
+      if (occurrenceId === "cclp1/024") {
+        const portable = output.trainingReplayLevel.variants.find(({ kind }) => (
+          kind === "portable"
+        ))!;
+        const certification = portable.certifications.ms;
+        expect(portable.decisionCount).toBe(144);
+        expect(certification.execution.executedDecisionCount).toBe(143);
+        expect(certification.segmentSpans.at(-1)?.endDecisionOrdinal).toBe(143);
+        const certificationEvidence = certification.evidence!;
+        const alignedEvidence = output.generatedEvidence.blobs.find(({ content }) => (
+          content.digest === certificationEvidence.digest
+          && content.byteLength === certificationEvidence.byteLength
+        ))!;
+        const alignedReceipt = JSON.parse(new TextDecoder().decode(alignedEvidence.bytes)) as {
+          readonly artifact: string;
+          readonly sourceCertificationEvidence: { readonly digest: string; readonly byteLength: number };
+        };
+        expect(alignedReceipt.artifact)
+          .toBe("ccsolver-p7b-portable-aligned-target-certification");
+        expect(output.generatedEvidence.blobs.some(({ content }) => (
+          content.digest === alignedReceipt.sourceCertificationEvidence.digest
+          && content.byteLength === alignedReceipt.sourceCertificationEvidence.byteLength
+        ))).toBe(true);
+      }
+    }
+  }, 120_000);
+
+  it("retains the complete bounded causal stream for the production event canary", async () => {
+    const inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot);
+    const source = row(inventory, "cclp1/118");
+    const output = await processP7TrainingLevel(source, sha256);
+    const rawMs = output.trainingReplayLevel.variants.find(({ variantId }) => (
+      variantId === "raw-ms"
+    ))!;
+    const eventEvidence = rawMs.certifications.ms.evidence!;
+    const eventBlob = output.generatedEvidence.blobs.find(({ content }) => (
+      content.digest === eventEvidence.digest
+      && content.byteLength === eventEvidence.byteLength
+    ))!;
+    const eventReceipt = JSON.parse(new TextDecoder().decode(eventBlob.bytes)) as {
+      readonly eventCount: number;
+      readonly fullEventStream: { readonly byteLength: number };
+    };
+    expect(eventReceipt.eventCount).toBeGreaterThan(65_536);
+    expect(eventReceipt.eventCount).toBeLessThanOrEqual(
+      CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget,
+    );
+    expect(eventReceipt.fullEventStream.byteLength).toBeLessThanOrEqual(
+      CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes,
+    );
+    if (process.env.TWORLD_P7_TRAINING_METRICS === "1") {
+      process.stderr.write(`${JSON.stringify({
+        occurrenceId: source.occurrenceId,
+        eventCount: eventReceipt.eventCount,
+        eventStreamByteLength: eventReceipt.fullEventStream.byteLength,
+      })}\n`);
+    }
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      output,
+      sha256,
+      repositoryRoot,
+      async () => undefined,
+    )).resolves.toBeDefined();
+  }, 120_000);
+
+  it("keeps the production level-result canary within the published shard contract", async () => {
+    const inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot);
+    const source = row(inventory, "cclp1/015");
+    const output = await processP7TrainingLevel(source, sha256);
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      output,
+      sha256,
+      repositoryRoot,
+      async () => undefined,
+    )).resolves.toBeDefined();
+  }, 120_000);
 
   it("pins the bounded voting-alias, edited-relative, and true-missing acceptance rows", async () => {
     const inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot);

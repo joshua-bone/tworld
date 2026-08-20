@@ -722,7 +722,10 @@ async function executePortableMs(
     terminalNativeTick,
     advanceTickCount,
     eventCount: events.length,
-    fullEventStream: await evidence.digestCanonical({ eventsOrder: "sequence", events }),
+    fullEventStream: await evidence.digestCanonical(
+      { eventsOrder: "sequence", events },
+      CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes,
+    ),
     initialCheckpoint,
     finalCheckpoint: await referenceFoundationSessionBoundaryEvidence("ms", session, evidence),
     events,
@@ -771,7 +774,10 @@ async function executePortableLynx(
     terminalNativeTick,
     advanceTickCount,
     eventCount: events.length,
-    fullEventStream: await evidence.digestCanonical({ eventsOrder: "sequence", events }),
+    fullEventStream: await evidence.digestCanonical(
+      { eventsOrder: "sequence", events },
+      CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes,
+    ),
     initialCheckpoint,
     finalCheckpoint: await referenceFoundationSessionBoundaryEvidence("lynx", session, evidence),
     events,
@@ -941,7 +947,6 @@ function sameSemanticSegments(
 
 function conservativeRouteSegment(
   certification: P7bPortableCertification,
-  decisionCount: number,
 ): ProcessedCclp1FoundationSegment {
   if (
     certification.status !== "certified"
@@ -950,6 +955,10 @@ function conservativeRouteSegment(
     || certification.finalCheckpoint === null
   ) {
     throw new Error("conservative portable route requires a certified target");
+  }
+  const terminalDecisionCount = certification.segments.at(-1)?.end.decision;
+  if (terminalDecisionCount === undefined) {
+    throw new Error("conservative portable route lacks its executed decision boundary");
   }
   return {
     segmentId: "portable-route-to-exit",
@@ -963,22 +972,58 @@ function conservativeRouteSegment(
     },
     end: {
       tick: certification.terminalNativeTick,
-      decision: decisionCount,
+      decision: terminalDecisionCount,
       checkpoint: certification.finalCheckpoint,
     },
   };
 }
 
-function alignPortableSegments(
+async function conservativeRouteCertification(input: {
+  readonly occurrenceId: string;
+  readonly target: "ms" | "lynx";
+  readonly certification: P7bPortableCertification;
+  readonly evidence: P7GeneratedEvidenceStore;
+}): Promise<P7bPortableCertification> {
+  const segments = [conservativeRouteSegment(input.certification)];
+  if (
+    input.certification.evidence === null
+    || input.certification.terminalNativeTick === null
+  ) throw new Error("conservative portable route lacks its source certification evidence");
+  const decisionsBeforeTerminal = segments[0]!.end.decision;
+  const evidence = await input.evidence.referenceCanonical({
+    artifact: "ccsolver-p7b-portable-aligned-target-certification",
+    version: 1,
+    occurrenceId: input.occurrenceId,
+    target: input.target,
+    status: input.certification.status,
+    outcome: input.certification.outcome,
+    terminalNativeTick: input.certification.terminalNativeTick,
+    decisionsBeforeTerminal,
+    segmentAlignment: "conservative-route",
+    segmentBoundaries: segments.map(({ segmentId, index, start, end }) => ({
+      segmentId,
+      index,
+      startNativeTick: start.tick,
+      endNativeTick: end.tick,
+      startBoundaryEvidence: start.checkpoint,
+      endBoundaryEvidence: end.checkpoint,
+    })),
+    sourceCertificationEvidence: input.certification.evidence,
+  });
+  return { ...input.certification, evidence, segments };
+}
+
+async function alignPortableSegments(
+  occurrenceId: string,
   ms: P7bPortableCertification,
   lynx: P7bPortableCertification,
-  decisionCount: number,
-): {
+  evidence: P7GeneratedEvidenceStore,
+): Promise<{
   readonly ms: P7bPortableCertification;
   readonly lynx: P7bPortableCertification;
   readonly segments: Extract<P7bPortableCandidate, { readonly status: "compiled" }>["segments"];
   readonly segmentAlignment: Extract<P7bPortableCandidate, { readonly status: "compiled" }>["segmentAlignment"];
-} {
+}> {
   const certified = [ms, lynx].filter((entry) => entry.status === "certified");
   if (certified.length === 2 && sameSemanticSegments(ms.segments, lynx.segments)) {
     return {
@@ -1011,10 +1056,20 @@ function alignPortableSegments(
   } as const;
   return {
     ms: ms.status === "certified"
-      ? { ...ms, segments: [conservativeRouteSegment(ms, decisionCount)] }
+      ? await conservativeRouteCertification({
+          occurrenceId,
+          target: "ms",
+          certification: ms,
+          evidence,
+        })
       : ms,
     lynx: lynx.status === "certified"
-      ? { ...lynx, segments: [conservativeRouteSegment(lynx, decisionCount)] }
+      ? await conservativeRouteCertification({
+          occurrenceId,
+          target: "lynx",
+          certification: lynx,
+          evidence,
+        })
       : lynx,
     segments: [segment],
     segmentAlignment: {
@@ -1137,7 +1192,12 @@ export async function buildCclp1FoundationPortableLevel(
     "lynx",
     evidence,
   );
-  const aligned = alignPortableSegments(ms, lynx, compiled.trace.changes.length);
+  const aligned = await alignPortableSegments(
+    level.selection.occurrenceId,
+    ms,
+    lynx,
+    evidence,
+  );
   return {
     occurrenceId: level.selection.occurrenceId,
     source,

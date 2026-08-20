@@ -49,7 +49,7 @@ export const P7_TRAINING_LEVELS_PER_PACK = 149 as const;
 export const P7_TRAINING_PARTITION_IDENTITY =
   "official-level-number-contiguous-balanced-remainder-first-v1" as const;
 export const P7_TRAINING_PROCESSOR_REVISION =
-  "p7-training-direct-native-portable-v1" as const;
+  "p7-training-direct-native-portable-v2" as const;
 export const P7_TRAINING_SHARD_REQUEST_ARTIFACT =
   "ccsolver-p7-training-shard-request" as const;
 export const P7_TRAINING_SHARD_RESULT_ARTIFACT =
@@ -57,7 +57,7 @@ export const P7_TRAINING_SHARD_RESULT_ARTIFACT =
 export const P7_TRAINING_SHARD_LIMITS = Object.freeze({
   maximumRequestBytes: 128 * 1024,
   maximumResultBytes: 32 * 1024 * 1024,
-  maximumLevelResultBytes: 2 * 1024 * 1024,
+  maximumLevelResultBytes: 4 * 1024 * 1024,
   maximumBrowserReplayCountPerLevel: 4,
   maximumPortableTraceCountPerLevel: 1,
   maximumEvidenceBlobCountPerLevel: 2_048,
@@ -1249,10 +1249,26 @@ export async function validateAndPersistP7TrainingLevelProcessOutput(
       indexContent: sidecar.sidecar.indexContent,
     },
   };
-  if (
-    new TextEncoder().encode(canonicalizeJson(processing as unknown as CanonicalJsonValue)).byteLength
-      > P7_TRAINING_SHARD_LIMITS.maximumLevelResultBytes
-  ) throw new Error(`${row.occurrenceId} canonical level result exceeds its byte cap`);
+  const processingByteLength = new TextEncoder().encode(
+    canonicalizeJson(processing as unknown as CanonicalJsonValue),
+  ).byteLength;
+  if (processingByteLength > P7_TRAINING_SHARD_LIMITS.maximumLevelResultBytes) {
+    const componentByteLength = (value: unknown) => new TextEncoder().encode(
+      canonicalizeJson(value as CanonicalJsonValue),
+    ).byteLength;
+    const componentByteLengths = {
+      trainingReplayLevel: componentByteLength(processing.trainingReplayLevel),
+      browserTargets: componentByteLength(processing.browserTargets),
+      browserReplays: componentByteLength(processing.browserReplays),
+      portableDecisionTraces: componentByteLength(processing.portableDecisionTraces),
+      evidenceIndex: componentByteLength(processing.evidence),
+    };
+    throw new Error(
+      `${row.occurrenceId} canonical level result is ${processingByteLength} bytes, exceeding `
+      + `its ${P7_TRAINING_SHARD_LIMITS.maximumLevelResultBytes}-byte cap; `
+      + `component bytes=${canonicalizeJson(componentByteLengths)}`,
+    );
+  }
   return processing;
 }
 

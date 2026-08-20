@@ -15,6 +15,7 @@ export const P7_GENERATED_EVIDENCE_DEFAULT_LIMITS = Object.freeze({
   maximumBlobBytes: 16 * 1024 * 1024,
   maximumTotalBytes: 512 * 1024 * 1024,
 });
+export const P7_GENERATED_EVIDENCE_MAXIMUM_DIGEST_INPUT_BYTES = 64 * 1024 * 1024;
 
 export interface P7GeneratedEvidenceLimitsV1 {
   readonly maximumBlobCount: number;
@@ -172,11 +173,24 @@ export class P7GeneratedEvidenceStore {
     return this.referenceCanonicalJson(canonicalSafe(value));
   }
 
-  async digestCanonical(value: unknown): Promise<P7GeneratedCanonicalDigestV1> {
+  async digestCanonical(
+    value: unknown,
+    maximumInputBytes = this.#limits.maximumBlobBytes,
+  ): Promise<P7GeneratedCanonicalDigestV1> {
+    const maximumBytes = checkedLimit(
+      maximumInputBytes,
+      "generated canonical digest input byte cap",
+    );
+    if (maximumBytes > P7_GENERATED_EVIDENCE_MAXIMUM_DIGEST_INPUT_BYTES) {
+      throw new Error("generated canonical digest input byte cap exceeds its global maximum");
+    }
     const canonicalJson = canonicalSafe(value);
     const byteLength = new TextEncoder().encode(canonicalJson).byteLength;
-    if (byteLength > this.#limits.maximumBlobBytes) {
-      throw new Error("generated canonical digest input exceeds its byte cap");
+    if (byteLength > maximumBytes) {
+      throw new Error(
+        `generated canonical digest input is ${byteLength} bytes, exceeding `
+        + `its ${maximumBytes}-byte cap`,
+      );
     }
     const content = await referenceCanonicalJson(canonicalJson, this.#sha256);
     return {

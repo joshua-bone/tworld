@@ -80,5 +80,15 @@ describe("P7 generated evidence store", () => {
       byteLength: 3,
     });
     expect(store.bundle().totals).toEqual({ blobCount: 0, byteLength: 0 });
+
+    const largeDigest = await store.digestCanonical(
+      { payload: "x".repeat(256) },
+      512,
+    );
+    expect(largeDigest.byteLength).toBeGreaterThan(128);
+    await expect(store.referenceCanonical({ payload: "x".repeat(256) }))
+      .rejects.toThrow("per-blob byte cap");
+    await expect(store.digestCanonical({ value: 1 }, 65 * 1024 * 1024))
+      .rejects.toThrow("global maximum");
   });
 });

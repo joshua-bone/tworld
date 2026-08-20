@@ -454,7 +454,10 @@ async function executeMsRawReplay(
       causalEventSink: (event) => {
         events.push(event as FoundationNativeCausalEvent);
         if (events.length > CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget) {
-          throw new Error(`${level.selection.occurrenceId}/ms causal event capacity exhausted`);
+          throw new Error(
+            `${level.selection.occurrenceId}/ms causal event capacity exhausted at `
+            + `${events.length} events (limit ${CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget})`,
+          );
         }
       },
     });
@@ -513,7 +516,10 @@ async function executeLynxRawReplay(
       causalEventSink: (event) => {
         events.push(event as FoundationNativeCausalEvent);
         if (events.length > CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget) {
-          throw new Error(`${level.selection.occurrenceId}/lynx causal event capacity exhausted`);
+          throw new Error(
+            `${level.selection.occurrenceId}/lynx causal event capacity exhausted at `
+            + `${events.length} events (limit ${CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget})`,
+          );
         }
       },
     });
@@ -592,7 +598,10 @@ async function processTarget(
   });
   const [rawReplayContent, fullEventStream] = await Promise.all([
     referenceSourceBytes(target.rawReplayBytes, sha256),
-    evidence.digestCanonical({ eventsOrder: "sequence", events: allEvents }),
+    evidence.digestCanonical(
+      { eventsOrder: "sequence", events: allEvents },
+      CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes,
+    ),
   ]);
   const eventRetention = {
     status: "digest-and-boundary-events",

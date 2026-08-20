@@ -384,7 +384,8 @@ async function proveBrowserReplay(
     throw new Error(
       `${level.occurrenceId}/${replay.variantId}/${replay.target} segment parity failed: `
       + `first mismatch at index ${mismatchIndex} `
-      + `(expected ${expected.length} segments; observed ${observed.length})`,
+      + `(expected ${expected.length} segments; observed ${observed.length}); `
+      + `expected=${expectedCanonical}; observed=${observedCanonical}`,
     );
   }
   const expectedBoundaryEvidence = segmentBoundaries(expected);
