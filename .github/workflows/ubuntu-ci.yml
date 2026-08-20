@@ -13,7 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      native: ${{ steps.gates.outputs.native }}
+      native-qt: ${{ steps.gates.outputs.native_qt }}
+      native-sdl-oracle: ${{ steps.gates.outputs.native_sdl_oracle }}
       workspace: ${{ steps.gates.outputs.workspace }}
       static-corpus-p1b: ${{ steps.gates.outputs.static_corpus_p1b }}
       p5: ${{ steps.gates.outputs.p5 }}
@@ -23,7 +24,11 @@ jobs:
       p4b: ${{ steps.gates.outputs.p4b }}
       browser: ${{ steps.gates.outputs.browser }}
       heavy-p1b: ${{ steps.gates.outputs.heavy_p1b }}
+      heavy-p5: ${{ steps.gates.outputs.heavy_p5 }}
       heavy-p6a: ${{ steps.gates.outputs.heavy_p6a }}
+      changed-web-tests-json: ${{ steps.gates.outputs.changed_web_tests_json }}
+      changed-native-web-tests-json: ${{ steps.gates.outputs.changed_native_web_tests_json }}
+      changed-native-web-tests: ${{ steps.gates.outputs.changed_native_web_tests }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,6 +45,7 @@ jobs:
           node --test \
             test/ci-image-contract.test.mjs \
             test/ci-changed-gates.test.mjs \
+            test/ci-changed-web-tests.test.mjs \
             test/ci-proof-receipt.test.mjs \
             test/ci-proof-gates.test.mjs \
             test/ci-proof-routing.test.mjs
@@ -64,7 +70,7 @@ jobs:
 
   build-qt6:
     needs: classify
-    if: ${{ needs.classify.outputs.native == 'true' }}
+    if: ${{ needs.classify.outputs['native-qt'] == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/joshua-bone/tworld-ci@sha256:a760c0b2f6c02bc39dc59c406554317a35918a1059c5e0b9ea77a67849350cf9
@@ -82,7 +88,7 @@ jobs:
 
   build-qt5:
     needs: classify
-    if: ${{ needs.classify.outputs.native == 'true' }}
+    if: ${{ needs.classify.outputs['native-qt'] == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/joshua-bone/tworld-ci@sha256:a760c0b2f6c02bc39dc59c406554317a35918a1059c5e0b9ea77a67849350cf9
@@ -102,7 +108,7 @@ jobs:
 
   build-sdl1:
     needs: classify
-    if: ${{ needs.classify.outputs.native == 'true' }}
+    if: ${{ needs.classify.outputs['native-sdl-oracle'] == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/joshua-bone/tworld-ci@sha256:a760c0b2f6c02bc39dc59c406554317a35918a1059c5e0b9ea77a67849350cf9
@@ -135,7 +141,7 @@ jobs:
       - build-sdl1
     if: ${{ always() && needs.classify.outputs.p5 == 'true' && needs.build-sdl1.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -147,12 +153,6 @@ jobs:
         run: npm ci --include=optional
       - name: Build CCSolver once
         run: npm run ccsolver:build
-      - name: Check P5 route, review composition, and native replay isolation
-        run: |
-          npm --workspace web run test -- --run \
-            src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Route.test.ts \
-            src/ccsolver-runtime/compose/p5-review/buildP5ReviewOutputs.test.ts \
-            src/ccsolver-runtime/compose/p5-review/runExactKeyPyramidNativeReplay.test.ts
       - name: Download native replay oracle
         uses: actions/download-artifact@v4
         with:
@@ -160,7 +160,13 @@ jobs:
           path: build-verify/legacy_c
       - name: Restore native replay oracle executable mode
         run: chmod +x build-verify/legacy_c/tworld-oracle
+      - name: Check every P5 integration test against the native replay oracle
+        run: |
+          npm --workspace web run test -- --run \
+            src/ccsolver-runtime/compose/p5-review \
+            --no-file-parallelism
       - name: Check P5 certified Key Pyramid artifacts
+        if: ${{ needs.classify.outputs['heavy-p5'] == 'true' }}
         run: npm run ccsolver:p5:check:prepared
 
   ccsolver-workspace:
@@ -191,6 +197,48 @@ jobs:
           npm --workspace web run typecheck:tools
           npm run ccsolver:cli -- --help
           npm run ccsolver:dossier -- --help
+      - name: Run exact changed web tests omitted by the fixed lanes
+        env:
+          CHANGED_WEB_TESTS_JSON: ${{ needs.classify.outputs['changed-web-tests-json'] }}
+        run: |
+          node scripts/ci/run-changed-web-tests.mjs \
+            --root . \
+            --lane workspace \
+            --json "$CHANGED_WEB_TESTS_JSON"
+
+  changed-native-web-tests:
+    needs:
+      - classify
+      - build-sdl1
+    if: ${{ always() && needs.classify.outputs['changed-native-web-tests'] == 'true' && needs.build-sdl1.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
+      - name: Download native replay oracle
+        uses: actions/download-artifact@v4
+        with:
+          name: tworld-oracle-${{ github.sha }}
+          path: build-verify/legacy_c
+      - name: Restore native replay oracle executable mode
+        run: chmod +x build-verify/legacy_c/tworld-oracle
+      - name: Run exact changed native-dependent web tests
+        env:
+          CHANGED_NATIVE_WEB_TESTS_JSON: ${{ needs.classify.outputs['changed-native-web-tests-json'] }}
+        run: |
+          node scripts/ci/run-changed-web-tests.mjs \
+            --root . \
+            --lane native \
+            --json "$CHANGED_NATIVE_WEB_TESTS_JSON"
 
   ccsolver-static-corpus:
     needs: classify
@@ -392,6 +440,7 @@ jobs:
       - build-qt5
       - build-qt6
       - build-sdl1
+      - changed-native-web-tests
       - ccsolver-p5-preflight
       - ccsolver-workspace
       - ccsolver-static-corpus
@@ -408,8 +457,11 @@ jobs:
       - name: Require every selected proof gate
         env:
           CLASSIFY_RESULT: ${{ needs.classify.result }}
-          NATIVE_SELECTED: ${{ needs.classify.outputs.native }}
+          QT_SELECTED: ${{ needs.classify.outputs['native-qt'] }}
+          SDL_SELECTED: ${{ needs.classify.outputs['native-sdl-oracle'] }}
           P5_SELECTED: ${{ needs.classify.outputs.p5 }}
+          P5_HEAVY_SELECTED: ${{ needs.classify.outputs['heavy-p5'] }}
+          CHANGED_NATIVE_TESTS_SELECTED: ${{ needs.classify.outputs['changed-native-web-tests'] }}
           WORKSPACE_SELECTED: ${{ needs.classify.outputs.workspace }}
           STATIC_CORPUS_SELECTED: ${{ needs.classify.outputs['static-corpus-p1b'] }}
           P1B_SELECTED: ${{ needs.classify.outputs['heavy-p1b'] }}
@@ -422,6 +474,7 @@ jobs:
           QT5_RESULT: ${{ needs.build-qt5.result }}
           QT6_RESULT: ${{ needs.build-qt6.result }}
           SDL1_RESULT: ${{ needs.build-sdl1.result }}
+          CHANGED_NATIVE_TESTS_RESULT: ${{ needs.changed-native-web-tests.result }}
           P5_RESULT: ${{ needs.ccsolver-p5-preflight.result }}
           WORKSPACE_RESULT: ${{ needs.ccsolver-workspace.result }}
           STATIC_CORPUS_RESULT: ${{ needs.ccsolver-static-corpus.result }}
@@ -458,9 +511,33 @@ jobs:
             fi
           }
 
-          require_gate build-qt5 "$NATIVE_SELECTED" "$QT5_RESULT"
-          require_gate build-qt6 "$NATIVE_SELECTED" "$QT6_RESULT"
-          require_gate build-sdl1 "$NATIVE_SELECTED" "$SDL1_RESULT"
+          require_implication() {
+            local selected_name="$1"
+            local selected="$2"
+            local required_name="$3"
+            local required="$4"
+            if [[ "$selected" != "true" && "$selected" != "false" ]]; then
+              echo "$selected_name has an invalid classifier selection: $selected" >&2
+              exit 1
+            fi
+            if [[ "$required" != "true" && "$required" != "false" ]]; then
+              echo "$required_name has an invalid classifier selection: $required" >&2
+              exit 1
+            fi
+            if [[ "$selected" == "true" && "$required" != "true" ]]; then
+              echo "$selected_name requires $required_name" >&2
+              exit 1
+            fi
+          }
+
+          require_implication heavy-p5 "$P5_HEAVY_SELECTED" p5 "$P5_SELECTED"
+          require_implication p5 "$P5_SELECTED" build-sdl1 "$SDL_SELECTED"
+          require_implication changed-native-web-tests "$CHANGED_NATIVE_TESTS_SELECTED" build-sdl1 "$SDL_SELECTED"
+
+          require_gate build-qt5 "$QT_SELECTED" "$QT5_RESULT"
+          require_gate build-qt6 "$QT_SELECTED" "$QT6_RESULT"
+          require_gate build-sdl1 "$SDL_SELECTED" "$SDL1_RESULT"
+          require_gate changed-native-web-tests "$CHANGED_NATIVE_TESTS_SELECTED" "$CHANGED_NATIVE_TESTS_RESULT"
           require_gate ccsolver-p5-preflight "$P5_SELECTED" "$P5_RESULT"
           require_gate ccsolver-workspace "$WORKSPACE_SELECTED" "$WORKSPACE_RESULT"
           require_gate ccsolver-static-corpus "$STATIC_CORPUS_SELECTED" "$STATIC_CORPUS_RESULT"

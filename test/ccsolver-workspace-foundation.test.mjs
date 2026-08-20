@@ -162,6 +162,11 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "runtime/tworldSolverCausalJournal.test.ts",
     "p2a-review/buildP2aRuntimeReviewOutputs.test.ts",
     "p3-review/buildP3ReviewOutputs.test.ts",
+    "p5-review/buildKeyPyramidP5Route.test.ts",
+    "p5-review/buildKeyPyramidP5Execution.test.ts",
+    "p5-review/certifyKeyPyramidP5Replay.test.ts",
+    "p5-review/runExactKeyPyramidNativeReplay.test.ts",
+    "p5-review/buildP5ReviewOutputs.test.ts",
   ]) {
     assert.doesNotMatch(
       smoke,
@@ -184,6 +189,7 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "p1b-curriculum/deriveMeasuredCorpusCase.test.ts",
     "p1b-curriculum/measuredCorpusReport.test.ts",
     "p1b-curriculum/curriculumManifest.test.ts",
+    "p1b-curriculum/writeFixedOutputsTransactionally.test.ts",
   ]) {
     assert.match(rootPackage.scripts["ccsolver:integration:corpus"], new RegExp(corpusProof));
   }
@@ -262,7 +268,6 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "src/ccsolver-runtime/impl/runtime/createSolverRuntimeKernel.test.ts",
     "src/ccsolver-runtime/compose/p2a-review/buildP2aRuntimeReviewPacket.test.ts",
     "src/ccsolver-runtime/compose/p4a-review/buildP4aReviewOutputs.test.ts",
-    "src/ccsolver-runtime/compose/p5-review/runExactKeyPyramidNativeReplay.test.ts",
   ]) {
     assert.match(smoke, new RegExp(
       smokeTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
@@ -457,19 +462,28 @@ test("runs the fail-closed proof graph only on pull requests", async () => {
   const preflight = workflowJob(workflow, "ccsolver-p5-preflight");
   assert.match(preflight, /build-sdl1/);
   assert.match(preflight, /actions\/download-artifact@v4/);
-  assert.match(preflight, /runExactKeyPyramidNativeReplay\.test\.ts/);
+  assert.match(
+    preflight,
+    /npm --workspace web run test -- --run \\\n\s+src\/ccsolver-runtime\/compose\/p5-review(?:\s|$)/,
+  );
   assert.match(preflight, /run: npm run ccsolver:p5:check:prepared/);
+  assert.match(preflight, /outputs\['heavy-p5'\]/);
   assert.doesNotMatch(preflight, /apt-get|cmake -S|ccsolver:p1b|ccsolver:p6a/);
 
   const sdl = workflowJob(workflow, "build-sdl1");
   assert.match(sdl, /timeout-minutes: 30/);
   assert.match(sdl, /actions\/upload-artifact@v4/);
   assert.match(sdl, /build-sdl\/legacy_c\/tworld-oracle/);
+  assert.match(sdl, /outputs\['native-sdl-oracle'\]/);
 
+  for (const jobName of ["build-qt5", "build-qt6"]) {
+    assert.match(workflowJob(workflow, jobName), /outputs\['native-qt'\]/);
+  }
   assert.match(workflowJob(workflow, "build-qt6"), /timeout-minutes: 40/);
 
   const workspace = workflowJob(workflow, "ccsolver-workspace");
   assert.match(workspace, /ccsolver:integration:smoke/);
+  assert.match(workspace, /run-changed-web-tests\.mjs/);
   assert.doesNotMatch(workspace, /ccsolver:integration:(?:static|corpus|runtime|reviews|causal-proof)/);
 
   const staticCorpus = workflowJob(workflow, "ccsolver-static-corpus");
@@ -511,6 +525,7 @@ test("runs the fail-closed proof graph only on pull requests", async () => {
   assert.match(aggregate, /if: \$\{\{ always\(\) \}\}/);
   for (const dependency of [
     "ccsolver-p5-preflight",
+    "changed-native-web-tests",
     "ccsolver-workspace",
     "ccsolver-p1b",
     "ccsolver-static-corpus",

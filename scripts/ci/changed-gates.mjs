@@ -6,10 +6,13 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
+import { changedWebTestDisposition } from "./run-changed-web-tests.mjs";
+
 const execFileAsync = promisify(execFile);
 
 export const GATE_IDS = Object.freeze([
-  "native",
+  "native-qt",
+  "native-sdl-oracle",
   "workspace",
   "static-corpus-p1b",
   "p5",
@@ -23,7 +26,7 @@ export const GATE_IDS = Object.freeze([
 const ALL_GATES = Object.freeze([...GATE_IDS]);
 const P5_DOWNSTREAM_GATES = Object.freeze([
   "workspace",
-  "native",
+  "native-sdl-oracle",
   "p5",
   "runtime-p6-evidence",
   "p6-presentation-attest",
@@ -60,8 +63,7 @@ function normalizeChangedPath(input) {
     || path === "."
     || path.startsWith("/")
     || /^[A-Za-z]:\//u.test(path)
-    || path.includes("\0")
-    || path.includes("\n")
+    || /[\u0000-\u001f\u007f]/u.test(path)
     || path.includes("//")
     || path.split("/").includes("..")
   ) {
@@ -180,10 +182,25 @@ function isSdlPath(path) {
   return isWithin(path, "legacy_c/oshw-sdl");
 }
 
+function isQtSdlSharedPath(path) {
+  return isOneOf(path, [
+    "legacy_c/oshw-sdl/sdlsfx.c",
+    "legacy_c/oshw-sdl/sdlsfx.h",
+  ]);
+}
+
 function isNativeOraclePath(path) {
-  return isWithin(path, "legacy_c/oracle")
-    || path === "CMakeLists.txt"
-    || (isWithin(path, "legacy_c") && !isQtPath(path) && !isSdlPath(path));
+  return isWithin(path, "legacy_c/oracle");
+}
+
+function isSharedNativePath(path) {
+  return path === "CMakeLists.txt"
+    || (
+      isWithin(path, "legacy_c")
+      && !isNativeOraclePath(path)
+      && !isQtPath(path)
+      && !isSdlPath(path)
+    );
 }
 
 function isBrowserOnlyPath(path) {
@@ -195,6 +212,17 @@ function isBrowserOnlyPath(path) {
 }
 
 function classifyPath(path) {
+  const changedTest = changedWebTestDisposition(path);
+  if (changedTest === "workspace") return { gates: ["workspace"], reason: "changed-web-test" };
+  if (changedTest === "p5") {
+    return { gates: ["native-sdl-oracle", "p5"], reason: "changed-p5-test" };
+  }
+  if (changedTest === "native") {
+    return { gates: ["native-sdl-oracle"], reason: "changed-native-web-test" };
+  }
+  if (changedTest === "unsupported") {
+    throw new Error(`unsupported changed web test: ${JSON.stringify(path)}`);
+  }
   if (isCiControlPath(path)) return { gates: ALL_GATES, reason: "ci-control" };
   if (isDocumentationPath(path)) return { gates: ["workspace"], reason: "documentation" };
   if (isP4bPresentationPath(path)) {
@@ -228,10 +256,24 @@ function classifyPath(path) {
   if (isStaticCorpusPath(path)) {
     return { gates: STATIC_DOWNSTREAM_GATES, reason: "static-corpus" };
   }
-  if (isQtPath(path)) return { gates: ["native"], reason: "native-qt" };
-  if (isSdlPath(path)) return { gates: P5_DOWNSTREAM_GATES, reason: "native-sdl" };
+  if (isQtPath(path)) return { gates: ["native-qt"], reason: "native-qt" };
+  if (isQtSdlSharedPath(path)) {
+    return {
+      gates: ["native-qt", "native-sdl-oracle"],
+      reason: "native-qt-sdl-shared",
+    };
+  }
+  if (isSdlPath(path)) {
+    return { gates: ["native-sdl-oracle"], reason: "native-sdl" };
+  }
   if (isNativeOraclePath(path)) {
     return { gates: P5_DOWNSTREAM_GATES, reason: "native-oracle" };
+  }
+  if (isSharedNativePath(path)) {
+    return {
+      gates: ["native-qt", ...P5_DOWNSTREAM_GATES],
+      reason: "native-shared",
+    };
   }
   if (isBrowserOnlyPath(path)) return { gates: ["workspace", "browser"], reason: "browser" };
   return { gates: ALL_GATES, reason: "unknown" };
@@ -241,26 +283,39 @@ function classifyPath(path) {
  * Classify repository-relative changed paths into the minimum safe CI gate set.
  * Any malformed or unrecognized path selects every gate.
  */
-export function classifyChangedPaths(inputs) {
+export function classifyChangedPaths(inputs, { deletedPaths = [] } = {}) {
   const normalized = new Map();
-  const invalidLabels = [];
   for (const input of inputs) {
     const path = normalizeChangedPath(input);
     if (path === null) {
-      invalidLabels.push(typeof input === "string" && input.length > 0 ? input : "<empty-path>");
-    } else {
-      normalized.set(path, path);
+      throw new Error(`invalid changed path: ${JSON.stringify(input)}`);
     }
+    normalized.set(path, path);
+  }
+
+  const deleted = new Set();
+  for (const input of deletedPaths) {
+    const path = normalizeChangedPath(input);
+    if (path === null) {
+      throw new Error(`invalid deleted path: ${JSON.stringify(input)}`);
+    }
+    if (!normalized.has(path)) {
+      throw new Error(`deleted path is not present in changed paths: ${JSON.stringify(path)}`);
+    }
+    deleted.add(path);
   }
 
   const paths = [...normalized.keys()].sort();
   const selected = new Set();
   const reasons = {};
-  const unknownPaths = [...invalidLabels];
-  if (paths.length === 0 && invalidLabels.length === 0) unknownPaths.push("<no-paths>");
+  const unknownPaths = [];
+  if (paths.length === 0) unknownPaths.push("<no-paths>");
 
   for (const path of paths) {
-    const classification = classifyPath(path);
+    const classification = deleted.has(path)
+      && changedWebTestDisposition(path) === "unsupported"
+      ? { gates: ["workspace"], reason: "deleted-web-test" }
+      : classifyPath(path);
     reasons[path] = classification.reason;
     for (const gate of classification.gates) selected.add(gate);
     if (classification.reason === "unknown") unknownPaths.push(path);
@@ -285,15 +340,13 @@ function assertRevision(value, option) {
     typeof value !== "string"
     || value.length === 0
     || value.startsWith("-")
-    || value.includes("\0")
-    || value.includes("\n")
+    || /[\u0000-\u001f\u007f]/u.test(value)
   ) {
     throw new Error(`${option} requires a safe Git revision`);
   }
 }
 
-/** Resolve changed names from the merge-base of `base` and `head`. */
-export async function resolveChangedPaths({ base, head = "HEAD", cwd = process.cwd() }) {
+async function resolveDiffPaths({ base, head, cwd, diffFilter }) {
   assertRevision(base, "--base");
   assertRevision(head, "--head");
   const { stdout } = await execFileAsync(
@@ -302,7 +355,7 @@ export async function resolveChangedPaths({ base, head = "HEAD", cwd = process.c
       "diff",
       "--name-only",
       "--no-renames",
-      "--diff-filter=ACDMRTUXB",
+      `--diff-filter=${diffFilter}`,
       "-z",
       `${base}...${head}`,
       "--",
@@ -310,6 +363,16 @@ export async function resolveChangedPaths({ base, head = "HEAD", cwd = process.c
     { cwd, encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 10_000 },
   );
   return [...new Set(stdout.split("\0").filter(Boolean))].sort();
+}
+
+/** Resolve changed names from the merge-base of `base` and `head`. */
+export async function resolveChangedPaths({ base, head = "HEAD", cwd = process.cwd() }) {
+  return resolveDiffPaths({ base, head, cwd, diffFilter: "ACDMRTUXB" });
+}
+
+/** Resolve only paths whose absence is proven by Git's deletion status. */
+export async function resolveDeletedPaths({ base, head = "HEAD", cwd = process.cwd() }) {
+  return resolveDiffPaths({ base, head, cwd, diffFilter: "D" });
 }
 
 function parseArguments(argv) {
@@ -342,14 +405,16 @@ function parseArguments(argv) {
 async function main(argv) {
   const options = parseArguments(argv);
   const paths = [...options.paths];
+  let deletedPaths = [];
   if (options.base !== undefined) {
     paths.push(...await resolveChangedPaths({ base: options.base, head: options.head }));
+    deletedPaths = await resolveDeletedPaths({ base: options.base, head: options.head });
   }
   if (options.stdin) {
     const input = await readFile(0, "utf8");
     paths.push(...input.split(/\0|\r?\n/u).filter(Boolean));
   }
-  process.stdout.write(`${JSON.stringify(classifyChangedPaths(paths))}\n`);
+  process.stdout.write(`${JSON.stringify(classifyChangedPaths(paths, { deletedPaths }))}\n`);
 }
 
 const isDirectInvocation = process.argv[1] !== undefined

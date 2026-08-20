@@ -34,7 +34,6 @@ test("uses one immutable public native image without apt installation", async ()
     assert.match(job, image);
     assert.doesNotMatch(job, /apt-get|sudo /);
     assert.match(job, /needs: classify/);
-    assert.match(job, /needs\.classify\.outputs\.native/);
     assert.match(
       job,
       /git config --global --add safe\.directory "\$GITHUB_WORKSPACE"/,
@@ -44,6 +43,13 @@ test("uses one immutable public native image without apt installation", async ()
     assert.ok(job.indexOf("uses: actions/checkout@v4") < job.indexOf("safe.directory"));
     assert.ok(job.indexOf("safe.directory") < job.indexOf("cmake -DCMAKE_BUILD_TYPE"));
   }
+  for (const jobName of ["build-qt5", "build-qt6"]) {
+    assert.match(workflowJob(workflow, jobName), /needs\.classify\.outputs\['native-qt'\]/);
+  }
+  assert.match(
+    workflowJob(workflow, "build-sdl1"),
+    /needs\.classify\.outputs\['native-sdl-oracle'\]/,
+  );
   assert.match(workflowJob(workflow, "build-qt5"), /CMAKE_DISABLE_FIND_PACKAGE_Qt6=TRUE/);
 });
 
@@ -78,6 +84,7 @@ test("classifies first and makes every expensive gate conditional", async () => 
   for (const policyTest of [
     "ci-image-contract.test.mjs",
     "ci-changed-gates.test.mjs",
+    "ci-changed-web-tests.test.mjs",
     "ci-proof-receipt.test.mjs",
     "ci-proof-gates.test.mjs",
     "ci-proof-routing.test.mjs",
@@ -87,10 +94,15 @@ test("classifies first and makes every expensive gate conditional", async () => 
   assert.match(classify, /changed-gates\.mjs/);
   assert.match(classify, /proof-receipt\.mjs/);
   for (const output of [
-    "native",
+    "native-qt",
+    "native-sdl-oracle",
     "workspace",
     "static-corpus-p1b",
     "p5",
+    "heavy-p5",
+    "changed-web-tests-json",
+    "changed-native-web-tests-json",
+    "changed-native-web-tests",
     "reviews-p2a-p4",
     "runtime-p6-evidence",
     "p6-presentation-attest",
@@ -126,6 +138,7 @@ test("keeps the always-present required check fail-closed over skipped jobs", as
     "build-qt5",
     "build-qt6",
     "build-sdl1",
+    "changed-native-web-tests",
     "ccsolver-p5-preflight",
     "ccsolver-workspace",
     "ccsolver-static-corpus",
@@ -141,12 +154,25 @@ test("keeps the always-present required check fail-closed over skipped jobs", as
   }
   assert.match(aggregate, /success/);
   assert.match(aggregate, /skipped/);
-  assert.match(aggregate, /NATIVE_SELECTED: \$\{\{ needs\.classify\.outputs\.native \}\}/);
+  assert.match(aggregate, /QT_SELECTED: \$\{\{ needs\.classify\.outputs\['native-qt'\] \}\}/);
+  assert.match(aggregate, /SDL_SELECTED: \$\{\{ needs\.classify\.outputs\['native-sdl-oracle'\] \}\}/);
   assert.match(aggregate, /P5_SELECTED: \$\{\{ needs\.classify\.outputs\.p5 \}\}/);
+  assert.match(aggregate, /P5_HEAVY_SELECTED: \$\{\{ needs\.classify\.outputs\['heavy-p5'\] \}\}/);
+  assert.match(aggregate, /CHANGED_NATIVE_TESTS_SELECTED: \$\{\{ needs\.classify\.outputs\['changed-native-web-tests'\] \}\}/);
   assert.match(aggregate, /P1B_SELECTED: \$\{\{ needs\.classify\.outputs\['heavy-p1b'\] \}\}/);
   assert.match(aggregate, /P6A_SELECTED: \$\{\{ needs\.classify\.outputs\['heavy-p6a'\] \}\}/);
   assert.match(aggregate, /require_gate ccsolver-p1b "\$P1B_SELECTED"/);
   assert.match(aggregate, /require_gate ccsolver-p6a "\$P6A_SELECTED"/);
+  assert.match(aggregate, /require_gate build-qt5 "\$QT_SELECTED"/);
+  assert.match(aggregate, /require_gate build-qt6 "\$QT_SELECTED"/);
+  assert.match(aggregate, /require_gate build-sdl1 "\$SDL_SELECTED"/);
+  assert.match(aggregate, /require_gate changed-native-web-tests "\$CHANGED_NATIVE_TESTS_SELECTED"/);
+  assert.match(aggregate, /require_implication heavy-p5 "\$P5_HEAVY_SELECTED" p5 "\$P5_SELECTED"/);
+  assert.match(aggregate, /require_implication p5 "\$P5_SELECTED" build-sdl1 "\$SDL_SELECTED"/);
+  assert.match(
+    aggregate,
+    /require_implication changed-native-web-tests "\$CHANGED_NATIVE_TESTS_SELECTED" build-sdl1 "\$SDL_SELECTED"/,
+  );
   assert.match(aggregate, /require_gate/);
   assert.match(aggregate, /selected but finished/);
   assert.match(aggregate, /exit 1/);
@@ -154,6 +180,9 @@ test("keeps the always-present required check fail-closed over skipped jobs", as
 
 test("keeps expensive duplicate proofs off the critical path", async () => {
   const workflow = await read(".github/workflows/ubuntu-ci.yml");
+  const p5ExecutionTest = await read(
+    "web/src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Execution.test.ts",
+  );
   const staticCorpus = workflowJob(workflow, "ccsolver-static-corpus");
   const p1b = workflowJob(workflow, "ccsolver-p1b");
   const runtime = workflowJob(workflow, "ccsolver-runtime");
@@ -183,9 +212,41 @@ test("keeps expensive duplicate proofs off the critical path", async () => {
   assert.match(p4b, /p4bDossierSafety\.test\.ts/);
   assert.match(p4b, /ccsolver:p4b:check:prepared/);
   const p5 = workflowJob(workflow, "ccsolver-p5-preflight");
-  assert.match(p5, /buildKeyPyramidP5Route\.test\.ts/);
-  assert.match(p5, /runExactKeyPyramidNativeReplay\.test\.ts/);
-  assert.match(p5, /buildP5ReviewOutputs\.test\.ts/);
+  assert.match(p5, /build-sdl1/);
+  assert.doesNotMatch(p5, /build-qt[56]/);
+  assert.match(
+    p5,
+    /npm --workspace web run test -- --run \\\n\s+src\/ccsolver-runtime\/compose\/p5-review(?:\s|$)/,
+  );
+  assert.match(
+    p5,
+    /src\/ccsolver-runtime\/compose\/p5-review \\\n\s+--no-file-parallelism/,
+  );
+  assert.equal(
+    (p5.match(/npm --workspace web run test/g) ?? []).length,
+    1,
+    "P5 scheduling must cover every test once without duplicating engine work",
+  );
+  assert.match(
+    p5ExecutionTest,
+    /300_000/,
+    "each continuous target needs a measured five-minute bound on hosted runners",
+  );
+  assert.ok(p5.indexOf("actions/download-artifact@v4") < p5.indexOf("src/ccsolver-runtime/compose/p5-review"));
+  assert.match(
+    p5,
+    /if: \$\{\{ needs\.classify\.outputs\['heavy-p5'\] == 'true' \}\}[\s\S]*ccsolver:p5:check:prepared/,
+  );
+
+  const workspace = workflowJob(workflow, "ccsolver-workspace");
+  assert.match(workspace, /CHANGED_WEB_TESTS_JSON: \$\{\{ needs\.classify\.outputs\['changed-web-tests-json'\] \}\}/);
+  assert.match(workspace, /run-changed-web-tests\.mjs[\s\S]*--lane workspace/);
+
+  const changedNative = workflowJob(workflow, "changed-native-web-tests");
+  assert.match(changedNative, /build-sdl1/);
+  assert.match(changedNative, /outputs\['changed-native-web-tests'\]/);
+  assert.match(changedNative, /actions\/download-artifact@v4/);
+  assert.match(changedNative, /run-changed-web-tests\.mjs[\s\S]*--lane native/);
 });
 
 test("splits cheap integration from corpus, runtime, and review proofs", async () => {
@@ -205,6 +266,7 @@ test("splits cheap integration from corpus, runtime, and review proofs", async (
   assert.doesNotMatch(scripts["ccsolver:integration:smoke"], /corpusManifest|corpusValidityReport|measuredCorpusReport/);
   assert.doesNotMatch(scripts["ccsolver:integration:smoke"], /tworldSolverRuntimeAdapters|tworldSolverCausalJournal/);
   assert.doesNotMatch(scripts["ccsolver:integration:smoke"], /buildP2aRuntimeReviewOutputs|buildP3ReviewOutputs/);
+  assert.doesNotMatch(scripts["ccsolver:integration:smoke"], /p5-review\/.*\.test\.ts/);
   assert.match(scripts["ccsolver:integration:corpus"], /corpusValidityReport/);
   assert.match(scripts["ccsolver:integration:runtime"], /tworldSolverRuntimeAdapters/);
   assert.match(scripts["ccsolver:integration:reviews"], /buildP3ReviewOutputs/);

@@ -16,7 +16,9 @@ import { promisify } from "node:util";
 import {
   classifyChangedPaths,
   resolveChangedPaths,
+  resolveDeletedPaths,
 } from "./changed-gates.mjs";
+import { partitionChangedWebTestPaths } from "./run-changed-web-tests.mjs";
 import {
   canonicalJson,
   verifyProofReceiptReuse,
@@ -44,7 +46,8 @@ export const PROOF_BINDINGS = Object.freeze({
 
 const WORKFLOW_GATE_KEYS = Object.freeze({
   browser: "browser",
-  native: "native",
+  native_qt: "native-qt",
+  native_sdl_oracle: "native-sdl-oracle",
   p4b: "p4b",
   p5: "p5",
   p6_presentation_attest: "p6-presentation-attest",
@@ -91,10 +94,16 @@ function proofResult(verification, requested, forced) {
 export async function resolveProofGates({
   all = false,
   changedPaths,
+  deletedPaths = [],
   root = process.cwd(),
   trustedRoot,
 }) {
-  const changed = classifyChangedPaths(changedPaths);
+  const changed = classifyChangedPaths(changedPaths, { deletedPaths });
+  const changedTests = await partitionChangedWebTestPaths({
+    changedPaths: changed.paths,
+    deletedPaths,
+    root,
+  });
   const policyForcesAll = changed.unknownPaths.length > 0
     || Object.values(changed.reasons).includes("ci-control");
   const forced = all || policyForcesAll;
@@ -135,13 +144,14 @@ export async function resolveProofGates({
   // Keep affected integration lanes independent from reusable artifact proofs:
   // editing a test must still run that lane even when checked artifacts reuse.
   // Heavy P1B/P6A decisions are exported separately by workflowOutputs().
-  gates.native = gates.native || proofs.p5.heavy;
-  gates.p5 = proofs.p5.heavy;
+  gates.p5 = gates.p5 || proofs.p5.heavy;
+  gates.native_sdl_oracle = gates.native_sdl_oracle || gates.p5 || proofs.p5.heavy;
   gates.p6_presentation_attest = gates.p6_presentation_attest || proofs.p6a.heavy;
 
   return {
     allHeavy: forced || failClosed,
     changed,
+    changedTests,
     currentReceiptsValid,
     gates,
     proofs,
@@ -154,8 +164,7 @@ function assertRevision(value, flag) {
     typeof value !== "string"
     || value.length === 0
     || value.startsWith("-")
-    || value.includes("\0")
-    || value.includes("\n")
+    || /[\u0000-\u001f\u007f]/u.test(value)
   ) {
     throw new Error(`${flag} requires a safe Git revision`);
   }
@@ -231,6 +240,9 @@ function parseArguments(argv) {
 function workflowOutputs(result) {
   return {
     ...result.gates,
+    changed_native_web_tests: result.changedTests.native.length > 0,
+    changed_native_web_tests_json: JSON.stringify(result.changedTests.native),
+    changed_web_tests_json: JSON.stringify(result.changedTests.workspace),
     current_receipts_valid: result.currentReceiptsValid,
     heavy_p1b: result.proofs.p1b.heavy,
     heavy_p5: result.proofs.p5.heavy,
@@ -243,7 +255,18 @@ function workflowOutputs(result) {
 
 async function writeGithubOutputs(path, result) {
   const values = workflowOutputs(result);
-  const lines = Object.keys(values).sort().map((key) => `${key}=${values[key] ? "true" : "false"}`);
+  const lines = Object.keys(values).sort().map((key) => {
+    const value = values[key];
+    if (typeof value === "boolean") return `${key}=${value ? "true" : "false"}`;
+    if (
+      typeof value !== "string"
+      || Buffer.byteLength(value) > 64 * 1024
+      || /[\u0000-\u001f\u007f]/u.test(value)
+    ) {
+      throw new Error(`unsafe GitHub output value: ${key}`);
+    }
+    return `${key}=${value}`;
+  });
   await appendFile(resolve(path), `${lines.join("\n")}\n`, "utf8");
 }
 
@@ -252,15 +275,18 @@ async function main() {
   const root = resolve(options.root ?? process.cwd());
   const head = options.head ?? "HEAD";
   const paths = [...options.paths];
+  let deletedPaths = [];
   let materialized;
   if (options.base !== undefined) {
     paths.push(...await resolveChangedPaths({ base: options.base, head, cwd: root }));
+    deletedPaths = await resolveDeletedPaths({ base: options.base, head, cwd: root });
     materialized = await materializeTrustedReceipts({ base: options.base, head, root });
   }
   try {
     const result = await resolveProofGates({
       all: options.all,
       changedPaths: paths,
+      deletedPaths,
       root,
       trustedRoot: materialized?.trustedRoot ?? options.trusted_root,
     });
