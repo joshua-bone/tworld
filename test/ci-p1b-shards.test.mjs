@@ -284,24 +284,51 @@ test("the P1B proof provenance names the distributed fixed-eight producer", asyn
   );
 });
 
-test("the wrapper launches its TypeScript driver from the web alias context", () => {
-  const result = spawnSync(process.execPath, [
-    "scripts/ci/p1b-shards.mjs",
-    "run",
-    "--root",
-    ".",
-    "--manifest",
-    "/private/tmp/tworld-missing-p1b-manifest",
-    "--request",
-    "/private/tmp/tworld-missing-p1b-request",
-    "--output",
-    "/private/tmp/tworld-missing-p1b-result",
-  ], {
-    cwd: repositoryRoot,
-    encoding: "utf8",
-    timeout: 10_000,
-  });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /P1B shard manifest is missing/);
-  assert.doesNotMatch(result.stderr, /Cannot find (?:package|module) '@content/u);
+test("the wrapper launches its TypeScript driver from the web alias context", async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), "tworld-p1b-wrapper-")));
+  try {
+    const viteNodeDirectory = join(root, "web/node_modules/vite-node");
+    await mkdir(viteNodeDirectory, { recursive: true });
+    await writeFile(join(viteNodeDirectory, "vite-node.mjs"), `
+      import { resolve } from "node:path";
+
+      const [driver, command, ...args] = process.argv.slice(2);
+      const rootIndex = args.indexOf("--root");
+      const repositoryRoot = resolve(args[rootIndex + 1]);
+      if (process.cwd() !== resolve(repositoryRoot, "web")) {
+        throw new Error("wrapper did not launch from the web alias context");
+      }
+      if (driver !== resolve(
+        repositoryRoot,
+        "web/src/ccsolver-runtime/compose/p1b-curriculum/runP1bDistributedShards.ts",
+      )) {
+        throw new Error("wrapper selected the wrong TypeScript driver");
+      }
+      if (command !== "run") throw new Error("wrapper selected the wrong command");
+      process.stderr.write("P1B shard manifest is missing\\n");
+      process.exitCode = 1;
+    `);
+
+    const result = spawnSync(process.execPath, [
+      resolve(repositoryRoot, "scripts/ci/p1b-shards.mjs"),
+      "run",
+      "--root",
+      ".",
+      "--manifest",
+      join(root, "missing-manifest"),
+      "--request",
+      join(root, "missing-request"),
+      "--output",
+      join(root, "missing-result"),
+    ], {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 10_000,
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /P1B shard manifest is missing/);
+    assert.doesNotMatch(result.stderr, /Cannot find (?:package|module) '@content/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
