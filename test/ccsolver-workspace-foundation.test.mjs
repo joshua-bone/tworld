@@ -80,6 +80,7 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.match(rootPackage.scripts["ccsolver:p4b:emit-dist"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p6a:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p6a:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p6a:attest"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p6a:emit-dist"], /:prepared/);
   for (const command of [
     "ccsolver:corpus:check",
@@ -101,6 +102,7 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "ccsolver:p4b:emit-dist",
     "ccsolver:p6a:check",
     "ccsolver:p6a:generate",
+    "ccsolver:p6a:attest",
     "ccsolver:p6a:emit-dist",
   ]) {
     assert.equal(
@@ -120,6 +122,7 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "ccsolver:p4b:check",
     "ccsolver:p4b:emit-dist",
     "ccsolver:p6a:check",
+    "ccsolver:p6a:attest",
     "ccsolver:p6a:emit-dist",
   ]) {
     const prepared = `${command}:prepared`;
@@ -251,6 +254,7 @@ test("registers CCSolver as a first-class root workspace", async () => {
   );
   assert.equal(webPackage.scripts["ccsolver:p6a:check"], "npm run ccsolver:p6a -- --check");
   assert.equal(webPackage.scripts["ccsolver:p6a:generate"], "npm run ccsolver:p6a -- --write");
+  assert.equal(webPackage.scripts["ccsolver:p6a:attest"], "npm run ccsolver:p6a -- --attest");
   assert.equal(webPackage.scripts["ccsolver:p6a:emit-dist"], "npm run ccsolver:p6a -- --emit-dist");
   for (const smokeTest of [
     "src/ccsolver-runtime/compose/sourceValidity/analyzeTworldSolverSourceScope.test.ts",

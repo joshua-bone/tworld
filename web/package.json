@@ -46,6 +46,7 @@
     "ccsolver:p6a": "vite-node src/ccsolver-runtime/compose/p6a-review/runP6aReviewOutputs.ts",
     "ccsolver:p6a:check": "npm run ccsolver:p6a -- --check",
     "ccsolver:p6a:generate": "npm run ccsolver:p6a -- --write",
+    "ccsolver:p6a:attest": "npm run ccsolver:p6a -- --attest",
     "ccsolver:p6a:emit-dist": "npm run ccsolver:p6a -- --emit-dist",
     "verify:ms-replays:parallel": "TWORLD_MS_REPLAY_SWEEP_JOBS=${TWORLD_MS_REPLAY_SWEEP_JOBS:-999} vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts MS",
     "verify:lynx-replays:parallel": "TWORLD_LYNX_REPLAY_SWEEP_JOBS=${TWORLD_LYNX_REPLAY_SWEEP_JOBS:-999} vite-node src/replay-verifier/compose/verifyRulesetSolutionReplays.ts Lynx",

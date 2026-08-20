@@ -71,6 +71,8 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+      - name: Trust the checked-out workspace for containerized Git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Build tworld2 (Qt6)
         run: |
           mkdir build-qt6 && cd build-qt6
@@ -87,6 +89,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Trust the checked-out workspace for containerized Git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Build tworld2 (Qt5)
         run: |
           mkdir build-qt5 && cd build-qt5
@@ -105,6 +109,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Trust the checked-out workspace for containerized Git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Build tworld (SDL)
         run: |
           mkdir build-sdl && cd build-sdl
@@ -352,7 +358,7 @@ jobs:
             src/ccsolver-runtime/compose/p6a-review/buildP6aReviewOutputs.test.ts \
             src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.test.ts \
             src/ccsolver-runtime/compose/p6a-review/p6aReviewIo.test.ts
-          npm run ccsolver:p6a:emit-dist:prepared
+          npm run ccsolver:p6a:attest:prepared
 
   browser-workspace:
     needs: classify

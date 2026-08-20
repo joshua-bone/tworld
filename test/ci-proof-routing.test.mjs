@@ -35,6 +35,14 @@ test("uses one immutable public native image without apt installation", async ()
     assert.doesNotMatch(job, /apt-get|sudo /);
     assert.match(job, /needs: classify/);
     assert.match(job, /needs\.classify\.outputs\.native/);
+    assert.match(
+      job,
+      /git config --global --add safe\.directory "\$GITHUB_WORKSPACE"/,
+      `${jobName} must preserve Git trust after checkout's temporary HOME is restored`,
+    );
+    assert.doesNotMatch(job, /safe\.directory (?:['"]?\*|\/__w\/)/);
+    assert.ok(job.indexOf("uses: actions/checkout@v4") < job.indexOf("safe.directory"));
+    assert.ok(job.indexOf("safe.directory") < job.indexOf("cmake -DCMAKE_BUILD_TYPE"));
   }
   assert.match(workflowJob(workflow, "build-qt5"), /CMAKE_DISABLE_FIND_PACKAGE_Qt6=TRUE/);
 });
@@ -167,7 +175,8 @@ test("keeps expensive duplicate proofs off the critical path", async () => {
   const p6Presentation = workflowJob(workflow, "ccsolver-p6-presentation");
   assert.match(p6Presentation, /checkedP6aInputs\.test\.ts/);
   assert.match(p6Presentation, /buildP6aReviewOutputs\.test\.ts/);
-  assert.match(p6Presentation, /ccsolver:p6a:emit-dist:prepared/);
+  assert.match(p6Presentation, /ccsolver:p6a:attest:prepared/);
+  assert.doesNotMatch(p6Presentation, /ccsolver:p6a:emit-dist:prepared/);
   assert.doesNotMatch(p6Presentation, /ccsolver:p6a:check:prepared/);
   const p4b = workflowJob(workflow, "ccsolver-p4b");
   assert.match(p4b, /p4bDossierIo\.test\.ts/);
