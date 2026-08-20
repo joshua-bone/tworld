@@ -1,4 +1,4 @@
-import { createBrowserAppServices } from "@player-web/compose/createBrowserAppServices";
+import { createP7bReplayPlayerServices } from "@player-web/compose/createP7bReplayPlayerServices";
 import { prewarmLegacyTileset } from "@player-web/impl/LegacyCanvasScreen";
 import { mountP7bSegmentReplayBrowserPlayer } from "@player-web/impl/p7b-training-replays/mountP7bSegmentReplayBrowserPlayer";
 
@@ -11,7 +11,7 @@ async function mount(): Promise<void> {
     prewarmLegacyTileset("Lynx");
     await mountP7bSegmentReplayBrowserPlayer({
       root,
-      services: createBrowserAppServices(),
+      services: createP7bReplayPlayerServices(),
     });
   } catch (error: unknown) {
     if (status) {

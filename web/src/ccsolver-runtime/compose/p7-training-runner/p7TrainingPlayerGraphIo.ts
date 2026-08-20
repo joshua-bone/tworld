@@ -23,6 +23,7 @@ import {
   buildP7SharedPlayerGraphAttestation,
   canonicalizeP7SharedPlayerGraphAttestation,
   parseP7SharedPlayerGraphAttestation,
+  p7SharedPlayerViteManifestKey,
   type P7SharedPlayerBuiltFile,
   type P7SharedPlayerGraphAttestationV1,
   type P7SharedPlayerGraphBuildInput,
@@ -33,6 +34,11 @@ const WEB_DIST_PARENT = "web/dist";
 const SAFE_PATH_PATTERN = /^[A-Za-z0-9._/-]+$/u;
 const decoder = new TextDecoder("utf-8", { fatal: true });
 let transactionOrdinal = 0;
+
+export const P7_TRAINING_SHARED_PLAYER_SOURCE_CLOSURE_REVISION =
+  "p7-shared-player-source-closure-v1" as const;
+export const P7_TRAINING_SHARED_PLAYER_TOOLCHAIN_REVISION =
+  "node22.22.0-vite7.3.1-base-tworld-v1" as const;
 
 export type P7TrainingSharedPlayerInput = P7bTrainingPackBuildInput["sharedPlayer"];
 
@@ -137,12 +143,20 @@ function record(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function stringArray(value: unknown, label: string): readonly string[] {
+function outputPathArray(value: unknown, label: string): readonly string[] {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > P7_SHARED_PLAYER_GRAPH_MAX_FILES) {
     throw new Error(`${label} is invalid`);
   }
   return value.map((entry) => safeRelativePath(entry, label));
+}
+
+function manifestKeyArray(value: unknown, label: string): readonly string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > P7_SHARED_PLAYER_GRAPH_MAX_FILES) {
+    throw new Error(`${label} is invalid`);
+  }
+  return value.map((entry) => p7SharedPlayerViteManifestKey(entry, label));
 }
 
 function reachablePlayerFiles(viteManifestBytes: Uint8Array): readonly string[] {
@@ -172,10 +186,10 @@ function reachablePlayerFiles(viteManifestBytes: Uint8Array): readonly string[] 
     const entry = record(manifest[key], `P7 player Vite dependency ${key}`);
     paths.add(safeRelativePath(entry.file, `P7 player Vite file ${key}`));
     for (const field of ["css", "assets"] as const) {
-      stringArray(entry[field], `P7 player Vite ${field}`).forEach((path) => paths.add(path));
+      outputPathArray(entry[field], `P7 player Vite ${field}`).forEach((path) => paths.add(path));
     }
     for (const field of ["imports", "dynamicImports"] as const) {
-      for (const imported of stringArray(entry[field], `P7 player Vite ${field}`)) {
+      for (const imported of manifestKeyArray(entry[field], `P7 player Vite ${field}`)) {
         if (!Object.hasOwn(manifest, imported)) {
           throw new Error(`P7 player Vite dependency is missing: ${imported}`);
         }
@@ -263,10 +277,18 @@ export async function checkP7TrainingPlayerGraph(input: {
   readonly sha256: Sha256Port;
 }): Promise<P7TrainingSharedPlayerInput> {
   const graphAttestation = await loadCheckedGraph(input.repositoryRoot);
+  if (
+    graphAttestation.source.closureRevision
+    !== P7_TRAINING_SHARED_PLAYER_SOURCE_CLOSURE_REVISION
+  ) throw new Error("P7 checked player graph source revision drifted");
+  if (
+    graphAttestation.toolchainRevision
+    !== P7_TRAINING_SHARED_PLAYER_TOOLCHAIN_REVISION
+  ) throw new Error("P7 checked player graph toolchain revision drifted");
   const buildInput = await loadFreshBuildInput({
     repositoryRoot: input.repositoryRoot,
-    sourceClosureRevision: graphAttestation.source.closureRevision,
-    toolchainRevision: graphAttestation.toolchainRevision,
+    sourceClosureRevision: P7_TRAINING_SHARED_PLAYER_SOURCE_CLOSURE_REVISION,
+    toolchainRevision: P7_TRAINING_SHARED_PLAYER_TOOLCHAIN_REVISION,
     sha256: input.sha256,
   });
   await attestP7SharedPlayerGraph({ ...buildInput, attestation: graphAttestation });
@@ -284,8 +306,8 @@ export async function attestCheckedP7TrainingPlayerGraph(input: {
   const graphAttestation = (await checkP7TrainingPlayerGraph(input)).graphAttestation;
   const buildInput = await loadFreshBuildInput({
     repositoryRoot: input.repositoryRoot,
-    sourceClosureRevision: graphAttestation.source.closureRevision,
-    toolchainRevision: graphAttestation.toolchainRevision,
+    sourceClosureRevision: P7_TRAINING_SHARED_PLAYER_SOURCE_CLOSURE_REVISION,
+    toolchainRevision: P7_TRAINING_SHARED_PLAYER_TOOLCHAIN_REVISION,
     sha256: input.sha256,
   });
   return attestP7SharedPlayerGraph({ ...buildInput, attestation: graphAttestation });
@@ -293,11 +315,13 @@ export async function attestCheckedP7TrainingPlayerGraph(input: {
 
 export async function writeP7TrainingPlayerGraphTransactionally(input: {
   readonly repositoryRoot: string;
-  readonly sourceClosureRevision: string;
-  readonly toolchainRevision: string;
   readonly sha256: Sha256Port;
 }): Promise<P7TrainingSharedPlayerInput> {
-  const fresh = await buildFreshP7TrainingPlayerGraph(input);
+  const fresh = await buildFreshP7TrainingPlayerGraph({
+    ...input,
+    sourceClosureRevision: P7_TRAINING_SHARED_PLAYER_SOURCE_CLOSURE_REVISION,
+    toolchainRevision: P7_TRAINING_SHARED_PLAYER_TOOLCHAIN_REVISION,
+  });
   const canonical = canonicalizeP7SharedPlayerGraphAttestation(fresh.graphAttestation);
   const relativeParent = dirname(P7_SHARED_PLAYER_GRAPH_CHECKED_PATH).split(sep).join("/");
   await trustedDirectoryChain({

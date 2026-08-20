@@ -19,6 +19,7 @@ import test from "node:test";
 import {
   PROOF_BINDINGS,
   resolveProofGates,
+  workflowOutputs,
 } from "../scripts/ci/resolve-proof-gates.mjs";
 import {
   NATIVE_CHANGED_WEB_TESTS,
@@ -130,6 +131,7 @@ const WEB_SOURCE_ALIASES = [
   ["@game-runtime/", "web/src/game-runtime/"],
   ["@level-catalog/", "web/src/level-catalog/"],
   ["@oracle-fixtures/", "web/src/oracle-fixtures/"],
+  ["@player-web/", "web/src/player-web/"],
   ["@replay-verifier/", "web/src/replay-verifier/"],
   ["@ruleset-lynx/", "web/src/ruleset-lynx/"],
   ["@ruleset-ms/", "web/src/ruleset-ms/"],
@@ -293,15 +295,14 @@ test("checked proof specs bind the audited P1B, P5, and P6A leaves", async () =>
   const corpusManifest = await readJson("ccsolver/corpus/manifest.v1.json");
   const manifestSources = [...new Set(corpusManifest.sources.map(({ path }) => path))].sort();
 
-  for (const [proofId, binding] of Object.entries(PROOF_BINDINGS)) {
+  for (const [proofId, expected] of Object.entries(EXPECTED_PROOFS)) {
+    const binding = PROOF_BINDINGS[proofId];
     const spec = await readJson(binding.specPath);
     const receipt = await buildProofReceipt({
       root: repositoryRoot,
       specPath: binding.specPath,
     });
     const checked = await readJson(binding.receiptPath);
-    const expected = EXPECTED_PROOFS[proofId];
-
     assert.equal(spec.schema, PROOF_SPEC_SCHEMA);
     assert.equal(spec.proofId, proofId);
     assert.equal(spec.producerContract, expected.producer);
@@ -437,6 +438,14 @@ test("proof input scopes cover every live @tworld/ccsolver package import", asyn
     ],
     p5: ["web/src/ccsolver-runtime/compose/p5-review/runP5ReviewOutputs.ts"],
     p6a: ["web/src/ccsolver-runtime/compose/p6a-review/runP6aReviewOutputs.ts"],
+    p7c: ["web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCli.ts"],
+    p7d: ["web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCli.ts"],
+    p7e: ["web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCli.ts"],
+    "p7-presentation": [
+      "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunnerCli.ts",
+      "web/src/bootstrap/browser/main.tsx",
+      "web/src/bootstrap/browser/p7bReplayPlayer.tsx",
+    ],
   };
   for (const [proofId, roots] of Object.entries(entries)) {
     const spec = await readJson(PROOF_BINDINGS[proofId].specPath);
@@ -470,6 +479,26 @@ test("proof input scopes cover the audited producer value-module closure", async
         "web/src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.ts",
       ],
       entries: ["web/src/ccsolver-runtime/compose/p6a-review/runP6aReviewOutputs.ts"],
+    },
+    p7c: {
+      allowedOmissions: [],
+      entries: ["web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCli.ts"],
+    },
+    p7d: {
+      allowedOmissions: [],
+      entries: ["web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCli.ts"],
+    },
+    p7e: {
+      allowedOmissions: [],
+      entries: ["web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCli.ts"],
+    },
+    "p7-presentation": {
+      allowedOmissions: [],
+      entries: [
+        "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunnerCli.ts",
+        "web/src/bootstrap/browser/main.tsx",
+        "web/src/bootstrap/browser/p7bReplayPlayer.tsx",
+      ],
     },
   };
   for (const [proofId, audit] of Object.entries(audits)) {
@@ -515,13 +544,37 @@ async function makeResolverFixture(t) {
       input: "ccsolver/src/events/value.ts",
       output: "proof-output/p6a.json",
     },
+    p7c: {
+      input: "data/CCLP1.dat",
+      output: "proof-output/p7c.json",
+    },
+    p7d: {
+      input: "data/CCLP4.dat",
+      output: "proof-output/p7d.json",
+    },
+    p7e: {
+      input: "data/CCLP5.dat",
+      output: "proof-output/p7e.json",
+    },
+    "p7-presentation": {
+      input: "web/src/ccsolver-runtime/compose/p7b-training-replays/p7bReplayPresentation.ts",
+      output: "proof-output/p7-presentation.json",
+    },
   };
+  const p7SemanticInput = "web/src/game-core/api/p7TrainingBrowserReplay.ts";
+  await write(root, p7SemanticInput, "P7 semantic browser transport v1\n");
   for (const [proofId, binding] of Object.entries(PROOF_BINDINGS)) {
     const paths = fixturePaths[proofId];
     await write(root, paths.input, `${proofId} input v1\n`);
     await write(root, paths.output, `${proofId} output v1\n`);
+    const inputScopes = [
+      { kind: "file", path: paths.input },
+      ...(["p7c", "p7d", "p7e"].includes(proofId)
+        ? [{ kind: "file", path: p7SemanticInput }]
+        : []),
+    ];
     await write(root, binding.specPath, canonicalJson({
-      inputScopes: [{ kind: "file", path: paths.input }],
+      inputScopes,
       outputManifestPath: null,
       outputScopes: [{ kind: "file", path: paths.output }],
       producerContract: `${proofId}:fixture:v1`,
@@ -539,7 +592,7 @@ async function makeResolverFixture(t) {
       resolve(trustedRoot, binding.receiptPath),
     );
   }
-  return { fixturePaths, root, trustedRoot };
+  return { fixturePaths, p7SemanticInput, root, trustedRoot };
 }
 
 test("combines changed gates with trusted receipts without running unaffected heavy proofs", async (t) => {
@@ -554,6 +607,10 @@ test("combines changed gates with trusted receipts without running unaffected he
   assert.equal(docs.gates.static_corpus_p1b, false);
   assert.equal(docs.gates.p5, false);
   assert.equal(docs.gates.runtime_p6_evidence, false);
+  assert.equal(docs.gates.training_p7c, false);
+  assert.equal(docs.gates.training_p7d, false);
+  assert.equal(docs.gates.training_p7e, false);
+  assert.equal(docs.gates.p7_presentation_attest, false);
 
   const p1b = PROOF_BINDINGS.p1b;
   await write(fixture.root, fixture.fixturePaths.p1b.input, "p1b input v2\n");
@@ -568,10 +625,107 @@ test("combines changed gates with trusted receipts without running unaffected he
   assert.equal(staticChange.proofs.p1b.reuse, false);
   assert.equal(staticChange.proofs.p5.reuse, true);
   assert.equal(staticChange.proofs.p6a.reuse, true);
+  assert.equal(staticChange.proofs.p7c.reuse, true);
+  assert.equal(staticChange.proofs.p7d.reuse, true);
+  assert.equal(staticChange.proofs.p7e.reuse, true);
+  assert.equal(staticChange.proofs["p7-presentation"].reuse, true);
   assert.equal(staticChange.gates.static_corpus_p1b, true);
   assert.equal(staticChange.gates.p5, true);
   assert.equal(staticChange.proofs.p5.heavy, false);
   assert.equal(staticChange.gates.runtime_p6_evidence, true);
+});
+
+test("selects P7 engine work by pack while keeping presentation independently attestable", async (t) => {
+  const fixture = await makeResolverFixture(t);
+  const p7c = PROOF_BINDINGS.p7c;
+  await write(fixture.root, fixture.fixturePaths.p7c.input, "cclp1 source v2\n");
+  await writeProofReceipt({
+    receiptPath: p7c.receiptPath,
+    root: fixture.root,
+    specPath: p7c.specPath,
+  });
+  const engine = await resolveProofGates({
+    changedPaths: [fixture.fixturePaths.p7c.input],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+  assert.equal(engine.proofs.p7c.heavy, true);
+  assert.equal(engine.proofs.p7d.reuse, true);
+  assert.equal(engine.proofs.p7e.reuse, true);
+  assert.equal(engine.gates.p7_presentation_attest, true);
+  assert.deepEqual(workflowOutputs(engine).p7_engine_packs_json, '["cclp1"]');
+  assert.equal(workflowOutputs(engine).p7_needs_shards, true);
+  assert.equal(workflowOutputs(engine).p7_selected, true);
+
+  const presentationFixture = await makeResolverFixture(t);
+  const presentationBinding = PROOF_BINDINGS["p7-presentation"];
+  await write(
+    presentationFixture.root,
+    presentationFixture.fixturePaths["p7-presentation"].input,
+    "presentation source v2\n",
+  );
+  await writeProofReceipt({
+    receiptPath: presentationBinding.receiptPath,
+    root: presentationFixture.root,
+    specPath: presentationBinding.specPath,
+  });
+  const presentation = await resolveProofGates({
+    changedPaths: [presentationFixture.fixturePaths["p7-presentation"].input],
+    root: presentationFixture.root,
+    trustedRoot: presentationFixture.trustedRoot,
+  });
+  assert.equal(presentation.proofs.p7c.heavy, false);
+  assert.equal(presentation.proofs.p7d.heavy, false);
+  assert.equal(presentation.proofs.p7e.heavy, false);
+  assert.equal(presentation.proofs["p7-presentation"].heavy, true);
+  assert.equal(workflowOutputs(presentation).p7_engine_packs_json, "[]");
+  assert.equal(workflowOutputs(presentation).p7_needs_shards, false);
+  assert.equal(workflowOutputs(presentation).attest_p7_presentation, true);
+  assert.equal(workflowOutputs(presentation).p7_selected, true);
+});
+
+test("keeps presentation DTO drift out of engine receipts but binds browser transport semantics", async (t) => {
+  const presentationFixture = await makeResolverFixture(t);
+  const presentationBinding = PROOF_BINDINGS["p7-presentation"];
+  await write(
+    presentationFixture.root,
+    presentationFixture.fixturePaths["p7-presentation"].input,
+    "presentation DTO v2\n",
+  );
+  await writeProofReceipt({
+    receiptPath: presentationBinding.receiptPath,
+    root: presentationFixture.root,
+    specPath: presentationBinding.specPath,
+  });
+  const presentation = await resolveProofGates({
+    changedPaths: [presentationFixture.fixturePaths["p7-presentation"].input],
+    root: presentationFixture.root,
+    trustedRoot: presentationFixture.trustedRoot,
+  });
+  for (const proofId of ["p7c", "p7d", "p7e"]) {
+    assert.equal(presentation.proofs[proofId].reuse, true, proofId);
+    assert.equal(presentation.proofs[proofId].heavy, false, proofId);
+  }
+
+  const engineFixture = await makeResolverFixture(t);
+  await write(engineFixture.root, engineFixture.p7SemanticInput, "browser transport v2\n");
+  for (const proofId of ["p7c", "p7d", "p7e"]) {
+    const binding = PROOF_BINDINGS[proofId];
+    await writeProofReceipt({
+      receiptPath: binding.receiptPath,
+      root: engineFixture.root,
+      specPath: binding.specPath,
+    });
+  }
+  const engine = await resolveProofGates({
+    changedPaths: [engineFixture.p7SemanticInput],
+    root: engineFixture.root,
+    trustedRoot: engineFixture.trustedRoot,
+  });
+  for (const proofId of ["p7c", "p7d", "p7e"]) {
+    assert.equal(engine.proofs[proofId].reuse, false, proofId);
+    assert.equal(engine.proofs[proofId].heavy, true, proofId);
+  }
 });
 
 test("receipt drift independently requests a heavy proof when path routing misses it", async (t) => {
@@ -812,12 +966,26 @@ test("CLI resolves the trusted merge base and writes underscore-safe GitHub outp
     "p6_presentation_attest",
     "p4b",
     "browser",
+    "training_p7c",
+    "training_p7d",
+    "training_p7e",
+    "p7_presentation_attest",
     "reuse_p1b",
     "reuse_p5",
     "reuse_p6a",
     "heavy_p1b",
     "heavy_p5",
     "heavy_p6a",
+    "reuse_p7c",
+    "reuse_p7d",
+    "reuse_p7e",
+    "reuse_p7_presentation",
+    "heavy_p7c",
+    "heavy_p7d",
+    "heavy_p7e",
+    "attest_p7_presentation",
+    "p7_needs_shards",
+    "p7_selected",
     "current_receipts_valid",
     "changed_native_web_tests",
   ]) {
@@ -825,6 +993,7 @@ test("CLI resolves the trusted merge base and writes underscore-safe GitHub outp
   }
   assert.match(output, /^changed_web_tests_json=\[\]$/m);
   assert.match(output, /^changed_native_web_tests_json=\[\]$/m);
+  assert.match(output, /^p7_engine_packs_json=\[\]$/m);
   assert.match(output, new RegExp(`^trusted_merge_base=${base}$`, "m"));
 
   const dispatchOutput = resolve(fixture.root, "dispatch-github-output.txt");

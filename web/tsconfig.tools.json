@@ -26,6 +26,8 @@
     "src/ccsolver-runtime/compose/p6a-review/runP6aReviewOutputs.ts",
     "src/ccsolver-runtime/compose/p6b-p7a-review/buildP6bP7aReviewOutputs.ts",
     "src/ccsolver-runtime/compose/p6b-p7a-review/runP6bP7aReviewOutputs.ts",
+    "src/ccsolver-runtime/compose/p7-training-runner",
+    "src/ccsolver-runtime/compose/p7b-training-review/runP7bTrainingPackDist.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bCheckedArtifacts.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bDistributedShards.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bMeasuredShard.ts",

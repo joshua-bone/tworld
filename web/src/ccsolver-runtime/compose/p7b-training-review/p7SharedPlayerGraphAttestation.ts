@@ -21,6 +21,7 @@ export const P7_SHARED_PLAYER_GRAPH_MAX_FILE_BYTES = 64 * 1024 * 1024;
 export const P7_SHARED_PLAYER_GRAPH_MAX_TOTAL_BYTES = 512 * 1024 * 1024;
 export const P7_SHARED_PLAYER_GRAPH_MAX_MANIFEST_BYTES = 4 * 1024 * 1024;
 export const P7_SHARED_PLAYER_GRAPH_MAX_ATTESTATION_BYTES = 2 * 1024 * 1024;
+export const P7_SHARED_PLAYER_GRAPH_MAX_MANIFEST_KEY_BYTES = 2_048;
 
 const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/u;
 const SAFE_PATH_PATTERN = /^[A-Za-z0-9._/-]+$/u;
@@ -109,6 +110,19 @@ function safePath(value: unknown, label: string): string {
   return path;
 }
 
+/** Vite manifest keys are object lookup identities, never filesystem paths. */
+export function p7SharedPlayerViteManifestKey(value: unknown, label: string): string {
+  if (
+    typeof value !== "string"
+    || value.trim() === ""
+    || value !== value.trim()
+    || value.includes("\\")
+    || /[\u0000-\u001f\u007f]/u.test(value)
+    || encoder.encode(value).byteLength > P7_SHARED_PLAYER_GRAPH_MAX_MANIFEST_KEY_BYTES
+  ) throw new Error(`${label} is invalid`);
+  return value;
+}
+
 function reference(value: unknown, label: string): BlobReferenceV1 {
   const record = exactKeys(value, ["byteLength", "digest"], label);
   if (typeof record.digest !== "string" || !SHA256_PATTERN.test(record.digest)) {
@@ -152,7 +166,7 @@ function descriptor(value: unknown, key: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function stringArray(value: unknown, label: string): readonly string[] {
+function outputPathArray(value: unknown, label: string): readonly string[] {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > P7_SHARED_PLAYER_GRAPH_MAX_FILES) {
     throw new Error(`${label} is invalid`);
@@ -160,7 +174,18 @@ function stringArray(value: unknown, label: string): readonly string[] {
   return value.map((entry) => safePath(entry, label));
 }
 
-function reachableFilePaths(manifest: Record<string, unknown>): readonly string[] {
+function manifestKeyArray(value: unknown, label: string): readonly string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > P7_SHARED_PLAYER_GRAPH_MAX_FILES) {
+    throw new Error(`${label} is invalid`);
+  }
+  return value.map((entry) => p7SharedPlayerViteManifestKey(entry, label));
+}
+
+function reachableGraph(manifest: Record<string, unknown>): {
+  readonly filePaths: readonly string[];
+  readonly manifestBytes: Uint8Array;
+} {
   const root = descriptor(manifest[P7_SHARED_PLAYER_VITE_MANIFEST_KEY], P7_SHARED_PLAYER_VITE_MANIFEST_KEY);
   if (
     root.file !== P7_SHARED_PLAYER_DIST_ENTRY
@@ -180,10 +205,10 @@ function reachableFilePaths(manifest: Record<string, unknown>): readonly string[
     const entry = descriptor(manifest[key], key);
     paths.add(safePath(entry.file, `shared player Vite file ${key}`));
     for (const field of ["css", "assets"] as const) {
-      stringArray(entry[field], `shared player Vite ${field}`).forEach((path) => paths.add(path));
+      outputPathArray(entry[field], `shared player Vite ${field}`).forEach((path) => paths.add(path));
     }
     for (const field of ["imports", "dynamicImports"] as const) {
-      const imports = stringArray(entry[field], `shared player Vite ${field}`);
+      const imports = manifestKeyArray(entry[field], `shared player Vite ${field}`);
       for (const imported of imports) {
         if (!Object.hasOwn(manifest, imported)) {
           throw new Error(`shared player Vite dependency is missing: ${imported}`);
@@ -195,7 +220,15 @@ function reachableFilePaths(manifest: Record<string, unknown>): readonly string[
   if (paths.size > P7_SHARED_PLAYER_GRAPH_MAX_FILES) {
     throw new Error("shared player Vite graph exceeds its file bound");
   }
-  return [...paths].sort(compareText);
+  const projectedManifest = Object.fromEntries(
+    [...visitedKeys]
+      .sort(compareText)
+      .map((key) => [key, manifest[key]]),
+  );
+  return {
+    filePaths: [...paths].sort(compareText),
+    manifestBytes: encoder.encode(canonicalizeJson(projectedManifest as CanonicalJsonValue)),
+  };
 }
 
 function preflightFiles(files: readonly P7SharedPlayerBuiltFile[]): Map<string, Uint8Array> {
@@ -230,7 +263,8 @@ export async function buildP7SharedPlayerGraphAttestation(
   input: P7SharedPlayerGraphBuildInput,
 ): Promise<P7SharedPlayerGraphAttestationV1> {
   const manifest = parseViteManifest(input.viteManifestBytes);
-  const expectedPaths = reachableFilePaths(manifest);
+  const graph = reachableGraph(manifest);
+  const expectedPaths = graph.filePaths;
   const filesByPath = preflightFiles(input.builtFiles);
   const unexpected = [...filesByPath.keys()].find((path) => !expectedPaths.includes(path));
   if (unexpected !== undefined) throw new Error(`shared player has an unexpected built file: ${unexpected}`);
@@ -252,7 +286,7 @@ export async function buildP7SharedPlayerGraphAttestation(
     version: 1,
     viteManifest: {
       key: P7_SHARED_PLAYER_VITE_MANIFEST_KEY,
-      content: await referenceSourceBytes(input.viteManifestBytes, input.sha256),
+      content: await referenceSourceBytes(graph.manifestBytes, input.sha256),
     },
     source: {
       entryPath: P7_SHARED_PLAYER_SOURCE_ENTRY,

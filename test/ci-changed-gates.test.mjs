@@ -28,6 +28,10 @@ const gateIds = [
   "p6-presentation-attest",
   "p4b",
   "browser",
+  "training-p7c",
+  "training-p7d",
+  "training-p7e",
+  "p7-presentation-attest",
 ];
 
 function enabled(...ids) {
@@ -114,7 +118,7 @@ test("isolates P4B page and artwork changes from expensive engine proofs", () =>
       "web/src/ccsolver-runtime/compose/p4b-dossier/p4bDossierPage.ts",
       "web/src/ccsolver-runtime/compose/p4b-dossier/p4bDossierVisuals.ts",
     ],
-    ["workspace", "p6-presentation-attest", "p4b", "browser"],
+    ["workspace", "p6-presentation-attest", "p4b", "browser", "p7-presentation-attest"],
   );
 });
 
@@ -126,7 +130,14 @@ test("reconstructs P7 evidence when its shared standard artwork inputs change", 
   ]) {
     assertSelection(
       [path],
-      ["workspace", "runtime-p6-evidence", "p6-presentation-attest", "p4b", "browser"],
+      [
+        "workspace",
+        "runtime-p6-evidence",
+        "p6-presentation-attest",
+        "p4b",
+        "browser",
+        "p7-presentation-attest",
+      ],
       path,
     );
   }
@@ -138,7 +149,7 @@ test("routes P6 page and IO changes through presentation attestation and browser
       "web/src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.ts",
       "web/src/ccsolver-runtime/compose/p6a-review/p6aReviewIo.test.ts",
     ],
-    ["workspace", "p6-presentation-attest", "browser"],
+    ["workspace", "p6-presentation-attest", "browser", "p7-presentation-attest"],
   );
 });
 
@@ -149,7 +160,13 @@ test("routes causal runtime, event, and alignment changes through P6 evidence", 
       "ccsolver/src/events/validateCausalEventJournal.ts",
       "ccsolver/src/alignment/alignSemanticEvents.ts",
     ],
-    ["workspace", "runtime-p6-evidence", "p6-presentation-attest", "browser"],
+    [
+      "workspace",
+      "runtime-p6-evidence",
+      "p6-presentation-attest",
+      "browser",
+      "p7-presentation-attest",
+    ],
   );
 });
 
@@ -164,7 +181,13 @@ test("routes P6B/P7A tactic and checked-dossier changes without corpus or native
     "web/src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aReviewPage.ts",
     "ccsolver/fixtures/golden/p7a/phase-a-key-door/manifest.json",
   ]) {
-    assertSelection([path], expected, path);
+    assertSelection(
+      [path],
+      path.startsWith("web/src/")
+        ? [...expected, "browser", "p7-presentation-attest"]
+        : expected,
+      path,
+    );
   }
 });
 
@@ -181,14 +204,15 @@ test("routes P5 source and checked output changes through P5, P4B, and P6", () =
 
   assertSelection(
     ["web/src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Route.ts"],
-    downstream,
+    [...downstream, "p7-presentation-attest"],
   );
   assertSelection(
     ["ccsolver/fixtures/golden/p5/cclp1-001/ms/route.json"],
     downstream,
   );
-  assertSelection(["sets/CCLP1-MS.dac"], downstream);
-  assertSelection(["sets/CCLP1-Lynx.dac"], downstream);
+  const cclp1Training = [...downstream, "training-p7c", "p7-presentation-attest"];
+  assertSelection(["sets/CCLP1-MS.dac"], cclp1Training);
+  assertSelection(["sets/CCLP1-Lynx.dac"], cclp1Training);
 });
 
 test("routes broad corpus, static analysis, catalog, and data changes through P1B downstream", () => {
@@ -204,11 +228,140 @@ test("routes broad corpus, static analysis, catalog, and data changes through P1
     "browser",
   ];
 
-  assertSelection(["ccsolver/corpus/manifest.v1.json"], downstream);
+  assertSelection(
+    ["ccsolver/corpus/manifest.v1.json"],
+    [
+      ...downstream,
+      "training-p7c",
+      "training-p7d",
+      "training-p7e",
+      "p7-presentation-attest",
+    ],
+  );
   assertSelection(["ccsolver/src/analyze/staticTopologyAnalyzer.ts"], downstream);
-  assertSelection(["web/src/level-catalog/impl/catalog.ts"], downstream);
-  assertSelection(["data/CCLP2.dat"], downstream);
-  assertSelection(["data/CCLP1.dat"], downstream);
+  assertSelection(
+    ["web/src/level-catalog/impl/catalog.ts"],
+    [...downstream, "p7-presentation-attest"],
+  );
+  assertSelection(["data/CCLP2.dat"], [...downstream, "p7-presentation-attest"]);
+  assertSelection(
+    ["data/CCLP1.dat"],
+    [...downstream, "training-p7c", "p7-presentation-attest"],
+  );
+});
+
+test("routes P7 shared authorities and engine semantics through all training packs", () => {
+  const p7 = [
+    "workspace",
+    "training-p7c",
+    "training-p7d",
+    "training-p7e",
+    "p7-presentation-attest",
+  ];
+  for (const path of [
+    "ccsolver/corpus/manifest.v1.json",
+    "ccsolver/corpus/p1b-validity-report.v1.json",
+    "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingLevelProcessor.ts",
+    "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCore.ts",
+    "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingNodeEntrypoint.ts",
+    "web/src/ccsolver-runtime/compose/p7b-training-review/p7TrainingExecutionIndex.ts",
+    "web/vite.p7-training-engine-runner.config.ts",
+  ]) {
+    const selection = classifyChangedPaths([path]);
+    for (const gate of p7) assert.equal(selection.gates[gate], true, `${path}: ${gate}`);
+  }
+});
+
+test("routes exact raw training sources to one P7 engine pack", () => {
+  for (const [path, engineGate] of [
+    ["data/CCLP1.dat", "training-p7c"],
+    ["sets/CCLP1-Lynx.dac", "training-p7c"],
+    ["save/CCLP1.dac.tws", "training-p7c"],
+    ["data/CCLP4.dat", "training-p7d"],
+    ["sets/CCLP4-MS.dac", "training-p7d"],
+    ["save/CCLP4-lynx.dac.tws", "training-p7d"],
+    ["data/CCLP5.dat", "training-p7e"],
+    ["sets/CCLP5Voting-Acrylic-Lynx.dac", "training-p7e"],
+    ["save/CCLP5Voting-Zipline-MS.tws", "training-p7e"],
+  ]) {
+    const selection = classifyChangedPaths([path]);
+    assert.equal(selection.gates[engineGate], true, path);
+    assert.equal(selection.gates["p7-presentation-attest"], true, path);
+    for (const other of ["training-p7c", "training-p7d", "training-p7e"]) {
+      assert.equal(selection.gates[other], other === engineGate, `${path}: ${other}`);
+    }
+  }
+  for (const path of ["save/CCLP3.dac.tws"]) {
+    const selection = classifyChangedPaths([path]);
+    for (const gate of ["training-p7c", "training-p7d", "training-p7e", "p7-presentation-attest"]) {
+      assert.equal(selection.gates[gate], false, `${path}: ${gate}`);
+    }
+  }
+});
+
+test("routes all production web sources to presentation without widening engine authorities", () => {
+  for (const path of [
+    "ccsolver/fixtures/golden/p7b/shared-player/p7b-replay-player-graph.json",
+    "ccsolver/fixtures/golden/p7b/presentation-authorities/cclp1.json",
+    "ccsolver/fixtures/golden/p7b/training-packs/cclp1/review.html",
+    "web/src/ccsolver-runtime/compose/p7b-training-replays/p7bReplayPresentation.ts",
+    "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPlayerGraphIo.ts",
+    "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunnerCore.ts",
+    "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationAuthorityIo.ts",
+    "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationProofReceipt.ts",
+    "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunManifest.ts",
+    "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunnerBinary.ts",
+    "web/src/ccsolver-runtime/compose/p7b-training-review/runP7bTrainingPackDist.ts",
+    "web/src/game-core/api/p7bReplayPresentation.ts",
+    "web/src/game-core/api/p7bReplayPresentationValidation.ts",
+    "web/src/player-web/compose/playerEntry.ts",
+    "web/src/bootstrap/browser/main.tsx",
+    "web/src/future-production-module.ts",
+    "web/vite.config.ts",
+    "web/vite.p7-training-presentation-runner.config.ts",
+  ]) {
+    const selection = classifyChangedPaths([path]);
+    assert.equal(selection.gates["p7-presentation-attest"], true, path);
+    for (const gate of ["training-p7c", "training-p7d", "training-p7e"]) {
+      assert.equal(selection.gates[gate], false, `${path}: ${gate}`);
+    }
+  }
+});
+
+test("routes Vite-expanded external inputs to presentation while CCLP3 stays out of engines", () => {
+  for (const path of [
+    "data/CCLP3.dat",
+    "sets/CCLP3-Lynx.dac",
+    "fixtures/characterization/v1/manifest.json",
+    "res/expansion_artwork/expanded.png",
+  ]) {
+    const selection = classifyChangedPaths([path]);
+    assert.equal(selection.gates["p7-presentation-attest"], true, path);
+    for (const gate of ["training-p7c", "training-p7d", "training-p7e"]) {
+      assert.equal(selection.gates[gate], false, `${path}: ${gate}`);
+    }
+  }
+});
+
+test("keeps P7 presentation runner tests in the changed-test workspace lane", () => {
+  assertSelection(
+    ["web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunnerCli.test.ts"],
+    ["workspace"],
+  );
+});
+
+test("routes independent P7 execution authorities to their engine and presentation receipts", () => {
+  for (const [packId, gate] of [
+    ["cclp1", "training-p7c"],
+    ["cclp4", "training-p7d"],
+    ["cclp5", "training-p7e"],
+  ]) {
+    const selection = classifyChangedPaths([
+      `ccsolver/fixtures/golden/p7b/execution-authorities/${packId}.json`,
+    ]);
+    assert.equal(selection.gates[gate], true);
+    assert.equal(selection.gates["p7-presentation-attest"], true);
+  }
 });
 
 test("keeps the baseline workspace and smoke checks on every specialized code lane", () => {
@@ -289,18 +442,24 @@ test("routes shared legacy C and CMake through both builds and the P5 closure", 
   assertSelection(["legacy_c/CMakeLists.txt"], p5Authority);
 });
 
-test("runs every gate for workflow, dependency, classifier, and unknown source changes", () => {
+test("runs every gate for CI controls and unknown non-web source changes", () => {
   for (const path of [
     ".github/workflows/ubuntu-ci.yml",
     "package-lock.json",
     "package.json",
     "scripts/ci/changed-gates.mjs",
-    "web/src/future-engine/newBehavior.ts",
+    "future-engine/newBehavior.ts",
   ]) {
     const result = assertSelection([path], gateIds, path);
     assert.equal(result.all, true, path);
     assert.deepEqual(result.unknownPaths, path.includes("future-engine") ? [path] : []);
   }
+  const futureWebSource = classifyChangedPaths(["web/src/future-engine/newBehavior.ts"]);
+  assert.deepEqual(
+    futureWebSource.gates,
+    enabled("workspace", "browser", "p7-presentation-attest"),
+  );
+  assert.deepEqual(futureWebSource.unknownPaths, []);
 });
 
 test("fails closed for no paths and rejects unsafe raw path spellings", () => {
@@ -338,7 +497,7 @@ test("unions independent classifications and de-duplicates normalized paths", ()
       "README.md",
       "./web/src/ccsolver-runtime/compose/p4b-dossier/p4bDossierPage.ts",
     ],
-    ["workspace", "p6-presentation-attest", "p4b", "browser"],
+    ["workspace", "p6-presentation-attest", "p4b", "browser", "p7-presentation-attest"],
   );
   assert.deepEqual(result.paths, [
     "README.md",
@@ -364,7 +523,13 @@ test("emits deterministic JSON for explicit CLI paths", async () => {
   assert.equal(left.stdout.endsWith("\n"), true);
   assert.deepEqual(
     JSON.parse(left.stdout).gates,
-    enabled("workspace", "p6-presentation-attest", "p4b", "browser"),
+    enabled(
+      "workspace",
+      "p6-presentation-attest",
+      "p4b",
+      "browser",
+      "p7-presentation-attest",
+    ),
   );
 });
 

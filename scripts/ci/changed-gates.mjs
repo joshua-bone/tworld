@@ -21,6 +21,10 @@ export const GATE_IDS = Object.freeze([
   "p6-presentation-attest",
   "p4b",
   "browser",
+  "training-p7c",
+  "training-p7d",
+  "training-p7e",
+  "p7-presentation-attest",
 ]);
 
 const ALL_GATES = Object.freeze([...GATE_IDS]);
@@ -56,6 +60,20 @@ const STATIC_DOWNSTREAM_GATES = Object.freeze([
   ...P5_DOWNSTREAM_GATES,
   "reviews-p2a-p4",
 ]);
+const P7_ENGINE_GATES = Object.freeze([
+  "training-p7c",
+  "training-p7d",
+  "training-p7e",
+]);
+const P7_PRESENTATION_GATES = Object.freeze([
+  "workspace",
+  "p7-presentation-attest",
+  "browser",
+]);
+
+function unionGates(...groups) {
+  return [...new Set(groups.flat())];
+}
 
 function isWithin(path, directory) {
   return path === directory || path.startsWith(`${directory}/`);
@@ -235,6 +253,105 @@ function isBrowserOnlyPath(path) {
     || path === "web/index.html";
 }
 
+function p7RawTrainingGate(path) {
+  if (isOneOf(path, [
+    "data/CCLP1.dat",
+    "sets/CCLP1-Lynx.dac",
+    "sets/CCLP1-MS.dac",
+    "save/CCLP1-lynx.dac.tws",
+    "save/CCLP1.dac.tws",
+  ])) return "training-p7c";
+  if (isOneOf(path, [
+    "data/CCLP4.dat",
+    "sets/CCLP4-Lynx.dac",
+    "sets/CCLP4-MS.dac",
+    "save/CCLP4-lynx.dac.tws",
+    "save/CCLP4.dac.tws",
+  ])) return "training-p7d";
+  if (isOneOf(path, [
+    "data/CCLP5.dat",
+    "sets/CCLP5-Lynx.dac",
+    "sets/CCLP5-MS.dac",
+    "save/CCLP5-lynx.dac.tws",
+    "save/CCLP5.dac.tws",
+  ])) return "training-p7e";
+  if (
+    /^data\/CCLP5Voting-[A-Za-z]+\.dat$/u.test(path)
+    || /^sets\/CCLP5Voting-[A-Za-z]+-(?:Lynx|MS)\.dac$/u.test(path)
+    || /^save\/CCLP5Voting-[A-Za-z]+-(?:Lynx|MS)\.tws$/u.test(path)
+  ) return "training-p7e";
+  return null;
+}
+
+function isP7SharedTrainingAuthority(path) {
+  return isOneOf(path, [
+    "ccsolver/corpus/manifest.v1.json",
+    "ccsolver/corpus/p1b-validity-report.v1.json",
+  ]);
+}
+
+function isP7EngineSemanticPath(path) {
+  if (path === "web/vite.p7-training-engine-runner.config.ts") return true;
+  if (
+    isWithin(path, "web/src/ccsolver-runtime/compose/p7-training-execution")
+    || isWithin(path, "web/src/ccsolver-runtime/compose/p7b-portable")
+    || isWithin(path, "web/src/ccsolver-runtime/compose/p7b-training")
+    || isWithin(path, "web/src/ccsolver-runtime/compose/p7c-p7e-inventory")
+  ) return true;
+  if (isWithin(path, "web/src/ccsolver-runtime/compose/p7-training-runner")) {
+    return /^web\/src\/ccsolver-runtime\/compose\/p7-training-runner\/p7Training(?:EngineRunnerCli|EngineRunnerCore|ExecutionAuthorityIo|NodeEntrypoint|RepositoryHead|RunnerBinary|RunnerContract|SidecarFilesystem)\.ts$/u.test(path);
+  }
+  if (isWithin(path, "web/src/ccsolver-runtime/compose/p7b-training-review")) {
+    return /^web\/src\/ccsolver-runtime\/compose\/p7b-training-review\/(?:composeP7TrainingReducedExecutionIndex|composeP7TrainingReducedPack|p7TrainingExecutionIndex|p7TrainingPackPaths)\.ts$/u.test(path);
+  }
+  return isWithin(path, "ccsolver/src/adapters/web-crypto")
+    || isWithin(path, "ccsolver/src/application")
+    || isWithin(path, "ccsolver/src/domain")
+    || isWithin(path, "ccsolver/src/ports")
+    || isWithin(path, "web/src/ccsolver-runtime/compose/sourceValidity")
+    || isWithin(path, "web/src/ccsolver-runtime/impl")
+    || isWithin(path, "web/src/content");
+}
+
+function p7ExecutionAuthorityGate(path) {
+  const match = path.match(/^ccsolver\/fixtures\/golden\/p7b\/execution-authorities\/(cclp1|cclp4|cclp5)\.json$/u);
+  if (match === null) return null;
+  return match[1] === "cclp1"
+    ? "training-p7c"
+    : match[1] === "cclp4"
+      ? "training-p7d"
+      : "training-p7e";
+}
+
+function isP7PresentationPath(path) {
+  return isWithin(path, "ccsolver/fixtures/golden/p7b/training-packs")
+    || isWithin(path, "ccsolver/fixtures/golden/p7b/presentation-authorities")
+    || isWithin(path, "ccsolver/fixtures/golden/p7b/shared-player")
+    || isWithin(path, "web/src/ccsolver-runtime/compose/p7b-training-replays")
+    || /^web\/src\/ccsolver-runtime\/compose\/p7-training-runner\/p7Training(?:PlayerGraphIo|Presentation[A-Za-z0-9]+)\.ts$/u.test(path)
+    || /^web\/src\/ccsolver-runtime\/compose\/p7b-training-review\/(?:buildP7TrainingPackProofLeaf|buildP7TrainingReducedPackOutputs|buildP7bTrainingPackOutputs|p7SharedPlayerGraphAttestation|p7TrainingPackProofIndex|p7bTrainingPackIo)\.ts$/u.test(path)
+    || isWithin(path, "web/src/player-web")
+    || /^web\/src\/game-core\/api\/p7bReplayPresentation(?:Validation)?\.ts$/u.test(path)
+    || path === "web/index.html"
+    || path === "web/src/bootstrap/browser/p7bReplayPlayer.tsx"
+    || path === "web/vite.config.ts"
+    || path === "web/vite.p7-training-presentation-runner.config.ts"
+    || path === "web/src/ccsolver-runtime/compose/p7b-training-review/runP7bTrainingPackDist.ts";
+}
+
+function isP7PresentationExternalPath(path) {
+  return isWithin(path, "data")
+    || isWithin(path, "fixtures/characterization/v1")
+    || isWithin(path, "res")
+    || isWithin(path, "sets");
+}
+
+function includeP7PresentationForWebSource(path, gates) {
+  return isWithin(path, "web/src")
+    ? unionGates(gates, P7_PRESENTATION_GATES)
+    : gates;
+}
+
 function classifyPath(path) {
   const changedTest = changedWebTestDisposition(path);
   if (changedTest === "workspace") return { gates: ["workspace"], reason: "changed-web-test" };
@@ -247,33 +364,98 @@ function classifyPath(path) {
   if (changedTest === "unsupported") {
     throw new Error(`unsupported changed web test: ${JSON.stringify(path)}`);
   }
+  if (isP7PresentationPath(path)) {
+    return { gates: P7_PRESENTATION_GATES, reason: "p7-presentation" };
+  }
+  if (isP7EngineSemanticPath(path)) {
+    return {
+      gates: unionGates(P7_ENGINE_GATES, P7_PRESENTATION_GATES),
+      reason: "p7-engine-semantics",
+    };
+  }
   if (isCiControlPath(path)) return { gates: ALL_GATES, reason: "ci-control" };
   if (isDocumentationPath(path)) return { gates: ["workspace"], reason: "documentation" };
+  if (isP7SharedTrainingAuthority(path)) {
+    return {
+      gates: unionGates(STATIC_DOWNSTREAM_GATES, P7_ENGINE_GATES, P7_PRESENTATION_GATES),
+      reason: "p7-shared-training-authority",
+    };
+  }
+  const rawTrainingGate = p7RawTrainingGate(path);
+  if (rawTrainingGate !== null) {
+    return {
+      gates: unionGates(
+        isP5Path(path) ? P5_DOWNSTREAM_GATES : STATIC_DOWNSTREAM_GATES,
+        [rawTrainingGate],
+        P7_PRESENTATION_GATES,
+      ),
+      reason: "p7-pack-source",
+    };
+  }
+  const authorityGate = p7ExecutionAuthorityGate(path);
+  if (authorityGate !== null) {
+    return {
+      gates: unionGates([authorityGate], P7_PRESENTATION_GATES),
+      reason: "p7-execution-authority",
+    };
+  }
   if (isP7SharedArtworkPath(path)) {
-    return { gates: P7_SHARED_ARTWORK_GATES, reason: "p7-shared-artwork" };
+    return {
+      gates: unionGates(P7_SHARED_ARTWORK_GATES, ["p7-presentation-attest"]),
+      reason: "p7-shared-artwork",
+    };
+  }
+  if (isP7PresentationExternalPath(path)) {
+    return {
+      gates: unionGates(
+        isWithin(path, "data") || isWithin(path, "sets") ? STATIC_DOWNSTREAM_GATES : [],
+        P7_PRESENTATION_GATES,
+      ),
+      reason: "p7-presentation-external",
+    };
   }
   if (isP4bPresentationPath(path)) {
     return {
-      gates: ["workspace", "p6-presentation-attest", "p4b", "browser"],
+      gates: includeP7PresentationForWebSource(
+        path,
+        ["workspace", "p6-presentation-attest", "p4b", "browser"],
+      ),
       reason: "p4b-presentation",
     };
   }
   if (isP6PresentationPath(path)) {
     return {
-      gates: ["workspace", "p6-presentation-attest", "browser"],
+      gates: includeP7PresentationForWebSource(
+        path,
+        ["workspace", "p6-presentation-attest", "browser"],
+      ),
       reason: "p6-presentation",
     };
   }
   if (isP6EvidencePath(path)) {
-    return { gates: P6_EVIDENCE_GATES, reason: "p6-evidence" };
+    return {
+      gates: includeP7PresentationForWebSource(path, P6_EVIDENCE_GATES),
+      reason: "p6-evidence",
+    };
   }
   if (isP6bP7aPath(path)) {
-    return { gates: P7_EVIDENCE_GATES, reason: "p6b-p7a-evidence" };
+    return {
+      gates: includeP7PresentationForWebSource(path, P7_EVIDENCE_GATES),
+      reason: "p6b-p7a-evidence",
+    };
   }
   if (isCausalRuntimePath(path)) {
-    return { gates: P6_EVIDENCE_GATES, reason: "causal-runtime" };
+    return {
+      gates: includeP7PresentationForWebSource(path, P6_EVIDENCE_GATES),
+      reason: "causal-runtime",
+    };
   }
-  if (isP5Path(path)) return { gates: P5_DOWNSTREAM_GATES, reason: "p5-source" };
+  if (isP5Path(path)) {
+    return {
+      gates: includeP7PresentationForWebSource(path, P5_DOWNSTREAM_GATES),
+      reason: "p5-source",
+    };
+  }
   if (isP3CheckedOutput(path)) {
     return {
       gates: ["reviews-p2a-p4", ...P5_DOWNSTREAM_GATES],
@@ -281,10 +463,16 @@ function classifyPath(path) {
     };
   }
   if (isReviewPath(path)) {
-    return { gates: ["workspace", "reviews-p2a-p4"], reason: "p2a-p4-review" };
+    return {
+      gates: includeP7PresentationForWebSource(path, ["workspace", "reviews-p2a-p4"]),
+      reason: "p2a-p4-review",
+    };
   }
   if (isStaticCorpusPath(path)) {
-    return { gates: STATIC_DOWNSTREAM_GATES, reason: "static-corpus" };
+    return {
+      gates: includeP7PresentationForWebSource(path, STATIC_DOWNSTREAM_GATES),
+      reason: "static-corpus",
+    };
   }
   if (isQtPath(path)) return { gates: ["native-qt"], reason: "native-qt" };
   if (isQtSdlSharedPath(path)) {
@@ -305,7 +493,15 @@ function classifyPath(path) {
       reason: "native-shared",
     };
   }
-  if (isBrowserOnlyPath(path)) return { gates: ["workspace", "browser"], reason: "browser" };
+  if (isBrowserOnlyPath(path)) {
+    return {
+      gates: includeP7PresentationForWebSource(path, ["workspace", "browser"]),
+      reason: "browser",
+    };
+  }
+  if (isWithin(path, "web/src")) {
+    return { gates: P7_PRESENTATION_GATES, reason: "p7-presentation-source" };
+  }
   return { gates: ALL_GATES, reason: "unknown" };
 }
 

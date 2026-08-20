@@ -26,6 +26,17 @@ jobs:
       heavy-p1b: ${{ steps.gates.outputs.heavy_p1b }}
       heavy-p5: ${{ steps.gates.outputs.heavy_p5 }}
       heavy-p6a: ${{ steps.gates.outputs.heavy_p6a }}
+      heavy-p7c: ${{ steps.gates.outputs.heavy_p7c }}
+      heavy-p7d: ${{ steps.gates.outputs.heavy_p7d }}
+      heavy-p7e: ${{ steps.gates.outputs.heavy_p7e }}
+      reuse-p7c: ${{ steps.gates.outputs.reuse_p7c }}
+      reuse-p7d: ${{ steps.gates.outputs.reuse_p7d }}
+      reuse-p7e: ${{ steps.gates.outputs.reuse_p7e }}
+      reuse-p7-presentation: ${{ steps.gates.outputs.reuse_p7_presentation }}
+      attest-p7-presentation: ${{ steps.gates.outputs.attest_p7_presentation }}
+      p7-engine-packs-json: ${{ steps.gates.outputs.p7_engine_packs_json }}
+      p7-needs-shards: ${{ steps.gates.outputs.p7_needs_shards }}
+      p7-selected: ${{ steps.gates.outputs.p7_selected }}
       trusted-merge-base: ${{ steps.gates.outputs.trusted_merge_base }}
       changed-web-tests-json: ${{ steps.gates.outputs.changed_web_tests_json }}
       changed-native-web-tests-json: ${{ steps.gates.outputs.changed_native_web_tests_json }}
@@ -49,6 +60,7 @@ jobs:
             test/ci-changed-web-tests.test.mjs \
             test/ci-proof-receipt.test.mjs \
             test/ci-proof-gates.test.mjs \
+            test/ci-p7-training-policy.test.mjs \
             test/ci-p1b-shards.test.mjs \
             test/ci-p1b-map-reduce-routing.test.mjs \
             test/ci-proof-routing.test.mjs
@@ -637,6 +649,325 @@ jobs:
           npm run ccsolver:p6a:attest:prepared
           npm run ccsolver:p7a:attest:prepared
 
+  ccsolver-p7-training-prepare:
+    needs: classify
+    if: ${{ needs.classify.outputs['p7-selected'] == 'true' }}
+    env:
+      BASE_PATH: /tworld/
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Attest the checked-out P7 workflow SHA
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
+            echo "checked-out HEAD does not match the P7 workflow SHA" >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install P7 workspace dependencies once
+        run: npm ci --include=optional
+      - name: Build P7 dependencies and transports once
+        env:
+          P7_TRAINING_RUNNER_OUT_DIR: ${{ runner.temp }}/p7-training-plan/runner
+        run: |
+          mkdir -p "$P7_TRAINING_RUNNER_OUT_DIR"
+          npm run ccsolver:build
+          npm run ccsolver:p7-training:bundle:engine
+          npm run ccsolver:p7-training:bundle:presentation
+          npm run build
+          node --test \
+            test/ci-p7-player-graph-build-stability.test.mjs \
+            test/ci-p7-player-worker-closure.test.mjs
+          npm --workspace web run test -- --run \
+            src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPlayerGraphProductionBuild.test.ts
+          [[ -f "$P7_TRAINING_RUNNER_OUT_DIR/p7-training-engine-runner.mjs" ]]
+          [[ -f "$P7_TRAINING_RUNNER_OUT_DIR/p7-training-presentation-runner.mjs" ]]
+          [[ "$(find "$P7_TRAINING_RUNNER_OUT_DIR" -maxdepth 1 -type f | wc -l)" == "2" ]]
+          for RUNNER_NAME in p7-training-engine-runner.mjs p7-training-presentation-runner.mjs; do
+            RUNNER_PATH="$(realpath "$P7_TRAINING_RUNNER_OUT_DIR/$RUNNER_NAME")"
+            LINK_PATH="$RUNNER_TEMP/$RUNNER_NAME.symlink"
+            LINK_LOG="$RUNNER_TEMP/$RUNNER_NAME.symlink.log"
+            ln -s "$RUNNER_PATH" "$LINK_PATH"
+            if node "$LINK_PATH" >"$LINK_LOG" 2>&1; then
+              echo "P7 runner accepted a symlinked executable path: $RUNNER_NAME" >&2
+              exit 1
+            fi
+            grep -F "contains a symbolic link" "$LINK_LOG"
+          done
+      - name: Prepare and attest the immutable P7 plan
+        env:
+          P7_ENGINE_PACKS_JSON: ${{ needs.classify.outputs['p7-engine-packs-json'] }}
+          P7_NEEDS_SHARDS: ${{ needs.classify.outputs['p7-needs-shards'] }}
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          PLAN_ROOT="$RUNNER_TEMP/p7-training-plan"
+          RUNNER_ROOT="$PLAN_ROOT/runner"
+          ENGINE_ARTIFACTS="$PLAN_ROOT/artifacts"
+          PRESENTATION_ARTIFACTS="$PLAN_ROOT/presentation-artifacts"
+          PRESENTATION_RUNNER="$RUNNER_ROOT/p7-training-presentation-runner.mjs"
+          mkdir -p "$ENGINE_ARTIFACTS" "$PRESENTATION_ARTIFACTS"
+          PRESENTATION_COMMON=(
+            --root .
+            --head "$ACTUAL_HEAD"
+            --presentation-artifacts "$PRESENTATION_ARTIFACTS"
+            --run-id "$GITHUB_RUN_ID"
+            --run-attempt "$GITHUB_RUN_ATTEMPT"
+          )
+
+          node "$PRESENTATION_RUNNER" prepare "${PRESENTATION_COMMON[@]}"
+          node "$PRESENTATION_RUNNER" graph-check "${PRESENTATION_COMMON[@]}"
+          cp -R web/dist "$PLAN_ROOT/fresh-web-dist"
+
+          if [[ "$P7_NEEDS_SHARDS" == "true" ]]; then
+            PACKS_CSV="$(node --input-type=module -e '
+              const packs = JSON.parse(process.argv[1]);
+              if (!Array.isArray(packs) || packs.length === 0) process.exit(2);
+              process.stdout.write(packs.join(","));
+            ' "$P7_ENGINE_PACKS_JSON")"
+            node "$RUNNER_ROOT/p7-training-engine-runner.mjs" prepare \
+              --root . \
+              --artifacts "$ENGINE_ARTIFACTS" \
+              --head "$ACTUAL_HEAD" \
+              --run-id "$GITHUB_RUN_ID" \
+              --run-attempt "$GITHUB_RUN_ATTEMPT" \
+              --packs "$PACKS_CSV"
+          elif [[ "$P7_NEEDS_SHARDS" != "false" || "$P7_ENGINE_PACKS_JSON" != "[]" ]]; then
+            echo "P7 classifier returned an inconsistent graph-only plan" >&2
+            exit 1
+          fi
+      - name: Upload the immutable P7 plan and transports
+        uses: actions/upload-artifact@v4
+        with:
+          name: p7-training-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-plan
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 1
+          overwrite: false
+
+  ccsolver-p7-training-shard:
+    needs:
+      - classify
+      - ccsolver-p7-training-prepare
+    if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' && needs.ccsolver-p7-training-prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: true
+      max-parallel: 8
+      matrix:
+        shard_index: [0, 1, 2, 3, 4, 5, 6, 7]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Attest the checked-out P7 workflow SHA
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
+            echo "checked-out HEAD does not match the P7 workflow SHA" >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Download the exact immutable P7 plan
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-plan
+      - name: Execute one fixed P7 worker index across every selected pack
+        env:
+          SHARD_INDEX: ${{ matrix.shard_index }}
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          node "$RUNNER_TEMP/p7-training-plan/runner/p7-training-engine-runner.mjs" shard \
+            --root . \
+            --artifacts "$RUNNER_TEMP/p7-training-plan/artifacts" \
+            --head "$ACTUAL_HEAD" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --shard "$SHARD_INDEX"
+      - name: Upload one isolated immutable P7 shard root
+        uses: actions/upload-artifact@v4
+        with:
+          name: p7-training-shard-${{ matrix.shard_index }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-plan/artifacts
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: false
+
+  ccsolver-p7-training:
+    needs:
+      - classify
+      - ccsolver-p7-training-prepare
+      - ccsolver-p7-training-shard
+    if: ${{ always() && needs.classify.outputs['p7-selected'] == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require the exact selected P7 job graph
+        env:
+          P7_NEEDS_SHARDS: ${{ needs.classify.outputs['p7-needs-shards'] }}
+          PREPARE_RESULT: ${{ needs.ccsolver-p7-training-prepare.result }}
+          SHARD_RESULT: ${{ needs.ccsolver-p7-training-shard.result }}
+        run: |
+          if [[ "$PREPARE_RESULT" != "success" ]]; then
+            echo "P7 prepare finished with: $PREPARE_RESULT" >&2
+            exit 1
+          fi
+          if [[ "$P7_NEEDS_SHARDS" == "true" && "$SHARD_RESULT" != "success" ]]; then
+            echo "P7 workers were required but finished with: $SHARD_RESULT" >&2
+            exit 1
+          fi
+          if [[ "$P7_NEEDS_SHARDS" == "false" && "$SHARD_RESULT" != "skipped" ]]; then
+            echo "P7 workers were not required but finished with: $SHARD_RESULT" >&2
+            exit 1
+          fi
+          if [[ "$P7_NEEDS_SHARDS" != "true" && "$P7_NEEDS_SHARDS" != "false" ]]; then
+            echo "P7 classifier returned an invalid shard selection" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Attest the checked-out P7 workflow SHA
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
+            echo "checked-out HEAD does not match the P7 workflow SHA" >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Download the exact immutable P7 plan
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-plan
+      - name: Download isolated P7 shard 0
+        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-shard-0-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-shards/0
+      - name: Download isolated P7 shard 1
+        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-shard-1-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-shards/1
+      - name: Download isolated P7 shard 2
+        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-shard-2-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-shards/2
+      - name: Download isolated P7 shard 3
+        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-shard-3-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-shards/3
+      - name: Download isolated P7 shard 4
+        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-shard-4-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-shards/4
+      - name: Download isolated P7 shard 5
+        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-shard-5-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-shards/5
+      - name: Download isolated P7 shard 6
+        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-shard-6-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-shards/6
+      - name: Download isolated P7 shard 7
+        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: p7-training-shard-7-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p7-training-shards/7
+      - name: Independently verify every checked P7 execution receipt
+        run: |
+          for PROOF_ID in p7c p7d p7e; do
+            DECISION="$(node scripts/ci/proof-receipt.mjs verify \
+              --root . \
+              --spec "scripts/ci/proof-specs/${PROOF_ID}.json" \
+              --receipt "scripts/ci/proof-receipts/${PROOF_ID}.receipt.json")"
+            node --input-type=module -e '
+              const decision = JSON.parse(process.argv[1]);
+              if (decision.proofId !== process.argv[2] || decision.currentValid !== true) process.exit(2);
+            ' "$DECISION" "$PROOF_ID"
+          done
+      - name: Attest the fresh graph, selected engines, and every presentation leaf
+        env:
+          P7_NEEDS_SHARDS: ${{ needs.classify.outputs['p7-needs-shards'] }}
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          PLAN_ROOT="$RUNNER_TEMP/p7-training-plan"
+          RUNNER_ROOT="$PLAN_ROOT/runner"
+          ENGINE_ARTIFACTS="$PLAN_ROOT/artifacts"
+          PRESENTATION_ARTIFACTS="$PLAN_ROOT/presentation-artifacts"
+          ENGINE_RUNNER="$RUNNER_ROOT/p7-training-engine-runner.mjs"
+          PRESENTATION_RUNNER="$RUNNER_ROOT/p7-training-presentation-runner.mjs"
+          ENGINE_COMMON=(
+            --root .
+            --artifacts "$ENGINE_ARTIFACTS"
+            --head "$ACTUAL_HEAD"
+            --run-id "$GITHUB_RUN_ID"
+            --run-attempt "$GITHUB_RUN_ATTEMPT"
+          )
+          PRESENTATION_COMMON=(
+            --root .
+            --head "$ACTUAL_HEAD"
+            --presentation-artifacts "$PRESENTATION_ARTIFACTS"
+            --run-id "$GITHUB_RUN_ID"
+            --run-attempt "$GITHUB_RUN_ATTEMPT"
+          )
+
+          if [[ -e web/dist ]]; then
+            echo "P7 reducer checkout unexpectedly contains web/dist" >&2
+            exit 1
+          fi
+          cp -R "$PLAN_ROOT/fresh-web-dist" web/dist
+          node "$PRESENTATION_RUNNER" graph-attest "${PRESENTATION_COMMON[@]}"
+
+          if [[ "$P7_NEEDS_SHARDS" == "true" ]]; then
+            node "$ENGINE_RUNNER" assemble "${ENGINE_COMMON[@]}" \
+              --shard-0 "$RUNNER_TEMP/p7-training-shards/0" \
+              --shard-1 "$RUNNER_TEMP/p7-training-shards/1" \
+              --shard-2 "$RUNNER_TEMP/p7-training-shards/2" \
+              --shard-3 "$RUNNER_TEMP/p7-training-shards/3" \
+              --shard-4 "$RUNNER_TEMP/p7-training-shards/4" \
+              --shard-5 "$RUNNER_TEMP/p7-training-shards/5" \
+              --shard-6 "$RUNNER_TEMP/p7-training-shards/6" \
+              --shard-7 "$RUNNER_TEMP/p7-training-shards/7"
+            node "$ENGINE_RUNNER" reduce "${ENGINE_COMMON[@]}"
+            node "$ENGINE_RUNNER" check "${ENGINE_COMMON[@]}"
+            node "$ENGINE_RUNNER" attest "${ENGINE_COMMON[@]}"
+            node "$PRESENTATION_RUNNER" build "${PRESENTATION_COMMON[@]}" \
+              --artifacts "$ENGINE_ARTIFACTS"
+            node "$PRESENTATION_RUNNER" check "${PRESENTATION_COMMON[@]}" \
+              --artifacts "$ENGINE_ARTIFACTS"
+          fi
+
+          node "$PRESENTATION_RUNNER" attest "${PRESENTATION_COMMON[@]}" \
+            --packs cclp1,cclp4,cclp5
+
   browser-workspace:
     needs: classify
     if: ${{ needs.classify.outputs.browser == 'true' }}
@@ -679,6 +1010,7 @@ jobs:
       - ccsolver-runtime
       - ccsolver-p6a
       - ccsolver-p6-presentation
+      - ccsolver-p7-training
       - browser-workspace
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -699,6 +1031,7 @@ jobs:
           RUNTIME_P6_SELECTED: ${{ needs.classify.outputs['runtime-p6-evidence'] }}
           P6A_SELECTED: ${{ needs.classify.outputs['heavy-p6a'] }}
           P6_PRESENTATION_SELECTED: ${{ needs.classify.outputs['p6-presentation-attest'] }}
+          P7_TRAINING_SELECTED: ${{ needs.classify.outputs['p7-selected'] }}
           BROWSER_SELECTED: ${{ needs.classify.outputs.browser }}
           QT5_RESULT: ${{ needs.build-qt5.result }}
           QT6_RESULT: ${{ needs.build-qt6.result }}
@@ -713,6 +1046,7 @@ jobs:
           RUNTIME_RESULT: ${{ needs.ccsolver-runtime.result }}
           P6A_RESULT: ${{ needs.ccsolver-p6a.result }}
           P6_PRESENTATION_RESULT: ${{ needs.ccsolver-p6-presentation.result }}
+          P7_TRAINING_RESULT: ${{ needs.ccsolver-p7-training.result }}
           BROWSER_RESULT: ${{ needs.browser-workspace.result }}
         run: |
           if [[ "$CLASSIFY_RESULT" != "success" ]]; then
@@ -776,5 +1110,6 @@ jobs:
           require_gate ccsolver-runtime "$RUNTIME_P6_SELECTED" "$RUNTIME_RESULT"
           require_gate ccsolver-p6a "$P6A_SELECTED" "$P6A_RESULT"
           require_gate ccsolver-p6-presentation "$P6_PRESENTATION_SELECTED" "$P6_PRESENTATION_RESULT"
+          require_gate ccsolver-p7-training "$P7_TRAINING_SELECTED" "$P7_TRAINING_RESULT"
           require_gate browser-workspace "$BROWSER_SELECTED" "$BROWSER_RESULT"
           echo "All selected proof gates passed."

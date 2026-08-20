@@ -18,9 +18,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
-      BASE_PATH: /${{ github.event.repository.name }}/
+      BASE_PATH: /tworld/
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,8 +33,49 @@ jobs:
         run: npm ci --include=optional
       - name: Build CCSolver once
         run: npm run ccsolver:build
+      - name: Bundle the checked P7 presentation verifier
+        env:
+          P7_TRAINING_RUNNER_OUT_DIR: ${{ runner.temp }}/p7-training-runners
+        run: |
+          mkdir -p "$P7_TRAINING_RUNNER_OUT_DIR"
+          npm run ccsolver:p7-training:bundle:presentation
       - name: Build web app for GitHub Pages
         run: npm run build
+      - name: Attest the fresh P7 player graph and all checked packs
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          PRESENTATION_RUNNER="$RUNNER_TEMP/p7-training-runners/p7-training-presentation-runner.mjs"
+          PRESENTATION_ARTIFACTS="$RUNNER_TEMP/p7-training-presentation-artifacts"
+          mkdir -p "$PRESENTATION_ARTIFACTS"
+          PRESENTATION_COMMON=(
+            --root .
+            --head "$ACTUAL_HEAD"
+            --presentation-artifacts "$PRESENTATION_ARTIFACTS"
+            --run-id "$GITHUB_RUN_ID"
+            --run-attempt "$GITHUB_RUN_ATTEMPT"
+          )
+          node "$PRESENTATION_RUNNER" prepare "${PRESENTATION_COMMON[@]}"
+          node "$PRESENTATION_RUNNER" graph-check "${PRESENTATION_COMMON[@]}"
+          node "$PRESENTATION_RUNNER" graph-attest "${PRESENTATION_COMMON[@]}"
+          node "$PRESENTATION_RUNNER" attest "${PRESENTATION_COMMON[@]}" \
+            --packs cclp1,cclp4,cclp5
+      - name: Emit attested P7 training replay packs
+        run: |
+          npm run ccsolver:p7-training:emit-dist:prepared
+          for PACK_ID in cclp1 cclp4 cclp5; do
+            LEAF_ROOT="web/dist/dev/ccsolver/training-replays/$PACK_ID"
+            [[ -d "$LEAF_ROOT" ]]
+            [[ -d "$LEAF_ROOT/levels" ]]
+            for ROOT_FILE in \
+              browser.json \
+              execution-index.json \
+              index.html \
+              manifest.json \
+              pack-summary.json \
+              proof-index.json; do
+              [[ -f "$LEAF_ROOT/$ROOT_FILE" ]]
+            done
+          done
       - name: Add SPA fallback page
         run: cp web/dist/index.html web/dist/404.html
       - name: Emit unlisted CCSolver dossier bundle

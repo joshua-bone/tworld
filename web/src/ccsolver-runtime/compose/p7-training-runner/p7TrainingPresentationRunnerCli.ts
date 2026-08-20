@@ -45,8 +45,6 @@ interface ParsedArguments {
   readonly artifactRoot: string | null;
   readonly presentationArtifactRoot: string;
   readonly binding: P7TrainingRunBindingV1;
-  readonly sourceClosureRevision: string | null;
-  readonly toolchainRevision: string | null;
   readonly packIds: readonly P7TrainingPackId[] | null;
 }
 
@@ -102,7 +100,6 @@ export function parseP7TrainingPresentationRunnerArguments(
     "--run-attempt",
     ...(WORK_COMMANDS.has(command) ? ["--artifacts", "--run-id", "--run-attempt"] : []),
     ...(command === "attest" ? ["--packs"] : []),
-    ...(command === "graph-write" ? ["--source-revision", "--toolchain-revision"] : []),
   ]);
   for (const flag of values.keys()) {
     if (!allowed.has(flag)) fail(`unsupported P7 presentation argument: ${flag}`);
@@ -120,14 +117,6 @@ export function parseP7TrainingPresentationRunnerArguments(
   if (command === "attest" && !values.has("--packs")) {
     fail("missing P7 presentation argument: --packs");
   }
-  if (command === "graph-write") {
-    for (const flag of ["--source-revision", "--toolchain-revision"]) {
-      const value = values.get(flag);
-      if (value === undefined || value.length === 0 || value.length > 256) {
-        fail(`missing or invalid P7 presentation argument: ${flag}`);
-      }
-    }
-  }
   const runAttempt = Number(values.get("--run-attempt"));
   if (!Number.isSafeInteger(runAttempt) || runAttempt < 1) {
     fail("--run-attempt must be a positive integer");
@@ -144,8 +133,6 @@ export function parseP7TrainingPresentationRunnerArguments(
       runId: values.get("--run-id")!,
       runAttempt,
     },
-    sourceClosureRevision: command === "graph-write" ? values.get("--source-revision")! : null,
-    toolchainRevision: command === "graph-write" ? values.get("--toolchain-revision")! : null,
     packIds: command === "attest" ? parsePackIds(values.get("--packs")!) : null,
   };
 }
@@ -199,8 +186,6 @@ export async function runP7TrainingPresentationCli(
   } else if (parsed.command === "graph-write") {
     const checked = await writeP7TrainingPlayerGraphTransactionally({
       repositoryRoot: parsed.repositoryRoot,
-      sourceClosureRevision: parsed.sourceClosureRevision!,
-      toolchainRevision: parsed.toolchainRevision!,
       sha256,
     });
     summary = { command: parsed.command, entry: checked.graphAttestation.entry };

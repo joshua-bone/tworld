@@ -21,9 +21,13 @@ describe("P7 presentation and player-graph CLI", () => {
     expect(parseP7TrainingPresentationRunnerArguments([
       "graph-write",
       ...transport,
-      "--source-revision", "source-v1",
-      "--toolchain-revision", "vite-v1",
-    ])).toMatchObject({ command: "graph-write", sourceClosureRevision: "source-v1" });
+    ])).toMatchObject({ command: "graph-write" });
+    expect(() => parseP7TrainingPresentationRunnerArguments([
+      "graph-write", ...transport, "--source-revision", "operator-selected",
+    ])).toThrow("unsupported");
+    expect(() => parseP7TrainingPresentationRunnerArguments([
+      "graph-write", ...transport, "--toolchain-revision", "operator-selected",
+    ])).toThrow("unsupported");
     const pack = [
       ...transport,
       "--artifacts", "/artifacts",

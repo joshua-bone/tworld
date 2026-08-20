@@ -53,7 +53,6 @@ import {
   type LegacyCanvasPerfReadout,
   type LegacyCanvasPerfWindowSnapshot,
 } from "@player-web/impl/legacyCanvasDebug";
-import { TWORLD_BUILD_COMMIT } from "@player-web/impl/buildInfo";
 import {
   LEGACY_COLORS,
   clamp,
@@ -97,6 +96,7 @@ interface LegacyCanvasScreenProps {
   renderTileSize?: LegacyRenderTileSize;
   visualEnhancementsEnabled?: boolean;
   debugModeEnabled?: boolean;
+  buildCommitHash?: string;
 }
 
 interface LegacyCanvasPerfTrackerState {
@@ -312,6 +312,7 @@ function updateLegacyCanvasPerfTracker(
   state: LegacyCanvasPerfTrackerState,
   now: number,
   session: InteractiveGameSession | null,
+  buildCommitHash: string,
 ): LegacyCanvasPerfReadout {
   const perf = snapshotRuntimePerf();
   const metrics = perf.metrics;
@@ -389,7 +390,7 @@ function updateLegacyCanvasPerfTracker(
 
   return {
     audioBootstrapMs: metrics.audioBootstrapMs,
-    buildCommitHash: TWORLD_BUILD_COMMIT,
+    buildCommitHash,
     cappedCatchUpBatches: perf.scheduler.cappedBatchCount,
     clockMode: "worker-accumulator",
     droppedCatchUpTicks: perf.scheduler.droppedTickCount,
@@ -461,6 +462,7 @@ export function LegacyCanvasScreen({
   renderTileSize = LEGACY_TILE_SIZE,
   visualEnhancementsEnabled = true,
   debugModeEnabled = false,
+  buildCommitHash = "unknown",
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scaledMapCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -821,7 +823,12 @@ export function LegacyCanvasScreen({
       const activeSession = liveSessionRef?.current ?? session;
       const perfReadout = buildLegacyCanvasPerfReadout(
         activeSession,
-        updateLegacyCanvasPerfTracker(perfTrackerRef.current, performance.now(), activeSession),
+        updateLegacyCanvasPerfTracker(
+          perfTrackerRef.current,
+          performance.now(),
+          activeSession,
+          buildCommitHash,
+        ),
       );
       const hoverReadout = hoveredMapPosition === null
         ? []
@@ -846,14 +853,19 @@ export function LegacyCanvasScreen({
     return () => {
       window.cancelAnimationFrame(animationFrameId);
     };
-  }, [debugModeEnabled, hoveredMapPosition, liveSessionRef, mode, session]);
+  }, [buildCommitHash, debugModeEnabled, hoveredMapPosition, liveSessionRef, mode, session]);
 
   const captureDebugOverlay = useEffectEvent(() => {
     const capturedAt = formatPerfCaptureTimestamp(new Date());
     const activeSession = liveSessionRef?.current ?? session;
     const perfReadout = buildLegacyCanvasPerfReadout(
       activeSession,
-      updateLegacyCanvasPerfTracker(perfTrackerRef.current, performance.now(), activeSession),
+      updateLegacyCanvasPerfTracker(
+        perfTrackerRef.current,
+        performance.now(),
+        activeSession,
+        buildCommitHash,
+      ),
     );
     const hoverReadout = hoveredMapPosition === null
       ? []

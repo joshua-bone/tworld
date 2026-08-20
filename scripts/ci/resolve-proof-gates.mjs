@@ -42,6 +42,26 @@ export const PROOF_BINDINGS = Object.freeze({
     receiptPath: "scripts/ci/proof-receipts/p6a.receipt.json",
     specPath: "scripts/ci/proof-specs/p6a.json",
   }),
+  p7c: Object.freeze({
+    gate: "training-p7c",
+    receiptPath: "scripts/ci/proof-receipts/p7c.receipt.json",
+    specPath: "scripts/ci/proof-specs/p7c.json",
+  }),
+  p7d: Object.freeze({
+    gate: "training-p7d",
+    receiptPath: "scripts/ci/proof-receipts/p7d.receipt.json",
+    specPath: "scripts/ci/proof-specs/p7d.json",
+  }),
+  p7e: Object.freeze({
+    gate: "training-p7e",
+    receiptPath: "scripts/ci/proof-receipts/p7e.receipt.json",
+    specPath: "scripts/ci/proof-specs/p7e.json",
+  }),
+  "p7-presentation": Object.freeze({
+    gate: "p7-presentation-attest",
+    receiptPath: "scripts/ci/proof-receipts/p7-presentation.receipt.json",
+    specPath: "scripts/ci/proof-specs/p7-presentation.json",
+  }),
 });
 
 const WORKFLOW_GATE_KEYS = Object.freeze({
@@ -54,6 +74,10 @@ const WORKFLOW_GATE_KEYS = Object.freeze({
   reviews_p2a_p4: "reviews-p2a-p4",
   runtime_p6_evidence: "runtime-p6-evidence",
   static_corpus_p1b: "static-corpus-p1b",
+  training_p7c: "training-p7c",
+  training_p7d: "training-p7d",
+  training_p7e: "training-p7e",
+  p7_presentation_attest: "p7-presentation-attest",
   workspace: "workspace",
 });
 
@@ -147,6 +171,14 @@ export async function resolveProofGates({
   gates.p5 = gates.p5 || proofs.p5.heavy;
   gates.native_sdl_oracle = gates.native_sdl_oracle || gates.p5 || proofs.p5.heavy;
   gates.p6_presentation_attest = gates.p6_presentation_attest || proofs.p6a.heavy;
+  gates.training_p7c = gates.training_p7c || proofs.p7c.heavy;
+  gates.training_p7d = gates.training_p7d || proofs.p7d.heavy;
+  gates.training_p7e = gates.training_p7e || proofs.p7e.heavy;
+  gates.p7_presentation_attest = gates.p7_presentation_attest
+    || proofs["p7-presentation"].heavy
+    || proofs.p7c.heavy
+    || proofs.p7d.heavy
+    || proofs.p7e.heavy;
 
   return {
     allHeavy: forced || failClosed,
@@ -237,7 +269,14 @@ function parseArguments(argv) {
   return options;
 }
 
-function workflowOutputs(result) {
+export function workflowOutputs(result) {
+  const p7EnginePacks = [
+    ["cclp1", result.proofs.p7c.heavy],
+    ["cclp4", result.proofs.p7d.heavy],
+    ["cclp5", result.proofs.p7e.heavy],
+  ].filter(([, heavy]) => heavy).map(([packId]) => packId);
+  const p7NeedsShards = p7EnginePacks.length > 0;
+  const attestP7Presentation = result.gates.p7_presentation_attest;
   return {
     ...result.gates,
     changed_native_web_tests: result.changedTests.native.length > 0,
@@ -247,9 +286,20 @@ function workflowOutputs(result) {
     heavy_p1b: result.proofs.p1b.heavy,
     heavy_p5: result.proofs.p5.heavy,
     heavy_p6a: result.proofs.p6a.heavy,
+    heavy_p7c: result.proofs.p7c.heavy,
+    heavy_p7d: result.proofs.p7d.heavy,
+    heavy_p7e: result.proofs.p7e.heavy,
+    attest_p7_presentation: attestP7Presentation,
+    p7_engine_packs_json: JSON.stringify(p7EnginePacks),
+    p7_needs_shards: p7NeedsShards,
+    p7_selected: p7NeedsShards || attestP7Presentation,
     reuse_p1b: result.proofs.p1b.reuse,
     reuse_p5: result.proofs.p5.reuse,
     reuse_p6a: result.proofs.p6a.reuse,
+    reuse_p7c: result.proofs.p7c.reuse,
+    reuse_p7d: result.proofs.p7d.reuse,
+    reuse_p7e: result.proofs.p7e.reuse,
+    reuse_p7_presentation: result.proofs["p7-presentation"].reuse,
     trusted_merge_base: result.trustedMergeBase ?? "",
   };
 }
