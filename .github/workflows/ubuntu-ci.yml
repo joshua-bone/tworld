@@ -163,7 +163,8 @@ jobs:
       - name: Check every P5 integration test against the native replay oracle
         run: |
           npm --workspace web run test -- --run \
-            src/ccsolver-runtime/compose/p5-review
+            src/ccsolver-runtime/compose/p5-review \
+            --no-file-parallelism
       - name: Check P5 certified Key Pyramid artifacts
         if: ${{ needs.classify.outputs['heavy-p5'] == 'true' }}
         run: npm run ccsolver:p5:check:prepared

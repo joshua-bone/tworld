@@ -180,6 +180,9 @@ test("keeps the always-present required check fail-closed over skipped jobs", as
 
 test("keeps expensive duplicate proofs off the critical path", async () => {
   const workflow = await read(".github/workflows/ubuntu-ci.yml");
+  const p5ExecutionTest = await read(
+    "web/src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Execution.test.ts",
+  );
   const staticCorpus = workflowJob(workflow, "ccsolver-static-corpus");
   const p1b = workflowJob(workflow, "ccsolver-p1b");
   const runtime = workflowJob(workflow, "ccsolver-runtime");
@@ -214,6 +217,20 @@ test("keeps expensive duplicate proofs off the critical path", async () => {
   assert.match(
     p5,
     /npm --workspace web run test -- --run \\\n\s+src\/ccsolver-runtime\/compose\/p5-review(?:\s|$)/,
+  );
+  assert.match(
+    p5,
+    /src\/ccsolver-runtime\/compose\/p5-review \\\n\s+--no-file-parallelism/,
+  );
+  assert.equal(
+    (p5.match(/npm --workspace web run test/g) ?? []).length,
+    1,
+    "P5 scheduling must cover every test once without duplicating engine work",
+  );
+  assert.match(
+    p5ExecutionTest,
+    /300_000/,
+    "each continuous target needs a measured five-minute bound on hosted runners",
   );
   assert.ok(p5.indexOf("actions/download-artifact@v4") < p5.indexOf("src/ccsolver-runtime/compose/p5-review"));
   assert.match(

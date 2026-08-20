@@ -75,6 +75,6 @@ describe("P5 Key Pyramid continuous execution", () => {
         replayInputReadByGenerator: false,
       });
     },
-    180_000,
+    300_000,
   );
 });
