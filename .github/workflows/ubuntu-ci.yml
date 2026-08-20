@@ -1,9 +1,6 @@
 name: Ubuntu-CI
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
   workflow_dispatch:
 
@@ -12,15 +9,70 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-qt6:
+  classify:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.gates.outputs.native }}
+      workspace: ${{ steps.gates.outputs.workspace }}
+      static-corpus-p1b: ${{ steps.gates.outputs.static_corpus_p1b }}
+      p5: ${{ steps.gates.outputs.p5 }}
+      reviews-p2a-p4: ${{ steps.gates.outputs.reviews_p2a_p4 }}
+      runtime-p6-evidence: ${{ steps.gates.outputs.runtime_p6_evidence }}
+      p6-presentation-attest: ${{ steps.gates.outputs.p6_presentation_attest }}
+      p4b: ${{ steps.gates.outputs.p4b }}
+      browser: ${{ steps.gates.outputs.browser }}
+      heavy-p1b: ${{ steps.gates.outputs.heavy_p1b }}
+      heavy-p6a: ${{ steps.gates.outputs.heavy_p6a }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Verify the Node and npm proof epoch
+        run: |
+          [[ "$(node --version)" == "v22.22.0" ]]
+          [[ "$(npm --version)" == "10.9.4" ]]
+      - name: Validate CI policy and proof machinery
+        run: |
+          node --test \
+            test/ci-image-contract.test.mjs \
+            test/ci-changed-gates.test.mjs \
+            test/ci-proof-receipt.test.mjs \
+            test/ci-proof-gates.test.mjs \
+            test/ci-proof-routing.test.mjs
+      - name: Resolve changed-gates.mjs and proof-receipt.mjs decisions
+        id: gates
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            node scripts/ci/resolve-proof-gates.mjs \
+              --root . \
+              --all \
+              --github-output "$GITHUB_OUTPUT"
+          else
+            node scripts/ci/resolve-proof-gates.mjs \
+              --root . \
+              --base "$BASE_SHA" \
+              --head "$HEAD_SHA" \
+              --github-output "$GITHUB_OUTPUT"
+          fi
+
+  build-qt6:
+    needs: classify
+    if: ${{ needs.classify.outputs.native == 'true' }}
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/joshua-bone/tworld-ci@sha256:a760c0b2f6c02bc39dc59c406554317a35918a1059c5e0b9ea77a67849350cf9
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - name: Install QT6
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install cmake libsdl2-dev build-essential libgl1-mesa-dev qt6-base-dev
+      - name: Trust the checked-out workspace for containerized Git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Build tworld2 (Qt6)
         run: |
           mkdir build-qt6 && cd build-qt6
@@ -29,31 +81,36 @@ jobs:
           make -j4 && make install
 
   build-qt5:
+    needs: classify
+    if: ${{ needs.classify.outputs.native == 'true' }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/joshua-bone/tworld-ci@sha256:a760c0b2f6c02bc39dc59c406554317a35918a1059c5e0b9ea77a67849350cf9
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Install QT5
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install cmake libsdl2-dev qtbase5-dev
+      - name: Trust the checked-out workspace for containerized Git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Build tworld2 (Qt5)
         run: |
           mkdir build-qt5 && cd build-qt5
           cmake -DCMAKE_BUILD_TYPE=Debug -DOSHW=qt \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=TRUE \
             -DCMAKE_PREFIX_PATH=/usr/local/ \
             -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/dist-qt5 ..
           make -j4 && make install
 
   build-sdl1:
+    needs: classify
+    if: ${{ needs.classify.outputs.native == 'true' }}
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/joshua-bone/tworld-ci@sha256:a760c0b2f6c02bc39dc59c406554317a35918a1059c5e0b9ea77a67849350cf9
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Install SDL1
-        run: |
-          sudo apt-get -y update
-          sudo apt-get -y install libsdl1.2-dev cmake
+      - name: Trust the checked-out workspace for containerized Git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Build tworld (SDL)
         run: |
           mkdir build-sdl && cd build-sdl
@@ -73,22 +130,29 @@ jobs:
           retention-days: 1
 
   ccsolver-p5-preflight:
-    needs: build-sdl1
+    needs:
+      - classify
+      - build-sdl1
+    if: ${{ always() && needs.classify.outputs.p5 == 'true' && needs.build-sdl1.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install workspace dependencies
         run: npm ci --include=optional
       - name: Build CCSolver once
         run: npm run ccsolver:build
-      - name: Prove exact native replay input isolation
-        run: npm --workspace web run test -- --run src/ccsolver-runtime/compose/p5-review/runExactKeyPyramidNativeReplay.test.ts
+      - name: Check P5 route, review composition, and native replay isolation
+        run: |
+          npm --workspace web run test -- --run \
+            src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Route.test.ts \
+            src/ccsolver-runtime/compose/p5-review/buildP5ReviewOutputs.test.ts \
+            src/ccsolver-runtime/compose/p5-review/runExactKeyPyramidNativeReplay.test.ts
       - name: Download native replay oracle
         uses: actions/download-artifact@v4
         with:
@@ -100,7 +164,8 @@ jobs:
         run: npm run ccsolver:p5:check:prepared
 
   ccsolver-workspace:
-    needs: ccsolver-p5-preflight
+    needs: classify
+    if: ${{ needs.classify.outputs.workspace == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -109,12 +174,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install workspace dependencies
         run: npm ci --include=optional
-      - name: Check CCSolver workspace
+      - name: Check the fast CCSolver workspace surface
         run: |
           npm run ccsolver:build
           npm run ccsolver:typecheck
@@ -122,15 +187,36 @@ jobs:
           npm run ccsolver:test
           npm run ccsolver:conformance
           npm run ccsolver:facade
-          npm run ccsolver:integration:fast
-          npm run ccsolver:corpus:check:prepared
-          npm run ccsolver:analysis:check:prepared
+          npm run ccsolver:integration:smoke
           npm --workspace web run typecheck:tools
           npm run ccsolver:cli -- --help
           npm run ccsolver:dossier -- --help
 
+  ccsolver-static-corpus:
+    needs: classify
+    if: ${{ needs.classify.outputs['static-corpus-p1b'] == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
+      - name: Check static and corpus integration
+        run: |
+          npm run ccsolver:integration:static
+          npm run ccsolver:integration:corpus
+          npm run ccsolver:analysis:check:prepared
+
   ccsolver-p1b:
-    needs: ccsolver-p5-preflight
+    needs: classify
+    if: ${{ needs.classify.outputs['heavy-p1b'] == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -139,49 +225,107 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install workspace dependencies
         run: npm ci --include=optional
       - name: Build CCSolver once
         run: npm run ccsolver:build
+      - name: Verify the P1A corpus authority consumed by P1B
+        run: npm run ccsolver:corpus:check:prepared
       - name: Check P1B full-corpus artifacts
         run: npm run ccsolver:p1b:check:prepared
 
   ccsolver-reviews:
-    needs: ccsolver-p5-preflight
+    needs: classify
+    if: ${{ needs.classify.outputs['reviews-p2a-p4'] == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install workspace dependencies
         run: npm ci --include=optional
       - name: Build CCSolver once
         run: npm run ccsolver:build
+      - name: Check review integration
+        run: |
+          npm run ccsolver:typecheck
+          npm run ccsolver:test
+          npm run ccsolver:integration:reviews
       - name: Check P2A runtime observation artifacts
         run: npm run ccsolver:p2a:check:prepared
       - name: Check P3 terminal planning and contextual witness artifacts
         run: npm run ccsolver:p3:check:prepared
       - name: Check P4A graphical subgoal evidence artifacts
         run: npm run ccsolver:p4a:check:prepared
+
+  ccsolver-p4b:
+    needs: classify
+    if: ${{ needs.classify.outputs.p4b == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
       - name: Check P4B whole-level dossier artifacts
-        run: npm run ccsolver:p4b:check:prepared
+        run: |
+          npm run ccsolver:typecheck
+          npm run ccsolver:test
+          npm --workspace web run test -- --run \
+            src/ccsolver-runtime/compose/p4b-dossier/p4bStaticRoutes.test.ts \
+            src/ccsolver-runtime/compose/p4b-dossier/buildP4bDossierOutputs.test.ts \
+            src/ccsolver-runtime/compose/p4b-dossier/p4bDossierPage.test.ts \
+            src/ccsolver-runtime/compose/p4b-dossier/p4bDossierVisuals.test.ts \
+            src/ccsolver-runtime/compose/p4b-dossier/p4bDossierIo.test.ts \
+            src/ccsolver-runtime/compose/p4b-dossier/p4bDossierSafety.test.ts
+          npm run ccsolver:p4b:check:prepared
+
+  ccsolver-runtime:
+    needs: classify
+    if: ${{ needs.classify.outputs['runtime-p6-evidence'] == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
+      - name: Check causal runtime integration
+        run: |
+          npm run ccsolver:typecheck
+          npm run ccsolver:test
+          npm run ccsolver:integration:runtime
 
   ccsolver-p6a:
-    needs: ccsolver-p5-preflight
+    needs: classify
+    if: ${{ needs.classify.outputs['heavy-p6a'] == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install workspace dependencies
@@ -191,8 +335,34 @@ jobs:
       - name: Check P2B/P6A causal alignment artifacts
         run: npm run ccsolver:p6a:check:prepared
 
+  ccsolver-p6-presentation:
+    needs: classify
+    if: ${{ needs.classify.outputs['p6-presentation-attest'] == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
+      - name: Check P6 presentation and attestation surfaces
+        run: |
+          npm --workspace web run test -- --run \
+            src/ccsolver-runtime/compose/p6a-review/checkedP6aInputs.test.ts \
+            src/ccsolver-runtime/compose/p6a-review/buildP6aReviewOutputs.test.ts \
+            src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.test.ts \
+            src/ccsolver-runtime/compose/p6a-review/p6aReviewIo.test.ts
+          npm run ccsolver:p6a:attest:prepared
+
   browser-workspace:
-    needs: ccsolver-p5-preflight
+    needs: classify
+    if: ${{ needs.classify.outputs.browser == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -201,7 +371,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: package-lock.json
       - name: Install workspace dependencies
@@ -218,17 +388,87 @@ jobs:
     name: web-and-ccsolver
     if: ${{ always() }}
     needs:
+      - classify
+      - build-qt5
+      - build-qt6
+      - build-sdl1
       - ccsolver-p5-preflight
       - ccsolver-workspace
+      - ccsolver-static-corpus
       - ccsolver-p1b
       - ccsolver-reviews
+      - ccsolver-p4b
+      - ccsolver-runtime
       - ccsolver-p6a
+      - ccsolver-p6-presentation
       - browser-workspace
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Require every web and CCSolver gate
-        if: ${{ needs.ccsolver-p5-preflight.result != 'success' || needs.ccsolver-workspace.result != 'success' || needs.ccsolver-p1b.result != 'success' || needs.ccsolver-reviews.result != 'success' || needs.ccsolver-p6a.result != 'success' || needs.browser-workspace.result != 'success' }}
-        run: exit 1
-      - name: Confirm every web and CCSolver gate
-        run: echo "All required web and CCSolver gates passed."
+      - name: Require every selected proof gate
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          NATIVE_SELECTED: ${{ needs.classify.outputs.native }}
+          P5_SELECTED: ${{ needs.classify.outputs.p5 }}
+          WORKSPACE_SELECTED: ${{ needs.classify.outputs.workspace }}
+          STATIC_CORPUS_SELECTED: ${{ needs.classify.outputs['static-corpus-p1b'] }}
+          P1B_SELECTED: ${{ needs.classify.outputs['heavy-p1b'] }}
+          REVIEWS_SELECTED: ${{ needs.classify.outputs['reviews-p2a-p4'] }}
+          P4B_SELECTED: ${{ needs.classify.outputs.p4b }}
+          RUNTIME_P6_SELECTED: ${{ needs.classify.outputs['runtime-p6-evidence'] }}
+          P6A_SELECTED: ${{ needs.classify.outputs['heavy-p6a'] }}
+          P6_PRESENTATION_SELECTED: ${{ needs.classify.outputs['p6-presentation-attest'] }}
+          BROWSER_SELECTED: ${{ needs.classify.outputs.browser }}
+          QT5_RESULT: ${{ needs.build-qt5.result }}
+          QT6_RESULT: ${{ needs.build-qt6.result }}
+          SDL1_RESULT: ${{ needs.build-sdl1.result }}
+          P5_RESULT: ${{ needs.ccsolver-p5-preflight.result }}
+          WORKSPACE_RESULT: ${{ needs.ccsolver-workspace.result }}
+          STATIC_CORPUS_RESULT: ${{ needs.ccsolver-static-corpus.result }}
+          P1B_RESULT: ${{ needs.ccsolver-p1b.result }}
+          REVIEWS_RESULT: ${{ needs.ccsolver-reviews.result }}
+          P4B_RESULT: ${{ needs.ccsolver-p4b.result }}
+          RUNTIME_RESULT: ${{ needs.ccsolver-runtime.result }}
+          P6A_RESULT: ${{ needs.ccsolver-p6a.result }}
+          P6_PRESENTATION_RESULT: ${{ needs.ccsolver-p6-presentation.result }}
+          BROWSER_RESULT: ${{ needs.browser-workspace.result }}
+        run: |
+          if [[ "$CLASSIFY_RESULT" != "success" ]]; then
+            echo "classify finished with disallowed result: $CLASSIFY_RESULT" >&2
+            exit 1
+          fi
+
+          require_gate() {
+            local name="$1"
+            local selected="$2"
+            local result="$3"
+            if [[ "$selected" == "true" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "$name was selected but finished with: $result" >&2
+                exit 1
+              fi
+            elif [[ "$selected" == "false" ]]; then
+              if [[ "$result" != "skipped" ]]; then
+                echo "$name was not selected but finished with: $result" >&2
+                exit 1
+              fi
+            else
+              echo "$name has an invalid classifier selection: $selected" >&2
+              exit 1
+            fi
+          }
+
+          require_gate build-qt5 "$NATIVE_SELECTED" "$QT5_RESULT"
+          require_gate build-qt6 "$NATIVE_SELECTED" "$QT6_RESULT"
+          require_gate build-sdl1 "$NATIVE_SELECTED" "$SDL1_RESULT"
+          require_gate ccsolver-p5-preflight "$P5_SELECTED" "$P5_RESULT"
+          require_gate ccsolver-workspace "$WORKSPACE_SELECTED" "$WORKSPACE_RESULT"
+          require_gate ccsolver-static-corpus "$STATIC_CORPUS_SELECTED" "$STATIC_CORPUS_RESULT"
+          require_gate ccsolver-p1b "$P1B_SELECTED" "$P1B_RESULT"
+          require_gate ccsolver-reviews "$REVIEWS_SELECTED" "$REVIEWS_RESULT"
+          require_gate ccsolver-p4b "$P4B_SELECTED" "$P4B_RESULT"
+          require_gate ccsolver-runtime "$RUNTIME_P6_SELECTED" "$RUNTIME_RESULT"
+          require_gate ccsolver-p6a "$P6A_SELECTED" "$P6A_RESULT"
+          require_gate ccsolver-p6-presentation "$P6_PRESENTATION_SELECTED" "$P6_PRESENTATION_RESULT"
+          require_gate browser-workspace "$BROWSER_SELECTED" "$BROWSER_RESULT"
+          echo "All selected proof gates passed."
