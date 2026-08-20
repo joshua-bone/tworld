@@ -39,6 +39,18 @@ const P6_EVIDENCE_GATES = Object.freeze([
   "p6-presentation-attest",
   "browser",
 ]);
+const P7_EVIDENCE_GATES = Object.freeze([
+  "workspace",
+  "runtime-p6-evidence",
+  "p6-presentation-attest",
+]);
+const P7_SHARED_ARTWORK_GATES = Object.freeze([
+  "workspace",
+  "runtime-p6-evidence",
+  "p6-presentation-attest",
+  "p4b",
+  "browser",
+]);
 const STATIC_DOWNSTREAM_GATES = Object.freeze([
   "static-corpus-p1b",
   ...P5_DOWNSTREAM_GATES,
@@ -113,6 +125,12 @@ function isP4bPresentationPath(path) {
     || /^ccsolver\/src\/render\/p4b/u.test(path);
 }
 
+function isP7SharedArtworkPath(path) {
+  return path === "web/src/ccsolver-runtime/compose/p4b-dossier/p4bLegacyArtwork.ts"
+    || path === "res/tiles.bmp"
+    || path === "res/atiles.bmp";
+}
+
 function isP6PresentationPath(path) {
   return /^web\/src\/ccsolver-runtime\/compose\/p6a-review\/p6aReview(?:Page|Io)(?:\.|$)/u.test(path)
     || /^ccsolver\/fixtures\/golden\/p6a\/[^/]+\/review\.(?:html|md)$/u.test(path);
@@ -121,6 +139,12 @@ function isP6PresentationPath(path) {
 function isP6EvidencePath(path) {
   return isWithin(path, "web/src/ccsolver-runtime/compose/p6a-review")
     || isWithin(path, "ccsolver/fixtures/golden/p6a");
+}
+
+function isP6bP7aPath(path) {
+  return isWithin(path, "web/src/ccsolver-runtime/compose/p7a-tactics")
+    || isWithin(path, "web/src/ccsolver-runtime/compose/p6b-p7a-review")
+    || isWithin(path, "ccsolver/fixtures/golden/p7a");
 }
 
 function isCausalRuntimePath(path) {
@@ -225,6 +249,9 @@ function classifyPath(path) {
   }
   if (isCiControlPath(path)) return { gates: ALL_GATES, reason: "ci-control" };
   if (isDocumentationPath(path)) return { gates: ["workspace"], reason: "documentation" };
+  if (isP7SharedArtworkPath(path)) {
+    return { gates: P7_SHARED_ARTWORK_GATES, reason: "p7-shared-artwork" };
+  }
   if (isP4bPresentationPath(path)) {
     return {
       gates: ["workspace", "p6-presentation-attest", "p4b", "browser"],
@@ -239,6 +266,9 @@ function classifyPath(path) {
   }
   if (isP6EvidencePath(path)) {
     return { gates: P6_EVIDENCE_GATES, reason: "p6-evidence" };
+  }
+  if (isP6bP7aPath(path)) {
+    return { gates: P7_EVIDENCE_GATES, reason: "p6b-p7a-evidence" };
   }
   if (isCausalRuntimePath(path)) {
     return { gates: P6_EVIDENCE_GATES, reason: "causal-runtime" };

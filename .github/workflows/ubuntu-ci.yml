@@ -586,6 +586,7 @@ jobs:
           npm run ccsolver:typecheck
           npm run ccsolver:test
           npm run ccsolver:integration:runtime
+          npm run ccsolver:p7a:check:prepared
 
   ccsolver-p6a:
     needs: classify
@@ -628,8 +629,13 @@ jobs:
             src/ccsolver-runtime/compose/p6a-review/checkedP6aInputs.test.ts \
             src/ccsolver-runtime/compose/p6a-review/buildP6aReviewOutputs.test.ts \
             src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.test.ts \
-            src/ccsolver-runtime/compose/p6a-review/p6aReviewIo.test.ts
+            src/ccsolver-runtime/compose/p6a-review/p6aReviewIo.test.ts \
+            src/ccsolver-runtime/compose/p6b-p7a-review/buildP6bPortfolioCanaries.test.ts \
+            src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aReviewPage.test.ts \
+            src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aArtwork.test.ts \
+            src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aReviewIo.test.ts
           npm run ccsolver:p6a:attest:prepared
+          npm run ccsolver:p7a:attest:prepared
 
   browser-workspace:
     needs: classify

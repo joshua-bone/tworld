@@ -645,6 +645,15 @@ produces the first provisional strategy portfolio. Broader cross-level plan
 shape acceptance remains P6 follow-on work. See
 [P2B/P6A causal alignment](p2b-p6a-causal-alignment.md).
 
+**P6B portfolio-canary contract: delivered for the bounded acceptance slice.**
+The closed proposal-only suite covers all four required relationship shapes,
+freezes the CCLP3/016 and CCLP1/067 real identities without promoting static
+divergence to causal proof, binds standard-source eligibility separately from
+DAT validity, and requires executed cross-ruleset semantic/gameplay rejoin
+evidence without erasing native path-history differences. See
+[P6B/P7A standard tactic realization](p6b-p7a-standard-tactic-realization.md).
+Broader cross-level plan inference remains open.
+
 ### Deliverables
 
 - Extract hard, medium, and soft anchors from realized semantic events.
@@ -663,7 +672,7 @@ shape acceptance remains P6 follow-on work. See
 - Canary dossiers correctly distinguish:
   - one shared plan with different timing;
   - one shared subgoal with a different local route;
-  - alternative branches with a proven rejoin; and
+  - alternative branches with a proven semantic/gameplay rejoin; and
   - genuinely different ruleset plans.
 - CCLP3 level 16, Two Sets of Rules, visibly carries different MS and Lynx plans
   rather than reporting a failed parity translation.
@@ -675,6 +684,17 @@ shape acceptance remains P6 follow-on work. See
 
 Construct and repair target executions from semantic intent rather than fixed
 donor input.
+
+### Status
+
+**P7A standard tactic foundation: delivered for one non-Key Phase-A slice.**
+`Reach`, `Collect`, `Unlock`, and `WaitUntil` now evaluate through exact
+checkpoint/restore and real MS/Lynx engine advance under explicit bounds. The
+checked `P.k.D.E` dossier proves deterministic exhaustion, full-sequence
+one-decision failure injection, suffix-only repair, and fresh-runtime replay
+certification without reading donor input. The wider tactic vocabulary and the
+complete Phase-A curriculum remain follow-on work. See
+[P6B/P7A standard tactic realization](p6b-p7a-standard-tactic-realization.md).
 
 ### Deliverables
 
@@ -970,35 +990,30 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-After human review of the checked Key Pyramid causal-alignment page, proceed
-with one large **P6B portfolio-canary + P7A tactic-realization vertical slice**
-using ATDD. This advances from explaining one known route to constructing and
-repairing bounded semantic work; it does not broaden the P2B foundation by
-speculation.
+After human review of the checked P6B/P7A page, proceed with one large **P6C
+portfolio admission + P7B Phase-A curriculum and first blind-real solve** using
+ATDD. This should amortize the next proof cycle while expanding behavior rather
+than adding another presentation-only slice.
 
-1. freeze standard-only, DATTools-valid P6B acceptance cases for a shared plan
-   with different local timing, a shared subgoal with a different local route,
-   alternative branches with a proven rejoin, and a genuinely different plan;
-2. include the named real canaries CCLP3 level 16 (different plans) and CCLP1
-   level 67 (causal donor disagreement), while keeping any donor-derived
-   evidence explicitly labeled and non-authoritative;
-3. extend the portfolio artifact so each proposed plan family binds its exact
-   aligned evidence, target scope, dependencies, confidence, unresolved gaps,
-   and review state without upgrading a proposal to a proof;
-4. implement the first executable P7A operators for the smallest useful
-   `Reach`/`Collect`/`Unlock`/`WaitUntil` subset, with target-specific tactic
-   implementations behind one semantic contract;
-5. evaluate every candidate through exact checkpoint, real-engine advance, and
-   restore under explicit work, tick, branch, and memory bounds; a pure planner
-   probe may be added only after an equivalence canary exists;
-6. prove deterministic exhaustion diagnostics, inject one decision failure,
-   and repair or recompile only the affected suffix; and
-7. publish one non-Key checked dossier that shows the proposed portfolio,
-   selected tactic realization, exact witness, failure/repair evidence, and the
-   boundary between donor guidance and solver construction.
+1. run all eight frozen Phase-A synthetic sources through both real runtime
+   adapters, preserving explicit per-case branch/work/tick/frontier bounds;
+2. add only the standard operators those cases require next, beginning with
+   `ReachExit`, socket/resource composition, alternative exits, and the narrow
+   block-push seam; keep the six expanded tile codes excluded;
+3. admit tactic/plan families to the portfolio only when exact execution,
+   semantic/gameplay rejoin, dependency, and fresh-runtime evidence satisfies
+   the P6B canaries;
+4. retain target-specific implementations whenever MS and Lynx execution
+   differs, while sharing semantic contracts where evidence supports it;
+5. choose one early standard corpus level from the hidden evaluation cohort
+   using P1B facts only, with donor bytes inaccessible, and attempt it under
+   both rulesets from semantic intent;
+6. publish successes, bounded exhaustion, and the first unresolved takeover
+   packet in one checked curriculum dossier; and
+7. split cheap presentation checks from real-engine evidence so routine UI
+   changes do not repeat tactic execution.
 
-The cycle is complete only when the canaries reject false parity, the selected
-tactic succeeds from canonical initialization without a canned full input
-stream, the exact replay is independently certified, and regeneration is
-byte-stable. Full-corpus sweeps remain unjustified until these bounded cases
-establish that the abstractions are useful.
+The cycle is complete only when every Phase-A case is solved or carries an
+exact bounded diagnostic, one real level has a donor-blind certified attempt in
+both targets, and no canary classification is promoted beyond its evidence.
+Do not begin a full-corpus solving sweep at this gate.

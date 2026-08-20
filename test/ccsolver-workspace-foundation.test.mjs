@@ -82,6 +82,10 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.match(rootPackage.scripts["ccsolver:p6a:generate"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:p6a:attest"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:p6a:emit-dist"], /:prepared/);
+  assert.match(rootPackage.scripts["ccsolver:p7a:check"], /:prepared/);
+  assert.match(rootPackage.scripts["ccsolver:p7a:generate"], /--workspace web/);
+  assert.match(rootPackage.scripts["ccsolver:p7a:attest"], /:prepared/);
+  assert.match(rootPackage.scripts["ccsolver:p7a:emit-dist"], /:prepared/);
   for (const command of [
     "ccsolver:corpus:check",
     "ccsolver:corpus:generate",
@@ -104,6 +108,10 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "ccsolver:p6a:generate",
     "ccsolver:p6a:attest",
     "ccsolver:p6a:emit-dist",
+    "ccsolver:p7a:check",
+    "ccsolver:p7a:generate",
+    "ccsolver:p7a:attest",
+    "ccsolver:p7a:emit-dist",
   ]) {
     assert.equal(
       (rootPackage.scripts[command].match(/npm run ccsolver:build/g) ?? []).length,
@@ -124,6 +132,9 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "ccsolver:p6a:check",
     "ccsolver:p6a:attest",
     "ccsolver:p6a:emit-dist",
+    "ccsolver:p7a:check",
+    "ccsolver:p7a:attest",
+    "ccsolver:p7a:emit-dist",
   ]) {
     const prepared = `${command}:prepared`;
     assert.match(rootPackage.scripts[prepared], /--workspace web/);
@@ -264,6 +275,14 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.equal(webPackage.scripts["ccsolver:p6a:generate"], "npm run ccsolver:p6a -- --write");
   assert.equal(webPackage.scripts["ccsolver:p6a:attest"], "npm run ccsolver:p6a -- --attest");
   assert.equal(webPackage.scripts["ccsolver:p6a:emit-dist"], "npm run ccsolver:p6a -- --emit-dist");
+  assert.equal(
+    webPackage.scripts["ccsolver:p7a"],
+    "vite-node src/ccsolver-runtime/compose/p6b-p7a-review/runP6bP7aReviewOutputs.ts",
+  );
+  assert.equal(webPackage.scripts["ccsolver:p7a:check"], "npm run ccsolver:p7a -- --check");
+  assert.equal(webPackage.scripts["ccsolver:p7a:generate"], "npm run ccsolver:p7a -- --write");
+  assert.equal(webPackage.scripts["ccsolver:p7a:attest"], "npm run ccsolver:p7a -- --attest");
+  assert.equal(webPackage.scripts["ccsolver:p7a:emit-dist"], "npm run ccsolver:p7a -- --emit-dist");
   for (const smokeTest of [
     "src/ccsolver-runtime/compose/sourceValidity/analyzeTworldSolverSourceScope.test.ts",
     "src/ccsolver-runtime/compose/sourceValidity/tworldSolverSourceScopeAcceptance.test.ts",
@@ -295,6 +314,19 @@ test("registers CCSolver as a first-class root workspace", async () => {
       p6aSmokeTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     ));
   }
+  for (const p7aSmokeTest of [
+    "src/ccsolver-runtime/compose/p6b-p7a-review/buildP6bPortfolioCanaries.test.ts",
+    "src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aReviewPage.test.ts",
+    "src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aArtwork.test.ts",
+    "src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aReviewIo.test.ts",
+  ]) {
+    assert.match(smoke, new RegExp(
+      p7aSmokeTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    ));
+  }
+  const runtime = rootPackage.scripts["ccsolver:integration:runtime"];
+  assert.match(runtime, /p7a-tactics\/standardTactics\.test\.ts/u);
+  assert.doesNotMatch(runtime, /p6b-p7a-review\/buildP6bP7aReviewOutputs\.test\.ts/u);
 });
 
 test("uses one deterministic root lockfile for both workspaces", async () => {
@@ -390,8 +422,10 @@ test("builds GitHub Pages from the authoritative root install", async () => {
   assert.match(workflow, /run: npm run build/);
   assert.match(workflow, /run: npm run ccsolver:p4b:emit-dist:prepared/);
   assert.match(workflow, /run: npm run ccsolver:p6a:emit-dist:prepared/);
+  assert.match(workflow, /run: npm run ccsolver:p7a:emit-dist:prepared/);
   assert.doesNotMatch(workflow, /ccsolver:p4b:check/);
   assert.doesNotMatch(workflow, /ccsolver:p6a:check/);
+  assert.doesNotMatch(workflow, /ccsolver:p7a:check/);
   assert.doesNotMatch(
     workflow,
     /tworld-oracle|--oracle|cmake|ctest|ccsolver:p1b|ccsolver:p5|ccsolver:integration|npm test/,
@@ -407,6 +441,10 @@ test("builds GitHub Pages from the authoritative root install", async () => {
   assert.ok(
     workflow.indexOf("run: npm run ccsolver:p4b:emit-dist:prepared")
       < workflow.indexOf("run: npm run ccsolver:p6a:emit-dist:prepared"),
+  );
+  assert.ok(
+    workflow.indexOf("run: npm run ccsolver:p6a:emit-dist:prepared")
+      < workflow.indexOf("run: npm run ccsolver:p7a:emit-dist:prepared"),
   );
   assert.doesNotMatch(workflow, /web\/package-lock\.json/);
   assert.doesNotMatch(workflow, /working-directory: web/);
@@ -519,6 +557,7 @@ test("runs the fail-closed proof graph only on pull requests", async () => {
 
   const runtime = workflowJob(workflow, "ccsolver-runtime");
   assert.match(runtime, /ccsolver:integration:runtime/);
+  assert.match(runtime, /ccsolver:p7a:check:prepared/);
   assert.doesNotMatch(runtime, /ccsolver:integration:causal-proof/);
   assert.doesNotMatch(runtime, /ccsolver:integration:(?:static|corpus|reviews)/);
 
@@ -532,6 +571,9 @@ test("runs the fail-closed proof graph only on pull requests", async () => {
     workflowJob(workflow, "ccsolver-p6a"),
     /timeout-minutes: 15[\s\S]*run: npm run ccsolver:p6a:check:prepared/,
   );
+  const p6Presentation = workflowJob(workflow, "ccsolver-p6-presentation");
+  assert.match(p6Presentation, /p6b-p7a-review\/p6bP7aReviewIo\.test\.ts/);
+  assert.match(p6Presentation, /ccsolver:p7a:attest:prepared/);
 
   const aggregate = workflowJob(workflow, "web-and-ccsolver");
   assert.match(aggregate, /if: \$\{\{ always\(\) \}\}/);
