@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 
@@ -10,6 +10,7 @@ import {
   GATE_IDS,
   classifyChangedPaths,
   resolveChangedPaths,
+  resolveDeletedPaths,
 } from "../scripts/ci/changed-gates.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -17,7 +18,8 @@ const repositoryRoot = resolve(import.meta.dirname, "..");
 const classifierPath = resolve(repositoryRoot, "scripts/ci/changed-gates.mjs");
 
 const gateIds = [
-  "native",
+  "native-qt",
+  "native-sdl-oracle",
   "workspace",
   "static-corpus-p1b",
   "p5",
@@ -36,6 +38,55 @@ function assertSelection(paths, expected, message) {
   const result = classifyChangedPaths(paths);
   assert.deepEqual(result.gates, enabled(...expected), message);
   return result;
+}
+
+async function nativeTargetDependencies(frontend) {
+  const frontendRoot = resolve(repositoryRoot, `legacy_c/oshw-${frontend}`);
+  const cmake = await readFile(resolve(frontendRoot, "CMakeLists.txt"), "utf8");
+  const body = cmake.match(new RegExp(`target_sources\\(oshw-${frontend} PRIVATE([\\s\\S]*?)\\n\\)`, "u"))?.[1];
+  assert.ok(body, `missing oshw-${frontend} target_sources`);
+  const targetSources = body.split(/\s+/u).filter(Boolean).map((path) => resolve(frontendRoot, path));
+  const generatedIncludes = new Set(
+    targetSources
+      .filter((path) => extname(path) === ".ui")
+      .map((path) => `ui_${basename(path, ".ui")}.h`),
+  );
+  const externalQuotedIncludes = new Set(["SDL.h", "windows.h"]);
+  const pending = [...targetSources];
+  const seen = new Set();
+  while (pending.length > 0) {
+    const absolute = pending.pop();
+    const path = relative(repositoryRoot, absolute).replaceAll("\\", "/");
+    if (seen.has(path)) continue;
+    let info;
+    try {
+      info = await stat(absolute);
+    } catch (error) {
+      assert.fail(`${frontend} target source does not exist: ${path} (${error.message})`);
+    }
+    assert.equal(info.isFile(), true, `${frontend} target source is not a file: ${path}`);
+    seen.add(path);
+    const source = await readFile(absolute, "utf8");
+    for (const match of source.matchAll(/^\s*#\s*include\s+"([^"]+)"/gmu)) {
+      const request = match[1];
+      if (externalQuotedIncludes.has(request) || generatedIncludes.has(request)) continue;
+      let found = null;
+      for (const base of [dirname(absolute), frontendRoot, resolve(repositoryRoot, "legacy_c/generic"), resolve(repositoryRoot, "legacy_c")]) {
+        const candidate = resolve(base, request);
+        try {
+          if ((await stat(candidate)).isFile()) {
+            found = candidate;
+            break;
+          }
+        } catch {
+          // Try the next local include root.
+        }
+      }
+      assert.notEqual(found, null, `${path} has an unresolved quoted include: ${request}`);
+      pending.push(found);
+    }
+  }
+  return [...seen].sort();
 }
 
 test("publishes a stable, workflow-facing gate vocabulary", () => {
@@ -92,7 +143,7 @@ test("routes causal runtime, event, and alignment changes through P6 evidence", 
 test("routes P5 source and checked output changes through P5, P4B, and P6", () => {
   const downstream = [
     "workspace",
-    "native",
+    "native-sdl-oracle",
     "p5",
     "runtime-p6-evidence",
     "p6-presentation-attest",
@@ -115,7 +166,7 @@ test("routes P5 source and checked output changes through P5, P4B, and P6", () =
 test("routes broad corpus, static analysis, catalog, and data changes through P1B downstream", () => {
   const downstream = [
     "workspace",
-    "native",
+    "native-sdl-oracle",
     "static-corpus-p1b",
     "p5",
     "reviews-p2a-p4",
@@ -135,7 +186,7 @@ test("routes broad corpus, static analysis, catalog, and data changes through P1
 test("keeps the baseline workspace and smoke checks on every specialized code lane", () => {
   for (const path of [
     "web/src/ccsolver-runtime/compose/sourceValidity/tworldSolverSourceScopeAcceptance.test.ts",
-    "web/src/ccsolver-runtime/compose/p5-review/buildP5ReviewOutputs.test.ts",
+    "web/src/ccsolver-runtime/compose/p5-review/buildP5ReviewOutputs.ts",
     "web/src/ccsolver-runtime/compose/p4b-dossier/p4bDossierPage.ts",
     "web/src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.ts",
     "web/src/ccsolver-runtime/compose/runtime/tworldCausalJournal.ts",
@@ -146,12 +197,24 @@ test("keeps the baseline workspace and smoke checks on every specialized code la
   }
 });
 
-test("routes native oracle semantics through the native and P5 proof chain", () => {
+test("routes changed tests before their production directories", () => {
+  assertSelection(["web/src/ruleset-ms/impl/portableItems.test.ts"], ["workspace"]);
   assertSelection(
-    ["legacy_c/oracle/oracle_main.cpp", "legacy_c/mslogic.c"],
+    ["web/src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Execution.test.ts"],
+    ["native-sdl-oracle", "p5"],
+  );
+  assertSelection(
+    ["web/src/replay-verifier/impl/compareMsInputTraceScenario.test.ts"],
+    ["native-sdl-oracle"],
+  );
+});
+
+test("routes native oracle semantics through SDL-oracle and P5, never Qt", () => {
+  assertSelection(
+    ["legacy_c/oracle/oracle_main.cpp"],
     [
       "workspace",
-      "native",
+      "native-sdl-oracle",
       "p5",
       "runtime-p6-evidence",
       "p6-presentation-attest",
@@ -161,18 +224,39 @@ test("routes native oracle semantics through the native and P5 proof chain", () 
   );
 });
 
-test("targets Qt alone but routes SDL authority and CMake through P5 downstream", () => {
-  assertSelection(["legacy_c/oshw-qt/TWMainWnd.cpp"], ["native"]);
+test("targets Qt and SDL frontend changes independently", () => {
+  assertSelection(["legacy_c/oshw-qt/TWMainWnd.cpp"], ["native-qt"]);
+  assertSelection(["legacy_c/oshw-sdl/sdlout.c"], ["native-sdl-oracle"]);
+});
+
+test("routes the SDL sound files compiled by Qt through both native builds", () => {
+  for (const path of ["legacy_c/oshw-sdl/sdlsfx.c", "legacy_c/oshw-sdl/sdlsfx.h"]) {
+    assertSelection([path], ["native-qt", "native-sdl-oracle"], path);
+  }
+});
+
+test("routes every recursive Qt and SDL target dependency through its native gate", async () => {
+  for (const [frontend, gate] of [["qt", "native-qt"], ["sdl", "native-sdl-oracle"]]) {
+    const dependencies = await nativeTargetDependencies(frontend);
+    assert.ok(dependencies.length > 10, frontend);
+    for (const path of dependencies) {
+      assert.equal(classifyChangedPaths([path]).gates[gate], true, `${frontend}: ${path}`);
+    }
+  }
+});
+
+test("routes shared legacy C and CMake through both builds and the P5 closure", () => {
   const p5Authority = [
     "workspace",
-    "native",
+    "native-qt",
+    "native-sdl-oracle",
     "p5",
     "runtime-p6-evidence",
     "p6-presentation-attest",
     "p4b",
     "browser",
   ];
-  assertSelection(["legacy_c/oshw-sdl/sdlout.c"], p5Authority);
+  assertSelection(["legacy_c/mslogic.c"], p5Authority);
   assertSelection(["CMakeLists.txt"], p5Authority);
   assertSelection(["legacy_c/CMakeLists.txt"], p5Authority);
 });
@@ -191,7 +275,7 @@ test("runs every gate for workflow, dependency, classifier, and unknown source c
   }
 });
 
-test("fails closed for no paths and unsafe path spellings", () => {
+test("fails closed for no paths and rejects unsafe raw path spellings", () => {
   const empty = assertSelection([], gateIds);
   assert.equal(empty.all, true);
   assert.deepEqual(empty.unknownPaths, ["<no-paths>"]);
@@ -201,10 +285,21 @@ test("fails closed for no paths and unsafe path spellings", () => {
     "/tmp/absolute.ts",
     "C:\\outside.ts",
     "web\\src\\ccsolver-runtime\\compose\\p4b-dossier\\p4bDossierPage.ts",
+    "web/src/control\u0001.test.ts",
+    "web/src/control\u007f.test.ts",
     "",
   ]) {
-    const result = assertSelection([path], gateIds, path);
-    assert.equal(result.all, true, path);
+    assert.throws(() => classifyChangedPaths([path]), /invalid changed path/u, path);
+  }
+});
+
+test("rejects unsupported todo-only and unconditionally skipped changed tests", () => {
+  for (const path of [
+    "web/src/ruleset-ms/impl/bowlingBallCharacterization.todo.test.ts",
+    "web/src/ruleset-lynx/impl/bowlingBallCharacterization.todo.test.ts",
+    "web/src/replay-verifier/impl/engine/use-cases/compareLynxReplayTraceDebugScenario.test.ts",
+  ]) {
+    assert.throws(() => classifyChangedPaths([path]), /unsupported changed web test/u, path);
   }
 });
 
@@ -253,16 +348,22 @@ test("resolves a bounded base/head Git diff for CI callers", async (context) => 
   await git("config", "user.email", "ci@example.invalid");
   await git("config", "user.name", "CI Test");
   await writeFile(join(directory, "README.md"), "first\n");
-  await git("add", "README.md");
+  await writeFile(join(directory, "deleted.test.ts"), "export {};\n");
+  await git("add", "README.md", "deleted.test.ts");
   await git("commit", "--quiet", "-m", "first");
   await writeFile(join(directory, "README.md"), "second\n");
   await writeFile(join(directory, "page.ts"), "export {};\n");
-  await git("add", "README.md", "page.ts");
+  await rm(join(directory, "deleted.test.ts"));
+  await git("add", "README.md", "deleted.test.ts", "page.ts");
   await git("commit", "--quiet", "-m", "second");
 
   assert.deepEqual(
     await resolveChangedPaths({ base: "HEAD~1", head: "HEAD", cwd: directory }),
-    ["README.md", "page.ts"],
+    ["README.md", "deleted.test.ts", "page.ts"],
+  );
+  assert.deepEqual(
+    await resolveDeletedPaths({ base: "HEAD~1", head: "HEAD", cwd: directory }),
+    ["deleted.test.ts"],
   );
 
   const cli = await execFileAsync(
@@ -270,5 +371,5 @@ test("resolves a bounded base/head Git diff for CI callers", async (context) => 
     [classifierPath, "--base", "HEAD~1", "--head", "HEAD"],
     { cwd: directory },
   );
-  assert.deepEqual(JSON.parse(cli.stdout).paths, ["README.md", "page.ts"]);
+  assert.deepEqual(JSON.parse(cli.stdout).paths, ["README.md", "deleted.test.ts", "page.ts"]);
 });

@@ -12,7 +12,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 
@@ -20,6 +20,11 @@ import {
   PROOF_BINDINGS,
   resolveProofGates,
 } from "../scripts/ci/resolve-proof-gates.mjs";
+import {
+  NATIVE_CHANGED_WEB_TESTS,
+  UNSUPPORTED_CHANGED_WEB_TESTS,
+  changedWebTestDisposition,
+} from "../scripts/ci/run-changed-web-tests.mjs";
 import {
   PROOF_SPEC_SCHEMA,
   buildProofReceipt,
@@ -53,6 +58,15 @@ const P6A_EVIDENCE_OUTPUTS = [
   "ccsolver/fixtures/golden/p6a/cclp1-001/portfolio.json",
 ];
 
+const UNUSED_STATIC_COMPOSERS = [
+  "web/src/ccsolver-runtime/compose/buildTworldLynxStaticAnalysis.ts",
+  "web/src/ccsolver-runtime/compose/buildTworldLynxTopologyEvidence.ts",
+  "web/src/ccsolver-runtime/compose/buildTworldMsStaticAnalysis.ts",
+  "web/src/ccsolver-runtime/compose/buildTworldMsTopologyEvidence.ts",
+  "web/src/ccsolver-runtime/compose/buildTworldPairedStaticAnalysis.ts",
+  "web/src/ccsolver-runtime/compose/projectVerifiedTworldLevelFacts.ts",
+];
+
 const EXPECTED_PROOFS = {
   p1b: {
     count: 12,
@@ -82,6 +96,21 @@ function treePaths(scopes) {
   return scopes.filter(({ kind }) => kind === "tree").map(({ path }) => path);
 }
 
+function treeScopes(scopes) {
+  return scopes.filter(({ kind }) => kind === "tree");
+}
+
+async function testFilesUnder(treePath) {
+  const entries = await readdir(resolve(repositoryRoot, treePath), {
+    recursive: true,
+    withFileTypes: true,
+  });
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
+    .map((entry) => relative(repositoryRoot, resolve(entry.parentPath, entry.name)))
+    .sort();
+}
+
 async function localModule(importer, request) {
   const base = resolve(dirname(importer), request);
   for (const candidate of [base, `${base}.ts`, `${base}.tsx`, resolve(base, "index.ts")]) {
@@ -93,6 +122,77 @@ async function localModule(importer, request) {
     }
   }
   return null;
+}
+
+const WEB_SOURCE_ALIASES = [
+  ["@content/", "web/src/content/"],
+  ["@game-core/", "web/src/game-core/"],
+  ["@game-runtime/", "web/src/game-runtime/"],
+  ["@level-catalog/", "web/src/level-catalog/"],
+  ["@oracle-fixtures/", "web/src/oracle-fixtures/"],
+  ["@replay-verifier/", "web/src/replay-verifier/"],
+  ["@ruleset-lynx/", "web/src/ruleset-lynx/"],
+  ["@ruleset-ms/", "web/src/ruleset-ms/"],
+  ["@undo-runtime/", "web/src/undo-runtime/"],
+];
+
+function valueModuleRequests(source) {
+  const requests = new Set();
+  const staticStatement = /(?:^|\n)\s*(?:import|export)\s+([\s\S]*?)\s+from\s+["']([^"']+)["']/gu;
+  for (const match of source.matchAll(staticStatement)) {
+    if (!match[1].trimStart().startsWith("type ")) requests.add(match[2]);
+  }
+  for (const match of source.matchAll(/(?:^|\n)\s*import\s+["']([^"']+)["']/gu)) {
+    requests.add(match[1]);
+  }
+  for (const match of source.matchAll(/\bimport\(\s*["']([^"']+)["']\s*\)/gu)) {
+    requests.add(match[1]);
+  }
+  return [...requests];
+}
+
+async function aliasedModule(request) {
+  const mapping = WEB_SOURCE_ALIASES.find(([prefix]) => request.startsWith(prefix));
+  if (mapping === undefined) return null;
+  const [prefix, sourceRoot] = mapping;
+  const base = resolve(repositoryRoot, `${sourceRoot}${request.slice(prefix.length)}`);
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, resolve(base, "index.ts")]) {
+    try {
+      if ((await stat(candidate)).isFile()) return candidate;
+    } catch {
+      // Try the next deterministic source candidate.
+    }
+  }
+  return null;
+}
+
+async function liveWebValueModuleClosure(entries) {
+  const seen = new Set();
+  const pending = entries.map((path) => resolve(repositoryRoot, path));
+  while (pending.length > 0) {
+    const path = pending.pop();
+    if (seen.has(path)) continue;
+    seen.add(path);
+    const source = await readFile(path, "utf8");
+    for (const request of valueModuleRequests(source)) {
+      let local = null;
+      if (request.startsWith(".")) local = await localModule(path, request);
+      else if (WEB_SOURCE_ALIASES.some(([prefix]) => request.startsWith(prefix))) {
+        local = await aliasedModule(request);
+      }
+      if (local !== null) pending.push(local);
+      else if (request.startsWith(".") || WEB_SOURCE_ALIASES.some(([prefix]) => request.startsWith(prefix))) {
+        assert.fail(`${relative(repositoryRoot, path)} has an unresolved source import: ${request}`);
+      }
+    }
+  }
+  return [...seen].map((path) => relative(repositoryRoot, path)).sort();
+}
+
+function scopeCoversPath(scope, path) {
+  if (scope.kind === "file") return scope.path === path;
+  if (path !== scope.path && !path.startsWith(`${scope.path}/`)) return false;
+  return !(scope.excludeFileSuffixes ?? []).some((suffix) => path.endsWith(suffix));
 }
 
 async function liveCcsolverPackageRoots(entries) {
@@ -155,6 +255,40 @@ async function readJson(path) {
   return JSON.parse(await readFile(resolve(repositoryRoot, path), "utf8"));
 }
 
+test("proof exclusions stay within fail-closed changed-web-test runner coverage", async () => {
+  for (const [proofId, binding] of Object.entries(PROOF_BINDINGS)) {
+    const spec = await readJson(binding.specPath);
+    for (const scope of treeScopes(spec.inputScopes)) {
+      if (scope.path.startsWith("web/src/")) {
+        assert.deepEqual(
+          scope.excludeFileSuffixes,
+          [".test.ts"],
+          `${proofId} web tree ${scope.path} must use the closed test-only exclusion`,
+        );
+        const futureTestProbe = `${scope.path}/proof-receipt-coverage-probe.test.ts`;
+        assert.notEqual(
+          changedWebTestDisposition(futureTestProbe),
+          null,
+          `${proofId} tree ${scope.path} can exclude future tests only while the runner covers them`,
+        );
+        for (const testPath of await testFilesUnder(scope.path)) {
+          assert.notEqual(
+            changedWebTestDisposition(testPath),
+            null,
+            `${proofId} excluded a test outside changed-test runner coverage: ${testPath}`,
+          );
+        }
+      } else {
+        assert.equal(
+          scope.excludeFileSuffixes,
+          undefined,
+          `${proofId} tree ${scope.path} is outside changed-web-test runner coverage`,
+        );
+      }
+    }
+  }
+});
+
 test("checked proof specs bind the audited P1B, P5, and P6A leaves", async () => {
   const corpusManifest = await readJson("ccsolver/corpus/manifest.v1.json");
   const manifestSources = [...new Set(corpusManifest.sources.map(({ path }) => path))].sort();
@@ -175,7 +309,13 @@ test("checked proof specs bind the audited P1B, P5, and P6A leaves", async () =>
     assert.equal(receipt.outputs.entries.length, expected.count);
     assert.deepEqual(checked, receipt, `${proofId} receipt must match current inputs and outputs`);
     assert.equal(spec.inputScopes.some(({ path }) => path.startsWith("docs/")), false);
-
+    assert.equal(
+      receipt.inputs.entries.some(({ path }) => (
+        path.startsWith("web/src/") && path.endsWith(".test.ts")
+      )),
+      false,
+      `${proofId} proof inputs must not include web tests owned by the changed-test runner`,
+    );
     if (expected.outputs !== undefined) {
       assert.deepEqual(receipt.outputs.entries.map(({ path }) => path), expected.outputs);
       assert.deepEqual(treePaths(spec.outputScopes), []);
@@ -196,11 +336,21 @@ test("checked proof specs bind the audited P1B, P5, and P6A leaves", async () =>
 
   const p5Spec = await readJson(PROOF_BINDINGS.p5.specPath);
   const p5InputTrees = treePaths(p5Spec.inputScopes);
-  assert.ok(p5InputTrees.includes("ccsolver/fixtures/golden/p3/cclp1-001"));
+  assert.equal(p5InputTrees.includes("ccsolver/fixtures/golden/p3/cclp1-001"), false);
   assert.ok(p5InputTrees.includes("ccsolver/src/events"));
   assert.ok(p5InputTrees.includes("ccsolver/src/plan"));
   assert.ok(filePaths(p5Spec.inputScopes).includes("legacy_c/oracle/oracle_main.cpp"));
   const p5InputFiles = new Set(filePaths(p5Spec.inputScopes));
+  assert.deepEqual(
+    [...p5InputFiles].filter((path) => path.startsWith("ccsolver/fixtures/golden/p3/cclp1-001/")),
+    [
+      "ccsolver/fixtures/golden/p3/cclp1-001/lynx/terminal-plan.json",
+      "ccsolver/fixtures/golden/p3/cclp1-001/ms/terminal-plan.json",
+    ],
+  );
+  assert.equal(p5InputTrees.includes("web/src/ccsolver-runtime/compose/p3-review"), false);
+  assert.ok(p5InputFiles.has("web/src/ccsolver-runtime/compose/p3-review/keyPyramidP3Source.ts"));
+  for (const unused of UNUSED_STATIC_COMPOSERS) assert.equal(p5InputFiles.has(unused), false, unused);
   const legacyCmake = await readFile(resolve(repositoryRoot, "legacy_c/CMakeLists.txt"), "utf8");
   const oracleTarget = legacyCmake.match(/add_executable\(tworld-oracle([\s\S]*?)\n\)/u)?.[1];
   assert.ok(oracleTarget, "legacy CMake must declare the native oracle source set");
@@ -224,6 +374,25 @@ test("checked proof specs bind the audited P1B, P5, and P6A leaves", async () =>
   const p6aSpec = await readJson(PROOF_BINDINGS.p6a.specPath);
   assert.ok(treePaths(p6aSpec.inputScopes).includes("ccsolver/src/plan"));
   const p6aInputs = new Set(filePaths(p6aSpec.inputScopes));
+  const p6aInputTrees = treePaths(p6aSpec.inputScopes);
+  assert.equal(p6aInputTrees.includes("web/src/ccsolver-runtime/compose/p3-review"), false);
+  assert.equal(p6aInputTrees.includes("web/src/ccsolver-runtime/compose/p5-review"), false);
+  for (const path of [
+    "web/src/ccsolver-runtime/compose/p3-review/keyPyramidP3Source.ts",
+    "web/src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Execution.ts",
+    "web/src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Plan.ts",
+  ]) {
+    assert.ok(p6aInputs.has(path), path);
+  }
+  for (const removedTree of [
+    "web/src/game-runtime",
+    "web/src/level-catalog",
+    "web/src/oracle-fixtures",
+    "web/src/replay-verifier",
+  ]) {
+    assert.equal(p6aInputTrees.includes(removedTree), false, removedTree);
+  }
+  for (const unused of UNUSED_STATIC_COMPOSERS) assert.equal(p6aInputs.has(unused), false, unused);
   const p5Manifest = await readJson("ccsolver/fixtures/golden/p5/cclp1-001/manifest.json");
   const p5RuntimeAuthority = [
     "ccsolver/fixtures/golden/p5/cclp1-001/manifest.json",
@@ -264,6 +433,7 @@ test("proof input scopes cover every live @tworld/ccsolver package import", asyn
     p1b: [
       "web/src/ccsolver-runtime/compose/p1a-corpus/runCorpusManifest.ts",
       "web/src/ccsolver-runtime/compose/p1b-curriculum/runP1bCheckedArtifacts.ts",
+      "web/src/ccsolver-runtime/compose/p1b-curriculum/runP1bMeasuredShard.ts",
     ],
     p5: ["web/src/ccsolver-runtime/compose/p5-review/runP5ReviewOutputs.ts"],
     p6a: ["web/src/ccsolver-runtime/compose/p6a-review/runP6aReviewOutputs.ts"],
@@ -276,6 +446,44 @@ test("proof input scopes cover every live @tworld/ccsolver package import", asyn
       livePackages.filter((path) => !coveredTrees.has(path)),
       [],
       `${proofId} omitted a live CCSolver package source tree`,
+    );
+  }
+});
+
+test("proof input scopes cover the audited producer value-module closure", async () => {
+  const audits = {
+    p1b: {
+      allowedOmissions: [],
+      entries: [
+        "web/src/ccsolver-runtime/compose/p1a-corpus/runCorpusManifest.ts",
+        "web/src/ccsolver-runtime/compose/p1b-curriculum/runP1bCheckedArtifacts.ts",
+        "web/src/ccsolver-runtime/compose/p1b-curriculum/runP1bMeasuredShard.ts",
+      ],
+    },
+    p5: {
+      allowedOmissions: [],
+      entries: ["web/src/ccsolver-runtime/compose/p5-review/runP5ReviewOutputs.ts"],
+    },
+    p6a: {
+      allowedOmissions: [
+        "web/src/ccsolver-runtime/compose/p6a-review/p6aReviewIo.ts",
+        "web/src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.ts",
+      ],
+      entries: ["web/src/ccsolver-runtime/compose/p6a-review/runP6aReviewOutputs.ts"],
+    },
+  };
+  for (const [proofId, audit] of Object.entries(audits)) {
+    const spec = await readJson(PROOF_BINDINGS[proofId].specPath);
+    const closure = await liveWebValueModuleClosure(audit.entries);
+    assert.deepEqual(
+      closure.filter((path) => !spec.inputScopes.some((scope) => scopeCoversPath(scope, path))),
+      audit.allowedOmissions,
+      `${proofId} omitted a producer-reachable value module`,
+    );
+    assert.deepEqual(
+      closure.filter((path) => path.endsWith(".test.ts")),
+      [],
+      `${proofId} production closure imported an excluded test module`,
     );
   }
 });
@@ -361,7 +569,8 @@ test("combines changed gates with trusted receipts without running unaffected he
   assert.equal(staticChange.proofs.p5.reuse, true);
   assert.equal(staticChange.proofs.p6a.reuse, true);
   assert.equal(staticChange.gates.static_corpus_p1b, true);
-  assert.equal(staticChange.gates.p5, false);
+  assert.equal(staticChange.gates.p5, true);
+  assert.equal(staticChange.proofs.p5.heavy, false);
   assert.equal(staticChange.gates.runtime_p6_evidence, true);
 });
 
@@ -380,7 +589,8 @@ test("receipt drift independently requests a heavy proof when path routing misse
   assert.equal(result.proofs.p5.requested, true);
   assert.equal(result.proofs.p5.heavy, true);
   assert.equal(result.proofs.p5.reuse, false);
-  assert.equal(result.gates.native, true);
+  assert.equal(result.gates.native_sdl_oracle, true);
+  assert.equal(result.gates.native_qt, false);
   assert.equal(result.gates.p5, true);
   assert.equal(result.proofs.p1b.reuse, true);
   assert.equal(result.proofs.p6a.reuse, true);
@@ -388,8 +598,54 @@ test("receipt drift independently requests a heavy proof when path routing misse
   assert.equal(result.gates.runtime_p6_evidence, false);
 });
 
+test("keeps Qt and SDL frontend proof gates independent", async (t) => {
+  const fixture = await makeResolverFixture(t);
+  const qt = await resolveProofGates({
+    changedPaths: ["legacy_c/oshw-qt/TWMainWnd.cpp"],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+  assert.equal(qt.gates.native_qt, true);
+  assert.equal(qt.gates.native_sdl_oracle, false);
+  assert.equal(qt.gates.p5, false);
+
+  const sdl = await resolveProofGates({
+    changedPaths: ["legacy_c/oshw-sdl/sdlout.c"],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+  assert.equal(sdl.gates.native_qt, false);
+  assert.equal(sdl.gates.native_sdl_oracle, true);
+  assert.equal(sdl.gates.p5, false);
+});
+
 test("keeps affected integration lanes selected when their heavy artifact proof is reusable", async (t) => {
   const fixture = await makeResolverFixture(t);
+
+  const workspaceTestPath = "web/src/ruleset-ms/impl/new-regression.test.ts";
+  await write(fixture.root, workspaceTestPath, "export {};\n");
+  const workspaceTestChange = await resolveProofGates({
+    changedPaths: [workspaceTestPath],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+  assert.deepEqual(workspaceTestChange.changedTests, {
+    native: [],
+    p5: [],
+    workspace: [workspaceTestPath],
+  });
+  assert.equal(workspaceTestChange.gates.workspace, true);
+
+  const nativeTestPath = NATIVE_CHANGED_WEB_TESTS[0];
+  await write(fixture.root, nativeTestPath, "export {};\n");
+  const nativeTestChange = await resolveProofGates({
+    changedPaths: [nativeTestPath],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+  assert.deepEqual(nativeTestChange.changedTests.native, [nativeTestPath]);
+  assert.equal(nativeTestChange.gates.native_sdl_oracle, true);
+  assert.equal(nativeTestChange.gates.native_qt, false);
 
   const staticTestChange = await resolveProofGates({
     changedPaths: ["ccsolver/test/analyze/new-regression.test.ts"],
@@ -406,6 +662,63 @@ test("keeps affected integration lanes selected when their heavy artifact proof 
   });
   assert.equal(runtimeTestChange.gates.runtime_p6_evidence, true);
   assert.equal(runtimeTestChange.proofs.p6a.heavy, false);
+
+  const p5TestPath = "web/src/ccsolver-runtime/compose/p5-review/buildKeyPyramidP5Execution.test.ts";
+  await write(fixture.root, p5TestPath, "export {};\n");
+  const p5TestChange = await resolveProofGates({
+    changedPaths: [p5TestPath],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+  assert.equal(p5TestChange.gates.p5, true);
+  assert.equal(p5TestChange.gates.native_sdl_oracle, true);
+  assert.equal(p5TestChange.proofs.p5.reuse, true);
+  assert.equal(p5TestChange.proofs.p5.heavy, false);
+});
+
+test("skips only Git-proven deletions of unsupported changed tests", async (t) => {
+  const fixture = await makeResolverFixture(t);
+  const path = UNSUPPORTED_CHANGED_WEB_TESTS[0];
+
+  const deleted = await resolveProofGates({
+    changedPaths: [path],
+    deletedPaths: [path],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+  assert.deepEqual(deleted.changedTests, { native: [], p5: [], workspace: [] });
+  assert.equal(deleted.gates.workspace, true);
+
+  await write(fixture.root, path, "export {};\n");
+  await assert.rejects(
+    resolveProofGates({
+      changedPaths: [path],
+      deletedPaths: [],
+      root: fixture.root,
+      trustedRoot: fixture.trustedRoot,
+    }),
+    /unsupported changed web test/u,
+  );
+});
+
+test("routes P4B literal inputs through cheap P6 presentation trust without rerunning engines", async (t) => {
+  const fixture = await makeResolverFixture(t);
+  for (const path of [
+    "ccsolver/fixtures/golden/p4b/cclp1-001/manifest.json",
+    "ccsolver/fixtures/golden/p4b/cclp1-001/review.md",
+  ]) {
+    const result = await resolveProofGates({
+      changedPaths: [path],
+      root: fixture.root,
+      trustedRoot: fixture.trustedRoot,
+    });
+
+    assert.equal(result.gates.p4b, true, path);
+    assert.equal(result.gates.p6_presentation_attest, true, path);
+    assert.equal(result.gates.runtime_p6_evidence, false, path);
+    assert.equal(result.proofs.p6a.reuse, true, path);
+    assert.equal(result.proofs.p6a.heavy, false, path);
+  }
 });
 
 test("fails closed on a stale current receipt and forces all selected proofs on dispatch", async (t) => {
@@ -456,6 +769,8 @@ test("treats missing trusted receipts and unknown paths as all-heavy, never as c
 
 test("CLI resolves the trusted merge base and writes underscore-safe GitHub outputs", async (t) => {
   const fixture = await makeResolverFixture(t);
+  const deletedTestPath = "web/src/ruleset-ms/impl/deleted-regression.test.ts";
+  await write(fixture.root, deletedTestPath, "export {};\n");
   const git = (...args) => execFileAsync("git", args, { cwd: fixture.root });
   await git("init", "--quiet");
   await git("config", "user.email", "ci@example.invalid");
@@ -465,8 +780,9 @@ test("CLI resolves the trusted merge base and writes underscore-safe GitHub outp
   const { stdout: baseStdout } = await git("rev-parse", "HEAD");
   const base = baseStdout.trim();
 
+  await rm(resolve(fixture.root, deletedTestPath));
   await write(fixture.root, "README.md", "docs only\n");
-  await git("add", "README.md");
+  await git("add", "--all");
   await git("commit", "--quiet", "-m", "docs");
   const { stdout: headStdout } = await git("rev-parse", "HEAD");
   const head = headStdout.trim();
@@ -480,10 +796,14 @@ test("CLI resolves the trusted merge base and writes underscore-safe GitHub outp
   ]);
 
   assert.equal(result.stderr, "");
-  assert.equal(JSON.parse(result.stdout).gates.workspace, true);
+  const resolution = JSON.parse(result.stdout);
+  assert.equal(resolution.gates.workspace, true);
+  assert.equal(resolution.changed.paths.includes(deletedTestPath), true);
+  assert.deepEqual(resolution.changedTests, { native: [], p5: [], workspace: [] });
   const output = await readFile(githubOutput, "utf8");
   for (const key of [
-    "native",
+    "native_qt",
+    "native_sdl_oracle",
     "workspace",
     "static_corpus_p1b",
     "p5",
@@ -499,7 +819,10 @@ test("CLI resolves the trusted merge base and writes underscore-safe GitHub outp
     "heavy_p5",
     "heavy_p6a",
     "current_receipts_valid",
+    "changed_native_web_tests",
   ]) {
     assert.match(output, new RegExp(`^${key}=(?:true|false)$`, "m"), key);
   }
+  assert.match(output, /^changed_web_tests_json=\[\]$/m);
+  assert.match(output, /^changed_native_web_tests_json=\[\]$/m);
 });

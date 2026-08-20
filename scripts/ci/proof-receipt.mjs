@@ -24,6 +24,7 @@ const MAX_RECEIPT_BYTES = 64 * 1024 * 1024;
 const HASH_DOMAIN = "tworld.proof-receipt/v1";
 const HEX_SHA256 = /^[0-9a-f]{64}$/;
 const PROOF_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const SAFE_EXCLUDED_FILE_SUFFIXES = new Set([".test.ts"]);
 
 class ProofReceiptError extends Error {
   constructor(code, details = {}) {
@@ -153,7 +154,7 @@ async function readScopedFile(root, path, role) {
   return { bytes, mode: normalizedMode(stat), path };
 }
 
-async function walkTree(root, treePath, role) {
+async function walkTree(root, treePath, role, excludeFileSuffixes = []) {
   validateRepoPath(treePath, role);
   await assertNoSymlinkAncestors(root, treePath, role);
   const absoluteRoot = resolveRepoPath(root, treePath);
@@ -173,6 +174,7 @@ async function walkTree(root, treePath, role) {
       if (stat.isDirectory()) {
         await visit(relativePath, absolutePath);
       } else if (stat.isFile()) {
+        if (excludeFileSuffixes.some((suffix) => relativePath.endsWith(suffix))) continue;
         if (stat.size > MAX_ENTRY_BYTES) {
           fail("entry-too-large", { context: role, paths: [relativePath] });
         }
@@ -193,17 +195,55 @@ async function walkTree(root, treePath, role) {
   return files;
 }
 
-function validateScopes(scopes, context) {
+function validateExcludedFileSuffixes(value, context) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 2) {
+    fail("invalid-exclusions", { context });
+  }
+  let prior;
+  for (const [index, suffix] of value.entries()) {
+    if (typeof suffix !== "string") fail("unsafe-exclusion", { context: `${context}[${index}]`, suffix });
+    if (prior !== undefined) {
+      const order = comparePath(prior, suffix);
+      if (order === 0) fail("duplicate-exclusion", { context, suffix });
+      if (order > 0) fail("unsorted-exclusion", { context, suffix });
+    }
+    prior = suffix;
+  }
+  if (value.length !== SAFE_EXCLUDED_FILE_SUFFIXES.size) {
+    fail("invalid-exclusions", { context });
+  }
+  return value.map((suffix, index) => {
+    if (!SAFE_EXCLUDED_FILE_SUFFIXES.has(suffix)) {
+      fail("unsafe-exclusion", { context: `${context}[${index}]`, suffix });
+    }
+    return suffix;
+  });
+}
+
+function validateScopes(scopes, context, allowExclusions = false) {
   if (!Array.isArray(scopes) || scopes.length === 0) {
     fail("invalid-scopes", { context });
   }
   let priorKey;
   return scopes.map((scope, index) => {
-    exactKeys(scope, ["kind", "path"], `${context}[${index}]`);
+    const scopeContext = `${context}[${index}]`;
+    const hasExclusions = allowExclusions
+      && isRecord(scope)
+      && Object.hasOwn(scope, "excludeFileSuffixes");
+    exactKeys(
+      scope,
+      hasExclusions && scope.kind === "tree"
+        ? ["excludeFileSuffixes", "kind", "path"]
+        : ["kind", "path"],
+      scopeContext,
+    );
     if (scope.kind !== "file" && scope.kind !== "tree") {
       fail("invalid-scope-kind", { context, kind: scope.kind });
     }
-    validateRepoPath(scope.path, `${context}[${index}].path`);
+    validateRepoPath(scope.path, `${scopeContext}.path`);
+    const excludeFileSuffixes = hasExclusions
+      ? validateExcludedFileSuffixes(scope.excludeFileSuffixes, `${scopeContext}.excludeFileSuffixes`)
+      : undefined;
     const key = `${scope.path}\0${scope.kind}`;
     if (priorKey !== undefined) {
       const order = comparePath(priorKey, key);
@@ -211,7 +251,9 @@ function validateScopes(scopes, context) {
       if (order > 0) fail("unsorted-scope", { context, path: scope.path });
     }
     priorKey = key;
-    return { kind: scope.kind, path: scope.path };
+    return excludeFileSuffixes === undefined
+      ? { kind: scope.kind, path: scope.path }
+      : { excludeFileSuffixes, kind: scope.kind, path: scope.path };
   });
 }
 
@@ -235,7 +277,7 @@ function validateSpec(spec) {
   ) {
     fail("invalid-producer-contract");
   }
-  const inputScopes = validateScopes(spec.inputScopes, "spec.inputScopes");
+  const inputScopes = validateScopes(spec.inputScopes, "spec.inputScopes", true);
   const outputScopes = validateScopes(spec.outputScopes, "spec.outputScopes");
   if (spec.outputManifestPath !== null) {
     validateRepoPath(spec.outputManifestPath, "spec.outputManifestPath");
@@ -303,7 +345,12 @@ async function expandScopes(root, scopes, role) {
       files.push(file);
       totalLength += file.bytes.length;
     } else {
-      const treeFiles = await walkTree(root, scope.path, role);
+      const treeFiles = await walkTree(
+        root,
+        scope.path,
+        role,
+        scope.excludeFileSuffixes,
+      );
       files.push(...treeFiles);
       totalLength += treeFiles.reduce((sum, file) => sum + file.bytes.length, 0);
     }
@@ -451,7 +498,7 @@ function validateReceipt(receipt) {
   ) {
     fail("invalid-producer-contract");
   }
-  validateScopes(receipt.inputScopes, "receipt.inputScopes");
+  validateScopes(receipt.inputScopes, "receipt.inputScopes", true);
   validateScopes(receipt.outputScopes, "receipt.outputScopes");
   validateCollection(receipt.inputs, "receipt.inputs");
   validateCollection(receipt.outputs, "receipt.outputs");

@@ -138,6 +138,108 @@ test("ignores docs-only changes outside the receipt scopes", async () => {
   assert.equal((await verify(fixture)).decision, "reuse");
 });
 
+test("excludes only declared test files while keeping production changes causal", async () => {
+  const fixture = await makeFixture();
+  const specPath = resolve(fixture.root, fixture.specPath);
+  const spec = JSON.parse(await readFile(specPath, "utf8"));
+  spec.inputScopes = [{
+    excludeFileSuffixes: [".test.ts"],
+    kind: "tree",
+    path: "src",
+  }];
+  await writeFile(specPath, canonicalJson(spec));
+  await write(fixture.root, "src/a.test.ts", "test v1\n");
+  await writeProofReceipt(fixture);
+
+  const receipt = await buildProofReceipt(fixture);
+  assert.deepEqual(
+    receipt.inputs.entries.map(({ path }) => path),
+    ["src/a.mjs", "src/nested/b.txt"],
+  );
+
+  await write(fixture.root, "src/a.test.ts", "test v2\n");
+  await write(fixture.root, "src/new.test.ts", "new test\n");
+  assert.equal((await verify(fixture)).decision, "reuse");
+
+  await write(fixture.root, "src/not-excluded.test.tsx", "tsx remains causal\n");
+  const lookalike = await verify(fixture);
+  assert.equal(lookalike.currentValid, false);
+  assert.ok(reasonCodes(lookalike).includes("input-extra"));
+  await unlink(resolve(fixture.root, "src/not-excluded.test.tsx"));
+  assert.equal((await verify(fixture)).decision, "reuse");
+
+  await write(fixture.root, "src/a.mjs", "export const a = 2;\n");
+  const changed = await verify(fixture);
+  assert.equal(changed.currentValid, false);
+  assert.ok(reasonCodes(changed).includes("input-digest-drift"));
+
+  await writeProofReceipt(fixture);
+  await write(fixture.root, "src/new.mjs", "export const added = true;\n");
+  const added = await verify(fixture);
+  assert.equal(added.currentValid, false);
+  assert.ok(reasonCodes(added).includes("input-extra"));
+});
+
+test("rejects a symlink even when its name matches an excluded test suffix", async () => {
+  const fixture = await makeFixture();
+  const specPath = resolve(fixture.root, fixture.specPath);
+  const spec = JSON.parse(await readFile(specPath, "utf8"));
+  spec.inputScopes = [{
+    excludeFileSuffixes: [".test.ts"],
+    kind: "tree",
+    path: "src",
+  }];
+  await writeFile(specPath, canonicalJson(spec));
+  await writeProofReceipt(fixture);
+  await symlink("../docs/readme.md", resolve(fixture.root, "src/linked.test.ts"));
+
+  const result = await verify(fixture);
+  assert.equal(result.currentValid, false);
+  assert.ok(reasonCodes(result).includes("input-symlink"));
+});
+
+test("rejects malformed, duplicate, unsorted, and unsafe tree exclusions", async (t) => {
+  const cases = [
+    ["file scope", { excludeFileSuffixes: [".test.ts"], kind: "file", path: "src/a.mjs" }, "unknown-field"],
+    ["not an array", { excludeFileSuffixes: ".test.ts", kind: "tree", path: "src" }, "invalid-exclusions"],
+    ["empty", { excludeFileSuffixes: [], kind: "tree", path: "src" }, "invalid-exclusions"],
+    ["duplicate", { excludeFileSuffixes: [".test.ts", ".test.ts"], kind: "tree", path: "src" }, "duplicate-exclusion"],
+    ["unsorted", { excludeFileSuffixes: [".test.tsx", ".test.ts"], kind: "tree", path: "src" }, "unsorted-exclusion"],
+    ["extra suffix", { excludeFileSuffixes: [".test.ts", ".test.tsx"], kind: "tree", path: "src" }, "invalid-exclusions"],
+    ["traversal", { excludeFileSuffixes: ["../.test.ts"], kind: "tree", path: "src" }, "unsafe-exclusion"],
+    ["production suffix", { excludeFileSuffixes: [".ts"], kind: "tree", path: "src" }, "unsafe-exclusion"],
+  ];
+  for (const [name, inputScope, code] of cases) {
+    await t.test(name, async () => {
+      const fixture = await makeFixture();
+      const specPath = resolve(fixture.root, fixture.specPath);
+      const spec = JSON.parse(await readFile(specPath, "utf8"));
+      spec.inputScopes = [inputScope];
+      await writeFile(specPath, canonicalJson(spec));
+      await assert.rejects(
+        buildProofReceipt(fixture),
+        (error) => error instanceof Error && error.message === code,
+      );
+    });
+  }
+
+  await t.test("output tree", async () => {
+    const fixture = await makeFixture();
+    const specPath = resolve(fixture.root, fixture.specPath);
+    const spec = JSON.parse(await readFile(specPath, "utf8"));
+    spec.outputScopes = [{
+      excludeFileSuffixes: [".test.ts"],
+      kind: "tree",
+      path: "proof",
+    }];
+    await writeFile(specPath, canonicalJson(spec));
+    await assert.rejects(
+      buildProofReceipt(fixture),
+      (error) => error instanceof Error && error.message === "unknown-field",
+    );
+  });
+});
+
 test("rejects source content, new-file, missing-file, and executable-mode drift", async (t) => {
   await t.test("content", async () => {
     const fixture = await makeFixture();
