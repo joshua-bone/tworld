@@ -26,6 +26,7 @@ jobs:
       heavy-p1b: ${{ steps.gates.outputs.heavy_p1b }}
       heavy-p5: ${{ steps.gates.outputs.heavy_p5 }}
       heavy-p6a: ${{ steps.gates.outputs.heavy_p6a }}
+      trusted-merge-base: ${{ steps.gates.outputs.trusted_merge_base }}
       changed-web-tests-json: ${{ steps.gates.outputs.changed_web_tests_json }}
       changed-native-web-tests-json: ${{ steps.gates.outputs.changed_native_web_tests_json }}
       changed-native-web-tests: ${{ steps.gates.outputs.changed_native_web_tests }}
@@ -48,6 +49,8 @@ jobs:
             test/ci-changed-web-tests.test.mjs \
             test/ci-proof-receipt.test.mjs \
             test/ci-proof-gates.test.mjs \
+            test/ci-p1b-shards.test.mjs \
+            test/ci-p1b-map-reduce-routing.test.mjs \
             test/ci-proof-routing.test.mjs
       - name: Resolve changed-gates.mjs and proof-receipt.mjs decisions
         id: gates
@@ -262,15 +265,27 @@ jobs:
           npm run ccsolver:integration:corpus
           npm run ccsolver:analysis:check:prepared
 
-  ccsolver-p1b:
+  ccsolver-p1b-prepare:
     needs: classify
     if: ${{ needs.classify.outputs['heavy-p1b'] == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 90
-    env:
-      TWORLD_P1B_ANALYSIS_JOBS: 4
+    timeout-minutes: 10
+    outputs:
+      shard-matrix: ${{ steps.plan.outputs.shard_matrix }}
+      shard-count: ${{ steps.plan.outputs.shard_count }}
+      needs-shards: ${{ steps.plan.outputs.needs_shards }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Attest the checked-out workflow SHA
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
+            echo "checked-out HEAD does not match the workflow SHA" >&2
+            exit 1
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -282,8 +297,216 @@ jobs:
         run: npm run ccsolver:build
       - name: Verify the P1A corpus authority consumed by P1B
         run: npm run ccsolver:corpus:check:prepared
-      - name: Check P1B full-corpus artifacts
-        run: npm run ccsolver:p1b:check:prepared
+      - name: Prepare the canonical P1B shard plan
+        id: plan
+        env:
+          TRUSTED_MERGE_BASE: ${{ needs.classify.outputs['trusted-merge-base'] }}
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          PLAN_DIR="$RUNNER_TEMP/p1b-plan"
+          TRUSTED_ROOT="$RUNNER_TEMP/p1b-trusted-root"
+          TRUSTED_ARGS=()
+
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            if [[ ! "$TRUSTED_MERGE_BASE" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "classify did not provide an exact trusted merge-base SHA" >&2
+              exit 1
+            fi
+            git cat-file -e "${TRUSTED_MERGE_BASE}^{commit}"
+            git worktree add --detach "$TRUSTED_ROOT" "$TRUSTED_MERGE_BASE"
+            TRUSTED_ARGS=(--trusted-root "$TRUSTED_ROOT")
+          elif [[ -n "$TRUSTED_MERGE_BASE" ]]; then
+            echo "dispatch must not claim merge-base receipt authority" >&2
+            exit 1
+          fi
+
+          node scripts/ci/p1b-shards.mjs prepare \
+            --root . \
+            --head "$ACTUAL_HEAD" \
+            --run-id "$GITHUB_RUN_ID" \
+            --run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --output "$PLAN_DIR" \
+            --github-output "$GITHUB_OUTPUT" \
+            "${TRUSTED_ARGS[@]}"
+      - name: Require the fixed nonempty eight-shard plan
+        env:
+          SHARD_COUNT: ${{ steps.plan.outputs.shard_count }}
+          NEEDS_SHARDS: ${{ steps.plan.outputs.needs_shards }}
+        run: |
+          [[ "$SHARD_COUNT" == "8" ]]
+          [[ "$NEEDS_SHARDS" == "true" ]]
+      - name: Upload the immutable P1B plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1b-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p1b-plan
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: false
+
+  ccsolver-p1b-shard:
+    needs:
+      - classify
+      - ccsolver-p1b-prepare
+    if: ${{ needs.classify.outputs['heavy-p1b'] == 'true' && needs.ccsolver-p1b-prepare.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: true
+      max-parallel: 8
+      matrix: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Attest the checked-out workflow SHA
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
+            echo "checked-out HEAD does not match the workflow SHA" >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Download the exact immutable P1B plan
+        uses: actions/download-artifact@v4
+        with:
+          name: p1b-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p1b-plan
+      - name: Install workspace dependencies for a measured shard
+        if: ${{ matrix.measure }}
+        run: npm ci --include=optional
+      - name: Build CCSolver for a measured shard
+        if: ${{ matrix.measure }}
+        run: npm run ccsolver:build
+      - name: Measure one canonical P1B shard
+        if: ${{ matrix.measure }}
+        env:
+          SHARD_ID: ${{ matrix.shard_id }}
+          TWORLD_P1B_ANALYSIS_JOBS: 1
+        run: |
+          mkdir -p "$RUNNER_TEMP/p1b-result"
+          node scripts/ci/p1b-shards.mjs run \
+            --root . \
+            --manifest "$RUNNER_TEMP/p1b-plan/manifest.json" \
+            --request "$RUNNER_TEMP/p1b-plan/requests/${SHARD_ID}.request.json" \
+            --output "$RUNNER_TEMP/p1b-result/${SHARD_ID}.result.json"
+      - name: Validate and forward one reconstructed P1B shard
+        if: ${{ !matrix.measure }}
+        env:
+          SHARD_ID: ${{ matrix.shard_id }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/p1b-result"
+          node scripts/ci/p1b-shards.mjs forward \
+            --root . \
+            --manifest "$RUNNER_TEMP/p1b-plan/manifest.json" \
+            --request "$RUNNER_TEMP/p1b-plan/requests/${SHARD_ID}.request.json" \
+            --reconstructed "$RUNNER_TEMP/p1b-plan/reconstructed-results/${SHARD_ID}.result.json" \
+            --output "$RUNNER_TEMP/p1b-result/${SHARD_ID}.result.json"
+      - name: Upload exactly one immutable P1B shard result
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ runner.temp }}/p1b-result/${{ matrix.shard_id }}.result.json
+          if-no-files-found: error
+          retention-days: 1
+          overwrite: false
+
+  ccsolver-p1b:
+    needs:
+      - classify
+      - ccsolver-p1b-prepare
+      - ccsolver-p1b-shard
+    if: ${{ always() && needs.classify.outputs['heavy-p1b'] == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require successful P1B coordinator and shard workers
+        env:
+          PREPARE_RESULT: ${{ needs.ccsolver-p1b-prepare.result }}
+          SHARD_RESULT: ${{ needs.ccsolver-p1b-shard.result }}
+        run: |
+          if [[ "$PREPARE_RESULT" != "success" || "$SHARD_RESULT" != "success" ]]; then
+            echo "P1B map/reduce prerequisite did not succeed: prepare=$PREPARE_RESULT shards=$SHARD_RESULT" >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Attest the checked-out workflow SHA
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
+            echo "checked-out HEAD does not match the workflow SHA" >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Build CCSolver once
+        run: npm run ccsolver:build
+      - name: Download the exact immutable P1B plan
+        uses: actions/download-artifact@v4
+        with:
+          name: p1b-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: ${{ runner.temp }}/p1b-plan
+      - name: Download P1B shard 0
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[0].artifact_name }}
+          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[0].shard_id }}
+      - name: Download P1B shard 1
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[1].artifact_name }}
+          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[1].shard_id }}
+      - name: Download P1B shard 2
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[2].artifact_name }}
+          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[2].shard_id }}
+      - name: Download P1B shard 3
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[3].artifact_name }}
+          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[3].shard_id }}
+      - name: Download P1B shard 4
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[4].artifact_name }}
+          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[4].shard_id }}
+      - name: Download P1B shard 5
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[5].artifact_name }}
+          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[5].shard_id }}
+      - name: Download P1B shard 6
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[6].artifact_name }}
+          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[6].shard_id }}
+      - name: Download P1B shard 7
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[7].artifact_name }}
+          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[7].shard_id }}
+      - name: Recompute and finalize the complete P1B proof
+        run: |
+          ACTUAL_HEAD="$(git rev-parse HEAD)"
+          node scripts/ci/p1b-shards.mjs finalize \
+            --root . \
+            --head "$ACTUAL_HEAD" \
+            --manifest "$RUNNER_TEMP/p1b-plan/manifest.json" \
+            --requests "$RUNNER_TEMP/p1b-plan/requests" \
+            --results "$RUNNER_TEMP/p1b-results" \
+            --check
 
   ccsolver-reviews:
     needs: classify

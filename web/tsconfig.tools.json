@@ -25,6 +25,7 @@
     "src/ccsolver-runtime/compose/p6a-review/buildP6aReviewOutputs.ts",
     "src/ccsolver-runtime/compose/p6a-review/runP6aReviewOutputs.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bCheckedArtifacts.ts",
+    "src/ccsolver-runtime/compose/p1b-curriculum/runP1bDistributedShards.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bMeasuredShard.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/writeFixedOutputsTransactionally.ts",
     "src/level-catalog/impl/NodeLevelRepository.ts",

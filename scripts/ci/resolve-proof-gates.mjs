@@ -250,6 +250,7 @@ function workflowOutputs(result) {
     reuse_p1b: result.proofs.p1b.reuse,
     reuse_p5: result.proofs.p5.reuse,
     reuse_p6a: result.proofs.p6a.reuse,
+    trusted_merge_base: result.trustedMergeBase ?? "",
   };
 }
 

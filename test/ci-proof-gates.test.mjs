@@ -72,7 +72,7 @@ const EXPECTED_PROOFS = {
     count: 12,
     manifest: null,
     outputs: P1B_OUTPUTS,
-    producer: "npm run ccsolver:build && npm run ccsolver:corpus:check:prepared && npm run ccsolver:p1b:check:prepared|node22.22.0-npm10.9.4|tworld-ci-v1",
+    producer: "npm run ccsolver:build && npm run ccsolver:corpus:check:prepared && node scripts/ci/p1b-shards.mjs prepare && 8x(node scripts/ci/p1b-shards.mjs run|forward) && node scripts/ci/p1b-shards.mjs finalize --check|fixed8-worker1|node22.22.0-npm10.9.4|tworld-ci-p1b-distributed-v1",
   },
   p5: {
     count: 33,
@@ -825,4 +825,14 @@ test("CLI resolves the trusted merge base and writes underscore-safe GitHub outp
   }
   assert.match(output, /^changed_web_tests_json=\[\]$/m);
   assert.match(output, /^changed_native_web_tests_json=\[\]$/m);
+  assert.match(output, new RegExp(`^trusted_merge_base=${base}$`, "m"));
+
+  const dispatchOutput = resolve(fixture.root, "dispatch-github-output.txt");
+  await execFileAsync(process.execPath, [
+    resolverPath,
+    "--root", fixture.root,
+    "--all",
+    "--github-output", dispatchOutput,
+  ]);
+  assert.match(await readFile(dispatchOutput, "utf8"), /^trusted_merge_base=$/m);
 });
