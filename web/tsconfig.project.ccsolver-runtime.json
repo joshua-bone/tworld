@@ -25,6 +25,7 @@
     "src/ccsolver-runtime/compose/p5-review/runP5ReviewOutputs.ts",
     "src/ccsolver-runtime/compose/p4b-dossier/**/*.ts",
     "src/ccsolver-runtime/compose/p6a-review/**/*.ts",
+    "src/ccsolver-runtime/compose/p6b-p7a-review/**/*.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/measureP1bShardCases.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bCheckedArtifacts.ts",
     "src/ccsolver-runtime/compose/p1b-curriculum/runP1bDistributedShards.ts",

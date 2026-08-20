@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>A semantic plan, realized twice</title>
+  <style>
+    :root{color-scheme:light;--ink:#17202a;--muted:#5a6570;--paper:#f7f3e9;--card:#fffdf7;--line:#d8d0c0;--violet:#5636a5;--mint:#dff4e8;--amber:#ffe8a3}
+    *{box-sizing:border-box}
+    html{background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:17px;line-height:1.5}
+    body{margin:0;padding:clamp(1rem,2.5vw,2.5rem)}
+    .shell{width:100%;max-width:none;margin:0}
+    h1,h2,h3,p{margin-top:0} h1{font-size:clamp(2.1rem,5vw,5.4rem);line-height:.98;letter-spacing:-.045em;max-width:16ch;margin-bottom:1rem} h2{font-size:clamp(1.45rem,2.4vw,2.5rem);line-height:1.08} h3{font-size:1.05rem;margin-bottom:.35rem}
+    a{color:var(--violet);font-weight:700}
+    .eyebrow{display:block;margin:0 0 .35rem;text-transform:uppercase;letter-spacing:.12em;font-size:.75rem;font-weight:800;color:var(--violet)}
+    .hero{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(18rem,.6fr);gap:clamp(1.5rem,4vw,5rem);align-items:end;border-bottom:2px solid var(--ink);padding-bottom:clamp(1.5rem,3vw,3rem)}
+    .hero p{max-width:62ch;font-size:clamp(1rem,1.35vw,1.25rem);color:var(--muted)}
+    .scope{background:var(--ink);color:white;border-radius:1rem;padding:1.1rem 1.25rem}.scope strong{display:block;font-size:1.1rem}.scope small{color:#cbd3dc}
+    .tabs{display:flex;gap:.5rem;margin:1.5rem 0 1rem;border-bottom:1px solid var(--line)}
+    .tabs button{appearance:none;border:0;border-bottom:4px solid transparent;background:transparent;color:var(--muted);font:inherit;font-weight:800;padding:.75rem 1.25rem;cursor:pointer}.tabs button[aria-selected="true"]{border-color:var(--violet);color:var(--ink)}.tabs button:focus-visible{outline:3px solid #2d7ff9;outline-offset:2px}
+    .target-panel{min-width:0}.target-summary{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(24rem,.75fr);gap:2rem;align-items:start}.target-summary>div>p:last-child{color:var(--muted);max-width:68ch}
+    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem;margin:0}.metrics div{background:var(--card);border:1px solid var(--line);border-radius:.8rem;padding:.75rem}.metrics dt{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}.metrics dd{margin:0;font-size:1.25rem;font-weight:850}
+    .level-map{margin:1.5rem 0;background:#111820;border-radius:1rem;padding:clamp(.65rem,1.5vw,1.2rem);overflow:hidden}.level-map svg{display:block;width:100%;min-width:0;height:auto}.level-map figcaption{color:#e7ecf2;margin-top:.65rem;font-size:.88rem}
+    .plan-flow{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:.75rem;padding:0;margin:1.25rem 0}.plan-card{display:grid;grid-template-columns:2.2rem minmax(0,1fr);gap:.65rem;background:var(--card);border:1px solid var(--line);border-radius:.9rem;padding:.9rem}.plan-card strong,.plan-card small{display:block}.plan-card small{color:var(--muted);margin-top:.35rem}.plan-order{display:grid;place-items:center;width:2rem;height:2rem;border-radius:50%;background:var(--violet);color:white;font-weight:850}
+    .deep-dive{border-top:1px solid var(--line);padding:.9rem 0}.deep-dive summary{cursor:pointer;font-weight:800}.deep-dive>p,.deep-dive>ul,.repair-grid{margin:1rem 0 0}.repair-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.repair-grid article{background:var(--card);border:1px solid var(--line);border-radius:.8rem;padding:1rem}
+    .portfolio{border-top:2px solid var(--ink);margin-top:2.5rem;padding-top:2rem}.portfolio-header{display:flex;justify-content:space-between;gap:2rem;align-items:end}.portfolio-header p{max-width:70ch;color:var(--muted)}.canary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr));gap:.75rem}.canary-card{background:var(--card);border:1px solid var(--line);border-radius:.9rem;padding:1rem}.canary-card small{color:var(--muted)}.confidence{display:inline-block;border-radius:999px;padding:.2rem .55rem;margin-bottom:.7rem;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.confidence--high{background:var(--mint)}.confidence--medium{background:var(--amber)}.confidence--low{background:#f4dfe3}
+    footer{border-top:1px solid var(--line);margin-top:2rem;padding-top:1rem;color:var(--muted);font-size:.9rem}
+    [hidden]{display:none!important}
+    @media(max-width:820px){.hero,.target-summary{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.repair-grid{grid-template-columns:1fr}.portfolio-header{display:block}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">P6B portfolio canaries · P7A tactic realization</p>
+      <h1>A semantic plan, realized twice</h1>
+      <p>A bounded solver constructed a route from semantic intent, evaluated choices through exact engine checkpoints, recovered from a deliberately bad decision, and certified the selected requests in a fresh run.</p>
+    </div>
+    <aside class="scope"><strong>Phase-A key-and-door corridor</strong><small>P.k.D.E · standard CC1 tiles only · donor input unavailable</small></aside>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Ruleset realization">
+    <button id="tab-ms" role="tab" aria-controls="target-ms" aria-selected="true" tabindex="0">MS</button>
+    <button id="tab-lynx" role="tab" aria-controls="target-lynx" aria-selected="false" tabindex="-1">Lynx</button>
+  </nav>
+
+  <section class="target-panel" id="target-ms" role="tabpanel" aria-labelledby="tab-ms">
+    <div class="target-summary">
+      <div>
+        <p class="eyebrow">MS realization</p>
+        <h2>One semantic recipe, engine-native timing</h2>
+        <p>The controller chose each direction from the current engine observation. It did not receive a full input stream.</p>
+      </div>
+      <dl class="metrics">
+        <div><dt>Decisions</dt><dd>21</dd></div>
+        <div><dt>Native ticks</dt><dd>21</dd></div>
+        <div><dt>Fresh replay</dt><dd>Passed</dd></div>
+        <div><dt>Restore</dt><dd>Exact</dd></div>
+      </dl>
+    </div>
+
+    <figure class="level-map">
+      <svg class="phase-a-map" role="img" aria-label="MS Phase-A key-and-door route rendered with standard game artwork" viewBox="0 0 672 96" xmlns="http://www.w3.org/2000/svg"><style>.tile,image{image-rendering:pixelated}.route-halo,.route-line{fill:none;stroke-linecap:round;stroke-linejoin:round}.route-halo{stroke:#fff;stroke-width:10;opacity:.9}.route-line{stroke:#6f2dbd;stroke-width:6}.route-mark{cursor:help}.route-mark circle{fill:#fff;stroke:#111;stroke-width:2}.route-mark text{fill:#111;font:800 15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:middle}</style><title>MS Phase-A key-and-door tactic route</title><g aria-label="cell 1: floor"><title>floor</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="0" y="0" width="96" height="96" viewBox="0 0 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><svg class="tile tile--chip" data-semantic-type="cc1:chip" x="0" y="0" width="96" height="96" viewBox="288 720 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><rect x="0" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 2: floor"><title>floor</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="96" y="0" width="96" height="96" viewBox="0 0 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><rect x="96" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 3: key red"><title>key red</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="192" y="0" width="96" height="96" viewBox="0 0 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><svg class="tile tile--key-red" data-semantic-type="cc1:key-red" x="192" y="0" width="96" height="96" viewBox="288 240 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><rect x="192" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 4: floor"><title>floor</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="288" y="0" width="96" height="96" viewBox="0 0 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><rect x="288" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 5: door red"><title>door red</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="384" y="0" width="96" height="96" viewBox="0 0 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><svg class="tile tile--door-red" data-semantic-type="cc1:door-red" x="384" y="0" width="96" height="96" viewBox="48 336 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><rect x="384" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 6: floor"><title>floor</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="480" y="0" width="96" height="96" viewBox="0 0 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><rect x="480" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 7: exit"><title>exit</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="576" y="0" width="96" height="96" viewBox="0 0 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><svg class="tile tile--exit" data-semantic-type="cc1:exit" x="576" y="0" width="96" height="96" viewBox="48 240 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-ms.png" x="0" y="0" width="336" height="768" preserveAspectRatio="none"/></svg><rect x="576" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><polyline class="route-halo" points="48,48 144,48 240,48 336,48 432,48 528,48 624,48"/><polyline class="route-line" points="48,48 144,48 240,48 336,48 432,48 528,48 624,48"/><g class="route-mark" data-decision-order="0" tabindex="0"><title>Decision 1 reaches corridor cell 2</title><circle cx="144" cy="48" r="15"/><text x="144" y="49">1</text></g><g class="route-mark" data-decision-order="1" tabindex="0"><title>Decision 2 reaches corridor cell 3</title><circle cx="240" cy="48" r="15"/><text x="240" y="49">2</text></g><g class="route-mark" data-decision-order="2" tabindex="0"><title>Decision 3 reaches corridor cell 4</title><circle cx="336" cy="48" r="15"/><text x="336" y="49">3</text></g><g class="route-mark" data-decision-order="3" tabindex="0"><title>Decision 4 reaches corridor cell 5</title><circle cx="432" cy="48" r="15"/><text x="432" y="49">4</text></g><g class="route-mark" data-decision-order="4" tabindex="0"><title>Decision 5 reaches corridor cell 6</title><circle cx="528" cy="48" r="15"/><text x="528" y="49">5</text></g><g class="route-mark" data-decision-order="5" tabindex="0"><title>Decision 6 reaches corridor cell 7</title><circle cx="624" cy="48" r="15"/><text x="624" y="49">6</text></g></svg>
+      <figcaption>Authentic MS game artwork. Numbered marks show the sequence of tiles visited; waits and non-moving requests are omitted.</figcaption>
+    </figure>
+
+    <ol class="plan-flow" aria-label="Executed semantic tactics">
+
+    <li class="plan-card">
+      <span class="plan-order">1</span>
+      <div>
+        <span class="eyebrow">Reach</span>
+        <strong>Approach the red key</strong>
+        <small>1 decision · 1 native tick</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">2</span>
+      <div>
+        <span class="eyebrow">Collect</span>
+        <strong>Collect the red key</strong>
+        <small>4 decisions · 4 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">3</span>
+      <div>
+        <span class="eyebrow">WaitUntil</span>
+        <strong>Settle after collecting the key</strong>
+        <small>0 decisions · 0 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">4</span>
+      <div>
+        <span class="eyebrow">Reach</span>
+        <strong>Approach the red door</strong>
+        <small>4 decisions · 4 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">5</span>
+      <div>
+        <span class="eyebrow">Unlock</span>
+        <strong>Unlock the red door</strong>
+        <small>4 decisions · 4 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">6</span>
+      <div>
+        <span class="eyebrow">Reach</span>
+        <strong>Step beyond the opened door</strong>
+        <small>4 decisions · 4 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">7</span>
+      <div>
+        <span class="eyebrow">WaitUntil</span>
+        <strong>Settle beyond the door</strong>
+        <small>0 decisions · 0 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">8</span>
+      <div>
+        <span class="eyebrow">Reach</span>
+        <strong>Reach the exit</strong>
+        <small>4 decisions · 4 native ticks</small>
+      </div>
+    </li>
+    </ol>
+
+    <details class="deep-dive">
+      <summary>See the injected failure and repaired suffix</summary>
+      <div class="repair-grid">
+        <article>
+          <p class="eyebrow">Injected decision 4</p>
+          <h3>west</h3>
+          <p>The complete injected sequence no longer collected the red key.</p>
+        </article>
+        <article>
+          <p class="eyebrow">Replanned join</p>
+          <h3>Recovered and won</h3>
+          <p>3 prefix decisions stayed untouched. 1 old suffix decisions were replaced by 1 newly evaluated decisions.</p>
+        </article>
+      </div>
+    </details>
+
+    <details class="deep-dive">
+      <summary>See the bounded exhaustion proof</summary>
+      <div class="repair-grid">
+        <article>
+          <p class="eyebrow">Bound reached</p>
+          <h3>branch budget</h3>
+          <p>The distant coordinate remained unmet inside the one-branch, one-tick bound.</p>
+        </article>
+        <article>
+          <p class="eyebrow">Determinism</p>
+          <h3>Repeated exactly</h3>
+          <p>The same bounded attempt produced the same diagnostic twice: 1 branches and 1 engine advances.</p>
+        </article>
+      </div>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Exact proof and machine-readable downloads</summary>
+      <p>The selected requests were applied again from canonical initialization in a fresh replay-owned run. The same terminal outcome was independently observed at native tick 20. Checkpoint restore was also verified before suffix repair.</p>
+      <ul>
+        <li><a href="ms/tactic-realization.json">Download MS tactic realization</a></li>
+        <li><a href="ms/replay-certificate.json">Download MS replay certificate</a></li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="target-panel" id="target-lynx" role="tabpanel" aria-labelledby="tab-lynx">
+    <div class="target-summary">
+      <div>
+        <p class="eyebrow">Lynx realization</p>
+        <h2>One semantic recipe, engine-native timing</h2>
+        <p>The controller chose each direction from the current engine observation. It did not receive a full input stream.</p>
+      </div>
+      <dl class="metrics">
+        <div><dt>Decisions</dt><dd>6</dd></div>
+        <div><dt>Native ticks</dt><dd>24</dd></div>
+        <div><dt>Fresh replay</dt><dd>Passed</dd></div>
+        <div><dt>Restore</dt><dd>Exact</dd></div>
+      </dl>
+    </div>
+
+    <figure class="level-map">
+      <svg class="phase-a-map" role="img" aria-label="Lynx Phase-A key-and-door route rendered with standard game artwork" viewBox="0 0 672 96" xmlns="http://www.w3.org/2000/svg"><style>.tile,image{image-rendering:pixelated}.route-halo,.route-line{fill:none;stroke-linecap:round;stroke-linejoin:round}.route-halo{stroke:#fff;stroke-width:10;opacity:.9}.route-line{stroke:#6f2dbd;stroke-width:6}.route-mark{cursor:help}.route-mark circle{fill:#fff;stroke:#111;stroke-width:2}.route-mark text{fill:#111;font:800 15px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-anchor:middle;dominant-baseline:middle}</style><title>Lynx Phase-A key-and-door tactic route</title><g aria-label="cell 1: floor"><title>floor</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="0" y="0" width="96" height="96" viewBox="1 1 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><svg class="tile tile--chip" data-semantic-type="cc1:chip" x="0" y="0" width="96" height="96" viewBox="337 196 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><rect x="0" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 2: floor"><title>floor</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="96" y="0" width="96" height="96" viewBox="1 1 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><rect x="96" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 3: key red"><title>key red</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="192" y="0" width="96" height="96" viewBox="1 1 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><svg class="tile tile--key-red" data-semantic-type="cc1:key-red" x="192" y="0" width="96" height="96" viewBox="721 99 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><rect x="192" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 4: floor"><title>floor</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="288" y="0" width="96" height="96" viewBox="1 1 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><rect x="288" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 5: door red"><title>door red</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="384" y="0" width="96" height="96" viewBox="1 1 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><svg class="tile tile--door-red" data-semantic-type="cc1:door-red" x="384" y="0" width="96" height="96" viewBox="241 99 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><rect x="384" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 6: floor"><title>floor</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="480" y="0" width="96" height="96" viewBox="1 1 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><rect x="480" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><g aria-label="cell 7: exit"><title>exit</title><svg class="tile tile--floor" data-semantic-type="cc1:floor" x="576" y="0" width="96" height="96" viewBox="1 1 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><svg class="tile tile--exit" data-semantic-type="cc1:exit" x="576" y="0" width="96" height="96" viewBox="481 99 48 48" preserveAspectRatio="none"><image href="assets/standard-artwork-lynx.png" x="0" y="0" width="1729" height="874" preserveAspectRatio="none"/></svg><rect x="576" y="0" width="96" height="96" fill="none" stroke="rgba(255,255,255,.16)"/></g><polyline class="route-halo" points="48,48 144,48 240,48 336,48 432,48 528,48 624,48"/><polyline class="route-line" points="48,48 144,48 240,48 336,48 432,48 528,48 624,48"/><g class="route-mark" data-decision-order="0" tabindex="0"><title>Decision 1 reaches corridor cell 2</title><circle cx="144" cy="48" r="15"/><text x="144" y="49">1</text></g><g class="route-mark" data-decision-order="1" tabindex="0"><title>Decision 2 reaches corridor cell 3</title><circle cx="240" cy="48" r="15"/><text x="240" y="49">2</text></g><g class="route-mark" data-decision-order="2" tabindex="0"><title>Decision 3 reaches corridor cell 4</title><circle cx="336" cy="48" r="15"/><text x="336" y="49">3</text></g><g class="route-mark" data-decision-order="3" tabindex="0"><title>Decision 4 reaches corridor cell 5</title><circle cx="432" cy="48" r="15"/><text x="432" y="49">4</text></g><g class="route-mark" data-decision-order="4" tabindex="0"><title>Decision 5 reaches corridor cell 6</title><circle cx="528" cy="48" r="15"/><text x="528" y="49">5</text></g><g class="route-mark" data-decision-order="5" tabindex="0"><title>Decision 6 reaches corridor cell 7</title><circle cx="624" cy="48" r="15"/><text x="624" y="49">6</text></g></svg>
+      <figcaption>Authentic Lynx game artwork. Numbered marks show the sequence of tiles visited; waits and non-moving requests are omitted.</figcaption>
+    </figure>
+
+    <ol class="plan-flow" aria-label="Executed semantic tactics">
+
+    <li class="plan-card">
+      <span class="plan-order">1</span>
+      <div>
+        <span class="eyebrow">Reach</span>
+        <strong>Approach the red key</strong>
+        <small>1 decision · 1 native tick</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">2</span>
+      <div>
+        <span class="eyebrow">Collect</span>
+        <strong>Collect the red key</strong>
+        <small>1 decision · 7 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">3</span>
+      <div>
+        <span class="eyebrow">WaitUntil</span>
+        <strong>Settle after collecting the key</strong>
+        <small>0 decisions · 0 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">4</span>
+      <div>
+        <span class="eyebrow">Reach</span>
+        <strong>Approach the red door</strong>
+        <small>1 decision · 1 native tick</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">5</span>
+      <div>
+        <span class="eyebrow">Unlock</span>
+        <strong>Unlock the red door</strong>
+        <small>1 decision · 7 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">6</span>
+      <div>
+        <span class="eyebrow">Reach</span>
+        <strong>Step beyond the opened door</strong>
+        <small>1 decision · 1 native tick</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">7</span>
+      <div>
+        <span class="eyebrow">WaitUntil</span>
+        <strong>Settle beyond the door</strong>
+        <small>0 decisions · 3 native ticks</small>
+      </div>
+    </li>
+    <li class="plan-card">
+      <span class="plan-order">8</span>
+      <div>
+        <span class="eyebrow">Reach</span>
+        <strong>Reach the exit</strong>
+        <small>1 decision · 4 native ticks</small>
+      </div>
+    </li>
+    </ol>
+
+    <details class="deep-dive">
+      <summary>See the injected failure and repaired suffix</summary>
+      <div class="repair-grid">
+        <article>
+          <p class="eyebrow">Injected decision 4</p>
+          <h3>west</h3>
+          <p>The complete injected sequence no longer collected the red key.</p>
+        </article>
+        <article>
+          <p class="eyebrow">Replanned join</p>
+          <h3>Recovered and won</h3>
+          <p>3 prefix decisions stayed untouched. 4 old suffix decisions were replaced by 4 newly evaluated decisions.</p>
+        </article>
+      </div>
+    </details>
+
+    <details class="deep-dive">
+      <summary>See the bounded exhaustion proof</summary>
+      <div class="repair-grid">
+        <article>
+          <p class="eyebrow">Bound reached</p>
+          <h3>branch budget</h3>
+          <p>The distant coordinate remained unmet inside the one-branch, one-tick bound.</p>
+        </article>
+        <article>
+          <p class="eyebrow">Determinism</p>
+          <h3>Repeated exactly</h3>
+          <p>The same bounded attempt produced the same diagnostic twice: 1 branches and 1 engine advances.</p>
+        </article>
+      </div>
+    </details>
+
+    <details class="deep-dive">
+      <summary>Exact proof and machine-readable downloads</summary>
+      <p>The selected requests were applied again from canonical initialization in a fresh replay-owned run. The same terminal outcome was independently observed at native tick 23. Checkpoint restore was also verified before suffix repair.</p>
+      <ul>
+        <li><a href="lynx/tactic-realization.json">Download Lynx tactic realization</a></li>
+        <li><a href="lynx/replay-certificate.json">Download Lynx replay certificate</a></li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="portfolio">
+    <div class="portfolio-header">
+      <div><p class="eyebrow">Bounded classification canaries</p><h2>When “same plan” is—and is not—honest</h2></div>
+      <p>These cases test four distinct relationships. Every classification remains a proposal, even after review; evidence gaps stay visible instead of being promoted into proof.</p>
+    </div>
+    <div class="canary-grid">
+    <article class="canary-card">
+      <span class="confidence confidence--high">high confidence</span>
+      <h3>Key Pyramid</h3>
+      <p>shared plan different timing</p>
+      <small>Real corpus source · unreviewed</small>
+      <details><summary>Unresolved gaps</summary><ul><li>The checked route remains paired full-input donor evidence, not donor-blind discovery.</li></ul></details>
+    </article>
+    <article class="canary-card">
+      <span class="confidence confidence--low">low confidence</span>
+      <h3>Booster Shots</h3>
+      <p>genuinely different plan</p>
+      <small>Real corpus source · unreviewed</small>
+      <details><summary>Unresolved gaps</summary><ul><li>Static divergence is diagnostic; independent causal executions are still required before accepting a different-plan classification.</li></ul></details>
+    </article>
+    <article class="canary-card">
+      <span class="confidence confidence--low">low confidence</span>
+      <h3>Two Sets of Rules</h3>
+      <p>genuinely different plan</p>
+      <small>Real corpus source · unreviewed</small>
+      <details><summary>Unresolved gaps</summary><ul><li>Static divergence is diagnostic; independent causal executions are still required before accepting a different-plan classification.</li></ul></details>
+    </article>
+    <article class="canary-card">
+      <span class="confidence confidence--medium">medium confidence</span>
+      <h3>Phase-A local-route variance</h3>
+      <p>shared subgoal different local route</p>
+      <small>Bounded synthetic fixture · unreviewed</small>
+      <details><summary>Unresolved gaps</summary><ul><li>This relationship canary is intentionally bounded to an authored synthetic source.</li></ul></details>
+    </article>
+    <article class="canary-card">
+      <span class="confidence confidence--medium">medium confidence</span>
+      <h3>Phase-A executed semantic fork rejoin</h3>
+      <p>Alternative branches with a proven semantic gameplay rejoin</p>
+      <small>Bounded synthetic fixture · unreviewed</small>
+      <details><summary>Unresolved gaps</summary><ul><li>Gameplay-state rejoin and equal executed continuation are proven only for the bounded synthetic fixture; target-native exact histories may differ.</li></ul></details>
+    </article></div>
+    <details class="deep-dive"><summary>Download the exact portfolio-canary artifact</summary><p><a href="portfolio-canaries.json">Download portfolio-canaries.json</a>. Machine identities and content digests remain in the artifact, not in the primary human surface.</p></details>
+  </section>
+  <footer>This unlisted development dossier is not linked from the main Tile World page. Synthetic execution evidence and real-corpus classification evidence are labeled separately.</footer>
+</main>
+<script>
+(() => {
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const activate = (tab, focus = true) => {
+    for (const candidate of tabs) {
+      const selected = candidate === tab;
+      candidate.setAttribute('aria-selected', String(selected));
+      candidate.tabIndex = selected ? 0 : -1;
+      document.getElementById(candidate.getAttribute('aria-controls')).hidden = !selected;
+    }
+    if (focus) tab.focus();
+  };
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => activate(tab));
+    tab.addEventListener('keydown', (event) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      event.preventDefault();
+      const offset = event.key === 'ArrowRight' ? 1 : -1;
+      activate(tabs[(index + offset + tabs.length) % tabs.length]);
+    });
+  });
+  activate(tabs.find((tab) => tab.getAttribute('aria-selected') === 'true') || tabs[0], false);
+})();
+</script>
+</body>
+</html>

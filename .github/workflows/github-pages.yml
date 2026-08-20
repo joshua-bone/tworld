@@ -41,6 +41,8 @@ jobs:
         run: npm run ccsolver:p4b:emit-dist:prepared
       - name: Emit unlisted causal alignment bundle
         run: npm run ccsolver:p6a:emit-dist:prepared
+      - name: Emit unlisted standard-tactic realization bundle
+        run: npm run ccsolver:p7a:emit-dist:prepared
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

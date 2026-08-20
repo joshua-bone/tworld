@@ -113,10 +113,23 @@ test("isolates P4B page and artwork changes from expensive engine proofs", () =>
     [
       "web/src/ccsolver-runtime/compose/p4b-dossier/p4bDossierPage.ts",
       "web/src/ccsolver-runtime/compose/p4b-dossier/p4bDossierVisuals.ts",
-      "web/src/ccsolver-runtime/compose/p4b-dossier/p4bLegacyArtwork.ts",
     ],
     ["workspace", "p6-presentation-attest", "p4b", "browser"],
   );
+});
+
+test("reconstructs P7 evidence when its shared standard artwork inputs change", () => {
+  for (const path of [
+    "web/src/ccsolver-runtime/compose/p4b-dossier/p4bLegacyArtwork.ts",
+    "res/tiles.bmp",
+    "res/atiles.bmp",
+  ]) {
+    assertSelection(
+      [path],
+      ["workspace", "runtime-p6-evidence", "p6-presentation-attest", "p4b", "browser"],
+      path,
+    );
+  }
 });
 
 test("routes P6 page and IO changes through presentation attestation and browser checks", () => {
@@ -138,6 +151,21 @@ test("routes causal runtime, event, and alignment changes through P6 evidence", 
     ],
     ["workspace", "runtime-p6-evidence", "p6-presentation-attest", "browser"],
   );
+});
+
+test("routes P6B/P7A tactic and checked-dossier changes without corpus or native proofs", () => {
+  const expected = [
+    "workspace",
+    "runtime-p6-evidence",
+    "p6-presentation-attest",
+  ];
+  for (const path of [
+    "web/src/ccsolver-runtime/compose/p7a-tactics/standardTactics.ts",
+    "web/src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aReviewPage.ts",
+    "ccsolver/fixtures/golden/p7a/phase-a-key-door/manifest.json",
+  ]) {
+    assertSelection([path], expected, path);
+  }
 });
 
 test("routes P5 source and checked output changes through P5, P4B, and P6", () => {
