@@ -225,6 +225,9 @@ function generatedKind(
   if (suffix === "pack-summary.json") {
     return { kind: "pack-summary", levelNumber: null, variantId: null, target: null };
   }
+  if (suffix === "execution-index.json") {
+    return { kind: "execution-index", levelNumber: null, variantId: null, target: null };
+  }
   if (suffix.startsWith("profiles/")) {
     return { kind: "portable-profile", levelNumber: null, variantId: null, target: null };
   }
@@ -600,6 +603,7 @@ export async function buildP7TrainingPackProofLeaf(
   const packReachableRefs = [
     ...generatedBlobs.filter(({ kind }) => (
       kind === "pack-browser-index"
+      || kind === "execution-index"
       || kind === "pack-index-page"
       || kind === "pack-summary"
       || kind === "level-browser-manifest"

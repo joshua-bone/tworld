@@ -1,15 +1,28 @@
 import { createHash } from "node:crypto";
+import { copyFile, mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { WebCryptoSha256 } from "@tworld/ccsolver/adapters/web-crypto";
 import { beforeAll, describe, expect, it } from "vitest";
+import { buildP7TrainingShardPlan } from "../p7-training-execution/p7TrainingShardProtocol";
 import {
   P7_TRAINING_INVENTORY_LIMITS,
   materializeDetachedLevelSource,
   materializeDetachedReplayBytes,
 } from "./trainingCorpusInventory";
-import { loadCheckedTrainingCorpusInventory } from "./loadCheckedTrainingCorpusInventory";
-import type { P7TrainingCorpusInventory } from "./trainingCorpusInventory";
+import {
+  loadCheckedTrainingCorpusInventory,
+  loadCheckedTrainingPackInventory,
+} from "./loadCheckedTrainingCorpusInventory";
+import type {
+  P7TrainingCorpusInventory,
+  P7TrainingPackId,
+  P7TrainingPackInventoryClosure,
+} from "./trainingCorpusInventory";
 
 const repositoryRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
+const digestPort = new WebCryptoSha256();
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -17,10 +30,91 @@ function sha256(bytes: Uint8Array): string {
 
 describe("checked P7C-P7E training corpus inventory", () => {
   let inventory: P7TrainingCorpusInventory;
+  let scoped: Readonly<Record<P7TrainingPackId, P7TrainingPackInventoryClosure>>;
 
   beforeAll(async () => {
     inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot);
-  }, 20_000);
+    const [cclp1, cclp4, cclp5] = await Promise.all([
+      loadCheckedTrainingPackInventory(repositoryRoot, "cclp1"),
+      loadCheckedTrainingPackInventory(repositoryRoot, "cclp4"),
+      loadCheckedTrainingPackInventory(repositoryRoot, "cclp5"),
+    ]);
+    scoped = { cclp1, cclp4, cclp5 };
+  }, 60_000);
+
+  it("loads exact pack-specific source closures with full-inventory-equivalent rows and plans", async () => {
+    const expectedInputCounts: Readonly<Record<P7TrainingPackId, number>> = {
+      cclp1: 5,
+      cclp4: 5,
+      cclp5: 175,
+    };
+    for (const [index, packId] of (["cclp1", "cclp4", "cclp5"] as const).entries()) {
+      const selected = scoped[packId];
+      expect(selected.packs).toHaveLength(1);
+      expect(selected.packs[0]).toEqual(inventory.packs[index]);
+      expect(selected.verifiedInputs).toHaveLength(expectedInputCounts[packId]);
+      expect(selected.verifiedInputs.map(({ path }) => path)).toEqual(
+        [...selected.verifiedInputs.map(({ path }) => path)].sort(),
+      );
+
+      const fullPlan = await buildP7TrainingShardPlan({ inventory, packId, sha256: digestPort });
+      const scopedPlan = await buildP7TrainingShardPlan({
+        inventory: selected,
+        packId,
+        sha256: digestPort,
+      });
+      expect(scopedPlan.packContent).toEqual(fullPlan.packContent);
+      expect(scopedPlan.requests.map(({ canonicalJson }) => canonicalJson))
+        .toEqual(fullPlan.requests.map(({ canonicalJson }) => canonicalJson));
+    }
+    expect(scoped.cclp1.verifiedInputs.map(({ path }) => path)).toEqual([
+      "data/CCLP1.dat",
+      "save/CCLP1-lynx.dac.tws",
+      "save/CCLP1.dac.tws",
+      "sets/CCLP1-Lynx.dac",
+      "sets/CCLP1-MS.dac",
+    ]);
+    expect(scoped.cclp4.verifiedInputs.map(({ path }) => path)).toEqual([
+      "data/CCLP4.dat",
+      "save/CCLP4-lynx.dac.tws",
+      "save/CCLP4.dac.tws",
+      "sets/CCLP4-Lynx.dac",
+      "sets/CCLP4-MS.dac",
+    ]);
+    expect(scoped.cclp5.verifiedInputs.filter(({ path }) => path.includes("CCLP5Voting-")))
+      .toHaveLength(170);
+  }, 60_000);
+
+  it("does not read unrelated pack bytes and fails closed on relevant source drift", async () => {
+    const temporaryRoot = await mkdtemp(join(tmpdir(), "tworld-p7-pack-inventory-"));
+    const paths = [
+      "ccsolver/corpus/manifest.v1.json",
+      "ccsolver/corpus/p1b-validity-report.v1.json",
+      ...scoped.cclp1.verifiedInputs.map(({ path }) => path),
+    ];
+    try {
+      for (const path of paths) {
+        await mkdir(dirname(resolve(temporaryRoot, path)), { recursive: true });
+        await copyFile(resolve(repositoryRoot, path), resolve(temporaryRoot, path));
+      }
+      const isolated = await loadCheckedTrainingPackInventory(temporaryRoot, "cclp1");
+      expect(isolated.packs[0]).toEqual(inventory.packs[0]);
+
+      const relevantPath = "data/CCLP1.dat";
+      await unlink(resolve(temporaryRoot, relevantPath));
+      await expect(loadCheckedTrainingPackInventory(temporaryRoot, "cclp1"))
+        .rejects.toThrow();
+
+      await copyFile(resolve(repositoryRoot, relevantPath), resolve(temporaryRoot, relevantPath));
+      const tampered = new Uint8Array(await readFile(resolve(temporaryRoot, relevantPath)));
+      tampered[0] = tampered[0]! ^ 0xff;
+      await writeFile(resolve(temporaryRoot, relevantPath), tampered);
+      await expect(loadCheckedTrainingPackInventory(temporaryRoot, "cclp1"))
+        .rejects.toThrow(/pinned source (?:digest|length) mismatch/u);
+    } finally {
+      await rm(temporaryRoot, { force: true, recursive: true });
+    }
+  }, 30_000);
 
   it("pins three exact 149-level official packs and every freshly hashed input", async () => {
     expect(inventory.packs.map(({ packId, levels }) => ({ packId, levels: levels.length })))

@@ -40,18 +40,16 @@ import {
 } from "../p7c-p7e-inventory/loadCheckedTrainingCorpusInventory";
 import {
   materializeDetachedReplayBytes,
-  type P7TrainingCorpusInventory,
   type P7TrainingDonorCandidate,
   type P7TrainingLevelInventory,
+  type P7TrainingPackInventoryClosure,
   type P7TrainingPackInventory,
   type P7TrainingVerifiedInput,
 } from "../p7c-p7e-inventory/trainingCorpusInventory";
-import {
-  P7B_TRAINING_PACK_CHECKED_PARENT,
-  buildP7bTrainingPackOutputs,
-  type P7bTrainingPackBuildInput,
-  type P7bTrainingPackBuildResult,
+import type {
+  P7bTrainingPackBuildInput,
 } from "./buildP7bTrainingPackOutputs";
+import { P7B_TRAINING_PACK_CHECKED_PARENT } from "./p7TrainingPackPaths";
 import type {
   P7TrainingPackProofFile,
   P7TrainingProofDerivedSourceV1,
@@ -68,14 +66,30 @@ const encoder = new TextEncoder();
 
 type SharedPlayerInput = P7bTrainingPackBuildInput["sharedPlayer"];
 
-export interface ComposeP7TrainingReducedPackInput {
+export interface ComposeP7TrainingReducedPackSemanticInput {
   readonly repositoryRoot: string;
   readonly reducedPack: P7TrainingReducedPack;
-  readonly sharedPlayer: SharedPlayerInput;
   readonly sha256: Sha256Port;
   readonly loadEvidence: P7TrainingVerifyPersistedEvidence;
   readonly loadInventory?: P7TrainingInventoryLoader;
   readonly readExternalBytes?: (path: string) => Promise<Uint8Array>;
+}
+
+export interface ComposeP7TrainingReducedPackInput
+  extends ComposeP7TrainingReducedPackSemanticInput {
+  readonly sharedPlayer: SharedPlayerInput;
+}
+
+export type P7TrainingReducedPackSemanticBuildInput = Omit<
+  P7bTrainingPackBuildInput,
+  "sharedPlayer"
+>;
+
+export interface P7TrainingReducedPackSemanticComposition {
+  readonly semanticInput: P7TrainingReducedPackSemanticBuildInput;
+  readonly proofSources: {
+    readonly externalFiles: readonly P7TrainingPackProofFile[];
+  };
 }
 
 export interface P7TrainingReducedPackComposition {
@@ -263,7 +277,7 @@ async function loadLevelEvidence(input: {
 }
 
 function requiredPack(
-  inventory: P7TrainingCorpusInventory,
+  inventory: P7TrainingPackInventoryClosure,
   reduced: P7TrainingReducedPack,
 ): P7TrainingPackInventory {
   if (reduced.levels.length !== P7_TRAINING_LEVELS_PER_PACK) {
@@ -286,9 +300,9 @@ function requiredPack(
   return pack;
 }
 
-export async function composeP7TrainingReducedPack(
-  input: ComposeP7TrainingReducedPackInput,
-): Promise<P7TrainingReducedPackComposition> {
+export async function composeP7TrainingReducedPackSemantic(
+  input: ComposeP7TrainingReducedPackSemanticInput,
+): Promise<P7TrainingReducedPackSemanticComposition> {
   const loadInventory = input.loadInventory ?? loadCheckedTrainingCorpusInventory;
   const inventory = await loadInventory(input.repositoryRoot, input.sha256);
   const pack = requiredPack(inventory, input.reducedPack);
@@ -600,7 +614,7 @@ export async function composeP7TrainingReducedPack(
     }
     externalFiles.push({ path: declaration.path, bytes });
   }
-  const buildInput: P7bTrainingPackBuildInput = {
+  const semanticInput: P7TrainingReducedPackSemanticBuildInput = {
     pack: {
       packId: pack.packId,
       title: pack.displayName,
@@ -608,9 +622,9 @@ export async function composeP7TrainingReducedPack(
     },
     inventory: inventoryLevels,
     processedLevels,
-    sharedPlayer: input.sharedPlayer,
     portableProfilePayload: hasPortableVariant ? { bytes: profileBytes } : null,
     proof: {
+      packContent: plan.packContent,
       corpusRevision: inventory.corpusRevision,
       producerRevision: `${P7_TRAINING_PROCESSOR_REVISION}+${P7_TRAINING_REDUCED_PACK_COMPOSER_REVISION}`,
       externalInputs,
@@ -624,19 +638,21 @@ export async function composeP7TrainingReducedPack(
     },
     sha256: input.sha256,
   };
-  return { buildInput, proofSources: { externalFiles } };
+  return { semanticInput, proofSources: { externalFiles } };
+}
+
+export async function composeP7TrainingReducedPack(
+  input: ComposeP7TrainingReducedPackInput,
+): Promise<P7TrainingReducedPackComposition> {
+  const composition = await composeP7TrainingReducedPackSemantic(input);
+  return {
+    buildInput: { ...composition.semanticInput, sharedPlayer: input.sharedPlayer },
+    proofSources: composition.proofSources,
+  };
 }
 
 export async function composeP7TrainingReducedPackBuildInput(
   input: ComposeP7TrainingReducedPackInput,
 ): Promise<P7bTrainingPackBuildInput> {
   return (await composeP7TrainingReducedPack(input)).buildInput;
-}
-
-export async function buildP7TrainingReducedPackOutputs(
-  input: ComposeP7TrainingReducedPackInput,
-): Promise<P7bTrainingPackBuildResult> {
-  return buildP7bTrainingPackOutputs(
-    await composeP7TrainingReducedPackBuildInput(input),
-  );
 }

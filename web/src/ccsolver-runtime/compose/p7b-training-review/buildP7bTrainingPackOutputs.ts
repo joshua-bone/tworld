@@ -54,11 +54,21 @@ import {
   parseP7SharedPlayerGraphAttestation,
   type P7SharedPlayerGraphAttestationV1,
 } from "./p7SharedPlayerGraphAttestation";
+import {
+  assertP7TrainingExecutionIndexIsStrictSubsetOfPackProof,
+  buildP7TrainingExecutionIndexFromReducedSemanticInput,
+  canonicalizeP7TrainingExecutionIndex,
+  projectP7TrainingExecutionIndexFromPackProof,
+  type P7TrainingExecutionIndexV1,
+} from "./p7TrainingExecutionIndex";
+export {
+  P7B_TRAINING_PACK_CHECKED_PARENT,
+  P7B_TRAINING_PACK_DIST_PARENT,
+} from "./p7TrainingPackPaths";
+import {
+  P7B_TRAINING_PACK_CHECKED_PARENT,
+} from "./p7TrainingPackPaths";
 
-export const P7B_TRAINING_PACK_CHECKED_PARENT =
-  "ccsolver/fixtures/golden/p7b/training-packs" as const;
-export const P7B_TRAINING_PACK_DIST_PARENT =
-  "dev/ccsolver/training-replays" as const;
 export const P7B_SHARED_PLAYER_SOURCE_ENTRY =
   "web/src/bootstrap/browser/p7bReplayPlayer.tsx" as const;
 export const P7B_SHARED_PLAYER_DIST_ENTRY =
@@ -142,6 +152,7 @@ export interface P7bTrainingPackBuildInput {
     readonly bytes: Uint8Array;
   } | null;
   readonly proof: {
+    readonly packContent: BlobReferenceV1;
     readonly corpusRevision: string;
     readonly producerRevision: string;
     readonly externalInputs: readonly P7TrainingProofExternalInputV1[];
@@ -181,6 +192,10 @@ export interface P7bTrainingPackManifestV1 {
     readonly path: string;
     readonly content: BlobReferenceV1;
   };
+  readonly executionIndex: {
+    readonly path: string;
+    readonly content: BlobReferenceV1;
+  };
   readonly levels: readonly {
     readonly levelNumber: number;
     readonly status: "complete" | "processing" | "blocked" | "unprocessed";
@@ -201,6 +216,7 @@ export interface P7bTrainingPackBuildResult {
   readonly manifest: P7bTrainingPackManifestV1;
   readonly manifestContent: BlobReferenceV1;
   readonly summary: P7bTrainingPackSummaryV1;
+  readonly executionIndex: P7TrainingExecutionIndexV1;
 }
 
 function compareText(left: string, right: string): number {
@@ -1080,6 +1096,34 @@ export async function buildP7bTrainingPackOutputs(
     jsonOutput(summaryPath, summary),
   ].sort((left, right) => compareText(left.path, right.path));
   assertOutputBounds(basePayloads);
+  const executionAuthority = await buildP7TrainingExecutionIndexFromReducedSemanticInput({
+    pack: {
+      packId: checked.packId,
+      title: checked.title,
+      expectedLevelCount: checked.expectedLevelCount,
+    },
+    inventory: checked.inventory,
+    processedLevels: input.processedLevels,
+    portableProfilePayload: input.portableProfilePayload,
+    proof: {
+      packContent: input.proof.packContent,
+      corpusRevision: input.proof.corpusRevision,
+      externalInputs: input.proof.externalInputs,
+      derivedSources: input.proof.derivedSources,
+      generatedEvidence: input.proof.generatedEvidence,
+    },
+    sha256: input.sha256,
+  });
+  const executionBrowserTargets = executionAuthority.index.browserTargets;
+  const executionPath = `${root}/execution-index.json`;
+  const executionOutput: P7bTrainingPackOutput = {
+    path: executionPath,
+    mediaType: "application/json",
+    content: encoder.encode(executionAuthority.canonicalJson),
+  };
+  const proofBasePayloads = [...basePayloads, executionOutput]
+    .sort((left, right) => compareText(left.path, right.path));
+  assertOutputBounds(proofBasePayloads);
   const proofLeaf = await buildP7TrainingPackProofLeaf({
     root,
     pack: {
@@ -1089,14 +1133,27 @@ export async function buildP7bTrainingPackOutputs(
       producerRevision: input.proof.producerRevision,
     },
     levels: checked.inventory,
-    baseOutputs: basePayloads,
+    baseOutputs: proofBasePayloads,
     externalInputs: input.proof.externalInputs,
     derivedSources: input.proof.derivedSources,
     generatedEvidence: input.proof.generatedEvidence,
     sha256: input.sha256,
   });
+  const projectedExecution = projectP7TrainingExecutionIndexFromPackProof({
+    fullProof: proofLeaf.proofIndex,
+    packContent: input.proof.packContent,
+    browserTargets: executionBrowserTargets,
+  });
+  if (
+    canonicalizeP7TrainingExecutionIndex(projectedExecution)
+    !== executionAuthority.canonicalJson
+  ) throw new Error("training pack execution authority drifted from the full proof projection");
+  assertP7TrainingExecutionIndexIsStrictSubsetOfPackProof({
+    executionIndex: executionAuthority.index,
+    fullProof: proofLeaf.proofIndex,
+  });
   const payloads = [
-    ...basePayloads,
+    ...proofBasePayloads,
     ...proofLeaf.evidenceOutputs,
     proofLeaf.proofOutput,
   ].sort((left, right) => compareText(left.path, right.path));
@@ -1107,6 +1164,7 @@ export async function buildP7bTrainingPackOutputs(
     content: await referenceSourceBytes(output.content, input.sha256),
   })));
   const summaryFile = files.find(({ path }) => path === summaryPath)!;
+  const executionFile = files.find(({ path }) => path === executionPath)!;
   const proofFile = files.find(({ path }) => path === proofLeaf.proofOutput.path)!;
   const manifest: P7bTrainingPackManifestV1 = {
     artifact: "ccsolver-p7b-training-pack-manifest",
@@ -1130,6 +1188,7 @@ export async function buildP7bTrainingPackOutputs(
     },
     portableProfile,
     summary: { path: summaryPath, content: summaryFile.content },
+    executionIndex: { path: executionPath, content: executionFile.content },
     proofIndex: { path: proofFile.path, content: proofFile.content },
     levels: checked.inventory.map((level, index) => ({
       levelNumber: level.source.levelNumber,
@@ -1155,5 +1214,6 @@ export async function buildP7bTrainingPackOutputs(
     manifest,
     manifestContent: await referenceCanonicalJson(manifestJson, input.sha256),
     summary,
+    executionIndex: executionAuthority.index,
   };
 }

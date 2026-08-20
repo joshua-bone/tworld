@@ -48,6 +48,7 @@ export type P7TrainingProofExtractorRevisionV1 =
   | "tws-solution-entry-v1";
 export type P7TrainingProofGeneratedKindV1 =
   | "level-contract"
+  | "execution-index"
   | "pack-browser-index"
   | "pack-index-page"
   | "pack-summary"
@@ -425,6 +426,7 @@ function copyGenerated(value: unknown): P7TrainingProofGeneratedBlobV1 {
     content,
     kind: enumValue(record.kind, [
       "level-contract",
+      "execution-index",
       "pack-browser-index",
       "pack-index-page",
       "pack-summary",
@@ -870,6 +872,22 @@ export function parseP7TrainingPackProofIndex(value: string): P7TrainingPackProo
   return index;
 }
 
+export function p7TrainingPackProofPhysicalPaths(
+  value: P7TrainingPackProofIndexV1,
+): readonly string[] {
+  const index = buildP7TrainingPackProofIndex(value);
+  return [
+    ...index.externalInputs.map(({ path }) => path),
+    ...index.generatedBlobs.flatMap(({ locator }) => locator.kind === "file"
+      ? [locator.path]
+      : []),
+    ...index.evidenceSidecars.flatMap(({ index, payload }) => [index.path, payload.path]),
+    ...index.derivedSources.flatMap(({ retainedPath }) => (
+      retainedPath === null ? [] : [retainedPath]
+    )),
+  ].sort(compareText);
+}
+
 function collectReferences(value: unknown, result: BlobReferenceV1[] = []): BlobReferenceV1[] {
   if (Array.isArray(value)) {
     value.forEach((entry) => collectReferences(entry, result));
@@ -877,6 +895,33 @@ function collectReferences(value: unknown, result: BlobReferenceV1[] = []): Blob
   }
   if (value === null || typeof value !== "object") return result;
   const record = value as Record<string, unknown>;
+  if (
+    record.artifact === "ccsolver-p7-training-execution-index"
+    && record.semanticProof !== null
+    && typeof record.semanticProof === "object"
+    && !Array.isArray(record.semanticProof)
+  ) {
+    for (const [key, entry] of Object.entries(record)) {
+      if (key === "pack") {
+        // The reduced-pack content digest is a runner-envelope binding, not a
+        // physical proof resolver owned by the checked pack leaf.
+        continue;
+      }
+      if (key !== "semanticProof") {
+        collectReferences(entry, result);
+        continue;
+      }
+      for (const [proofKey, proofEntry] of Object.entries(
+        entry as Record<string, unknown>,
+      )) {
+        // Physical evidence-container digests are storage bindings, not logical resolvers.
+        // The execution index still reaches every logical evidence digest through
+        // semanticProof.generatedBlobs.
+        if (proofKey !== "evidenceSidecars") collectReferences(proofEntry, result);
+      }
+    }
+    return result;
+  }
   const keys = Object.keys(record).sort(compareText);
   if (keys.length === 2 && keys[0] === "byteLength" && keys[1] === "digest") {
     result.push(reference(record, "generated JSON blob reference"));
@@ -898,16 +943,7 @@ export async function attestP7TrainingPackProofIndex(input: {
   }) => Promise<Uint8Array> | Uint8Array;
 }): Promise<P7TrainingPackProofAttestation> {
   const index = buildP7TrainingPackProofIndex(input.index);
-  const expectedPaths = new Set([
-    ...index.externalInputs.map(({ path }) => path),
-    ...index.generatedBlobs.flatMap(({ locator }) => locator.kind === "file"
-      ? [locator.path]
-      : []),
-    ...index.evidenceSidecars.flatMap(({ index, payload }) => [index.path, payload.path]),
-    ...index.derivedSources.flatMap(({ retainedPath }) => (
-      retainedPath === null ? [] : [retainedPath]
-    )),
-  ]);
+  const expectedPaths = new Set(p7TrainingPackProofPhysicalPaths(index));
   if (input.files.length > P7_TRAINING_PACK_PROOF_MAX_DECLARATIONS) {
     throw new Error("proof attestation file count exceeds its bound");
   }

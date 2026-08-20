@@ -24,6 +24,10 @@ import {
   P7_SHARED_PLAYER_GRAPH_CHECKED_PATH,
   buildP7SharedPlayerGraphAttestation,
 } from "./p7SharedPlayerGraphAttestation";
+import {
+  canonicalizeP7TrainingPackProofIndex,
+  parseP7TrainingPackProofIndex,
+} from "./p7TrainingPackProofIndex";
 import { attestP7bTrainingPackOutputs } from "./p7bTrainingPackIo";
 
 const sha256 = new WebCryptoSha256();
@@ -99,9 +103,12 @@ function displayLevel(levelNumber: number, name: string) {
   };
 }
 
-async function sharedPlayerFixture(): Promise<P7bTrainingPackBuildInput["sharedPlayer"]> {
+async function sharedPlayerFixture(
+  source = "export const player = true;\n",
+): Promise<P7bTrainingPackBuildInput["sharedPlayer"]> {
+  const sourceBytes = encoder.encode(source);
   const graphAttestation = await buildP7SharedPlayerGraphAttestation({
-    sourceEntryBytes: encoder.encode("export const player = true;\n"),
+    sourceEntryBytes: sourceBytes,
     sourceClosureRevision: "git-tree:fixture-player-source-v1",
     toolchainRevision: "vite@fixture|typescript@fixture",
     viteManifestBytes: encoder.encode(canonicalizeJson({
@@ -113,7 +120,7 @@ async function sharedPlayerFixture(): Promise<P7bTrainingPackBuildInput["sharedP
     })),
     builtFiles: [{
       path: P7B_SHARED_PLAYER_DIST_ENTRY,
-      bytes: encoder.encode("export {};\n"),
+      bytes: sourceBytes,
     }],
     sha256,
   });
@@ -369,6 +376,7 @@ async function fixture(): Promise<P7bTrainingPackBuildInput> {
     sharedPlayer: await sharedPlayerFixture(),
     portableProfilePayload: null,
     proof: {
+      packContent: mapContainerContent,
       corpusRevision: "fixture-corpus-v1",
       producerRevision: "fixture-producer-v1",
       externalInputs: [{
@@ -608,6 +616,43 @@ async function portableFixture(): Promise<P7bTrainingPackBuildInput> {
 }
 
 describe("the scalable P7B training pack checked leaf", () => {
+  it("keeps graph-independent execution bytes stable across a shared-player presentation change", async () => {
+    const firstInput = await fixture();
+    const secondInput = await fixture();
+    Object.assign(secondInput, {
+      sharedPlayer: await sharedPlayerFixture("export const player = 'changed';\n"),
+    });
+    const [first, second] = await Promise.all([
+      buildP7bTrainingPackOutputs(firstInput),
+      buildP7bTrainingPackOutputs(secondInput),
+    ]);
+    const bytes = (built: Awaited<ReturnType<typeof buildP7bTrainingPackOutputs>>, suffix: string) => (
+      new TextDecoder().decode(built.outputs.find(({ path }) => path.endsWith(suffix))!.content)
+    );
+
+    expect(bytes(second, "/execution-index.json")).toBe(bytes(first, "/execution-index.json"));
+    expect(bytes(second, "/levels/001/browser.json"))
+      .not.toBe(bytes(first, "/levels/001/browser.json"));
+    expect(bytes(second, "/manifest.json")).not.toBe(bytes(first, "/manifest.json"));
+  });
+
+  it("changes graph-independent authority when an execution target seed changes", async () => {
+    const firstInput = await fixture();
+    const secondInput = await fixture();
+    secondInput.processedLevels[0]!.browserTargets.ms.request.randomSeed = 42;
+    const [first, second] = await Promise.all([
+      buildP7bTrainingPackOutputs(firstInput),
+      buildP7bTrainingPackOutputs(secondInput),
+    ]);
+    const execution = (built: Awaited<ReturnType<typeof buildP7bTrainingPackOutputs>>) => (
+      new TextDecoder().decode(
+        built.outputs.find(({ path }) => path.endsWith("/execution-index.json"))!.content,
+      )
+    );
+
+    expect(execution(second)).not.toBe(execution(first));
+  });
+
   it("builds an exact compact two-level leaf with one processed and one blocked row", async () => {
     const built = await buildP7bTrainingPackOutputs(await fixture());
 
@@ -620,6 +665,7 @@ describe("the scalable P7B training pack checked leaf", () => {
     ]);
     expect(paths.filter((path) => !path.includes("/evidence/"))).toEqual([
       "ccsolver/fixtures/golden/p7b/training-packs/fixture-pack/browser.json",
+      "ccsolver/fixtures/golden/p7b/training-packs/fixture-pack/execution-index.json",
       "ccsolver/fixtures/golden/p7b/training-packs/fixture-pack/index.html",
       "ccsolver/fixtures/golden/p7b/training-packs/fixture-pack/levels/001/browser.json",
       "ccsolver/fixtures/golden/p7b/training-packs/fixture-pack/levels/001/contract.json",
@@ -736,6 +782,66 @@ describe("the scalable P7B training pack checked leaf", () => {
       outputs,
       proofSources,
     )).rejects.toThrow("browser execution binding drifted");
+  });
+
+  it("rejects a transplanted execution index whose targets disagree with the browser manifest", async () => {
+    const baseInput = await fixture();
+    const seededInput = await fixture();
+    Object.assign(seededInput.processedLevels[0]!.browserTargets.ms.request, { randomSeed: 42 });
+    const [base, seeded] = await Promise.all([
+      buildP7bTrainingPackOutputs(baseInput),
+      buildP7bTrainingPackOutputs(seededInput),
+    ]);
+    const outputs = base.outputs.map((output) => ({
+      ...output,
+      content: new Uint8Array(output.content),
+    }));
+    const output = (suffix: string) => outputs.find(({ path }) => path.endsWith(suffix))!;
+    const transplantedExecution = seeded.outputs.find(({ path }) => (
+      path.endsWith("/execution-index.json")
+    ))!;
+    const executionOutput = output("/execution-index.json");
+    executionOutput.content = new Uint8Array(transplantedExecution.content);
+    const executionContent = await ref(executionOutput.content);
+
+    const proofOutput = output("/proof-index.json");
+    const proof = parseP7TrainingPackProofIndex(new TextDecoder().decode(proofOutput.content));
+    const executionDeclaration = proof.generatedBlobs.find(({ kind }) => kind === "execution-index")!;
+    const previousExecutionContent = executionDeclaration.content;
+    (executionDeclaration as { content: BlobReferenceV1 }).content = executionContent;
+    const rootIndex = proof.packReachableRefs.findIndex((reference) => (
+      reference.digest === previousExecutionContent.digest
+      && reference.byteLength === previousExecutionContent.byteLength
+    ));
+    expect(rootIndex).toBeGreaterThanOrEqual(0);
+    (proof.packReachableRefs as BlobReferenceV1[])[rootIndex] = executionContent;
+    proofOutput.content = encoder.encode(canonicalizeP7TrainingPackProofIndex({
+      pack: proof.pack,
+      externalInputs: proof.externalInputs,
+      derivedSources: proof.derivedSources,
+      generatedBlobs: proof.generatedBlobs,
+      evidenceSidecars: proof.evidenceSidecars,
+      levels: proof.levels,
+      packReachableRefs: proof.packReachableRefs,
+    }));
+    const proofContent = await ref(proofOutput.content);
+
+    const manifestOutput = output("/manifest.json");
+    const manifest = JSON.parse(new TextDecoder().decode(manifestOutput.content));
+    manifest.executionIndex.content = executionContent;
+    manifest.files.find((file: { path: string }) => file.path === executionOutput.path).content =
+      executionContent;
+    manifest.proofIndex.content = proofContent;
+    manifest.files.find((file: { path: string }) => file.path === proofOutput.path).content =
+      proofContent;
+    manifestOutput.content = encoder.encode(canonicalizeJson(manifest));
+
+    await expect(attestP7bTrainingPackOutputs(
+      "/workspace/tworld",
+      "fixture-pack",
+      outputs,
+      proofSourceFixture(),
+    )).rejects.toThrow("browser targets drifted");
   });
 
   it("cross-binds the level page cache token to the attested shared-player entry", async () => {

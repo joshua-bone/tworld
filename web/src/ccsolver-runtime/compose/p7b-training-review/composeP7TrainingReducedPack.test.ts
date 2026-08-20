@@ -24,6 +24,7 @@ import {
   composeP7TrainingReducedPack,
   composeP7TrainingReducedPackBuildInput,
 } from "./composeP7TrainingReducedPack";
+import { buildP7TrainingReducedPackExecutionIndex } from "./composeP7TrainingReducedExecutionIndex";
 import {
   P7B_SHARED_PLAYER_DIST_ENTRY,
   buildP7bTrainingPackOutputs,
@@ -79,7 +80,7 @@ async function structuralReducedPack(
     });
     const eligibilityEvidence = await evidence.referenceCanonical(row.eligibility);
     const selected = row.targets.map(({ donorCandidates }) => donorCandidates[0]!).filter(Boolean);
-    const rawDonors = [];
+    const rawDonors: ReturnType<typeof donor>[] = [];
     for (const candidate of selected) {
       const comparison = buildP7TrainingMapComparisonEvidenceValue(row, candidate);
       rawDonors.push(donor(
@@ -139,6 +140,7 @@ async function structuralReducedPack(
   }
   return {
     pack,
+    plan,
     persisted,
     reducedPack: {
       packId,
@@ -202,7 +204,7 @@ describe("P7 reduced training-pack composer", () => {
   it("maps a complete reduced denominator to exact sources, donor bytes, and sidecars", async () => {
     const sha256 = new WebCryptoSha256();
     const inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot, sha256);
-    const { pack, persisted, reducedPack } = await structuralReducedPack(
+    const { pack, persisted, plan, reducedPack } = await structuralReducedPack(
       inventory,
       "cclp1",
       sha256,
@@ -278,6 +280,25 @@ describe("P7 reduced training-pack composer", () => {
     expect(attested.proofIndex.externalInputs).toHaveLength(7);
     expect(attested.proofIndex.derivedSources).toHaveLength(447);
     expect(attested.manifest.levels).toHaveLength(149);
+    const graphFreeExecution = await buildP7TrainingReducedPackExecutionIndex({
+      repositoryRoot,
+      packId: "cclp1",
+      inventory,
+      plan,
+      reducedPack,
+      evidence: reducedPack.levels.map(({ occurrenceId, levelNumber }) => ({
+        occurrenceId,
+        levelNumber,
+      })),
+      loadEvidence: async ({ occurrenceId }) => {
+        const sidecar = persisted.get(occurrenceId)!;
+        return { indexCanonicalJson: sidecar.indexCanonicalJson, payload: sidecar.payload };
+      },
+      sha256,
+    });
+    expect(graphFreeExecution.canonicalJson).toBe(new TextDecoder().decode(
+      built.outputs.find(({ path }) => path.endsWith("/execution-index.json"))!.content,
+    ));
 
     const reordered = structuredClone(reducedPack) as unknown as {
       levels: Array<{
@@ -297,12 +318,10 @@ describe("P7 reduced training-pack composer", () => {
       },
     })).rejects.toThrow("raw donor order drifted");
 
-    const reorderedVariants = structuredClone(reducedPack) as unknown as {
-      levels: Array<{
-        processing: { trainingReplayLevel: { variants: unknown[] } };
-      }>;
-    } & P7TrainingReducedPack;
-    reorderedVariants.levels[0]!.processing.trainingReplayLevel.variants = [
+    const reorderedVariants = structuredClone(reducedPack);
+    const mutableVariants = reorderedVariants.levels[0]!.processing
+      .trainingReplayLevel as unknown as { variants: unknown[] };
+    mutableVariants.variants = [
       { variantId: "portable", kind: "portable" },
       { variantId: "raw-ms", kind: "raw" },
     ];

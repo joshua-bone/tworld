@@ -44,12 +44,21 @@ import {
 import {
   P7_TRAINING_PACK_PROOF_MAX_FILE_BYTES,
   attestP7TrainingPackProofIndex,
+  p7TrainingPackProofPhysicalPaths,
   parseP7TrainingPackProofIndex,
   type P7TrainingPackProofAttestation,
   type P7TrainingPackProofFile,
   type P7TrainingPackProofIndexV1,
   type P7TrainingProofExtractorRevisionV1,
 } from "./p7TrainingPackProofIndex";
+import {
+  assertP7TrainingExecutionBrowserTargets,
+  assertP7TrainingExecutionIndexIsStrictSubsetOfPackProof,
+  attestP7TrainingExecutionIndex,
+  parseP7TrainingExecutionIndex,
+  type P7TrainingExecutionIndexAttestation,
+  type P7TrainingExecutionIndexV1,
+} from "./p7TrainingExecutionIndex";
 import {
   P7_SHARED_PLAYER_GRAPH_CHECKED_PATH,
   P7_SHARED_PLAYER_GRAPH_MAX_ATTESTATION_BYTES,
@@ -77,6 +86,8 @@ export interface P7bTrainingPackTransactionTargets {
 export interface P7bTrainingPackAttestation {
   readonly manifest: P7bTrainingPackManifestV1;
   readonly manifestContent: BlobReferenceV1;
+  readonly executionIndex: P7TrainingExecutionIndexV1;
+  readonly execution: P7TrainingExecutionIndexAttestation;
   readonly proofIndex: P7TrainingPackProofIndexV1;
   readonly proof: P7TrainingPackProofAttestation;
   readonly outputs: readonly P7bTrainingPackOutput[];
@@ -354,6 +365,7 @@ function validateManifest(
 ): P7bTrainingPackManifestV1 {
   const manifest = exactKeys(value, [
     "artifact",
+    "executionIndex",
     "files",
     "filesOrder",
     "levels",
@@ -429,6 +441,15 @@ function validateManifest(
     throw new Error("checked P7B summary path drifted");
   }
   copyReference(summary.content, "P7B pack summary content");
+  const executionIndex = exactKeys(
+    manifest.executionIndex,
+    ["content", "path"],
+    "P7B pack execution-index reference",
+  );
+  if (executionIndex.path !== `${root}/execution-index.json`) {
+    throw new Error("checked P7B execution-index path drifted");
+  }
+  copyReference(executionIndex.content, "P7B pack execution-index content");
   const proofIndex = exactKeys(
     manifest.proofIndex,
     ["content", "path"],
@@ -703,6 +724,7 @@ function validateDeclaredLayout(
   const paths = new Set(manifest.files.map(({ path }) => path));
   for (const required of [
     `${root}/browser.json`,
+    `${root}/execution-index.json`,
     `${root}/index.html`,
     `${root}/pack-summary.json`,
     `${root}/proof-index.json`,
@@ -711,6 +733,7 @@ function validateDeclaredLayout(
   }
   const allowed = new Set([
     `${root}/browser.json`,
+    `${root}/execution-index.json`,
     `${root}/index.html`,
     `${root}/pack-summary.json`,
     `${root}/proof-index.json`,
@@ -971,6 +994,11 @@ async function attestOutputCollection(
   if (summaryFile === undefined || !sameReference(summaryFile.content, manifest.summary.content)) {
     throw new Error("checked P7B summary reference drifted");
   }
+  const executionFile = manifest.files.find(({ path }) => path === manifest.executionIndex.path);
+  if (
+    executionFile === undefined
+    || !sameReference(executionFile.content, manifest.executionIndex.content)
+  ) throw new Error("checked P7B execution-index reference drifted");
   const proofFile = manifest.files.find(({ path }) => path === manifest.proofIndex.path);
   if (proofFile === undefined || !sameReference(proofFile.content, manifest.proofIndex.content)) {
     throw new Error("checked P7B proof-index reference drifted");
@@ -984,6 +1012,39 @@ async function attestOutputCollection(
     || proofIndex.pack.expectedLevelCount !== manifest.pack.expectedLevelCount
   ) {
     throw new Error("checked P7B proof-index pack identity drifted");
+  }
+  const executionIndex = parseP7TrainingExecutionIndex(
+    decoder.decode(outputByPath.get(manifest.executionIndex.path)!.content),
+  );
+  if (
+    executionIndex.semanticProof.pack.packId !== manifest.pack.packId
+    || executionIndex.semanticProof.pack.expectedLevelCount !== manifest.pack.expectedLevelCount
+  ) throw new Error("checked P7B execution-index pack identity drifted");
+  const declaredExecution = proofIndex.generatedBlobs.find(({ locator }) => (
+    locator.kind === "file" && locator.path === manifest.executionIndex.path
+  ));
+  if (
+    declaredExecution?.kind !== "execution-index"
+    || !sameReference(declaredExecution.content, manifest.executionIndex.content)
+  ) throw new Error("checked P7B execution-index manifest binding drifted from the full proof");
+  assertP7TrainingExecutionIndexIsStrictSubsetOfPackProof({
+    executionIndex,
+    fullProof: proofIndex,
+  });
+  for (const row of executionIndex.browserTargets) {
+    const browserPath = `${root}/levels/${levelLabel(row.levelNumber)}/browser.json`;
+    const browserValue = parsedJson.get(browserPath);
+    if (browserValue === undefined) continue;
+    const browser = exactKeys(
+      browserValue,
+      ["artifact", "presentation", "targets", "version"],
+      `P7B level ${row.levelNumber} browser manifest`,
+    );
+    assertP7TrainingExecutionBrowserTargets({
+      executionIndex,
+      levelNumber: row.levelNumber,
+      browserTargets: browser.targets,
+    });
   }
   const proofPayloadPaths = new Set([
     ...proofIndex.generatedBlobs.flatMap(({ locator }) => locator.kind === "file"
@@ -1021,9 +1082,25 @@ async function attestOutputCollection(
     sha256,
     extractEntryOrdinal: proofSources.extractEntryOrdinal ?? extractSolutionEntry,
   });
+  const proofFileByPath = new Map(proofFiles.map((file) => [file.path, file]));
+  const executionProofFiles = p7TrainingPackProofPhysicalPaths(
+    executionIndex.semanticProof,
+  ).map((path) => {
+    const file = proofFileByPath.get(path);
+    if (file === undefined) throw new Error(`checked P7B execution proof file is missing: ${path}`);
+    return file;
+  });
+  const execution = await attestP7TrainingExecutionIndex({
+    index: executionIndex,
+    files: executionProofFiles,
+    sha256,
+    extractEntryOrdinal: proofSources.extractEntryOrdinal ?? extractSolutionEntry,
+  });
   return {
     manifest,
     manifestContent: await referenceSourceBytes(manifestOutput.content, sha256),
+    executionIndex,
+    execution,
     proofIndex,
     proof,
     outputs: outputs.map((output) => ({ ...output, content: new Uint8Array(output.content) })),

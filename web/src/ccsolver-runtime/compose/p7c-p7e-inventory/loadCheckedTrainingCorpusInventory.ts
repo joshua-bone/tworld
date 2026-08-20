@@ -60,6 +60,7 @@ import {
   type P7TrainingExecutionSource,
   type P7TrainingLevelInventory,
   type P7TrainingPackId,
+  type P7TrainingPackInventoryClosure,
   type P7TrainingPackInventory,
   type P7TrainingTargetInventory,
   type P7TrainingVerifiedInput,
@@ -72,6 +73,13 @@ const CORPUS_MANIFEST_PATH = "ccsolver/corpus/manifest.v1.json";
 const VALIDITY_REPORT_PATH = "ccsolver/corpus/p1b-validity-report.v1.json";
 const TEXT_DECODER = new TextDecoder();
 const TRAINING_PACK_IDS: readonly P7TrainingPackId[] = ["cclp1", "cclp4", "cclp5"];
+const TRAINING_PACK_ID_SET = new Set<P7TrainingPackId>(TRAINING_PACK_IDS);
+const TRAINING_PACK_INPUT_FILE_COUNTS: Readonly<Record<P7TrainingPackId, number>> = {
+  cclp1: 5,
+  cclp4: 5,
+  cclp5: 175,
+};
+const CCLP5_VOTING_PACK_COUNT = 34;
 const ORTHOGONAL_DIRECTIONS = new Set([1, 2, 4, 8]);
 const ENCODED_DIRECTIONS = new Set([1, 2, 3, 4, 6, 8, 9, 12]);
 
@@ -180,31 +188,50 @@ async function assertCheckedRoots(
   }
 }
 
-function relevantPackSpecs(): readonly CorpusPackSpec[] {
+function relevantPackSpecs(packIds: readonly P7TrainingPackId[]): readonly CorpusPackSpec[] {
+  const selectedPackIds = new Set(packIds);
+  if (
+    selectedPackIds.size !== packIds.length
+    || packIds.some((packId) => !TRAINING_PACK_ID_SET.has(packId))
+  ) throw new Error("P7 training pack selection is invalid or duplicated");
+  const includeVoting = selectedPackIds.has("cclp5");
   const selected = CORPUS_PACK_REGISTRY.filter(({ packId }) => (
-    TRAINING_PACK_IDS.includes(packId as P7TrainingPackId)
-    || packId.startsWith("cclp5-voting-")
+    selectedPackIds.has(packId as P7TrainingPackId)
+    || (includeVoting && packId.startsWith("cclp5-voting-"))
   ));
-  if (selected.length !== 37) {
-    throw new Error(`P7 training inventory requires exactly 37 source packs; found ${selected.length}`);
+  const expectedCount = selectedPackIds.size + (includeVoting ? CCLP5_VOTING_PACK_COUNT : 0);
+  if (selected.length !== expectedCount) {
+    throw new Error(
+      `P7 training inventory requires exactly ${expectedCount} selected source packs; found ${selected.length}`,
+    );
   }
   return selected;
 }
 
-function packSourcePaths(specs: readonly CorpusPackSpec[]): readonly string[] {
+function packSourcePaths(
+  specs: readonly CorpusPackSpec[],
+  packIds: readonly P7TrainingPackId[],
+): readonly string[] {
   const paths = [...new Set(specs.flatMap((spec) => [
     spec.mapPath,
     ...spec.targets.flatMap(({ seriesConfigPath, donorPath }) => (
       [seriesConfigPath, donorPath].filter((path): path is string => path !== null)
     )),
   ]))].sort(compareText);
-  if (paths.length !== P7_TRAINING_INVENTORY_LIMITS.inputFileCount) {
+  const expectedFileCount = packIds.reduce(
+    (sum, packId) => sum + TRAINING_PACK_INPUT_FILE_COUNTS[packId],
+    0,
+  );
+  if (paths.length !== expectedFileCount) {
     throw new Error(
-      `P7 training source boundary requires ${P7_TRAINING_INVENTORY_LIMITS.inputFileCount} files; found ${paths.length}`,
+      `P7 training source boundary requires ${expectedFileCount} files; found ${paths.length}`,
     );
   }
   const byteLength = paths.reduce((sum, path) => sum + (PINNED_SOURCE_FILES[path]?.byteLength ?? 0), 0);
-  if (byteLength !== P7_TRAINING_INVENTORY_LIMITS.inputByteLength) {
+  if (
+    packIds.length === TRAINING_PACK_IDS.length
+    && byteLength !== P7_TRAINING_INVENTORY_LIMITS.inputByteLength
+  ) {
     throw new Error(
       `P7 training source boundary requires ${P7_TRAINING_INVENTORY_LIMITS.inputByteLength} bytes; found ${byteLength}`,
     );
@@ -683,10 +710,15 @@ function assertInventorySummary(summary: P7TrainingCorpusInventorySummary): void
   }
 }
 
-export async function loadCheckedTrainingCorpusInventory(
+interface CheckedTrainingCorpusRoots {
+  readonly manifest: CorpusManifestV1;
+  readonly validity: P1bCorpusValidityReportV1;
+}
+
+async function loadCheckedTrainingCorpusRoots(
   repositoryRoot: string,
-  sha256: Sha256Port = new WebCryptoSha256(),
-): Promise<P7TrainingCorpusInventory> {
+  sha256: Sha256Port,
+): Promise<CheckedTrainingCorpusRoots> {
   const [manifestInput, validityInput] = await Promise.all([
     readCanonicalJson<CorpusManifestV1>(repositoryRoot, CORPUS_MANIFEST_PATH),
     readCanonicalJson<P1bCorpusValidityReportV1>(repositoryRoot, VALIDITY_REPORT_PATH),
@@ -694,13 +726,22 @@ export async function loadCheckedTrainingCorpusInventory(
   const manifest = manifestInput.value;
   const validity = validityInput.value;
   await assertCheckedRoots(manifest, manifestInput.text, validity, sha256);
+  return { manifest, validity };
+}
 
-  const specs = relevantPackSpecs();
+async function loadCheckedTrainingPackSelection(input: {
+  readonly repositoryRoot: string;
+  readonly packIds: readonly P7TrainingPackId[];
+  readonly roots: CheckedTrainingCorpusRoots;
+  readonly sha256: Sha256Port;
+}): Promise<P7TrainingPackInventoryClosure> {
+  const { manifest, validity } = input.roots;
+  const specs = relevantPackSpecs(input.packIds);
   const { loaded, references } = await loadVerifiedInputs(
-    repositoryRoot,
-    packSourcePaths(specs),
+    input.repositoryRoot,
+    packSourcePaths(specs, input.packIds),
     manifest,
-    sha256,
+    input.sha256,
   );
   const contexts = new Map(specs.map((spec) => [
     spec.packId,
@@ -719,7 +760,7 @@ export async function loadCheckedTrainingCorpusInventory(
     if (pending === undefined) {
       const context = contexts.get(entry.packId);
       if (context === undefined) throw new Error(`P7 training source context is missing: ${entry.packId}`);
-      pending = loadLevelMaterial(context, entry, validityByOccurrence, sha256);
+      pending = loadLevelMaterial(context, entry, validityByOccurrence, input.sha256);
       levelCache.set(entry.occurrenceId, pending);
     }
     return pending;
@@ -729,7 +770,7 @@ export async function loadCheckedTrainingCorpusInventory(
     .filter(({ packId }) => packId.startsWith("cclp5-voting-"))
     .sort((left, right) => compareText(left.occurrenceId, right.occurrenceId));
   const packs: P7TrainingPackInventory[] = [];
-  for (const packId of TRAINING_PACK_IDS) {
+  for (const packId of input.packIds) {
     const context = contexts.get(packId)!;
     if (context.manifest.logicalMapCount !== P7_TRAINING_INVENTORY_LIMITS.levelsPerPack) {
       throw new Error(`P7 training official pack must contain exactly 149 levels: ${packId}`);
@@ -801,7 +842,7 @@ export async function loadCheckedTrainingCorpusInventory(
           mapRelationship: "official-map",
           priority: 0,
           mapDiff: null,
-          sha256,
+          sha256: input.sha256,
         });
         if (direct !== null) candidates.push(direct);
         for (const candidateLevel of votingLevels) {
@@ -814,7 +855,7 @@ export async function loadCheckedTrainingCorpusInventory(
               : "edited-relative",
             priority: votingRelationship?.kind === "exact-gameplay-alias" ? 1 : 2,
             mapDiff: votingMapDiff,
-            sha256,
+            sha256: input.sha256,
           });
           if (candidate !== null) candidates.push(candidate);
         }
@@ -850,6 +891,17 @@ export async function loadCheckedTrainingCorpusInventory(
     });
   }
 
+  return {
+    corpusRevision: CCSOLVER_CORPUS_SOURCE_REVISION,
+    verifiedInputs: references,
+    packs,
+  };
+}
+
+function buildTrainingCorpusInventorySummary(
+  packs: P7TrainingCorpusInventory["packs"],
+  references: P7TrainingCorpusInventory["verifiedInputs"],
+): P7TrainingCorpusInventorySummary {
   const cclp5 = packs[2]!;
   const cclp5VotingRelationships = {
     exactGameplayAlias: cclp5.levels.filter(({ votingRelationship }) => (
@@ -927,11 +979,60 @@ export async function loadCheckedTrainingCorpusInventory(
     cclp5MissingOfficialTargets,
   } as P7TrainingCorpusInventorySummary;
   assertInventorySummary(summary);
+  return summary;
+}
 
+export async function loadCheckedTrainingPackInventory(
+  repositoryRoot: string,
+  packId: P7TrainingPackId,
+  sha256: Sha256Port = new WebCryptoSha256(),
+): Promise<P7TrainingPackInventoryClosure> {
+  if (!TRAINING_PACK_ID_SET.has(packId)) {
+    throw new Error(`unsupported P7 training pack: ${String(packId)}`);
+  }
+  const roots = await loadCheckedTrainingCorpusRoots(repositoryRoot, sha256);
+  const selected = await loadCheckedTrainingPackSelection({
+    repositoryRoot,
+    packIds: [packId],
+    roots,
+    sha256,
+  });
+  const pack = selected.packs[0];
+  if (pack === undefined || selected.packs.length !== 1 || pack.packId !== packId) {
+    throw new Error(`P7 scoped inventory did not produce exactly ${packId}`);
+  }
   return {
-    corpusRevision: CCSOLVER_CORPUS_SOURCE_REVISION,
-    verifiedInputs: references,
-    packs: [packs[0]!, packs[1]!, packs[2]!],
-    summary,
+    corpusRevision: selected.corpusRevision,
+    verifiedInputs: selected.verifiedInputs,
+    packs: [pack],
+  };
+}
+
+export async function loadCheckedTrainingCorpusInventory(
+  repositoryRoot: string,
+  sha256: Sha256Port = new WebCryptoSha256(),
+): Promise<P7TrainingCorpusInventory> {
+  const roots = await loadCheckedTrainingCorpusRoots(repositoryRoot, sha256);
+  const selected = await loadCheckedTrainingPackSelection({
+    repositoryRoot,
+    packIds: TRAINING_PACK_IDS,
+    roots,
+    sha256,
+  });
+  const packs = selected.packs;
+  if (
+    packs.length !== TRAINING_PACK_IDS.length
+    || packs.some((pack, index) => pack.packId !== TRAINING_PACK_IDS[index])
+  ) throw new Error("P7 aggregate inventory pack order drifted");
+  const orderedPacks: P7TrainingCorpusInventory["packs"] = [
+    packs[0]!,
+    packs[1]!,
+    packs[2]!,
+  ];
+  return {
+    corpusRevision: selected.corpusRevision,
+    verifiedInputs: selected.verifiedInputs,
+    packs: orderedPacks,
+    summary: buildTrainingCorpusInventorySummary(orderedPacks, selected.verifiedInputs),
   };
 }

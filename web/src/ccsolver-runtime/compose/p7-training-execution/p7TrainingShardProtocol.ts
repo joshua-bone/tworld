@@ -18,9 +18,9 @@ import {
 } from "../p7b-training/portableReplayProfile";
 import { loadCheckedTrainingCorpusInventory } from "../p7c-p7e-inventory/loadCheckedTrainingCorpusInventory";
 import type {
-  P7TrainingCorpusInventory,
   P7TrainingLevelInventory,
   P7TrainingPackId,
+  P7TrainingPackInventoryClosure,
   P7TrainingPackInventory,
 } from "../p7c-p7e-inventory/trainingCorpusInventory";
 import type {
@@ -205,7 +205,7 @@ export type P7TrainingVerifyPersistedEvidence = (input: {
 export type P7TrainingInventoryLoader = (
   repositoryRoot: string,
   sha256: Sha256Port,
-) => Promise<P7TrainingCorpusInventory>;
+) => Promise<P7TrainingPackInventoryClosure>;
 
 export type P7TrainingLevelProcessor = (
   row: P7TrainingLevelInventory,
@@ -543,7 +543,7 @@ async function assertCanonicalArtifact<T>(input: {
 }
 
 function requiredPack(
-  inventory: P7TrainingCorpusInventory,
+  inventory: P7TrainingPackInventoryClosure,
   packId: P7TrainingPackId,
 ): P7TrainingPackInventory {
   const pack = inventory.packs.find((entry) => entry.packId === packId);
@@ -563,7 +563,7 @@ function requiredPack(
 }
 
 async function packContentReference(
-  inventory: P7TrainingCorpusInventory,
+  inventory: P7TrainingPackInventoryClosure,
   pack: P7TrainingPackInventory,
   sha256: Sha256Port,
 ): Promise<BlobReferenceV1> {
@@ -646,7 +646,7 @@ function occurrenceIdentity(row: P7TrainingLevelInventory): P7TrainingShardOccur
 }
 
 export async function buildP7TrainingShardPlan(input: {
-  readonly inventory: P7TrainingCorpusInventory;
+  readonly inventory: P7TrainingPackInventoryClosure;
   readonly packId: P7TrainingPackId;
   readonly sha256: Sha256Port;
 }): Promise<P7TrainingShardPlan> {
@@ -689,7 +689,7 @@ export async function buildP7TrainingShardPlan(input: {
 }
 
 export async function buildP7TrainingShardRequest(input: {
-  readonly inventory: P7TrainingCorpusInventory;
+  readonly inventory: P7TrainingPackInventoryClosure;
   readonly packId: P7TrainingPackId;
   readonly shardIndex: number;
   readonly sha256: Sha256Port;

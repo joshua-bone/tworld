@@ -15,6 +15,7 @@ import {
   type P7bTrainingPackOutput,
 } from "./buildP7bTrainingPackOutputs";
 import { buildP7TrainingPackProofLeaf } from "./buildP7TrainingPackProofLeaf";
+import { buildP7TrainingExecutionIndexFromSemanticInputs } from "./p7TrainingExecutionIndex";
 import {
   P7_SHARED_PLAYER_GRAPH_CHECKED_PATH,
   buildP7SharedPlayerGraphAttestation,
@@ -93,6 +94,78 @@ async function outputFixture(playerSource: Uint8Array): Promise<readonly P7bTrai
       content: encoder.encode(canonicalizeJson({ artifact: "fixture-summary" })),
     },
   ];
+  const externalInputs = [{
+    path: "sets/fixture.dat",
+    kind: "official-map" as const,
+    content: await referenceSourceBytes(mapBytes, sha256),
+  }];
+  const derivedSources = [{
+    kind: "official-level-source" as const,
+    content: levelContent,
+    sourceContent: await referenceSourceBytes(mapBytes, sha256),
+    sourcePath: "sets/fixture.dat",
+    locator: { kind: "byte-range" as const, byteOffset: 1, byteLength: 1 },
+    extractorRevision: "dat-level-byte-range-v1" as const,
+    retainedPath: null,
+    levelNumber: 1,
+    variantId: null,
+    target: null,
+  }];
+  const generatedEvidence = {
+    pack: {
+      artifact: "ccsolver-p7-generated-evidence-bundle" as const,
+      version: 1 as const,
+      scopeId: "fixture-pack/shared",
+      limits: {
+        maximumBlobCount: 20_000,
+        maximumBlobBytes: 16 * 1024 * 1024,
+        maximumTotalBytes: 512 * 1024 * 1024,
+      },
+      totals: { blobCount: 0, byteLength: 0 },
+      blobs: [],
+    },
+    levels: [{
+      occurrenceId: "fixture-001",
+      levelNumber: 1,
+      bundle: {
+        artifact: "ccsolver-p7-generated-evidence-bundle" as const,
+        version: 1 as const,
+        scopeId: "fixture-001/evidence",
+        limits: {
+          maximumBlobCount: 20_000,
+          maximumBlobBytes: 16 * 1024 * 1024,
+          maximumTotalBytes: 512 * 1024 * 1024,
+        },
+        totals: { blobCount: 1, byteLength: eligibilityBytes.byteLength },
+        blobs: [{
+          content: eligibilityContent,
+          mediaType: "application/json" as const,
+          bytes: eligibilityBytes,
+        }],
+      },
+    }],
+  };
+  const execution = await buildP7TrainingExecutionIndexFromSemanticInputs({
+    root,
+    pack: {
+      packId: "fixture-pack",
+      expectedLevelCount: 1,
+      corpusRevision: "fixture-corpus-v1",
+      packContent: externalInputs[0]!.content,
+    },
+    levels: [contract as any],
+    browserTargets: [{ levelNumber: 1, targets: null }],
+    semanticOutputs: payloads.filter(({ path }) => path.endsWith("/contract.json")),
+    externalInputs,
+    derivedSources,
+    generatedEvidence,
+    sha256,
+  });
+  const executionOutput = {
+    path: `${root}/execution-index.json`,
+    mediaType: "application/json" as const,
+    content: encoder.encode(execution.canonicalJson),
+  };
   const proof = await buildP7TrainingPackProofLeaf({
     root,
     pack: {
@@ -102,61 +175,18 @@ async function outputFixture(playerSource: Uint8Array): Promise<readonly P7bTrai
       producerRevision: "fixture-producer-v1",
     },
     levels: [contract as any],
-    baseOutputs: payloads,
-    externalInputs: [{
-      path: "sets/fixture.dat",
-      kind: "official-map",
-      content: await referenceSourceBytes(mapBytes, sha256),
-    }],
-    derivedSources: [{
-      kind: "official-level-source",
-      content: levelContent,
-      sourceContent: await referenceSourceBytes(mapBytes, sha256),
-      sourcePath: "sets/fixture.dat",
-      locator: { kind: "byte-range", byteOffset: 1, byteLength: 1 },
-      extractorRevision: "dat-level-byte-range-v1",
-      retainedPath: null,
-      levelNumber: 1,
-      variantId: null,
-      target: null,
-    }],
-    generatedEvidence: {
-      pack: {
-        artifact: "ccsolver-p7-generated-evidence-bundle",
-        version: 1,
-        scopeId: "fixture-pack/shared",
-        limits: {
-          maximumBlobCount: 20_000,
-          maximumBlobBytes: 16 * 1024 * 1024,
-          maximumTotalBytes: 512 * 1024 * 1024,
-        },
-        totals: { blobCount: 0, byteLength: 0 },
-        blobs: [],
-      },
-      levels: [{
-        occurrenceId: "fixture-001",
-        levelNumber: 1,
-        bundle: {
-          artifact: "ccsolver-p7-generated-evidence-bundle",
-          version: 1,
-          scopeId: "fixture-001/evidence",
-          limits: {
-            maximumBlobCount: 20_000,
-            maximumBlobBytes: 16 * 1024 * 1024,
-            maximumTotalBytes: 512 * 1024 * 1024,
-          },
-          totals: { blobCount: 1, byteLength: eligibilityBytes.byteLength },
-          blobs: [{
-            content: eligibilityContent,
-            mediaType: "application/json",
-            bytes: eligibilityBytes,
-          }],
-        },
-      }],
-    },
+    baseOutputs: [...payloads, executionOutput],
+    externalInputs,
+    derivedSources,
+    generatedEvidence,
     sha256,
   });
-  const allPayloads = [...payloads, ...proof.evidenceOutputs, proof.proofOutput];
+  const allPayloads = [
+    ...payloads,
+    executionOutput,
+    ...proof.evidenceOutputs,
+    proof.proofOutput,
+  ];
   const files = await Promise.all(allPayloads.map(async (output) => ({
     path: output.path,
     mediaType: output.mediaType,
@@ -179,6 +209,10 @@ async function outputFixture(playerSource: Uint8Array): Promise<readonly P7bTrai
       }`,
     },
     portableProfile: null,
+    executionIndex: {
+      path: executionOutput.path,
+      content: files.find(({ path }) => path === executionOutput.path)!.content,
+    },
     proofIndex: {
       path: proof.proofOutput.path,
       content: files.find(({ path }) => path === proof.proofOutput.path)!.content,

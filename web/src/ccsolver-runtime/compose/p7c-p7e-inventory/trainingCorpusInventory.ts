@@ -641,9 +641,13 @@ export interface P7TrainingCorpusInventorySummary {
   };
 }
 
-export interface P7TrainingCorpusInventory {
+export interface P7TrainingPackInventoryClosure {
   readonly corpusRevision: string;
   readonly verifiedInputs: readonly P7TrainingVerifiedInput[];
+  readonly packs: readonly P7TrainingPackInventory[];
+}
+
+export interface P7TrainingCorpusInventory extends P7TrainingPackInventoryClosure {
   readonly packs: readonly [
     P7TrainingPackInventory,
     P7TrainingPackInventory,
