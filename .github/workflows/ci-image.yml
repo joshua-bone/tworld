@@ -71,24 +71,29 @@ jobs:
 
       - name: Verify public package visibility
         env:
-          OWNER: ${{ github.repository_owner }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          package_url="https://api.github.com/users/${OWNER}/packages/container/tworld-ci"
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "Build did not return a valid OCI digest." >&2
+            exit 1
+          fi
+
+          token_url="https://ghcr.io/token?scope=repository:${IMAGE_NAME}:pull"
+          manifest_url="https://ghcr.io/v2/${IMAGE_NAME}/manifests/${IMAGE_DIGEST}"
           for attempt in {1..5}; do
-            if response="$(curl --fail --silent --show-error --max-time 5 \
-              --header 'Accept: application/vnd.github+json' \
-              --header 'X-GitHub-Api-Version: 2026-03-10' \
-              "$package_url" 2>/dev/null)"; then
-              visibility="$(jq -r '.visibility // empty' <<< "$response")"
-              if [[ "$visibility" == "public" ]]; then
-                echo "GHCR package is publicly visible."
-                break
-              fi
+            anonymous_token="$(curl --fail --silent --show-error --max-time 5 \
+              "$token_url" | jq -r '.token // empty')" || true
+            if [[ -n "$anonymous_token" ]] && curl --fail --silent --show-error \
+              --max-time 10 \
+              --header "Authorization: Bearer ${anonymous_token}" \
+              --header 'Accept: application/vnd.oci.image.index.v1+json' \
+              "$manifest_url" >/dev/null; then
+              echo "GHCR image is anonymously pullable by immutable digest."
+              break
             fi
 
             if [[ "$attempt" == 5 ]]; then
-              echo "GHCR package did not become anonymously visible." >&2
-              echo "Confirm that it inherits visibility from the public source repository." >&2
+              echo "GHCR image did not become anonymously pullable." >&2
               exit 1
             fi
             sleep 3

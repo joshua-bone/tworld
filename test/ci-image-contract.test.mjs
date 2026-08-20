@@ -63,10 +63,13 @@ test("publishes only deliberate master builds and exposes an immutable reference
 
   assert.match(
     workflow,
-    /api\.github\.com\/users\/\$\{OWNER\}\/packages\/container\/tworld-ci/,
-    "publication must be verified through the unauthenticated public-package API",
+    /ghcr\.io\/token\?scope=repository:\$\{IMAGE_NAME\}:pull/,
+    "publication must obtain an anonymous pull token from GHCR",
   );
-  assert.match(workflow, /visibility" == "public"/);
+  assert.match(workflow, /ghcr\.io\/v2\/\$\{IMAGE_NAME\}\/manifests\/\$\{IMAGE_DIGEST\}/);
+  assert.match(workflow, /application\/vnd\.oci\.image\.index\.v1\+json/);
+  assert.match(workflow, /anonymously pullable by immutable digest/);
+  assert.doesNotMatch(workflow, /api\.github\.com\/users\/.*\/packages/);
   assert.doesNotMatch(
     workflow,
     /PATCH.*packages|packages.*visibility=public/,

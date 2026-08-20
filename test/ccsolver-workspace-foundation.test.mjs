@@ -41,7 +41,7 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.equal(rootPackage.packageManager, "npm@10.9.4");
   assert.equal(rootPackage.engines.node, "22.x");
   assert.equal(rootPackage.engines.npm, "10.x");
-  assert.equal((await readFile(resolve(repositoryRoot, ".nvmrc"), "utf8")).trim(), "22");
+  assert.equal((await readFile(resolve(repositoryRoot, ".nvmrc"), "utf8")).trim(), "22.22.0");
 
   const ccsolverPackage = await readJson("ccsolver/package.json");
   assert.equal(ccsolverPackage.name, "@tworld/ccsolver");
@@ -61,7 +61,6 @@ test("registers CCSolver as a first-class root workspace", async () => {
     assert.match(rootPackage.scripts[script], /--workspace @tworld\/ccsolver/);
   }
   assert.match(rootPackage.scripts["ccsolver:facade"], /--workspace web/);
-  assert.match(rootPackage.scripts["ccsolver:integration"], /ccsolver:integration:fast/);
   assert.match(rootPackage.scripts["ccsolver:corpus:check"], /:prepared/);
   assert.match(rootPackage.scripts["ccsolver:corpus:generate"], /--workspace web/);
   assert.match(rootPackage.scripts["ccsolver:analysis:check"], /:prepared/);
@@ -104,7 +103,11 @@ test("registers CCSolver as a first-class root workspace", async () => {
     "ccsolver:p6a:generate",
     "ccsolver:p6a:emit-dist",
   ]) {
-    assert.match(rootPackage.scripts[command], /npm run ccsolver:build/);
+    assert.equal(
+      (rootPackage.scripts[command].match(/npm run ccsolver:build/g) ?? []).length,
+      1,
+      `${command} must build CCSolver exactly once`,
+    );
   }
   for (const command of [
     "ccsolver:corpus:check",
@@ -127,18 +130,81 @@ test("registers CCSolver as a first-class root workspace", async () => {
       `npm run ccsolver:build && npm run ${prepared}`,
     );
   }
-  assert.match(rootPackage.scripts["ccsolver:integration:fast"], /--workspace web/);
+  const integrationStages = [
+    "smoke",
+    "static",
+    "corpus",
+    "runtime",
+    "reviews",
+    "causal-proof",
+  ];
+  assert.equal(
+    rootPackage.scripts["ccsolver:integration"],
+    integrationStages.map((stage) => `npm run ccsolver:integration:${stage}`).join(" && "),
+  );
+  for (const stage of integrationStages) {
+    const command = rootPackage.scripts[`ccsolver:integration:${stage}`];
+    assert.equal(typeof command, "string", `missing integration stage: ${stage}`);
+    assert.match(command, /--workspace web run test/);
+    assert.doesNotMatch(command, /ccsolver:build/);
+  }
+
+  const smoke = rootPackage.scripts["ccsolver:integration:smoke"];
+  for (const extractedProof of [
+    "buildTworldMsTopologyEvidence.test.ts",
+    "buildTworldLynxStaticAnalysis.test.ts",
+    "p1a-corpus/corpusManifest.test.ts",
+    "p1b-curriculum/measuredCorpusReport.test.ts",
+    "runtime/tworldSolverRuntimeAdapters.test.ts",
+    "runtime/tworldSolverCausalJournal.test.ts",
+    "p2a-review/buildP2aRuntimeReviewOutputs.test.ts",
+    "p3-review/buildP3ReviewOutputs.test.ts",
+  ]) {
+    assert.doesNotMatch(
+      smoke,
+      new RegExp(extractedProof.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `${extractedProof} must stay out of the smoke lane`,
+    );
+  }
+  for (const staticProof of [
+    "buildTworldMsTopologyEvidence.test.ts",
+    "buildTworldLynxTopologyEvidence.test.ts",
+    "buildTworldMsStaticAnalysis.test.ts",
+    "buildTworldLynxStaticAnalysis.test.ts",
+    "buildTworldPairedStaticAnalysis.test.ts",
+  ]) {
+    assert.match(rootPackage.scripts["ccsolver:integration:static"], new RegExp(staticProof));
+  }
+  for (const corpusProof of [
+    "p1a-corpus/corpusManifest.test.ts",
+    "p1b-curriculum/corpusValidityReport.test.ts",
+    "p1b-curriculum/deriveMeasuredCorpusCase.test.ts",
+    "p1b-curriculum/measuredCorpusReport.test.ts",
+    "p1b-curriculum/curriculumManifest.test.ts",
+  ]) {
+    assert.match(rootPackage.scripts["ccsolver:integration:corpus"], new RegExp(corpusProof));
+  }
+  for (const runtimeProof of [
+    "runtime/tworldSolverRuntimeAdapters.test.ts",
+    "runtime/tworldSolverRuntimeSemantics.test.ts",
+    "runtime/tworldNativeCausalEventSeams.test.ts",
+    "runtime/tworldSolverCausalJournal.test.ts",
+  ]) {
+    assert.match(rootPackage.scripts["ccsolver:integration:runtime"], new RegExp(runtimeProof));
+  }
+  for (const reviewProof of [
+    "p2a-review/buildP2aRuntimeReviewOutputs.test.ts",
+    "p3-review/buildP3ReviewOutputs.test.ts",
+  ]) {
+    assert.match(rootPackage.scripts["ccsolver:integration:reviews"], new RegExp(reviewProof));
+  }
   assert.doesNotMatch(
-    rootPackage.scripts["ccsolver:integration:fast"],
+    rootPackage.scripts["ccsolver:integration:runtime"],
     /records, pages, reruns, checkpoints/,
   );
   assert.match(
     rootPackage.scripts["ccsolver:integration:causal-proof"],
     /records, pages, reruns, checkpoints/,
-  );
-  assert.equal(
-    rootPackage.scripts["ccsolver:integration"],
-    "npm run ccsolver:integration:fast && npm run ccsolver:integration:causal-proof",
   );
 
   const webPackage = await readJson("web/package.json");
@@ -186,51 +252,36 @@ test("registers CCSolver as a first-class root workspace", async () => {
   assert.equal(webPackage.scripts["ccsolver:p6a:check"], "npm run ccsolver:p6a -- --check");
   assert.equal(webPackage.scripts["ccsolver:p6a:generate"], "npm run ccsolver:p6a -- --write");
   assert.equal(webPackage.scripts["ccsolver:p6a:emit-dist"], "npm run ccsolver:p6a -- --emit-dist");
-  for (const p2aTest of [
+  for (const smokeTest of [
     "src/ccsolver-runtime/compose/sourceValidity/analyzeTworldSolverSourceScope.test.ts",
     "src/ccsolver-runtime/compose/sourceValidity/tworldSolverSourceScopeAcceptance.test.ts",
     "src/ccsolver-runtime/impl/runtime/createSolverRuntimeKernel.test.ts",
-    "src/ccsolver-runtime/compose/runtime/tworldSolverRuntimeAdapters.test.ts",
-    "src/ccsolver-runtime/compose/runtime/tworldSolverRuntimeSemantics.test.ts",
     "src/ccsolver-runtime/compose/p2a-review/buildP2aRuntimeReviewPacket.test.ts",
-    "src/ccsolver-runtime/compose/p2a-review/buildP2aRuntimeReviewOutputs.test.ts",
+    "src/ccsolver-runtime/compose/p4a-review/buildP4aReviewOutputs.test.ts",
+    "src/ccsolver-runtime/compose/p5-review/runExactKeyPyramidNativeReplay.test.ts",
   ]) {
-    assert.match(rootPackage.scripts["ccsolver:integration:fast"], new RegExp(
-      p2aTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    assert.match(smoke, new RegExp(
+      smokeTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     ));
   }
-  assert.match(
-    rootPackage.scripts["ccsolver:integration:fast"],
-    /src\/ccsolver-runtime\/compose\/p3-review\/buildP3ReviewOutputs\.test\.ts/,
-  );
-  assert.match(
-    rootPackage.scripts["ccsolver:integration:fast"],
-    /src\/ccsolver-runtime\/compose\/p4a-review\/buildP4aReviewOutputs\.test\.ts/,
-  );
-  assert.match(
-    rootPackage.scripts["ccsolver:integration:fast"],
-    /src\/ccsolver-runtime\/compose\/p5-review\/runExactKeyPyramidNativeReplay\.test\.ts/,
-  );
   for (const p4bReleaseTest of [
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierPage.test.ts",
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierVisuals.test.ts",
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierIo.test.ts",
     "src/ccsolver-runtime/compose/p4b-dossier/p4bDossierSafety.test.ts",
   ]) {
-    assert.match(rootPackage.scripts["ccsolver:integration:fast"], new RegExp(
+    assert.match(smoke, new RegExp(
       p4bReleaseTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     ));
   }
-  for (const p2bP6aTest of [
-    "src/ccsolver-runtime/compose/runtime/tworldNativeCausalEventSeams.test.ts",
-    "src/ccsolver-runtime/compose/runtime/tworldSolverCausalJournal.test.ts",
+  for (const p6aSmokeTest of [
     "src/ccsolver-runtime/compose/p6a-review/checkedP6aInputs.test.ts",
     "src/ccsolver-runtime/compose/p6a-review/buildP6aReviewOutputs.test.ts",
     "src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.test.ts",
     "src/ccsolver-runtime/compose/p6a-review/p6aReviewIo.test.ts",
   ]) {
-    assert.match(rootPackage.scripts["ccsolver:integration:fast"], new RegExp(
-      p2bP6aTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    assert.match(smoke, new RegExp(
+      p6aSmokeTest.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&"),
     ));
   }
 });
@@ -330,7 +381,10 @@ test("builds GitHub Pages from the authoritative root install", async () => {
   assert.match(workflow, /run: npm run ccsolver:p6a:emit-dist:prepared/);
   assert.doesNotMatch(workflow, /ccsolver:p4b:check/);
   assert.doesNotMatch(workflow, /ccsolver:p6a:check/);
-  assert.doesNotMatch(workflow, /tworld-oracle|--oracle/);
+  assert.doesNotMatch(
+    workflow,
+    /tworld-oracle|--oracle|cmake|ctest|ccsolver:p1b|ccsolver:p5|ccsolver:integration|npm test/,
+  );
   assert.ok(
     workflow.indexOf("run: npm run ccsolver:build")
       < workflow.indexOf("run: npm run build"),
@@ -348,14 +402,14 @@ test("builds GitHub Pages from the authoritative root install", async () => {
   assert.doesNotMatch(workflow, /npm install --no-save/);
 });
 
-test("runs the workspace foundation gate on pull requests", async () => {
+test("runs the fail-closed proof graph only on pull requests", async () => {
   const workflow = await readFile(
     resolve(repositoryRoot, ".github/workflows/ubuntu-ci.yml"),
     "utf8",
   );
 
-  assert.match(workflow, /on:\n\s+push:\n\s+branches:\n\s+- master\n\s+pull_request:/);
-  assert.doesNotMatch(workflow, /on: \[push, pull_request\]/);
+  assert.match(workflow, /on:\n\s+pull_request:\n\s+workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /\n\s+push:/);
   assert.match(
     workflow,
     /concurrency:\n\s+group: ubuntu-ci-\$\{\{ github\.event\.pull_request\.number \|\| github\.ref \}\}\n\s+cancel-in-progress: true/,
@@ -369,10 +423,15 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "npm run ccsolver:conformance",
     "npm run ccsolver:build",
     "npm run ccsolver:facade",
-    "npm run ccsolver:integration:fast",
+    "npm run ccsolver:integration:smoke",
+    "npm run ccsolver:integration:static",
+    "npm run ccsolver:integration:corpus",
+    "npm run ccsolver:integration:runtime",
+    "npm run ccsolver:integration:reviews",
     "npm run ccsolver:corpus:check:prepared",
     "npm run ccsolver:analysis:check:prepared",
     "npm run ccsolver:p1b:check:prepared",
+    "npm run ccsolver:p2a:check:prepared",
     "npm run ccsolver:p3:check:prepared",
     "npm run ccsolver:p4a:check:prepared",
     "npm run ccsolver:p5:check:prepared",
@@ -387,8 +446,12 @@ test("runs the workspace foundation gate on pull requests", async () => {
     assert.match(workflow, new RegExp(command.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
 
+  const classify = workflowJob(workflow, "classify");
+  assert.match(classify, /fetch-depth: 0/);
+  assert.match(classify, /changed-gates\.mjs/);
+
   const preflight = workflowJob(workflow, "ccsolver-p5-preflight");
-  assert.match(preflight, /needs: build-sdl1/);
+  assert.match(preflight, /build-sdl1/);
   assert.match(preflight, /actions\/download-artifact@v4/);
   assert.match(preflight, /runExactKeyPyramidNativeReplay\.test\.ts/);
   assert.match(preflight, /run: npm run ccsolver:p5:check:prepared/);
@@ -401,20 +464,38 @@ test("runs the workspace foundation gate on pull requests", async () => {
 
   assert.match(workflowJob(workflow, "build-qt6"), /timeout-minutes: 40/);
 
-  for (const jobName of [
-    "ccsolver-workspace",
-    "ccsolver-p1b",
-    "ccsolver-reviews",
-    "ccsolver-p6a",
-    "browser-workspace",
-  ]) {
-    assert.match(workflowJob(workflow, jobName), /needs: ccsolver-p5-preflight/);
-  }
-  assert.doesNotMatch(workflowJob(workflow, "ccsolver-p1b"), /ccsolver:p5|ccsolver:p6a/);
+  const workspace = workflowJob(workflow, "ccsolver-workspace");
+  assert.match(workspace, /ccsolver:integration:smoke/);
+  assert.doesNotMatch(workspace, /ccsolver:integration:(?:static|corpus|runtime|reviews|causal-proof)/);
+
+  const staticCorpus = workflowJob(workflow, "ccsolver-static-corpus");
+  assert.match(staticCorpus, /ccsolver:integration:static/);
+  assert.match(staticCorpus, /ccsolver:integration:corpus/);
+  assert.match(staticCorpus, /ccsolver:analysis:check:prepared/);
+  assert.doesNotMatch(staticCorpus, /ccsolver:p1b:check:prepared/);
+
+  const p1b = workflowJob(workflow, "ccsolver-p1b");
+  assert.doesNotMatch(p1b, /ccsolver:integration:(?:static|corpus)/);
+  assert.match(p1b, /ccsolver:corpus:check:prepared/);
+  assert.match(p1b, /ccsolver:p1b:check:prepared/);
+  assert.doesNotMatch(p1b, /ccsolver:integration:(?:runtime|reviews|causal-proof)|ccsolver:p5|ccsolver:p6a/);
+
+  const reviews = workflowJob(workflow, "ccsolver-reviews");
+  assert.match(reviews, /ccsolver:integration:reviews/);
+  assert.match(reviews, /ccsolver:p2a:check:prepared/);
+  assert.match(reviews, /ccsolver:p3:check:prepared/);
+  assert.match(reviews, /ccsolver:p4a:check:prepared/);
+  assert.doesNotMatch(reviews, /ccsolver:integration:(?:static|corpus|runtime|causal-proof)/);
+
+  const runtime = workflowJob(workflow, "ccsolver-runtime");
+  assert.match(runtime, /ccsolver:integration:runtime/);
+  assert.doesNotMatch(runtime, /ccsolver:integration:causal-proof/);
+  assert.doesNotMatch(runtime, /ccsolver:integration:(?:static|corpus|reviews)/);
+
   assert.doesNotMatch(workflowJob(workflow, "ccsolver-p6a"), /ccsolver:p1b|ccsolver:p5/);
 
   assert.match(
-    workflowJob(workflow, "ccsolver-p1b"),
+    p1b,
     /timeout-minutes: 90[\s\S]*TWORLD_P1B_ANALYSIS_JOBS: 4[\s\S]*run: npm run ccsolver:p1b:check:prepared/,
   );
   assert.match(
@@ -428,13 +509,18 @@ test("runs the workspace foundation gate on pull requests", async () => {
     "ccsolver-p5-preflight",
     "ccsolver-workspace",
     "ccsolver-p1b",
+    "ccsolver-static-corpus",
     "ccsolver-reviews",
+    "ccsolver-runtime",
     "ccsolver-p6a",
     "browser-workspace",
+    "classify",
   ]) {
     assert.match(aggregate, new RegExp(dependency));
   }
-  assert.match(aggregate, /result != 'success'/);
+  assert.match(aggregate, /success/);
+  assert.match(aggregate, /skipped/);
+  assert.match(aggregate, /exit 1/);
   assert.doesNotMatch(aggregate, /actions\/checkout|npm ci|npm run build|npm test/);
 });
 
