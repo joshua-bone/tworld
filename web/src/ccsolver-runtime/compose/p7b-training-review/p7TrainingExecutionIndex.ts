@@ -9,6 +9,7 @@ import {
   type CanonicalJsonValue,
 } from "@tworld/ccsolver/domain";
 import type { Sha256Port } from "@tworld/ccsolver/ports";
+import { TIME_NIL } from "@content/api/score";
 import type { SeriesLevel } from "@content/api/series";
 import type { GameRequest } from "@game-core/api/types";
 import {
@@ -312,7 +313,7 @@ function copyBrowserTarget(
     bestTimeTicks: integer(
       rawLevel.bestTimeTicks,
       0,
-      0xffff_ffff,
+      TIME_NIL,
       `${target} best time`,
     ),
     levelSize: integer(

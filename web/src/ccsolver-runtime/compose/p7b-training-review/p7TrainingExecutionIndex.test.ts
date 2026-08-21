@@ -5,6 +5,7 @@ import {
   type BlobReferenceV1,
   type CanonicalJsonValue,
 } from "@tworld/ccsolver/domain";
+import { TIME_NIL } from "@content/api/score";
 import { describe, expect, it } from "vitest";
 import { buildP7bTrainingReplayLevel } from "../p7b-training/trainingReplayContract";
 import { P7_TRAINING_PROCESSOR_REVISION } from "../p7-training-execution/p7TrainingShardProtocol";
@@ -364,6 +365,27 @@ describe("the graph-independent P7 training execution index", () => {
 
     expect(canonicalizeP7TrainingExecutionIndex(second))
       .not.toBe(canonicalizeP7TrainingExecutionIndex(first));
+  });
+
+  it("accepts the catalog no-best-time sentinel and rejects values beyond it", async () => {
+    const value = await fixture();
+    value.input.browserTargets[0]!.targets!.ms.display.level.bestTimeTicks = TIME_NIL;
+    value.input.browserTargets[0]!.targets!.lynx.display.level.bestTimeTicks = TIME_NIL;
+
+    const index = buildP7TrainingExecutionIndex(value.input);
+    const parsed = parseP7TrainingExecutionIndex(canonicalizeP7TrainingExecutionIndex(index));
+    expect(parsed.browserTargets[0]!.targets!.ms.display.level.bestTimeTicks).toBe(TIME_NIL);
+    expect(parsed.browserTargets[0]!.targets!.lynx.display.level.bestTimeTicks).toBe(TIME_NIL);
+
+    const drifted = structuredClone(index) as unknown as {
+      browserTargets: Array<{
+        targets: { ms: { display: { level: { bestTimeTicks: number } } } };
+      }>;
+    };
+    drifted.browserTargets[0]!.targets.ms.display.level.bestTimeTicks = TIME_NIL + 1;
+    expect(() => parseP7TrainingExecutionIndex(canonicalizeJson(
+      drifted as unknown as CanonicalJsonValue,
+    ))).toThrow("ms best time is out of bounds");
   });
 
   it("binds the exact freshly reduced pack content", async () => {

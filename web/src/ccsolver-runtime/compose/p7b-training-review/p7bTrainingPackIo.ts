@@ -20,6 +20,7 @@ import {
 import type { P7bLevelReplayPresentation } from "@game-core/api/p7bReplayPresentation";
 import { assertP7bLevelReplayPresentation } from "@game-core/api/p7bReplayPresentationValidation";
 import { parseP7TrainingBrowserReplay } from "@game-core/api/p7TrainingBrowserReplay";
+import { TIME_NIL } from "@content/api/score";
 import { parseSolutionFile } from "@content/api/solution-file";
 import { buildP7bTrainingReplayLevel } from "../p7b-training/trainingReplayContract";
 import {
@@ -586,6 +587,7 @@ function assertBrowserTargetDescriptor(
     throw new Error(`checked P7B ${target} browser display identity drifted`);
   }
   requireText(level.name, `${target} browser level name`);
+  requireInteger(level.bestTimeTicks, 0, TIME_NIL, `${target} browser best time`);
 }
 
 function assertLevelBrowserBindings(input: {

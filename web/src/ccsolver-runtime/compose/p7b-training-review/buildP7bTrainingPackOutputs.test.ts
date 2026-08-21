@@ -715,6 +715,36 @@ describe("the scalable P7B training pack checked leaf", () => {
     };
     expect(browser.targets.ms.display.level.bestTimeTicks).toBe(TIME_NIL);
     expect(browser.targets.lynx.display.level.bestTimeTicks).toBe(TIME_NIL);
+    await expect(attestP7bTrainingPackOutputs(
+      "/workspace/tworld",
+      "fixture-pack",
+      built.outputs,
+      proofSourceFixture(),
+    )).resolves.toMatchObject({ manifest: { pack: { packId: "fixture-pack" } } });
+
+    const driftedOutputs = built.outputs.map((output) => ({
+      ...output,
+      content: new Uint8Array(output.content),
+    }));
+    const driftedBrowserOutput = driftedOutputs.find(({ path }) => (
+      path.endsWith("/levels/001/browser.json")
+    ))!;
+    const driftedBrowser = JSON.parse(new TextDecoder().decode(driftedBrowserOutput.content));
+    driftedBrowser.targets.ms.display.level.bestTimeTicks = TIME_NIL + 1;
+    driftedBrowserOutput.content = encoder.encode(canonicalizeJson(driftedBrowser));
+    const manifestOutput = driftedOutputs.find(({ path }) => path.endsWith("/manifest.json"))!;
+    const manifest = JSON.parse(new TextDecoder().decode(manifestOutput.content));
+    manifest.files.find((file: { path: string }) => (
+      file.path === driftedBrowserOutput.path
+    )).content = await ref(driftedBrowserOutput.content);
+    manifestOutput.content = encoder.encode(canonicalizeJson(manifest));
+
+    await expect(attestP7bTrainingPackOutputs(
+      "/workspace/tworld",
+      "fixture-pack",
+      driftedOutputs,
+      proofSourceFixture(),
+    )).rejects.toThrow("ms browser best time is out of bounds");
   });
 
   it("retains failed execution evidence without publishing a failed browser replay", async () => {
