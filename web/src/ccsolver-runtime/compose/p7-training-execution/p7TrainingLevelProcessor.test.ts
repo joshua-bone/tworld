@@ -622,7 +622,7 @@ describe("production P7 training row processor", () => {
       sha256,
       repositoryRoot,
       async () => { invalidPersisted = true; },
-    )).rejects.toThrow("certification evidence drifted");
+    )).rejects.toThrow("certification receipt terminal boundary references drifted");
     expect(invalidPersisted).toBe(false);
 
     const forgedTranscript = structuredClone(output) as unknown as {
