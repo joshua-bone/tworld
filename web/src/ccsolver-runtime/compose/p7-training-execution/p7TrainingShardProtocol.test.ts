@@ -373,8 +373,8 @@ describe("P7C-P7E deterministic training shards", () => {
         await store.referenceCanonical({ mapDiffPath: "/layers/0/cells/17" });
         return { ...output, generatedEvidence: store.bundle() };
       },
-    })).resolves.toBeDefined();
-    expect(pointerEvidence.sidecars.size).toBe(19);
+    })).rejects.toThrow("generated evidence contains an orphan");
+    expect(pointerEvidence.sidecars.size).toBe(0);
   }, 30_000);
 
   it("keeps unexpected processor errors shard-fatal without serializing private paths", async () => {

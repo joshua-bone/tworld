@@ -402,6 +402,35 @@ describe("the bounded P7B portable replay compiler", () => {
       });
     }
     expect(browserInputs.summary.parityMatchedCount).toBe(browserInputs.summary.replayCount);
+    const certifiedBrowserCells = new Set(trainingPack.levels.flatMap((level) => (
+      level.variants.flatMap((variant) => (["ms", "lynx"] as const).flatMap((target) => (
+        variant.certifications[target].status === "certified"
+          ? [`${level.source.levelNumber}:${variant.variantId}:${target}`]
+          : []
+      )))
+    )));
+    const emittedBrowserCells = new Set(browserInputs.levels.flatMap((level) => (
+      level.browserReplays.map(({ variantId, target }) => (
+        `${level.levelNumber}:${variantId}:${target}`
+      ))
+    )));
+    expect(emittedBrowserCells).toEqual(certifiedBrowserCells);
+    expect(browserInputs.summary.replayCount).toBe(certifiedBrowserCells.size);
+    for (const level of trainingPack.levels) {
+      for (const variant of level.variants) {
+        for (const target of ["ms", "lynx"] as const) {
+          const certification = variant.certifications[target];
+          if (certification.status !== "failed") continue;
+          expect(certification.detail.length).toBeGreaterThan(0);
+          expect(certification.evidence).not.toBeNull();
+          expect(certification.execution).toMatchObject({
+            browserReplayContent: null,
+            browserReplayParityReceipt: null,
+            browserReplayTransport: null,
+          });
+        }
+      }
+    }
     const graduationSource = processed.levels.find(({ selection }) => (
       selection.levelNumber === 10
     ))!.targets.find(({ target }) => target === "lynx")!;

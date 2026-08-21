@@ -14,12 +14,17 @@ export const P7B_TRAINING_LEVEL_ARTIFACT =
   "ccsolver-p7b-training-replay-level" as const;
 export const P7B_TRAINING_PACK_SUMMARY_ARTIFACT =
   "ccsolver-p7b-training-replay-pack-summary" as const;
+export const P7B_SEGMENT_SELECTION_POLICY_REVISION =
+  "semantic-route-chapters-max-24-v1" as const;
 
 export const P7B_MAX_LEVEL_CONTRACT_BYTES = 8 * 1024 * 1024;
 export const P7B_MAX_REFERENCED_BLOB_BYTES = 64 * 1024 * 1024;
 export const P7B_MAX_RAW_DONORS_PER_LEVEL = 32;
 export const P7B_MAX_VARIANTS_PER_LEVEL = 32;
-export const P7B_MAX_SEGMENTS_PER_VARIANT = 8_192;
+// Replay segments are UI-facing route chapters, not a lossless engine-event
+// journal. The complete causal stream is separately digest-bound and can be
+// reproduced by bounded engine re-execution.
+export const P7B_MAX_SEGMENTS_PER_VARIANT = 24;
 export const P7B_MAX_TRANSFORMS_PER_VARIANT = 8_192;
 export const P7B_MAX_REPLAY_TICKS = 100_000_000;
 export const P7B_MAX_REPLAY_DECISIONS = 1_000_000;
@@ -207,6 +212,54 @@ export interface P7bReplayExecutionBindingV1 {
   readonly detail: string;
 }
 
+export interface P7bCanonicalTranscriptDigestV1 {
+  readonly algorithm: "sha256";
+  readonly canonicalization: "tworld-canonical-json-v1";
+  readonly digest: `sha256:${string}`;
+  readonly byteLength: number;
+}
+
+export type P7bSegmentSelectionModeV1 =
+  | "viewable-route-chapters"
+  | "conservative-whole-route"
+  | "unviewable";
+
+export interface P7bSegmentSelectionV1 {
+  readonly policyRevision: typeof P7B_SEGMENT_SELECTION_POLICY_REVISION;
+  readonly selectionMode: P7bSegmentSelectionModeV1;
+  readonly candidateCount: number;
+  readonly selectedCandidateOrdinals: readonly number[];
+  readonly omittedCandidateCount: number;
+  readonly targetTranscript: P7bCanonicalTranscriptDigestV1;
+  readonly semanticTranscript: P7bCanonicalTranscriptDigestV1;
+}
+
+/** Exact policy shared by production selection and durable validation. */
+export function selectP7bSegmentCandidateOrdinals(
+  candidateCount: number,
+  selectionMode: P7bSegmentSelectionModeV1,
+): readonly number[] {
+  if (!Number.isSafeInteger(candidateCount) || candidateCount < 0) {
+    throw new Error("segment selection candidate count is invalid");
+  }
+  if (selectionMode === "unviewable") return [];
+  if (candidateCount === 0) {
+    throw new Error("viewable segment selection requires a terminal candidate");
+  }
+  if (selectionMode === "conservative-whole-route") return [candidateCount - 1];
+  if (candidateCount <= P7B_MAX_SEGMENTS_PER_VARIANT) {
+    return Array.from({ length: candidateCount }, (_, ordinal) => ordinal);
+  }
+  const nonterminalCount = candidateCount - 1;
+  const maximumNonterminal = P7B_MAX_SEGMENTS_PER_VARIANT - 1;
+  return [
+    ...Array.from({ length: maximumNonterminal }, (_, index) => (
+      Math.ceil(((index + 1) * nonterminalCount) / maximumNonterminal) - 1
+    )),
+    candidateCount - 1,
+  ];
+}
+
 export interface P7bReplayCertificationV1 {
   readonly status: P7bReplayCertificationStatusV1;
   readonly outcome: P7bReplayCertificationOutcomeV1;
@@ -214,6 +267,7 @@ export interface P7bReplayCertificationV1 {
   readonly terminalNativeTick: number | null;
   readonly detail: string;
   readonly execution: P7bReplayExecutionBindingV1;
+  readonly segmentSelection: P7bSegmentSelectionV1 | null;
   readonly segmentSpans: readonly P7bTrainingReplayTargetSpanV1[];
 }
 
@@ -435,6 +489,109 @@ function copyNullableBlobReference(
   return value === null ? null : copyBlobReference(value, description);
 }
 
+function copyCanonicalTranscriptDigest(
+  value: unknown,
+  description: string,
+): P7bCanonicalTranscriptDigestV1 {
+  const record = exactKeys(
+    value,
+    ["algorithm", "byteLength", "canonicalization", "digest"],
+    description,
+  );
+  if (
+    record.algorithm !== "sha256"
+    || record.canonicalization !== "tworld-canonical-json-v1"
+    || typeof record.digest !== "string"
+    || !SHA256_PATTERN.test(record.digest)
+  ) throw new Error(`${description} is invalid`);
+  return {
+    algorithm: "sha256",
+    canonicalization: "tworld-canonical-json-v1",
+    digest: record.digest as `sha256:${string}`,
+    byteLength: requireSafeInteger(
+      record.byteLength,
+      0,
+      P7B_MAX_REFERENCED_BLOB_BYTES,
+      `${description} byte length`,
+    ),
+  };
+}
+
+export function assertP7bSegmentSelectionV1(
+  value: unknown,
+  description = "segment selection",
+): P7bSegmentSelectionV1 {
+  const record = exactKeys(value, [
+    "candidateCount",
+    "omittedCandidateCount",
+    "policyRevision",
+    "selectionMode",
+    "selectedCandidateOrdinals",
+    "semanticTranscript",
+    "targetTranscript",
+  ], description);
+  if (record.policyRevision !== P7B_SEGMENT_SELECTION_POLICY_REVISION) {
+    throw new Error(`${description} policy revision is invalid`);
+  }
+  const candidateCount = requireSafeInteger(
+    record.candidateCount,
+    0,
+    P7B_MAX_REPLAY_DECISIONS,
+    `${description} candidate count`,
+  );
+  const selectionMode = requireEnum(record.selectionMode, [
+    "viewable-route-chapters",
+    "conservative-whole-route",
+    "unviewable",
+  ] as const, `${description} mode`);
+  const selectedCandidateOrdinals = requireArray(
+    record.selectedCandidateOrdinals,
+    0,
+    P7B_MAX_SEGMENTS_PER_VARIANT,
+    `${description} selected ordinals`,
+  ).map((ordinal, index) => {
+    const copied = requireSafeInteger(
+      ordinal,
+      0,
+      Math.max(0, candidateCount - 1),
+      `${description} selected ordinal ${index}`,
+    );
+    if (index > 0 && copied <= (record.selectedCandidateOrdinals as number[])[index - 1]!) {
+      throw new Error(`${description} selected ordinals must be strictly increasing`);
+    }
+    return copied;
+  });
+  const omittedCandidateCount = requireSafeInteger(
+    record.omittedCandidateCount,
+    0,
+    candidateCount,
+    `${description} omitted candidate count`,
+  );
+  if (selectedCandidateOrdinals.length + omittedCandidateCount !== candidateCount) {
+    throw new Error(`${description} candidate totals drifted`);
+  }
+  const expectedOrdinals = selectP7bSegmentCandidateOrdinals(candidateCount, selectionMode);
+  if (
+    selectedCandidateOrdinals.length !== expectedOrdinals.length
+    || selectedCandidateOrdinals.some((ordinal, index) => ordinal !== expectedOrdinals[index])
+  ) throw new Error(`${description} selected ordinals do not match its policy mode`);
+  return {
+    policyRevision: P7B_SEGMENT_SELECTION_POLICY_REVISION,
+    selectionMode,
+    candidateCount,
+    selectedCandidateOrdinals,
+    omittedCandidateCount,
+    targetTranscript: copyCanonicalTranscriptDigest(
+      record.targetTranscript,
+      `${description} target transcript`,
+    ),
+    semanticTranscript: copyCanonicalTranscriptDigest(
+      record.semanticTranscript,
+      `${description} semantic transcript`,
+    ),
+  };
+}
+
 function sameReference(
   left: BlobReferenceV1,
   right: BlobReferenceV1,
@@ -652,7 +809,7 @@ function copySegments(
 ): readonly P7bTrainingReplaySegmentV1[] {
   const entries = requireArray(
     value,
-    1,
+    0,
     P7B_MAX_SEGMENTS_PER_VARIANT,
     "training replay segments",
   );
@@ -869,6 +1026,7 @@ function copyExecution(
   target: P7bReplayTargetV1,
   portableProfile: P7bPortableProfileBindingV1 | null,
   authoredDecisionCount: number,
+  certificationStatus: P7bReplayCertificationStatusV1,
 ): P7bReplayExecutionBindingV1 {
   const record = exactKeys(value, [
     "browserReplayContent",
@@ -953,14 +1111,27 @@ function copyExecution(
       || decisionProfile.profileContent !== null
       || nativeTickRateHz === null
       || replayContent === null
-      || browserReplayContent === null
-      || browserReplayParityReceipt === null
-      || browserReplayTransport !== "native-replay-pulses"
       || compilerRevision !== null
       || compilationReceipt !== null
     ) {
       throw new Error("native execution binding is invalid");
     }
+    if (
+      certificationStatus === "certified"
+      && (
+        browserReplayContent === null
+        || browserReplayParityReceipt === null
+        || browserReplayTransport !== "native-replay-pulses"
+      )
+    ) throw new Error("native execution binding is invalid");
+    if (
+      certificationStatus !== "certified"
+      && (
+        browserReplayContent !== null
+        || browserReplayParityReceipt !== null
+        || browserReplayTransport !== null
+      )
+    ) throw new Error("failed execution cannot publish a browser replay");
   } else if (status === "compiled" || status === "compilation-failed") {
     if (
       portableProfile === null
@@ -981,8 +1152,6 @@ function copyExecution(
       compilerRevision === null
       || compilationReceipt === null
       || (status === "compiled" && (replayContent === null || nativeTickRateHz === null))
-      || (status === "compiled" && browserReplayContent === null)
-      || (status === "compiled" && browserReplayParityReceipt === null)
       || (status === "compilation-failed" && (
         replayContent !== null
         || browserReplayContent !== null
@@ -992,11 +1161,28 @@ function copyExecution(
     ) {
       throw new Error("compiled execution requires replay, compiler, and receipt");
     }
-    if (status === "compiled" && browserReplayTransport !== "manual-held-schedule") {
+    if (
+      status === "compiled"
+      && certificationStatus === "certified"
+      && (
+        browserReplayContent === null
+        || browserReplayParityReceipt === null
+        || browserReplayTransport !== "manual-held-schedule"
+      )
+    ) {
       throw new Error(
         "compiled execution requires replay, compiler, receipt, and manual browser transport",
       );
     }
+    if (
+      status === "compiled"
+      && certificationStatus !== "certified"
+      && (
+        browserReplayContent !== null
+        || browserReplayParityReceipt !== null
+        || browserReplayTransport !== null
+      )
+    ) throw new Error("failed execution cannot publish a browser replay");
   } else if (
     decisionProfile !== null
     || executedDecisionCount !== null
@@ -1173,6 +1359,7 @@ function copyCertification(
     "evidence",
     "execution",
     "outcome",
+    "segmentSelection",
     "segmentSpans",
     "status",
     "terminalNativeTick",
@@ -1206,16 +1393,27 @@ function copyCertification(
     target,
     variant.portableProfile,
     variant.decisionCount,
+    status,
   );
+  const segmentSelection = record.segmentSelection === null
+    ? null
+    : assertP7bSegmentSelectionV1(record.segmentSelection, `${target} segment selection`);
   let segmentSpans: readonly P7bTrainingReplayTargetSpanV1[];
   if (status === "certified") {
     if (
       outcome !== "won"
       || evidence === null
       || terminalNativeTick === null
+      || segmentSelection === null
+      || segmentSelection.selectionMode === "unviewable"
+      || segmentSelection.selectedCandidateOrdinals.length !== variant.segments.length
+      || segmentSelection.selectedCandidateOrdinals.at(-1)
+        !== segmentSelection.candidateCount - 1
       || (execution.status !== "native" && execution.status !== "compiled")
     ) {
-      throw new Error("certified replay requires evidence, execution, win, and terminal tick");
+      throw new Error(
+        "certified replay requires evidence, execution, win, terminal tick, and bounded segments",
+      );
     }
     segmentSpans = copyTargetSpans(
       record.segmentSpans,
@@ -1232,6 +1430,9 @@ function copyCertification(
       && (
         !["loss", "diverged", "timeout", "invalid"].includes(outcome)
         || evidence === null
+        || segmentSelection === null
+        || segmentSelection.selectionMode !== "unviewable"
+        || segmentSelection.selectedCandidateOrdinals.length !== 0
         || (execution.status !== "native" && execution.status !== "compiled")
       )
     ) {
@@ -1243,6 +1444,7 @@ function copyCertification(
         outcome !== "not-run"
         || evidence !== null
         || terminalNativeTick !== null
+        || segmentSelection !== null
         || execution.status !== "not-attempted"
       )
     ) {
@@ -1254,6 +1456,7 @@ function copyCertification(
         outcome !== "unsupported"
         || evidence !== null
         || terminalNativeTick !== null
+        || segmentSelection !== null
         || !["unavailable", "compilation-failed"].includes(execution.status)
       )
     ) {
@@ -1267,6 +1470,7 @@ function copyCertification(
     terminalNativeTick,
     detail: requireDurableText(record.detail, MAX_TEXT_BYTES, `${target} certification detail`),
     execution,
+    segmentSelection,
     segmentSpans,
   };
 }
@@ -1342,6 +1546,11 @@ function copyVariant(value: unknown): P7bTrainingReplayVariantV1 {
     && result.certifications.lynx.status !== "certified"
   ) {
     throw new Error("target-specific replay requires a certified target");
+  }
+  const hasCertifiedTarget = result.certifications.ms.status === "certified"
+    || result.certifications.lynx.status === "certified";
+  if (hasCertifiedTarget !== (result.segments.length > 0)) {
+    throw new Error("variant segments must exist exactly when a target is certified");
   }
   return result;
 }

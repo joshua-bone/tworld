@@ -1,5 +1,5 @@
 import { WebCryptoSha256 } from "@tworld/ccsolver/adapters/web-crypto";
-import type { BlobReferenceV1 } from "@tworld/ccsolver/domain";
+import type { BlobReferenceV1, CanonicalJsonValue } from "@tworld/ccsolver/domain";
 import type { Sha256Port } from "@tworld/ccsolver/ports";
 import type { SolutionMove } from "@content/api/solutionDataCodec";
 import {
@@ -35,6 +35,7 @@ import {
   type ProcessedCclp1FoundationTarget,
 } from "../p7b-cohort/buildCclp1FoundationCohort";
 import { CCLP1_FOUNDATION_LIMITS } from "../p7b-cohort/cclp1FoundationCohort";
+import type { P7bSegmentSelectionV1 } from "../p7b-training/trainingReplayContract";
 import {
   P7B_HYBRIDCC_CANDIDATE_PROFILE_ID,
   P7B_HYBRIDCC_CANDIDATE_PROFILE_REVISION,
@@ -187,6 +188,7 @@ export interface P7bPortableCertification {
   readonly finalCheckpoint: BlobReferenceV1 | null;
   readonly eventCount: number;
   readonly advanceTickCount: number;
+  readonly segmentSelection: P7bSegmentSelectionV1 | null;
   readonly segments: readonly ProcessedCclp1FoundationSegment[];
   readonly execution: {
     readonly status: "compiled" | "not-attempted";
@@ -202,7 +204,6 @@ export interface P7bPortableCertification {
 
 interface PortableCandidateBase {
   readonly transforms: readonly P7bPortableTransform[];
-  readonly transformEvidence: BlobReferenceV1;
   readonly residuals: readonly P7bPortableResidualKind[];
   readonly blockers: readonly P7bPortableBlocker[];
   readonly certifications: {
@@ -217,6 +218,7 @@ export type P7bPortableCandidate =
       readonly trace: null;
       readonly traceContent: null;
       readonly profileContent: null;
+      readonly transformEvidence: null;
       readonly portability: "not-portable";
     })
   | (PortableCandidateBase & {
@@ -224,6 +226,7 @@ export type P7bPortableCandidate =
       readonly trace: P7bPortableDecisionTraceV1;
       readonly traceContent: BlobReferenceV1;
       readonly profileContent: BlobReferenceV1;
+      readonly transformEvidence: BlobReferenceV1;
       readonly portability: "portable" | "target-specific" | "not-portable";
       readonly segments: readonly {
         readonly segmentId: string;
@@ -244,7 +247,7 @@ export interface P7bPortableCclp1FoundationLevel {
   readonly occurrenceId: string;
   readonly source: Omit<ProcessedCclp1FoundationLevel, "generatedEvidence">;
   readonly lineage: P7bPortableLineage;
-  readonly lineageEvidence: BlobReferenceV1;
+  readonly lineageEvidence: BlobReferenceV1 | null;
   readonly candidate: P7bPortableCandidate;
   /** Raw plus portable proof bytes, bounded to this occurrence. */
   readonly generatedEvidence: P7GeneratedEvidenceBundleV1;
@@ -577,8 +580,11 @@ function donorId(level: ProcessedCclp1FoundationLevel, target: "ms" | "lynx"): s
 
 async function lineageFor(
   level: ProcessedCclp1FoundationLevel,
-  evidence: P7GeneratedEvidenceStore,
-): Promise<{ lineage: P7bPortableLineage; target: ProcessedCclp1FoundationTarget; evidence: BlobReferenceV1 }> {
+): Promise<{
+  lineage: P7bPortableLineage;
+  target: ProcessedCclp1FoundationTarget;
+  evidenceValue: CanonicalJsonValue;
+}> {
   const target = selectLineageTarget(level);
   const lineage: P7bPortableLineage = {
     target: target.target,
@@ -594,7 +600,7 @@ async function lineageFor(
   return {
     lineage,
     target,
-    evidence: await evidence.referenceCanonical({
+    evidenceValue: {
       policy: "prefer-clean-lynx-otherwise-lowest-native-header-residual-ms-tiebreak-v1",
       occurrenceId: level.selection.occurrenceId,
       candidates: level.targets.map((candidate) => ({
@@ -607,7 +613,7 @@ async function lineageFor(
         residualCount: portableHeaderResidualCount(candidate),
       })),
       selected: lineage,
-    }),
+    } as unknown as CanonicalJsonValue,
   };
 }
 
@@ -827,19 +833,19 @@ async function certifyPortableTarget(
         ? "timeout"
         : "loss";
   const status = outcome === "won" ? "certified" : "failed";
-  const segments = status === "certified"
-    ? await segmentFoundationNativeEvents({
-        occurrenceId: level.selection.occurrenceId,
-        target,
-        events: executed.events,
-        initialCheckpoint: executed.initialCheckpoint,
-        finalCheckpoint: executed.finalCheckpoint,
-        terminalNativeTick: executed.terminalNativeTick,
-        terminalDecisionCount: decisionsBeforeTerminal,
-        decisionCountAtTick: (tick) => portableDecisionCountThrough(trace, tick),
-        evidence: evidenceStore,
-      })
-    : [];
+  const segmented = await segmentFoundationNativeEvents({
+    occurrenceId: level.selection.occurrenceId,
+    target,
+    events: executed.events,
+    initialCheckpoint: executed.initialCheckpoint,
+    finalCheckpoint: executed.finalCheckpoint,
+    terminalNativeTick: executed.terminalNativeTick,
+    terminalDecisionCount: decisionsBeforeTerminal,
+    decisionCountAtTick: (tick) => portableDecisionCountThrough(trace, tick),
+    retainViewableSegments: status === "certified",
+    evidence: evidenceStore,
+  });
+  const { segments, selection: segmentSelection } = segmented;
   const evidence = await evidenceStore.referenceCanonical({
     artifact: "ccsolver-p7b-portable-target-certification",
     version: 1,
@@ -859,6 +865,7 @@ async function certifyPortableTarget(
     fullEventStream: executed.fullEventStream,
     initialCheckpoint: executed.initialCheckpoint,
     finalCheckpoint: executed.finalCheckpoint,
+    segmentSelection,
     segmentBoundaries: segments.map(({ segmentId, index, start, end }) => ({
       segmentId,
       index,
@@ -886,6 +893,7 @@ async function certifyPortableTarget(
     finalCheckpoint: executed.finalCheckpoint,
     eventCount: executed.eventCount,
     advanceTickCount: executed.advanceTickCount,
+    segmentSelection,
     segments,
     execution: {
       status: "compiled",
@@ -908,6 +916,7 @@ function notAttemptedCertification(): P7bPortableCertification {
     finalCheckpoint: null,
     eventCount: 0,
     advanceTickCount: 0,
+    segmentSelection: null,
     segments: [],
     execution: {
       status: "not-attempted",
@@ -943,6 +952,16 @@ function sameSemanticSegments(
       && segment.anchor.kind === other.anchor.kind
       && segment.anchor.label === other.anchor.label;
   });
+}
+
+function sameCanonicalDigest(
+  left: P7bSegmentSelectionV1["semanticTranscript"],
+  right: P7bSegmentSelectionV1["semanticTranscript"],
+): boolean {
+  return left.algorithm === right.algorithm
+    && left.canonicalization === right.canonicalization
+    && left.digest === right.digest
+    && left.byteLength === right.byteLength;
 }
 
 function conservativeRouteSegment(
@@ -988,8 +1007,16 @@ async function conservativeRouteCertification(input: {
   if (
     input.certification.evidence === null
     || input.certification.terminalNativeTick === null
+    || input.certification.segmentSelection === null
   ) throw new Error("conservative portable route lacks its source certification evidence");
   const decisionsBeforeTerminal = segments[0]!.end.decision;
+  const sourceSelection = input.certification.segmentSelection;
+  const segmentSelection: P7bSegmentSelectionV1 = {
+    ...sourceSelection,
+    selectionMode: "conservative-whole-route",
+    selectedCandidateOrdinals: [sourceSelection.candidateCount - 1],
+    omittedCandidateCount: sourceSelection.candidateCount - 1,
+  };
   const evidence = await input.evidence.referenceCanonical({
     artifact: "ccsolver-p7b-portable-aligned-target-certification",
     version: 1,
@@ -1000,6 +1027,7 @@ async function conservativeRouteCertification(input: {
     terminalNativeTick: input.certification.terminalNativeTick,
     decisionsBeforeTerminal,
     segmentAlignment: "conservative-route",
+    segmentSelection,
     segmentBoundaries: segments.map(({ segmentId, index, start, end }) => ({
       segmentId,
       index,
@@ -1010,7 +1038,7 @@ async function conservativeRouteCertification(input: {
     })),
     sourceCertificationEvidence: input.certification.evidence,
   });
-  return { ...input.certification, evidence, segments };
+  return { ...input.certification, evidence, segmentSelection, segments };
 }
 
 async function alignPortableSegments(
@@ -1025,7 +1053,27 @@ async function alignPortableSegments(
   readonly segmentAlignment: Extract<P7bPortableCandidate, { readonly status: "compiled" }>["segmentAlignment"];
 }> {
   const certified = [ms, lynx].filter((entry) => entry.status === "certified");
-  if (certified.length === 2 && sameSemanticSegments(ms.segments, lynx.segments)) {
+  if (certified.length === 0) {
+    return {
+      ms,
+      lynx,
+      segments: [],
+      segmentAlignment: {
+        status: "conservative-route",
+        detail: "no target certified; no viewable route chapters are published",
+      },
+    };
+  }
+  if (
+    certified.length === 2
+    && ms.segmentSelection !== null
+    && lynx.segmentSelection !== null
+    && sameCanonicalDigest(
+      ms.segmentSelection.semanticTranscript,
+      lynx.segmentSelection.semanticTranscript,
+    )
+    && sameSemanticSegments(ms.segments, lynx.segments)
+  ) {
     return {
       ms,
       lynx,
@@ -1074,9 +1122,7 @@ async function alignPortableSegments(
     segments: [segment],
     segmentAlignment: {
       status: "conservative-route",
-      detail: certified.length === 2
-        ? "target anchor sequences differ; publish one conservative whole-route segment"
-        : "no target certified; retain one conservative variant-local route descriptor",
+      detail: "target anchor sequences differ; publish one conservative whole-route segment",
     },
   };
 }
@@ -1092,7 +1138,7 @@ export async function buildCclp1FoundationPortableLevel(
   });
   await evidence.importBundle(level.generatedEvidence);
   const { generatedEvidence: _rawEvidence, ...source } = level;
-  const selected = await lineageFor(level, evidence);
+  const selected = await lineageFor(level);
   const compiled: NativeReplayPulseCompilerResult = level.targets.length < 2
     ? {
         status: "blocked",
@@ -1129,7 +1175,37 @@ export async function buildCclp1FoundationPortableLevel(
         moves: selected.target.expandedSolution.moves,
         inputDecisionEvents: selected.target.inputDecisionEvents,
       });
+  progress(
+    `${level.selection.occurrenceId} selected ${selected.target.target}; ${compiled.status}; `
+    + `${compiled.quantization.filter(({ nativeTickDelta }) => nativeTickDelta !== 0).length} odd ticks; `
+    + `${compiled.diagonalAssignments.filter(({ basis }) => basis === "native-movement-start").length} derived diagonals; `
+    + `${compiled.diagonalAssignments.filter(({ basis }) => basis === "deterministic-clockwise-order").length} assigned diagonals`,
+  );
+  if (compiled.status === "blocked") {
+    const notAttempted = notAttemptedCertification();
+    return {
+      occurrenceId: level.selection.occurrenceId,
+      source,
+      lineage: selected.lineage,
+      lineageEvidence: null,
+      candidate: {
+        status: "blocked",
+        trace: null,
+        traceContent: null,
+        profileContent: null,
+        portability: "not-portable",
+        transforms: compiled.transforms,
+        transformEvidence: null,
+        residuals: compiled.residuals,
+        blockers: compiled.blockers,
+        certifications: { ms: notAttempted, lynx: notAttemptedCertification() },
+      },
+      generatedEvidence: evidence.bundle(),
+    };
+  }
   const transformEvidence = await evidence.referenceCanonical({
+    artifact: "ccsolver-p7-portable-transform-ledger",
+    version: 1,
     occurrenceId: level.selection.occurrenceId,
     compilerPolicy: {
       nativeTicksPerPortableLogicStep: NATIVE_TICKS_PER_PORTABLE_LOGIC_STEP,
@@ -1145,34 +1221,7 @@ export async function buildCclp1FoundationPortableLevel(
     diagonalAssignments: compiled.diagonalAssignments,
     transforms: compiled.transforms,
   });
-  progress(
-    `${level.selection.occurrenceId} selected ${selected.target.target}; ${compiled.status}; `
-    + `${compiled.quantization.filter(({ nativeTickDelta }) => nativeTickDelta !== 0).length} odd ticks; `
-    + `${compiled.diagonalAssignments.filter(({ basis }) => basis === "native-movement-start").length} derived diagonals; `
-    + `${compiled.diagonalAssignments.filter(({ basis }) => basis === "deterministic-clockwise-order").length} assigned diagonals`,
-  );
-  if (compiled.status === "blocked") {
-    const notAttempted = notAttemptedCertification();
-    return {
-      occurrenceId: level.selection.occurrenceId,
-      source,
-      lineage: selected.lineage,
-      lineageEvidence: selected.evidence,
-      candidate: {
-        status: "blocked",
-        trace: null,
-        traceContent: null,
-        profileContent: null,
-        portability: "not-portable",
-        transforms: compiled.transforms,
-        transformEvidence,
-        residuals: compiled.residuals,
-        blockers: compiled.blockers,
-        certifications: { ms: notAttempted, lynx: notAttemptedCertification() },
-      },
-      generatedEvidence: evidence.bundle(),
-    };
-  }
+  const lineageEvidence = await evidence.referenceCanonical(selected.evidenceValue);
   const traceContent = await evidence.referenceCanonical(compiled.trace);
   // Keep the two fresh target sessions sequential to retain the same bounded
   // one-engine-at-a-time behavior as raw cohort processing.
@@ -1202,7 +1251,7 @@ export async function buildCclp1FoundationPortableLevel(
     occurrenceId: level.selection.occurrenceId,
     source,
     lineage: selected.lineage,
-    lineageEvidence: selected.evidence,
+    lineageEvidence,
     candidate: {
       status: "compiled",
       trace: compiled.trace,

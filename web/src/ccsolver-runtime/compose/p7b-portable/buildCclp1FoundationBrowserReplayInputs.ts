@@ -47,6 +47,7 @@ import {
 } from "../p7b-cohort/buildCclp1FoundationCohort";
 import { CCLP1_FOUNDATION_LIMITS } from "../p7b-cohort/cclp1FoundationCohort";
 import type { P7bReplayTargetV1 } from "../p7b-training/trainingReplayContract";
+import type { P7bSegmentSelectionV1 } from "../p7b-training/trainingReplayContract";
 import type {
   P7bPortableCclp1FoundationCohort,
   P7bPortableCclp1FoundationLevel,
@@ -78,7 +79,7 @@ export interface P7bCclp1FoundationBrowserReplayBundle {
   readonly levels: readonly P7bCclp1FoundationBrowserReplayLevel[];
   readonly summary: {
     readonly levelCount: 12;
-    readonly rawReplayCount: 24;
+    readonly rawReplayCount: number;
     readonly portableReplayCount: number;
     readonly replayCount: number;
     readonly parityMatchedCount: number;
@@ -105,7 +106,7 @@ function rawBrowserReplay(
   target: P7bReplayTargetV1,
 ): P7TrainingNativeBrowserReplayV1 | null {
   const donor = level.source.targets.find((entry) => entry.target === target);
-  if (donor === undefined) return null;
+  if (donor === undefined || donor.execution.terminal.kind !== "won") return null;
   return {
     artifact: "ccsolver-p7b-browser-replay",
     version: 1,
@@ -141,7 +142,8 @@ function portableBrowserReplay(
   if (level.candidate.status !== "compiled") return null;
   const certification = level.candidate.certifications[target];
   if (
-    certification.terminalNativeTick === null
+    certification.status !== "certified"
+    || certification.terminalNativeTick === null
     || certification.execution.status !== "compiled"
     || certification.execution.replayContent === null
   ) return null;
@@ -304,6 +306,39 @@ function expectedSegments(
   return source.execution.terminal.kind === "won" ? source.segments : [];
 }
 
+function expectedSegmentSelection(
+  level: P7bPortableCclp1FoundationLevel,
+  replay: P7TrainingBrowserReplayV1,
+): P7bSegmentSelectionV1 {
+  if (replay.variantId === "portable") {
+    if (level.candidate.status !== "compiled") throw new Error("portable parity lacks candidate");
+    const selection = level.candidate.certifications[replay.target].segmentSelection;
+    if (selection === null) throw new Error("portable parity lacks its segment selection proof");
+    return selection;
+  }
+  const selection = level.source.targets.find(({ target }) => target === replay.target)
+    ?.execution.segmentSelection;
+  if (selection === undefined) throw new Error("raw parity lacks its segment selection proof");
+  return selection;
+}
+
+function expectedExecutionBoundaryEvidence(
+  level: P7bPortableCclp1FoundationLevel,
+  replay: P7TrainingBrowserReplayV1,
+): { readonly initial: BlobReferenceV1; readonly final: BlobReferenceV1 } {
+  if (replay.variantId === "portable") {
+    if (level.candidate.status !== "compiled") throw new Error("portable parity lacks candidate");
+    const certification = level.candidate.certifications[replay.target];
+    if (certification.initialCheckpoint === null || certification.finalCheckpoint === null) {
+      throw new Error("portable parity lacks its native boundary evidence");
+    }
+    return { initial: certification.initialCheckpoint, final: certification.finalCheckpoint };
+  }
+  const execution = level.source.targets.find(({ target }) => target === replay.target)?.execution;
+  if (execution === undefined) throw new Error("raw parity lacks its native boundary evidence");
+  return { initial: execution.initialCheckpoint, final: execution.finalCheckpoint };
+}
+
 function conservativeObservedSegments(
   expected: readonly ProcessedCclp1FoundationSegment[],
   observed: readonly ProcessedCclp1FoundationSegment[],
@@ -322,6 +357,21 @@ function conservativeObservedSegments(
   }];
 }
 
+function conservativeObservedSelection(
+  expected: readonly ProcessedCclp1FoundationSegment[],
+  observed: P7bSegmentSelectionV1,
+): P7bSegmentSelectionV1 {
+  if (expected.length !== 1 || expected[0]!.segmentId !== "portable-route-to-exit") {
+    return observed;
+  }
+  return {
+    ...observed,
+    selectionMode: "conservative-whole-route",
+    selectedCandidateOrdinals: [observed.candidateCount - 1],
+    omittedCandidateCount: observed.candidateCount - 1,
+  };
+}
+
 function segmentBoundaries(segments: readonly ProcessedCclp1FoundationSegment[]) {
   return segments.map(({ segmentId, index, start, end }) => ({
     segmentId,
@@ -331,6 +381,10 @@ function segmentBoundaries(segments: readonly ProcessedCclp1FoundationSegment[])
     startBoundaryEvidence: start.checkpoint,
     endBoundaryEvidence: end.checkpoint,
   }));
+}
+
+function referencesMatch(left: BlobReferenceV1, right: BlobReferenceV1): boolean {
+  return left.digest === right.digest && left.byteLength === right.byteLength;
 }
 
 async function proveBrowserReplay(
@@ -346,33 +400,41 @@ async function proveBrowserReplay(
     ? await executeMsTransport(level, replay, evidence)
     : await executeLynxTransport(level, replay, evidence);
   const expected = expectedSegments(level, replay);
+  const expectedSelection = expectedSegmentSelection(level, replay);
+  const expectedCheckpoints = expectedExecutionBoundaryEvidence(level, replay);
   const decisionCountAtTick = replay.transport === "native-replay-pulses"
     ? (tick: number) => replay.decisions.filter(({ nativeTick }) => nativeTick < tick).length
     : (tick: number) => replay.changes.filter(({ nativeTick }) => nativeTick < tick).length;
   const terminalDecisionCount = replay.transport === "native-replay-pulses"
     ? replay.decisions.length
     : replay.changes.length;
-  const segmented = expected.length === 0
-    ? []
-    : await segmentFoundationNativeEvents({
-        occurrenceId: level.occurrenceId,
-        target: replay.target,
-        events: execution.events,
-        initialCheckpoint: execution.initialCheckpoint,
-        finalCheckpoint: execution.finalCheckpoint,
-        terminalNativeTick: execution.terminalNativeTick,
-        terminalDecisionCount,
-        decisionCountAtTick,
-        evidence,
-      });
+  const segmented = await segmentFoundationNativeEvents({
+    occurrenceId: level.occurrenceId,
+    target: replay.target,
+    events: execution.events,
+    initialCheckpoint: execution.initialCheckpoint,
+    finalCheckpoint: execution.finalCheckpoint,
+    terminalNativeTick: execution.terminalNativeTick,
+    terminalDecisionCount,
+    decisionCountAtTick,
+    retainViewableSegments: expected.length > 0,
+    evidence,
+  });
   const observed = conservativeObservedSegments(
     expected,
-    segmented,
+    segmented.segments,
     execution,
     terminalDecisionCount,
   );
-  const expectedCanonical = canonicalizeJson(expected as unknown as CanonicalJsonValue);
-  const observedCanonical = canonicalizeJson(observed as unknown as CanonicalJsonValue);
+  const observedSelection = conservativeObservedSelection(expected, segmented.selection);
+  const expectedCanonical = canonicalizeJson({
+    segments: expected,
+    selection: expectedSelection,
+  } as unknown as CanonicalJsonValue);
+  const observedCanonical = canonicalizeJson({
+    segments: observed,
+    selection: observedSelection,
+  } as unknown as CanonicalJsonValue);
   if (expectedCanonical !== observedCanonical) {
     const mismatchIndex = Math.max(
       0,
@@ -431,6 +493,26 @@ async function proveBrowserReplay(
       + `${observedOutcome} != ${expectedOutcome}`,
     );
   }
+  const sessionBoundaryComparison = {
+    initial: referencesMatch(expectedCheckpoints.initial, execution.initialCheckpoint)
+      ? "matched" as const
+      : "different" as const,
+    final: referencesMatch(expectedCheckpoints.final, execution.finalCheckpoint)
+      ? "matched" as const
+      : "different" as const,
+  };
+  if (
+    expectedOutcome === "won"
+    && (
+      sessionBoundaryComparison.initial !== "matched"
+      || sessionBoundaryComparison.final !== "matched"
+    )
+  ) {
+    throw new Error(
+      `${level.occurrenceId}/${replay.variantId}/${replay.target} `
+      + "certified browser session boundary parity failed",
+    );
+  }
   const receipt: P7TrainingBrowserParityReceiptV1 = {
     artifact: "ccsolver-p7-browser-replay-parity-receipt",
     version: 1,
@@ -452,13 +534,20 @@ async function proveBrowserReplay(
     expected: {
       outcome: expectedOutcome,
       terminalNativeTick: authoredReplay.terminalNativeTick,
+      initialBoundaryEvidence: expectedCheckpoints.initial,
+      finalBoundaryEvidence: expectedCheckpoints.final,
+      segmentSelection: expectedSelection,
       segmentBoundaries: expectedBoundaryEvidence,
     },
     observed: {
       outcome: observedOutcome,
       terminalNativeTick: execution.terminalNativeTick,
+      initialBoundaryEvidence: execution.initialCheckpoint,
+      finalBoundaryEvidence: execution.finalCheckpoint,
+      segmentSelection: observedSelection,
       segmentBoundaries: observedBoundaryEvidence,
     },
+    sessionBoundaryComparison,
     status: "matched",
   };
   return {
@@ -543,7 +632,21 @@ export async function buildCclp1FoundationBrowserReplayInputs(
   const portableReplayCount = levels.reduce((sum, level) => (
     sum + level.browserReplays.filter(({ variantId }) => variantId === "portable").length
   ), 0);
-  if (rawReplayCount !== 24) throw new Error("browser replay inputs lost an exact raw donor");
+  const expectedRawReplayCount = input.levels.reduce((sum, level) => (
+    sum + level.source.targets.filter(({ execution }) => execution.terminal.kind === "won").length
+  ), 0);
+  const expectedPortableReplayCount = input.levels.reduce((sum, level) => (
+    sum + (level.candidate.status === "compiled"
+      ? (["ms", "lynx"] as const).filter((target) => (
+          level.candidate.status === "compiled"
+          && level.candidate.certifications[target].status === "certified"
+        )).length
+      : 0)
+  ), 0);
+  if (
+    rawReplayCount !== expectedRawReplayCount
+    || portableReplayCount !== expectedPortableReplayCount
+  ) throw new Error("browser replay inputs do not match the exact certified execution matrix");
   return {
     artifact: "ccsolver-p7b-cclp1-foundation-browser-replay-inputs",
     version: 1,
@@ -552,7 +655,7 @@ export async function buildCclp1FoundationBrowserReplayInputs(
     levels,
     summary: {
       levelCount: 12,
-      rawReplayCount: 24,
+      rawReplayCount,
       portableReplayCount,
       replayCount: rawReplayCount + portableReplayCount,
       parityMatchedCount: rawReplayCount + portableReplayCount,

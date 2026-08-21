@@ -264,6 +264,8 @@ test("routes P7 shared authorities and engine semantics through all training pac
     "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingLevelProcessor.ts",
     "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCore.ts",
     "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingNodeEntrypoint.ts",
+    "web/src/ccsolver-runtime/compose/p7b-cohort/buildCclp1FoundationCohort.ts",
+    "web/src/ccsolver-runtime/compose/p7b-cohort/cclp1FoundationCohort.ts",
     "web/src/ccsolver-runtime/compose/p7b-training-review/p7TrainingExecutionIndex.ts",
     "web/vite.p7-training-engine-runner.config.ts",
   ]) {

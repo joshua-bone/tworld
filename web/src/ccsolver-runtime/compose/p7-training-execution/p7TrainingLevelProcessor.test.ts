@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { WebCryptoSha256 } from "@tworld/ccsolver/adapters/web-crypto";
 import { describe, expect, it } from "vitest";
 import { CCLP1_FOUNDATION_LIMITS } from "../p7b-cohort/cclp1FoundationCohort";
+import { P7B_MAX_SEGMENTS_PER_VARIANT } from "../p7b-training/trainingReplayContract";
 import { loadCheckedTrainingCorpusInventory } from "../p7c-p7e-inventory/loadCheckedTrainingCorpusInventory";
 import type { P7TrainingLevelInventory } from "../p7c-p7e-inventory/trainingCorpusInventory";
 import type { P7GeneratedEvidenceSidecarV1 } from "./p7GeneratedEvidenceSidecar";
@@ -151,18 +152,49 @@ describe("production P7 training row processor", () => {
     )).resolves.toBeDefined();
   }, 120_000);
 
-  it("keeps the production level-result canary within the published shard contract", async () => {
+  it("bounds dense production routes as viewable chapters within the shard contract", async () => {
     const inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot);
-    const source = row(inventory, "cclp1/015");
-    const output = await processP7TrainingLevel(source, sha256);
-    await expect(validateAndPersistP7TrainingLevelProcessOutput(
-      source,
-      output,
-      sha256,
-      repositoryRoot,
-      async () => undefined,
-    )).resolves.toBeDefined();
-  }, 120_000);
+    expect(P7B_MAX_SEGMENTS_PER_VARIANT).toBe(24);
+    for (const occurrenceId of ["cclp1/015", "cclp1/124"] as const) {
+      const source = row(inventory, occurrenceId);
+      const output = await processP7TrainingLevel(source, sha256);
+      let persisted: P7GeneratedEvidenceSidecarV1 | null = null;
+      await expect(validateAndPersistP7TrainingLevelProcessOutput(
+        source,
+        output,
+        sha256,
+        repositoryRoot,
+        async ({ sidecar }) => { persisted = structuredClone(sidecar); },
+      )).resolves.toBeDefined();
+      for (const variant of output.trainingReplayLevel.variants) {
+        expect(variant.segments.length).toBeLessThanOrEqual(P7B_MAX_SEGMENTS_PER_VARIANT);
+        for (const certification of [variant.certifications.ms, variant.certifications.lynx]) {
+          expect(certification.segmentSpans.length)
+            .toBeLessThanOrEqual(P7B_MAX_SEGMENTS_PER_VARIANT);
+        }
+      }
+      expect(persisted).not.toBeNull();
+      expect(persisted!.index.entries.length).toBeLessThanOrEqual(256);
+      const boundaryEvidenceCount = output.generatedEvidence.blobs.filter((blob) => {
+        if (blob.mediaType !== "application/json") return false;
+        const value = JSON.parse(new TextDecoder().decode(blob.bytes)) as { artifact?: unknown };
+        return value.artifact === "ccsolver-p7-segment-boundary-evidence";
+      }).length;
+      expect(boundaryEvidenceCount).toBe(occurrenceId === "cclp1/015" ? 69 : 46);
+      if (process.env.TWORLD_P7_TRAINING_METRICS === "1") {
+        process.stderr.write(`${JSON.stringify({
+          occurrenceId,
+          evidenceBlobCount: persisted!.index.entries.length,
+          evidenceByteLength: persisted!.index.totals.byteLength,
+          boundaryEvidenceCount,
+          variantSegments: output.trainingReplayLevel.variants.map((variant) => ({
+            variantId: variant.variantId,
+            segmentCount: variant.segments.length,
+          })),
+        })}\n`);
+      }
+    }
+  }, 180_000);
 
   it("pins the bounded voting-alias, edited-relative, and true-missing acceptance rows", async () => {
     const inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot);
@@ -206,6 +238,33 @@ describe("production P7 training row processor", () => {
     )).filter(({ execution }) => execution.status === "native").every(({ status }) => (
       status === "failed"
     ))).toBe(true);
+    const editedFailedCells = edited.trainingReplayLevel.variants.flatMap((variant) => (
+      (["ms", "lynx"] as const).map((target) => ({
+        variantId: variant.variantId,
+        target,
+        certification: variant.certifications[target],
+      }))
+    )).filter(({ certification }) => certification.status === "failed");
+    expect(editedFailedCells.length).toBeGreaterThan(0);
+    const editedFailureExecutionStatuses = editedFailedCells.map(({ certification }) => (
+      certification.execution.status
+    ));
+    expect(editedFailureExecutionStatuses).toContain("native");
+    expect(editedFailureExecutionStatuses.every((status) => (
+      status === "native" || status === "compiled"
+    ))).toBe(true);
+    for (const { variantId, target, certification } of editedFailedCells) {
+      expect(certification.evidence).not.toBeNull();
+      expect(certification.detail).not.toBe("");
+      expect(certification.execution).toMatchObject({
+        browserReplayContent: null,
+        browserReplayParityReceipt: null,
+        browserReplayTransport: null,
+      });
+      expect(edited.browserReplays.some((asset) => (
+        asset.variantId === variantId && asset.target === target
+      ))).toBe(false);
+    }
     expect(missing.status).toBe("missing-donor");
     expect(missing.trainingReplayLevel.rawDonors).toEqual([]);
     expect(missing.trainingReplayLevel.variants).toEqual([]);
@@ -305,13 +364,15 @@ describe("production P7 training row processor", () => {
         variant.lineage.rawDonorId = donor.donorId;
       }
     });
+    let invalidPersisted = false;
     await expect(validateAndPersistP7TrainingLevelProcessOutput(
       source,
       forgedDonor,
       sha256,
       repositoryRoot,
-      async () => undefined,
+      async () => { invalidPersisted = true; },
     )).rejects.toThrow("donor set drifted");
+    expect(invalidPersisted).toBe(false);
 
     const forgedBoundary = structuredClone(output) as unknown as {
       trainingReplayLevel: {
@@ -349,6 +410,7 @@ describe("production P7 training row processor", () => {
       sha256,
     });
     await evidence.importBundle(forgedBoundary.generatedEvidence);
+    const originalParity = asset.parity.evidence;
     const substitutedBoundary = await evidence.referenceCanonical({
       artifact: "ccsolver-p7-forged-boundary",
       version: 1,
@@ -360,13 +422,256 @@ describe("production P7 training row processor", () => {
     const substitutedParity = await evidence.referenceCanonical(asset.parity.receipt);
     asset.parity.evidence = substitutedParity;
     certification.execution.browserReplayParityReceipt = substitutedParity;
-    forgedBoundary.generatedEvidence = evidence.bundle();
+    const boundaryBlobs = evidence.bundle().blobs.filter(({ content }) => (
+      content.digest !== originalParity.digest
+      || content.byteLength !== originalParity.byteLength
+    ));
+    forgedBoundary.generatedEvidence = {
+      ...forgedBoundary.generatedEvidence,
+      totals: {
+        blobCount: boundaryBlobs.length,
+        byteLength: boundaryBlobs.reduce((sum, blob) => sum + blob.bytes.byteLength, 0),
+      },
+      blobs: boundaryBlobs,
+    };
     await expect(validateAndPersistP7TrainingLevelProcessOutput(
       source,
       forgedBoundary,
       sha256,
       repositoryRoot,
-      async () => undefined,
+      async () => { invalidPersisted = true; },
     )).rejects.toThrow("certification evidence drifted");
+    expect(invalidPersisted).toBe(false);
+
+    const forgedTranscript = structuredClone(output) as unknown as {
+      trainingReplayLevel: {
+        variants: Array<{
+          variantId: string;
+          certifications: Record<"ms" | "lynx", {
+            status: string;
+            execution: { browserReplayParityReceipt: { digest: `sha256:${string}`; byteLength: number } };
+          }>;
+        }>;
+      };
+      browserReplays: Array<{
+        variantId: string;
+        target: "ms" | "lynx";
+        parity: {
+          receipt: {
+            observed: {
+              segmentSelection: {
+                targetTranscript: { digest: `sha256:${string}`; byteLength: number };
+              };
+            };
+          };
+          evidence: { digest: `sha256:${string}`; byteLength: number };
+        };
+      }>;
+      generatedEvidence: typeof output.generatedEvidence;
+    } & typeof output;
+    const transcriptVariant = forgedTranscript.trainingReplayLevel.variants.find((entry) => (
+      entry.certifications.ms.status === "certified"
+    ))!;
+    const transcriptCertification = transcriptVariant.certifications.ms;
+    const transcriptAsset = forgedTranscript.browserReplays.find((entry) => (
+      entry.variantId === transcriptVariant.variantId && entry.target === "ms"
+    ))!;
+    const transcriptEvidence = new P7GeneratedEvidenceStore({
+      scopeId: forgedTranscript.generatedEvidence.scopeId,
+      sha256,
+    });
+    await transcriptEvidence.importBundle(forgedTranscript.generatedEvidence);
+    const originalTranscriptParity = transcriptAsset.parity.evidence;
+    transcriptAsset.parity.receipt.observed.segmentSelection.targetTranscript.digest =
+      `sha256:${"f".repeat(64)}`;
+    const substitutedTranscriptParity = await transcriptEvidence.referenceCanonical(
+      transcriptAsset.parity.receipt,
+    );
+    transcriptAsset.parity.evidence = substitutedTranscriptParity;
+    transcriptCertification.execution.browserReplayParityReceipt = substitutedTranscriptParity;
+    const transcriptBlobs = transcriptEvidence.bundle().blobs.filter(({ content }) => (
+      content.digest !== originalTranscriptParity.digest
+      || content.byteLength !== originalTranscriptParity.byteLength
+    ));
+    forgedTranscript.generatedEvidence = {
+      ...forgedTranscript.generatedEvidence,
+      totals: {
+        blobCount: transcriptBlobs.length,
+        byteLength: transcriptBlobs.reduce((sum, blob) => sum + blob.bytes.byteLength, 0),
+      },
+      blobs: transcriptBlobs,
+    };
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      forgedTranscript,
+      sha256,
+      repositoryRoot,
+      async () => { invalidPersisted = true; },
+    )).rejects.toThrow("expected and observed results drifted");
+    expect(invalidPersisted).toBe(false);
+
+    const nestedRow = row(inventory, "cclp1/024");
+    const nestedOutput = await processP7TrainingLevel(nestedRow, sha256);
+    const missingNested = structuredClone(nestedOutput) as typeof nestedOutput;
+    const alignedReceipt = missingNested.generatedEvidence.blobs.find((blob) => {
+      if (blob.mediaType !== "application/json") return false;
+      const value = JSON.parse(new TextDecoder().decode(blob.bytes)) as { artifact?: unknown };
+      return value.artifact === "ccsolver-p7b-portable-aligned-target-certification";
+    })!;
+    const alignedValue = JSON.parse(new TextDecoder().decode(alignedReceipt.bytes)) as {
+      sourceCertificationEvidence: { digest: `sha256:${string}`; byteLength: number };
+    };
+    const missingKey = `${alignedValue.sourceCertificationEvidence.digest}/${
+      alignedValue.sourceCertificationEvidence.byteLength
+    }`;
+    const retainedBlobs = missingNested.generatedEvidence.blobs.filter(({ content }) => (
+      `${content.digest}/${content.byteLength}` !== missingKey
+    ));
+    (missingNested as unknown as {
+      generatedEvidence: typeof nestedOutput.generatedEvidence;
+    }).generatedEvidence = {
+      ...missingNested.generatedEvidence,
+      totals: {
+        blobCount: retainedBlobs.length,
+        byteLength: retainedBlobs.reduce((sum, blob) => sum + blob.bytes.byteLength, 0),
+      },
+      blobs: retainedBlobs,
+    };
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      nestedRow,
+      missingNested,
+      sha256,
+      repositoryRoot,
+      async () => { invalidPersisted = true; },
+    )).rejects.toThrow("recursive reference is unresolved");
+    expect(invalidPersisted).toBe(false);
+
+    const substitutedNested = structuredClone(nestedOutput) as typeof nestedOutput;
+    const substitutedCertification = substitutedNested.trainingReplayLevel.variants
+      .flatMap(({ certifications }) => [certifications.ms, certifications.lynx])
+      .find(({ evidence: content }) => (
+        content !== null
+        && content.digest === alignedReceipt.content.digest
+        && content.byteLength === alignedReceipt.content.byteLength
+      ))!;
+    const substitutedNestedEvidence = new P7GeneratedEvidenceStore({
+      scopeId: substitutedNested.generatedEvidence.scopeId,
+      sha256,
+    });
+    await substitutedNestedEvidence.importBundle(substitutedNested.generatedEvidence);
+    const authoritySubstitutedValue = structuredClone(alignedValue);
+    authoritySubstitutedValue.sourceCertificationEvidence =
+      nestedRow.targets[0].donorCandidates[0]!.replay.content;
+    const authoritySubstitutedReceipt = await substitutedNestedEvidence.referenceCanonical(
+      authoritySubstitutedValue,
+    );
+    (substitutedCertification as unknown as {
+      evidence: typeof authoritySubstitutedReceipt;
+    }).evidence = authoritySubstitutedReceipt;
+    const authoritySubstitutedBlobs = substitutedNestedEvidence.bundle().blobs.filter(({ content }) => (
+      (
+        content.digest !== alignedReceipt.content.digest
+        || content.byteLength !== alignedReceipt.content.byteLength
+      )
+      && (
+        content.digest !== alignedValue.sourceCertificationEvidence.digest
+        || content.byteLength !== alignedValue.sourceCertificationEvidence.byteLength
+      )
+    ));
+    (substitutedNested as unknown as {
+      generatedEvidence: typeof nestedOutput.generatedEvidence;
+    }).generatedEvidence = {
+      ...substitutedNested.generatedEvidence,
+      totals: {
+        blobCount: authoritySubstitutedBlobs.length,
+        byteLength: authoritySubstitutedBlobs.reduce((sum, blob) => sum + blob.bytes.byteLength, 0),
+      },
+      blobs: authoritySubstitutedBlobs,
+    };
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      nestedRow,
+      substitutedNested,
+      sha256,
+      repositoryRoot,
+      async () => { invalidPersisted = true; },
+    )).rejects.toThrow("aligned source certification");
+    expect(invalidPersisted).toBe(false);
+
+    const wrongLength = structuredClone(output) as typeof output;
+    const wrongLengthPortable = wrongLength.trainingReplayLevel.variants.find(({ kind }) => (
+      kind === "portable"
+    ))!;
+    const originalLineageEvidence = wrongLengthPortable.lineage.evidence!;
+    const transformEvidence = wrongLengthPortable.transforms[0]!.evidence!;
+    (wrongLengthPortable.lineage as unknown as {
+      evidence: { digest: `sha256:${string}`; byteLength: number };
+    }).evidence = {
+      digest: transformEvidence.digest,
+      byteLength: transformEvidence.byteLength + 1,
+    };
+    const wrongLengthBlobs = wrongLength.generatedEvidence.blobs.filter(({ content }) => (
+      content.digest !== originalLineageEvidence.digest
+      || content.byteLength !== originalLineageEvidence.byteLength
+    ));
+    (wrongLength as unknown as {
+      generatedEvidence: typeof output.generatedEvidence;
+    }).generatedEvidence = {
+      ...wrongLength.generatedEvidence,
+      totals: {
+        blobCount: wrongLengthBlobs.length,
+        byteLength: wrongLengthBlobs.reduce((sum, blob) => sum + blob.bytes.byteLength, 0),
+      },
+      blobs: wrongLengthBlobs,
+    };
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      wrongLength,
+      sha256,
+      repositoryRoot,
+      async () => { invalidPersisted = true; },
+    )).rejects.toThrow("not an authority terminal");
+    expect(invalidPersisted).toBe(false);
+
+    const substitutedTransform = structuredClone(output);
+    const substitutedPortable = substitutedTransform.trainingReplayLevel.variants.find(({ kind }) => (
+      kind === "portable"
+    ))!;
+    const originalTransformEvidence = substitutedPortable.transforms[0]!.evidence!;
+    const lineageEvidence = substitutedPortable.lineage.evidence!;
+    for (const transform of substitutedPortable.transforms) {
+      (transform as unknown as { evidence: typeof lineageEvidence }).evidence = lineageEvidence;
+    }
+    const withoutTransformLedger = substitutedTransform.generatedEvidence.blobs.filter(({ content }) => (
+      content.digest !== originalTransformEvidence.digest
+      || content.byteLength !== originalTransformEvidence.byteLength
+    ));
+    (substitutedTransform as unknown as {
+      generatedEvidence: typeof output.generatedEvidence;
+    }).generatedEvidence = {
+      ...substitutedTransform.generatedEvidence,
+      totals: {
+        blobCount: withoutTransformLedger.length,
+        byteLength: withoutTransformLedger.reduce((sum, blob) => sum + blob.bytes.byteLength, 0),
+      },
+      blobs: withoutTransformLedger,
+    };
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      substitutedTransform,
+      sha256,
+      repositoryRoot,
+      async () => { invalidPersisted = true; },
+    )).rejects.toThrow("transform ledger");
+    expect(invalidPersisted).toBe(false);
+
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      output,
+      sha256,
+      repositoryRoot,
+      async () => { invalidPersisted = true; },
+      { maximumLevelResultBytes: 1 },
+    )).rejects.toThrow("canonical level result is");
+    expect(invalidPersisted).toBe(false);
   }, 30_000);
 });

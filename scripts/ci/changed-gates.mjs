@@ -294,6 +294,7 @@ function isP7EngineSemanticPath(path) {
   if (path === "web/vite.p7-training-engine-runner.config.ts") return true;
   if (
     isWithin(path, "web/src/ccsolver-runtime/compose/p7-training-execution")
+    || isWithin(path, "web/src/ccsolver-runtime/compose/p7b-cohort")
     || isWithin(path, "web/src/ccsolver-runtime/compose/p7b-portable")
     || isWithin(path, "web/src/ccsolver-runtime/compose/p7b-training")
     || isWithin(path, "web/src/ccsolver-runtime/compose/p7c-p7e-inventory")

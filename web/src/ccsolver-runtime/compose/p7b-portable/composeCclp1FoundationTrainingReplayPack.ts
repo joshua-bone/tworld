@@ -26,7 +26,10 @@ import type {
   P7bPortableTransformKind,
 } from "./buildCclp1FoundationPortableCohort";
 import type { P7GeneratedEvidenceBundleV1 } from "../p7-training-execution/p7GeneratedEvidenceStore";
-import type { P7TrainingBrowserReplayInputV1 } from "../p7-training-execution/p7TrainingBrowserReplay";
+import {
+  projectP7PortableHeldScheduleChanges,
+  type P7TrainingBrowserReplayInputV1,
+} from "../p7-training-execution/p7TrainingBrowserReplay";
 import type {
   P7bCclp1FoundationBrowserReplayBundle,
   P7bCclp1FoundationBrowserReplayLevel,
@@ -76,15 +79,20 @@ function browserReplayIndex(
   const expected = new Set<string>();
   for (const level of cohort.levels) {
     for (const target of level.source.targets) {
-      expected.add(browserKey(
-        level.occurrenceId,
-        target.target === "ms" ? "raw-ms" : "raw-lynx",
-        target.target,
-      ));
+      if (target.execution.terminal.kind === "won") {
+        expected.add(browserKey(
+          level.occurrenceId,
+          target.target === "ms" ? "raw-ms" : "raw-lynx",
+          target.target,
+        ));
+      }
     }
     if (level.candidate.status === "compiled") {
-      expected.add(browserKey(level.occurrenceId, "portable", "ms"));
-      expected.add(browserKey(level.occurrenceId, "portable", "lynx"));
+      for (const target of ["ms", "lynx"] as const) {
+        if (level.candidate.certifications[target].status === "certified") {
+          expected.add(browserKey(level.occurrenceId, "portable", target));
+        }
+      }
     }
   }
   const result = new Map<string, P7TrainingBrowserReplayInputV1>();
@@ -264,13 +272,14 @@ function unavailableRawCertification(
       compilationReceipt: null,
       detail: "raw donor execution is available only on its declared native target",
     },
+    segmentSelection: null,
     segmentSpans: [],
   };
 }
 
 function nativeRawCertification(
   target: ProcessedCclp1FoundationTarget,
-  browserReplay: P7TrainingBrowserReplayInputV1,
+  browserReplay: P7TrainingBrowserReplayInputV1 | null,
 ): P7bReplayCertificationV1 {
   const outcome = target.execution.terminal.kind === "won"
     ? "won"
@@ -282,6 +291,9 @@ function nativeRawCertification(
       ? "timeout"
       : "loss";
   const certified = outcome === "won";
+  if (certified !== (browserReplay !== null)) {
+    throw new Error("native browser replay publication drifted from certification");
+  }
   return {
     status: certified ? "certified" : "failed",
     outcome,
@@ -303,13 +315,14 @@ function nativeRawCertification(
       nativeBoundaryClock: "exclusive-advance-count-v1",
       nativeTickRateHz: 20,
       replayContent: target.rawReplayContent,
-      browserReplayContent: browserReplay.content,
-      browserReplayParityReceipt: browserReplay.parity.evidence,
-      browserReplayTransport: "native-replay-pulses",
+      browserReplayContent: browserReplay?.content ?? null,
+      browserReplayParityReceipt: browserReplay?.parity.evidence ?? null,
+      browserReplayTransport: browserReplay === null ? null : "native-replay-pulses",
       compilerRevision: null,
       compilationReceipt: null,
       detail: "exact immutable TWS entry replayed without re-encoding",
     },
+    segmentSelection: target.execution.segmentSelection,
     segmentSpans: certified ? rawTargetSpans(target.segments) : [],
   };
 }
@@ -321,24 +334,18 @@ function rawVariant(
 ): P7bTrainingReplayVariantV1 {
   const otherTarget = target.target === "ms" ? "lynx" : "ms";
   const variantId = target.target === "ms" ? "raw-ms" : "raw-lynx";
-  const browserReplay = checkedBrowserReplay({
-    index: browserIndex,
-    occurrenceId,
-    variantId,
-    target: target.target,
-    sourceReplayContent: target.rawReplayContent,
-    terminalNativeTick: target.execution.tickCount,
-    outcome: target.execution.terminal.kind === "won"
-      ? "won"
-      : target.execution.terminal.kind === "timed-out"
-        || (
-          target.execution.terminal.kind === "lost"
-          && target.execution.terminal.cause === "cc1:p7b-replay-budget"
-        )
-        ? "timeout"
-        : "loss",
-    segments: target.execution.terminal.kind === "won" ? target.segments : [],
-  });
+  const browserReplay = target.execution.terminal.kind === "won"
+    ? checkedBrowserReplay({
+        index: browserIndex,
+        occurrenceId,
+        variantId,
+        target: target.target,
+        sourceReplayContent: target.rawReplayContent,
+        terminalNativeTick: target.execution.tickCount,
+        outcome: "won",
+        segments: target.segments,
+      })
+    : null;
   const native = nativeRawCertification(target, browserReplay);
   const unavailable = unavailableRawCertification(target.target, otherTarget);
   return {
@@ -426,19 +433,30 @@ function portableCertification(
   if (certification.outcome === "not-run") {
     throw new Error("compiled portable target lacks an observed outcome");
   }
-  const browserReplay = checkedBrowserReplay({
-    index: browserIndex,
-    occurrenceId,
-    variantId: "portable",
-    target,
-    sourceReplayContent: certification.execution.replayContent,
-    terminalNativeTick: certification.terminalNativeTick,
-    outcome: certification.outcome,
-    segments: certification.segments,
-  });
-  if (browserReplay.replay.transport !== "manual-held-schedule") {
+  const browserReplay = certified
+    ? checkedBrowserReplay({
+        index: browserIndex,
+        occurrenceId,
+        variantId: "portable",
+        target,
+        sourceReplayContent: certification.execution.replayContent,
+        terminalNativeTick: certification.terminalNativeTick,
+        outcome: "won",
+        segments: certification.segments,
+      })
+    : null;
+  if (browserReplay !== null && browserReplay.replay.transport !== "manual-held-schedule") {
     throw new Error("portable browser replay transport is invalid");
   }
+  const executedDecisionCount = projectP7PortableHeldScheduleChanges(
+    candidate.trace,
+    certification.terminalNativeTick,
+  ).changes.length;
+  if (
+    browserReplay !== null
+    && browserReplay.replay.transport === "manual-held-schedule"
+    && browserReplay.replay.changes.length !== executedDecisionCount
+  ) throw new Error("portable browser replay executed prefix drifted from compilation");
   return {
     status: certification.status,
     outcome: certification.outcome,
@@ -454,17 +472,18 @@ function portableCertification(
         cadenceHz: 10,
         profileContent: candidate.profileContent,
       },
-      executedDecisionCount: browserReplay.replay.changes.length,
+      executedDecisionCount,
       nativeBoundaryClock: "exclusive-advance-count-v1",
       nativeTickRateHz: 20,
       replayContent: certification.execution.replayContent,
-      browserReplayContent: browserReplay.content,
-      browserReplayParityReceipt: browserReplay.parity.evidence,
-      browserReplayTransport: "manual-held-schedule",
+      browserReplayContent: browserReplay?.content ?? null,
+      browserReplayParityReceipt: browserReplay?.parity.evidence ?? null,
+      browserReplayTransport: browserReplay === null ? null : "manual-held-schedule",
       compilerRevision: certification.execution.compilerRevision,
       compilationReceipt: certification.execution.compilationReceipt,
       detail: "10 Hz held-packet trace compiled to two real target-native ticks per logic step",
     },
+    segmentSelection: certification.segmentSelection,
     segmentSpans: certified
       ? certification.segments.map(({ segmentId, index, start, end }) => ({
           segmentId,
@@ -485,6 +504,9 @@ function portableVariant(
   candidate: Extract<P7bPortableCandidate, { readonly status: "compiled" }>,
   browserIndex: BrowserReplayIndex,
 ): P7bTrainingReplayVariantV1 {
+  if (level.lineageEvidence === null) {
+    throw new Error("compiled portable candidate lacks its lineage evidence");
+  }
   return {
     variantId: "portable",
     kind: "portable",
@@ -627,15 +649,21 @@ export function composeCclp1FoundationTrainingReplayLevel(
     && !sameReference(browserLevel.portableDecisionTrace!.content, level.candidate.traceContent)
   ) throw new Error("single-level training replay composition lost its portable trace");
   const expected = new Set([
-    ...level.source.targets.map((target) => browserKey(
-      level.occurrenceId,
-      target.target === "ms" ? "raw-ms" : "raw-lynx",
-      target.target,
-    )),
-    ...(level.candidate.status === "compiled" ? [
-      browserKey(level.occurrenceId, "portable", "ms"),
-      browserKey(level.occurrenceId, "portable", "lynx"),
-    ] : []),
+    ...level.source.targets.flatMap((target) => target.execution.terminal.kind === "won"
+      ? [browserKey(
+          level.occurrenceId,
+          target.target === "ms" ? "raw-ms" : "raw-lynx",
+          target.target,
+        )]
+      : []),
+    ...(level.candidate.status === "compiled"
+      ? (["ms", "lynx"] as const).flatMap((target) => (
+          level.candidate.status === "compiled"
+          && level.candidate.certifications[target].status === "certified"
+            ? [browserKey(level.occurrenceId, "portable", target)]
+            : []
+        ))
+      : []),
   ]);
   const index = new Map<string, P7TrainingBrowserReplayInputV1>();
   for (const replay of browserLevel.browserReplays) {

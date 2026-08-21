@@ -666,6 +666,29 @@ function sameReference(left: BlobReferenceV1, right: BlobReferenceV1): boolean {
   return left.digest === right.digest && left.byteLength === right.byteLength;
 }
 
+function assertExactCertifiedBrowserReplayCells(
+  level: P7bTrainingReplayLevelV1,
+  browserReplays: P7TrainingExecutionProcessedLevelInput["browserReplays"],
+): void {
+  const expected = new Set(level.variants.flatMap((variant) => (
+    (["ms", "lynx"] as const).flatMap((target) => (
+      variant.certifications[target].status === "certified"
+        ? [`${variant.variantId}:${target}`]
+        : []
+    ))
+  )));
+  const actual = new Set(browserReplays.map((asset) => `${asset.variantId}:${asset.target}`));
+  if (
+    actual.size !== browserReplays.length
+    || actual.size !== expected.size
+    || [...expected].some((key) => !actual.has(key))
+  ) {
+    throw new Error(
+      `P7 reduced semantic level ${level.source.levelNumber} browser replay set does not match the exact certified execution matrix`,
+    );
+  }
+}
+
 function levelLabel(levelNumber: number): string {
   return String(levelNumber).padStart(3, "0");
 }
@@ -737,6 +760,7 @@ export async function buildP7TrainingExecutionIndexFromReducedSemanticInput(
         ? null
         : copyP7TrainingExecutionBrowserTargets(processed.browserTargets, levelNumber),
     });
+    assertExactCertifiedBrowserReplayCells(level, processed?.browserReplays ?? []);
     if (processed === undefined) continue;
     const rawById = new Map(processed.rawDonorBytes.map((entry) => [entry.donorId, entry]));
     if (rawById.size !== processed.rawDonorBytes.length || rawById.size !== level.rawDonors.length) {

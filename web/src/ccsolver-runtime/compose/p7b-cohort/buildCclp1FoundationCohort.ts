@@ -25,8 +25,15 @@ import {
 } from "@undo-runtime/impl/sessionDigest";
 import {
   P7GeneratedEvidenceStore,
+  type P7GeneratedCanonicalDigestV1,
   type P7GeneratedEvidenceBundleV1,
 } from "../p7-training-execution/p7GeneratedEvidenceStore";
+import {
+  P7B_MAX_SEGMENTS_PER_VARIANT,
+  P7B_SEGMENT_SELECTION_POLICY_REVISION,
+  selectP7bSegmentCandidateOrdinals,
+  type P7bSegmentSelectionV1,
+} from "../p7b-training/trainingReplayContract";
 import { CCLP1_FOUNDATION_LIMITS } from "./cclp1FoundationCohort";
 import type {
   LoadedCclp1FoundationCohort,
@@ -74,6 +81,8 @@ export interface ProcessedCclp1FoundationTarget extends LoadedCclp1FoundationTar
       readonly heavyVerification: "reexecute-authoritative-engine";
     };
     readonly eventEvidence: BlobReferenceV1;
+    readonly fullEventStream: P7GeneratedCanonicalDigestV1;
+    readonly segmentSelection: P7bSegmentSelectionV1;
     readonly initialCheckpoint: BlobReferenceV1;
     readonly finalCheckpoint: BlobReferenceV1;
   };
@@ -128,9 +137,24 @@ export interface ProcessedCclp1FoundationCohort {
 }
 
 interface PendingBoundary {
+  readonly segmentId: string;
   readonly tick: number;
   readonly decision: number;
   readonly checkpoint: BlobReferenceV1;
+  readonly anchor: ProcessedCclp1FoundationSegment["anchor"];
+  readonly semanticKey: string;
+}
+
+interface PendingBoundaryCandidate {
+  readonly candidateOrdinal: number;
+  readonly segmentId: string;
+  readonly tick: number;
+  readonly decision: number;
+  readonly checkpoint: BlobReferenceV1 | null;
+  readonly evidence: {
+    readonly coincidentEventCount: number;
+    readonly anchorEvent: FoundationNativeCausalEvent;
+  } | null;
   readonly anchor: ProcessedCclp1FoundationSegment["anchor"];
   readonly semanticKey: string;
 }
@@ -246,7 +270,6 @@ function buildSegments(
   boundaries: readonly PendingBoundary[],
 ): ProcessedCclp1FoundationSegment[] {
   const segments: ProcessedCclp1FoundationSegment[] = [];
-  const occurrenceBySemanticKey = new Map<string, number>();
   let start: Cclp1FoundationSegmentBoundary = {
     tick: 0,
     decision: 0,
@@ -260,10 +283,8 @@ function buildSegments(
       decision: boundary.decision,
       checkpoint: boundary.checkpoint,
     };
-    const occurrence = occurrenceBySemanticKey.get(boundary.semanticKey) ?? 0;
-    occurrenceBySemanticKey.set(boundary.semanticKey, occurrence + 1);
     segments.push({
-      segmentId: `${slug(boundary.semanticKey)}-${String(occurrence + 1).padStart(2, "0")}`,
+      segmentId: boundary.segmentId,
       index,
       label: boundary.anchor.label,
       start,
@@ -273,6 +294,20 @@ function buildSegments(
     start = end;
   }
   return segments;
+}
+
+/**
+ * Coalesces a dense causal journal into bounded, chronological route chapters.
+ * Each retained boundary is the final semantic anchor in an equal-sized slice,
+ * so the whole route remains covered and the terminal boundary is retained.
+ */
+function viewableBoundaryCandidates(
+  candidates: readonly PendingBoundaryCandidate[],
+): readonly PendingBoundaryCandidate[] {
+  return selectP7bSegmentCandidateOrdinals(
+    candidates.length,
+    "viewable-route-chapters",
+  ).map((ordinal) => candidates[ordinal]!);
 }
 
 export interface SegmentFoundationNativeEventsInput {
@@ -285,7 +320,14 @@ export interface SegmentFoundationNativeEventsInput {
   readonly terminalNativeTick: number;
   readonly terminalDecisionCount: number;
   readonly decisionCountAtTick: (exclusiveNativeTick: number) => number;
+  /** True only when this execution won and therefore has viewable chapters. */
+  readonly retainViewableSegments: boolean;
   readonly evidence: P7GeneratedEvidenceStore;
+}
+
+export interface SegmentedFoundationNativeEvents {
+  readonly segments: readonly ProcessedCclp1FoundationSegment[];
+  readonly selection: P7bSegmentSelectionV1;
 }
 
 /**
@@ -295,7 +337,7 @@ export interface SegmentFoundationNativeEventsInput {
  */
 export async function segmentFoundationNativeEvents(
   input: SegmentFoundationNativeEventsInput,
-): Promise<ProcessedCclp1FoundationSegment[]> {
+): Promise<SegmentedFoundationNativeEvents> {
   const eventsByTick = new Map<number, FoundationNativeCausalEvent[]>();
   for (const event of input.events) {
     const tick = event.nativeTick + 1;
@@ -308,52 +350,133 @@ export async function segmentFoundationNativeEvents(
     events.push(event);
     eventsByTick.set(tick, events);
   }
-  const boundaries: PendingBoundary[] = [];
+  const unnumberedCandidates: Omit<
+    PendingBoundaryCandidate,
+    "candidateOrdinal" | "segmentId"
+  >[] = [];
   for (const [tick, events] of [...eventsByTick].sort(([left], [right]) => left - right)) {
     const selected = chooseAnchorEvent(events);
     if (selected === null) continue;
-    boundaries.push({
+    unnumberedCandidates.push({
       tick,
       decision: input.decisionCountAtTick(tick),
-      // This is compact boundary evidence, not a restorable checkpoint. Keep
-      // the authoritative anchor record and count; full journals are
-      // reproducible only through bounded engine re-execution.
-      checkpoint: await input.evidence.referenceCanonical({
-        artifact: "ccsolver-p7-segment-boundary-evidence",
-        version: 1,
-        occurrenceId: input.occurrenceId,
-        target: input.target,
-        nativeBoundaryTick: tick,
+      checkpoint: null,
+      evidence: {
         coincidentEventCount: events.length,
         anchorEvent: selected.event,
-      }),
+      },
       anchor: selected.anchor,
       semanticKey: semanticKeyForNativeEvent(selected.event),
     });
   }
-  const finalBoundary: PendingBoundary = {
-    tick: input.terminalNativeTick,
-    decision: input.terminalDecisionCount,
-    checkpoint: input.finalCheckpoint,
-    anchor: { kind: "exit", label: "Enter the exit" },
-    semanticKey: "complete-level:exit",
-  };
-  const existingFinal = boundaries.at(-1);
-  if (existingFinal?.tick === input.terminalNativeTick) {
-    boundaries[boundaries.length - 1] = finalBoundary;
-  } else {
-    boundaries.push(finalBoundary);
+  if (input.retainViewableSegments) {
+    const existingFinal = unnumberedCandidates.at(-1);
+    const finalBoundary: Omit<
+      PendingBoundaryCandidate,
+      "candidateOrdinal" | "segmentId"
+    > = {
+      tick: input.terminalNativeTick,
+      decision: input.terminalDecisionCount,
+      checkpoint: input.finalCheckpoint,
+      evidence: existingFinal?.tick === input.terminalNativeTick
+        ? existingFinal.evidence
+        : null,
+      anchor: { kind: "exit", label: "Enter the exit" },
+      semanticKey: "complete-level:exit",
+    };
+    if (existingFinal?.tick === input.terminalNativeTick) {
+      unnumberedCandidates[unnumberedCandidates.length - 1] = finalBoundary;
+    } else {
+      unnumberedCandidates.push(finalBoundary);
+    }
+  }
+  const candidates = unnumberedCandidates.map((candidate, candidateOrdinal) => ({
+    ...candidate,
+    candidateOrdinal,
+    // Preserve the ordinal in the complete pre-selection semantic stream so
+    // sampling never renumbers a retained anchor.
+    segmentId: `${slug(candidate.semanticKey)}-${String(candidateOrdinal + 1).padStart(2, "0")}`,
+  }));
+  const [targetTranscript, semanticTranscript] = await Promise.all([
+    input.evidence.digestCanonical({
+      artifact: "ccsolver-p7-target-anchor-transcript",
+      version: 1,
+      occurrenceId: input.occurrenceId,
+      target: input.target,
+      candidates: candidates.map((candidate) => ({
+        candidateOrdinal: candidate.candidateOrdinal,
+        segmentId: candidate.segmentId,
+        nativeBoundaryTick: candidate.tick,
+        decisionCount: candidate.decision,
+        coincidentEventCount: candidate.evidence?.coincidentEventCount ?? 0,
+        anchorEvent: candidate.evidence?.anchorEvent ?? null,
+      })),
+    }, CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes),
+    input.evidence.digestCanonical({
+      artifact: "ccsolver-p7-semantic-anchor-transcript",
+      version: 1,
+      anchors: candidates.map((candidate) => ({
+        candidateOrdinal: candidate.candidateOrdinal,
+        segmentId: candidate.segmentId,
+        semanticKey: candidate.semanticKey,
+        anchor: candidate.anchor,
+      })),
+    }, CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes),
+  ]);
+  const selectedCandidates = input.retainViewableSegments
+    ? viewableBoundaryCandidates(candidates)
+    : [];
+  const boundaries: PendingBoundary[] = [];
+  for (const candidate of selectedCandidates) {
+    const checkpoint = candidate.checkpoint ?? await input.evidence.referenceCanonical({
+      artifact: "ccsolver-p7-segment-boundary-evidence",
+      version: 1,
+      occurrenceId: input.occurrenceId,
+      target: input.target,
+      nativeBoundaryTick: candidate.tick,
+      // This is compact boundary evidence, not a restorable checkpoint. Keep
+      // only a retained authoritative anchor record; the complete journal is
+      // digest-bound and reproduced through bounded engine re-execution.
+      coincidentEventCount: candidate.evidence!.coincidentEventCount,
+      anchorEvent: candidate.evidence!.anchorEvent,
+    });
+    boundaries.push({
+      segmentId: candidate.segmentId,
+      tick: candidate.tick,
+      decision: candidate.decision,
+      checkpoint,
+      anchor: candidate.anchor,
+      semanticKey: candidate.semanticKey,
+    });
   }
   const segments = buildSegments(input.initialCheckpoint, boundaries);
-  if (
+  if (input.retainViewableSegments && (
     segments.length === 0
     || segments[0]!.start.tick !== 0
     || segments.at(-1)!.end.tick !== input.terminalNativeTick
     || segments.at(-1)!.end.decision !== input.terminalDecisionCount
-  ) {
+  )) {
     throw new Error(`${input.occurrenceId}/${input.target} segment coverage is incomplete`);
   }
-  return segments;
+  if (!input.retainViewableSegments && segments.length !== 0) {
+    throw new Error(`${input.occurrenceId}/${input.target} uncertified route retained segments`);
+  }
+  return {
+    segments,
+    selection: {
+      policyRevision: P7B_SEGMENT_SELECTION_POLICY_REVISION,
+      selectionMode: input.retainViewableSegments
+        ? "viewable-route-chapters"
+        : "unviewable",
+      candidateCount: candidates.length,
+      selectedCandidateOrdinals: selectedCandidates.map(({ candidateOrdinal }) => (
+        candidateOrdinal
+      )),
+      omittedCandidateCount: candidates.length - selectedCandidates.length,
+      targetTranscript,
+      semanticTranscript,
+    },
+  };
 }
 
 function residualsFor(target: LoadedCclp1FoundationTarget): Cclp1FoundationResidual[] {
@@ -581,7 +704,7 @@ async function processTarget(
   const allEvents = executed.events;
   const inputDecisionEvents = inputDecisionEventsFrom(allEvents);
   const finalCheckpoint = executed.finalCheckpoint;
-  const segments = await segmentFoundationNativeEvents({
+  const segmented = await segmentFoundationNativeEvents({
     occurrenceId: level.selection.occurrenceId,
     target: target.target,
     events: allEvents,
@@ -594,8 +717,10 @@ async function processTarget(
       target.expandedSolution.moves,
       tick,
     ),
+    retainViewableSegments: terminal.kind === "won",
     evidence,
   });
+  const { segments, selection: segmentSelection } = segmented;
   const [rawReplayContent, fullEventStream] = await Promise.all([
     referenceSourceBytes(target.rawReplayBytes, sha256),
     evidence.digestCanonical(
@@ -619,6 +744,7 @@ async function processTarget(
     advanceTickCount,
     eventCount: allEvents.length,
     fullEventStream,
+    segmentSelection,
     initialBoundaryEvidence: executed.initialCheckpoint,
     finalBoundaryEvidence: finalCheckpoint,
     segmentBoundaries: terminal.kind === "won"
@@ -649,6 +775,8 @@ async function processTarget(
       eventCount: allEvents.length,
       eventRetention,
       eventEvidence,
+      fullEventStream,
+      segmentSelection,
       initialCheckpoint: executed.initialCheckpoint,
       finalCheckpoint,
     },

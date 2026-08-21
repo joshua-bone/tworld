@@ -6,6 +6,7 @@ import {
   type CanonicalJsonValue,
 } from "@tworld/ccsolver/domain";
 import { describe, expect, it } from "vitest";
+import { buildP7bTrainingReplayLevel } from "../p7b-training/trainingReplayContract";
 import { P7_TRAINING_PROCESSOR_REVISION } from "../p7-training-execution/p7TrainingShardProtocol";
 import {
   buildP7TrainingPackProofIndex,
@@ -16,9 +17,11 @@ import {
   assertP7TrainingExecutionIndexIsStrictSubsetOfPackProof,
   assertP7TrainingExecutionPackContent,
   buildP7TrainingExecutionIndex,
+  buildP7TrainingExecutionIndexFromReducedSemanticInput,
   canonicalizeP7TrainingExecutionIndex,
   parseP7TrainingExecutionIndex,
   type P7TrainingExecutionIndexInput,
+  type P7TrainingReducedSemanticInput,
 } from "./p7TrainingExecutionIndex";
 
 const encoder = new TextEncoder();
@@ -140,6 +143,203 @@ async function fixture(randomSeed?: number): Promise<{
   };
 }
 
+async function failedBrowserCellFixture(): Promise<P7TrainingReducedSemanticInput> {
+  const rawReplayBytes = encoder.encode(canonicalizeJson({ replay: "failed-native" }));
+  const [rawReplayContent, levelContent, eligibilityEvidence, certificationEvidence, packContent]
+    = await Promise.all([
+      referenceSourceBytes(rawReplayBytes, sha256),
+      ref({ level: "failed-native" }),
+      ref({ evidence: "eligibility" }),
+      ref({ evidence: "failed-certification" }),
+      ref({ pack: "failed-native" }),
+    ]);
+  const transcript = {
+    algorithm: "sha256" as const,
+    canonicalization: "tworld-canonical-json-v1" as const,
+    digest: rawReplayContent.digest,
+    byteLength: rawReplayContent.byteLength,
+  };
+  const level = buildP7bTrainingReplayLevel({
+    artifact: "ccsolver-p7b-training-replay-level",
+    version: 1,
+    source: {
+      packId: "fixture-pack",
+      levelNumber: 1,
+      title: "Failed native replay",
+      normalizedGameplaySha256: "a".repeat(64),
+      levelContent,
+      eligibility: {
+        status: "eligible",
+        standardOnly: true,
+        policyRevision: "fixture-standard-only-v1",
+        evidence: eligibilityEvidence,
+      },
+    },
+    donorCoverage: {
+      ms: { status: "bound", rawDonorId: "official-ms", detail: "official donor" },
+      lynx: { status: "missing", rawDonorId: null, detail: "no donor" },
+    },
+    rawDonors: [{
+      donorId: "official-ms",
+      target: "ms",
+      origin: "official-pack",
+      sourcePackId: "fixture-pack",
+      sourceLevelNumber: 1,
+      sourceNormalizedGameplaySha256: "a".repeat(64),
+      sourceLevelContent: levelContent,
+      replayContent: rawReplayContent,
+      mapRelationship: "official-map",
+      mapComparisonEvidence: null,
+    }],
+    variants: [{
+      variantId: "raw-ms",
+      kind: "raw",
+      replayContent: rawReplayContent,
+      decisionCount: 1,
+      portableProfile: null,
+      lineage: {
+        kind: "raw-donor",
+        rawDonorId: "official-ms",
+        sourceVariantId: null,
+        evidence: null,
+      },
+      portability: "not-portable",
+      transforms: [],
+      segments: [],
+      certifications: {
+        ms: {
+          status: "failed",
+          outcome: "diverged",
+          evidence: certificationEvidence,
+          terminalNativeTick: 1,
+          detail: "native replay diverged",
+          segmentSelection: {
+            policyRevision: "semantic-route-chapters-max-24-v1",
+            selectionMode: "unviewable",
+            candidateCount: 0,
+            selectedCandidateOrdinals: [],
+            omittedCandidateCount: 0,
+            targetTranscript: transcript,
+            semanticTranscript: transcript,
+          },
+          execution: {
+            status: "native",
+            decisionProfile: {
+              profileId: "native-ms-tws-v1",
+              profileRevision: "fixture-native-ms-v1",
+              clockBasis: "native-tick",
+              cadenceHz: 20,
+              profileContent: null,
+            },
+            executedDecisionCount: 1,
+            nativeBoundaryClock: "exclusive-advance-count-v1",
+            nativeTickRateHz: 20,
+            replayContent: rawReplayContent,
+            browserReplayContent: null,
+            browserReplayParityReceipt: null,
+            browserReplayTransport: null,
+            compilerRevision: null,
+            compilationReceipt: null,
+            detail: "retained failed native execution",
+          },
+          segmentSpans: [],
+        },
+        lynx: {
+          status: "unavailable",
+          outcome: "unsupported",
+          evidence: null,
+          terminalNativeTick: null,
+          detail: "no Lynx donor",
+          segmentSelection: null,
+          execution: {
+            status: "unavailable",
+            decisionProfile: null,
+            executedDecisionCount: null,
+            nativeBoundaryClock: null,
+            nativeTickRateHz: null,
+            replayContent: null,
+            browserReplayContent: null,
+            browserReplayParityReceipt: null,
+            browserReplayTransport: null,
+            compilerRevision: null,
+            compilationReceipt: null,
+            detail: "no Lynx execution",
+          },
+          segmentSpans: [],
+        },
+      },
+    }],
+    processing: { status: "blocked", detail: "native replay did not certify" },
+    viewableVariantId: null,
+  });
+  const emptyEvidenceBundle = (scopeId: string) => ({
+    artifact: "ccsolver-p7-generated-evidence-bundle" as const,
+    version: 1 as const,
+    scopeId,
+    limits: {
+      maximumBlobCount: 20_000,
+      maximumBlobBytes: 16 * 1024 * 1024,
+      maximumTotalBytes: 512 * 1024 * 1024,
+    },
+    totals: { blobCount: 0, byteLength: 0 },
+    blobs: [],
+  });
+  return {
+    pack: { packId: "fixture-pack", title: "Fixture", expectedLevelCount: 1 },
+    inventory: [level],
+    processedLevels: [{
+      levelNumber: 1,
+      browserTargets: targets(1),
+      rawDonorBytes: [{ donorId: "official-ms", bytes: rawReplayBytes }],
+      browserReplays: [{
+        variantId: "raw-ms",
+        target: "ms",
+        replay: {
+          artifact: "ccsolver-p7b-browser-replay",
+          version: 1,
+          transport: "native-replay-pulses",
+          variantId: "raw-ms",
+          target: "ms",
+          sourceReplayContent: rawReplayContent,
+          nativeTickRateHz: 20,
+          terminalNativeTick: 1,
+          initialization: {
+            flags: 0,
+            randomSeed: 0,
+            randomSlideDirection: 1,
+            stepping: 0,
+            bestTimeTicks: 1,
+          },
+          decisions: [{
+            ordinal: 0,
+            nativeTick: 0,
+            encodedWhen: 0,
+            inputCode: 1,
+            modifierMask: 0,
+          }],
+        },
+      }],
+      variantPayloads: [],
+    }],
+    portableProfilePayload: null,
+    proof: {
+      packContent,
+      corpusRevision: "fixture-corpus-v1",
+      externalInputs: [],
+      derivedSources: [],
+      generatedEvidence: {
+        pack: emptyEvidenceBundle("fixture-pack/shared"),
+        levels: [{
+          occurrenceId: "fixture-001",
+          levelNumber: 1,
+          bundle: emptyEvidenceBundle("fixture-pack/001"),
+        }],
+      },
+    },
+    sha256,
+  };
+}
+
 describe("the graph-independent P7 training execution index", () => {
   it("canonicalizes one closed semantic authority and requires a strict full-proof superset", async () => {
     const value = await fixture();
@@ -182,5 +382,13 @@ describe("the graph-independent P7 training execution index", () => {
       levelNumber: 1,
       browserTargets: targets(1, 42),
     })).toThrow("browser targets drifted");
+  });
+
+  it("rejects a browser replay asset for a failed execution cell", async () => {
+    await expect(buildP7TrainingExecutionIndexFromReducedSemanticInput(
+      await failedBrowserCellFixture(),
+    )).rejects.toThrow(
+      "browser replay set does not match the exact certified execution matrix",
+    );
   });
 });

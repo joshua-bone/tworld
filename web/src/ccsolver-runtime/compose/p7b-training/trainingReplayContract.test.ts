@@ -6,6 +6,7 @@ import {
 } from "./portableReplayProfile";
 import {
   P7B_MAX_LEVEL_CONTRACT_BYTES,
+  P7B_MAX_SEGMENTS_PER_VARIANT,
   assertTrainingReplaySegmentV1,
   buildP7bTrainingPackSummary,
   buildP7bTrainingReplayLevel,
@@ -61,6 +62,28 @@ function spans(options: {
   }];
 }
 
+function segmentSelection(selected = true) {
+  return {
+    policyRevision: "semantic-route-chapters-max-24-v1",
+    selectionMode: selected ? "viewable-route-chapters" : "unviewable",
+    candidateCount: 2,
+    selectedCandidateOrdinals: selected ? [0, 1] : [],
+    omittedCandidateCount: selected ? 0 : 2,
+    targetTranscript: {
+      algorithm: "sha256",
+      canonicalization: "tworld-canonical-json-v1",
+      digest: digest("7"),
+      byteLength: 200,
+    },
+    semanticTranscript: {
+      algorithm: "sha256",
+      canonicalization: "tworld-canonical-json-v1",
+      digest: digest("8"),
+      byteLength: 120,
+    },
+  } as const;
+}
+
 function emptyExecution(
   status: "not-attempted" | "unavailable" = "unavailable",
 ) {
@@ -82,7 +105,11 @@ function emptyExecution(
   } as const;
 }
 
-function nativeExecution(target: "ms" | "lynx", replayCharacter: string) {
+function nativeExecution(
+  target: "ms" | "lynx",
+  replayCharacter: string,
+  browserPublished = true,
+) {
   return {
     status: "native",
     decisionProfile: {
@@ -96,16 +123,16 @@ function nativeExecution(target: "ms" | "lynx", replayCharacter: string) {
     nativeBoundaryClock: "exclusive-advance-count-v1",
     nativeTickRateHz: 20,
     replayContent: content(replayCharacter, 300),
-    browserReplayContent: content("f", 500),
-    browserReplayParityReceipt: content("e", 300),
-    browserReplayTransport: "native-replay-pulses",
+    browserReplayContent: browserPublished ? content("f", 500) : null,
+    browserReplayParityReceipt: browserPublished ? content("e", 300) : null,
+    browserReplayTransport: browserPublished ? "native-replay-pulses" : null,
     compilerRevision: null,
     compilationReceipt: null,
     detail: `immutable ${target} donor replay`,
   } as const;
 }
 
-function compiledExecution(target: "ms" | "lynx") {
+function compiledExecution(target: "ms" | "lynx", browserPublished = true) {
   return {
     status: "compiled",
     decisionProfile: {
@@ -119,9 +146,13 @@ function compiledExecution(target: "ms" | "lynx") {
     nativeBoundaryClock: "exclusive-advance-count-v1",
     nativeTickRateHz: 20,
     replayContent: content(target === "ms" ? "7" : "8", 260),
-    browserReplayContent: content(target === "ms" ? "1" : "2", 500),
-    browserReplayParityReceipt: content(target === "ms" ? "3" : "4", 300),
-    browserReplayTransport: "manual-held-schedule",
+    browserReplayContent: browserPublished
+      ? content(target === "ms" ? "1" : "2", 500)
+      : null,
+    browserReplayParityReceipt: browserPublished
+      ? content(target === "ms" ? "3" : "4", 300)
+      : null,
+    browserReplayTransport: browserPublished ? "manual-held-schedule" : null,
     compilerRevision: `portable-to-${target}-tws-v1`,
     compilationReceipt: content(target === "ms" ? "9" : "a"),
     detail: `compiled from the portable decision trace for ${target}`,
@@ -145,6 +176,7 @@ function certification(options: {
       terminalNativeTick,
       detail: "won under the target engine",
       execution: options.execution,
+      segmentSelection: segmentSelection(),
       segmentSpans: spans({ terminalNativeTick, portable: options.portable }),
     } as const;
   }
@@ -156,6 +188,7 @@ function certification(options: {
       terminalNativeTick: 6,
       detail: "first semantic divergence at native tick 6",
       execution: options.execution,
+      segmentSelection: segmentSelection(false),
       segmentSpans: [],
     } as const;
   }
@@ -168,6 +201,7 @@ function certification(options: {
       ? "certification has not run"
       : "variant is unavailable on the target",
     execution: options.execution,
+    segmentSelection: null,
     segmentSpans: [],
   } as const;
 }
@@ -406,7 +440,7 @@ describe("the P7B training replay contract", () => {
     );
   });
 
-  it("binds every executable certification to its exact browser replay envelope", () => {
+  it("publishes exact browser replay envelopes only for certified executions", () => {
     const built = buildP7bTrainingReplayLevel(levelFixture());
     expect(built.variants[0]!.certifications.ms.execution.browserReplayContent)
       .toEqual(content("f", 500));
@@ -436,6 +470,65 @@ describe("the P7B training replay contract", () => {
     );
     expect(() => buildP7bTrainingReplayLevel(wrongPortableTransport)).toThrow(
       "compiled execution requires replay, compiler, receipt, and manual browser transport",
+    );
+
+    const failedNative = structuredClone(levelFixture());
+    const failedRaw = (failedNative.variants as Record<string, unknown>[])[0]!;
+    failedRaw.portability = "not-portable";
+    failedRaw.segments = [];
+    (failedRaw.certifications as Record<string, unknown>).ms = certification({
+      status: "failed",
+      execution: nativeExecution("ms", "c", false),
+    });
+    failedNative.variants = [failedRaw];
+    failedNative.processing = { status: "blocked", detail: "native donor lost" };
+    failedNative.viewableVariantId = null;
+    expect(buildP7bTrainingReplayLevel(failedNative).variants[0]!.certifications.ms)
+      .toMatchObject({
+        status: "failed",
+        detail: "first semantic divergence at native tick 6",
+        execution: {
+          status: "native",
+          browserReplayContent: null,
+          browserReplayParityReceipt: null,
+          browserReplayTransport: null,
+        },
+      });
+
+    const leakedFailedNative = mutateAt(
+      failedNative,
+      ["variants", 0, "certifications", "ms", "execution", "browserReplayContent"],
+      content("f", 500),
+    );
+    expect(() => buildP7bTrainingReplayLevel(leakedFailedNative)).toThrow(
+      "failed execution cannot publish a browser replay",
+    );
+
+    const failedPortable = structuredClone(levelFixture());
+    const portable = (failedPortable.variants as Record<string, unknown>[])[1]!;
+    portable.portability = "target-specific";
+    (portable.certifications as Record<string, unknown>).lynx = certification({
+      status: "failed",
+      execution: compiledExecution("lynx", false),
+      portable: true,
+    });
+    expect(buildP7bTrainingReplayLevel(failedPortable).variants[1]!.certifications.lynx)
+      .toMatchObject({
+        status: "failed",
+        execution: {
+          status: "compiled",
+          browserReplayContent: null,
+          browserReplayParityReceipt: null,
+          browserReplayTransport: null,
+        },
+      });
+    const leakedFailedPortable = mutateAt(
+      failedPortable,
+      ["variants", 1, "certifications", "lynx", "execution", "browserReplayParityReceipt"],
+      content("4", 300),
+    );
+    expect(() => buildP7bTrainingReplayLevel(leakedFailedPortable)).toThrow(
+      "failed execution cannot publish a browser replay",
     );
   });
 
@@ -468,6 +561,75 @@ describe("the P7B training replay contract", () => {
     ]);
     expect(built.variants[1]!.certifications.ms.terminalNativeTick).toBe(20);
     expect(built.variants[1]!.certifications.lynx.terminalNativeTick).toBe(22);
+  });
+
+  it("bounds viewable chapters and publishes none for an uncertified variant", () => {
+    const oversized = structuredClone(levelFixture());
+    (oversized.variants as Record<string, unknown>[])[0]!.segments = Array.from(
+      { length: P7B_MAX_SEGMENTS_PER_VARIANT + 1 },
+      (_, index) => ({
+        segmentId: `route-${index}`,
+        index,
+        label: `Route ${index}`,
+        anchor: { kind: "route", label: `Route ${index}` },
+      }),
+    );
+    expect(() => buildP7bTrainingReplayLevel(oversized)).toThrow(
+      "training replay segments is out of bounds",
+    );
+
+    const failed = structuredClone(levelFixture());
+    const raw = (failed.variants as Record<string, unknown>[])[0]!;
+    raw.portability = "not-portable";
+    raw.segments = [];
+    (raw.certifications as Record<string, unknown>).ms = certification({
+      status: "failed",
+      execution: nativeExecution("ms", "c", false),
+    });
+    failed.variants = [raw];
+    failed.processing = { status: "blocked", detail: "no donor replay won" };
+    failed.viewableVariantId = null;
+    expect(buildP7bTrainingReplayLevel(failed).variants[0]!.segments).toEqual([]);
+
+    raw.segments = segments();
+    expect(() => buildP7bTrainingReplayLevel(failed)).toThrow(
+      "variant segments must exist exactly when a target is certified",
+    );
+  });
+
+  it("binds certified chapters to the exact full-transcript selection policy", () => {
+    const omittedPublished = structuredClone(levelFixture());
+    const omittedSelection = ((omittedPublished.variants as Record<string, unknown>[])[0]!
+      .certifications as Record<string, Record<string, unknown>>).ms!
+      .segmentSelection as Record<string, unknown>;
+    omittedSelection.selectionMode = "conservative-whole-route";
+    omittedSelection.selectedCandidateOrdinals = [1];
+    omittedSelection.omittedCandidateCount = 1;
+    expect(() => buildP7bTrainingReplayLevel(omittedPublished)).toThrow(
+      "certified replay requires evidence, execution, win, terminal tick, and bounded segments",
+    );
+    const policyDrift = mutateAt(
+      levelFixture(),
+      ["variants", 0, "certifications", "ms", "segmentSelection", "policyRevision"],
+      "semantic-route-chapters-max-48-v1",
+    );
+    expect(() => buildP7bTrainingReplayLevel(policyDrift)).toThrow(
+      "ms segment selection policy revision is invalid",
+    );
+    const totalDrift = mutateAt(
+      levelFixture(),
+      ["variants", 0, "certifications", "ms", "segmentSelection", "omittedCandidateCount"],
+      1,
+    );
+    expect(() => buildP7bTrainingReplayLevel(totalDrift)).toThrow(
+      "ms segment selection candidate totals drifted",
+    );
+    const ordinalDrift = mutateAt(
+      levelFixture(),
+      ["variants", 0, "certifications", "ms", "segmentSelection", "selectedCandidateOrdinals"],
+      [1, 1],
+    );
+    expect(() => buildP7bTrainingReplayLevel(ordinalDrift)).toThrow();
   });
 
   it("requires target spans to cover native ticks and portable ordinals exactly", () => {

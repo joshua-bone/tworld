@@ -20,6 +20,7 @@ import {
   type CanonicalJson,
 } from "@tworld/ccsolver/domain";
 import type { P7bPortableDecisionTraceV1 } from "../p7b-training/portableReplayProfile";
+import type { P7bSegmentSelectionV1 } from "../p7b-training/trainingReplayContract";
 
 const NATIVE_TICKS_PER_PORTABLE_LOGIC_STEP = 2;
 
@@ -118,12 +119,22 @@ export interface P7TrainingBrowserParityReceiptV1 {
   readonly expected: {
     readonly outcome: "won" | "loss" | "diverged" | "timeout";
     readonly terminalNativeTick: number;
+    readonly initialBoundaryEvidence: BlobReferenceV1;
+    readonly finalBoundaryEvidence: BlobReferenceV1;
+    readonly segmentSelection: P7bSegmentSelectionV1;
     readonly segmentBoundaries: readonly P7TrainingBrowserSegmentBoundaryEvidenceV1[];
   };
   readonly observed: {
     readonly outcome: "won" | "loss" | "diverged" | "timeout";
     readonly terminalNativeTick: number;
+    readonly initialBoundaryEvidence: BlobReferenceV1;
+    readonly finalBoundaryEvidence: BlobReferenceV1;
+    readonly segmentSelection: P7bSegmentSelectionV1;
     readonly segmentBoundaries: readonly P7TrainingBrowserSegmentBoundaryEvidenceV1[];
+  };
+  readonly sessionBoundaryComparison: {
+    readonly initial: "matched" | "different";
+    readonly final: "matched" | "different";
   };
   readonly status: "matched";
 }

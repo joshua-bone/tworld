@@ -42,6 +42,26 @@ const evidence = (character: string): BlobReferenceV1 => ({
   byteLength: 100,
 });
 
+const segmentSelection = (character: string) => ({
+  policyRevision: "semantic-route-chapters-max-24-v1" as const,
+  selectionMode: "viewable-route-chapters" as const,
+  candidateCount: 1,
+  selectedCandidateOrdinals: [0],
+  omittedCandidateCount: 0,
+  targetTranscript: {
+    algorithm: "sha256" as const,
+    canonicalization: "tworld-canonical-json-v1" as const,
+    digest: `sha256:${character.repeat(64)}` as const,
+    byteLength: 100,
+  },
+  semanticTranscript: {
+    algorithm: "sha256" as const,
+    canonicalization: "tworld-canonical-json-v1" as const,
+    digest: `sha256:${character.repeat(64)}` as const,
+    byteLength: 100,
+  },
+});
+
 function evidenceBundle(scopeId: string): P7GeneratedEvidenceBundleV1 {
   return {
     artifact: "ccsolver-p7-generated-evidence-bundle",
@@ -255,6 +275,7 @@ async function fixture(): Promise<P7bTrainingPackBuildInput> {
           evidence: certificationEvidence,
           terminalNativeTick: 1,
           detail: "fixture win",
+          segmentSelection: segmentSelection("7"),
           execution: {
             status: "native",
             decisionProfile: {
@@ -292,6 +313,7 @@ async function fixture(): Promise<P7bTrainingPackBuildInput> {
           evidence: null,
           terminalNativeTick: null,
           detail: "no Lynx execution",
+          segmentSelection: null,
           execution: {
             status: "unavailable",
             decisionProfile: null,
@@ -564,6 +586,7 @@ async function portableFixture(): Promise<P7bTrainingPackBuildInput> {
         evidence: target === "ms" ? msCertificationEvidence : lynxCertificationEvidence,
         terminalNativeTick: 4,
         detail: `portable fixture won on ${target}`,
+        segmentSelection: segmentSelection(target === "ms" ? "8" : "9"),
         execution: {
           status: "compiled",
           decisionProfile: {
@@ -615,7 +638,114 @@ async function portableFixture(): Promise<P7bTrainingPackBuildInput> {
   return input;
 }
 
+function removeEvidenceReferences(
+  bundle: P7GeneratedEvidenceBundleV1,
+  references: readonly BlobReferenceV1[],
+): void {
+  const keys = new Set(references.map(({ digest, byteLength }) => `${digest}/${byteLength}`));
+  const blobs = bundle.blobs.filter(({ content }) => (
+    !keys.has(`${content.digest}/${content.byteLength}`)
+  ));
+  Object.assign(bundle, {
+    blobs,
+    totals: {
+      blobCount: blobs.length,
+      byteLength: blobs.reduce((sum, { bytes }) => sum + bytes.byteLength, 0),
+    },
+  });
+}
+
+async function portableWithFailedLynxFixture(): Promise<P7bTrainingPackBuildInput> {
+  const input = await portableFixture();
+  const level = structuredClone(input.inventory[0]!) as unknown as Record<string, unknown>;
+  const portable = (level.variants as Record<string, unknown>[])[1]!;
+  portable.portability = "target-specific";
+  const certification = (portable.certifications as Record<string, Record<string, unknown>>)
+    .lynx!;
+  const execution = certification.execution as Record<string, unknown>;
+  const segmentSpans = certification.segmentSpans as Array<{
+    readonly endBoundaryEvidence: BlobReferenceV1;
+  }>;
+  const removed = [
+    execution.browserReplayContent,
+    execution.browserReplayParityReceipt,
+    ...segmentSpans.map(({ endBoundaryEvidence }) => endBoundaryEvidence),
+  ].filter((reference): reference is BlobReferenceV1 => reference !== null);
+  certification.status = "failed";
+  certification.outcome = "loss";
+  certification.detail = "portable fixture lost on lynx; retained as execution evidence only";
+  certification.segmentSelection = {
+    ...(certification.segmentSelection as Record<string, unknown>),
+    selectionMode: "unviewable",
+    selectedCandidateOrdinals: [],
+    omittedCandidateCount: 1,
+  };
+  certification.segmentSpans = [];
+  execution.browserReplayContent = null;
+  execution.browserReplayParityReceipt = null;
+  execution.browserReplayTransport = null;
+  input.inventory = [
+    buildP7bTrainingReplayLevel(level),
+    ...input.inventory.slice(1),
+  ];
+  Object.assign(input.processedLevels[0]!, {
+    browserReplays: input.processedLevels[0]!.browserReplays.filter(
+      ({ variantId, target }) => variantId !== "portable" || target !== "lynx",
+    ),
+  });
+  removeEvidenceReferences(input.proof.generatedEvidence.levels[0]!.bundle, removed);
+  return input;
+}
+
 describe("the scalable P7B training pack checked leaf", () => {
+  it("retains failed execution evidence without publishing a failed browser replay", async () => {
+    const input = await portableWithFailedLynxFixture();
+    const built = await buildP7bTrainingPackOutputs(input);
+    expect(built.manifest.levels[0]).toMatchObject({ replayFileCount: 2 });
+    expect(built.outputs.some(({ path }) => path.endsWith("/replays/01-lynx.json"))).toBe(false);
+    const contractOutput = built.outputs.find(({ path }) => (
+      path.endsWith("/levels/001/contract.json")
+    ))!;
+    const contract = JSON.parse(new TextDecoder().decode(contractOutput.content)) as {
+      readonly variants: readonly {
+        readonly variantId: string;
+        readonly certifications: {
+          readonly lynx: {
+            readonly status: string;
+            readonly detail: string;
+            readonly execution: {
+              readonly replayContent: BlobReferenceV1 | null;
+              readonly browserReplayContent: BlobReferenceV1 | null;
+            };
+          };
+        };
+      }[];
+    };
+    expect(contract.variants.find(({ variantId }) => variantId === "portable")!
+      .certifications.lynx).toMatchObject({
+        status: "failed",
+        detail: "portable fixture lost on lynx; retained as execution evidence only",
+        execution: {
+          replayContent: expect.any(Object),
+          browserReplayContent: null,
+        },
+      });
+
+    const injected = await portableWithFailedLynxFixture();
+    const original = await portableFixture();
+    Object.assign(injected.processedLevels[0]!, {
+      browserReplays: [
+        ...injected.processedLevels[0]!.browserReplays,
+        original.processedLevels[0]!.browserReplays.find(({ variantId, target }) => (
+          variantId === "portable" && target === "lynx"
+        ))!,
+      ],
+    });
+    await expect(buildP7bTrainingPackOutputs(injected)).rejects.toThrow(
+      "browser replay set is incomplete",
+    );
+  });
+
   it("keeps graph-independent execution bytes stable across a shared-player presentation change", async () => {
     const firstInput = await fixture();
     const secondInput = await fixture();
