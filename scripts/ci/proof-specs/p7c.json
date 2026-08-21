@@ -62,6 +62,10 @@
     },
     {
       "kind": "file",
+      "path": "scripts/ci/p7-active-packs.v1.json"
+    },
+    {
+      "kind": "file",
       "path": "sets/CCLP1-Lynx.dac"
     },
     {

@@ -23,6 +23,10 @@ import {
   canonicalJson,
   verifyProofReceiptReuse,
 } from "./proof-receipt.mjs";
+import {
+  P7_PACK_BINDINGS,
+  loadP7ActivePackPolicy,
+} from "./p7-active-packs.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -92,6 +96,7 @@ function proofResult(verification, requested, forced) {
     && verification.decision === "reuse";
   if (forced) {
     return {
+      active: true,
       currentValid: verification.currentValid,
       decision: "heavy-required",
       heavy: true,
@@ -101,12 +106,25 @@ function proofResult(verification, requested, forced) {
     };
   }
   return {
+    active: true,
     currentValid: verification.currentValid,
     decision: verification.decision,
     heavy: requested && !reusable,
     reasons: verification.reasons,
     requested,
     reuse: verification.currentValid && verification.decision === "reuse",
+  };
+}
+
+function inactiveProofResult() {
+  return {
+    active: false,
+    currentValid: true,
+    decision: "inactive",
+    heavy: false,
+    reasons: [{ code: "inactive-pack" }],
+    requested: false,
+    reuse: false,
   };
 }
 
@@ -122,6 +140,8 @@ export async function resolveProofGates({
   root = process.cwd(),
   trustedRoot,
 }) {
+  const activeP7Policy = await loadP7ActivePackPolicy({ root });
+  const activeP7ProofIds = new Set(activeP7Policy.activeProofIds);
   const changed = classifyChangedPaths(changedPaths, { deletedPaths });
   const changedTests = await partitionChangedWebTestPaths({
     changedPaths: changed.paths,
@@ -133,6 +153,10 @@ export async function resolveProofGates({
   const forced = all || policyForcesAll;
   const proofs = {};
   for (const [proofId, binding] of Object.entries(PROOF_BINDINGS)) {
+    if (["p7c", "p7d", "p7e"].includes(proofId) && !activeP7ProofIds.has(proofId)) {
+      proofs[proofId] = inactiveProofResult();
+      continue;
+    }
     const verification = await verifyProofReceiptReuse({
       receiptPath: binding.receiptPath,
       root,
@@ -147,10 +171,13 @@ export async function resolveProofGates({
     proofs[proofId] = proofResult(verification, requested, forced);
   }
 
-  const currentReceiptsValid = Object.values(proofs).every(({ currentValid }) => currentValid);
+  const currentReceiptsValid = Object.values(proofs)
+    .filter(({ active }) => active)
+    .every(({ currentValid }) => currentValid);
   const failClosed = !currentReceiptsValid;
   if (failClosed) {
     for (const proof of Object.values(proofs)) {
+      if (!proof.active) continue;
       proof.decision = "heavy-required";
       proof.heavy = true;
       proof.requested = true;
@@ -165,22 +192,27 @@ export async function resolveProofGates({
       failClosed || forced || changed.gates[classifierKey],
     ],
   ));
+  for (const { proofId } of Object.values(P7_PACK_BINDINGS)) {
+    if (!activeP7ProofIds.has(proofId)) gates[`training_${proofId}`] = false;
+  }
   // Keep affected integration lanes independent from reusable artifact proofs:
   // editing a test must still run that lane even when checked artifacts reuse.
   // Heavy P1B/P6A decisions are exported separately by workflowOutputs().
   gates.p5 = gates.p5 || proofs.p5.heavy;
   gates.native_sdl_oracle = gates.native_sdl_oracle || gates.p5 || proofs.p5.heavy;
   gates.p6_presentation_attest = gates.p6_presentation_attest || proofs.p6a.heavy;
-  gates.training_p7c = gates.training_p7c || proofs.p7c.heavy;
-  gates.training_p7d = gates.training_p7d || proofs.p7d.heavy;
-  gates.training_p7e = gates.training_p7e || proofs.p7e.heavy;
+  gates.training_p7c = gates.training_p7c || (proofs.p7c?.heavy ?? false);
+  gates.training_p7d = gates.training_p7d || (proofs.p7d?.heavy ?? false);
+  gates.training_p7e = gates.training_p7e || (proofs.p7e?.heavy ?? false);
   gates.p7_presentation_attest = gates.p7_presentation_attest
     || proofs["p7-presentation"].heavy
-    || proofs.p7c.heavy
-    || proofs.p7d.heavy
-    || proofs.p7e.heavy;
+    || (proofs.p7c?.heavy ?? false)
+    || (proofs.p7d?.heavy ?? false)
+    || (proofs.p7e?.heavy ?? false);
 
   return {
+    activeP7Packs: activeP7Policy.activePacks,
+    activeP7ProofIds: activeP7Policy.activeProofIds,
     allHeavy: forced || failClosed,
     changed,
     changedTests,
@@ -270,13 +302,13 @@ function parseArguments(argv) {
 }
 
 export function workflowOutputs(result) {
-  const p7EnginePacks = [
-    ["cclp1", result.proofs.p7c.heavy],
-    ["cclp4", result.proofs.p7d.heavy],
-    ["cclp5", result.proofs.p7e.heavy],
-  ].filter(([, heavy]) => heavy).map(([packId]) => packId);
+  const p7EnginePacks = result.activeP7Packs.filter((packId) => (
+    result.proofs[P7_PACK_BINDINGS[packId].proofId]?.heavy ?? false
+  ));
   const p7NeedsShards = p7EnginePacks.length > 0;
   const attestP7Presentation = result.gates.p7_presentation_attest;
+  const proofHeavy = (proofId) => result.proofs[proofId]?.heavy ?? false;
+  const proofReuse = (proofId) => result.proofs[proofId]?.reuse ?? false;
   return {
     ...result.gates,
     changed_native_web_tests: result.changedTests.native.length > 0,
@@ -286,19 +318,22 @@ export function workflowOutputs(result) {
     heavy_p1b: result.proofs.p1b.heavy,
     heavy_p5: result.proofs.p5.heavy,
     heavy_p6a: result.proofs.p6a.heavy,
-    heavy_p7c: result.proofs.p7c.heavy,
-    heavy_p7d: result.proofs.p7d.heavy,
-    heavy_p7e: result.proofs.p7e.heavy,
+    heavy_p7c: proofHeavy("p7c"),
+    heavy_p7d: proofHeavy("p7d"),
+    heavy_p7e: proofHeavy("p7e"),
     attest_p7_presentation: attestP7Presentation,
     p7_engine_packs_json: JSON.stringify(p7EnginePacks),
+    p7_active_packs_csv: result.activeP7Packs.join(","),
+    p7_active_packs_json: JSON.stringify(result.activeP7Packs),
+    p7_active_proof_ids_json: JSON.stringify(result.activeP7ProofIds),
     p7_needs_shards: p7NeedsShards,
     p7_selected: p7NeedsShards || attestP7Presentation,
     reuse_p1b: result.proofs.p1b.reuse,
     reuse_p5: result.proofs.p5.reuse,
     reuse_p6a: result.proofs.p6a.reuse,
-    reuse_p7c: result.proofs.p7c.reuse,
-    reuse_p7d: result.proofs.p7d.reuse,
-    reuse_p7e: result.proofs.p7e.reuse,
+    reuse_p7c: proofReuse("p7c"),
+    reuse_p7d: proofReuse("p7d"),
+    reuse_p7e: proofReuse("p7e"),
     reuse_p7_presentation: result.proofs["p7-presentation"].reuse,
     trusted_merge_base: result.trustedMergeBase ?? "",
   };

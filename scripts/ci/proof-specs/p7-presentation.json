@@ -10,14 +10,6 @@
     },
     {
       "kind": "file",
-      "path": "ccsolver/fixtures/golden/p7b/execution-authorities/cclp4.json"
-    },
-    {
-      "kind": "file",
-      "path": "ccsolver/fixtures/golden/p7b/execution-authorities/cclp5.json"
-    },
-    {
-      "kind": "file",
       "path": "ccsolver/package.json"
     },
     {
@@ -291,6 +283,10 @@
     {
       "kind": "file",
       "path": "res/tiles.bmp"
+    },
+    {
+      "kind": "file",
+      "path": "scripts/ci/p7-active-packs.v1.json"
     },
     {
       "kind": "file",
@@ -1083,27 +1079,11 @@
     },
     {
       "kind": "file",
-      "path": "ccsolver/fixtures/golden/p7b/presentation-authorities/cclp4.json"
-    },
-    {
-      "kind": "file",
-      "path": "ccsolver/fixtures/golden/p7b/presentation-authorities/cclp5.json"
-    },
-    {
-      "kind": "file",
       "path": "ccsolver/fixtures/golden/p7b/shared-player/p7b-replay-player-graph.json"
     },
     {
       "kind": "tree",
       "path": "ccsolver/fixtures/golden/p7b/training-packs/cclp1"
-    },
-    {
-      "kind": "tree",
-      "path": "ccsolver/fixtures/golden/p7b/training-packs/cclp4"
-    },
-    {
-      "kind": "tree",
-      "path": "ccsolver/fixtures/golden/p7b/training-packs/cclp5"
     }
   ],
   "producerContract": "BASE_PATH=/tworld/ npm run build && npm run ccsolver:p7-training:bundle:engine && npm run ccsolver:p7-training:bundle:presentation && p7-training-presentation-runner prepare|graph-write|graph-check|graph-attest|build|write|check|attest|node22.22.0-npm10.9.4|tworld-ci-p7-training-presentation-v1",

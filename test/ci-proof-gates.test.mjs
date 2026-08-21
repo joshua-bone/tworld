@@ -27,6 +27,11 @@ import {
   changedWebTestDisposition,
 } from "../scripts/ci/run-changed-web-tests.mjs";
 import {
+  P7_ACTIVE_PACKS_POLICY_PATH,
+  P7_ACTIVE_PACKS_SCHEMA,
+  P7_PACK_BINDINGS,
+} from "../scripts/ci/p7-active-packs.mjs";
+import {
   PROOF_SPEC_SCHEMA,
   buildProofReceipt,
   canonicalJson,
@@ -99,6 +104,18 @@ function treePaths(scopes) {
 
 function treeScopes(scopes) {
   return scopes.filter(({ kind }) => kind === "tree");
+}
+
+function assertInactiveProof(proofs, proofId) {
+  assert.deepEqual(proofs[proofId], {
+    active: false,
+    currentValid: true,
+    decision: "inactive",
+    heavy: false,
+    reasons: [{ code: "inactive-pack" }],
+    requested: false,
+    reuse: false,
+  });
 }
 
 async function testFilesUnder(treePath) {
@@ -289,6 +306,38 @@ test("proof exclusions stay within fail-closed changed-web-test runner coverage"
       }
     }
   }
+});
+
+test("every P7 proof binds the central activation declaration", async () => {
+  for (const proofId of ["p7c", "p7d", "p7e", "p7-presentation"]) {
+    const spec = await readJson(PROOF_BINDINGS[proofId].specPath);
+    assert.equal(
+      filePaths(spec.inputScopes).filter((path) => path === P7_ACTIVE_PACKS_POLICY_PATH).length,
+      1,
+      proofId,
+    );
+  }
+
+  const presentation = await readJson(PROOF_BINDINGS["p7-presentation"].specPath);
+  assert.deepEqual(
+    filePaths(presentation.inputScopes)
+      .filter((path) => path.includes("/execution-authorities/")),
+    ["ccsolver/fixtures/golden/p7b/execution-authorities/cclp1.json"],
+  );
+  assert.deepEqual(presentation.outputScopes, [
+    {
+      kind: "file",
+      path: "ccsolver/fixtures/golden/p7b/presentation-authorities/cclp1.json",
+    },
+    {
+      kind: "file",
+      path: "ccsolver/fixtures/golden/p7b/shared-player/p7b-replay-player-graph.json",
+    },
+    {
+      kind: "tree",
+      path: "ccsolver/fixtures/golden/p7b/training-packs/cclp1",
+    },
+  ]);
 });
 
 test("checked proof specs bind the audited P1B, P5, and P6A leaves", async () => {
@@ -523,7 +572,7 @@ async function write(root, path, contents) {
   await writeFile(absolute, contents);
 }
 
-async function makeResolverFixture(t) {
+async function makeResolverFixture(t, { activePacks = ["cclp1"] } = {}) {
   const root = await mkdtemp(join(tmpdir(), "tworld-proof-gates-"));
   const trustedRoot = await mkdtemp(join(tmpdir(), "tworld-proof-trusted-"));
   t.after(() => Promise.all([
@@ -562,6 +611,11 @@ async function makeResolverFixture(t) {
     },
   };
   const p7SemanticInput = "web/src/game-core/api/p7TrainingBrowserReplay.ts";
+  await write(root, P7_ACTIVE_PACKS_POLICY_PATH, canonicalJson({
+    activePacks,
+    schema: P7_ACTIVE_PACKS_SCHEMA,
+  }));
+  const activeP7ProofIds = new Set(activePacks.map((packId) => P7_PACK_BINDINGS[packId].proofId));
   await write(root, p7SemanticInput, "P7 semantic browser transport v1\n");
   for (const [proofId, binding] of Object.entries(PROOF_BINDINGS)) {
     const paths = fixturePaths[proofId];
@@ -572,7 +626,10 @@ async function makeResolverFixture(t) {
       ...(["p7c", "p7d", "p7e"].includes(proofId)
         ? [{ kind: "file", path: p7SemanticInput }]
         : []),
-    ];
+      ...(["p7c", "p7d", "p7e", "p7-presentation"].includes(proofId)
+        ? [{ kind: "file", path: P7_ACTIVE_PACKS_POLICY_PATH }]
+        : []),
+    ].sort((left, right) => Buffer.compare(Buffer.from(left.path), Buffer.from(right.path)));
     await write(root, binding.specPath, canonicalJson({
       inputScopes,
       outputManifestPath: null,
@@ -581,18 +638,20 @@ async function makeResolverFixture(t) {
       proofId,
       schema: PROOF_SPEC_SCHEMA,
     }));
-    await writeProofReceipt({
-      receiptPath: binding.receiptPath,
-      root,
-      specPath: binding.specPath,
-    });
-    await write(trustedRoot, binding.receiptPath, "");
-    await copyFile(
-      resolve(root, binding.receiptPath),
-      resolve(trustedRoot, binding.receiptPath),
-    );
+    if (!["p7c", "p7d", "p7e"].includes(proofId) || activeP7ProofIds.has(proofId)) {
+      await writeProofReceipt({
+        receiptPath: binding.receiptPath,
+        root,
+        specPath: binding.specPath,
+      });
+      await write(trustedRoot, binding.receiptPath, "");
+      await copyFile(
+        resolve(root, binding.receiptPath),
+        resolve(trustedRoot, binding.receiptPath),
+      );
+    }
   }
-  return { fixturePaths, p7SemanticInput, root, trustedRoot };
+  return { activeP7ProofIds, fixturePaths, p7SemanticInput, root, trustedRoot };
 }
 
 test("combines changed gates with trusted receipts without running unaffected heavy proofs", async (t) => {
@@ -626,8 +685,8 @@ test("combines changed gates with trusted receipts without running unaffected he
   assert.equal(staticChange.proofs.p5.reuse, true);
   assert.equal(staticChange.proofs.p6a.reuse, true);
   assert.equal(staticChange.proofs.p7c.reuse, true);
-  assert.equal(staticChange.proofs.p7d.reuse, true);
-  assert.equal(staticChange.proofs.p7e.reuse, true);
+  assertInactiveProof(staticChange.proofs, "p7d");
+  assertInactiveProof(staticChange.proofs, "p7e");
   assert.equal(staticChange.proofs["p7-presentation"].reuse, true);
   assert.equal(staticChange.gates.static_corpus_p1b, true);
   assert.equal(staticChange.gates.p5, true);
@@ -650,8 +709,8 @@ test("selects P7 engine work by pack while keeping presentation independently at
     trustedRoot: fixture.trustedRoot,
   });
   assert.equal(engine.proofs.p7c.heavy, true);
-  assert.equal(engine.proofs.p7d.reuse, true);
-  assert.equal(engine.proofs.p7e.reuse, true);
+  assertInactiveProof(engine.proofs, "p7d");
+  assertInactiveProof(engine.proofs, "p7e");
   assert.equal(engine.gates.p7_presentation_attest, true);
   assert.deepEqual(workflowOutputs(engine).p7_engine_packs_json, '["cclp1"]');
   assert.equal(workflowOutputs(engine).p7_needs_shards, true);
@@ -675,8 +734,8 @@ test("selects P7 engine work by pack while keeping presentation independently at
     trustedRoot: presentationFixture.trustedRoot,
   });
   assert.equal(presentation.proofs.p7c.heavy, false);
-  assert.equal(presentation.proofs.p7d.heavy, false);
-  assert.equal(presentation.proofs.p7e.heavy, false);
+  assertInactiveProof(presentation.proofs, "p7d");
+  assertInactiveProof(presentation.proofs, "p7e");
   assert.equal(presentation.proofs["p7-presentation"].heavy, true);
   assert.equal(workflowOutputs(presentation).p7_engine_packs_json, "[]");
   assert.equal(workflowOutputs(presentation).p7_needs_shards, false);
@@ -702,14 +761,14 @@ test("keeps presentation DTO drift out of engine receipts but binds browser tran
     root: presentationFixture.root,
     trustedRoot: presentationFixture.trustedRoot,
   });
-  for (const proofId of ["p7c", "p7d", "p7e"]) {
-    assert.equal(presentation.proofs[proofId].reuse, true, proofId);
-    assert.equal(presentation.proofs[proofId].heavy, false, proofId);
-  }
+  assert.equal(presentation.proofs.p7c.reuse, true);
+  assert.equal(presentation.proofs.p7c.heavy, false);
+  assertInactiveProof(presentation.proofs, "p7d");
+  assertInactiveProof(presentation.proofs, "p7e");
 
   const engineFixture = await makeResolverFixture(t);
   await write(engineFixture.root, engineFixture.p7SemanticInput, "browser transport v2\n");
-  for (const proofId of ["p7c", "p7d", "p7e"]) {
+  for (const proofId of ["p7c"]) {
     const binding = PROOF_BINDINGS[proofId];
     await writeProofReceipt({
       receiptPath: binding.receiptPath,
@@ -722,10 +781,10 @@ test("keeps presentation DTO drift out of engine receipts but binds browser tran
     root: engineFixture.root,
     trustedRoot: engineFixture.trustedRoot,
   });
-  for (const proofId of ["p7c", "p7d", "p7e"]) {
-    assert.equal(engine.proofs[proofId].reuse, false, proofId);
-    assert.equal(engine.proofs[proofId].heavy, true, proofId);
-  }
+  assert.equal(engine.proofs.p7c.reuse, false);
+  assert.equal(engine.proofs.p7c.heavy, true);
+  assertInactiveProof(engine.proofs, "p7d");
+  assertInactiveProof(engine.proofs, "p7e");
 });
 
 test("receipt drift independently requests a heavy proof when path routing misses it", async (t) => {
@@ -875,6 +934,46 @@ test("routes P4B literal inputs through cheap P6 presentation trust without reru
   }
 });
 
+test("activating CCLP4 without its checked receipt fails closed", async (t) => {
+  const fixture = await makeResolverFixture(t);
+  await write(fixture.root, P7_ACTIVE_PACKS_POLICY_PATH, canonicalJson({
+    activePacks: ["cclp1", "cclp4"],
+    schema: P7_ACTIVE_PACKS_SCHEMA,
+  }));
+  for (const proofId of ["p7c", "p7-presentation"]) {
+    const binding = PROOF_BINDINGS[proofId];
+    await writeProofReceipt({
+      receiptPath: binding.receiptPath,
+      root: fixture.root,
+      specPath: binding.specPath,
+    });
+    await copyFile(
+      resolve(fixture.root, binding.receiptPath),
+      resolve(fixture.trustedRoot, binding.receiptPath),
+    );
+  }
+
+  const activated = await resolveProofGates({
+    changedPaths: [P7_ACTIVE_PACKS_POLICY_PATH],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+  assert.deepEqual(activated.activeP7Packs, ["cclp1", "cclp4"]);
+  assert.deepEqual(activated.activeP7ProofIds, ["p7c", "p7d"]);
+  assert.equal(activated.currentReceiptsValid, false);
+  assert.equal(activated.allHeavy, true);
+  assert.equal(activated.proofs.p7d.active, true);
+  assert.equal(activated.proofs.p7d.currentValid, false);
+  assert.equal(
+    activated.proofs.p7d.reasons.some(({ code }) => code === "current-receipt-missing"),
+    true,
+  );
+  assert.equal(activated.gates.training_p7c, true);
+  assert.equal(activated.gates.training_p7d, true);
+  assert.equal(activated.gates.training_p7e, false);
+  assertInactiveProof(activated.proofs, "p7e");
+});
+
 test("fails closed on a stale current receipt and forces all selected proofs on dispatch", async (t) => {
   const fixture = await makeResolverFixture(t);
   await write(fixture.root, fixture.fixturePaths.p5.input, "stale without receipt regeneration\n");
@@ -898,8 +997,22 @@ test("fails closed on a stale current receipt and forces all selected proofs on 
     root: fixture.root,
     trustedRoot: fixture.trustedRoot,
   });
-  assert.equal(Object.values(dispatch.gates).every(Boolean), true);
-  assert.equal(Object.values(dispatch.proofs).every(({ heavy, reuse }) => heavy && !reuse), true);
+  assert.equal(dispatch.gates.training_p7d, false);
+  assert.equal(dispatch.gates.training_p7e, false);
+  assert.equal(
+    Object.entries(dispatch.gates)
+      .filter(([gate]) => !["training_p7d", "training_p7e"].includes(gate))
+      .every(([, selected]) => selected),
+    true,
+  );
+  assert.equal(
+    Object.values(dispatch.proofs)
+      .filter(({ active }) => active)
+      .every(({ heavy, reuse }) => heavy && !reuse),
+    true,
+  );
+  assertInactiveProof(dispatch.proofs, "p7d");
+  assertInactiveProof(dispatch.proofs, "p7e");
 });
 
 test("treats missing trusted receipts and unknown paths as all-heavy, never as cache authority", async (t) => {
@@ -917,8 +1030,20 @@ test("treats missing trusted receipts and unknown paths as all-heavy, never as c
     trustedRoot: fixture.trustedRoot,
   });
   assert.equal(unknown.allHeavy, true);
-  assert.equal(Object.values(unknown.gates).every(Boolean), true);
-  assert.equal(Object.values(unknown.proofs).every(({ heavy }) => heavy), true);
+  assert.equal(unknown.gates.training_p7d, false);
+  assert.equal(unknown.gates.training_p7e, false);
+  assert.equal(
+    Object.entries(unknown.gates)
+      .filter(([gate]) => !["training_p7d", "training_p7e"].includes(gate))
+      .every(([, selected]) => selected),
+    true,
+  );
+  assert.equal(
+    Object.values(unknown.proofs).filter(({ active }) => active).every(({ heavy }) => heavy),
+    true,
+  );
+  assertInactiveProof(unknown.proofs, "p7d");
+  assertInactiveProof(unknown.proofs, "p7e");
 });
 
 test("CLI resolves the trusted merge base and writes underscore-safe GitHub outputs", async (t) => {
@@ -951,6 +1076,8 @@ test("CLI resolves the trusted merge base and writes underscore-safe GitHub outp
 
   assert.equal(result.stderr, "");
   const resolution = JSON.parse(result.stdout);
+  assert.deepEqual(resolution.activeP7Packs, ["cclp1"]);
+  assert.deepEqual(resolution.activeP7ProofIds, ["p7c"]);
   assert.equal(resolution.gates.workspace, true);
   assert.equal(resolution.changed.paths.includes(deletedTestPath), true);
   assert.deepEqual(resolution.changedTests, { native: [], p5: [], workspace: [] });
@@ -993,6 +1120,9 @@ test("CLI resolves the trusted merge base and writes underscore-safe GitHub outp
   }
   assert.match(output, /^changed_web_tests_json=\[\]$/m);
   assert.match(output, /^changed_native_web_tests_json=\[\]$/m);
+  assert.match(output, /^p7_active_packs_csv=cclp1$/m);
+  assert.match(output, /^p7_active_packs_json=\["cclp1"\]$/m);
+  assert.match(output, /^p7_active_proof_ids_json=\["p7c"\]$/m);
   assert.match(output, /^p7_engine_packs_json=\[\]$/m);
   assert.match(output, new RegExp(`^trusted_merge_base=${base}$`, "m"));
 

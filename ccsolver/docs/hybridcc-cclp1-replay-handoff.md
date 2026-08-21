@@ -237,7 +237,10 @@ For adapter version 1:
 4. Require canonical JSON with exactly `artifact`, `version`, `target`,
    `randomSeed`, and `changes`. Require artifact
    `ccsolver-p7b-compiled-native-input-replay`, version 1, the expected target,
-   and a nonnegative 31-bit `randomSeed`.
+   and a nonnegative 31-bit `randomSeed`. Require `changes` to be a bounded
+   array whose length equals the selected trace's checked change count and
+   whose entries have exactly nonnegative safe-integer `nativeTick` and
+   `inputCode` fields, even though the adapter will not consume them.
 5. Require the MS and Lynx blobs to carry the same seed. The pinned pack has
    230/230 resolvable target blobs and agreement on all 115 target pairs; it
    contains 102 distinct seeds in the range 0 through 2,107,056,710.
@@ -277,37 +280,46 @@ ingress just to admit a corpus level.
 
 Use this execution flow:
 
-1. Decode the verified `data/CCLP1.dat` through Hybrid's DAT ingress, build the
-   group index, and locate the group by its decoded level number rather than
-   assuming array position `N - 1`. Verify the exact source byte range against
-   the proof index's `official-level-source` locator and the contract's
-   `source.levelContent`, then convert through the registered Hybrid
-   catalog/ruleset, encode `HCC26IMG`, and prepare the map. Record the source
-   DAT digest and level number. The Hybrid map, catalog, and ruleset digests
-   remain independently authoritative.
-2. Create an `OwnedGameInstance` from that prepared map and the checked adapter
-   RNG state.
-3. Convert trace changes to `NativeReplayInputChange` values with
-   `boundary = logicStep` and the explicit direction mapping.
-4. Execute the candidate directly with `StepOwnedGameInstance`, applying
-   changes before their named boundaries. Capture a bounded per-boundary state
-   hash stream for determinism/differential diagnosis.
+1. Call `dat::Decode` on the verified `data/CCLP1.dat`, then
+   `dat::BuildGroupIndex`, and locate the group by its decoded level number
+   rather than assuming array position `N - 1`. Verify the exact source byte
+   range against the proof index's `official-level-source` locator and the
+   contract's `source.levelContent`, then call `dat::ConvertGroup` through the
+   registered Hybrid catalog/ruleset, `EncodeCompiledMapImage`, and
+   `PrepareCompiledMap`. Record the source DAT digest and level number. The
+   Hybrid map, catalog, and ruleset digests remain independently authoritative.
+2. Call `CreateOwnedGameInstance` with that prepared map and the checked
+   adapter RNG state.
+3. Map trace direction strings explicitly to `BoundaryInput` packets for
+   execution. Do not yet claim that the unexecuted candidate is a native
+   replay.
+4. Execute the candidate with `StepOwnedGameInstance`, applying changes before
+   their named boundaries. Query `GetOwnedGameTerminal` after each successful
+   step and use `CaptureOwnedGameCheckpoint` for a bounded per-boundary state
+   hash stream used in determinism and differential diagnosis.
 5. Stop on the actual Hybrid terminal latch or at `terminalLogicStep`. Do not
    continue a held input beyond the authored endpoint and do not invent extra
    releases or waits.
-6. If Hybrid does not win, record rejected/not-run plus the first divergence;
-   do not emit an accepted native replay. Route later repair through the
-   existing private adapter and real planner.
-7. If Hybrid wins early, inspect all remaining authored changes. A remaining
-   directional packet means the candidate was not consumed and must be
-   reported as a divergence. A terminal-or-later release is audit-only.
-8. For an accepted direct candidate, set native replay fields from the actual
-   prepared map, actual Hybrid RNG policy/state, actual Hybrid terminal latch,
-   actual end boundary, and actual final canonical state digest. Retain only
-   nonredundant input changes strictly before the actual end boundary.
-9. Call `ValidateNativeReplay`, encode canonical JSON and binary, strict-parse
-   the binary into fresh storage, and verify it from canonical initialization
-   with `NativeReplayVerifier`. Publish only an `kOk/kAccepted` result.
+6. If Hybrid reaches a loss or reaches the authored endpoint without a win,
+   record a semantic candidate rejection with the actual terminal or endpoint
+   boundary. If parsing, allocation, work, or an engine API fails, record an
+   operational not-run instead. Neither outcome publishes a native replay.
+   Later repair needs its own declared workflow and may reuse the real planner;
+   the existing recipe compiler cannot consume this portable trace directly.
+7. If Hybrid wins before or at the authored endpoint, inspect every change at
+   or after the actual terminal boundary. A remaining directional packet means
+   the candidate was not consumed and is a semantic divergence. A remaining
+   release is audit-only.
+8. For an accepted direct candidate, capture the actual final checkpoint and
+   construct `NativeReplay` from the prepared-map bindings, checked Hybrid RNG
+   policy/state, actual Hybrid terminal latch, actual end boundary, and actual
+   final state digest. Convert only the executed, nonredundant packet changes
+   strictly before that endpoint to `NativeReplayInputChange` records.
+9. Call `ValidateNativeReplay`, `EncodeNativeReplayJson`, and
+   `EncodeNativeReplayBinary`; strict-parse the binary into fresh storage with
+   `ParseNativeReplayBinary`. Create a map-bound verifier with
+   `CreateNativeReplayVerifier`, then call `VerifyNativeReplayBinary` from
+   canonical initialization. Publish only a `kOk/kAccepted` result.
 10. Put the CCSolver commit, authority, manifest, contract, trace, seed-blob,
     and eventual repair lineage in the Hybrid corpus/provenance report. Do not
     add those external identities to gameplay state or reinterpret them as
@@ -348,7 +360,10 @@ legacy evidence:       certified MS win; Lynx loss
 
 This is a plumbing canary, not cross-ruleset portability evidence. Require a
 deterministic import and deterministic Hybrid outcome; do not require a Hybrid
-win merely because MS won.
+win merely because MS won. Admit only this exact target-specific case under a
+named plumbing-canary policy; do not weaken the default 21-level admission
+policy. If Hybrid does not win, retain the deterministic diagnostic result but
+publish no native replay.
 
 ### First direct-portable acceptance: CCLP1/001
 
@@ -370,7 +385,8 @@ first changes:         step 0 east+none; step 1 none+none;
                        step 2 west+none; step 3 none+none
 last change:           step 323 none+none
 legacy evidence:       certified win on MS and Lynx
-Hybrid acceptance:     Hybrid win at boundary 324, then native verification
+Hybrid acceptance:     actual Hybrid win no later than boundary 324,
+                       no unconsumed directional change, native verification
 ```
 
 Acceptance for the adapter and Key Pyramid changes:
@@ -379,8 +395,8 @@ Acceptance for the adapter and Key Pyramid changes:
   Tile World source code.
 - Unit tests reject a changed manifest, wrong digest/length, path escape,
   unknown field/version/profile, invalid packet, non-increasing step,
-  redundant change, missing/conflicting seed, and input at an invalid native
-  endpoint.
+  redundant change, malformed seed evidence, missing/conflicting seed, and a
+  directional change at or after the constructed native endpoint.
 - A timing microtest proves that step-0 East affects `S[0] -> S[1]` and the
   step-1 release affects `S[1] -> S[2]`.
 - Two independent Hybrid executions emit the same per-boundary state hashes.
@@ -388,16 +404,27 @@ Acceptance for the adapter and Key Pyramid changes:
   a Hybrid assertion.
 - Key Pyramid is accepted only if the produced binary round-trips and the
   ordinary persistent verifier accepts it from canonical initialization at
-  boundary 324. A different outcome records the exact first divergence and
-  publishes no replay.
+  the actual Hybrid terminal boundary, no later than boundary 324. A different
+  outcome records the actual terminal or endpoint facts and publishes no
+  replay.
 - Any proposed gameplay change starts with a normative Hybrid microlevel,
   never with corpus tuning.
 
-After Key Pyramid passes, run the 21-level cross-legacy cohort with explicit
-case, time, memory, step, event, and work bounds. Expand to target-specific and
-not-portable candidates only after the direct-import result vocabulary and
-repair policy are reviewed. Do not dispatch hosted CI without the explicit
-approval required by the HybridCC2026 working agreements.
+After Key Pyramid passes, expand in this order:
+
+1. Run all 21 cross-legacy-positive `portable` candidates with explicit case,
+   time, memory, step, event, and work bounds.
+2. After reviewing the direct-import result vocabulary, admit the 80
+   `target-specific` candidates as a separate cohort: 68 are MS-only wins and
+   12 are Lynx-only wins under legacy certification.
+3. After defining negative-result and repair policy, admit the 14
+   `not-portable` candidates that failed on both legacy targets. Their checked
+   traces remain valid candidate input, but provide no positive legacy witness.
+4. Treat the 34 levels without a portable trace as construction/repair work,
+   never as missing files to guess or synthesize during import.
+
+Do not dispatch hosted CI without the explicit approval required by the
+HybridCC2026 working agreements.
 
 ## Useful source-side validators
 

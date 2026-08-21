@@ -4,6 +4,11 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 import { PROOF_BINDINGS } from "../scripts/ci/resolve-proof-gates.mjs";
+import {
+  ORDERED_P7_PACK_IDS,
+  P7_ACTIVE_PACKS_POLICY_PATH,
+  loadP7ActivePackPolicy,
+} from "../scripts/ci/p7-active-packs.mjs";
 import { PROOF_SPEC_SCHEMA } from "../scripts/ci/proof-receipt.mjs";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
@@ -159,27 +164,30 @@ test("keeps each P7 engine receipt graph-free and pack-source exact", async () =
   assert.equal((await expectedRawSources("cclp5")).length, 175);
 });
 
-test("binds graph and all checked pack leaves only in the P7 presentation receipt", async () => {
+test("binds graph and all active checked pack leaves only in the P7 presentation receipt", async () => {
   const spec = await readJson(PROOF_BINDINGS[PRESENTATION_PROOF].specPath);
   const inputs = filePaths(spec.inputScopes);
+  const { activePacks } = await loadP7ActivePackPolicy({ root: repositoryRoot });
   assert.equal(spec.schema, PROOF_SPEC_SCHEMA);
   assert.equal(spec.proofId, PRESENTATION_PROOF);
   assert.equal(spec.outputManifestPath, null);
-  assert.deepEqual(treePaths(spec.outputScopes), [
-    "ccsolver/fixtures/golden/p7b/training-packs/cclp1",
-    "ccsolver/fixtures/golden/p7b/training-packs/cclp4",
-    "ccsolver/fixtures/golden/p7b/training-packs/cclp5",
-  ]);
+  assert.deepEqual(
+    treePaths(spec.outputScopes),
+    activePacks.map((packId) => `ccsolver/fixtures/golden/p7b/training-packs/${packId}`),
+  );
   assert.deepEqual(filePaths(spec.outputScopes), [
-    "ccsolver/fixtures/golden/p7b/presentation-authorities/cclp1.json",
-    "ccsolver/fixtures/golden/p7b/presentation-authorities/cclp4.json",
-    "ccsolver/fixtures/golden/p7b/presentation-authorities/cclp5.json",
+    ...activePacks.map((packId) => (
+      `ccsolver/fixtures/golden/p7b/presentation-authorities/${packId}.json`
+    )),
     "ccsolver/fixtures/golden/p7b/shared-player/p7b-replay-player-graph.json",
   ]);
-  for (const packId of ["cclp1", "cclp4", "cclp5"]) {
-    assert.ok(inputs.includes(
-      `ccsolver/fixtures/golden/p7b/execution-authorities/${packId}.json`,
-    ));
+  assert.ok(inputs.includes(P7_ACTIVE_PACKS_POLICY_PATH));
+  for (const packId of ORDERED_P7_PACK_IDS) {
+    assert.equal(
+      inputs.includes(`ccsolver/fixtures/golden/p7b/execution-authorities/${packId}.json`),
+      activePacks.includes(packId),
+      packId,
+    );
   }
   for (const entryPath of [
     "web/index.html",
@@ -281,6 +289,7 @@ test("wires one P7 build coordinator, exactly eight workers, and one stable redu
     "reuse-p7e",
     "reuse-p7-presentation",
   ]) assert.match(classify, new RegExp(`${output}:`), output);
+  assert.match(classify, /test\/ci-p7-active-packs\.test\.mjs/u);
   assert.match(classify, /test\/ci-p7-training-policy\.test\.mjs/u);
 
   const prepare = workflowJob(workflow, "ccsolver-p7-training-prepare");
@@ -334,10 +343,13 @@ test("wires one P7 build coordinator, exactly eight workers, and one stable redu
     assert.match(stable, new RegExp(`node "\\$PRESENTATION_RUNNER" ${command}`));
   }
   assert.match(stable, /--presentation-artifacts/u);
-  assert.match(stable, /for PROOF_ID in p7c p7d p7e/u);
+  assert.match(stable, /p7-active-packs\.mjs[\s\S]*--format proof-ids-json/u);
+  assert.match(stable, /while IFS= read -r PROOF_ID/u);
   assert.match(stable, /proof-specs\/\$\{PROOF_ID\}\.json/u);
   assert.match(stable, /proof-receipts\/\$\{PROOF_ID\}\.receipt\.json/u);
-  assert.match(stable, /--packs cclp1,cclp4,cclp5/u);
+  assert.match(stable, /p7-active-packs\.mjs[\s\S]*--format packs-csv/u);
+  assert.match(stable, /--packs "\$ACTIVE_PACKS"/u);
+  assert.doesNotMatch(stable, /for PROOF_ID in p7c p7d p7e|--packs cclp1,cclp4,cclp5/u);
   assert.doesNotMatch(stable, /npm ci|npm run|cache:/u);
   assert.doesNotMatch(p7Graph, /continue-on-error|merge-multiple|pattern:/u);
 
@@ -350,9 +362,12 @@ test("wires one P7 build coordinator, exactly eight workers, and one stable redu
 
 test("publishes only freshly attested checked P7 packs on Pages", async () => {
   const workflow = await readText(".github/workflows/github-pages.yml");
+  const deploy = workflowJob(workflow, "deploy");
   assert.match(workflow, /timeout-minutes:\s*20/u);
   assert.match(workflow, /BASE_PATH:\s*\/tworld\//u);
   assert.doesNotMatch(workflow, /BASE_PATH:\s*\/\$\{\{/u);
+  assert.match(workflow, /push:\n\s+branches:\n\s+- master/u);
+  assert.match(deploy, /if: github\.ref == 'refs\/heads\/master'/u);
   assert.match(workflow, /ccsolver:p7-training:bundle:presentation/u);
   assert.match(workflow, /PRESENTATION_RUNNER=.*p7-training-presentation-runner\.mjs/u);
   assert.match(workflow, /node "\$PRESENTATION_RUNNER" prepare/u);
@@ -360,10 +375,15 @@ test("publishes only freshly attested checked P7 packs on Pages", async () => {
   assert.match(workflow, /node "\$PRESENTATION_RUNNER" graph-attest/u);
   assert.match(
     workflow,
-    /node "\$PRESENTATION_RUNNER" attest[\s\S]*--packs cclp1,cclp4,cclp5/u,
+    /node "\$PRESENTATION_RUNNER" attest[\s\S]*--packs "\$ACTIVE_PACKS"/u,
   );
-  assert.match(workflow, /ccsolver:p7-training:emit-dist:prepared/u);
-  assert.match(workflow, /for PACK_ID in cclp1 cclp4 cclp5/u);
+  assert.match(workflow, /p7-active-packs\.mjs[\s\S]*--format packs-csv/u);
+  assert.match(
+    workflow,
+    /npm exec --workspace web -- vite-node --script[\s\S]*runP7bTrainingPackDist\.ts[\s\S]*--packs "\$ACTIVE_PACKS"/u,
+  );
+  assert.match(workflow, /for PACK_ID in "\$\{ACTIVE_PACK_IDS\[@\]\}"/u);
+  assert.doesNotMatch(workflow, /--packs cclp1,cclp4,cclp5|for PACK_ID in cclp1 cclp4 cclp5/u);
   for (const required of [
     "browser.json",
     "execution-index.json",
@@ -377,8 +397,12 @@ test("publishes only freshly attested checked P7 packs on Pages", async () => {
   const presentationPrepare = workflow.indexOf('node "$PRESENTATION_RUNNER" prepare');
   const graphCheck = workflow.indexOf('node "$PRESENTATION_RUNNER" graph-check');
   const attest = workflow.indexOf('node "$PRESENTATION_RUNNER" attest');
-  const emit = workflow.indexOf("ccsolver:p7-training:emit-dist:prepared");
+  const p4bEmit = workflow.indexOf("ccsolver:p4b:emit-dist:prepared");
+  const p6aEmit = workflow.indexOf("ccsolver:p6a:emit-dist:prepared");
+  const p7aEmit = workflow.indexOf("ccsolver:p7a:emit-dist:prepared");
+  const emit = workflow.indexOf("runP7bTrainingPackDist.ts");
   assert.ok(build < artifactsRoot && artifactsRoot < presentationPrepare);
   assert.ok(build < graphCheck && graphCheck < attest && attest < emit);
+  assert.ok(p4bEmit < p6aEmit && p6aEmit < p7aEmit && p7aEmit < emit);
   assert.doesNotMatch(workflow, /p7-training-engine-runner\.mjs (?:prepare|shard|assemble|reduce)/u);
 });

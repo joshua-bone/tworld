@@ -57,12 +57,30 @@ jobs:
           node "$PRESENTATION_RUNNER" prepare "${PRESENTATION_COMMON[@]}"
           node "$PRESENTATION_RUNNER" graph-check "${PRESENTATION_COMMON[@]}"
           node "$PRESENTATION_RUNNER" graph-attest "${PRESENTATION_COMMON[@]}"
+          ACTIVE_PACKS="$(node scripts/ci/p7-active-packs.mjs \
+            --root . \
+            --format packs-csv)"
           node "$PRESENTATION_RUNNER" attest "${PRESENTATION_COMMON[@]}" \
-            --packs cclp1,cclp4,cclp5
-      - name: Emit attested P7 training replay packs
+            --packs "$ACTIVE_PACKS"
+      - name: Add SPA fallback page
+        run: cp web/dist/index.html web/dist/404.html
+      - name: Emit unlisted CCSolver dossier bundle
+        run: npm run ccsolver:p4b:emit-dist:prepared
+      - name: Emit unlisted causal alignment bundle
+        run: npm run ccsolver:p6a:emit-dist:prepared
+      - name: Emit unlisted standard-tactic realization bundle
+        run: npm run ccsolver:p7a:emit-dist:prepared
+      - name: Emit attested P7 training replay packs last
         run: |
-          npm run ccsolver:p7-training:emit-dist:prepared
-          for PACK_ID in cclp1 cclp4 cclp5; do
+          ACTIVE_PACKS="$(node scripts/ci/p7-active-packs.mjs \
+            --root . \
+            --format packs-csv)"
+          npm exec --workspace web -- vite-node --script \
+            src/ccsolver-runtime/compose/p7b-training-review/runP7bTrainingPackDist.ts \
+            --root .. \
+            --packs "$ACTIVE_PACKS"
+          IFS=',' read -r -a ACTIVE_PACK_IDS <<< "$ACTIVE_PACKS"
+          for PACK_ID in "${ACTIVE_PACK_IDS[@]}"; do
             LEAF_ROOT="web/dist/dev/ccsolver/training-replays/$PACK_ID"
             [[ -d "$LEAF_ROOT" ]]
             [[ -d "$LEAF_ROOT/levels" ]]
@@ -76,14 +94,6 @@ jobs:
               [[ -f "$LEAF_ROOT/$ROOT_FILE" ]]
             done
           done
-      - name: Add SPA fallback page
-        run: cp web/dist/index.html web/dist/404.html
-      - name: Emit unlisted CCSolver dossier bundle
-        run: npm run ccsolver:p4b:emit-dist:prepared
-      - name: Emit unlisted causal alignment bundle
-        run: npm run ccsolver:p6a:emit-dist:prepared
-      - name: Emit unlisted standard-tactic realization bundle
-        run: npm run ccsolver:p7a:emit-dist:prepared
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

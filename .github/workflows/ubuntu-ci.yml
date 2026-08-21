@@ -60,6 +60,7 @@ jobs:
             test/ci-changed-web-tests.test.mjs \
             test/ci-proof-receipt.test.mjs \
             test/ci-proof-gates.test.mjs \
+            test/ci-p7-active-packs.test.mjs \
             test/ci-p7-training-policy.test.mjs \
             test/ci-p1b-shards.test.mjs \
             test/ci-p1b-map-reduce-routing.test.mjs \
@@ -903,7 +904,15 @@ jobs:
           path: ${{ runner.temp }}/p7-training-shards/7
       - name: Independently verify every checked P7 execution receipt
         run: |
-          for PROOF_ID in p7c p7d p7e; do
+          ACTIVE_PROOF_IDS_JSON="$(node scripts/ci/p7-active-packs.mjs \
+            --root . \
+            --format proof-ids-json)"
+          ACTIVE_PROOF_IDS="$(node --input-type=module -e '
+            const proofIds = JSON.parse(process.argv[1]);
+            if (!Array.isArray(proofIds) || proofIds.length === 0) process.exit(2);
+            for (const proofId of proofIds) process.stdout.write(`${proofId}\n`);
+          ' "$ACTIVE_PROOF_IDS_JSON")"
+          while IFS= read -r PROOF_ID; do
             DECISION="$(node scripts/ci/proof-receipt.mjs verify \
               --root . \
               --spec "scripts/ci/proof-specs/${PROOF_ID}.json" \
@@ -912,7 +921,7 @@ jobs:
               const decision = JSON.parse(process.argv[1]);
               if (decision.proofId !== process.argv[2] || decision.currentValid !== true) process.exit(2);
             ' "$DECISION" "$PROOF_ID"
-          done
+          done <<< "$ACTIVE_PROOF_IDS"
       - name: Attest the fresh graph, selected engines, and every presentation leaf
         env:
           P7_NEEDS_SHARDS: ${{ needs.classify.outputs['p7-needs-shards'] }}
@@ -965,8 +974,11 @@ jobs:
               --artifacts "$ENGINE_ARTIFACTS"
           fi
 
+          ACTIVE_PACKS="$(node scripts/ci/p7-active-packs.mjs \
+            --root . \
+            --format packs-csv)"
           node "$PRESENTATION_RUNNER" attest "${PRESENTATION_COMMON[@]}" \
-            --packs cclp1,cclp4,cclp5
+            --packs "$ACTIVE_PACKS"
 
   browser-workspace:
     needs: classify
