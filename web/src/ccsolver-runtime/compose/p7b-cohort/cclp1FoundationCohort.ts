@@ -38,7 +38,7 @@ export const CCLP1_FOUNDATION_LIMITS = {
   maximumDonorTicks: 20_196,
   replayTickSlackPerTarget: 40,
   maximumAdvanceTicks: 21_156,
-  maximumEventsPerTarget: 131_072,
+  maximumRetainedEventsPerTarget: 131_072,
   maximumEventStreamCanonicalBytes: 32 * 1024 * 1024,
 } as const;
 

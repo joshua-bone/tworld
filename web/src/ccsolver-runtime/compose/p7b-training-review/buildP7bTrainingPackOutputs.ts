@@ -668,6 +668,7 @@ function buildLevelPresentation(input: {
         nativeTickRateHz,
         nativeBoundaryClock: certification.execution.nativeBoundaryClock!,
         terminalNativeTick: certification.terminalNativeTick,
+        authoredDecisionCount: variant.decisionCount,
         executedDecisionCount,
         segmentSpans: certification.segmentSpans.map((span) => ({
           segmentId: span.segmentId,

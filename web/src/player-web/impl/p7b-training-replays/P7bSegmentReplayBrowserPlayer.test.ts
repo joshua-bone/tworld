@@ -38,6 +38,7 @@ function manifest(): P7bReplayBrowserManifestV1 {
     nativeTickRateHz: 20,
     nativeBoundaryClock: "exclusive-advance-count-v1" as const,
     terminalNativeTick: 3,
+    authoredDecisionCount: 3,
     executedDecisionCount: 2,
     provenanceLabel: "Portable candidate",
     replayHref: `portable-${executionTarget}.json`,
@@ -106,6 +107,8 @@ describe("P7B mounted replay player", () => {
     expect(html).toContain('type="range"');
     expect(html).toContain("hybridcc-candidate-10hz-v1");
     expect(html).toContain("Portable decisions · 10 Hz; native execution · 20 Hz");
+    expect(html).toContain("Decision counts");
+    expect(html).toContain("Authored decisions: 3 · Executed decisions: 2");
     expect(html).toContain("Focus this player");
     expect(html).toContain('data-fake-map="true"');
   });

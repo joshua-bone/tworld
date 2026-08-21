@@ -1105,7 +1105,7 @@ function copyExecution(
   if (status === "native") {
     if (
       decisionProfile === null
-      || executedDecisionCount !== authoredDecisionCount
+      || executedDecisionCount === null
       || nativeBoundaryClock !== "exclusive-advance-count-v1"
       || decisionProfile.clockBasis !== "native-tick"
       || decisionProfile.profileContent !== null

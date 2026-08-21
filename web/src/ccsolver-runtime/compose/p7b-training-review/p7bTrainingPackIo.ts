@@ -669,6 +669,7 @@ function assertLevelBrowserBindings(input: {
         || combination.nativeBoundaryClock !== execution.nativeBoundaryClock
         || combination.nativeTickRateHz !== execution.nativeTickRateHz
         || combination.terminalNativeTick !== certification.terminalNativeTick
+        || combination.authoredDecisionCount !== variant.decisionCount
         || combination.executedDecisionCount !== execution.executedDecisionCount
         || execution.decisionProfile === null
         || combination.decisionProfile.profileId !== execution.decisionProfile.profileId

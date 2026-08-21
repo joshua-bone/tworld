@@ -1,7 +1,9 @@
 import { WebCryptoSha256 } from "@tworld/ccsolver/adapters/web-crypto";
 import { referenceSourceBytes } from "@tworld/ccsolver/application";
 import {
+  canonicalizeJson,
   type BlobReferenceV1,
+  type CanonicalJsonValue,
   type SolverTerminalResult,
 } from "@tworld/ccsolver/domain";
 import type { Sha256Port } from "@tworld/ccsolver/ports";
@@ -28,6 +30,11 @@ import {
   type P7GeneratedCanonicalDigestV1,
   type P7GeneratedEvidenceBundleV1,
 } from "../p7-training-execution/p7GeneratedEvidenceStore";
+import {
+  P7TrainingEventAccumulator,
+  type P7TrainingEventStreamDigestV1,
+  type P7TrainingRetainedCausalEvent,
+} from "../p7-training-execution/p7TrainingEventAccumulator";
 import {
   P7B_MAX_SEGMENTS_PER_VARIANT,
   P7B_SEGMENT_SELECTION_POLICY_REVISION,
@@ -81,7 +88,7 @@ export interface ProcessedCclp1FoundationTarget extends LoadedCclp1FoundationTar
       readonly heavyVerification: "reexecute-authoritative-engine";
     };
     readonly eventEvidence: BlobReferenceV1;
-    readonly fullEventStream: P7GeneratedCanonicalDigestV1;
+    readonly fullEventStream: P7TrainingEventStreamDigestV1;
     readonly segmentSelection: P7bSegmentSelectionV1;
     readonly initialCheckpoint: BlobReferenceV1;
     readonly finalCheckpoint: BlobReferenceV1;
@@ -153,13 +160,15 @@ interface PendingBoundaryCandidate {
   readonly checkpoint: BlobReferenceV1 | null;
   readonly evidence: {
     readonly coincidentEventCount: number;
+    readonly coincidentAnchorCount: number;
+    readonly orderedAnchorTranscript: P7GeneratedCanonicalDigestV1;
     readonly anchorEvent: FoundationNativeCausalEvent;
   } | null;
   readonly anchor: ProcessedCclp1FoundationSegment["anchor"];
   readonly semanticKey: string;
 }
 
-export type FoundationNativeCausalEvent = (MsNativeCausalEvent | LynxNativeCausalEvent) & {
+export type FoundationNativeCausalEvent = P7TrainingRetainedCausalEvent & {
   readonly kind: string;
   readonly nativeTick: number;
   readonly tileId: number | null;
@@ -202,6 +211,14 @@ function positionKey(position: FoundationNativeCausalEvent["before"]): string {
 }
 
 function semanticKeyForNativeEvent(event: FoundationNativeCausalEvent): string {
+  if (event.p7Aggregation !== undefined) {
+    return [
+      "toggle-walls",
+      event.sourceTileId ?? "none",
+      positionKey(event.sourcePosition ?? null),
+      event.p7Aggregation.semanticAction,
+    ].join(":");
+  }
   return [
     event.kind,
     event.tileId ?? "none",
@@ -214,6 +231,12 @@ function semanticKeyForNativeEvent(event: FoundationNativeCausalEvent): string {
 function anchorFromEvent(
   event: FoundationNativeCausalEvent,
 ): ProcessedCclp1FoundationSegment["anchor"] | null {
+  if (event.p7Aggregation !== undefined) {
+    return {
+      kind: "button",
+      label: `Activate ${displaySemanticType(event.p7Aggregation.semanticAction)}`,
+    };
+  }
   switch (event.kind) {
     case "complete-level":
       return { kind: "exit", label: "Enter the exit" };
@@ -357,12 +380,20 @@ export async function segmentFoundationNativeEvents(
   for (const [tick, events] of [...eventsByTick].sort(([left], [right]) => left - right)) {
     const selected = chooseAnchorEvent(events);
     if (selected === null) continue;
+    const orderedAnchorTranscript = await input.evidence.digestCanonical({
+      eventsOrder: "within-tick-order",
+      events,
+    }, CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes);
     unnumberedCandidates.push({
       tick,
       decision: input.decisionCountAtTick(tick),
       checkpoint: null,
       evidence: {
-        coincidentEventCount: events.length,
+        coincidentEventCount: events.reduce((sum, event) => (
+          sum + (event.p7Aggregation?.eventCount ?? 1)
+        ), 0),
+        coincidentAnchorCount: events.length,
+        orderedAnchorTranscript,
         anchorEvent: selected.event,
       },
       anchor: selected.anchor,
@@ -409,6 +440,8 @@ export async function segmentFoundationNativeEvents(
         nativeBoundaryTick: candidate.tick,
         decisionCount: candidate.decision,
         coincidentEventCount: candidate.evidence?.coincidentEventCount ?? 0,
+        coincidentAnchorCount: candidate.evidence?.coincidentAnchorCount ?? 0,
+        orderedAnchorTranscript: candidate.evidence?.orderedAnchorTranscript ?? null,
         anchorEvent: candidate.evidence?.anchorEvent ?? null,
       })),
     }, CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes),
@@ -542,15 +575,52 @@ export async function referenceFoundationSessionBoundaryEvidence(
 interface RawReplayExecution {
   readonly terminal: Exclude<SolverTerminalResult, { readonly kind: "running" }>;
   readonly advanceTickCount: number;
+  readonly eventCount: number;
+  readonly fullEventStream: P7TrainingEventStreamDigestV1;
   readonly events: readonly FoundationNativeCausalEvent[];
   readonly initialCheckpoint: BlobReferenceV1;
   readonly finalCheckpoint: BlobReferenceV1;
+}
+
+type RawReplayPrefixEquivalence = Pick<
+  RawReplayExecution,
+  "terminal" | "advanceTickCount" | "eventCount" | "fullEventStream"
+>;
+
+export function assertExactExecutedReplayPrefix(input: {
+  readonly occurrenceId: string;
+  readonly target: "ms" | "lynx";
+  readonly discovered: RawReplayPrefixEquivalence;
+  readonly replayed: RawReplayPrefixEquivalence;
+  readonly expectedDecisionCount: number;
+  readonly replayedDecisionCount: number;
+}): void {
+  const sameCanonicalValue = (left: unknown, right: unknown) => (
+    canonicalizeJson(left as CanonicalJsonValue)
+      === canonicalizeJson(right as CanonicalJsonValue)
+  );
+  if (
+    !sameCanonicalValue(input.replayed.terminal, input.discovered.terminal)
+    || input.replayed.advanceTickCount !== input.discovered.advanceTickCount
+    || input.replayed.eventCount !== input.discovered.eventCount
+    || !sameCanonicalValue(
+      input.replayed.fullEventStream,
+      input.discovered.fullEventStream,
+    )
+    || input.replayedDecisionCount !== input.expectedDecisionCount
+  ) {
+    throw new Error(
+      `${input.occurrenceId}/${input.target} exact executed replay prefix drifted`,
+    );
+  }
 }
 
 async function executeMsRawReplay(
   level: LoadedCclp1FoundationLevel,
   target: LoadedCclp1FoundationTarget,
   evidence: P7GeneratedEvidenceStore,
+  sha256: Sha256Port,
+  replayDecisionCount = target.expandedSolution.moves.length,
 ): Promise<RawReplayExecution> {
   const request = {
     seriesFile: target.seriesFile,
@@ -562,30 +632,31 @@ async function executeMsRawReplay(
     levelData: new Uint8Array(level.source.levelData),
     layerData: level.source.layerData.map((bytes) => new Uint8Array(bytes)),
   });
+  const expandedReplay = structuredClone(target.expandedSolution);
   const replay = {
-    ...structuredClone(target.expandedSolution),
+    ...expandedReplay,
+    moves: expandedReplay.moves.slice(0, replayDecisionCount),
     bestTimeTicks: target.bestTimeTicks,
     modifierMasks: [],
   };
   let session = createMsReplaySession(request, prepared, replay);
   const initialCheckpoint = await referenceFoundationSessionBoundaryEvidence("ms", session, evidence);
-  const events: FoundationNativeCausalEvent[] = [];
+  const eventAccumulator = new P7TrainingEventAccumulator({
+    occurrenceId: level.selection.occurrenceId,
+    target: "ms",
+    sha256,
+    maximumRetainedEvents: CCLP1_FOUNDATION_LIMITS.maximumRetainedEventsPerTarget,
+  });
   const maximumAdvanceTicks = target.bestTimeTicks + CCLP1_FOUNDATION_LIMITS.replayTickSlackPerTarget;
   let advanceTickCount = 0;
   while (session.state.engine.status === "playing" && advanceTickCount < maximumAdvanceTicks) {
     session = advanceMsInteractiveSession(session, 0, {
-      causalEventSink: (event) => {
-        events.push(event as FoundationNativeCausalEvent);
-        if (events.length > CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget) {
-          throw new Error(
-            `${level.selection.occurrenceId}/ms causal event capacity exhausted at `
-            + `${events.length} events (limit ${CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget})`,
-          );
-        }
-      },
+      causalEventSink: eventAccumulator.causalEventSink,
     });
+    await eventAccumulator.flushNativeTick();
     advanceTickCount += 1;
   }
+  const accumulated = await eventAccumulator.finish();
   const nativeTick = session.state.engine.timer.currentTime;
   const terminal: Exclude<SolverTerminalResult, { readonly kind: "running" }> =
     session.state.engine.status === "completed" || session.state.internal.completed
@@ -603,7 +674,9 @@ async function executeMsRawReplay(
   return {
     terminal,
     advanceTickCount,
-    events,
+    eventCount: accumulated.rawEventCount,
+    fullEventStream: accumulated.fullEventStream,
+    events: accumulated.events as readonly FoundationNativeCausalEvent[],
     initialCheckpoint,
     finalCheckpoint: await referenceFoundationSessionBoundaryEvidence("ms", session, evidence),
   };
@@ -613,6 +686,8 @@ async function executeLynxRawReplay(
   level: LoadedCclp1FoundationLevel,
   target: LoadedCclp1FoundationTarget,
   evidence: P7GeneratedEvidenceStore,
+  sha256: Sha256Port,
+  replayDecisionCount = target.expandedSolution.moves.length,
 ): Promise<RawReplayExecution> {
   const request = {
     seriesFile: target.seriesFile,
@@ -624,30 +699,31 @@ async function executeLynxRawReplay(
     levelData: new Uint8Array(level.source.levelData),
     layerData: level.source.layerData.map((bytes) => new Uint8Array(bytes)),
   });
+  const expandedReplay = structuredClone(target.expandedSolution);
   const replay = {
-    ...structuredClone(target.expandedSolution),
+    ...expandedReplay,
+    moves: expandedReplay.moves.slice(0, replayDecisionCount),
     bestTimeTicks: target.bestTimeTicks,
     modifierMasks: [],
   };
   let session = createLynxReplaySession(request, prepared, replay);
   const initialCheckpoint = await referenceFoundationSessionBoundaryEvidence("lynx", session, evidence);
-  const events: FoundationNativeCausalEvent[] = [];
+  const eventAccumulator = new P7TrainingEventAccumulator({
+    occurrenceId: level.selection.occurrenceId,
+    target: "lynx",
+    sha256,
+    maximumRetainedEvents: CCLP1_FOUNDATION_LIMITS.maximumRetainedEventsPerTarget,
+  });
   const maximumAdvanceTicks = target.bestTimeTicks + CCLP1_FOUNDATION_LIMITS.replayTickSlackPerTarget;
   let advanceTickCount = 0;
   while (session.endGameResult === null && advanceTickCount < maximumAdvanceTicks) {
     session = advanceLynxInteractiveSession(session, 0, {
-      causalEventSink: (event) => {
-        events.push(event as FoundationNativeCausalEvent);
-        if (events.length > CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget) {
-          throw new Error(
-            `${level.selection.occurrenceId}/lynx causal event capacity exhausted at `
-            + `${events.length} events (limit ${CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget})`,
-          );
-        }
-      },
+      causalEventSink: eventAccumulator.causalEventSink,
     });
+    await eventAccumulator.flushNativeTick();
     advanceTickCount += 1;
   }
+  const accumulated = await eventAccumulator.finish();
   const nativeTick = session.state.timer.currentTime;
   const terminal: Exclude<SolverTerminalResult, { readonly kind: "running" }> =
     session.endGameResult === "completed"
@@ -665,7 +741,9 @@ async function executeLynxRawReplay(
   return {
     terminal,
     advanceTickCount,
-    events,
+    eventCount: accumulated.rawEventCount,
+    fullEventStream: accumulated.fullEventStream,
+    events: accumulated.events as readonly FoundationNativeCausalEvent[],
     initialCheckpoint,
     finalCheckpoint: await referenceFoundationSessionBoundaryEvidence("lynx", session, evidence),
   };
@@ -684,23 +762,47 @@ async function processTarget(
   ) {
     throw new Error(`${level.selection.occurrenceId}/ms uses unsupported stepping`);
   }
-  const executed = target.target === "ms"
-    ? await executeMsRawReplay(level, target, evidence)
-    : await executeLynxRawReplay(level, target, evidence);
-  const { terminal, advanceTickCount } = executed;
-  const tickCount = terminal.nativeTick + 1;
-  const decisionCount = countNativeReplayDecisionsThrough(
+  const execute = (
+    executionEvidence: P7GeneratedEvidenceStore,
+    replayDecisionCount?: number,
+  ) => target.target === "ms"
+    ? executeMsRawReplay(level, target, executionEvidence, sha256, replayDecisionCount)
+    : executeLynxRawReplay(level, target, executionEvidence, sha256, replayDecisionCount);
+  const discoveryEvidence = new P7GeneratedEvidenceStore({
+    scopeId: `${level.selection.occurrenceId}/${target.target}/raw-discovery`,
+    sha256,
+  });
+  let executed = await execute(discoveryEvidence);
+  let tickCount = executed.terminal.nativeTick + 1;
+  let decisionCount = countNativeReplayDecisionsThrough(
     target.target,
     target.expandedSolution.moves,
     tickCount,
   );
-  if (terminal.kind === "won" && decisionCount !== target.expandedSolution.moves.length) {
-    throw new Error(
-      `${level.selection.occurrenceId}/${target.target} terminal consumed ${decisionCount}/`
-      + `${target.expandedSolution.moves.length} donor decisions at tickCount ${tickCount}; `
-      + `first=${target.expandedSolution.moves[0]?.when}, last=${target.expandedSolution.moves.at(-1)?.when}`,
+  if (decisionCount < target.expandedSolution.moves.length) {
+    const discovered = executed;
+    executed = await execute(evidence, decisionCount);
+    tickCount = executed.terminal.nativeTick + 1;
+    const replayedDecisionCount = countNativeReplayDecisionsThrough(
+      target.target,
+      target.expandedSolution.moves,
+      tickCount,
     );
+    assertExactExecutedReplayPrefix({
+      occurrenceId: level.selection.occurrenceId,
+      target: target.target,
+      discovered,
+      replayed: executed,
+      expectedDecisionCount: decisionCount,
+      replayedDecisionCount,
+    });
+    decisionCount = replayedDecisionCount;
+  } else {
+    await evidence.importBundle(discoveryEvidence.bundle());
   }
+  const { terminal, advanceTickCount } = executed;
+  // Retain the immutable authored replay while binding certification evidence
+  // to exactly the decisions that execute before the native terminal boundary.
   const allEvents = executed.events;
   const inputDecisionEvents = inputDecisionEventsFrom(allEvents);
   const finalCheckpoint = executed.finalCheckpoint;
@@ -721,13 +823,7 @@ async function processTarget(
     evidence,
   });
   const { segments, selection: segmentSelection } = segmented;
-  const [rawReplayContent, fullEventStream] = await Promise.all([
-    referenceSourceBytes(target.rawReplayBytes, sha256),
-    evidence.digestCanonical(
-      { eventsOrder: "sequence", events: allEvents },
-      CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes,
-    ),
-  ]);
+  const rawReplayContent = await referenceSourceBytes(target.rawReplayBytes, sha256);
   const eventRetention = {
     status: "digest-and-boundary-events",
     heavyVerification: "reexecute-authoritative-engine",
@@ -742,8 +838,8 @@ async function processTarget(
     terminalNativeTick: tickCount,
     decisionCount,
     advanceTickCount,
-    eventCount: allEvents.length,
-    fullEventStream,
+    eventCount: executed.eventCount,
+    fullEventStream: executed.fullEventStream,
     segmentSelection,
     initialBoundaryEvidence: executed.initialCheckpoint,
     finalBoundaryEvidence: finalCheckpoint,
@@ -760,7 +856,7 @@ async function processTarget(
   });
   progress(
     `${level.selection.occurrenceId}/${target.target} ${terminal.kind} in ${advanceTickCount} advances; `
-    + `${allEvents.length} native events; ${segments.length} segments`,
+    + `${executed.eventCount} native events; ${segments.length} segments`,
   );
   return {
     ...target,
@@ -772,10 +868,10 @@ async function processTarget(
       tickCount,
       decisionCount,
       advanceTickCount,
-      eventCount: allEvents.length,
+      eventCount: executed.eventCount,
       eventRetention,
       eventEvidence,
-      fullEventStream,
+      fullEventStream: executed.fullEventStream,
       segmentSelection,
       initialCheckpoint: executed.initialCheckpoint,
       finalCheckpoint,

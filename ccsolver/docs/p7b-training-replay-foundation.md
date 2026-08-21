@@ -50,6 +50,13 @@ Normalization never edits or replaces a donor replay. It creates a new,
 lineage-bound candidate from an immutable raw replay and records an ordered
 transformation ledger.
 
+Authored donor length and executed certification length are separate facts. If
+an authoritative engine reaches a terminal before an authored trailing input,
+the raw bytes, content digest, provenance, and full authored decision count stay
+unchanged. The processor derives and reexecutes the exact terminal-bound prefix,
+then binds `executedDecisionCount` and the browser replay envelope to that
+prefix. A harmless terminal tail is never rewritten into a different donor.
+
 The first portable profile is `hybridcc-candidate-10hz-v1`, bound to the
 HybridCC2026 timing and provisional replay-input contract at a declared engine
 revision. Its authoritative timeline has zero-based 100 ms logic boundaries,
@@ -78,6 +85,26 @@ Evidence grades remain distinct:
 - semantic equivalence with disclosed native timing/state differences;
 - strategy-only lineage requiring target recompilation; and
 - unproved or residual-quirk behavior.
+
+Native causal journals are committed without retaining an unbounded in-memory
+event array. Every raw event is canonicalized in sequence and hashed through a
+deterministic ordered chunk manifest. The published bounds are 4,096 events per
+chunk, 256 chunks, 1,048,576 raw events, and 256 MiB of canonical stream data;
+unhashed queued data is capped at 32 MiB. Raw chunk payloads are discarded after
+hashing; retained state consists of the bounded semantic journal used for
+segmentation, at most 256 compact chunk descriptors, and a target-transcript
+digest cache capped at 16 entries and 8 MiB of serialized lookup and digest
+data. Repeated
+toggle-wall target events are represented as target-native button activations
+with an ordered target-transcript digest, while the full stream root remains
+target-specific. Certification receipts must use the exact execution-kind
+schema, and every browser parity receipt is cross-bound to the corresponding
+certification event count and stream root.
+
+The production capacity canary is CCLP5/086 under Lynx: 494,330 raw events,
+192,636,537 canonical bytes, and 121 chunks reduce to 2,696 retained semantic
+events. These exact measurements are regression-tested; they calibrate the
+bounds rather than weakening them after an overflow.
 
 HybridCC2026 currently has a private provisional slice replay and a documented
 future native envelope, not a complete production adapter for these levels.

@@ -11,20 +11,22 @@ import {
   advanceLynxInteractiveSession,
   createLynxInteractiveSession,
   createLynxReplaySession,
-  type LynxNativeCausalEvent,
 } from "@ruleset-lynx/impl/engine";
 import { lynxElementFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
 import {
   advanceMsInteractiveSession,
   createMsInteractiveSession,
   createMsReplaySession,
-  type MsNativeCausalEvent,
 } from "@ruleset-ms/impl/engine";
 import { msElementFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
 import {
   P7GeneratedEvidenceStore,
   type P7GeneratedEvidenceBundleV1,
 } from "../p7-training-execution/p7GeneratedEvidenceStore";
+import {
+  P7TrainingEventAccumulator,
+  type P7TrainingEventStreamDigestV1,
+} from "../p7-training-execution/p7TrainingEventAccumulator";
 import {
   canonicalizeP7TrainingBrowserReplay,
   parseP7TrainingBrowserReplay,
@@ -92,6 +94,8 @@ interface ParityExecution {
   readonly won: boolean;
   readonly timedOut: boolean;
   readonly terminalNativeTick: number;
+  readonly eventCount: number;
+  readonly fullEventStream: P7TrainingEventStreamDigestV1;
   readonly initialCheckpoint: BlobReferenceV1;
   readonly finalCheckpoint: BlobReferenceV1;
   readonly events: readonly FoundationNativeCausalEvent[];
@@ -193,6 +197,7 @@ async function executeMsTransport(
   level: P7bPortableCclp1FoundationLevel,
   replay: P7TrainingBrowserReplayV1,
   evidence: P7GeneratedEvidenceStore,
+  sha256: Sha256Port,
 ): Promise<ParityExecution> {
   const target = level.source.targets.find((entry) => entry.target === "ms")!;
   const prepared = msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel({
@@ -209,7 +214,12 @@ async function executeMsTransport(
     ? createMsReplaySession(request, prepared, replayPayload(replay))
     : createMsInteractiveSession(request, prepared);
   const initialCheckpoint = await referenceFoundationSessionBoundaryEvidence("ms", session, evidence);
-  const events: MsNativeCausalEvent[] = [];
+  const eventAccumulator = new P7TrainingEventAccumulator({
+    occurrenceId: level.occurrenceId,
+    target: "ms",
+    sha256,
+    maximumRetainedEvents: CCLP1_FOUNDATION_LIMITS.maximumRetainedEventsPerTarget,
+  });
   let advances = 0;
   while (session.state.engine.status === "playing" && advances < replay.terminalNativeTick) {
     const nextTick = session.state.engine.timer.currentTime + 1;
@@ -217,15 +227,12 @@ async function executeMsTransport(
       ? p7ManualHeldInputAtNativeTick(replay, nextTick)
       : 0;
     session = advanceMsInteractiveSession(session, inputCode, {
-      causalEventSink: (event) => {
-        events.push(event);
-        if (events.length > CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget) {
-          throw new Error(`${level.occurrenceId}/${replay.variantId}/ms parity event cap exhausted`);
-        }
-      },
+      causalEventSink: eventAccumulator.causalEventSink,
     });
+    await eventAccumulator.flushNativeTick();
     advances += 1;
   }
+  const accumulated = await eventAccumulator.finish();
   const terminalNativeTick = session.state.engine.timer.currentTime + 1;
   if (terminalNativeTick !== replay.terminalNativeTick) {
     throw new Error(`${level.occurrenceId}/${replay.variantId}/ms browser terminal parity failed`);
@@ -235,9 +242,11 @@ async function executeMsTransport(
     timedOut: session.state.internal.chipStatus === "outoftime"
       || session.state.engine.status === "playing",
     terminalNativeTick,
+    eventCount: accumulated.rawEventCount,
+    fullEventStream: accumulated.fullEventStream,
     initialCheckpoint,
     finalCheckpoint: await referenceFoundationSessionBoundaryEvidence("ms", session, evidence),
-    events,
+    events: accumulated.events as readonly FoundationNativeCausalEvent[],
   };
 }
 
@@ -245,6 +254,7 @@ async function executeLynxTransport(
   level: P7bPortableCclp1FoundationLevel,
   replay: P7TrainingBrowserReplayV1,
   evidence: P7GeneratedEvidenceStore,
+  sha256: Sha256Port,
 ): Promise<ParityExecution> {
   const target = level.source.targets.find((entry) => entry.target === "lynx")!;
   const prepared = lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel({
@@ -261,7 +271,12 @@ async function executeLynxTransport(
     ? createLynxReplaySession(request, prepared, replayPayload(replay))
     : createLynxInteractiveSession(request, prepared);
   const initialCheckpoint = await referenceFoundationSessionBoundaryEvidence("lynx", session, evidence);
-  const events: LynxNativeCausalEvent[] = [];
+  const eventAccumulator = new P7TrainingEventAccumulator({
+    occurrenceId: level.occurrenceId,
+    target: "lynx",
+    sha256,
+    maximumRetainedEvents: CCLP1_FOUNDATION_LIMITS.maximumRetainedEventsPerTarget,
+  });
   let advances = 0;
   while (session.endGameResult === null && advances < replay.terminalNativeTick) {
     const nextTick = session.state.timer.currentTime + 1;
@@ -269,15 +284,12 @@ async function executeLynxTransport(
       ? p7ManualHeldInputAtNativeTick(replay, nextTick)
       : 0;
     session = advanceLynxInteractiveSession(session, inputCode, {
-      causalEventSink: (event) => {
-        events.push(event);
-        if (events.length > CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget) {
-          throw new Error(`${level.occurrenceId}/${replay.variantId}/lynx parity event cap exhausted`);
-        }
-      },
+      causalEventSink: eventAccumulator.causalEventSink,
     });
+    await eventAccumulator.flushNativeTick();
     advances += 1;
   }
+  const accumulated = await eventAccumulator.finish();
   const terminalNativeTick = session.state.timer.currentTime + 1;
   if (terminalNativeTick !== replay.terminalNativeTick) {
     throw new Error(`${level.occurrenceId}/${replay.variantId}/lynx browser terminal parity failed`);
@@ -288,9 +300,11 @@ async function executeLynxTransport(
       && session.state.timer.currentTime >= session.state.timer.timeLimit)
       || session.endGameResult === null,
     terminalNativeTick,
+    eventCount: accumulated.rawEventCount,
+    fullEventStream: accumulated.fullEventStream,
     initialCheckpoint,
     finalCheckpoint: await referenceFoundationSessionBoundaryEvidence("lynx", session, evidence),
-    events,
+    events: accumulated.events as readonly FoundationNativeCausalEvent[],
   };
 }
 
@@ -325,18 +339,37 @@ function expectedSegmentSelection(
 function expectedExecutionBoundaryEvidence(
   level: P7bPortableCclp1FoundationLevel,
   replay: P7TrainingBrowserReplayV1,
-): { readonly initial: BlobReferenceV1; readonly final: BlobReferenceV1 } {
+): {
+  readonly initial: BlobReferenceV1;
+  readonly final: BlobReferenceV1;
+  readonly eventCount: number;
+  readonly fullEventStream: P7TrainingEventStreamDigestV1;
+} {
   if (replay.variantId === "portable") {
     if (level.candidate.status !== "compiled") throw new Error("portable parity lacks candidate");
     const certification = level.candidate.certifications[replay.target];
-    if (certification.initialCheckpoint === null || certification.finalCheckpoint === null) {
+    if (
+      certification.initialCheckpoint === null
+      || certification.finalCheckpoint === null
+      || certification.fullEventStream === null
+    ) {
       throw new Error("portable parity lacks its native boundary evidence");
     }
-    return { initial: certification.initialCheckpoint, final: certification.finalCheckpoint };
+    return {
+      initial: certification.initialCheckpoint,
+      final: certification.finalCheckpoint,
+      eventCount: certification.eventCount,
+      fullEventStream: certification.fullEventStream,
+    };
   }
   const execution = level.source.targets.find(({ target }) => target === replay.target)?.execution;
   if (execution === undefined) throw new Error("raw parity lacks its native boundary evidence");
-  return { initial: execution.initialCheckpoint, final: execution.finalCheckpoint };
+  return {
+    initial: execution.initialCheckpoint,
+    final: execution.finalCheckpoint,
+    eventCount: execution.eventCount,
+    fullEventStream: execution.fullEventStream,
+  };
 }
 
 function conservativeObservedSegments(
@@ -391,14 +424,15 @@ async function proveBrowserReplay(
   level: P7bPortableCclp1FoundationLevel,
   authoredReplay: P7TrainingBrowserReplayV1,
   evidence: P7GeneratedEvidenceStore,
+  sha256: Sha256Port,
 ): Promise<P7TrainingBrowserReplayInputV1> {
   const canonicalJson = canonicalizeP7TrainingBrowserReplay(authoredReplay);
   const content = await evidence.referenceCanonicalJson(canonicalJson);
   // Execute exactly the parsed canonical envelope that the browser consumes.
   const replay = parseP7TrainingBrowserReplay(canonicalJson);
   const execution = replay.target === "ms"
-    ? await executeMsTransport(level, replay, evidence)
-    : await executeLynxTransport(level, replay, evidence);
+    ? await executeMsTransport(level, replay, evidence, sha256)
+    : await executeLynxTransport(level, replay, evidence, sha256);
   const expected = expectedSegments(level, replay);
   const expectedSelection = expectedSegmentSelection(level, replay);
   const expectedCheckpoints = expectedExecutionBoundaryEvidence(level, replay);
@@ -493,6 +527,22 @@ async function proveBrowserReplay(
       + `${observedOutcome} != ${expectedOutcome}`,
     );
   }
+  const expectedEventStream = canonicalizeJson(
+    expectedCheckpoints.fullEventStream as unknown as CanonicalJsonValue,
+  );
+  const observedEventStream = canonicalizeJson(
+    execution.fullEventStream as unknown as CanonicalJsonValue,
+  );
+  if (
+    execution.eventCount !== expectedCheckpoints.eventCount
+    || observedEventStream !== expectedEventStream
+  ) {
+    throw new Error(
+      `${level.occurrenceId}/${replay.variantId}/${replay.target} `
+      + `browser native event-stream parity failed: ${execution.eventCount} != `
+      + `${expectedCheckpoints.eventCount}`,
+    );
+  }
   const sessionBoundaryComparison = {
     initial: referencesMatch(expectedCheckpoints.initial, execution.initialCheckpoint)
       ? "matched" as const
@@ -534,6 +584,8 @@ async function proveBrowserReplay(
     expected: {
       outcome: expectedOutcome,
       terminalNativeTick: authoredReplay.terminalNativeTick,
+      eventCount: expectedCheckpoints.eventCount,
+      fullEventStream: expectedCheckpoints.fullEventStream,
       initialBoundaryEvidence: expectedCheckpoints.initial,
       finalBoundaryEvidence: expectedCheckpoints.final,
       segmentSelection: expectedSelection,
@@ -542,6 +594,8 @@ async function proveBrowserReplay(
     observed: {
       outcome: observedOutcome,
       terminalNativeTick: execution.terminalNativeTick,
+      eventCount: execution.eventCount,
+      fullEventStream: execution.fullEventStream,
       initialBoundaryEvidence: execution.initialCheckpoint,
       finalBoundaryEvidence: execution.finalCheckpoint,
       segmentSelection: observedSelection,
@@ -595,7 +649,7 @@ export async function buildCclp1FoundationBrowserReplayLevel(
   ].filter((replay): replay is P7TrainingBrowserReplayV1 => replay !== null);
   const browserReplays: P7TrainingBrowserReplayInputV1[] = [];
   for (const replay of authored) {
-    browserReplays.push(await proveBrowserReplay(level, replay, evidence));
+    browserReplays.push(await proveBrowserReplay(level, replay, evidence, sha256));
   }
   return {
     occurrenceId: level.occurrenceId,

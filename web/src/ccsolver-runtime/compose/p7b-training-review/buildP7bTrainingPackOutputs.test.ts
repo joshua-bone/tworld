@@ -252,7 +252,7 @@ async function fixture(): Promise<P7bTrainingPackBuildInput> {
       variantId: "raw-ms",
       kind: "raw",
       replayContent: rawReplayContent,
-      decisionCount: 1,
+      decisionCount: 2,
       portableProfile: null,
       lineage: {
         kind: "raw-donor",
@@ -868,6 +868,26 @@ describe("the scalable P7B training pack checked leaf", () => {
     expect(manifest.presentation.initialSelection).toEqual({
       variant: "raw-ms",
       executionTarget: "ms",
+    });
+    expect(manifest.presentation.combinations.find(({ variant, executionTarget }) => (
+      variant === "raw-ms" && executionTarget === "ms"
+    ))).toMatchObject({
+      availability: "available",
+      authoredDecisionCount: 2,
+      executedDecisionCount: 1,
+    });
+    const contract = JSON.parse(new TextDecoder().decode(
+      built.outputs.find(({ path }) => path.endsWith("/levels/001/contract.json"))!.content,
+    )) as {
+      readonly variants: readonly {
+        readonly variantId: string;
+        readonly decisionCount: number;
+        readonly certifications: { readonly ms: { readonly execution: { readonly executedDecisionCount: number } } };
+      }[];
+    };
+    expect(contract.variants.find(({ variantId }) => variantId === "raw-ms")).toMatchObject({
+      decisionCount: 2,
+      certifications: { ms: { execution: { executedDecisionCount: 1 } } },
     });
     expect(parseP7bBrowserReplayAsset(replayText, {
       variant: "raw-ms",

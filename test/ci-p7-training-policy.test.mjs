@@ -145,6 +145,7 @@ test("keeps each P7 engine receipt graph-free and pack-source exact", async () =
       /prepare\|8x\(shard\)\|assemble\|reduce\|check\|write\|attest/u,
     );
     for (const engineSource of [
+      "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingEventAccumulator.ts",
       "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCli.ts",
       "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCore.ts",
       "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingExecutionAuthorityIo.ts",

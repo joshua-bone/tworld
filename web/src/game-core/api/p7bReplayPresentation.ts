@@ -54,6 +54,7 @@ export type P7bAvailableReplayCombination = P7bReplaySelection & {
   readonly nativeTickRateHz: number;
   readonly nativeBoundaryClock: "exclusive-advance-count-v1";
   readonly terminalNativeTick: number;
+  readonly authoredDecisionCount: number;
   readonly executedDecisionCount: number;
   readonly segmentSpans: readonly P7bReplaySegmentSpan[];
 };

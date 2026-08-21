@@ -218,6 +218,13 @@ export function P7bSegmentReplayBrowserPlayer(props: P7bSegmentReplayBrowserPlay
   const currentTick = snapshot.currentTick ?? snapshot.segmentStartTick ?? 0;
   const statusMessage = uiError ?? snapshot.message;
   const profile = snapshot.decisionProfile;
+  const selectedCombination = props.manifest.presentation.combinations.find((combination) => (
+    combination.variant === selectedVariant
+    && combination.executionTarget === selectedTarget
+  ));
+  const selectedDecisionCounts = selectedCombination?.availability === "available"
+    ? selectedCombination
+    : null;
 
   const keyboard = (event: ReactKeyboardEvent<HTMLElement>): void => {
     const target = event.target as HTMLElement | null;
@@ -329,6 +336,12 @@ export function P7bSegmentReplayBrowserPlayer(props: P7bSegmentReplayBrowserPlay
             <strong>{profile.profileId}</strong><br />
             {profile.clockBasis === "portable-decision" ? "Portable decisions" : "Native inputs"}
             {` · ${profile.cadenceHz} Hz; native execution · ${snapshot.nativeTickRateHz} Hz`}
+          </p>
+        )}
+        {selectedDecisionCounts && (
+          <p className="decision-count-readout">
+            <strong>Decision counts</strong><br />
+            {`Authored decisions: ${selectedDecisionCounts.authoredDecisionCount} · Executed decisions: ${selectedDecisionCounts.executedDecisionCount}`}
           </p>
         )}
         <p className="keyboard-hint">

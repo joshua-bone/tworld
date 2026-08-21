@@ -50,6 +50,17 @@ export interface ComposedCclp1FoundationTrainingReplayPack {
 
 type BrowserReplayIndex = ReadonlyMap<string, P7TrainingBrowserReplayInputV1>;
 
+export function summarizeP7bPortableBlockers(
+  blockers: P7bPortableCandidate["blockers"],
+): string {
+  const counts = new Map<P7bPortableCandidate["blockers"][number]["kind"], number>();
+  for (const { kind } of blockers) counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  return [...counts]
+    .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+    .map(([kind, count]) => `${kind}×${count}`)
+    .join(", ");
+}
+
 function browserKey(
   occurrenceId: string,
   variantId: string,
@@ -320,7 +331,7 @@ function nativeRawCertification(
       browserReplayTransport: browserReplay === null ? null : "native-replay-pulses",
       compilerRevision: null,
       compilationReceipt: null,
-      detail: "exact immutable TWS entry replayed without re-encoding",
+      detail: "immutable TWS entry retained byte-for-byte; exact executed prefix replayed",
     },
     segmentSelection: target.execution.segmentSelection,
     segmentSpans: certified ? rawTargetSpans(target.segments) : [],
@@ -352,7 +363,7 @@ function rawVariant(
     variantId,
     kind: "raw",
     replayContent: target.rawReplayContent,
-    decisionCount: target.execution.decisionCount,
+    decisionCount: target.expandedSolution.moves.length,
     portableProfile: null,
     lineage: {
       kind: "raw-donor",
@@ -629,7 +640,7 @@ function composeLevel(
         ? "donor executions completed without a certified replay"
         : level.candidate.status === "compiled"
           ? `raw donors certified and portable candidate classified ${level.candidate.portability}`
-          : `raw donors certified; portable candidate blocked: ${level.candidate.blockers.map(({ kind }) => kind).join(", ")}`,
+          : `raw donors certified; portable candidate blocked: ${summarizeP7bPortableBlockers(level.candidate.blockers)}`,
     },
     viewableVariantId,
   });

@@ -4,9 +4,17 @@ import { describe, expect, it } from "vitest";
 import { CCLP1_FOUNDATION_LIMITS } from "../p7b-cohort/cclp1FoundationCohort";
 import { P7B_MAX_SEGMENTS_PER_VARIANT } from "../p7b-training/trainingReplayContract";
 import { loadCheckedTrainingCorpusInventory } from "../p7c-p7e-inventory/loadCheckedTrainingCorpusInventory";
-import type { P7TrainingLevelInventory } from "../p7c-p7e-inventory/trainingCorpusInventory";
+import {
+  materializeDetachedReplaySolution,
+  type P7TrainingLevelInventory,
+} from "../p7c-p7e-inventory/trainingCorpusInventory";
 import type { P7GeneratedEvidenceSidecarV1 } from "./p7GeneratedEvidenceSidecar";
 import { P7GeneratedEvidenceStore } from "./p7GeneratedEvidenceStore";
+import {
+  assertP7TrainingEventStreamDigest,
+  P7_TRAINING_EVENT_STREAM_LIMITS,
+  type P7TrainingEventStreamDigestV1,
+} from "./p7TrainingEventAccumulator";
 import {
   buildP7TrainingPackGeneratedEvidence,
   processP7TrainingLevel,
@@ -95,23 +103,89 @@ describe("production P7 training row processor", () => {
         expect(certification.execution.executedDecisionCount).toBe(143);
         expect(certification.segmentSpans.at(-1)?.endDecisionOrdinal).toBe(143);
         const certificationEvidence = certification.evidence!;
-        const alignedEvidence = output.generatedEvidence.blobs.find(({ content }) => (
+        const certificationBlob = output.generatedEvidence.blobs.find(({ content }) => (
           content.digest === certificationEvidence.digest
           && content.byteLength === certificationEvidence.byteLength
         ))!;
-        const alignedReceipt = JSON.parse(new TextDecoder().decode(alignedEvidence.bytes)) as {
+        const certificationReceipt = JSON.parse(new TextDecoder().decode(certificationBlob.bytes)) as {
           readonly artifact: string;
-          readonly sourceCertificationEvidence: { readonly digest: string; readonly byteLength: number };
+          readonly eventCount: number;
+          readonly fullEventStream: P7TrainingEventStreamDigestV1;
         };
-        expect(alignedReceipt.artifact)
-          .toBe("ccsolver-p7b-portable-aligned-target-certification");
-        expect(output.generatedEvidence.blobs.some(({ content }) => (
-          content.digest === alignedReceipt.sourceCertificationEvidence.digest
-          && content.byteLength === alignedReceipt.sourceCertificationEvidence.byteLength
-        ))).toBe(true);
+        expect(certificationReceipt.artifact)
+          .toBe("ccsolver-p7b-portable-target-certification");
+        expect(certificationReceipt.eventCount)
+          .toBe(certificationReceipt.fullEventStream.eventCount);
       }
     }
   }, 120_000);
+
+  it("certifies the exact executed prefix when Lynx wins before an authored trailing decision", async () => {
+    const inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot);
+    const source = row(inventory, "cclp4/038");
+    const output = await processP7TrainingLevel(source, sha256);
+    const rawLynx = output.trainingReplayLevel.variants.find(({ variantId }) => (
+      variantId === "raw-lynx"
+    ))!;
+    const certification = rawLynx.certifications.lynx;
+    const browserReplay = output.browserReplays.find(({ variantId, target }) => (
+      variantId === "raw-lynx" && target === "lynx"
+    ))!;
+    const donor = source.targets.find(({ target }) => target === "lynx")!.donorCandidates[0]!;
+    const authoredMoves = materializeDetachedReplaySolution(donor.replay).moves;
+
+    expect(donor.replay.moveCount).toBe(789);
+    expect(rawLynx.decisionCount).toBe(789);
+    expect(rawLynx.replayContent).toEqual(donor.replay.content);
+    expect(output.trainingReplayLevel.rawDonors.find(({ donorId }) => (
+      donorId === donor.candidateId
+    ))!.replayContent).toEqual(donor.replay.content);
+    expect(certification).toMatchObject({
+      status: "certified",
+      outcome: "won",
+      terminalNativeTick: 1_623,
+      execution: {
+        status: "native",
+        executedDecisionCount: 788,
+        replayContent: rawLynx.replayContent,
+        browserReplayContent: browserReplay.content,
+      },
+    });
+    expect(browserReplay.replay.transport).toBe("native-replay-pulses");
+    if (browserReplay.replay.transport !== "native-replay-pulses") {
+      throw new Error("raw Lynx replay used the wrong browser transport");
+    }
+    expect(browserReplay.replay.decisions).toEqual(authoredMoves.slice(0, 788).map((move, ordinal) => ({
+      ordinal,
+      nativeTick: move.when % 0x80_0000,
+      encodedWhen: move.when,
+      inputCode: move.dir,
+      modifierMask: 0,
+    })));
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      output,
+      sha256,
+      repositoryRoot,
+      async () => undefined,
+    )).resolves.toBeDefined();
+
+    const forgedAuthoredCount = structuredClone(output) as unknown as {
+      trainingReplayLevel: {
+        variants: Array<{ variantId: string; decisionCount: number }>;
+      };
+    } & typeof output;
+    forgedAuthoredCount.trainingReplayLevel.variants.find(({ variantId }) => (
+      variantId === "raw-lynx"
+    ))!.decisionCount = 788;
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      forgedAuthoredCount,
+      sha256,
+      repositoryRoot,
+      async () => undefined,
+    )).rejects.toThrow("authored decision count drifted");
+  }, 30_000);
 
   it("retains the complete bounded causal stream for the production event canary", async () => {
     const inventory = await loadCheckedTrainingCorpusInventory(repositoryRoot);
@@ -127,20 +201,23 @@ describe("production P7 training row processor", () => {
     ))!;
     const eventReceipt = JSON.parse(new TextDecoder().decode(eventBlob.bytes)) as {
       readonly eventCount: number;
-      readonly fullEventStream: { readonly byteLength: number };
+      readonly fullEventStream: P7TrainingEventStreamDigestV1;
     };
     expect(eventReceipt.eventCount).toBeGreaterThan(65_536);
     expect(eventReceipt.eventCount).toBeLessThanOrEqual(
-      CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget,
+      CCLP1_FOUNDATION_LIMITS.maximumRetainedEventsPerTarget,
     );
-    expect(eventReceipt.fullEventStream.byteLength).toBeLessThanOrEqual(
-      CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes,
+    expect(eventReceipt.fullEventStream.eventCount).toBe(eventReceipt.eventCount);
+    expect(eventReceipt.fullEventStream.canonicalByteLength).toBeLessThanOrEqual(
+      P7_TRAINING_EVENT_STREAM_LIMITS.maximumCanonicalBytes,
     );
+    expect(eventReceipt.fullEventStream.chunking.chunkCount).toBeGreaterThan(0);
+    expect(() => assertP7TrainingEventStreamDigest(eventReceipt.fullEventStream)).not.toThrow();
     if (process.env.TWORLD_P7_TRAINING_METRICS === "1") {
       process.stderr.write(`${JSON.stringify({
         occurrenceId: source.occurrenceId,
         eventCount: eventReceipt.eventCount,
-        eventStreamByteLength: eventReceipt.fullEventStream.byteLength,
+        eventStreamByteLength: eventReceipt.fullEventStream.canonicalByteLength,
       })}\n`);
     }
     await expect(validateAndPersistP7TrainingLevelProcessOutput(
@@ -374,6 +451,111 @@ describe("production P7 training row processor", () => {
     )).rejects.toThrow("donor set drifted");
     expect(invalidPersisted).toBe(false);
 
+    const renamedReceipt = structuredClone(output) as typeof output;
+    const renamedCertification = renamedReceipt.trainingReplayLevel.variants.find(({ variantId }) => (
+      variantId === "raw-ms"
+    ))!.certifications.ms;
+    const originalCertificationEvidence = renamedCertification.evidence!;
+    const originalCertificationBlob = renamedReceipt.generatedEvidence.blobs.find(({ content }) => (
+      content.digest === originalCertificationEvidence.digest
+      && content.byteLength === originalCertificationEvidence.byteLength
+    ))!;
+    const renamedValue = JSON.parse(new TextDecoder().decode(
+      originalCertificationBlob.bytes,
+    )) as Record<string, unknown>;
+    renamedValue.artifact = "ccsolver-p7-native-replay-certification-receipt-renamed";
+    const renamedEvidence = new P7GeneratedEvidenceStore({
+      scopeId: renamedReceipt.generatedEvidence.scopeId,
+      sha256,
+    });
+    await renamedEvidence.importBundle(renamedReceipt.generatedEvidence);
+    const renamedReference = await renamedEvidence.referenceCanonical(renamedValue);
+    (renamedCertification as unknown as {
+      evidence: typeof renamedReference;
+    }).evidence = renamedReference;
+    const renamedBlobs = renamedEvidence.bundle().blobs.filter(({ content }) => (
+      content.digest !== originalCertificationEvidence.digest
+      || content.byteLength !== originalCertificationEvidence.byteLength
+    ));
+    (renamedReceipt as unknown as {
+      generatedEvidence: typeof output.generatedEvidence;
+    }).generatedEvidence = {
+      ...renamedReceipt.generatedEvidence,
+      totals: {
+        blobCount: renamedBlobs.length,
+        byteLength: renamedBlobs.reduce((sum, blob) => sum + blob.bytes.byteLength, 0),
+      },
+      blobs: renamedBlobs,
+    };
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      renamedReceipt,
+      sha256,
+      repositoryRoot,
+      async () => { invalidPersisted = true; },
+    )).rejects.toThrow("artifact does not match its native execution");
+    expect(invalidPersisted).toBe(false);
+
+    const alternativeRoot = structuredClone(output) as typeof output;
+    const rootVariant = alternativeRoot.trainingReplayLevel.variants.find(({ variantId }) => (
+      variantId === "raw-ms"
+    ))!;
+    const rootCertification = rootVariant.certifications.ms;
+    const rootAsset = alternativeRoot.browserReplays.find((entry) => (
+      entry.variantId === rootVariant.variantId && entry.target === "ms"
+    ))!;
+    const mutableRootAsset = rootAsset as unknown as {
+      parity: {
+        receipt: {
+          expected: { fullEventStream: P7TrainingEventStreamDigestV1 };
+          observed: { fullEventStream: P7TrainingEventStreamDigestV1 };
+        };
+        evidence: { digest: `sha256:${string}`; byteLength: number };
+      };
+    };
+    const rootEvidence = new P7GeneratedEvidenceStore({
+      scopeId: alternativeRoot.generatedEvidence.scopeId,
+      sha256,
+    });
+    await rootEvidence.importBundle(alternativeRoot.generatedEvidence);
+    const originalRootParity = rootAsset.parity.evidence;
+    const substitutedRoot = {
+      ...rootAsset.parity.receipt.expected.fullEventStream,
+      manifest: {
+        ...rootAsset.parity.receipt.expected.fullEventStream.manifest,
+        digest: `sha256:${"f".repeat(64)}` as const,
+      },
+    };
+    mutableRootAsset.parity.receipt.expected.fullEventStream = substitutedRoot;
+    mutableRootAsset.parity.receipt.observed.fullEventStream = substitutedRoot;
+    const substitutedRootParity = await rootEvidence.referenceCanonical(rootAsset.parity.receipt);
+    mutableRootAsset.parity.evidence = substitutedRootParity;
+    (rootCertification.execution as unknown as {
+      browserReplayParityReceipt: typeof substitutedRootParity;
+    }).browserReplayParityReceipt = substitutedRootParity;
+    const rootBlobs = rootEvidence.bundle().blobs.filter(({ content }) => (
+      content.digest !== originalRootParity.digest
+      || content.byteLength !== originalRootParity.byteLength
+    ));
+    (alternativeRoot as unknown as {
+      generatedEvidence: typeof output.generatedEvidence;
+    }).generatedEvidence = {
+      ...alternativeRoot.generatedEvidence,
+      totals: {
+        blobCount: rootBlobs.length,
+        byteLength: rootBlobs.reduce((sum, blob) => sum + blob.bytes.byteLength, 0),
+      },
+      blobs: rootBlobs,
+    };
+    await expect(validateAndPersistP7TrainingLevelProcessOutput(
+      source,
+      alternativeRoot,
+      sha256,
+      repositoryRoot,
+      async () => { invalidPersisted = true; },
+    )).rejects.toThrow("browser asset raw-ms:ms is not bound to its certification");
+    expect(invalidPersisted).toBe(false);
+
     const forgedBoundary = structuredClone(output) as unknown as {
       trainingReplayLevel: {
         variants: Array<{
@@ -510,7 +692,7 @@ describe("production P7 training row processor", () => {
     )).rejects.toThrow("expected and observed results drifted");
     expect(invalidPersisted).toBe(false);
 
-    const nestedRow = row(inventory, "cclp1/024");
+    const nestedRow = row(inventory, "cclp1/109");
     const nestedOutput = await processP7TrainingLevel(nestedRow, sha256);
     const missingNested = structuredClone(nestedOutput) as typeof nestedOutput;
     const alignedReceipt = missingNested.generatedEvidence.blobs.find((blob) => {

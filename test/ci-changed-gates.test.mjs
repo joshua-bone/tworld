@@ -261,6 +261,7 @@ test("routes P7 shared authorities and engine semantics through all training pac
   for (const path of [
     "ccsolver/corpus/manifest.v1.json",
     "ccsolver/corpus/p1b-validity-report.v1.json",
+    "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingEventAccumulator.ts",
     "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingLevelProcessor.ts",
     "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCore.ts",
     "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingNodeEntrypoint.ts",

@@ -48,6 +48,7 @@ function manifest(): P7bReplayBrowserManifestV1 {
     nativeTickRateHz: 20,
     nativeBoundaryClock: "exclusive-advance-count-v1" as const,
     terminalNativeTick: 3,
+    authoredDecisionCount: 2,
     executedDecisionCount: 2,
     provenanceLabel: "Portable candidate",
     replayHref: `portable-${executionTarget}.json`,

@@ -5,20 +5,21 @@ import type { SolutionMove } from "@content/api/solutionDataCodec";
 import {
   advanceLynxInteractiveSession,
   createLynxInteractiveSession,
-  type LynxNativeCausalEvent,
 } from "@ruleset-lynx/impl/engine";
 import { lynxElementFamilyRegistration } from "@ruleset-lynx/impl/elementRegistration";
 import {
   advanceMsInteractiveSession,
   createMsInteractiveSession,
-  type MsNativeCausalEvent,
 } from "@ruleset-ms/impl/engine";
 import { msElementFamilyRegistration } from "@ruleset-ms/impl/elementRegistration";
 import {
   P7GeneratedEvidenceStore,
-  type P7GeneratedCanonicalDigestV1,
   type P7GeneratedEvidenceBundleV1,
 } from "../p7-training-execution/p7GeneratedEvidenceStore";
+import {
+  P7TrainingEventAccumulator,
+  type P7TrainingEventStreamDigestV1,
+} from "../p7-training-execution/p7TrainingEventAccumulator";
 /*
  * The native segmenter is intentionally shared with the raw cohort pass: a
  * portable target certificate must be anchored by the same engine events,
@@ -188,6 +189,7 @@ export interface P7bPortableCertification {
   readonly finalCheckpoint: BlobReferenceV1 | null;
   readonly eventCount: number;
   readonly advanceTickCount: number;
+  readonly fullEventStream: P7TrainingEventStreamDigestV1 | null;
   readonly segmentSelection: P7bSegmentSelectionV1 | null;
   readonly segments: readonly ProcessedCclp1FoundationSegment[];
   readonly execution: {
@@ -680,7 +682,7 @@ interface ExecutedPortableTarget {
   readonly terminalNativeTick: number;
   readonly advanceTickCount: number;
   readonly eventCount: number;
-  readonly fullEventStream: P7GeneratedCanonicalDigestV1;
+  readonly fullEventStream: P7TrainingEventStreamDigestV1;
   readonly initialCheckpoint: BlobReferenceV1;
   readonly finalCheckpoint: BlobReferenceV1;
   readonly events: readonly FoundationNativeCausalEvent[];
@@ -692,6 +694,7 @@ async function executePortableMs(
   trace: P7bPortableDecisionTraceV1,
   maximumNativeAdvanceTicks: number,
   evidence: P7GeneratedEvidenceStore,
+  sha256: Sha256Port,
 ): Promise<ExecutedPortableTarget> {
   const target = level.targets.find((entry) => entry.target === "ms")!;
   const prepared = msElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel({
@@ -705,21 +708,23 @@ async function executePortableMs(
     randomSeed: lineage.expandedSolution.randomSeed & UINT31_MASK,
   }, prepared);
   const initialCheckpoint = await referenceFoundationSessionBoundaryEvidence("ms", session, evidence);
-  const events: MsNativeCausalEvent[] = [];
+  const eventAccumulator = new P7TrainingEventAccumulator({
+    occurrenceId: level.selection.occurrenceId,
+    target: "ms",
+    sha256,
+    maximumRetainedEvents: CCLP1_FOUNDATION_LIMITS.maximumRetainedEventsPerTarget,
+  });
   let advanceTickCount = 0;
   while (session.state.engine.status === "playing" && advanceTickCount < maximumNativeAdvanceTicks) {
     const nextNativeTick = session.state.engine.timer.currentTime + 1;
     const logicStep = Math.floor(nextNativeTick / NATIVE_TICKS_PER_PORTABLE_LOGIC_STEP);
     session = advanceMsInteractiveSession(session, inputAtLogicStep(trace, logicStep), {
-      causalEventSink: (event) => {
-        events.push(event);
-        if (events.length > CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget) {
-          throw new Error(`${level.selection.occurrenceId}/portable/ms causal event capacity exhausted`);
-        }
-      },
+      causalEventSink: eventAccumulator.causalEventSink,
     });
+    await eventAccumulator.flushNativeTick();
     advanceTickCount += 1;
   }
+  const accumulated = await eventAccumulator.finish();
   const terminalNativeTick = session.state.engine.timer.currentTime + 1;
   return {
     won: session.state.engine.status === "completed" || session.state.internal.completed,
@@ -727,14 +732,11 @@ async function executePortableMs(
       || (session.state.engine.status === "playing" && advanceTickCount >= maximumNativeAdvanceTicks),
     terminalNativeTick,
     advanceTickCount,
-    eventCount: events.length,
-    fullEventStream: await evidence.digestCanonical(
-      { eventsOrder: "sequence", events },
-      CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes,
-    ),
+    eventCount: accumulated.rawEventCount,
+    fullEventStream: accumulated.fullEventStream,
     initialCheckpoint,
     finalCheckpoint: await referenceFoundationSessionBoundaryEvidence("ms", session, evidence),
-    events,
+    events: accumulated.events as readonly FoundationNativeCausalEvent[],
   };
 }
 
@@ -744,6 +746,7 @@ async function executePortableLynx(
   trace: P7bPortableDecisionTraceV1,
   maximumNativeAdvanceTicks: number,
   evidence: P7GeneratedEvidenceStore,
+  sha256: Sha256Port,
 ): Promise<ExecutedPortableTarget> {
   const target = level.targets.find((entry) => entry.target === "lynx")!;
   const prepared = lynxElementFamilyRegistration.levelLoadRegistration.prepareLoadedLevel({
@@ -757,21 +760,23 @@ async function executePortableLynx(
     randomSeed: lineage.expandedSolution.randomSeed & UINT31_MASK,
   }, prepared);
   const initialCheckpoint = await referenceFoundationSessionBoundaryEvidence("lynx", session, evidence);
-  const events: LynxNativeCausalEvent[] = [];
+  const eventAccumulator = new P7TrainingEventAccumulator({
+    occurrenceId: level.selection.occurrenceId,
+    target: "lynx",
+    sha256,
+    maximumRetainedEvents: CCLP1_FOUNDATION_LIMITS.maximumRetainedEventsPerTarget,
+  });
   let advanceTickCount = 0;
   while (session.endGameResult === null && advanceTickCount < maximumNativeAdvanceTicks) {
     const nextNativeTick = session.state.timer.currentTime + 1;
     const logicStep = Math.floor(nextNativeTick / NATIVE_TICKS_PER_PORTABLE_LOGIC_STEP);
     session = advanceLynxInteractiveSession(session, inputAtLogicStep(trace, logicStep), {
-      causalEventSink: (event) => {
-        events.push(event);
-        if (events.length > CCLP1_FOUNDATION_LIMITS.maximumEventsPerTarget) {
-          throw new Error(`${level.selection.occurrenceId}/portable/lynx causal event capacity exhausted`);
-        }
-      },
+      causalEventSink: eventAccumulator.causalEventSink,
     });
+    await eventAccumulator.flushNativeTick();
     advanceTickCount += 1;
   }
+  const accumulated = await eventAccumulator.finish();
   const terminalNativeTick = session.state.timer.currentTime + 1;
   return {
     won: session.endGameResult === "completed",
@@ -779,14 +784,11 @@ async function executePortableLynx(
       || (session.endGameResult === null && advanceTickCount >= maximumNativeAdvanceTicks),
     terminalNativeTick,
     advanceTickCount,
-    eventCount: events.length,
-    fullEventStream: await evidence.digestCanonical(
-      { eventsOrder: "sequence", events },
-      CCLP1_FOUNDATION_LIMITS.maximumEventStreamCanonicalBytes,
-    ),
+    eventCount: accumulated.rawEventCount,
+    fullEventStream: accumulated.fullEventStream,
     initialCheckpoint,
     finalCheckpoint: await referenceFoundationSessionBoundaryEvidence("lynx", session, evidence),
-    events,
+    events: accumulated.events as readonly FoundationNativeCausalEvent[],
   };
 }
 
@@ -797,6 +799,7 @@ async function certifyPortableTarget(
   traceContent: BlobReferenceV1,
   target: "ms" | "lynx",
   evidenceStore: P7GeneratedEvidenceStore,
+  sha256: Sha256Port,
 ): Promise<P7bPortableCertification> {
   const maximumNativeAdvanceTicks = trace.terminalLogicStep
     * NATIVE_TICKS_PER_PORTABLE_LOGIC_STEP
@@ -813,8 +816,8 @@ async function certifyPortableTarget(
     evidenceStore.referenceCanonical(receipt),
   ]);
   const executed = target === "ms"
-    ? await executePortableMs(level, lineage, trace, maximumNativeAdvanceTicks, evidenceStore)
-    : await executePortableLynx(level, lineage, trace, maximumNativeAdvanceTicks, evidenceStore);
+    ? await executePortableMs(level, lineage, trace, maximumNativeAdvanceTicks, evidenceStore, sha256)
+    : await executePortableLynx(level, lineage, trace, maximumNativeAdvanceTicks, evidenceStore, sha256);
   const decisionsBeforeTerminal = portableDecisionCountThrough(
     trace,
     executed.terminalNativeTick,
@@ -893,6 +896,7 @@ async function certifyPortableTarget(
     finalCheckpoint: executed.finalCheckpoint,
     eventCount: executed.eventCount,
     advanceTickCount: executed.advanceTickCount,
+    fullEventStream: executed.fullEventStream,
     segmentSelection,
     segments,
     execution: {
@@ -916,6 +920,7 @@ function notAttemptedCertification(): P7bPortableCertification {
     finalCheckpoint: null,
     eventCount: 0,
     advanceTickCount: 0,
+    fullEventStream: null,
     segmentSelection: null,
     segments: [],
     execution: {
@@ -1232,6 +1237,7 @@ export async function buildCclp1FoundationPortableLevel(
     traceContent,
     "ms",
     evidence,
+    sha256,
   );
   const lynx = await certifyPortableTarget(
     level,
@@ -1240,6 +1246,7 @@ export async function buildCclp1FoundationPortableLevel(
     traceContent,
     "lynx",
     evidence,
+    sha256,
   );
   const aligned = await alignPortableSegments(
     level.selection.occurrenceId,

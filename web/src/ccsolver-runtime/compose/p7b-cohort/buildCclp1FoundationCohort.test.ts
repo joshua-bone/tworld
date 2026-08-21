@@ -4,11 +4,18 @@ import { WebCryptoSha256 } from "@tworld/ccsolver/adapters/web-crypto";
 import { describe, expect, it } from "vitest";
 import { P7GeneratedEvidenceStore } from "../p7-training-execution/p7GeneratedEvidenceStore";
 import {
+  P7TrainingEventAccumulator,
+  P7_TRAINING_EVENT_STREAM_LIMITS,
+  type P7TrainingEventStreamDigestV1,
+  type P7TrainingNativeCausalEvent,
+} from "../p7-training-execution/p7TrainingEventAccumulator";
+import {
   P7B_MAX_SEGMENTS_PER_VARIANT,
   assertP7bSegmentSelectionV1,
 } from "../p7b-training/trainingReplayContract";
 import { CCLP1_FOUNDATION_LIMITS } from "./cclp1FoundationCohort";
 import {
+  assertExactExecutedReplayPrefix,
   buildCclp1FoundationCohort,
   countNativeReplayDecisionsThrough,
   type FoundationNativeCausalEvent,
@@ -23,6 +30,160 @@ function sha256(bytes: Uint8Array): string {
 }
 
 describe("the bounded real CCLP1 P7B processor", () => {
+  it("rejects any causal drift between full-donor discovery and exact-prefix replay", () => {
+    const fullEventStream = {
+      artifact: "ccsolver-p7-ordered-native-event-stream-digest",
+      version: 1,
+      eventsOrder: "sequence",
+      eventCount: 2,
+      canonicalByteLength: 512,
+      chunking: {
+        kind: "contiguous-event-count-v1",
+        maximumEventsPerChunk: P7_TRAINING_EVENT_STREAM_LIMITS.maximumEventsPerChunk,
+        chunkCount: 1,
+      },
+      manifest: {
+        algorithm: "sha256",
+        canonicalization: "tworld-canonical-json-v1",
+        digest: `sha256:${"a".repeat(64)}`,
+        byteLength: 256,
+      },
+    } satisfies P7TrainingEventStreamDigestV1;
+    const discovered = {
+      terminal: {
+        kind: "won" as const,
+        nativeTick: 10,
+        coordinate: null,
+        exitPlacementId: null,
+      },
+      advanceTickCount: 11,
+      eventCount: 2,
+      fullEventStream,
+    };
+    const assertReplayed = (replayed: typeof discovered, replayedDecisionCount = 4) => (
+      assertExactExecutedReplayPrefix({
+        occurrenceId: "cclp4/038",
+        target: "lynx",
+        discovered,
+        replayed,
+        expectedDecisionCount: 4,
+        replayedDecisionCount,
+      })
+    );
+
+    expect(() => assertReplayed(structuredClone(discovered))).not.toThrow();
+    for (const replayed of [
+      { ...discovered, advanceTickCount: 12 },
+      { ...discovered, eventCount: 3 },
+      {
+        ...discovered,
+        terminal: { ...discovered.terminal, nativeTick: 11 },
+      },
+      {
+        ...discovered,
+        fullEventStream: {
+          ...fullEventStream,
+          manifest: {
+            ...fullEventStream.manifest,
+            digest: `sha256:${"b".repeat(64)}` as const,
+          },
+        },
+      },
+    ]) {
+      expect(() => assertReplayed(replayed)).toThrow("exact executed replay prefix drifted");
+    }
+    expect(() => assertReplayed(discovered, 3)).toThrow("exact executed replay prefix drifted");
+  });
+
+  it("normalizes two exact MS and Lynx toggle-wall cycles as source-button activations", async () => {
+    const aggregate = async (target: "ms" | "lynx") => {
+      const accumulator = new P7TrainingEventAccumulator({
+        occurrenceId: `fixture/toggle-${target}`,
+        target,
+        sha256: new WebCryptoSha256(),
+        maximumRetainedEvents: 16,
+      });
+      for (const cycle of [0, 1]) {
+        for (const [targetOrdinal, targetPos] of [40, 41].entries()) {
+          accumulator.record({
+            kind: target === "ms" ? "device-state-changed" : "device-activated",
+            actorId: 3,
+            actorSerial: 5,
+            tileId: 0x25,
+            resultingTileId: 0x26,
+            sourceTileId: 0x23,
+            sourcePosition: { pos: 10, z: 1 },
+            sourceStratum: "overlay",
+            targetStratum: "terrain",
+            action: target === "ms" ? "cc1:toggle-walls" : "cc1:toggle-walls-queued",
+            beforeState: "cc1:closed",
+            afterState: "cc1:open",
+            before: { pos: targetPos, z: 1 },
+            after: { pos: targetPos, z: 1 },
+            nativeTick: 4,
+            withinTickOrder: cycle * 2 + targetOrdinal,
+            phase: "device-action",
+          } as P7TrainingNativeCausalEvent);
+        }
+      }
+      await accumulator.flushNativeTick();
+      return accumulator.finish();
+    };
+    const [msAccumulated, lynxAccumulated] = await Promise.all([
+      aggregate("ms"),
+      aggregate("lynx"),
+    ]);
+    expect(msAccumulated.events).toHaveLength(2);
+    expect(lynxAccumulated.events).toHaveLength(2);
+    expect(msAccumulated.events[0]!.p7Aggregation).toMatchObject({
+      semanticAction: "cc1:toggle-walls",
+      eventCount: 2,
+    });
+    expect(lynxAccumulated.events[0]!.p7Aggregation).toMatchObject({
+      semanticAction: "cc1:toggle-walls",
+      eventCount: 2,
+    });
+    expect(msAccumulated.events.map(({ p7Aggregation }) => (
+      p7Aggregation?.firstWithinTickOrder
+    ))).toEqual([0, 2]);
+    expect(lynxAccumulated.events.map(({ p7Aggregation }) => (
+      p7Aggregation?.firstWithinTickOrder
+    ))).toEqual([0, 2]);
+
+    const segment = async (
+      target: "ms" | "lynx",
+      events: readonly FoundationNativeCausalEvent[],
+    ) => {
+      const evidence = new P7GeneratedEvidenceStore({
+        scopeId: `fixture/toggle-segment-${target}`,
+        sha256: new WebCryptoSha256(),
+      });
+      const initialCheckpoint = await evidence.referenceCanonical({ target, boundary: "initial" });
+      const finalCheckpoint = await evidence.referenceCanonical({ target, boundary: "final" });
+      return segmentFoundationNativeEvents({
+        occurrenceId: "fixture/toggle",
+        target,
+        events,
+        initialCheckpoint,
+        finalCheckpoint,
+        terminalNativeTick: 6,
+        terminalDecisionCount: 1,
+        decisionCountAtTick: () => 1,
+        retainViewableSegments: true,
+        evidence,
+      });
+    };
+    const [ms, lynx] = await Promise.all([
+      segment("ms", msAccumulated.events as readonly FoundationNativeCausalEvent[]),
+      segment("lynx", lynxAccumulated.events as readonly FoundationNativeCausalEvent[]),
+    ]);
+
+    expect(ms.segments.map(({ segmentId, anchor }) => ({ segmentId, anchor })))
+      .toEqual(lynx.segments.map(({ segmentId, anchor }) => ({ segmentId, anchor })));
+    expect(ms.selection.semanticTranscript).toEqual(lynx.selection.semanticTranscript);
+    expect(ms.selection.targetTranscript.digest).not.toBe(lynx.selection.targetTranscript.digest);
+  });
+
   it("coalesces dense causal anchors into 24 viewable route chapters before retaining evidence", async () => {
     expect(P7B_MAX_SEGMENTS_PER_VARIANT).toBe(24);
     const evidence = new P7GeneratedEvidenceStore({

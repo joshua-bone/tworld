@@ -353,6 +353,47 @@ describe("the P7B training replay contract", () => {
     expect(() => buildP7bTrainingReplayLevel(changedExecution)).toThrow(
       "native execution replay must equal the raw donor replay",
     );
+
+    const executedPrefix = mutateAt(
+      levelFixture(),
+      ["variants", 0, "certifications", "ms", "execution", "executedDecisionCount"],
+      4,
+    );
+    const prefixBound = buildP7bTrainingReplayLevel(executedPrefix);
+    expect(prefixBound.variants[0]!.decisionCount).toBe(5);
+    expect(prefixBound.variants[0]!.certifications.ms.execution).toMatchObject({
+      status: "native",
+      executedDecisionCount: 4,
+      replayContent: prefixBound.rawDonors[0]!.replayContent,
+    });
+
+    const emptyPrefix = mutateAt(
+      levelFixture(),
+      ["variants", 0, "certifications", "ms", "execution", "executedDecisionCount"],
+      0,
+    );
+    expect(buildP7bTrainingReplayLevel(emptyPrefix)
+      .variants[0]!.certifications.ms.execution.executedDecisionCount).toBe(0);
+
+    for (const invalidCount of [-1, 6, Number.MAX_SAFE_INTEGER + 1]) {
+      const invalidPrefix = mutateAt(
+        levelFixture(),
+        ["variants", 0, "certifications", "ms", "execution", "executedDecisionCount"],
+        invalidCount,
+      );
+      expect(() => buildP7bTrainingReplayLevel(invalidPrefix)).toThrow(
+        "ms executed decision count is out of bounds",
+      );
+    }
+
+    const missingExecutedCount = mutateAt(
+      levelFixture(),
+      ["variants", 0, "certifications", "ms", "execution", "executedDecisionCount"],
+      null,
+    );
+    expect(() => buildP7bTrainingReplayLevel(missingExecutedCount)).toThrow(
+      "native execution binding is invalid",
+    );
   });
 
   it("requires eligible standard-only source evidence before completion", () => {

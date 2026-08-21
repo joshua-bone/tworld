@@ -32,11 +32,16 @@ import {
   P7_TRAINING_MAX_BROWSER_INPUTS,
   canonicalizeP7TrainingBrowserReplay,
   parseP7TrainingBrowserReplay,
+  projectP7PortableHeldScheduleChanges,
 } from "./p7TrainingBrowserReplay";
 import {
   P7GeneratedEvidenceStore,
   type P7GeneratedEvidenceBundleV1,
 } from "./p7GeneratedEvidenceStore";
+import {
+  assertP7TrainingEventStreamDigest,
+  type P7TrainingEventStreamDigestV1,
+} from "./p7TrainingEventAccumulator";
 import {
   buildP7GeneratedEvidenceSidecar,
   canonicalizeP7GeneratedEvidenceSidecarIndex,
@@ -51,7 +56,7 @@ export const P7_TRAINING_LEVELS_PER_PACK = 149 as const;
 export const P7_TRAINING_PARTITION_IDENTITY =
   "official-level-number-contiguous-balanced-remainder-first-v1" as const;
 export const P7_TRAINING_PROCESSOR_REVISION =
-  "p7-training-direct-native-portable-v3" as const;
+  "p7-training-direct-native-portable-v4" as const;
 export const P7_TRAINING_SHARD_REQUEST_ARTIFACT =
   "ccsolver-p7-training-shard-request" as const;
 export const P7_TRAINING_SHARD_RESULT_ARTIFACT =
@@ -320,6 +325,9 @@ async function assertProcessedLevelAgainstInventory(input: {
   const expectedDonorIds = new Set(selected.flatMap(({ candidate }) => (
     candidate === null ? [] : [candidate.candidateId]
   )));
+  const expectedMoveCountByDonorId = new Map(selected.flatMap(({ candidate }) => (
+    candidate === null ? [] : [[candidate.candidateId, candidate.replay.moveCount] as const]
+  )));
   if (
     level.rawDonors.length !== expectedDonorIds.size
     || level.rawDonors.some(({ donorId }) => !expectedDonorIds.has(donorId))
@@ -368,12 +376,14 @@ async function assertProcessedLevelAgainstInventory(input: {
       variant.lineage.kind !== "raw-donor"
       || variant.lineage.rawDonorId === null
       || !expectedDonorIds.has(variant.lineage.rawDonorId)
+      || variant.decisionCount
+        !== expectedMoveCountByDonorId.get(variant.lineage.rawDonorId)
       || !sameReference(
         variant.replayContent,
         level.rawDonors.find(({ donorId }) => donorId === variant.lineage.rawDonorId)!.replayContent,
       )
     ))
-  ) throw new Error(`${row.occurrenceId} raw variant lineage drifted`);
+  ) throw new Error(`${row.occurrenceId} raw variant lineage or authored decision count drifted`);
   for (const variant of level.variants.filter(({ kind }) => kind === "portable")) {
     if (
       variant.lineage.rawDonorId === null
@@ -597,18 +607,292 @@ function assertPortableTransformLedger(
   });
 }
 
+interface P7CertificationEventBinding {
+  readonly eventCount: number;
+  readonly fullEventStream: P7TrainingEventStreamDigestV1;
+}
+
+const NATIVE_CERTIFICATION_RECEIPT_KEYS = [
+  "advanceTickCount",
+  "artifact",
+  "decisionCount",
+  "eventCount",
+  "eventRetention",
+  "finalBoundaryEvidence",
+  "fullEventStream",
+  "initialBoundaryEvidence",
+  "occurrenceId",
+  "segmentBoundaries",
+  "segmentSelection",
+  "target",
+  "terminal",
+  "terminalNativeTick",
+  "version",
+] as const;
+
+const PORTABLE_CERTIFICATION_RECEIPT_KEYS = [
+  "advanceTickCount",
+  "artifact",
+  "compilationReceipt",
+  "decisionsBeforeTerminal",
+  "eventCount",
+  "eventRetention",
+  "finalCheckpoint",
+  "fullEventStream",
+  "initialCheckpoint",
+  "occurrenceId",
+  "outcome",
+  "replayContent",
+  "segmentBoundaries",
+  "segmentSelection",
+  "status",
+  "target",
+  "terminalNativeTick",
+  "terminalReleaseDeclarations",
+  "version",
+] as const;
+
+const ALIGNED_PORTABLE_CERTIFICATION_RECEIPT_KEYS = [
+  "artifact",
+  "decisionsBeforeTerminal",
+  "occurrenceId",
+  "outcome",
+  "segmentAlignment",
+  "segmentBoundaries",
+  "segmentSelection",
+  "sourceCertificationEvidence",
+  "status",
+  "target",
+  "terminalNativeTick",
+  "version",
+] as const;
+
+type P7TrainingReplayVariant = P7bTrainingReplayLevelV1["variants"][number];
+type P7TrainingReplayCertification = P7TrainingReplayVariant["certifications"]["ms"];
+
+function assertCertificationEventRetention(value: unknown, label: string): void {
+  const retention = exactRecord(
+    value,
+    ["heavyVerification", "status"],
+    `${label} event retention`,
+  );
+  if (
+    retention.status !== "digest-and-boundary-events"
+    || retention.heavyVerification !== "reexecute-authoritative-engine"
+  ) throw new Error(`${label} event retention policy drifted`);
+}
+
+function assertCertificationAdvanceCount(
+  value: unknown,
+  certification: P7TrainingReplayCertification,
+  label: string,
+): void {
+  if (
+    certification.terminalNativeTick === null
+    || copiedInteger(value, `${label} advance tick count`) !== certification.terminalNativeTick
+  ) throw new Error(`${label} advance tick count drifted`);
+}
+
+function assertReceiptBoundaryReferences(input: {
+  readonly receipt: Record<string, unknown>;
+  readonly initialKey: "initialBoundaryEvidence" | "initialCheckpoint";
+  readonly finalKey: "finalBoundaryEvidence" | "finalCheckpoint";
+  readonly certification: P7TrainingReplayCertification;
+  readonly label: string;
+}): void {
+  const initial = copiedReference(
+    input.receipt[input.initialKey],
+    `${input.label} initial boundary`,
+  );
+  const final = copiedReference(
+    input.receipt[input.finalKey],
+    `${input.label} final boundary`,
+  );
+  const firstSpan = input.certification.segmentSpans[0];
+  const finalSpan = input.certification.segmentSpans.at(-1);
+  if (
+    (firstSpan !== undefined && !sameReference(initial, firstSpan.startBoundaryEvidence))
+    || (finalSpan !== undefined && !sameReference(final, finalSpan.endBoundaryEvidence))
+  ) throw new Error(`${input.label} terminal boundary references drifted`);
+}
+
+function assertReceiptSegmentBoundaryShape(input: {
+  readonly value: unknown;
+  readonly selection: ReturnType<typeof assertP7bSegmentSelectionV1>;
+  readonly terminalNativeTick: number;
+  readonly initialBoundary: BlobReferenceV1;
+  readonly finalBoundary: BlobReferenceV1;
+  readonly label: string;
+}): void {
+  if (
+    !Array.isArray(input.value)
+    || input.value.length !== input.selection.selectedCandidateOrdinals.length
+    || input.value.length === 0
+    || input.value.length > P7B_MAX_SEGMENTS_PER_VARIANT
+  ) throw new Error(`${input.label} segment boundary count drifted`);
+  let priorEndTick = 0;
+  let priorEndBoundary = input.initialBoundary;
+  const segmentIds = new Set<string>();
+  input.value.forEach((value, ordinal) => {
+    const boundary = exactRecord(value, [
+      "endBoundaryEvidence",
+      "endNativeTick",
+      "index",
+      "segmentId",
+      "startBoundaryEvidence",
+      "startNativeTick",
+    ], `${input.label} segment boundary ${ordinal}`);
+    const startNativeTick = copiedInteger(
+      boundary.startNativeTick,
+      `${input.label} segment boundary ${ordinal} start tick`,
+    );
+    const endNativeTick = copiedInteger(
+      boundary.endNativeTick,
+      `${input.label} segment boundary ${ordinal} end tick`,
+    );
+    const startBoundary = copiedReference(
+      boundary.startBoundaryEvidence,
+      `${input.label} segment boundary ${ordinal} start evidence`,
+    );
+    const endBoundary = copiedReference(
+      boundary.endBoundaryEvidence,
+      `${input.label} segment boundary ${ordinal} end evidence`,
+    );
+    if (
+      boundary.index !== ordinal
+      || typeof boundary.segmentId !== "string"
+      || boundary.segmentId.trim() === ""
+      || new TextEncoder().encode(boundary.segmentId).byteLength > 512
+      || segmentIds.has(boundary.segmentId)
+      || startNativeTick !== priorEndTick
+      || endNativeTick <= startNativeTick
+      || endNativeTick > input.terminalNativeTick
+      || !sameReference(startBoundary, priorEndBoundary)
+    ) throw new Error(`${input.label} segment boundary ${ordinal} drifted`);
+    segmentIds.add(boundary.segmentId);
+    priorEndTick = endNativeTick;
+    priorEndBoundary = endBoundary;
+  });
+  if (
+    priorEndTick !== input.terminalNativeTick
+    || !sameReference(priorEndBoundary, input.finalBoundary)
+  ) throw new Error(`${input.label} segment boundaries do not close at the terminal boundary`);
+}
+
+function assertNativeCertificationTerminal(
+  value: unknown,
+  certification: P7TrainingReplayCertification,
+  label: string,
+): void {
+  if (certification.terminalNativeTick === null) {
+    throw new Error(`${label} lacks a terminal native tick`);
+  }
+  const kind = value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>).kind
+    : null;
+  const keys = kind === "won"
+    ? ["coordinate", "exitPlacementId", "kind", "nativeTick"]
+    : kind === "timed-out"
+      ? ["coordinate", "kind", "nativeTick"]
+      : ["cause", "coordinate", "kind", "nativeTick"];
+  const terminal = exactRecord(value, keys, `${label} terminal`);
+  const nativeTick = copiedInteger(terminal.nativeTick, `${label} terminal native tick`);
+  const exactBoundary = nativeTick + 1 === certification.terminalNativeTick;
+  const exactTerminal = certification.outcome === "won"
+    ? terminal.kind === "won"
+      && terminal.coordinate === null
+      && terminal.exitPlacementId === null
+    : certification.outcome === "loss"
+      ? terminal.kind === "lost"
+        && terminal.coordinate === null
+        && terminal.cause === "cc1:raw-replay-failed"
+      : certification.outcome === "timeout"
+        ? (
+            terminal.kind === "timed-out"
+            && terminal.coordinate === null
+          ) || (
+            terminal.kind === "lost"
+            && terminal.coordinate === null
+            && terminal.cause === "cc1:p7b-replay-budget"
+          )
+        : false;
+  if (!exactBoundary || !exactTerminal) {
+    throw new Error(`${label} terminal result drifted`);
+  }
+}
+
+function assertPortableCertificationExecutionReceipt(input: {
+  readonly row: P7TrainingLevelInventory;
+  readonly variant: P7TrainingReplayVariant;
+  readonly target: "ms" | "lynx";
+  readonly certification: P7TrainingReplayCertification;
+  readonly receipt: Record<string, unknown>;
+  readonly label: string;
+}): P7CertificationEventBinding {
+  const { certification, label, receipt, variant } = input;
+  if (
+    variant.kind !== "portable"
+    || certification.execution.status !== "compiled"
+    || certification.execution.executedDecisionCount === null
+    || certification.execution.replayContent === null
+    || certification.execution.compilationReceipt === null
+  ) throw new Error(`${label} does not describe a compiled portable execution`);
+  const fullEventStream = assertP7TrainingEventStreamDigest(
+    receipt.fullEventStream,
+    `${label} event stream`,
+  );
+  const initialCheckpoint = copiedReference(
+    receipt.initialCheckpoint,
+    `${label} initial checkpoint`,
+  );
+  const finalCheckpoint = copiedReference(
+    receipt.finalCheckpoint,
+    `${label} final checkpoint`,
+  );
+  const firstSpan = certification.segmentSpans[0];
+  const finalSpan = certification.segmentSpans.at(-1);
+  if (
+    receipt.artifact !== "ccsolver-p7b-portable-target-certification"
+    || receipt.version !== 1
+    || receipt.occurrenceId !== input.row.occurrenceId
+    || receipt.target !== input.target
+    || receipt.status !== certification.status
+    || receipt.outcome !== certification.outcome
+    || receipt.terminalNativeTick !== certification.terminalNativeTick
+    || receipt.decisionsBeforeTerminal !== certification.execution.executedDecisionCount
+    || copiedInteger(
+      receipt.terminalReleaseDeclarations,
+      `${label} terminal release declarations`,
+    ) !== variant.decisionCount - certification.execution.executedDecisionCount
+    || receipt.eventCount !== fullEventStream.eventCount
+    || !sameReference(
+      copiedReference(receipt.replayContent, `${label} replay content`),
+      certification.execution.replayContent,
+    )
+    || !sameReference(
+      copiedReference(receipt.compilationReceipt, `${label} compilation receipt`),
+      certification.execution.compilationReceipt,
+    )
+    || (firstSpan !== undefined && !sameReference(initialCheckpoint, firstSpan.startBoundaryEvidence))
+    || (finalSpan !== undefined && !sameReference(finalCheckpoint, finalSpan.endBoundaryEvidence))
+  ) throw new Error(`${label} execution fields drifted`);
+  assertCertificationAdvanceCount(receipt.advanceTickCount, certification, label);
+  assertCertificationEventRetention(receipt.eventRetention, label);
+  return { eventCount: fullEventStream.eventCount, fullEventStream };
+}
+
 function assertAlignedPortableCertificationSource(
   row: P7TrainingLevelInventory,
-  variant: P7bTrainingReplayLevelV1["variants"][number],
+  variant: P7TrainingReplayVariant,
   target: "ms" | "lynx",
-  certification: P7bTrainingReplayLevelV1["variants"][number]["certifications"]["ms"],
+  certification: P7TrainingReplayCertification,
   receipt: Record<string, unknown>,
   bundle: P7GeneratedEvidenceBundleV1,
-): void {
-  if (receipt.artifact !== "ccsolver-p7b-portable-aligned-target-certification") return;
+): P7CertificationEventBinding {
   if (
     variant.kind !== "portable"
     || certification.status !== "certified"
+    || certification.terminalNativeTick === null
     || certification.segmentSelection === null
     || certification.segmentSpans.length !== 1
     || certification.execution.replayContent === null
@@ -624,45 +908,43 @@ function assertAlignedPortableCertificationSource(
       sourceReference,
       `${row.occurrenceId}/${variant.variantId}/${target} aligned source certification`,
     ),
-    [
-      "advanceTickCount",
-      "artifact",
-      "compilationReceipt",
-      "decisionsBeforeTerminal",
-      "eventCount",
-      "eventRetention",
-      "finalCheckpoint",
-      "fullEventStream",
-      "initialCheckpoint",
-      "occurrenceId",
-      "outcome",
-      "replayContent",
-      "segmentBoundaries",
-      "segmentSelection",
-      "status",
-      "target",
-      "terminalNativeTick",
-      "terminalReleaseDeclarations",
-      "version",
-    ],
+    PORTABLE_CERTIFICATION_RECEIPT_KEYS,
     `${row.occurrenceId}/${variant.variantId}/${target} aligned source certification`,
   );
   const sourceSelection = assertP7bSegmentSelectionV1(
     source.segmentSelection,
     `${row.occurrenceId}/${variant.variantId}/${target} aligned source selection`,
   );
+  const sourceEventStream = assertP7TrainingEventStreamDigest(
+    source.fullEventStream,
+    `${row.occurrenceId}/${variant.variantId}/${target} aligned source event stream`,
+  );
+  const sourceBinding = assertPortableCertificationExecutionReceipt({
+    row,
+    variant,
+    target,
+    certification,
+    receipt: source,
+    label: `${row.occurrenceId}/${variant.variantId}/${target} aligned source certification`,
+  });
+  assertReceiptSegmentBoundaryShape({
+    value: source.segmentBoundaries,
+    selection: sourceSelection,
+    terminalNativeTick: certification.terminalNativeTick,
+    initialBoundary: copiedReference(
+      source.initialCheckpoint,
+      `${row.occurrenceId}/${variant.variantId}/${target} aligned source initial checkpoint`,
+    ),
+    finalBoundary: copiedReference(
+      source.finalCheckpoint,
+      `${row.occurrenceId}/${variant.variantId}/${target} aligned source final checkpoint`,
+    ),
+    label: `${row.occurrenceId}/${variant.variantId}/${target} aligned source certification`,
+  });
   const alignedSelection = certification.segmentSelection;
   const span = certification.segmentSpans[0]!;
   if (
-    source.artifact !== "ccsolver-p7b-portable-target-certification"
-    || source.version !== 1
-    || source.occurrenceId !== row.occurrenceId
-    || source.target !== target
-    || source.status !== certification.status
-    || source.outcome !== certification.outcome
-    || source.terminalNativeTick !== certification.terminalNativeTick
-    || source.decisionsBeforeTerminal !== certification.execution.executedDecisionCount
-    || sourceSelection.selectionMode !== "viewable-route-chapters"
+    sourceSelection.selectionMode !== "viewable-route-chapters"
     || sourceSelection.candidateCount !== alignedSelection.candidateCount
     || canonicalizeJson(sourceSelection.targetTranscript as unknown as CanonicalJsonValue)
       !== canonicalizeJson(alignedSelection.targetTranscript as unknown as CanonicalJsonValue)
@@ -697,6 +979,94 @@ function assertAlignedPortableCertificationSource(
       certification.execution.compilationReceipt,
     )
   ) throw new Error(`${row.occurrenceId}/${variant.variantId}/${target} aligned source certification drifted`);
+  if (
+    sourceBinding.eventCount !== sourceEventStream.eventCount
+    || canonicalizeJson(sourceBinding.fullEventStream as unknown as CanonicalJsonValue)
+      !== canonicalizeJson(sourceEventStream as unknown as CanonicalJsonValue)
+  ) throw new Error(`${row.occurrenceId}/${variant.variantId}/${target} aligned event binding drifted`);
+  return sourceBinding;
+}
+
+function certificationEventBinding(
+  row: P7TrainingLevelInventory,
+  variant: P7TrainingReplayVariant,
+  target: "ms" | "lynx",
+  certification: P7TrainingReplayCertification,
+  receiptValue: unknown,
+  bundle: P7GeneratedEvidenceBundleV1,
+): { readonly receipt: Record<string, unknown>; readonly binding: P7CertificationEventBinding } {
+  const label = `${row.occurrenceId}/${variant.variantId}/${target} certification receipt`;
+  if (certification.execution.status === "native" && variant.kind === "raw") {
+    const receipt = exactRecord(receiptValue, NATIVE_CERTIFICATION_RECEIPT_KEYS, label);
+    if (receipt.artifact !== "ccsolver-p7-native-replay-certification-receipt") {
+      throw new Error(`${label} artifact does not match its native execution`);
+    }
+    const fullEventStream = assertP7TrainingEventStreamDigest(
+      receipt.fullEventStream,
+      `${label} event stream`,
+    );
+    if (
+      receipt.version !== 1
+      || receipt.eventCount !== fullEventStream.eventCount
+    ) throw new Error(`${row.occurrenceId}/${variant.variantId}/${target} native receipt drifted`);
+    assertCertificationAdvanceCount(receipt.advanceTickCount, certification, label);
+    assertCertificationEventRetention(receipt.eventRetention, label);
+    assertReceiptBoundaryReferences({
+      receipt,
+      initialKey: "initialBoundaryEvidence",
+      finalKey: "finalBoundaryEvidence",
+      certification,
+      label,
+    });
+    assertNativeCertificationTerminal(receipt.terminal, certification, label);
+    return { receipt, binding: { eventCount: fullEventStream.eventCount, fullEventStream } };
+  }
+  if (certification.execution.status === "compiled" && variant.kind === "portable") {
+    const artifact = receiptValue !== null && typeof receiptValue === "object"
+      && !Array.isArray(receiptValue)
+      ? (receiptValue as Record<string, unknown>).artifact
+      : null;
+    if (artifact === "ccsolver-p7b-portable-target-certification") {
+      const receipt = exactRecord(receiptValue, PORTABLE_CERTIFICATION_RECEIPT_KEYS, label);
+      return {
+        receipt,
+        binding: assertPortableCertificationExecutionReceipt({
+          row,
+          variant,
+          target,
+          certification,
+          receipt,
+          label,
+        }),
+      };
+    }
+    if (artifact === "ccsolver-p7b-portable-aligned-target-certification") {
+      const receipt = exactRecord(
+        receiptValue,
+        ALIGNED_PORTABLE_CERTIFICATION_RECEIPT_KEYS,
+        label,
+      );
+      if (
+        receipt.version !== 1
+        || receipt.status !== certification.status
+        || receipt.outcome !== certification.outcome
+        || receipt.segmentAlignment !== "conservative-route"
+      ) throw new Error(`${label} aligned execution fields drifted`);
+      return {
+        receipt,
+        binding: assertAlignedPortableCertificationSource(
+          row,
+          variant,
+          target,
+          certification,
+          receipt,
+          bundle,
+        ),
+      };
+    }
+    throw new Error(`${label} artifact does not match its compiled execution`);
+  }
+  throw new Error(`${label} exists for an execution without an event-stream authority`);
 }
 
 function assertGeneratedEvidenceClosure(
@@ -762,15 +1132,19 @@ function assertGeneratedEvidenceClosure(
         requireGenerated(span.endBoundaryEvidence, `${variant.variantId}/${target} end boundary`);
       });
       if (certification.evidence === null) continue;
-      const receipt = evidenceJson(
+      const receiptValue = evidenceJson(
         bundle,
         certification.evidence,
         `${row.occurrenceId}/${variant.variantId}/${target} certification receipt`,
       );
-      if (receipt === null || typeof receipt !== "object" || Array.isArray(receipt)) {
-        throw new Error(`${row.occurrenceId}/${variant.variantId}/${target} certification receipt is invalid`);
-      }
-      const record = receipt as Record<string, unknown>;
+      const { receipt: record } = certificationEventBinding(
+        row,
+        variant,
+        target,
+        certification,
+        receiptValue,
+        bundle,
+      );
       const expectedBoundaries = canonicalizeJson(
         certificationBoundaries(certification) as unknown as CanonicalJsonValue,
       );
@@ -790,14 +1164,6 @@ function assertGeneratedEvidenceClosure(
           && record.decisionsBeforeTerminal !== certification.execution.executedDecisionCount
         )
       ) throw new Error(`${row.occurrenceId}/${variant.variantId}/${target} certification evidence drifted`);
-      assertAlignedPortableCertificationSource(
-        row,
-        variant,
-        target,
-        certification,
-        record,
-        bundle,
-      );
     }
   }
 }
@@ -1090,7 +1456,9 @@ function copiedParityReceipt(
     const record = exactRecord(
       value,
       [
+        "eventCount",
         "finalBoundaryEvidence",
+        "fullEventStream",
         "initialBoundaryEvidence",
         "outcome",
         "segmentBoundaries",
@@ -1150,9 +1518,19 @@ function copiedParityReceipt(
         ),
       };
     });
+    const eventCount = copiedInteger(record.eventCount, `${label} event count`);
+    const fullEventStream = assertP7TrainingEventStreamDigest(
+      record.fullEventStream,
+      `${label} event stream`,
+    );
+    if (eventCount !== fullEventStream.eventCount) {
+      throw new Error(`${label} event count drifted`);
+    }
     return {
       outcome: record.outcome as "won" | "loss" | "diverged" | "timeout",
       terminalNativeTick: copiedInteger(record.terminalNativeTick, `${label} terminal tick`),
+      eventCount,
+      fullEventStream,
       initialBoundaryEvidence: copiedReference(
         record.initialBoundaryEvidence,
         `${label} initial boundary evidence`,
@@ -1173,6 +1551,8 @@ function copiedParityReceipt(
   const comparableResult = (result: typeof expected) => ({
     outcome: result.outcome,
     terminalNativeTick: result.terminalNativeTick,
+    eventCount: result.eventCount,
+    fullEventStream: result.fullEventStream,
     segmentSelection: result.segmentSelection,
     segmentBoundaries: result.segmentBoundaries,
   });
@@ -1446,6 +1826,7 @@ function assertBrowserAssetsBoundToLevel(
   row: P7TrainingLevelInventory,
   level: P7bTrainingReplayLevelV1,
   browserReplays: readonly P7TrainingShardBrowserReplayAssetV1[],
+  evidence: P7GeneratedEvidenceBundleV1,
 ): void {
   const expectedBrowserCells = new Map(level.variants.flatMap((variant) => (
     (["ms", "lynx"] as const).flatMap((target) => {
@@ -1469,6 +1850,21 @@ function assertBrowserAssetsBoundToLevel(
     const replay = parseP7TrainingBrowserReplay(asset.canonicalJson);
     const execution = expected.certification.execution;
     const receipt = asset.parity.receipt;
+    if (expected.certification.evidence === null) {
+      throw new Error(`${row.occurrenceId} browser asset ${key} lacks certification authority`);
+    }
+    const authority = certificationEventBinding(
+      row,
+      expected.variant,
+      expected.target,
+      expected.certification,
+      evidenceJson(
+        evidence,
+        expected.certification.evidence,
+        `${row.occurrenceId}/${key} browser certification authority`,
+      ),
+      evidence,
+    ).binding;
     const executedDecisionCount = replay.transport === "native-replay-pulses"
       ? replay.decisions.length
       : replay.changes.length;
@@ -1499,6 +1895,12 @@ function assertBrowserAssetsBoundToLevel(
       || receipt.observed.terminalNativeTick !== replay.terminalNativeTick
       || receipt.expected.outcome !== expected.certification.outcome
       || receipt.observed.outcome !== expected.certification.outcome
+      || receipt.expected.eventCount !== authority.eventCount
+      || canonicalizeJson(
+        receipt.expected.fullEventStream as unknown as CanonicalJsonValue,
+      ) !== canonicalizeJson(
+        authority.fullEventStream as unknown as CanonicalJsonValue,
+      )
       || canonicalizeJson(
         receipt.expected.segmentSelection as unknown as CanonicalJsonValue,
       ) !== canonicalizeJson(
@@ -1518,12 +1920,30 @@ function assertBrowserAssetsBoundToLevel(
     ) throw new Error(`${row.occurrenceId} browser asset ${key} is not bound to its certification`);
     if (replay.transport === "manual-held-schedule") {
       const projection = receipt.portableScheduleProjection;
+      const trace = parseP7bPortableDecisionTrace(canonicalizeJson(
+        evidenceJson(
+          evidence,
+          expected.variant.replayContent,
+          `${row.occurrenceId} browser asset ${key} portable trace`,
+        ) as CanonicalJsonValue,
+      ));
+      const expectedProjection = projectP7PortableHeldScheduleChanges(
+        trace,
+        replay.terminalNativeTick,
+      );
       if (
         projection === null
         || projection.executedChangeCount !== replay.changes.length
-        || projection.authoredChangeCount < projection.executedChangeCount
+        || projection.authoredChangeCount !== expected.variant.decisionCount
+        || canonicalizeJson(replay.changes as unknown as CanonicalJsonValue)
+          !== canonicalizeJson(expectedProjection.changes as unknown as CanonicalJsonValue)
         || projection.omittedPostTerminalChanges.length
           !== projection.authoredChangeCount - projection.executedChangeCount
+        || canonicalizeJson(
+          projection.omittedPostTerminalChanges as unknown as CanonicalJsonValue,
+        ) !== canonicalizeJson(
+          expectedProjection.omittedPostTerminalChanges as unknown as CanonicalJsonValue,
+        )
       ) throw new Error(`${row.occurrenceId} browser asset ${key} portable prefix drifted`);
     } else if (receipt.portableScheduleProjection !== null) {
       throw new Error(`${row.occurrenceId} browser asset ${key} has a portable projection`);
@@ -1583,7 +2003,6 @@ export async function validateAndPersistP7TrainingLevelProcessOutput(
   const browserReplays = await Promise.all(
     output.browserReplays.map((entry) => copyBrowserReplayInput(entry, sha256)),
   );
-  assertBrowserAssetsBoundToLevel(row, level, browserReplays);
   const portableDecisionTraces = await Promise.all(
     output.portableDecisionTraces.map((entry) => copyPortableTrace(entry, sha256)),
   );
@@ -1611,6 +2030,7 @@ export async function validateAndPersistP7TrainingLevelProcessOutput(
     evidence: sidecar.bundle,
     sha256,
   });
+  assertBrowserAssetsBoundToLevel(row, level, browserReplays, sidecar.bundle);
   const processing: P7TrainingShardLevelProcessingV1 = {
     status: output.status,
     detail: output.detail,
@@ -1703,13 +2123,21 @@ export async function runP7TrainingShard(input: {
   for (const row of rows) {
     // Expected engine outcomes are validated contract data. Programming,
     // invariant, and IO errors remain shard-fatal and are never serialized.
-    const processing = await validateAndPersistP7TrainingLevelProcessOutput(
-      row,
-      await input.processLevel(row, input.sha256),
-      input.sha256,
-      input.repositoryRoot,
-      input.persistEvidence,
-    );
+    let processing: P7TrainingShardLevelProcessingV1;
+    try {
+      processing = await validateAndPersistP7TrainingLevelProcessOutput(
+        row,
+        await input.processLevel(row, input.sha256),
+        input.sha256,
+        input.repositoryRoot,
+        input.persistEvidence,
+      );
+    } catch (error) {
+      throw new Error(
+        `P7 training shard ${shardIndex} failed while processing ${row.occurrenceId}`,
+        { cause: error },
+      );
+    }
     levels.push({
       occurrenceId: row.occurrenceId,
       caseId: row.caseId,
@@ -1838,7 +2266,6 @@ async function verifySerializedProcessing(input: {
     || actualKeys.length !== expectedKeys.size
     || actualKeys.some((key) => !expectedKeys.has(key))
   ) throw new Error(`${row.occurrenceId} reduced browser matrix drifted`);
-  assertBrowserAssetsBoundToLevel(row, level, copiedBrowserReplays);
   await Promise.all(processing.portableDecisionTraces.map((trace) => (
     copyPortableTrace(trace, input.sha256)
   )));
@@ -1859,6 +2286,7 @@ async function verifySerializedProcessing(input: {
     evidence,
     sha256: input.sha256,
   });
+  assertBrowserAssetsBoundToLevel(row, level, copiedBrowserReplays, evidence);
   if (
     new TextEncoder().encode(canonicalizeJson(processing as unknown as CanonicalJsonValue)).byteLength
       > P7_TRAINING_SHARD_LIMITS.maximumLevelResultBytes

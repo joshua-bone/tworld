@@ -98,6 +98,10 @@
     },
     {
       "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingEventAccumulator.ts"
+    },
+    {
+      "kind": "file",
       "path": "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingLevelProcessor.ts"
     },
     {

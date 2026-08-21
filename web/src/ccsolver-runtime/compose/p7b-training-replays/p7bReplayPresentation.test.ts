@@ -58,6 +58,7 @@ function levelPresentation(): P7bLevelReplayPresentation {
         nativeTickRateHz: 20,
         nativeBoundaryClock: "exclusive-advance-count-v1",
         terminalNativeTick: 55,
+        authoredDecisionCount: 30,
         executedDecisionCount: 29,
         provenanceLabel: "Official CCLP1 MS donor",
         replayHref: "../../../data/raw-ms-ms-replay.json",
@@ -90,6 +91,7 @@ function levelPresentation(): P7bLevelReplayPresentation {
         nativeTickRateHz: 20,
         nativeBoundaryClock: "exclusive-advance-count-v1",
         terminalNativeTick: 53,
+        authoredDecisionCount: 29,
         executedDecisionCount: 29,
         provenanceLabel: "Official CCLP1 Lynx donor",
         replayHref: "../../../data/raw-lynx-lynx-replay.json",
@@ -108,6 +110,7 @@ function levelPresentation(): P7bLevelReplayPresentation {
         nativeTickRateHz: 20,
         nativeBoundaryClock: "exclusive-advance-count-v1",
         terminalNativeTick: 59,
+        authoredDecisionCount: 29,
         executedDecisionCount: 29,
         provenanceLabel: "P7B portable candidate",
         replayHref: "../../../data/portable-ms-replay.json",
@@ -126,6 +129,7 @@ function levelPresentation(): P7bLevelReplayPresentation {
         nativeTickRateHz: 20,
         nativeBoundaryClock: "exclusive-advance-count-v1",
         terminalNativeTick: 57,
+        authoredDecisionCount: 29,
         executedDecisionCount: 29,
         provenanceLabel: "P7B portable candidate",
         replayHref: "../../../data/portable-lynx-replay.json",
@@ -220,6 +224,27 @@ describe("P7B replay presentation", () => {
     expect(html).toContain("Native execution · 20 Hz");
     expect(html).toContain("portable decisions 0–15");
     expect(html).toContain("native ticks 0–31");
+  });
+
+  it("discloses authored and executed decision counts without conflating them", () => {
+    const html = renderP7bLevelReplayPage(levelPresentation());
+
+    expect(html).toContain("Authored decisions: 30 · Executed decisions: 29");
+  });
+
+  it("rejects an executed decision count beyond the authored replay", () => {
+    const model = structuredClone(levelPresentation());
+    const combination = model.combinations.find((candidate) => (
+      candidate.availability === "available"
+      && candidate.variant === "raw-ms"
+      && candidate.executionTarget === "ms"
+    ));
+    if (combination?.availability !== "available") throw new Error("missing fixture combination");
+    (combination as { authoredDecisionCount: number }).authoredDecisionCount = 28;
+
+    expect(() => renderP7bLevelReplayPage(model)).toThrow(
+      "executed decisions exceed its authored decision count",
+    );
   });
 
   it("renders each variant's own semantic segments without requiring donor alignment", () => {

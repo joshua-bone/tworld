@@ -21,6 +21,7 @@ import {
 } from "@tworld/ccsolver/domain";
 import type { P7bPortableDecisionTraceV1 } from "../p7b-training/portableReplayProfile";
 import type { P7bSegmentSelectionV1 } from "../p7b-training/trainingReplayContract";
+import type { P7TrainingEventStreamDigestV1 } from "./p7TrainingEventAccumulator";
 
 const NATIVE_TICKS_PER_PORTABLE_LOGIC_STEP = 2;
 
@@ -119,6 +120,8 @@ export interface P7TrainingBrowserParityReceiptV1 {
   readonly expected: {
     readonly outcome: "won" | "loss" | "diverged" | "timeout";
     readonly terminalNativeTick: number;
+    readonly eventCount: number;
+    readonly fullEventStream: P7TrainingEventStreamDigestV1;
     readonly initialBoundaryEvidence: BlobReferenceV1;
     readonly finalBoundaryEvidence: BlobReferenceV1;
     readonly segmentSelection: P7bSegmentSelectionV1;
@@ -127,6 +130,8 @@ export interface P7TrainingBrowserParityReceiptV1 {
   readonly observed: {
     readonly outcome: "won" | "loss" | "diverged" | "timeout";
     readonly terminalNativeTick: number;
+    readonly eventCount: number;
+    readonly fullEventStream: P7TrainingEventStreamDigestV1;
     readonly initialBoundaryEvidence: BlobReferenceV1;
     readonly finalBoundaryEvidence: BlobReferenceV1;
     readonly segmentSelection: P7bSegmentSelectionV1;

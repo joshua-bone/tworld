@@ -563,6 +563,7 @@ describe("the bounded P7B portable replay compiler", () => {
           nativeTickRateHz: portableMsCertification.execution.nativeTickRateHz,
           nativeBoundaryClock: portableMsCertification.execution.nativeBoundaryClock,
           terminalNativeTick: portableMsCertification.terminalNativeTick,
+          authoredDecisionCount: keyPyramidPortable.decisionCount,
           executedDecisionCount:
             portableMsCertification.execution.executedDecisionCount,
           segmentSpans: portableMsCertification.segmentSpans.map((span) => ({

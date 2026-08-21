@@ -83,7 +83,7 @@ function combinationTable(model: P7bLevelReplayPresentation): string {
     const certificate = combination.certificationHref === undefined
       ? ""
       : ` · <a href="${escapeHtml(combination.certificationHref)}">certificate</a>`;
-    return `<tr data-replay-combination="${escapeHtml(key)}" data-availability="available" data-replay-href="${escapeHtml(combination.replayHref)}"><th scope="row">${escapeHtml(variant.label)}</th><td>${escapeHtml(target.label)}</td><td><strong>Available</strong> · ${escapeHtml(combination.provenanceLabel)}${certificate}<br><small>${escapeHtml(combination.decisionProfile.profileId)} · ${clockBasis} · ${combination.decisionProfile.cadenceHz} Hz · Native execution · ${combination.nativeTickRateHz} Hz<br>${spans}</small></td></tr>`;
+    return `<tr data-replay-combination="${escapeHtml(key)}" data-availability="available" data-replay-href="${escapeHtml(combination.replayHref)}"><th scope="row">${escapeHtml(variant.label)}</th><td>${escapeHtml(target.label)}</td><td><strong>Available</strong> · ${escapeHtml(combination.provenanceLabel)}${certificate}<br><small>${escapeHtml(combination.decisionProfile.profileId)} · ${clockBasis} · ${combination.decisionProfile.cadenceHz} Hz · Native execution · ${combination.nativeTickRateHz} Hz<br>Authored decisions: ${combination.authoredDecisionCount} · Executed decisions: ${combination.executedDecisionCount}<br>${spans}</small></td></tr>`;
   }));
   return `<div class="table-scroll"><table><caption>Replay availability and independent native timing</caption><thead><tr><th>Variant</th><th>Execution engine</th><th>Status and provenance</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
 }

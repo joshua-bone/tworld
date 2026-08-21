@@ -118,7 +118,11 @@ export function assertP7bLevelReplayPresentation(model: P7bLevelReplayPresentati
       throw new Error(`P7B replay ${key} native boundary clock is unsupported`);
     }
     assertInteger(combination.terminalNativeTick, `P7B replay ${key} terminal boundary`, 1);
+    assertInteger(combination.authoredDecisionCount, `P7B replay ${key} authored decisions`, 0);
     assertInteger(combination.executedDecisionCount, `P7B replay ${key} executed decisions`, 0);
+    if (combination.executedDecisionCount > combination.authoredDecisionCount) {
+      throw new Error(`P7B replay ${key} executed decisions exceed its authored decision count`);
+    }
     const orderedSegments = orderedSegmentsByVariant.get(combination.variant)!;
     const segmentIds = new Set(orderedSegments.map(({ id }) => id));
     const spans = new Map<string, P7bReplaySegmentSpan>();
