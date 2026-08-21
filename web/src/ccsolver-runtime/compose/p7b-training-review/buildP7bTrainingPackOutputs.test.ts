@@ -1,6 +1,7 @@
 import { WebCryptoSha256 } from "@tworld/ccsolver/adapters/web-crypto";
 import { referenceSourceBytes } from "@tworld/ccsolver/application";
 import { canonicalizeJson, type BlobReferenceV1 } from "@tworld/ccsolver/domain";
+import { TIME_NIL } from "@content/api/score";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -698,6 +699,24 @@ async function portableWithFailedLynxFixture(): Promise<P7bTrainingPackBuildInpu
 }
 
 describe("the scalable P7B training pack checked leaf", () => {
+  it("preserves the catalog no-best-time sentinel in browser target metadata", async () => {
+    const input = await fixture();
+    input.processedLevels[0]!.browserTargets.ms.display.level.bestTimeTicks = TIME_NIL;
+    input.processedLevels[0]!.browserTargets.lynx.display.level.bestTimeTicks = TIME_NIL;
+
+    const built = await buildP7bTrainingPackOutputs(input);
+    const browserOutput = built.outputs.find(({ path }) => (
+      path.endsWith("/levels/001/browser.json")
+    ))!;
+    const browser = JSON.parse(new TextDecoder().decode(browserOutput.content)) as {
+      readonly targets: Record<"ms" | "lynx", {
+        readonly display: { readonly level: { readonly bestTimeTicks: number } };
+      }>;
+    };
+    expect(browser.targets.ms.display.level.bestTimeTicks).toBe(TIME_NIL);
+    expect(browser.targets.lynx.display.level.bestTimeTicks).toBe(TIME_NIL);
+  });
+
   it("retains failed execution evidence without publishing a failed browser replay", async () => {
     const input = await portableWithFailedLynxFixture();
     const built = await buildP7bTrainingPackOutputs(input);

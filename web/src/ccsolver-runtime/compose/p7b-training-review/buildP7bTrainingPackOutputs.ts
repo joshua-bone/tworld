@@ -8,6 +8,7 @@ import {
   type CanonicalJsonValue,
 } from "@tworld/ccsolver/domain";
 import type { Sha256Port } from "@tworld/ccsolver/ports";
+import { TIME_NIL } from "@content/api/score";
 import type { SeriesLevel } from "@content/api/series";
 import type {
   P7bLevelReplayPresentation,
@@ -527,7 +528,7 @@ function copyBrowserTarget(
     bestTimeTicks: requireInteger(
       level.bestTimeTicks,
       0,
-      P7B_MAX_REPLAY_TICKS,
+      TIME_NIL,
       `${target} best time`,
     ),
     levelSize: requireInteger(
