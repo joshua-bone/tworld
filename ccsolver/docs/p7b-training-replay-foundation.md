@@ -113,6 +113,10 @@ a versioned file protocol; it does not copy or claim compatibility with that
 private wire format. Until the adapter and production envelope exist, portable
 results are `hybrid-candidate`, never Hybrid-certified.
 
+The checked CCLP1 consumer protocol and the required Hybrid-side execution and
+verification sequence are documented in
+[`hybridcc-cclp1-replay-handoff.md`](./hybridcc-cclp1-replay-handoff.md).
+
 ## Segment player
 
 The player keeps replay lineage and execution target as separate axes:
