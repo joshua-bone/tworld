@@ -1,0 +1,1726 @@
+{
+  "inputScopes": [
+    {
+      "kind": "file",
+      "path": ".nvmrc"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/corpus/manifest.v1.json"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/corpus/p1b-validity-report.v1.json"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/package.json"
+    },
+    {
+      "kind": "tree",
+      "path": "ccsolver/src/adapters/web-crypto"
+    },
+    {
+      "kind": "tree",
+      "path": "ccsolver/src/application"
+    },
+    {
+      "kind": "tree",
+      "path": "ccsolver/src/domain"
+    },
+    {
+      "kind": "tree",
+      "path": "ccsolver/src/ports"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/tsconfig.base.json"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/tsconfig.json"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Acrylic.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Broadcast.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Chocolate.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Darkness.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Eagle.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Fertilizer.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Gobbledygook.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Halo.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Immunity.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Initiative.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Jellyfish.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Juicy.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Krypton.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Llama.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Mobius.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Nature.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Nonsense.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Oxford.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Plastic.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Qualification.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Raspberry.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Razor.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Spatula.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Supermarket.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Tangent.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Technetium.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Tuxedo.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Uniform.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Universal.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Vanadium.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Wilderness.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Xiphioid.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Yogurt.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Zipline.dat"
+    },
+    {
+      "kind": "file",
+      "path": "package-lock.json"
+    },
+    {
+      "kind": "file",
+      "path": "package.json"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5-lynx.dac.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5.dac.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Acrylic-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Acrylic-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Broadcast-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Broadcast-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Chocolate-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Chocolate-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Darkness-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Darkness-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Eagle-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Eagle-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Fertilizer-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Fertilizer-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Gobbledygook-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Gobbledygook-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Halo-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Halo-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Immunity-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Immunity-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Initiative-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Initiative-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Jellyfish-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Jellyfish-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Juicy-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Juicy-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Krypton-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Krypton-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Llama-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Llama-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Mobius-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Mobius-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Nature-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Nature-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Nonsense-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Nonsense-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Oxford-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Oxford-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Plastic-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Plastic-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Qualification-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Qualification-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Raspberry-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Raspberry-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Razor-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Razor-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Spatula-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Spatula-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Supermarket-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Supermarket-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Tangent-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Tangent-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Technetium-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Technetium-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Tuxedo-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Tuxedo-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Uniform-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Uniform-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Universal-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Universal-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Vanadium-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Vanadium-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Wilderness-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Wilderness-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Xiphioid-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Xiphioid-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Yogurt-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Yogurt-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Zipline-Lynx.tws"
+    },
+    {
+      "kind": "file",
+      "path": "save/CCLP5Voting-Zipline-MS.tws"
+    },
+    {
+      "kind": "file",
+      "path": "scripts/ci/p7-active-packs.v1.json"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Acrylic-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Acrylic-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Broadcast-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Broadcast-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Chocolate-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Chocolate-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Darkness-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Darkness-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Eagle-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Eagle-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Fertilizer-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Fertilizer-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Gobbledygook-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Gobbledygook-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Halo-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Halo-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Immunity-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Immunity-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Initiative-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Initiative-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Jellyfish-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Jellyfish-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Juicy-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Juicy-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Krypton-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Krypton-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Llama-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Llama-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Mobius-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Mobius-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Nature-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Nature-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Nonsense-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Nonsense-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Oxford-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Oxford-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Plastic-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Plastic-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Qualification-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Qualification-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Raspberry-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Raspberry-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Razor-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Razor-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Spatula-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Spatula-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Supermarket-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Supermarket-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Tangent-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Tangent-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Technetium-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Technetium-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Tuxedo-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Tuxedo-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Uniform-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Uniform-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Universal-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Universal-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Vanadium-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Vanadium-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Wilderness-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Wilderness-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Xiphioid-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Xiphioid-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Yogurt-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Yogurt-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Zipline-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Zipline-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "web/package.json"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p1a-corpus/corpusManifest.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p1a-corpus/registry.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p1a-corpus/sourcePins.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-execution/p7GeneratedEvidenceSidecar.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-execution/p7GeneratedEvidenceStore.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingBrowserReplay.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingEventAccumulator.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingLevelProcessor.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-execution/p7TrainingShardProtocol.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCli.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCore.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingExecutionAuthorityIo.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingNodeEntrypoint.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingRepositoryHead.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingRunnerBinary.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingRunnerContract.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingSidecarFilesystem.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-cohort/buildCclp1FoundationCohort.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-cohort/cclp1FoundationCohort.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-portable/buildCclp1FoundationBrowserReplayInputs.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-portable/buildCclp1FoundationPortableCohort.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-portable/composeCclp1FoundationTrainingReplayPack.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/buildP7TrainingPackProofLeaf.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/composeP7TrainingReducedExecutionIndex.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/composeP7TrainingReducedPack.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/p7TrainingExecutionIndex.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/p7TrainingPackPaths.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/p7TrainingPackProofIndex.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training/portableReplayProfile.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training/trainingReplayContract.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7c-p7e-inventory/loadCheckedTrainingCorpusInventory.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7c-p7e-inventory/trainingCorpusInventory.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/sourceValidity/analyzeTworldLegacySourceValidity.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/sourceValidity/analyzeTworldSolverSourceScope.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/sourceValidity/assertTworldSolverSourceEligibility.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/tworldMsLevelProjection.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/impl/decodedLegacyLevelProjection.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/impl/tworldLevelProjection.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/content/api/contentBinary.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/content/api/ruleset.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/content/api/score.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/content/api/series-file.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/content/api/seriesConfig.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/content/api/seriesDat.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/content/api/solution-file.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/content/api/solutionDataCodec.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/content/api/solutionFileFormat.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/actorCapabilities.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/actorInteractions.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/actorLifecycle.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/actorSpecialFloorHooks.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/codec.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/command.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/lifecycleRegistry.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/movementOutcomes.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/p7TrainingBrowserReplay.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/playback.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/ruleset.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/tileLifecycle.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/turnPhases.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/api/verticalMovement.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/actorCollection.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/actorFamilies.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/actorFamilyBuilders.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/actorInteractionBehavior.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/actorLifecycleQueries.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/actorLocalInventory.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/actors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/board.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/bowlingBall.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/floorImpact.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/grid.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/hash.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/occupancy.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/petCarrier.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/portableItems.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/position.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/snapshot.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/statefulActorLocalInventory.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/statefulActorRuntime.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/tileFamilies.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/tileFamilyBuilders.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/timer.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-core/impl/trace.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/api/cellFlags.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/api/level.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/api/levelLoader.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/actorArrival.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/actorCollections.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/actorInteractions.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/actorLifecycleQueries.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/actorLifecycleRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/actorMovement.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/actorMovementLifecycle.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/builtinLevelRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/catalog.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/catalogActors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/catalogTiles.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/causalEvents.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/chipArrival.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/chipEnterBehavior.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/chipInput.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/chipMoveProbe.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/chipResolution.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/controllers.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/debugProjection.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elementRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/families/ballistic.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/families/block.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/families/bowlingBall.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/families/bowlingBallRuntime.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/families/mob.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/families/monster.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/families/playerLike.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/families/portableBacked.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/families/specialFloors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/actors/registration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/concrete/clearFloor.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/concrete/cloud.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/concrete/hazard.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/concrete/popupWall.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/concrete/registration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/concrete/revealWall.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/concrete/specialFloors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/air.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/button.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/cloner.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/door.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/floor.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/forcedFloor.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/hazard.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/leave.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/pickup.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/shared.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/support.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/trap.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/families/wall.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/specialFloorRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/support/doors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/support/portable.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/support/socket.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/support/specialFloors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/elements/tiles/support/walls.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/engine.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/floorImpactPolicy.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/movementStrategies.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/occupancy.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/petCarrierSnapshots.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/portableItemRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/portableItems.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/portableToolActions.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/statefulActors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/teleports.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/terrainPickupRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/tileEffects.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/tileLifecycleRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/trapCloner.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/turnState.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-lynx/impl/verticalMovement.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/api/level.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/api/levelLoader.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/api/levelRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/api/renderMetadata.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/api/tiles.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/actorArrival.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/actorCollections.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/actorInteractions.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/actorLifecycleQueries.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/actorLifecycleRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/actorMovementLifecycle.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/builtinLevelRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/catalog.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/catalogActors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/catalogTiles.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/causalEvents.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/chipArrival.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/chipEnterBehavior.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/chipInput.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/chipMovement.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/controllers.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/creatureMovement.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/debugProjection.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elementRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/families/ballistic.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/families/block.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/families/bowlingBall.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/families/bowlingBallRuntime.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/families/mob.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/families/monster.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/families/playerLike.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/families/portableBacked.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/families/specialFloors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/actors/registration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/concrete/clearFloor.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/concrete/cloud.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/concrete/hazard.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/concrete/popupWall.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/concrete/registration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/concrete/revealWall.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/concrete/specialFloors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/air.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/button.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/cloner.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/door.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/floor.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/forcedFloor.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/hazard.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/leave.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/pickup.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/shared.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/support.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/trap.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/families/wall.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/specialFloorRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/support/doors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/support/portable.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/support/socket.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/support/specialFloors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/elements/tiles/support/walls.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/engine.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/floorImpactPolicy.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/movementStrategies.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/nonChipFloorQueue.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/occupancy.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/petCarrierSnapshots.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/portableItemRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/portableItems.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/portableToolActions.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/statefulActors.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/teleports.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/terrainPickupRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/tileEffects.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/tileLifecycleRegistration.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/trapCloner.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ruleset-ms/impl/verticalMovement.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/undo-runtime/impl/sessionDigest.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/tsconfig.base.json"
+    },
+    {
+      "kind": "file",
+      "path": "web/tsconfig.tools.json"
+    },
+    {
+      "kind": "file",
+      "path": "web/vite.p7-training-engine-runner.config.ts"
+    }
+  ],
+  "outputManifestPath": null,
+  "outputScopes": [
+    {
+      "kind": "file",
+      "path": "ccsolver/fixtures/golden/p7b/execution-authorities/cclp5.json"
+    }
+  ],
+  "producerContract": "npm run ccsolver:p7-training:bundle:engine && p7-training-engine-runner prepare|8x(shard)|assemble|reduce|check|write|attest|fixed8-shards|node22.22.0-npm10.9.4|tworld-ci-p7-training-engine-v1",
+  "proofId": "p7e",
+  "schema": "tworld.proof-spec/v1"
+}

@@ -8,8 +8,10 @@ interchange lanes. A milestone is complete only when its exit gate passes;
 plausible artifacts or prose do not substitute for execution.
 
 The plan begins with one manually guided end-to-end level pipeline, then grows
-semantic inference, search, blind evaluation, and corpus scale. Robust valid
-replays come before score optimization.
+semantic inference and a real-level training replay corpus before sealed
+evaluation and broader search. Robust valid replays come before score
+optimization. The training-first sequencing decision is recorded in
+[P7B training replay foundation](p7b-training-replay-foundation.md).
 
 ## Delivery rules
 
@@ -192,7 +194,9 @@ claim either result.
 P1B keeps topology evidence, comparison, reports, curriculum, and basic dossier
 data as content-addressed preview shapes rather than freezing new root artifact
 schemas. Its Phase-A ASCII sources are declarations, not yet executable engine
-fixtures, and its `blind` policy is not capability-enforced until P8. See
+fixtures. Its original five-case training and six-case donor-hidden curriculum
+remain historical evidence but no longer select the next delivery wave. Its
+`blind` policy is not capability-enforced until P8. See
 [P1B cross-ruleset topology and curriculum](p1b-cross-ruleset-topology.md).
 The dossier UI remains P4. Runtime observation is now delivered by P2A; the
 complete causal journal remains P2B.
@@ -692,8 +696,10 @@ donor input.
 checkpoint/restore and real MS/Lynx engine advance under explicit bounds. The
 checked `P.k.D.E` dossier proves deterministic exhaustion, full-sequence
 one-decision failure injection, suffix-only repair, and fresh-runtime replay
-certification without reading donor input. The wider tactic vocabulary and the
-complete Phase-A curriculum remain follow-on work. See
+certification without reading donor input. The wider tactic vocabulary remains
+follow-on work. The former complete-Phase-A-plus-first-blind P7B gate is
+superseded by the real-level training replay foundation: CCLP1, then CCLP4,
+then reconciled CCLP5. Synthetic cases remain regression fixtures. See
 [P6B/P7A standard tactic realization](p6b-p7a-standard-tactic-realization.md).
 
 ### Deliverables
@@ -713,28 +719,37 @@ complete Phase-A curriculum remain follow-on work. See
 - Add human/agent takeover, branch recording, and tactic promotion for residual
   hard subgoals.
 
-### Exit gate
+### Revised P7B through P7E gate
 
-- The foundational Phase-A synthetic curriculum frozen in P1 is solved without
-  canned full input streams. P9 expands mechanic coverage after this gate.
-- At least one early real level is solved donor-blind under both rulesets.
-- A semantic recipe can retime or repair after an injected one-decision failure.
-- Exhaustion returns a reproducible diagnostic within its declared budget.
+- Every CCLP1, CCLP4, and official CCLP5 target has a visible terminal
+  processing status under exact pack denominators.
+- Raw donors remain immutable and every portable candidate has independent
+  lineage, transformations, and target-specific certification.
+- Every published replay is divided into checked semantic segments viewable in
+  the shared player.
+- Voting-pack relationships used for CCLP5 are exact aliases or checked edited
+  relatives; titles alone never transfer authority.
 - Search fingerprints never certify a replay; final exact checks still run.
 
 ## P8: blind evaluation and durable learning
 
 ### Objective
 
-Demonstrate that CCSolver is acquiring reusable game knowledge rather than only
-translating TWS.
+After completing CCLP1, CCLP4, and reconciled CCLP5 as training packs,
+demonstrate on a sealed CCLP3 evaluation that CCSolver is acquiring reusable
+game knowledge rather than only translating TWS.
 
 ### Deliverables
 
 - Enforce separate donor-availability, donor-exposure, construction-method, and
   evaluation-cohort fields in the runner.
 - Add donor-access and construction-method audit records to each attempt.
-- Freeze and run the initial evaluation wave selected in P1.
+- Freeze solver code, tactics, replay normalization, budgets, and a CCLP3
+  evaluation policy only after the three training packs complete.
+- Execute in a donor-redacted environment that denies CCLP3 donor paths rather
+  than relying on an honor-system label.
+- Maintain a contamination ledger because some CCLP3 cases and donor
+  infrastructure were used before this policy; score those cases separately.
 - Record plan, work, failures, portability, and certification independently of
   donor comparison.
 - Promote general lessons into typed motifs, detectors, tactics, heuristics,
@@ -803,14 +818,13 @@ unexplained results.
 - Add first-divergence reports and minimal repair jobs.
 - Add pack dashboards and exact denominators.
 - Use this queue order:
-  1. within the paired official queue, prioritize the 391 cases that also have
-     an older Hybrid replay and treat it as additional strategy evidence, not a
-     separately completed target;
-  2. complete all 562 paired official cases, generating and newly certifying
-     both target-ruleset outputs;
-  3. complete the 1,695 paired CCLP5 voting cases; and
-  4. track the remaining 79 older Hybrid wins plus other unpaired or
-     conceptual-companion levels as separate evidence queues.
+  1. complete all 149 CCLP1 levels as training records;
+  2. complete all 149 CCLP4 levels through the same pipeline;
+  3. complete all 149 official CCLP5 levels, using exact voting aliases and
+     checked edited relatives without hiding unresolved donor gaps;
+  4. freeze and run CCLP3 as the later capability-isolated evaluation pack; and
+  5. treat older Hybrid and other companion replays as additional strategy
+     evidence, not separately completed targets.
 - Classify failures as import, runtime/oracle, observation, decomposition,
   local-repair exhaustion, route-replan exhaustion, ruleset divergence, fixture,
   or reviewed non-portable case.
@@ -990,30 +1004,31 @@ percentage by itself is never completion.
 
 ## Immediate next change
 
-After human review of the checked P6B/P7A page, proceed with one large **P6C
-portfolio admission + P7B Phase-A curriculum and first blind-real solve** using
-ATDD. This should amortize the next proof cycle while expanding behavior rather
-than adding another presentation-only slice.
+Finish **P7B — Training Replay Foundation**, then use it unchanged for **P7C —
+complete CCLP1 training pack**. The bounded P7B acceptance cohort is CCLP1/001
+through /010, /042 as a nonzero-stepping canary, and /137 as the MS-mouse
+canary. It is ATDD coverage rather than a partial pack product; the first
+durable checked leaf contains all 149 CCLP1 levels.
 
-1. run all eight frozen Phase-A synthetic sources through both real runtime
-   adapters, preserving explicit per-case branch/work/tick/frontier bounds;
-2. add only the standard operators those cases require next, beginning with
-   `ReachExit`, socket/resource composition, alternative exits, and the narrow
-   block-push seam; keep the six expanded tile codes excluded;
-3. admit tactic/plan families to the portfolio only when exact execution,
-   semantic/gameplay rejoin, dependency, and fresh-runtime evidence satisfies
-   the P6B canaries;
-4. retain target-specific implementations whenever MS and Lynx execution
-   differs, while sharing semantic contracts where evidence supports it;
-5. choose one early standard corpus level from the hidden evaluation cohort
-   using P1B facts only, with donor bytes inaccessible, and attempt it under
-   both rulesets from semantic intent;
-6. publish successes, bounded exhaustion, and the first unresolved takeover
-   packet in one checked curriculum dossier; and
-7. split cheap presentation checks from real-engine evidence so routine UI
-   changes do not repeat tactic execution.
+1. add bounded, canonical contracts for immutable donors, replay variants,
+   transformation receipts, target-specific certificates, semantic segments,
+   and derived pack totals;
+2. freshly execute all 24 exact donors through the real target adapters under a
+   fixed cohort/run/tick/event bound;
+3. generate portable candidates where evidence permits and preserve explicit
+   target-specific or quirk-required results elsewhere;
+4. add one shared lazy-loaded segment player with independent variant and
+   execution-target selection, genuine full-replay seeking, and static boundary
+   evidence;
+5. prove the self-auditing leaf and engine-free presentation attestation with
+   bounded fixtures and the real acceptance cohort, without publishing a
+   redundant partial pack; and
+6. process the first exact checked 149-level leaf for P7C, then CCLP4 and
+   reconciled CCLP5 before any CCLP3 evaluation.
 
-The cycle is complete only when every Phase-A case is solved or carries an
-exact bounded diagnostic, one real level has a donor-blind certified attempt in
-both targets, and no canary classification is promoted beyond its evidence.
-Do not begin a full-corpus solving sweep at this gate.
+P7B is complete only when the 12 real cases and 24 donors are accounted for,
+raw bytes remain immutable, every target has a visible terminal status, every
+emitted segment reconstructs its certified boundaries, and no portable or
+future-Hybrid claim exceeds its fresh execution evidence. P7C is complete only
+when the same guarantees cover the full 149-level CCLP1 denominator and its
+checked pack reconstructs and attests independently.

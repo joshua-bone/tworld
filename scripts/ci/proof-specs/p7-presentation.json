@@ -1,0 +1,1092 @@
+{
+  "inputScopes": [
+    {
+      "kind": "file",
+      "path": ".nvmrc"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/fixtures/golden/p7b/execution-authorities/cclp1.json"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/package.json"
+    },
+    {
+      "kind": "tree",
+      "path": "ccsolver/src/adapters/web-crypto"
+    },
+    {
+      "kind": "tree",
+      "path": "ccsolver/src/application"
+    },
+    {
+      "kind": "tree",
+      "path": "ccsolver/src/domain"
+    },
+    {
+      "kind": "tree",
+      "path": "ccsolver/src/ports"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/tsconfig.base.json"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/tsconfig.json"
+    },
+    {
+      "kind": "file",
+      "path": "data/3DINTRO.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP1.ccx"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP1.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP2.ccx"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP2.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP3.ccx"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP3.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP4.ccx"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP4.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5.ccx"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Acrylic.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Broadcast.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Chocolate.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Darkness.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Eagle.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Fertilizer.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Gobbledygook.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Halo.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Immunity.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Initiative.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Jellyfish.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Juicy.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Krypton.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Llama.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Mobius.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Nature.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Nonsense.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Oxford.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Plastic.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Qualification.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Raspberry.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Razor.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Spatula.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Supermarket.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Tangent.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Technetium.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Tuxedo.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Uniform.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Universal.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Vanadium.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Wilderness.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Xiphioid.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Yogurt.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLP5Voting-Zipline.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLXP2.ccx"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCLXP2.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/CCZoneTT.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/EvanD1.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/JBLP1.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/JCCLP3.1.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/JoshL0.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/TS0.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/intro.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/po100t.dat"
+    },
+    {
+      "kind": "file",
+      "path": "data/to100t.dat"
+    },
+    {
+      "kind": "file",
+      "path": "package-lock.json"
+    },
+    {
+      "kind": "file",
+      "path": "package.json"
+    },
+    {
+      "kind": "file",
+      "path": "res/atiles.bmp"
+    },
+    {
+      "kind": "file",
+      "path": "res/expansion_artwork/expanded.json"
+    },
+    {
+      "kind": "file",
+      "path": "res/expansion_artwork/expanded.png"
+    },
+    {
+      "kind": "file",
+      "path": "res/tiles.bmp"
+    },
+    {
+      "kind": "file",
+      "path": "scripts/ci/p7-active-packs.v1.json"
+    },
+    {
+      "kind": "file",
+      "path": "sets/3DINTRO-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/3DINTRO-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP1-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP1-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP2.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP2.dat-lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP3-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP3-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP4-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP4-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Acrylic-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Acrylic-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Broadcast-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Broadcast-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Chocolate-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Chocolate-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Darkness-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Darkness-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Eagle-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Eagle-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Fertilizer-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Fertilizer-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Gobbledygook-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Gobbledygook-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Halo-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Halo-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Immunity-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Immunity-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Initiative-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Initiative-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Jellyfish-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Jellyfish-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Juicy-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Juicy-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Krypton-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Krypton-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Llama-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Llama-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Mobius-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Mobius-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Nature-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Nature-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Nonsense-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Nonsense-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Oxford-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Oxford-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Plastic-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Plastic-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Qualification-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Qualification-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Raspberry-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Raspberry-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Razor-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Razor-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Spatula-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Spatula-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Supermarket-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Supermarket-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Tangent-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Tangent-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Technetium-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Technetium-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Tuxedo-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Tuxedo-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Uniform-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Uniform-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Universal-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Universal-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Vanadium-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Vanadium-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Wilderness-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Wilderness-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Xiphioid-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Xiphioid-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Yogurt-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Yogurt-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Zipline-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLP5Voting-Zipline-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLXP2.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/CCLXP2.dat-ms.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/EvanD1.dat-lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/JBLP1-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/JBLP1-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/JCCLP3.1-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/JCCLP3.1-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/JoshL0-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/JoshL0-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/TS0-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/TS0-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/cc-fixlynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/cc-lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/cc-ms.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/intro-lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/intro-ms.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/po100t-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/po100t-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/public_CCZoneTT-lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/public_CCZoneTT.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/public_CHIPS-lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/public_CHIPS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/public_EvanD1.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/to100t-Lynx.dac"
+    },
+    {
+      "kind": "file",
+      "path": "sets/to100t-MS.dac"
+    },
+    {
+      "kind": "file",
+      "path": "web/index.html"
+    },
+    {
+      "kind": "file",
+      "path": "web/package.json"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/bootstrap/browser/main.tsx"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/bootstrap/browser/p7bReplayPlayer.tsx"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p1a-corpus/corpusManifest.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p1a-corpus/registry.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p1a-corpus/sourcePins.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p4b-dossier/p4bLegacyArtwork.ts"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-execution"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingEngineRunnerCore.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingExecutionAuthorityIo.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingNodeEntrypoint.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPlayerGraphIo.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationAuthorityIo.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationContract.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationProofReceipt.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunManifest.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunnerBinary.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunnerCli.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPresentationRunnerCore.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingRepositoryHead.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingRunnerBinary.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingRunnerContract.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7-training-runner/p7TrainingSidecarFilesystem.ts"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ccsolver-runtime/compose/p7b-cohort"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ccsolver-runtime/compose/p7b-portable"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-replays"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/buildP7TrainingPackProofLeaf.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/buildP7TrainingReducedPackOutputs.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/buildP7bTrainingPackOutputs.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/composeP7TrainingReducedExecutionIndex.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/composeP7TrainingReducedPack.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/p7SharedPlayerGraphAttestation.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/p7TrainingExecutionIndex.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/p7TrainingPackPaths.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/p7TrainingPackProofIndex.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/p7bTrainingPackIo.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/p7b-training-review/runP7bTrainingPackDist.ts"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ccsolver-runtime/compose/p7c-p7e-inventory"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ccsolver-runtime/compose/sourceValidity"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/tworldLynxLevelProjection.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/ccsolver-runtime/compose/tworldMsLevelProjection.ts"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ccsolver-runtime/impl"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/content"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/game-core"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/LynxGameEngineAdapter.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/MsGameEngineAdapter.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/WorkerBackedInteractiveGameEngine.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/advanceInteractiveGameSession.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/buildReplayExport.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/estimateSerializablePayloadBytes.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/hydrateInteractiveGameSession.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/importReplayForLevel.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/interactiveAdapterSkeleton.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/interactiveGame.worker.protocol.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/interactiveHandle.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/interactiveHistoryNavigation.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/interactiveSessionHistorySummary.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/interactiveSessionRun.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/projectInteractiveGameSession.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/projectInteractiveSessionHistory.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/restoreInteractiveGameSession.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/resumeInteractiveGameSession.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/startInteractiveGameSession.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/startReplayInteractiveGameSession.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/level-catalog/impl/BrowserLevelRepository.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/level-catalog/impl/browserAssetLoadError.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/level-catalog/impl/browserSeriesCatalogEntries.shared.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/level-catalog/impl/importedDatIdentity.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/level-catalog/impl/loadBrowserSeriesCatalogEntries.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/oracle-fixtures/impl/StaticCharacterizationFixtureRepository.ts"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/player-web"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ruleset-lynx"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/ruleset-ms"
+    },
+    {
+      "excludeFileSuffixes": [
+        ".test.ts"
+      ],
+      "kind": "tree",
+      "path": "web/src/undo-runtime"
+    },
+    {
+      "kind": "file",
+      "path": "web/tsconfig.base.json"
+    },
+    {
+      "kind": "file",
+      "path": "web/tsconfig.tools.json"
+    },
+    {
+      "kind": "file",
+      "path": "web/vite.config.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/vite.p7-training-presentation-runner.config.ts"
+    }
+  ],
+  "outputManifestPath": null,
+  "outputScopes": [
+    {
+      "kind": "file",
+      "path": "ccsolver/fixtures/golden/p7b/presentation-authorities/cclp1.json"
+    },
+    {
+      "kind": "file",
+      "path": "ccsolver/fixtures/golden/p7b/shared-player/p7b-replay-player-graph.json"
+    },
+    {
+      "kind": "tree",
+      "path": "ccsolver/fixtures/golden/p7b/training-packs/cclp1"
+    }
+  ],
+  "producerContract": "BASE_PATH=/tworld/ npm run build && npm run ccsolver:p7-training:bundle:engine && npm run ccsolver:p7-training:bundle:presentation && p7-training-presentation-runner prepare|graph-write|graph-check|graph-attest|build|write|check|attest|node22.22.0-npm10.9.4|tworld-ci-p7-training-presentation-v1",
+  "proofId": "p7-presentation",
+  "schema": "tworld.proof-spec/v1"
+}

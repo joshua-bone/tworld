@@ -6,6 +6,19 @@
 - After each completed user-visible change, commit and push the current branch unless the user explicitly says not to or a blocker prevents it.
 - Always stage deleted files in the next commit unless the user explicitly says to keep them out.
 
+## User-visible Web Deployment
+
+- A commit and feature-branch push that changes deployable web content is not complete by itself. Take the change through the protected `master` branch, wait for the GitHub Pages deployment to succeed, and verify the intended public routes unless the user explicitly opts out or a CI/permission blocker prevents deployment.
+- Keep production deployment automatic on protected `master`; do not make arbitrary feature-branch pushes overwrite the public site.
+- In the Pages build, emit root-owning bundles before additive leaves and validate public payloads only after every emitter has run. The P7 training-pack emitter must remain after the P4B root-bundle emitter so the levels are not removed by a later root replacement.
+- When deployment is blocked, report the exact failed check or missing authority instead of describing the feature-branch push as deployed.
+
+## CCSolver Workspace Path
+
+- The canonical workspace directory is exactly `ccsolver` (8 characters). `ccssolver` is a misspelling and must never be used in commands, identifiers, or paths.
+- In multi-command diagnostics, assign `CCSOLVER_DIR=ccsolver` once and reference that variable instead of retyping the directory name.
+- An `ENOENT` for this workspace is not evidence of deletion until `test -d "$CCSOLVER_DIR"` and `git cat-file -e "HEAD:$CCSOLVER_DIR/package.json"` have both been checked with the canonical variable.
+
 ## Handling Replay Failures
 
 - When a replay failure appears recent, start with a bounded backwards history search before attempting speculative fixes.

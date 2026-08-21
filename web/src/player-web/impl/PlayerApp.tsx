@@ -19,6 +19,7 @@ import {
   legacyMapPixelsForTileSize,
 } from "@player-web/impl/legacyRenderPresets";
 import { LegacyCanvasScreen, LegacyInventoryStrip, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
+import { TWORLD_BUILD_COMMIT } from "@player-web/impl/buildInfo";
 import {
   buildLevelProgressIndex,
   mergeLevelProgressSummaries,
@@ -3406,6 +3407,7 @@ export function PlayerApp({
               </div>
             ) : (
               <LegacyCanvasScreen
+                buildCommitHash={TWORLD_BUILD_COMMIT}
                 catalog={catalog}
                 className={`modern-gameboard__canvas${embedded ? " modern-gameboard__canvas--embedded" : ""}`}
                 currentLevel={currentLevel}
@@ -3508,6 +3510,7 @@ export function PlayerApp({
                 }}
               >
                 <LegacyCanvasScreen
+                  buildCommitHash={TWORLD_BUILD_COMMIT}
                   catalog={catalog}
                   className="mobile-gameboard__canvas"
                   currentLevel={currentLevel}
@@ -3985,6 +3988,7 @@ export function PlayerApp({
         </div>
       ) : null}
       <LegacyCanvasScreen
+        buildCommitHash={TWORLD_BUILD_COMMIT}
         catalog={catalog}
         currentLevel={currentLevel}
         currentSeries={currentSeries}
