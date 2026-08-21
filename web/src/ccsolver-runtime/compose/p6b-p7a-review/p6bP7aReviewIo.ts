@@ -65,18 +65,18 @@ function safeDescendant(root: string, target: string, label: string): string {
 
 export function resolveP6bP7aTransactionTargets(repositoryRoot: string) {
   const root = resolve(repositoryRoot);
-  const ccssolverRoot = resolve(root, "ccsolver");
+  const ccsolverRoot = resolve(root, "ccsolver");
   const checkedRoot = resolve(root, P6B_P7A_CHECKED_ROOT);
   const distRoot = resolve(root, "web/dist", P6B_P7A_DIST_ROUTE);
   if (
-    checkedRoot === ccssolverRoot
-    || relative(ccssolverRoot, checkedRoot) !== ["fixtures", "golden", "p7a", "phase-a-key-door"].join(sep)
+    checkedRoot === ccsolverRoot
+    || relative(ccsolverRoot, checkedRoot) !== ["fixtures", "golden", "p7a", "phase-a-key-door"].join(sep)
     || relative(resolve(root, "web/dist"), distRoot)
       !== ["dev", "ccsolver", "experiments", "phase-a", "key-door", "tactic-realization"].join(sep)
   ) {
     throw new Error("P6B/P7A transaction target scope invariant failed");
   }
-  return { repositoryRoot: root, ccssolverRoot, checkedRoot, distRoot };
+  return { repositoryRoot: root, ccsolverRoot, checkedRoot, distRoot };
 }
 
 export function assertP6bP7aOutputPath(

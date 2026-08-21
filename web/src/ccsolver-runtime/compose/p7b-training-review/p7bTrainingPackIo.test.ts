@@ -313,7 +313,7 @@ describe("P7B training pack attestation and transactional IO", () => {
       "cclp1",
     ));
     expect(targets.distRoot).toBe(resolve(root, "web/dist", P7B_TRAINING_PACK_DIST_PARENT, "cclp1"));
-    expect(targets.checkedRoot).not.toBe(targets.ccssolverRoot);
+    expect(targets.checkedRoot).not.toBe(targets.ccsolverRoot);
     expect(targets.distRoot).not.toBe(resolve(root, "web/dist"));
 
     for (const unsafe of ["../cclp1", "cclp1/other", "CCLP1", "cclp1\\other"]) {

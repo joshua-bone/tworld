@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { access, lstat, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const execFileAsync = promisify(execFile);
 
 async function exists(relativePath) {
   try {
@@ -34,6 +37,42 @@ function workflowJob(workflow, jobName) {
   const next = following.search(/^  [a-zA-Z0-9_-]+:\n/m);
   return workflow.slice(start, next === -1 ? undefined : start + marker.length + next);
 }
+
+test("uses the canonical CCSolver workspace spelling", async () => {
+  const misspelledWorkspace = ["ccs", "solver"].join("");
+  const canonicalRoot = await lstat(resolve(repositoryRoot, "ccsolver"));
+  assert.equal(canonicalRoot.isDirectory(), true);
+  assert.equal(canonicalRoot.isSymbolicLink(), false);
+  assert.equal(await exists("ccsolver/package.json"), true);
+  assert.equal(await exists(misspelledWorkspace), false);
+
+  const { stdout } = await execFileAsync("git", ["ls-files", "-z"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  const trackedPaths = stdout.split("\0").filter(Boolean);
+  assert.deepEqual(
+    trackedPaths.filter((path) => path.includes(misspelledWorkspace)),
+    [],
+    "tracked path uses the misspelled CCSolver workspace name",
+  );
+
+  const files = trackedPaths.filter((path) => (
+    /\.(?:c|h|js|json|md|mjs|sh|toml|ts|tsx|yaml|yml)$/u.test(path)
+  ));
+  const offenders = [];
+  for (const relativePath of files) {
+    const contents = await readFile(resolve(repositoryRoot, relativePath), "utf8");
+    const occurrenceCount = contents.split(misspelledWorkspace).length - 1;
+    if (relativePath === "AGENTS.md") {
+      assert.equal(occurrenceCount, 1, "AGENTS.md must document the one known near-miss spelling");
+    } else if (occurrenceCount > 0) {
+      offenders.push(relativePath);
+    }
+  }
+  assert.deepEqual(offenders, [], `misspelled CCSolver paths: ${offenders.join(", ")}`);
+});
 
 test("registers CCSolver as a first-class root workspace", async () => {
   const rootPackage = await readJson("package.json");

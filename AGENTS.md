@@ -6,6 +6,12 @@
 - After each completed user-visible change, commit and push the current branch unless the user explicitly says not to or a blocker prevents it.
 - Always stage deleted files in the next commit unless the user explicitly says to keep them out.
 
+## CCSolver Workspace Path
+
+- The canonical workspace directory is exactly `ccsolver` (8 characters). `ccssolver` is a misspelling and must never be used in commands, identifiers, or paths.
+- In multi-command diagnostics, assign `CCSOLVER_DIR=ccsolver` once and reference that variable instead of retyping the directory name.
+- An `ENOENT` for this workspace is not evidence of deletion until `test -d "$CCSOLVER_DIR"` and `git cat-file -e "HEAD:$CCSOLVER_DIR/package.json"` have both been checked with the canonical variable.
+
 ## Handling Replay Failures
 
 - When a replay failure appears recent, start with a bounded backwards history search before attempting speculative fixes.

@@ -78,7 +78,7 @@ const sha256 = new WebCryptoSha256();
 
 export interface P7bTrainingPackTransactionTargets {
   readonly repositoryRoot: string;
-  readonly ccssolverRoot: string;
+  readonly ccsolverRoot: string;
   readonly checkedRoot: string;
   readonly distRoot: string;
 }
@@ -188,13 +188,13 @@ export function resolveP7bTrainingPackTransactionTargets(
 ): P7bTrainingPackTransactionTargets {
   const packId = requirePackId(packIdInput);
   const root = resolve(repositoryRoot);
-  const ccssolverRoot = resolve(root, "ccsolver");
+  const ccsolverRoot = resolve(root, "ccsolver");
   const checkedRoot = resolve(root, P7B_TRAINING_PACK_CHECKED_PARENT, packId);
   const distBase = resolve(root, "web/dist");
   const distRoot = resolve(distBase, P7B_TRAINING_PACK_DIST_PARENT, packId);
   if (
-    checkedRoot === ccssolverRoot
-    || relative(ccssolverRoot, checkedRoot) !== [
+    checkedRoot === ccsolverRoot
+    || relative(ccsolverRoot, checkedRoot) !== [
       "fixtures",
       "golden",
       "p7b",
@@ -211,7 +211,7 @@ export function resolveP7bTrainingPackTransactionTargets(
   ) {
     throw new Error("P7B training pack transaction target scope invariant failed");
   }
-  return { repositoryRoot: root, ccssolverRoot, checkedRoot, distRoot };
+  return { repositoryRoot: root, ccsolverRoot, checkedRoot, distRoot };
 }
 
 export function assertP7bTrainingPackOutputPath(
