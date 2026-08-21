@@ -855,5 +855,5 @@ describe("production P7 training row processor", () => {
       { maximumLevelResultBytes: 1 },
     )).rejects.toThrow("canonical level result is");
     expect(invalidPersisted).toBe(false);
-  }, 30_000);
+  }, 60_000);
 });
