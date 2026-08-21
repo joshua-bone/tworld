@@ -930,14 +930,14 @@ async function buildLevelOutputs(input: {
     });
   }
   const status = rowStatus(level);
-  const presentation = level.variants.length === 0
+  const presentation = level.viewableVariantId === null
     ? null
     : buildLevelPresentation({
         level,
         replayHrefs,
         playerModuleHref: input.playerModuleHref,
       });
-  const browserTargets = level.variants.length === 0
+  const browserTargets = level.viewableVariantId === null
     ? null
     : copyBrowserTargets(processed.browserTargets, level.source.levelNumber);
   const browser = presentation === null || browserTargets === null
@@ -1072,7 +1072,7 @@ export async function buildP7bTrainingPackOutputs(
     processedTargetCount: processedTargetCount(level),
     totalTargetCount: 2 as const,
     href: `levels/${levelLabel(level.source.levelNumber)}/`,
-    browserManifestHref: level.variants.length === 0
+    browserManifestHref: level.viewableVariantId === null
       ? null
       : `levels/${levelLabel(level.source.levelNumber)}/browser.json`,
   }));

@@ -91,7 +91,9 @@ function combinationTable(model: P7bLevelReplayPresentation): string {
 function replayVariantControls(model: P7bLevelReplayPresentation): string {
   return model.variants.map((variant) => {
     const checked = variant.id === model.initialSelection.variant ? " checked" : "";
-    return `<label><input type="radio" name="replay-variant" value="${escapeHtml(variant.id)}"${checked}> <span><strong>${escapeHtml(variant.label)}</strong><small>${escapeHtml(variant.description)}</small></span></label>`;
+    const disabled = variant.segments.length === 0 ? " disabled" : "";
+    const segmentStatus = variant.segments.length === 0 ? " · No certified segments" : "";
+    return `<label><input type="radio" name="replay-variant" value="${escapeHtml(variant.id)}"${checked}${disabled}> <span><strong>${escapeHtml(variant.label)}</strong><small>${escapeHtml(variant.description)}${segmentStatus}</small></span></label>`;
   }).join("");
 }
 

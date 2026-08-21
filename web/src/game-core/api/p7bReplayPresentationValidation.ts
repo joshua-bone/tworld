@@ -41,9 +41,6 @@ export function assertP7bLevelReplayPresentation(model: P7bLevelReplayPresentati
   for (const variant of model.variants) {
     if (variants.has(variant.id)) throw new Error(`duplicate P7B replay variant: ${variant.id}`);
     variants.add(variant.id);
-    if (variant.segments.length === 0) {
-      throw new Error(`P7B replay variant ${variant.id} requires semantic segments`);
-    }
     const segmentIds = new Set<string>();
     const orderedSegments = [...variant.segments].sort((left, right) => left.ordinal - right.ordinal);
     for (const [index, segment] of orderedSegments.entries()) {
@@ -66,6 +63,9 @@ export function assertP7bLevelReplayPresentation(model: P7bLevelReplayPresentati
   if (!variants.has(model.initialSelection.variant) || !targets.has(model.initialSelection.executionTarget)) {
     throw new Error("P7B initial replay selection is absent from its independent axes");
   }
+  if (orderedSegmentsByVariant.get(model.initialSelection.variant)!.length === 0) {
+    throw new Error("P7B initial replay variant requires semantic segments");
+  }
 
   const combinations = new Map<string, P7bReplayCombination>();
   for (const combination of model.combinations) {
@@ -76,8 +76,19 @@ export function assertP7bLevelReplayPresentation(model: P7bLevelReplayPresentati
     if (combinations.has(key)) throw new Error(`duplicate P7B replay combination: ${key}`);
     combinations.set(key, combination);
     if (combination.availability === "unavailable") {
+      if (
+        combination.certificationStatus !== "failed"
+        && combination.certificationStatus !== "not-attempted"
+        && combination.certificationStatus !== "unavailable"
+      ) {
+        throw new Error(`unavailable P7B replay ${key} has an unsupported certification status`);
+      }
       if (combination.reason.trim() === "") throw new Error(`unavailable P7B replay ${key} needs a reason`);
       continue;
+    }
+    const orderedSegments = orderedSegmentsByVariant.get(combination.variant)!;
+    if (orderedSegments.length === 0) {
+      throw new Error(`available P7B replay ${key} requires semantic segments`);
     }
 
     assertSafeHref(combination.replayHref, `P7B replay href for ${key}`);
@@ -123,7 +134,6 @@ export function assertP7bLevelReplayPresentation(model: P7bLevelReplayPresentati
     if (combination.executedDecisionCount > combination.authoredDecisionCount) {
       throw new Error(`P7B replay ${key} executed decisions exceed its authored decision count`);
     }
-    const orderedSegments = orderedSegmentsByVariant.get(combination.variant)!;
     const segmentIds = new Set(orderedSegments.map(({ id }) => id));
     const spans = new Map<string, P7bReplaySegmentSpan>();
     for (const [spanIndex, span] of combination.segmentSpans.entries()) {
@@ -187,12 +197,23 @@ export function assertP7bLevelReplayPresentation(model: P7bLevelReplayPresentati
     }
   }
 
+  const initialCombination = combinations.get(p7bReplayCombinationKey(model.initialSelection));
+  if (initialCombination?.availability !== "available") {
+    throw new Error("P7B initial replay selection must be available");
+  }
+
   for (const variant of model.variants) {
+    let hasAvailableCombination = false;
     for (const target of model.executionTargets) {
       const key = p7bReplayCombinationKey({ executionTarget: target.id, variant: variant.id });
-      if (!combinations.has(key)) {
+      const combination = combinations.get(key);
+      if (combination === undefined) {
         throw new Error(`P7B replay matrix must show missing combination ${key}`);
       }
+      hasAvailableCombination ||= combination.availability === "available";
+    }
+    if ((variant.segments.length > 0) !== hasAvailableCombination) {
+      throw new Error(`P7B replay variant ${variant.id} segment availability drifted`);
     }
   }
 }

@@ -698,6 +698,98 @@ async function portableWithFailedLynxFixture(): Promise<P7bTrainingPackBuildInpu
   return input;
 }
 
+async function portableWithoutCertifiedTargetFixture(): Promise<P7bTrainingPackBuildInput> {
+  const input = await portableWithFailedLynxFixture();
+  const level = structuredClone(input.inventory[0]!) as unknown as Record<string, unknown>;
+  const portable = (level.variants as Record<string, unknown>[])[1]!;
+  const certification = (portable.certifications as Record<string, Record<string, unknown>>).ms!;
+  const execution = certification.execution as Record<string, unknown>;
+  const segmentSpans = certification.segmentSpans as Array<{
+    readonly startBoundaryEvidence: BlobReferenceV1;
+    readonly endBoundaryEvidence: BlobReferenceV1;
+  }>;
+  const removed = [
+    execution.browserReplayContent,
+    execution.browserReplayParityReceipt,
+    ...segmentSpans.flatMap(({ startBoundaryEvidence, endBoundaryEvidence }) => (
+      [startBoundaryEvidence, endBoundaryEvidence]
+    )),
+  ].filter((reference): reference is BlobReferenceV1 => reference !== null);
+  portable.portability = "not-portable";
+  portable.segments = [];
+  certification.status = "failed";
+  certification.outcome = "loss";
+  certification.detail = "portable fixture lost on ms; retained as execution evidence only";
+  certification.segmentSelection = {
+    ...(certification.segmentSelection as Record<string, unknown>),
+    selectionMode: "unviewable",
+    selectedCandidateOrdinals: [],
+    omittedCandidateCount: 1,
+  };
+  certification.segmentSpans = [];
+  execution.browserReplayContent = null;
+  execution.browserReplayParityReceipt = null;
+  execution.browserReplayTransport = null;
+  level.viewableVariantId = "raw-ms";
+  input.inventory = [
+    buildP7bTrainingReplayLevel(level),
+    ...input.inventory.slice(1),
+  ];
+  Object.assign(input.processedLevels[0]!, {
+    browserReplays: input.processedLevels[0]!.browserReplays.filter(
+      ({ variantId, target }) => variantId !== "portable" || target !== "ms",
+    ),
+  });
+  removeEvidenceReferences(input.proof.generatedEvidence.levels[0]!.bundle, removed);
+  return input;
+}
+
+async function retainedRawWithoutCertifiedTargetFixture(): Promise<P7bTrainingPackBuildInput> {
+  const input = await fixture();
+  const level = structuredClone(input.inventory[0]!) as unknown as Record<string, unknown>;
+  const raw = (level.variants as Record<string, unknown>[])[0]!;
+  const certification = (raw.certifications as Record<string, Record<string, unknown>>).ms!;
+  const execution = certification.execution as Record<string, unknown>;
+  const segmentSpans = certification.segmentSpans as Array<{
+    readonly startBoundaryEvidence: BlobReferenceV1;
+    readonly endBoundaryEvidence: BlobReferenceV1;
+  }>;
+  const removed = [
+    execution.browserReplayContent,
+    execution.browserReplayParityReceipt,
+    ...segmentSpans.flatMap(({ startBoundaryEvidence, endBoundaryEvidence }) => (
+      [startBoundaryEvidence, endBoundaryEvidence]
+    )),
+  ].filter((reference): reference is BlobReferenceV1 => reference !== null);
+  raw.portability = "not-portable";
+  raw.segments = [];
+  certification.status = "failed";
+  certification.outcome = "loss";
+  certification.detail = "raw fixture lost on ms; retained as execution evidence only";
+  certification.segmentSelection = {
+    ...(certification.segmentSelection as Record<string, unknown>),
+    selectionMode: "unviewable",
+    selectedCandidateOrdinals: [],
+    omittedCandidateCount: 1,
+  };
+  certification.segmentSpans = [];
+  execution.browserReplayContent = null;
+  execution.browserReplayParityReceipt = null;
+  execution.browserReplayTransport = null;
+  level.processing = {
+    status: "blocked",
+    detail: "all retained replay executions failed certification",
+  };
+  level.viewableVariantId = null;
+  input.inventory = [
+    buildP7bTrainingReplayLevel(level),
+    ...input.inventory.slice(1),
+  ];
+  Object.assign(input.processedLevels[0]!, { browserReplays: [] });
+  removeEvidenceReferences(input.proof.generatedEvidence.levels[0]!.bundle, removed);
+  return input;
+}
+
 describe("the scalable P7B training pack checked leaf", () => {
   it("preserves the catalog no-best-time sentinel in browser target metadata", async () => {
     const input = await fixture();
@@ -793,6 +885,115 @@ describe("the scalable P7B training pack checked leaf", () => {
     await expect(buildP7bTrainingPackOutputs(injected)).rejects.toThrow(
       "browser replay set is incomplete",
     );
+  });
+
+  it("keeps a fully failed portable candidate visible without inventing segments", async () => {
+    const built = await buildP7bTrainingPackOutputs(
+      await portableWithoutCertifiedTargetFixture(),
+    );
+    const browserOutput = built.outputs.find(({ path }) => (
+      path.endsWith("/levels/001/browser.json")
+    ))!;
+    const browser = JSON.parse(new TextDecoder().decode(browserOutput.content)) as {
+      readonly presentation: {
+        readonly variants: readonly { readonly id: string; readonly segments: readonly unknown[] }[];
+        readonly combinations: readonly {
+          readonly variant: string;
+          readonly executionTarget: string;
+          readonly availability: string;
+          readonly certificationStatus?: string;
+          readonly reason?: string;
+        }[];
+      };
+    };
+    expect(browser.presentation.variants.find(({ id }) => id === "portable")?.segments)
+      .toEqual([]);
+    expect(browser.presentation.combinations.filter(({ variant }) => variant === "portable"))
+      .toEqual([
+        expect.objectContaining({
+          executionTarget: "ms",
+          availability: "unavailable",
+          certificationStatus: "failed",
+          reason: "portable fixture lost on ms; retained as execution evidence only",
+        }),
+        expect.objectContaining({
+          executionTarget: "lynx",
+          availability: "unavailable",
+          certificationStatus: "failed",
+          reason: "portable fixture lost on lynx; retained as execution evidence only",
+        }),
+      ]);
+    expect(built.outputs.some(({ path }) => path.includes("/replays/01-"))).toBe(false);
+    const page = new TextDecoder().decode(built.outputs.find(({ path }) => (
+      path.endsWith("/levels/001/index.html")
+    ))!.content);
+    expect(page).toContain('value="portable" disabled');
+    expect(page).toContain("No certified segments");
+    await expect(attestP7bTrainingPackOutputs(
+      "/workspace/tworld",
+      "fixture-pack",
+      built.outputs,
+      proofSourceFixture(),
+    )).resolves.toMatchObject({ manifest: { pack: { packId: "fixture-pack" } } });
+
+    const driftedOutputs = built.outputs.map((output) => ({
+      ...output,
+      content: new Uint8Array(output.content),
+    }));
+    const driftedBrowserOutput = driftedOutputs.find(({ path }) => (
+      path.endsWith("/levels/001/browser.json")
+    ))!;
+    const driftedBrowser = JSON.parse(new TextDecoder().decode(driftedBrowserOutput.content));
+    driftedBrowser.presentation.combinations.find((combination: {
+      variant: string;
+      executionTarget: string;
+    }) => combination.variant === "portable" && combination.executionTarget === "ms").reason =
+      "drifted failure reason";
+    driftedBrowserOutput.content = encoder.encode(canonicalizeJson(driftedBrowser));
+    const manifestOutput = driftedOutputs.find(({ path }) => path.endsWith("/manifest.json"))!;
+    const manifest = JSON.parse(new TextDecoder().decode(manifestOutput.content));
+    manifest.files.find((file: { path: string }) => (
+      file.path === driftedBrowserOutput.path
+    )).content = await ref(driftedBrowserOutput.content);
+    manifestOutput.content = encoder.encode(canonicalizeJson(manifest));
+
+    await expect(attestP7bTrainingPackOutputs(
+      "/workspace/tworld",
+      "fixture-pack",
+      driftedOutputs,
+      proofSourceFixture(),
+    )).rejects.toThrow("checked P7B browser unavailable binding drifted: portable:ms");
+  });
+
+  it("uses a static level page when retained variants have no certified target", async () => {
+    const built = await buildP7bTrainingPackOutputs(
+      await retainedRawWithoutCertifiedTargetFixture(),
+    );
+    const levelRoot = "training-packs/fixture-pack/levels/001";
+    expect(built.outputs.some(({ path }) => path.endsWith(`${levelRoot}/browser.json`)))
+      .toBe(false);
+    expect(built.outputs.some(({ path }) => path.includes(`${levelRoot}/replays/`)))
+      .toBe(false);
+    expect(built.outputs.some(({ path }) => path.endsWith(`${levelRoot}/raw/00-ms.tws-entry.bin`)))
+      .toBe(true);
+    const browserIndex = JSON.parse(new TextDecoder().decode(built.outputs.find(({ path }) => (
+      path.endsWith("/training-packs/fixture-pack/browser.json")
+    ))!.content));
+    expect(browserIndex.levels[0]).toMatchObject({
+      browserManifestHref: null,
+      status: "blocked",
+    });
+    const page = new TextDecoder().decode(built.outputs.find(({ path }) => (
+      path.endsWith(`${levelRoot}/index.html`)
+    ))!.content);
+    expect(page).toContain("all retained replay executions failed certification");
+    expect(page).not.toContain("<script");
+    await expect(attestP7bTrainingPackOutputs(
+      "/workspace/tworld",
+      "fixture-pack",
+      built.outputs,
+      proofSourceFixture(),
+    )).resolves.toMatchObject({ manifest: { pack: { packId: "fixture-pack" } } });
   });
 
   it("keeps graph-independent execution bytes stable across a shared-player presentation change", async () => {
@@ -981,6 +1182,33 @@ describe("the scalable P7B training pack checked leaf", () => {
       outputs,
       proofSources,
     )).rejects.toThrow("browser execution binding drifted");
+  });
+
+  it("binds the initial browser variant to the contract after manifest rehashing", async () => {
+    const built = await buildP7bTrainingPackOutputs(await portableFixture());
+    const outputs = built.outputs.map((output) => ({
+      ...output,
+      content: new Uint8Array(output.content),
+    }));
+    const browser = outputs.find(({ path }) => path.endsWith("/levels/001/browser.json"))!;
+    const browserValue = JSON.parse(new TextDecoder().decode(browser.content));
+    browserValue.presentation.initialSelection = {
+      executionTarget: "ms",
+      variant: "raw-ms",
+    };
+    browser.content = encoder.encode(canonicalizeJson(browserValue));
+    const manifestOutput = outputs.find(({ path }) => path.endsWith("/manifest.json"))!;
+    const manifest = JSON.parse(new TextDecoder().decode(manifestOutput.content));
+    manifest.files.find((file: { path: string }) => file.path === browser.path).content =
+      await ref(browser.content);
+    manifestOutput.content = encoder.encode(canonicalizeJson(manifest));
+
+    await expect(attestP7bTrainingPackOutputs(
+      "/workspace/tworld",
+      "fixture-pack",
+      outputs,
+      proofSourceFixture(),
+    )).rejects.toThrow("browser presentation identity drifted from its contract");
   });
 
   it("rejects a transplanted execution index whose targets disagree with the browser manifest", async () => {

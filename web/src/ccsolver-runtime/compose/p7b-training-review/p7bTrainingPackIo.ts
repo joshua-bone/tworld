@@ -614,6 +614,7 @@ function assertLevelBrowserBindings(input: {
     || presentation.sourceHref !== "contract.json"
     || presentation.levelManifestHref !== "browser.json"
     || presentation.playerModuleHref !== input.manifest.sharedPlayer.levelPageHref
+    || presentation.initialSelection.variant !== input.contract.viewableVariantId
   ) {
     throw new Error("checked P7B browser presentation identity drifted from its contract");
   }
@@ -649,8 +650,17 @@ function assertLevelBrowserBindings(input: {
         && (certification.execution.status === "native"
           || certification.execution.status === "compiled");
       if (!executable) {
-        if (combination.availability !== "unavailable") {
-          throw new Error(`checked P7B browser falsely exposes unavailable execution: ${variant.variantId}:${target}`);
+        const expectedStatus = certification.status === "failed"
+          ? "failed"
+          : certification.status === "not-attempted"
+            ? "not-attempted"
+            : "unavailable";
+        if (
+          combination.availability !== "unavailable"
+          || combination.certificationStatus !== expectedStatus
+          || combination.reason !== certification.detail
+        ) {
+          throw new Error(`checked P7B browser unavailable binding drifted: ${variant.variantId}:${target}`);
         }
         continue;
       }
@@ -782,7 +792,7 @@ function validateDeclaredLayout(
     ) {
       throw new Error(`checked P7B level contract identity drifted: ${contractPath}`);
     }
-    const expectsBrowser = contract.variants.length > 0;
+    const expectsBrowser = contract.viewableVariantId !== null;
     const pageHtml = decoder.decode(outputByPath.get(pagePath)!.content);
     const playerScript = `<script type="module" defer src="${
       manifest.sharedPlayer.levelPageHref
@@ -801,7 +811,7 @@ function validateDeclaredLayout(
       throw new Error(`checked P7B manifest omits required browser manifest: ${browserPath}`);
     }
     if (expectsBrowser === false && paths.has(browserPath)) {
-      throw new Error(`checked P7B no-variant level must not claim a browser manifest: ${browserPath}`);
+      throw new Error(`checked P7B non-viewable level must not claim a browser manifest: ${browserPath}`);
     }
     if (paths.has(browserPath)) {
       allowed.add(browserPath);

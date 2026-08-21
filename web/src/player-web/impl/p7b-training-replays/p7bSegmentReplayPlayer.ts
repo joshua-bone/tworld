@@ -189,8 +189,12 @@ export class P7bSegmentReplayController<TAsset, TSession, TFrame> {
   }
 
   async selectVariant(variant: P7bReplayVariantId): Promise<void> {
-    if (!this.presentation.variants.some((candidate) => candidate.id === variant)) {
+    const segments = this.segmentsByVariant.get(variant);
+    if (segments === undefined) {
       throw new Error(`unknown P7B replay variant: ${variant}`);
+    }
+    if (segments.length === 0) {
+      throw new Error(`P7B replay variant ${variant} has no viewable semantic segments`);
     }
     if (variant === this.selection.variant) return;
     const currentSegmentId = this.selectedSegments()[this.segmentIndex]!.id;

@@ -116,7 +116,32 @@ function presentation(): P7bLevelReplayPresentation {
   };
 }
 
-function harness(maximumSeekAdvanceTicks = 20) {
+function presentationWithUnavailablePortable(): P7bLevelReplayPresentation {
+  const model = presentation();
+  return {
+    ...model,
+    variants: model.variants.map((variant) => variant.id === "portable"
+      ? { ...variant, segments: [] }
+      : variant),
+    combinations: model.combinations.map((combination) => {
+      if (combination.variant !== "portable") return combination;
+      return {
+        availability: "unavailable",
+        certificationStatus: "failed",
+        executionTarget: combination.executionTarget,
+        reason: combination.executionTarget === "ms"
+          ? "Portable MS certification failed."
+          : "Portable Lynx certification failed.",
+        variant: combination.variant,
+      };
+    }),
+  };
+}
+
+function harness(
+  maximumSeekAdvanceTicks = 20,
+  model: P7bLevelReplayPresentation = presentation(),
+) {
   const calls: string[] = [];
   const loader: P7bReplayAssetLoader<FakeAsset> = {
     async load(selection, href) {
@@ -145,7 +170,7 @@ function harness(maximumSeekAdvanceTicks = 20) {
       engine,
       loader,
       maximumSeekAdvanceTicks,
-      presentation: presentation(),
+      presentation: model,
     }),
   };
 }
@@ -225,6 +250,22 @@ describe("P7B segment replay controller", () => {
     expect(controller.snapshot().nativeTickRateHz).toBe(20);
     expect(controller.snapshot().segmentStartDecisionOrdinal).toBe(0);
     expect(controller.snapshot().segmentEndDecisionOrdinal).toBe(2);
+    expect(calls).toEqual([]);
+  });
+
+  it("rejects selecting a wholly unavailable empty variant without changing state or loading", async () => {
+    const { calls, controller } = harness(20, presentationWithUnavailablePortable());
+
+    await expect(controller.selectVariant("portable")).rejects.toThrow(
+      "P7B replay variant portable has no viewable semantic segments",
+    );
+
+    expect(controller.snapshot().selection).toEqual<P7bReplaySelection>({
+      executionTarget: "ms",
+      variant: "raw-ms",
+    });
+    expect(controller.snapshot().segment.id).toBe("first");
+    expect(controller.snapshot().playback).toBe("idle");
     expect(calls).toEqual([]);
   });
 

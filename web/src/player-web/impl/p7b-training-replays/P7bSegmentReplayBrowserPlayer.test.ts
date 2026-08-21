@@ -85,6 +85,42 @@ function manifest(): P7bReplayBrowserManifestV1 {
   };
 }
 
+function manifestWithUnavailableRawVariant(): P7bReplayBrowserManifestV1 {
+  const base = manifest();
+  return {
+    ...base,
+    presentation: {
+      ...base.presentation,
+      variants: [
+        ...base.presentation.variants,
+        {
+          id: "raw-ms",
+          label: "Raw MS",
+          description: "Original MS replay",
+          segments: [],
+        },
+      ],
+      combinations: [
+        ...base.presentation.combinations,
+        {
+          availability: "unavailable",
+          certificationStatus: "failed",
+          executionTarget: "ms",
+          reason: "MS certification failed",
+          variant: "raw-ms",
+        },
+        {
+          availability: "unavailable",
+          certificationStatus: "failed",
+          executionTarget: "lynx",
+          reason: "Lynx certification failed",
+          variant: "raw-ms",
+        },
+      ],
+    },
+  };
+}
+
 describe("P7B mounted replay player", () => {
   it("renders the real control wiring without fetching or autoplaying during mount", () => {
     const fetchText = vi.fn();
@@ -111,6 +147,23 @@ describe("P7B mounted replay player", () => {
     expect(html).toContain("Authored decisions: 3 · Executed decisions: 2");
     expect(html).toContain("Focus this player");
     expect(html).toContain('data-fake-map="true"');
+  });
+
+  it("disables variants without certified semantic segments", () => {
+    const html = renderToStaticMarkup(createElement(P7bSegmentReplayBrowserPlayer, {
+      manifest: manifestWithUnavailableRawVariant(),
+      services: {
+        engines: {} as BrowserAppServices["engines"],
+        preloadGameRequest: vi.fn(),
+      },
+      fetchText: vi.fn(),
+      MapRenderer: () => createElement("div", { "data-fake-map": true }, "map"),
+    }));
+
+    expect(html).toMatch(
+      /<input(?=[^>]*disabled="")(?=[^>]*type="radio")(?=[^>]*value="raw-ms")[^>]*>/u,
+    );
+    expect(html).toContain("Original MS replay · No certified segments");
   });
 
   it("scopes keyboard shortcuts away from editable and native-control targets", () => {

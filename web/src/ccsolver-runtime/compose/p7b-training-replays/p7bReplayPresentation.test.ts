@@ -163,6 +163,28 @@ function packPresentation(): P7bPackPresentation {
   };
 }
 
+function presentationWithUnavailablePortable(): P7bLevelReplayPresentation {
+  const model = levelPresentation();
+  return {
+    ...model,
+    variants: model.variants.map((variant) => variant.id === "portable"
+      ? { ...variant, segments: [] }
+      : variant),
+    combinations: model.combinations.map((combination) => {
+      if (combination.variant !== "portable") return combination;
+      return {
+        availability: "unavailable",
+        certificationStatus: "failed",
+        executionTarget: combination.executionTarget,
+        reason: combination.executionTarget === "ms"
+          ? "Portable MS certification failed."
+          : "Portable Lynx certification failed.",
+        variant: combination.variant,
+      };
+    }),
+  };
+}
+
 describe("P7B replay presentation", () => {
   it("renders variant and execution target as independent accessible axes", () => {
     const html = renderP7bLevelReplayPage(levelPresentation());
@@ -203,6 +225,42 @@ describe("P7B replay presentation", () => {
     expect(html).toContain('data-availability="unavailable"');
     expect(html).toContain("The native MS donor is not certified on Lynx.");
     expect(html).toContain("Unavailable combinations stay visible");
+  });
+
+  it("rejects an empty variant while either execution target remains available", () => {
+    const model = levelPresentation();
+    const portable = model.variants.find(({ id }) => id === "portable");
+    if (portable === undefined) throw new Error("missing portable fixture variant");
+    (portable as unknown as { segments: [] }).segments = [];
+
+    expect(() => renderP7bLevelReplayPage(model)).toThrow(
+      "available P7B replay portable:ms requires semantic segments",
+    );
+  });
+
+  it("keeps a wholly uncertified empty variant visible but disabled", () => {
+    const html = renderP7bLevelReplayPage(presentationWithUnavailablePortable());
+
+    expect(html).toContain('name="replay-variant" value="portable" disabled');
+    expect(html).toContain("No certified segments");
+    expect(html).toContain("Portable MS certification failed.");
+    expect(html).toContain("Portable Lynx certification failed.");
+    expect(html).toContain('data-replay-combination="portable:ms" data-availability="unavailable" data-certification-status="failed"');
+    expect(html).toContain('data-replay-combination="portable:lynx" data-availability="unavailable" data-certification-status="failed"');
+  });
+
+  it("rejects an unsupported status on an unavailable combination", () => {
+    const model = presentationWithUnavailablePortable();
+    const combination = model.combinations.find((candidate) => (
+      candidate.variant === "portable"
+      && candidate.executionTarget === "ms"
+    ));
+    if (combination?.availability !== "unavailable") throw new Error("missing unavailable fixture combination");
+    (combination as unknown as { certificationStatus: string }).certificationStatus = "expired";
+
+    expect(() => renderP7bLevelReplayPage(model)).toThrow(
+      "unavailable P7B replay portable:ms has an unsupported certification status",
+    );
   });
 
   it("references compact replay assets lazily without embedding frame arrays", () => {

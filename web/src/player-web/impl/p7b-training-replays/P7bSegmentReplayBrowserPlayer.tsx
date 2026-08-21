@@ -257,12 +257,19 @@ export function P7bSegmentReplayBrowserPlayer(props: P7bSegmentReplayBrowserPlay
             <label key={variant.id}>
               <input
                 checked={selectedVariant === variant.id}
+                disabled={variant.segments.length === 0}
                 name="replay-variant"
                 onChange={() => perform(() => controller.selectVariant(variant.id))}
                 type="radio"
                 value={variant.id}
               />
-              <span><strong>{variant.label}</strong><small>{variant.description}</small></span>
+              <span>
+                <strong>{variant.label}</strong>
+                <small>
+                  {variant.description}
+                  {variant.segments.length === 0 && " · No certified segments"}
+                </small>
+              </span>
             </label>
           ))}
         </fieldset>
