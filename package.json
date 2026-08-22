@@ -81,6 +81,7 @@
     "verify:ms-replays": "npm --workspace web run verify:ms-replays --",
     "verify:lynx-replays": "npm --workspace web run verify:lynx-replays --",
     "verify:all-replays": "npm --workspace web run verify:all-replays --",
+    "verify:hybridcc-player-bundle": "node scripts/verify-hybridcc-player-bundle.mjs",
     "verify:ms-replays:parallel": "TWORLD_MS_REPLAY_SWEEP_JOBS=${TWORLD_MS_REPLAY_SWEEP_JOBS:-999} npm run verify:ms-replays --",
     "verify:lynx-replays:parallel": "TWORLD_LYNX_REPLAY_SWEEP_JOBS=${TWORLD_LYNX_REPLAY_SWEEP_JOBS:-999} npm run verify:lynx-replays --",
     "verify:all-replays:parallel": "TWORLD_REPLAY_SWEEP_JOBS=${TWORLD_REPLAY_SWEEP_JOBS:-999} npm run verify:all-replays --"
