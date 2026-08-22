@@ -412,6 +412,7 @@ code {
 
 .player-header {
   display: flex;
+  grid-row: 1;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
@@ -471,6 +472,7 @@ code {
 
 .notice {
   display: none;
+  grid-row: 2;
   padding: 9px 16px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
@@ -499,6 +501,7 @@ code {
 
 .player-workspace {
   display: grid;
+  grid-row: 3;
   grid-template-columns: minmax(320px, 1fr) minmax(175px, 220px);
   gap: clamp(16px, 3vw, 34px);
   align-items: center;
@@ -700,6 +703,7 @@ code {
 
 .player-controls {
   display: grid;
+  grid-row: 4;
   gap: 12px;
   padding: 14px 18px;
   border-top: 1px solid var(--line);
@@ -787,6 +791,12 @@ code {
 .touch-pad__key--east { grid-column: 3; grid-row: 2; }
 .touch-pad__key--south { grid-column: 2; grid-row: 3; }
 
+@media (min-width: 901px) {
+  .dashboard {
+    height: calc(100vh - 28px);
+  }
+}
+
 @media (max-width: 1220px) {
   .dashboard {
     grid-template-columns: minmax(220px, 0.85fr) minmax(250px, 1fr) minmax(560px, 2.2fr);
@@ -821,6 +831,22 @@ code {
 
   .touch-pad {
     display: grid;
+  }
+}
+
+@media (min-width: 681px) and (max-width: 900px) {
+  .pane {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .pane-section--grow {
+    grid-template-rows: auto auto auto;
+    flex: 0 0 auto;
+  }
+
+  .pane-section--grow .scroll-list {
+    overflow: visible;
   }
 }
 
