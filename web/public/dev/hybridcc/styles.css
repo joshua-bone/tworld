@@ -340,6 +340,9 @@ code {
 .import-errors {
   display: grid;
   gap: 5px;
+  max-height: 9rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   color: var(--danger);
   font-size: 0.74rem;
 }
