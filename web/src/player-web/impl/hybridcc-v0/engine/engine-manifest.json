@@ -1,0 +1,11 @@
+{
+  "product": "HybridCC v0",
+  "abiVersion": 1,
+  "sourceRepository": "joshua-bone/HybridCC2026",
+  "sourceCommit": "0e92671824a9e6c703339cc39c532898d2b3c7cb",
+  "sourcePullRequest": "https://github.com/joshua-bone/HybridCC2026/pull/38",
+  "artifacts": {
+    "hybridcc_v0_wasm.js": "sha256:b84e45d5d83380a9d866f07f575ee7d655b0aeda1217c891a1f7184326b68ad3",
+    "hybridcc_v0_wasm.wasm": "sha256:4931732387aef6d443422384bc8b8d56cb3c592938fddc43c7abed151ba15673"
+  }
+}
