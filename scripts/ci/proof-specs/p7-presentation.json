@@ -1008,6 +1008,10 @@
     },
     {
       "kind": "file",
+      "path": "web/src/level-catalog/impl/IndexedDbImportedDatCatalogStore.ts"
+    },
+    {
+      "kind": "file",
       "path": "web/src/level-catalog/impl/browserAssetLoadError.ts"
     },
     {
