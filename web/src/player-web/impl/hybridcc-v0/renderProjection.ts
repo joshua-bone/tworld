@@ -1,7 +1,17 @@
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import {
+  buildCompletedRunState,
+  buildFailedRunState,
+  buildInteractiveFailureCause,
+  buildLiveRunState,
+} from "@game-runtime/impl/interactiveSessionRun";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import type { HybridCcElement, HybridCcNativeLevel } from "./nativeLevel";
+import {
+  hybridCcV0ActorMotion,
+  type HybridCcV0MotionTracks,
+} from "./motionProjection";
 import type { HybridCcActor, HybridCcSnapshot } from "./wasmBridge";
 
 const DIRECTION_TILES = [
@@ -28,6 +38,18 @@ function classicColorIndex(color: number): number {
   }
 }
 
+function legacyKeyCounts(keys: readonly number[]): [number, number, number, number] {
+  // Hybrid native order: blue, red, green, yellow.
+  // Shared Tile World HUD order: red, blue, yellow, green.
+  return [keys[1] ?? 0, keys[0] ?? 0, keys[3] ?? 0, keys[2] ?? 0];
+}
+
+function legacyBootCounts(tools: readonly number[]): [number, number, number, number] {
+  // Hybrid native order: flippers, fire boots, ice skates, force boots.
+  // Shared Tile World HUD order: ice skates, force boots, fire boots, flippers.
+  return [tools[2] ?? 0, tools[3] ?? 0, tools[1] ?? 0, tools[0] ?? 0];
+}
+
 function buttonTile(color: number): number {
   switch (color) {
     case 1: case 7: return MS_TILE.Button_Blue;
@@ -38,11 +60,13 @@ function buttonTile(color: number): number {
 }
 
 function iceTile(edges: number): number {
+  // Native maps store the corner's solid edges. The Lynx artwork names the
+  // open corner, which is the opposite diagonal.
   switch (edges) {
-    case 0b1001: return MS_TILE.IceWall_Northwest;
-    case 0b0011: return MS_TILE.IceWall_Northeast;
-    case 0b0110: return MS_TILE.IceWall_Southeast;
-    case 0b1100: return MS_TILE.IceWall_Southwest;
+    case 0b1001: return MS_TILE.IceWall_Southeast;
+    case 0b0011: return MS_TILE.IceWall_Southwest;
+    case 0b0110: return MS_TILE.IceWall_Northwest;
+    case 0b1100: return MS_TILE.IceWall_Northeast;
     default: return MS_TILE.Ice;
   }
 }
@@ -124,6 +148,57 @@ function actorPosition(actor: HybridCcActor, width: number): number {
   return actor.position.y * width + actor.position.x;
 }
 
+function outcomeGridPosition(snapshot: HybridCcSnapshot) {
+  return {
+    x: snapshot.outcome.position.x + 1,
+    y: snapshot.outcome.position.y + 1,
+    z: snapshot.outcome.position.z + 1,
+  };
+}
+
+function failureCause(snapshot: HybridCcSnapshot) {
+  const position = outcomeGridPosition(snapshot);
+  const coordinate = `(${position.x}, ${position.y})`;
+  switch (snapshot.outcome.lossCause) {
+    case 1:
+      return buildInteractiveFailureCause({ kind: "water", message: `Drowned at ${coordinate}`, position });
+    case 2:
+      return buildInteractiveFailureCause({ kind: "fire", message: `Stepped in fire at ${coordinate}`, position });
+    case 3:
+      return buildInteractiveFailureCause({ kind: "bomb", message: `Hit a bomb at ${coordinate}`, position });
+    case 4:
+      return buildInteractiveFailureCause({
+        kind: "timeout",
+        message: `Ran out of time at ${(snapshot.outcome.logicStep / 10).toFixed(1)}s`,
+        position,
+      });
+    default: {
+      const actorNames = ["bug", "paramecium", "glider", "fireball", "blob", "teeth", "ball", "walker", "tank"];
+      const actorTileIds = [
+        MS_TILE.Bug,
+        MS_TILE.Paramecium,
+        MS_TILE.Glider,
+        MS_TILE.Fireball,
+        MS_TILE.Blob,
+        MS_TILE.Teeth,
+        MS_TILE.Ball,
+        MS_TILE.Walker,
+        MS_TILE.Tank,
+      ];
+      const actorIndex = snapshot.outcome.lossCause - 5;
+      const actorName = actorNames[actorIndex] ?? null;
+      const tileId = actorTileIds[actorIndex] ?? null;
+      return buildInteractiveFailureCause({
+        actorName,
+        kind: actorName ? "monster" : "other",
+        message: actorName ? `Killed by ${actorName} at ${coordinate}` : `Failed at ${coordinate}`,
+        position,
+        tileId,
+      });
+    }
+  }
+}
+
 export function hybridCcSeriesLevel(level: HybridCcNativeLevel): SeriesLevel {
   return {
     index: Math.max(0, level.number - 1),
@@ -162,53 +237,65 @@ export function projectHybridCcSession(
   level: HybridCcNativeLevel,
   snapshot: HybridCcSnapshot,
   seriesFile: string,
+  presentationTick: number,
+  soundEffects = 0,
+  recordedMoveCount = 0,
+  motionTracks: HybridCcV0MotionTracks = new Map(),
 ): InteractiveGameSession {
   const cells = snapshot.cells.map((cell, pos) => {
     const terrain = terrainTile(cell.terrain, cell.iceCornerEdges);
     const device = itemTile(cell.device);
     const pickup = itemTile(cell.pickup);
     const panel = panelTile(cell.panelEdges);
-    const overlay = pickup !== MS_TILE.Empty
-      ? pickup
-      : device !== MS_TILE.Empty
-        ? device
-        : panel !== MS_TILE.Nothing
-          ? panel
-          : null;
+    const overlays = [device, pickup, panel].filter(
+      (tile) => tile !== MS_TILE.Empty && tile !== MS_TILE.Nothing,
+    );
+    const top = overlays.at(-1) ?? terrain;
+    const bottom = overlays.length > 1 ? overlays.at(-2)! : overlays.length === 1 ? terrain : MS_TILE.Nothing;
     return {
       position: { x: pos % level.width, y: Math.floor(pos / level.width), z: 0, pos },
-      top: { id: overlay ?? terrain, state: 0 },
-      bottom: { id: overlay === null ? MS_TILE.Nothing : terrain, state: 0 },
+      top: { id: top, state: 0 },
+      bottom: { id: bottom, state: 0 },
     };
   });
   const livingActors = snapshot.actors.filter((actor) => actor.alive && actor.position.z === 0);
-  const chip = livingActors.find((actor) => actor.kind === 41) ?? null;
+  const chip = snapshot.actors.find((actor) => actor.kind === 41 && actor.position.z === 0) ?? null;
   const chipsNeeded = Math.max(0, level.requiredChips - snapshot.chipsCollected);
   const keys = chip?.keys ?? [0, 0, 0, 0];
   const tools = chip?.tools ?? [0, 0, 0, 0];
   const status = snapshot.outcome.kind === 1 ? "completed" : snapshot.outcome.kind === 2 ? "failed" : "playing";
-  const renderActor = (actor: HybridCcActor) => ({
-    serial: actor.id,
-    id: actorTile(actor.kind),
-    pos: actorPosition(actor, level.width),
-    z: 0,
-    dir: msDirection(actor.direction),
-    moving: 0,
-    frame: snapshot.logicStep,
-    hidden: false,
-    visual: {
-      kind: "creature" as const,
-      tileId: actorTile(actor.kind),
+  const endPosition = snapshot.outcome.kind === 0 ? null : outcomeGridPosition(snapshot);
+  const run = snapshot.outcome.kind === 1
+    ? buildCompletedRunState(level.number, level.timeLimitSeconds * 20, presentationTick, 0, endPosition, false)
+    : snapshot.outcome.kind === 2
+      ? buildFailedRunState(0, failureCause(snapshot), endPosition, false)
+      : buildLiveRunState(0, false);
+  const renderActor = (actor: HybridCcActor) => {
+    const motion = hybridCcV0ActorMotion(motionTracks, actor.id, presentationTick);
+    return {
+      serial: actor.id,
+      id: actorTile(actor.kind),
+      pos: actorPosition(actor, level.width),
+      z: 0,
       dir: msDirection(actor.direction),
-      moving: 0,
-      frame: snapshot.logicStep,
-    },
-  });
-  const chipRender = chip ? {
+      moving: motion.moving,
+      frame: motion.frame,
+      hidden: false,
+      visual: {
+        kind: "creature" as const,
+        tileId: actorTile(actor.kind),
+        dir: msDirection(actor.direction),
+        moving: motion.moving,
+        frame: motion.frame,
+      },
+    };
+  };
+  const chipMotion = chip ? hybridCcV0ActorMotion(motionTracks, chip.id, presentationTick) : null;
+  const chipRender = chip && chipMotion ? {
     pos: actorPosition(chip, level.width),
     z: 0,
     dir: msDirection(chip.direction),
-    moving: 0,
+    moving: chipMotion.moving,
     pushing: false,
     hidden: false,
     failed: snapshot.outcome.kind === 2,
@@ -218,8 +305,8 @@ export function projectHybridCcSession(
       kind: "creature" as const,
       tileId: MS_TILE.Chip,
       dir: msDirection(chip.direction),
-      moving: 0,
-      frame: snapshot.logicStep,
+      moving: chipMotion.moving,
+      frame: chipMotion.frame,
     },
   } : null;
 
@@ -233,8 +320,8 @@ export function projectHybridCcSession(
         input: "none",
         inputCode: 0,
         status,
-        tick: snapshot.logicStep * 2,
-        currentTime: snapshot.logicStep * 2,
+        tick: presentationTick,
+        currentTime: presentationTick,
         timeOffset: 0,
         secondsPlayed: Math.floor(snapshot.logicStep / 10),
         timelimit: level.timeLimitSeconds * 20,
@@ -249,13 +336,13 @@ export function projectHybridCcSession(
           main: { initial: "0", value: snapshot.stateHash.toString(16), shared: false },
           lynx: { prng1: 0, prng2: 0 },
         },
-        soundEffects: 0,
+        soundEffects,
         view: chip
           ? { x: chip.position.x * 8, y: chip.position.y * 8 }
           : { x: 0, y: 0 },
         inventory: {
-          keys: [...keys],
-          boots: [tools[1], tools[0], tools[3], tools[2]],
+          keys: legacyKeyCounts(keys),
+          boots: legacyBootCounts(tools),
           tools: [],
         },
         chip: chip ? {
@@ -270,10 +357,10 @@ export function projectHybridCcSession(
           },
           state: 0,
         } : null,
-        creatureCount: Math.max(0, livingActors.length - (chip ? 1 : 0)),
+        creatureCount: livingActors.filter((actor) => actor.kind !== 41).length,
         creaturesHash: snapshot.stateHash.toString(16),
         mapHash: snapshot.stateHash.toString(16),
-        creatures: livingActors.filter((actor) => actor !== chip).map((actor) => ({
+        creatures: livingActors.filter((actor) => actor.kind !== 41).map((actor) => ({
           id: actorTile(actor.kind),
           layer: 0,
           dir: String(msDirection(actor.direction)),
@@ -292,15 +379,15 @@ export function projectHybridCcSession(
       tileOverlays: [],
       render: {
         chip: chipRender,
-        actors: livingActors.filter((actor) => actor !== chip).map(renderActor),
+        actors: livingActors.filter((actor) => actor.kind !== 41).map(renderActor),
         animations: [],
       },
     },
     history: {
       enabled: false,
       initialTick: 0,
-      currentTick: snapshot.logicStep * 2,
-      latestTick: snapshot.logicStep * 2,
+      currentTick: presentationTick,
+      latestTick: presentationTick,
       previousTick: null,
       previousCheckpointTick: null,
       timelineId: "hybridcc-v0",
@@ -309,7 +396,8 @@ export function projectHybridCcSession(
       restoredFromTick: null,
       replayTargetTick: null,
     },
-    run: { undoUsedCount: 0, replayAvailable: false, result: null },
+    run,
+    recordedMoveCount,
     handle: 0 as never,
   };
 }
