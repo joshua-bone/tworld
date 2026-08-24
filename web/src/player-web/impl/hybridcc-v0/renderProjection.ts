@@ -54,7 +54,7 @@ function panelTile(edges: number): number {
     case 0b0100: return MS_TILE.Wall_South;
     case 0b1000: return MS_TILE.Wall_West;
     case 0b0110: return MS_TILE.Wall_Southeast;
-    default: return MS_TILE.Empty;
+    default: return MS_TILE.Nothing;
   }
 }
 
@@ -168,11 +168,17 @@ export function projectHybridCcSession(
     const device = itemTile(cell.device);
     const pickup = itemTile(cell.pickup);
     const panel = panelTile(cell.panelEdges);
-    const top = pickup !== MS_TILE.Empty ? pickup : device !== MS_TILE.Empty ? device : panel;
+    const overlay = pickup !== MS_TILE.Empty
+      ? pickup
+      : device !== MS_TILE.Empty
+        ? device
+        : panel !== MS_TILE.Nothing
+          ? panel
+          : null;
     return {
       position: { x: pos % level.width, y: Math.floor(pos / level.width), z: 0, pos },
-      top: { id: top, state: 0 },
-      bottom: { id: top === MS_TILE.Empty ? terrain : terrain, state: 0 },
+      top: { id: overlay ?? terrain, state: 0 },
+      bottom: { id: overlay === null ? MS_TILE.Nothing : terrain, state: 0 },
     };
   });
   const livingActors = snapshot.actors.filter((actor) => actor.alive && actor.position.z === 0);

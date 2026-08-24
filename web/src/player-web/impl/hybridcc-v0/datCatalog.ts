@@ -87,4 +87,8 @@ export class HybridCcDatCatalog {
       },
     };
   }
+
+  async delete(filename: string): Promise<void> {
+    await this.store.deleteImportedDatFile(filename);
+  }
 }

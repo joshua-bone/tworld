@@ -73,8 +73,34 @@ describe("HybridCC v0 Tile World render projection", () => {
 
     expect(session.frame.cells).toMatchObject([
       { top: { id: MS_TILE.Key_Blue }, bottom: { id: MS_TILE.Slide_East } },
-      { top: { id: MS_TILE.Empty }, bottom: { id: MS_TILE.IceWall_Northeast } },
+      { top: { id: MS_TILE.IceWall_Northeast }, bottom: { id: MS_TILE.Nothing } },
       { top: { id: MS_TILE.Wall_West }, bottom: { id: MS_TILE.Gravel } },
+    ]);
+  });
+
+  it("draws bare terrain on the visible layer instead of covering it with floor", () => {
+    const { level, snapshot } = fixture();
+    const terrain = [
+      element(1),
+      element(2),
+      element(4),
+      element(5),
+      element(7),
+      element(8),
+    ];
+    level.width = terrain.length;
+    level.cells = terrain.map((value) => cell({ terrain: value }));
+    snapshot.cells = level.cells;
+
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat");
+
+    expect(session.frame.cells).toMatchObject([
+      { top: { id: MS_TILE.Empty }, bottom: { id: MS_TILE.Nothing } },
+      { top: { id: MS_TILE.Wall }, bottom: { id: MS_TILE.Nothing } },
+      { top: { id: MS_TILE.Water }, bottom: { id: MS_TILE.Nothing } },
+      { top: { id: MS_TILE.Fire }, bottom: { id: MS_TILE.Nothing } },
+      { top: { id: MS_TILE.Dirt }, bottom: { id: MS_TILE.Nothing } },
+      { top: { id: MS_TILE.Gravel }, bottom: { id: MS_TILE.Nothing } },
     ]);
   });
 
