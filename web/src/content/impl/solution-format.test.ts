@@ -1,7 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { parseSolutionFile, serializeSolutionFile } from "@content/api/solutionFileFormat";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import {
+  parseSolutionFile,
+  serializeSolutionFile,
+  type ParsedSolutionFile,
+} from "@content/api/solutionFileFormat";
 
 describe("solutionFileFormat", () => {
+  it("keeps classic solution files limited to MS and Lynx", () => {
+    expectTypeOf<ParsedSolutionFile["ruleset"]>().toEqualTypeOf<"MS" | "Lynx">();
+  });
+
   it("round-trips the optional set name header entry", () => {
     const bytes = serializeSolutionFile({
       ruleset: "Lynx",

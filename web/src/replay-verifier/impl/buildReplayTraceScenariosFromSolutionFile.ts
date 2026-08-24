@@ -1,11 +1,17 @@
 import type { ReplayTraceScenario } from "@replay-verifier/impl/scenario";
 import type { LoadedSolutionFile } from "@replay-verifier/ports/SolutionFileRepository";
 import type { SeriesCatalogEntry } from "@content/api/series";
+import type { LegacyRulesetName } from "@content/api/ruleset";
+import type { GameRequest } from "@game-core/api/types";
+
+export type SolutionReplayTraceScenario = ReplayTraceScenario & {
+  request: GameRequest & { ruleset: LegacyRulesetName };
+};
 
 export interface SolutionReplaySweepPlan {
   solutionFile: LoadedSolutionFile;
   series: SeriesCatalogEntry;
-  scenarios: ReplayTraceScenario[];
+  scenarios: SolutionReplayTraceScenario[];
   skippedEntries: number;
 }
 
@@ -106,7 +112,7 @@ export function buildReplayTraceScenariosFromSolutionFile(
   catalog: SeriesCatalogEntry[],
 ): SolutionReplaySweepPlan {
   const series = resolveSeries(solutionFile, catalog);
-  const scenarios: ReplayTraceScenario[] = [];
+  const scenarios: SolutionReplayTraceScenario[] = [];
   let skippedEntries = 0;
 
   for (const entry of solutionFile.file.entries) {

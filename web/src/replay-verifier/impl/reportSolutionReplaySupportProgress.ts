@@ -18,7 +18,7 @@ import {
 } from "@replay-verifier/impl/buildReplayTraceScenariosFromSolutionFile";
 import type { GameEnginePort } from "@game-runtime/ports/GameEngine";
 import type { GameTrace } from "@game-core/api/types";
-import type { RulesetName } from "@content/api/ruleset";
+import type { SupportedReplaySweepRuleset } from "@replay-verifier/impl/solutionFileReplaySweepTypes";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(currentDir, "../../../../");
@@ -100,8 +100,8 @@ function summarizeNativeFailure(failure: NativeFailure): string {
 }
 
 function candidateForRuleset(
-  ruleset: Exclude<RulesetName, "None">,
-  candidates: Record<Exclude<RulesetName, "None">, Pick<GameEnginePort, "runReplayTrace">>,
+  ruleset: SupportedReplaySweepRuleset,
+  candidates: Record<SupportedReplaySweepRuleset, Pick<GameEnginePort, "runReplayTrace">>,
 ): Pick<GameEnginePort, "runReplayTrace"> {
   return candidates[ruleset];
 }
@@ -119,7 +119,7 @@ async function main(): Promise<void> {
   const solutionRepository = new NodeSolutionFileRepository();
   const levelRepository = new NodeLevelRepository();
   const oracle = new NativeOracleGameEngineAdapter({ oraclePath: process.env.TWORLD_ORACLE_BIN ?? defaultOraclePath });
-  const candidates: Record<Exclude<RulesetName, "None">, Pick<GameEnginePort, "runReplayTrace">> = {
+  const candidates: Record<SupportedReplaySweepRuleset, Pick<GameEnginePort, "runReplayTrace">> = {
     Lynx: new LynxGameEngineAdapter(levelRepository),
     MS: new MsGameEngineAdapter(levelRepository),
   };
