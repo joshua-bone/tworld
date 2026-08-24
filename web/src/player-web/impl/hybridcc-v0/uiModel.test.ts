@@ -6,6 +6,7 @@ import {
   buildHybridCcFamilies,
   buildHybridCcSeriesByEntryId,
   HYBRID_CC_V0_RULESET_LABEL,
+  hybridCcV0InitialCatalogMessage,
   hybridCcV0FamilyProgressLabel,
   hybridCcV0SubtickIntervalMs,
 } from "./uiModel";
@@ -83,6 +84,41 @@ describe("HybridCC v0 modern dashboard model", () => {
   it("keeps four input samples per logic step while Shift doubles the game clock", () => {
     expect(hybridCcV0SubtickIntervalMs(false)).toBe(25);
     expect(hybridCcV0SubtickIntervalMs(true)).toBe(12.5);
+  });
+
+  it("isolates an unavailable saved DAT from a playable catalog", () => {
+    const playable = entry("official:CCLP1.dat", "CCLP1.dat", "official");
+    const unavailable = entry("imported:Future.dat", "Future.dat", "imported");
+    const entries = [playable, unavailable];
+    const series = buildHybridCcSeriesByEntryId(entries, new Map([
+      [playable.id, [level(1)]],
+    ]));
+    const loadErrors = new Map([
+      [unavailable.id, "DAT contains a tile outside the Hybrid v0 vocabulary."],
+    ]);
+
+    const families = buildHybridCcFamilies(entries, series, loadErrors);
+
+    expect(hybridCcV0InitialCatalogMessage(series.size, loadErrors)).toBeNull();
+    expect(families.find((family) => family.id === unavailable.id)).toMatchObject({
+      entries: [],
+      launchEntries: {},
+      levelCount: 0,
+      sidebarSummary: "Unavailable in Hybrid v0.",
+    });
+  });
+
+  it("reports a conversion failure when no DAT in the catalog is playable", () => {
+    const loadErrors = new Map([
+      ["imported:Future.dat", "HybridCC DAT conversion failed with HybridCC status 18."],
+    ]);
+
+    expect(hybridCcV0InitialCatalogMessage(0, loadErrors)).toBe(
+      "HybridCC DAT conversion failed with HybridCC status 18.",
+    );
+    expect(hybridCcV0InitialCatalogMessage(0, new Map())).toBe(
+      "No playable DAT sets are available.",
+    );
   });
 
 });

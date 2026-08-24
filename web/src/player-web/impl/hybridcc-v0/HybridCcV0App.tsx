@@ -42,6 +42,7 @@ import { hybridCcSeries } from "./renderProjection";
 import {
   buildHybridCcFamilies,
   HYBRID_CC_V0_RULESET_LABEL,
+  hybridCcV0InitialCatalogMessage,
   hybridCcV0SeriesFile,
 } from "./uiModel";
 import {
@@ -108,6 +109,9 @@ export function HybridCcV0App() {
   const [seriesByEntryId, setSeriesByEntryId] = useState<ReadonlyMap<string, ReturnType<typeof hybridCcSeries>>>(
     () => new Map(),
   );
+  const [loadErrorsByEntryId, setLoadErrorsByEntryId] = useState<ReadonlyMap<string, string>>(
+    () => new Map(),
+  );
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number | null>(null);
   const [progressSummaries, setProgressSummaries] = useState<BrowserLevelProgressSummary[]>([]);
@@ -136,10 +140,11 @@ export function HybridCcV0App() {
         const results = await Promise.allSettled(availableEntries.map((entry) => loadEntry(module, entry)));
         if (!active) return;
         const nextSeries = new Map<string, ReturnType<typeof hybridCcSeries>>();
-        const failures: string[] = [];
-        for (const result of results) {
+        const nextLoadErrors = new Map<string, string>();
+        for (const [index, result] of results.entries()) {
           if (result.status === "rejected") {
-            failures.push(errorMessage(result.reason));
+            const entry = availableEntries[index];
+            if (entry) nextLoadErrors.set(entry.id, errorMessage(result.reason));
             continue;
           }
           const { entry, hashes, levels } = result.value;
@@ -149,11 +154,12 @@ export function HybridCcV0App() {
         }
         setEntries(availableEntries);
         setSeriesByEntryId(nextSeries);
+        setLoadErrorsByEntryId(nextLoadErrors);
         setProgressSummaries(storedProgress);
         const firstPlayable = availableEntries.find((entry) => nextSeries.has(entry.id)) ?? null;
         setSelectedEntryId(firstPlayable?.id ?? null);
         setSelectedLevelNumber(firstPlayable ? nextSeries.get(firstPlayable.id)?.levels[0]?.number ?? null : null);
-        if (!firstPlayable || failures.length > 0) setMessage(failures[0] ?? "No playable DAT sets are available.");
+        setMessage(hybridCcV0InitialCatalogMessage(nextSeries.size, nextLoadErrors));
         setBusy(false);
       })
       .catch((error: unknown) => {
@@ -165,8 +171,8 @@ export function HybridCcV0App() {
   }, [datCatalog, levelRegistry, services.profileStore]);
 
   const families = useMemo(
-    () => buildHybridCcFamilies(entries, seriesByEntryId),
-    [entries, seriesByEntryId],
+    () => buildHybridCcFamilies(entries, seriesByEntryId, loadErrorsByEntryId),
+    [entries, loadErrorsByEntryId, seriesByEntryId],
   );
   const progressByKey = useMemo(() => buildLevelProgressIndex(progressSummaries), [progressSummaries]);
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -212,6 +218,10 @@ export function HybridCcV0App() {
   const selectFamily = (familyId: string) => {
     const family = families.find((candidate) => candidate.id === familyId);
     const series = seriesByEntryId.get(familyId);
+    if (!series) {
+      setMessage(loadErrorsByEntryId.get(familyId) ?? "This DAT set has no playable Hybrid v0 levels.");
+      return;
+    }
     setSelectedEntryId(familyId);
     setSelectedLevelNumber(series?.levels[0]?.number ?? null);
     if (family) setActiveTab(family.section === "local" ? "uploads" : "official");
@@ -237,6 +247,11 @@ export function HybridCcV0App() {
       }
       setEntries(availableEntries);
       setSeriesByEntryId(nextSeries);
+      setLoadErrorsByEntryId((current) => {
+        const next = new Map(current);
+        for (const { entry } of imported) next.delete(entry.id);
+        return next;
+      });
       const selected = imported.at(-1)!;
       setActiveTab("uploads");
       setSelectedEntryId(selected.entry.id);
