@@ -69,11 +69,11 @@ function fixture(): { level: HybridCcNativeLevel; snapshot: HybridCcSnapshot } {
 describe("HybridCC v0 Tile World render projection", () => {
   it("maps native layers and metadata to Lynx artwork tiles", () => {
     const { level, snapshot } = fixture();
-    const session = projectHybridCcSession(level, snapshot, "PACK.dat");
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 8);
 
     expect(session.frame.cells).toMatchObject([
       { top: { id: MS_TILE.Key_Blue }, bottom: { id: MS_TILE.Slide_East } },
-      { top: { id: MS_TILE.IceWall_Northeast }, bottom: { id: MS_TILE.Nothing } },
+      { top: { id: MS_TILE.IceWall_Southwest }, bottom: { id: MS_TILE.Nothing } },
       { top: { id: MS_TILE.Wall_West }, bottom: { id: MS_TILE.Gravel } },
     ]);
   });
@@ -92,7 +92,7 @@ describe("HybridCC v0 Tile World render projection", () => {
     level.cells = terrain.map((value) => cell({ terrain: value }));
     snapshot.cells = level.cells;
 
-    const session = projectHybridCcSession(level, snapshot, "PACK.dat");
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 8);
 
     expect(session.frame.cells).toMatchObject([
       { top: { id: MS_TILE.Empty }, bottom: { id: MS_TILE.Nothing } },
@@ -104,24 +104,119 @@ describe("HybridCC v0 Tile World render projection", () => {
     ]);
   });
 
-  it("projects timing, inventory, direction, and state hashes without changing engine state", () => {
+  it("maps native key and boot slots into the shared Lynx HUD order", () => {
     const { level, snapshot } = fixture();
-    const session = projectHybridCcSession(level, snapshot, "PACK.dat");
+    snapshot.actors[0]!.keys = [11, 22, 33, 44];
+    snapshot.actors[0]!.tools = [55, 66, 77, 88];
+
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 8);
+
+    expect(session.frame.snapshot.inventory).toMatchObject({
+      // Hybrid native keys: blue, red, green, yellow.
+      // Shared HUD keys: red, blue, yellow, green.
+      keys: [22, 11, 44, 33],
+      // Hybrid native tools: flippers, fire boots, ice skates, force boots.
+      // Shared HUD boots: ice skates, force boots, fire boots, flippers.
+      boots: [77, 88, 66, 55],
+    });
+  });
+
+  it("projects timing, direction, and state hashes without changing engine state", () => {
+    const { level, snapshot } = fixture();
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 9);
 
     expect(session.frame.snapshot).toMatchObject({
-      tick: 8,
-      currentTime: 8,
+      tick: 9,
+      currentTime: 9,
       chipsNeeded: 3,
-      inventory: {
-        keys: [2, 1, 0, 0],
-        boots: [2, 1, 4, 3],
-      },
       mapHash: "1234",
     });
     expect(session.frame.render?.chip).toMatchObject({
       pos: 1,
       dir: MS_DIRECTION.east,
-      visual: { tileId: MS_TILE.Chip },
+      visual: { tileId: MS_TILE.Chip, frame: 0 },
+    });
+  });
+
+  it("renders all ice corners by their artwork opening, opposite their solid native edges", () => {
+    const { level, snapshot } = fixture();
+    level.width = 4;
+    level.cells = [0b1001, 0b0011, 0b0110, 0b1100]
+      .map((iceCornerEdges) => cell({ terrain: element(9), iceCornerEdges }));
+    snapshot.cells = level.cells;
+
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 8);
+
+    expect(session.frame.cells.map((projected) => projected.top.id)).toEqual([
+      MS_TILE.IceWall_Southeast,
+      MS_TILE.IceWall_Southwest,
+      MS_TILE.IceWall_Northwest,
+      MS_TILE.IceWall_Northeast,
+    ]);
+  });
+
+  it("preserves both visible DAT layers when panels, pickups, and devices overlap", () => {
+    const { level, snapshot } = fixture();
+    level.width = 2;
+    level.cells = [
+      cell({ pickup: element(24, { color: 2 }), panelEdges: 0b0001 }),
+      cell({ device: element(18, { color: 1 }), pickup: element(22) }),
+    ];
+    snapshot.cells = level.cells;
+
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 8);
+
+    expect(session.frame.cells).toMatchObject([
+      { top: { id: MS_TILE.Wall_North }, bottom: { id: MS_TILE.Key_Red } },
+      { top: { id: MS_TILE.ICChip }, bottom: { id: MS_TILE.Button_Blue } },
+    ]);
+  });
+
+  it("keeps the camera and inventory at Chip's terminal position after death", () => {
+    const { level, snapshot } = fixture();
+    const chip = snapshot.actors[0]!;
+    chip.alive = false;
+    chip.position = { x: 2, y: 0, z: 0 };
+    snapshot.outcome = {
+      kind: 2,
+      logicStep: 4,
+      position: { x: 2, y: 0, z: 0 },
+      exitColor: 0,
+      lossCause: 2,
+    };
+
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 8);
+
+    expect(session.frame.snapshot.view).toEqual({ x: 16, y: 0 });
+    expect(session.frame.snapshot.inventory.keys).toEqual([1, 2, 0, 0]);
+    expect(session.frame.render?.chip).toMatchObject({ pos: 2, failed: true });
+    expect(session.run.result).toMatchObject({
+      outcome: "failed",
+      endPosition: { x: 3, y: 1, z: 1 },
+      cause: {
+        kind: "fire",
+        message: "Stepped in fire at (3, 1)",
+        position: { x: 3, y: 1, z: 1 },
+      },
+    });
+  });
+
+  it("projects a completed run with the shared score summary", () => {
+    const { level, snapshot } = fixture();
+    snapshot.outcome = {
+      kind: 1,
+      logicStep: 4,
+      position: { x: 1, y: 0, z: 0 },
+      exitColor: 1,
+      lossCause: 0,
+    };
+
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 8);
+
+    expect(session.run.result).toMatchObject({
+      outcome: "completed-clean",
+      endPosition: { x: 2, y: 1, z: 1 },
+      score: { baseScore: 3500, timeBonus: 1000, finalScore: 4500 },
     });
   });
 });

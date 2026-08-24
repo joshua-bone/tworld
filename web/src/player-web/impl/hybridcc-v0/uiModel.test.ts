@@ -6,6 +6,10 @@ import {
   buildHybridCcSeriesByEntryId,
   HYBRID_CC_V0_RULESET_LABEL,
   hybridCcV0FamilyProgressLabel,
+  hybridCcV0PresentationTick,
+  hybridCcV0StatusLabel,
+  hybridCcV0SubtickIntervalMs,
+  hybridCcV0TerminalAction,
   shouldAdvanceHybridCcV0Runtime,
 } from "./uiModel";
 
@@ -81,5 +85,28 @@ describe("HybridCC v0 modern dashboard model", () => {
     expect(shouldAdvanceHybridCcV0Runtime(true, false, 0)).toBe(true);
     expect(shouldAdvanceHybridCcV0Runtime(true, true, 0)).toBe(false);
     expect(shouldAdvanceHybridCcV0Runtime(true, false, 1)).toBe(false);
+  });
+
+  it("keeps four input samples per logic step while Shift doubles the game clock", () => {
+    expect(hybridCcV0SubtickIntervalMs(false)).toBe(25);
+    expect(hybridCcV0SubtickIntervalMs(true)).toBe(12.5);
+  });
+
+  it("samples presentation at 20 Hz independently of the 10 Hz simulation", () => {
+    expect(hybridCcV0PresentationTick(7, 0)).toBe(14);
+    expect(hybridCcV0PresentationTick(7, 1)).toBeNull();
+    expect(hybridCcV0PresentationTick(7, 2)).toBe(15);
+    expect(hybridCcV0PresentationTick(7, 3)).toBeNull();
+  });
+
+  it("matches the shared lifecycle labels and terminal actions", () => {
+    expect(hybridCcV0StatusLabel(false, false, 0)).toBe("Ready");
+    expect(hybridCcV0StatusLabel(true, false, 0)).toBe("Playing");
+    expect(hybridCcV0StatusLabel(true, true, 0)).toBe("Paused");
+    expect(hybridCcV0StatusLabel(true, false, 1)).toBe("Completed");
+    expect(hybridCcV0StatusLabel(true, false, 2)).toBe("Failed");
+    expect(hybridCcV0TerminalAction(0)).toBeNull();
+    expect(hybridCcV0TerminalAction(1)).toBe("next");
+    expect(hybridCcV0TerminalAction(2)).toBe("retry");
   });
 });

@@ -6,6 +6,9 @@ import { hybridCcSeries } from "./renderProjection";
 
 export const HYBRID_CC_V0_RULESET_LABEL = "Hybrid v0";
 
+const HYBRID_CC_V0_INPUT_SAMPLES_PER_LOGIC_STEP = 4;
+const HYBRID_CC_V0_LOGIC_STEPS_PER_SECOND = 10;
+
 const OFFICIAL_FAMILY_DISPLAY: Readonly<Record<string, {
   order: number;
   sidebarSummary: string;
@@ -29,6 +32,37 @@ export function shouldAdvanceHybridCcV0Runtime(
   outcomeKind: number,
 ): boolean {
   return started && !paused && outcomeKind === 0;
+}
+
+export function hybridCcV0SubtickIntervalMs(isFastForwarding: boolean): number {
+  const logicStepsPerSecond = isFastForwarding
+    ? HYBRID_CC_V0_LOGIC_STEPS_PER_SECOND * 2
+    : HYBRID_CC_V0_LOGIC_STEPS_PER_SECOND;
+  return 1_000 / (logicStepsPerSecond * HYBRID_CC_V0_INPUT_SAMPLES_PER_LOGIC_STEP);
+}
+
+/**
+ * Hybrid v0 keeps its authoritative C++ simulation at 10 Hz while exposing a
+ * 20 Hz game-time presentation clock. Input samples 0 and 2 are the two
+ * presentation boundaries in each four-sample logic window.
+ */
+export function hybridCcV0PresentationTick(logicStep: number, inputSampleIndex: number): number | null {
+  if (inputSampleIndex === 0) return logicStep * 2;
+  if (inputSampleIndex === 2) return logicStep * 2 + 1;
+  return null;
+}
+
+export function hybridCcV0StatusLabel(started: boolean, paused: boolean, outcomeKind: number): string {
+  if (outcomeKind === 1) return "Completed";
+  if (outcomeKind === 2) return "Failed";
+  if (paused) return "Paused";
+  return started ? "Playing" : "Ready";
+}
+
+export function hybridCcV0TerminalAction(outcomeKind: number): "next" | "retry" | null {
+  if (outcomeKind === 1) return "next";
+  if (outcomeKind === 2) return "retry";
+  return null;
 }
 
 export function hybridCcV0FamilyProgressLabel(levelCount: number): string {

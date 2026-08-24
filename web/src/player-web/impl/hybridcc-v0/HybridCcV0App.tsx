@@ -7,6 +7,22 @@ import {
   useState,
 } from "react";
 import { LegacyCanvasScreen, LegacyInventoryStrip } from "@player-web/impl/LegacyCanvasScreen";
+import { BrowserSoundEffectsPlayer } from "@player-web/impl/BrowserSoundEffectsPlayer";
+import { isFastForwardModifierActive } from "@player-web/impl/fastForward";
+import {
+  hasBlockedMovementModifier,
+  isFirstLevelKey,
+  isHelpToggleKey,
+  isLastLevelKey,
+  isNextLevelKey,
+  isPauseToggleKey,
+  isPrevLevelKey,
+  isProceedKey,
+  isRestartLevelKey,
+  isSystemModifierKey,
+} from "@player-web/impl/legacyHotkeys";
+import { shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
+import { loadStoredSoundSettings } from "@player-web/impl/soundSettings";
 import type { LibrarySidebarTab } from "@player-web/impl/modern/modernDashboardNavigationController";
 import {
   ModernDashboardLevelsPane,
@@ -30,7 +46,12 @@ import {
   type HybridCcDirection,
 } from "./inputCollector";
 import { loadHybridCcWasm } from "./loadWasm";
+import {
+  advanceHybridCcV0MotionTracks,
+  type HybridCcV0MotionTracks,
+} from "./motionProjection";
 import type { HybridCcNativeLevel } from "./nativeLevel";
+import { HybridCcV0HelpOverlay, HybridCcV0ResultSheet } from "./HybridCcV0Overlays";
 import {
   hybridCcSeriesLevel,
   projectHybridCcSession,
@@ -40,8 +61,13 @@ import {
   buildHybridCcSeriesByEntryId,
   HYBRID_CC_V0_RULESET_LABEL,
   hybridCcV0FamilyProgressLabel,
+  hybridCcV0PresentationTick,
+  hybridCcV0StatusLabel,
+  hybridCcV0SubtickIntervalMs,
+  hybridCcV0TerminalAction,
   shouldAdvanceHybridCcV0Runtime,
 } from "./uiModel";
+import { projectHybridCcV0SoundEffects } from "./soundProjection";
 import {
   createHybridCcEngine,
   importHybridCcDat,
@@ -55,6 +81,10 @@ interface ActiveRuntime {
   level: HybridCcNativeLevel;
   snapshot: HybridCcSnapshot;
   lastInput: number;
+  presentationTick: number;
+  recordedMoveCount: number;
+  soundEffects: number;
+  motionTracks: HybridCcV0MotionTracks;
 }
 
 const DIRECTION_KEYS: Readonly<Record<string, HybridCcDirection | undefined>> = {
@@ -122,7 +152,10 @@ export function HybridCcV0App() {
   const dragDepthRef = useRef(0);
   const moduleRef = useRef<HybridCcWasmModule | null>(null);
   const runtimeRef = useRef<ActiveRuntime | null>(null);
+  const inputCollectorRef = useRef(new HybridCcV0InputCollector());
+  const inputSampleIndexRef = useRef(0);
   const heldDirectionsRef = useRef<HybridCcDirection[]>([]);
+  const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
   const activeLevelRowRef = useRef<HTMLButtonElement | null>(null);
   const gameplayFocusRef = useRef<HTMLElement | null>(null);
   const [entries, setEntries] = useState<HybridCcDatCatalogEntry[]>([]);
@@ -139,6 +172,8 @@ export function HybridCcV0App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [isFastForwarding, setIsFastForwarding] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [busy, setBusy] = useState(true);
   const [isDropTargetActive, setIsDropTargetActive] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -149,6 +184,19 @@ export function HybridCcV0App() {
     document.title = "HybridCC v0 · Tile World Online";
     return () => {
       document.title = previousTitle;
+    };
+  }, []);
+
+  useEffect(() => {
+    const player = new BrowserSoundEffectsPlayer();
+    const settings = loadStoredSoundSettings();
+    player.setMuted(settings.muted);
+    player.setVolume(settings.volume);
+    player.prewarm();
+    soundPlayerRef.current = player;
+    return () => {
+      player.dispose();
+      soundPlayerRef.current = null;
     };
   }, []);
 
@@ -165,12 +213,26 @@ export function HybridCcV0App() {
     }
     runtimeRef.current?.engine.dispose();
     const engine = createHybridCcEngine(module, level, 0);
-    const next = { engine, level, snapshot: engine.snapshot(), lastInput: 0 };
+    const next = {
+      engine,
+      level,
+      snapshot: engine.snapshot(),
+      lastInput: 0,
+      presentationTick: 0,
+      recordedMoveCount: 0,
+      soundEffects: 0,
+      motionTracks: new Map(),
+    };
     runtimeRef.current = next;
+    inputCollectorRef.current.reset();
+    inputSampleIndexRef.current = 0;
     heldDirectionsRef.current = [];
+    soundPlayerRef.current?.reset();
     setRuntime(next);
     setStarted(false);
     setPaused(false);
+    setIsFastForwarding(false);
+    setShowHelp(false);
     setMessage(null);
     window.requestAnimationFrame(() => {
       gameplayFocusRef.current?.focus({ preventScroll: true });
@@ -254,9 +316,44 @@ export function HybridCcV0App() {
 
   useEffect(() => {
     const keyDown = (event: KeyboardEvent) => {
+      soundPlayerRef.current?.unlock();
+      setIsFastForwarding(isFastForwardModifierActive("game", event));
+      if (shouldBypassPlayerHotkeys(event.target, document.activeElement)) {
+        heldDirectionsRef.current = [];
+        return;
+      }
+      if (showHelp) {
+        if (event.key === "Escape" || isHelpToggleKey(event)) {
+          event.preventDefault();
+          setShowHelp(false);
+        }
+        return;
+      }
+      if (isHelpToggleKey(event)) {
+        event.preventDefault();
+        heldDirectionsRef.current = [];
+        setShowHelp(true);
+        return;
+      }
+      if (isSystemModifierKey(event.key)) {
+        heldDirectionsRef.current = [];
+        return;
+      }
+      const active = runtimeRef.current;
+      const terminalAction = active ? hybridCcV0TerminalAction(active.snapshot.outcome.kind) : null;
+      if (terminalAction && isProceedKey(event.key)) {
+        event.preventDefault();
+        if (terminalAction === "next") selectLevel(selectedLevelIndex + 1);
+        else startLevel(active!.level);
+        return;
+      }
       const direction = directionForEvent(event);
       if (direction) {
         event.preventDefault();
+        if (hasBlockedMovementModifier(event)) {
+          heldDirectionsRef.current = [];
+          return;
+        }
         setStarted(true);
         if (!heldDirectionsRef.current.includes(direction)) {
           heldDirectionsRef.current = [...heldDirectionsRef.current, direction];
@@ -264,58 +361,130 @@ export function HybridCcV0App() {
         return;
       }
       if (event.repeat) return;
-      if (event.code === "Space" || event.code === "Backspace" || event.code === "Delete") {
+      if (isPauseToggleKey(event)) {
         event.preventDefault();
-        setPaused((current) => !current);
-      } else if (event.code === "KeyR" && runtimeRef.current) {
+        if (active?.snapshot.outcome.kind === 0) {
+          inputCollectorRef.current.reset();
+          inputSampleIndexRef.current = 0;
+          heldDirectionsRef.current = [];
+          setPaused((current) => !current);
+        }
+      } else if (event.code === "Space") {
         event.preventDefault();
-        startLevel(runtimeRef.current.level);
-      } else if (event.code === "KeyP" || event.code === "PageUp") {
+        setStarted(true);
+      } else if (isRestartLevelKey(event) && active) {
+        event.preventDefault();
+        startLevel(active.level);
+      } else if (isPrevLevelKey(event)) {
         event.preventDefault();
         selectLevel(selectedLevelIndex - 1);
-      } else if (event.code === "KeyN" || event.code === "PageDown") {
+      } else if (isNextLevelKey(event)) {
         event.preventDefault();
         selectLevel(selectedLevelIndex + 1);
+      } else if (isFirstLevelKey(event)) {
+        event.preventDefault();
+        selectLevel(0);
+      } else if (isLastLevelKey(event)) {
+        event.preventDefault();
+        selectLevel(selectedLevels.length - 1);
       }
     };
     const keyUp = (event: KeyboardEvent) => {
+      setIsFastForwarding(isFastForwardModifierActive("game", event));
+      if (shouldBypassPlayerHotkeys(event.target, document.activeElement)) {
+        heldDirectionsRef.current = [];
+        return;
+      }
+      if (isSystemModifierKey(event.key)) {
+        heldDirectionsRef.current = [];
+        return;
+      }
       const direction = directionForEvent(event);
       if (!direction) return;
       event.preventDefault();
       heldDirectionsRef.current = heldDirectionsRef.current.filter((held) => held !== direction);
     };
+    const blur = () => {
+      heldDirectionsRef.current = [];
+      setIsFastForwarding(false);
+    };
+    const pointerDown = () => {
+      soundPlayerRef.current?.unlock();
+    };
     window.addEventListener("keydown", keyDown);
     window.addEventListener("keyup", keyUp);
+    window.addEventListener("blur", blur);
+    window.addEventListener("pointerdown", pointerDown);
     return () => {
       window.removeEventListener("keydown", keyDown);
       window.removeEventListener("keyup", keyUp);
+      window.removeEventListener("blur", blur);
+      window.removeEventListener("pointerdown", pointerDown);
     };
-  }, [selectLevel, selectedLevelIndex, startLevel]);
+  }, [selectLevel, selectedLevelIndex, selectedLevels.length, showHelp, startLevel]);
 
   useEffect(() => {
-    if (!runtime || !shouldAdvanceHybridCcV0Runtime(started, paused, runtime.snapshot.outcome.kind)) return;
-    const collector = new HybridCcV0InputCollector();
-    let sampleIndex = 0;
+    if (!runtime || showHelp || !shouldAdvanceHybridCcV0Runtime(started, paused, runtime.snapshot.outcome.kind)) return;
     const interval = window.setInterval(() => {
       const active = runtimeRef.current;
       if (!active) return;
-      const collected = collector.capture(heldDirectionsRef.current);
+      const sampleIndex = inputSampleIndexRef.current;
+      const collected = inputCollectorRef.current.capture(heldDirectionsRef.current);
       if (sampleIndex === 0) {
         try {
           const lastInput = replayInputForDirections(collected);
+          const previousSnapshot = active.snapshot;
           const snapshot = active.engine.logicStep(lastInput);
-          const next = { ...active, snapshot, lastInput };
+          const presentationTick = hybridCcV0PresentationTick(snapshot.logicStep, sampleIndex)!;
+          const motionTracks = advanceHybridCcV0MotionTracks(
+            active.level,
+            previousSnapshot,
+            snapshot,
+            presentationTick,
+            active.motionTracks,
+          );
+          const next = {
+            ...active,
+            snapshot,
+            lastInput,
+            presentationTick,
+            motionTracks,
+            recordedMoveCount: active.recordedMoveCount + (lastInput === active.lastInput ? 0 : 1),
+            soundEffects: projectHybridCcV0SoundEffects(active.level, previousSnapshot, snapshot, lastInput),
+          };
           runtimeRef.current = next;
           setRuntime(next);
         } catch (error: unknown) {
           setMessage(errorMessage(error));
           setPaused(true);
         }
+      } else {
+        const presentationTick = hybridCcV0PresentationTick(active.snapshot.logicStep, sampleIndex);
+        if (presentationTick !== null) {
+          const next = { ...active, presentationTick };
+          runtimeRef.current = next;
+          setRuntime(next);
+        }
       }
-      sampleIndex = (sampleIndex + 1) % 4;
-    }, 25);
+      inputSampleIndexRef.current = (sampleIndex + 1) % 4;
+    }, hybridCcV0SubtickIntervalMs(isFastForwarding));
     return () => window.clearInterval(interval);
-  }, [paused, runtime?.engine, runtime?.snapshot.outcome.kind, started]);
+  }, [isFastForwarding, paused, runtime?.engine, runtime?.snapshot.outcome.kind, showHelp, started]);
+
+  useEffect(() => {
+    const player = soundPlayerRef.current;
+    if (!player) return;
+    if (!runtime || paused || showHelp) {
+      player.reset();
+      return;
+    }
+    player.syncFrame(
+      `${selectedEntryId ?? "unknown"}:${runtime.level.number}:Hybrid-v0`,
+      "Lynx",
+      runtime.presentationTick,
+      runtime.soundEffects,
+    );
+  }, [paused, runtime, selectedEntryId, showHelp]);
 
   const importFiles = useCallback(async (files: readonly File[]) => {
     const module = moduleRef.current;
@@ -432,19 +601,28 @@ export function HybridCcV0App() {
   const series = activeEntry;
   const level = runtime ? hybridCcSeriesLevel(runtime.level) : null;
   const session = runtime && selectedEntry
-    ? projectHybridCcSession(runtime.level, runtime.snapshot, selectedEntry.filename)
+    ? projectHybridCcSession(
+        runtime.level,
+        runtime.snapshot,
+        selectedEntry.filename,
+        runtime.presentationTick,
+        runtime.soundEffects,
+        runtime.recordedMoveCount,
+        runtime.motionTracks,
+      )
     : null;
   const status = busy
     ? "Loading"
-    : runtime?.snapshot.outcome.kind === 1
-      ? "Level complete"
-      : runtime?.snapshot.outcome.kind === 2
-        ? "Chip died"
-        : paused
-          ? "Paused"
-          : !started
-            ? "Ready"
-            : "Playing";
+    : runtime
+      ? hybridCcV0StatusLabel(started, paused, runtime.snapshot.outcome.kind)
+      : "Ready";
+  const togglePaused = () => {
+    if (!runtime || runtime.snapshot.outcome.kind !== 0) return;
+    inputCollectorRef.current.reset();
+    inputSampleIndexRef.current = 0;
+    heldDirectionsRef.current = [];
+    setPaused((current) => !current);
+  };
 
   return (
     <main className="modern-shell modern-shell--dashboard hybridcc-v0">
@@ -581,7 +759,7 @@ export function HybridCcV0App() {
                   <button className="modern-button modern-button--secondary modern-button--compact" disabled={!runtime} onClick={() => runtime && startLevel(runtime.level)} type="button">
                     <span>Restart</span><span className="modern-game-header__shortcut">R</span>
                   </button>
-                  <button className="modern-button modern-button--secondary modern-button--compact" disabled={!runtime || runtime.snapshot.outcome.kind !== 0} onClick={() => setPaused((current) => !current)} type="button">
+                  <button className="modern-button modern-button--secondary modern-button--compact" disabled={!runtime || runtime.snapshot.outcome.kind !== 0} onClick={togglePaused} type="button">
                     <span>{paused ? "Resume" : "Pause"}</span><span className="modern-game-header__shortcut">Bksp</span>
                   </button>
                   <button className="modern-button modern-button--secondary modern-button--compact" disabled={selectedLevels.length === 0} onClick={() => selectLevel(selectedLevelIndex - 1)} type="button">
@@ -598,7 +776,7 @@ export function HybridCcV0App() {
                   <button className="modern-button modern-button--secondary modern-button--compact" onClick={() => setMessage("Hybrid v0 has no advanced runtime controls yet.")} type="button">
                     <span>Advanced</span><span aria-hidden="true" className="modern-toolbar-menu__caret">▾</span>
                   </button>
-                  <button className="modern-button modern-button--secondary modern-button--compact" onClick={() => setMessage("Move with the arrow keys or WASD. Pause with Backspace, Delete, or Space. Restart with R; change levels with P and N.")} type="button">
+                  <button className="modern-button modern-button--secondary modern-button--compact" onClick={() => setShowHelp(true)} type="button">
                     <span>Help</span><span className="modern-game-header__shortcut">H</span>
                   </button>
                 </div>
@@ -661,6 +839,14 @@ export function HybridCcV0App() {
                           visualEnhancementsEnabled={false}
                         />
                       )}
+                      {session && runtime && runtime.snapshot.outcome.kind !== 0 ? (
+                        <HybridCcV0ResultSheet
+                          level={runtime.level}
+                          onNext={() => selectLevel(selectedLevelIndex + 1)}
+                          onRetry={() => startLevel(runtime.level)}
+                          session={session}
+                        />
+                      ) : null}
                     </div>
 
                     <aside className="modern-game-inventory-strip">
@@ -690,6 +876,7 @@ export function HybridCcV0App() {
 
       {message ? <ModernDashboardMessageModal message={message} onClose={() => setMessage(null)} /> : null}
       {setInfoFamily ? <ModernDashboardSetInfoModal family={setInfoFamily} onClose={() => setSetInfoFamilyId(null)} /> : null}
+      {showHelp ? <HybridCcV0HelpOverlay onClose={() => setShowHelp(false)} /> : null}
     </main>
   );
 }
