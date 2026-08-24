@@ -41,6 +41,14 @@ export function hybridCcV0FamilyProgressLabel(levelCount: number): string {
   return `Cleared: 0/${levelCount} (${HYBRID_CC_V0_RULESET_LABEL})`;
 }
 
+export function hybridCcV0InitialCatalogMessage(
+  playableEntryCount: number,
+  loadErrorsByEntryId: ReadonlyMap<string, string>,
+): string | null {
+  if (playableEntryCount > 0) return null;
+  return loadErrorsByEntryId.values().next().value ?? "No playable DAT sets are available.";
+}
+
 function familyTitle(entry: HybridCcDatCatalogEntry): string {
   return entry.filename.replace(/\.dat$/iu, "");
 }
@@ -66,9 +74,11 @@ export function buildHybridCcSeriesByEntryId(
 export function buildHybridCcFamilies(
   entries: readonly HybridCcDatCatalogEntry[],
   seriesByEntryId: ReadonlyMap<string, SeriesCatalogEntry>,
+  loadErrorsByEntryId: ReadonlyMap<string, string> = new Map(),
 ): SetFamily[] {
   return entries.map((entry, index): SetFamily => {
     const series = seriesByEntryId.get(entry.id);
+    const loadError = loadErrorsByEntryId.get(entry.id);
     const officialDisplay = entry.source === "official" ? OFFICIAL_FAMILY_DISPLAY[entry.filename] : undefined;
     const sourceLabel = entry.source === "official" ? "Official DAT set." : "Local DAT set.";
     return {
@@ -76,10 +86,11 @@ export function buildHybridCcFamilies(
       section: entry.source === "official" ? "official" : "local",
       title: familyTitle(entry),
       badge: entry.source === "official" ? "Official" : "Uploaded",
-      sidebarSummary: officialDisplay?.sidebarSummary ?? sourceLabel,
+      sidebarSummary: loadError ? "Unavailable in Hybrid v0." : officialDisplay?.sidebarSummary ?? sourceLabel,
       yearLabel: officialDisplay?.yearLabel ?? null,
       description: `${entry.name}. ${sourceLabel}`,
-      context: "HybridCC converts the DAT to its native map format before starting play.",
+      context: loadError
+        ?? "HybridCC converts the DAT to its native map format before starting play.",
       links: [],
       levelCount: series?.levels.length ?? 0,
       entries: series ? [series] : [],

@@ -10,20 +10,35 @@ interface HybridCcModuleFactory {
   (options?: { locateFile?: (filename: string) => string }): Promise<HybridCcWasmModule>;
 }
 
+async function loadArtifactModule(): Promise<HybridCcWasmModule> {
+  const moduleUrl = new URL(
+    "./engine/hybridcc_v0_wasm.js",
+    import.meta.url,
+  );
+  const wasmUrl = new URL(
+    "./engine/hybridcc_v0_wasm.wasm",
+    import.meta.url,
+  );
+  const { default: factory } = await import(/* @vite-ignore */ moduleUrl.href) as {
+    default: HybridCcModuleFactory;
+  };
+  return factory({ locateFile: () => wasmUrl.href });
+}
+
 describe("deployed HybridCC v0 WebAssembly artifact", () => {
+  it("imports every bundled official DAT through the deployed converter", async () => {
+    const module = await loadArtifactModule();
+
+    for (const filename of ["CCLP1.dat", "CCLP2.dat", "CCLP3.dat", "CCLP4.dat", "CCLP5.dat", "CCLXP2.dat"]) {
+      const datBytes = new Uint8Array(
+        await readFile(new URL(`../../../../../data/${filename}`, import.meta.url)),
+      );
+      expect(importHybridCcDat(module, datBytes), filename).toHaveLength(149);
+    }
+  });
+
   it("imports an official DAT and advances the real C++ engine", async () => {
-    const moduleUrl = new URL(
-      "./engine/hybridcc_v0_wasm.js",
-      import.meta.url,
-    );
-    const wasmUrl = new URL(
-      "./engine/hybridcc_v0_wasm.wasm",
-      import.meta.url,
-    );
-    const { default: factory } = await import(/* @vite-ignore */ moduleUrl.href) as {
-      default: HybridCcModuleFactory;
-    };
-    const module = await factory({ locateFile: () => wasmUrl.href });
+    const module = await loadArtifactModule();
     const datBytes = new Uint8Array(
       await readFile(new URL("../../../../../data/CCLP1.dat", import.meta.url)),
     );
