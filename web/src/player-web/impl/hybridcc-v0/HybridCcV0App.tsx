@@ -1,5 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LegacyCanvasScreen } from "@player-web/impl/LegacyCanvasScreen";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { LegacyCanvasScreen, LegacyInventoryStrip } from "@player-web/impl/LegacyCanvasScreen";
+import type { LibrarySidebarTab } from "@player-web/impl/modern/modernDashboardNavigationController";
+import {
+  ModernDashboardLevelsPane,
+  ModernDashboardPaneRail,
+  ModernDashboardSetsPane,
+  ModernDashboardSplitter,
+} from "@player-web/impl/modern/modernDashboardPanels";
+import {
+  ModernDashboardMessageModal,
+  ModernDashboardSetInfoModal,
+} from "@player-web/impl/modern/modernDashboardModals";
+import { useModernDashboardPaneLayout } from "@player-web/impl/modern/useModernDashboardPaneLayout";
+import type { BrowserLevelProgressSummary } from "@player-web/ports/BrowserProfileStore";
 import {
   HybridCcDatCatalog,
   type HybridCcDatCatalogEntry,
@@ -12,10 +32,16 @@ import {
 import { loadHybridCcWasm } from "./loadWasm";
 import type { HybridCcNativeLevel } from "./nativeLevel";
 import {
-  hybridCcSeries,
   hybridCcSeriesLevel,
   projectHybridCcSession,
 } from "./renderProjection";
+import {
+  buildHybridCcFamilies,
+  buildHybridCcSeriesByEntryId,
+  HYBRID_CC_V0_RULESET_LABEL,
+  hybridCcV0FamilyProgressLabel,
+  shouldAdvanceHybridCcV0Runtime,
+} from "./uiModel";
 import {
   createHybridCcEngine,
   importHybridCcDat,
@@ -23,12 +49,6 @@ import {
   type HybridCcSnapshot,
   type HybridCcWasmModule,
 } from "./wasmBridge";
-import "./hybridCcV0.css";
-
-interface LoadedPack {
-  entry: HybridCcDatCatalogEntry;
-  levels: HybridCcNativeLevel[];
-}
 
 interface ActiveRuntime {
   engine: HybridCcEngine;
@@ -56,6 +76,9 @@ const DIRECTION_KEYS: Readonly<Record<string, HybridCcDirection | undefined>> = 
   A: "west",
 };
 
+const EMPTY_PROGRESS = new Map<string, BrowserLevelProgressSummary>();
+const EMPTY_LEVELS: readonly HybridCcNativeLevel[] = [];
+
 function directionForEvent(event: KeyboardEvent): HybridCcDirection | undefined {
   return DIRECTION_KEYS[event.code] ?? DIRECTION_KEYS[event.key];
 }
@@ -71,20 +94,55 @@ function formatTime(level: HybridCcNativeLevel, snapshot: HybridCcSnapshot): str
   return String(Math.max(0, level.timeLimitSeconds - Math.floor(snapshot.logicStep / 10)));
 }
 
+function familyMatchesSearch(title: string, summary: string | null, query: string): boolean {
+  const normalized = query.trim().toLocaleLowerCase();
+  return normalized.length === 0
+    || title.toLocaleLowerCase().includes(normalized)
+    || summary?.toLocaleLowerCase().includes(normalized) === true;
+}
+
+function ChainLinkIcon() {
+  return (
+    <svg aria-hidden="true" className="modern-link-icon-button__icon" viewBox="0 0 16 16">
+      <path
+        d="M6.2 9.8 4.6 11.4a2.2 2.2 0 1 1-3.1-3.1L3.8 6M9.8 6.2l1.6-1.6a2.2 2.2 0 1 1 3.1 3.1L12.2 10M5.6 10.4l4.8-4.8"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
 export function HybridCcV0App() {
   const datCatalog = useMemo(() => new HybridCcDatCatalog(), []);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const dragDepthRef = useRef(0);
   const moduleRef = useRef<HybridCcWasmModule | null>(null);
   const runtimeRef = useRef<ActiveRuntime | null>(null);
   const heldDirectionsRef = useRef<HybridCcDirection[]>([]);
+  const activeLevelRowRef = useRef<HTMLButtonElement | null>(null);
+  const gameplayFocusRef = useRef<HTMLElement | null>(null);
   const [entries, setEntries] = useState<HybridCcDatCatalogEntry[]>([]);
+  const [levelsByEntryId, setLevelsByEntryId] = useState<ReadonlyMap<string, readonly HybridCcNativeLevel[]>>(
+    () => new Map(),
+  );
+  const [loadErrorByEntryId, setLoadErrorByEntryId] = useState<ReadonlyMap<string, string>>(
+    () => new Map(),
+  );
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
-  const [pack, setPack] = useState<LoadedPack | null>(null);
   const [selectedLevelIndex, setSelectedLevelIndex] = useState(0);
   const [runtime, setRuntime] = useState<ActiveRuntime | null>(null);
+  const [activeTab, setActiveTab] = useState<LibrarySidebarTab>("official");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [started, setStarted] = useState(false);
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState(true);
+  const [isDropTargetActive, setIsDropTargetActive] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [setInfoFamilyId, setSetInfoFamilyId] = useState<string | null>(null);
 
   useEffect(() => {
     const previousTitle = document.title;
@@ -111,18 +169,50 @@ export function HybridCcV0App() {
     runtimeRef.current = next;
     heldDirectionsRef.current = [];
     setRuntime(next);
+    setStarted(false);
     setPaused(false);
     setMessage(null);
+    window.requestAnimationFrame(() => {
+      gameplayFocusRef.current?.focus({ preventScroll: true });
+    });
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([loadHybridCcWasm(), datCatalog.list()])
-      .then(([module, availableEntries]) => {
-        if (cancelled) return;
+      .then(async ([module, availableEntries]) => {
         moduleRef.current = module;
+        const loaded = await Promise.all(availableEntries.map(async (entry) => {
+          try {
+            const levels = importHybridCcDat(module, await entry.loadBytes());
+            return { entry, levels, error: null };
+          } catch (error: unknown) {
+            return { entry, levels: null, error };
+          }
+        }));
+        if (cancelled) {
+          return;
+        }
+        const nextLevels = new Map<string, readonly HybridCcNativeLevel[]>();
+        const nextErrors = new Map<string, string>();
+        for (const result of loaded) {
+          if (result.levels && result.levels.length > 0) {
+            nextLevels.set(result.entry.id, result.levels);
+          } else if (result.error !== null) {
+            nextErrors.set(result.entry.id, errorMessage(result.error));
+          }
+        }
         setEntries(availableEntries);
-        setSelectedEntryId((current) => current ?? availableEntries[0]?.id ?? null);
+        setLevelsByEntryId(nextLevels);
+        setLoadErrorByEntryId(nextErrors);
+        const firstPlayable = availableEntries.find((entry) => nextLevels.has(entry.id));
+        setSelectedEntryId((current) => current ?? firstPlayable?.id ?? null);
+        if (!firstPlayable) {
+          const firstFailure = loaded.find((result) => result.error !== null);
+          setMessage(firstFailure
+            ? `${firstFailure.entry.filename}: ${errorMessage(firstFailure.error)}`
+            : "No playable DAT sets are available.");
+        }
         setBusy(false);
       })
       .catch((error: unknown) => {
@@ -135,62 +225,46 @@ export function HybridCcV0App() {
     };
   }, [datCatalog]);
 
-  useEffect(() => {
-    const entry = entries.find((candidate) => candidate.id === selectedEntryId);
-    const module = moduleRef.current;
-    if (!entry || !module) return;
+  const selectedLevels = selectedEntryId ? levelsByEntryId.get(selectedEntryId) ?? EMPTY_LEVELS : EMPTY_LEVELS;
+  const selectedEntryFilename = entries.find((entry) => entry.id === selectedEntryId)?.filename ?? null;
+  const selectedLoadError = selectedEntryId ? loadErrorByEntryId.get(selectedEntryId) ?? null : null;
 
-    let cancelled = false;
-    setBusy(true);
-    setMessage(null);
+  useEffect(() => {
     disposeRuntime();
-    entry.loadBytes()
-      .then((bytes) => importHybridCcDat(module, bytes))
-      .then((levels) => {
-        if (cancelled) return;
-        if (levels.length === 0) {
-          throw new Error(`${entry.filename} contains no levels.`);
-        }
-        setPack({ entry, levels });
-        setSelectedLevelIndex(0);
-        startLevel(levels[0]!);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setPack(null);
-        setMessage(`${entry.filename}: ${errorMessage(error)}`);
-      })
-      .finally(() => {
-        if (!cancelled) setBusy(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [disposeRuntime, entries, selectedEntryId, startLevel]);
+    if (selectedLevels.length === 0) {
+      if (selectedEntryFilename) {
+        setMessage(`${selectedEntryFilename}: ${selectedLoadError ?? "This DAT contains no playable levels."}`);
+      }
+      return;
+    }
+    setSelectedLevelIndex(0);
+    startLevel(selectedLevels[0]!);
+  }, [disposeRuntime, selectedEntryFilename, selectedLevels, selectedLoadError, startLevel]);
 
   useEffect(() => () => {
     runtimeRef.current?.engine.dispose();
   }, []);
 
   const selectLevel = useCallback((index: number) => {
-    if (!pack || pack.levels.length === 0) return;
-    const wrapped = (index + pack.levels.length) % pack.levels.length;
+    if (selectedLevels.length === 0) return;
+    const wrapped = (index + selectedLevels.length) % selectedLevels.length;
     setSelectedLevelIndex(wrapped);
-    startLevel(pack.levels[wrapped]!);
-  }, [pack, startLevel]);
+    startLevel(selectedLevels[wrapped]!);
+  }, [selectedLevels, startLevel]);
 
   useEffect(() => {
     const keyDown = (event: KeyboardEvent) => {
       const direction = directionForEvent(event);
       if (direction) {
         event.preventDefault();
+        setStarted(true);
         if (!heldDirectionsRef.current.includes(direction)) {
           heldDirectionsRef.current = [...heldDirectionsRef.current, direction];
         }
         return;
       }
       if (event.repeat) return;
-      if (event.code === "Space") {
+      if (event.code === "Space" || event.code === "Backspace" || event.code === "Delete") {
         event.preventDefault();
         setPaused((current) => !current);
       } else if (event.code === "KeyR" && runtimeRef.current) {
@@ -219,7 +293,7 @@ export function HybridCcV0App() {
   }, [selectLevel, selectedLevelIndex, startLevel]);
 
   useEffect(() => {
-    if (!runtime || paused || runtime.snapshot.outcome.kind !== 0) return;
+    if (!runtime || !shouldAdvanceHybridCcV0Runtime(started, paused, runtime.snapshot.outcome.kind)) return;
     const collector = new HybridCcV0InputCollector();
     let sampleIndex = 0;
     const interval = window.setInterval(() => {
@@ -233,9 +307,6 @@ export function HybridCcV0App() {
           const next = { ...active, snapshot, lastInput };
           runtimeRef.current = next;
           setRuntime(next);
-          if (snapshot.outcome.kind !== 0) {
-            setPaused(true);
-          }
         } catch (error: unknown) {
           setMessage(errorMessage(error));
           setPaused(true);
@@ -244,16 +315,38 @@ export function HybridCcV0App() {
       sampleIndex = (sampleIndex + 1) % 4;
     }, 25);
     return () => window.clearInterval(interval);
-  }, [paused, runtime?.engine, runtime?.snapshot.outcome.kind]);
+  }, [paused, runtime?.engine, runtime?.snapshot.outcome.kind, started]);
 
-  const importFile = useCallback(async (file: File) => {
+  const importFiles = useCallback(async (files: readonly File[]) => {
+    const module = moduleRef.current;
+    if (!module || files.length === 0) return;
     setBusy(true);
     setMessage(null);
     try {
-      const entry = await datCatalog.save(file);
+      const imported: { entry: HybridCcDatCatalogEntry; levels: HybridCcNativeLevel[] }[] = [];
+      for (const file of files) {
+        const levels = importHybridCcDat(module, new Uint8Array(await file.arrayBuffer()));
+        const entry = await datCatalog.save(file);
+        imported.push({ entry, levels });
+      }
       const availableEntries = await datCatalog.list();
       setEntries(availableEntries);
-      setSelectedEntryId(entry.id);
+      setLevelsByEntryId((current) => {
+        const next = new Map(current);
+        for (const result of imported) {
+          next.set(result.entry.id, result.levels);
+        }
+        return next;
+      });
+      setLoadErrorByEntryId((current) => {
+        const next = new Map(current);
+        for (const result of imported) {
+          next.delete(result.entry.id);
+        }
+        return next;
+      });
+      setActiveTab("uploads");
+      setSelectedEntryId(imported.at(-1)!.entry.id);
     } catch (error: unknown) {
       setMessage(errorMessage(error));
     } finally {
@@ -261,14 +354,86 @@ export function HybridCcV0App() {
     }
   }, [datCatalog]);
 
-  const series = pack ? hybridCcSeries(pack.entry.filename, pack.entry.name, pack.levels) : null;
-  const level = runtime ? hybridCcSeriesLevel(runtime.level) : null;
-  const session = runtime && pack
-    ? projectHybridCcSession(runtime.level, runtime.snapshot, pack.entry.filename)
+  const seriesByEntryId = useMemo(
+    () => buildHybridCcSeriesByEntryId(entries, levelsByEntryId),
+    [entries, levelsByEntryId],
+  );
+  const families = useMemo(
+    () => buildHybridCcFamilies(entries, seriesByEntryId),
+    [entries, seriesByEntryId],
+  );
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const isSearchActive = deferredSearchQuery.trim().length > 0;
+  const visibleFamilies = useMemo(() => families.filter((family) => {
+    if (isSearchActive) {
+      return familyMatchesSearch(family.title, family.sidebarSummary, deferredSearchQuery);
+    }
+    if (activeTab === "official") return family.section === "official";
+    if (activeTab === "uploads") return family.section === "local";
+    return false;
+  }), [activeTab, deferredSearchQuery, families, isSearchActive]);
+  const activeFamily = families.find((family) => family.id === selectedEntryId) ?? null;
+  const activeEntry = selectedEntryId ? seriesByEntryId.get(selectedEntryId) ?? null : null;
+  const activeLevel = activeEntry?.levels[selectedLevelIndex] ?? null;
+  const setInfoFamily = setInfoFamilyId
+    ? families.find((family) => family.id === setInfoFamilyId) ?? null
     : null;
-  const officialEntries = entries.filter((entry) => entry.source === "official");
-  const importedEntries = entries.filter((entry) => entry.source === "imported");
-  const player = runtime?.snapshot.actors.find((actor) => actor.kind === 41 && actor.alive) ?? null;
+  const {
+    dashboardStyle,
+    expandLevelsPane,
+    expandSetsPane,
+    isLevelsPaneCollapsed,
+    isSetsPaneCollapsed,
+    startPaneResize,
+    toggleLevelsPaneCollapsed,
+    toggleSetsPaneCollapsed,
+  } = useModernDashboardPaneLayout({
+    activeEntry,
+    activeFamily,
+    isCatalogLoading: busy,
+    visibleFamilies,
+  });
+
+  useEffect(() => {
+    activeLevelRowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [activeEntry?.filebase, activeLevel?.number]);
+
+  const discardUploadedFamily = useCallback(async (familyId: string) => {
+    const entry = entries.find((candidate) => candidate.id === familyId && candidate.source === "imported");
+    if (!entry) return;
+    try {
+      await datCatalog.delete(entry.filename);
+      const nextEntries = entries.filter((candidate) => candidate.id !== familyId);
+      setEntries(nextEntries);
+      setLevelsByEntryId((current) => {
+        const next = new Map(current);
+        next.delete(familyId);
+        return next;
+      });
+      setLoadErrorByEntryId((current) => {
+        const next = new Map(current);
+        next.delete(familyId);
+        return next;
+      });
+      if (selectedEntryId === familyId) {
+        const nextEntry = nextEntries.find((candidate) => candidate.source === "imported")
+          ?? nextEntries.find((candidate) => candidate.source === "official")
+          ?? null;
+        setSelectedEntryId(nextEntry?.id ?? null);
+        setActiveTab(nextEntry?.source === "imported" ? "uploads" : "official");
+      }
+      setMessage(`${entry.filename} was removed from this browser.`);
+    } catch (error: unknown) {
+      setMessage(errorMessage(error));
+    }
+  }, [datCatalog, entries, selectedEntryId]);
+
+  const selectedEntry = entries.find((entry) => entry.id === selectedEntryId) ?? null;
+  const series = activeEntry;
+  const level = runtime ? hybridCcSeriesLevel(runtime.level) : null;
+  const session = runtime && selectedEntry
+    ? projectHybridCcSession(runtime.level, runtime.snapshot, selectedEntry.filename)
+    : null;
   const status = busy
     ? "Loading"
     : runtime?.snapshot.outcome.kind === 1
@@ -277,146 +442,109 @@ export function HybridCcV0App() {
         ? "Chip died"
         : paused
           ? "Paused"
-          : "Playing · HybridCC v0";
+          : !started
+            ? "Ready"
+            : "Playing";
 
   return (
     <main className="modern-shell modern-shell--dashboard hybridcc-v0">
-      <div className="modern-dashboard hybridcc-v0__dashboard">
-        <div className="modern-dashboard__pane">
-          <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--sets">
-            <section className="modern-dashboard__panel modern-dashboard__panel--brand">
-              <div className="modern-dashboard__brand-lockup">
-                <div aria-hidden="true" className="modern-dashboard__brand-logo">
-                  <span className="modern-dashboard__brand-logo-letter">H</span>
-                  <span className="modern-dashboard__brand-logo-letter">C</span>
-                  <span className="modern-dashboard__brand-logo-letter">C</span>
-                </div>
-                <h1 className="modern-dashboard__title modern-dashboard__title--brand">
-                  <span className="modern-dashboard__title-line">HYBRIDCC</span>
-                  <span className="modern-dashboard__title-line">VERSION 0</span>
-                </h1>
-              </div>
-            </section>
+      <input
+        accept=".dat,.DAT"
+        hidden
+        multiple
+        onChange={(event) => {
+          const files = Array.from(event.currentTarget.files ?? []);
+          event.currentTarget.value = "";
+          if (files.length > 0) void importFiles(files);
+        }}
+        ref={fileInputRef}
+        type="file"
+      />
 
-            <section className="modern-dashboard__panel modern-dashboard__panel--fill">
-              <div className="modern-dashboard__section-header">
-                <p className="modern-section__eyebrow">Official sets</p>
-                <p className="modern-dashboard__meta-note">Hybrid rules</p>
-              </div>
-              <div className="modern-library__family-list">
-                {officialEntries.map((entry) => (
-                  <button
-                    aria-pressed={entry.id === selectedEntryId}
-                    className={`modern-library__family${entry.id === selectedEntryId ? " modern-library__family--active" : ""}`}
-                    key={entry.id}
-                    onClick={() => setSelectedEntryId(entry.id)}
-                    type="button"
-                  >
-                    <span className="modern-library__family-title">{entry.name}</span>
-                    <span className="modern-library__family-meta">{entry.filename}</span>
-                  </button>
-                ))}
-                {importedEntries.length > 0 ? (
-                  <p className="modern-section__eyebrow hybridcc-v0__uploads-heading">Uploaded sets</p>
-                ) : null}
-                {importedEntries.map((entry) => (
-                  <button
-                    aria-pressed={entry.id === selectedEntryId}
-                    className={`modern-library__family${entry.id === selectedEntryId ? " modern-library__family--active" : ""}`}
-                    key={entry.id}
-                    onClick={() => setSelectedEntryId(entry.id)}
-                    type="button"
-                  >
-                    <span className="modern-library__family-title">{entry.name}</span>
-                    <span className="modern-library__family-meta">Local DAT</span>
-                  </button>
-                ))}
-              </div>
-
-              <section
-                className="modern-dashboard__upload modern-import-dropzone"
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const file = event.dataTransfer.files[0];
-                  if (file) void importFile(file);
-                }}
-              >
-                <div>
-                  <p className="modern-preference-block__label">Local DAT</p>
-                  <p className="modern-dashboard__copy modern-dashboard__copy--compact">
-                    Uses the same saved DAT library as Tile World Online.
-                  </p>
-                </div>
-                <button
-                  className="modern-button modern-button--secondary"
-                  disabled={busy}
-                  onClick={() => fileInputRef.current?.click()}
-                  type="button"
-                >
-                  Open Local DAT
-                </button>
-                <input
-                  accept=".dat,application/octet-stream"
-                  className="hybridcc-v0__file-input"
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.[0];
-                    if (file) void importFile(file);
-                    event.currentTarget.value = "";
-                  }}
-                  ref={fileInputRef}
-                  type="file"
-                />
-              </section>
-            </section>
-          </aside>
+      <div className="modern-dashboard" style={dashboardStyle}>
+        <div className="modern-dashboard__pane modern-dashboard__pane--sets">
+          {isSetsPaneCollapsed ? (
+            <ModernDashboardPaneRail label="Sets" onExpand={expandSetsPane} />
+          ) : (
+            <ModernDashboardSetsPane
+              activeFamilyId={activeFamily?.id ?? null}
+              activeTab={activeTab}
+              dragDepthRef={dragDepthRef}
+              emptySearchQuery={deferredSearchQuery}
+              familyMeta={(family) => hybridCcV0FamilyProgressLabel(family.levelCount)}
+              isDropTargetActive={isDropTargetActive}
+              isImporting={busy}
+              isSearchActive={isSearchActive}
+              onDropDatFiles={(files) => { void importFiles(files); }}
+              onOpenAbout={() => {
+                setMessage("HybridCC v0 is the C++ port of the earlier HybridCC engine, presented in the Tile World Online player shell.");
+              }}
+              onOpenDatPicker={() => { fileInputRef.current?.click(); }}
+              onOpenSettings={() => {
+                setMessage("Hybrid v0 uses the fixed Lynx artwork presentation and the HybridCC v0 input profile.");
+              }}
+              onSelectFamily={(familyId) => {
+                const family = families.find((candidate) => candidate.id === familyId);
+                setSelectedEntryId(familyId);
+                if (family) setActiveTab(family.section === "local" ? "uploads" : "official");
+              }}
+              onSelectTab={setActiveTab}
+              onSetDropTargetActive={setIsDropTargetActive}
+              onShowFamilyInfo={setSetInfoFamilyId}
+              onUploadedFamilyAction={(familyId) => { void discardUploadedFamily(familyId); }}
+              progressByKey={EMPTY_PROGRESS}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              visibleFamilies={visibleFamilies}
+            />
+          )}
         </div>
 
-        <div aria-hidden="true" className="modern-dashboard__splitter" />
+        <ModernDashboardSplitter
+          isCollapsed={isSetsPaneCollapsed}
+          label="sets"
+          onPointerDown={(event) => {
+            if (event.button !== 0 || isSetsPaneCollapsed || (event.target as HTMLElement).closest("button")) return;
+            event.preventDefault();
+            startPaneResize("sets", event.clientX);
+          }}
+          onToggleCollapse={toggleSetsPaneCollapsed}
+        />
 
         <div className="modern-dashboard__pane modern-dashboard__pane--levels">
-          <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--levels">
-            <section className="modern-dashboard__panel modern-dashboard__panel--compact modern-dashboard__panel--level-summary">
-              <div className="modern-dashboard__section-header">
-                <p className="modern-section__eyebrow">Level Selector</p>
-                <p className="modern-dashboard__meta-note">{pack ? `${pack.levels.length} levels` : "No level data"}</p>
-              </div>
-              <div className="modern-dashboard__level-header">
-                <div>
-                  <h2 className="modern-dashboard__panel-title">{pack?.entry.name ?? "No set selected"}</h2>
-                  <p className="modern-dashboard__copy modern-dashboard__copy--compact">
-                    {runtime ? `Level ${runtime.level.number}: ${runtime.level.title}` : "Choose a playable DAT set."}
-                  </p>
-                </div>
-                <span className="hybridcc-v0__ruleset-pill">Hybrid</span>
-              </div>
-            </section>
-
-            <section className="modern-dashboard__panel modern-dashboard__panel--fill">
-              <div className="modern-dashboard__section-header">
-                <p className="modern-section__eyebrow">Levels</p>
-                <p className="modern-dashboard__meta-note">{pack ? `${pack.levels.length} total` : "Unavailable"}</p>
-              </div>
-              <div className="modern-level-sidebar" role="list">
-                {pack?.levels.map((candidate, index) => (
-                  <button
-                    aria-pressed={index === selectedLevelIndex}
-                    className={`modern-level-row${index === selectedLevelIndex ? " modern-level-row--active" : ""}`}
-                    key={`${candidate.number}:${index}`}
-                    onClick={() => selectLevel(index)}
-                    type="button"
-                  >
-                    <span className="modern-level-row__number">{candidate.number}</span>
-                    <span className="modern-level-row__medal modern-level-row__medal--unplayed">·</span>
-                    <span className="modern-level-row__name">{candidate.title}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          </aside>
+          {isLevelsPaneCollapsed ? (
+            <ModernDashboardPaneRail label="Levels" onExpand={expandLevelsPane} />
+          ) : (
+            <ModernDashboardLevelsPane
+              activeEntry={activeEntry}
+              activeEntryProgress={{ completedLevels: 0 }}
+              activeFamily={activeFamily}
+              activeLevel={activeLevel}
+              activeLevelProgress={null}
+              activeLevelRowRef={activeLevelRowRef}
+              activeRuleset={activeEntry ? "Lynx" : null}
+              animatedLevelBadgeKey={null}
+              onLevelContextMenu={() => {}}
+              onSelectLevel={(levelNumber) => {
+                const index = activeEntry?.levels.findIndex((candidate) => candidate.number === levelNumber) ?? -1;
+                if (index >= 0) selectLevel(index);
+              }}
+              onSelectRuleset={() => {}}
+              progressByKey={EMPTY_PROGRESS}
+            />
+          )}
         </div>
 
-        <div aria-hidden="true" className="modern-dashboard__splitter" />
+        <ModernDashboardSplitter
+          isCollapsed={isLevelsPaneCollapsed}
+          label="levels"
+          onPointerDown={(event) => {
+            if (event.button !== 0 || isLevelsPaneCollapsed || (event.target as HTMLElement).closest("button")) return;
+            event.preventDefault();
+            startPaneResize("levels", event.clientX);
+          }}
+          onToggleCollapse={toggleLevelsPaneCollapsed}
+        />
 
         <section className="modern-dashboard__player">
           <section className="modern-embedded-player">
@@ -425,71 +553,143 @@ export function HybridCcV0App() {
                 <div className="modern-game-header__meta modern-game-header__meta--status-only">
                   <p className="modern-section__eyebrow modern-game-header__state">{status}</p>
                 </div>
-                <h1 className="modern-embedded-player__title">
-                  {runtime ? `Level ${runtime.level.number}: ${runtime.level.title}` : "HybridCC v0"}
-                </h1>
+                <div className="modern-game-header__title-row">
+                  <h1 className="modern-embedded-player__title">
+                    {runtime ? `Level ${runtime.level.number}: ${runtime.level.title}` : "HybridCC v0"}
+                  </h1>
+                  <div className="modern-game-header__title-action">
+                    <button
+                      aria-label="Copy link to this level"
+                      className="modern-link-icon-button"
+                      disabled={!runtime}
+                      onClick={() => setMessage("Shareable Hybrid v0 level links are not available yet.")}
+                      title="Copy link to this level"
+                      type="button"
+                    >
+                      <ChainLinkIcon />
+                    </button>
+                  </div>
+                </div>
                 <p className="modern-game-header__subtitle">
-                  {runtime ? `${runtime.level.author || "Unknown author"} · ${pack?.entry.filename ?? "DAT"}` : "C++ engine · 10 logic steps per second"}
+                  {runtime
+                    ? `${runtime.level.author || "Unknown author"}  ·  ${runtime.level.timeLimitSeconds > 0 ? `${runtime.level.timeLimitSeconds}s` : "Untimed"}`
+                    : "C++ engine · 10 logic steps per second"}
                 </p>
               </div>
-              <div className="hybridcc-v0__toolbar">
-                <button className="modern-button modern-button--secondary" disabled={!runtime} onClick={() => setPaused((current) => !current)} type="button">
-                  {paused ? "Resume" : "Pause"} <span className="modern-game-header__shortcut">Space</span>
-                </button>
-                <button className="modern-button modern-button--secondary" disabled={!runtime} onClick={() => runtime && startLevel(runtime.level)} type="button">
-                  Restart <span className="modern-game-header__shortcut">R</span>
-                </button>
-                <button className="modern-button modern-button--secondary" disabled={!pack} onClick={() => selectLevel(selectedLevelIndex - 1)} type="button">Previous</button>
-                <button className="modern-button modern-button--secondary" disabled={!pack} onClick={() => selectLevel(selectedLevelIndex + 1)} type="button">Next</button>
+              <div className="modern-game-header__toolbar">
+                <div aria-label="Primary controls" className="modern-game-header__toolbar-group" role="group">
+                  <button className="modern-button modern-button--secondary modern-button--compact" disabled={!runtime} onClick={() => runtime && startLevel(runtime.level)} type="button">
+                    <span>Restart</span><span className="modern-game-header__shortcut">R</span>
+                  </button>
+                  <button className="modern-button modern-button--secondary modern-button--compact" disabled={!runtime || runtime.snapshot.outcome.kind !== 0} onClick={() => setPaused((current) => !current)} type="button">
+                    <span>{paused ? "Resume" : "Pause"}</span><span className="modern-game-header__shortcut">Bksp</span>
+                  </button>
+                  <button className="modern-button modern-button--secondary modern-button--compact" disabled={selectedLevels.length === 0} onClick={() => selectLevel(selectedLevelIndex - 1)} type="button">
+                    <span>Previous</span><span className="modern-game-header__shortcut">P</span>
+                  </button>
+                  <button className="modern-button modern-button--secondary modern-button--compact" disabled={selectedLevels.length === 0} onClick={() => selectLevel(selectedLevelIndex + 1)} type="button">
+                    <span>Next</span><span className="modern-game-header__shortcut">N</span>
+                  </button>
+                </div>
+                <div aria-label="Replay, advanced, and help" className="modern-game-header__toolbar-group modern-game-header__toolbar-group--right" role="group">
+                  <button className="modern-button modern-button--secondary modern-button--compact" onClick={() => setMessage("Native HybridCC replay controls are not available in v0 yet.")} type="button">
+                    <span>Replays</span><span aria-hidden="true" className="modern-toolbar-menu__caret">▾</span>
+                  </button>
+                  <button className="modern-button modern-button--secondary modern-button--compact" onClick={() => setMessage("Hybrid v0 has no advanced runtime controls yet.")} type="button">
+                    <span>Advanced</span><span aria-hidden="true" className="modern-toolbar-menu__caret">▾</span>
+                  </button>
+                  <button className="modern-button modern-button--secondary modern-button--compact" onClick={() => setMessage("Move with the arrow keys or WASD. Pause with Backspace, Delete, or Space. Restart with R; change levels with P and N.")} type="button">
+                    <span>Help</span><span className="modern-game-header__shortcut">H</span>
+                  </button>
+                </div>
               </div>
             </header>
 
             <div className="modern-embedded-player__body">
-              {message ? <div className="hybridcc-v0__message" role="alert">{message}</div> : null}
-              <div className="hybridcc-v0__stage">
+              <section className="modern-game-board modern-game-board--with-rails" ref={gameplayFocusRef} tabIndex={-1}>
                 <div className="modern-game-board__frame modern-game-board__frame--embedded">
-                  <div className="modern-game-board__viewport">
-                    <LegacyCanvasScreen
-                      catalog={series ? [series] : []}
-                      className="modern-gameboard__canvas modern-gameboard__canvas--embedded"
-                      currentLevel={level}
-                      currentRuleset="Lynx"
-                      currentSeries={series}
-                      isLoading={busy}
-                      message={message}
-                      mode="game"
-                      onActivateSeries={() => {}}
-                      onSelectSeries={() => {}}
-                      presentation="map-only"
-                      renderTileSize={48}
-                      selectedSeriesFile={series?.filebase ?? null}
-                      session={session}
-                      visualEnhancementsEnabled={false}
-                    />
-                    {paused && runtime?.snapshot.outcome.kind === 0 ? (
-                      <div className="hybridcc-v0__pause-overlay">
-                        <strong>PAUSED</strong>
-                        <span>Press Space or Resume</span>
+                  <div className="modern-game-stage modern-game-stage--embedded">
+                    <aside className="modern-game-rail modern-game-rail--left">
+                      <section className="modern-game-rail__panel modern-game-rail__panel--ruleset">
+                        <div aria-label="Ruleset" className="modern-ruleset-toggle modern-ruleset-toggle--stacked" role="group">
+                          <button aria-pressed="true" className="modern-ruleset-toggle__button modern-ruleset-toggle__button--active" type="button">
+                            {HYBRID_CC_V0_RULESET_LABEL}
+                          </button>
+                          <button aria-pressed="false" className="modern-ruleset-toggle__button" disabled type="button">MS</button>
+                        </div>
+                      </section>
+                      <section className="modern-game-rail__panel">
+                        <p className="modern-section__eyebrow">Runtime</p>
+                        <div className="modern-game-rail__stats">
+                          <div className={`modern-game-stat${session?.frame.snapshot.chipsNeeded === 0 ? " modern-game-stat--good" : ""}`}>
+                            <span className="modern-game-stat__label">Chips</span>
+                            <strong className="modern-game-stat__value">{session?.frame.snapshot.chipsNeeded ?? "---"}</strong>
+                          </div>
+                          <div className="modern-game-stat">
+                            <span className="modern-game-stat__label">Time</span>
+                            <strong className="modern-game-stat__value">{runtime ? formatTime(runtime.level, runtime.snapshot) : "---"}</strong>
+                          </div>
+                          <div className="modern-game-stat">
+                            <span className="modern-game-stat__label">Undo Used</span>
+                            <strong className="modern-game-stat__value">0</strong>
+                          </div>
+                        </div>
+                      </section>
+                    </aside>
+
+                    <div className="modern-game-board__viewport">
+                      {paused ? (
+                        <div aria-live="polite" aria-label="Paused" className="modern-game-board__paused modern-game-board__paused--embedded" role="status">
+                          <p className="modern-game-board__paused-title">PAUSED</p>
+                          <p className="modern-game-board__paused-copy">Press Backspace/Delete or use Resume to continue.</p>
+                        </div>
+                      ) : (
+                        <LegacyCanvasScreen
+                          catalog={series ? [series] : []}
+                          className="modern-gameboard__canvas modern-gameboard__canvas--embedded"
+                          currentLevel={level}
+                          currentRuleset="Lynx"
+                          currentSeries={series}
+                          isLoading={busy}
+                          message={null}
+                          mode="game"
+                          onActivateSeries={() => {}}
+                          onSelectSeries={() => {}}
+                          presentation="map-only"
+                          selectedSeriesFile={series?.filebase ?? null}
+                          session={session}
+                          visualEnhancementsEnabled={false}
+                        />
+                      )}
+                    </div>
+
+                    <aside className="modern-game-inventory-strip">
+                      <div className="modern-game-inventory-strip__group">
+                        <p className="modern-game-inventory-strip__label">Keys</p>
+                        <LegacyInventoryStrip className="modern-game-inventory-strip__canvas" currentRuleset="Lynx" inventory={session?.frame.snapshot.inventory ?? null} kind="keys" visualEnhancementsEnabled={false} />
                       </div>
-                    ) : null}
+                      <div className="modern-game-inventory-strip__group">
+                        <p className="modern-game-inventory-strip__label">Boots</p>
+                        <LegacyInventoryStrip className="modern-game-inventory-strip__canvas" currentRuleset="Lynx" inventory={session?.frame.snapshot.inventory ?? null} kind="boots" visualEnhancementsEnabled={false} />
+                      </div>
+                    </aside>
+
+                    <section className="modern-game-undo-panel">
+                      <div className="modern-game-undo-panel__actions">
+                        <button className="modern-button modern-button--secondary modern-game-undo-panel__button" disabled type="button">Undo</button>
+                        <button className="modern-button modern-button--secondary modern-game-undo-panel__button" disabled type="button">Continue with Replay</button>
+                      </div>
+                    </section>
                   </div>
                 </div>
-                <aside className="hybridcc-v0__stats">
-                  <div><span>Chips</span><strong>{session?.frame.snapshot.chipsNeeded ?? "---"}</strong></div>
-                  <div><span>Time</span><strong>{runtime ? formatTime(runtime.level, runtime.snapshot) : "---"}</strong></div>
-                  <div><span>Step</span><strong>{runtime?.snapshot.logicStep ?? 0}</strong></div>
-                  <div><span>Input</span><strong>{runtime?.lastInput ?? 0}</strong></div>
-                  <div><span>Position</span><strong>{player ? `${player.position.x}, ${player.position.y}` : "---"}</strong></div>
-                  <div><span>State hash</span><code>{runtime ? runtime.snapshot.stateHash.toString(16).padStart(16, "0") : "----------------"}</code></div>
-                </aside>
-              </div>
-              <p className="hybridcc-v0__controls">
-                Move with arrow keys or WASD. HybridCC v0 samples input four times per 100 ms logic step, matching the earlier HybridCC players.
-              </p>
+              </section>
             </div>
           </section>
         </section>
       </div>
+
+      {message ? <ModernDashboardMessageModal message={message} onClose={() => setMessage(null)} /> : null}
+      {setInfoFamily ? <ModernDashboardSetInfoModal family={setInfoFamily} onClose={() => setSetInfoFamilyId(null)} /> : null}
     </main>
   );
 }

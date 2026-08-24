@@ -406,6 +406,7 @@ interface ModernDashboardSetsPaneProps {
   activeTab: LibrarySidebarTab;
   dragDepthRef: MutableRefObject<number>;
   emptySearchQuery: string;
+  familyMeta?: ((family: SetFamily) => string) | undefined;
   isDropTargetActive: boolean;
   isImporting: boolean;
   isSearchActive: boolean;
@@ -429,6 +430,7 @@ export function ModernDashboardSetsPane({
   activeTab,
   dragDepthRef,
   emptySearchQuery,
+  familyMeta,
   isDropTargetActive,
   isImporting,
   isSearchActive,
@@ -513,7 +515,7 @@ export function ModernDashboardSetsPane({
                 family={family}
                 isActive={activeFamilyId === family.id}
                 key={family.id}
-                meta={formatFamilyClearedMeta(family, progressByKey)}
+                meta={familyMeta?.(family) ?? formatFamilyClearedMeta(family, progressByKey)}
                 onAction={onUploadedFamilyAction}
                 onSelect={onSelectFamily}
                 onShowInfo={onShowFamilyInfo}

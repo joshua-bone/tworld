@@ -22,7 +22,9 @@ not copied into, linked into, or used to implement the proprietary engine.
 
 The four 25 ms input samples per 100 ms logic step, late-press carry, and
 insertion-order slap selection in `inputCollector.ts` preserve the earlier
-HybridCC player behavior. The semantic references were:
+HybridCC player behavior. The browser host likewise holds a newly loaded level
+at Ready until the first directional input, matching the earlier Python and
+TypeScript play-session state machines. The semantic references were:
 
 - HybridCC2025 commit `c2066cdfae75780d1844e11830f572af6394825a`
 - HybridCC-Python commit `b675ae3b7274eade8b66acecc4db16a628432cb8`
