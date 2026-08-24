@@ -1,5 +1,5 @@
 import type { SeriesCatalogEntry } from "@content/api/series";
-import type { RulesetName } from "@content/api/ruleset";
+import type { LegacyRulesetName } from "@content/api/ruleset";
 import type { LoadedSolutionFile, SolutionFileRepository } from "@replay-verifier/ports/SolutionFileRepository";
 import type { ReplayTraceScenario } from "@replay-verifier/impl/scenario";
 import type { SolutionReplaySweepPlan } from "@replay-verifier/impl/buildReplayTraceScenariosFromSolutionFile";
@@ -75,4 +75,4 @@ export interface SolutionFileReplaySweepProgressReporter {
   onSolutionFileComplete?(progress: SolutionFileReplaySweepFileCompleteProgress): void | Promise<void>;
 }
 
-export type SupportedReplaySweepRuleset = Exclude<RulesetName, "None">;
+export type SupportedReplaySweepRuleset = LegacyRulesetName;

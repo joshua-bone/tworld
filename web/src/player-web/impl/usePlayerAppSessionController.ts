@@ -54,7 +54,7 @@ interface UsePlayerAppSessionControllerOptions {
   profileStore: BrowserAppServices["profileStore"];
   mode: LegacyMode;
   setMode: Dispatch<SetStateAction<LegacyMode>>;
-  currentSeriesRuleset: "MS" | "Lynx" | "None" | null;
+  currentSeriesRuleset: "MS" | "Lynx" | "Hybrid" | "None" | null;
   currentLevelExists: boolean;
   currentManualMsStepping: 0 | 4;
   replayLaunchRequest: ReplayLaunchRequest | null;

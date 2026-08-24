@@ -80,3 +80,26 @@ export function replayInputForDirections(directions: readonly HybridCcDirection[
   const slap = directions.slice(1).find((direction) => direction === left || direction === right);
   return slap ? SLAP_INPUT[primary][slap] ?? SINGLE_DIRECTION_INPUT[primary] : SINGLE_DIRECTION_INPUT[primary];
 }
+
+/** Browser key state sampled at 40 Hz, matching the earlier HybridCC ports. */
+export class HybridCcV0InputBuffer {
+  private readonly collector = new HybridCcV0InputCollector();
+  private held: HybridCcDirection[] = [];
+
+  keyDown(direction: HybridCcDirection): void {
+    if (!this.held.includes(direction)) this.held.push(direction);
+  }
+
+  keyUp(direction: HybridCcDirection): void {
+    this.held = this.held.filter((candidate) => candidate !== direction);
+  }
+
+  nextSampleInputCode(): number {
+    return replayInputForDirections(this.collector.capture(this.held));
+  }
+
+  reset(): void {
+    this.collector.reset();
+    this.held = [];
+  }
+}

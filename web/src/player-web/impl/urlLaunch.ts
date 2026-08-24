@@ -49,6 +49,9 @@ function createResolvedSelection(
   levelNumber: number,
   ruleset: BrowserPreferredRuleset,
 ): PlayableSelection {
+  if (ruleset === "Hybrid") {
+    throw new Error("Hybrid v0 levels use the dedicated Hybrid player route.");
+  }
   return {
     seriesFile: importedSeriesFile(slotName, ruleset),
     levelNumber,

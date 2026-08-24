@@ -14,6 +14,11 @@ export interface HybridCcNativeCell {
   actor: HybridCcElement;
   panelEdges: number;
   iceCornerEdges: number;
+  /** Runtime-only ABI v2 facts. Canonical native-map cells omit these fields. */
+  dynamicState?: number;
+  signal?: number;
+  dpadDirection?: number;
+  dpadSignal?: number;
 }
 
 export interface HybridCcNativeLevel {

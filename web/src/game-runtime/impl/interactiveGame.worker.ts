@@ -58,11 +58,17 @@ function toClientSession(
 }
 
 async function handleRequest(request: InteractiveGameWorkerRequest): Promise<InteractiveGameWorkerResponse> {
+  const engineFor = (ruleset: "MS" | "Lynx" | "Hybrid") => {
+    if (ruleset === "Hybrid") {
+      throw new Error("Hybrid sessions run in the browser host, not the legacy ruleset worker.");
+    }
+    return engines[ruleset];
+  };
   switch (request.type) {
     case "ping":
       return { id: request.id };
     case "start-session": {
-      const engine = engines[request.request.ruleset];
+      const engine = engineFor(request.request.ruleset);
       const session = await engine.startSession(request.request, request.options);
       const sessionId = nextSessionId;
       nextSessionId += 1;
@@ -73,7 +79,7 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
       };
     }
     case "start-replay-session": {
-      const engine = engines[request.request.ruleset];
+      const engine = engineFor(request.request.ruleset);
       const session = await engine.startReplaySession(request.request, request.replay, request.options);
       const sessionId = nextSessionId;
       nextSessionId += 1;
@@ -85,7 +91,7 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
     }
     case "advance-session": {
       const session = sessionForId(request.sessionId);
-      const nextSession = await engines[session.request.ruleset].advanceSession(session, request.input);
+      const nextSession = await engineFor(session.request.ruleset).advanceSession(session, request.input);
       sessions.set(request.sessionId, nextSession);
       return {
         id: request.id,
@@ -94,7 +100,7 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
     }
     case "restore-session": {
       const session = sessionForId(request.sessionId);
-      const nextSession = await engines[session.request.ruleset].restoreSession(session, request.targetTick);
+      const nextSession = await engineFor(session.request.ruleset).restoreSession(session, request.targetTick);
       sessions.set(request.sessionId, nextSession);
       return {
         id: request.id,
@@ -103,7 +109,7 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
     }
     case "resume-session": {
       const session = sessionForId(request.sessionId);
-      const nextSession = await engines[session.request.ruleset].resumeSession(session);
+      const nextSession = await engineFor(session.request.ruleset).resumeSession(session);
       sessions.set(request.sessionId, nextSession);
       return {
         id: request.id,
@@ -112,7 +118,7 @@ async function handleRequest(request: InteractiveGameWorkerRequest): Promise<Int
     }
     case "hydrate-session": {
       const session = sessionForId(request.sessionId);
-      const hydratedSession = (await engines[session.request.ruleset].hydrateSession?.(session, request.options)) ?? session;
+      const hydratedSession = (await engineFor(session.request.ruleset).hydrateSession?.(session, request.options)) ?? session;
       return {
         id: request.id,
         session: toClientSession(request.sessionId, hydratedSession, request.options),

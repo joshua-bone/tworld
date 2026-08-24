@@ -1,4 +1,4 @@
-import type { RulesetName } from "@content/api/ruleset";
+import type { LegacyRulesetName } from "@content/api/ruleset";
 import { parseSolutionRulesetByte, solutionRulesetByte } from "@content/api/ruleset";
 import { decodeLatin1, encodeLatin1, readUint8, readUint16, readUint32, trimNulls } from "@content/api/contentBinary";
 import {
@@ -19,7 +19,7 @@ export interface SolutionFileEntry {
 }
 
 export interface ParsedSolutionFile {
-  ruleset: Exclude<RulesetName, "None">;
+  ruleset: LegacyRulesetName;
   flags: number;
   extraHeader: Uint8Array;
   setName: string | null;

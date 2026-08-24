@@ -32,6 +32,7 @@ import {
   resolveSetFamilyRuleset,
   resolveSetFamilySelection,
   type SetFamily,
+  type SetFamilyRuleset,
 } from "@player-web/impl/modern/curatedCatalog";
 import {
   formatMobileFamilyBrowseMeta,
@@ -461,6 +462,9 @@ interface PlayerAppProps {
   playerKeyBindings?: BrowserPlayerKeyBindingsSettings;
   visualEnhancementsEnabled?: boolean;
   debugModeEnabled?: boolean;
+  catalogSource?: "browser" | "provided";
+  rulesetOptions?: readonly SetFamilyRuleset[];
+  rulesetLabel?: (ruleset: SetFamilyRuleset) => string;
 }
 
 export function PlayerApp({
@@ -483,6 +487,9 @@ export function PlayerApp({
   playerKeyBindings: playerKeyBindingsProp,
   visualEnhancementsEnabled: visualEnhancementsEnabledProp,
   debugModeEnabled = createDefaultBrowserProfilePreferences().debugModeEnabled,
+  catalogSource = "browser",
+  rulesetOptions = ["Lynx", "MS"],
+  rulesetLabel = (ruleset) => ruleset,
 }: PlayerAppProps) {
   const { engines, profileStore } = services;
   const levelAttemptCountsRef = useRef<Map<string, number>>(new Map());
@@ -612,6 +619,7 @@ export function PlayerApp({
   });
 
   usePlayerAppCatalogController({
+    catalogSource,
     chromeMode,
     services,
     initialCatalog,
@@ -683,6 +691,7 @@ export function PlayerApp({
     syncSoundForSession,
   });
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
+  const replayRuleset = currentRuleset === "MS" || currentRuleset === "Lynx" ? currentRuleset : null;
   const showManualMsStepToggle =
     currentSeriesRuleset === "MS" &&
     replayLaunchRequest === null &&
@@ -728,8 +737,7 @@ export function PlayerApp({
   );
   const currentFamily = findSetFamilyForSelection(curatedCatalogView, currentSelection);
   const currentFamilyRuleset = currentFamily ? resolveSetFamilyRuleset(currentFamily, currentSelection) : null;
-  const currentPreferredRuleset =
-    currentRuleset === "MS" || currentRuleset === "Lynx" ? currentRuleset : currentFamilyRuleset;
+  const currentPreferredRuleset = currentRuleset ?? currentFamilyRuleset;
   const currentFamilyEntry =
     currentFamily && currentFamilyRuleset ? currentFamily.launchEntries[currentFamilyRuleset] ?? null : currentSeries;
   const currentFamilyProgress = currentFamilyEntry ? summarizeEntryProgress(currentFamilyEntry, progressByKey) : null;
@@ -1104,7 +1112,6 @@ export function PlayerApp({
       }) ||
       !session ||
       !currentLevel ||
-      (session.request.ruleset !== "MS" && session.request.ruleset !== "Lynx") ||
       session.mode !== "manual"
     ) {
       return;
@@ -1434,7 +1441,7 @@ export function PlayerApp({
     catalog,
     currentSeries,
     currentLevel,
-    currentRuleset,
+    currentRuleset: replayRuleset,
     replayContextSeries,
     replayContextLevel,
     currentLevelReplayEntries,
@@ -2874,17 +2881,12 @@ export function PlayerApp({
       </div>
     ) : null;
 
-  const selectedRulesetSelections =
-    currentFamily && currentLevel
-      ? {
-          MS: resolveSetFamilySelection(currentFamily, "MS", currentLevel.number),
-          Lynx: resolveSetFamilySelection(currentFamily, "Lynx", currentLevel.number),
-        }
-      : { MS: null, Lynx: null };
   const renderModernRulesetToggle = (keyPrefix: string) => (
     <div className="modern-ruleset-toggle modern-ruleset-toggle--stacked" role="group" aria-label="Ruleset">
-      {(["Lynx", "MS"] as const).map((ruleset) => {
-        const selection = selectedRulesetSelections[ruleset];
+      {rulesetOptions.map((ruleset) => {
+        const selection = currentFamily && currentLevel
+          ? resolveSetFamilySelection(currentFamily, ruleset, currentLevel.number)
+          : null;
         return (
           <button
             aria-pressed={currentRuleset === ruleset}
@@ -2898,7 +2900,7 @@ export function PlayerApp({
             }}
             type="button"
           >
-            {ruleset}
+            {rulesetLabel(ruleset)}
           </button>
         );
       })}
@@ -3046,6 +3048,12 @@ export function PlayerApp({
     </div>
   );
   const renderMobileRuntimePanel = () => {
+    const selectedRulesetSelections = currentFamily && currentLevel
+      ? {
+          MS: resolveSetFamilySelection(currentFamily, "MS", currentLevel.number),
+          Lynx: resolveSetFamilySelection(currentFamily, "Lynx", currentLevel.number),
+        }
+      : { MS: null, Lynx: null };
     const nextRulesetSelection =
       currentRuleset === "MS"
         ? selectedRulesetSelections.Lynx

@@ -53,6 +53,7 @@ function buildSeriesFileCandidates(seriesFile: string): string[] {
 }
 
 function matchesRuleset(seriesFile: string, ruleset: BrowserPreferredRuleset): boolean {
+  if (ruleset === "Hybrid") return false;
   return ruleset === "MS"
     ? /(?:-ms|\.dat-ms)\.dac$/iu.test(seriesFile)
     : /(?:-lynx|\.dat-lynx)\.dac$/iu.test(seriesFile);
@@ -261,6 +262,7 @@ export function findImportedDatEntry(
   ruleset: BrowserPreferredRuleset,
   importedDatFiles: readonly PersistedImportedDatFile[],
 ): PersistedImportedDatFile | null {
+  if (ruleset === "Hybrid") return null;
   return (
     importedDatFiles.find((entry) => importedSeriesFile(entry.filename, ruleset) === seriesFile) ?? null
   );

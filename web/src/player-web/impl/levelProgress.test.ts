@@ -30,7 +30,7 @@ function createLevel(overrides: Partial<SeriesLevel> = {}): SeriesLevel {
 
 function createEntry(
   filebase: string,
-  ruleset: "MS" | "Lynx",
+  ruleset: "MS" | "Lynx" | "Hybrid",
   levels: readonly SeriesLevel[],
 ): SeriesCatalogEntry {
   return {
@@ -104,6 +104,21 @@ describe("levelProgress", () => {
 
     expect(resolveLevelProgressSummary(level, "MS", progressByKey)?.bestResult).toBe("completed-clean");
     expect(resolveLevelProgressSummary(level, "Lynx", progressByKey)).toBeNull();
+    expect(resolveLevelProgressSummary(level, "Hybrid", progressByKey)).toBeNull();
+  });
+
+  it("counts Hybrid completion under its native-level content hash", () => {
+    const entry = createEntry("hybrid-v0:official:CCLP1.dat", "Hybrid", [
+      createLevel({ gameplayHash: "native-level-sha256" }),
+    ]);
+    const progressByKey = buildLevelProgressIndex([
+      createProgress({ ruleset: "Hybrid", gameplayHash: "native-level-sha256" }),
+    ]);
+
+    expect(summarizeEntryProgress(entry, progressByKey)).toEqual({
+      completedLevels: 1,
+      playedLevels: 1,
+    });
   });
 
   it("counts only timer-valid clears in set summaries", () => {

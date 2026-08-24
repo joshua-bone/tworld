@@ -6,6 +6,10 @@ import { hybridCcSeries } from "./renderProjection";
 
 export const HYBRID_CC_V0_RULESET_LABEL = "Hybrid v0";
 
+export function hybridCcV0SeriesFile(entry: Pick<HybridCcDatCatalogEntry, "id">): string {
+  return `hybrid-v0:${entry.id}`;
+}
+
 const HYBRID_CC_V0_INPUT_SAMPLES_PER_LOGIC_STEP = 4;
 const HYBRID_CC_V0_LOGIC_STEPS_PER_SECOND = 10;
 
@@ -26,43 +30,11 @@ const OFFICIAL_FAMILY_DISPLAY: Readonly<Record<string, {
   "CCLXP2.dat": { order: 55, sidebarSummary: "Lynx-compatible CCLP2 companion", yearLabel: "2002" },
 };
 
-export function shouldAdvanceHybridCcV0Runtime(
-  started: boolean,
-  paused: boolean,
-  outcomeKind: number,
-): boolean {
-  return started && !paused && outcomeKind === 0;
-}
-
 export function hybridCcV0SubtickIntervalMs(isFastForwarding: boolean): number {
   const logicStepsPerSecond = isFastForwarding
     ? HYBRID_CC_V0_LOGIC_STEPS_PER_SECOND * 2
     : HYBRID_CC_V0_LOGIC_STEPS_PER_SECOND;
   return 1_000 / (logicStepsPerSecond * HYBRID_CC_V0_INPUT_SAMPLES_PER_LOGIC_STEP);
-}
-
-/**
- * Hybrid v0 keeps its authoritative C++ simulation at 10 Hz while exposing a
- * 20 Hz game-time presentation clock. Input samples 0 and 2 are the two
- * presentation boundaries in each four-sample logic window.
- */
-export function hybridCcV0PresentationTick(logicStep: number, inputSampleIndex: number): number | null {
-  if (inputSampleIndex === 0) return logicStep * 2;
-  if (inputSampleIndex === 2) return logicStep * 2 + 1;
-  return null;
-}
-
-export function hybridCcV0StatusLabel(started: boolean, paused: boolean, outcomeKind: number): string {
-  if (outcomeKind === 1) return "Completed";
-  if (outcomeKind === 2) return "Failed";
-  if (paused) return "Paused";
-  return started ? "Playing" : "Ready";
-}
-
-export function hybridCcV0TerminalAction(outcomeKind: number): "next" | "retry" | null {
-  if (outcomeKind === 1) return "next";
-  if (outcomeKind === 2) return "retry";
-  return null;
 }
 
 export function hybridCcV0FamilyProgressLabel(levelCount: number): string {
@@ -76,11 +48,17 @@ function familyTitle(entry: HybridCcDatCatalogEntry): string {
 export function buildHybridCcSeriesByEntryId(
   entries: readonly HybridCcDatCatalogEntry[],
   levelsByEntryId: ReadonlyMap<string, readonly HybridCcNativeLevel[]>,
+  hashesByEntryId: ReadonlyMap<string, readonly string[]> = new Map(),
 ): ReadonlyMap<string, SeriesCatalogEntry> {
   return new Map(entries.flatMap((entry) => {
     const levels = levelsByEntryId.get(entry.id);
     return levels
-      ? [[entry.id, hybridCcSeries(entry.filename, entry.name, [...levels])] as const]
+      ? [[entry.id, hybridCcSeries(
+          hybridCcV0SeriesFile(entry),
+          entry.name,
+          [...levels],
+          hashesByEntryId.get(entry.id),
+        )] as const]
       : [];
   }));
 }
@@ -105,8 +83,8 @@ export function buildHybridCcFamilies(
       links: [],
       levelCount: series?.levels.length ?? 0,
       entries: series ? [series] : [],
-      launchEntries: series ? { Lynx: series } : {},
-      rulesetLabels: { Lynx: HYBRID_CC_V0_RULESET_LABEL },
+      launchEntries: series ? { Hybrid: series } : {},
+      rulesetLabels: { Hybrid: HYBRID_CC_V0_RULESET_LABEL },
       continueSelection: null,
       order: officialDisplay?.order ?? (entry.source === "official" ? 900 + index : 1_000 + index),
     };

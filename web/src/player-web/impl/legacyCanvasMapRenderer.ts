@@ -581,6 +581,12 @@ export function isThinWallTileId(tileId: number): boolean {
   return isThinWallTileIdFromMetadata(tileId);
 }
 
+export function usesProjectedLynxRender(
+  ruleset: SeriesCatalogEntry["ruleset"] | null,
+): boolean {
+  return ruleset === "Lynx" || ruleset === "Hybrid";
+}
+
 export function visualEnhancementActorMarker(
   actorId: number,
   topId: number,
@@ -603,7 +609,7 @@ export function visualEnhancementThinWallOverlayTileId(
   bottomId: number,
 ): number | null {
   if (
-    (ruleset !== "MS" && ruleset !== "Lynx") ||
+    (ruleset !== "MS" && !usesProjectedLynxRender(ruleset)) ||
     !isMsBlockActorId(visualEnhancementActorId(topId) ?? MS_TILE.Empty) ||
     !isThinWallTileId(bottomId)
   ) {
@@ -619,7 +625,7 @@ export function visualEnhancementThinWallActorPassTileId(
   topId: number,
   bottomId: number,
 ): number | null {
-  if (ruleset !== "Lynx" || !isMsBlockActorId(actorId)) {
+  if (!usesProjectedLynxRender(ruleset) || !isMsBlockActorId(actorId)) {
     return null;
   }
   const decoration = projectThinWallActorDecoration(actorId, topId, bottomId);
@@ -1099,7 +1105,7 @@ function renderMapLayerCanvas(
     );
   }
 
-  if (ruleset === "Lynx" && session.frame.render) {
+  if (usesProjectedLynxRender(ruleset) && session.frame.render) {
     drawProjectedLynxRender(context, tileset, session.frame.render, xOrigin, yOrigin, layer.z);
   }
 
@@ -1175,7 +1181,7 @@ function renderCachedLowerLayerCanvas(
     );
   }
 
-  if (ruleset === "Lynx" && session.frame.render) {
+  if (usesProjectedLynxRender(ruleset) && session.frame.render) {
     drawProjectedLynxRender(context, tileset, session.frame.render, xOrigin, yOrigin, layer.z);
   }
 
@@ -1439,7 +1445,9 @@ export function resolveLegacyMapViewport(
   session: InteractiveGameSession,
   ruleset: SeriesCatalogEntry["ruleset"] | null,
 ): { viewX: number; viewY: number } {
-  const renderView = ruleset === "Lynx" ? renderedLynxViewFromChip(session.frame.render?.chip) : null;
+  const renderView = usesProjectedLynxRender(ruleset)
+    ? renderedLynxViewFromChip(session.frame.render?.chip)
+    : null;
   const sourceView = renderView ?? session.frame.snapshot.view;
   return {
     viewX: clamp(sourceView.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4),

@@ -31,6 +31,8 @@ import {
   type DirectionInput,
 } from "@player-web/impl/legacyInput";
 import { MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
+import { HybridCcV0InputBuffer } from "@player-web/impl/hybridcc-v0/inputCollector";
+import { hybridCcV0SubtickIntervalMs } from "@player-web/impl/hybridcc-v0/uiModel";
 import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
 import {
   recordPerfMeasurement,
@@ -214,11 +216,13 @@ export function usePlayerAppInputController({
   const action1ActiveRef = useRef(false);
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
   const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
+  const hybridInputBufferRef = useRef(new HybridCcV0InputBuffer());
   const mobileDirectionalInputRef = useRef(new MobileDirectionalInputTracker());
 
   const resetGameplayInputBuffers = useEffectEvent(() => {
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
+    hybridInputBufferRef.current.reset();
   });
 
   const stopHeldUndo = useEffectEvent(() => {
@@ -246,7 +250,9 @@ export function usePlayerAppInputController({
       return;
     }
 
-    if (activeSession.request.ruleset === "Lynx") {
+    if (activeSession.request.ruleset === "Hybrid") {
+      hybridInputBufferRef.current.keyDown(input);
+    } else if (activeSession.request.ruleset === "Lynx") {
       lynxInputBufferRef.current.keyDown(input);
     } else {
       msInputBufferRef.current.keyDown(input);
@@ -267,7 +273,9 @@ export function usePlayerAppInputController({
       return;
     }
 
-    if (activeSession.request.ruleset === "Lynx") {
+    if (activeSession.request.ruleset === "Hybrid") {
+      hybridInputBufferRef.current.keyUp(input);
+    } else if (activeSession.request.ruleset === "Lynx") {
       lynxInputBufferRef.current.keyUp(input);
     } else {
       msInputBufferRef.current.keyUp(input);
@@ -332,7 +340,9 @@ export function usePlayerAppInputController({
       return;
     }
 
-    const tickIntervalMs = isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
+    const tickIntervalMs = liveSessionRef.current.request.ruleset === "Hybrid"
+      ? hybridCcV0SubtickIntervalMs(isFastForwarding)
+      : isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
     const maxAccumulatedMs = tickIntervalMs * LEGACY_MAX_CATCH_UP_TICKS;
     let accumulatedMs = 0;
     let cancelled = false;
@@ -359,6 +369,9 @@ export function usePlayerAppInputController({
         return null;
       }
 
+      if (activeSession.request.ruleset === "Hybrid") {
+        return hybridInputBufferRef.current.nextSampleInputCode();
+      }
       return activeSession.request.ruleset === "Lynx"
         ? lynxInputBufferRef.current.nextTickInputCode(currentActionModifierMask())
         : msInputBufferRef.current.nextTickInputCode(currentActionModifierMask());

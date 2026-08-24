@@ -469,7 +469,7 @@ export function LegacyCanvasScreen({
   const lowerLayerCacheRef = useRef(createLayerCanvasCache());
   const perfTrackerRef = useRef(createLegacyCanvasPerfTrackerState());
   const debugReadoutKeyRef = useRef("");
-  const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
+  const tileset = useLegacyTileset(currentRuleset === "Lynx" || currentRuleset === "Hybrid" ? "Lynx" : "MS");
   const [isDatDragActive, setIsDatDragActive] = useState(false);
   const [hoveredMapPosition, setHoveredMapPosition] = useState<number | null>(null);
   const [capturedDebugReadout, setCapturedDebugReadout] = useState<string[] | null>(null);
