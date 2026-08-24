@@ -1,138 +1,155 @@
 import { LYNX_SOUND } from "@ruleset-lynx/impl/engine";
+import {
+  HYBRID_CC_V0_EVENT,
+  HYBRID_CC_V0_INTERACTION,
+} from "./engineFacts";
 import type { HybridCcNativeLevel } from "./nativeLevel";
-import type { HybridCcActor, HybridCcSnapshot } from "./wasmBridge";
+import type { HybridCcV0MotionTracks } from "./motionProjection";
+import type { HybridCcActor, HybridCcEngineEvent, HybridCcSnapshot } from "./wasmBridge";
 
 function soundBit(sound: number): number {
   return 1 << sound;
 }
 
+function actor(snapshot: HybridCcSnapshot, actorId: number): HybridCcActor | null {
+  return snapshot.actors.find((candidate) => candidate.id === actorId) ?? null;
+}
+
 function chip(snapshot: HybridCcSnapshot): HybridCcActor | null {
-  return snapshot.actors.find((actor) => actor.kind === 41) ?? null;
+  return snapshot.actors.find((candidate) => candidate.kind === 41) ?? null;
 }
 
 function total(values: readonly number[]): number {
   return values.reduce((sum, value) => sum + value, 0);
 }
 
-function cellAt(level: HybridCcNativeLevel, snapshot: HybridCcSnapshot, actor: HybridCcActor) {
-  if (actor.position.z !== 0) return null;
-  return snapshot.cells[actor.position.y * level.width + actor.position.x] ?? null;
+function movedPlayer(events: readonly HybridCcEngineEvent[]): boolean {
+  return events.some((event) => event.kind === HYBRID_CC_V0_EVENT.actorMoved && event.actorKind === 41);
 }
 
-function cellAtPosition(
-  level: HybridCcNativeLevel,
-  snapshot: HybridCcSnapshot,
-  position: HybridCcActor["position"],
-) {
-  if (position.z !== 0) return null;
-  return snapshot.cells[position.y * level.width + position.x] ?? null;
+function surfaceSound(
+  terrainId: number,
+  currentActor: HybridCcActor | null,
+  previousActor: HybridCcActor | null,
+): number | null {
+  switch (terrainId) {
+    case 4:
+      return currentActor?.tools[0] ? LYNX_SOUND.WaterWalking : null;
+    case 5:
+      return currentActor?.tools[1] ? LYNX_SOUND.FireWalking : null;
+    case 9:
+      if (currentActor?.tools[2]) return LYNX_SOUND.IceWalking;
+      return previousActor?.direction === currentActor?.direction
+        ? LYNX_SOUND.SkatingForward
+        : LYNX_SOUND.SkatingTurn;
+    case 10:
+    case 11:
+      return currentActor?.tools[3] ? LYNX_SOUND.SlideWalking : LYNX_SOUND.Sliding;
+    default:
+      return null;
+  }
 }
 
+function terminalSounds(event: HybridCcEngineEvent): number {
+  if (event.lossCause === 0) return soundBit(LYNX_SOUND.ChipWins);
+  let mask = soundBit(event.lossCause === 4 ? LYNX_SOUND.TimeOut : LYNX_SOUND.ChipLoses);
+  if (event.lossCause === 1) mask |= soundBit(LYNX_SOUND.WaterSplash);
+  if (event.lossCause === 3) mask |= soundBit(LYNX_SOUND.BombExplodes);
+  return mask;
+}
+
+/**
+ * Projects browser audio from ABI v2 facts. One-shots come from the ordered
+ * event journal; loops exist only while a committed motion track is visible.
+ * Snapshot comparison is retained solely for the thief's aggregate clear,
+ * whose v0 event intentionally has no removed-item count.
+ */
 export function projectHybridCcV0SoundEffects(
-  level: HybridCcNativeLevel,
+  _level: HybridCcNativeLevel,
   previous: HybridCcSnapshot,
   current: HybridCcSnapshot,
   attemptedInput = 0,
+  motionTracks: HybridCcV0MotionTracks = new Map(),
+  presentationTick = current.logicStep * 2,
 ): number {
   let mask = 0;
+
+  for (const event of current.events) {
+    if (event.kind === HYBRID_CC_V0_EVENT.terminal) {
+      mask |= terminalSounds(event);
+      continue;
+    }
+
+    if (event.kind === HYBRID_CC_V0_EVENT.actorDestroyed && event.lossCause === 3) {
+      mask |= soundBit(LYNX_SOUND.BombExplodes);
+      continue;
+    }
+
+    if (event.kind === HYBRID_CC_V0_EVENT.inventoryChanged && event.amount > 0) {
+      mask |= soundBit(event.subject.id === 22 ? LYNX_SOUND.IcCollected : LYNX_SOUND.ItemCollected);
+      continue;
+    }
+
+    if (event.kind === HYBRID_CC_V0_EVENT.deviceChanged) {
+      if (event.subject.id === 20) mask |= soundBit(LYNX_SOUND.DoorOpened);
+      if (event.subject.id === 21) mask |= soundBit(LYNX_SOUND.SocketOpened);
+      continue;
+    }
+
+    if (event.kind === HYBRID_CC_V0_EVENT.terrainChanged) {
+      if ((event.subject.id === 6 || event.subject.id === 7) && event.replacement.id === 1) {
+        mask |= soundBit(LYNX_SOUND.TileEmptied);
+      }
+      if ((event.subject.id === 6 || event.subject.id === 14) && event.replacement.id === 2) {
+        mask |= soundBit(LYNX_SOUND.WallCreated);
+      }
+      continue;
+    }
+
+    if (event.kind === HYBRID_CC_V0_EVENT.interaction) {
+      if (event.interaction === HYBRID_CC_V0_INTERACTION.activate && event.subject.id === 18) {
+        mask |= soundBit(LYNX_SOUND.ButtonPushed);
+      }
+      if (event.interaction === HYBRID_CC_V0_INTERACTION.teleport) {
+        mask |= soundBit(LYNX_SOUND.Teleporting);
+      }
+      continue;
+    }
+
+    if (event.kind === HYBRID_CC_V0_EVENT.actorMoved && event.subject.id === 13) {
+      mask |= soundBit(LYNX_SOUND.TrapEntered);
+    }
+  }
+
   const previousChip = chip(previous);
   const currentChip = chip(current);
-  if (!previousChip || !currentChip) return mask;
-
-  if (previous.outcome.kind === 0 && current.outcome.kind === 1) {
-    mask |= soundBit(LYNX_SOUND.ChipWins);
-  } else if (previous.outcome.kind === 0 && current.outcome.kind === 2) {
-    mask |= soundBit(current.outcome.lossCause === 4 ? LYNX_SOUND.TimeOut : LYNX_SOUND.ChipLoses);
-    if (current.outcome.lossCause === 1) mask |= soundBit(LYNX_SOUND.WaterSplash);
-    if (current.outcome.lossCause === 3) mask |= soundBit(LYNX_SOUND.BombExplodes);
-  }
-
-  if (current.chipsCollected > previous.chipsCollected) {
-    mask |= soundBit(LYNX_SOUND.IcCollected);
-  }
-  if (total(currentChip.keys) > total(previousChip.keys) || total(currentChip.tools) > total(previousChip.tools)) {
-    mask |= soundBit(LYNX_SOUND.ItemCollected);
-  }
-
-  const previousCellAtCurrentPosition = cellAt(level, previous, currentChip);
-  const currentCell = cellAt(level, current, currentChip);
-  const previousCell = cellAt(level, previous, previousChip);
-  const currentCellAtPreviousPosition = cellAtPosition(level, current, previousChip.position);
-  const changedPosition = previousChip.position.x !== currentChip.position.x
-    || previousChip.position.y !== currentChip.position.y
-    || previousChip.position.z !== currentChip.position.z;
-  if (attemptedInput !== 0 && !changedPosition && current.outcome.kind === 0) {
-    mask |= soundBit(LYNX_SOUND.CantMove);
-  }
   if (
-    (previousCellAtCurrentPosition?.terrain.id === 6 || previousCellAtCurrentPosition?.terrain.id === 7)
-    && currentCell?.terrain.id === 1
+    previousChip
+    && currentChip
+    && (total(currentChip.keys) < total(previousChip.keys) || total(currentChip.tools) < total(previousChip.tools))
+    && current.events.some((event) => event.kind === HYBRID_CC_V0_EVENT.inventoryChanged && event.amount === 0)
   ) {
-    mask |= soundBit(LYNX_SOUND.TileEmptied);
-  }
-  if (
-    (previousCellAtCurrentPosition?.terrain.id === 6 && currentCell?.terrain.id === 2)
-    || (previousCell?.terrain.id === 14 && currentCellAtPreviousPosition?.terrain.id === 2)
-  ) {
-    mask |= soundBit(LYNX_SOUND.WallCreated);
-  }
-  if (changedPosition && currentCell?.terrain.id === 13) {
-    mask |= soundBit(LYNX_SOUND.TrapEntered);
-  }
-  if (previousCellAtCurrentPosition?.device.id === 20 && currentCell?.device.id !== 20) {
-    mask |= soundBit(LYNX_SOUND.DoorOpened);
-  }
-  if (previousCellAtCurrentPosition?.device.id === 21 && currentCell?.device.id !== 21) {
-    mask |= soundBit(LYNX_SOUND.SocketOpened);
-  }
-  if (currentCell?.device.id === 18 && (
-    previousChip.position.x !== currentChip.position.x || previousChip.position.y !== currentChip.position.y
-  )) {
-    mask |= soundBit(LYNX_SOUND.ButtonPushed);
-  }
-  if (currentCell?.terrain.id === 17 && (
-    total(currentChip.keys) < total(previousChip.keys) || total(currentChip.tools) < total(previousChip.tools)
-  )) {
     mask |= soundBit(LYNX_SOUND.BootsStolen);
   }
 
-  const distance = Math.abs(currentChip.position.x - previousChip.position.x)
-    + Math.abs(currentChip.position.y - previousChip.position.y);
-  if (distance > 1 || (changedPosition && currentCell?.terrain.id === 12)) {
-    mask |= soundBit(LYNX_SOUND.Teleporting);
+  if (attemptedInput !== 0 && current.outcome.kind === 0 && !movedPlayer(current.events)) {
+    mask |= soundBit(LYNX_SOUND.CantMove);
   }
 
-  switch (currentCell?.terrain.id) {
-    case 4:
-      if (currentChip.tools[0] > 0) mask |= soundBit(LYNX_SOUND.WaterWalking);
-      break;
-    case 5:
-      if (currentChip.tools[1] > 0) mask |= soundBit(LYNX_SOUND.FireWalking);
-      break;
-    case 9:
-      if (currentChip.tools[2] > 0) {
-        mask |= soundBit(LYNX_SOUND.IceWalking);
-      } else {
-        mask |= soundBit(previousChip.direction === currentChip.direction
-          ? LYNX_SOUND.SkatingForward
-          : LYNX_SOUND.SkatingTurn);
-      }
-      break;
-    case 10:
-    case 11:
-      mask |= soundBit(currentChip.tools[3] > 0 ? LYNX_SOUND.SlideWalking : LYNX_SOUND.Sliding);
-      break;
-    default:
-      break;
-  }
-
-  const previousActors = new Map(previous.actors.map((actor) => [actor.id, actor]));
-  if (current.actors.some((actor) => {
-    if (actor.kind !== 30 && actor.kind !== 31) return false;
-    const prior = previousActors.get(actor.id);
-    return prior && (prior.position.x !== actor.position.x || prior.position.y !== actor.position.y);
-  })) {
-    mask |= soundBit(LYNX_SOUND.BlockMoving);
+  for (const track of motionTracks.values()) {
+    const elapsed = presentationTick - track.startedAtPresentationTick;
+    if (elapsed < 0 || elapsed >= track.durationPresentationTicks) continue;
+    if (track.actorKind === 30 || track.actorKind === 31) {
+      mask |= soundBit(LYNX_SOUND.BlockMoving);
+      continue;
+    }
+    if (track.actorKind !== 41) continue;
+    const sound = surfaceSound(
+      track.surfaceId,
+      actor(current, track.actorId),
+      actor(previous, track.actorId),
+    );
+    if (sound !== null) mask |= soundBit(sound);
   }
 
   return mask;

@@ -1,6 +1,10 @@
 import type { SeriesCatalogEntry } from "@content/api/series";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
-import { resolveSetFamilySelection, type SetFamily } from "@player-web/impl/modern/curatedCatalog";
+import {
+  resolveSetFamilySelection,
+  type SetFamily,
+  type SetFamilyRuleset,
+} from "@player-web/impl/modern/curatedCatalog";
 import { resolveMobileFamilyRuleset } from "@player-web/impl/mobile/mobileCatalog";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 
@@ -80,7 +84,7 @@ export function resolveLevelSelection(
 
 export function resolveFamilySelection(
   family: SetFamily,
-  preferredRuleset: "MS" | "Lynx" | null,
+  preferredRuleset: SetFamilyRuleset | null,
   currentFamilyId: string | null,
   currentLevelNumber: number | null,
 ): PlayableSelection | null {

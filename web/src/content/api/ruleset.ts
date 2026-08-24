@@ -1,6 +1,7 @@
-export type RulesetName = "MS" | "Lynx" | "None";
+export type RulesetName = "MS" | "Lynx" | "Hybrid" | "None";
+export type LegacyRulesetName = Exclude<RulesetName, "Hybrid" | "None">;
 
-export function parseDatRulesetSignature(signature: number): Exclude<RulesetName, "None"> {
+export function parseDatRulesetSignature(signature: number): LegacyRulesetName {
   switch (signature) {
     case 0x0002:
       return "MS";
@@ -11,7 +12,7 @@ export function parseDatRulesetSignature(signature: number): Exclude<RulesetName
   }
 }
 
-export function parseSolutionRulesetByte(value: number): Exclude<RulesetName, "None"> {
+export function parseSolutionRulesetByte(value: number): LegacyRulesetName {
   switch (value) {
     case 1:
       return "Lynx";
@@ -22,6 +23,6 @@ export function parseSolutionRulesetByte(value: number): Exclude<RulesetName, "N
   }
 }
 
-export function solutionRulesetByte(ruleset: Exclude<RulesetName, "None">): number {
+export function solutionRulesetByte(ruleset: LegacyRulesetName): number {
   return ruleset === "Lynx" ? 1 : 2;
 }

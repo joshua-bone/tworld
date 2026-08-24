@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   HybridCcV0InputCollector,
+  HybridCcV0InputBuffer,
   replayInputForDirections,
   type HybridCcDirection,
 } from "./inputCollector";
@@ -54,6 +55,20 @@ describe("HybridCcV0InputCollector", () => {
       ]),
     ).toEqual(["north"]);
     expect(collector.capture(["north"])).toEqual(["east", "north"]);
+  });
+});
+
+describe("HybridCcV0InputBuffer", () => {
+  it("preserves a tap between logic boundaries and the order of a diagonal slap", () => {
+    const buffer = new HybridCcV0InputBuffer();
+    expect(buffer.nextSampleInputCode()).toBe(0);
+    expect(buffer.nextSampleInputCode()).toBe(0);
+    buffer.keyDown("east");
+    expect(buffer.nextSampleInputCode()).toBe(2);
+    buffer.keyDown("north");
+    buffer.keyUp("east");
+    expect(buffer.nextSampleInputCode()).toBe(7);
+    expect(buffer.nextSampleInputCode()).toBe(7);
   });
 });
 

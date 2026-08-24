@@ -7,7 +7,11 @@ import type {
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import { buildStoredLevelProgressKey, resolveLevelProgressSummary, summarizeEntryProgress } from "@player-web/impl/levelProgress";
 import type { LibrarySidebarTab } from "@player-web/impl/modern/modernDashboardNavigationController";
-import type { SetFamily, SetFamilyRuleset } from "@player-web/impl/modern/curatedCatalog";
+import {
+  listSetFamilyRulesets,
+  type SetFamily,
+  type SetFamilyRuleset,
+} from "@player-web/impl/modern/curatedCatalog";
 import type {
   BrowserLevelProgressSummary,
   BrowserPreferredRuleset,
@@ -88,18 +92,20 @@ function levelNameSizeClass(name: string): string {
   return "";
 }
 
-function formatFamilyClearedMeta(
+export function formatFamilyClearedMeta(
   family: SetFamily,
   progressByKey: ReadonlyMap<string, BrowserLevelProgressSummary>,
 ): string {
-  const parts = (["Lynx", "MS"] as const).flatMap((ruleset) => {
+  const parts = listSetFamilyRulesets(family).flatMap((ruleset) => {
     const entry = family.launchEntries[ruleset] ?? null;
     if (!entry) {
       return [];
     }
 
     const progress = summarizeEntryProgress(entry, progressByKey);
-    return [`${progress.completedLevels}/${entry.levels.length} (${ruleset})`];
+    return [
+      `${progress.completedLevels}/${entry.levels.length} (${family.rulesetLabels[ruleset] ?? ruleset})`,
+    ];
   });
 
   if (parts.length === 0) {
@@ -120,7 +126,7 @@ function RulesetToggle({
 }) {
   return (
     <div aria-label="Ruleset" className="modern-ruleset-toggle" role="group">
-      {(["Lynx", "MS"] as const).map((ruleset) => {
+      {listSetFamilyRulesets(family).map((ruleset) => {
         const isAvailable = family.launchEntries[ruleset] !== undefined;
         return (
           <button
@@ -664,7 +670,7 @@ export function ModernDashboardLevelsPane({
           <div className="modern-level-sidebar" role="list" tabIndex={-1}>
             {activeEntry.levels.map((level) => {
               const progress =
-                activeEntry.ruleset === "MS" || activeEntry.ruleset === "Lynx"
+                activeEntry.ruleset !== "None"
                   ? resolveLevelProgressSummary(level, activeEntry.ruleset, progressByKey)
                   : null;
               return (

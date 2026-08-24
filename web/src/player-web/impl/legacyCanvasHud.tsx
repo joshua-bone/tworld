@@ -454,7 +454,7 @@ export function LegacyInventoryStrip({
 }: LegacyInventoryStripProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scaledCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const tileset = useLegacyTileset(currentRuleset === "Lynx" ? "Lynx" : "MS");
+  const tileset = useLegacyTileset(currentRuleset === "Lynx" || currentRuleset === "Hybrid" ? "Lynx" : "MS");
   const { height: sourceHeight, width: sourceWidth } = inventoryStripPixelDimensionsForKind(LEGACY_TILE_SIZE, direction, kind);
   const { height: targetHeight, width: targetWidth } = inventoryStripPixelDimensionsForKind(renderTileSize, direction, kind);
   const usesDefaultTileSize = isDefaultLegacyRenderTileSize(renderTileSize);

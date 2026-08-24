@@ -13,6 +13,12 @@ import {
   type HybridCcV0MotionTracks,
 } from "./motionProjection";
 import type { HybridCcActor, HybridCcSnapshot } from "./wasmBridge";
+import {
+  HYBRID_CC_V0_ACTOR_STATE,
+  HYBRID_CC_V0_CELL_STATE,
+  HYBRID_CC_V0_EVENT,
+  hybridCcV0ActorHasState,
+} from "./engineFacts";
 
 const DIRECTION_TILES = [
   MS_TILE.Slide_North,
@@ -109,10 +115,12 @@ function terrainTile(element: HybridCcElement, iceCornerEdges: number): number {
   }
 }
 
-function itemTile(element: HybridCcElement): number {
+function itemTile(element: HybridCcElement, dynamicState = 0): number {
   switch (element.id) {
     case 18: return buttonTile(element.color);
-    case 19: return element.rule === 6 ? MS_TILE.SwitchWall_Open : MS_TILE.SwitchWall_Closed;
+    case 19: return (dynamicState & HYBRID_CC_V0_CELL_STATE.open) !== 0
+      ? MS_TILE.SwitchWall_Open
+      : MS_TILE.SwitchWall_Closed;
     case 20: return DOOR_TILES[classicColorIndex(element.color)] ?? MS_TILE.Door_Red;
     case 21: return MS_TILE.Socket;
     case 22: return MS_TILE.ICChip;
@@ -199,7 +207,7 @@ function failureCause(snapshot: HybridCcSnapshot) {
   }
 }
 
-export function hybridCcSeriesLevel(level: HybridCcNativeLevel): SeriesLevel {
+export function hybridCcSeriesLevel(level: HybridCcNativeLevel, gameplayHash = ""): SeriesLevel {
   return {
     index: Math.max(0, level.number - 1),
     number: level.number,
@@ -211,8 +219,8 @@ export function hybridCcSeriesLevel(level: HybridCcNativeLevel): SeriesLevel {
     bestTimeTicks: 0,
     levelSize: level.encoded.length,
     solutionSize: 0,
-    levelHash: "",
-    gameplayHash: "",
+    levelHash: gameplayHash,
+    gameplayHash,
     hasSolution: false,
     sgflags: 0,
     unsolvable: null,
@@ -223,13 +231,14 @@ export function hybridCcSeries(
   filebase: string,
   name: string,
   levels: HybridCcNativeLevel[],
+  gameplayHashes: readonly string[] = [],
 ): SeriesCatalogEntry {
   return {
     name,
     filebase,
-    ruleset: "Lynx",
+    ruleset: "Hybrid",
     mapfilename: filebase,
-    levels: levels.map(hybridCcSeriesLevel),
+    levels: levels.map((level, index) => hybridCcSeriesLevel(level, gameplayHashes[index] ?? "")),
   };
 }
 
@@ -244,7 +253,7 @@ export function projectHybridCcSession(
 ): InteractiveGameSession {
   const cells = snapshot.cells.map((cell, pos) => {
     const terrain = terrainTile(cell.terrain, cell.iceCornerEdges);
-    const device = itemTile(cell.device);
+    const device = itemTile(cell.device, cell.dynamicState);
     const pickup = itemTile(cell.pickup);
     const panel = panelTile(cell.panelEdges);
     const overlays = [device, pickup, panel].filter(
@@ -296,7 +305,7 @@ export function projectHybridCcSession(
     z: 0,
     dir: msDirection(chip.direction),
     moving: chipMotion.moving,
-    pushing: false,
+    pushing: hybridCcV0ActorHasState(chip.stateFlags, HYBRID_CC_V0_ACTOR_STATE.pushing),
     hidden: false,
     failed: snapshot.outcome.kind === 2,
     endGameAnimationTileId: null,
@@ -309,9 +318,20 @@ export function projectHybridCcSession(
       frame: chipMotion.frame,
     },
   } : null;
+  const animations = snapshot.events.flatMap((event) => {
+    if (event.kind !== HYBRID_CC_V0_EVENT.actorDestroyed || event.position.z !== 0) return [];
+    const frame = Math.max(0, presentationTick - event.logicStep * 2);
+    if (frame > 3) return [];
+    return [{
+      pos: event.position.y * level.width + event.position.x,
+      z: 0,
+      frame,
+      tileId: event.lossCause === 1 ? 0x74 : event.lossCause === 3 ? 0x75 : 0x76,
+    }];
+  });
 
   return {
-    request: { seriesFile, levelNumber: level.number, ruleset: "Lynx", randomSeed: 0 },
+    request: { seriesFile, levelNumber: level.number, ruleset: "Hybrid", randomSeed: 0 },
     mode: "manual",
     hintText: level.hint || null,
     frame: {
@@ -339,7 +359,7 @@ export function projectHybridCcSession(
         soundEffects,
         view: chip
           ? { x: chip.position.x * 8, y: chip.position.y * 8 }
-          : { x: 0, y: 0 },
+          : { x: snapshot.outcome.position.x * 8, y: snapshot.outcome.position.y * 8 },
         inventory: {
           keys: legacyKeyCounts(keys),
           boots: legacyBootCounts(tools),
@@ -380,7 +400,7 @@ export function projectHybridCcSession(
       render: {
         chip: chipRender,
         actors: livingActors.filter((actor) => actor.kind !== 41).map(renderActor),
-        animations: [],
+        animations,
       },
     },
     history: {

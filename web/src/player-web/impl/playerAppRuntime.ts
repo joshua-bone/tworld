@@ -13,7 +13,11 @@ export function interactiveEngineForRuleset(
     throw new Error("This series does not declare a playable ruleset.");
   }
 
-  return engines[ruleset];
+  const engine = engines[ruleset];
+  if (!engine) {
+    throw new Error(`No interactive engine is registered for ${ruleset}.`);
+  }
+  return engine;
 }
 
 export async function disposePlayerAppSession(

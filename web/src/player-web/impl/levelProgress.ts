@@ -158,7 +158,7 @@ export function summarizeEntryProgress(
   entry: SeriesCatalogEntry | null,
   progressByKey: ReadonlyMap<string, BrowserLevelProgressSummary>,
 ): LevelProgressSummaryCounts {
-  if (!entry || (entry.ruleset !== "MS" && entry.ruleset !== "Lynx")) {
+  if (!entry || entry.ruleset === "None") {
     return {
       completedLevels: 0,
       playedLevels: 0,

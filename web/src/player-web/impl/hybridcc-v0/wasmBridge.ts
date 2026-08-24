@@ -5,10 +5,12 @@ import {
   type HybridCcNativeLevel,
 } from "./nativeLevel";
 
-const ABI_VERSION = 1;
-const CELL_RECORD_SIZE = 27;
-const ACTOR_RECORD_SIZE = 45;
+const ABI_VERSION = 2;
+const CELL_RECORD_SIZE = 37;
+const ACTOR_RECORD_SIZE = 59;
 const OUTCOME_RECORD_SIZE = 13;
+const SIGNAL_RECORD_SIZE = 20;
+const EVENT_RECORD_SIZE = 53;
 const CHIP_COLOR_COUNT = 18;
 
 export interface HybridCcWasmModule {
@@ -40,6 +42,7 @@ export interface HybridCcWasmModule {
   _hybridcc_v0_engine_logic_step(handle: number, input: number): number;
   _hybridcc_v0_engine_logic_step_count(handle: number): number;
   _hybridcc_v0_engine_state_hash(handle: number): bigint;
+  _hybridcc_v0_engine_event_hash(handle: number): bigint;
   _hybridcc_v0_engine_cell_count(handle: number): number;
   _hybridcc_v0_engine_copy_cell(
     handle: number,
@@ -54,6 +57,21 @@ export interface HybridCcWasmModule {
     outPointer: number,
     capacity: number,
   ): number;
+  _hybridcc_v0_engine_signal_count(handle: number): number;
+  _hybridcc_v0_engine_copy_signal(
+    handle: number,
+    index: number,
+    outPointer: number,
+    capacity: number,
+  ): number;
+  _hybridcc_v0_engine_event_count(handle: number): number;
+  _hybridcc_v0_engine_copy_event(
+    handle: number,
+    index: number,
+    outPointer: number,
+    capacity: number,
+  ): number;
+  _hybridcc_v0_engine_events_overflowed(handle: number): number;
   _hybridcc_v0_engine_copy_outcome(handle: number, outPointer: number, capacity: number): number;
   _hybridcc_v0_engine_chip_count(handle: number, color: number, outPointer: number): number;
 }
@@ -72,6 +90,40 @@ export interface HybridCcActor {
   alive: boolean;
   keys: [number, number, number, number];
   tools: [number, number, number, number];
+  color: number;
+  rule: number;
+  channel: number;
+  hasLastMoveStep: boolean;
+  lastMoveStep: number;
+  stateFlags: number;
+  forcedDirection: number;
+}
+
+export interface HybridCcSignal {
+  color: number;
+  channel: number;
+  signal: number;
+  holdOneCount: number;
+  holdAllCount: number;
+  dpadDirection: number;
+  dpadSignal: number;
+}
+
+export interface HybridCcEngineEvent {
+  sequence: number;
+  kind: number;
+  interaction: number;
+  lossCause: number;
+  actorKind: number;
+  logicStep: number;
+  actorId: number;
+  direction: number;
+  origin: HybridCcPosition;
+  position: HybridCcPosition;
+  subject: HybridCcElement;
+  replacement: HybridCcElement;
+  actorStateFlags: number;
+  amount: number;
 }
 
 export interface HybridCcOutcome {
@@ -85,8 +137,12 @@ export interface HybridCcOutcome {
 export interface HybridCcSnapshot {
   logicStep: number;
   stateHash: bigint;
+  eventHash: bigint;
   cells: HybridCcNativeCell[];
   actors: HybridCcActor[];
+  signals: HybridCcSignal[];
+  events: HybridCcEngineEvent[];
+  eventsOverflowed: boolean;
   outcome: HybridCcOutcome;
   chipsCollected: number;
 }
@@ -138,6 +194,10 @@ function decodeCell(module: HybridCcWasmModule, pointer: number): HybridCcNative
     actor: { id: 0, color: 0, direction: 4, rule: 0, channel: 0, count: 0 },
     panelEdges: record.getUint8(pointer + 24),
     iceCornerEdges: record.getUint8(pointer + 25),
+    dynamicState: record.getUint8(pointer + 27),
+    signal: record.getUint32(pointer + 28, true),
+    dpadDirection: record.getUint8(pointer + 32),
+    dpadSignal: record.getUint32(pointer + 33, true),
   };
 }
 
@@ -165,6 +225,54 @@ function decodeActor(module: HybridCcWasmModule, pointer: number): HybridCcActor
       record.getUint32(pointer + 37, true),
       record.getUint32(pointer + 41, true),
     ],
+    color: record.getUint8(pointer + 45),
+    rule: record.getUint8(pointer + 46),
+    channel: record.getUint16(pointer + 47, true),
+    hasLastMoveStep: record.getUint8(pointer + 49) !== 0,
+    lastMoveStep: record.getUint32(pointer + 50, true),
+    stateFlags: record.getUint32(pointer + 54, true),
+    forcedDirection: record.getUint8(pointer + 58),
+  };
+}
+
+function decodeSignal(module: HybridCcWasmModule, pointer: number): HybridCcSignal {
+  const record = view(module);
+  return {
+    color: record.getUint8(pointer),
+    channel: record.getUint16(pointer + 1, true),
+    signal: record.getUint32(pointer + 3, true),
+    holdOneCount: record.getUint32(pointer + 7, true),
+    holdAllCount: record.getUint32(pointer + 11, true),
+    dpadDirection: record.getUint8(pointer + 15),
+    dpadSignal: record.getUint32(pointer + 16, true),
+  };
+}
+
+function decodePosition(record: DataView, pointer: number): HybridCcPosition {
+  return {
+    x: record.getInt16(pointer, true),
+    y: record.getInt16(pointer + 2, true),
+    z: record.getInt16(pointer + 4, true),
+  };
+}
+
+function decodeEvent(module: HybridCcWasmModule, pointer: number): HybridCcEngineEvent {
+  const record = view(module);
+  return {
+    sequence: record.getUint32(pointer, true),
+    kind: record.getUint8(pointer + 4),
+    interaction: record.getUint8(pointer + 5),
+    lossCause: record.getUint8(pointer + 6),
+    actorKind: record.getUint8(pointer + 7),
+    logicStep: record.getUint32(pointer + 8, true),
+    actorId: record.getUint32(pointer + 12, true),
+    direction: record.getUint8(pointer + 16),
+    origin: decodePosition(record, pointer + 17),
+    position: decodePosition(record, pointer + 23),
+    subject: decodeElement(record, pointer + 29),
+    replacement: decodeElement(record, pointer + 37),
+    actorStateFlags: record.getUint32(pointer + 45, true),
+    amount: record.getInt32(pointer + 49, true),
   };
 }
 
@@ -250,6 +358,8 @@ class WasmHybridCcEngine implements HybridCcEngine {
     this.assertUsable();
     const cellPointer = this.module._malloc(CELL_RECORD_SIZE);
     const actorPointer = this.module._malloc(ACTOR_RECORD_SIZE);
+    const signalPointer = this.module._malloc(SIGNAL_RECORD_SIZE);
+    const eventPointer = this.module._malloc(EVENT_RECORD_SIZE);
     const outcomePointer = this.module._malloc(OUTCOME_RECORD_SIZE);
     const countPointer = this.module._malloc(4);
 
@@ -284,6 +394,36 @@ class WasmHybridCcEngine implements HybridCcEngine {
           return decodeActor(this.module, actorPointer);
         },
       );
+      const signals = Array.from(
+        { length: this.module._hybridcc_v0_engine_signal_count(this.handle) },
+        (_, index) => {
+          assertOk(
+            "HybridCC signal snapshot",
+            this.module._hybridcc_v0_engine_copy_signal(
+              this.handle,
+              index,
+              signalPointer,
+              SIGNAL_RECORD_SIZE,
+            ),
+          );
+          return decodeSignal(this.module, signalPointer);
+        },
+      );
+      const events = Array.from(
+        { length: this.module._hybridcc_v0_engine_event_count(this.handle) },
+        (_, index) => {
+          assertOk(
+            "HybridCC event snapshot",
+            this.module._hybridcc_v0_engine_copy_event(
+              this.handle,
+              index,
+              eventPointer,
+              EVENT_RECORD_SIZE,
+            ),
+          );
+          return decodeEvent(this.module, eventPointer);
+        },
+      );
       assertOk(
         "HybridCC outcome snapshot",
         this.module._hybridcc_v0_engine_copy_outcome(
@@ -308,8 +448,15 @@ class WasmHybridCcEngine implements HybridCcEngine {
           64,
           this.module._hybridcc_v0_engine_state_hash(this.handle),
         ),
+        eventHash: BigInt.asUintN(
+          64,
+          this.module._hybridcc_v0_engine_event_hash(this.handle),
+        ),
         cells,
         actors,
+        signals,
+        events,
+        eventsOverflowed: this.module._hybridcc_v0_engine_events_overflowed(this.handle) !== 0,
         outcome: decodeOutcome(this.module, outcomePointer),
         chipsCollected,
       };
@@ -317,6 +464,8 @@ class WasmHybridCcEngine implements HybridCcEngine {
       this.module._free(countPointer);
       this.module._free(outcomePointer);
       this.module._free(actorPointer);
+      this.module._free(eventPointer);
+      this.module._free(signalPointer);
       this.module._free(cellPointer);
     }
   }

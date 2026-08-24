@@ -310,9 +310,14 @@ export function createP7bBrowserReplayPlaybackEngine(
     readonly replay: P7TrainingManualHeldBrowserReplayV1;
   }
   const manualSessions = new WeakMap<InteractiveGameSession, ManualPlaybackState>();
+  const engineFor = (ruleset: InteractiveGameSession["request"]["ruleset"]) => {
+    const engine = services.engines[ruleset];
+    if (!engine) throw new Error(`No P7b playback engine is registered for ${ruleset}.`);
+    return engine;
+  };
   return {
     startFullReplay: async (asset) => {
-      const engine = services.engines[asset.request.ruleset];
+      const engine = engineFor(asset.request.ruleset);
       if (asset.transport === "native-replay-pulses") {
         return engine.startReplaySession(asset.request, asset.replay, asset.options);
       }
@@ -323,7 +328,7 @@ export function createP7bBrowserReplayPlaybackEngine(
       return session;
     },
     advanceOneTick: async (session) => {
-      const engine = services.engines[session.request.ruleset];
+      const engine = engineFor(session.request.ruleset);
       const manual = manualSessions.get(session);
       if (manual === undefined) {
         return engine.advanceSession(session, P7B_NEUTRAL_REPLAY_INPUT);
@@ -340,7 +345,7 @@ export function createP7bBrowserReplayPlaybackEngine(
     frame: (session) => session.frame,
     dispose: async (session) => {
       manualSessions.delete(session);
-      await services.engines[session.request.ruleset].disposeSession?.(session);
+      await engineFor(session.request.ruleset).disposeSession?.(session);
     },
   };
 }

@@ -45,7 +45,7 @@ function isBrowserReplaySource(value: unknown): value is BrowserReplaySource {
 }
 
 function isBrowserPreferredRuleset(value: unknown): value is BrowserPreferredRuleset {
-  return value === "MS" || value === "Lynx";
+  return value === "MS" || value === "Lynx" || value === "Hybrid";
 }
 
 function parseStoredReplayResult(value: unknown): BrowserLevelProgressSummary["bestResult"] | null {

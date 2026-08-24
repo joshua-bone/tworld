@@ -105,6 +105,9 @@ export function parseSolutionFile(data: Uint8Array): ParsedSolutionFile {
 }
 
 export function serializeSolutionFile(file: ParsedSolutionFile): Uint8Array {
+  if (file.ruleset === "Hybrid") {
+    throw new Error("Hybrid native replays are not CSS solution files.");
+  }
   const data: number[] = [
     CSSIG & 0xff,
     (CSSIG >> 8) & 0xff,

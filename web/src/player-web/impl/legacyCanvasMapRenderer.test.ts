@@ -5,6 +5,7 @@ import {
   buildCachedLowerLayerKey,
   collectVisibleLayerCacheWarmupTasks,
   hasCachedLowerLayerCanvas,
+  usesProjectedLynxRender,
   resolveLegacyMapViewport,
   shouldDrawOpenTrapOccupant,
   visualEnhancementActorDecorationPosition,
@@ -285,6 +286,29 @@ describe("buildLegacyGameDrawStateKey", () => {
 });
 
 describe("resolveLegacyMapViewport", () => {
+  it("uses the same projected actor and camera presentation for Hybrid v0 as Lynx", () => {
+    const session = createSession(MS_TILE.Empty, {
+      chip: {
+        pos: 660,
+        z: 2,
+        dir: MS_DIRECTION.east,
+        moving: 2,
+        pushing: false,
+        hidden: false,
+        failed: false,
+        endGameAnimationTileId: null,
+        endGameAnimationFrame: null,
+      },
+    });
+    session.frame.snapshot.view = { x: 160, y: 160 };
+
+    expect(usesProjectedLynxRender("Hybrid")).toBe(true);
+    expect(resolveLegacyMapViewport(session, "Hybrid")).toEqual({
+      viewX: 63,
+      viewY: 64,
+    });
+  });
+
   it("uses the Lynx render-chip slide when snapshot view has already advanced to the destination tile", () => {
     const session = createSession(MS_TILE.Empty, {
       chip: {

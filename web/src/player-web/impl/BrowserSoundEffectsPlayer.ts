@@ -40,6 +40,33 @@ const LYNX_LOOP_MASK = LYNX_FLOOR_SOUND_MASK | (1 << LYNX_SOUND.BlockMoving);
 const SOUND_UNLOCK_URL = buttonUrl;
 const ONE_SHOT_PREWARM_POOL_SIZE = 1;
 
+const LYNX_SOUND_DEFINITIONS: SoundDefinition[] = [
+  { bit: LYNX_SOUND.ChipLoses, url: chipDeathLynxUrl },
+  { bit: LYNX_SOUND.ChipWins, url: winUrl },
+  { bit: LYNX_SOUND.TimeOut, url: chipDeathLynxUrl },
+  { bit: LYNX_SOUND.CantMove, url: bumpUrl },
+  { bit: LYNX_SOUND.IcCollected, url: itemPickupUrl },
+  { bit: LYNX_SOUND.ItemCollected, url: itemPickupUrl },
+  { bit: LYNX_SOUND.BootsStolen, url: thiefUrl },
+  { bit: LYNX_SOUND.Teleporting, url: teleportUrl },
+  { bit: LYNX_SOUND.DoorOpened, url: doorUrl },
+  { bit: LYNX_SOUND.SocketOpened, url: doorUrl },
+  { bit: LYNX_SOUND.ButtonPushed, url: buttonUrl },
+  { bit: LYNX_SOUND.TileEmptied, url: tileEmptiedUrl },
+  { bit: LYNX_SOUND.WallCreated, url: wallCreatedUrl },
+  { bit: LYNX_SOUND.TrapEntered, url: bumpUrl },
+  { bit: LYNX_SOUND.BombExplodes, url: bombUrl },
+  { bit: LYNX_SOUND.WaterSplash, url: splashUrl },
+  { bit: LYNX_SOUND.BlockMoving, url: chipBlockUrl, loop: true },
+  { bit: LYNX_SOUND.SkatingForward, url: skateForwardUrl, loop: true },
+  { bit: LYNX_SOUND.SkatingTurn, url: skateTurnUrl, loop: true },
+  { bit: LYNX_SOUND.Sliding, url: slideUrl, loop: true },
+  { bit: LYNX_SOUND.SlideWalking, url: slideWalkingUrl, loop: true },
+  { bit: LYNX_SOUND.IceWalking, url: iceWalkingUrl, loop: true },
+  { bit: LYNX_SOUND.WaterWalking, url: waterWalkingUrl, loop: true },
+  { bit: LYNX_SOUND.FireWalking, url: fireWalkingUrl, loop: true },
+];
+
 const SOUND_DEFINITIONS: Record<Ruleset, SoundDefinition[]> = {
   MS: [
     { bit: MS_SOUND.ChipLoses, url: chipDeathMsUrl },
@@ -56,32 +83,8 @@ const SOUND_DEFINITIONS: Record<Ruleset, SoundDefinition[]> = {
     { bit: MS_SOUND.BombExplodes, url: bombUrl },
     { bit: MS_SOUND.WaterSplash, url: splashUrl },
   ],
-  Lynx: [
-    { bit: LYNX_SOUND.ChipLoses, url: chipDeathLynxUrl },
-    { bit: LYNX_SOUND.ChipWins, url: winUrl },
-    { bit: LYNX_SOUND.TimeOut, url: chipDeathLynxUrl },
-    { bit: LYNX_SOUND.CantMove, url: bumpUrl },
-    { bit: LYNX_SOUND.IcCollected, url: itemPickupUrl },
-    { bit: LYNX_SOUND.ItemCollected, url: itemPickupUrl },
-    { bit: LYNX_SOUND.BootsStolen, url: thiefUrl },
-    { bit: LYNX_SOUND.Teleporting, url: teleportUrl },
-    { bit: LYNX_SOUND.DoorOpened, url: doorUrl },
-    { bit: LYNX_SOUND.SocketOpened, url: doorUrl },
-    { bit: LYNX_SOUND.ButtonPushed, url: buttonUrl },
-    { bit: LYNX_SOUND.TileEmptied, url: tileEmptiedUrl },
-    { bit: LYNX_SOUND.WallCreated, url: wallCreatedUrl },
-    { bit: LYNX_SOUND.TrapEntered, url: bumpUrl },
-    { bit: LYNX_SOUND.BombExplodes, url: bombUrl },
-    { bit: LYNX_SOUND.WaterSplash, url: splashUrl },
-    { bit: LYNX_SOUND.BlockMoving, url: chipBlockUrl, loop: true },
-    { bit: LYNX_SOUND.SkatingForward, url: skateForwardUrl, loop: true },
-    { bit: LYNX_SOUND.SkatingTurn, url: skateTurnUrl, loop: true },
-    { bit: LYNX_SOUND.Sliding, url: slideUrl, loop: true },
-    { bit: LYNX_SOUND.SlideWalking, url: slideWalkingUrl, loop: true },
-    { bit: LYNX_SOUND.IceWalking, url: iceWalkingUrl, loop: true },
-    { bit: LYNX_SOUND.WaterWalking, url: waterWalkingUrl, loop: true },
-    { bit: LYNX_SOUND.FireWalking, url: fireWalkingUrl, loop: true },
-  ],
+  Lynx: LYNX_SOUND_DEFINITIONS,
+  Hybrid: LYNX_SOUND_DEFINITIONS,
 };
 
 const ALL_SOUND_DEFINITIONS = [...SOUND_DEFINITIONS.MS, ...SOUND_DEFINITIONS.Lynx];
@@ -190,7 +193,7 @@ export class BrowserSoundEffectsPlayer {
       }
     }
 
-    if (ruleset === "Lynx" && (soundEffects & LYNX_LOOP_MASK) === 0) {
+    if ((ruleset === "Lynx" || ruleset === "Hybrid") && (soundEffects & LYNX_LOOP_MASK) === 0) {
       this.stopAllLoops();
     }
 

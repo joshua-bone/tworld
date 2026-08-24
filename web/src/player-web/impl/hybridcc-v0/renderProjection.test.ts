@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import type { HybridCcElement, HybridCcNativeCell, HybridCcNativeLevel } from "./nativeLevel";
 import { projectHybridCcSession } from "./renderProjection";
-import type { HybridCcSnapshot } from "./wasmBridge";
+import { HYBRID_CC_V0_CELL_STATE, HYBRID_CC_V0_EVENT } from "./engineFacts";
+import type { HybridCcEngineEvent, HybridCcSnapshot } from "./wasmBridge";
 
 function element(id: number, overrides: Partial<HybridCcElement> = {}): HybridCcElement {
   return { id, color: 0, direction: 4, rule: 0, channel: 0, count: 0, ...overrides };
@@ -53,7 +54,18 @@ function fixture(): { level: HybridCcNativeLevel; snapshot: HybridCcSnapshot } {
       alive: true,
       keys: [2, 1, 0, 0],
       tools: [1, 2, 3, 4],
+      color: 0,
+      rule: 0,
+      channel: 0,
+      hasLastMoveStep: true,
+      lastMoveStep: 4,
+      stateFlags: 1 << 14,
+      forcedDirection: 4,
     }],
+    eventHash: 0n,
+    signals: [],
+    events: [],
+    eventsOverflowed: false,
     outcome: {
       kind: 0,
       logicStep: 4,
@@ -172,6 +184,23 @@ describe("HybridCC v0 Tile World render projection", () => {
     ]);
   });
 
+  it("renders toggle walls from current signal state instead of their initial rule", () => {
+    const { level, snapshot } = fixture();
+    level.width = 2;
+    level.cells = [
+      cell({ device: element(19, { rule: 6 }), dynamicState: 0 }),
+      cell({ device: element(19, { rule: 7 }), dynamicState: HYBRID_CC_V0_CELL_STATE.open }),
+    ];
+    snapshot.cells = level.cells;
+
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 8);
+
+    expect(session.frame.cells.map((projected) => projected.top.id)).toEqual([
+      MS_TILE.SwitchWall_Closed,
+      MS_TILE.SwitchWall_Open,
+    ]);
+  });
+
   it("keeps the camera and inventory at Chip's terminal position after death", () => {
     const { level, snapshot } = fixture();
     const chip = snapshot.actors[0]!;
@@ -198,6 +227,35 @@ describe("HybridCC v0 Tile World render projection", () => {
         message: "Stepped in fire at (3, 1)",
         position: { x: 3, y: 1, z: 1 },
       },
+    });
+  });
+
+  it("keeps the camera on the durable terminal position when Chip is no longer in the actor list", () => {
+    const { level, snapshot } = fixture();
+    snapshot.actors = [];
+    snapshot.outcome = {
+      kind: 2,
+      logicStep: 4,
+      position: { x: 2, y: 0, z: 0 },
+      exitColor: 0,
+      lossCause: 3,
+    };
+    const destroyed: HybridCcEngineEvent = {
+      sequence: 0, kind: HYBRID_CC_V0_EVENT.actorDestroyed, interaction: 0,
+      lossCause: 3, actorKind: 41, logicStep: 4, actorId: 1, direction: 1,
+      origin: { x: 2, y: 0, z: 0 }, position: { x: 2, y: 0, z: 0 },
+      subject: element(0), replacement: element(0), actorStateFlags: 0, amount: 0,
+    };
+    snapshot.events = [destroyed];
+
+    const session = projectHybridCcSession(level, snapshot, "PACK.dat", 8);
+
+    expect(session.frame.snapshot.view).toEqual({ x: 16, y: 0 });
+    expect(session.frame.render?.animations).toContainEqual({
+      pos: 2,
+      z: 0,
+      frame: 0,
+      tileId: 0x75,
     });
   });
 

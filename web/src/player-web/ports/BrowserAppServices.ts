@@ -12,7 +12,8 @@ export interface BrowserAppServices {
   profileStore: BrowserProfileStore;
   selectionStore: PlayableSelectionStore;
   replayTransfer: ReplayTransferPort;
-  engines: Record<Exclude<SeriesCatalogEntry["ruleset"], "None">, InteractiveGameEnginePort>;
+  engines: Record<"MS" | "Lynx", InteractiveGameEnginePort> &
+    Partial<Record<Exclude<SeriesCatalogEntry["ruleset"], "MS" | "Lynx" | "None">, InteractiveGameEnginePort>>;
   importDatFile: (file: File) => Promise<SeriesCatalogEntry[]>;
   importDatBytes: (
     filename: string,

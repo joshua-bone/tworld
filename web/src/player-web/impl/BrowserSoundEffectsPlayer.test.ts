@@ -96,4 +96,23 @@ describe("BrowserSoundEffectsPlayer", () => {
 
     expect(FakeAudio.instances).toHaveLength(firstAudioCount);
   });
+
+  it("uses the Lynx one-shot and loop lifecycle for the honest Hybrid ruleset", async () => {
+    const player = new BrowserSoundEffectsPlayer();
+    player.prewarm();
+    await Promise.resolve();
+    const firstAudioCount = FakeAudio.instances.length;
+
+    player.syncFrame(
+      "hybrid:1",
+      "Hybrid",
+      1,
+      (1 << LYNX_SOUND.BombExplodes) | (1 << LYNX_SOUND.IceWalking),
+    );
+
+    expect(FakeAudio.instances).toHaveLength(firstAudioCount);
+    expect(FakeAudio.instances.some((audio) => audio.loop && !audio.paused)).toBe(true);
+    player.syncFrame("hybrid:1", "Hybrid", 2, 0);
+    expect(FakeAudio.instances.filter((audio) => audio.loop).every((audio) => audio.paused)).toBe(true);
+  });
 });

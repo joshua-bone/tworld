@@ -11,6 +11,7 @@ import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore
 import type { SeriesCatalogEntry } from "@content/api/series";
 
 interface UsePlayerAppCatalogControllerOptions {
+  catalogSource: "browser" | "provided";
   chromeMode: "legacy" | "modern" | "modern-embedded" | "mobile";
   services: Pick<BrowserAppServices, "profileStore" | "selectionStore"> & BrowserAppServices;
   initialCatalog: SeriesCatalogEntry[];
@@ -66,6 +67,7 @@ export function shouldDelayEmbeddedSelectionNotification({
 }
 
 export function usePlayerAppCatalogController({
+  catalogSource,
   chromeMode,
   services,
   initialCatalog,
@@ -127,8 +129,11 @@ export function usePlayerAppCatalogController({
       });
     }
 
+    const catalogPromise = catalogSource === "provided"
+      ? Promise.resolve(initialCatalogRef.current)
+      : loadBrowserPlayableCatalog(services);
     Promise.all([
-      loadBrowserPlayableCatalog(services),
+      catalogPromise,
       loadPlayableSelection(services.selectionStore),
       services.profileStore.loadLevelProgressSummaries(),
       services.profileStore.loadReplayEntries(),
@@ -142,7 +147,7 @@ export function usePlayerAppCatalogController({
         const preferredSelection = currentSelectionRef.current ?? initialSelectionRef.current ?? storedSelection;
         const resolvedSelection = resolveInitialSelection(nextCatalog, preferredSelection);
         startTransition(() => {
-          setCatalog(nextCatalog);
+        if (catalogSource !== "provided") setCatalog(nextCatalog);
           setLevelProgressSummaries(storedLevelProgressSummaries);
           commitLevelSeedOverrides(storedLevelSeedOverrides);
           setSavedReplayEntries(storedReplayEntries);
@@ -170,6 +175,7 @@ export function usePlayerAppCatalogController({
     };
   }, [
     services,
+    catalogSource,
     setCatalog,
     setIsCatalogLoading,
     setLevelProgressSummaries,

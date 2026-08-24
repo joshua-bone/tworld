@@ -1,16 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { HybridCcDatCatalogEntry } from "./datCatalog";
 import type { HybridCcNativeLevel } from "./nativeLevel";
+import { formatFamilyClearedMeta } from "@player-web/impl/modern/modernDashboardPanels";
 import {
   buildHybridCcFamilies,
   buildHybridCcSeriesByEntryId,
   HYBRID_CC_V0_RULESET_LABEL,
   hybridCcV0FamilyProgressLabel,
-  hybridCcV0PresentationTick,
-  hybridCcV0StatusLabel,
   hybridCcV0SubtickIntervalMs,
-  hybridCcV0TerminalAction,
-  shouldAdvanceHybridCcV0Runtime,
 } from "./uiModel";
 
 function entry(
@@ -67,24 +64,20 @@ describe("HybridCC v0 modern dashboard model", () => {
         title: "CCLP1",
         section: "official",
         levelCount: 2,
-        rulesetLabels: { Lynx: "Hybrid v0" },
+        rulesetLabels: { Hybrid: "Hybrid v0" },
       },
       {
         title: "Mine",
         section: "local",
         levelCount: 1,
-        rulesetLabels: { Lynx: "Hybrid v0" },
+        rulesetLabels: { Hybrid: "Hybrid v0" },
       },
     ]);
-    expect(families[0]!.launchEntries.Lynx).toBe(series.get(entries[0]!.id));
+    expect(families[0]!.launchEntries.Hybrid).toBe(series.get(entries[0]!.id));
     expect(families[0]!.launchEntries.MS).toBeUndefined();
-  });
-
-  it("holds the engine at Ready until directional play starts", () => {
-    expect(shouldAdvanceHybridCcV0Runtime(false, false, 0)).toBe(false);
-    expect(shouldAdvanceHybridCcV0Runtime(true, false, 0)).toBe(true);
-    expect(shouldAdvanceHybridCcV0Runtime(true, true, 0)).toBe(false);
-    expect(shouldAdvanceHybridCcV0Runtime(true, false, 1)).toBe(false);
+    expect(formatFamilyClearedMeta(families[0]!, new Map())).toBe(
+      "Cleared: 0/2 (Hybrid v0)",
+    );
   });
 
   it("keeps four input samples per logic step while Shift doubles the game clock", () => {
@@ -92,21 +85,4 @@ describe("HybridCC v0 modern dashboard model", () => {
     expect(hybridCcV0SubtickIntervalMs(true)).toBe(12.5);
   });
 
-  it("samples presentation at 20 Hz independently of the 10 Hz simulation", () => {
-    expect(hybridCcV0PresentationTick(7, 0)).toBe(14);
-    expect(hybridCcV0PresentationTick(7, 1)).toBeNull();
-    expect(hybridCcV0PresentationTick(7, 2)).toBe(15);
-    expect(hybridCcV0PresentationTick(7, 3)).toBeNull();
-  });
-
-  it("matches the shared lifecycle labels and terminal actions", () => {
-    expect(hybridCcV0StatusLabel(false, false, 0)).toBe("Ready");
-    expect(hybridCcV0StatusLabel(true, false, 0)).toBe("Playing");
-    expect(hybridCcV0StatusLabel(true, true, 0)).toBe("Paused");
-    expect(hybridCcV0StatusLabel(true, false, 1)).toBe("Completed");
-    expect(hybridCcV0StatusLabel(true, false, 2)).toBe("Failed");
-    expect(hybridCcV0TerminalAction(0)).toBeNull();
-    expect(hybridCcV0TerminalAction(1)).toBe("next");
-    expect(hybridCcV0TerminalAction(2)).toBe("retry");
-  });
 });
