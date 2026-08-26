@@ -940,6 +940,14 @@
     },
     {
       "kind": "file",
+      "path": "web/src/game-runtime/impl/buildInteractiveReplayExport.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/buildInteractiveReplayLaunch.ts"
+    },
+    {
+      "kind": "file",
       "path": "web/src/game-runtime/impl/buildReplayExport.ts"
     },
     {
@@ -949,6 +957,10 @@
     {
       "kind": "file",
       "path": "web/src/game-runtime/impl/hydrateInteractiveGameSession.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/game-runtime/impl/importInteractiveReplayForLevel.ts"
     },
     {
       "kind": "file",
@@ -1013,6 +1025,10 @@
     {
       "kind": "file",
       "path": "web/src/level-catalog/impl/browserAssetLoadError.ts"
+    },
+    {
+      "kind": "file",
+      "path": "web/src/level-catalog/impl/browserProfileIndexedDbSchema.ts"
     },
     {
       "kind": "file",
