@@ -247,6 +247,7 @@ export function parseStoredReplayEntries(value: unknown): BrowserReplayEntry[] {
           levelNumber: entry.levelNumber as number,
           levelName: entry.levelName,
           ruleset: entry.ruleset,
+          replayFormat: typeof entry.replayFormat === "string" ? entry.replayFormat : undefined,
           savedAtMs: entry.savedAtMs as number,
           source: entry.source,
           result: parseStoredReplayResult(entry.result),

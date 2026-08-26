@@ -505,6 +505,39 @@ describe("IndexedDbBrowserProfileStore", () => {
     }
   });
 
+  it("round-trips an engine-owned replay format without inspecting its bytes", async () => {
+    const store = new IndexedDbBrowserProfileStore(new MemoryBrowserProfilePersistenceBackend());
+    const bytes = Uint8Array.of(0x48, 0x43, 0x52, 0x31, 0xff);
+
+    await store.saveReplayEntry({
+      fileName: "CCLP1-Hybrid-1.hcr1",
+      seriesFile: "CCLP1-Hybrid.dac",
+      levelNumber: 1,
+      levelName: "Key Pyramid",
+      ruleset: "Hybrid",
+      replayFormat: "hcr1",
+      source: "saved-run",
+      result: "completed-clean",
+      finalScore: null,
+      undoUsedCount: 0,
+      bytes,
+    });
+
+    const snapshot = await store.exportProfileSnapshot();
+    expect(snapshot.replayEntries?.[0]).toMatchObject({ replayFormat: "hcr1", bytes: [...bytes] });
+
+    const restored = new IndexedDbBrowserProfileStore(new MemoryBrowserProfilePersistenceBackend());
+    await restored.importProfileSnapshot(snapshot);
+    expect(await restored.loadReplayEntries()).toEqual([
+      expect.objectContaining({
+        fileName: "CCLP1-Hybrid-1.hcr1",
+        ruleset: "Hybrid",
+        replayFormat: "hcr1",
+        bytes,
+      }),
+    ]);
+  });
+
   it("deletes replay entries from persistent storage", async () => {
     const backend = new MemoryBrowserProfilePersistenceBackend();
     const store = new IndexedDbBrowserProfileStore(backend);

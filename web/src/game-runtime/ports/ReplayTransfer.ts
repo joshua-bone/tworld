@@ -1,6 +1,8 @@
 export interface ReplayTransferArtifact {
   bytes: Uint8Array;
   filename: string;
+  format?: string;
+  mimeType?: string;
 }
 
 export interface ImportedReplayFile {

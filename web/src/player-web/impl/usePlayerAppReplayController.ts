@@ -6,18 +6,21 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
-import { buildReplayExport } from "@game-runtime/impl/buildReplayExport";
+import { buildInteractiveReplayExport } from "@game-runtime/impl/buildInteractiveReplayExport";
+import { buildInteractiveReplayLaunch } from "@game-runtime/impl/buildInteractiveReplayLaunch";
 import { hydrateInteractiveGameSession } from "@game-runtime/impl/hydrateInteractiveGameSession";
-import { importReplayForLevel } from "@game-runtime/impl/importReplayForLevel";
-import { replayTransferCodec } from "@game-core/api/replayTransferCodec";
+import { importInteractiveReplayForLevel } from "@game-runtime/impl/importInteractiveReplayForLevel";
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
 import { interactiveEngineForRuleset } from "@player-web/impl/playerAppRuntime";
 import { buildUrlLaunchHref } from "@player-web/impl/urlLaunch";
 import { copyTextToClipboard } from "@player-web/impl/clipboard";
-import type { ReplaySolutionPayload } from "@game-core/api/codec";
+import type { RulesetName } from "@content/api/ruleset";
 import type { SeriesCatalogEntry } from "@content/api/series";
-import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import type {
+  InteractiveGameReplayLaunch,
+  InteractiveGameSession,
+} from "@game-runtime/ports/InteractiveGameEngine";
 import type { BrowserReplayEntry } from "@player-web/ports/BrowserProfileStore";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
@@ -25,7 +28,7 @@ import type { LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 
 interface ReplayLaunchRequest {
   levelNumber: number;
-  replay: ReplaySolutionPayload;
+  launch: InteractiveGameReplayLaunch;
   replayName: string;
   seriesFile: string;
   token: number;
@@ -41,7 +44,7 @@ interface UsePlayerAppReplayControllerOptions {
   catalog: SeriesCatalogEntry[];
   currentSeries: SeriesCatalogEntry | null;
   currentLevel: SeriesCatalogEntry["levels"][number] | null;
-  currentRuleset: "MS" | "Lynx" | null;
+  currentRuleset: Exclude<RulesetName, "None"> | null;
   replayContextSeries: SeriesCatalogEntry | null;
   replayContextLevel: SeriesCatalogEntry["levels"][number] | null;
   currentLevelReplayEntries: BrowserReplayEntry[];
@@ -148,13 +151,13 @@ export function usePlayerAppReplayController({
 
   const launchReplayForSelection = useEffectEvent((
     selection: PlayableSelection,
-    replay: ReplaySolutionPayload,
+    launch: InteractiveGameReplayLaunch,
     replayName: string,
   ) => {
     prepareForSessionTransition();
     setReplayLaunchRequest({
       levelNumber: selection.levelNumber,
-      replay,
+      launch,
       replayName,
       seriesFile: selection.seriesFile,
       token: Date.now(),
@@ -171,13 +174,14 @@ export function usePlayerAppReplayController({
       options: {
         finalScore?: number | null;
         result?: BrowserReplayEntry["result"];
+        replayFormat?: string;
         undoUsedCount?: number | null;
       } = {},
     ) => {
       if (
         !replayContextLevel ||
         !replayContextSeries ||
-        (replayContextSeries.ruleset !== "MS" && replayContextSeries.ruleset !== "Lynx")
+        replayContextSeries.ruleset === "None"
       ) {
         return null;
       }
@@ -188,6 +192,7 @@ export function usePlayerAppReplayController({
         levelNumber: replayContextLevel.number,
         levelName: replayContextLevel.name,
         ruleset: replayContextSeries.ruleset,
+        replayFormat: options.replayFormat,
         source,
         result: options.result ?? null,
         finalScore: options.finalScore ?? null,
@@ -200,9 +205,14 @@ export function usePlayerAppReplayController({
   );
 
   const watchSavedReplayEntry = useEffectEvent((entry: BrowserReplayEntry) => {
-    const decodedReplay = replayTransferCodec.inspect(entry.bytes);
-    if (!decodedReplay) {
-      setMessage(`${entry.fileName} is no longer a valid replay payload.`);
+    let launch: InteractiveGameReplayLaunch;
+    try {
+      launch = buildInteractiveReplayLaunch(
+        interactiveEngineForRuleset(entry.ruleset, services.engines),
+        entry,
+      );
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : String(error));
       return;
     }
 
@@ -211,7 +221,7 @@ export function usePlayerAppReplayController({
         seriesFile: entry.seriesFile,
         levelNumber: entry.levelNumber,
       },
-      decodedReplay.payload,
+      launch,
       entry.fileName,
     );
   });
@@ -220,15 +230,24 @@ export function usePlayerAppReplayController({
     if (
       !replayContextLevel ||
       !replayContextSeries ||
-      (replayContextSeries.ruleset !== "MS" && replayContextSeries.ruleset !== "Lynx")
+      replayContextSeries.ruleset === "None"
     ) {
       return;
     }
 
     try {
-      const imported = await importReplayForLevel(services.replayTransfer, replayContextLevel, {
-        ruleset: replayContextSeries.ruleset,
-      });
+      const imported = await importInteractiveReplayForLevel(
+        interactiveEngineForRuleset(replayContextSeries.ruleset, services.engines),
+        services.replayTransfer,
+        replayContextLevel,
+        {
+          request: {
+            seriesFile: replayContextSeries.filebase,
+            levelNumber: replayContextLevel.number,
+            ruleset: replayContextSeries.ruleset,
+          },
+        },
+      );
       if (!imported) {
         return;
       }
@@ -239,6 +258,7 @@ export function usePlayerAppReplayController({
           filename: imported.fileName,
         },
         "imported-file",
+        { replayFormat: imported.format },
       );
       setPendingReplayEntryId(storedEntry?.id ?? null);
       setReplayLaunchRequest(null);
@@ -276,7 +296,12 @@ export function usePlayerAppReplayController({
         session,
         { replayData: true },
       );
-      const artifact = buildReplayExport(replayContextSeries.filebase, replayContextLevel, replaySession);
+      const artifact = await buildInteractiveReplayExport(
+        interactiveEngineForRuleset(session.request.ruleset, services.engines),
+        replayContextSeries.filebase,
+        replayContextLevel,
+        replaySession,
+      );
       if (!artifact) {
         if (options.autoTriggered) {
           return;
@@ -286,6 +311,7 @@ export function usePlayerAppReplayController({
 
       const storedEntry = await saveReplayArtifactToLibrary(artifact, "saved-run", {
         finalScore: replaySession.run.result?.score?.finalScore ?? null,
+        replayFormat: artifact.format,
         result: replaySession.run.result?.outcome ?? null,
         undoUsedCount: replaySession.run.undoUsedCount,
       });
@@ -443,7 +469,7 @@ export function usePlayerAppReplayController({
 
     const importedEntries = successes.flatMap(({ entries }) => entries);
     const preferredRuleset =
-      currentRuleset ?? (currentSeries?.ruleset === "MS" || currentSeries?.ruleset === "Lynx" ? currentSeries.ruleset : "Lynx");
+      currentRuleset ?? (currentSeries?.ruleset === "None" ? "Lynx" : currentSeries?.ruleset ?? "Lynx");
     const selectedImport =
       successes[0]?.entries.find((entry) => entry.ruleset === preferredRuleset) ?? successes[0]?.entries[0] ?? null;
 
