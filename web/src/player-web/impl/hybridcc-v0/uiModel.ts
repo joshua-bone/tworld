@@ -3,15 +3,13 @@ import type { SetFamily } from "@player-web/impl/modern/curatedCatalog";
 import type { HybridCcDatCatalogEntry } from "./datCatalog";
 import type { HybridCcNativeLevel } from "./nativeLevel";
 import { hybridCcSeries } from "./renderProjection";
+import { hybridCcInputSampleIntervalMs } from "@player-web/impl/hybridcc/clockPolicy";
 
 export const HYBRID_CC_V0_RULESET_LABEL = "Hybrid v0";
 
 export function hybridCcV0SeriesFile(entry: Pick<HybridCcDatCatalogEntry, "id">): string {
   return `hybrid-v0:${entry.id}`;
 }
-
-const HYBRID_CC_V0_INPUT_SAMPLES_PER_LOGIC_STEP = 4;
-const HYBRID_CC_V0_LOGIC_STEPS_PER_SECOND = 10;
 
 const OFFICIAL_FAMILY_DISPLAY: Readonly<Record<string, {
   order: number;
@@ -31,10 +29,7 @@ const OFFICIAL_FAMILY_DISPLAY: Readonly<Record<string, {
 };
 
 export function hybridCcV0SubtickIntervalMs(isFastForwarding: boolean): number {
-  const logicStepsPerSecond = isFastForwarding
-    ? HYBRID_CC_V0_LOGIC_STEPS_PER_SECOND * 2
-    : HYBRID_CC_V0_LOGIC_STEPS_PER_SECOND;
-  return 1_000 / (logicStepsPerSecond * HYBRID_CC_V0_INPUT_SAMPLES_PER_LOGIC_STEP);
+  return hybridCcInputSampleIntervalMs(isFastForwarding);
 }
 
 export function hybridCcV0FamilyProgressLabel(levelCount: number): string {

@@ -91,14 +91,21 @@ import {
   shiftSeriesSelection,
 } from "@player-web/impl/playerAppSelectionController";
 import { gameplayTimeRemainingTicks, nextModernUndoTarget } from "@player-web/impl/playerAppGameplay";
-import { canResumeInteractiveHistoryTimeline } from "@player-web/impl/playerAppRuntime";
+import {
+  canResumeInteractiveHistoryTimeline,
+  interactiveEngineSupportsReplay,
+} from "@player-web/impl/playerAppRuntime";
+import {
+  defaultPlayerRulesetLabel,
+  formatPlayerRulesetLabel,
+} from "@player-web/impl/playerRulesetLabel";
 import { usePlayerAppCatalogController } from "@player-web/impl/usePlayerAppCatalogController";
 import { usePlayerAppInputController } from "@player-web/impl/usePlayerAppInputController";
 import { usePlayerAppReplayController } from "@player-web/impl/usePlayerAppReplayController";
 import { usePlayerAppSessionController } from "@player-web/impl/usePlayerAppSessionController";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 import { encodeRuntimeInputCode } from "@game-core/api/command";
-import type { ReplaySolutionPayload } from "@game-core/api/codec";
+import type { InteractiveGameReplayLaunch } from "@game-runtime/ports/InteractiveGameEngine";
 import { replayTransferCodec } from "@game-core/api/replayTransferCodec";
 import type { SeriesCatalogEntry } from "@content/api/series";
 import { describeReplayEntry, listReplaysForCurrentLevel, listReplaysForSeriesLevel } from "@player-web/impl/modern/replayLibrary";
@@ -489,7 +496,7 @@ export function PlayerApp({
   debugModeEnabled = createDefaultBrowserProfilePreferences().debugModeEnabled,
   catalogSource = "browser",
   rulesetOptions = ["Lynx", "MS"],
-  rulesetLabel = (ruleset) => ruleset,
+  rulesetLabel = defaultPlayerRulesetLabel,
 }: PlayerAppProps) {
   const { engines, profileStore } = services;
   const levelAttemptCountsRef = useRef<Map<string, number>>(new Map());
@@ -546,7 +553,7 @@ export function PlayerApp({
   const [reloadToken, setReloadToken] = useState(0);
   const [replayLaunchRequest, setReplayLaunchRequest] = useState<{
     levelNumber: number;
-    replay: ReplaySolutionPayload;
+    launch: InteractiveGameReplayLaunch;
     replayName: string;
     seriesFile: string;
     token: number;
@@ -691,7 +698,9 @@ export function PlayerApp({
     syncSoundForSession,
   });
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
-  const replayRuleset = currentRuleset === "MS" || currentRuleset === "Lynx" ? currentRuleset : null;
+  const currentRulesetDisplayLabel = formatPlayerRulesetLabel(currentRuleset, rulesetLabel);
+  const replaysSupported = currentRuleset !== null && interactiveEngineSupportsReplay(currentRuleset, engines);
+  const replayRuleset = replaysSupported ? currentRuleset : null;
   const showManualMsStepToggle =
     currentSeriesRuleset === "MS" &&
     replayLaunchRequest === null &&
@@ -869,20 +878,24 @@ export function PlayerApp({
               kind: "below-record" as const,
             };
   const previousKnownLevelProgress = currentResolvedLevelProgressSummary;
-  const canSaveReplay = Boolean(session?.run.replayAvailable && replayContextLevel && replayContextSeries);
-  const currentLevelReplayEntries = session
-    ? listReplaysForSeriesLevel(
-        savedReplayEntries,
-        session.request.seriesFile,
-        session.request.levelNumber,
-        session.request.ruleset,
-      )
-    : listReplaysForCurrentLevel(
-        savedReplayEntries,
-        currentFamily,
-        currentLevel?.number ?? null,
-        currentRuleset,
-      );
+  const canSaveReplay = Boolean(
+    replaysSupported && session?.run.replayAvailable && replayContextLevel && replayContextSeries,
+  );
+  const currentLevelReplayEntries = replaysSupported
+    ? session
+      ? listReplaysForSeriesLevel(
+          savedReplayEntries,
+          session.request.seriesFile,
+          session.request.levelNumber,
+          session.request.ruleset,
+        )
+      : listReplaysForCurrentLevel(
+          savedReplayEntries,
+          currentFamily,
+          currentLevel?.number ?? null,
+          currentRuleset,
+        )
+    : [];
   const latestCurrentReplayEntry = currentLevelReplayEntries[0] ?? null;
   const continueReplayEntry =
     currentLevelReplayEntries.find((entry) => entry.id === pendingReplayEntryId) ?? latestCurrentReplayEntry;
@@ -904,7 +917,7 @@ export function PlayerApp({
     () =>
       currentLevelReplayEntries.map((entry) => {
         const replayDescription = describeReplayEntry(entry);
-        const inspection = replayTransferCodec.inspect(entry.bytes);
+        const inspection = entry.replayFormat ? null : replayTransferCodec.inspect(entry.bytes);
         return {
           entry,
           replayDescription,
@@ -1988,7 +2001,7 @@ export function PlayerApp({
             <div className="modern-result-sheet__rows modern-result-sheet__rows--summary">
               <div className="modern-result-sheet__row">
                 <span>Ruleset</span>
-                <strong>{session.request.ruleset}</strong>
+                <strong>{formatPlayerRulesetLabel(session.request.ruleset, rulesetLabel)}</strong>
               </div>
               <div className="modern-result-sheet__row">
                 <span>Time elapsed</span>
@@ -2138,7 +2151,7 @@ export function PlayerApp({
                 {replayContextLevel ? `Manage Replays: Level ${replayContextLevel.number}` : "Manage Replays"}
               </h2>
               <p className="modern-dashboard__copy">
-                {[currentLevel?.name ?? null, currentRuleset ?? null, currentReplayCountLabel].filter(Boolean).join("  ·  ")}
+                {[currentLevel?.name ?? null, currentRulesetDisplayLabel, currentReplayCountLabel].filter(Boolean).join("  ·  ")}
               </p>
             </div>
             <button
@@ -2349,7 +2362,7 @@ export function PlayerApp({
             {currentFamilyEntry && currentFamilyRuleset ? (
               <>
                 <p className="mobile-sheet__section-copy">
-                  {`${currentFamilyRuleset}  ·  ${currentFamilyEntry.levels.length} levels  ·  ${currentFamilyProgress?.completedLevels ?? 0}/${currentFamilyEntry.levels.length} cleared`}
+                  {`${formatPlayerRulesetLabel(currentFamilyRuleset, rulesetLabel)}  ·  ${currentFamilyEntry.levels.length} levels  ·  ${currentFamilyProgress?.completedLevels ?? 0}/${currentFamilyEntry.levels.length} cleared`}
                 </p>
                 <div className="mobile-sheet__list">
                   {currentFamilyEntry.levels.map((level) => {
@@ -2694,7 +2707,7 @@ export function PlayerApp({
                 </button>
                 <button
                   className="modern-button modern-button--secondary"
-                  disabled={!currentLevel || !currentSeries}
+                  disabled={!replaysSupported || !currentLevel || !currentSeries}
                   onClick={() => {
                     closeMobileSheet();
                     void importReplayForCurrentLevel();
@@ -3084,21 +3097,21 @@ export function PlayerApp({
         </div>
         {nextRulesetSelection ? (
           <button
-            aria-label={`Switch ruleset from ${currentRuleset ?? "---"} to ${nextRuleset ?? "---"}`}
+            aria-label={`Switch ruleset from ${currentRulesetDisplayLabel ?? "---"} to ${formatPlayerRulesetLabel(nextRuleset, rulesetLabel) ?? "---"}`}
             className="mobile-game-shell__stat mobile-game-shell__stat--button"
             onClick={() => {
               launchSelection(nextRulesetSelection);
             }}
-            title={nextRuleset ? `Tap to switch to ${nextRuleset}` : undefined}
+            title={nextRuleset ? `Tap to switch to ${formatPlayerRulesetLabel(nextRuleset, rulesetLabel)}` : undefined}
             type="button"
           >
             <span className="mobile-game-shell__stat-label">Ruleset</span>
-            <strong className="mobile-game-shell__stat-value">{currentRuleset ?? "---"}</strong>
+            <strong className="mobile-game-shell__stat-value">{currentRulesetDisplayLabel ?? "---"}</strong>
           </button>
         ) : (
           <div className="mobile-game-shell__stat">
             <span className="mobile-game-shell__stat-label">Ruleset</span>
-            <strong className="mobile-game-shell__stat-value">{currentRuleset ?? "---"}</strong>
+            <strong className="mobile-game-shell__stat-value">{currentRulesetDisplayLabel ?? "---"}</strong>
           </div>
         )}
       </section>
@@ -3240,6 +3253,7 @@ export function PlayerApp({
             aria-expanded={showReplayMenu}
             aria-haspopup="menu"
             className="modern-button modern-button--secondary modern-button--compact"
+            disabled={!replaysSupported}
             onClick={() => {
               setShowAdvancedMenu(false);
               setShowReplayMenu((current) => !current);
@@ -3258,7 +3272,7 @@ export function PlayerApp({
               </button>
               <button
                 className="modern-button modern-button--secondary modern-button--compact modern-toolbar-menu__item"
-                disabled={!currentLevel || !currentSeries}
+                disabled={!replaysSupported || !currentLevel || !currentSeries}
                 onClick={() => {
                   void importReplayForCurrentLevelFromMenu();
                 }}
@@ -3668,7 +3682,7 @@ export function PlayerApp({
                   </div>
                 ) : (
                   <p className="modern-level-focus__body">
-                    No saved replays for this level in {currentRuleset ?? "the current ruleset"} yet.
+                    No saved replays for this level in {currentRulesetDisplayLabel ?? "the current ruleset"} yet.
                   </p>
                 )}
               </section>

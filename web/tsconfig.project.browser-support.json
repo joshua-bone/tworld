@@ -17,6 +17,7 @@
     "src/level-catalog/impl/loadBrowserSeriesCatalogEntries.ts",
     "src/level-catalog/impl/BrowserLevelRepository.ts",
     "src/level-catalog/impl/importedDatIdentity.ts",
+    "src/level-catalog/impl/browserProfileIndexedDbSchema.ts",
     "src/level-catalog/impl/IndexedDbImportedDatCatalogStore.ts"
   ],
   "references": [

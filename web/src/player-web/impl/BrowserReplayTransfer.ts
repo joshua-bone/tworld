@@ -8,7 +8,7 @@ export class BrowserReplayTransfer implements ReplayTransferPort {
 
     const payload = new ArrayBuffer(artifact.bytes.byteLength);
     new Uint8Array(payload).set(artifact.bytes);
-    const url = URL.createObjectURL(new Blob([payload], { type: "application/octet-stream" }));
+    const url = URL.createObjectURL(new Blob([payload], { type: artifact.mimeType ?? "application/octet-stream" }));
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = artifact.filename;
@@ -25,7 +25,7 @@ export class BrowserReplayTransfer implements ReplayTransferPort {
     return new Promise<ImportedReplayFile | null>((resolve, reject) => {
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = ".bin,.tws,.twsx,.dat,application/octet-stream";
+      input.accept = ".bin,.tws,.twsx,.hcr1,.dat,application/octet-stream";
       input.style.display = "none";
 
       let settled = false;

@@ -54,6 +54,7 @@ export interface BrowserReplayEntry {
   levelNumber: number;
   levelName: string;
   ruleset: BrowserPreferredRuleset;
+  replayFormat?: string;
   savedAtMs: number;
   source: BrowserReplaySource;
   result: BrowserLevelRunResult | null;
@@ -68,6 +69,7 @@ export interface BrowserReplaySaveRequest {
   levelNumber: number;
   levelName: string;
   ruleset: BrowserPreferredRuleset;
+  replayFormat?: string;
   source: BrowserReplaySource;
   result: BrowserLevelRunResult | null;
   finalScore: number | null;
@@ -115,6 +117,7 @@ export interface BrowserProfileSnapshot {
     levelNumber: number;
     levelName: string;
     ruleset: BrowserPreferredRuleset;
+    replayFormat?: string;
     savedAtMs: number;
     source: BrowserReplaySource;
     result: BrowserLevelRunResult | null;

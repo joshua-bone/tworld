@@ -3,17 +3,29 @@ import type {
   PersistedImportedDatSource,
 } from "@level-catalog/ports/ImportedDatCatalogStore";
 import {
+  BROWSER_PROFILE_STORE_NAMES,
+  openBrowserProfileDatabase,
+} from "@level-catalog/impl/browserProfileIndexedDbSchema";
+import {
   cloneBytes,
   parseStoredImportedDatSource,
   parseStoredReplayEntries,
 } from "@player-web/impl/browserProfileCodecs";
 import type { BrowserReplayEntry } from "@player-web/ports/BrowserProfileStore";
 
-const PROFILE_DB_NAME = "tworld-browser-profile";
-const PROFILE_DB_VERSION = 2;
-const KV_STORE_NAME = "kv";
-const IMPORTS_STORE_NAME = "imports";
-const REPLAYS_STORE_NAME = "replays";
+const KV_STORE_NAME = BROWSER_PROFILE_STORE_NAMES.kv;
+const IMPORTS_STORE_NAME = BROWSER_PROFILE_STORE_NAMES.imports;
+const REPLAYS_STORE_NAME = BROWSER_PROFILE_STORE_NAMES.replays;
+
+function resolveBrowserIndexedDb(): IDBFactory | null {
+  if (typeof indexedDB !== "undefined") {
+    return indexedDB;
+  }
+  if (typeof window !== "undefined" && "indexedDB" in window) {
+    return window.indexedDB;
+  }
+  return null;
+}
 
 export const SELECTION_KEY = "selection";
 export const PREFERENCES_KEY = "preferences";
@@ -47,6 +59,7 @@ interface BrowserProfileReplayRecord {
   levelNumber: number;
   levelName: string;
   ruleset: BrowserReplayEntry["ruleset"];
+  replayFormat?: string;
   savedAtMs: number;
   source: BrowserReplayEntry["source"];
   result: BrowserReplayEntry["result"];
@@ -71,43 +84,21 @@ export interface BrowserProfilePersistenceBackend {
 export class IndexedDbBrowserProfileBackend implements BrowserProfilePersistenceBackend {
   private databasePromise: Promise<IDBDatabase> | null = null;
 
+  constructor(private readonly indexedDbApi: IDBFactory | null = resolveBrowserIndexedDb()) {}
+
   private openDatabase(): Promise<IDBDatabase> {
     if (this.databasePromise) {
       return this.databasePromise;
     }
 
-    this.databasePromise = new Promise<IDBDatabase>((resolve, reject) => {
-      const indexedDbApi =
-        typeof indexedDB !== "undefined"
-          ? indexedDB
-          : typeof window !== "undefined" && "indexedDB" in window
-            ? window.indexedDB
-            : null;
-      if (!indexedDbApi) {
-        reject(new Error("IndexedDB is unavailable in this environment."));
-        return;
-      }
+    if (!this.indexedDbApi) {
+      return Promise.reject(new Error("IndexedDB is unavailable in this environment."));
+    }
 
-      const request = indexedDbApi.open(PROFILE_DB_NAME, PROFILE_DB_VERSION);
-      request.onerror = () => {
-        reject(request.error ?? new Error("Failed to open browser profile database."));
-      };
-      request.onupgradeneeded = () => {
-        const database = request.result;
-        if (!database.objectStoreNames.contains(KV_STORE_NAME)) {
-          database.createObjectStore(KV_STORE_NAME, { keyPath: "key" });
-        }
-        if (!database.objectStoreNames.contains(IMPORTS_STORE_NAME)) {
-          database.createObjectStore(IMPORTS_STORE_NAME, { keyPath: "filename" });
-        }
-        if (!database.objectStoreNames.contains(REPLAYS_STORE_NAME)) {
-          database.createObjectStore(REPLAYS_STORE_NAME, { keyPath: "id" });
-        }
-      };
-      request.onsuccess = () => {
-        resolve(request.result);
-      };
-    });
+    this.databasePromise = openBrowserProfileDatabase(
+      this.indexedDbApi,
+      "Failed to open browser profile database.",
+    );
 
     return this.databasePromise;
   }
@@ -249,6 +240,7 @@ export class IndexedDbBrowserProfileBackend implements BrowserProfilePersistence
         levelNumber: entry.levelNumber,
         levelName: entry.levelName,
         ruleset: entry.ruleset,
+        replayFormat: entry.replayFormat,
         savedAtMs: entry.savedAtMs,
         source: entry.source,
         result: entry.result,

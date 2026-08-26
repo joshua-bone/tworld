@@ -3,10 +3,12 @@ import type {
   PersistedImportedDatFile,
   PersistedImportedDatSource,
 } from "@level-catalog/ports/ImportedDatCatalogStore";
+import {
+  BROWSER_PROFILE_STORE_NAMES,
+  openBrowserProfileDatabase,
+} from "@level-catalog/impl/browserProfileIndexedDbSchema";
 
-const PROFILE_DB_NAME = "tworld-browser-profile";
-const PROFILE_DB_VERSION = 2;
-const IMPORTS_STORE_NAME = "imports";
+const IMPORTS_STORE_NAME = BROWSER_PROFILE_STORE_NAMES.imports;
 
 interface ImportedDatRecord {
   filename: string;
@@ -31,21 +33,10 @@ export class IndexedDbImportedDatCatalogStore implements ImportedDatCatalogStore
       return this.databasePromise;
     }
 
-    this.databasePromise = new Promise<IDBDatabase>((resolve, reject) => {
-      const request = this.indexedDbApi.open(PROFILE_DB_NAME, PROFILE_DB_VERSION);
-      request.onerror = () => {
-        reject(request.error ?? new Error("Failed to open imported DAT IndexedDB."));
-      };
-      request.onupgradeneeded = () => {
-        const database = request.result;
-        if (!database.objectStoreNames.contains(IMPORTS_STORE_NAME)) {
-          database.createObjectStore(IMPORTS_STORE_NAME, { keyPath: "filename" });
-        }
-      };
-      request.onsuccess = () => {
-        resolve(request.result);
-      };
-    });
+    this.databasePromise = openBrowserProfileDatabase(
+      this.indexedDbApi,
+      "Failed to open imported DAT IndexedDB.",
+    );
 
     return this.databasePromise;
   }

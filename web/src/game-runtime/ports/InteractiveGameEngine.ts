@@ -86,6 +86,26 @@ export interface InteractiveGameSessionHydrationOptions {
   replayData?: boolean;
 }
 
+export interface InteractiveGameOpaqueReplay {
+  format: string;
+  bytes: Uint8Array;
+}
+
+export interface InteractiveGameOpaqueReplayExport extends InteractiveGameOpaqueReplay {
+  suggestedFilename: string;
+  mimeType: string;
+}
+
+export type InteractiveGameReplayLaunch =
+  | {
+      kind: "legacy";
+      replay: ReplaySolutionPayload;
+    }
+  | {
+      kind: "opaque";
+      replay: InteractiveGameOpaqueReplay;
+    };
+
 export interface InteractiveGameSessionLoadPerf {
   levelLoadMs?: number;
   prepareLevelMs?: number;
@@ -111,12 +131,27 @@ export interface InteractiveGameSession {
 }
 
 export interface InteractiveGameEnginePort {
+  /**
+   * Identifies the engine-owned replay format accepted by
+   * `startOpaqueReplaySession`. Generic hosts must not inspect its bytes.
+   */
+  readonly opaqueReplayFormat?: string;
   startSession(request: GameRequest, options?: InteractiveGameSessionStartOptions): Promise<InteractiveGameSession>;
   startReplaySession(
     request: GameRequest,
     replay: ReplaySolutionPayload,
     options?: InteractiveGameSessionStartOptions,
   ): Promise<InteractiveGameSession>;
+  startOpaqueReplaySession?(
+    request: GameRequest,
+    replay: InteractiveGameOpaqueReplay,
+    options?: InteractiveGameSessionStartOptions,
+  ): Promise<InteractiveGameSession>;
+  validateOpaqueReplay?(
+    request: GameRequest,
+    replay: InteractiveGameOpaqueReplay,
+  ): Promise<void>;
+  exportOpaqueReplay?(session: InteractiveGameSession): Promise<InteractiveGameOpaqueReplayExport | null>;
   advanceSession(session: InteractiveGameSession, input: InteractiveInput): Promise<InteractiveGameSession>;
   restoreSession(session: InteractiveGameSession, targetTick: number): Promise<InteractiveGameSession>;
   resumeSession(session: InteractiveGameSession): Promise<InteractiveGameSession>;

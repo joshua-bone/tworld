@@ -31,8 +31,8 @@ import {
   type DirectionInput,
 } from "@player-web/impl/legacyInput";
 import { MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
-import { HybridCcV0InputBuffer } from "@player-web/impl/hybridcc-v0/inputCollector";
-import { hybridCcV0SubtickIntervalMs } from "@player-web/impl/hybridcc-v0/uiModel";
+import { HybridCcInputBuffer } from "@player-web/impl/hybridcc/inputCollector";
+import { hybridCcInputSampleIntervalMs } from "@player-web/impl/hybridcc/clockPolicy";
 import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
 import {
   recordPerfMeasurement,
@@ -216,7 +216,7 @@ export function usePlayerAppInputController({
   const action1ActiveRef = useRef(false);
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
   const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
-  const hybridInputBufferRef = useRef(new HybridCcV0InputBuffer());
+  const hybridInputBufferRef = useRef(new HybridCcInputBuffer());
   const mobileDirectionalInputRef = useRef(new MobileDirectionalInputTracker());
 
   const resetGameplayInputBuffers = useEffectEvent(() => {
@@ -341,7 +341,7 @@ export function usePlayerAppInputController({
     }
 
     const tickIntervalMs = liveSessionRef.current.request.ruleset === "Hybrid"
-      ? hybridCcV0SubtickIntervalMs(isFastForwarding)
+      ? hybridCcInputSampleIntervalMs(isFastForwarding)
       : isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
     const maxAccumulatedMs = tickIntervalMs * LEGACY_MAX_CATCH_UP_TICKS;
     let accumulatedMs = 0;

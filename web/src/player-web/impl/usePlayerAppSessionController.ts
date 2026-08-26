@@ -33,17 +33,17 @@ import type { BrowserLevelSeedOverride } from "@player-web/ports/BrowserProfileS
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import type { InteractiveInput } from "@game-core/api/command";
 import type {
+  InteractiveGameReplayLaunch,
   InteractiveGameSession,
   InteractiveGameSessionStartOptions,
 } from "@game-runtime/ports/InteractiveGameEngine";
-import type { ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 
 const SESSION_UI_SYNC_INTERVAL_MS = 125;
 
 interface ReplayLaunchRequest {
   levelNumber: number;
-  replay: ReplaySolutionPayload;
+  launch: InteractiveGameReplayLaunch;
   replayName: string;
   seriesFile: string;
   token: number;
@@ -222,12 +222,22 @@ export function usePlayerAppSessionController({
             ruleset: currentSeriesRuleset,
           })?.randomSeed ?? null;
 
-    const request = {
-      seriesFile: selectedSeriesFile,
-      levelNumber: selectedLevelNumber,
-      ruleset: currentSeriesRuleset,
-      randomSeed: resolveLegacySessionRandomSeed(queuedReplay?.replay.randomSeed, Date.now(), manualSeedOverride),
-    } as const;
+    const request = queuedReplay?.launch.kind === "opaque"
+      ? {
+          seriesFile: selectedSeriesFile,
+          levelNumber: selectedLevelNumber,
+          ruleset: currentSeriesRuleset,
+        } as const
+      : {
+          seriesFile: selectedSeriesFile,
+          levelNumber: selectedLevelNumber,
+          ruleset: currentSeriesRuleset,
+          randomSeed: resolveLegacySessionRandomSeed(
+            queuedReplay?.launch.replay.randomSeed,
+            Date.now(),
+            manualSeedOverride,
+          ),
+        } as const;
     beginSessionVisualLoadCapture(request);
     const manualSessionStartOptions =
       currentSeriesRuleset === "MS"
@@ -242,7 +252,7 @@ export function usePlayerAppSessionController({
           startReplayInteractiveGameSession(
             interactiveEngineForRuleset(currentSeriesRuleset, engines),
             request,
-            queuedReplay.replay,
+            queuedReplay.launch,
             undoStartOptionsRef.current,
           ),
         )
