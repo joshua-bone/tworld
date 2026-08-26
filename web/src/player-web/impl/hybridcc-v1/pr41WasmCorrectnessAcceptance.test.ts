@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import createHybridCcV1Module from "./engine/hybridcc_v1_wasm.js";
 import {
+  HYBRID_CC_V1_MOVEMENT_CLASS,
+  HYBRID_CC_V1_MOVEMENT_OWNER,
+} from "./engineFacts";
+import {
+  HybridCcV1GameEngineAdapter,
+  HybridCcV1LevelRegistry,
+} from "./HybridCcV1GameEngineAdapter";
+import {
   HYBRIDCC_V1_INPUT,
   convertHybridCcV1Dat,
   createHybridCcV1Engine,
+  inspectHybridCcV1NativeLevel,
 } from "./wasmBridge";
 import { hybridCcV1PresentedMotion } from "./presentationProjection";
 
@@ -132,9 +141,9 @@ function nativeLine(title: string, cells: readonly CellFixture[]): Uint8Array {
   writer.u32(40);
   writer.u32(0);
   writer.text(title);
-  writer.text("HybridCC PR40 WebAssembly acceptance");
+  writer.text("HybridCC PR41 WebAssembly acceptance");
   writer.text("");
-  writer.text("PR40");
+  writer.text("PR41");
   writer.u32(0); // text table
 
   const actorOrder = cells.flatMap((cell, index) => cell.actor?.id ? [index] : []);
@@ -185,7 +194,7 @@ async function loadModule() {
   return createHybridCcV1Module({ locateFile: () => wasmUrl });
 }
 
-describe("HybridCC v1 PR40 real-Wasm correctness acceptance", () => {
+describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
   it.each([
     ["ice", { id: ELEMENT.ice }],
     ["force floor", {
@@ -195,7 +204,7 @@ describe("HybridCC v1 PR40 real-Wasm correctness acceptance", () => {
     }],
   ] as const)("publishes an unbooted first entry onto %s as N+1/two samples", async (_name, terrain) => {
     const module = await loadModule();
-    const engine = createHybridCcV1Engine(module, nativeLine("PR40 fast terrain entry", [
+    const engine = createHybridCcV1Engine(module, nativeLine("PR41 fast terrain entry", [
       { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
       { terrain },
       {},
@@ -230,9 +239,159 @@ describe("HybridCC v1 PR40 real-Wasm correctness acceptance", () => {
     }
   });
 
+  it.each([
+    [
+      "force floor",
+      [
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+          actor: { id: ELEMENT.player, direction: DIRECTION.east },
+        },
+        {},
+        {},
+        {},
+      ],
+      1,
+      0,
+      HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+      HYBRID_CC_V1_MOVEMENT_CLASS.forced,
+    ],
+    [
+      "ice",
+      [
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { terrain: { id: ELEMENT.ice } },
+        {},
+        {},
+        {},
+      ],
+      2,
+      1,
+      HYBRID_CC_V1_MOVEMENT_OWNER.ice,
+      HYBRID_CC_V1_MOVEMENT_CLASS.sliding,
+    ],
+  ] as const)(
+    "keeps the fast %s exit adjacent to ordinary exit-credit presentation",
+    async (
+      name,
+      cells,
+      fastBoundary,
+      fastOriginX,
+      fastOwner,
+      fastMovementClass,
+    ) => {
+      const module = await loadModule();
+      const nativeLevel = inspectHybridCcV1NativeLevel(
+        module,
+        nativeLine(`PR41 ${name} continuity`, cells),
+      );
+      const convertedLevel = {
+        status: 0,
+        entryOrdinal: 0,
+        requiredChips: 0,
+        diagnosticCount: 0,
+        nativeLevel,
+      } as const;
+      const registry = new HybridCcV1LevelRegistry();
+      registry.register("PR41-Hybrid-v1", [convertedLevel]);
+      const engines: ReturnType<typeof createHybridCcV1Engine>[] = [];
+      const adapter = new HybridCcV1GameEngineAdapter(registry, {
+        create: (level, seed) => {
+          const engine = createHybridCcV1Engine(module, level.nativeLevel, seed);
+          engines.push(engine);
+          return engine;
+        },
+      });
+      const request = {
+        seriesFile: "PR41-Hybrid-v1",
+        levelNumber: nativeLevel.number,
+        ruleset: "Hybrid" as const,
+        randomSeed: 7,
+      };
+      let session = await adapter.startSession(request);
+      const engine = engines[0];
+      if (!engine) throw new Error("Hybrid v1 adapter did not create its real engine");
+
+      const snapshotsByBoundary = new Map<bigint, ReturnType<typeof engine.snapshot>>();
+      const ticks: number[] = [];
+      const moving: number[] = [];
+      const fixedX: number[] = [];
+      const firstFastHostSample = (fastBoundary - 1) * 4;
+      const hostSampleCount = firstFastHostSample + 14;
+      try {
+        for (let hostSample = 0; hostSample < hostSampleCount; hostSample += 1) {
+          session = await adapter.advanceSession(session, HYBRIDCC_V1_INPUT.east);
+          const snapshot = engine.snapshot();
+          if (hostSample % 4 === 0) {
+            snapshotsByBoundary.set(snapshot.header.logicBoundary, snapshot);
+          }
+          const chip = session.frame.render?.chip;
+          if (!chip) throw new Error(`Hybrid v1 ${name} continuity fixture lost Chip`);
+          ticks.push(session.frame.snapshot.tick);
+          moving.push(chip.moving);
+          fixedX.push((chip.pos % 32) * 8 - chip.moving);
+        }
+
+        const fast = snapshotsByBoundary.get(BigInt(fastBoundary))
+          ?.presentation.playerMotion;
+        const ordinary = snapshotsByBoundary.get(BigInt(fastBoundary + 1))
+          ?.presentation.playerMotion;
+        const following = snapshotsByBoundary.get(BigInt(fastBoundary + 3))
+          ?.presentation.playerMotion;
+        expect(fast).toMatchObject({
+          origin: { x: fastOriginX, y: 0, z: 0 },
+          destination: { x: fastOriginX + 1, y: 0, z: 0 },
+          startBoundary: BigInt(fastBoundary),
+          completionBoundary: BigInt(fastBoundary + 1),
+          presentationSampleCount: 2,
+          owner: fastOwner,
+          movementClass: fastMovementClass,
+        });
+        expect(ordinary).toMatchObject({
+          origin: { x: fastOriginX + 1, y: 0, z: 0 },
+          destination: { x: fastOriginX + 2, y: 0, z: 0 },
+          startBoundary: BigInt(fastBoundary + 1),
+          completionBoundary: BigInt(fastBoundary + 3),
+          presentationSampleCount: 4,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerExitCredit,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+        });
+        expect(fast?.completionBoundary).toBe(ordinary?.startBoundary);
+        expect(ordinary?.completionBoundary).toBe(following?.startBoundary);
+
+        const traceTicks = ticks.slice(firstFastHostSample);
+        const traceMoving = moving.slice(firstFastHostSample);
+        const traceFixedX = fixedX.slice(firstFastHostSample);
+        const firstPresentationTick = fastBoundary * 2;
+        expect(traceTicks).toEqual(Array.from(
+          { length: 7 },
+          (_, index) => [firstPresentationTick + index, firstPresentationTick + index],
+        ).flat());
+        expect(traceMoving).toEqual([8, 8, 4, 4, 8, 8, 6, 6, 4, 4, 2, 2, 8, 8]);
+        expect(traceFixedX).toEqual([
+          0, 0, 4, 4, 8, 8, 10, 10, 12, 12, 14, 14, 16, 16,
+        ].map((offset) => fastOriginX * 8 + offset));
+
+        const uniquePresentationX = traceFixedX.filter((_, index) => (
+          index === 0 || traceTicks[index] !== traceTicks[index - 1]
+        ));
+        expect(uniquePresentationX.slice(1).every((x, index) => (
+          x > uniquePresentationX[index]!
+        ))).toBe(true);
+        expect(engine.invariantStatus()).toBe(0);
+      } finally {
+        await adapter.disposeSession(session);
+      }
+    },
+  );
+
   it("publishes normal-speed teleport motion as an N+2 interval with four 20 Hz samples", async () => {
     const module = await loadModule();
-    const engine = createHybridCcV1Engine(module, nativeLine("PR40 teleport", [
+    const engine = createHybridCcV1Engine(module, nativeLine("PR41 teleport", [
       { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
       {
         terrain: {
@@ -297,7 +456,7 @@ describe("HybridCC v1 PR40 real-Wasm correctness acceptance", () => {
 
   it("lets a moving dirt block kill Chip, survive, and finish after the durable loss", async () => {
     const module = await loadModule();
-    const engine = createHybridCcV1Engine(module, nativeLine("PR40 dirt-block loss", [
+    const engine = createHybridCcV1Engine(module, nativeLine("PR41 dirt-block loss", [
       {
         terrain: {
           id: ELEMENT.forceFloor,
@@ -376,7 +535,7 @@ describe("HybridCC v1 PR40 real-Wasm correctness acceptance", () => {
 
   it("keeps a permanent invisible wall in place and emits one reveal interaction", async () => {
     const module = await loadModule();
-    const engine = createHybridCcV1Engine(module, nativeLine("PR40 reveal", [
+    const engine = createHybridCcV1Engine(module, nativeLine("PR41 reveal", [
       { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
       {
         terrain: {

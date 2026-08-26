@@ -2,8 +2,8 @@
  * Named values from HybridCC v1's public C ABI. Presentation code must cross
  * the ABI by name; ordinal casts between Hybrid and Tile World are forbidden.
  *
- * Provenance: HybridCC2026 PR #40, include/hybridcc/v1/c_api.h, ABI version 1,
- * ruleset 1.0.1.
+ * Provenance: HybridCC2026 PR #41, include/hybridcc/v1/c_api.h, ABI version 1,
+ * ruleset 1.0.2.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,
@@ -170,7 +170,9 @@ export const HYBRID_CC_V1_MOVEMENT_OWNER = {
   none: 0,
   playerInput: 1,
   playerForceOverride: 2,
-  playerSpeedBoost: 3,
+  // Semantic name for ABI owner 3; the C header keeps the former spelling as
+  // a source alias for ruleset 1.0.0/1.0.1 consumers.
+  playerExitCredit: 3,
   actorAi: 4,
   forceFloor: 5,
   ice: 6,
