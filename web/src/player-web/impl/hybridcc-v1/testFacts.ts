@@ -90,8 +90,8 @@ export function testActor(overrides: Partial<HybridCcV1Actor> = {}): HybridCcV1A
     playerMomentum: {
       forceOverrideAvailable: false,
       forceOverrideEligibleBoundary: 0n,
-      speedBoostAvailable: false,
-      speedBoostEligibleBoundary: 0n,
+      exitCreditAvailable: false,
+      exitCreditEligibleBoundary: 0n,
       sourceTerrain: 0,
       sourceDirection: HYBRID_CC_V1_DIRECTION.none,
     },
@@ -174,7 +174,7 @@ export function testSnapshot(overrides: Partial<HybridCcV1Snapshot> = {}): Hybri
     header: {
       recordVersion: 1,
       abiVersion: 1,
-      ruleset: { major: 1, minor: 0, tweak: 1 },
+      ruleset: { major: 1, minor: 0, tweak: 2 },
       width: 1,
       height: 1,
       depth: 1,

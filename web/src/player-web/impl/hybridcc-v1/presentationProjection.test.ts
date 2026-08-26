@@ -4,6 +4,8 @@ import {
   HYBRID_CC_V1_ELEMENT,
   HYBRID_CC_V1_EVENT,
   HYBRID_CC_V1_INTERACTION,
+  HYBRID_CC_V1_MOVEMENT_CLASS,
+  HYBRID_CC_V1_MOVEMENT_OWNER,
 } from "./engineFacts";
 import {
   hybridCcV1ChipPushing,
@@ -30,6 +32,40 @@ describe("Hybrid v1 motion presentation", () => {
     expect(hybridCcV1PresentedMotion(track, 2)).toMatchObject({ active: true, moving: 8 });
     expect(hybridCcV1PresentedMotion(track, 3)).toMatchObject({ active: true, moving: 4 });
     expect(hybridCcV1PresentedMotion(null, 3)).toEqual({ active: false, frame: 0, moving: 0, position: null });
+  });
+
+  it("joins a fast terrain exit directly to an ordinary exit-credit move", () => {
+    const fastExit = testMotionTrack({
+      origin: { x: 0, y: 0, z: 0 },
+      destination: { x: 1, y: 0, z: 0 },
+      startBoundary: 1n,
+      completionBoundary: 2n,
+      presentationSampleCount: 2,
+      owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+      movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.forced,
+    });
+    const ordinary = testMotionTrack({
+      origin: { x: 1, y: 0, z: 0 },
+      destination: { x: 2, y: 0, z: 0 },
+      startBoundary: 2n,
+      completionBoundary: 4n,
+      presentationSampleCount: 4,
+      owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerExitCredit,
+      movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+    });
+    const samples = [
+      [fastExit, 2],
+      [fastExit, 3],
+      [ordinary, 4],
+      [ordinary, 5],
+      [ordinary, 6],
+      [ordinary, 7],
+    ] as const;
+    const presented = samples.map(([track, sample]) => hybridCcV1PresentedMotion(track, sample));
+
+    expect(presented.map(({ moving }) => moving)).toEqual([8, 4, 8, 6, 4, 2]);
+    expect(presented.map(({ moving, position }) => (position?.x ?? 0) * 8 - moving))
+      .toEqual([0, 4, 8, 10, 12, 14]);
   });
 
   it("presents a discontinuous teleport only as entry into its destination", () => {

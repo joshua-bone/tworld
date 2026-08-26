@@ -1,7 +1,7 @@
 export const HYBRIDCC_V1_ABI = {
   version: 1,
   snapshotRecordVersion: 1,
-  ruleset: { major: 1, minor: 0, tweak: 1 },
+  ruleset: { major: 1, minor: 0, tweak: 2 },
   logicStepsPerSecond: 10,
   presentationSamplesPerSecond: 20,
 } as const;
@@ -363,8 +363,10 @@ export interface HybridCcV1LifecycleReceiptEntry {
 export interface HybridCcV1PlayerMomentum {
   forceOverrideAvailable: boolean;
   forceOverrideEligibleBoundary: bigint;
-  speedBoostAvailable: boolean;
-  speedBoostEligibleBoundary: bigint;
+  /** Host name for the ABI's `speed_boost_available` field. */
+  exitCreditAvailable: boolean;
+  /** Host name for the ABI's `speed_boost_eligible_boundary` field. */
+  exitCreditEligibleBoundary: bigint;
   sourceTerrain: number;
   sourceDirection: number;
 }
@@ -867,8 +869,8 @@ function decodeActor(view: DataView, offset: number): HybridCcV1Actor {
     playerMomentum: {
       forceOverrideAvailable: bool32(view, offset + 512),
       forceOverrideEligibleBoundary: view.getBigUint64(offset + 516, true),
-      speedBoostAvailable: bool32(view, offset + 524),
-      speedBoostEligibleBoundary: view.getBigUint64(offset + 528, true),
+      exitCreditAvailable: bool32(view, offset + 524),
+      exitCreditEligibleBoundary: view.getBigUint64(offset + 528, true),
       sourceTerrain: view.getUint32(offset + 536, true),
       sourceDirection: view.getUint32(offset + 540, true),
     },
