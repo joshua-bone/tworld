@@ -1,7 +1,7 @@
 export const HYBRIDCC_V1_ABI = {
   version: 1,
   snapshotRecordVersion: 1,
-  ruleset: { major: 1, minor: 0, tweak: 0 },
+  ruleset: { major: 1, minor: 0, tweak: 1 },
   logicStepsPerSecond: 10,
   presentationSamplesPerSecond: 20,
 } as const;

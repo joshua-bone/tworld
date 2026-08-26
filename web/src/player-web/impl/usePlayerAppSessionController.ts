@@ -9,6 +9,7 @@ import {
   type SetStateAction,
 } from "react";
 import { advanceInteractiveGameSession } from "@game-runtime/impl/advanceInteractiveGameSession";
+import { interactiveSessionClockShouldRun } from "@game-runtime/impl/interactiveSessionRun";
 import {
   previousInteractiveGameSessionCheckpointTick,
   previousInteractiveGameSessionTick,
@@ -169,7 +170,8 @@ export function usePlayerAppSessionController({
     startTransition(() => {
       setIsPaused(false);
       setIsRunning(
-        nextSession.frame.snapshot.status === "playing" && nextSession.history.restoreMode !== "restored-paused",
+        interactiveSessionClockShouldRun(nextSession)
+          && nextSession.history.restoreMode !== "restored-paused",
       );
       setMessage(null);
     });
@@ -286,7 +288,7 @@ export function usePlayerAppSessionController({
 
         startTransition(() => {
           setManualRunStarted(nextSession.mode === "replay");
-          setIsRunning(nextSession.frame.snapshot.status === "playing");
+          setIsRunning(interactiveSessionClockShouldRun(nextSession));
           setMessage(null);
         });
       })
@@ -340,10 +342,11 @@ export function usePlayerAppSessionController({
       }
       scheduleSessionUiSync(nextSession, {
         immediate:
-          nextSession.frame.snapshot.status !== "playing" || nextSession.history.restoreMode !== "live",
+          nextSession.frame.snapshot.status !== activeSession.frame.snapshot.status
+          || nextSession.history.restoreMode !== "live",
       });
       syncSoundForSession(nextSession);
-      if (nextSession.frame.snapshot.status !== "playing") {
+      if (!interactiveSessionClockShouldRun(nextSession)) {
         setIsRunning(false);
       }
     } catch (error: unknown) {

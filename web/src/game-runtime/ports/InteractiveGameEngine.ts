@@ -73,6 +73,12 @@ export interface InteractiveGameSessionResultSummary {
 export interface InteractiveGameSessionRunState {
   undoUsedCount: number;
   replayAvailable: boolean;
+  /**
+   * Keeps the host sampling clock alive after `result` becomes visible.
+   * The engine remains responsible for ignoring gameplay input and for
+   * preserving one durable result while it publishes observer-only frames.
+   */
+  continuesAfterResult?: boolean;
   result: InteractiveGameSessionResultSummary | null;
 }
 

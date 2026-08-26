@@ -8,11 +8,13 @@ import {
   usesProjectedLynxRender,
   resolveLegacyMapViewport,
   shouldDrawOpenTrapOccupant,
+  shouldRenderOpenTrap,
   visualEnhancementActorDecorationPosition,
 } from "@player-web/impl/legacyCanvasMapRenderer";
 import { createLayerCanvasCache, storeCachedLayerCanvas } from "@player-web/impl/legacyLayerCanvasCache";
 import type { EngineMapCell } from "@game-core/api/model";
-import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
+import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
 import type { LegacyTileset } from "@player-web/impl/legacyTileset";
 
 function createCell(pos: number, z: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
@@ -384,6 +386,17 @@ describe("shouldDrawOpenTrapOccupant", () => {
   it("keeps drawing stationary open-trap occupants for the enhancement overlay", () => {
     expect(shouldDrawOpenTrapOccupant(MS_TILE.Block, false)).toBe(true);
     expect(shouldDrawOpenTrapOccupant(MS_TILE.Empty, false)).toBe(false);
+  });
+});
+
+describe("shouldRenderOpenTrap", () => {
+  it("renders an authoritative projected trap-open fact when optional enhancements are disabled", () => {
+    expect(shouldRenderOpenTrap(MS_TILE.Beartrap, MS_FLOOR_STATE.TrapOpen, false)).toBe(true);
+  });
+
+  it("keeps the Lynx-only inferred flag behind the optional enhancement setting", () => {
+    expect(shouldRenderOpenTrap(MS_TILE.Beartrap, LYNX_CELL_FLAG.TrapOpen, false)).toBe(false);
+    expect(shouldRenderOpenTrap(MS_TILE.Beartrap, LYNX_CELL_FLAG.TrapOpen, true)).toBe(true);
   });
 });
 

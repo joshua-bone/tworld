@@ -662,6 +662,22 @@ export function shouldDrawOpenTrapOccupant(
   return !hasMovingRenderableAtPos && topId !== MS_TILE.Air && topId !== MS_TILE.Nothing && topId !== MS_TILE.Empty;
 }
 
+/**
+ * An MS-style TrapOpen bit is an authoritative projected map fact. The Lynx
+ * flag remains an optional visual hint because that ruleset derives it from
+ * presentation-only wiring state.
+ */
+export function shouldRenderOpenTrap(
+  tileId: number,
+  state: number,
+  visualEnhancementsEnabled: boolean,
+): boolean {
+  return tileId === MS_TILE.Beartrap && (
+    (state & MS_FLOOR_STATE.TrapOpen) !== 0
+    || (visualEnhancementsEnabled && (state & LYNX_CELL_FLAG.TrapOpen) !== 0)
+  );
+}
+
 export function visualEnhancementActorDecorationPosition(
   x: number,
   y: number,
@@ -862,14 +878,8 @@ function drawCompositedCell(
     }
   }
 
-  const topTrapOpen =
-    visualEnhancementsEnabled &&
-    topId === MS_TILE.Beartrap &&
-    (((topState & MS_FLOOR_STATE.TrapOpen) !== 0) || ((topState & LYNX_CELL_FLAG.TrapOpen) !== 0));
-  const bottomTrapOpen =
-    visualEnhancementsEnabled &&
-    bottomId === MS_TILE.Beartrap &&
-    (((bottomState & MS_FLOOR_STATE.TrapOpen) !== 0) || ((bottomState & LYNX_CELL_FLAG.TrapOpen) !== 0));
+  const topTrapOpen = shouldRenderOpenTrap(topId, topState, visualEnhancementsEnabled);
+  const bottomTrapOpen = shouldRenderOpenTrap(bottomId, bottomState, visualEnhancementsEnabled);
   const thinWallOverlayTileId = visualEnhancementThinWallOverlayTileId(ruleset, topId, bottomId);
 
   if (topTrapOpen || bottomTrapOpen) {

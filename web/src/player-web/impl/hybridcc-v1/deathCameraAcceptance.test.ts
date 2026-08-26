@@ -58,7 +58,7 @@ function boardSnapshot(options: {
     ? base.header.outcome
     : {
         kind: HYBRID_CC_V1_OUTCOME.loss,
-        logicBoundary: BigInt(options.boundary),
+        logicBoundary: 1n,
         position: DESTINATION,
         exitColor: 0,
         lossCause: HYBRID_CC_V1_LOSS.bomb,
@@ -168,7 +168,11 @@ describe("Hybrid v1 death-camera host acceptance", () => {
       });
       const engine = fakeEngine([
         boardSnapshot({ boundary: 0, playerAlive: true }),
-        boardSnapshot({ boundary: 1, playerAlive: false, terminalMotion: motion }),
+        ...Array.from({ length: 10 }, (_, index) => boardSnapshot({
+          boundary: index + 1,
+          playerAlive: false,
+          terminalMotion: motion,
+        })),
       ]);
       const levels = new HybridCcV1LevelRegistry();
       levels.register("death-camera-Hybrid-v1", [convertedLevel()]);

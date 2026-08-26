@@ -1,8 +1,14 @@
-import { HYBRID_CC_V1_DIRECTION } from "./engineFacts";
+import {
+  HYBRID_CC_V1_DIRECTION,
+  HYBRID_CC_V1_ELEMENT,
+  HYBRID_CC_V1_EVENT,
+  HYBRID_CC_V1_INTERACTION,
+} from "./engineFacts";
 import type {
   HybridCcV1Actor,
   HybridCcV1MotionTrack,
   HybridCcV1Position,
+  HybridCcV1Snapshot,
 } from "./wasmBridge";
 
 export interface HybridCcV1PresentedMotion {
@@ -101,4 +107,28 @@ export function hybridCcV1TerminalCameraTrack(
   presentationSample: number,
 ): HybridCcV1PresentedMotion {
   return hybridCcV1PresentedMotion(track, presentationSample);
+}
+
+/**
+ * Lynx presents a blocked attempt and an active player block push with the
+ * pushing sprite for one 20 Hz display sample. The ordered event journal is
+ * the causal fact; it does not become persistent engine state.
+ */
+export function hybridCcV1ChipPushing(
+  snapshot: HybridCcV1Snapshot,
+  presentationSample: number,
+): boolean {
+  return snapshot.events.some((event) => {
+    if (
+      event.actorKind !== HYBRID_CC_V1_ELEMENT.player
+      || safeBoundary(event.logicBoundary) * 2 !== presentationSample
+    ) {
+      return false;
+    }
+    return event.kind === HYBRID_CC_V1_EVENT.moveRejected
+      || (
+        event.kind === HYBRID_CC_V1_EVENT.interaction
+        && event.interaction === HYBRID_CC_V1_INTERACTION.push
+      );
+  });
 }

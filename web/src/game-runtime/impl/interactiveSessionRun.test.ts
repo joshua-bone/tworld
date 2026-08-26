@@ -6,7 +6,9 @@ import {
   buildInteractiveFailureCause,
   buildInteractiveSessionScoreSummary,
   formatInteractiveTickSeconds,
+  interactiveSessionClockShouldRun,
 } from "@game-runtime/impl/interactiveSessionRun";
+import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 
 describe("interactiveSessionRun", () => {
   it("projects board positions into 1-based grid coordinates", () => {
@@ -75,5 +77,30 @@ describe("interactiveSessionRun", () => {
     expect(formatInteractiveTickSeconds(301)).toBe("15.05");
     expect(formatInteractiveTickSeconds(300)).toBe("15.0");
     expect(formatInteractiveTickSeconds(-1)).toBe("-0.05");
+  });
+
+  it("continues the shared clock only for an explicit post-result observer", () => {
+    const session = {
+      frame: { snapshot: { status: "failed" } },
+      run: {
+        undoUsedCount: 0,
+        replayAvailable: false,
+        result: { outcome: "failed" },
+      },
+    } as Pick<InteractiveGameSession, "frame" | "run">;
+
+    expect(interactiveSessionClockShouldRun(session)).toBe(false);
+    expect(interactiveSessionClockShouldRun({
+      ...session,
+      run: { ...session.run, continuesAfterResult: true },
+    })).toBe(true);
+    expect(interactiveSessionClockShouldRun({
+      ...session,
+      frame: {
+        ...session.frame,
+        snapshot: { ...session.frame.snapshot, status: "playing" },
+      },
+      run: { ...session.run, result: null },
+    })).toBe(true);
   });
 });

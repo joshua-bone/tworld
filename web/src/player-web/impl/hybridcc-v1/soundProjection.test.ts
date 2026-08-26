@@ -95,6 +95,28 @@ describe("Hybrid v1 one-shot sound projection", () => {
     expect(sounds & bit(LYNX_SOUND.Teleporting)).not.toBe(0);
   });
 
+  it("plays block movement only for a causal active player push", () => {
+    const activePush = projectHybridCcV1OneShotSounds(testSnapshot({
+      events: [testEvent({
+        kind: HYBRID_CC_V1_EVENT.interaction,
+        interaction: HYBRID_CC_V1_INTERACTION.push,
+        actorKind: HYBRID_CC_V1_ELEMENT.player,
+        subject: testElement({ id: HYBRID_CC_V1_ELEMENT.dirtBlock }),
+      })],
+    }));
+    const nonPlayerPush = projectHybridCcV1OneShotSounds(testSnapshot({
+      events: [testEvent({
+        kind: HYBRID_CC_V1_EVENT.interaction,
+        interaction: HYBRID_CC_V1_INTERACTION.push,
+        actorKind: HYBRID_CC_V1_ELEMENT.dirtBlock,
+        subject: testElement({ id: HYBRID_CC_V1_ELEMENT.dirtBlock }),
+      })],
+    }));
+
+    expect(activePush & bit(LYNX_SOUND.BlockMoving)).not.toBe(0);
+    expect(nonPlayerPush & bit(LYNX_SOUND.BlockMoving)).toBe(0);
+  });
+
   it("plays item collection for every unlimited green-key tile removal", () => {
     const pickupChanged = testEvent({
       kind: HYBRID_CC_V1_EVENT.pickupChanged,
@@ -164,9 +186,9 @@ describe("Hybrid v1 loop sound projection", () => {
     expect(projectHybridCcV1LoopSounds(snapshot, [track], 6)).toBe(0);
   });
 
-  it("plays block movement only while a block track is visible", () => {
+  it("does not infer push audio from an autonomously moving block track", () => {
     const track = testMotionTrack({ actorId: 2n, actorKind: HYBRID_CC_V1_ELEMENT.dirtBlock });
-    expect(projectHybridCcV1LoopSounds(testSnapshot(), [track], 2) & bit(LYNX_SOUND.BlockMoving)).not.toBe(0);
+    expect(projectHybridCcV1LoopSounds(testSnapshot(), [track], 2) & bit(LYNX_SOUND.BlockMoving)).toBe(0);
     expect(projectHybridCcV1LoopSounds(testSnapshot(), [track], 6)).toBe(0);
   });
 });
