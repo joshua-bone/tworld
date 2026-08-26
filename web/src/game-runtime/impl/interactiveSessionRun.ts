@@ -1,5 +1,6 @@
 import type {
   InteractiveGameGridPosition,
+  InteractiveGameSession,
   InteractiveGameSessionEndCause,
   InteractiveGameSessionResultSummary,
   InteractiveGameSessionRunState,
@@ -140,6 +141,14 @@ export function buildLiveRunState(undoUsedCount: number, replayAvailable: boolea
     replayAvailable,
     result: null,
   };
+}
+
+/** Whether the shared host should keep sampling this session's engine. */
+export function interactiveSessionClockShouldRun(
+  session: Pick<InteractiveGameSession, "frame" | "run">,
+): boolean {
+  return session.frame.snapshot.status === "playing"
+    || (session.run.result !== null && session.run.continuesAfterResult === true);
 }
 
 export function isCompletedRunResult(

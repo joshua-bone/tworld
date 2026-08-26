@@ -2,7 +2,8 @@
  * Named values from HybridCC v1's public C ABI. Presentation code must cross
  * the ABI by name; ordinal casts between Hybrid and Tile World are forbidden.
  *
- * Provenance: HybridCC2026 PR #39, include/hybridcc/v1/c_api.h, ABI version 1.
+ * Provenance: HybridCC2026 PR #40, include/hybridcc/v1/c_api.h, ABI version 1,
+ * ruleset 1.0.1.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,
@@ -162,6 +163,7 @@ export const HYBRID_CC_V1_LOSS = {
   walker: 12,
   tank: 13,
   capacity: 14,
+  dirtBlock: 15,
 } as const;
 
 export const HYBRID_CC_V1_MOVEMENT_OWNER = {
@@ -216,6 +218,7 @@ export const HYBRID_CC_V1_INTERACTION = {
   enter: 6,
   exit: 7,
   push: 8,
+  reveal: 9,
 } as const;
 
 export function isClassicHybridCcV1Color(color: number): boolean {

@@ -77,7 +77,10 @@ import {
 import { resolveReplayActionContext } from "@player-web/impl/replayContext";
 import { selectResultHeadline } from "@player-web/impl/resultHeadlines";
 import { measurePerfAsync } from "@player-web/impl/runtimePerf";
-import { shouldPersistLevelProgress } from "@player-web/impl/sessionProgressPolicy";
+import {
+  persistTerminalSessionProgress,
+  terminalSessionRecordKey,
+} from "@player-web/impl/sessionProgressPolicy";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import {
   jumpLevelSelection,
@@ -823,7 +826,7 @@ export function PlayerApp({
     session && runResult ? `${session.request.seriesFile}:${String(session.request.levelNumber)}` : null;
   const currentTerminalRecordKey =
     session && runResult && mode === "game" && session.mode !== "replay"
-      ? `${session.request.seriesFile}:${session.request.levelNumber}:${runResult.outcome}:${session.frame.snapshot.tick}:${session.run.undoUsedCount}`
+      ? terminalSessionRecordKey(session)
       : null;
   if (currentTerminalRecordKey === null) {
     resultSheetBestScoreSnapshotRef.current = null;
@@ -847,7 +850,7 @@ export function PlayerApp({
             String(session.request.levelNumber),
             session.request.ruleset,
             runResult.outcome,
-            String(session.frame.snapshot.tick),
+            String(session.frame.snapshot.currentTime),
             String(session.run.undoUsedCount),
             runResult.cause?.kind ?? "none",
             runResult.cause?.actorName ?? "none",
@@ -1116,45 +1119,25 @@ export function PlayerApp({
   }, [runResult]);
 
   useEffect(() => {
-    if (
-      !shouldPersistLevelProgress({
-        hasResult: Boolean(session?.run.result),
-        mode,
-        sessionMode: session?.mode ?? null,
-        sessionStartedFromReplay: sessionStartedFromReplayRef.current,
-      }) ||
-      !session ||
-      !currentLevel ||
-      session.mode !== "manual"
-    ) {
+    const progressSummary = persistTerminalSessionProgress({
+      attemptCounts: levelAttemptCountsRef.current,
+      gameplayHash: currentLevel?.gameplayHash ?? null,
+      mode,
+      nowMs: Date.now(),
+      recordedSession: recordedTerminalSessionRef,
+      save: (summary) => {
+        onLevelProgressSaved?.(summary);
+        setLevelProgressSummaries((current) => mergeLevelProgressSummaries(current, summary));
+        void profileStore.saveLevelProgressSummary(summary);
+      },
+      session,
+      sessionStartedFromReplay: sessionStartedFromReplayRef.current,
+    });
+    if (!progressSummary || !session || !session.run.result) {
       return;
     }
 
-    const result = session.run.result!;
-
-    const recordKey = `${session.request.seriesFile}:${session.request.levelNumber}:${result.outcome}:${session.frame.snapshot.tick}:${session.run.undoUsedCount}`;
-    if (recordedTerminalSessionRef.current === recordKey) {
-      return;
-    }
-    recordedTerminalSessionRef.current = recordKey;
-    const attemptKey = `${session.request.seriesFile}:${String(session.request.levelNumber)}`;
-    levelAttemptCountsRef.current.set(attemptKey, (levelAttemptCountsRef.current.get(attemptKey) ?? 0) + 1);
-
-    const progressSummary: BrowserLevelProgressSummary = {
-      ruleset: session.request.ruleset,
-      gameplayHash: currentLevel.gameplayHash,
-      lastPlayedAtMs: Date.now(),
-      lastResult: result.outcome,
-      bestResult: result.outcome,
-      lastElapsedTicks: Math.max(session.frame.snapshot.currentTime, 0),
-      bestElapsedTicks: Math.max(session.frame.snapshot.currentTime, 0),
-      lastUndoUsedCount: session.run.undoUsedCount,
-      bestUndoUsedCount: session.run.undoUsedCount,
-    };
-
-    onLevelProgressSaved?.(progressSummary);
-    setLevelProgressSummaries((current) => mergeLevelProgressSummaries(current, progressSummary));
-    void profileStore.saveLevelProgressSummary(progressSummary);
+    const result = session.run.result;
 
     if (
       session.run.replayAvailable &&

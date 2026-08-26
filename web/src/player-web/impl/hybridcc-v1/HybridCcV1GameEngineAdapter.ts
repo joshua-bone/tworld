@@ -27,6 +27,12 @@ import {
   projectHybridCcV1LoopSounds,
   projectHybridCcV1OneShotSounds,
 } from "./soundProjection";
+import {
+  activeHybridCcV1WallReveals,
+  collectHybridCcV1WallReveals,
+  reconcileHybridCcV1WallReveals,
+  type HybridCcV1WallRevealTrack,
+} from "./wallRevealProjection";
 import type {
   HybridCcV1ConvertedLevel,
   HybridCcV1Engine,
@@ -99,6 +105,7 @@ interface ActiveRuntime {
   soundEffects: number;
   actorSerials: HybridCcV1ActorSerialRegistry;
   lifecycleAnimations: HybridCcV1LifecycleAnimationTrack[];
+  wallReveals: HybridCcV1WallRevealTrack[];
   exposeTerminal: boolean;
   mode: "manual" | "replay";
   replayInputs: Uint8Array | null;
@@ -250,7 +257,7 @@ export class HybridCcV1GameEngineAdapter implements InteractiveGameEnginePort {
   ): Promise<InteractiveGameOpaqueReplayExport | null> {
     const runtime = this.runtime(session.handle);
     if (
-      runtime.snapshot.header.outcome.kind === HYBRID_CC_V1_OUTCOME.unfinished
+      runtime.snapshot.header.outcome.kind !== HYBRID_CC_V1_OUTCOME.win
       || !runtime.exposeTerminal
     ) {
       return null;
@@ -275,21 +282,23 @@ export class HybridCcV1GameEngineAdapter implements InteractiveGameEnginePort {
     input: InteractiveInput,
   ): Promise<InteractiveGameSession> {
     const runtime = this.runtime(session.handle);
-    if (runtime.exposeTerminal) return session;
+    const outcomeBefore = runtime.snapshot.header.outcome.kind;
+    const simulatingAfterDeath = outcomeBefore === HYBRID_CC_V1_OUTCOME.loss;
+    if (runtime.exposeTerminal && !simulatingAfterDeath) return session;
 
     const sampleIndex = runtime.inputSampleIndex;
-    if (runtime.snapshot.header.outcome.kind !== HYBRID_CC_V1_OUTCOME.unfinished) {
-      if (sampleIndex === 0 || sampleIndex === 2) runtime.presentationSample += 1;
-      runtime.soundEffects = 0;
-      runtime.lifecycleAnimations = activeHybridCcV1LifecycleAnimations(
-        runtime.lifecycleAnimations,
-        runtime.presentationSample,
-      );
-      runtime.exposeTerminal = !terminalPresentationIsActive(runtime);
-    } else if (sampleIndex === 0) {
-      const inputCode = runtime.mode === "replay"
-        ? this.nextReplayInput(runtime)
-        : hybridInputCode(input);
+    const logicAdvances = sampleIndex === 0 && (
+      outcomeBefore === HYBRID_CC_V1_OUTCOME.unfinished
+      || simulatingAfterDeath
+    );
+    if (logicAdvances) {
+      const recordsGameplay = outcomeBefore === HYBRID_CC_V1_OUTCOME.unfinished;
+      let inputCode = 0;
+      if (recordsGameplay) {
+        inputCode = runtime.mode === "replay"
+          ? this.nextReplayInput(runtime)
+          : hybridInputCode(input);
+      }
       const previousSnapshot = runtime.snapshot;
       const previousBoundary = safeBoundary(
         previousSnapshot.header.logicBoundary,
@@ -315,20 +324,26 @@ export class HybridCcV1GameEngineAdapter implements InteractiveGameEnginePort {
       runtime.previousSnapshot = previousSnapshot;
       runtime.snapshot = snapshot;
       runtime.presentationSample = boundary * 2;
-      runtime.lastInput = inputCode;
-      runtime.denseInputs.push(inputCode);
-      if (inputCode !== 0) runtime.recordedMoveCount += 1;
+      runtime.lastInput = recordsGameplay ? inputCode : 0;
+      if (recordsGameplay) {
+        runtime.denseInputs.push(inputCode);
+        if (inputCode !== 0) runtime.recordedMoveCount += 1;
+      }
       const tracks = activeMotionTracks(snapshot);
-      const loops = snapshot.header.outcome.kind === HYBRID_CC_V1_OUTCOME.unfinished
-        ? projectHybridCcV1LoopSounds(
+      const loops = snapshot.header.outcome.kind === HYBRID_CC_V1_OUTCOME.win
+        ? 0
+        : projectHybridCcV1LoopSounds(
             snapshot,
             tracks,
             runtime.presentationSample,
             previousSnapshot,
-          )
-        : 0;
+          );
       runtime.lifecycleAnimations = activeHybridCcV1LifecycleAnimations(
         reconcileHybridCcV1LifecycleAnimations(runtime.lifecycleAnimations, snapshot),
+        runtime.presentationSample,
+      );
+      runtime.wallReveals = activeHybridCcV1WallReveals(
+        reconcileHybridCcV1WallReveals(runtime.wallReveals, snapshot),
         runtime.presentationSample,
       );
       runtime.soundEffects = loops | projectHybridCcV1OneShotSounds(snapshot);
@@ -336,17 +351,31 @@ export class HybridCcV1GameEngineAdapter implements InteractiveGameEnginePort {
         runtime.exposeTerminal = !terminalPresentationIsActive(runtime);
       }
     } else {
-      if (sampleIndex === 2) runtime.presentationSample += 1;
+      if (
+        sampleIndex === 2
+        || (sampleIndex === 0 && outcomeBefore === HYBRID_CC_V1_OUTCOME.win)
+      ) {
+        runtime.presentationSample += 1;
+      }
       runtime.lifecycleAnimations = activeHybridCcV1LifecycleAnimations(
         runtime.lifecycleAnimations,
         runtime.presentationSample,
       );
-      runtime.soundEffects = projectHybridCcV1LoopSounds(
-        runtime.snapshot,
-        activeMotionTracks(runtime.snapshot),
+      runtime.wallReveals = activeHybridCcV1WallReveals(
+        runtime.wallReveals,
         runtime.presentationSample,
-        runtime.previousSnapshot,
       );
+      runtime.soundEffects = outcomeBefore === HYBRID_CC_V1_OUTCOME.win
+        ? 0
+        : projectHybridCcV1LoopSounds(
+            runtime.snapshot,
+            activeMotionTracks(runtime.snapshot),
+            runtime.presentationSample,
+            runtime.previousSnapshot,
+          );
+      if (outcomeBefore !== HYBRID_CC_V1_OUTCOME.unfinished) {
+        runtime.exposeTerminal = !terminalPresentationIsActive(runtime);
+      }
     }
 
     runtime.inputSampleIndex = (sampleIndex + 1) % 4;
@@ -404,6 +433,7 @@ export class HybridCcV1GameEngineAdapter implements InteractiveGameEnginePort {
         soundEffects: 0,
         actorSerials: new HybridCcV1ActorSerialRegistry(),
         lifecycleAnimations: collectHybridCcV1LifecycleAnimations(snapshot),
+        wallReveals: collectHybridCcV1WallReveals(snapshot),
         exposeTerminal: false,
         mode,
         replayInputs,
@@ -470,10 +500,14 @@ export class HybridCcV1GameEngineAdapter implements InteractiveGameEnginePort {
         lastInput: runtime.lastInput,
         level: runtime.level,
         lifecycleAnimations: runtime.lifecycleAnimations,
+        wallReveals: runtime.wallReveals,
         mode: runtime.mode,
         presentationSample: runtime.presentationSample,
         recordedBoundaryCount: runtime.recordedMoveCount,
-        replayAvailable: runtime.exposeTerminal && runtime.mode === "manual",
+        replayAvailable:
+          runtime.exposeTerminal
+          && runtime.mode === "manual"
+          && runtime.snapshot.header.outcome.kind === HYBRID_CC_V1_OUTCOME.win,
         snapshot: runtime.snapshot,
         soundEffects: runtime.soundEffects,
       }),

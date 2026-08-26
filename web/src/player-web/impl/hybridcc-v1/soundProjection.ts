@@ -143,6 +143,12 @@ export function projectHybridCcV1OneShotSounds(snapshot: HybridCcV1Snapshot): nu
       if (event.interaction === HYBRID_CC_V1_INTERACTION.teleport) {
         sounds |= soundBit(LYNX_SOUND.Teleporting);
       }
+      if (
+        event.interaction === HYBRID_CC_V1_INTERACTION.push
+        && event.actorKind === HYBRID_CC_V1_ELEMENT.player
+      ) {
+        sounds |= soundBit(LYNX_SOUND.BlockMoving);
+      }
     }
   }
   return sounds;
@@ -197,13 +203,6 @@ export function projectHybridCcV1LoopSounds(
   let sounds = 0;
   for (const track of tracks) {
     if (!hybridCcV1PresentedMotion(track, presentationSample).active) continue;
-    if (
-      track.actorKind === HYBRID_CC_V1_ELEMENT.dirtBlock ||
-      track.actorKind === HYBRID_CC_V1_ELEMENT.iceBlock
-    ) {
-      sounds |= soundBit(LYNX_SOUND.BlockMoving);
-      continue;
-    }
     if (track.actorKind !== HYBRID_CC_V1_ELEMENT.player) continue;
     const surface = movingSurfaceSound(snapshot, previous, track);
     if (surface !== null) sounds |= soundBit(surface);

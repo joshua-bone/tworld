@@ -20,6 +20,7 @@ import {
 } from "./lifecycleAnimationProjection";
 import {
   hybridCcV1ActorMotionTrack,
+  hybridCcV1ChipPushing,
   hybridCcV1PresentedMotion,
   hybridCcV1TerminalCameraTrack,
 } from "./presentationProjection";
@@ -29,6 +30,10 @@ import {
   projectHybridCcV1Cell,
   projectHybridCcV1Inventory,
 } from "./renderProjection";
+import {
+  projectHybridCcV1WallReveals,
+  type HybridCcV1WallRevealTrack,
+} from "./wallRevealProjection";
 import type {
   HybridCcV1Actor,
   HybridCcV1ConvertedLevel,
@@ -49,6 +54,7 @@ export interface HybridCcV1SessionProjectionOptions {
   lastInput: number;
   actorSerials: HybridCcV1ActorSerialRegistry;
   lifecycleAnimations: readonly HybridCcV1LifecycleAnimationTrack[];
+  wallReveals: readonly HybridCcV1WallRevealTrack[];
 }
 
 function safeBoundary(value: bigint): number {
@@ -78,6 +84,7 @@ function actorName(lossCause: number): string | null {
     case HYBRID_CC_V1_LOSS.ball: return "ball";
     case HYBRID_CC_V1_LOSS.walker: return "walker";
     case HYBRID_CC_V1_LOSS.tank: return "tank";
+    case HYBRID_CC_V1_LOSS.dirtBlock: return "block";
     default: return null;
   }
 }
@@ -93,6 +100,7 @@ function actorKindForLoss(lossCause: number): number | null {
     case HYBRID_CC_V1_LOSS.ball: return HYBRID_CC_V1_ELEMENT.ball;
     case HYBRID_CC_V1_LOSS.walker: return HYBRID_CC_V1_ELEMENT.walker;
     case HYBRID_CC_V1_LOSS.tank: return HYBRID_CC_V1_ELEMENT.tank;
+    case HYBRID_CC_V1_LOSS.dirtBlock: return HYBRID_CC_V1_ELEMENT.dirtBlock;
     default: return null;
   }
 }
@@ -200,6 +208,7 @@ export function projectHybridCcV1Session(
     replayAvailable,
     snapshot,
     soundEffects,
+    wallReveals,
   } = options;
   const { nativeLevel } = level;
   const cells = snapshot.cells.map((cell, position) => (
@@ -213,9 +222,12 @@ export function projectHybridCcV1Session(
     ? snapshot.header.outcome.kind === HYBRID_CC_V1_OUTCOME.win ? "completed" : "failed"
     : "playing";
   const boundary = safeBoundary(snapshot.header.logicBoundary);
+  const gameplayBoundary = snapshot.header.outcome.kind === HYBRID_CC_V1_OUTCOME.unfinished
+    ? boundary
+    : safeBoundary(snapshot.header.outcome.logicBoundary);
   const gameplayPresentationSample = snapshot.header.outcome.kind === HYBRID_CC_V1_OUTCOME.unfinished
     ? presentationSample
-    : safeBoundary(snapshot.header.outcome.logicBoundary) * 2;
+    : gameplayBoundary * 2;
   const endPosition = terminal ? gridPosition(snapshot.header.outcome.position) : null;
   const run = status === "completed"
     ? buildCompletedRunState(
@@ -227,7 +239,10 @@ export function projectHybridCcV1Session(
         replayAvailable,
       )
     : status === "failed"
-      ? buildFailedRunState(0, failureCause(snapshot), endPosition, replayAvailable)
+      ? {
+          ...buildFailedRunState(0, failureCause(snapshot), endPosition, replayAvailable),
+          continuesAfterResult: true,
+        }
       : buildLiveRunState(0, false);
 
   const playerTrack = player
@@ -251,13 +266,14 @@ export function projectHybridCcV1Session(
     : null;
   const terminalDeathTile = hybridCcV1TerminalDeathTile(snapshot.header.outcome.lossCause);
   const chipFailed = engineLoss && !terminalMotionActive;
+  const chipPushing = !engineLoss && hybridCcV1ChipPushing(snapshot, presentationSample);
   const playerTile = chipFailed ? terminalDeathTile : MS_TILE.Chip;
   const chipRender = player || playerTrack || engineLoss ? {
     pos: mapPosition(playerPosition, nativeLevel.width),
     z: playerPosition.z,
     dir: hybridCcV1Direction(playerDirection),
     moving: terminalMotionActive || !engineLoss ? playerMotion.moving : 0,
-    pushing: false,
+    pushing: chipPushing,
     hidden: false,
     failed: chipFailed,
     endGameAnimationTileId: chipFailed ? terminalDeathTile : null,
@@ -272,7 +288,7 @@ export function projectHybridCcV1Session(
         }
       : {
           kind: "creature" as const,
-          tileId: playerTile,
+          tileId: chipPushing ? MS_TILE.Pushing_Chip : playerTile,
           dir: hybridCcV1Direction(playerDirection),
           moving: playerMotion.moving,
           frame: playerMotion.frame,
@@ -297,7 +313,7 @@ export function projectHybridCcV1Session(
         tick: gameplayPresentationSample,
         currentTime: gameplayPresentationSample,
         timeOffset: 0,
-        secondsPlayed: Math.floor(boundary / 10),
+        secondsPlayed: Math.floor(gameplayBoundary / 10),
         timelimit: nativeLevel.timeLimitSeconds * 20,
         chipsNeeded: inventory.chipsNeeded,
         statusFlags,
@@ -305,7 +321,7 @@ export function projectHybridCcV1Session(
         lastMove: inputName(lastInput),
         stepping: 0,
         initRandomSlideDir: "north",
-        replayCursor: boundary,
+        replayCursor: gameplayBoundary,
         randomState: {
           main: {
             initial: String(snapshot.header.randomSeed),
@@ -344,7 +360,11 @@ export function projectHybridCcV1Session(
       cells,
       currentZ: 0,
       visibleLayers: [{ z: 0, cells }],
-      tileOverlays: [],
+      tileOverlays: projectHybridCcV1WallReveals(
+        wallReveals,
+        presentationSample,
+        nativeLevel.width,
+      ),
       render: {
         chip: chipRender,
         actors: nonPlayers.map((actor) => (
