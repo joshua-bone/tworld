@@ -11,12 +11,13 @@ state and scheduling remain authoritative in the WebAssembly engine.
 merge, pull request, ABI version, and SHA-256 digest of both shipped artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.6, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.7, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
 PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
-shared by direct pushes and side slaps, and PR48's independent destination
-timing plus actor-specific rejected facing. The browser refuses an ABI,
-snapshot, or exact ruleset mismatch.
+shared by direct pushes and side slaps, PR48's independent destination timing
+plus actor-specific rejected facing, and M4 PR51's completion-boundary force
+override renewal and staged dependent-push admission. The browser refuses an
+ABI, snapshot, or exact ruleset mismatch.
 
 M3 PR46 corrects classic DAT composition for a dirt block layered over a real
 blue wall: it is one recessed `becomes_wall` departure, not a block occupying
@@ -42,6 +43,11 @@ an immediate DAT-to-native conversion correction.
   pushable-actor transaction. A side slap moves Chip along the accepted primary
   direction and the pushed actor along the secondary direction atomically; it
   does not put Chip in the pushing pose.
+- A pushed actor commits its own departure before the player is admitted into
+  the vacated cell. If that departure changes the terrain beneath it, the
+  player's follow-up is tested against the changed terrain. The player can
+  therefore remain stationary and visibly pushing while the pushed actor
+  completes its movement.
 - Block-moving audio is a loop derived from an active `pushableActor` movement
   track. It lasts for that pushed actor's complete N+1 or N+2 interval and ends
   at its completion; a later autonomous ice/force interval does not inherit it.
@@ -61,10 +67,11 @@ sound is projected only when the event actor is Chip.
 `HybridCcV1RealWasmAcceptance.test.ts` exercises the actual shipped artifact,
 including immediate occupancy, N+1-to-N+1 and N+1-to-N+2 track adjacency,
 monotonic coordinates under duplicate host samples, every directional force
-override input phase, steady held/released pushing, full-interval block
-pushing, atomic paired-input side slaps, rejected facing after an earlier
-completed move, teleport timing, lethal contact, post-death simulation, wall
-reveal, and classic DAT thief conversion.
+override input phase, the multi-tile Tunnel Clearance lateral force corridor,
+steady held/released pushing, full-interval block pushing, the Oasis count-one
+blocked-follow and count-two admitted-follow cases, atomic paired-input side
+slaps, rejected facing after an earlier completed move, teleport timing, lethal
+contact, post-death simulation, wall reveal, and classic DAT thief conversion.
 
 The bounded local gate is:
 

@@ -95,6 +95,8 @@ interface ElementFixture {
   readonly direction?: number;
   readonly rule?: number;
   readonly channel?: string;
+  readonly count?: number;
+  readonly countIsUnlimited?: boolean;
 }
 
 interface CellFixture {
@@ -143,8 +145,8 @@ function writeElement(writer: ByteWriter, fixture: ElementFixture = { id: 0 }): 
   writer.u8(channel.length);
   for (let index = 0; index < 4; index += 1) writer.u8(channel[index] ?? 0);
 
-  writer.u32(0); // count
-  writer.u8(0); // finite quantity
+  writer.u32(fixture.count ?? 0);
+  writer.u8(fixture.countIsUnlimited ? 1 : 0);
   writer.u32(0xffff_ffff); // no text
   writer.u32(0); // no exit time limit
 }
@@ -494,6 +496,106 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
     }
   });
 
+  it("keeps Tunnel Clearance lateral force overrides N+1 across every force tile", async () => {
+    const module = await loadModule();
+    const northForce: ElementFixture = {
+      id: ELEMENT.forceFloor,
+      direction: DIRECTION.north,
+      rule: RULE.fromCenter,
+    };
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-Tunnel-Clearance",
+      nativeRectangle("Tunnel Clearance lateral force corridor", 6, 2, [
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: northForce, actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { terrain: northForce },
+        { terrain: northForce },
+        { terrain: northForce },
+        {},
+        {},
+      ]),
+    );
+    let session = harness.session;
+    const snapshotsByBoundary = new Map<bigint, ReturnType<typeof harness.engine.snapshot>>();
+    const presentationTicks: number[] = [];
+    const presentedX: number[] = [];
+
+    try {
+      for (let hostSample = 0; hostSample < 28; hostSample += 1) {
+        session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.east);
+        const snapshot = harness.engine.snapshot();
+        if (hostSample % 4 === 0) {
+          snapshotsByBoundary.set(snapshot.header.logicBoundary, snapshot);
+        }
+        if (hostSample >= 4) {
+          const chip = session.frame.render?.chip;
+          if (!chip) throw new Error("Tunnel Clearance fixture lost Chip");
+          presentationTicks.push(session.frame.snapshot.tick);
+          presentedX.push((chip.pos % 6) * 8 - chip.moving);
+        }
+      }
+
+      expect(snapshotsByBoundary.get(1n)?.actors.find(({ kind }) => (
+        kind === ELEMENT.player
+      ))).toMatchObject({
+        logicalPosition: { x: 0, y: 1, z: 0 },
+        hasMovement: false,
+      });
+
+      for (const startBoundary of [2n, 3n, 4n, 5n]) {
+        const originX = Number(startBoundary - 2n);
+        const snapshot = snapshotsByBoundary.get(startBoundary);
+        const chip = snapshot?.actors.find(({ kind }) => kind === ELEMENT.player);
+        expect(chip).toMatchObject({
+          logicalPosition: { x: originX + 1, y: 1, z: 0 },
+          idleReason: IDLE_REASON.inProgress,
+          movement: {
+            origin: { x: originX, y: 1, z: 0 },
+            destination: { x: originX + 1, y: 1, z: 0 },
+            direction: DIRECTION.east,
+            startBoundary,
+            completionBoundary: startBoundary + 1n,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+            movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.boosted,
+          },
+        });
+        expect(snapshot?.events.some(({ kind, actorKind }) => (
+          kind === HYBRID_CC_V1_EVENT.moveRejected && actorKind === ELEMENT.player
+        ))).toBe(false);
+      }
+
+      const ordinary = snapshotsByBoundary.get(6n);
+      expect(ordinary?.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 5, y: 1, z: 0 },
+        idleReason: IDLE_REASON.inProgress,
+        movement: {
+          origin: { x: 4, y: 1, z: 0 },
+          destination: { x: 5, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 6n,
+          completionBoundary: 8n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+        },
+      });
+
+      const twentyHertzX = presentedX.filter((_, index) => (
+        index === 0 || presentationTicks[index] !== presentationTicks[index - 1]
+      ));
+      expect(twentyHertzX).toEqual([0, 4, 8, 12, 16, 20, 24, 28, 32, 34, 36, 38]);
+      expect(twentyHertzX.slice(1).every((x, index) => x > twentyHertzX[index]!)).toBe(true);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
   it("keeps a real held wall contact facing and pushing until release", async () => {
     const module = await loadModule();
     const harness = await startRealSession(
@@ -670,6 +772,148 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       expect(harness.engine.invariantStatus()).toBe(0);
     } finally {
       await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("moves the Oasis block before rechecking the newly raised wall under it", async () => {
+    const module = await loadModule();
+    const wallStone: ElementFixture = {
+      id: ELEMENT.steppingStone,
+      color: COLOR.brown,
+      rule: RULE.becomesWall,
+      count: 1,
+    };
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-Oasis",
+      nativeLine("Oasis count-one staged push", [
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { terrain: wallStone, actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.east } },
+        {},
+      ]),
+    );
+    let session = harness.session;
+    let boundaryOne: ReturnType<typeof harness.engine.snapshot> | undefined;
+
+    try {
+      for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+        session = await harness.adapter.advanceSession(
+          session,
+          hostSample === 0 ? HYBRIDCC_V1_INPUT.east : HYBRIDCC_V1_INPUT.none,
+        );
+        if (hostSample === 0) boundaryOne = harness.engine.snapshot();
+        const chip = session.frame.render?.chip;
+        expect(chip).toMatchObject({
+          pos: 0,
+          moving: 0,
+          pushing: true,
+          visual: { tileId: MS_TILE.Pushing_Chip },
+        });
+        expect(
+          session.frame.snapshot.soundEffects & (1 << LYNX_SOUND.BlockMoving),
+        ).not.toBe(0);
+      }
+
+      const started = harness.engine.snapshot();
+      const chip = started.actors.find(({ kind }) => kind === ELEMENT.player);
+      const block = started.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+      expect(started.header.logicBoundary).toBe(2n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 0, y: 0, z: 0 },
+        direction: DIRECTION.east,
+        hasMovement: false,
+      });
+      expect(block).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        movement: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          startBoundary: 1n,
+          completionBoundary: 3n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.pushableActor,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.pushed,
+        },
+      });
+      expect(started.cells[1]?.terrain).toMatchObject({
+        id: ELEMENT.wall,
+        color: COLOR.brown,
+      });
+      expect(started.cells.map(({ occupant }) => occupant)).toEqual([
+        chip?.id,
+        null,
+        block?.id,
+      ]);
+      expect(started.presentation.playerPush).toMatchObject({
+        moving: true,
+        blockActorId: block?.id,
+        startBoundary: 1n,
+        completionBoundary: 3n,
+      });
+      expect(boundaryOne?.events.filter(({ kind, interaction }) => (
+        kind === EVENT.interaction && interaction === INTERACTION.push
+      ))).toHaveLength(1);
+      expect(boundaryOne?.events.filter(({ kind, actorKind }) => (
+        kind === HYBRID_CC_V1_EVENT.moveRejected && actorKind === ELEMENT.player
+      ))).toHaveLength(1);
+
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+      expect(harness.engine.snapshot().presentation.playerPush).toBeNull();
+      expect(session.frame.render?.chip).toMatchObject({
+        pos: 0,
+        moving: 0,
+        pushing: false,
+      });
+      expect(
+        session.frame.snapshot.soundEffects & (1 << LYNX_SOUND.BlockMoving),
+      ).toBe(0);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("lets Chip follow an Oasis block while a count-two stone remains open", async () => {
+    const module = await loadModule();
+    const engine = createHybridCcV1Engine(module, nativeLine("Oasis count-two staged push", [
+      { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+      {
+        terrain: {
+          id: ELEMENT.steppingStone,
+          color: COLOR.brown,
+          rule: RULE.becomesWall,
+          count: 2,
+        },
+        actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.east },
+      },
+      {},
+    ]), 7);
+
+    try {
+      engine.logicStep(HYBRIDCC_V1_INPUT.east);
+      const snapshot = engine.snapshot();
+      const chip = snapshot.actors.find(({ kind }) => kind === ELEMENT.player);
+      const block = snapshot.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 1, y: 0, z: 0 },
+        hasMovement: true,
+      });
+      expect(block).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        hasMovement: true,
+      });
+      expect(snapshot.cells[1]?.terrain).toMatchObject({
+        id: ELEMENT.steppingStone,
+        rule: RULE.becomesWall,
+        count: 1,
+      });
+      expect(snapshot.cells.map(({ occupant }) => occupant)).toEqual([
+        null,
+        chip?.id,
+        block?.id,
+      ]);
+      expect(engine.invariantStatus()).toBe(0);
+    } finally {
+      engine.dispose();
     }
   });
 
