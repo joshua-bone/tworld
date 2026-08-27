@@ -154,9 +154,9 @@ describe("HybridCC v1 WebAssembly bridge", () => {
     const engine = createHybridCcV1Engine(module, level, 17);
     const initial = engine.snapshot();
     expect(initial.header).toMatchObject({
-      recordVersion: 1,
-      abiVersion: 1,
-      ruleset: { major: 1, minor: 0, tweak: 3 },
+      recordVersion: 2,
+      abiVersion: 2,
+      ruleset: { major: 1, minor: 0, tweak: 4 },
       width: 2,
       height: 1,
       depth: 1,
@@ -168,7 +168,7 @@ describe("HybridCC v1 WebAssembly bridge", () => {
         id: 0x1_0000_0000n,
         kind: 51,
         direction: 1,
-        committedPosition: { x: 0, y: 0, z: 0 },
+        logicalPosition: { x: 0, y: 0, z: 0 },
       }),
     ]);
 
@@ -186,7 +186,7 @@ describe("HybridCC v1 WebAssembly bridge", () => {
       },
     });
     expect(moving.presentation).toMatchObject({
-      recordVersion: 1,
+      recordVersion: 2,
       samplesPerSecond: 20,
       playerMotion: { presentationSampleCount: 4 },
     });
@@ -216,7 +216,7 @@ describe("HybridCC v1 WebAssembly bridge", () => {
 
     expect(replay.encoded.slice(0, 4)).toEqual(Uint8Array.from([0x48, 0x43, 0x52, 0x31]));
     expect(replay.header).toMatchObject({
-      ruleset: { major: 1, minor: 0, tweak: 3 },
+      ruleset: { major: 1, minor: 0, tweak: 4 },
       randomSeed: 17,
       finalBoundary: 3n,
       checkpointMode: 1,

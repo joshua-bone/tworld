@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   HYBRID_CC_V1_DIRECTION,
   HYBRID_CC_V1_ELEMENT,
-  HYBRID_CC_V1_EVENT,
-  HYBRID_CC_V1_INTERACTION,
   HYBRID_CC_V1_MOVEMENT_CLASS,
   HYBRID_CC_V1_MOVEMENT_OWNER,
 } from "./engineFacts";
@@ -12,7 +10,7 @@ import {
   hybridCcV1PresentedMotion,
   hybridCcV1TerminalCameraTrack,
 } from "./presentationProjection";
-import { testElement, testEvent, testMotionTrack, testSnapshot } from "./testFacts";
+import { testMotionTrack, testPlayerPush, testSnapshot } from "./testFacts";
 
 describe("Hybrid v1 motion presentation", () => {
   it("publishes the four descending Lynx phases for an ordinary move", () => {
@@ -94,43 +92,35 @@ describe("Hybrid v1 motion presentation", () => {
     expect(hybridCcV1TerminalCameraTrack(fast, 3)).toMatchObject({ active: true, moving: 4 });
   });
 
-  it("shows a rejected player attempt for exactly its first 20 Hz presentation sample", () => {
+  it("keeps a rejected player attempt visible while its durable push state exists", () => {
     const snapshot = testSnapshot({
-      events: [testEvent({
-        kind: HYBRID_CC_V1_EVENT.moveRejected,
-        actorKind: HYBRID_CC_V1_ELEMENT.player,
-        logicBoundary: 3n,
-      })],
+      presentation: {
+        ...testSnapshot().presentation,
+        playerPush: testPlayerPush({ startBoundary: 3n, completionBoundary: 3n }),
+      },
     });
 
-    expect(hybridCcV1ChipPushing(snapshot, 6)).toBe(true);
-    expect(hybridCcV1ChipPushing(snapshot, 7)).toBe(false);
+    expect(hybridCcV1ChipPushing(snapshot)).toBe(true);
+    expect(hybridCcV1ChipPushing(snapshot)).toBe(true);
   });
 
-  it("shows the same one-sample pose for an accepted active player block push", () => {
+  it("keeps an accepted block push visible through its complete movement interval", () => {
     const snapshot = testSnapshot({
-      events: [testEvent({
-        kind: HYBRID_CC_V1_EVENT.interaction,
-        interaction: HYBRID_CC_V1_INTERACTION.push,
-        actorKind: HYBRID_CC_V1_ELEMENT.player,
-        logicBoundary: 3n,
-        subject: testElement({ id: HYBRID_CC_V1_ELEMENT.dirtBlock }),
-      })],
+      presentation: {
+        ...testSnapshot().presentation,
+        playerPush: testPlayerPush({
+          blockActorId: 2n,
+          moving: true,
+          startBoundary: 3n,
+          completionBoundary: 5n,
+        }),
+      },
     });
 
-    expect(hybridCcV1ChipPushing(snapshot, 6)).toBe(true);
-    expect(hybridCcV1ChipPushing(snapshot, 7)).toBe(false);
+    expect(hybridCcV1ChipPushing(snapshot)).toBe(true);
   });
 
-  it("does not turn a non-player rejection into Chip's pushing pose", () => {
-    const snapshot = testSnapshot({
-      events: [testEvent({
-        kind: HYBRID_CC_V1_EVENT.moveRejected,
-        actorKind: HYBRID_CC_V1_ELEMENT.dirtBlock,
-        logicBoundary: 3n,
-      })],
-    });
-
-    expect(hybridCcV1ChipPushing(snapshot, 6)).toBe(false);
+  it("does not infer a player push from unrelated event history", () => {
+    expect(hybridCcV1ChipPushing(testSnapshot())).toBe(false);
   });
 });

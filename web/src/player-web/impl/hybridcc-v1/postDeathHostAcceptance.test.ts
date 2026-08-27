@@ -154,7 +154,7 @@ function snapshotAt(boundary: number): HybridCcV1Snapshot {
     actors: [testActor({
       id: 2n,
       kind: HYBRID_CC_V1_ELEMENT.blob,
-      committedPosition: monsterMotion.destination,
+      logicalPosition: monsterMotion.destination,
       hasMovement: true,
       movement: {
         origin: monsterMotion.origin,
@@ -186,12 +186,13 @@ function snapshotAt(boundary: number): HybridCcV1Snapshot {
           })]
         : [],
     presentation: {
-      recordVersion: 1,
+      recordVersion: 2,
       samplesPerSecond: 20,
       playerMotion: null,
       terminalMotion: boundary === 1
         ? testMotionTrack({ presentationSampleCount: 2, completionBoundary: 2n })
         : null,
+      playerPush: null,
       activeHint: null,
     },
   });

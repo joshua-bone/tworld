@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MS_TILE } from "@ruleset-ms/api/tiles";
 import createHybridCcV1Module from "./engine/hybridcc_v1_wasm.js";
 import {
   HYBRID_CC_V1_EVENT,
@@ -24,10 +25,12 @@ const ELEMENT = {
   ice: 10,
   forceFloor: 11,
   teleport: 13,
+  trap: 14,
   thief: 18,
   key: 29,
   flippers: 32,
   dirtBlock: 38,
+  ball: 46,
   player: 51,
 } as const;
 
@@ -54,6 +57,7 @@ const RULE = {
   permanentlyInvisible: 5,
   fromCenter: 6,
   cannotOverride: 12,
+  startsHolding: 16,
   stealTools: 23,
 } as const;
 
@@ -217,6 +221,38 @@ async function loadModule() {
   return createHybridCcV1Module({ locateFile: () => wasmUrl });
 }
 
+async function startRealSession(
+  module: Awaited<ReturnType<typeof loadModule>>,
+  seriesFile: string,
+  encodedLevel: Uint8Array,
+) {
+  const nativeLevel = inspectHybridCcV1NativeLevel(module, encodedLevel);
+  const convertedLevel = {
+    status: 0,
+    entryOrdinal: 0,
+    requiredChips: 0,
+    diagnosticCount: 0,
+    nativeLevel,
+  } as const;
+  const registry = new HybridCcV1LevelRegistry();
+  registry.register(seriesFile, [convertedLevel]);
+  let engine: ReturnType<typeof createHybridCcV1Engine> | undefined;
+  const adapter = new HybridCcV1GameEngineAdapter(registry, {
+    create: (level, seed) => {
+      engine = createHybridCcV1Engine(module, level.nativeLevel, seed);
+      return engine;
+    },
+  });
+  const session = await adapter.startSession({
+    seriesFile,
+    levelNumber: nativeLevel.number,
+    ruleset: "Hybrid" as const,
+    randomSeed: 7,
+  });
+  if (!engine) throw new Error("Hybrid v1 adapter did not create its real engine");
+  return { adapter, engine, session };
+}
+
 interface ForceOverrideFixture {
   readonly name: string;
   readonly input: number;
@@ -331,6 +367,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       const chip = snapshot.actors.find(({ kind }) => kind === ELEMENT.player);
 
       expect(chip).toMatchObject({
+        logicalPosition: { x: 1, y: 0, z: 0 },
         hasMovement: true,
         movement: {
           origin: { x: 0, y: 0, z: 0 },
@@ -347,9 +384,254 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       expect([2, 3].map((sample) => (
         hybridCcV1PresentedMotion(snapshot.presentation.playerMotion, sample).moving
       ))).toEqual([8, 4]);
+      expect(snapshot.cells[0]?.occupant).toBeNull();
+      expect(snapshot.cells[1]?.occupant).toBe(chip?.id);
       expect(engine.invariantStatus()).toBe(0);
     } finally {
       engine.dispose();
+    }
+  });
+
+  it("joins consecutive N+1 force-floor moves without a host-side idle sample", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-fast-fast",
+      nativeLine("real-Wasm fast-to-fast force floor", [
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+          actor: { id: ELEMENT.player, direction: DIRECTION.east },
+        },
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+        },
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+        },
+        {},
+      ]),
+    );
+    let session = harness.session;
+    const ticks: number[] = [];
+    const fixedX: number[] = [];
+    let boundaryOne: ReturnType<typeof harness.engine.snapshot> | undefined;
+    let boundaryTwo: ReturnType<typeof harness.engine.snapshot> | undefined;
+
+    try {
+      for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+        session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+        const snapshot = harness.engine.snapshot();
+        if (hostSample === 0) boundaryOne = snapshot;
+        if (hostSample === 4) boundaryTwo = snapshot;
+        const chip = session.frame.render?.chip;
+        if (!chip) throw new Error("Hybrid v1 fast-to-fast fixture lost Chip");
+        ticks.push(session.frame.snapshot.tick);
+        fixedX.push((chip.pos % 4) * 8 - chip.moving);
+      }
+
+      const firstMove = boundaryOne?.actors.find(({ kind }) => kind === ELEMENT.player);
+      const secondMove = boundaryTwo?.actors.find(({ kind }) => kind === ELEMENT.player);
+      expect(firstMove).toMatchObject({
+        logicalPosition: { x: 1, y: 0, z: 0 },
+        movement: {
+          origin: { x: 0, y: 0, z: 0 },
+          destination: { x: 1, y: 0, z: 0 },
+          startBoundary: 1n,
+          completionBoundary: 2n,
+        },
+      });
+      expect(boundaryOne?.cells.map(({ occupant }) => occupant)).toEqual([
+        null,
+        firstMove?.id,
+        null,
+        null,
+      ]);
+      expect(secondMove).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        movement: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          startBoundary: 2n,
+          completionBoundary: 3n,
+        },
+      });
+      expect(boundaryTwo?.cells.map(({ occupant }) => occupant)).toEqual([
+        null,
+        null,
+        secondMove?.id,
+        null,
+      ]);
+      expect(ticks).toEqual([2, 2, 3, 3, 4, 4, 5, 5]);
+      expect(fixedX).toEqual([0, 0, 4, 4, 8, 8, 12, 12]);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("keeps a real held wall contact facing and pushing until release", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-held-wall",
+      nativeLine("real-Wasm held wall contact", [
+        { actor: { id: ELEMENT.player, direction: DIRECTION.north } },
+        { terrain: { id: ELEMENT.wall } },
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+        session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.east);
+        expect(session.frame.render?.chip).toMatchObject({
+          pushing: true,
+          visual: { tileId: MS_TILE.Pushing_Chip },
+        });
+      }
+      const held = harness.engine.snapshot();
+      expect(held.header.logicBoundary).toBe(2n);
+      expect(held.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 0, y: 0, z: 0 },
+        direction: DIRECTION.east,
+        hasMovement: false,
+      });
+      expect(held.presentation.playerPush).toMatchObject({
+        direction: DIRECTION.east,
+        origin: { x: 0, y: 0, z: 0 },
+        contact: { x: 1, y: 0, z: 0 },
+        blockActorId: null,
+        moving: false,
+        startBoundary: 2n,
+        completionBoundary: 2n,
+      });
+
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+      expect(harness.engine.snapshot().presentation.playerPush).toBeNull();
+      expect(session.frame.render?.chip).toMatchObject({
+        pushing: false,
+        visual: { tileId: MS_TILE.Chip },
+      });
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("keeps a real accepted dirt-block push visible for its whole N+2 interval", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-active-push",
+      nativeLine("real-Wasm active dirt-block push", [
+        { actor: { id: ELEMENT.player, direction: DIRECTION.north } },
+        { actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.east } },
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+        session = await harness.adapter.advanceSession(
+          session,
+          hostSample === 0 ? HYBRIDCC_V1_INPUT.east : HYBRIDCC_V1_INPUT.none,
+        );
+        expect(session.frame.render?.chip).toMatchObject({
+          pushing: true,
+          visual: { tileId: MS_TILE.Pushing_Chip },
+        });
+        if (hostSample === 0) {
+          const started = harness.engine.snapshot();
+          const chip = started.actors.find(({ kind }) => kind === ELEMENT.player);
+          const block = started.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+          expect(started.cells.map(({ occupant }) => occupant)).toEqual([
+            null,
+            chip?.id,
+            block?.id,
+          ]);
+          expect(chip).toMatchObject({ logicalPosition: { x: 1, y: 0, z: 0 } });
+          expect(block).toMatchObject({ logicalPosition: { x: 2, y: 0, z: 0 } });
+          expect(started.presentation.playerPush).toMatchObject({
+            direction: DIRECTION.east,
+            origin: { x: 0, y: 0, z: 0 },
+            contact: { x: 1, y: 0, z: 0 },
+            blockActorId: block?.id,
+            moving: true,
+            startBoundary: 1n,
+            completionBoundary: 3n,
+          });
+        }
+      }
+
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+      expect(harness.engine.snapshot()).toMatchObject({
+        header: { logicBoundary: 3n },
+        presentation: { playerPush: null },
+      });
+      expect(session.frame.render?.chip).toMatchObject({
+        pushing: false,
+        visual: { tileId: MS_TILE.Chip },
+      });
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("presents lethal player contact as terminal motion, never as a rejected push", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-lethal-contact",
+      nativeLine("real-Wasm lethal contact presentation", [
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        {
+          terrain: {
+            id: ELEMENT.trap,
+            color: 1,
+            rule: RULE.startsHolding,
+            channel: "LETH",
+          },
+          actor: { id: ELEMENT.ball, direction: DIRECTION.west },
+        },
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.east);
+      const dead = harness.engine.snapshot();
+      const ball = dead.actors.find(({ kind }) => kind === ELEMENT.ball);
+      expect(dead.header.outcome).toMatchObject({ kind: OUTCOME.loss, logicBoundary: 1n });
+      expect(dead.actors.some(({ kind }) => kind === ELEMENT.player)).toBe(false);
+      expect(ball).toMatchObject({ logicalPosition: { x: 1, y: 0, z: 0 } });
+      expect(dead.cells.map(({ occupant }) => occupant)).toEqual([null, ball?.id]);
+      expect(dead.presentation).toMatchObject({
+        playerPush: null,
+        terminalMotion: {
+          origin: { x: 0, y: 0, z: 0 },
+          destination: { x: 1, y: 0, z: 0 },
+          startBoundary: 1n,
+          completionBoundary: 3n,
+        },
+      });
+      expect(session.frame.render?.chip?.pushing).toBe(false);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
     }
   });
 
@@ -727,7 +1009,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
 
       expect(snapshot.header.logicBoundary).toBe(3n);
       expect(chip).toMatchObject({
-        committedPosition: { x: 1, y: 0, z: 0 },
+        logicalPosition: { x: 5, y: 0, z: 0 },
         hasMovement: true,
         movement: {
           origin: { x: 1, y: 0, z: 0 },
@@ -825,7 +1107,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       });
       expect(arrivedBlock).toMatchObject({
         id: initialBlock?.id,
-        committedPosition: { x: 1, y: 0, z: 0 },
+        logicalPosition: { x: 1, y: 0, z: 0 },
         alive: true,
         hasMovement: false,
       });
@@ -858,7 +1140,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       ));
 
       expect(chip).toMatchObject({
-        committedPosition: { x: 0, y: 0, z: 0 },
+        logicalPosition: { x: 0, y: 0, z: 0 },
         hasMovement: false,
       });
       expect(snapshot.cells[1]?.terrain).toMatchObject({
@@ -903,7 +1185,12 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       const inventoryKinds = crossed.inventory.map(({ identity }) => identity.kind);
 
       expect(crossed.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
-        committedPosition: { x: 3, y: 0, z: 0 },
+        logicalPosition: { x: 4, y: 0, z: 0 },
+        hasMovement: true,
+        movement: {
+          origin: { x: 3, y: 0, z: 0 },
+          destination: { x: 4, y: 0, z: 0 },
+        },
       });
       expect(inventoryKinds).toContain(ELEMENT.key);
       expect(inventoryKinds).not.toContain(ELEMENT.flippers);

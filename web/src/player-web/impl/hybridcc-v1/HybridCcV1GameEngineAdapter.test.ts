@@ -17,7 +17,15 @@ import {
   HybridCcV1GameEngineAdapter,
   HybridCcV1LevelRegistry,
 } from "./HybridCcV1GameEngineAdapter";
-import { testActor, testCell, testElement, testEvent, testMotionTrack, testSnapshot } from "./testFacts";
+import {
+  testActor,
+  testCell,
+  testElement,
+  testEvent,
+  testMotionTrack,
+  testPlayerPush,
+  testSnapshot,
+} from "./testFacts";
 import type {
   HybridCcV1ConvertedLevel,
   HybridCcV1Engine,
@@ -57,7 +65,7 @@ function snapshot(
   overrides: Partial<HybridCcV1Snapshot> = {},
 ): HybridCcV1Snapshot {
   const player = testActor({
-    committedPosition: { x: boundary === 0 ? 0 : 1, y: 0, z: 0 },
+    logicalPosition: { x: boundary === 0 ? 0 : 1, y: 0, z: 0 },
     hasMovement: boundary > 0,
     movement: {
       origin: { x: 0, y: 0, z: 0 },
@@ -80,13 +88,17 @@ function snapshot(
       logicBoundary: BigInt(boundary),
       stateHash: BigInt(boundary + 1),
     },
-    cells: [testCell(), testCell()],
+    cells: [
+      testCell({ occupant: boundary === 0 ? player.id : null }),
+      testCell({ occupant: boundary > 0 ? player.id : null }),
+    ],
     actors: [player],
     presentation: {
-      recordVersion: 1,
+      recordVersion: 2,
       samplesPerSecond: 20,
       playerMotion: boundary > 0 ? testMotionTrack() : null,
       terminalMotion: null,
+      playerPush: null,
       activeHint: null,
     },
   });
@@ -95,19 +107,24 @@ function snapshot(
 
 function wideStationarySnapshot(boundary: number, x: number): HybridCcV1Snapshot {
   const base = snapshot(boundary);
+  const player = testActor({ logicalPosition: { x, y: 0, z: 0 } });
   return snapshot(boundary, {
     header: {
       ...base.header,
       width: 4,
       cellCount: 4,
     },
-    cells: Array.from({ length: 4 }, () => testCell()),
-    actors: [testActor({ committedPosition: { x, y: 0, z: 0 } })],
+    cells: Array.from(
+      { length: 4 },
+      (_, index) => testCell({ occupant: index === x ? player.id : null }),
+    ),
+    actors: [player],
     presentation: {
-      recordVersion: 1,
+      recordVersion: 2,
       samplesPerSecond: 20,
       playerMotion: null,
       terminalMotion: null,
+      playerPush: null,
       activeHint: null,
     },
   });
@@ -134,21 +151,25 @@ function wideMovingSnapshot(
     movementClass,
     discontinuous: false,
   };
+  const player = testActor({
+    logicalPosition: { x: destinationX, y: 0, z: 0 },
+    direction: HYBRID_CC_V1_DIRECTION.east,
+    hasMovement: true,
+    movement,
+  });
   return snapshot(boundary, {
     header: {
       ...base.header,
       width: 4,
       cellCount: 4,
     },
-    cells: Array.from({ length: 4 }, () => testCell()),
-    actors: [testActor({
-      committedPosition: { x: originX, y: 0, z: 0 },
-      direction: HYBRID_CC_V1_DIRECTION.east,
-      hasMovement: true,
-      movement,
-    })],
+    cells: Array.from(
+      { length: 4 },
+      (_, index) => testCell({ occupant: index === destinationX ? player.id : null }),
+    ),
+    actors: [player],
     presentation: {
-      recordVersion: 1,
+      recordVersion: 2,
       samplesPerSecond: 20,
       playerMotion: testMotionTrack({
         ...movement,
@@ -157,6 +178,7 @@ function wideMovingSnapshot(
         presentationSampleCount: (completionBoundary - startBoundary) * 2,
       }),
       terminalMotion: null,
+      playerPush: null,
       activeHint: null,
     },
   });
@@ -308,35 +330,54 @@ describe("HybridCcV1GameEngineAdapter", () => {
     },
   );
 
-  it("keeps a rejected-move pushing pose for exactly one 20 Hz display sample", async () => {
-    const rejected = snapshot(1, {
-      actors: [testActor({ committedPosition: { x: 0, y: 0, z: 0 } })],
+  it("keeps a held rejected-move pushing pose steady until release", async () => {
+    const rejected = (boundary: number) => snapshot(boundary, {
+      actors: [testActor({
+        logicalPosition: { x: 0, y: 0, z: 0 },
+        direction: HYBRID_CC_V1_DIRECTION.east,
+      })],
       events: [testEvent({
         kind: HYBRID_CC_V1_EVENT.moveRejected,
         actorKind: HYBRID_CC_V1_ELEMENT.player,
-        logicBoundary: 1n,
+        logicBoundary: BigInt(boundary),
       })],
       presentation: {
-        recordVersion: 1,
+        recordVersion: 2,
         samplesPerSecond: 20,
         playerMotion: null,
         terminalMotion: null,
+        playerPush: testPlayerPush({
+          startBoundary: BigInt(boundary),
+          completionBoundary: BigInt(boundary),
+        }),
         activeHint: null,
       },
     });
-    const fake = fakeEngine([snapshot(0), rejected]);
+    const released = snapshot(3, {
+      actors: [testActor({
+        logicalPosition: { x: 0, y: 0, z: 0 },
+        direction: HYBRID_CC_V1_DIRECTION.east,
+      })],
+      presentation: {
+        ...snapshot(3).presentation,
+        playerMotion: null,
+        playerPush: null,
+      },
+    });
+    const fake = fakeEngine([snapshot(0), rejected(1), rejected(2), released]);
     const { adapter, request } = setup(fake.engine);
     let session = await adapter.startSession(request);
 
-    session = await adapter.advanceSession(session, 2);
-    expect(session.frame.render?.chip).toMatchObject({
-      pushing: true,
-      visual: { tileId: MS_TILE.Pushing_Chip },
-    });
-    session = await adapter.advanceSession(session, 2);
-    expect(session.frame.render?.chip?.pushing).toBe(true);
-    session = await adapter.advanceSession(session, 2);
-    expect(session.frame.snapshot.tick).toBe(3);
+    for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+      session = await adapter.advanceSession(session, 2);
+      expect(session.frame.render?.chip).toMatchObject({
+        pushing: true,
+        visual: { tileId: MS_TILE.Pushing_Chip },
+      });
+    }
+
+    session = await adapter.advanceSession(session, 0);
+    expect(session.frame.snapshot.tick).toBe(6);
     expect(session.frame.render?.chip).toMatchObject({
       pushing: false,
       visual: { tileId: MS_TILE.Chip },
@@ -433,13 +474,14 @@ describe("HybridCcV1GameEngineAdapter", () => {
       actors: [testActor({
         id: 2n,
         kind: HYBRID_CC_V1_ELEMENT.blob,
-        committedPosition: { x: 0, y: 0, z: 0 },
+        logicalPosition: { x: 0, y: 0, z: 0 },
       })],
       presentation: {
-        recordVersion: 1,
+        recordVersion: 2,
         samplesPerSecond: 20,
         playerMotion: null,
         terminalMotion: testMotionTrack({ presentationSampleCount: 2, completionBoundary: 2n }),
+        playerPush: null,
         activeHint: null,
       },
     });
@@ -448,7 +490,7 @@ describe("HybridCcV1GameEngineAdapter", () => {
       actors: [testActor({
         id: 2n,
         kind: HYBRID_CC_V1_ELEMENT.blob,
-        committedPosition: { x: 1, y: 0, z: 0 },
+        logicalPosition: { x: 1, y: 0, z: 0 },
         hasMovement: true,
         movement: {
           origin: { x: 0, y: 0, z: 0 },
@@ -463,10 +505,11 @@ describe("HybridCcV1GameEngineAdapter", () => {
         },
       })],
       presentation: {
-        recordVersion: 1,
+        recordVersion: 2,
         samplesPerSecond: 20,
         playerMotion: null,
         terminalMotion: testMotionTrack({ presentationSampleCount: 2, completionBoundary: 2n }),
+        playerPush: null,
         activeHint: null,
       },
     });
@@ -505,7 +548,7 @@ describe("HybridCcV1GameEngineAdapter", () => {
         actors: [testActor({
           id: 2n,
           kind: HYBRID_CC_V1_ELEMENT.dirtBlock,
-          committedPosition: { x: blockMoving ? 0 : 1, y: 0, z: 0 },
+          logicalPosition: { x: blockMoving ? 0 : 1, y: 0, z: 0 },
           hasMovement: blockMoving,
           movement: {
             origin: { x: 0, y: 0, z: 0 },
@@ -520,10 +563,11 @@ describe("HybridCcV1GameEngineAdapter", () => {
           },
         })],
         presentation: {
-          recordVersion: 1,
+          recordVersion: 2,
           samplesPerSecond: 20,
           playerMotion: null,
           terminalMotion: null,
+          playerPush: null,
           activeHint: null,
         },
       });
@@ -581,10 +625,11 @@ describe("HybridCcV1GameEngineAdapter", () => {
         },
         actors: [],
         presentation: {
-          recordVersion: 1,
+          recordVersion: 2,
           samplesPerSecond: 20,
           playerMotion: null,
           terminalMotion: testMotionTrack({ presentationSampleCount: 4 }),
+          playerPush: null,
           activeHint: null,
         },
       });
@@ -655,17 +700,18 @@ describe("HybridCcV1GameEngineAdapter", () => {
     const terminal = snapshot(2, {
       header: { ...snapshot(2).header, outcome: terminalOutcome },
       presentation: {
-        recordVersion: 1,
+        recordVersion: 2,
         samplesPerSecond: 20,
         playerMotion: null,
         terminalMotion: null,
+        playerPush: null,
         activeHint: null,
       },
     });
     const fake = fakeEngine([snapshot(0), unfinished, terminal]);
     const replay: HybridCcV1Replay = {
       header: {
-        ruleset: { major: 1, minor: 0, tweak: 3 },
+        ruleset: { major: 1, minor: 0, tweak: 4 },
         levelContentHash: new Uint8Array(32),
         randomSeed: 99,
         finalBoundary: 2n,

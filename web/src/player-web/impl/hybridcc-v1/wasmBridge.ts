@@ -1,7 +1,7 @@
 export const HYBRIDCC_V1_ABI = {
-  version: 1,
-  snapshotRecordVersion: 1,
-  ruleset: { major: 1, minor: 0, tweak: 3 },
+  version: 2,
+  snapshotRecordVersion: 2,
+  ruleset: { major: 1, minor: 0, tweak: 4 },
   logicStepsPerSecond: 10,
   presentationSamplesPerSecond: 20,
 } as const;
@@ -35,7 +35,8 @@ export const HYBRIDCC_V1_RECORD_SIZES = {
   cell: 788,
   signal: 44,
   event: 268,
-  presentation: 180,
+  playerPush: 56,
+  presentation: 240,
   runtime: 64,
   stepResult: 72,
   snapshotHeader: 136,
@@ -374,7 +375,8 @@ export interface HybridCcV1PlayerMomentum {
 export interface HybridCcV1Actor {
   id: bigint;
   kind: number;
-  committedPosition: HybridCcV1Position;
+  /** Current logical cell, including throughout an unfinished movement. */
+  logicalPosition: HybridCcV1Position;
   direction: number;
   color: number;
   speed: number;
@@ -410,7 +412,6 @@ export interface HybridCcV1Cell {
   pickup: HybridCcV1Element;
   sides: HybridCcV1Element[];
   occupant: bigint | null;
-  reservation: bigint | null;
   terrainSignal: HybridCcV1LayerSignal;
   deviceSignal: HybridCcV1LayerSignal;
   pickupSignal: HybridCcV1LayerSignal;
@@ -460,11 +461,22 @@ export interface HybridCcV1ActiveHint {
   textIndex: number;
 }
 
+export interface HybridCcV1PlayerPush {
+  direction: number;
+  origin: HybridCcV1Position;
+  contact: HybridCcV1Position;
+  blockActorId: bigint | null;
+  moving: boolean;
+  startBoundary: bigint;
+  completionBoundary: bigint;
+}
+
 export interface HybridCcV1Presentation {
   recordVersion: number;
   samplesPerSecond: number;
   playerMotion: HybridCcV1MotionTrack | null;
   terminalMotion: HybridCcV1MotionTrack | null;
+  playerPush: HybridCcV1PlayerPush | null;
   activeHint: HybridCcV1ActiveHint | null;
 }
 
@@ -850,7 +862,7 @@ function decodeActor(view: DataView, offset: number): HybridCcV1Actor {
   return {
     id: view.getBigUint64(offset, true),
     kind: view.getUint32(offset + 8, true),
-    committedPosition: decodePosition(view, offset + 12),
+    logicalPosition: decodePosition(view, offset + 12),
     direction: view.getUint32(offset + 24, true),
     color: view.getUint32(offset + 28, true),
     speed: view.getUint32(offset + 32, true),
@@ -895,6 +907,10 @@ function decodeCell(view: DataView, offset: number): HybridCcV1Cell {
   if (sideCount > MAXIMUM_SIDES_PER_CELL) {
     throw new Error(`HybridCC cell record declares ${sideCount} side elements.`);
   }
+  const compatibilityReservation = pointerValue(view.getBigUint64(offset + 672, true));
+  if (compatibilityReservation !== null) {
+    throw new Error("HybridCC ABI-2 cell published a nonempty compatibility reservation.");
+  }
   return {
     terrain: decodeElement(view, offset),
     device: decodeElement(view, offset + 60),
@@ -904,7 +920,6 @@ function decodeCell(view: DataView, offset: number): HybridCcV1Cell {
       (_, index) => decodeElement(view, offset + 180 + index * 60),
     ),
     occupant: pointerValue(view.getBigUint64(offset + 664, true)),
-    reservation: pointerValue(view.getBigUint64(offset + 672, true)),
     terrainSignal: decodeLayerSignal(view, offset + 680),
     deviceSignal: decodeLayerSignal(view, offset + 712),
     pickupSignal: decodeLayerSignal(view, offset + 744),
@@ -960,10 +975,21 @@ function decodePresentation(view: DataView, offset: number): HybridCcV1Presentat
     samplesPerSecond: view.getUint32(offset + 4, true),
     playerMotion: bool32(view, offset + 8) ? decodeMotionTrack(view, offset + 12) : null,
     terminalMotion: bool32(view, offset + 84) ? decodeMotionTrack(view, offset + 88) : null,
-    activeHint: bool32(view, offset + 160)
+    playerPush: bool32(view, offset + 160)
       ? {
-          position: decodePosition(view, offset + 164),
-          textIndex: view.getUint32(offset + 176, true),
+          direction: view.getUint32(offset + 164, true),
+          origin: decodePosition(view, offset + 168),
+          contact: decodePosition(view, offset + 180),
+          blockActorId: pointerValue(view.getBigUint64(offset + 192, true)),
+          moving: bool32(view, offset + 200),
+          startBoundary: view.getBigUint64(offset + 204, true),
+          completionBoundary: view.getBigUint64(offset + 212, true),
+        }
+      : null,
+    activeHint: bool32(view, offset + 220)
+      ? {
+          position: decodePosition(view, offset + 224),
+          textIndex: view.getUint32(offset + 236, true),
         }
       : null,
   };
