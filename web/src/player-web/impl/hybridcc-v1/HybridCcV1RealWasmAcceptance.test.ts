@@ -27,6 +27,7 @@ const ELEMENT = {
   forceFloor: 11,
   teleport: 13,
   trap: 14,
+  steppingStone: 15,
   thief: 18,
   key: 29,
   flippers: 32,
@@ -55,6 +56,7 @@ const IDLE_REASON = {
 } as const;
 
 const RULE = {
+  becomesWall: 2,
   permanentlyInvisible: 5,
   fromCenter: 6,
   cannotOverride: 12,
@@ -189,15 +191,14 @@ function nativeLine(title: string, cells: readonly CellFixture[]): Uint8Array {
   return nativeRectangle(title, cells.length, 1, cells);
 }
 
-function classicDatThiefLevel(): Uint8Array {
+function classicDatLevel(
+  topPrefix: readonly number[],
+  bottomPrefix: readonly number[] = [],
+): Uint8Array {
   const top = new Uint8Array(32 * 32);
   const bottom = new Uint8Array(32 * 32);
-  top.set([
-    111, // east-facing Chip
-    101, // red key
-    104, // flippers
-    33, // classic thief
-  ]);
+  top.set(topPrefix);
+  bottom.set(bottomPrefix);
 
   const record = new ByteWriter();
   record.u16(1); // level number
@@ -216,6 +217,15 @@ function classicDatThiefLevel(): Uint8Array {
   dat.u16(record.bytes.length);
   dat.bytes.push(...record.bytes);
   return Uint8Array.from(dat.bytes);
+}
+
+function classicDatThiefLevel(): Uint8Array {
+  return classicDatLevel([
+    111, // east-facing Chip
+    101, // red key
+    104, // flippers
+    33, // classic thief
+  ]);
 }
 
 async function loadModule() {
@@ -1351,6 +1361,42 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       });
       expect(inventoryKinds).toContain(ELEMENT.key);
       expect(inventoryKinds).not.toContain(ELEMENT.flippers);
+      expect(engine.invariantStatus()).toBe(0);
+    } finally {
+      engine.dispose();
+    }
+  });
+
+  it("imports a DAT block over a real blue wall as one recessed departure", async () => {
+    const module = await loadModule();
+    const conversion = convertHybridCcV1Dat(
+      module,
+      classicDatLevel(
+        [111, 10], // east-facing Chip, ordinary dirt block
+        [0, 31], // floor, BLUE_WALL_REAL
+      ),
+    );
+    const converted = conversion.entries[0];
+
+    expect(conversion).toMatchObject({ fileStatus: 0, diagnostics: [] });
+    expect(converted).toMatchObject({ status: 0, entryOrdinal: 1 });
+    if (!converted || converted.status !== 0) {
+      throw new Error("DAT block-over-blue-wall fixture did not convert");
+    }
+
+    const engine = createHybridCcV1Engine(module, converted.nativeLevel, 7);
+    try {
+      const cell = engine.snapshot().cells[1];
+      expect(cell?.terrain).toMatchObject({
+        id: ELEMENT.steppingStone,
+        rule: RULE.becomesWall,
+        count: 1,
+      });
+      expect(cell?.occupant).not.toBeNull();
+      expect(engine.snapshot().actors.find(({ id }) => id === cell?.occupant)).toMatchObject({
+        kind: ELEMENT.dirtBlock,
+        logicalPosition: { x: 1, y: 0, z: 0 },
+      });
       expect(engine.invariantStatus()).toBe(0);
     } finally {
       engine.dispose();

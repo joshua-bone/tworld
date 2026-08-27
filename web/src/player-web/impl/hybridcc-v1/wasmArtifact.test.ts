@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import manifest from "./engine/engine-manifest.json";
 import createHybridCcV1Module from "./engine/hybridcc_v1_wasm.js";
 
-const EXPECTED_SOURCE_COMMIT = "f2883a2ee10c767fd8b7cc730ce072fd959c8383";
+const EXPECTED_SOURCE_COMMIT = "cdf532da0353d0816f3c5abb1e6c8428a5070508";
 const EXPECTED_JS_SHA256 = "c70eb34985d4eda9f49a5d2ae6487e7d33006be5cba81f5d14084771124bb02a";
-const EXPECTED_WASM_SHA256 = "e904e5b0237cf7f75fce32036fb5faa0e6fb929012d45573693d33f93cfe394f";
+const EXPECTED_WASM_SHA256 = "2ea645437f4ba4471173719c30fc96bcb9e27f800e568c5a0717cbb9afdc3bfd";
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
@@ -21,8 +21,8 @@ describe("pinned HybridCC v1 WebAssembly artifact", () => {
       product: "HybridCC v1",
       abiVersion: 2,
       sourceCommit: EXPECTED_SOURCE_COMMIT,
-      sourceMergeCommit: "3d6a1d27904ad824a2943b8749488d310ddca400",
-      sourcePullRequest: "https://github.com/joshua-bone/HybridCC2026/pull/47",
+      sourceMergeCommit: "aeab4562a5dc4e8ea22d931d6826504dcf93a360",
+      sourcePullRequest: "https://github.com/joshua-bone/HybridCC2026/pull/49",
       artifacts: {
         "hybridcc_v1_wasm.js": `sha256:${EXPECTED_JS_SHA256}`,
         "hybridcc_v1_wasm.wasm": `sha256:${EXPECTED_WASM_SHA256}`,

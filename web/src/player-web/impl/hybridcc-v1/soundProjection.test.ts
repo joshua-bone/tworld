@@ -80,19 +80,39 @@ describe("Hybrid v1 one-shot sound projection", () => {
     expect(sounds & bit(LYNX_SOUND.ButtonPushed)).not.toBe(0);
   });
 
-  it("uses causal move rejection and teleport ownership", () => {
+  it("uses causal player move rejection", () => {
     const sounds = projectHybridCcV1OneShotSounds(testSnapshot({
-      events: [
-        testEvent({ kind: HYBRID_CC_V1_EVENT.moveRejected }),
-        testEvent({
-          sequence: 1,
-          kind: HYBRID_CC_V1_EVENT.moveStarted,
-          owner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
-        }),
-      ],
+      events: [testEvent({ kind: HYBRID_CC_V1_EVENT.moveRejected })],
     }));
     expect(sounds & bit(LYNX_SOUND.CantMove)).not.toBe(0);
-    expect(sounds & bit(LYNX_SOUND.Teleporting)).not.toBe(0);
+  });
+
+  it("plays either causal teleport fact only for the player", () => {
+    for (const actorKind of [
+      HYBRID_CC_V1_ELEMENT.player,
+      HYBRID_CC_V1_ELEMENT.dirtBlock,
+      HYBRID_CC_V1_ELEMENT.ball,
+    ]) {
+      for (const event of [
+        testEvent({
+          kind: HYBRID_CC_V1_EVENT.moveStarted,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
+          actorKind,
+        }),
+        testEvent({
+          kind: HYBRID_CC_V1_EVENT.interaction,
+          interaction: HYBRID_CC_V1_INTERACTION.teleport,
+          actorKind,
+        }),
+      ]) {
+        const sounds = projectHybridCcV1OneShotSounds(testSnapshot({ events: [event] }));
+        if (actorKind === HYBRID_CC_V1_ELEMENT.player) {
+          expect(sounds & bit(LYNX_SOUND.Teleporting)).not.toBe(0);
+        } else {
+          expect(sounds & bit(LYNX_SOUND.Teleporting)).toBe(0);
+        }
+      }
+    }
   });
 
   it("plays block movement only for a causal active player push", () => {

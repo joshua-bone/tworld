@@ -17,6 +17,11 @@ PR44's HCR1 replay-version correction, and PR47's generic pushable-actor
 transaction shared by direct pushes and side slaps. The browser refuses an ABI,
 snapshot, or exact ruleset mismatch.
 
+M3 PR46 corrects classic DAT composition for a dirt block layered over a real
+blue wall: it is one recessed `becomes_wall` departure, not a block occupying
+an already-solid trick wall. The ruleset and ABI are unchanged because this is
+an immediate DAT-to-native conversion correction.
+
 ## Timing and state boundary
 
 - The engine advances exactly once per 100 ms `logic_step` (10 Hz).
@@ -44,6 +49,8 @@ snapshot, or exact ruleset mismatch.
 The adapter projects those facts into Tile World's shared rendering model. It
 does not infer collisions from sprites, retain a second occupancy map, invent
 movement cooldowns, or reconstruct held push state from one-shot events.
+Teleport events remain available for every actor, while the classic teleport
+sound is projected only when the event actor is Chip.
 
 ## Acceptance coverage
 
