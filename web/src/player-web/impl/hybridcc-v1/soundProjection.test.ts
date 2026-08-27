@@ -115,8 +115,8 @@ describe("Hybrid v1 one-shot sound projection", () => {
     }
   });
 
-  it("plays block movement only for a causal active player push", () => {
-    const activePush = projectHybridCcV1OneShotSounds(testSnapshot({
+  it("does not reduce a block push interval to a one-shot event", () => {
+    const pushEvent = projectHybridCcV1OneShotSounds(testSnapshot({
       events: [testEvent({
         kind: HYBRID_CC_V1_EVENT.interaction,
         interaction: HYBRID_CC_V1_INTERACTION.push,
@@ -124,17 +124,7 @@ describe("Hybrid v1 one-shot sound projection", () => {
         subject: testElement({ id: HYBRID_CC_V1_ELEMENT.dirtBlock }),
       })],
     }));
-    const nonPlayerPush = projectHybridCcV1OneShotSounds(testSnapshot({
-      events: [testEvent({
-        kind: HYBRID_CC_V1_EVENT.interaction,
-        interaction: HYBRID_CC_V1_INTERACTION.push,
-        actorKind: HYBRID_CC_V1_ELEMENT.dirtBlock,
-        subject: testElement({ id: HYBRID_CC_V1_ELEMENT.dirtBlock }),
-      })],
-    }));
-
-    expect(activePush & bit(LYNX_SOUND.BlockMoving)).not.toBe(0);
-    expect(nonPlayerPush & bit(LYNX_SOUND.BlockMoving)).toBe(0);
+    expect(pushEvent & bit(LYNX_SOUND.BlockMoving)).toBe(0);
   });
 
   it("plays item collection for every unlimited green-key tile removal", () => {
@@ -207,8 +197,34 @@ describe("Hybrid v1 loop sound projection", () => {
   });
 
   it("does not infer push audio from an autonomously moving block track", () => {
-    const track = testMotionTrack({ actorId: 2n, actorKind: HYBRID_CC_V1_ELEMENT.dirtBlock });
+    const track = testMotionTrack({
+      actorId: 2n,
+      actorKind: HYBRID_CC_V1_ELEMENT.dirtBlock,
+      owner: HYBRID_CC_V1_MOVEMENT_OWNER.ice,
+    });
     expect(projectHybridCcV1LoopSounds(testSnapshot(), [track], 2) & bit(LYNX_SOUND.BlockMoving)).toBe(0);
     expect(projectHybridCcV1LoopSounds(testSnapshot(), [track], 6)).toBe(0);
+  });
+
+  it.each([
+    { name: "ordinary N+2", completionBoundary: 3n, samples: 4, lastActive: 5, firstInactive: 6 },
+    { name: "fast N+1", completionBoundary: 2n, samples: 2, lastActive: 3, firstInactive: 4 },
+  ])("keeps block movement on for the complete $name pushed interval", ({
+    completionBoundary,
+    samples,
+    lastActive,
+    firstInactive,
+  }) => {
+    const track = testMotionTrack({
+      actorId: 2n,
+      actorKind: HYBRID_CC_V1_ELEMENT.dirtBlock,
+      completionBoundary,
+      presentationSampleCount: samples,
+      owner: HYBRID_CC_V1_MOVEMENT_OWNER.pushableActor,
+    });
+
+    expect(projectHybridCcV1LoopSounds(testSnapshot(), [track], 2) & bit(LYNX_SOUND.BlockMoving)).not.toBe(0);
+    expect(projectHybridCcV1LoopSounds(testSnapshot(), [track], lastActive) & bit(LYNX_SOUND.BlockMoving)).not.toBe(0);
+    expect(projectHybridCcV1LoopSounds(testSnapshot(), [track], firstInactive) & bit(LYNX_SOUND.BlockMoving)).toBe(0);
   });
 });
