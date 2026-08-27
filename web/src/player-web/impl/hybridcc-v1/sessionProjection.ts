@@ -151,6 +151,21 @@ function actorTrack(actor: HybridCcV1Actor): HybridCcV1MotionTrack | null {
   return hybridCcV1ActorMotionTrack(actor);
 }
 
+function playerVisualDirection(
+  player: HybridCcV1Actor | null,
+  cameraTrack: HybridCcV1MotionTrack | null,
+  snapshot: HybridCcV1Snapshot,
+  engineLoss: boolean,
+): number {
+  if (engineLoss) return cameraTrack?.direction ?? player?.direction ?? 0;
+
+  // A completed motion track remains published so the camera can finish its
+  // interpolation. It must not override the player's newer live facing.
+  return snapshot.presentation.playerPush?.direction
+    ?? (player?.hasMovement ? player.movement.direction : player?.direction)
+    ?? 0;
+}
+
 function renderPosition(
   actor: HybridCcV1Actor,
   motion: ReturnType<typeof hybridCcV1PresentedMotion>,
@@ -254,8 +269,8 @@ export function projectHybridCcV1Session(
   const playerPosition = playerMotion.position
     ?? player?.logicalPosition
     ?? snapshot.header.outcome.position;
-  const playerDirection = playerTrack?.direction ?? player?.direction ?? 0;
   const engineLoss = snapshot.header.outcome.kind === HYBRID_CC_V1_OUTCOME.loss;
+  const playerDirection = playerVisualDirection(player, playerTrack, snapshot, engineLoss);
   const terminalMotionActive = engineLoss && playerMotion.active;
   const terminalDeathFrame = engineLoss && !terminalMotionActive
     ? hybridCcV1TerminalDeathFrame(

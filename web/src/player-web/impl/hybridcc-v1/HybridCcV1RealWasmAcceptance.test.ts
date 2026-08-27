@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { LYNX_SOUND } from "@ruleset-lynx/impl/engine";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import createHybridCcV1Module from "./engine/hybridcc_v1_wasm.js";
 import {
   HYBRID_CC_V1_EVENT,
@@ -76,6 +77,7 @@ const EVENT = {
 } as const;
 
 const INTERACTION = {
+  push: 8,
   reveal: 9,
 } as const;
 
@@ -530,6 +532,69 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
     }
   });
 
+  it("faces a rejected direction after an earlier completed move", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-rejected-facing-after-motion",
+      nativeRectangle("real-Wasm rejected facing after motion", 2, 2, [
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        {},
+        {},
+        { terrain: { id: ELEMENT.wall } },
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      for (let hostSample = 0; hostSample < 12; hostSample += 1) {
+        session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.east);
+      }
+
+      const completed = harness.engine.snapshot();
+      expect(completed.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 1, y: 0, z: 0 },
+        direction: DIRECTION.east,
+        hasMovement: false,
+      });
+      expect(completed.presentation.playerMotion).toMatchObject({
+        direction: DIRECTION.east,
+        destination: { x: 1, y: 0, z: 0 },
+      });
+
+      for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+        session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.south);
+      }
+
+      const rejected = harness.engine.snapshot();
+      expect(rejected.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 1, y: 0, z: 0 },
+        direction: DIRECTION.south,
+        hasMovement: false,
+      });
+      expect(rejected.presentation).toMatchObject({
+        playerMotion: { direction: DIRECTION.east },
+        playerPush: {
+          direction: DIRECTION.south,
+          origin: { x: 1, y: 0, z: 0 },
+          contact: { x: 1, y: 1, z: 0 },
+          moving: false,
+        },
+      });
+      expect(session.frame.render?.chip).toMatchObject({
+        dir: MS_DIRECTION.south,
+        pushing: true,
+        visual: {
+          tileId: MS_TILE.Pushing_Chip,
+          dir: MS_DIRECTION.south,
+        },
+      });
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
   it("keeps a real accepted dirt-block push visible for its whole N+2 interval", async () => {
     const module = await loadModule();
     const harness = await startRealSession(
@@ -584,6 +649,98 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       expect(session.frame.render?.chip).toMatchObject({
         pushing: false,
         visual: { tileId: MS_TILE.Chip },
+      });
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("projects an accepted paired-input side slap as two atomic N+2 moves", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-side-slap",
+      nativeRectangle("real-Wasm paired-input side slap", 3, 3, [
+        {},
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        {},
+        {},
+        { actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.north } },
+        {},
+        {},
+        {},
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.eastSouth);
+      const started = harness.engine.snapshot();
+      const chip = started.actors.find(({ kind }) => kind === ELEMENT.player);
+      const block = started.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+
+      expect(started.header.logicBoundary).toBe(1n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        movement: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          direction: DIRECTION.east,
+          slapDirection: DIRECTION.south,
+          startBoundary: 1n,
+          completionBoundary: 3n,
+        },
+      });
+      expect(block).toMatchObject({
+        logicalPosition: { x: 1, y: 2, z: 0 },
+        movement: {
+          origin: { x: 1, y: 1, z: 0 },
+          destination: { x: 1, y: 2, z: 0 },
+          direction: DIRECTION.south,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.pushableActor,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.pushed,
+          startBoundary: 1n,
+          completionBoundary: 3n,
+        },
+      });
+      expect(started.cells[1]?.occupant).toBeNull();
+      expect(started.cells[2]?.occupant).toBe(chip?.id);
+      expect(started.cells[4]?.occupant).toBeNull();
+      expect(started.cells[7]?.occupant).toBe(block?.id);
+      expect(started.presentation.playerPush).toBeNull();
+      expect(started.events.filter(({ kind, interaction, actorKind, subject }) => (
+        kind === EVENT.interaction
+        && interaction === INTERACTION.push
+        && actorKind === ELEMENT.player
+        && subject.id === ELEMENT.dirtBlock
+      ))).toHaveLength(1);
+      expect(session.frame.render?.chip).toMatchObject({
+        pushing: false,
+        visual: { tileId: MS_TILE.Chip },
+      });
+      expect(session.frame.render?.actors).toEqual([
+        expect.objectContaining({ id: MS_TILE.Block, moving: 8 }),
+      ]);
+      expect(
+        session.frame.snapshot.soundEffects & (1 << LYNX_SOUND.BlockMoving),
+      ).not.toBe(0);
+
+      for (let hostSample = 1; hostSample < 8; hostSample += 1) {
+        session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+      }
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+
+      const completed = harness.engine.snapshot();
+      expect(completed.header.logicBoundary).toBe(3n);
+      expect(completed.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        hasMovement: false,
+      });
+      expect(completed.actors.find(({ kind }) => kind === ELEMENT.dirtBlock)).toMatchObject({
+        logicalPosition: { x: 1, y: 2, z: 0 },
+        hasMovement: false,
       });
       expect(harness.engine.invariantStatus()).toBe(0);
     } finally {

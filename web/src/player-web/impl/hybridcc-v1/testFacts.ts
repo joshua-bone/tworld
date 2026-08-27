@@ -189,7 +189,7 @@ export function testSnapshot(overrides: Partial<HybridCcV1Snapshot> = {}): Hybri
     header: {
       recordVersion: 2,
       abiVersion: 2,
-      ruleset: { major: 1, minor: 0, tweak: 4 },
+      ruleset: { major: 1, minor: 0, tweak: 5 },
       width: 1,
       height: 1,
       depth: 1,
