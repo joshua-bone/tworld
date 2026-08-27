@@ -86,7 +86,8 @@ export function projectHybridCcV1OneShotSounds(snapshot: HybridCcV1Snapshot): nu
     }
     if (
       event.kind === HYBRID_CC_V1_EVENT.moveStarted &&
-      event.owner === HYBRID_CC_V1_MOVEMENT_OWNER.teleport
+      event.owner === HYBRID_CC_V1_MOVEMENT_OWNER.teleport &&
+      event.actorKind === HYBRID_CC_V1_ELEMENT.player
     ) {
       sounds |= soundBit(LYNX_SOUND.Teleporting);
     }
@@ -140,7 +141,10 @@ export function projectHybridCcV1OneShotSounds(snapshot: HybridCcV1Snapshot): nu
       ) {
         sounds |= soundBit(LYNX_SOUND.ButtonPushed);
       }
-      if (event.interaction === HYBRID_CC_V1_INTERACTION.teleport) {
+      if (
+        event.interaction === HYBRID_CC_V1_INTERACTION.teleport
+        && event.actorKind === HYBRID_CC_V1_ELEMENT.player
+      ) {
         sounds |= soundBit(LYNX_SOUND.Teleporting);
       }
       if (
