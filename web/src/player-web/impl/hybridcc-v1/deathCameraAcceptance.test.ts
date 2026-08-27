@@ -64,7 +64,7 @@ function boardSnapshot(options: {
         lossCause: HYBRID_CC_V1_LOSS.bomb,
       };
   const actors = options.playerAlive
-    ? [testActor({ committedPosition: ORIGIN, direction: HYBRID_CC_V1_DIRECTION.east })]
+    ? [testActor({ logicalPosition: ORIGIN, direction: HYBRID_CC_V1_DIRECTION.east })]
     : [];
 
   return {
@@ -82,10 +82,11 @@ function boardSnapshot(options: {
     cells: Array.from({ length: BOARD_SIZE * BOARD_SIZE }, () => testCell()),
     actors,
     presentation: {
-      recordVersion: 1,
+      recordVersion: 2,
       samplesPerSecond: 20,
       playerMotion: null,
       terminalMotion: options.terminalMotion ?? null,
+      playerPush: null,
       activeHint: null,
     },
   };

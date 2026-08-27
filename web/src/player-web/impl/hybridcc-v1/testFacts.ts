@@ -5,6 +5,7 @@ import type {
   HybridCcV1Event,
   HybridCcV1InventoryEntry,
   HybridCcV1MotionTrack,
+  HybridCcV1PlayerPush,
   HybridCcV1Snapshot,
 } from "./wasmBridge";
 import {
@@ -46,7 +47,6 @@ export function testCell(overrides: Partial<HybridCcV1Cell> = {}): HybridCcV1Cel
     pickup: testElement(),
     sides: [],
     occupant: null,
-    reservation: null,
     terrainSignal: { participates: false, color: 0, channel: TEST_CHANNEL, value: 0n, active: false },
     deviceSignal: { participates: false, color: 0, channel: TEST_CHANNEL, value: 0n, active: false },
     pickupSignal: { participates: false, color: 0, channel: TEST_CHANNEL, value: 0n, active: false },
@@ -61,7 +61,7 @@ export function testActor(overrides: Partial<HybridCcV1Actor> = {}): HybridCcV1A
   return {
     id: 1n,
     kind: HYBRID_CC_V1_ELEMENT.player,
-    committedPosition: { x: 0, y: 0, z: 0 },
+    logicalPosition: { x: 0, y: 0, z: 0 },
     direction: HYBRID_CC_V1_DIRECTION.east,
     color: 0,
     speed: 1,
@@ -121,6 +121,21 @@ export function testMotionTrack(
   };
 }
 
+export function testPlayerPush(
+  overrides: Partial<HybridCcV1PlayerPush> = {},
+): HybridCcV1PlayerPush {
+  return {
+    direction: HYBRID_CC_V1_DIRECTION.east,
+    origin: { x: 0, y: 0, z: 0 },
+    contact: { x: 1, y: 0, z: 0 },
+    blockActorId: null,
+    moving: false,
+    startBoundary: 1n,
+    completionBoundary: 1n,
+    ...overrides,
+  };
+}
+
 export function testEvent(overrides: Partial<HybridCcV1Event> = {}): HybridCcV1Event {
   return {
     sequence: 0,
@@ -172,9 +187,9 @@ export function testSnapshot(overrides: Partial<HybridCcV1Snapshot> = {}): Hybri
   };
   return {
     header: {
-      recordVersion: 1,
-      abiVersion: 1,
-      ruleset: { major: 1, minor: 0, tweak: 3 },
+      recordVersion: 2,
+      abiVersion: 2,
+      ruleset: { major: 1, minor: 0, tweak: 4 },
       width: 1,
       height: 1,
       depth: 1,
@@ -200,10 +215,11 @@ export function testSnapshot(overrides: Partial<HybridCcV1Snapshot> = {}): Hybri
     signals: [],
     events: [],
     presentation: {
-      recordVersion: 1,
+      recordVersion: 2,
       samplesPerSecond: 20,
       playerMotion: null,
       terminalMotion: null,
+      playerPush: null,
       activeHint: null,
     },
     ...overrides,

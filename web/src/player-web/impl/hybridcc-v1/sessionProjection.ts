@@ -155,7 +155,7 @@ function renderPosition(
   actor: HybridCcV1Actor,
   motion: ReturnType<typeof hybridCcV1PresentedMotion>,
 ): HybridCcV1Position {
-  return motion.position ?? actor.committedPosition;
+  return motion.position ?? actor.logicalPosition;
 }
 
 function projectActor(
@@ -214,7 +214,7 @@ export function projectHybridCcV1Session(
   const cells = snapshot.cells.map((cell, position) => (
     projectHybridCcV1Cell(cell, position, nativeLevel.width)
   ));
-  const actors = snapshot.actors.filter((actor) => actor.alive && actor.committedPosition.z === 0);
+  const actors = snapshot.actors.filter((actor) => actor.alive && actor.logicalPosition.z === 0);
   const player = actors.find((actor) => actor.kind === HYBRID_CC_V1_ELEMENT.player) ?? null;
   const nonPlayers = actors.filter((actor) => actor.kind !== HYBRID_CC_V1_ELEMENT.player);
   const terminal = exposeTerminal && snapshot.header.outcome.kind !== HYBRID_CC_V1_OUTCOME.unfinished;
@@ -252,7 +252,7 @@ export function projectHybridCcV1Session(
     ? hybridCcV1PresentedMotion(playerTrack, presentationSample)
     : hybridCcV1TerminalCameraTrack(playerTrack, presentationSample);
   const playerPosition = playerMotion.position
-    ?? player?.committedPosition
+    ?? player?.logicalPosition
     ?? snapshot.header.outcome.position;
   const playerDirection = playerTrack?.direction ?? player?.direction ?? 0;
   const engineLoss = snapshot.header.outcome.kind === HYBRID_CC_V1_OUTCOME.loss;
@@ -266,7 +266,7 @@ export function projectHybridCcV1Session(
     : null;
   const terminalDeathTile = hybridCcV1TerminalDeathTile(snapshot.header.outcome.lossCause);
   const chipFailed = engineLoss && !terminalMotionActive;
-  const chipPushing = !engineLoss && hybridCcV1ChipPushing(snapshot, presentationSample);
+  const chipPushing = !engineLoss && hybridCcV1ChipPushing(snapshot);
   const playerTile = chipFailed ? terminalDeathTile : MS_TILE.Chip;
   const chipRender = player || playerTrack || engineLoss ? {
     pos: mapPosition(playerPosition, nativeLevel.width),
@@ -299,7 +299,7 @@ export function projectHybridCcV1Session(
   const statusFlags = (hintText ? MS_STATUS_FLAG.ShowHint : 0)
     | (boundary === 0 ? MS_STATUS_FLAG.NoAnimation : 0);
   const stateHash = snapshot.header.stateHash.toString(16);
-  const chipPosition = player?.committedPosition ?? snapshot.header.outcome.position;
+  const chipPosition = player?.logicalPosition ?? snapshot.header.outcome.position;
 
   return {
     mode,
@@ -351,8 +351,8 @@ export function projectHybridCcV1Session(
           layer: 0,
           dir: String(hybridCcV1Direction(actor.direction)),
           position: {
-            ...actor.committedPosition,
-            pos: mapPosition(actor.committedPosition, nativeLevel.width),
+            ...actor.logicalPosition,
+            pos: mapPosition(actor.logicalPosition, nativeLevel.width),
           },
           state: 0,
         })),

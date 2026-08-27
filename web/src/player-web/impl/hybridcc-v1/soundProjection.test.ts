@@ -178,7 +178,7 @@ describe("Hybrid v1 loop sound projection", () => {
         testCell(),
         testCell({ terrain: testElement({ id: HYBRID_CC_V1_ELEMENT.ice }) }),
       ],
-      actors: [testActor({ committedPosition: { x: 0, y: 0, z: 0 } })],
+      actors: [testActor({ logicalPosition: { x: 0, y: 0, z: 0 } })],
       inventory: [testInventoryEntry(HYBRID_CC_V1_ELEMENT.iceSkates, HYBRID_CC_V1_COLOR.white, 1n)],
     });
     const track = testMotionTrack();
