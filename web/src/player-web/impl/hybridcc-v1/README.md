@@ -11,13 +11,17 @@ state and scheduling remain authoritative in the WebAssembly engine.
 merge, pull request, ABI version, and SHA-256 digest of both shipped artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.7, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.8, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
 PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
 shared by direct pushes and side slaps, PR48's independent destination timing
-plus actor-specific rejected facing, and M4 PR51's completion-boundary force
-override renewal and staged dependent-push admission. The browser refuses an
-ABI, snapshot, or exact ruleset mismatch.
+plus actor-specific rejected facing, M4 PR51's staged dependent-push admission,
+and M5 PR54's source-independent terrain-arrival arbitration. On completion of
+a real arrival, force terrain tries its automatic direction first. An unblocked
+automatic move remains authoritative; only a completely blocked automatic move
+can offer the player a legal same-boundary N+1 fallback. Constructing an actor
+on force terrain is not an arrival and does not create that offer. The browser
+refuses an ABI, snapshot, or exact ruleset mismatch.
 
 M3 PR46 corrects classic DAT composition for a dirt block layered over a real
 blue wall: it is one recessed `becomes_wall` departure, not a block occupying
@@ -66,8 +70,9 @@ sound is projected only when the event actor is Chip.
 
 `HybridCcV1RealWasmAcceptance.test.ts` exercises the actual shipped artifact,
 including immediate occupancy, N+1-to-N+1 and N+1-to-N+2 track adjacency,
-monotonic coordinates under duplicate host samples, every directional force
-override input phase, the multi-tile Tunnel Clearance lateral force corridor,
+monotonic coordinates under duplicate host samples, every directional blocked-
+force fallback input phase, automatic-force priority over conflicting input,
+the first arrival and full multi-tile Tunnel Clearance lateral force corridor,
 steady held/released pushing, full-interval block pushing, the Oasis count-one
 blocked-follow and count-two admitted-follow cases, atomic paired-input side
 slaps, rejected facing after an earlier completed move, teleport timing, lethal

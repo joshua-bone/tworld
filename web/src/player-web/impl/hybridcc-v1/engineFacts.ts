@@ -3,9 +3,9 @@
  * the ABI by name; ordinal casts between Hybrid and Tile World are forbidden.
  *
  * Provenance: HybridCC2026 PR #43, PR #44's HCR1 version correction, and
- * PR #47's generic pushable-actor transaction, and PR #52's force-override
- * renewal plus staged dependent-push admission,
- * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.7.
+ * PR #47's generic pushable-actor transaction, PR #52's staged dependent-push
+ * admission, and PR #54's force-first arrival fallback,
+ * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.8.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,
@@ -172,7 +172,7 @@ export const HYBRID_CC_V1_MOVEMENT_OWNER = {
   none: 0,
   playerInput: 1,
   playerForceOverride: 2,
-  // Reserved ABI owner 3. Ruleset 1.0.7 never emits it; ordinary continuation
+  // Reserved ABI owner 3. Ruleset 1.0.8 never emits it; ordinary continuation
   // is playerInput and readiness comes from accepted movement completion.
   playerExitCredit: 3,
   actorAi: 4,
