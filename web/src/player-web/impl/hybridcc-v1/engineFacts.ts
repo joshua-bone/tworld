@@ -4,7 +4,7 @@
  *
  * Provenance: HybridCC2026 PR #43, PR #44's HCR1 version correction, and
  * PR #47's generic pushable-actor transaction,
- * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.5.
+ * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.6.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,
@@ -171,7 +171,7 @@ export const HYBRID_CC_V1_MOVEMENT_OWNER = {
   none: 0,
   playerInput: 1,
   playerForceOverride: 2,
-  // Reserved ABI owner 3. Ruleset 1.0.5 never emits it; ordinary continuation
+  // Reserved ABI owner 3. Ruleset 1.0.6 never emits it; ordinary continuation
   // is playerInput and readiness comes from accepted movement completion.
   playerExitCredit: 3,
   actorAi: 4,

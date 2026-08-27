@@ -32,6 +32,7 @@ const ELEMENT = {
   key: 29,
   flippers: 32,
   dirtBlock: 38,
+  teeth: 45,
   ball: 46,
   player: 51,
 } as const;
@@ -624,6 +625,9 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           session,
           hostSample === 0 ? HYBRIDCC_V1_INPUT.east : HYBRIDCC_V1_INPUT.none,
         );
+        expect(
+          session.frame.snapshot.soundEffects & (1 << LYNX_SOUND.BlockMoving),
+        ).not.toBe(0);
         expect(session.frame.render?.chip).toMatchObject({
           pushing: true,
           visual: { tileId: MS_TILE.Pushing_Chip },
@@ -660,6 +664,90 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
         pushing: false,
         visual: { tileId: MS_TILE.Chip },
       });
+      expect(
+        session.frame.snapshot.soundEffects & (1 << LYNX_SOUND.BlockMoving),
+      ).toBe(0);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("uses independent N+1 block timing and ends push audio before autonomous ice", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-fast-block-push",
+      nativeLine("real-Wasm fast block push", [
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.east } },
+        { terrain: { id: ELEMENT.ice } },
+        { terrain: { id: ELEMENT.ice } },
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      for (let hostSample = 0; hostSample < 4; hostSample += 1) {
+        session = await harness.adapter.advanceSession(
+          session,
+          hostSample === 0 ? HYBRIDCC_V1_INPUT.east : HYBRIDCC_V1_INPUT.none,
+        );
+        expect(
+          session.frame.snapshot.soundEffects & (1 << LYNX_SOUND.BlockMoving),
+        ).not.toBe(0);
+      }
+
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+      const continued = harness.engine.snapshot();
+      const chip = continued.actors.find(({ kind }) => kind === ELEMENT.player);
+      const block = continued.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+      expect(continued.header.logicBoundary).toBe(2n);
+      expect(chip?.movement).toMatchObject({
+        startBoundary: 1n,
+        completionBoundary: 3n,
+      });
+      expect(block?.movement).toMatchObject({
+        origin: { x: 2, y: 0, z: 0 },
+        destination: { x: 3, y: 0, z: 0 },
+        owner: HYBRID_CC_V1_MOVEMENT_OWNER.ice,
+        startBoundary: 2n,
+        completionBoundary: 3n,
+      });
+      expect(
+        session.frame.snapshot.soundEffects & (1 << LYNX_SOUND.BlockMoving),
+      ).toBe(0);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("turns fully blocked Teeth toward their primary chase direction only", async () => {
+    const module = await loadModule();
+    const cells: CellFixture[] = Array.from({ length: 25 }, () => ({}));
+    cells[12] = { actor: { id: ELEMENT.teeth, direction: DIRECTION.north } };
+    cells[13] = { terrain: { id: ELEMENT.wall } };
+    cells[17] = { terrain: { id: ELEMENT.wall } };
+    cells[24] = { actor: { id: ELEMENT.player, direction: DIRECTION.north } };
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-Teeth-rejected-facing",
+      nativeRectangle("real-Wasm Teeth rejected facing", 5, 5, cells),
+    );
+    let session = harness.session;
+
+    try {
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+      expect(harness.engine.snapshot().actors.find(({ kind }) => kind === ELEMENT.teeth)).toMatchObject({
+        logicalPosition: { x: 2, y: 2, z: 0 },
+        direction: DIRECTION.south,
+        hasMovement: false,
+      });
+      expect(session.frame.render?.actors).toEqual([
+        expect.objectContaining({ dir: MS_DIRECTION.south }),
+      ]);
       expect(harness.engine.invariantStatus()).toBe(0);
     } finally {
       await harness.adapter.disposeSession(session);

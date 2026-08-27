@@ -11,10 +11,11 @@ state and scheduling remain authoritative in the WebAssembly engine.
 merge, pull request, ABI version, and SHA-256 digest of both shipped artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.5, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.6, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
-PR44's HCR1 replay-version correction, and PR47's generic pushable-actor
-transaction shared by direct pushes and side slaps. The browser refuses an ABI,
+PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
+shared by direct pushes and side slaps, and PR48's independent destination
+timing plus actor-specific rejected facing. The browser refuses an ABI,
 snapshot, or exact ruleset mismatch.
 
 M3 PR46 corrects classic DAT composition for a dirt block layered over a real
@@ -41,6 +42,9 @@ an immediate DAT-to-native conversion correction.
   pushable-actor transaction. A side slap moves Chip along the accepted primary
   direction and the pushed actor along the secondary direction atomically; it
   does not put Chip in the pushing pose.
+- Block-moving audio is a loop derived from an active `pushableActor` movement
+  track. It lasts for that pushed actor's complete N+1 or N+2 interval and ends
+  at its completion; a later autonomous ice/force interval does not inherit it.
 - A retained completed `playerMotion` can finish camera interpolation, but it
   cannot determine live facing. Live facing comes from `playerPush` during
   contact, the current movement while moving, and otherwise the authoritative

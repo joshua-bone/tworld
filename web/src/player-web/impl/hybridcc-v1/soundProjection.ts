@@ -147,12 +147,6 @@ export function projectHybridCcV1OneShotSounds(snapshot: HybridCcV1Snapshot): nu
       ) {
         sounds |= soundBit(LYNX_SOUND.Teleporting);
       }
-      if (
-        event.interaction === HYBRID_CC_V1_INTERACTION.push
-        && event.actorKind === HYBRID_CC_V1_ELEMENT.player
-      ) {
-        sounds |= soundBit(LYNX_SOUND.BlockMoving);
-      }
     }
   }
   return sounds;
@@ -207,6 +201,14 @@ export function projectHybridCcV1LoopSounds(
   let sounds = 0;
   for (const track of tracks) {
     if (!hybridCcV1PresentedMotion(track, presentationSample).active) continue;
+    // Lynx keeps BlockMoving set while the causally pushed block remains in
+    // motion, then clears it at that block's completion. The movement owner is
+    // the durable cause; actor kind and a one-boundary interaction pulse are
+    // deliberately not used, so future admitted pushables inherit the rule.
+    if (track.owner === HYBRID_CC_V1_MOVEMENT_OWNER.pushableActor) {
+      sounds |= soundBit(LYNX_SOUND.BlockMoving);
+      continue;
+    }
     if (track.actorKind !== HYBRID_CC_V1_ELEMENT.player) continue;
     const surface = movingSurfaceSound(snapshot, previous, track);
     if (surface !== null) sounds |= soundBit(surface);
