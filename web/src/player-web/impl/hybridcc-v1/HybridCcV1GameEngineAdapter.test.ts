@@ -236,7 +236,7 @@ describe("HybridCcV1GameEngineAdapter", () => {
     expect(fake.wasDisposed()).toBe(true);
   });
 
-  it("joins fast exit and ordinary exit-credit tracks without a stationary 20 Hz sample", async () => {
+  it("joins fast exit and ordinary player-input tracks without a stationary 20 Hz sample", async () => {
     const fastExit = wideMovingSnapshot(
       1, 0, 1, 1, 2,
       HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
@@ -244,12 +244,12 @@ describe("HybridCcV1GameEngineAdapter", () => {
     );
     const ordinaryAtStart = wideMovingSnapshot(
       2, 1, 2, 2, 4,
-      HYBRID_CC_V1_MOVEMENT_OWNER.playerExitCredit,
+      HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
       HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
     );
     const ordinaryInProgress = wideMovingSnapshot(
       3, 1, 2, 2, 4,
-      HYBRID_CC_V1_MOVEMENT_OWNER.playerExitCredit,
+      HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
       HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
     );
     const followingOrdinary = wideMovingSnapshot(
@@ -665,7 +665,7 @@ describe("HybridCcV1GameEngineAdapter", () => {
     const fake = fakeEngine([snapshot(0), unfinished, terminal]);
     const replay: HybridCcV1Replay = {
       header: {
-        ruleset: { major: 1, minor: 0, tweak: 2 },
+        ruleset: { major: 1, minor: 0, tweak: 3 },
         levelContentHash: new Uint8Array(32),
         randomSeed: 99,
         finalBoundary: 2n,

@@ -34,7 +34,7 @@ describe("Hybrid v1 motion presentation", () => {
     expect(hybridCcV1PresentedMotion(null, 3)).toEqual({ active: false, frame: 0, moving: 0, position: null });
   });
 
-  it("joins a fast terrain exit directly to an ordinary exit-credit move", () => {
+  it("joins a fast terrain exit directly to an ordinary player-input move", () => {
     const fastExit = testMotionTrack({
       origin: { x: 0, y: 0, z: 0 },
       destination: { x: 1, y: 0, z: 0 },
@@ -50,7 +50,7 @@ describe("Hybrid v1 motion presentation", () => {
       startBoundary: 2n,
       completionBoundary: 4n,
       presentationSampleCount: 4,
-      owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerExitCredit,
+      owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
       movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
     });
     const samples = [

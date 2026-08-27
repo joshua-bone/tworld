@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import createHybridCcV1Module from "./engine/hybridcc_v1_wasm.js";
 import {
+  HYBRID_CC_V1_EVENT,
   HYBRID_CC_V1_MOVEMENT_CLASS,
   HYBRID_CC_V1_MOVEMENT_OWNER,
 } from "./engineFacts";
@@ -18,6 +19,7 @@ import { hybridCcV1PresentedMotion } from "./presentationProjection";
 
 const ELEMENT = {
   floor: 2,
+  wall: 3,
   trickWall: 7,
   ice: 10,
   forceFloor: 11,
@@ -36,9 +38,16 @@ const COLOR = {
 } as const;
 
 const DIRECTION = {
+  north: 0,
   east: 1,
+  south: 2,
   west: 3,
   none: 4,
+} as const;
+
+const IDLE_REASON = {
+  inProgress: 1,
+  cooldown: 2,
 } as const;
 
 const RULE = {
@@ -131,19 +140,29 @@ function writeElement(writer: ByteWriter, fixture: ElementFixture = { id: 0 }): 
   writer.u32(0); // no exit time limit
 }
 
-function nativeLine(title: string, cells: readonly CellFixture[]): Uint8Array {
+function nativeRectangle(
+  title: string,
+  width: number,
+  height: number,
+  cells: readonly CellFixture[],
+): Uint8Array {
+  if (width <= 0 || height <= 0 || cells.length !== width * height) {
+    throw new Error(
+      `Hybrid v1 fixture ${title} has ${cells.length} cells for ${width}x${height}.`,
+    );
+  }
   const writer = new ByteWriter();
   writer.bytes.push(0x48, 0x43, 0x4c, 0x56);
   writer.u16(4);
-  writer.u32(cells.length);
-  writer.u32(1);
+  writer.u32(width);
+  writer.u32(height);
   writer.u32(1);
   writer.u32(40);
   writer.u32(0);
   writer.text(title);
-  writer.text("HybridCC PR41 WebAssembly acceptance");
+  writer.text("HybridCC real-WebAssembly acceptance");
   writer.text("");
-  writer.text("PR41");
+  writer.text("real-Wasm");
   writer.u32(0); // text table
 
   const actorOrder = cells.flatMap((cell, index) => cell.actor?.id ? [index] : []);
@@ -158,6 +177,10 @@ function nativeLine(title: string, cells: readonly CellFixture[]): Uint8Array {
     writer.u8(0); // sides
   }
   return Uint8Array.from(writer.bytes);
+}
+
+function nativeLine(title: string, cells: readonly CellFixture[]): Uint8Array {
+  return nativeRectangle(title, cells.length, 1, cells);
 }
 
 function classicDatThiefLevel(): Uint8Array {
@@ -194,7 +217,98 @@ async function loadModule() {
   return createHybridCcV1Module({ locateFile: () => wasmUrl });
 }
 
-describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
+interface ForceOverrideFixture {
+  readonly name: string;
+  readonly input: number;
+  readonly direction: number;
+  readonly overrideDestination: { readonly x: number; readonly y: number; readonly z: 0 };
+  readonly continuationDestination: { readonly x: number; readonly y: number; readonly z: 0 };
+  readonly blockedAutomaticMove: boolean;
+}
+
+const FORCE_OVERRIDE_FIXTURES: readonly ForceOverrideFixture[] = [
+  {
+    name: "left/north",
+    input: HYBRIDCC_V1_INPUT.north,
+    direction: DIRECTION.north,
+    overrideDestination: { x: 3, y: 2, z: 0 },
+    continuationDestination: { x: 3, y: 1, z: 0 },
+    blockedAutomaticMove: false,
+  },
+  {
+    name: "right/south",
+    input: HYBRIDCC_V1_INPUT.south,
+    direction: DIRECTION.south,
+    overrideDestination: { x: 3, y: 4, z: 0 },
+    continuationDestination: { x: 3, y: 5, z: 0 },
+    blockedAutomaticMove: false,
+  },
+  {
+    name: "backward/west",
+    input: HYBRIDCC_V1_INPUT.west,
+    direction: DIRECTION.west,
+    overrideDestination: { x: 2, y: 3, z: 0 },
+    continuationDestination: { x: 1, y: 3, z: 0 },
+    blockedAutomaticMove: true,
+  },
+];
+
+const FORCE_OVERRIDE_INPUT_PHASES = [0, 1, 2, 3] as const;
+
+const FORCE_OVERRIDE_PHASE_CASES = FORCE_OVERRIDE_FIXTURES.flatMap((fixture) => (
+  FORCE_OVERRIDE_INPUT_PHASES.map((inputPhase) => ({ fixture, inputPhase }))
+));
+
+function forceOverrideLevel(fixture: ForceOverrideFixture): Uint8Array {
+  const width = 7;
+  const height = 7;
+  const cells: CellFixture[] = Array.from({ length: width * height }, () => ({}));
+  const index = (x: number, y: number) => y * width + x;
+  const forceFloor: ElementFixture = {
+    id: ELEMENT.forceFloor,
+    direction: DIRECTION.east,
+    rule: RULE.fromCenter,
+  };
+
+  if (fixture.blockedAutomaticMove) {
+    cells[index(3, 3)] = {
+      terrain: forceFloor,
+      actor: { id: ELEMENT.player, direction: DIRECTION.east },
+    };
+    cells[index(4, 3)] = { terrain: { id: ELEMENT.wall } };
+  } else {
+    cells[index(2, 3)] = {
+      terrain: forceFloor,
+      actor: { id: ELEMENT.player, direction: DIRECTION.east },
+    };
+    cells[index(3, 3)] = { terrain: forceFloor };
+  }
+
+  return nativeRectangle(
+    `Hybrid v1 ${fixture.name} force override continuity`,
+    width,
+    height,
+    cells,
+  );
+}
+
+function directionalRenderCoordinate(
+  chip: { readonly pos: number; readonly moving: number },
+  width: number,
+  direction: number,
+): number {
+  const x = chip.pos % width;
+  const y = Math.floor(chip.pos / width);
+  switch (direction) {
+    case DIRECTION.north: return -(y * 8 + chip.moving);
+    case DIRECTION.east: return x * 8 - chip.moving;
+    case DIRECTION.south: return y * 8 - chip.moving;
+    case DIRECTION.west: return -(x * 8 + chip.moving);
+    default: throw new Error(`Direction ${direction} has no render axis.`);
+  }
+}
+
+describe("HybridCC v1 real-Wasm correctness acceptance", () => {
   it.each([
     ["ice", { id: ELEMENT.ice }],
     ["force floor", {
@@ -204,7 +318,7 @@ describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
     }],
   ] as const)("publishes an unbooted first entry onto %s as N+1/two samples", async (_name, terrain) => {
     const module = await loadModule();
-    const engine = createHybridCcV1Engine(module, nativeLine("PR41 fast terrain entry", [
+    const engine = createHybridCcV1Engine(module, nativeLine("real-Wasm fast terrain entry", [
       { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
       { terrain },
       {},
@@ -275,7 +389,7 @@ describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
       HYBRID_CC_V1_MOVEMENT_CLASS.sliding,
     ],
   ] as const)(
-    "keeps the fast %s exit adjacent to ordinary exit-credit presentation",
+    "keeps the fast %s exit adjacent to completion-ready ordinary presentation",
     async (
       name,
       cells,
@@ -287,7 +401,7 @@ describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
       const module = await loadModule();
       const nativeLevel = inspectHybridCcV1NativeLevel(
         module,
-        nativeLine(`PR41 ${name} continuity`, cells),
+        nativeLine(`real-Wasm ${name} continuity`, cells),
       );
       const convertedLevel = {
         status: 0,
@@ -297,7 +411,7 @@ describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
         nativeLevel,
       } as const;
       const registry = new HybridCcV1LevelRegistry();
-      registry.register("PR41-Hybrid-v1", [convertedLevel]);
+      registry.register("Hybrid-v1-real-Wasm", [convertedLevel]);
       const engines: ReturnType<typeof createHybridCcV1Engine>[] = [];
       const adapter = new HybridCcV1GameEngineAdapter(registry, {
         create: (level, seed) => {
@@ -307,7 +421,7 @@ describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
         },
       });
       const request = {
-        seriesFile: "PR41-Hybrid-v1",
+        seriesFile: "Hybrid-v1-real-Wasm",
         levelNumber: nativeLevel.number,
         ruleset: "Hybrid" as const,
         randomSeed: 7,
@@ -357,7 +471,7 @@ describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
           startBoundary: BigInt(fastBoundary + 1),
           completionBoundary: BigInt(fastBoundary + 3),
           presentationSampleCount: 4,
-          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerExitCredit,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
           movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
         });
         expect(fast?.completionBoundary).toBe(ordinary?.startBoundary);
@@ -389,9 +503,199 @@ describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
     },
   );
 
+  it.each(FORCE_OVERRIDE_PHASE_CASES)(
+    "continues a $fixture.name force override at B3 when held from 25 ms host phase $inputPhase",
+    async ({ fixture, inputPhase }) => {
+      const module = await loadModule();
+      const nativeLevel = inspectHybridCcV1NativeLevel(
+        module,
+        forceOverrideLevel(fixture),
+      );
+      const convertedLevel = {
+        status: 0,
+        entryOrdinal: 0,
+        requiredChips: 0,
+        diagnosticCount: 0,
+        nativeLevel,
+      } as const;
+      const registry = new HybridCcV1LevelRegistry();
+      registry.register("Hybrid-v1-real-Wasm-readiness", [convertedLevel]);
+      const engines: ReturnType<typeof createHybridCcV1Engine>[] = [];
+      const adapter = new HybridCcV1GameEngineAdapter(registry, {
+        create: (level, seed) => {
+          const engine = createHybridCcV1Engine(module, level.nativeLevel, seed);
+          engines.push(engine);
+          return engine;
+        },
+      });
+      const request = {
+        seriesFile: "Hybrid-v1-real-Wasm-readiness",
+        levelNumber: nativeLevel.number,
+        ruleset: "Hybrid" as const,
+        randomSeed: 7,
+      };
+      let session = await adapter.startSession(request);
+      const engine = engines[0];
+      if (!engine) throw new Error("Hybrid v1 adapter did not create its real engine");
+
+      const width = 7;
+      const overrideOrigin = { x: 3, y: 3, z: 0 };
+      const ticks: number[] = [];
+      const coordinates: number[] = [];
+      let boundaryThree: ReturnType<typeof engine.snapshot> | undefined;
+      try {
+        // B1 either carries Chip onto the second force floor or records the
+        // blocked automatic attempt that makes a backward override legal.
+        session = await adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+        expect(engine.snapshot().header.logicBoundary).toBe(1n);
+
+        // The browser receives input at 40 Hz. Start holding on each possible
+        // host phase before the B2 sample; the engine still consumes exactly
+        // one deterministic input at the 100 ms logic boundary.
+        for (const phase of [1, 2, 3] as const) {
+          const holding = inputPhase !== 0 && phase >= inputPhase;
+          session = await adapter.advanceSession(
+            session,
+            holding ? fixture.input : HYBRIDCC_V1_INPUT.none,
+          );
+        }
+
+        const capture = () => {
+          const snapshot = engine.snapshot();
+          if (snapshot.header.logicBoundary === 3n && !boundaryThree) {
+            boundaryThree = snapshot;
+          }
+          const chip = session.frame.render?.chip;
+          if (!chip) throw new Error(`Hybrid v1 ${fixture.name} fixture lost Chip`);
+          ticks.push(session.frame.snapshot.tick);
+          coordinates.push(directionalRenderCoordinate(chip, width, fixture.direction));
+        };
+
+        // Phase 0 is the B2 logic sample. Every earlier phase has remained
+        // held through this call, so all four acquisition phases converge on
+        // the same authoritative override and presentation track.
+        session = await adapter.advanceSession(session, fixture.input);
+        capture();
+        const boundaryTwo = engine.snapshot();
+        const overrideChip = boundaryTwo.actors.find(({ kind }) => kind === ELEMENT.player);
+        expect(boundaryTwo.header.logicBoundary).toBe(2n);
+        expect(overrideChip).toMatchObject({
+          idleReason: IDLE_REASON.inProgress,
+          hasMovement: true,
+          movement: {
+            origin: overrideOrigin,
+            destination: fixture.overrideDestination,
+            direction: fixture.direction,
+            startBoundary: 2n,
+            completionBoundary: 3n,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+            movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.boosted,
+          },
+          playerMomentum: {
+            exitCreditAvailable: false,
+            exitCreditEligibleBoundary: 0n,
+          },
+        });
+
+        for (let sample = 1; sample < 14; sample += 1) {
+          session = await adapter.advanceSession(session, fixture.input);
+          capture();
+        }
+
+        const continuation = boundaryThree;
+        if (!continuation) throw new Error("Hybrid v1 fixture did not reach B3");
+        const continuationChip = continuation.actors.find(({ kind }) => (
+          kind === ELEMENT.player
+        ));
+
+        // This is the regression boundary: B3 must complete the N2->N3 boost
+        // and immediately begin ordinary N3->N5 movement. A cooldown here is
+        // the visible 100 ms sideways/backward hitch.
+        expect(continuationChip).toMatchObject({
+          idleReason: IDLE_REASON.inProgress,
+          hasMovement: true,
+          movement: {
+            origin: fixture.overrideDestination,
+            destination: fixture.continuationDestination,
+            direction: fixture.direction,
+            startBoundary: 3n,
+            completionBoundary: 5n,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+            movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+          },
+          nextOrdinaryBoundary: 5n,
+          playerMomentum: {
+            exitCreditAvailable: false,
+            exitCreditEligibleBoundary: 0n,
+          },
+        });
+        expect(continuationChip?.idleReason).not.toBe(IDLE_REASON.cooldown);
+
+        const movementEvents = continuation.events.filter(({ kind, actorKind }) => (
+          actorKind === ELEMENT.player && (
+            kind === HYBRID_CC_V1_EVENT.moveCompleted
+            || kind === HYBRID_CC_V1_EVENT.moveStarted
+            || kind === HYBRID_CC_V1_EVENT.moveRejected
+          )
+        ));
+        expect(movementEvents.map(({ kind }) => kind)).toEqual([
+          HYBRID_CC_V1_EVENT.moveCompleted,
+          HYBRID_CC_V1_EVENT.moveStarted,
+        ]);
+        expect(movementEvents).toEqual([
+          expect.objectContaining({
+            kind: HYBRID_CC_V1_EVENT.moveCompleted,
+            logicBoundary: 3n,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+            movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.boosted,
+          }),
+          expect.objectContaining({
+            kind: HYBRID_CC_V1_EVENT.moveStarted,
+            logicBoundary: 3n,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+            movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+          }),
+        ]);
+        expect(continuation.events.some(({ kind }) => (
+          kind === HYBRID_CC_V1_EVENT.moveRejected
+        ))).toBe(false);
+
+        // Readiness is completion-derived. This assertion is deliberately
+        // checked after the B3 seam so an old artifact reports the observable
+        // cooldown regression at B3 rather than stopping at an internal field.
+        expect(overrideChip?.nextOrdinaryBoundary).toBe(3n);
+
+        const firstCoordinate = directionalRenderCoordinate(
+          {
+            pos: overrideOrigin.y * width + overrideOrigin.x,
+            moving: 0,
+          },
+          width,
+          fixture.direction,
+        );
+        const expectedOffsets = [0, 0, 4, 4, 8, 8, 10, 10, 12, 12, 14, 14, 16, 16];
+        expect(ticks).toEqual([4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10]);
+        expect(coordinates).toEqual(expectedOffsets.map((offset) => firstCoordinate + offset));
+
+        const twentyHertzCoordinates = coordinates.filter((_, index) => (
+          index === 0 || ticks[index] !== ticks[index - 1]
+        ));
+        expect(twentyHertzCoordinates).toEqual(
+          [0, 4, 8, 10, 12, 14, 16].map((offset) => firstCoordinate + offset),
+        );
+        expect(twentyHertzCoordinates.slice(1).every((coordinate, index) => (
+          coordinate > twentyHertzCoordinates[index]!
+        ))).toBe(true);
+        expect(engine.invariantStatus()).toBe(0);
+      } finally {
+        await adapter.disposeSession(session);
+      }
+    },
+  );
+
   it("publishes normal-speed teleport motion as an N+2 interval with four 20 Hz samples", async () => {
     const module = await loadModule();
-    const engine = createHybridCcV1Engine(module, nativeLine("PR41 teleport", [
+    const engine = createHybridCcV1Engine(module, nativeLine("real-Wasm teleport", [
       { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
       {
         terrain: {
@@ -456,7 +760,7 @@ describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
 
   it("lets a moving dirt block kill Chip, survive, and finish after the durable loss", async () => {
     const module = await loadModule();
-    const engine = createHybridCcV1Engine(module, nativeLine("PR41 dirt-block loss", [
+    const engine = createHybridCcV1Engine(module, nativeLine("real-Wasm dirt-block loss", [
       {
         terrain: {
           id: ELEMENT.forceFloor,
@@ -535,7 +839,7 @@ describe("HybridCC v1 PR41 real-Wasm correctness acceptance", () => {
 
   it("keeps a permanent invisible wall in place and emits one reveal interaction", async () => {
     const module = await loadModule();
-    const engine = createHybridCcV1Engine(module, nativeLine("PR41 reveal", [
+    const engine = createHybridCcV1Engine(module, nativeLine("real-Wasm reveal", [
       { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
       {
         terrain: {
