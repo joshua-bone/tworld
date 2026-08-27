@@ -2,8 +2,9 @@
  * Named values from HybridCC v1's public C ABI. Presentation code must cross
  * the ABI by name; ordinal casts between Hybrid and Tile World are forbidden.
  *
- * Provenance: HybridCC2026 PR #43 plus PR #44's HCR1 version correction,
- * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.4.
+ * Provenance: HybridCC2026 PR #43, PR #44's HCR1 version correction, and
+ * PR #47's generic pushable-actor transaction,
+ * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.5.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,
@@ -170,7 +171,7 @@ export const HYBRID_CC_V1_MOVEMENT_OWNER = {
   none: 0,
   playerInput: 1,
   playerForceOverride: 2,
-  // Reserved ABI owner 3. Ruleset 1.0.4 never emits it; ordinary continuation
+  // Reserved ABI owner 3. Ruleset 1.0.5 never emits it; ordinary continuation
   // is playerInput and readiness comes from accepted movement completion.
   playerExitCredit: 3,
   actorAi: 4,
@@ -179,6 +180,9 @@ export const HYBRID_CC_V1_MOVEMENT_OWNER = {
   teleport: 7,
   trap: 8,
   cloner: 9,
+  pushableActor: 10,
+  // Compatibility name for consumers written before the admission policy was
+  // separated from the generic push transaction. Numeric ABI value unchanged.
   dirtBlockPush: 10,
 } as const;
 

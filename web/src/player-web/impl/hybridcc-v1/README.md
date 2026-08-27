@@ -11,10 +11,11 @@ state and scheduling remain authoritative in the WebAssembly engine.
 merge, pull request, ABI version, and SHA-256 digest of both shipped artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.4, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.5, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
-plus PR44's correction that stamps newly compiled HCR1 replays as ruleset
-1.0.4. The browser refuses an ABI or snapshot version mismatch.
+PR44's HCR1 replay-version correction, and PR47's generic pushable-actor
+transaction shared by direct pushes and side slaps. The browser refuses an ABI,
+snapshot, or exact ruleset mismatch.
 
 ## Timing and state boundary
 
@@ -29,8 +30,16 @@ plus PR44's correction that stamps newly compiled HCR1 replays as ruleset
 - `playerMotion`, `terminalMotion`, and per-actor movement records are immutable
   interpolation facts. They do not reserve cells or change gameplay occupancy.
 - `playerPush` is durable presentation state. A rejected direction remains a
-  push while held; an accepted dirt-block push remains a push for the whole
+  push while held; an accepted direct push remains a push for the whole
   interval; release, completion, or lethal contact clears it.
+- Direct pushes and paired-input side slaps use the engine's same generic
+  pushable-actor transaction. A side slap moves Chip along the accepted primary
+  direction and the pushed actor along the secondary direction atomically; it
+  does not put Chip in the pushing pose.
+- A retained completed `playerMotion` can finish camera interpolation, but it
+  cannot determine live facing. Live facing comes from `playerPush` during
+  contact, the current movement while moving, and otherwise the authoritative
+  actor direction.
 
 The adapter projects those facts into Tile World's shared rendering model. It
 does not infer collisions from sprites, retain a second occupancy map, invent
@@ -42,8 +51,9 @@ movement cooldowns, or reconstruct held push state from one-shot events.
 including immediate occupancy, N+1-to-N+1 and N+1-to-N+2 track adjacency,
 monotonic coordinates under duplicate host samples, every directional force
 override input phase, steady held/released pushing, full-interval block
-pushing, teleport timing, lethal contact, post-death simulation, wall reveal,
-and classic DAT thief conversion.
+pushing, atomic paired-input side slaps, rejected facing after an earlier
+completed move, teleport timing, lethal contact, post-death simulation, wall
+reveal, and classic DAT thief conversion.
 
 The bounded local gate is:
 
