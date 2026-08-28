@@ -7,6 +7,7 @@ import {
 } from "@game-runtime/impl/interactiveSessionRun";
 import { MS_STATUS_FLAG, MS_TILE } from "@ruleset-ms/api/tiles";
 import { HybridCcV1ActorSerialRegistry } from "./actorSerialRegistry";
+import { hybridCcV1ClonerSourceOccupant } from "./clonerPresentation";
 import {
   HYBRID_CC_V1_ELEMENT,
   HYBRID_CC_V1_LOSS,
@@ -202,6 +203,33 @@ function projectActor(
   };
 }
 
+function projectClonerSourceOccupant(
+  actor: HybridCcV1Actor,
+  width: number,
+  presentationSample: number,
+) {
+  const occupant = hybridCcV1ClonerSourceOccupant(actor, presentationSample);
+  if (!occupant) return null;
+  const tileId = hybridCcV1ActorTile(occupant.actorKind);
+  const direction = hybridCcV1Direction(occupant.direction);
+  return {
+    id: tileId,
+    pos: mapPosition(occupant.position, width),
+    z: occupant.position.z,
+    dir: direction,
+    moving: 0,
+    frame: 0,
+    hidden: false,
+    visual: {
+      kind: "creature" as const,
+      tileId,
+      dir: direction,
+      moving: 0,
+      frame: 0,
+    },
+  };
+}
+
 function activeHintText(level: HybridCcV1ConvertedLevel, snapshot: HybridCcV1Snapshot): string | null {
   const activeHint = snapshot.presentation.activeHint;
   if (!activeHint) return null;
@@ -382,9 +410,20 @@ export function projectHybridCcV1Session(
       ),
       render: {
         chip: chipRender,
-        actors: nonPlayers.map((actor) => (
-          projectActor(actor, nativeLevel.width, presentationSample, actorSerials)
-        )),
+        actors: nonPlayers.flatMap((actor) => {
+          const sourceOccupant = projectClonerSourceOccupant(
+            actor,
+            nativeLevel.width,
+            presentationSample,
+          );
+          const movingActor = projectActor(
+            actor,
+            nativeLevel.width,
+            presentationSample,
+            actorSerials,
+          );
+          return sourceOccupant ? [sourceOccupant, movingActor] : [movingActor];
+        }),
         animations: projectHybridCcV1LifecycleAnimations(
           lifecycleAnimations,
           presentationSample,

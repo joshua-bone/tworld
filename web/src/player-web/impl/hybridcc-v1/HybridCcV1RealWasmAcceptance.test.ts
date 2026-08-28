@@ -27,8 +27,10 @@ const ELEMENT = {
   forceFloor: 11,
   teleport: 13,
   trap: 14,
+  cloner: 17,
   steppingStone: 15,
   thief: 18,
+  button: 22,
   key: 29,
   flippers: 32,
   dirtBlock: 38,
@@ -38,6 +40,7 @@ const ELEMENT = {
 } as const;
 
 const COLOR = {
+  red: 0,
   blue: 2,
   white: 5,
   brown: 12,
@@ -63,6 +66,7 @@ const RULE = {
   cannotOverride: 12,
   startsHolding: 16,
   stealTools: 23,
+  toggle: 26,
 } as const;
 
 const OUTCOME = {
@@ -101,6 +105,7 @@ interface ElementFixture {
 
 interface CellFixture {
   readonly terrain?: ElementFixture;
+  readonly device?: ElementFixture;
   readonly actor?: ElementFixture;
 }
 
@@ -182,7 +187,7 @@ function nativeRectangle(
 
   for (const cell of cells) {
     writeElement(writer, cell.terrain ?? { id: ELEMENT.floor });
-    writeElement(writer);
+    writeElement(writer, cell.device);
     writeElement(writer);
     writeElement(writer, cell.actor);
     writer.u8(0); // sides
@@ -348,6 +353,103 @@ function directionalRenderCoordinate(
 }
 
 describe("HybridCC v1 real-Wasm correctness acceptance", () => {
+  it("orders a signaled cloner before immediate Player input and keeps its source full", async () => {
+    const module = await loadModule();
+    const channel = "DSTR";
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-cloner-release-order",
+      nativeRectangle("Cloner release before Player input", 3, 2, [
+        { actor: { id: ELEMENT.player, direction: DIRECTION.south } },
+        {},
+        {},
+        {
+          device: {
+            id: ELEMENT.button,
+            color: COLOR.red,
+            rule: RULE.toggle,
+            channel,
+          },
+        },
+        {},
+        {
+          terrain: { id: ELEMENT.cloner, color: COLOR.red, channel },
+          actor: {
+            id: ELEMENT.dirtBlock,
+            color: COLOR.brown,
+            direction: DIRECTION.west,
+          },
+        },
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+        session = await harness.adapter.advanceSession(
+          session,
+          hostSample === 0 ? HYBRIDCC_V1_INPUT.south : HYBRIDCC_V1_INPUT.none,
+        );
+      }
+
+      const expectedMoving = [8, 8, 6, 6, 4, 4, 2, 2];
+      let launchBoundary: ReturnType<typeof harness.engine.snapshot> | undefined;
+      for (let hostSample = 0; hostSample < expectedMoving.length; hostSample += 1) {
+        session = await harness.adapter.advanceSession(
+          session,
+          hostSample === 0 ? HYBRIDCC_V1_INPUT.east : HYBRIDCC_V1_INPUT.none,
+        );
+        const snapshot = harness.engine.snapshot();
+        if (hostSample === 0) launchBoundary = snapshot;
+        const player = snapshot.actors.find(({ kind }) => kind === ELEMENT.player);
+        const block = snapshot.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+        expect(snapshot.header.outcome.kind).toBe(OUTCOME.unfinished);
+        expect(player).toMatchObject({
+          logicalPosition: { x: 0, y: 1, z: 0 },
+          hasMovement: false,
+        });
+        expect(block).toMatchObject({
+          logicalPosition: { x: 1, y: 1, z: 0 },
+          movement: {
+            origin: { x: 2, y: 1, z: 0 },
+            destination: { x: 1, y: 1, z: 0 },
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.cloner,
+            startBoundary: 3n,
+            completionBoundary: 5n,
+          },
+        });
+        expect(session.frame.render?.actors).toEqual([
+          expect.objectContaining({ id: MS_TILE.Block, pos: 5, moving: 0 }),
+          expect.objectContaining({
+            id: MS_TILE.Block,
+            pos: 4,
+            moving: expectedMoving[hostSample],
+          }),
+        ]);
+      }
+
+      expect(launchBoundary).toBeDefined();
+      expect(launchBoundary?.events.filter(({ kind, actorKind }) => (
+        kind === HYBRID_CC_V1_EVENT.moveRejected && actorKind === ELEMENT.player
+      ))).toHaveLength(1);
+
+      session = await harness.adapter.advanceSession(
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      const completed = harness.engine.snapshot();
+      expect(completed.header.logicBoundary).toBe(5n);
+      expect(completed.actors.filter(({ kind }) => kind === ELEMENT.dirtBlock)).toHaveLength(2);
+      expect(session.frame.render?.actors).toEqual([
+        expect.objectContaining({ id: MS_TILE.Block, pos: 4, moving: 0 }),
+        expect.objectContaining({ id: MS_TILE.Block, pos: 5, moving: 0 }),
+      ]);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
   it.each([
     ["ice", { id: ELEMENT.ice }],
     ["force floor", {
