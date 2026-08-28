@@ -1,19 +1,42 @@
 import type { SetFamily } from "@player-web/impl/modern/curatedCatalog";
 import type { BrowserReplayEntry } from "@player-web/ports/BrowserProfileStore";
 
+export function replayEntryKey(entry: BrowserReplayEntry): string {
+  return `${entry.source}:${entry.id}`;
+}
+
+function replayMatchesGameplayHash(
+  entry: BrowserReplayEntry,
+  gameplayHash: string | null,
+): boolean {
+  if (entry.source === "reference") {
+    return gameplayHash !== null && entry.gameplayHash === gameplayHash;
+  }
+  // Rows saved before gameplay-hash binding remain visible as a deliberate
+  // migration policy. Every newly saved/imported row is bound and fail-closed.
+  return entry.gameplayHash === undefined
+    || (gameplayHash !== null && entry.gameplayHash === gameplayHash);
+}
+
 export function listReplaysForSeriesLevel(
   entries: readonly BrowserReplayEntry[],
   seriesFile: string | null,
   levelNumber: number | null,
   ruleset: BrowserReplayEntry["ruleset"] | null,
+  gameplayHash: string | null = null,
 ): BrowserReplayEntry[] {
   if (!seriesFile || levelNumber === null || ruleset === null) {
     return [];
   }
 
   return entries
-    .filter((entry) => entry.seriesFile === seriesFile && entry.levelNumber === levelNumber && entry.ruleset === ruleset)
-    .sort((left, right) => right.savedAtMs - left.savedAtMs);
+    .filter((entry) => (
+      entry.seriesFile === seriesFile
+      && entry.levelNumber === levelNumber
+      && entry.ruleset === ruleset
+      && replayMatchesGameplayHash(entry, gameplayHash)
+    ))
+    .sort(compareReplayEntries);
 }
 
 export function listReplaysForCurrentLevel(
@@ -21,6 +44,7 @@ export function listReplaysForCurrentLevel(
   family: SetFamily | null,
   levelNumber: number | null,
   ruleset: BrowserReplayEntry["ruleset"] | null,
+  gameplayHash: string | null = null,
 ): BrowserReplayEntry[] {
   if (!family || levelNumber === null || ruleset === null) {
     return [];
@@ -30,9 +54,18 @@ export function listReplaysForCurrentLevel(
   return entries
     .filter(
       (entry) =>
-        familySeriesFiles.has(entry.seriesFile) && entry.levelNumber === levelNumber && entry.ruleset === ruleset,
+        familySeriesFiles.has(entry.seriesFile)
+        && entry.levelNumber === levelNumber
+        && entry.ruleset === ruleset
+        && replayMatchesGameplayHash(entry, gameplayHash),
     )
-    .sort((left, right) => right.savedAtMs - left.savedAtMs);
+    .sort(compareReplayEntries);
+}
+
+function compareReplayEntries(left: BrowserReplayEntry, right: BrowserReplayEntry): number {
+  const leftReference = left.source === "reference" ? 1 : 0;
+  const rightReference = right.source === "reference" ? 1 : 0;
+  return leftReference - rightReference || right.savedAtMs - left.savedAtMs;
 }
 
 export function describeReplayEntry(entry: BrowserReplayEntry): {
@@ -41,10 +74,12 @@ export function describeReplayEntry(entry: BrowserReplayEntry): {
   sourceLabel: string;
   summaryLabel: string;
 } {
-  const savedAtLabel = new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(entry.savedAtMs);
+  const savedAtLabel = entry.source === "reference"
+    ? "Bundled with sandbox"
+    : new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(entry.savedAtMs);
   const resultLabel =
     entry.result === "completed-clean"
       ? "Clean clear"
@@ -53,7 +88,9 @@ export function describeReplayEntry(entry: BrowserReplayEntry): {
         : entry.result === "failed"
           ? "Failed"
           : "Run state unavailable";
-  const sourceLabel = entry.source === "imported-file" ? "Imported replay" : "Saved run";
+  const sourceLabel = entry.source === "reference"
+    ? "Reference replay"
+    : entry.source === "imported-file" ? "Imported replay" : "Saved run";
   const summaryParts = [sourceLabel, resultLabel];
 
   if (entry.finalScore !== null) {

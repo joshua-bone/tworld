@@ -28,7 +28,7 @@ import type {
 } from "@player-web/ports/BrowserProfileStore";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 
-export type LibrarySidebarTab = "official" | "curated" | "uploads";
+export type LibrarySidebarTab = "official" | "curated" | "sandbox" | "uploads";
 
 export interface ModernDashboardNavigationModel {
   curated: CuratedCatalogView;
@@ -103,6 +103,8 @@ export function listFamiliesForTab(view: CuratedCatalogView, tab: LibrarySidebar
       return view.officialFamilies;
     case "curated":
       return view.introFamilies;
+    case "sandbox":
+      return [];
     case "uploads":
       return view.localFamilies;
   }

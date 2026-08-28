@@ -340,6 +340,21 @@ describe("IndexedDbBrowserProfileStore", () => {
           undoUsedCount: 0,
           bytes: null,
         },
+        {
+          id: "forged-reference",
+          fileName: "forged-reference.hcr1",
+          seriesFile: "hybrid-v1:sandbox:legacy_dat_sandbox",
+          levelNumber: 1,
+          levelName: "One",
+          ruleset: "Hybrid",
+          replayFormat: "hcr1",
+          savedAtMs: 900,
+          source: "reference",
+          result: "completed-clean",
+          finalScore: null,
+          undoUsedCount: 0,
+          bytes: [0x48, 0x43, 0x52, 0x31],
+        },
       ],
     } as unknown as BrowserProfileSnapshot;
 
@@ -516,6 +531,7 @@ describe("IndexedDbBrowserProfileStore", () => {
       levelName: "Key Pyramid",
       ruleset: "Hybrid",
       replayFormat: "hcr1",
+      gameplayHash: "canonical-hclv:1",
       source: "saved-run",
       result: "completed-clean",
       finalScore: null,
@@ -524,7 +540,11 @@ describe("IndexedDbBrowserProfileStore", () => {
     });
 
     const snapshot = await store.exportProfileSnapshot();
-    expect(snapshot.replayEntries?.[0]).toMatchObject({ replayFormat: "hcr1", bytes: [...bytes] });
+    expect(snapshot.replayEntries?.[0]).toMatchObject({
+      replayFormat: "hcr1",
+      gameplayHash: "canonical-hclv:1",
+      bytes: [...bytes],
+    });
 
     const restored = new IndexedDbBrowserProfileStore(new MemoryBrowserProfilePersistenceBackend());
     await restored.importProfileSnapshot(snapshot);
@@ -533,6 +553,7 @@ describe("IndexedDbBrowserProfileStore", () => {
         fileName: "CCLP1-Hybrid-1.hcr1",
         ruleset: "Hybrid",
         replayFormat: "hcr1",
+        gameplayHash: "canonical-hclv:1",
         bytes,
       }),
     ]);

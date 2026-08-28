@@ -11,7 +11,11 @@ import {
   parseStoredImportedDatSource,
   parseStoredReplayEntries,
 } from "@player-web/impl/browserProfileCodecs";
-import type { BrowserReplayEntry } from "@player-web/ports/BrowserProfileStore";
+import type {
+  BrowserReplayEntry,
+  BrowserStoredReplayEntry,
+  BrowserStoredReplaySource,
+} from "@player-web/ports/BrowserProfileStore";
 
 const KV_STORE_NAME = BROWSER_PROFILE_STORE_NAMES.kv;
 const IMPORTS_STORE_NAME = BROWSER_PROFILE_STORE_NAMES.imports;
@@ -60,8 +64,9 @@ interface BrowserProfileReplayRecord {
   levelName: string;
   ruleset: BrowserReplayEntry["ruleset"];
   replayFormat?: string;
+  gameplayHash?: string;
   savedAtMs: number;
-  source: BrowserReplayEntry["source"];
+  source: BrowserStoredReplaySource;
   result: BrowserReplayEntry["result"];
   finalScore: number | null;
   undoUsedCount: number | null;
@@ -75,8 +80,8 @@ export interface BrowserProfilePersistenceBackend {
   saveImportedDatFile(entry: PersistedImportedDatFile): Promise<void>;
   deleteImportedDatFile(filename: string): Promise<void>;
   clearImportedDatFiles(): Promise<void>;
-  listReplayEntries(): Promise<BrowserReplayEntry[]>;
-  saveReplayEntry(entry: BrowserReplayEntry): Promise<void>;
+  listReplayEntries(): Promise<BrowserStoredReplayEntry[]>;
+  saveReplayEntry(entry: BrowserStoredReplayEntry): Promise<void>;
   deleteReplayEntry(id: string): Promise<void>;
   clearReplayEntries(): Promise<void>;
 }
@@ -208,8 +213,8 @@ export class IndexedDbBrowserProfileBackend implements BrowserProfilePersistence
     });
   }
 
-  async listReplayEntries(): Promise<BrowserReplayEntry[]> {
-    return this.transact<BrowserReplayEntry[]>(REPLAYS_STORE_NAME, "readonly", (store, resolve, reject) => {
+  async listReplayEntries(): Promise<BrowserStoredReplayEntry[]> {
+    return this.transact<BrowserStoredReplayEntry[]>(REPLAYS_STORE_NAME, "readonly", (store, resolve, reject) => {
       const request = store.getAll();
       request.onerror = () => {
         reject(request.error ?? new Error("Failed to list replay entries from browser profile database."));
@@ -228,7 +233,7 @@ export class IndexedDbBrowserProfileBackend implements BrowserProfilePersistence
     });
   }
 
-  async saveReplayEntry(entry: BrowserReplayEntry): Promise<void> {
+  async saveReplayEntry(entry: BrowserStoredReplayEntry): Promise<void> {
     const bytes = cloneBytes(entry.bytes);
     const bytesBuffer = new ArrayBuffer(bytes.byteLength);
     new Uint8Array(bytesBuffer).set(bytes);
@@ -241,6 +246,7 @@ export class IndexedDbBrowserProfileBackend implements BrowserProfilePersistence
         levelName: entry.levelName,
         ruleset: entry.ruleset,
         replayFormat: entry.replayFormat,
+        gameplayHash: entry.gameplayHash,
         savedAtMs: entry.savedAtMs,
         source: entry.source,
         result: entry.result,

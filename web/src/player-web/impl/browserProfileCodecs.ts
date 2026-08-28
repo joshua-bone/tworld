@@ -8,7 +8,7 @@ import {
   type BrowserLevelSeedOverride,
   type BrowserLevelProgressSummary,
   type BrowserReplayEntry,
-  type BrowserReplaySource,
+  type BrowserStoredReplaySource,
   createDefaultBrowserProfilePreferences,
   type BrowserRecentSelectionRecord,
   type BrowserProfilePreferences,
@@ -40,7 +40,7 @@ function normalizeLevelRunResult(
   return value === "completed" ? "completed-clean" : value;
 }
 
-function isBrowserReplaySource(value: unknown): value is BrowserReplaySource {
+function isBrowserReplaySource(value: unknown): value is BrowserStoredReplaySource {
   return value === "saved-run" || value === "imported-file";
 }
 
@@ -206,7 +206,9 @@ export function parseStoredLevelSeedOverrides(value: unknown): BrowserLevelSeedO
   });
 }
 
-export function parseStoredReplayEntries(value: unknown): BrowserReplayEntry[] {
+export function parseStoredReplayEntries(
+  value: unknown,
+): Array<BrowserReplayEntry & { source: BrowserStoredReplaySource }> {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -248,13 +250,16 @@ export function parseStoredReplayEntries(value: unknown): BrowserReplayEntry[] {
           levelName: entry.levelName,
           ruleset: entry.ruleset,
           replayFormat: typeof entry.replayFormat === "string" ? entry.replayFormat : undefined,
+          gameplayHash: typeof entry.gameplayHash === "string" && entry.gameplayHash.length > 0
+            ? entry.gameplayHash
+            : undefined,
           savedAtMs: entry.savedAtMs as number,
           source: entry.source,
           result: parseStoredReplayResult(entry.result),
           finalScore: Number.isFinite(entry.finalScore) ? Number(entry.finalScore) : null,
           undoUsedCount: Number.isInteger(entry.undoUsedCount) ? Number(entry.undoUsedCount) : null,
           bytes,
-        } satisfies BrowserReplayEntry,
+        } satisfies BrowserReplayEntry & { source: BrowserStoredReplaySource },
       ];
     })
     .sort((left, right) => right.savedAtMs - left.savedAtMs);

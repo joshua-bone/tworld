@@ -12,6 +12,7 @@ import { hydrateInteractiveGameSession } from "@game-runtime/impl/hydrateInterac
 import { importInteractiveReplayForLevel } from "@game-runtime/impl/importInteractiveReplayForLevel";
 import { describeLocalDatImportMessage } from "@player-web/impl/localDatImportMessaging";
 import { mergeSeriesCatalogEntries } from "@player-web/impl/mergeSeriesCatalogEntries";
+import { replayEntryKey } from "@player-web/impl/modern/replayLibrary";
 import { interactiveEngineForRuleset } from "@player-web/impl/playerAppRuntime";
 import { buildUrlLaunchHref } from "@player-web/impl/urlLaunch";
 import { copyTextToClipboard } from "@player-web/impl/clipboard";
@@ -21,7 +22,10 @@ import type {
   InteractiveGameReplayLaunch,
   InteractiveGameSession,
 } from "@game-runtime/ports/InteractiveGameEngine";
-import type { BrowserReplayEntry } from "@player-web/ports/BrowserProfileStore";
+import type {
+  BrowserReplayEntry,
+  BrowserStoredReplaySource,
+} from "@player-web/ports/BrowserProfileStore";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 import type { LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
@@ -50,10 +54,10 @@ interface UsePlayerAppReplayControllerOptions {
   currentLevelReplayEntries: BrowserReplayEntry[];
   latestCurrentReplayEntry: BrowserReplayEntry | null;
   continueReplayEntry: BrowserReplayEntry | null;
-  selectedManagedReplayId: string | null;
-  setSelectedManagedReplayId: Dispatch<SetStateAction<string | null>>;
-  pendingReplayEntryId: string | null;
-  setPendingReplayEntryId: Dispatch<SetStateAction<string | null>>;
+  selectedManagedReplayKey: string | null;
+  setSelectedManagedReplayKey: Dispatch<SetStateAction<string | null>>;
+  pendingReplayEntryKey: string | null;
+  setPendingReplayEntryKey: Dispatch<SetStateAction<string | null>>;
   setSavedReplayEntries: Dispatch<SetStateAction<BrowserReplayEntry[]>>;
   setCatalog: Dispatch<SetStateAction<SeriesCatalogEntry[]>>;
   setMode: Dispatch<SetStateAction<LegacyMode>>;
@@ -109,10 +113,10 @@ export function usePlayerAppReplayController({
   currentLevelReplayEntries,
   latestCurrentReplayEntry,
   continueReplayEntry,
-  selectedManagedReplayId,
-  setSelectedManagedReplayId,
-  pendingReplayEntryId,
-  setPendingReplayEntryId,
+  selectedManagedReplayKey,
+  setSelectedManagedReplayKey,
+  pendingReplayEntryKey,
+  setPendingReplayEntryKey,
   setSavedReplayEntries,
   setCatalog,
   setMode,
@@ -139,12 +143,15 @@ export function usePlayerAppReplayController({
   currentLevelLinkCopyFeedbackMs,
 }: UsePlayerAppReplayControllerOptions): UsePlayerAppReplayControllerResult {
   const selectedManagedReplayRow =
-    currentLevelReplayEntries.find((entry) => entry.id === selectedManagedReplayId) ?? currentLevelReplayEntries[0] ?? null;
+    currentLevelReplayEntries.find((entry) => replayEntryKey(entry) === selectedManagedReplayKey)
+    ?? currentLevelReplayEntries[0]
+    ?? null;
 
   const addSavedReplayEntry = useEffectEvent((entry: BrowserReplayEntry) => {
     startTransition(() => {
       setSavedReplayEntries((current) =>
-        [entry, ...current.filter((existing) => existing.id !== entry.id)].sort((left, right) => right.savedAtMs - left.savedAtMs),
+        [entry, ...current.filter((existing) => replayEntryKey(existing) !== replayEntryKey(entry))]
+          .sort((left, right) => right.savedAtMs - left.savedAtMs),
       );
     });
   });
@@ -170,7 +177,7 @@ export function usePlayerAppReplayController({
   const saveReplayArtifactToLibrary = useEffectEvent(
     async (
       artifact: { bytes: Uint8Array; filename: string },
-      source: BrowserReplayEntry["source"],
+      source: BrowserStoredReplaySource,
       options: {
         finalScore?: number | null;
         result?: BrowserReplayEntry["result"];
@@ -193,6 +200,7 @@ export function usePlayerAppReplayController({
         levelName: replayContextLevel.name,
         ruleset: replayContextSeries.ruleset,
         replayFormat: options.replayFormat,
+        gameplayHash: replayContextLevel.gameplayHash,
         source,
         result: options.result ?? null,
         finalScore: options.finalScore ?? null,
@@ -260,7 +268,7 @@ export function usePlayerAppReplayController({
         "imported-file",
         { replayFormat: imported.format },
       );
-      setPendingReplayEntryId(storedEntry?.id ?? null);
+      setPendingReplayEntryKey(storedEntry ? replayEntryKey(storedEntry) : null);
       setReplayLaunchRequest(null);
       setIsPaused(false);
       setReloadToken((value) => value + 1);
@@ -363,7 +371,8 @@ export function usePlayerAppReplayController({
 
     setShowReplayMenu(false);
     setShowAdvancedMenu(false);
-    setSelectedManagedReplayId(continueReplayEntry?.id ?? currentLevelReplayEntries[0]?.id ?? null);
+    const initialEntry = continueReplayEntry ?? currentLevelReplayEntries[0] ?? null;
+    setSelectedManagedReplayKey(initialEntry ? replayEntryKey(initialEntry) : null);
     setShowManageReplays(true);
   });
 
@@ -378,33 +387,41 @@ export function usePlayerAppReplayController({
 
     if (currentLevelReplayEntries.length === 0) {
       setShowManageReplays(false);
-      setSelectedManagedReplayId(null);
+      setSelectedManagedReplayKey(null);
       return;
     }
 
-    if (!selectedManagedReplayId || !currentLevelReplayEntries.some((entry) => entry.id === selectedManagedReplayId)) {
-      setSelectedManagedReplayId(currentLevelReplayEntries[0]?.id ?? null);
+    if (
+      !selectedManagedReplayKey
+      || !currentLevelReplayEntries.some((entry) => replayEntryKey(entry) === selectedManagedReplayKey)
+    ) {
+      setSelectedManagedReplayKey(
+        currentLevelReplayEntries[0] ? replayEntryKey(currentLevelReplayEntries[0]) : null,
+      );
     }
   }, [
     currentLevelReplayEntries,
-    selectedManagedReplayId,
-    setSelectedManagedReplayId,
+    selectedManagedReplayKey,
+    setSelectedManagedReplayKey,
     setShowManageReplays,
     showManageReplays,
   ]);
 
   useEffect(() => {
-    if (pendingReplayEntryId && !currentLevelReplayEntries.some((entry) => entry.id === pendingReplayEntryId)) {
-      setPendingReplayEntryId(null);
+    if (
+      pendingReplayEntryKey
+      && !currentLevelReplayEntries.some((entry) => replayEntryKey(entry) === pendingReplayEntryKey)
+    ) {
+      setPendingReplayEntryKey(null);
     }
-  }, [currentLevelReplayEntries, pendingReplayEntryId, setPendingReplayEntryId]);
+  }, [currentLevelReplayEntries, pendingReplayEntryKey, setPendingReplayEntryKey]);
 
   const loadManagedReplay = useEffectEvent(() => {
     if (!selectedManagedReplayRow) {
       return;
     }
 
-    setPendingReplayEntryId(selectedManagedReplayRow.id);
+    setPendingReplayEntryKey(replayEntryKey(selectedManagedReplayRow));
     setShowManageReplays(false);
     setReplayLaunchRequest(null);
     setIsPaused(false);
@@ -423,10 +440,16 @@ export function usePlayerAppReplayController({
   });
 
   const deleteReplayEntryFromLibrary = useEffectEvent(async (entry: BrowserReplayEntry) => {
+    if (entry.source === "reference") {
+      setMessage("Bundled reference replays are read-only.");
+      return;
+    }
     try {
       await services.profileStore.deleteReplayEntry(entry.id);
       startTransition(() => {
-        setSavedReplayEntries((current) => current.filter((existing) => existing.id !== entry.id));
+        setSavedReplayEntries((current) => current.filter(
+          (existing) => replayEntryKey(existing) !== replayEntryKey(entry),
+        ));
       });
     } catch (error: unknown) {
       setMessage(error instanceof Error ? error.message : String(error));

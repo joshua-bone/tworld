@@ -1,0 +1,117 @@
+{
+  "$schema": "./legacy_dat_sandbox.hints.schema.json",
+  "format": "hybridcc.legacy-dat-sandbox-hints",
+  "version": 1,
+  "dat": {
+    "assetId": "legacy_dat_sandbox",
+    "file": "legacy_dat_sandbox.dat",
+    "sha256": "f32e06ec6c2b6accbc6c3797a9ae53b9000a9d4f2577ce1be52eedd2822bffb3",
+    "levelCount": 2
+  },
+  "levels": [
+    {
+      "entryOrdinal": 1,
+      "expectedNumber": 1,
+      "expectedTitle": "Rooms and Corridors",
+      "rooms": [
+        {
+          "roomId": "failed-wall-facing",
+          "message": "Walk north to the isolated wall and hold Up. Chip must face north, remain in place, and keep pushing until Up is released.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "dirt-and-gravel",
+          "message": "Walk across the dirt and gravel patches. Both admit Chip; gravel hallways also form the safe route between rooms.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "red-key-and-door",
+          "message": "Collect the red key west of the divider, then cross the red door. The door and exactly one red key must both be consumed.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "hint-lifecycle",
+          "message": "This room verifies room-specific Hint text. The message appears only after Chip finishes entering the Hint tile and disappears after Chip finishes leaving it.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 2,
+      "expectedNumber": 2,
+      "expectedTitle": "Dirt Block Basics",
+      "rooms": [
+        {
+          "roomId": "successful-push",
+          "message": "Approach the dirt block from the south and push it north once. Chip and the block must begin and finish one synchronized ordinary push.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blocked-push",
+          "message": "Push north against the trapped dirt block. Neither actor may move; Chip must face north and keep the push pose while Up remains held.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "side-slap",
+          "message": "Stand directly north of the dirt block and press Right+Down together. Chip moves east while the block beside him is slapped south.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "block-into-water",
+          "message": "Stand west of the dirt block and push it east into water. The block must disappear when entry finishes and the water must become dirt.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    }
+  ]
+}

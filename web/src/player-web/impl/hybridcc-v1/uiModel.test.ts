@@ -8,6 +8,7 @@ import {
   hybridCcV1InitialCatalogMessage,
   hybridCcV1SeriesFile,
 } from "./uiModel";
+import { HYBRID_CC_V1_LIBRARY_CATEGORIES } from "./HybridCcV1App";
 
 const officialEntry: HybridCcV1DatCatalogEntry = {
   id: "official:CCLP1.dat",
@@ -29,6 +30,29 @@ describe("HybridCC v1 catalog UI model", () => {
   it("names the ruleset and namespaces its series independently from v0", () => {
     expect(HYBRID_CC_V1_RULESET_LABEL).toBe("Hybrid v1");
     expect(hybridCcV1SeriesFile(officialEntry)).toBe("hybrid-v1:official:CCLP1.dat");
+  });
+
+  it("presents the built-in pack under an exact Sandbox selector heading", () => {
+    const sandboxEntry: HybridCcV1DatCatalogEntry = {
+      id: "sandbox:legacy_dat_sandbox",
+      filename: "legacy_dat_sandbox.dat",
+      name: "Legacy DAT Sandbox",
+      source: "sandbox",
+      async loadBytes() { return new Uint8Array(); },
+    };
+    const sandboxSeries = { ...series, name: sandboxEntry.name, filebase: hybridCcV1SeriesFile(sandboxEntry) };
+    const [family] = buildHybridCcV1Families(
+      [sandboxEntry],
+      new Map([[sandboxEntry.id, sandboxSeries]]),
+    );
+
+    expect(HYBRID_CC_V1_LIBRARY_CATEGORIES).toContainEqual({ id: "sandbox", label: "Sandbox" });
+    expect(family).toMatchObject({
+      section: "other",
+      title: "Legacy DAT Sandbox",
+      badge: "Sandbox",
+      launchEntries: { Hybrid: sandboxSeries },
+    });
   });
 
   it("makes a converted DAT launchable only as Hybrid v1", () => {

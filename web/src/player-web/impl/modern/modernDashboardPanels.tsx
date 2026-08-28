@@ -18,7 +18,12 @@ import type {
   BrowserResolvedLevelProgressSummary,
 } from "@player-web/ports/BrowserProfileStore";
 
-const LIBRARY_SIDEBAR_TABS: readonly { id: LibrarySidebarTab; label: string }[] = [
+export interface LibrarySidebarCategory {
+  id: LibrarySidebarTab;
+  label: string;
+}
+
+const LIBRARY_SIDEBAR_TABS: readonly LibrarySidebarCategory[] = [
   { id: "official", label: "Official" },
   { id: "curated", label: "Curated" },
   { id: "uploads", label: "Uploads" },
@@ -151,15 +156,19 @@ function RulesetToggle({
 
 function SidebarCategoryPicker({
   activeTab,
+  categories,
   onSelect,
 }: {
   activeTab: LibrarySidebarTab;
+  categories: readonly LibrarySidebarCategory[];
   onSelect: (tab: LibrarySidebarTab) => void;
 }) {
-  const activeIndex = LIBRARY_SIDEBAR_TABS.findIndex((option) => option.id === activeTab);
+  if (categories.length === 0) return null;
+  const matchedIndex = categories.findIndex((option) => option.id === activeTab);
+  const activeIndex = matchedIndex < 0 ? 0 : matchedIndex;
   const previousOption =
-    LIBRARY_SIDEBAR_TABS[(activeIndex - 1 + LIBRARY_SIDEBAR_TABS.length) % LIBRARY_SIDEBAR_TABS.length]!;
-  const nextOption = LIBRARY_SIDEBAR_TABS[(activeIndex + 1) % LIBRARY_SIDEBAR_TABS.length]!;
+    categories[(activeIndex - 1 + categories.length) % categories.length]!;
+  const nextOption = categories[(activeIndex + 1) % categories.length]!;
 
   return (
     <div className="modern-dashboard__category-picker">
@@ -184,7 +193,7 @@ function SidebarCategoryPicker({
           }}
           value={activeTab}
         >
-          {LIBRARY_SIDEBAR_TABS.map((option) => (
+          {categories.map((option) => (
             <option key={option.id} value={option.id}>
               {option.label}
             </option>
@@ -429,6 +438,7 @@ interface ModernDashboardSetsPaneProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   visibleFamilies: readonly SetFamily[];
+  categoryOptions?: readonly LibrarySidebarCategory[];
 }
 
 export function ModernDashboardSetsPane({
@@ -453,6 +463,7 @@ export function ModernDashboardSetsPane({
   searchQuery,
   setSearchQuery,
   visibleFamilies,
+  categoryOptions = LIBRARY_SIDEBAR_TABS,
 }: ModernDashboardSetsPaneProps) {
   return (
     <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--sets" tabIndex={-1}>
@@ -508,6 +519,7 @@ export function ModernDashboardSetsPane({
           {!isSearchActive ? (
             <SidebarCategoryPicker
               activeTab={activeTab}
+              categories={categoryOptions}
               onSelect={onSelectTab}
             />
           ) : null}
@@ -534,8 +546,10 @@ export function ModernDashboardSetsPane({
               ? `No sets match "${emptySearchQuery.trim()}".`
               : activeTab === "uploads"
                 ? "No uploaded sets yet. Open a DAT file and it will stay available in this browser."
-                : activeTab === "curated"
+              : activeTab === "curated"
                   ? "No curated sets are available right now."
+                  : activeTab === "sandbox"
+                    ? "No sandbox sets are available right now."
                   : "No official sets are available right now."}
           </div>
         )}

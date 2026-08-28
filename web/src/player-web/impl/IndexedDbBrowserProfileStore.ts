@@ -32,6 +32,7 @@ import {
   type BrowserRecentSelectionRecord,
   type BrowserReplayEntry,
   type BrowserReplaySaveRequest,
+  type BrowserStoredReplayEntry,
 } from "@player-web/ports/BrowserProfileStore";
 
 export { parseStoredBrowserProfilePreferences } from "@player-web/impl/browserProfileCodecs";
@@ -242,8 +243,8 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
     }
   }
 
-  async saveReplayEntry(entry: BrowserReplaySaveRequest): Promise<BrowserReplayEntry> {
-    const storedEntry: BrowserReplayEntry = {
+  async saveReplayEntry(entry: BrowserReplaySaveRequest): Promise<BrowserStoredReplayEntry> {
+    const storedEntry: BrowserStoredReplayEntry = {
       id: createReplayEntryId(),
       fileName: entry.fileName,
       seriesFile: entry.seriesFile,
@@ -251,6 +252,7 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
       levelName: entry.levelName,
       ruleset: entry.ruleset,
       replayFormat: entry.replayFormat,
+      gameplayHash: entry.gameplayHash,
       savedAtMs: Date.now(),
       source: entry.source,
       result: entry.result,
@@ -299,7 +301,7 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
       recentSelections,
       levelProgressSummaries,
       levelSeedOverrides,
-      replayEntries: replayEntries.map((entry) => ({
+      replayEntries: replayEntries.flatMap((entry) => entry.source === "reference" ? [] : [{
         id: entry.id,
         fileName: entry.fileName,
         seriesFile: entry.seriesFile,
@@ -307,13 +309,14 @@ export class IndexedDbBrowserProfileStore implements BrowserProfileStore {
         levelName: entry.levelName,
         ruleset: entry.ruleset,
         replayFormat: entry.replayFormat,
+        gameplayHash: entry.gameplayHash,
         savedAtMs: entry.savedAtMs,
         source: entry.source,
         result: entry.result,
         finalScore: entry.finalScore,
         undoUsedCount: entry.undoUsedCount,
         bytes: [...entry.bytes],
-      })),
+      }]),
       importedDatFiles: importedDatFiles.map((entry) => ({
         filename: entry.filename,
         datHash: entry.datHash,

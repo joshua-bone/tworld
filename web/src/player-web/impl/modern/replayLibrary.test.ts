@@ -44,6 +44,7 @@ function createReplayEntry(
     ruleset: overrides.ruleset,
     savedAtMs: overrides.savedAtMs ?? 0,
     source: overrides.source ?? "saved-run",
+    gameplayHash: overrides.gameplayHash,
     result: overrides.result ?? null,
     finalScore: overrides.finalScore ?? null,
     undoUsedCount: overrides.undoUsedCount ?? null,
@@ -130,5 +131,55 @@ describe("replayLibrary", () => {
         }),
       ).sourceLabel,
     ).toBe("Imported replay");
+  });
+
+  it("keeps local runs ahead of immutable references and binds references to the current native hash", () => {
+    const entries = [
+      createReplayEntry({
+        id: "reference-current",
+        seriesFile: "sandbox",
+        ruleset: "Hybrid",
+        source: "reference",
+        gameplayHash: "hclv-current",
+        savedAtMs: 9_999,
+      }),
+      createReplayEntry({
+        id: "reference-stale",
+        seriesFile: "sandbox",
+        ruleset: "Hybrid",
+        source: "reference",
+        gameplayHash: "hclv-old",
+      }),
+      createReplayEntry({
+        id: "local",
+        seriesFile: "sandbox",
+        ruleset: "Hybrid",
+        source: "saved-run",
+        savedAtMs: 1,
+      }),
+      createReplayEntry({
+        id: "local-current",
+        seriesFile: "sandbox",
+        ruleset: "Hybrid",
+        source: "saved-run",
+        gameplayHash: "hclv-current",
+        savedAtMs: 2,
+      }),
+      createReplayEntry({
+        id: "local-stale",
+        seriesFile: "sandbox",
+        ruleset: "Hybrid",
+        source: "saved-run",
+        gameplayHash: "hclv-old",
+        savedAtMs: 3,
+      }),
+    ];
+
+    expect(listReplaysForSeriesLevel(entries, "sandbox", 1, "Hybrid", "hclv-current").map((entry) => entry.id))
+      .toEqual(["local-current", "local", "reference-current"]);
+    expect(listReplaysForSeriesLevel(entries, "sandbox", 1, "Hybrid").map((entry) => entry.id))
+      .toEqual(["local"]);
+    expect(describeReplayEntry(entries[0]!).sourceLabel).toBe("Reference replay");
+    expect(describeReplayEntry(entries[0]!).savedAtLabel).toBe("Bundled with sandbox");
   });
 });

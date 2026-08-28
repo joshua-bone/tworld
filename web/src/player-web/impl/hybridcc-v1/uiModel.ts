@@ -39,7 +39,7 @@ export function hybridCcV1InitialCatalogMessage(
   const issueLines = [...unavailableEntriesByEntryId.entries()].flatMap(([entryId, issues]) => (
     issues.length === 0
       ? []
-      : [`${entryId.replace(/^(?:official|imported):/u, "")}: ${issues.map(formatUnavailableEntry).join("; ")}`]
+      : [`${entryId.replace(/^(?:official|sandbox|imported):/u, "")}: ${issues.map(formatUnavailableEntry).join("; ")}`]
   ));
   return issueLines.length === 0
     ? null
@@ -47,6 +47,7 @@ export function hybridCcV1InitialCatalogMessage(
 }
 
 function familyTitle(entry: HybridCcV1DatCatalogEntry): string {
+  if (entry.source === "sandbox") return entry.name;
   return entry.filename.replace(/\.dat$/iu, "");
 }
 
@@ -68,13 +69,15 @@ export function buildHybridCcV1Families(
     const loadError = loadErrorsByEntryId.get(entry.id);
     const unavailableEntries = unavailableEntriesByEntryId.get(entry.id) ?? [];
     const officialDisplay = entry.source === "official" ? OFFICIAL_FAMILY_DISPLAY[entry.filename] : undefined;
-    const sourceLabel = entry.source === "official" ? "Official DAT set." : "Local DAT set.";
+    const sourceLabel = entry.source === "official"
+      ? "Official DAT set."
+      : entry.source === "sandbox" ? "Built-in gameplay sandbox." : "Local DAT set.";
     const conversionContext = "HybridCC converts the DAT to its native map format before starting play.";
     return {
       id: entry.id,
-      section: entry.source === "official" ? "official" : "local",
+      section: entry.source === "official" ? "official" : entry.source === "sandbox" ? "other" : "local",
       title: familyTitle(entry),
-      badge: entry.source === "official" ? "Official" : "Uploaded",
+      badge: entry.source === "official" ? "Official" : entry.source === "sandbox" ? "Sandbox" : "Uploaded",
       sidebarSummary: loadError
         ? "Unavailable in Hybrid v1."
         : unavailableEntries.length > 0
@@ -92,7 +95,9 @@ export function buildHybridCcV1Families(
       launchEntries: series ? { Hybrid: series } : {},
       rulesetLabels: { Hybrid: HYBRID_CC_V1_RULESET_LABEL },
       continueSelection: null,
-      order: officialDisplay?.order ?? (entry.source === "official" ? 900 + index : 1_000 + index),
+      order: officialDisplay?.order ?? (
+        entry.source === "official" ? 900 + index : entry.source === "sandbox" ? index : 1_000 + index
+      ),
     };
   }).sort((left, right) => left.order - right.order);
 }

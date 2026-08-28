@@ -42,6 +42,7 @@ export const HYBRIDCC_V1_RECORD_SIZES = {
   snapshotHeader: 136,
   engineCreateDiagnostic: 24,
   nativeLevelMetadata: 44,
+  hintOverlay: 12,
   datFile: 12,
   datEntry: 20,
   datDiagnostic: 32,
@@ -58,6 +59,9 @@ const FIRST_STEP_OPERATION_STATUS = 48;
 const LAST_STEP_OPERATION_STATUS = 53;
 const MAXIMUM_DAT_INPUT_BYTES = 268_439_558;
 const MAXIMUM_NATIVE_LEVEL_INPUT_BYTES = 40_174_642;
+const MAXIMUM_HINT_OVERLAY_PLACEMENTS = 65_536;
+const MAXIMUM_HINT_OVERLAY_TEXT_BYTES_PER_PLACEMENT = 256;
+const MAXIMUM_HINT_OVERLAY_TEXT_BYTES = 16_777_216;
 const MAXIMUM_REPLAY_INPUT_BYTES = 24_589_940;
 const MAXIMUM_REPLAY_BOUNDARIES = 1_000_000;
 const MAXIMUM_SIDES_PER_CELL = 8;
@@ -81,6 +85,14 @@ const STATUS_NAMES: Readonly<Record<number, string>> = {
   21: "invalid native-level value",
   22: "native-level text too long",
   23: "native-level trailing bytes",
+  24: "too many hint placements",
+  25: "too many hint texts",
+  26: "hint target out of range",
+  27: "duplicate hint target",
+  28: "hint target is not hint terrain",
+  29: "invalid hint UTF-8",
+  30: "overlapping hint text",
+  31: "truncated hint text",
   32: "invalid engine level",
   33: "unsupported engine depth",
   34: "unsupported engine capability",
@@ -169,6 +181,15 @@ export interface HybridCcV1WasmModule {
     outBytes: Pointer,
     capacity: number,
     outCopied: Pointer,
+  ): number;
+  _hybridcc_v1_native_level_apply_hint_overlay(
+    nativeBytes: Pointer,
+    nativeCount: number,
+    records: Pointer,
+    recordCount: number,
+    textBlob: Pointer,
+    textByteCount: number,
+    outLevel: Pointer,
   ): number;
   _hybridcc_v1_dat_conversion_create(bytes: Pointer, count: number, outConversion: Pointer): number;
   _hybridcc_v1_dat_conversion_destroy(conversion: Pointer): void;
@@ -555,6 +576,11 @@ export interface HybridCcV1NativeLevel {
   texts: string[];
   textBytes: Uint8Array[];
   encoded: Uint8Array;
+}
+
+export interface HybridCcV1HintPlacement {
+  cellIndex: number;
+  text: string;
 }
 
 export type HybridCcV1DatEntryFailureStatus = 1 | 2 | 3 | 4 | 5;
@@ -1262,6 +1288,133 @@ export function inspectHybridCcV1NativeLevel(
       module._free(handlePointer);
     }
   });
+}
+
+/**
+ * Adds native per-cell hint text to an already converted HCLV level. DAT
+ * conversion remains the only import path; this explicit operation returns a
+ * new canonical native level and never mutates the converted source bytes.
+ */
+export function applyHybridCcV1HintOverlay(
+  module: HybridCcV1WasmModule,
+  level: HybridCcV1NativeLevel | Uint8Array,
+  placements: readonly HybridCcV1HintPlacement[],
+): HybridCcV1NativeLevel {
+  assertAbi(module);
+  const nativeBytes = nativeLevelBytes(level);
+  assertByteLength(
+    "HybridCC hint overlay native level",
+    nativeBytes,
+    MAXIMUM_NATIVE_LEVEL_INPUT_BYTES,
+  );
+  assertU32("HybridCC hint overlay placement count", placements.length);
+  if (placements.length > MAXIMUM_HINT_OVERLAY_PLACEMENTS) {
+    throw new RangeError(
+      `HybridCC hint overlay exceeds the ${MAXIMUM_HINT_OVERLAY_PLACEMENTS}-placement limit.`,
+    );
+  }
+
+  const encoder = new TextEncoder();
+  const encodedTexts = placements.map((placement, index) => {
+    assertU32(`HybridCC hint overlay placement ${index} cell`, placement.cellIndex);
+    const bounded = new Uint8Array(MAXIMUM_HINT_OVERLAY_TEXT_BYTES_PER_PLACEMENT + 1);
+    const result = encoder.encodeInto(placement.text, bounded);
+    if (
+      result.read !== placement.text.length
+      || result.written > MAXIMUM_HINT_OVERLAY_TEXT_BYTES_PER_PLACEMENT
+    ) {
+      throw new RangeError(
+        `HybridCC hint overlay placement ${index} exceeds the ${MAXIMUM_HINT_OVERLAY_TEXT_BYTES_PER_PLACEMENT}-byte text limit.`,
+      );
+    }
+    return bounded.slice(0, result.written);
+  });
+  const textByteCount = encodedTexts.reduce((total, bytes) => total + bytes.byteLength, 0);
+  assertU32("HybridCC hint overlay text byte count", textByteCount);
+  if (textByteCount > MAXIMUM_HINT_OVERLAY_TEXT_BYTES) {
+    throw new RangeError(
+      `HybridCC hint overlay exceeds the ${MAXIMUM_HINT_OVERLAY_TEXT_BYTES}-byte limit.`,
+    );
+  }
+
+  const textBlob = new Uint8Array(textByteCount);
+  const offsets: number[] = [];
+  let textOffset = 0;
+  for (const bytes of encodedTexts) {
+    offsets.push(textOffset);
+    textBlob.set(bytes, textOffset);
+    textOffset += bytes.byteLength;
+  }
+
+  const encoded = withInputBytes(
+    module,
+    nativeBytes,
+    "HybridCC hint overlay native input",
+    (nativePointer) => withInputBytes(
+      module,
+      textBlob,
+      "HybridCC hint overlay text input",
+      (textPointer) => {
+        const recordsByteCount = assertU32(
+          "HybridCC hint overlay records byte count",
+          placements.length * HYBRIDCC_V1_RECORD_SIZES.hintOverlay,
+        );
+        let recordsPointer = 0;
+        let handlePointer = 0;
+        let sizePointer = 0;
+        let handle = 0;
+        try {
+          recordsPointer = allocate(
+            module,
+            recordsByteCount,
+            "HybridCC hint overlay records",
+          );
+          handlePointer = allocate(module, 4, "HybridCC hint overlay handle");
+          sizePointer = allocate(module, 4, "HybridCC hint overlay encoded size");
+          for (let index = 0; index < placements.length; index += 1) {
+            const recordPointer = recordsPointer + index * HYBRIDCC_V1_RECORD_SIZES.hintOverlay;
+            writeU32(module, recordPointer, placements[index]!.cellIndex);
+            writeU32(module, recordPointer + 4, offsets[index]!);
+            writeU32(module, recordPointer + 8, encodedTexts[index]!.byteLength);
+          }
+          writeU32(module, handlePointer, 0);
+          assertOk(
+            "HybridCC native hint overlay",
+            module._hybridcc_v1_native_level_apply_hint_overlay(
+              nativePointer,
+              nativeBytes.byteLength,
+              recordsPointer,
+              placements.length,
+              textPointer,
+              textBlob.byteLength,
+              handlePointer,
+            ),
+          );
+          handle = readU32(module, handlePointer);
+          if (handle === 0) {
+            throw new Error("HybridCC native hint overlay returned an empty handle.");
+          }
+          assertOk(
+            "HybridCC native hint overlay encoded size",
+            module._hybridcc_v1_native_level_encoded_size(handle, sizePointer),
+          );
+          return copyBytes(
+            module,
+            readU32(module, sizePointer),
+            "HybridCC native hint overlay encoded copy",
+            (...args) => module._hybridcc_v1_native_level_copy_encoded(handle, ...args),
+          );
+        } finally {
+          if (handle !== 0) module._hybridcc_v1_native_level_destroy(handle);
+          if (sizePointer !== 0) module._free(sizePointer);
+          if (handlePointer !== 0) module._free(handlePointer);
+          if (recordsPointer !== 0) module._free(recordsPointer);
+        }
+      },
+    ),
+  );
+
+  return inspectHybridCcV1NativeLevel(module, encoded);
 }
 
 interface RawDatEntry {

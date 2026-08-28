@@ -20,6 +20,7 @@ import {
   ModernDashboardPaneRail,
   ModernDashboardSetsPane,
   ModernDashboardSplitter,
+  type LibrarySidebarCategory,
 } from "@player-web/impl/modern/modernDashboardPanels";
 import {
   ModernDashboardMessageModal,
@@ -27,10 +28,14 @@ import {
 } from "@player-web/impl/modern/modernDashboardModals";
 import { useModernDashboardPaneLayout } from "@player-web/impl/modern/useModernDashboardPaneLayout";
 import type { BrowserAppServices } from "@player-web/ports/BrowserAppServices";
-import type { BrowserLevelProgressSummary } from "@player-web/ports/BrowserProfileStore";
+import type {
+  BrowserLevelProgressSummary,
+  BrowserReplayEntry,
+} from "@player-web/ports/BrowserProfileStore";
 import {
   collectHybridCcV1UnavailableDatEntries,
   HybridCcV1DatCatalog,
+  legacyDatSandboxAssetsForEntry,
   loadHybridCcV1DatCatalogEntries,
   type HybridCcV1DatCatalogEntry,
   type HybridCcV1UnavailableDatEntry,
@@ -48,6 +53,11 @@ import {
   hybridCcV1SeriesFile,
 } from "./uiModel";
 import {
+  LEGACY_DAT_SANDBOX_ASSET_ID,
+  loadLegacyDatSandbox,
+  type LegacyDatSandboxReferenceReplay,
+} from "./sandbox/legacyDatSandbox";
+import {
   compileHybridCcV1Run,
   convertHybridCcV1Dat,
   createHybridCcV1Engine,
@@ -62,8 +72,15 @@ interface LoadedEntry {
   entry: HybridCcV1DatCatalogEntry;
   levels: HybridCcV1ConvertedLevel[];
   hashes: string[];
+  referenceReplays: LegacyDatSandboxReferenceReplay[];
   unavailableEntries: HybridCcV1UnavailableDatEntry[];
 }
+
+export const HYBRID_CC_V1_LIBRARY_CATEGORIES: readonly LibrarySidebarCategory[] = [
+  { id: "official", label: "Official" },
+  { id: "sandbox", label: "Sandbox" },
+  { id: "uploads", label: "Uploads" },
+];
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -108,17 +125,58 @@ async function loadEntry(
   bytes: Uint8Array,
 ): Promise<LoadedEntry> {
   const conversion = convertHybridCcV1Dat(module, bytes);
-  const levels = conversion.entries.filter(
+  let levels = conversion.entries.filter(
     (candidate): candidate is HybridCcV1ConvertedLevel => candidate.status === 0,
   );
   if (levels.length === 0) {
     throw new Error(conversionErrorMessage(entry, conversion));
   }
-  const hashes = await Promise.all(
-    levels.map((level) => computeDatContentHash(level.nativeLevel.encoded)),
-  );
+  let hashes: string[];
+  let referenceReplays: LegacyDatSandboxReferenceReplay[] = [];
+  if (entry.source === "sandbox") {
+    const sandboxAssets = legacyDatSandboxAssetsForEntry(entry);
+    if (!sandboxAssets) {
+      throw new Error("Hybrid v1 rejected an unrecognized sandbox asset identity.");
+    }
+    const loadedSandbox = await loadLegacyDatSandbox(
+      module,
+      sandboxAssets,
+      bytes,
+      levels,
+    );
+    levels = loadedSandbox.levels;
+    hashes = loadedSandbox.gameplayHashes;
+    referenceReplays = loadedSandbox.referenceReplays;
+  } else {
+    hashes = await Promise.all(
+      levels.map((level) => computeDatContentHash(level.nativeLevel.encoded)),
+    );
+  }
   const unavailableEntries = collectHybridCcV1UnavailableDatEntries(conversion);
-  return { entry, levels, hashes, unavailableEntries };
+  return { entry, levels, hashes, referenceReplays, unavailableEntries };
+}
+
+function browserReferenceReplays(
+  entry: HybridCcV1DatCatalogEntry,
+  replays: readonly LegacyDatSandboxReferenceReplay[],
+): BrowserReplayEntry[] {
+  const seriesFile = hybridCcV1SeriesFile(entry);
+  return replays.map((replay): BrowserReplayEntry => ({
+    id: `reference:${LEGACY_DAT_SANDBOX_ASSET_ID}:${replay.id}`,
+    fileName: replay.fileName,
+    seriesFile,
+    levelNumber: replay.levelNumber,
+    levelName: replay.levelName,
+    gameplayHash: replay.gameplayHash,
+    ruleset: "Hybrid",
+    replayFormat: "hcr1",
+    savedAtMs: 0,
+    source: "reference",
+    result: replay.expectedOutcome === "win" ? "completed-clean" : "failed",
+    finalScore: null,
+    undoUsedCount: 0,
+    bytes: replay.bytes,
+  }));
 }
 
 export function HybridCcV1App() {
@@ -184,6 +242,7 @@ export function HybridCcV1App() {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [selectedLevelNumber, setSelectedLevelNumber] = useState<number | null>(null);
   const [progressSummaries, setProgressSummaries] = useState<BrowserLevelProgressSummary[]>([]);
+  const [referenceReplayEntries, setReferenceReplayEntries] = useState<BrowserReplayEntry[]>([]);
   const [activeTab, setActiveTab] = useState<LibrarySidebarTab>("official");
   const [searchQuery, setSearchQuery] = useState("");
   const [busy, setBusy] = useState(true);
@@ -214,15 +273,17 @@ export function HybridCcV1App() {
         const nextSeries = new Map<string, ReturnType<typeof hybridCcV1Series>>();
         const nextLoadErrors = new Map<string, string>();
         const nextUnavailableEntries = new Map<string, readonly HybridCcV1UnavailableDatEntry[]>();
+        const nextReferenceReplays: BrowserReplayEntry[] = [];
         for (const result of results) {
           if (result.status === "unavailable") {
             nextLoadErrors.set(result.entry.id, result.diagnostic);
             continue;
           }
-          const { entry, hashes, levels, unavailableEntries } = result.value;
+          const { entry, hashes, levels, referenceReplays, unavailableEntries } = result.value;
           const seriesFile = hybridCcV1SeriesFile(entry);
           levelRegistry.register(seriesFile, levels);
           nextSeries.set(entry.id, hybridCcV1Series(seriesFile, entry.name, levels, hashes));
+          nextReferenceReplays.push(...browserReferenceReplays(entry, referenceReplays));
           if (unavailableEntries.length > 0) {
             nextUnavailableEntries.set(entry.id, unavailableEntries);
           }
@@ -231,6 +292,7 @@ export function HybridCcV1App() {
         setSeriesByEntryId(nextSeries);
         setLoadErrorsByEntryId(nextLoadErrors);
         setUnavailableEntriesByEntryId(nextUnavailableEntries);
+        setReferenceReplayEntries(nextReferenceReplays);
         setProgressSummaries(storedProgress);
         const firstPlayable = availableEntries.find((entry) => nextSeries.has(entry.id)) ?? null;
         setSelectedEntryId(firstPlayable?.id ?? null);
@@ -256,6 +318,7 @@ export function HybridCcV1App() {
   const visibleFamilies = useMemo(() => families.filter((family) => {
     if (isSearchActive) return familyMatchesSearch(family.title, family.sidebarSummary, deferredSearchQuery);
     if (activeTab === "official") return family.section === "official";
+    if (activeTab === "sandbox") return family.section === "other";
     if (activeTab === "uploads") return family.section === "local";
     return false;
   }), [activeTab, deferredSearchQuery, families, isSearchActive]);
@@ -300,7 +363,11 @@ export function HybridCcV1App() {
     }
     setSelectedEntryId(familyId);
     setSelectedLevelNumber(series.levels[0]?.number ?? null);
-    if (family) setActiveTab(family.section === "local" ? "uploads" : "official");
+    if (family) {
+      setActiveTab(
+        family.section === "local" ? "uploads" : family.section === "other" ? "sandbox" : "official",
+      );
+    }
     const unavailableEntries = unavailableEntriesByEntryId.get(familyId) ?? [];
     if (unavailableEntries.length > 0) {
       setMessage(hybridCcV1InitialCatalogMessage(
@@ -424,6 +491,7 @@ export function HybridCcV1App() {
             <ModernDashboardSetsPane
               activeFamilyId={activeFamily?.id ?? null}
               activeTab={activeTab}
+              categoryOptions={HYBRID_CC_V1_LIBRARY_CATEGORIES}
               dragDepthRef={dragDepthRef}
               emptySearchQuery={deferredSearchQuery}
               isDropTargetActive={isDropTargetActive}
@@ -496,6 +564,7 @@ export function HybridCcV1App() {
               chromeMode="modern-embedded"
               initialCatalog={[...seriesByEntryId.values()]}
               initialMode="game"
+              initialReplayEntries={referenceReplayEntries}
               initialSelection={activeSelection}
               key={`${activeSelection.seriesFile}:${activeSelection.levelNumber}`}
               knownLevelProgressSummary={activeLevelProgress}

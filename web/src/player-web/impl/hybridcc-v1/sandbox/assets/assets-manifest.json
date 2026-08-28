@@ -1,0 +1,32 @@
+{
+  "schema": "hybridcc.legacy-dat-sandbox.browser-assets.v1",
+  "sourceRepository": "joshua-bone/HybridCC2026",
+  "sourceCommit": "71748f13bcb05b21f4b30a5b15fa275fdd695511",
+  "files": [
+    {
+      "path": "legacy_dat_sandbox.dat",
+      "byteLength": 1042,
+      "sha256": "f32e06ec6c2b6accbc6c3797a9ae53b9000a9d4f2577ce1be52eedd2822bffb3"
+    },
+    {
+      "path": "legacy_dat_sandbox.hints.json",
+      "byteLength": 3485,
+      "sha256": "3ddb52b9834fda2a666cbcf081b5aa48d4527f3868be4bf0660027320131de37"
+    },
+    {
+      "path": "replay-index.json",
+      "byteLength": 1582,
+      "sha256": "4689ebe55e0c105f7ff75063822a09a73dd8fb068aa3fb08ef235976213d016d"
+    },
+    {
+      "path": "replays/1.0.12/1-foundation-tour.hcr1",
+      "byteLength": 6575,
+      "sha256": "21a38d22833fa735c45c988264e9e009172400d7761cec82430054a5560e5de2"
+    },
+    {
+      "path": "replays/1.0.12/2-block-tour.hcr1",
+      "byteLength": 6365,
+      "sha256": "049e5fd6dacb4dffc89bea701cb3c8be36f84ba30ed3e3d6d9ff4b3a68e930b4"
+    }
+  ]
+}
