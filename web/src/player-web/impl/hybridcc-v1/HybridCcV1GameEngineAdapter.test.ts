@@ -461,6 +461,98 @@ describe("HybridCcV1GameEngineAdapter", () => {
     expect(fake.inputs).toEqual([0, 0]);
   });
 
+  it("keeps a cloner visibly occupied throughout its actor's launch", async () => {
+    const player = testActor({
+      id: 1n,
+      logicalPosition: { x: 2, y: 0, z: 0 },
+    });
+    const blockAtSource = testActor({
+      id: 2n,
+      kind: HYBRID_CC_V1_ELEMENT.dirtBlock,
+      logicalPosition: { x: 0, y: 0, z: 0 },
+    });
+    const launchingBlock = testActor({
+      ...blockAtSource,
+      logicalPosition: { x: 1, y: 0, z: 0 },
+      hasMovement: true,
+      movement: {
+        origin: { x: 0, y: 0, z: 0 },
+        destination: { x: 1, y: 0, z: 0 },
+        direction: HYBRID_CC_V1_DIRECTION.east,
+        slapDirection: HYBRID_CC_V1_DIRECTION.none,
+        startBoundary: 1n,
+        completionBoundary: 3n,
+        owner: HYBRID_CC_V1_MOVEMENT_OWNER.cloner,
+        movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+        discontinuous: false,
+      },
+    });
+    const replacement = testActor({
+      ...blockAtSource,
+      id: 3n,
+    });
+    const clonerCell = testCell({
+      terrain: testElement({ id: HYBRID_CC_V1_ELEMENT.cloner }),
+    });
+    const frame = (
+      boundary: number,
+      actors: HybridCcV1Snapshot["actors"],
+      cells: HybridCcV1Snapshot["cells"],
+    ) => {
+      const base = snapshot(boundary);
+      return snapshot(boundary, {
+        header: {
+          ...base.header,
+          width: 3,
+          cellCount: 3,
+          actorCount: actors.length,
+        },
+        actors,
+        cells,
+        presentation: {
+          ...base.presentation,
+          playerMotion: null,
+        },
+      });
+    };
+    const initial = frame(0, [player, blockAtSource], [
+      { ...clonerCell, occupant: blockAtSource.id },
+      testCell(),
+      testCell({ occupant: player.id }),
+    ]);
+    const launch = (boundary: number) => frame(boundary, [player, launchingBlock], [
+      clonerCell,
+      testCell({ occupant: launchingBlock.id }),
+      testCell({ occupant: player.id }),
+    ]);
+    const completed = frame(3, [player, launchingBlock, replacement].map((actor) => ({
+      ...actor,
+      hasMovement: false,
+    })), [
+      { ...clonerCell, occupant: replacement.id },
+      testCell({ occupant: launchingBlock.id }),
+      testCell({ occupant: player.id }),
+    ]);
+    const fake = fakeEngine([initial, launch(1), launch(2), completed]);
+    const { adapter, request } = setup(fake.engine, convertedLevel(3));
+    let session = await adapter.startSession(request);
+
+    const expectedMoving = [8, 8, 6, 6, 4, 4, 2, 2];
+    for (const moving of expectedMoving) {
+      session = await adapter.advanceSession(session, 0);
+      expect(session.frame.render?.actors).toEqual([
+        expect.objectContaining({ id: MS_TILE.Block, pos: 0, moving: 0 }),
+        expect.objectContaining({ id: MS_TILE.Block, pos: 1, moving }),
+      ]);
+    }
+
+    session = await adapter.advanceSession(session, 0);
+    expect(session.frame.render?.actors).toEqual([
+      expect.objectContaining({ id: MS_TILE.Block, pos: 1, moving: 0 }),
+      expect.objectContaining({ id: MS_TILE.Block, pos: 0, moving: 0 }),
+    ]);
+  });
+
   it("continues neutral post-death logic and monster presentation without recording more input", async () => {
     const terminalOutcome = {
       kind: HYBRID_CC_V1_OUTCOME.loss,
@@ -711,7 +803,7 @@ describe("HybridCcV1GameEngineAdapter", () => {
     const fake = fakeEngine([snapshot(0), unfinished, terminal]);
     const replay: HybridCcV1Replay = {
       header: {
-        ruleset: { major: 1, minor: 0, tweak: 8 },
+        ruleset: { major: 1, minor: 0, tweak: 9 },
         levelContentHash: new Uint8Array(32),
         randomSeed: 99,
         finalBoundary: 2n,

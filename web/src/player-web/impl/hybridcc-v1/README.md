@@ -11,13 +11,16 @@ state and scheduling remain authoritative in the WebAssembly engine.
 merge, pull request, ABI version, and SHA-256 digest of both shipped artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.8, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.9, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
 PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
 shared by direct pushes and side slaps, PR48's independent destination timing
 plus actor-specific rejected facing, M4 PR51's staged dependent-push admission,
-and M5 PR54's source-independent terrain-arrival arbitration. On completion of
-a real arrival, force terrain tries its automatic direction first. An unblocked
+M5 PR54's source-independent terrain-arrival arbitration, and M6 PR55's
+signal-driven release ordering. A button edge that makes a later cloner actor
+ready is resolved before an immediately competing Player move without globally
+reordering unrelated nonplayer actors. On completion of a real arrival, force
+terrain tries its automatic direction first. An unblocked
 automatic move remains authoritative; only a completely blocked automatic move
 can offer the player a legal same-boundary N+1 fallback. Constructing an actor
 on force terrain is not an arrival and does not create that offer. The browser
@@ -66,6 +69,12 @@ movement cooldowns, or reconstruct held push state from one-shot events.
 Teleport events remain available for every actor, while the classic teleport
 sound is projected only when the event actor is Chip.
 
+During a cloner-owned launch, the adapter also draws a presentation-only copy
+of the departing actor over the source cloner. This is not a second logical
+occupant: collision and actor counts continue to come solely from the engine.
+When the launch completes, the real replacement actor takes over the same
+source position without an empty frame.
+
 ## Acceptance coverage
 
 `HybridCcV1RealWasmAcceptance.test.ts` exercises the actual shipped artifact,
@@ -77,6 +86,8 @@ steady held/released pushing, full-interval block pushing, the Oasis count-one
 blocked-follow and count-two admitted-follow cases, atomic paired-input side
 slaps, rejected facing after an earlier completed move, teleport timing, lethal
 contact, post-death simulation, wall reveal, and classic DAT thief conversion.
+The cloner fixture additionally verifies signal-release collision ordering and
+uninterrupted source presentation against the pinned real WebAssembly engine.
 
 The bounded local gate is:
 
