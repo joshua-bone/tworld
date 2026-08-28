@@ -16,7 +16,6 @@ import {
 const officialDatUrls = import.meta.glob(
   [
     "@data/CCLP1.dat",
-    "@data/CCLP2.dat",
     "@data/CCLP3.dat",
     "@data/CCLP4.dat",
     "@data/CCLP5.dat",
@@ -27,7 +26,6 @@ const officialDatUrls = import.meta.glob(
 
 const OFFICIAL_NAMES: Readonly<Record<string, string>> = {
   "CCLP1.dat": "Chip's Challenge Level Pack 1",
-  "CCLP2.dat": "Chip's Challenge Level Pack 2",
   "CCLP3.dat": "Chip's Challenge Level Pack 3",
   "CCLP4.dat": "Chip's Challenge Level Pack 4",
   "CCLP5.dat": "Chip's Challenge Level Pack 5",
@@ -48,6 +46,14 @@ export interface HybridCcV1UnavailableDatEntry {
   levelNumber: number | null;
   status: HybridCcV1DatEntryFailureStatus;
   diagnostic: string;
+}
+
+const EXCLUDED_OFFICIAL_DAT_FILENAMES = new Set(["CCLP2.dat"]);
+
+export function isHybridCcV1DatCatalogEntryEligible(
+  entry: Pick<HybridCcV1DatCatalogEntry, "filename" | "source">,
+): boolean {
+  return entry.source !== "official" || !EXCLUDED_OFFICIAL_DAT_FILENAMES.has(entry.filename);
 }
 
 export type HybridCcV1DatCatalogLoadResult<T> =
@@ -123,7 +129,8 @@ export async function loadHybridCcV1DatCatalogEntries<T>(
   entries: readonly HybridCcV1DatCatalogEntry[],
   load: (entry: HybridCcV1DatCatalogEntry, bytes: Uint8Array) => T | Promise<T>,
 ): Promise<HybridCcV1DatCatalogLoadResult<T>[]> {
-  return Promise.all(entries.map(async (entry): Promise<HybridCcV1DatCatalogLoadResult<T>> => {
+  const eligibleEntries = entries.filter(isHybridCcV1DatCatalogEntryEligible);
+  return Promise.all(eligibleEntries.map(async (entry): Promise<HybridCcV1DatCatalogLoadResult<T>> => {
     try {
       return {
         status: "available",
@@ -148,7 +155,7 @@ export class HybridCcV1DatCatalog {
 
   async list(): Promise<HybridCcV1DatCatalogEntry[]> {
     const imported = await this.store.listImportedDatFiles();
-    return [
+    const entries: HybridCcV1DatCatalogEntry[] = [
       ...officialEntries(),
       {
         id: `sandbox:${LEGACY_DAT_SANDBOX_ASSET_ID}`,
@@ -168,6 +175,7 @@ export class HybridCcV1DatCatalog {
         },
       })),
     ];
+    return entries.filter(isHybridCcV1DatCatalogEntryEligible);
   }
 
   async save(file: File): Promise<HybridCcV1DatCatalogEntry> {

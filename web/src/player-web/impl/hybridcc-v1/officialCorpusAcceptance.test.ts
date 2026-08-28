@@ -19,15 +19,14 @@ import {
 
 const OFFICIAL_FILENAMES = [
   "CCLP1.dat",
-  "CCLP2.dat",
   "CCLP3.dat",
   "CCLP4.dat",
   "CCLP5.dat",
   "CCLXP2.dat",
 ] as const;
 const MAXIMUM_OFFICIAL_PACKS = OFFICIAL_FILENAMES.length;
-const MAXIMUM_DAT_ENTRIES = 894;
-const MAXIMUM_PLAYABLE_LEVELS = 892;
+const MAXIMUM_DAT_ENTRIES = 745;
+const MAXIMUM_PLAYABLE_LEVELS = 745;
 const MAXIMUM_CELLS_PER_LEVEL = 65_536;
 const MAXIMUM_PROJECTED_CELLS = MAXIMUM_DAT_ENTRIES * 32 * 32;
 const ACCEPTANCE_TIMEOUT_MS = 60_000;
@@ -55,9 +54,11 @@ function context(entry: HybridCcV1DatCatalogEntry, ordinal: number, level: numbe
 
 describe("Hybrid v1 real-Wasm official corpus acceptance", () => {
   it("creates, snapshots, validates, and projects every convertible default official level", async () => {
+    const requestedOfficialFilenames: string[] = [];
     vi.stubGlobal("fetch", async (input: string | URL | Request) => {
       const filename = filenameForRequest(input);
       if (filename === null) return new Response(null, { status: 404 });
+      requestedOfficialFilenames.push(filename);
       const bytes = await readOfficialFixture(filename);
       return new Response(Uint8Array.from(bytes).buffer, { status: 200 });
     });
@@ -150,14 +151,12 @@ describe("Hybrid v1 real-Wasm official corpus acceptance", () => {
         }
       }
 
-      expect(datEntryCount).toBe(894);
-      expect(playableLevelCount).toBe(892);
-      expect(projectedCellCount).toBe(892 * 32 * 32);
-      expect(projectedActorCount).toBe(37_040);
-      expect(rejected).toEqual([
-        ["CCLP2.dat", 78, 4],
-        ["CCLP2.dat", 131, 4],
-      ]);
+      expect(requestedOfficialFilenames).toEqual([...OFFICIAL_FILENAMES].sort());
+      expect(datEntryCount).toBe(745);
+      expect(playableLevelCount).toBe(745);
+      expect(projectedCellCount).toBe(745 * 32 * 32);
+      expect(projectedActorCount).toBe(32_777);
+      expect(rejected).toEqual([]);
     } finally {
       vi.unstubAllGlobals();
     }

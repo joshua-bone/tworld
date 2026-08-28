@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   ImportedDatCatalogStore,
   PersistedImportedDatFile,
@@ -48,6 +48,27 @@ function entry(id: string, bytes: readonly number[]): HybridCcV1DatCatalogEntry 
 }
 
 describe("HybridCC v1 DAT catalog", () => {
+  it("omits only the built-in official CCLP2 pack", async () => {
+    const store = new MemoryImportedDatCatalogStore();
+    store.entries.set("CCLP2.dat", {
+      filename: "CCLP2.dat",
+      datHash: "uploaded-cclp2-name",
+      datBytes: Uint8Array.of(1, 2, 3),
+    });
+    const entries = await new HybridCcV1DatCatalog(store).list();
+
+    expect(entries.filter((candidate) => candidate.source === "official").map(({ filename }) => filename))
+      .toEqual(["CCLP1.dat", "CCLP3.dat", "CCLP4.dat", "CCLP5.dat", "CCLXP2.dat"]);
+    expect(entries).not.toContainEqual(expect.objectContaining({
+      id: "official:CCLP2.dat",
+      source: "official",
+    }));
+    expect(entries).toContainEqual(expect.objectContaining({
+      id: "imported:CCLP2.dat",
+      source: "imported",
+    }));
+  });
+
   it("includes the built-in sandbox immediately without writing it to local storage", async () => {
     const sandboxAssets: LegacyDatSandboxAssetSource = {
       assetId: LEGACY_DAT_SANDBOX_ASSET_ID,
@@ -110,6 +131,26 @@ describe("HybridCC v1 DAT catalog", () => {
       },
       { status: "available", entry: entries[2], value: 30 },
     ]);
+  });
+
+  it("never reads or converts an excluded official CCLP2 entry", async () => {
+    const readCclp2 = vi.fn(async () => Uint8Array.of(2));
+    const cclp2: HybridCcV1DatCatalogEntry = {
+      id: "official:CCLP2.dat",
+      filename: "CCLP2.dat",
+      name: "Chip's Challenge Level Pack 2",
+      source: "official",
+      loadBytes: readCclp2,
+    };
+    const allowed = entry("allowed", [3]);
+    const convert = vi.fn(async (_candidate: HybridCcV1DatCatalogEntry, bytes: Uint8Array) => bytes[0]);
+
+    const results = await loadHybridCcV1DatCatalogEntries([cclp2, allowed], convert);
+
+    expect(results).toEqual([{ status: "available", entry: allowed, value: 3 }]);
+    expect(readCclp2).not.toHaveBeenCalled();
+    expect(convert).toHaveBeenCalledOnce();
+    expect(convert).toHaveBeenCalledWith(allowed, Uint8Array.of(3));
   });
 
   it("describes non-Error converter failures without losing their catalog entry", async () => {
