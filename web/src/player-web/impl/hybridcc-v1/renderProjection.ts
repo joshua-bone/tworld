@@ -1,6 +1,11 @@
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import type { EngineMapCell, EngineTile } from "@game-core/api/model";
-import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
+import {
+  MS_DIRECTION,
+  MS_FLOOR_STATE,
+  MS_TILE,
+  msCreatureTile,
+} from "@ruleset-ms/api/tiles";
 import {
   HYBRID_CC_V1_COLOR,
   HYBRID_CC_V1_DIRECTION,
@@ -106,12 +111,16 @@ function trickWallTile(element: HybridCcV1Element): EngineTile {
 function staticMarkerTile(element: HybridCcV1Element): EngineTile {
   switch (element.id) {
     case HYBRID_CC_V1_ELEMENT.drownedPlayerMarker: return tile(MS_TILE.Drowned_Chip);
-    case HYBRID_CC_V1_ELEMENT.burnedPlayerMarkerA:
-    case HYBRID_CC_V1_ELEMENT.burnedPlayerMarkerB: return tile(MS_TILE.Burned_Chip);
+    case HYBRID_CC_V1_ELEMENT.burnedPlayerMarkerA: return tile(MS_TILE.Burned_Chip);
+    case HYBRID_CC_V1_ELEMENT.bombedPlayerMarker: return tile(MS_TILE.Bombed_Chip);
+    case HYBRID_CC_V1_ELEMENT.unusedMarkerA:
+    case HYBRID_CC_V1_ELEMENT.unusedMarkerB:
+    case HYBRID_CC_V1_ELEMENT.unusedMarkerC: return tile(MS_TILE.Wall);
     case HYBRID_CC_V1_ELEMENT.exitedPlayerMarker: return tile(MS_TILE.Exited_Chip);
     case HYBRID_CC_V1_ELEMENT.unusedExitMarkerA: return tile(MS_TILE.Exit_Extra_1);
     case HYBRID_CC_V1_ELEMENT.unusedExitMarkerB: return tile(MS_TILE.Exit_Extra_2);
-    case HYBRID_CC_V1_ELEMENT.swimmingPlayerMarker: return tile(MS_TILE.Swimming_Chip);
+    case HYBRID_CC_V1_ELEMENT.swimmingPlayerMarker:
+      return tile(msCreatureTile(MS_TILE.Swimming_Chip, hybridCcV1Direction(element.direction)));
     default: return unsupported("static marker", element);
   }
 }
@@ -141,7 +150,10 @@ function terrainTile(cell: HybridCcV1Cell): EngineTile {
     case HYBRID_CC_V1_ELEMENT.thief: return tile(MS_TILE.Burglar);
     case HYBRID_CC_V1_ELEMENT.drownedPlayerMarker:
     case HYBRID_CC_V1_ELEMENT.burnedPlayerMarkerA:
-    case HYBRID_CC_V1_ELEMENT.burnedPlayerMarkerB:
+    case HYBRID_CC_V1_ELEMENT.bombedPlayerMarker:
+    case HYBRID_CC_V1_ELEMENT.unusedMarkerA:
+    case HYBRID_CC_V1_ELEMENT.unusedMarkerB:
+    case HYBRID_CC_V1_ELEMENT.unusedMarkerC:
     case HYBRID_CC_V1_ELEMENT.exitedPlayerMarker:
     case HYBRID_CC_V1_ELEMENT.unusedExitMarkerA:
     case HYBRID_CC_V1_ELEMENT.unusedExitMarkerB:

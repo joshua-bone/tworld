@@ -21,6 +21,7 @@ const assetManifestFile = "assets-manifest.json";
 const assetManifestSchema = "hybridcc.legacy-dat-sandbox.browser-assets.v1";
 const defaultSourceCandidates = [
   join(repositoryRoot, "../HybridCC2026/sandbox/legacy_dat/generated"),
+  join(repositoryRoot, "../HybridCC2026-sandbox-pr2/sandbox/legacy_dat/generated"),
   join(repositoryRoot, "../HybridCC2026-sandbox-pr1/sandbox/legacy_dat/generated"),
 ];
 const requiredTopLevelFiles = [
@@ -29,9 +30,9 @@ const requiredTopLevelFiles = [
   "replay-index.json",
 ];
 const pinnedTopLevelHashes = new Map([
-  ["legacy_dat_sandbox.dat", "f32e06ec6c2b6accbc6c3797a9ae53b9000a9d4f2577ce1be52eedd2822bffb3"],
-  ["legacy_dat_sandbox.hints.json", "3ddb52b9834fda2a666cbcf081b5aa48d4527f3868be4bf0660027320131de37"],
-  ["replay-index.json", "4689ebe55e0c105f7ff75063822a09a73dd8fb068aa3fb08ef235976213d016d"],
+  ["legacy_dat_sandbox.dat", "0a2bac37dfbbb4705aae7d8e75f7113b35e1475b321d8ae3667499de8503bc3e"],
+  ["legacy_dat_sandbox.hints.json", "ea2b6a9b897b7764058e886cb61c98448b3bd24f54c1a0f5eac3c15c0f54fc6e"],
+  ["replay-index.json", "278f4ffe49d700a73a1da56ced06fb34117076ff87e910887ead0fbb990ad552"],
 ]);
 
 function usage() {

@@ -12,15 +12,16 @@ merge, pull request, ruleset, ABI version, and SHA-256 digest of both shipped
 artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.12, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.13, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
 PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
 shared by direct pushes and side slaps, PR48's independent destination timing
 plus actor-specific rejected facing, M4 PR51's staged dependent-push admission,
 M5 PR54's source-independent terrain-arrival arbitration, M6 PR55's
 signal-driven release ordering, M7 PR56's entry-scoped teleport activation,
-M7 PR58's atomic adjacent-pad self-return occupancy, and M8 PR60's category-
-aware released-trap arbitration. A button edge that
+M7 PR58's atomic adjacent-pad self-return occupancy, M8 PR60's category-aware
+released-trap arbitration, and sandbox PR63's explicit DAT 51–63 compatibility
+policy plus replay-publication guardrails. A button edge that
 makes a later cloner actor ready is resolved
 before an immediately competing Player move without globally reordering
 unrelated nonplayer actors. On completion of a real arrival, force terrain
@@ -110,6 +111,12 @@ the host apply the sandbox's per-room Hint JSON through
 the exact built-in asset identity and SHA-256 digest; a local DAT with the same
 filename never receives the overlay.
 
+Sandbox PR2 publishes 13 physical DAT entries with 52 navigable scenario rooms,
+70 frozen scenario IDs, and 52 independently verified reference replays (46
+wins and six intentional losses). The bundled official `CCLP2.dat` is omitted
+from the Hybrid v1 catalog before its bytes are loaded or converted; this does
+not alter MS/Lynx catalogs or user-uploaded DAT files.
+
 Reference HCR1 files are verified against the enriched canonical HCLV bytes
 before they enter the replay menu. They are shown as **Reference replay**, are
 read-only, and sort behind locally saved or imported runs. The replay index is
@@ -150,7 +157,11 @@ verifies signal-release collision ordering and uninterrupted source
 presentation against the pinned real WebAssembly engine. Released-trap
 fixtures verify Player intent-first, generic pushable external-intent priority
 in both native actor orders, and ordinary-monster facing-first through that
-same pinned engine and production adapter.
+same pinned engine and production adapter. Sandbox acceptance converts all 13
+entries through the shipped Wasm, proves the four DAT 60–63 sanitation messages
+remain nonmodal notes, verifies every enriched level hash, and plays all 52
+references to their declared win or loss outcome. Rendering tests cover each
+DAT special-art code 51–63 and the retained native-only marker fallbacks.
 
 The bounded local gate is:
 

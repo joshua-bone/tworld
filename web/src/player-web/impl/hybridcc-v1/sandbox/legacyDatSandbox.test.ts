@@ -15,6 +15,21 @@ import {
 } from "./legacyDatSandbox";
 
 const asset = (name: string) => new URL(`./assets/${name}`, import.meta.url);
+const EXPECTED_ROOMS = [
+  [1, ["failed-wall-facing", "dirt-and-gravel", "red-key-and-door", "hint-lifecycle"]],
+  [2, ["successful-push", "blocked-push", "side-slap", "block-into-water"]],
+  [3, ["ordinary-n-plus-two", "immediate-vacancy", "gravel-containment", "exit-player-only"]],
+  [4, ["red-door", "blue-door", "yellow-door", "green-reusable"]],
+  [5, ["wrong-color-door", "multiple-finite-keys", "blue-key-fragility", "nonplayer-key-rules"]],
+  [6, ["header-field-override", "socket-short", "socket-exact", "multiple-sockets"]],
+  [76, ["socket-zero", "north-east-support", "south-west-support", "south-east-support"]],
+  [7, ["water-and-fire-tools", "ice-and-force-tools", "duplicate-tools", "thief-sequence"]],
+  [8, ["player-water", "player-fire", "block-water", "block-fire"]],
+  [9, ["glider-water-loop", "non-glider-water-lanes", "fireball-fire-loop", "other-mobs-fire-lanes"]],
+  [10, ["nonplayer-bombs", "player-bomb-losses", "water-layer-order", "collision-before-contact"]],
+  [11, ["ordinary-and-invisible", "invisible-nonplayer-and-slap", "blue-wall-identities", "appearing-wall"]],
+  [12, ["static-art-gallery", "panel-edges", "popup-departure-counts", "recessed-blue-and-admission"]],
+] as const;
 
 describe("Legacy DAT Sandbox sidecars", () => {
   it("pins browser assets to the same reviewed source commit as the Wasm engine", () => {
@@ -30,27 +45,21 @@ describe("Legacy DAT Sandbox sidecars", () => {
     });
   });
 
-  it("publishes one room-specific Hint message for every PR1 scenario room", async () => {
+  it("publishes one room-specific Hint message for every PR2 scenario room", async () => {
     const hints = parseLegacyDatSandboxHints(
       new Uint8Array(await readFile(asset("legacy_dat_sandbox.hints.json"))),
     );
 
     expect(hints.datSha256).toBe(LEGACY_DAT_SANDBOX_DAT_SHA256);
-    expect(hints.levelCount).toBe(2);
-    expect(hints.levels.map((level) => level.rooms.length)).toEqual([4, 4]);
-    expect(hints.levels.flatMap((level) => level.rooms).map((room) => room.roomId)).toEqual([
-      "failed-wall-facing",
-      "dirt-and-gravel",
-      "red-key-and-door",
-      "hint-lifecycle",
-      "successful-push",
-      "blocked-push",
-      "side-slap",
-      "block-into-water",
-    ]);
+    expect(hints.levelCount).toBe(13);
+    expect(hints.levels.map((level) => [
+      level.expectedNumber,
+      level.rooms.map((room) => room.roomId),
+    ])).toEqual(EXPECTED_ROOMS);
+    expect(hints.levels.flatMap((level) => level.rooms)).toHaveLength(52);
   });
 
-  it("indexes both SHA-bound HCR1 tour replays against enriched native levels", async () => {
+  it("indexes every SHA-bound HCR1 proof against enriched native levels", async () => {
     const index = parseLegacyDatSandboxReplayIndex(
       new Uint8Array(await readFile(asset("replay-index.json"))),
     );
@@ -58,12 +67,16 @@ describe("Legacy DAT Sandbox sidecars", () => {
     expect(index).toMatchObject({
       datSha256: LEGACY_DAT_SANDBOX_DAT_SHA256,
       hintSupplementSha256: LEGACY_DAT_SANDBOX_HINTS_SHA256,
-      ruleset: "1.0.12",
+      ruleset: "1.0.13",
     });
-    expect(index.replays.map((replay) => [replay.id, replay.levelNumber, replay.expectedOutcome])).toEqual([
-      ["foundation-tour", 1, "win"],
-      ["block-tour", 2, "win"],
-    ]);
+    expect(index.replays).toHaveLength(52);
+    expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(52);
+    expect(new Set(index.replays.map((replay) => replay.levelNumber))).toEqual(
+      new Set(EXPECTED_ROOMS.map(([number]) => number)),
+    );
+    expect(index.replays.filter((replay) => replay.expectedOutcome === "win")).toHaveLength(46);
+    expect(index.replays.filter((replay) => replay.expectedOutcome === "loss")).toHaveLength(6);
+    expect(index.replays.every((replay) => replay.path.startsWith("replays/1.0.13/"))).toBe(true);
   });
 
   it("rejects altered DAT bytes before invoking the native hint-overlay API", async () => {
