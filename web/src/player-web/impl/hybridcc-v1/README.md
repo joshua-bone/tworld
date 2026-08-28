@@ -11,20 +11,29 @@ state and scheduling remain authoritative in the WebAssembly engine.
 merge, pull request, ABI version, and SHA-256 digest of both shipped artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.9, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.10, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
 PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
 shared by direct pushes and side slaps, PR48's independent destination timing
 plus actor-specific rejected facing, M4 PR51's staged dependent-push admission,
-M5 PR54's source-independent terrain-arrival arbitration, and M6 PR55's
-signal-driven release ordering. A button edge that makes a later cloner actor
-ready is resolved before an immediately competing Player move without globally
-reordering unrelated nonplayer actors. On completion of a real arrival, force
-terrain tries its automatic direction first. An unblocked
+M5 PR54's source-independent terrain-arrival arbitration, M6 PR55's
+signal-driven release ordering, and M7 PR56's entry-scoped teleport
+activation. A button edge that makes a later cloner actor ready is resolved
+before an immediately competing Player move without globally reordering
+unrelated nonplayer actors. On completion of a real arrival, force terrain
+tries its automatic direction first. An unblocked
 automatic move remains authoritative; only a completely blocked automatic move
 can offer the player a legal same-boundary N+1 fallback. Constructing an actor
 on force terrain is not an arrival and does not create that offer. The browser
 refuses an ABI, snapshot, or exact ruleset mismatch.
+
+Teleport search retains its ordered remote candidates and then tries the source
+pad as the final candidate. A legal departure from the source remains a
+teleport-owned move. Only when every remote and source departure is blocked is
+that actor's entry-scoped activation consumed. Eligible ordinary Player/AI
+intent then receives the same boundary through the common planner, and the pad
+acts as ordinary floor for that actor until it completes an exit and later
+re-enters. Opening an exit underneath a dormant resident does not re-arm it.
 
 M3 PR46 corrects classic DAT composition for a dirt block layered over a real
 blue wall: it is one recessed `becomes_wall` departure, not a block occupying
@@ -84,10 +93,12 @@ force fallback input phase, automatic-force priority over conflicting input,
 the first arrival and full multi-tile Tunnel Clearance lateral force corridor,
 steady held/released pushing, full-interval block pushing, the Oasis count-one
 blocked-follow and count-two admitted-follow cases, atomic paired-input side
-slaps, rejected facing after an earlier completed move, teleport timing, lethal
-contact, post-death simulation, wall reveal, and classic DAT thief conversion.
-The cloner fixture additionally verifies signal-release collision ordering and
-uninterrupted source presentation against the pinned real WebAssembly engine.
+slaps, rejected facing after an earlier completed move, teleport timing,
+source-last teleport departure, total-failure same-boundary ordinary fallback,
+actor-local teleport dormancy, lethal contact, post-death simulation, wall
+reveal, and classic DAT thief conversion. The cloner fixture additionally
+verifies signal-release collision ordering and uninterrupted source
+presentation against the pinned real WebAssembly engine.
 
 The bounded local gate is:
 

@@ -1709,6 +1709,136 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
     }
   });
 
+  it("keeps the source pad as the final legal teleport exit", async () => {
+    const module = await loadModule();
+    const channel = "SRC";
+    const engine = createHybridCcV1Engine(module, nativeLine("real-Wasm source teleport exit", [
+      { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+      {
+        terrain: {
+          id: ELEMENT.teleport,
+          color: COLOR.blue,
+          rule: RULE.cannotOverride,
+          channel,
+        },
+      },
+      {},
+      {
+        terrain: {
+          id: ELEMENT.teleport,
+          color: COLOR.blue,
+          rule: RULE.cannotOverride,
+          channel,
+        },
+      },
+      { terrain: { id: ELEMENT.wall } },
+    ]), 7);
+
+    try {
+      engine.logicStep(HYBRIDCC_V1_INPUT.east);
+      engine.logicStep(HYBRIDCC_V1_INPUT.none);
+      engine.logicStep(HYBRIDCC_V1_INPUT.none);
+      const snapshot = engine.snapshot();
+      const chip = snapshot.actors.find(({ kind }) => kind === ELEMENT.player);
+
+      expect(snapshot.header.logicBoundary).toBe(3n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        terrainOwner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
+        controlOwner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
+        movement: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          startBoundary: 3n,
+          completionBoundary: 5n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+          discontinuous: false,
+        },
+      });
+      expect(engine.invariantStatus()).toBe(0);
+    } finally {
+      engine.dispose();
+    }
+  });
+
+  it("turns complete teleport failure into same-boundary ordinary intent and dormancy", async () => {
+    const module = await loadModule();
+    const level = nativeLine("real-Wasm blocked teleport dormancy", [
+      { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+      {
+        terrain: {
+          id: ELEMENT.teleport,
+          color: COLOR.blue,
+          rule: RULE.cannotOverride,
+          channel: "DOR",
+        },
+      },
+      { terrain: { id: ELEMENT.wall } },
+      {
+        terrain: {
+          id: ELEMENT.teleport,
+          color: COLOR.blue,
+          rule: RULE.cannotOverride,
+          channel: "DOR",
+        },
+      },
+      { terrain: { id: ELEMENT.wall } },
+    ]);
+    const movingEngine = createHybridCcV1Engine(module, level, 7);
+
+    try {
+      movingEngine.logicStep(HYBRIDCC_V1_INPUT.east);
+      movingEngine.logicStep(HYBRIDCC_V1_INPUT.none);
+      movingEngine.logicStep(HYBRIDCC_V1_INPUT.west);
+      const snapshot = movingEngine.snapshot();
+      const chip = snapshot.actors.find(({ kind }) => kind === ELEMENT.player);
+
+      expect(snapshot.header.logicBoundary).toBe(3n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 0, y: 0, z: 0 },
+        terrainOwner: HYBRID_CC_V1_MOVEMENT_OWNER.none,
+        controlOwner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+        movement: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 0, y: 0, z: 0 },
+          startBoundary: 3n,
+          completionBoundary: 5n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+          discontinuous: false,
+        },
+      });
+      expect(movingEngine.invariantStatus()).toBe(0);
+    } finally {
+      movingEngine.dispose();
+    }
+
+    const dormantEngine = createHybridCcV1Engine(module, level, 7);
+    try {
+      dormantEngine.logicStep(HYBRIDCC_V1_INPUT.east);
+      dormantEngine.logicStep(HYBRIDCC_V1_INPUT.none);
+      dormantEngine.logicStep(HYBRIDCC_V1_INPUT.none);
+      dormantEngine.logicStep(HYBRIDCC_V1_INPUT.none);
+      const snapshot = dormantEngine.snapshot();
+      const chip = snapshot.actors.find(({ kind }) => kind === ELEMENT.player);
+
+      expect(snapshot.header.logicBoundary).toBe(4n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 1, y: 0, z: 0 },
+        terrainOwner: HYBRID_CC_V1_MOVEMENT_OWNER.none,
+        controlOwner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+        hasMovement: false,
+      });
+      expect(snapshot.events.filter(({ kind, actorKind }) => (
+        kind === HYBRID_CC_V1_EVENT.moveRejected && actorKind === ELEMENT.player
+      ))).toHaveLength(0);
+      expect(dormantEngine.invariantStatus()).toBe(0);
+    } finally {
+      dormantEngine.dispose();
+    }
+  });
+
   it("lets a moving dirt block kill Chip, survive, and finish after the durable loss", async () => {
     const module = await loadModule();
     const engine = createHybridCcV1Engine(module, nativeLine("real-Wasm dirt-block loss", [
