@@ -803,7 +803,7 @@ describe("HybridCcV1GameEngineAdapter", () => {
     const fake = fakeEngine([snapshot(0), unfinished, terminal]);
     const replay: HybridCcV1Replay = {
       header: {
-        ruleset: { major: 1, minor: 0, tweak: 9 },
+        ruleset: { major: 1, minor: 0, tweak: 10 },
         levelContentHash: new Uint8Array(32),
         randomSeed: 99,
         finalBoundary: 2n,
