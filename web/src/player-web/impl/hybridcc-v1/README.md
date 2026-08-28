@@ -8,17 +8,19 @@ state and scheduling remain authoritative in the WebAssembly engine.
 ## Pinned engine
 
 `engine/engine-manifest.json` records the exact HybridCC2026 source revision,
-merge, pull request, ABI version, and SHA-256 digest of both shipped artifacts.
+merge, pull request, ruleset, ABI version, and SHA-256 digest of both shipped
+artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.10, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.11, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
 PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
 shared by direct pushes and side slaps, PR48's independent destination timing
 plus actor-specific rejected facing, M4 PR51's staged dependent-push admission,
 M5 PR54's source-independent terrain-arrival arbitration, M6 PR55's
-signal-driven release ordering, and M7 PR56's entry-scoped teleport
-activation. A button edge that makes a later cloner actor ready is resolved
+signal-driven release ordering, M7 PR56's entry-scoped teleport activation,
+and M7 PR58's atomic adjacent-pad self-return occupancy. A button edge that
+makes a later cloner actor ready is resolved
 before an immediately competing Player move without globally reordering
 unrelated nonplayer actors. On completion of a real arrival, force terrain
 tries its automatic direction first. An unblocked
@@ -34,6 +36,10 @@ that actor's entry-scoped activation consumed. Eligible ordinary Player/AI
 intent then receives the same boundary through the common planner, and the pad
 acts as ordinary floor for that actor until it completes an exit and later
 re-enters. Opening an exit underneath a dormant resident does not re-arm it.
+If a remote pad exits through the actor's own logical source cell, the actor
+does not collide with itself. The engine publishes one normal N+2
+discontinuous interval, retains exactly one occupied cell, and re-arms the next
+teleport activation only when that interval completes.
 
 M3 PR46 corrects classic DAT composition for a dirt block layered over a real
 blue wall: it is one recessed `becomes_wall` departure, not a block occupying
@@ -94,9 +100,10 @@ the first arrival and full multi-tile Tunnel Clearance lateral force corridor,
 steady held/released pushing, full-interval block pushing, the Oasis count-one
 blocked-follow and count-two admitted-follow cases, atomic paired-input side
 slaps, rejected facing after an earlier completed move, teleport timing,
-source-last teleport departure, total-failure same-boundary ordinary fallback,
-actor-local teleport dormancy, lethal contact, post-death simulation, wall
-reveal, and classic DAT thief conversion. The cloner fixture additionally
+source-last teleport departure, adjacent-pad self-return through the real host
+and renderer, total-failure same-boundary ordinary fallback, actor-local
+teleport dormancy, lethal contact, post-death simulation, wall reveal, and
+classic DAT thief conversion. The cloner fixture additionally
 verifies signal-release collision ordering and uninterrupted source
 presentation against the pinned real WebAssembly engine.
 

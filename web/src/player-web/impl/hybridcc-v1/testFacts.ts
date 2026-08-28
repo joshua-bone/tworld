@@ -1,12 +1,13 @@
-import type {
-  HybridCcV1Actor,
-  HybridCcV1Cell,
-  HybridCcV1Element,
-  HybridCcV1Event,
-  HybridCcV1InventoryEntry,
-  HybridCcV1MotionTrack,
-  HybridCcV1PlayerPush,
-  HybridCcV1Snapshot,
+import {
+  HYBRIDCC_V1_ABI,
+  type HybridCcV1Actor,
+  type HybridCcV1Cell,
+  type HybridCcV1Element,
+  type HybridCcV1Event,
+  type HybridCcV1InventoryEntry,
+  type HybridCcV1MotionTrack,
+  type HybridCcV1PlayerPush,
+  type HybridCcV1Snapshot,
 } from "./wasmBridge";
 import {
   HYBRID_CC_V1_DIRECTION,
@@ -189,7 +190,8 @@ export function testSnapshot(overrides: Partial<HybridCcV1Snapshot> = {}): Hybri
     header: {
       recordVersion: 2,
       abiVersion: 2,
-      ruleset: { major: 1, minor: 0, tweak: 10 },
+      // Synthetic snapshots use the production decoder's pinned contract.
+      ruleset: HYBRIDCC_V1_ABI.ruleset,
       width: 1,
       height: 1,
       depth: 1,
