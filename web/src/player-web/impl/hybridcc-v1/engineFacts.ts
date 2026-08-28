@@ -5,8 +5,9 @@
  * Provenance: HybridCC2026 PR #43, PR #44's HCR1 version correction, and
  * PR #47's generic pushable-actor transaction, PR #52's staged dependent-push
  * admission, PR #54's force-first arrival fallback, PR #55's signal-driven
- * release ordering, and PR #56's entry-scoped teleport activation,
- * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.10.
+ * release ordering, PR #56's entry-scoped teleport activation, and PR #58's
+ * atomic teleport self-return occupancy, include/hybridcc/v1/c_api.h, ABI
+ * version 2, ruleset 1.0.11.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,
@@ -173,8 +174,8 @@ export const HYBRID_CC_V1_MOVEMENT_OWNER = {
   none: 0,
   playerInput: 1,
   playerForceOverride: 2,
-  // Reserved ABI owner 3. Ruleset 1.0.10 never emits it; ordinary continuation
-  // is playerInput and readiness comes from accepted movement completion.
+  // Reserved ABI owner 3. The current ruleset never emits it; ordinary
+  // continuation is playerInput and readiness comes from accepted completion.
   playerExitCredit: 3,
   actorAi: 4,
   forceFloor: 5,

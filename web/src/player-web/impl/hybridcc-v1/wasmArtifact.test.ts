@@ -3,26 +3,29 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import manifest from "./engine/engine-manifest.json";
 import createHybridCcV1Module from "./engine/hybridcc_v1_wasm.js";
+import { HYBRIDCC_V1_ABI } from "./wasmBridge";
 
-const EXPECTED_SOURCE_COMMIT = "9ed7c8a7d3898bbf9865a5a64e34fe0f9ef7cb1b";
+const EXPECTED_SOURCE_COMMIT = "0af835e02eb44ef008b837667bf965610fb448ff";
 const EXPECTED_JS_SHA256 = "c70eb34985d4eda9f49a5d2ae6487e7d33006be5cba81f5d14084771124bb02a";
-const EXPECTED_WASM_SHA256 = "6600b46ac798cb39bf6481f88980c35efa1d035353ccfd8fd280249036ad5af6";
+const EXPECTED_WASM_SHA256 = "55249d10bf44a6a546371fcee17431c6a2a4ac98ff153243a6b90e6affb7af3e";
+const EXPECTED_RULESET = `${HYBRIDCC_V1_ABI.ruleset.major}.${HYBRIDCC_V1_ABI.ruleset.minor}.${HYBRIDCC_V1_ABI.ruleset.tweak}`;
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
 describe("pinned HybridCC v1 WebAssembly artifact", () => {
-  it("matches the reviewed ruleset 1.0.10 engine", async () => {
+  it("matches the reviewed engine source and bytes", async () => {
     const jsBytes = await readFile(new URL("./engine/hybridcc_v1_wasm.js", import.meta.url));
     const wasmBytes = await readFile(new URL("./engine/hybridcc_v1_wasm.wasm", import.meta.url));
 
     expect(manifest).toMatchObject({
       product: "HybridCC v1",
       abiVersion: 2,
+      ruleset: HYBRIDCC_V1_ABI.ruleset,
       sourceCommit: EXPECTED_SOURCE_COMMIT,
-      sourceMergeCommit: "58f6c6d46ea44a2a909b2720cba8bee5ed7f5464",
-      sourcePullRequest: "https://github.com/joshua-bone/HybridCC2026/pull/56",
+      sourceMergeCommit: "5c88ad44cbca6387d6b1ea47567ad7ad5e77ad86",
+      sourcePullRequest: "https://github.com/joshua-bone/HybridCC2026/pull/58",
       artifacts: {
         "hybridcc_v1_wasm.js": `sha256:${EXPECTED_JS_SHA256}`,
         "hybridcc_v1_wasm.wasm": `sha256:${EXPECTED_WASM_SHA256}`,
@@ -30,6 +33,17 @@ describe("pinned HybridCC v1 WebAssembly artifact", () => {
     });
     expect(sha256(jsBytes)).toBe(EXPECTED_JS_SHA256);
     expect(sha256(wasmBytes)).toBe(EXPECTED_WASM_SHA256);
+  });
+
+  it("keeps every current Tile World version surface on the runtime contract", async () => {
+    const [readme, engineFacts] = await Promise.all([
+      readFile(new URL("./README.md", import.meta.url), "utf8"),
+      readFile(new URL("./engineFacts.ts", import.meta.url), "utf8"),
+    ]);
+
+    expect(manifest.ruleset).toEqual(HYBRIDCC_V1_ABI.ruleset);
+    expect(readme).toContain(`ruleset ${EXPECTED_RULESET}`);
+    expect(engineFacts).toContain(`ruleset ${EXPECTED_RULESET}`);
   });
 
   it("exports the complete reviewed 43-function C ABI", async () => {

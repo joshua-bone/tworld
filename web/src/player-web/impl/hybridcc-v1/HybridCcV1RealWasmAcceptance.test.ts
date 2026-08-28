@@ -1709,6 +1709,114 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
     }
   });
 
+  it("admits adjacent teleport self-return without operation 53 or duplicate occupancy", async () => {
+    const module = await loadModule();
+    const channel = "SELF";
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-teleport-self-return",
+      nativeRectangle("real-Wasm adjacent teleport self-return", 4, 3, [
+        {},
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: { id: ELEMENT.wall } },
+        {},
+        {},
+        {
+          terrain: {
+            id: ELEMENT.teleport,
+            color: COLOR.blue,
+            rule: RULE.cannotOverride,
+            channel,
+          },
+        },
+        {
+          terrain: {
+            id: ELEMENT.teleport,
+            color: COLOR.blue,
+            rule: RULE.cannotOverride,
+            channel,
+          },
+        },
+        {},
+        {},
+        { actor: { id: ELEMENT.player, direction: DIRECTION.north } },
+        {},
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      // Reach boundary 5 through the production 40 Hz host scheduler. The
+      // directional inputs are sampled exactly on boundaries 1 and 4.
+      for (let hostSample = 0; hostSample < 20; hostSample += 1) {
+        const input = hostSample === 0
+          ? HYBRIDCC_V1_INPUT.north
+          : (hostSample === 12 ? HYBRIDCC_V1_INPUT.east : HYBRIDCC_V1_INPUT.none);
+        session = await harness.adapter.advanceSession(session, input);
+      }
+
+      const moving: number[] = [];
+      const fixedX: number[] = [];
+      let boundarySix: ReturnType<typeof harness.engine.snapshot> | undefined;
+      for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+        // The preceding artifact returned operation 53 on the first call.
+        // advanceSession would surface that as the same UI error path that the
+        // player reported, so completing all eight calls is host acceptance.
+        session = await harness.adapter.advanceSession(
+          session,
+          HYBRIDCC_V1_INPUT.none,
+        );
+        if (hostSample === 0) boundarySix = harness.engine.snapshot();
+        const renderedChip = session.frame.render?.chip;
+        if (!renderedChip) throw new Error("Adjacent teleport fixture lost rendered Chip");
+        expect(renderedChip).toMatchObject({
+          pos: 6,
+          dir: MS_DIRECTION.east,
+        });
+        moving.push(renderedChip.moving);
+        fixedX.push((renderedChip.pos % 4) * 8 - renderedChip.moving);
+      }
+
+      if (!boundarySix) throw new Error("Adjacent teleport fixture missed boundary 6");
+      const snapshot = boundarySix;
+      expect(snapshot.header.logicBoundary).toBe(6n);
+      const chip = snapshot.actors.find(({ kind }) => kind === ELEMENT.player);
+      if (!chip) throw new Error("Adjacent teleport fixture lost Chip");
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 2, y: 1, z: 0 },
+        hasMovement: true,
+        movement: {
+          origin: { x: 2, y: 1, z: 0 },
+          destination: { x: 2, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 6n,
+          completionBoundary: 8n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.teleport,
+          discontinuous: true,
+        },
+      });
+      expect(snapshot.cells.filter(({ occupant }) => occupant === chip.id)).toEqual([
+        expect.objectContaining({ occupant: chip.id }),
+      ]);
+      expect(snapshot.cells[6]?.occupant).toBe(chip.id);
+      expect(snapshot.presentation.playerMotion).toMatchObject({
+        origin: { x: 2, y: 1, z: 0 },
+        destination: { x: 2, y: 1, z: 0 },
+        startBoundary: 6n,
+        completionBoundary: 8n,
+        presentationSampleCount: 4,
+        discontinuous: true,
+      });
+      expect(moving).toEqual([8, 8, 6, 6, 4, 4, 2, 2]);
+      expect(fixedX).toEqual([8, 8, 10, 10, 12, 12, 14, 14]);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
   it("keeps the source pad as the final legal teleport exit", async () => {
     const module = await loadModule();
     const channel = "SRC";

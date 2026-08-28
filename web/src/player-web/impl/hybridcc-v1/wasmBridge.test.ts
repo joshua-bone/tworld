@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import createHybridCcV1Module from "./engine/hybridcc_v1_wasm.js";
 import {
+  HYBRIDCC_V1_ABI,
   HYBRIDCC_V1_INPUT,
   compileHybridCcV1Run,
   convertHybridCcV1Dat,
@@ -156,7 +157,7 @@ describe("HybridCC v1 WebAssembly bridge", () => {
     expect(initial.header).toMatchObject({
       recordVersion: 2,
       abiVersion: 2,
-      ruleset: { major: 1, minor: 0, tweak: 10 },
+      ruleset: HYBRIDCC_V1_ABI.ruleset,
       width: 2,
       height: 1,
       depth: 1,
@@ -216,7 +217,7 @@ describe("HybridCC v1 WebAssembly bridge", () => {
 
     expect(replay.encoded.slice(0, 4)).toEqual(Uint8Array.from([0x48, 0x43, 0x52, 0x31]));
     expect(replay.header).toMatchObject({
-      ruleset: { major: 1, minor: 0, tweak: 10 },
+      ruleset: HYBRIDCC_V1_ABI.ruleset,
       randomSeed: 17,
       finalBoundary: 3n,
       checkpointMode: 1,

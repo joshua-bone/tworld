@@ -26,11 +26,12 @@ import {
   testPlayerPush,
   testSnapshot,
 } from "./testFacts";
-import type {
-  HybridCcV1ConvertedLevel,
-  HybridCcV1Engine,
-  HybridCcV1Replay,
-  HybridCcV1Snapshot,
+import {
+  HYBRIDCC_V1_ABI,
+  type HybridCcV1ConvertedLevel,
+  type HybridCcV1Engine,
+  type HybridCcV1Replay,
+  type HybridCcV1Snapshot,
 } from "./wasmBridge";
 
 function convertedLevel(width = 2): HybridCcV1ConvertedLevel {
@@ -803,7 +804,7 @@ describe("HybridCcV1GameEngineAdapter", () => {
     const fake = fakeEngine([snapshot(0), unfinished, terminal]);
     const replay: HybridCcV1Replay = {
       header: {
-        ruleset: { major: 1, minor: 0, tweak: 10 },
+        ruleset: HYBRIDCC_V1_ABI.ruleset,
         levelContentHash: new Uint8Array(32),
         randomSeed: 99,
         finalBoundary: 2n,
