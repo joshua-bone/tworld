@@ -5,9 +5,9 @@
  * Provenance: HybridCC2026 PR #43, PR #44's HCR1 version correction, and
  * PR #47's generic pushable-actor transaction, PR #52's staged dependent-push
  * admission, PR #54's force-first arrival fallback, PR #55's signal-driven
- * release ordering, PR #56's entry-scoped teleport activation, and PR #58's
- * atomic teleport self-return occupancy, include/hybridcc/v1/c_api.h, ABI
- * version 2, ruleset 1.0.11.
+ * release ordering, PR #56's entry-scoped teleport activation, PR #58's
+ * atomic teleport self-return occupancy, and PR #60's category-aware released-
+ * trap arbitration, include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.12.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,

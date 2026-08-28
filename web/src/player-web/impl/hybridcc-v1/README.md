@@ -12,14 +12,15 @@ merge, pull request, ruleset, ABI version, and SHA-256 digest of both shipped
 artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.11, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.12, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
 PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
 shared by direct pushes and side slaps, PR48's independent destination timing
 plus actor-specific rejected facing, M4 PR51's staged dependent-push admission,
 M5 PR54's source-independent terrain-arrival arbitration, M6 PR55's
 signal-driven release ordering, M7 PR56's entry-scoped teleport activation,
-and M7 PR58's atomic adjacent-pad self-return occupancy. A button edge that
+M7 PR58's atomic adjacent-pad self-return occupancy, and M8 PR60's category-
+aware released-trap arbitration. A button edge that
 makes a later cloner actor ready is resolved
 before an immediately competing Player move without globally reordering
 unrelated nonplayer actors. On completion of a real arrival, force terrain
@@ -28,6 +29,15 @@ automatic move remains authoritative; only a completely blocked automatic move
 can offer the player a legal same-boundary N+1 fallback. Constructing an actor
 on force terrain is not an arrival and does not create that offer. The browser
 refuses an ABI, snapshot, or exact ruleset mismatch.
+
+A released trap preserves distinct actor authorities. Player tries current
+sampled input before facing. Any actor with Hybrid's generic pushable trait
+tries concrete own or external intent before facing, so a direct or side-slap
+Player push wins in either actor-list order. Ordinary non-pushable actors retain
+trap-facing first and may use eligible ordinary AI only as fallback. Holding
+traps still reject every departure. Tile World supplies the sampled input and
+renders the engine's accepted transaction; it does not reproduce this ordering
+in browser code.
 
 Teleport search retains its ordered remote candidates and then tries the source
 pad as the final candidate. A legal departure from the source remains a
@@ -105,7 +115,10 @@ and renderer, total-failure same-boundary ordinary fallback, actor-local
 teleport dormancy, lethal contact, post-death simulation, wall reveal, and
 classic DAT thief conversion. The cloner fixture additionally
 verifies signal-release collision ordering and uninterrupted source
-presentation against the pinned real WebAssembly engine.
+presentation against the pinned real WebAssembly engine. Released-trap
+fixtures verify Player intent-first, generic pushable external-intent priority
+in both native actor orders, and ordinary-monster facing-first through that
+same pinned engine and production adapter.
 
 The bounded local gate is:
 

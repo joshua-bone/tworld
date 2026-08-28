@@ -34,6 +34,7 @@ const ELEMENT = {
   key: 29,
   flippers: 32,
   dirtBlock: 38,
+  ant: 40,
   teeth: 45,
   ball: 46,
   player: 51,
@@ -65,6 +66,7 @@ const RULE = {
   fromCenter: 6,
   cannotOverride: 12,
   startsHolding: 16,
+  startsReleasing: 17,
   stealTools: 23,
   toggle: 26,
 } as const;
@@ -197,6 +199,15 @@ function nativeRectangle(
 
 function nativeLine(title: string, cells: readonly CellFixture[]): Uint8Array {
   return nativeRectangle(title, cells.length, 1, cells);
+}
+
+function releasedTrap(channel: string): ElementFixture {
+  return {
+    id: ELEMENT.trap,
+    color: COLOR.brown,
+    rule: RULE.startsReleasing,
+    channel,
+  };
 }
 
 function classicDatLevel(
@@ -353,6 +364,200 @@ function directionalRenderCoordinate(
 }
 
 describe("HybridCC v1 real-Wasm correctness acceptance", () => {
+  it("lets Player input override a conflicting released-trap facing", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-released-trap-Player-intent",
+      nativeRectangle("Released trap gives Player intent first", 3, 3, [
+        {},
+        {},
+        {},
+        {},
+        {
+          terrain: releasedTrap("PLYR"),
+          actor: { id: ELEMENT.player, direction: DIRECTION.west },
+        },
+        {},
+        {},
+        {},
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.north);
+      const snapshot = harness.engine.snapshot();
+      const chip = snapshot.actors.find(({ kind }) => kind === ELEMENT.player);
+
+      expect(snapshot.header.logicBoundary).toBe(1n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 1, y: 0, z: 0 },
+        direction: DIRECTION.north,
+        movement: {
+          origin: { x: 1, y: 1, z: 0 },
+          destination: { x: 1, y: 0, z: 0 },
+          direction: DIRECTION.north,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.trap,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.forced,
+        },
+      });
+      expect(snapshot.cells[4]?.occupant).toBeNull();
+      expect(snapshot.cells[1]?.occupant).toBe(chip?.id);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("gives a concrete Player push priority over released-block facing in both native actor orders", async () => {
+    const module = await loadModule();
+    const cases = [
+      {
+        name: "Player before block",
+        input: HYBRIDCC_V1_INPUT.east,
+        direction: DIRECTION.east,
+        playerOrigin: { x: 0, y: 1, z: 0 },
+        blockOrigin: { x: 1, y: 1, z: 0 },
+        blockDestination: { x: 2, y: 1, z: 0 },
+        playerOriginCell: 3,
+        blockOriginCell: 4,
+        blockDestinationCell: 5,
+        actorKindsInNativeOrder: [ELEMENT.player, ELEMENT.dirtBlock],
+        cells: [
+          {}, {}, {},
+          { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+          {
+            terrain: releasedTrap("PE"),
+            actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.north },
+          },
+          {},
+          {}, {}, {},
+        ],
+      },
+      {
+        name: "block before Player",
+        input: HYBRIDCC_V1_INPUT.west,
+        direction: DIRECTION.west,
+        playerOrigin: { x: 2, y: 1, z: 0 },
+        blockOrigin: { x: 1, y: 1, z: 0 },
+        blockDestination: { x: 0, y: 1, z: 0 },
+        playerOriginCell: 5,
+        blockOriginCell: 4,
+        blockDestinationCell: 3,
+        actorKindsInNativeOrder: [ELEMENT.dirtBlock, ELEMENT.player],
+        cells: [
+          {}, {}, {},
+          {},
+          {
+            terrain: releasedTrap("PW"),
+            actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.north },
+          },
+          { actor: { id: ELEMENT.player, direction: DIRECTION.west } },
+          {}, {}, {},
+        ],
+      },
+    ] as const;
+
+    for (const fixture of cases) {
+      const harness = await startRealSession(
+        module,
+        `Hybrid-v1-real-Wasm-released-trap-push-${fixture.name}`,
+        nativeRectangle(
+          `Released block accepts Player push: ${fixture.name}`,
+          3,
+          3,
+          fixture.cells,
+        ),
+      );
+      let session = harness.session;
+
+      try {
+        session = await harness.adapter.advanceSession(session, fixture.input);
+        const snapshot = harness.engine.snapshot();
+        const chip = snapshot.actors.find(({ kind }) => kind === ELEMENT.player);
+        const block = snapshot.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+
+        expect(snapshot.actors.map(({ kind }) => kind)).toEqual(
+          fixture.actorKindsInNativeOrder,
+        );
+        expect(chip).toMatchObject({
+          logicalPosition: fixture.blockOrigin,
+          movement: {
+            origin: fixture.playerOrigin,
+            destination: fixture.blockOrigin,
+            direction: fixture.direction,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+          },
+        });
+        expect(block).toMatchObject({
+          logicalPosition: fixture.blockDestination,
+          movement: {
+            origin: fixture.blockOrigin,
+            destination: fixture.blockDestination,
+            direction: fixture.direction,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.pushableActor,
+            movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.pushed,
+          },
+        });
+        expect(snapshot.cells[fixture.playerOriginCell]?.occupant).toBeNull();
+        expect(snapshot.cells[fixture.blockOriginCell]?.occupant).toBe(chip?.id);
+        expect(snapshot.cells[fixture.blockDestinationCell]?.occupant).toBe(block?.id);
+        expect(snapshot.cells[1]?.occupant).toBeNull();
+        expect(harness.engine.invariantStatus()).toBe(0);
+      } finally {
+        await harness.adapter.disposeSession(session);
+      }
+    }
+  });
+
+  it("keeps a released ordinary monster facing-first ahead of its normal AI", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-released-trap-monster-facing",
+      nativeRectangle("Released trap gives an ant facing first", 3, 3, [
+        {},
+        {},
+        {},
+        {},
+        {
+          terrain: releasedTrap("ANT"),
+          actor: { id: ELEMENT.ant, direction: DIRECTION.east },
+        },
+        {},
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        {},
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+      const snapshot = harness.engine.snapshot();
+      const ant = snapshot.actors.find(({ kind }) => kind === ELEMENT.ant);
+
+      expect(ant).toMatchObject({
+        logicalPosition: { x: 2, y: 1, z: 0 },
+        direction: DIRECTION.east,
+        movement: {
+          origin: { x: 1, y: 1, z: 0 },
+          destination: { x: 2, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.trap,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.forced,
+        },
+      });
+      expect(snapshot.cells[4]?.occupant).toBeNull();
+      expect(snapshot.cells[5]?.occupant).toBe(ant?.id);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
   it("orders a signaled cloner before immediate Player input and keeps its source full", async () => {
     const module = await loadModule();
     const channel = "DSTR";
