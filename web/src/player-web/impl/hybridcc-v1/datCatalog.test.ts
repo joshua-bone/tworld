@@ -6,10 +6,15 @@ import type {
 import {
   collectHybridCcV1UnavailableDatEntries,
   HybridCcV1DatCatalog,
+  legacyDatSandboxAssetsForEntry,
   loadHybridCcV1DatCatalogEntries,
   type HybridCcV1DatCatalogEntry,
 } from "./datCatalog";
 import type { HybridCcV1DatConversionResult } from "./wasmBridge";
+import {
+  LEGACY_DAT_SANDBOX_ASSET_ID,
+  type LegacyDatSandboxAssetSource,
+} from "./sandbox/legacyDatSandbox";
 
 class MemoryImportedDatCatalogStore implements ImportedDatCatalogStore {
   readonly entries = new Map<string, PersistedImportedDatFile>();
@@ -43,6 +48,33 @@ function entry(id: string, bytes: readonly number[]): HybridCcV1DatCatalogEntry 
 }
 
 describe("HybridCC v1 DAT catalog", () => {
+  it("includes the built-in sandbox immediately without writing it to local storage", async () => {
+    const sandboxAssets: LegacyDatSandboxAssetSource = {
+      assetId: LEGACY_DAT_SANDBOX_ASSET_ID,
+      async loadDatBytes() { return Uint8Array.of(1, 2, 3); },
+      async loadHintBytes() { return new Uint8Array(); },
+      async loadReplayIndexBytes() { return new Uint8Array(); },
+      async loadReplayBytes() { return new Uint8Array(); },
+    };
+    const catalog = new HybridCcV1DatCatalog(new MemoryImportedDatCatalogStore(), sandboxAssets);
+
+    const sandbox = (await catalog.list()).find((candidate) => candidate.source === "sandbox");
+
+    expect(sandbox).toMatchObject({
+      id: "sandbox:legacy_dat_sandbox",
+      filename: "legacy_dat_sandbox.dat",
+      name: "Legacy DAT Sandbox",
+      sandboxAssets,
+    });
+    expect([...await sandbox!.loadBytes()]).toEqual([1, 2, 3]);
+    expect(legacyDatSandboxAssetsForEntry(sandbox!)).toBe(sandboxAssets);
+    expect(legacyDatSandboxAssetsForEntry({
+      ...sandbox!,
+      id: "imported:legacy_dat_sandbox.dat",
+      source: "imported",
+    })).toBeNull();
+  });
+
   it("returns defensive raw-byte copies for DATs shared with the Tile World catalog", async () => {
     const store = new MemoryImportedDatCatalogStore();
     store.entries.set("local.dat", {

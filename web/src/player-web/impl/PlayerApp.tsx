@@ -111,7 +111,12 @@ import { encodeRuntimeInputCode } from "@game-core/api/command";
 import type { InteractiveGameReplayLaunch } from "@game-runtime/ports/InteractiveGameEngine";
 import { replayTransferCodec } from "@game-core/api/replayTransferCodec";
 import type { SeriesCatalogEntry } from "@content/api/series";
-import { describeReplayEntry, listReplaysForCurrentLevel, listReplaysForSeriesLevel } from "@player-web/impl/modern/replayLibrary";
+import {
+  describeReplayEntry,
+  listReplaysForCurrentLevel,
+  listReplaysForSeriesLevel,
+  replayEntryKey,
+} from "@player-web/impl/modern/replayLibrary";
 import {
   type BrowserLevelSeedOverride,
   type BrowserLevelProgressSummary,
@@ -532,8 +537,8 @@ export function PlayerApp({
   const [showManageReplays, setShowManageReplays] = useState(false);
   const [mobileSetSection, setMobileSetSection] = useState<MobileLibrarySection>("official");
   const [mobileSheet, setMobileSheet] = useState<"levels" | "menu" | "sets" | null>(null);
-  const [pendingReplayEntryId, setPendingReplayEntryId] = useState<string | null>(null);
-  const [selectedManagedReplayId, setSelectedManagedReplayId] = useState<string | null>(null);
+  const [pendingReplayEntryKey, setPendingReplayEntryKey] = useState<string | null>(null);
+  const [selectedManagedReplayKey, setSelectedManagedReplayKey] = useState<string | null>(null);
   const [replaySaveNotice, setReplaySaveNotice] = useState<string | null>(null);
   const [seedInputValue, setSeedInputValue] = useState("");
   const [soundMuted, setSoundMuted] = useState(() => loadStoredSoundSettings().muted);
@@ -891,17 +896,20 @@ export function PlayerApp({
           session.request.seriesFile,
           session.request.levelNumber,
           session.request.ruleset,
+          replayContextLevel?.gameplayHash ?? null,
         )
       : listReplaysForCurrentLevel(
           savedReplayEntries,
           currentFamily,
           currentLevel?.number ?? null,
           currentRuleset,
+          currentLevel?.gameplayHash ?? null,
         )
     : [];
   const latestCurrentReplayEntry = currentLevelReplayEntries[0] ?? null;
   const continueReplayEntry =
-    currentLevelReplayEntries.find((entry) => entry.id === pendingReplayEntryId) ?? latestCurrentReplayEntry;
+    currentLevelReplayEntries.find((entry) => replayEntryKey(entry) === pendingReplayEntryKey)
+    ?? latestCurrentReplayEntry;
   const canContinueFromReplay = continueReplayEntry !== null;
   const currentReplayCountLabel =
     currentLevelReplayEntries.length === 1 ? "1 replay" : `${currentLevelReplayEntries.length} replays`;
@@ -931,7 +939,9 @@ export function PlayerApp({
     [currentLevelReplayEntries],
   );
   const selectedManagedReplayRow =
-    currentLevelReplayRows.find((row) => row.entry.id === selectedManagedReplayId) ?? currentLevelReplayRows[0] ?? null;
+    currentLevelReplayRows.find((row) => replayEntryKey(row.entry) === selectedManagedReplayKey)
+    ?? currentLevelReplayRows[0]
+    ?? null;
   const replayModeNote =
     session?.mode === "replay"
       ? "This session is replaying recorded moves. Restart returns to live play; rewinding and taking over can branch a new timeline where history settings allow it."
@@ -1443,10 +1453,10 @@ export function PlayerApp({
     currentLevelReplayEntries,
     latestCurrentReplayEntry,
     continueReplayEntry,
-    selectedManagedReplayId,
-    setSelectedManagedReplayId,
-    pendingReplayEntryId,
-    setPendingReplayEntryId,
+    selectedManagedReplayKey,
+    setSelectedManagedReplayKey,
+    pendingReplayEntryKey,
+    setPendingReplayEntryKey,
     setSavedReplayEntries,
     setCatalog,
     setMode,
@@ -2151,14 +2161,17 @@ export function PlayerApp({
               {currentLevelReplayRows.map((row) => (
                 <div
                   className={`modern-replay-manager__entry${
-                    selectedManagedReplayRow?.entry.id === row.entry.id ? " modern-replay-manager__entry--selected" : ""
+                    selectedManagedReplayRow
+                    && replayEntryKey(selectedManagedReplayRow.entry) === replayEntryKey(row.entry)
+                      ? " modern-replay-manager__entry--selected"
+                      : ""
                   }`}
-                  key={row.entry.id}
+                  key={replayEntryKey(row.entry)}
                 >
                   <button
                     className="modern-replay-manager__select"
                     onClick={() => {
-                      setSelectedManagedReplayId(row.entry.id);
+                      setSelectedManagedReplayKey(replayEntryKey(row.entry));
                     }}
                     type="button"
                   >
@@ -2182,16 +2195,18 @@ export function PlayerApp({
                     >
                       <DownloadIcon />
                     </button>
-                    <button
-                      aria-label={`Delete ${row.entry.fileName}`}
-                      className="modern-icon-button modern-icon-button--danger"
-                      onClick={() => {
-                        void deleteReplayEntryFromLibrary(row.entry);
-                      }}
-                      type="button"
-                    >
-                      <TrashIcon />
-                    </button>
+                    {row.entry.source !== "reference" ? (
+                      <button
+                        aria-label={`Delete ${row.entry.fileName}`}
+                        className="modern-icon-button modern-icon-button--danger"
+                        onClick={() => {
+                          void deleteReplayEntryFromLibrary(row.entry);
+                        }}
+                        type="button"
+                      >
+                        <TrashIcon />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -3637,7 +3652,9 @@ export function PlayerApp({
                   </div>
                 </div>
                 <p className="modern-level-focus__body">
-                  Saved and imported replay files for this level appear here.
+                  {currentLevelReplayEntries.some((entry) => entry.source === "reference")
+                    ? "Saved, imported, and bundled reference replay files for this level appear here."
+                    : "Saved and imported replay files for this level appear here."}
                 </p>
                 {replayModeNote ? <p className="modern-level-focus__body">{replayModeNote}</p> : null}
                 {currentLevelReplayEntries.length > 0 ? (
@@ -3645,7 +3662,7 @@ export function PlayerApp({
                     {currentLevelReplayEntries.slice(0, 5).map((entry) => {
                       const replayDetails = describeReplayEntry(entry);
                       return (
-                        <div className="modern-replay-library__entry" key={entry.id}>
+                        <div className="modern-replay-library__entry" key={replayEntryKey(entry)}>
                           <div>
                             <strong className="modern-replay-library__name">{entry.fileName}</strong>
                             <p className="modern-replay-library__meta">{replayDetails.summaryLabel}</p>

@@ -100,6 +100,38 @@ occupant: collision and actor counts continue to come solely from the engine.
 When the launch completes, the real replacement actor takes over the same
 source position without an empty frame.
 
+## Built-in Legacy DAT Sandbox
+
+The Hybrid v1 set selector has a separate **Sandbox** section. Its built-in
+`Legacy DAT Sandbox` is still a classic DAT file: the browser passes its bytes
+through the production DAT converter first. Only after that conversion does
+the host apply the sandbox's per-room Hint JSON through
+`hybridcc_v1_native_level_apply_hint_overlay`. The sidecar is admitted only for
+the exact built-in asset identity and SHA-256 digest; a local DAT with the same
+filename never receives the overlay.
+
+Reference HCR1 files are verified against the enriched canonical HCLV bytes
+before they enter the replay menu. They are shown as **Reference replay**, are
+read-only, and sort behind locally saved or imported runs. The replay index is
+bound to the DAT, Hint JSON, HCR1 bytes, ruleset, and enriched level hash.
+
+The checked-in browser assets are synchronized from HybridCC2026 with:
+
+```sh
+node web/src/player-web/impl/hybridcc-v1/sandbox/syncSandboxAssets.mjs /path/to/HybridCC2026/sandbox/legacy_dat/generated
+node web/src/player-web/impl/hybridcc-v1/sandbox/syncSandboxAssets.mjs --check /path/to/HybridCC2026/sandbox/legacy_dat/generated
+node web/src/player-web/impl/hybridcc-v1/sandbox/checkSandbox.mjs
+```
+
+The sync command replaces only the dedicated
+`hybridcc-v1/sandbox/assets` directory. It is not part of local DAT import and
+does not teach Tile World to interpret general sidecar files. Sync also writes
+a canonical asset manifest with the exact allowed files, byte hashes, and
+HybridCC source commit. The no-argument check is self-contained for CI: it
+requires that provenance to match the pinned Wasm engine, rejects missing or
+extra payloads, and rechecks every DAT, JSON, and HCR1 byte identity without a
+sibling HybridCC checkout.
+
 ## Acceptance coverage
 
 `HybridCcV1RealWasmAcceptance.test.ts` exercises the actual shipped artifact,

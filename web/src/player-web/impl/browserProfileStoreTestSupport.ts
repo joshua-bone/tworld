@@ -1,11 +1,11 @@
 import type { PersistedImportedDatFile } from "@level-catalog/ports/ImportedDatCatalogStore";
 import type { BrowserProfilePersistenceBackend } from "@player-web/impl/IndexedDbBrowserProfileStore";
-import type { BrowserReplayEntry } from "@player-web/ports/BrowserProfileStore";
+import type { BrowserStoredReplayEntry } from "@player-web/ports/BrowserProfileStore";
 
 export class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePersistenceBackend {
   readonly values = new Map<string, unknown>();
   readonly importedFiles = new Map<string, PersistedImportedDatFile>();
-  readonly replayEntries = new Map<string, BrowserReplayEntry>();
+  readonly replayEntries = new Map<string, BrowserStoredReplayEntry>();
 
   async getValue(
     key: "selection" | "preferences" | "recentSelections" | "levelProgress" | "levelSeedOverrides",
@@ -46,7 +46,7 @@ export class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePer
     this.importedFiles.clear();
   }
 
-  async listReplayEntries(): Promise<BrowserReplayEntry[]> {
+  async listReplayEntries(): Promise<BrowserStoredReplayEntry[]> {
     return [...this.replayEntries.values()]
       .map((entry) => ({
         ...entry,
@@ -55,7 +55,7 @@ export class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePer
       .sort((left, right) => right.savedAtMs - left.savedAtMs);
   }
 
-  async saveReplayEntry(entry: BrowserReplayEntry): Promise<void> {
+  async saveReplayEntry(entry: BrowserStoredReplayEntry): Promise<void> {
     this.replayEntries.set(entry.id, {
       ...entry,
       bytes: new Uint8Array(entry.bytes),
@@ -72,7 +72,7 @@ export class MemoryBrowserProfilePersistenceBackend implements BrowserProfilePer
 }
 
 export class FailingReplaySaveBackend extends MemoryBrowserProfilePersistenceBackend {
-  override async saveReplayEntry(_entry: BrowserReplayEntry): Promise<void> {
+  override async saveReplayEntry(_entry: BrowserStoredReplayEntry): Promise<void> {
     throw new Error("IndexedDB write failed.");
   }
 }

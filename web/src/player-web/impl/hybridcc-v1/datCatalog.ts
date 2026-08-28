@@ -5,6 +5,13 @@ import type {
   HybridCcV1DatConversionResult,
   HybridCcV1DatEntryFailureStatus,
 } from "./wasmBridge";
+import {
+  createLegacyDatSandboxAssetSource,
+  LEGACY_DAT_SANDBOX_ASSET_ID,
+  LEGACY_DAT_SANDBOX_FILENAME,
+  LEGACY_DAT_SANDBOX_NAME,
+  type LegacyDatSandboxAssetSource,
+} from "./sandbox/legacyDatSandbox";
 
 const officialDatUrls = import.meta.glob(
   [
@@ -31,7 +38,8 @@ export interface HybridCcV1DatCatalogEntry {
   id: string;
   filename: string;
   name: string;
-  source: "official" | "imported";
+  source: "official" | "sandbox" | "imported";
+  sandboxAssets?: LegacyDatSandboxAssetSource;
   loadBytes(): Promise<Uint8Array>;
 }
 
@@ -53,6 +61,17 @@ export type HybridCcV1DatCatalogLoadResult<T> =
       entry: HybridCcV1DatCatalogEntry;
       diagnostic: string;
     };
+
+export function legacyDatSandboxAssetsForEntry(
+  entry: HybridCcV1DatCatalogEntry,
+): LegacyDatSandboxAssetSource | null {
+  return entry.source === "sandbox"
+    && entry.id === `sandbox:${LEGACY_DAT_SANDBOX_ASSET_ID}`
+    && entry.filename === LEGACY_DAT_SANDBOX_FILENAME
+    && entry.sandboxAssets?.assetId === LEGACY_DAT_SANDBOX_ASSET_ID
+    ? entry.sandboxAssets
+    : null;
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -124,12 +143,21 @@ export async function loadHybridCcV1DatCatalogEntries<T>(
 export class HybridCcV1DatCatalog {
   constructor(
     private readonly store: ImportedDatCatalogStore = new IndexedDbImportedDatCatalogStore(),
+    private readonly sandboxAssets: LegacyDatSandboxAssetSource = createLegacyDatSandboxAssetSource(),
   ) {}
 
   async list(): Promise<HybridCcV1DatCatalogEntry[]> {
     const imported = await this.store.listImportedDatFiles();
     return [
       ...officialEntries(),
+      {
+        id: `sandbox:${LEGACY_DAT_SANDBOX_ASSET_ID}`,
+        filename: LEGACY_DAT_SANDBOX_FILENAME,
+        name: LEGACY_DAT_SANDBOX_NAME,
+        source: "sandbox",
+        sandboxAssets: this.sandboxAssets,
+        loadBytes: () => this.sandboxAssets.loadDatBytes(),
+      },
       ...imported.map((entry): HybridCcV1DatCatalogEntry => ({
         id: `imported:${entry.filename}`,
         filename: entry.filename,

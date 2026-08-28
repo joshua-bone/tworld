@@ -1,0 +1,36 @@
+{
+  "schema": "hybridcc.legacy-dat-sandbox.replay-index.v1",
+  "datSha256": "f32e06ec6c2b6accbc6c3797a9ae53b9000a9d4f2577ce1be52eedd2822bffb3",
+  "hintSupplementSha256": "3ddb52b9834fda2a666cbcf081b5aa48d4527f3868be4bf0660027320131de37",
+  "ruleset": "1.0.12",
+  "replays": [
+    {
+      "id": "foundation-tour",
+      "entryOrdinal": 1,
+      "levelNumber": 1,
+      "path": "replays/1.0.12/1-foundation-tour.hcr1",
+      "byteLength": 6575,
+      "sha256": "21a38d22833fa735c45c988264e9e009172400d7761cec82430054a5560e5de2",
+      "levelContentSha256": "7c6ae9dcb65bbd38c17b2e776e982c606f8facc4a5ae64b251bb635ee9b69663",
+      "inputSourceSha256": "0734398f83c1df5f25c11ced5bf0706bc01fd6ef6c789a040258009df7e21357",
+      "seed": 1001,
+      "finalBoundary": 262,
+      "expectedOutcome": "win",
+      "scenarioIds": ["foundation.failed-wall-facing", "foundation.dirt-and-gravel", "foundation.red-key-door", "foundation.room-specific-hint"]
+    },
+    {
+      "id": "block-tour",
+      "entryOrdinal": 2,
+      "levelNumber": 2,
+      "path": "replays/1.0.12/2-block-tour.hcr1",
+      "byteLength": 6365,
+      "sha256": "049e5fd6dacb4dffc89bea701cb3c8be36f84ba30ed3e3d6d9ff4b3a68e930b4",
+      "levelContentSha256": "e66139ee3370c94fb0c45b0c0f736b7ea22e9a81cee3a4fb5af37ca4df29f35a",
+      "inputSourceSha256": "46f49bb2ee87f01a526c31e449007fdc6df112305cf0271bde0636fdf31cb6f3",
+      "seed": 1002,
+      "finalBoundary": 254,
+      "expectedOutcome": "win",
+      "scenarioIds": ["blocks.direct-push", "blocks.blocked-push", "blocks.side-slap", "blocks.water-fill"]
+    }
+  ]
+}

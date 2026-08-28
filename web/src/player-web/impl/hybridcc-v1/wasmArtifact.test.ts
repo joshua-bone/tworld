@@ -5,9 +5,10 @@ import manifest from "./engine/engine-manifest.json";
 import createHybridCcV1Module from "./engine/hybridcc_v1_wasm.js";
 import { HYBRIDCC_V1_ABI } from "./wasmBridge";
 
-const EXPECTED_SOURCE_COMMIT = "f93de19e88829bdae97b7f1525612f13c0b3cf61";
-const EXPECTED_JS_SHA256 = "c70eb34985d4eda9f49a5d2ae6487e7d33006be5cba81f5d14084771124bb02a";
-const EXPECTED_WASM_SHA256 = "f9308c325c446b2c6fb73d7ee8dc1130c358e7e6505ca135046d4f6fad856996";
+const EXPECTED_SOURCE_COMMIT = "71748f13bcb05b21f4b30a5b15fa275fdd695511";
+const EXPECTED_SOURCE_MERGE_COMMIT = "90fdfc76a9cab118c8c25e4f70d15b32fa8a40c3";
+const EXPECTED_JS_SHA256 = "380ec873284da7aa507aaf5903638d78bef6d6ec147036a0b0fe25aa37bdbb6f";
+const EXPECTED_WASM_SHA256 = "89b4f6327e835e16b3a7f755371b6f08413056410ede34ae94cc47fe2183415f";
 const EXPECTED_RULESET = `${HYBRIDCC_V1_ABI.ruleset.major}.${HYBRIDCC_V1_ABI.ruleset.minor}.${HYBRIDCC_V1_ABI.ruleset.tweak}`;
 
 function sha256(bytes: Uint8Array): string {
@@ -24,8 +25,8 @@ describe("pinned HybridCC v1 WebAssembly artifact", () => {
       abiVersion: 2,
       ruleset: HYBRIDCC_V1_ABI.ruleset,
       sourceCommit: EXPECTED_SOURCE_COMMIT,
-      sourceMergeCommit: "2346e7e0434644154720426894091a83c8386068",
-      sourcePullRequest: "https://github.com/joshua-bone/HybridCC2026/pull/60",
+      sourceMergeCommit: EXPECTED_SOURCE_MERGE_COMMIT,
+      sourcePullRequest: "https://github.com/joshua-bone/HybridCC2026/pull/62",
       artifacts: {
         "hybridcc_v1_wasm.js": `sha256:${EXPECTED_JS_SHA256}`,
         "hybridcc_v1_wasm.wasm": `sha256:${EXPECTED_WASM_SHA256}`,
@@ -46,7 +47,7 @@ describe("pinned HybridCC v1 WebAssembly artifact", () => {
     expect(engineFacts).toContain(`ruleset ${EXPECTED_RULESET}`);
   });
 
-  it("exports the complete reviewed 43-function C ABI", async () => {
+  it("exports the complete reviewed 44-function C ABI", async () => {
     const wasmUrl = new URL("./engine/hybridcc_v1_wasm.wasm", import.meta.url).href;
     const module = await createHybridCcV1Module({ locateFile: () => wasmUrl });
     const cAbiExports = Object.keys(module)
@@ -54,7 +55,8 @@ describe("pinned HybridCC v1 WebAssembly artifact", () => {
       .sort();
 
     expect(module._hybridcc_v1_abi_version()).toBe(2);
-    expect(cAbiExports).toHaveLength(43);
+    expect(cAbiExports).toHaveLength(44);
+    expect(cAbiExports).toContain("_hybridcc_v1_native_level_apply_hint_overlay");
     expect(cAbiExports).toContain("_hybridcc_v1_dat_conversion_create");
     expect(cAbiExports).toContain("_hybridcc_v1_engine_create_detailed");
     expect(cAbiExports).toContain("_hybridcc_v1_engine_copy_presentation");

@@ -1,6 +1,7 @@
 import { startTransition, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { loadBrowserPlayableCatalog } from "@player-web/impl/loadBrowserPlayableCatalog";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
+import { replayEntryKey } from "@player-web/impl/modern/replayLibrary";
 import { resolveInitialSelection } from "@player-web/impl/playerAppSelectionController";
 import { savePlayableSelection } from "@player-web/impl/savePlayableSelection";
 import { shouldSyncEmbeddedPlayerCatalog } from "@player-web/impl/playerAppCatalogSync";
@@ -44,6 +45,17 @@ interface ShouldDelayEmbeddedSelectionNotificationArgs {
   initialSelection: PlayableSelection | null;
   lastNotifiedSelectionKey: string | null;
   nextSelectionKey: string;
+}
+
+export function mergeInitialAndStoredReplayEntries(
+  initial: readonly BrowserReplayEntry[],
+  stored: readonly BrowserReplayEntry[],
+): BrowserReplayEntry[] {
+  const storedKeys = new Set(stored.map(replayEntryKey));
+  return [
+    ...stored,
+    ...initial.filter((entry) => !storedKeys.has(replayEntryKey(entry))),
+  ];
 }
 
 export function shouldDelayEmbeddedSelectionNotification({
@@ -147,10 +159,13 @@ export function usePlayerAppCatalogController({
         const preferredSelection = currentSelectionRef.current ?? initialSelectionRef.current ?? storedSelection;
         const resolvedSelection = resolveInitialSelection(nextCatalog, preferredSelection);
         startTransition(() => {
-        if (catalogSource !== "provided") setCatalog(nextCatalog);
+          if (catalogSource !== "provided") setCatalog(nextCatalog);
           setLevelProgressSummaries(storedLevelProgressSummaries);
           commitLevelSeedOverrides(storedLevelSeedOverrides);
-          setSavedReplayEntries(storedReplayEntries);
+          setSavedReplayEntries(mergeInitialAndStoredReplayEntries(
+            initialReplayEntriesRef.current,
+            storedReplayEntries,
+          ));
           setSelectedSeriesFile(resolvedSelection?.seriesFile ?? null);
           setSelectedLevelNumber(resolvedSelection?.levelNumber ?? null);
           setMode(initialModeRef.current === "game" && resolvedSelection ? "game" : "series-list");

@@ -6,7 +6,8 @@ import type { PlayableSelectionStore } from "@player-web/ports/PlayableSelection
 export type BrowserUiMode = "modern" | "classic";
 export type BrowserPreferredRuleset = Exclude<RulesetName, "None">;
 export type BrowserLevelRunResult = "failed" | "completed-with-undo" | "completed-clean";
-export type BrowserReplaySource = "saved-run" | "imported-file";
+export type BrowserStoredReplaySource = "saved-run" | "imported-file";
+export type BrowserReplaySource = BrowserStoredReplaySource | "reference";
 
 export interface BrowserProfilePreferences {
   uiMode: BrowserUiMode;
@@ -57,11 +58,17 @@ export interface BrowserReplayEntry {
   replayFormat?: string;
   savedAtMs: number;
   source: BrowserReplaySource;
+  /** Canonical gameplay identity; absent only on replay rows saved before hash binding existed. */
+  gameplayHash?: string;
   result: BrowserLevelRunResult | null;
   finalScore: number | null;
   undoUsedCount: number | null;
   bytes: Uint8Array;
 }
+
+export type BrowserStoredReplayEntry = BrowserReplayEntry & {
+  source: BrowserStoredReplaySource;
+};
 
 export interface BrowserReplaySaveRequest {
   fileName: string;
@@ -70,7 +77,8 @@ export interface BrowserReplaySaveRequest {
   levelName: string;
   ruleset: BrowserPreferredRuleset;
   replayFormat?: string;
-  source: BrowserReplaySource;
+  gameplayHash?: string;
+  source: BrowserStoredReplaySource;
   result: BrowserLevelRunResult | null;
   finalScore: number | null;
   undoUsedCount: number | null;
@@ -97,7 +105,7 @@ export interface BrowserProfileStore extends PlayableSelectionStore, ImportedDat
     target: Pick<BrowserLevelSeedOverride, "seriesFile" | "levelNumber" | "ruleset">,
   ): Promise<void>;
   loadReplayEntries(): Promise<BrowserReplayEntry[]>;
-  saveReplayEntry(entry: BrowserReplaySaveRequest): Promise<BrowserReplayEntry>;
+  saveReplayEntry(entry: BrowserReplaySaveRequest): Promise<BrowserStoredReplayEntry>;
   deleteReplayEntry(id: string): Promise<void>;
   exportProfileSnapshot(): Promise<BrowserProfileSnapshot>;
   importProfileSnapshot(snapshot: BrowserProfileSnapshot): Promise<void>;
@@ -118,8 +126,9 @@ export interface BrowserProfileSnapshot {
     levelName: string;
     ruleset: BrowserPreferredRuleset;
     replayFormat?: string;
+    gameplayHash?: string;
     savedAtMs: number;
-    source: BrowserReplaySource;
+    source: BrowserStoredReplaySource;
     result: BrowserLevelRunResult | null;
     finalScore: number | null;
     undoUsedCount: number | null;
