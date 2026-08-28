@@ -274,7 +274,6 @@ interface ForceOverrideFixture {
   readonly direction: number;
   readonly overrideDestination: { readonly x: number; readonly y: number; readonly z: 0 };
   readonly continuationDestination: { readonly x: number; readonly y: number; readonly z: 0 };
-  readonly blockedAutomaticMove: boolean;
 }
 
 const FORCE_OVERRIDE_FIXTURES: readonly ForceOverrideFixture[] = [
@@ -284,7 +283,6 @@ const FORCE_OVERRIDE_FIXTURES: readonly ForceOverrideFixture[] = [
     direction: DIRECTION.north,
     overrideDestination: { x: 3, y: 2, z: 0 },
     continuationDestination: { x: 3, y: 1, z: 0 },
-    blockedAutomaticMove: false,
   },
   {
     name: "right/south",
@@ -292,7 +290,6 @@ const FORCE_OVERRIDE_FIXTURES: readonly ForceOverrideFixture[] = [
     direction: DIRECTION.south,
     overrideDestination: { x: 3, y: 4, z: 0 },
     continuationDestination: { x: 3, y: 5, z: 0 },
-    blockedAutomaticMove: false,
   },
   {
     name: "backward/west",
@@ -300,7 +297,6 @@ const FORCE_OVERRIDE_FIXTURES: readonly ForceOverrideFixture[] = [
     direction: DIRECTION.west,
     overrideDestination: { x: 2, y: 3, z: 0 },
     continuationDestination: { x: 1, y: 3, z: 0 },
-    blockedAutomaticMove: true,
   },
 ];
 
@@ -321,19 +317,11 @@ function forceOverrideLevel(fixture: ForceOverrideFixture): Uint8Array {
     rule: RULE.fromCenter,
   };
 
-  if (fixture.blockedAutomaticMove) {
-    cells[index(3, 3)] = {
-      terrain: forceFloor,
-      actor: { id: ELEMENT.player, direction: DIRECTION.east },
-    };
-    cells[index(4, 3)] = { terrain: { id: ELEMENT.wall } };
-  } else {
-    cells[index(2, 3)] = {
-      terrain: forceFloor,
-      actor: { id: ELEMENT.player, direction: DIRECTION.east },
-    };
-    cells[index(3, 3)] = { terrain: forceFloor };
-  }
+  cells[index(3, 3)] = {
+    terrain: forceFloor,
+    actor: { id: ELEMENT.player, direction: DIRECTION.east },
+  };
+  cells[index(4, 3)] = { terrain: { id: ELEMENT.wall } };
 
   return nativeRectangle(
     `Hybrid v1 ${fixture.name} force override continuity`,
@@ -496,7 +484,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
     }
   });
 
-  it("keeps Tunnel Clearance lateral force overrides N+1 across every force tile", async () => {
+  it("starts Tunnel Clearance fallback on the first force arrival boundary", async () => {
     const module = await loadModule();
     const northForce: ElementFixture = {
       id: ELEMENT.forceFloor,
@@ -506,14 +494,16 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
     const harness = await startRealSession(
       module,
       "Hybrid-v1-real-Wasm-Tunnel-Clearance",
-      nativeRectangle("Tunnel Clearance lateral force corridor", 6, 2, [
+      nativeRectangle("Tunnel Clearance first-arrival force corridor", 7, 2, [
         { terrain: { id: ELEMENT.wall } },
         { terrain: { id: ELEMENT.wall } },
         { terrain: { id: ELEMENT.wall } },
         { terrain: { id: ELEMENT.wall } },
         { terrain: { id: ELEMENT.wall } },
         { terrain: { id: ELEMENT.wall } },
-        { terrain: northForce, actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { terrain: { id: ELEMENT.wall } },
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { terrain: northForce },
         { terrain: northForce },
         { terrain: northForce },
         { terrain: northForce },
@@ -533,23 +523,30 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
         if (hostSample % 4 === 0) {
           snapshotsByBoundary.set(snapshot.header.logicBoundary, snapshot);
         }
-        if (hostSample >= 4) {
-          const chip = session.frame.render?.chip;
-          if (!chip) throw new Error("Tunnel Clearance fixture lost Chip");
-          presentationTicks.push(session.frame.snapshot.tick);
-          presentedX.push((chip.pos % 6) * 8 - chip.moving);
-        }
+        const chip = session.frame.render?.chip;
+        if (!chip) throw new Error("Tunnel Clearance fixture lost Chip");
+        presentationTicks.push(session.frame.snapshot.tick);
+        presentedX.push((chip.pos % 7) * 8 - chip.moving);
       }
 
       expect(snapshotsByBoundary.get(1n)?.actors.find(({ kind }) => (
         kind === ELEMENT.player
       ))).toMatchObject({
-        logicalPosition: { x: 0, y: 1, z: 0 },
-        hasMovement: false,
+        logicalPosition: { x: 1, y: 1, z: 0 },
+        idleReason: IDLE_REASON.inProgress,
+        movement: {
+          origin: { x: 0, y: 1, z: 0 },
+          destination: { x: 1, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 1n,
+          completionBoundary: 2n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.fast,
+        },
       });
 
       for (const startBoundary of [2n, 3n, 4n, 5n]) {
-        const originX = Number(startBoundary - 2n);
+        const originX = Number(startBoundary - 1n);
         const snapshot = snapshotsByBoundary.get(startBoundary);
         const chip = snapshot?.actors.find(({ kind }) => kind === ELEMENT.player);
         expect(chip).toMatchObject({
@@ -572,11 +569,11 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
 
       const ordinary = snapshotsByBoundary.get(6n);
       expect(ordinary?.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
-        logicalPosition: { x: 5, y: 1, z: 0 },
+        logicalPosition: { x: 6, y: 1, z: 0 },
         idleReason: IDLE_REASON.inProgress,
         movement: {
-          origin: { x: 4, y: 1, z: 0 },
-          destination: { x: 5, y: 1, z: 0 },
+          origin: { x: 5, y: 1, z: 0 },
+          destination: { x: 6, y: 1, z: 0 },
           direction: DIRECTION.east,
           startBoundary: 6n,
           completionBoundary: 8n,
@@ -588,8 +585,79 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       const twentyHertzX = presentedX.filter((_, index) => (
         index === 0 || presentationTicks[index] !== presentationTicks[index - 1]
       ));
-      expect(twentyHertzX).toEqual([0, 4, 8, 12, 16, 20, 24, 28, 32, 34, 36, 38]);
+      expect(twentyHertzX).toEqual([
+        0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 42, 44, 46,
+      ]);
       expect(twentyHertzX.slice(1).every((x, index) => x > twentyHertzX[index]!)).toBe(true);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("keeps an open force direction authoritative over conflicting held input", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-open-force-priority",
+      nativeRectangle("Open force direction keeps terrain control", 4, 2, [
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: { id: ELEMENT.wall } },
+        { terrain: { id: ELEMENT.wall } },
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+        },
+        {},
+        {},
+      ]),
+    );
+    let session = harness.session;
+    let arrival: ReturnType<typeof harness.engine.snapshot> | undefined;
+    let forced: ReturnType<typeof harness.engine.snapshot> | undefined;
+
+    try {
+      for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+        const input = hostSample < 4
+          ? HYBRIDCC_V1_INPUT.east
+          : HYBRIDCC_V1_INPUT.north;
+        session = await harness.adapter.advanceSession(session, input);
+        if (hostSample === 0) arrival = harness.engine.snapshot();
+        if (hostSample === 4) forced = harness.engine.snapshot();
+      }
+
+      expect(arrival?.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 1, y: 1, z: 0 },
+        movement: {
+          origin: { x: 0, y: 1, z: 0 },
+          destination: { x: 1, y: 1, z: 0 },
+          startBoundary: 1n,
+          completionBoundary: 2n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.fast,
+        },
+      });
+      expect(forced?.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 2, y: 1, z: 0 },
+        direction: DIRECTION.east,
+        movement: {
+          origin: { x: 1, y: 1, z: 0 },
+          destination: { x: 2, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 2n,
+          completionBoundary: 3n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.forced,
+        },
+      });
+      expect(forced?.events.some(({ kind, actorKind }) => (
+        kind === HYBRID_CC_V1_EVENT.moveRejected && actorKind === ELEMENT.player
+      ))).toBe(false);
       expect(harness.engine.invariantStatus()).toBe(0);
     } finally {
       await harness.adapter.disposeSession(session);
@@ -1285,7 +1353,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
   );
 
   it.each(FORCE_OVERRIDE_PHASE_CASES)(
-    "continues a $fixture.name force override at B3 when held from 25 ms host phase $inputPhase",
+    "continues a $fixture.name blocked-force fallback at B3 when held from 25 ms host phase $inputPhase",
     async ({ fixture, inputPhase }) => {
       const module = await loadModule();
       const nativeLevel = inspectHybridCcV1NativeLevel(
@@ -1325,8 +1393,8 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       const coordinates: number[] = [];
       let boundaryThree: ReturnType<typeof engine.snapshot> | undefined;
       try {
-        // B1 either carries Chip onto the second force floor or records the
-        // blocked automatic attempt that makes a backward override legal.
+        // B1 records the blocked automatic force attempt. Only that failure
+        // makes a player fallback eligible at the following boundary.
         session = await adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
         expect(engine.snapshot().header.logicBoundary).toBe(1n);
 

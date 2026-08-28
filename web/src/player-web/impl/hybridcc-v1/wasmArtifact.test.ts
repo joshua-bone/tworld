@@ -4,16 +4,16 @@ import { describe, expect, it } from "vitest";
 import manifest from "./engine/engine-manifest.json";
 import createHybridCcV1Module from "./engine/hybridcc_v1_wasm.js";
 
-const EXPECTED_SOURCE_COMMIT = "a1e0460977b50c33233cfdcad7da0e2b9bc113c2";
+const EXPECTED_SOURCE_COMMIT = "b6403b22a1b2c7f270f164445f23f800fd557aee";
 const EXPECTED_JS_SHA256 = "c70eb34985d4eda9f49a5d2ae6487e7d33006be5cba81f5d14084771124bb02a";
-const EXPECTED_WASM_SHA256 = "805424b02b642b7d4e72ad555a88ae6ec0eea67cd56fc3cd2410d445d429bc63";
+const EXPECTED_WASM_SHA256 = "f2b8bf3078ee8cf052d83a663f6c4f7e548227f481069c868c39f70a63f4338d";
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
 describe("pinned HybridCC v1 WebAssembly artifact", () => {
-  it("matches the reviewed ruleset 1.0.7 engine", async () => {
+  it("matches the reviewed ruleset 1.0.8 engine", async () => {
     const jsBytes = await readFile(new URL("./engine/hybridcc_v1_wasm.js", import.meta.url));
     const wasmBytes = await readFile(new URL("./engine/hybridcc_v1_wasm.wasm", import.meta.url));
 
@@ -21,8 +21,8 @@ describe("pinned HybridCC v1 WebAssembly artifact", () => {
       product: "HybridCC v1",
       abiVersion: 2,
       sourceCommit: EXPECTED_SOURCE_COMMIT,
-      sourceMergeCommit: "33d798fcb1b0618887a97e88f093d78e77368e8a",
-      sourcePullRequest: "https://github.com/joshua-bone/HybridCC2026/pull/52",
+      sourceMergeCommit: "41c6c87f4f49ffb024f4231ed2c4b8098b5d69da",
+      sourcePullRequest: "https://github.com/joshua-bone/HybridCC2026/pull/54",
       artifacts: {
         "hybridcc_v1_wasm.js": `sha256:${EXPECTED_JS_SHA256}`,
         "hybridcc_v1_wasm.wasm": `sha256:${EXPECTED_WASM_SHA256}`,

@@ -156,7 +156,7 @@ describe("HybridCC v1 WebAssembly bridge", () => {
     expect(initial.header).toMatchObject({
       recordVersion: 2,
       abiVersion: 2,
-      ruleset: { major: 1, minor: 0, tweak: 7 },
+      ruleset: { major: 1, minor: 0, tweak: 8 },
       width: 2,
       height: 1,
       depth: 1,
@@ -216,7 +216,7 @@ describe("HybridCC v1 WebAssembly bridge", () => {
 
     expect(replay.encoded.slice(0, 4)).toEqual(Uint8Array.from([0x48, 0x43, 0x52, 0x31]));
     expect(replay.header).toMatchObject({
-      ruleset: { major: 1, minor: 0, tweak: 7 },
+      ruleset: { major: 1, minor: 0, tweak: 8 },
       randomSeed: 17,
       finalBoundary: 3n,
       checkpointMode: 1,
