@@ -567,6 +567,7 @@ export function HybridCcV1App() {
               initialMode="game"
               initialReplayEntries={referenceReplayEntries}
               initialSelection={activeSelection}
+              inventoryKeyCountLabelsEnabled
               key={`${activeSelection.seriesFile}:${activeSelection.levelNumber}`}
               knownLevelProgressSummary={activeLevelProgress}
               onLevelProgressSaved={(summary) => {

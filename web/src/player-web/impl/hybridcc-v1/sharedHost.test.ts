@@ -9,6 +9,8 @@ describe("HybridCC v1 shared browser host", () => {
     expect(source).toContain('catalogSource="provided"');
     expect(source).toContain('rulesetOptions={["Hybrid"]}');
     expect(source).toContain("HYBRID_CC_V1_RULESET_LABEL");
+    expect(source).toContain("inventoryKeyCountLabelsEnabled");
+    expect(source).toContain("visualEnhancementsEnabled={false}");
     expect(source).not.toContain("setInterval");
     expect(source).not.toContain("requestAnimationFrame");
     expect(source).not.toContain("LegacyCanvasScreen");
