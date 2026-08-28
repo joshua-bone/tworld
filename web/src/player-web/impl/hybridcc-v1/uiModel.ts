@@ -1,8 +1,9 @@
 import type { SeriesCatalogEntry } from "@content/api/series";
 import type { SetFamily } from "@player-web/impl/modern/curatedCatalog";
-import type {
-  HybridCcV1DatCatalogEntry,
-  HybridCcV1UnavailableDatEntry,
+import {
+  isHybridCcV1DatCatalogEntryEligible,
+  type HybridCcV1DatCatalogEntry,
+  type HybridCcV1UnavailableDatEntry,
 } from "./datCatalog";
 
 export const HYBRID_CC_V1_RULESET_LABEL = "Hybrid v1";
@@ -24,9 +25,17 @@ const OFFICIAL_FAMILY_DISPLAY: Readonly<Record<string, {
     sidebarSummary: "Higher quality than CCLP2, extremely difficult endgame.",
     yearLabel: "2010",
   },
-  "CCLP2.dat": { order: 50, sidebarSummary: "Rough early-community expansion", yearLabel: "2002" },
   "CCLXP2.dat": { order: 55, sidebarSummary: "Lynx-compatible CCLP2 companion", yearLabel: "2002" },
 };
+
+export function firstPlayableHybridCcV1Entry(
+  entries: readonly HybridCcV1DatCatalogEntry[],
+  seriesByEntryId: ReadonlyMap<string, SeriesCatalogEntry>,
+): HybridCcV1DatCatalogEntry | null {
+  return entries.find((entry) => (
+    isHybridCcV1DatCatalogEntryEligible(entry) && seriesByEntryId.has(entry.id)
+  )) ?? null;
+}
 
 export function hybridCcV1InitialCatalogMessage(
   playableEntryCount: number,
@@ -64,7 +73,7 @@ export function buildHybridCcV1Families(
   loadErrorsByEntryId: ReadonlyMap<string, string> = new Map(),
   unavailableEntriesByEntryId: ReadonlyMap<string, readonly HybridCcV1UnavailableDatEntry[]> = new Map(),
 ): SetFamily[] {
-  return entries.map((entry, index): SetFamily => {
+  return entries.filter(isHybridCcV1DatCatalogEntryEligible).map((entry, index): SetFamily => {
     const series = seriesByEntryId.get(entry.id);
     const loadError = loadErrorsByEntryId.get(entry.id);
     const unavailableEntries = unavailableEntriesByEntryId.get(entry.id) ?? [];

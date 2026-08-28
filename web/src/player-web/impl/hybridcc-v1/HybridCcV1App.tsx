@@ -48,6 +48,7 @@ import { loadHybridCcV1Wasm } from "./loadWasm";
 import { hybridCcV1Series } from "./renderProjection";
 import {
   buildHybridCcV1Families,
+  firstPlayableHybridCcV1Entry,
   HYBRID_CC_V1_RULESET_LABEL,
   hybridCcV1InitialCatalogMessage,
   hybridCcV1SeriesFile,
@@ -294,7 +295,7 @@ export function HybridCcV1App() {
         setUnavailableEntriesByEntryId(nextUnavailableEntries);
         setReferenceReplayEntries(nextReferenceReplays);
         setProgressSummaries(storedProgress);
-        const firstPlayable = availableEntries.find((entry) => nextSeries.has(entry.id)) ?? null;
+        const firstPlayable = firstPlayableHybridCcV1Entry(availableEntries, nextSeries);
         setSelectedEntryId(firstPlayable?.id ?? null);
         setSelectedLevelNumber(firstPlayable ? nextSeries.get(firstPlayable.id)?.levels[0]?.number ?? null : null);
         setMessage(hybridCcV1InitialCatalogMessage(nextSeries.size, nextLoadErrors, nextUnavailableEntries));
@@ -458,7 +459,7 @@ export function HybridCcV1App() {
     setSeriesByEntryId(nextSeries);
     setUnavailableEntriesByEntryId(nextUnavailableEntries);
     if (selectedEntryId === familyId) {
-      const fallback = nextEntries.find((candidate) => nextSeries.has(candidate.id)) ?? null;
+      const fallback = firstPlayableHybridCcV1Entry(nextEntries, nextSeries);
       setSelectedEntryId(fallback?.id ?? null);
       setSelectedLevelNumber(fallback ? nextSeries.get(fallback.id)?.levels[0]?.number ?? null : null);
     }

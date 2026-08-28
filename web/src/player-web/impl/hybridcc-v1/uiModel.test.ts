@@ -4,6 +4,7 @@ import type { HybridCcV1DatCatalogEntry } from "./datCatalog";
 import type { HybridCcV1UnavailableDatEntry } from "./datCatalog";
 import {
   buildHybridCcV1Families,
+  firstPlayableHybridCcV1Entry,
   HYBRID_CC_V1_RULESET_LABEL,
   hybridCcV1InitialCatalogMessage,
   hybridCcV1SeriesFile,
@@ -91,17 +92,18 @@ describe("HybridCC v1 catalog UI model", () => {
     expect(hybridCcV1InitialCatalogMessage(1, errors)).toBeNull();
   });
 
-  it("keeps a partially converted pack playable and exposes every failed level", () => {
-    const cclp2Entry: HybridCcV1DatCatalogEntry = {
+  it("keeps a partially converted uploaded pack playable and exposes every failed level", () => {
+    const partialEntry: HybridCcV1DatCatalogEntry = {
       ...officialEntry,
-      id: "official:CCLP2.dat",
-      filename: "CCLP2.dat",
-      name: "Chip's Challenge Level Pack 2",
+      id: "imported:partial.dat",
+      filename: "partial.dat",
+      name: "partial",
+      source: "imported",
     };
-    const cclp2Series: SeriesCatalogEntry = {
+    const partialSeries: SeriesCatalogEntry = {
       ...series,
-      filebase: "hybrid-v1:official:CCLP2.dat",
-      mapfilename: "CCLP2.dat",
+      filebase: "hybrid-v1:imported:partial.dat",
+      mapfilename: "partial.dat",
       levels: Array.from({ length: 147 }, (_, index) => ({ number: index + 1 })) as SeriesCatalogEntry["levels"],
     };
     const issues: readonly HybridCcV1UnavailableDatEntry[] = [
@@ -118,23 +120,47 @@ describe("HybridCC v1 catalog UI model", () => {
         diagnostic: "dat.unsupported_composition.multiple_device: More than one device.",
       },
     ];
-    const issuesByEntryId = new Map([[cclp2Entry.id, issues]]);
+    const issuesByEntryId = new Map([[partialEntry.id, issues]]);
 
     const [family] = buildHybridCcV1Families(
-      [cclp2Entry],
-      new Map([[cclp2Entry.id, cclp2Series]]),
+      [partialEntry],
+      new Map([[partialEntry.id, partialSeries]]),
       new Map(),
       issuesByEntryId,
     );
 
-    expect(family?.launchEntries).toEqual({ Hybrid: cclp2Series });
+    expect(family?.launchEntries).toEqual({ Hybrid: partialSeries });
     expect(family?.levelCount).toBe(147);
     expect(family?.sidebarSummary).toBe("147 playable · 2 unavailable in Hybrid v1.");
     expect(family?.context).toContain("Level 78 — dat.unsupported_composition.multiple_pickup");
     expect(family?.context).toContain("Level 131 — dat.unsupported_composition.multiple_device");
     const initialMessage = hybridCcV1InitialCatalogMessage(1, new Map(), issuesByEntryId);
-    expect(initialMessage).toContain("CCLP2.dat");
+    expect(initialMessage).toContain("partial.dat");
     expect(initialMessage).toContain("Level 78 — dat.unsupported_composition.multiple_pickup");
     expect(initialMessage).toContain("Level 131 — dat.unsupported_composition.multiple_device");
+  });
+
+  it("neither advertises nor initially selects an excluded official CCLP2 entry", () => {
+    const cclp2Entry: HybridCcV1DatCatalogEntry = {
+      ...officialEntry,
+      id: "official:CCLP2.dat",
+      filename: "CCLP2.dat",
+      name: "Chip's Challenge Level Pack 2",
+    };
+    const cclp2Series: SeriesCatalogEntry = {
+      ...series,
+      name: cclp2Entry.name,
+      filebase: hybridCcV1SeriesFile(cclp2Entry),
+      mapfilename: cclp2Entry.filename,
+    };
+    const seriesByEntryId = new Map([
+      [cclp2Entry.id, cclp2Series],
+      [officialEntry.id, series],
+    ]);
+
+    expect(buildHybridCcV1Families([cclp2Entry, officialEntry], seriesByEntryId).map(({ id }) => id))
+      .toEqual([officialEntry.id]);
+    expect(firstPlayableHybridCcV1Entry([cclp2Entry, officialEntry], seriesByEntryId))
+      .toBe(officialEntry);
   });
 });
