@@ -1,32 +1,282 @@
 {
   "schema": "hybridcc.legacy-dat-sandbox.browser-assets.v1",
   "sourceRepository": "joshua-bone/HybridCC2026",
-  "sourceCommit": "71748f13bcb05b21f4b30a5b15fa275fdd695511",
+  "sourceCommit": "227b2dbb1b410941f0a3f13cddc0c26fad6378b7",
   "files": [
     {
       "path": "legacy_dat_sandbox.dat",
-      "byteLength": 1042,
-      "sha256": "f32e06ec6c2b6accbc6c3797a9ae53b9000a9d4f2577ce1be52eedd2822bffb3"
+      "byteLength": 7004,
+      "sha256": "0a2bac37dfbbb4705aae7d8e75f7113b35e1475b321d8ae3667499de8503bc3e"
     },
     {
       "path": "legacy_dat_sandbox.hints.json",
-      "byteLength": 3485,
-      "sha256": "3ddb52b9834fda2a666cbcf081b5aa48d4527f3868be4bf0660027320131de37"
+      "byteLength": 22236,
+      "sha256": "ea2b6a9b897b7764058e886cb61c98448b3bd24f54c1a0f5eac3c15c0f54fc6e"
     },
     {
       "path": "replay-index.json",
-      "byteLength": 1582,
-      "sha256": "4689ebe55e0c105f7ff75063822a09a73dd8fb068aa3fb08ef235976213d016d"
+      "byteLength": 33706,
+      "sha256": "278f4ffe49d700a73a1da56ced06fb34117076ff87e910887ead0fbb990ad552"
     },
     {
-      "path": "replays/1.0.12/1-foundation-tour.hcr1",
+      "path": "replays/1.0.13/1-foundation-tour.hcr1",
       "byteLength": 6575,
-      "sha256": "21a38d22833fa735c45c988264e9e009172400d7761cec82430054a5560e5de2"
+      "sha256": "c1553bce0ce369fb4d4414fe8e8c83e592823d08bf72d2cdfa260d7efd59f240"
     },
     {
-      "path": "replays/1.0.12/2-block-tour.hcr1",
+      "path": "replays/1.0.13/10-block-bomb.hcr1",
+      "byteLength": 2582,
+      "sha256": "bbfdbfd6fa3b12ccf253439540391f36eb9986b7eab7e87e1187db9c1eb8dfde"
+    },
+    {
+      "path": "replays/1.0.13/10-blocking-before-hostile.hcr1",
+      "byteLength": 2621,
+      "sha256": "babbcea81d292addc7f28433df0ec54da15ada5454cc4fd85c3d2dd59256ce87"
+    },
+    {
+      "path": "replays/1.0.13/10-exit-plus-bomb.hcr1",
+      "byteLength": 1712,
+      "sha256": "bf41f941564bbb530c4e2cdc95f4192e7b11d50aafb7d972b38402d1c7fd10a8"
+    },
+    {
+      "path": "replays/1.0.13/10-hostiles-do-not-annihilate.hcr1",
+      "byteLength": 1541,
+      "sha256": "b1fb1e62b0a50fd494bbfff278f37e8eca8c958c9b051ce089b2a1508f6d9a04"
+    },
+    {
+      "path": "replays/1.0.13/10-loss-order.hcr1",
+      "byteLength": 992,
+      "sha256": "143fe886f14041c036c6b07338b1ebef82b6ca6c14526e8ed7ac1b57a603d37e"
+    },
+    {
+      "path": "replays/1.0.13/10-monster-bomb.hcr1",
+      "byteLength": 1541,
+      "sha256": "95d7f9f071bec036d64c54aeabb40423aca9b1b88e1c91e1aaa5226f50d4e3ae"
+    },
+    {
+      "path": "replays/1.0.13/10-player-bomb.hcr1",
+      "byteLength": 1712,
+      "sha256": "4f8693504ddfbf69fd22a144664dfeb68c47a36ffe61355e78b64e394ee53e77"
+    },
+    {
+      "path": "replays/1.0.13/10-water-plus-key.hcr1",
+      "byteLength": 992,
+      "sha256": "a2a013f23b938c3c4eb388f4edd3855236a4bd9cd3e2262d13d23e3566fac8f0"
+    },
+    {
+      "path": "replays/1.0.13/11-trick-walls-blue-fake.hcr1",
+      "byteLength": 2546,
+      "sha256": "2b11a0120f04322086ac984ca6c7b9d44b6a21cd73cedcf4c518e85f278a2418"
+    },
+    {
+      "path": "replays/1.0.13/11-trick-walls-blue-real.hcr1",
+      "byteLength": 2498,
+      "sha256": "9fe182d2228713c16d85e2bd7f592f746f3069ba529bf9c5c07e642a168d8e3a"
+    },
+    {
+      "path": "replays/1.0.13/11-trick-walls-invisible-appearing.hcr1",
+      "byteLength": 2288,
+      "sha256": "18e2392a5e692098924d623d8f37396b2a25050ce093c8b53622e0f2b35e2f51"
+    },
+    {
+      "path": "replays/1.0.13/11-trick-walls-ordinary.hcr1",
+      "byteLength": 2393,
+      "sha256": "fad64a53d5b6e4ba685a0061e153ef810ed70b722209c880191726d88e2cdcaa"
+    },
+    {
+      "path": "replays/1.0.13/11-trick-walls-permanent-invisible-monster.hcr1",
+      "byteLength": 1541,
+      "sha256": "6ad640baf94d68b49cadef1567145b36c21cd48362b8704246fe0d2693916f53"
+    },
+    {
+      "path": "replays/1.0.13/11-trick-walls-permanent-invisible-player.hcr1",
+      "byteLength": 2564,
+      "sha256": "850acb17b4dd6d71a4ccf2e4e012ae7f33f49a191085763c230e6b4331a13340"
+    },
+    {
+      "path": "replays/1.0.13/11-trick-walls-permanent-invisible-slap.hcr1",
+      "byteLength": 2345,
+      "sha256": "b1a8272aaadadd88186cae28bce6b02e29d2b62ccd90919cbfd01d9a9cfd4936"
+    },
+    {
+      "path": "replays/1.0.13/12-panels-popups-block-blue-real-count-one.hcr1",
+      "byteLength": 2483,
+      "sha256": "73fc860026e80413d9733df5878b3467d67fc88504bccc478b7bb9d25dc4cfed"
+    },
+    {
+      "path": "replays/1.0.13/12-panels-popups-cardinal-panels.hcr1",
+      "byteLength": 4430,
+      "sha256": "eaa7809c5af66aab1cd15cb5445b53aeed97ca542cc0bfc0ee10075248373438"
+    },
+    {
+      "path": "replays/1.0.13/12-panels-popups-popup-admission.hcr1",
+      "byteLength": 2903,
+      "sha256": "0eb21a11ad2cc2e8516722cc66d836a9e42b368626160bf767e08f58f401b577"
+    },
+    {
+      "path": "replays/1.0.13/12-panels-popups-popup-block-count-two.hcr1",
+      "byteLength": 2660,
+      "sha256": "731bbbbb2203b85f3f54a16b7cd45f549d1f1128a4b7f2cbfcabd646cb4b9d45"
+    },
+    {
+      "path": "replays/1.0.13/12-panels-popups-popup-player.hcr1",
+      "byteLength": 2747,
+      "sha256": "a16029b5a382efafac9dac1be60b579902c68b2a529cbf9f1f7b0340d57b877c"
+    },
+    {
+      "path": "replays/1.0.13/12-panels-popups-southeast-panel.hcr1",
+      "byteLength": 3230,
+      "sha256": "adab71a2bb362ddadaf4ad96a1470cb58f640aed8ad7090fff91299dd10bdf68"
+    },
+    {
+      "path": "replays/1.0.13/12-panels-popups-special-art-51-59.hcr1",
+      "byteLength": 3929,
+      "sha256": "4975f99bcddf2383bdd7d3ed2477815cbadcc2a6775d0d9d10912f4d939f1f99"
+    },
+    {
+      "path": "replays/1.0.13/12-panels-popups-static-art-60-63.hcr1",
+      "byteLength": 2801,
+      "sha256": "8b7513f449a1d4a48ae6a55c735d7b3de2a2e5a9322823cfe053213aada179e8"
+    },
+    {
+      "path": "replays/1.0.13/2-block-tour.hcr1",
       "byteLength": 6365,
-      "sha256": "049e5fd6dacb4dffc89bea701cb3c8be36f84ba30ed3e3d6d9ff4b3a68e930b4"
+      "sha256": "3e404a16a698fcd8cd5a658ef741ef6c37d9b5dba9a383e8e0f90af84eaccc10"
+    },
+    {
+      "path": "replays/1.0.13/3-ordinary-lifecycle-tour.hcr1",
+      "byteLength": 5861,
+      "sha256": "73f3467edd968afbe0c66e021174e60058b9a8ac9c5e8a9f4c559a30876d88b4"
+    },
+    {
+      "path": "replays/1.0.13/4-blue-door.hcr1",
+      "byteLength": 2336,
+      "sha256": "9da4ad7587d1118df2cd49574e1ff49749389a0d93c78afb5cec974effa42a03"
+    },
+    {
+      "path": "replays/1.0.13/4-green-reusable.hcr1",
+      "byteLength": 2528,
+      "sha256": "c275bde14fde3071f7bfe22a2e539ad0d1f48f76b2129a507e815c1153686086"
+    },
+    {
+      "path": "replays/1.0.13/4-red-door.hcr1",
+      "byteLength": 2336,
+      "sha256": "fe4a1911f92eac7046ec1df11a3534d0da57166ad6c098a64342367431b740b1"
+    },
+    {
+      "path": "replays/1.0.13/4-yellow-door.hcr1",
+      "byteLength": 2336,
+      "sha256": "68a83b42dc4d3606a00299dff5155dfbf4c6662853467b475f3f520aec5441c7"
+    },
+    {
+      "path": "replays/1.0.13/5-blue-key-fragile-block.hcr1",
+      "byteLength": 2678,
+      "sha256": "ac31c4ad26bfb4d9603dfef9729919cdbab548cb77af631863f9e462465c5d5f"
+    },
+    {
+      "path": "replays/1.0.13/5-blue-key-fragile-monster.hcr1",
+      "byteLength": 1541,
+      "sha256": "9d8610b92d3e6de6f5b08e082ccf2ccf1bc5016d2621e3797e55cc29ed619693"
+    },
+    {
+      "path": "replays/1.0.13/5-green-key-acting-dirt.hcr1",
+      "byteLength": 3146,
+      "sha256": "a8b58e00c342cf4a69ebbb32d730423c283bfa660fb9ab8543d57c6c4d72afa7"
+    },
+    {
+      "path": "replays/1.0.13/5-multiple-finite-keys.hcr1",
+      "byteLength": 2756,
+      "sha256": "2174ec018b4911d3826881d3a0fc5366a3487c4d06b1e2ff0bc68676f5b7d3ae"
+    },
+    {
+      "path": "replays/1.0.13/5-red-key-passive-nonplayer.hcr1",
+      "byteLength": 2390,
+      "sha256": "52d420ab381b8901dc62281fad363bc3cbe0790af536b7fd93b5e6c42d7e95f8"
+    },
+    {
+      "path": "replays/1.0.13/5-wrong-color-door.hcr1",
+      "byteLength": 2927,
+      "sha256": "9e6e25cddc0cc9f574177a0bce0121dedb0a1fc3dceaf4fb9a80d9ded5afacc3"
+    },
+    {
+      "path": "replays/1.0.13/5-yellow-key-acting-dirt.hcr1",
+      "byteLength": 3434,
+      "sha256": "9626f30bcefb4178e812972b97e22e3cd93934872042c63c7425f9abf32c00e2"
+    },
+    {
+      "path": "replays/1.0.13/6-header-field-override.hcr1",
+      "byteLength": 2564,
+      "sha256": "ade9e34a65216ee15592230f5152a82926c20967ef3cbda6c9eaf95c05c733df"
+    },
+    {
+      "path": "replays/1.0.13/6-multiple-sockets.hcr1",
+      "byteLength": 2756,
+      "sha256": "6e09029b1e74788df3364c63a97ef13b8e6bbe83e94f76e40600e1f833e4a738"
+    },
+    {
+      "path": "replays/1.0.13/6-socket-exact.hcr1",
+      "byteLength": 2564,
+      "sha256": "e2cbb6ce3ec75097487d9747223d507ae32e231fc889c1a2e9d0f7b7591959a4"
+    },
+    {
+      "path": "replays/1.0.13/6-socket-short.hcr1",
+      "byteLength": 2516,
+      "sha256": "726e43515ea75cb5876b69cdc9130985c1f77a18d42f38b65a2c8895f7dd1463"
+    },
+    {
+      "path": "replays/1.0.13/7-duplicate-tools-tour.hcr1",
+      "byteLength": 3446,
+      "sha256": "787bed871af547be3e9b7afbd50742ae3614ff318490fed2c5d734445575e606"
+    },
+    {
+      "path": "replays/1.0.13/7-singleton-tools-tour.hcr1",
+      "byteLength": 3971,
+      "sha256": "ea863f773bdc48c440dd23d694025d2068bafe8df4abcb306e5f36f7702b861d"
+    },
+    {
+      "path": "replays/1.0.13/7-thief-sequence.hcr1",
+      "byteLength": 4478,
+      "sha256": "7389e53ec4517599956c1fb5e19e83dd22f7432f36bcd3e7b643403c126e3185"
+    },
+    {
+      "path": "replays/1.0.13/76-socket-zero.hcr1",
+      "byteLength": 2336,
+      "sha256": "5044e3b526f8df0ca8610022834d50738e209852c0fb3c4b4ed71a3a5ed5b2bc"
+    },
+    {
+      "path": "replays/1.0.13/8-block-fire-win.hcr1",
+      "byteLength": 2573,
+      "sha256": "59c78a8c2e03f7266d4485c3e7079db552a332f75a5c69f31b357f3115a10372"
+    },
+    {
+      "path": "replays/1.0.13/8-block-water-win.hcr1",
+      "byteLength": 2573,
+      "sha256": "bee8b20e356346bd8f7e2a9b07c9be8408ef90a895007971641965e7bf9660d0"
+    },
+    {
+      "path": "replays/1.0.13/8-fire-boots-fire-win.hcr1",
+      "byteLength": 2861,
+      "sha256": "e54418013fa800e04f9e3798e3a562e340b478f3fb1487e55d41a5242c0e83bb"
+    },
+    {
+      "path": "replays/1.0.13/8-flippers-water-win.hcr1",
+      "byteLength": 2747,
+      "sha256": "7aa801ce17654e0bc4ceaef7dc80fc66862ab28510ba2cf9fe00e1dcd2dc1319"
+    },
+    {
+      "path": "replays/1.0.13/8-player-fire-loss.hcr1",
+      "byteLength": 1664,
+      "sha256": "a6e8f7ed422f64082bd6b76bb4e8ed2dd47a843705bd93b204b78b5e49999716"
+    },
+    {
+      "path": "replays/1.0.13/8-player-water-loss.hcr1",
+      "byteLength": 896,
+      "sha256": "d0860bd10895970713a7734562b84fc589cd16543e0a7c6c59355d634924679a"
+    },
+    {
+      "path": "replays/1.0.13/9-monster-hazards-win.hcr1",
+      "byteLength": 1541,
+      "sha256": "97722428b9308f697088b368c0ea89be65c8b9278e293362d76abfb4c07ef914"
     }
   ]
 }

@@ -5,8 +5,8 @@
   "dat": {
     "assetId": "legacy_dat_sandbox",
     "file": "legacy_dat_sandbox.dat",
-    "sha256": "f32e06ec6c2b6accbc6c3797a9ae53b9000a9d4f2577ce1be52eedd2822bffb3",
-    "levelCount": 2
+    "sha256": "0a2bac37dfbbb4705aae7d8e75f7113b35e1475b321d8ae3667499de8503bc3e",
+    "levelCount": 13
   },
   "levels": [
     {
@@ -102,6 +102,578 @@
         {
           "roomId": "block-into-water",
           "message": "Stand west of the dirt block and push it east into water. The block must disappear when entry finishes and the water must become dirt.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 3,
+      "expectedNumber": 3,
+      "expectedTitle": "Ordinary Lifecycle",
+      "rooms": [
+        {
+          "roomId": "ordinary-n-plus-two",
+          "message": "Use the one-cell lane and tap or hold Right across two floor cells. Each ordinary step starts immediately, is halfway one logic boundary later, and finishes two boundaries after it starts.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "immediate-vacancy",
+          "message": "Push the dirt-block actor north through the one-cell choke while holding Up. The block commits first, vacates its old cell immediately, and Chip enters that same cell on the same boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "gravel-containment",
+          "message": "In the upper lane, push the dirt block west onto gravel and then walk across it. In the sealed lower lane, the pink ball repeatedly tries and fails to enter gravel.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "exit-player-only",
+          "message": "Watch the pink ball reject the Exit at the east end of its sealed lane. Approach that same Exit from the north: only Chip may enter, and the win occurs when entry finishes.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 4,
+      "expectedNumber": 4,
+      "expectedTitle": "Keys and Doors",
+      "rooms": [
+        {
+          "roomId": "red-door",
+          "message": "Collect the red key, then enter the red door in the divider. The count goes from zero to one to zero; the door remains during entry and disappears when entry finishes.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blue-door",
+          "message": "Collect the blue key, then enter the blue door in the divider. The blue count goes from zero to one to zero, and every inventory sample must remain visibly blue.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "yellow-door",
+          "message": "Collect the yellow key, then enter the yellow door in the divider. The finite yellow key is consumed once and the completed entry removes the door.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "green-reusable",
+          "message": "Collect the green key and cross both green doors. DAT green-key possession is reusable: both doors open and the same green key remains possessed without displaying an infinity count.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 5,
+      "expectedNumber": 5,
+      "expectedTitle": "Key Personalities",
+      "rooms": [
+        {
+          "roomId": "wrong-color-door",
+          "message": "Collect the red key below the divider. Try the blue door on the left, which must reject without spending it, then use the red door on the right, which consumes it.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "multiple-finite-keys",
+          "message": "Collect both red keys before crossing the two red-door dividers. The count must progress zero, one, two, one, zero, removing one door per completed entry.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blue-key-fragility",
+          "message": "Upper lane: push the dirt block east across the blue key. Sealed lower lane: a pink ball crosses another blue key. Each blue key is destroyed without creating inventory.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "nonplayer-key-rules",
+          "message": "Each open row has a block immediately east of a red, green, or yellow key; push west. Each sealed row below has a pink ball facing the same color. Red admits nonplayers and remains; green and yellow reject them, then remain collectible by Chip.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 6,
+      "expectedNumber": 6,
+      "expectedTitle": "Requirement Three Sockets",
+      "rooms": [
+        {
+          "roomId": "header-field-override",
+          "message": "The raw DAT header says one chip, but an ordered valid field-2 value says three and a later malformed one-byte field is ignored. Collect all three chips and open the socket using the imported requirement of three.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "socket-short",
+          "message": "Collect the only two chips, then try the socket. Its threshold is three, so it rejects; inventory remains two and the backward-compatible UI reports one chip remaining.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "socket-exact",
+          "message": "Collect exactly three chips, then enter the socket. It opens only when entry finishes and does not spend any of the three gray chips.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "multiple-sockets",
+          "message": "Collect the three chips before the first divider and open both sockets in sequence. Each independently checks threshold three and spends nothing; leave the fourth chip beyond the second socket untouched.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 7,
+      "expectedNumber": 76,
+      "expectedTitle": "Socket Zero",
+      "rooms": [
+        {
+          "roomId": "socket-zero",
+          "message": "Enter the socket without collecting any chips. A zero-threshold socket admits Chip and disappears only when entry finishes; inventory remains unchanged.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "north-east-support",
+          "message": "This is intentionally neutral support space. It carries no scenario ID; return to the gravel hallway and use the northwest room for the zero-socket check.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "south-west-support",
+          "message": "This is intentionally neutral support space. It carries no scenario ID; return to the gravel hallway and use the northwest room for the zero-socket check.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "south-east-support",
+          "message": "This is intentionally neutral support space. It carries no scenario ID; return to the gravel hallway and use the northwest room for the zero-socket check.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 8,
+      "expectedNumber": 7,
+      "expectedTitle": "Tools and Thief",
+      "rooms": [
+        {
+          "roomId": "water-and-fire-tools",
+          "message": "Collect the flippers and fire boots. Each pickup disappears only when entry finishes and appears in its named HUD slot.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "ice-and-force-tools",
+          "message": "Collect the ice skates and suction boots. Each pickup must appear in the correct named HUD slot.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "duplicate-tools",
+          "message": "Collect both copies of every boot. Hybrid keeps exact duplicate counts while the HUD still shows each named tool in its proper slot.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "thief-sequence",
+          "message": "Collect all keys and tools, cross the first thief, then re-enter it empty: tools vanish but keys remain. Refill tools and enter the blue-door-over-thief cell; its blue key and tools clear together.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 9,
+      "expectedNumber": 8,
+      "expectedTitle": "Player and Block Hazards",
+      "rooms": [
+        {
+          "roomId": "player-water",
+          "message": "Fatal branch: enter the lone water tile without protection. Safe branch: collect flippers, cross the two-tile water strip, and return; the water remains.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "player-fire",
+          "message": "Fatal branch: enter the lone fire tile unprotected. Safe branch: collect fire boots, cross the two-tile fire strip, and return; the fire remains.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "block-water",
+          "message": "Push the dirt block east into water. At completed entry the block disappears, the water becomes dirt, and one push plus water-fill consequence is reported.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "block-fire",
+          "message": "Push the dirt block east onto fire. The block survives on the fire and the fire terrain does not change.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 10,
+      "expectedNumber": 9,
+      "expectedTitle": "Monster Hazards",
+      "rooms": [
+        {
+          "roomId": "glider-water-loop",
+          "message": "The sealed glider enters water, survives, and continues around its wall-bounded ring on later moves.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "non-glider-water-lanes",
+          "message": "Eight sealed actors each have water as their only open destination. Ant, fireball, ball, tank, teeth, walker, blob, and centipede disappear on completed entry while Chip remains safe.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "fireball-fire-loop",
+          "message": "The sealed fireball enters fire, survives, and continues around its wall-bounded ring.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "other-mobs-fire-lanes",
+          "message": "Eight sealed non-fireballs each face fire as their only open destination. Every attempt rejects before movement, so all actors and fire tiles remain.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 11,
+      "expectedNumber": 10,
+      "expectedTitle": "Bombs and Layered Consequences",
+      "rooms": [
+        {
+          "roomId": "nonplayer-bombs",
+          "message": "Push the dirt block east onto its bomb. The sealed pink ball also enters a bomb autonomously. Each bomb and entering nonplayer disappear while the level continues.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "player-bomb-losses",
+          "message": "Fatal branches: enter the west bomb for an ordinary bomb loss, or the east bomb-over-exit cell to prove loss dominates a simultaneous win proposal.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "water-layer-order",
+          "message": "Fatal branches: enter the yellow-key-over-water cell, or enter the bomb-over-water cell. Layer consequences settle once; the later bomb proposal wins over water.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "collision-before-contact",
+          "message": "Press east into the wall shielding the tank; blocked terrain must prevent hostile contact. The sealed pink ball and fireball also reject each other without either disappearing.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 12,
+      "expectedNumber": 11,
+      "expectedTitle": "Trick Walls",
+      "rooms": [
+        {
+          "roomId": "ordinary-and-invisible",
+          "message": "Press into the ordinary wall, then the permanently invisible wall. Both reject; only Player's invisible-wall attempt emits a temporary reveal.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "invisible-nonplayer-and-slap",
+          "message": "The sealed monster rejects the invisible wall without revealing it. In the open fixture, a diagonal side attempt reveals the invisible wall while Chip's primary move still succeeds.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blue-wall-identities",
+          "message": "Player may enter the fake blue wall and turns it into floor; pressing the real one reveals an ordinary wall. Monster attempts reject without Player-only changes, even when one then takes a legal fallback.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "appearing-wall",
+          "message": "Press into the invisible appearing wall twice. The first rejected attempt permanently changes it into an ordinary wall; the second sees that wall.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 13,
+      "expectedNumber": 12,
+      "expectedTitle": "Panels, Pop-ups, and Static Art",
+      "rooms": [
+        {
+          "roomId": "static-art-gallery",
+          "message": "Codes 51-53 and 57-59 remain solid static art. Codes 54-56 become standard permanent invisible walls. Codes 60-63 remain solid directional swimming art. None creates a live actor.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "panel-edges",
+          "message": "Approach each cardinal panel from both sides and unrelated edges. Named edges block bidirectionally; the southeast corner blocks east and south only.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "popup-departure-counts",
+          "message": "Bare pop-up rises after Chip leaves. The block-over-pop-up starts at count two: block departure leaves one recessed use so Chip may follow, then Chip departure raises it.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "recessed-blue-and-admission",
+          "message": "Push the block off the real blue wall: it leaves, the wall rises, and Chip must retry elsewhere. A bare pop-up admits Player but rejects a pushed dirt block and the sealed hostile.",
           "targets": [
             {
               "kind": "tile",

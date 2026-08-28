@@ -6,8 +6,9 @@
  * PR #47's generic pushable-actor transaction, PR #52's staged dependent-push
  * admission, PR #54's force-first arrival fallback, PR #55's signal-driven
  * release ordering, PR #56's entry-scoped teleport activation, PR #58's
- * atomic teleport self-return occupancy, and PR #60's category-aware released-
- * trap arbitration, include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.12.
+ * atomic teleport self-return occupancy, PR #60's category-aware released-
+ * trap arbitration, and the D029 DAT special-art policy,
+ * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.13.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,
@@ -97,7 +98,7 @@ export const HYBRID_CC_V1_ELEMENT = {
   corner: 55,
   drownedPlayerMarker: 56,
   burnedPlayerMarkerA: 57,
-  burnedPlayerMarkerB: 58,
+  bombedPlayerMarker: 58,
   unusedMarkerA: 59,
   unusedMarkerB: 60,
   unusedMarkerC: 61,

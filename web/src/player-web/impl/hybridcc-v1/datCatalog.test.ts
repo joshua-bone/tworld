@@ -225,4 +225,27 @@ describe("HybridCC v1 DAT catalog", () => {
       },
     ]);
   });
+
+  it("does not turn successful DAT sanitation notes into unavailable-level UI", () => {
+    const conversion = {
+      fileStatus: 0,
+      entries: [
+        { entryOrdinal: 13, status: 0, requiredChips: 0, diagnosticCount: 4, nativeLevel: {} },
+      ],
+      diagnostics: [60, 61, 62, 63].map((tileCode) => ({
+        severity: 0,
+        entryOrdinal: 13,
+        levelNumber: 12,
+        cellIndex: tileCode,
+        tileCode,
+        sourceLayer: 1,
+        code: "dat.sanitized_swimming_player_art",
+        message: "Malformed swimming-Chip artwork was preserved as inert terrain.",
+        codeBytes: new Uint8Array(),
+        messageBytes: new Uint8Array(),
+      })),
+    } as unknown as HybridCcV1DatConversionResult;
+
+    expect(collectHybridCcV1UnavailableDatEntries(conversion)).toEqual([]);
+  });
 });

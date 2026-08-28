@@ -49,9 +49,10 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
 
     await runSync(source, destination);
     await expect(runSync(source, destination, true)).resolves.toMatchObject({
-      stdout: expect.stringContaining("Checked 5 HybridCC sandbox assets."),
+      stdout: expect.stringContaining("Checked 55 HybridCC sandbox assets."),
     });
 
+    await mkdir(join(source, "replays/1.0.12"), { recursive: true });
     await writeFile(join(source, staleRelativePath), new Uint8Array([0x48, 0x43, 0x52, 0x31]));
     await expect(runSync(source, destination, true)).rejects.toMatchObject({
       stderr: expect.stringContaining(`unexpected ${staleRelativePath}`),

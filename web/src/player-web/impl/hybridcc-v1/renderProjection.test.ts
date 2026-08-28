@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
+import {
+  MS_DIRECTION,
+  MS_FLOOR_STATE,
+  MS_TILE,
+  msCreatureTile,
+} from "@ruleset-ms/api/tiles";
 import {
   HYBRID_CC_V1_COLOR,
+  HYBRID_CC_V1_DIRECTION,
   HYBRID_CC_V1_ELEMENT,
   HYBRID_CC_V1_ORIENTATION,
   HYBRID_CC_V1_RULE,
@@ -13,6 +19,10 @@ import {
 import { testCell, testElement, testInventoryEntry } from "./testFacts";
 
 describe("Hybrid v1 cell projection", () => {
+  it("uses the canonical bombed-marker name for byte-stable ABI element 58", () => {
+    expect(HYBRID_CC_V1_ELEMENT.bombedPlayerMarker).toBe(58);
+  });
+
   it("distinguishes bare floor, wall, and an absent visual layer", () => {
     expect(projectHybridCcV1Cell(testCell(), 0, 1)).toMatchObject({
       top: { id: MS_TILE.Empty },
@@ -76,6 +86,52 @@ describe("Hybrid v1 cell projection", () => {
       trapOpen: true,
     }), 0, 1);
     expect(trap.top.state & MS_FLOOR_STATE.TrapOpen).not.toBe(0);
+  });
+
+  it.each([
+    [51, HYBRID_CC_V1_ELEMENT.drownedPlayerMarker, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.none, MS_TILE.Drowned_Chip],
+    [52, HYBRID_CC_V1_ELEMENT.burnedPlayerMarkerA, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.none, MS_TILE.Burned_Chip],
+    [53, HYBRID_CC_V1_ELEMENT.bombedPlayerMarker, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.none, MS_TILE.Bombed_Chip],
+    [54, HYBRID_CC_V1_ELEMENT.trickWall, HYBRID_CC_V1_RULE.permanentlyInvisible,
+      HYBRID_CC_V1_DIRECTION.none, MS_TILE.HiddenWall_Perm],
+    [55, HYBRID_CC_V1_ELEMENT.trickWall, HYBRID_CC_V1_RULE.permanentlyInvisible,
+      HYBRID_CC_V1_DIRECTION.none, MS_TILE.HiddenWall_Perm],
+    [56, HYBRID_CC_V1_ELEMENT.trickWall, HYBRID_CC_V1_RULE.permanentlyInvisible,
+      HYBRID_CC_V1_DIRECTION.none, MS_TILE.HiddenWall_Perm],
+    [57, HYBRID_CC_V1_ELEMENT.exitedPlayerMarker, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.none, MS_TILE.Exited_Chip],
+    [58, HYBRID_CC_V1_ELEMENT.unusedExitMarkerA, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.none, MS_TILE.Exit_Extra_1],
+    [59, HYBRID_CC_V1_ELEMENT.unusedExitMarkerB, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.none, MS_TILE.Exit_Extra_2],
+    [60, HYBRID_CC_V1_ELEMENT.swimmingPlayerMarker, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.north, msCreatureTile(MS_TILE.Swimming_Chip, MS_DIRECTION.north)],
+    [61, HYBRID_CC_V1_ELEMENT.swimmingPlayerMarker, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.west, msCreatureTile(MS_TILE.Swimming_Chip, MS_DIRECTION.west)],
+    [62, HYBRID_CC_V1_ELEMENT.swimmingPlayerMarker, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.south, msCreatureTile(MS_TILE.Swimming_Chip, MS_DIRECTION.south)],
+    [63, HYBRID_CC_V1_ELEMENT.swimmingPlayerMarker, HYBRID_CC_V1_RULE.none,
+      HYBRID_CC_V1_DIRECTION.east, msCreatureTile(MS_TILE.Swimming_Chip, MS_DIRECTION.east)],
+  ])("projects successful DAT special-art code %i", (_datCode, id, rule, direction, expectedTile) => {
+    const projected = projectHybridCcV1Cell(testCell({
+      terrain: testElement({ id, rule, direction }),
+    }), 0, 1);
+
+    expect(projected.top).toEqual({ id: expectedTile, state: 0 });
+    expect(projected.bottom).toEqual({ id: MS_TILE.Nothing, state: 0 });
+  });
+
+  it.each([
+    HYBRID_CC_V1_ELEMENT.unusedMarkerA,
+    HYBRID_CC_V1_ELEMENT.unusedMarkerB,
+    HYBRID_CC_V1_ELEMENT.unusedMarkerC,
+  ])("projects retained native marker identity %i as a deterministic solid fallback", (id) => {
+    expect(projectHybridCcV1Cell(testCell({
+      terrain: testElement({ id }),
+    }), 0, 1).top).toEqual({ id: MS_TILE.Wall, state: 0 });
   });
 
   it("rejects unmapped visible elements instead of disguising them as floor", () => {
