@@ -8,6 +8,7 @@ import {
   HYBRID_CC_V1_RULESET_LABEL,
   hybridCcV1InitialCatalogMessage,
   hybridCcV1SeriesFile,
+  hybridCcV1UploadConversionMessage,
 } from "./uiModel";
 import { HYBRID_CC_V1_LIBRARY_CATEGORIES } from "./HybridCcV1App";
 
@@ -134,10 +135,11 @@ describe("HybridCC v1 catalog UI model", () => {
     expect(family?.sidebarSummary).toBe("147 playable · 2 unavailable in Hybrid v1.");
     expect(family?.context).toContain("Level 78 — dat.unsupported_composition.multiple_pickup");
     expect(family?.context).toContain("Level 131 — dat.unsupported_composition.multiple_device");
-    const initialMessage = hybridCcV1InitialCatalogMessage(1, new Map(), issuesByEntryId);
-    expect(initialMessage).toContain("partial.dat");
-    expect(initialMessage).toContain("Level 78 — dat.unsupported_composition.multiple_pickup");
-    expect(initialMessage).toContain("Level 131 — dat.unsupported_composition.multiple_device");
+    expect(hybridCcV1InitialCatalogMessage(1, new Map())).toBeNull();
+    const uploadMessage = hybridCcV1UploadConversionMessage(issuesByEntryId);
+    expect(uploadMessage).toContain("partial.dat");
+    expect(uploadMessage).toContain("Level 78 — dat.unsupported_composition.multiple_pickup");
+    expect(uploadMessage).toContain("Level 131 — dat.unsupported_composition.multiple_device");
   });
 
   it("neither advertises nor initially selects an excluded official CCLP2 entry", () => {

@@ -38,7 +38,7 @@ describe("HybridCC v1 shared browser host", () => {
     expect(source).not.toContain("parseDat");
   });
 
-  it("keeps partial conversions playable while wiring their failed levels into visible catalog diagnostics", async () => {
+  it("keeps partial conversions playable and reserves modal diagnostics for the upload action", async () => {
     const source = await readFile(new URL("./HybridCcV1App.tsx", import.meta.url), "utf8");
 
     expect(source).toContain("collectHybridCcV1UnavailableDatEntries(conversion)");
@@ -47,8 +47,9 @@ describe("HybridCC v1 shared browser host", () => {
       "buildHybridCcV1Families(entries, seriesByEntryId, loadErrorsByEntryId, unavailableEntriesByEntryId)",
     );
     expect(source).toContain(
-      "hybridCcV1InitialCatalogMessage(nextSeries.size, nextLoadErrors, nextUnavailableEntries)",
+      "hybridCcV1InitialCatalogMessage(nextSeries.size, nextLoadErrors)",
     );
-    expect(source).toContain("unavailableEntriesByEntryId.get(familyId)");
+    expect(source).toContain("hybridCcV1UploadConversionMessage(importedUnavailableEntries)");
+    expect(source).not.toContain("unavailableEntriesByEntryId.get(familyId)");
   });
 });
