@@ -40,11 +40,16 @@ export function firstPlayableHybridCcV1Entry(
 export function hybridCcV1InitialCatalogMessage(
   playableEntryCount: number,
   loadErrorsByEntryId: ReadonlyMap<string, string>,
-  unavailableEntriesByEntryId: ReadonlyMap<string, readonly HybridCcV1UnavailableDatEntry[]> = new Map(),
 ): string | null {
   if (playableEntryCount === 0) {
     return loadErrorsByEntryId.values().next().value ?? "No playable DAT sets are available.";
   }
+  return null;
+}
+
+export function hybridCcV1UploadConversionMessage(
+  unavailableEntriesByEntryId: ReadonlyMap<string, readonly HybridCcV1UnavailableDatEntry[]>,
+): string | null {
   const issueLines = [...unavailableEntriesByEntryId.entries()].flatMap(([entryId, issues]) => (
     issues.length === 0
       ? []

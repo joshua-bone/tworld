@@ -13,80 +13,66 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      native-qt: ${{ steps.gates.outputs.native_qt }}
-      native-sdl-oracle: ${{ steps.gates.outputs.native_sdl_oracle }}
-      workspace: ${{ steps.gates.outputs.workspace }}
-      static-corpus-p1b: ${{ steps.gates.outputs.static_corpus_p1b }}
-      p5: ${{ steps.gates.outputs.p5 }}
-      reviews-p2a-p4: ${{ steps.gates.outputs.reviews_p2a_p4 }}
-      runtime-p6-evidence: ${{ steps.gates.outputs.runtime_p6_evidence }}
-      p6-presentation-attest: ${{ steps.gates.outputs.p6_presentation_attest }}
-      p4b: ${{ steps.gates.outputs.p4b }}
-      browser: ${{ steps.gates.outputs.browser }}
-      heavy-p1b: ${{ steps.gates.outputs.heavy_p1b }}
-      heavy-p5: ${{ steps.gates.outputs.heavy_p5 }}
-      heavy-p6a: ${{ steps.gates.outputs.heavy_p6a }}
-      heavy-p7c: ${{ steps.gates.outputs.heavy_p7c }}
-      heavy-p7d: ${{ steps.gates.outputs.heavy_p7d }}
-      heavy-p7e: ${{ steps.gates.outputs.heavy_p7e }}
-      reuse-p7c: ${{ steps.gates.outputs.reuse_p7c }}
-      reuse-p7d: ${{ steps.gates.outputs.reuse_p7d }}
-      reuse-p7e: ${{ steps.gates.outputs.reuse_p7e }}
-      reuse-p7-presentation: ${{ steps.gates.outputs.reuse_p7_presentation }}
-      attest-p7-presentation: ${{ steps.gates.outputs.attest_p7_presentation }}
-      p7-engine-packs-json: ${{ steps.gates.outputs.p7_engine_packs_json }}
-      p7-needs-shards: ${{ steps.gates.outputs.p7_needs_shards }}
-      p7-selected: ${{ steps.gates.outputs.p7_selected }}
-      trusted-merge-base: ${{ steps.gates.outputs.trusted_merge_base }}
-      changed-web-tests-json: ${{ steps.gates.outputs.changed_web_tests_json }}
-      changed-native-web-tests-json: ${{ steps.gates.outputs.changed_native_web_tests_json }}
-      changed-native-web-tests: ${{ steps.gates.outputs.changed_native_web_tests }}
+      native: ${{ steps.paths.outputs.native }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - name: Verify the Node and npm proof epoch
-        run: |
-          [[ "$(node --version)" == "v22.22.0" ]]
-          [[ "$(npm --version)" == "10.9.4" ]]
-      - name: Validate CI policy and proof machinery
-        run: |
-          node --test \
-            test/ci-image-contract.test.mjs \
-            test/ci-changed-gates.test.mjs \
-            test/ci-changed-web-tests.test.mjs \
-            test/ci-proof-receipt.test.mjs \
-            test/ci-proof-gates.test.mjs \
-            test/ci-p7-active-packs.test.mjs \
-            test/ci-p7-training-policy.test.mjs \
-            test/ci-p1b-shards.test.mjs \
-            test/ci-p1b-map-reduce-routing.test.mjs \
-            test/ci-proof-routing.test.mjs
-      - name: Resolve changed-gates.mjs and proof-receipt.mjs decisions
-        id: gates
+      - id: paths
+        name: Select native builds only for native source changes
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
+          native=false
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-            node scripts/ci/resolve-proof-gates.mjs \
-              --root . \
-              --all \
-              --github-output "$GITHUB_OUTPUT"
+            native=true
           else
-            node scripts/ci/resolve-proof-gates.mjs \
-              --root . \
-              --base "$BASE_SHA" \
-              --head "$HEAD_SHA" \
-              --github-output "$GITHUB_OUTPUT"
+            while IFS= read -r path; do
+              case "$path" in
+                CMakeLists.txt|cmake/*|legacy_c/*)
+                  native=true
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only "$BASE_SHA...$HEAD_SHA" --)
           fi
+          echo "native=$native" >> "$GITHUB_OUTPUT"
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASE_PATH: /tworld/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Verify product workflow boundaries
+        run: node --test test/product-workflow-contract.test.mjs
+      - name: Install workspace dependencies
+        run: npm ci --include=optional
+      - name: Typecheck the browser product
+        run: npm run typecheck
+      - name: Run browser product tests
+        run: |
+          npm test -- \
+            src/player-web/impl/hybridcc-v1 \
+            src/player-web/impl/modern \
+            src/game-core/api/ruleset.test.ts \
+            src/ruleset-ms/impl/level.test.ts \
+            src/ruleset-ms/impl/tileEffects.test.ts \
+            src/ruleset-lynx/impl/tileEffects.test.ts
+      - name: Build the browser product
+        run: npm run build
 
   build-qt6:
     needs: classify
-    if: ${{ needs.classify.outputs['native-qt'] == 'true' }}
+    if: ${{ needs.classify.outputs.native == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/joshua-bone/tworld-ci@sha256:a760c0b2f6c02bc39dc59c406554317a35918a1059c5e0b9ea77a67849350cf9
@@ -104,7 +90,7 @@ jobs:
 
   build-qt5:
     needs: classify
-    if: ${{ needs.classify.outputs['native-qt'] == 'true' }}
+    if: ${{ needs.classify.outputs.native == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/joshua-bone/tworld-ci@sha256:a760c0b2f6c02bc39dc59c406554317a35918a1059c5e0b9ea77a67849350cf9
@@ -124,7 +110,7 @@ jobs:
 
   build-sdl1:
     needs: classify
-    if: ${{ needs.classify.outputs['native-sdl-oracle'] == 'true' }}
+    if: ${{ needs.classify.outputs.native == 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/joshua-bone/tworld-ci@sha256:a760c0b2f6c02bc39dc59c406554317a35918a1059c5e0b9ea77a67849350cf9
@@ -143,985 +129,37 @@ jobs:
         run: |
           cd build-sdl
           ctest --output-on-failure
-      - name: Upload native replay oracle
-        uses: actions/upload-artifact@v4
-        with:
-          name: tworld-oracle-${{ github.sha }}
-          path: build-sdl/legacy_c/tworld-oracle
-          if-no-files-found: error
-          retention-days: 1
 
-  ccsolver-p5-preflight:
-    needs:
-      - classify
-      - build-sdl1
-    if: ${{ always() && needs.classify.outputs.p5 == 'true' && needs.build-sdl1.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Download native replay oracle
-        uses: actions/download-artifact@v4
-        with:
-          name: tworld-oracle-${{ github.sha }}
-          path: build-verify/legacy_c
-      - name: Restore native replay oracle executable mode
-        run: chmod +x build-verify/legacy_c/tworld-oracle
-      - name: Check every P5 integration test against the native replay oracle
-        run: |
-          npm --workspace web run test -- --run \
-            src/ccsolver-runtime/compose/p5-review \
-            --no-file-parallelism
-      - name: Check P5 certified Key Pyramid artifacts
-        if: ${{ needs.classify.outputs['heavy-p5'] == 'true' }}
-        run: npm run ccsolver:p5:check:prepared
-
-  ccsolver-workspace:
-    needs: classify
-    if: ${{ needs.classify.outputs.workspace == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      BASE_PATH: /tworld/
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Check the fast CCSolver workspace surface
-        run: |
-          npm run ccsolver:build
-          npm run ccsolver:typecheck
-          npm run ccsolver:typecheck:browser
-          npm run ccsolver:test
-          npm run ccsolver:conformance
-          npm run ccsolver:facade
-          npm run ccsolver:integration:smoke
-          npm --workspace web run typecheck:tools
-          npm run ccsolver:cli -- --help
-          npm run ccsolver:dossier -- --help
-      - name: Run exact changed web tests omitted by the fixed lanes
-        env:
-          CHANGED_WEB_TESTS_JSON: ${{ needs.classify.outputs['changed-web-tests-json'] }}
-        run: |
-          node scripts/ci/run-changed-web-tests.mjs \
-            --root . \
-            --lane workspace \
-            --json "$CHANGED_WEB_TESTS_JSON"
-
-  changed-native-web-tests:
-    needs:
-      - classify
-      - build-sdl1
-    if: ${{ always() && needs.classify.outputs['changed-native-web-tests'] == 'true' && needs.build-sdl1.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Download native replay oracle
-        uses: actions/download-artifact@v4
-        with:
-          name: tworld-oracle-${{ github.sha }}
-          path: build-verify/legacy_c
-      - name: Restore native replay oracle executable mode
-        run: chmod +x build-verify/legacy_c/tworld-oracle
-      - name: Run exact changed native-dependent web tests
-        env:
-          CHANGED_NATIVE_WEB_TESTS_JSON: ${{ needs.classify.outputs['changed-native-web-tests-json'] }}
-        run: |
-          node scripts/ci/run-changed-web-tests.mjs \
-            --root . \
-            --lane native \
-            --json "$CHANGED_NATIVE_WEB_TESTS_JSON"
-
-  ccsolver-static-corpus:
-    needs: classify
-    if: ${{ needs.classify.outputs['static-corpus-p1b'] == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Check static and corpus integration
-        run: |
-          npm run ccsolver:integration:static
-          npm run ccsolver:integration:corpus
-          npm run ccsolver:analysis:check:prepared
-
-  ccsolver-p1b-prepare:
-    needs: classify
-    if: ${{ needs.classify.outputs['heavy-p1b'] == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      shard-matrix: ${{ steps.plan.outputs.shard_matrix }}
-      shard-count: ${{ steps.plan.outputs.shard_count }}
-      needs-shards: ${{ steps.plan.outputs.needs_shards }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-      - name: Attest the checked-out workflow SHA
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
-            echo "checked-out HEAD does not match the workflow SHA" >&2
-            exit 1
-          fi
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Verify the P1A corpus authority consumed by P1B
-        run: npm run ccsolver:corpus:check:prepared
-      - name: Prepare the canonical P1B shard plan
-        id: plan
-        env:
-          TRUSTED_MERGE_BASE: ${{ needs.classify.outputs['trusted-merge-base'] }}
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          PLAN_DIR="$RUNNER_TEMP/p1b-plan"
-          TRUSTED_ROOT="$RUNNER_TEMP/p1b-trusted-root"
-          TRUSTED_ARGS=()
-
-          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-            if [[ ! "$TRUSTED_MERGE_BASE" =~ ^[0-9a-f]{40}$ ]]; then
-              echo "classify did not provide an exact trusted merge-base SHA" >&2
-              exit 1
-            fi
-            git cat-file -e "${TRUSTED_MERGE_BASE}^{commit}"
-            git worktree add --detach "$TRUSTED_ROOT" "$TRUSTED_MERGE_BASE"
-            TRUSTED_ARGS=(--trusted-root "$TRUSTED_ROOT")
-          elif [[ -n "$TRUSTED_MERGE_BASE" ]]; then
-            echo "dispatch must not claim merge-base receipt authority" >&2
-            exit 1
-          fi
-
-          node scripts/ci/p1b-shards.mjs prepare \
-            --root . \
-            --head "$ACTUAL_HEAD" \
-            --run-id "$GITHUB_RUN_ID" \
-            --run-attempt "$GITHUB_RUN_ATTEMPT" \
-            --output "$PLAN_DIR" \
-            --github-output "$GITHUB_OUTPUT" \
-            "${TRUSTED_ARGS[@]}"
-      - name: Require the fixed nonempty eight-shard plan
-        env:
-          SHARD_COUNT: ${{ steps.plan.outputs.shard_count }}
-          NEEDS_SHARDS: ${{ steps.plan.outputs.needs_shards }}
-        run: |
-          [[ "$SHARD_COUNT" == "8" ]]
-          [[ "$NEEDS_SHARDS" == "true" ]]
-      - name: Upload the immutable P1B plan
-        uses: actions/upload-artifact@v4
-        with:
-          name: p1b-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p1b-plan
-          if-no-files-found: error
-          retention-days: 1
-          overwrite: false
-
-  ccsolver-p1b-shard:
-    needs:
-      - classify
-      - ccsolver-p1b-prepare
-    if: ${{ needs.classify.outputs['heavy-p1b'] == 'true' && needs.ccsolver-p1b-prepare.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: true
-      max-parallel: 8
-      matrix: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']) }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-      - name: Attest the checked-out workflow SHA
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
-            echo "checked-out HEAD does not match the workflow SHA" >&2
-            exit 1
-          fi
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Download the exact immutable P1B plan
-        uses: actions/download-artifact@v4
-        with:
-          name: p1b-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p1b-plan
-      - name: Install workspace dependencies for a measured shard
-        if: ${{ matrix.measure }}
-        run: npm ci --include=optional
-      - name: Build CCSolver for a measured shard
-        if: ${{ matrix.measure }}
-        run: npm run ccsolver:build
-      - name: Measure one canonical P1B shard
-        if: ${{ matrix.measure }}
-        env:
-          SHARD_ID: ${{ matrix.shard_id }}
-          TWORLD_P1B_ANALYSIS_JOBS: 1
-        run: |
-          mkdir -p "$RUNNER_TEMP/p1b-result"
-          node scripts/ci/p1b-shards.mjs run \
-            --root . \
-            --manifest "$RUNNER_TEMP/p1b-plan/manifest.json" \
-            --request "$RUNNER_TEMP/p1b-plan/requests/${SHARD_ID}.request.json" \
-            --output "$RUNNER_TEMP/p1b-result/${SHARD_ID}.result.json"
-      - name: Validate and forward one reconstructed P1B shard
-        if: ${{ !matrix.measure }}
-        env:
-          SHARD_ID: ${{ matrix.shard_id }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/p1b-result"
-          node scripts/ci/p1b-shards.mjs forward \
-            --root . \
-            --manifest "$RUNNER_TEMP/p1b-plan/manifest.json" \
-            --request "$RUNNER_TEMP/p1b-plan/requests/${SHARD_ID}.request.json" \
-            --reconstructed "$RUNNER_TEMP/p1b-plan/reconstructed-results/${SHARD_ID}.result.json" \
-            --output "$RUNNER_TEMP/p1b-result/${SHARD_ID}.result.json"
-      - name: Upload exactly one immutable P1B shard result
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: ${{ runner.temp }}/p1b-result/${{ matrix.shard_id }}.result.json
-          if-no-files-found: error
-          retention-days: 1
-          overwrite: false
-
-  ccsolver-p1b:
-    needs:
-      - classify
-      - ccsolver-p1b-prepare
-      - ccsolver-p1b-shard
-    if: ${{ always() && needs.classify.outputs['heavy-p1b'] == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Require successful P1B coordinator and shard workers
-        env:
-          PREPARE_RESULT: ${{ needs.ccsolver-p1b-prepare.result }}
-          SHARD_RESULT: ${{ needs.ccsolver-p1b-shard.result }}
-        run: |
-          if [[ "$PREPARE_RESULT" != "success" || "$SHARD_RESULT" != "success" ]]; then
-            echo "P1B map/reduce prerequisite did not succeed: prepare=$PREPARE_RESULT shards=$SHARD_RESULT" >&2
-            exit 1
-          fi
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-      - name: Attest the checked-out workflow SHA
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
-            echo "checked-out HEAD does not match the workflow SHA" >&2
-            exit 1
-          fi
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Download the exact immutable P1B plan
-        uses: actions/download-artifact@v4
-        with:
-          name: p1b-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p1b-plan
-      - name: Download P1B shard 0
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[0].artifact_name }}
-          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[0].shard_id }}
-      - name: Download P1B shard 1
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[1].artifact_name }}
-          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[1].shard_id }}
-      - name: Download P1B shard 2
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[2].artifact_name }}
-          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[2].shard_id }}
-      - name: Download P1B shard 3
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[3].artifact_name }}
-          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[3].shard_id }}
-      - name: Download P1B shard 4
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[4].artifact_name }}
-          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[4].shard_id }}
-      - name: Download P1B shard 5
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[5].artifact_name }}
-          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[5].shard_id }}
-      - name: Download P1B shard 6
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[6].artifact_name }}
-          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[6].shard_id }}
-      - name: Download P1B shard 7
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[7].artifact_name }}
-          path: ${{ runner.temp }}/p1b-results/${{ fromJSON(needs.ccsolver-p1b-prepare.outputs['shard-matrix']).include[7].shard_id }}
-      - name: Recompute and finalize the complete P1B proof
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          node scripts/ci/p1b-shards.mjs finalize \
-            --root . \
-            --head "$ACTUAL_HEAD" \
-            --manifest "$RUNNER_TEMP/p1b-plan/manifest.json" \
-            --requests "$RUNNER_TEMP/p1b-plan/requests" \
-            --results "$RUNNER_TEMP/p1b-results" \
-            --check
-
-  ccsolver-reviews:
-    needs: classify
-    if: ${{ needs.classify.outputs['reviews-p2a-p4'] == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Check review integration
-        run: |
-          npm run ccsolver:typecheck
-          npm run ccsolver:test
-          npm run ccsolver:integration:reviews
-      - name: Check P2A runtime observation artifacts
-        run: npm run ccsolver:p2a:check:prepared
-      - name: Check P3 terminal planning and contextual witness artifacts
-        run: npm run ccsolver:p3:check:prepared
-      - name: Check P4A graphical subgoal evidence artifacts
-        run: npm run ccsolver:p4a:check:prepared
-
-  ccsolver-p4b:
-    needs: classify
-    if: ${{ needs.classify.outputs.p4b == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Check P4B whole-level dossier artifacts
-        run: |
-          npm run ccsolver:typecheck
-          npm run ccsolver:test
-          npm --workspace web run test -- --run \
-            src/ccsolver-runtime/compose/p4b-dossier/p4bStaticRoutes.test.ts \
-            src/ccsolver-runtime/compose/p4b-dossier/buildP4bDossierOutputs.test.ts \
-            src/ccsolver-runtime/compose/p4b-dossier/p4bDossierPage.test.ts \
-            src/ccsolver-runtime/compose/p4b-dossier/p4bDossierVisuals.test.ts \
-            src/ccsolver-runtime/compose/p4b-dossier/p4bDossierIo.test.ts \
-            src/ccsolver-runtime/compose/p4b-dossier/p4bDossierSafety.test.ts
-          npm run ccsolver:p4b:check:prepared
-
-  ccsolver-runtime:
-    needs: classify
-    if: ${{ needs.classify.outputs['runtime-p6-evidence'] == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Check causal runtime integration
-        run: |
-          npm run ccsolver:typecheck
-          npm run ccsolver:test
-          npm run ccsolver:integration:runtime
-          npm run ccsolver:p7a:check:prepared
-
-  ccsolver-p6a:
-    needs: classify
-    if: ${{ needs.classify.outputs['heavy-p6a'] == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Check P2B/P6A causal alignment artifacts
-        run: npm run ccsolver:p6a:check:prepared
-
-  ccsolver-p6-presentation:
-    needs: classify
-    if: ${{ needs.classify.outputs['p6-presentation-attest'] == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Build CCSolver once
-        run: npm run ccsolver:build
-      - name: Check P6 presentation and attestation surfaces
-        run: |
-          npm --workspace web run test -- --run \
-            src/ccsolver-runtime/compose/p6a-review/checkedP6aInputs.test.ts \
-            src/ccsolver-runtime/compose/p6a-review/buildP6aReviewOutputs.test.ts \
-            src/ccsolver-runtime/compose/p6a-review/p6aReviewPage.test.ts \
-            src/ccsolver-runtime/compose/p6a-review/p6aReviewIo.test.ts \
-            src/ccsolver-runtime/compose/p6b-p7a-review/buildP6bPortfolioCanaries.test.ts \
-            src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aReviewPage.test.ts \
-            src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aArtwork.test.ts \
-            src/ccsolver-runtime/compose/p6b-p7a-review/p6bP7aReviewIo.test.ts
-          npm run ccsolver:p6a:attest:prepared
-          npm run ccsolver:p7a:attest:prepared
-
-  ccsolver-p7-training-prepare:
-    needs: classify
-    if: ${{ needs.classify.outputs['p7-selected'] == 'true' }}
-    env:
-      BASE_PATH: /tworld/
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-      - name: Attest the checked-out P7 workflow SHA
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
-            echo "checked-out HEAD does not match the P7 workflow SHA" >&2
-            exit 1
-          fi
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - name: Install P7 workspace dependencies once
-        run: npm ci --include=optional
-      - name: Build P7 dependencies and transports once
-        env:
-          P7_TRAINING_RUNNER_OUT_DIR: ${{ runner.temp }}/p7-training-plan/runner
-        run: |
-          mkdir -p "$P7_TRAINING_RUNNER_OUT_DIR"
-          npm run ccsolver:build
-          npm run ccsolver:p7-training:bundle:engine
-          npm run ccsolver:p7-training:bundle:presentation
-          npm run build
-          node --test \
-            test/ci-p7-player-graph-build-stability.test.mjs \
-            test/ci-p7-player-worker-closure.test.mjs
-          npm --workspace web run test -- --run \
-            src/ccsolver-runtime/compose/p7-training-runner/p7TrainingPlayerGraphProductionBuild.test.ts
-          [[ -f "$P7_TRAINING_RUNNER_OUT_DIR/p7-training-engine-runner.mjs" ]]
-          [[ -f "$P7_TRAINING_RUNNER_OUT_DIR/p7-training-presentation-runner.mjs" ]]
-          [[ "$(find "$P7_TRAINING_RUNNER_OUT_DIR" -maxdepth 1 -type f | wc -l)" == "2" ]]
-          for RUNNER_NAME in p7-training-engine-runner.mjs p7-training-presentation-runner.mjs; do
-            RUNNER_PATH="$(realpath "$P7_TRAINING_RUNNER_OUT_DIR/$RUNNER_NAME")"
-            LINK_PATH="$RUNNER_TEMP/$RUNNER_NAME.symlink"
-            LINK_LOG="$RUNNER_TEMP/$RUNNER_NAME.symlink.log"
-            ln -s "$RUNNER_PATH" "$LINK_PATH"
-            if node "$LINK_PATH" >"$LINK_LOG" 2>&1; then
-              echo "P7 runner accepted a symlinked executable path: $RUNNER_NAME" >&2
-              exit 1
-            fi
-            grep -F "contains a symbolic link" "$LINK_LOG"
-          done
-      - name: Prepare and attest the immutable P7 plan
-        env:
-          P7_ENGINE_PACKS_JSON: ${{ needs.classify.outputs['p7-engine-packs-json'] }}
-          P7_NEEDS_SHARDS: ${{ needs.classify.outputs['p7-needs-shards'] }}
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          PLAN_ROOT="$RUNNER_TEMP/p7-training-plan"
-          RUNNER_ROOT="$PLAN_ROOT/runner"
-          ENGINE_ARTIFACTS="$PLAN_ROOT/artifacts"
-          PRESENTATION_ARTIFACTS="$PLAN_ROOT/presentation-artifacts"
-          PRESENTATION_RUNNER="$RUNNER_ROOT/p7-training-presentation-runner.mjs"
-          mkdir -p "$ENGINE_ARTIFACTS" "$PRESENTATION_ARTIFACTS"
-          PRESENTATION_COMMON=(
-            --root .
-            --head "$ACTUAL_HEAD"
-            --presentation-artifacts "$PRESENTATION_ARTIFACTS"
-            --run-id "$GITHUB_RUN_ID"
-            --run-attempt "$GITHUB_RUN_ATTEMPT"
-          )
-
-          node "$PRESENTATION_RUNNER" prepare "${PRESENTATION_COMMON[@]}"
-          node "$PRESENTATION_RUNNER" graph-check "${PRESENTATION_COMMON[@]}"
-          cp -R web/dist "$PLAN_ROOT/fresh-web-dist"
-
-          if [[ "$P7_NEEDS_SHARDS" == "true" ]]; then
-            PACKS_CSV="$(node --input-type=module -e '
-              const packs = JSON.parse(process.argv[1]);
-              if (!Array.isArray(packs) || packs.length === 0) process.exit(2);
-              process.stdout.write(packs.join(","));
-            ' "$P7_ENGINE_PACKS_JSON")"
-            node "$RUNNER_ROOT/p7-training-engine-runner.mjs" prepare \
-              --root . \
-              --artifacts "$ENGINE_ARTIFACTS" \
-              --head "$ACTUAL_HEAD" \
-              --run-id "$GITHUB_RUN_ID" \
-              --run-attempt "$GITHUB_RUN_ATTEMPT" \
-              --packs "$PACKS_CSV"
-          elif [[ "$P7_NEEDS_SHARDS" != "false" || "$P7_ENGINE_PACKS_JSON" != "[]" ]]; then
-            echo "P7 classifier returned an inconsistent graph-only plan" >&2
-            exit 1
-          fi
-      - name: Upload the immutable P7 plan and transports
-        uses: actions/upload-artifact@v4
-        with:
-          name: p7-training-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-plan
-          if-no-files-found: error
-          include-hidden-files: true
-          retention-days: 1
-          overwrite: false
-
-  ccsolver-p7-training-shard:
-    needs:
-      - classify
-      - ccsolver-p7-training-prepare
-    if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' && needs.ccsolver-p7-training-prepare.result == 'success' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: true
-      max-parallel: 8
-      matrix:
-        shard_index: [0, 1, 2, 3, 4, 5, 6, 7]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-      - name: Attest the checked-out P7 workflow SHA
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
-            echo "checked-out HEAD does not match the P7 workflow SHA" >&2
-            exit 1
-          fi
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - name: Download the exact immutable P7 plan
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-plan
-      - name: Execute one fixed P7 worker index across every selected pack
-        env:
-          SHARD_INDEX: ${{ matrix.shard_index }}
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          node "$RUNNER_TEMP/p7-training-plan/runner/p7-training-engine-runner.mjs" shard \
-            --root . \
-            --artifacts "$RUNNER_TEMP/p7-training-plan/artifacts" \
-            --head "$ACTUAL_HEAD" \
-            --run-id "$GITHUB_RUN_ID" \
-            --run-attempt "$GITHUB_RUN_ATTEMPT" \
-            --shard "$SHARD_INDEX"
-      - name: Upload one isolated immutable P7 shard root
-        uses: actions/upload-artifact@v4
-        with:
-          name: p7-training-shard-${{ matrix.shard_index }}-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-plan/artifacts
-          if-no-files-found: error
-          retention-days: 1
-          overwrite: false
-
-  ccsolver-p7-training:
-    needs:
-      - classify
-      - ccsolver-p7-training-prepare
-      - ccsolver-p7-training-shard
-    if: ${{ always() && needs.classify.outputs['p7-selected'] == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Require the exact selected P7 job graph
-        env:
-          P7_NEEDS_SHARDS: ${{ needs.classify.outputs['p7-needs-shards'] }}
-          PREPARE_RESULT: ${{ needs.ccsolver-p7-training-prepare.result }}
-          SHARD_RESULT: ${{ needs.ccsolver-p7-training-shard.result }}
-        run: |
-          if [[ "$PREPARE_RESULT" != "success" ]]; then
-            echo "P7 prepare finished with: $PREPARE_RESULT" >&2
-            exit 1
-          fi
-          if [[ "$P7_NEEDS_SHARDS" == "true" && "$SHARD_RESULT" != "success" ]]; then
-            echo "P7 workers were required but finished with: $SHARD_RESULT" >&2
-            exit 1
-          fi
-          if [[ "$P7_NEEDS_SHARDS" == "false" && "$SHARD_RESULT" != "skipped" ]]; then
-            echo "P7 workers were not required but finished with: $SHARD_RESULT" >&2
-            exit 1
-          fi
-          if [[ "$P7_NEEDS_SHARDS" != "true" && "$P7_NEEDS_SHARDS" != "false" ]]; then
-            echo "P7 classifier returned an invalid shard selection" >&2
-            exit 1
-          fi
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-      - name: Attest the checked-out P7 workflow SHA
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          if [[ "$ACTUAL_HEAD" != "$GITHUB_SHA" ]]; then
-            echo "checked-out HEAD does not match the P7 workflow SHA" >&2
-            exit 1
-          fi
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - name: Download the exact immutable P7 plan
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-plan-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-plan
-      - name: Download isolated P7 shard 0
-        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-shard-0-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-shards/0
-      - name: Download isolated P7 shard 1
-        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-shard-1-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-shards/1
-      - name: Download isolated P7 shard 2
-        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-shard-2-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-shards/2
-      - name: Download isolated P7 shard 3
-        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-shard-3-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-shards/3
-      - name: Download isolated P7 shard 4
-        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-shard-4-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-shards/4
-      - name: Download isolated P7 shard 5
-        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-shard-5-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-shards/5
-      - name: Download isolated P7 shard 6
-        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-shard-6-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-shards/6
-      - name: Download isolated P7 shard 7
-        if: ${{ needs.classify.outputs['p7-needs-shards'] == 'true' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: p7-training-shard-7-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-          path: ${{ runner.temp }}/p7-training-shards/7
-      - name: Independently verify every checked P7 execution receipt
-        run: |
-          ACTIVE_PROOF_IDS_JSON="$(node scripts/ci/p7-active-packs.mjs \
-            --root . \
-            --format proof-ids-json)"
-          ACTIVE_PROOF_IDS="$(node --input-type=module -e '
-            const proofIds = JSON.parse(process.argv[1]);
-            if (!Array.isArray(proofIds) || proofIds.length === 0) process.exit(2);
-            for (const proofId of proofIds) process.stdout.write(`${proofId}\n`);
-          ' "$ACTIVE_PROOF_IDS_JSON")"
-          while IFS= read -r PROOF_ID; do
-            DECISION="$(node scripts/ci/proof-receipt.mjs verify \
-              --root . \
-              --spec "scripts/ci/proof-specs/${PROOF_ID}.json" \
-              --receipt "scripts/ci/proof-receipts/${PROOF_ID}.receipt.json")"
-            node --input-type=module -e '
-              const decision = JSON.parse(process.argv[1]);
-              if (decision.proofId !== process.argv[2] || decision.currentValid !== true) process.exit(2);
-            ' "$DECISION" "$PROOF_ID"
-          done <<< "$ACTIVE_PROOF_IDS"
-      - name: Attest the fresh graph, selected engines, and every presentation leaf
-        env:
-          P7_NEEDS_SHARDS: ${{ needs.classify.outputs['p7-needs-shards'] }}
-        run: |
-          ACTUAL_HEAD="$(git rev-parse HEAD)"
-          PLAN_ROOT="$RUNNER_TEMP/p7-training-plan"
-          RUNNER_ROOT="$PLAN_ROOT/runner"
-          ENGINE_ARTIFACTS="$PLAN_ROOT/artifacts"
-          PRESENTATION_ARTIFACTS="$PLAN_ROOT/presentation-artifacts"
-          ENGINE_RUNNER="$RUNNER_ROOT/p7-training-engine-runner.mjs"
-          PRESENTATION_RUNNER="$RUNNER_ROOT/p7-training-presentation-runner.mjs"
-          ENGINE_COMMON=(
-            --root .
-            --artifacts "$ENGINE_ARTIFACTS"
-            --head "$ACTUAL_HEAD"
-            --run-id "$GITHUB_RUN_ID"
-            --run-attempt "$GITHUB_RUN_ATTEMPT"
-          )
-          PRESENTATION_COMMON=(
-            --root .
-            --head "$ACTUAL_HEAD"
-            --presentation-artifacts "$PRESENTATION_ARTIFACTS"
-            --run-id "$GITHUB_RUN_ID"
-            --run-attempt "$GITHUB_RUN_ATTEMPT"
-          )
-
-          if [[ -e web/dist ]]; then
-            echo "P7 reducer checkout unexpectedly contains web/dist" >&2
-            exit 1
-          fi
-          cp -R "$PLAN_ROOT/fresh-web-dist" web/dist
-          node "$PRESENTATION_RUNNER" graph-attest "${PRESENTATION_COMMON[@]}"
-
-          if [[ "$P7_NEEDS_SHARDS" == "true" ]]; then
-            node "$ENGINE_RUNNER" assemble "${ENGINE_COMMON[@]}" \
-              --shard-0 "$RUNNER_TEMP/p7-training-shards/0" \
-              --shard-1 "$RUNNER_TEMP/p7-training-shards/1" \
-              --shard-2 "$RUNNER_TEMP/p7-training-shards/2" \
-              --shard-3 "$RUNNER_TEMP/p7-training-shards/3" \
-              --shard-4 "$RUNNER_TEMP/p7-training-shards/4" \
-              --shard-5 "$RUNNER_TEMP/p7-training-shards/5" \
-              --shard-6 "$RUNNER_TEMP/p7-training-shards/6" \
-              --shard-7 "$RUNNER_TEMP/p7-training-shards/7"
-            node "$ENGINE_RUNNER" reduce "${ENGINE_COMMON[@]}"
-            node "$ENGINE_RUNNER" check "${ENGINE_COMMON[@]}"
-            node "$ENGINE_RUNNER" attest "${ENGINE_COMMON[@]}"
-            node "$PRESENTATION_RUNNER" build "${PRESENTATION_COMMON[@]}" \
-              --artifacts "$ENGINE_ARTIFACTS"
-            node "$PRESENTATION_RUNNER" check "${PRESENTATION_COMMON[@]}" \
-              --artifacts "$ENGINE_ARTIFACTS"
-          fi
-
-          ACTIVE_PACKS="$(node scripts/ci/p7-active-packs.mjs \
-            --root . \
-            --format packs-csv)"
-          node "$PRESENTATION_RUNNER" attest "${PRESENTATION_COMMON[@]}" \
-            --packs "$ACTIVE_PACKS"
-
-  browser-workspace:
-    needs: classify
-    if: ${{ needs.classify.outputs.browser == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      BASE_PATH: /tworld/
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - name: Install workspace dependencies
-        run: npm ci --include=optional
-      - name: Check browser workspace
-        run: |
-          npm run typecheck
-          npm test -- \
-            src/bootstrap/architecture/hexagonalBoundaries.test.ts \
-            src/game-core/api/ruleset.test.ts
-          npm run build
-
-  web-and-ccsolver:
-    name: web-and-ccsolver
+  product:
+    name: product
     if: ${{ always() }}
     needs:
       - classify
+      - web
       - build-qt5
       - build-qt6
       - build-sdl1
-      - changed-native-web-tests
-      - ccsolver-p5-preflight
-      - ccsolver-workspace
-      - ccsolver-static-corpus
-      - ccsolver-p1b
-      - ccsolver-reviews
-      - ccsolver-p4b
-      - ccsolver-runtime
-      - ccsolver-p6a
-      - ccsolver-p6-presentation
-      - ccsolver-p7-training
-      - browser-workspace
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Require every selected proof gate
+      - name: Require every selected product gate
         env:
           CLASSIFY_RESULT: ${{ needs.classify.result }}
-          QT_SELECTED: ${{ needs.classify.outputs['native-qt'] }}
-          SDL_SELECTED: ${{ needs.classify.outputs['native-sdl-oracle'] }}
-          P5_SELECTED: ${{ needs.classify.outputs.p5 }}
-          P5_HEAVY_SELECTED: ${{ needs.classify.outputs['heavy-p5'] }}
-          CHANGED_NATIVE_TESTS_SELECTED: ${{ needs.classify.outputs['changed-native-web-tests'] }}
-          WORKSPACE_SELECTED: ${{ needs.classify.outputs.workspace }}
-          STATIC_CORPUS_SELECTED: ${{ needs.classify.outputs['static-corpus-p1b'] }}
-          P1B_SELECTED: ${{ needs.classify.outputs['heavy-p1b'] }}
-          REVIEWS_SELECTED: ${{ needs.classify.outputs['reviews-p2a-p4'] }}
-          P4B_SELECTED: ${{ needs.classify.outputs.p4b }}
-          RUNTIME_P6_SELECTED: ${{ needs.classify.outputs['runtime-p6-evidence'] }}
-          P6A_SELECTED: ${{ needs.classify.outputs['heavy-p6a'] }}
-          P6_PRESENTATION_SELECTED: ${{ needs.classify.outputs['p6-presentation-attest'] }}
-          P7_TRAINING_SELECTED: ${{ needs.classify.outputs['p7-selected'] }}
-          BROWSER_SELECTED: ${{ needs.classify.outputs.browser }}
+          WEB_RESULT: ${{ needs.web.result }}
+          NATIVE_SELECTED: ${{ needs.classify.outputs.native }}
           QT5_RESULT: ${{ needs.build-qt5.result }}
           QT6_RESULT: ${{ needs.build-qt6.result }}
           SDL1_RESULT: ${{ needs.build-sdl1.result }}
-          CHANGED_NATIVE_TESTS_RESULT: ${{ needs.changed-native-web-tests.result }}
-          P5_RESULT: ${{ needs.ccsolver-p5-preflight.result }}
-          WORKSPACE_RESULT: ${{ needs.ccsolver-workspace.result }}
-          STATIC_CORPUS_RESULT: ${{ needs.ccsolver-static-corpus.result }}
-          P1B_RESULT: ${{ needs.ccsolver-p1b.result }}
-          REVIEWS_RESULT: ${{ needs.ccsolver-reviews.result }}
-          P4B_RESULT: ${{ needs.ccsolver-p4b.result }}
-          RUNTIME_RESULT: ${{ needs.ccsolver-runtime.result }}
-          P6A_RESULT: ${{ needs.ccsolver-p6a.result }}
-          P6_PRESENTATION_RESULT: ${{ needs.ccsolver-p6-presentation.result }}
-          P7_TRAINING_RESULT: ${{ needs.ccsolver-p7-training.result }}
-          BROWSER_RESULT: ${{ needs.browser-workspace.result }}
         run: |
-          if [[ "$CLASSIFY_RESULT" != "success" ]]; then
-            echo "classify finished with disallowed result: $CLASSIFY_RESULT" >&2
-            exit 1
+          [[ "$CLASSIFY_RESULT" == "success" ]]
+          [[ "$WEB_RESULT" == "success" ]]
+          if [[ "$NATIVE_SELECTED" == "true" ]]; then
+            [[ "$QT5_RESULT" == "success" ]]
+            [[ "$QT6_RESULT" == "success" ]]
+            [[ "$SDL1_RESULT" == "success" ]]
+          else
+            [[ "$NATIVE_SELECTED" == "false" ]]
+            [[ "$QT5_RESULT" == "skipped" ]]
+            [[ "$QT6_RESULT" == "skipped" ]]
+            [[ "$SDL1_RESULT" == "skipped" ]]
           fi
-
-          require_gate() {
-            local name="$1"
-            local selected="$2"
-            local result="$3"
-            if [[ "$selected" == "true" ]]; then
-              if [[ "$result" != "success" ]]; then
-                echo "$name was selected but finished with: $result" >&2
-                exit 1
-              fi
-            elif [[ "$selected" == "false" ]]; then
-              if [[ "$result" != "skipped" ]]; then
-                echo "$name was not selected but finished with: $result" >&2
-                exit 1
-              fi
-            else
-              echo "$name has an invalid classifier selection: $selected" >&2
-              exit 1
-            fi
-          }
-
-          require_implication() {
-            local selected_name="$1"
-            local selected="$2"
-            local required_name="$3"
-            local required="$4"
-            if [[ "$selected" != "true" && "$selected" != "false" ]]; then
-              echo "$selected_name has an invalid classifier selection: $selected" >&2
-              exit 1
-            fi
-            if [[ "$required" != "true" && "$required" != "false" ]]; then
-              echo "$required_name has an invalid classifier selection: $required" >&2
-              exit 1
-            fi
-            if [[ "$selected" == "true" && "$required" != "true" ]]; then
-              echo "$selected_name requires $required_name" >&2
-              exit 1
-            fi
-          }
-
-          require_implication heavy-p5 "$P5_HEAVY_SELECTED" p5 "$P5_SELECTED"
-          require_implication p5 "$P5_SELECTED" build-sdl1 "$SDL_SELECTED"
-          require_implication changed-native-web-tests "$CHANGED_NATIVE_TESTS_SELECTED" build-sdl1 "$SDL_SELECTED"
-
-          require_gate build-qt5 "$QT_SELECTED" "$QT5_RESULT"
-          require_gate build-qt6 "$QT_SELECTED" "$QT6_RESULT"
-          require_gate build-sdl1 "$SDL_SELECTED" "$SDL1_RESULT"
-          require_gate changed-native-web-tests "$CHANGED_NATIVE_TESTS_SELECTED" "$CHANGED_NATIVE_TESTS_RESULT"
-          require_gate ccsolver-p5-preflight "$P5_SELECTED" "$P5_RESULT"
-          require_gate ccsolver-workspace "$WORKSPACE_SELECTED" "$WORKSPACE_RESULT"
-          require_gate ccsolver-static-corpus "$STATIC_CORPUS_SELECTED" "$STATIC_CORPUS_RESULT"
-          require_gate ccsolver-p1b "$P1B_SELECTED" "$P1B_RESULT"
-          require_gate ccsolver-reviews "$REVIEWS_SELECTED" "$REVIEWS_RESULT"
-          require_gate ccsolver-p4b "$P4B_SELECTED" "$P4B_RESULT"
-          require_gate ccsolver-runtime "$RUNTIME_P6_SELECTED" "$RUNTIME_RESULT"
-          require_gate ccsolver-p6a "$P6A_SELECTED" "$P6A_RESULT"
-          require_gate ccsolver-p6-presentation "$P6_PRESENTATION_SELECTED" "$P6_PRESENTATION_RESULT"
-          require_gate ccsolver-p7-training "$P7_TRAINING_SELECTED" "$P7_TRAINING_RESULT"
-          require_gate browser-workspace "$BROWSER_SELECTED" "$BROWSER_RESULT"
-          echo "All selected proof gates passed."

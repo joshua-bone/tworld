@@ -28,43 +28,8 @@ npm run typecheck
 npm run build
 ```
 
-The root npm workspace and root `package-lock.json` are authoritative for both
-the browser UI and CCSolver. Run dependency installation from the repository
-root rather than from an individual workspace.
-
-## CCSolver review pipeline
-
-CCSolver now has one complete paired reference case: CCLP1 level 1, Key
-Pyramid. Its checked P5 artifacts contain a continuous winning route, complete
-MS and Lynx TWS files, and exact TypeScript/native replay certificates. P4B
-builds an unlisted, static whole-level dossier whose gameplay evidence comes
-only from those checked P5 bytes; presentation artwork comes from the standard
-MS and Lynx runtime tilesets already in this repository.
-
-```sh
-cmake -S . -B build-verify -DOSHW=sdl -DCMAKE_BUILD_TYPE=Debug
-cmake --build build-verify --target tworld-oracle --parallel 4
-npm run ccsolver:p5:check
-npm run ccsolver:p4b:check
-npm run ccsolver:p6a:check
-```
-
-After `npm run build`, copy the normal SPA fallback and run
-`npm run ccsolver:p4b:emit-dist` to add the dossier beneath
-`web/dist/dev/ccsolver/`. Then run `npm run ccsolver:p6a:emit-dist` to add the
-checked causal-alignment leaf. The dossier remains absent from the Tile World
-homepage, player navigation, and sitemap. Its public Key Pyramid URL is
-`https://joshua-bone.github.io/tworld/dev/ccsolver/levels/cclp1/001-key-pyramid/`.
-The review UI fills the available viewport, supports MS/Lynx tabs and
-arrow-key segment navigation, and can label each cropped route with either
-local or whole-route visit numbers.
-The paired causal-event alignment is available at
-`https://joshua-bone.github.io/tworld/dev/ccsolver/levels/cclp1/001-key-pyramid/causal-alignment/`.
-See the
-[P5/P4B Key Pyramid review guide](./ccsolver/docs/p5-p4b-key-pyramid.md) for the
-whole-level evidence limits and
-[P2B/P6A causal alignment](./ccsolver/docs/p2b-p6a-causal-alignment.md) for the
-journal, alignment, and remaining-scope boundaries.
+The root `package-lock.json` is authoritative for browser development. Run
+dependency installation from the repository root rather than from `web/`.
 
 ## Engine Parity
 

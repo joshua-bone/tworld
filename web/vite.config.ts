@@ -1,6 +1,5 @@
 import { fileURLToPath, URL } from "node:url";
 import { execSync } from "node:child_process";
-import type { PreRenderedChunk } from "rollup";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
@@ -17,12 +16,6 @@ const gitCommitHash = (() => {
   }
 })();
 
-export function tworldEntryFileName(chunk: Pick<PreRenderedChunk, "name">): string {
-  return chunk.name === "p7b-replay-player"
-    ? "assets/p7b-replay-player.js"
-    : "assets/[name]-[hash].js";
-}
-
 export default defineConfig({
   base: process.env.BASE_PATH ?? "/",
   define: {
@@ -31,15 +24,6 @@ export default defineConfig({
   plugins: [react()],
   build: {
     manifest: true,
-    rollupOptions: {
-      output: {
-        entryFileNames: tworldEntryFileName,
-      },
-      input: {
-        app: fileURLToPath(new URL("./index.html", import.meta.url)),
-        "p7b-replay-player": fileURLToPath(new URL("./src/bootstrap/browser/p7bReplayPlayer.tsx", import.meta.url)),
-      },
-    },
   },
   resolve: {
     alias: {

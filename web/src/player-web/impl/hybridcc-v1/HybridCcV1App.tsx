@@ -52,6 +52,7 @@ import {
   HYBRID_CC_V1_RULESET_LABEL,
   hybridCcV1InitialCatalogMessage,
   hybridCcV1SeriesFile,
+  hybridCcV1UploadConversionMessage,
 } from "./uiModel";
 import {
   LEGACY_DAT_SANDBOX_ASSET_ID,
@@ -298,7 +299,7 @@ export function HybridCcV1App() {
         const firstPlayable = firstPlayableHybridCcV1Entry(availableEntries, nextSeries);
         setSelectedEntryId(firstPlayable?.id ?? null);
         setSelectedLevelNumber(firstPlayable ? nextSeries.get(firstPlayable.id)?.levels[0]?.number ?? null : null);
-        setMessage(hybridCcV1InitialCatalogMessage(nextSeries.size, nextLoadErrors, nextUnavailableEntries));
+        setMessage(hybridCcV1InitialCatalogMessage(nextSeries.size, nextLoadErrors));
         setBusy(false);
       })
       .catch((error: unknown) => {
@@ -369,14 +370,6 @@ export function HybridCcV1App() {
         family.section === "local" ? "uploads" : family.section === "other" ? "sandbox" : "official",
       );
     }
-    const unavailableEntries = unavailableEntriesByEntryId.get(familyId) ?? [];
-    if (unavailableEntries.length > 0) {
-      setMessage(hybridCcV1InitialCatalogMessage(
-        1,
-        new Map(),
-        new Map([[familyId, unavailableEntries]]),
-      ));
-    }
   };
 
   const importFiles = async (files: readonly File[]) => {
@@ -436,7 +429,7 @@ export function HybridCcV1App() {
         const importedUnavailableEntries = new Map(imported.flatMap(({ entry, unavailableEntries }) => (
           unavailableEntries.length > 0 ? [[entry.id, unavailableEntries] as const] : []
         )));
-        setMessage(hybridCcV1InitialCatalogMessage(nextSeries.size, nextLoadErrors, importedUnavailableEntries));
+        setMessage(hybridCcV1UploadConversionMessage(importedUnavailableEntries));
       }
     } catch (error: unknown) {
       setMessage(errorMessage(error));
