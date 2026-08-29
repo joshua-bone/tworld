@@ -70,6 +70,24 @@ const P7_PRESENTATION_GATES = Object.freeze([
   "p7-presentation-attest",
   "browser",
 ]);
+const PROOF_RECEIPT_GATES = Object.freeze({
+  "scripts/ci/proof-receipts/p1b.receipt.json": STATIC_DOWNSTREAM_GATES,
+  "scripts/ci/proof-receipts/p5.receipt.json": P5_DOWNSTREAM_GATES,
+  "scripts/ci/proof-receipts/p6a.receipt.json": P6_EVIDENCE_GATES,
+  "scripts/ci/proof-receipts/p7c.receipt.json": Object.freeze([
+    "training-p7c",
+    ...P7_PRESENTATION_GATES,
+  ]),
+  "scripts/ci/proof-receipts/p7d.receipt.json": Object.freeze([
+    "training-p7d",
+    ...P7_PRESENTATION_GATES,
+  ]),
+  "scripts/ci/proof-receipts/p7e.receipt.json": Object.freeze([
+    "training-p7e",
+    ...P7_PRESENTATION_GATES,
+  ]),
+  "scripts/ci/proof-receipts/p7-presentation.receipt.json": P7_PRESENTATION_GATES,
+});
 
 function unionGates(...groups) {
   return [...new Set(groups.flat())];
@@ -331,6 +349,7 @@ function isP7PresentationPath(path) {
     || isWithin(path, "web/src/ccsolver-runtime/compose/p7b-training-replays")
     || /^web\/src\/ccsolver-runtime\/compose\/p7-training-runner\/p7Training(?:PlayerGraphIo|Presentation[A-Za-z0-9]+)\.ts$/u.test(path)
     || /^web\/src\/ccsolver-runtime\/compose\/p7b-training-review\/(?:buildP7TrainingPackProofLeaf|buildP7TrainingReducedPackOutputs|buildP7bTrainingPackOutputs|p7SharedPlayerGraphAttestation|p7TrainingPackProofIndex|p7bTrainingPackIo)\.ts$/u.test(path)
+    || isWithin(path, "web/src/content/levelsets/hybridcc-v1")
     || isWithin(path, "web/src/player-web")
     || /^web\/src\/game-core\/api\/p7bReplayPresentation(?:Validation)?\.ts$/u.test(path)
     || path === "web/index.html"
@@ -364,6 +383,9 @@ function classifyPath(path) {
   }
   if (changedTest === "unsupported") {
     throw new Error(`unsupported changed web test: ${JSON.stringify(path)}`);
+  }
+  if (Object.hasOwn(PROOF_RECEIPT_GATES, path)) {
+    return { gates: PROOF_RECEIPT_GATES[path], reason: "proof-receipt" };
   }
   if (isP7PresentationPath(path)) {
     return { gates: P7_PRESENTATION_GATES, reason: "p7-presentation" };

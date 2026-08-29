@@ -331,6 +331,21 @@ test("routes all production web sources to presentation without widening engine 
   }
 });
 
+test("keeps Hybrid player and generated levelset assets in the P7 presentation graph only", () => {
+  for (const path of [
+    "web/src/content/levelsets/hybridcc-v1/legacy_dat_sandbox.dat",
+    "web/src/content/levelsets/hybridcc-v1/legacy_dat_sandbox.hints.json",
+    "web/src/player-web/impl/hybridcc-v1/HybridCcV1App.tsx",
+  ]) {
+    const result = assertSelection(
+      [path],
+      ["workspace", "browser", "p7-presentation-attest"],
+      path,
+    );
+    assert.equal(result.reasons[path], "p7-presentation", path);
+  }
+});
+
 test("routes Vite-expanded external inputs to presentation while CCLP3 stays out of engines", () => {
   for (const path of [
     "data/CCLP3.dat",
@@ -463,6 +478,70 @@ test("runs every gate for CI controls and unknown non-web source changes", () =>
     enabled("workspace", "browser", "p7-presentation-attest"),
   );
   assert.deepEqual(futureWebSource.unknownPaths, []);
+});
+
+test("routes generated proof receipts to their owning proof graphs before generic CI controls", () => {
+  const cases = [
+    [
+      "scripts/ci/proof-receipts/p1b.receipt.json",
+      [
+        "static-corpus-p1b",
+        "workspace",
+        "native-sdl-oracle",
+        "p5",
+        "reviews-p2a-p4",
+        "runtime-p6-evidence",
+        "p6-presentation-attest",
+        "p4b",
+        "browser",
+      ],
+    ],
+    [
+      "scripts/ci/proof-receipts/p5.receipt.json",
+      [
+        "workspace",
+        "native-sdl-oracle",
+        "p5",
+        "runtime-p6-evidence",
+        "p6-presentation-attest",
+        "p4b",
+        "browser",
+      ],
+    ],
+    [
+      "scripts/ci/proof-receipts/p6a.receipt.json",
+      ["workspace", "runtime-p6-evidence", "p6-presentation-attest", "browser"],
+    ],
+    [
+      "scripts/ci/proof-receipts/p7c.receipt.json",
+      ["workspace", "training-p7c", "p7-presentation-attest", "browser"],
+    ],
+    [
+      "scripts/ci/proof-receipts/p7d.receipt.json",
+      ["workspace", "training-p7d", "p7-presentation-attest", "browser"],
+    ],
+    [
+      "scripts/ci/proof-receipts/p7e.receipt.json",
+      ["workspace", "training-p7e", "p7-presentation-attest", "browser"],
+    ],
+    [
+      "scripts/ci/proof-receipts/p7-presentation.receipt.json",
+      ["workspace", "p7-presentation-attest", "browser"],
+    ],
+  ];
+
+  for (const [path, expected] of cases) {
+    const result = assertSelection([path], expected, path);
+    assert.equal(result.reasons[path], "proof-receipt", path);
+    assert.equal(result.all, false, path);
+  }
+
+  const unknownReceipt = assertSelection(
+    ["scripts/ci/proof-receipts/future.receipt.json"],
+    gateIds,
+  );
+  assert.equal(unknownReceipt.reasons["scripts/ci/proof-receipts/future.receipt.json"], "ci-control");
+  assert.equal(unknownReceipt.all, true);
 });
 
 test("fails closed for no paths and rejects unsafe raw path spellings", () => {
