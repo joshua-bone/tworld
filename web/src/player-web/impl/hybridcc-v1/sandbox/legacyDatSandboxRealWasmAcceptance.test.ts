@@ -88,6 +88,46 @@ const EXPECTED_GAMEPLAY_HASHES = [
   "591209ff8e6439c3754a96cdcf655d010c5492e564035d9e4862418715320419",
   "0ffa1a08342bb6762ea7ffe0475cfaec3b9257e45687b82a9cbe42a3e6401637",
   "a4df3f9da6249c6bf8c7396c751ff0c9b1563e6e38fe5518137d8df60170a324",
+  "4cc6e68be27a6e4a99c76fa5d1249ed5c5b6c2438cb9e45807a78ed27635af6d",
+  "59513a9c536779fab61abfa17a6d8510bf4b89ab4b52b92bf9756b8d09e74769",
+  "0ee39c3f65ecff099b2039c979928ee2bc013eba1c2f25c06b5743a4d171c044",
+  "6fbbc634ac6d2421879c2c9b67a07ee4851e28f28707408cf58adcbd53808f0b",
+  "544cdbb8cb857d5ffb5e3a0cf577694225a9e1955bca9507786d00265993abf2",
+  "03bf75699ea2e126af18d253227e17dc7818f2e755630bc5250cc5d4dbce0421",
+  "bb08cb103bd8aec9929840f88c50bf585927794e03502a2643b3a38ca85fd456",
+  "68896438a85d14f1d024a28a3767559d233e0b7508c21e7611127f1673bc09fc",
+  "c888c8e9f5f3b53cce2c47c5ba4a1a53e82fcf2c2f26f447a3905ecc8f428aee",
+  "342f61d7e358086fffe9ab42abd2c1a89219e31df947babda2285b9e2f106c7a",
+  "89c263bfde41afc61c6f7f44b69f7e2d20075be4297c7a9de3e108610517d960",
+  "82ce8cae0a6c44ee09b33ef600d534e94d2d6d55036865162a5329e914a64b10",
+  "f68031c778ca6cbae48dda8b6bf01e26a3c054ec8c66b0b9b88c07b65ba6c741",
+  "a8891fc90b2f4d8639755b46293271eb3621b8e0c38ad297b58e74f2d47cf723",
+  "314b60539e1834b7d67475f415a2548efaaa40bca45f4005c01cc6aeaa0ab741",
+  "e22c19b8e1870c9f0465477cf53ec674764529dc799b270e1c9b4dc2877e44a4",
+  "46ff03da7feece4de0d9ebc46c6e10f0cecf4d0ed8ed4a2ac1f1acd6fcfd4b2a",
+  "c3d163b2ae8d492b2d9dd1aba140322a1ac07d1f96833c15fb074951daa697fb",
+  "c1bbf00de8869520e19b07419359b22e80a1ccf010ce44f1c357e178f3edf4fa",
+  "7725e6e8f3a2d939b75b8e0c8ead7c23e6789afe91f339366acdbff811194756",
+  "0ede4530aac9d28936b2c0c890d8e0f4d96507c9f20665bb5c403c451a08677e",
+  "d3de2288a813d027f7ece461f1602a155bd4ee8fa50e6a8396b6c2cff33aa577",
+  "9720bf0946981b18c31750984c93277b92acd82bbf43328db09d19eadb6d4661",
+  "8533a7bda2a81e8a7f16f9a0402fb81ae6e70d457b23289b4c71eebf3c5f8a7b",
+  "76be75adac207bb3676cffedee7fac51de3bfdbe479cdb671c0b9a33f59b5c48",
+  "8666a6a3f8b5907184511b1600f862b3838157c726522fd42b3929de4849ec50",
+  "b8f6af585d7fb098106418f034d140231f58d968bb32ce88a9ba5a59cdb7c686",
+  "8844f898c26d7742741a2ea115f13a7b6078b1a1052082b983bc337c3f66d793",
+  "50ad108fecf5a0689cbc9a19ebb4065b9656bcb42362fd8ed676d16b0db8e52f",
+  "e29c1af7ca452ee8de11b66eaae3f413dafbdf358764800374b4f49273310bda",
+  "56f554fc9087fa67800c146e7414c79ba24171026ebe45d3a83364fcf45d5346",
+  "b4d91475cb00cb889953174330f1b36d42450b74d93dc51e0c5ca7962b7f9026",
+  "88b554e42c824fb2ebe3229be277a281dfc6ba1023ad945a8db6e97af8779780",
+  "cf13ad2f0e8c1b9d2c1a050d98a4ce200b14003c48b605b5cf5082ab28533e5d",
+  "ce75b1077df555904a71726698f688a03ce5dc73f2c9002cd61e0b2231767005",
+  "01072185553c44a345df9d6108161b889fde1fdc7227d1c5233d5a41f7159b77",
+  "e1e767a1170235555bafe0be9105864de3e20e7ebd411330433a18ef07d5772b",
+  "e9d88d22042d4da7c0c778f8396509fa96c44cc01966f7dbef52ff014ba540a7",
+  "3770885c41b1bbc4e1f6f3eee6587d68a0b7989602be928f4c14077898c2ff92",
+  "3daf0c207cc95a8612c767503bdb655d56da60d36d466b3ae773ff93cbef8a96",
 ] as const;
 
 async function loadModule(): Promise<HybridCcV1WasmModule> {
@@ -240,7 +280,7 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
     const hints = parseLegacyDatSandboxHints(hintBytes);
 
     expect(conversion.fileStatus).toBe(0);
-    expect(converted).toHaveLength(49);
+    expect(converted).toHaveLength(89);
     expect(conversion.entries.every((entry) => entry.status === 0)).toBe(true);
     expect(conversion.diagnostics).toHaveLength(4);
     expect(conversion.diagnostics).toEqual(expect.arrayContaining(
@@ -253,12 +293,12 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
       })),
     ));
     expect(loaded.gameplayHashes).toEqual(EXPECTED_GAMEPLAY_HASHES);
-    expect(loaded.referenceReplays).toHaveLength(130);
+    expect(loaded.referenceReplays).toHaveLength(134);
     expect(loaded.referenceReplays.filter((replay) => replay.expectedOutcome === "win"))
       .toHaveLength(120);
     expect(loaded.referenceReplays.filter((replay) => replay.expectedOutcome === "loss"))
-      .toHaveLength(10);
-    expect(loaded.boundedProofs).toHaveLength(51);
+      .toHaveLength(14);
+    expect(loaded.boundedProofs).toHaveLength(100);
     expect(loaded.boundedProofs).toContainEqual(expect.objectContaining({
       expectedOutcome: "unfinished",
       levelNumber: 24,

@@ -5,8 +5,8 @@
   "dat": {
     "assetId": "legacy_dat_sandbox",
     "file": "legacy_dat_sandbox.dat",
-    "sha256": "ccb4359eeba904d376688d38754808afb610891585bcda60c745efd4e0a68d7d",
-    "levelCount": 49
+    "sha256": "d407f1b46cf378312958fffda162e3501002218a6c926e717ff4bc2968389f0d",
+    "levelCount": 89
   },
   "levels": [
     {
@@ -2518,6 +2518,1030 @@
               "kind": "tile",
               "x": 23,
               "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 50,
+      "expectedNumber": 37,
+      "expectedTitle": "Teleport Player Activation",
+      "rooms": [
+        {
+          "roomId": "player-activation-boundaries",
+          "message": "Hold east. Chip leaves the starting pad ordinarily, crosses the recessed wall, and enters the middle pad ordinarily. Only FinishEnter there searches the blue network; the closed recessed wall rejects the first candidate and the eastern pad accepts.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 51,
+      "expectedNumber": 140,
+      "expectedTitle": "Teleport Initial Monsters",
+      "rooms": [
+        {
+          "roomId": "initial-monster-gallery",
+          "message": "Each monster starts on a blue pad but has never entered it. On boundary one it uses ordinary AI and cadence, not teleport ownership. The sealed lanes stop later cross-pad traffic from being mistaken for nine independent DAT networks.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 52,
+      "expectedNumber": 141,
+      "expectedTitle": "Teleport Initial Block",
+      "rooms": [
+        {
+          "roomId": "initial-block-loop",
+          "message": "The block begins idle on the source pad. Push west twice, walk around it, then push east twice. Those pushes are push-owned; only the completed return to the pad arms the remote jump to the southeast exit.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 53,
+      "expectedNumber": 38,
+      "expectedTitle": "Teleport Local Departure",
+      "rooms": [
+        {
+          "roomId": "player-source-last-open",
+          "message": "Move east once. On FinishEnter the one-pad search reaches its source last and immediately begins a continuous ordinary-speed east departure. It does not jump, pause, or retry forever.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 54,
+      "expectedNumber": 142,
+      "expectedTitle": "Teleport Local Monster",
+      "rooms": [
+        {
+          "roomId": "mob-source-last-open",
+          "message": "The sealed pink-ball lane represents the nonplayer matrix. It enters the only pad ordinarily, then the source-last attempt continues east under teleport ownership without a remote jump or player override.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 55,
+      "expectedNumber": 143,
+      "expectedTitle": "Teleport Blocked Player",
+      "rooms": [
+        {
+          "roomId": "blocked-source-player-intent",
+          "message": "Move north onto the pad, then hold east. The north source departure fails once. Chip becomes dormant for that occupancy and immediately starts the independently legal east move as ordinary player input.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 56,
+      "expectedNumber": 144,
+      "expectedTitle": "Teleport Blocked Monster AI",
+      "rooms": [
+        {
+          "roomId": "blocked-source-ai-fallback",
+          "message": "Both actors enter their pads northward. The ball's failed network search is followed by its ordinary reversal on the same boundary. Teeth remains dormant through cooldown and chooses its legal east fallback only at its next every-fourth opportunity.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 57,
+      "expectedNumber": 39,
+      "expectedTitle": "Teleport Dormancy",
+      "rooms": [
+        {
+          "roomId": "failure-then-topology-opening",
+          "message": "Move north, then release input. All four exits are closed when FinishEnter searches, so activation is consumed once. The tank opens the north toggle later; Chip remains dormant until ordinary north input leaves through it.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 58,
+      "expectedNumber": 145,
+      "expectedTitle": "Teleport Exit and Reentry",
+      "rooms": [
+        {
+          "roomId": "exit-and-fresh-entry",
+          "message": "Move north and release input. After the tank opens the toggle walls, move west off the dormant source, then east back onto it. This completed exit/re-entry arms a fresh east-facing search and jumps through the remote pad.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 59,
+      "expectedNumber": 146,
+      "expectedTitle": "Teleport Per-Actor Dormancy",
+      "rooms": [
+        {
+          "roomId": "same-pad-two-actors",
+          "message": "Move north, then hold south. Chip's failed activation becomes dormant only for Chip. The pink ball approaches from the west, enters that same pad later, and uses the remote east exit because its activation is independent.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 60,
+      "expectedNumber": 40,
+      "expectedTitle": "Teleport Remote Departure",
+      "rooms": [
+        {
+          "roomId": "two-pad-remote-normal",
+          "message": "Move east onto the western pad. On FinishEnter, search wraps to the eastern pad and starts a discontinuous N-to-N+2 interval into its east exit. The destination is occupied logically at StartMove; presentation must not interpolate across the map.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 61,
+      "expectedNumber": 147,
+      "expectedTitle": "Teleport Source Last",
+      "rooms": [
+        {
+          "roomId": "remote-blocked-source-open",
+          "message": "Move east onto the source. The remote pad is visited first but its east exit is a wall. The source is then tried exactly once and begins a continuous ordinary-speed move east; no speculative remote side effects survive.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 62,
+      "expectedNumber": 148,
+      "expectedTitle": "Teleport Cyclic Y-X Order",
+      "rooms": [
+        {
+          "roomId": "four-pad-cyclic-network",
+          "message": "Pads sort A(20,18), B(8,18), C(20,8), D(8,8). Walk to a pad's west side and enter east. The first open candidate after the source wins: A-to-B, B-to-C, C-to-D, and D wraps to A. Four supplied branches prove the same physical network.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 63,
+      "expectedNumber": 41,
+      "expectedTitle": "Teleport Partial Posting",
+      "rooms": [
+        {
+          "roomId": "one-blocked-candidate",
+          "message": "The eastbound ball enters its source. A walled remote exit is discarded completely; the next open remote exit accepts a discontinuous move.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "many-blocked-candidates",
+          "message": "Eight pads form a bounded west-facing network probe. Seven west exits are walls and the sole open remote exit is accepted after each blocked candidate is visited once.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "closed-device-candidates",
+          "message": "The northbound ball probes a closed toggle wall, locked red door, socket, and occupied cloner without changing any of them, then accepts the later open exit.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "panel-edge-candidates",
+          "message": "The southbound ball rejects a remote exit whose north panel blocks entry, then accepts the next exit whose south panel leaves the crossed edge open.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 64,
+      "expectedNumber": 42,
+      "expectedTitle": "Teleport Remote Trick Walls",
+      "rooms": [
+        {
+          "roomId": "remote-trick-wall-transactions",
+          "message": "North accepts a fake blue wall and commits floor conversion. East rejects a permanent invisible wall without a reveal. South rejects a real blue wall without mutation and continues. Restart between branches.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 65,
+      "expectedNumber": 149,
+      "expectedTitle": "Teleport Source Trick Walls",
+      "rooms": [
+        {
+          "roomId": "source-local-trick-walls",
+          "message": "East reveals and rejects the permanent invisible wall. North accepts fake blue and converts it to floor. West rejects real blue and converts it to a visible wall. Restart between branches.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 66,
+      "expectedNumber": 43,
+      "expectedTitle": "Teleport Key Personalities",
+      "rooms": [
+        {
+          "roomId": "remote-key-matrix",
+          "message": "Chip accepts and collects blue. A red-triggered cloner sends a block through blue. A westbound ball crosses retained red. A southbound ant rejects green and yellow, then takes the later clear candidate.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 67,
+      "expectedNumber": 150,
+      "expectedTitle": "Teleport Gravel Personalities",
+      "rooms": [
+        {
+          "roomId": "remote-gravel-matrix",
+          "message": "Chip's east lane and the forced block's north lane land on gravel. The westbound ant rejects gravel and appears at its later ordinary-floor exit.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 68,
+      "expectedNumber": 151,
+      "expectedTitle": "Teleport Hazard Personalities",
+      "rooms": [
+        {
+          "roomId": "remote-hazard-matrix",
+          "message": "Chip and a block admit to water before dying/filling it at FinishEnter. Fireball survives admitted fire. Ant rejects fire and continues to the next clear pad.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 69,
+      "expectedNumber": 162,
+      "expectedTitle": "Teleport Remote Push",
+      "rooms": [
+        {
+          "roomId": "remote-block-push",
+          "message": "Enter the west source. The first remote exit contains a block with clear floor beyond. The block starts west, Chip immediately occupies its old cell, and both retain their independent movement intervals.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 70,
+      "expectedNumber": 152,
+      "expectedTitle": "Teleport Push Rollback",
+      "rooms": [
+        {
+          "roomId": "dependent-push-rejection",
+          "message": "Enter the west source. The first remote exit holds a block over a real blue wall with clear space beyond. Its staged push is rejected atomically; the unchanged block remains while Chip takes the later clear pad.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 71,
+      "expectedNumber": 153,
+      "expectedTitle": "Teleport Source Push",
+      "rooms": [
+        {
+          "roomId": "source-block-push",
+          "message": "Enter the only pad facing east. Its real source-local attempt pushes the block into clear floor and starts Chip's continuous one-cell departure; no ordinary fallback is needed.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 72,
+      "expectedNumber": 44,
+      "expectedTitle": "Teleport Occupancy",
+      "rooms": [
+        {
+          "roomId": "occupied-remote-exits",
+          "message": "Go east to teleport Chip into the stationary tank. Separately, a southbound ball rejects a block-occupied exit and takes its later clear pad.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 73,
+      "expectedNumber": 154,
+      "expectedTitle": "Teleport Atomic Rejections",
+      "rooms": [
+        {
+          "roomId": "all-rejections-atomic",
+          "message": "Enter the source. Remote candidates contain an invisible wall, locked door, immovable block, and a movable block over a one-count recessed wall. All remain byte-for-byte gameplay-equivalent after rejection; Chip becomes dormant on the source.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 74,
+      "expectedNumber": 163,
+      "expectedTitle": "Teleport Into Player",
+      "rooms": [
+        {
+          "roomId": "remote-exit-player-contact",
+          "message": "Wait. The eastbound ball enters the source, then accepts the remote pad's Chip-occupied exit. Chip dies at StartMove; the ball takes the exit and no later candidate is searched.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 75,
+      "expectedNumber": 45,
+      "expectedTitle": "Teleport Self Return Actors",
+      "rooms": [
+        {
+          "roomId": "player-self-return",
+          "message": "Move north onto the west teleport, wait for its blocked search to become ordinary floor, then move east. The east pad returns Chip through the cell he just vacated without duplicating him.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "block-self-return",
+          "message": "Push the block north onto the west pad. After that blocked activation, walk around to its west side and push east. The block self-returns on the east pad and remains one actor in one cell.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "monster-self-return",
+          "message": "The walls force the north-facing ant onto the west pad and then east. Its adjacent self-return uses the same occupancy transaction as Chip and the block, then repeats only on later boundaries.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room. The three instrumented adjacent-pad laboratories are in the other rooms.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 76,
+      "expectedNumber": 46,
+      "expectedTitle": "Teleport Self Return Lifecycle",
+      "rooms": [
+        {
+          "roomId": "self-return-lifecycle",
+          "message": "Move north, wait, then east. Each self-return is one N-to-N+2 lifecycle interval. Repetition starts only at completion boundaries, while presentation keeps one equal-endpoint local track.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 77,
+      "expectedNumber": 155,
+      "expectedTitle": "Teleport Self Return Toggle",
+      "rooms": [
+        {
+          "roomId": "self-return-blocked-later",
+          "message": "The ant enters west, moves east, and completes one self-return. At that same boundary the ball reaches green and closes the toggle layer on the east pad; only the newly armed activation sees the closure.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 78,
+      "expectedNumber": 47,
+      "expectedTitle": "Teleport Race Order A",
+      "rooms": [
+        {
+          "roomId": "order-a-and-next-pad",
+          "message": "At boundary 3 both balls finish entering blue pads. DAT order puts the lower red-labeled source first: it claims the shared exit, while the other ball immediately continues to the next legal remote exit.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 79,
+      "expectedNumber": 156,
+      "expectedTitle": "Teleport Race Order B",
+      "rooms": [
+        {
+          "roomId": "order-b",
+          "message": "Geometry is identical to the order-A entry. Only DAT field-10 order is reversed, so the upper source actor claims the shared exit and the lower actor takes the next pad.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 80,
+      "expectedNumber": 157,
+      "expectedTitle": "Teleport Race Loser Failure",
+      "rooms": [
+        {
+          "roomId": "loser-total-failure",
+          "message": "Both balls complete source entry at boundary 3. The first actor claims the sole open remote exit; the loser finds its later remote and source exits blocked, then immediately reverses west under ordinary AI.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 81,
+      "expectedNumber": 48,
+      "expectedTitle": "Teleport Dynamic Toggle",
+      "rooms": [
+        {
+          "roomId": "dynamic-toggle-exits",
+          "message": "At boundary 3 green opens the upper target and closes the lower target before planning. The first teleporter accepts the newly open exit; the second rejects the occupied upper and newly closed lower exits, then falls back normally.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 82,
+      "expectedNumber": 158,
+      "expectedTitle": "Teleport Dynamic Occupancy",
+      "rooms": [
+        {
+          "roomId": "dynamic-occupancy",
+          "message": "At boundary 3 an earlier ball vacates the east exit before its teleporter searches, so that exit is accepted. Elsewhere an earlier ball claims a north exit before the second search, which rejects it and continues to the next pad.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 83,
+      "expectedNumber": 49,
+      "expectedTitle": "Teleport Destination Handoffs",
+      "rooms": [
+        {
+          "roomId": "ordinary-destination",
+          "message": "The east-facing ball at (8,5) closes its start, enters (9,5), and posts through the immediately preceding pad onto ordinary floor at (6,5). The discontinuity lasts N-to-N+2.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "ice-destination",
+          "message": "The south-facing ball closes its start, enters the source, and posts to the only open south exit. The remote track is N-to-N+1 and ice owns the continuation at FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "force-destination",
+          "message": "The west-facing glider closes its start and posts to west-pointing force. Destination timing shortens the discontinuity to N-to-N+1; force owns the completion-boundary continuation.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "matching-boots-destinations",
+          "message": "Move north onto skates at (21,22), east onto the popup, then north into (22,21). The preceding pad exits north onto ice at (20,20); skates preserve N-to-N+2 timing.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 84,
+      "expectedNumber": 50,
+      "expectedTitle": "Teleport Trap Destinations",
+      "rooms": [
+        {
+          "roomId": "holding-trap-arrivals",
+          "message": "The block at (8,8) is forced south into (8,9), then posts through (5,22) into the linked holding trap at (5,23). The trap takes ownership only at remote FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "releasing-trap-arrivals",
+          "message": "The west-facing ant at (27,5) enters (26,5) and posts through (25,5) into the trap at (24,5). A held brown button keeps it releasing; FinishEnter preserves west-facing departure.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "holding-block-target",
+          "message": "The block side-slapped south from (8,8) uses the pad at (5,22) and settles into the linked holding trap at (5,23). It cannot take an ordinary turn while held.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "releasing-monster-target",
+          "message": "This support room preserves a second linked releasing trap for manual comparison without adding another autonomous actor to the global teleport network.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 85,
+      "expectedNumber": 159,
+      "expectedTitle": "Teleport Button Destinations",
+      "rooms": [
+        {
+          "roomId": "four-button-finish-enter-matrix",
+          "message": "East sends Chip through the source at (9,5) to red at (6,5). South ball, west glider, and north ball target green, blue, and brown. Buttons change only at FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "green-button-branch",
+          "message": "The south ball posts to green at (25,9). The global toggle wall at (27,9) changes only when the ball finishes entering the button.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blue-button-branch",
+          "message": "The west glider posts to blue at (4,23). The tank at (3,25) reverses on the same FinishEnter boundary, proving a nonplayer press uses the ordinary global edge.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "brown-button-branch",
+          "message": "The north ball posts to brown at (24,21). FinishEnter changes the linked trap at (27,21) from holding to releasing and gives its tank a trap-owned departure.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 86,
+      "expectedNumber": 160,
+      "expectedTitle": "Teleport Terminal Destinations",
+      "rooms": [
+        {
+          "roomId": "exit-and-loss-dominance",
+          "message": "The popup/source at (6,5)/(7,5) targets the plain exit at (5,5). The pair at (11,8)/(12,8) targets exit plus bomb at (10,8), proving FinishEnter loss dominates win.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "bomb-finish-enter",
+          "message": "Cross popup (22,5) into source (23,5). The immediately preceding pad posts Chip onto the bomb at (21,5); Chip remains alive through StartMove and dies only at N+2 FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "water-finish-enter",
+          "message": "Cross popup (7,22) into source (8,22). Land on water at (6,22): fatal without flippers, safe after collecting flippers at (6,25). Both branches use normal N-to-N+2 timing.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "fire-finish-enter",
+          "message": "Cross popup (22,22) into source (23,22). Land on fire at (21,22): fatal without fire boots, safe after collecting them at (21,25). Consequences wait for N+2 FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 87,
+      "expectedNumber": 51,
+      "expectedTitle": "Teleport Actor Gallery",
+      "rooms": [
+        {
+          "roomId": "classic-actor-teleport-gallery",
+          "message": "Hold east at T1. Rows 5, 10, and 15 teleport all eleven classic actors. Rows 20 and 24 isolate slow-cadence success and failure. Compare Player and ball remote events for the host-audio seam.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 88,
+      "expectedNumber": 161,
+      "expectedTitle": "Teleport Dormant Block",
+      "rooms": [
+        {
+          "roomId": "dormant-block-reentry",
+          "message": "At T1 push east. At T8 use west-south to slap the dormant block off without entering its pad. Walk down the west side; at T18 use west-north. FinishEnter at T20 rearms and posts the block to (9,5).",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 89,
+      "expectedNumber": 52,
+      "expectedTitle": "Teleport Motion Lab",
+      "rooms": [
+        {
+          "roomId": "live-motion-and-camera",
+          "message": "Go east for a short remote entry, then west for a long jump. Go south, east, north into the distant pad; blocked remote north exits force a local departure. The camera acquires remote destinations immediately, and only Player requests teleport audio.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
             }
           ]
         }

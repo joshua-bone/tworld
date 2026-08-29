@@ -33,9 +33,9 @@ const requiredTopLevelFiles = [
   "replay-index.json",
 ];
 const pinnedTopLevelHashes = new Map([
-  ["legacy_dat_sandbox.dat", "ccb4359eeba904d376688d38754808afb610891585bcda60c745efd4e0a68d7d"],
-  ["legacy_dat_sandbox.hints.json", "c26a72eaa92c324a333cdc728146d178c3ceb552b74eee3d5021f90b26d655d6"],
-  ["replay-index.json", "7bf4037ef2d71c67fb38e31f1899041a13adfc5572eb3677fc0b13d2f8d58c3a"],
+  ["legacy_dat_sandbox.dat", "d407f1b46cf378312958fffda162e3501002218a6c926e717ff4bc2968389f0d"],
+  ["legacy_dat_sandbox.hints.json", "8c3ed9ef96d2f302d9c797527b3fb7d84955599d299336852fa1689a8bcb856b"],
+  ["replay-index.json", "b1b923a0bc11f10b4e0fe2bc025252868da221f6164c3310caa47ee8869f3881"],
 ]);
 
 function usage() {

@@ -27,7 +27,8 @@ arrival, continuity, corner, boost, random-force, and mixed-track proofs,
 PR69's destination-resolved N+1/N+2 movement timing, and PR71's systemic
 moving-pushable contact settlement plus explicit force-run provenance, while
 PR73 certifies the existing signal, toggle-wall, tank, trap, and cloner rules
-against the expanded linked-device sandbox. A button edge that
+against the expanded linked-device sandbox and PR75 certifies classic DAT
+teleports without changing engine behavior. A button edge that
 makes a later cloner actor ready is resolved
 before an immediately competing Player move without globally reordering
 unrelated nonplayer actors. On an ordinary or plain-ice arrival, force terrain
@@ -132,12 +133,12 @@ the host apply the sandbox's per-room Hint JSON through
 the exact built-in asset identity and SHA-256 digest; a local DAT with the same
 filename never receives the overlay.
 
-Sandbox PR8 publishes 49 physical DAT entries with 193 navigable Hint rooms and
-197 frozen scenario IDs across 202 physical placements. Its evidence contains
-130 independently verified terminal reference replays (120 wins and ten
-intentional losses) plus 51 bounded deterministic proofs. The proof policy
-identifies 63 new strict causal placements and 139 retained executable
-placements. Bounded proofs are accounting evidence, not playable replays; every
+Sandbox PR9 publishes 89 physical DAT entries with 257 navigable Hint rooms and
+261 frozen scenario IDs across 266 physical placements. Its evidence contains
+134 independently verified terminal reference replays (120 wins and 14
+intentional losses) plus 100 bounded deterministic proofs. The proof policy
+identifies 127 strict causal placements and 139 retained executable placements.
+Bounded proofs are accounting evidence, not playable replays; every
 physical entry must have either terminal or bounded evidence. The bundled
 official `CCLP2.dat` is omitted
 from the Hybrid v1 catalog before its bytes are loaded or converted; this does
@@ -187,11 +188,11 @@ verifies signal-release collision ordering and uninterrupted source
 presentation against the pinned real WebAssembly engine. Released-trap
 fixtures verify Player intent-first, generic pushable external-intent priority
 in both native actor orders, and ordinary-monster facing-first through that
-same pinned engine and production adapter. Sandbox acceptance converts all 49
+same pinned engine and production adapter. Sandbox acceptance converts all 89
 entries through the shipped Wasm, proves the four DAT 60–63 sanitation messages
-remain nonmodal notes, verifies every enriched level hash, plays all 130
+remain nonmodal notes, verifies every enriched level hash, plays all 134
 terminal references to their declared win or loss outcome, and accounts for
-all 51 bounded proofs without offering nonexistent replay files. Rendering tests cover each
+all 100 bounded proofs without offering nonexistent replay files. Rendering tests cover each
 DAT special-art code 51–63 and the retained native-only marker fallbacks.
 
 The bounded local gate is:

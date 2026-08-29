@@ -70,6 +70,49 @@ const EXPECTED_PR8_LEVELS = [
   [49, 36, "Cloner Consequences", ["water-and-fire", "bomb-destination", "player-contact", "components-and-generations"]],
 ] as const;
 
+const EXPECTED_PR9_LEVELS = [
+  [50, 37, "Teleport Player Activation", ["player-activation-boundaries"]],
+  [51, 140, "Teleport Initial Monsters", ["initial-monster-gallery"]],
+  [52, 141, "Teleport Initial Block", ["initial-block-loop"]],
+  [53, 38, "Teleport Local Departure", ["player-source-last-open"]],
+  [54, 142, "Teleport Local Monster", ["mob-source-last-open"]],
+  [55, 143, "Teleport Blocked Player", ["blocked-source-player-intent"]],
+  [56, 144, "Teleport Blocked Monster AI", ["blocked-source-ai-fallback"]],
+  [57, 39, "Teleport Dormancy", ["failure-then-topology-opening"]],
+  [58, 145, "Teleport Exit and Reentry", ["exit-and-fresh-entry"]],
+  [59, 146, "Teleport Per-Actor Dormancy", ["same-pad-two-actors"]],
+  [60, 40, "Teleport Remote Departure", ["two-pad-remote-normal"]],
+  [61, 147, "Teleport Source Last", ["remote-blocked-source-open"]],
+  [62, 148, "Teleport Cyclic Y-X Order", ["four-pad-cyclic-network"]],
+  [63, 41, "Teleport Partial Posting", ["one-blocked-candidate", "many-blocked-candidates", "closed-device-candidates", "panel-edge-candidates"]],
+  [64, 42, "Teleport Remote Trick Walls", ["remote-trick-wall-transactions"]],
+  [65, 149, "Teleport Source Trick Walls", ["source-local-trick-walls"]],
+  [66, 43, "Teleport Key Personalities", ["remote-key-matrix"]],
+  [67, 150, "Teleport Gravel Personalities", ["remote-gravel-matrix"]],
+  [68, 151, "Teleport Hazard Personalities", ["remote-hazard-matrix"]],
+  [69, 162, "Teleport Remote Push", ["remote-block-push"]],
+  [70, 152, "Teleport Push Rollback", ["dependent-push-rejection"]],
+  [71, 153, "Teleport Source Push", ["source-block-push"]],
+  [72, 44, "Teleport Occupancy", ["occupied-remote-exits"]],
+  [73, 154, "Teleport Atomic Rejections", ["all-rejections-atomic"]],
+  [74, 163, "Teleport Into Player", ["remote-exit-player-contact"]],
+  [75, 45, "Teleport Self Return Actors", ["player-self-return", "block-self-return", "monster-self-return", "support-se"]],
+  [76, 46, "Teleport Self Return Lifecycle", ["self-return-lifecycle", "support-ne", "support-sw", "support-se"]],
+  [77, 155, "Teleport Self Return Toggle", ["self-return-blocked-later", "support-ne", "support-sw", "support-se"]],
+  [78, 47, "Teleport Race Order A", ["order-a-and-next-pad"]],
+  [79, 156, "Teleport Race Order B", ["order-b"]],
+  [80, 157, "Teleport Race Loser Failure", ["loser-total-failure"]],
+  [81, 48, "Teleport Dynamic Toggle", ["dynamic-toggle-exits"]],
+  [82, 158, "Teleport Dynamic Occupancy", ["dynamic-occupancy"]],
+  [83, 49, "Teleport Destination Handoffs", ["ordinary-destination", "ice-destination", "force-destination", "matching-boots-destinations"]],
+  [84, 50, "Teleport Trap Destinations", ["holding-trap-arrivals", "releasing-trap-arrivals", "holding-block-target", "releasing-monster-target"]],
+  [85, 159, "Teleport Button Destinations", ["four-button-finish-enter-matrix", "green-button-branch", "blue-button-branch", "brown-button-branch"]],
+  [86, 160, "Teleport Terminal Destinations", ["exit-and-loss-dominance", "bomb-finish-enter", "water-finish-enter", "fire-finish-enter"]],
+  [87, 51, "Teleport Actor Gallery", ["classic-actor-teleport-gallery"]],
+  [88, 161, "Teleport Dormant Block", ["dormant-block-reentry"]],
+  [89, 52, "Teleport Motion Lab", ["live-motion-and-camera"]],
+] as const;
+
 const EXPECTED_SCENARIO_IDS = `
 blocks.blocked-primary-no-slap
 blocks.blocked-push
@@ -273,6 +316,73 @@ traps.teeth-blob-cooldown-gate
 traps.unlinked-never-releases
 `.trim().split(/\s+/u);
 
+const EXPECTED_PR9_SCENARIO_IDS = `
+teleports.actor-matrix
+teleports.adjacent-self-return-block
+teleports.adjacent-self-return-monster
+teleports.adjacent-self-return-player
+teleports.all-rejections-atomic
+teleports.block-external-push-from-dormant
+teleports.camera-remote-jump
+teleports.cyclic-order-yx
+teleports.cyclic-wraparound
+teleports.destination-boots-ordinary
+teleports.destination-button
+teleports.destination-exit-hazard
+teleports.destination-floor-normal
+teleports.destination-force-fast
+teleports.destination-ice-fast
+teleports.destination-trap-held
+teleports.destination-trap-releasing
+teleports.dormancy-is-per-actor
+teleports.dormancy-survives-opening
+teleports.entry-arms-only-at-finish
+teleports.exit-claimed-earlier-same-boundary
+teleports.exit-closes-by-button-completion
+teleports.exit-opens-by-button-completion
+teleports.exit-reentry-rearms
+teleports.exit-vacated-earlier-same-boundary
+teleports.initial-block-ordinary
+teleports.initial-monster-ordinary
+teleports.initial-player-ordinary
+teleports.network-sound-and-motion
+teleports.partial-post-many-blocked
+teleports.partial-post-one-blocked
+teleports.player-only-sound
+teleports.race-loser-next-pad
+teleports.race-loser-total-failure
+teleports.race-same-exit-order-a
+teleports.race-same-exit-order-b
+teleports.remote-block-push-dependent-reject
+teleports.remote-block-push-success
+teleports.remote-exit-closed-device
+teleports.remote-exit-panel-edge
+teleports.remote-fake-blue-wall-commits
+teleports.remote-fire-water-personality
+teleports.remote-gravel-personality
+teleports.remote-invisible-wall-no-reveal
+teleports.remote-key-personality
+teleports.remote-occupied-by-hostile
+teleports.remote-occupied-by-nonplayer
+teleports.remote-occupied-by-player
+teleports.remote-real-blue-wall-no-mutation
+teleports.self-return-blocked-later
+teleports.self-return-lifecycle-once
+teleports.self-return-presentation
+teleports.self-return-repeats-iteratively
+teleports.single-pad-local-blocked-ai
+teleports.single-pad-local-blocked-intent
+teleports.single-pad-local-open
+teleports.single-pad-local-open-mob
+teleports.slow-mob-ownership-cadence
+teleports.source-block-push
+teleports.source-blue-wall-mutates
+teleports.source-invisible-wall-reveals
+teleports.total-failure-no-intent
+teleports.two-pad-remote-normal
+teleports.two-pad-source-last
+`.trim().split(/\s+/u);
+
 describe("Legacy DAT Sandbox sidecars", () => {
   it("pins browser assets to the same reviewed source commit as the Wasm engine", () => {
     expect(assetManifest).toMatchObject({
@@ -287,24 +397,35 @@ describe("Legacy DAT Sandbox sidecars", () => {
     });
   });
 
-  it("pins all 49 physical entries and publishes every room-specific Hint message", async () => {
+  it("pins all 89 physical entries and publishes every room-specific Hint message", async () => {
     const hints = parseLegacyDatSandboxHints(
       new Uint8Array(await readFile(asset("legacy_dat_sandbox.hints.json"))),
     );
 
     expect(hints.datSha256).toBe(LEGACY_DAT_SANDBOX_DAT_SHA256);
-    expect(hints.levelCount).toBe(49);
+    expect(hints.levelCount).toBe(89);
     expect(hints.levels.slice(0, EXPECTED_ROOMS.length).map((level) => [
       level.expectedNumber,
       level.rooms.map((room) => room.roomId),
     ])).toEqual(EXPECTED_ROOMS);
-    expect(hints.levels.slice(EXPECTED_ROOMS.length).map((level) => [
+    expect(hints.levels.slice(
+      EXPECTED_ROOMS.length,
+      EXPECTED_ROOMS.length + EXPECTED_PR8_LEVELS.length,
+    ).map((level) => [
       level.entryOrdinal,
       level.expectedNumber,
       level.expectedTitle,
       level.rooms.map((room) => room.roomId),
     ])).toEqual(EXPECTED_PR8_LEVELS);
-    expect(hints.levels.flatMap((level) => level.rooms)).toHaveLength(193);
+    expect(hints.levels.slice(
+      EXPECTED_ROOMS.length + EXPECTED_PR8_LEVELS.length,
+    ).map((level) => [
+      level.entryOrdinal,
+      level.expectedNumber,
+      level.expectedTitle,
+      level.rooms.map((room) => room.roomId),
+    ])).toEqual(EXPECTED_PR9_LEVELS);
+    expect(hints.levels.flatMap((level) => level.rooms)).toHaveLength(257);
 
     const trickWalls = hints.levels.find((level) => level.expectedNumber === 11)!;
     expect(trickWalls.rooms.find((room) => room.roomId === "ordinary-and-invisible"))
@@ -325,25 +446,29 @@ describe("Legacy DAT Sandbox sidecars", () => {
       hintSupplementSha256: LEGACY_DAT_SANDBOX_HINTS_SHA256,
       ruleset: "1.0.16",
       proofPolicy: {
-        strictCausalScenarioPlacements: 63,
+        strictCausalScenarioPlacements: 127,
         legacyExecutableScenarioPlacements: 139,
       },
     });
-    expect(index.replays).toHaveLength(130);
-    expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(130);
+    expect(index.replays).toHaveLength(134);
+    expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(134);
     expect(new Set(index.replays.map((replay) => replay.levelNumber))).toEqual(
       new Set([
         ...EXPECTED_ROOMS.map(([number]) => number),
         36,
+        44,
+        151,
+        160,
+        163,
       ]),
     );
     expect(index.replays.filter((replay) => replay.expectedOutcome === "win")).toHaveLength(120);
-    expect(index.replays.filter((replay) => replay.expectedOutcome === "loss")).toHaveLength(10);
+    expect(index.replays.filter((replay) => replay.expectedOutcome === "loss")).toHaveLength(14);
     expect(index.replays.every((replay) => replay.path.startsWith("replays/1.0.16/"))).toBe(true);
 
     const terminalScenarioIds = index.replays.flatMap((replay) => replay.scenarioIds);
-    expect(terminalScenarioIds).toHaveLength(150);
-    expect(new Set(terminalScenarioIds).size).toBe(140);
+    expect(terminalScenarioIds).toHaveLength(154);
+    expect(new Set(terminalScenarioIds).size).toBe(144);
     expect(terminalScenarioIds).not.toContain("force.random-all-blocked-retry");
 
     expect(index.replays).toEqual(expect.arrayContaining([
@@ -402,9 +527,37 @@ describe("Legacy DAT Sandbox sidecars", () => {
         expectedOutcome: "loss",
         scenarioIds: ["cloners.hostile-into-player-fatal"],
       }),
+      expect.objectContaining({
+        id: "teleport-hostile-occupancy",
+        entryOrdinal: 72,
+        levelNumber: 44,
+        expectedOutcome: "loss",
+        scenarioIds: ["teleports.remote-occupied-by-hostile"],
+      }),
+      expect.objectContaining({
+        id: "teleport-hazard-personalities",
+        entryOrdinal: 68,
+        levelNumber: 151,
+        expectedOutcome: "loss",
+        scenarioIds: ["teleports.remote-fire-water-personality"],
+      }),
+      expect.objectContaining({
+        id: "teleport-exit-bomb",
+        entryOrdinal: 86,
+        levelNumber: 160,
+        expectedOutcome: "loss",
+        scenarioIds: ["teleports.destination-exit-hazard"],
+      }),
+      expect.objectContaining({
+        id: "teleport-player-occupancy",
+        entryOrdinal: 74,
+        levelNumber: 163,
+        expectedOutcome: "loss",
+        scenarioIds: ["teleports.remote-occupied-by-player"],
+      }),
     ]));
 
-    expect(index.boundedProofs).toHaveLength(51);
+    expect(index.boundedProofs).toHaveLength(100);
     expect(index.boundedProofs).toContainEqual(expect.objectContaining({
       id: "random-all-blocked-retry",
       entryId: "random-force-and-mixed-tracks",
@@ -425,23 +578,24 @@ describe("Legacy DAT Sandbox sidecars", () => {
     expect(new Set([
       ...index.replays.map((replay) => replay.id),
       ...index.boundedProofs.map((proof) => proof.id),
-    ]).size).toBe(181);
+    ]).size).toBe(234);
     const coveredScenarioIds = [
       ...terminalScenarioIds,
       ...index.boundedProofs.flatMap((proof) => proof.scenarioIds),
     ];
-    expect(coveredScenarioIds).toHaveLength(222);
-    expect(new Set(coveredScenarioIds).size).toBe(197);
+    expect(coveredScenarioIds).toHaveLength(290);
+    expect(new Set(coveredScenarioIds).size).toBe(261);
     expect([...new Set(coveredScenarioIds)].sort()).toEqual([
       ...EXPECTED_SCENARIO_IDS,
       ...EXPECTED_PR8_SCENARIO_IDS,
+      ...EXPECTED_PR9_SCENARIO_IDS,
     ].sort());
 
     const evidencedEntries = new Set([
       ...index.replays.map((replay) => replay.entryOrdinal),
       ...index.boundedProofs.map((proof) => proof.entryOrdinal),
     ]);
-    expect(evidencedEntries).toEqual(new Set(Array.from({ length: 49 }, (_, index) => index + 1)));
+    expect(evidencedEntries).toEqual(new Set(Array.from({ length: 89 }, (_, index) => index + 1)));
     expect(index.replays.some((replay) => replay.entryOrdinal === 26)).toBe(false);
     expect(index.boundedProofs.some((proof) => proof.entryOrdinal === 26)).toBe(true);
   });
