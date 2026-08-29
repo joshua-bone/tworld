@@ -475,6 +475,7 @@ interface PlayerAppProps {
   onPlayerKeyBindingsChange?: (settings: BrowserPlayerKeyBindingsSettings) => void;
   onSelectionChange?: (selection: PlayableSelection) => void;
   playerKeyBindings?: BrowserPlayerKeyBindingsSettings;
+  inventoryKeyCountLabelsEnabled?: boolean;
   visualEnhancementsEnabled?: boolean;
   debugModeEnabled?: boolean;
   catalogSource?: "browser" | "provided";
@@ -500,6 +501,7 @@ export function PlayerApp({
   onPlayerKeyBindingsChange,
   onSelectionChange,
   playerKeyBindings: playerKeyBindingsProp,
+  inventoryKeyCountLabelsEnabled: inventoryKeyCountLabelsEnabledProp,
   visualEnhancementsEnabled: visualEnhancementsEnabledProp,
   debugModeEnabled = createDefaultBrowserProfilePreferences().debugModeEnabled,
   catalogSource = "browser",
@@ -724,6 +726,7 @@ export function PlayerApp({
   const currentLevelSeedOverride = findLevelSeedOverride(levelSeedOverrides, currentLevelSeedTarget);
   const isLevelSeedLocked = currentLevelSeedOverride !== null;
   const visualEnhancementsEnabled = visualEnhancementsEnabledProp ?? visualEnhancementsEnabledSeedRef.current;
+  const inventoryKeyCountLabelsEnabled = inventoryKeyCountLabelsEnabledProp ?? visualEnhancementsEnabled;
   const activeRandomSeed = session ? Number.parseInt(session.frame.snapshot.randomState.main.initial, 10) : null;
   const parsedSeedInput = seedInputValue.trim() === "" ? null : Number.parseInt(seedInputValue.trim(), 10);
   const isSeedInputValid =
@@ -2956,6 +2959,7 @@ export function PlayerApp({
           className="modern-game-inventory-strip__canvas"
           currentRuleset={currentRuleset}
           inventory={session?.frame.snapshot.inventory ?? null}
+          inventoryKeyCountLabelsEnabled={inventoryKeyCountLabelsEnabled}
           kind="keys"
           visualEnhancementsEnabled={visualEnhancementsEnabled}
         />
@@ -3129,6 +3133,7 @@ export function PlayerApp({
           currentRuleset={currentRuleset}
           direction={isMobileLandscape ? "vertical" : "horizontal"}
           inventory={session?.frame.snapshot.inventory ?? null}
+          inventoryKeyCountLabelsEnabled={inventoryKeyCountLabelsEnabled}
           kind="keys"
           renderTileSize={mobileRenderTileSize}
           visualEnhancementsEnabled={visualEnhancementsEnabled}
@@ -3433,6 +3438,7 @@ export function PlayerApp({
                 currentLevel={currentLevel}
                 currentSeries={currentSeries}
                 currentRuleset={currentRuleset}
+                inventoryKeyCountLabelsEnabled={inventoryKeyCountLabelsEnabled}
                 isLoading={isCatalogLoading || isSessionLoading}
                 liveSessionRef={liveSessionRef}
                 message={message}
@@ -3536,6 +3542,7 @@ export function PlayerApp({
                   currentLevel={currentLevel}
                   currentSeries={currentSeries}
                   currentRuleset={currentRuleset}
+                  inventoryKeyCountLabelsEnabled={inventoryKeyCountLabelsEnabled}
                   isLoading={isCatalogLoading || isSessionLoading}
                   liveSessionRef={liveSessionRef}
                   message={message}
@@ -4015,6 +4022,7 @@ export function PlayerApp({
         currentLevel={currentLevel}
         currentSeries={currentSeries}
         currentRuleset={currentRuleset}
+        inventoryKeyCountLabelsEnabled={inventoryKeyCountLabelsEnabled}
         isLoading={isCatalogLoading || isSessionLoading}
         liveSessionRef={liveSessionRef}
         message={message}

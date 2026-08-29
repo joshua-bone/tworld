@@ -1,22 +1,22 @@
 {
   "schema": "hybridcc.legacy-dat-sandbox.browser-assets.v1",
   "sourceRepository": "joshua-bone/HybridCC2026",
-  "sourceCommit": "227b2dbb1b410941f0a3f13cddc0c26fad6378b7",
+  "sourceCommit": "731d1338ae61b8e002ecb7628f6089daad4f851a",
   "files": [
     {
       "path": "legacy_dat_sandbox.dat",
-      "byteLength": 7004,
-      "sha256": "0a2bac37dfbbb4705aae7d8e75f7113b35e1475b321d8ae3667499de8503bc3e"
+      "byteLength": 9202,
+      "sha256": "75dcdced0cb4a81dfefdccb5c8180ee4ed65fe004d7a4c3802369bb0841ad91c"
     },
     {
       "path": "legacy_dat_sandbox.hints.json",
-      "byteLength": 22236,
-      "sha256": "ea2b6a9b897b7764058e886cb61c98448b3bd24f54c1a0f5eac3c15c0f54fc6e"
+      "byteLength": 29416,
+      "sha256": "b17a36b308bf97d58ac92eef4dd36842a4467d2e45f39bd17ac8cdc4a1d644b2"
     },
     {
       "path": "replay-index.json",
-      "byteLength": 33706,
-      "sha256": "278f4ffe49d700a73a1da56ced06fb34117076ff87e910887ead0fbb990ad552"
+      "byteLength": 47785,
+      "sha256": "75a5e416487a20b4babbae6fa5408b7f3dd8c453c4fa377bf15d2e578850fa3f"
     },
     {
       "path": "replays/1.0.13/1-foundation-tour.hcr1",
@@ -66,37 +66,37 @@
     {
       "path": "replays/1.0.13/11-trick-walls-blue-fake.hcr1",
       "byteLength": 2546,
-      "sha256": "2b11a0120f04322086ac984ca6c7b9d44b6a21cd73cedcf4c518e85f278a2418"
+      "sha256": "3e71adaaa1d2778c5932fceddb72d3c7ea21f1144958951e84e33632daf7d50a"
     },
     {
       "path": "replays/1.0.13/11-trick-walls-blue-real.hcr1",
       "byteLength": 2498,
-      "sha256": "9fe182d2228713c16d85e2bd7f592f746f3069ba529bf9c5c07e642a168d8e3a"
+      "sha256": "7e6893ea98c7c49a26901eae24c90e3b27265281f658914d327616eacf1ea340"
     },
     {
       "path": "replays/1.0.13/11-trick-walls-invisible-appearing.hcr1",
       "byteLength": 2288,
-      "sha256": "18e2392a5e692098924d623d8f37396b2a25050ce093c8b53622e0f2b35e2f51"
+      "sha256": "116c426ae7f8e05eb68119000815c6c553ba5dd7203280e51103db127e5b82fa"
     },
     {
       "path": "replays/1.0.13/11-trick-walls-ordinary.hcr1",
       "byteLength": 2393,
-      "sha256": "fad64a53d5b6e4ba685a0061e153ef810ed70b722209c880191726d88e2cdcaa"
+      "sha256": "bc9e2a05050015b7f3da3f5e251e13bebef3292985af119d06ac24f501951e71"
     },
     {
       "path": "replays/1.0.13/11-trick-walls-permanent-invisible-monster.hcr1",
       "byteLength": 1541,
-      "sha256": "6ad640baf94d68b49cadef1567145b36c21cd48362b8704246fe0d2693916f53"
+      "sha256": "b257e81779597146bc9ad2e954307f194fbf72a7c810058b2cb387fd3a698abd"
     },
     {
       "path": "replays/1.0.13/11-trick-walls-permanent-invisible-player.hcr1",
       "byteLength": 2564,
-      "sha256": "850acb17b4dd6d71a4ccf2e4e012ae7f33f49a191085763c230e6b4331a13340"
+      "sha256": "9bcc8a52871430e3177dfe70b936beb4c279651515a36cb3491aa8bac49a43e5"
     },
     {
       "path": "replays/1.0.13/11-trick-walls-permanent-invisible-slap.hcr1",
       "byteLength": 2345,
-      "sha256": "b1a8272aaadadd88186cae28bce6b02e29d2b62ccd90919cbfd01d9a9cfd4936"
+      "sha256": "7228dd5b52400e88651b53825d9c654daea70a51fe7e71657f3fe7fdb1255abe"
     },
     {
       "path": "replays/1.0.13/12-panels-popups-block-blue-real-count-one.hcr1",
@@ -137,6 +137,116 @@
       "path": "replays/1.0.13/12-panels-popups-static-art-60-63.hcr1",
       "byteLength": 2801,
       "sha256": "8b7513f449a1d4a48ae6a55c735d7b3de2a2e5a9322823cfe053213aada179e8"
+    },
+    {
+      "path": "replays/1.0.13/13-direct-four-directions.hcr1",
+      "byteLength": 4724,
+      "sha256": "c9247e7f8ced3c9f8c790bd9a13a07f2d326de2304c98eb45c09fc67d7ece523"
+    },
+    {
+      "path": "replays/1.0.13/13-failed-four-directions.hcr1",
+      "byteLength": 3413,
+      "sha256": "b3d875b1269193a3584c3a76ecade70970c7a0fd2b90b0ed8aed65e066b2f83f"
+    },
+    {
+      "path": "replays/1.0.13/13-monster-destination-rejects.hcr1",
+      "byteLength": 2837,
+      "sha256": "513ff45f8f836d28a35a68708ca7e800de446581eb49201a314c3cf8ab9b3ff4"
+    },
+    {
+      "path": "replays/1.0.13/13-second-block-rejects.hcr1",
+      "byteLength": 2453,
+      "sha256": "c3ea2a3d29fbe6f3c90a9f09e35db138c275faf2113b25bd1914c4f9a935a089"
+    },
+    {
+      "path": "replays/1.0.13/14-blocked-primary-no-slap.hcr1",
+      "byteLength": 2477,
+      "sha256": "2591a29047f083c33e94ee917901368ea13cc844d40f6e124ee95069108dda10"
+    },
+    {
+      "path": "replays/1.0.13/14-blocked-slap-keeps-primary.hcr1",
+      "byteLength": 2468,
+      "sha256": "d53d7cd12cbaf83e55ee66353117b440bde45fdd67ead86816aaa752d47628b5"
+    },
+    {
+      "path": "replays/1.0.13/14-ordered-slap-es.hcr1",
+      "byteLength": 2678,
+      "sha256": "40bc7ff31cffcd810e92dcf6627c32147c66dec6b246253f3b7afcaa963c9bc3"
+    },
+    {
+      "path": "replays/1.0.13/14-ordered-slap-se.hcr1",
+      "byteLength": 2345,
+      "sha256": "545a5d261a7e1533478cd4ac19e3b434fdd0a03cf9f6d0cf387638bd4b767e00"
+    },
+    {
+      "path": "replays/1.0.13/14-slap-all-quadrants.hcr1",
+      "byteLength": 4187,
+      "sha256": "4320efe470caaa95043e4189d1e77aa32e3e19eaff8c832bed9580baf5f83aba"
+    },
+    {
+      "path": "replays/1.0.13/14-slap-reveal.hcr1",
+      "byteLength": 3062,
+      "sha256": "079424d0855a93dc83e42cbc68c9a5dd2b8a57f3addeaf20b014f044e79cc99b"
+    },
+    {
+      "path": "replays/1.0.13/15-dependent-follow-normal.hcr1",
+      "byteLength": 2354,
+      "sha256": "3e4b341180ef0acda4f41a840d3b8956176c2632255b51a3eccf0bf52a955a87"
+    },
+    {
+      "path": "replays/1.0.13/15-dependent-popup-one.hcr1",
+      "byteLength": 2306,
+      "sha256": "9b121213b530b8c49827e2b0f35bfd53c587ea49a3d5101db8677f34a02edc53"
+    },
+    {
+      "path": "replays/1.0.13/15-dependent-popup-two.hcr1",
+      "byteLength": 2477,
+      "sha256": "b646abab4dc6464bebf205e732923b73ceab8a9fd19689761f15a27a195c23fd"
+    },
+    {
+      "path": "replays/1.0.13/15-rejected-departure-no-start-exit.hcr1",
+      "byteLength": 2321,
+      "sha256": "86353392d81164c94058903303decad06d56a3eee106e3ed2ffe86f8580022b3"
+    },
+    {
+      "path": "replays/1.0.13/16-external-push-off-force.hcr1",
+      "byteLength": 2726,
+      "sha256": "e26a1787092b8e5580d438d2fd5ae63d5a9e228d190e4aad4c63041472823f4f"
+    },
+    {
+      "path": "replays/1.0.13/16-external-push-off-ice.hcr1",
+      "byteLength": 2822,
+      "sha256": "04ce639e13209f40f9043cf1ab9803c78a06a06565e52d93afdd6cfaae51fb76"
+    },
+    {
+      "path": "replays/1.0.13/16-push-audio-boundary.hcr1",
+      "byteLength": 2564,
+      "sha256": "1ae4a98482a3466cc8d21e28524f0440a4639dfb3a7758dad48fc9083ff49f95"
+    },
+    {
+      "path": "replays/1.0.13/16-push-onto-force.hcr1",
+      "byteLength": 2660,
+      "sha256": "cf3424b8cafa875abb9b0a032fcfca3409718192087ba390a52718ebc15770ff"
+    },
+    {
+      "path": "replays/1.0.13/16-push-onto-gravel.hcr1",
+      "byteLength": 2660,
+      "sha256": "07014c68eac21fb89163e26037ec2c5a5483918f16c0cc50d770d51f082b0c98"
+    },
+    {
+      "path": "replays/1.0.13/16-push-onto-ice.hcr1",
+      "byteLength": 2564,
+      "sha256": "d0949a35b63f874555980a509d9051077a7613d00d79c3ea3575059e32f869e6"
+    },
+    {
+      "path": "replays/1.0.13/16-push-onto-ordinary.hcr1",
+      "byteLength": 2660,
+      "sha256": "bb98da4d0187179f887930f61d8e5fae822a512ebb6b8f1ab11d7efc1fc0ba22"
+    },
+    {
+      "path": "replays/1.0.13/16-terrain-driven-contact.hcr1",
+      "byteLength": 2003,
+      "sha256": "b13fb438876efe263bb1d425c9149b62a27d104ed3295f9ff85590b0ac888e6a"
     },
     {
       "path": "replays/1.0.13/2-block-tour.hcr1",

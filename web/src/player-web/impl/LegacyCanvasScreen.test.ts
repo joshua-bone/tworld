@@ -5,6 +5,7 @@ import {
   inventoryStripPixelDimensions,
   inventoryStripPixelDimensionsForKind,
   inventoryTileCountLabel,
+  resolveInventoryKeyCountLabelsEnabled,
   isThinWallTileId,
   shouldUseLegacyCombinedCellSprite,
   visualEnhancementThinWallActorPassTileId,
@@ -77,7 +78,45 @@ describe("inventoryTileCountLabel", () => {
   });
 });
 
+describe("resolveInventoryKeyCountLabelsEnabled", () => {
+  it("inherits the shared visual-enhancement preference unless a host supplies an inventory-specific policy", () => {
+    expect(resolveInventoryKeyCountLabelsEnabled(undefined, true)).toBe(true);
+    expect(resolveInventoryKeyCountLabelsEnabled(undefined, false)).toBe(false);
+    expect(resolveInventoryKeyCountLabelsEnabled(true, false)).toBe(true);
+    expect(resolveInventoryKeyCountLabelsEnabled(false, true)).toBe(false);
+  });
+});
+
 describe("drawInventoryTile", () => {
+  it("uses the shared MS/Lynx count typography and lower-right placement", () => {
+    const image = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
+    const sprite: LegacyTileSprite = { image, offsetX: 0, offsetY: 0, transparent: false };
+    const context = {
+      drawImage: vi.fn(),
+      fillText: vi.fn(),
+      restore: vi.fn(),
+      save: vi.fn(),
+      strokeText: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+    const tileset: LegacyTileset = {
+      get: vi.fn(() => sprite),
+      getArtworkSprite: vi.fn(() => null),
+      getCreature: vi.fn(() => null),
+      getCellAnimationPeriod: vi.fn(() => 1),
+    };
+
+    drawInventoryTile(context, tileset, MS_TILE.Key_Red, null, "12", 5, 7);
+
+    expect(context.font).toBe("bold 14px 'Courier New', monospace");
+    expect(context.textAlign).toBe("right");
+    expect(context.textBaseline).toBe("bottom");
+    expect(context.lineWidth).toBe(3);
+    expect(context.strokeStyle).toBe("#000000");
+    expect(context.fillStyle).toBe("#ffffff");
+    expect(context.strokeText).toHaveBeenCalledWith("12", 5 + LEGACY_TILE_SIZE - 4, 7 + LEGACY_TILE_SIZE - 3);
+    expect(context.fillText).toHaveBeenCalledWith("12", 5 + LEGACY_TILE_SIZE - 4, 7 + LEGACY_TILE_SIZE - 3);
+  });
+
   it("renders occupied pet carriers through the cached composite sprite path", () => {
     const baseImage = { width: LEGACY_TILE_SIZE, height: LEGACY_TILE_SIZE } as HTMLCanvasElement;
     const floorSprite: LegacyTileSprite = { image: baseImage, offsetX: 0, offsetY: 0, transparent: false };

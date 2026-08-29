@@ -5,8 +5,8 @@
   "dat": {
     "assetId": "legacy_dat_sandbox",
     "file": "legacy_dat_sandbox.dat",
-    "sha256": "0a2bac37dfbbb4705aae7d8e75f7113b35e1475b321d8ae3667499de8503bc3e",
-    "levelCount": 13
+    "sha256": "75dcdced0cb4a81dfefdccb5c8180ee4ed65fe004d7a4c3802369bb0841ad91c",
+    "levelCount": 17
   },
   "levels": [
     {
@@ -588,7 +588,7 @@
       "rooms": [
         {
           "roomId": "ordinary-and-invisible",
-          "message": "Press into the ordinary wall, then the permanently invisible wall. Both reject; only Player's invisible-wall attempt emits a temporary reveal.",
+          "message": "The sealed pink ball repeatedly attempts an ordinary wall without a reveal. Press into the ordinary wall, then the permanently invisible wall. Both reject; only Player's invisible-wall attempt emits a temporary reveal.",
           "targets": [
             {
               "kind": "tile",
@@ -674,6 +674,214 @@
         {
           "roomId": "recessed-blue-and-admission",
           "message": "Push the block off the real blue wall: it leaves, the wall rises, and Chip must retry elsewhere. A bare pop-up admits Player but rejects a pushed dirt block and the sealed hostile.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 14,
+      "expectedNumber": 13,
+      "expectedTitle": "Direct and Rejected Pushes",
+      "rooms": [
+        {
+          "roomId": "direct-north-east",
+          "message": "Push the west block north, then the east block east. Each accepted push moves Chip and the block together, occupies both destinations immediately, and finishes after two boundaries.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "direct-south-west",
+          "message": "Push the west block south, then approach the east block from its right and push west. These complete the four cardinal direct-push cases.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "failed-four-directions",
+          "message": "Hold into each wall-backed block from its open side. Chip must face and keep pushing in the attempted north, east, south, or west direction; neither actor moves.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "occupied-destinations",
+          "message": "Try the upper pair of adjacent blocks, then the lower block backed by a living pink ball. Classic Hybrid v1 has no push chain: both attempted transactions reject and every resident survives.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 15,
+      "expectedNumber": 14,
+      "expectedTitle": "Ordered Block Slaps",
+      "rooms": [
+        {
+          "roomId": "ordered-east-south",
+          "message": "Stand north of the block and press East then South. East is Chip's primary move; South is the slap that moves the adjacent block.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "ordered-south-east",
+          "message": "Stand west of the block and press South then East. South is Chip's primary move; East is the slap. Input order, not compass sorting, selects the legs.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "four-slap-orientations",
+          "message": "Use the four isolated fixtures to slap south, north, north, and south while Chip's legal primary move continues east, east, west, and west respectively.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "slap-rejections-and-reveal",
+          "message": "Upper-left: a wall blocks only the slap. Upper-right: a wall blocks the East primary, then ordinary South fallback directly pushes the block with no slap probe. Lower-left: an invisible slap-side wall reveals while the primary succeeds.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 16,
+      "expectedNumber": 15,
+      "expectedTitle": "Dependent Push Transactions",
+      "rooms": [
+        {
+          "roomId": "ordinary-dependent-follow",
+          "message": "Push the block north on ordinary floor. The block vacates its source first, then Chip follows into that source; both movements take two logic boundaries.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "count-one-recessed-source",
+          "message": "This DAT block starts over a real blue wall, converted to one recessed departure. The block leaves, the wall rises immediately, and Chip cannot follow it.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "count-two-popup-source",
+          "message": "This DAT block starts over a pop-up wall, converted to count two. Block departure leaves count one, Chip follows, and Chip's later departure raises the wall.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "rejected-departure-is-atomic",
+          "message": "The block's destination is a wall. A rejected push must not run the block source's StartExit hook, so its count-two pop-up source remains unchanged.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 17,
+      "expectedNumber": 16,
+      "expectedTitle": "Block Destination Timing",
+      "rooms": [
+        {
+          "roomId": "ordinary-and-ice-destinations",
+          "message": "Push the west block north onto floor for a two-boundary interval. Push the east block north onto ice for an immediate one-boundary interval and an ice-owned continuation.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "force-and-gravel-destinations",
+          "message": "Push the west block north onto force for a one-boundary pushed interval; force then owns it. Push the east block north onto gravel for an ordinary two-boundary interval.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "external-push-overrides",
+          "message": "A block authored on ice is stationary and may be pushed sideways. A block authored on east force is terrain-owned but blocked by a wall; push it north, then immediately hold west or south so Chip leaves the blocked force floor.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "terrain-contact-and-push-audio",
+          "message": "The west loop drives a pushed block back into stationary Chip; only Chip dies at block StartMove. The east ice lane separates one player push interval from later ice-owned sliding for sound and pose checks.",
           "targets": [
             {
               "kind": "tile",

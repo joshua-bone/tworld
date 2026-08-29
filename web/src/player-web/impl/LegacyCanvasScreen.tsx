@@ -35,6 +35,7 @@ import {
   inventoryStripPixelDimensionsForKind,
   inventoryTileCountLabel,
   LegacyInventoryStrip,
+  resolveInventoryKeyCountLabelsEnabled,
   seriesIndexAt,
 } from "@player-web/impl/legacyCanvasHud";
 import {
@@ -94,6 +95,7 @@ interface LegacyCanvasScreenProps {
   onMapClick?: (position: number) => void;
   onDatDrop?: (files: File[]) => void;
   renderTileSize?: LegacyRenderTileSize;
+  inventoryKeyCountLabelsEnabled?: boolean;
   visualEnhancementsEnabled?: boolean;
   debugModeEnabled?: boolean;
   buildCommitHash?: string;
@@ -266,6 +268,7 @@ function buildLegacyCanvasRenderContextKey(options: {
   isLoading: boolean;
   message: string | null;
   presentation: LegacyCanvasPresentation;
+  inventoryKeyCountLabelsEnabled: boolean;
   visualEnhancementsEnabled: boolean;
 }): string {
   return [
@@ -276,6 +279,7 @@ function buildLegacyCanvasRenderContextKey(options: {
     options.message ?? "",
     options.presentation,
     options.hasTileset ? 1 : 0,
+    options.inventoryKeyCountLabelsEnabled ? 1 : 0,
     options.visualEnhancementsEnabled ? 1 : 0,
   ].join(":");
 }
@@ -460,6 +464,7 @@ export function LegacyCanvasScreen({
   onMapClick,
   onDatDrop,
   renderTileSize = LEGACY_TILE_SIZE,
+  inventoryKeyCountLabelsEnabled,
   visualEnhancementsEnabled = true,
   debugModeEnabled = false,
   buildCommitHash = "unknown",
@@ -478,6 +483,10 @@ export function LegacyCanvasScreen({
   const targetMapWidth = legacyMapPixelsForTileSize(renderTileSize);
   const targetMapHeight = legacyMapPixelsForTileSize(renderTileSize);
   const usesDefaultMapTileSize = isDefaultLegacyRenderTileSize(renderTileSize);
+  const keyCountLabelsEnabled = resolveInventoryKeyCountLabelsEnabled(
+    inventoryKeyCountLabelsEnabled,
+    visualEnhancementsEnabled,
+  );
   const selectedSeriesIndex = catalog.findIndex((series) => series.filebase === selectedSeriesFile);
 
   useEffect(() => {
@@ -582,6 +591,7 @@ export function LegacyCanvasScreen({
       currentRuleset,
       lowerLayerCacheRef.current,
       visualEnhancementsEnabled,
+      keyCountLabelsEnabled,
     );
   });
 
@@ -707,6 +717,7 @@ export function LegacyCanvasScreen({
     currentSeries,
     drawFrame,
     isLoading,
+    keyCountLabelsEnabled,
     liveSessionRef,
     message,
     mode,
@@ -752,6 +763,7 @@ export function LegacyCanvasScreen({
         isLoading,
         message,
         presentation,
+        inventoryKeyCountLabelsEnabled: keyCountLabelsEnabled,
         visualEnhancementsEnabled,
       });
 
@@ -1035,6 +1047,7 @@ export {
   inventoryStripPixelDimensions,
   inventoryStripPixelDimensionsForKind,
   inventoryTileCountLabel,
+  resolveInventoryKeyCountLabelsEnabled,
   isThinWallTileId,
   LegacyInventoryStrip,
   prewarmLegacyTileset,

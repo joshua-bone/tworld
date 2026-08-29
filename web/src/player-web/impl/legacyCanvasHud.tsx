@@ -149,6 +149,13 @@ export function inventoryTileCountLabel(tileId: number, count: number): string |
   }
 }
 
+export function resolveInventoryKeyCountLabelsEnabled(
+  inventoryKeyCountLabelsEnabled: boolean | undefined,
+  visualEnhancementsEnabled: boolean,
+): boolean {
+  return inventoryKeyCountLabelsEnabled ?? visualEnhancementsEnabled;
+}
+
 export function inventoryStripPixelDimensions(tileSize: number, direction: LegacyInventoryStripDirection): {
   height: number;
   width: number;
@@ -227,7 +234,7 @@ function drawInventoryStrip(
   inventoryRender: InteractiveGameSession["frame"]["inventoryRender"] | null | undefined,
   kind: LegacyInventoryStripKind,
   direction: LegacyInventoryStripDirection,
-  visualEnhancementsEnabled: boolean,
+  inventoryKeyCountLabelsEnabled: boolean,
 ): void {
   const tileIds = inventoryStripTileIds(kind);
   const stripWidth = direction === "horizontal" ? tileIds.length * LEGACY_TILE_SIZE : LEGACY_TILE_SIZE;
@@ -242,7 +249,7 @@ function drawInventoryStrip(
       tileset,
       inventoryStripOverlayTileId(inventory, kind, index),
       kind === "tools" ? inventoryRender?.tools?.[index] ?? null : null,
-      kind === "keys" && visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
+      kind === "keys" && inventoryKeyCountLabelsEnabled ? inventoryTileCountLabel(tileId, count) : null,
       direction === "horizontal" ? index * LEGACY_TILE_SIZE : 0,
       direction === "horizontal" ? 0 : index * LEGACY_TILE_SIZE,
     );
@@ -315,6 +322,7 @@ export function drawLegacyGameScreen(
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   lowerLayerCache: LegacyLayerCanvasCache,
   visualEnhancementsEnabled: boolean,
+  inventoryKeyCountLabelsEnabled = visualEnhancementsEnabled,
 ): void {
   context.fillStyle = LEGACY_COLORS.background;
   context.fillRect(0, 0, LEGACY_WINDOW_WIDTH, LEGACY_WINDOW_HEIGHT);
@@ -355,7 +363,7 @@ export function drawLegacyGameScreen(
         tileset,
         inventoryStripOverlayTileId(snapshot.inventory, kind, columnIndex),
         kind === "tools" ? session.frame.inventoryRender?.tools?.[columnIndex] ?? null : null,
-        kind === "keys" && visualEnhancementsEnabled ? inventoryTileCountLabel(tileId, count) : null,
+        kind === "keys" && inventoryKeyCountLabelsEnabled ? inventoryTileCountLabel(tileId, count) : null,
         inventoryX + columnIndex * LEGACY_TILE_SIZE,
         inventoryY + rowIndex * LEGACY_TILE_SIZE,
       );
@@ -436,6 +444,7 @@ export interface LegacyInventoryStripProps {
   currentRuleset: SeriesCatalogEntry["ruleset"] | null;
   direction?: LegacyInventoryStripDirection;
   inventory: GameSnapshot["inventory"] | null;
+  inventoryKeyCountLabelsEnabled?: boolean;
   inventoryRender?: InteractiveGameSession["frame"]["inventoryRender"] | null;
   kind: LegacyInventoryStripKind;
   renderTileSize?: LegacyRenderTileSize;
@@ -447,6 +456,7 @@ export function LegacyInventoryStrip({
   currentRuleset,
   direction = "vertical",
   inventory,
+  inventoryKeyCountLabelsEnabled,
   inventoryRender = null,
   kind,
   renderTileSize = LEGACY_TILE_SIZE,
@@ -458,6 +468,10 @@ export function LegacyInventoryStrip({
   const { height: sourceHeight, width: sourceWidth } = inventoryStripPixelDimensionsForKind(LEGACY_TILE_SIZE, direction, kind);
   const { height: targetHeight, width: targetWidth } = inventoryStripPixelDimensionsForKind(renderTileSize, direction, kind);
   const usesDefaultTileSize = isDefaultLegacyRenderTileSize(renderTileSize);
+  const keyCountLabelsEnabled = resolveInventoryKeyCountLabelsEnabled(
+    inventoryKeyCountLabelsEnabled,
+    visualEnhancementsEnabled,
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -475,7 +489,7 @@ export function LegacyInventoryStrip({
       context.fillStyle = LEGACY_COLORS.background;
       context.fillRect(0, 0, sourceWidth, sourceHeight);
       if (tileset) {
-        drawInventoryStrip(context, tileset, inventory, inventoryRender, kind, direction, visualEnhancementsEnabled);
+        drawInventoryStrip(context, tileset, inventory, inventoryRender, kind, direction, keyCountLabelsEnabled);
       }
       return;
     }
@@ -492,7 +506,7 @@ export function LegacyInventoryStrip({
     scaledContext.fillStyle = LEGACY_COLORS.background;
     scaledContext.fillRect(0, 0, scaledCanvas.width, scaledCanvas.height);
     if (tileset) {
-      drawInventoryStrip(scaledContext, tileset, inventory, inventoryRender, kind, direction, visualEnhancementsEnabled);
+      drawInventoryStrip(scaledContext, tileset, inventory, inventoryRender, kind, direction, keyCountLabelsEnabled);
     }
 
     context.clearRect(0, 0, targetWidth, targetHeight);
@@ -500,6 +514,7 @@ export function LegacyInventoryStrip({
   }, [
     direction,
     inventory,
+    keyCountLabelsEnabled,
     inventoryRender,
     kind,
     sourceHeight,
@@ -508,7 +523,6 @@ export function LegacyInventoryStrip({
     targetWidth,
     tileset,
     usesDefaultTileSize,
-    visualEnhancementsEnabled,
   ]);
 
   return (
