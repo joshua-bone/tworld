@@ -36,8 +36,12 @@ const EXPECTED_GAMEPLAY_HASHES = [
   "22c4fd40f69aba84893c8a92e911737ab86a38c606d4049d8366a224e754397a",
   "4d0ba6755c098a984f1207a01c4ed2b7cca5ab0856f11db7152bb62a578635e1",
   "4a2bbe22b44eeb695dc945db63956064f492a4a739c3e424e61ad2b6d98aaa49",
-  "e4bf453b7554e01ff58abaa32076f3011ba77c62ccadf221598a49be765eb7d9",
+  "6ea454310a952dab0877da8e3b3f9b33bff2ca364162940bacef1d02192178a3",
   "813ab4bf23148e2d86957ed6310e7911bcfd699a234031b4d8a1f2cb33ecc7bc",
+  "73dfcd0501ee4a1985655407f40e3af3e2da23d6018955d3f5024b04995d0fd7",
+  "402577b61238efa81003ca6f27142f29c7e7d37a502aff2085f71152b7d421a1",
+  "82ffb10ecd0d5f60573685885c8271718bc7d61212f987d1920a7fad3a84d670",
+  "fa64f8421b353790a7e971f4b7f369c00ab28c3df62617e493649412a16080e3",
 ] as const;
 
 async function loadModule(): Promise<HybridCcV1WasmModule> {
@@ -88,7 +92,7 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
     const hints = parseLegacyDatSandboxHints(hintBytes);
 
     expect(conversion.fileStatus).toBe(0);
-    expect(converted).toHaveLength(13);
+    expect(converted).toHaveLength(17);
     expect(conversion.entries.every((entry) => entry.status === 0)).toBe(true);
     expect(conversion.diagnostics).toHaveLength(4);
     expect(conversion.diagnostics).toEqual(expect.arrayContaining(
@@ -101,11 +105,11 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
       })),
     ));
     expect(loaded.gameplayHashes).toEqual(EXPECTED_GAMEPLAY_HASHES);
-    expect(loaded.referenceReplays).toHaveLength(52);
+    expect(loaded.referenceReplays).toHaveLength(74);
     expect(loaded.referenceReplays.filter((replay) => replay.expectedOutcome === "win"))
-      .toHaveLength(46);
+      .toHaveLength(67);
     expect(loaded.referenceReplays.filter((replay) => replay.expectedOutcome === "loss"))
-      .toHaveLength(6);
+      .toHaveLength(7);
     for (const [index, level] of loaded.levels.entries()) {
       const expectedMessages = hints.levels[index]!.rooms.map((room) => room.message);
       expect(level.nativeLevel.texts).toEqual(expectedMessages);

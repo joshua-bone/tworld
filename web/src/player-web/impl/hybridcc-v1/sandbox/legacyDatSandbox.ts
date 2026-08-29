@@ -23,11 +23,11 @@ export const LEGACY_DAT_SANDBOX_ASSET_ID = "legacy_dat_sandbox";
 export const LEGACY_DAT_SANDBOX_FILENAME = "legacy_dat_sandbox.dat";
 export const LEGACY_DAT_SANDBOX_NAME = "Legacy DAT Sandbox";
 export const LEGACY_DAT_SANDBOX_DAT_SHA256 =
-  "0a2bac37dfbbb4705aae7d8e75f7113b35e1475b321d8ae3667499de8503bc3e";
+  "75dcdced0cb4a81dfefdccb5c8180ee4ed65fe004d7a4c3802369bb0841ad91c";
 export const LEGACY_DAT_SANDBOX_HINTS_SHA256 =
-  "ea2b6a9b897b7764058e886cb61c98448b3bd24f54c1a0f5eac3c15c0f54fc6e";
+  "b17a36b308bf97d58ac92eef4dd36842a4467d2e45f39bd17ac8cdc4a1d644b2";
 export const LEGACY_DAT_SANDBOX_REPLAY_INDEX_SHA256 =
-  "278f4ffe49d700a73a1da56ced06fb34117076ff87e910887ead0fbb990ad552";
+  "75a5e416487a20b4babbae6fa5408b7f3dd8c453c4fa377bf15d2e578850fa3f";
 
 interface HintTarget {
   kind: "tile";
@@ -56,6 +56,7 @@ interface HintSupplement {
 
 interface ReplayIndexEntry {
   id: string;
+  scenarioIds: string[];
   entryOrdinal: number;
   levelNumber: number;
   path: string;
@@ -214,8 +215,25 @@ export function parseLegacyDatSandboxReplayIndex(bytes: Uint8Array): ReplayIndex
       if (replay.expectedOutcome !== "win" && replay.expectedOutcome !== "loss") {
         throw new Error(`Legacy DAT Sandbox replay ${index} has an invalid expected outcome.`);
       }
+      const scenarioIds = array(
+        replay.scenarioIds,
+        `Legacy DAT Sandbox replay ${index} scenario IDs`,
+      ).map((value, scenarioIndex) => {
+        const id = string(
+          value,
+          `Legacy DAT Sandbox replay ${index} scenario ID ${scenarioIndex}`,
+        );
+        if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/u.test(id)) {
+          throw new Error(`Legacy DAT Sandbox scenario ID is unsafe or unsupported: ${id}`);
+        }
+        return id;
+      });
+      if (scenarioIds.length === 0) {
+        throw new Error(`Legacy DAT Sandbox replay ${index} has no scenario IDs.`);
+      }
       return {
         id: string(replay.id, `Legacy DAT Sandbox replay ${index} id`),
+        scenarioIds,
         entryOrdinal: integer(replay.entryOrdinal, `Legacy DAT Sandbox replay ${index} entry ordinal`, 1),
         levelNumber: integer(replay.levelNumber, `Legacy DAT Sandbox replay ${index} level number`, 1),
         path,
@@ -234,6 +252,18 @@ export function parseLegacyDatSandboxReplayIndex(bytes: Uint8Array): ReplayIndex
         expectedOutcome: replay.expectedOutcome,
       };
     });
+  const replayIds = replays.map((replay) => replay.id);
+  const replayPaths = replays.map((replay) => replay.path);
+  const scenarioIds = replays.flatMap((replay) => replay.scenarioIds);
+  if (new Set(replayIds).size !== replayIds.length) {
+    throw new Error("Legacy DAT Sandbox replay index contains duplicate replay IDs.");
+  }
+  if (new Set(replayPaths).size !== replayPaths.length) {
+    throw new Error("Legacy DAT Sandbox replay index contains duplicate replay paths.");
+  }
+  if (new Set(scenarioIds).size !== scenarioIds.length) {
+    throw new Error("Legacy DAT Sandbox replay index contains duplicate scenario IDs.");
+  }
   return {
     datSha256: sha256(root.datSha256, "Legacy DAT Sandbox replay-index DAT hash"),
     hintSupplementSha256: sha256(

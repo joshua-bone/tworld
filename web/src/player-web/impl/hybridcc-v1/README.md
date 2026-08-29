@@ -21,7 +21,8 @@ M5 PR54's source-independent terrain-arrival arbitration, M6 PR55's
 signal-driven release ordering, M7 PR56's entry-scoped teleport activation,
 M7 PR58's atomic adjacent-pad self-return occupancy, M8 PR60's category-aware
 released-trap arbitration, and sandbox PR63's explicit DAT 51–63 compatibility
-policy plus replay-publication guardrails. A button edge that
+policy plus replay-publication guardrails, and sandbox PR65's block-transaction
+and ordered-slap proof corpus. A button edge that
 makes a later cloner actor ready is resolved
 before an immediately competing Player move without globally reordering
 unrelated nonplayer actors. On completion of a real arrival, force terrain
@@ -111,9 +112,9 @@ the host apply the sandbox's per-room Hint JSON through
 the exact built-in asset identity and SHA-256 digest; a local DAT with the same
 filename never receives the overlay.
 
-Sandbox PR2 publishes 13 physical DAT entries with 52 navigable scenario rooms,
-70 frozen scenario IDs, and 52 independently verified reference replays (46
-wins and six intentional losses). The bundled official `CCLP2.dat` is omitted
+Sandbox PR3 publishes 17 physical DAT entries with 68 navigable scenario rooms,
+92 frozen scenario IDs, and 74 independently verified reference replays (67
+wins and seven intentional losses). The bundled official `CCLP2.dat` is omitted
 from the Hybrid v1 catalog before its bytes are loaded or converted; this does
 not alter MS/Lynx catalogs or user-uploaded DAT files.
 
@@ -157,9 +158,9 @@ verifies signal-release collision ordering and uninterrupted source
 presentation against the pinned real WebAssembly engine. Released-trap
 fixtures verify Player intent-first, generic pushable external-intent priority
 in both native actor orders, and ordinary-monster facing-first through that
-same pinned engine and production adapter. Sandbox acceptance converts all 13
+same pinned engine and production adapter. Sandbox acceptance converts all 17
 entries through the shipped Wasm, proves the four DAT 60–63 sanitation messages
-remain nonmodal notes, verifies every enriched level hash, and plays all 52
+remain nonmodal notes, verifies every enriched level hash, and plays all 74
 references to their declared win or loss outcome. Rendering tests cover each
 DAT special-art code 51–63 and the retained native-only marker fallbacks.
 
