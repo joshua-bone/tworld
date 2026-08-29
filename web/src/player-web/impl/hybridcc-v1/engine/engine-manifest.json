@@ -4,14 +4,14 @@
   "ruleset": {
     "major": 1,
     "minor": 0,
-    "tweak": 13
+    "tweak": 14
   },
   "sourceRepository": "joshua-bone/HybridCC2026",
-  "sourceCommit": "731d1338ae61b8e002ecb7628f6089daad4f851a",
-  "sourceMergeCommit": "48c81b99437c01ebfddf2a85852ada7bd56dd42d",
-  "sourcePullRequest": "https://github.com/joshua-bone/HybridCC2026/pull/65",
+  "sourceCommit": "60b5e7ca902972093176e4d5430eb3e460ca961c",
+  "sourceMergeCommit": "23dd8e071acca9fbc1934d564143f40929e7d028",
+  "sourcePullRequest": "https://github.com/joshua-bone/HybridCC2026/pull/67",
   "artifacts": {
     "hybridcc_v1_wasm.js": "sha256:ae7156ca6cadb8cc1ed89e32217fdab212afbf59a752d3b02600728bbefb1043",
-    "hybridcc_v1_wasm.wasm": "sha256:f8c19e066bf37966d93e72d6461ab4c8b5cf0451ac07b3aad3c01c40d7ce29cf"
+    "hybridcc_v1_wasm.wasm": "sha256:0c84349e41255574e324224e4d80aa0c237ade03df2ba33aed65e8ab1c885a27"
   }
 }

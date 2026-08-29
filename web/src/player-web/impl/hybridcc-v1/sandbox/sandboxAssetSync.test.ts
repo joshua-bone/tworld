@@ -49,7 +49,7 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
 
     await runSync(source, destination);
     await expect(runSync(source, destination, true)).resolves.toMatchObject({
-      stdout: expect.stringContaining("Checked 77 HybridCC sandbox assets."),
+      stdout: expect.stringContaining("Checked 129 HybridCC sandbox assets."),
     });
 
     await mkdir(join(source, "replays/1.0.12"), { recursive: true });
@@ -63,6 +63,21 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
     await writeFile(join(destination, staleRelativePath), new Uint8Array([0x48, 0x43, 0x52, 0x31]));
     await expect(runSync(source, destination, true)).rejects.toMatchObject({
       stderr: expect.stringContaining(`unexpected ${staleRelativePath}`),
+    });
+  });
+
+  it("rejects an invented HCR1 for a metadata-only bounded proof", async () => {
+    const root = await temporaryDirectory();
+    const source = join(root, "generated");
+    const destination = join(root, "browser-assets");
+    const fakeBoundedReplay = "replays/1.0.14/random-all-blocked-retry.hcr1";
+    await cp(checkedInAssets, source, { recursive: true });
+
+    await runSync(source, destination);
+    await writeFile(join(source, fakeBoundedReplay), new Uint8Array([0x48, 0x43, 0x52, 0x31]));
+
+    await expect(runSync(source, destination, true)).rejects.toMatchObject({
+      stderr: expect.stringContaining(`unexpected ${fakeBoundedReplay}`),
     });
   });
 });
