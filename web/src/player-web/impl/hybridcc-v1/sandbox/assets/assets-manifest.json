@@ -1,652 +1,662 @@
 {
   "schema": "hybridcc.legacy-dat-sandbox.browser-assets.v1",
   "sourceRepository": "joshua-bone/HybridCC2026",
-  "sourceCommit": "33551f0b6b9d9afe0cd284a5ceab1945100506cf",
+  "sourceCommit": "9330c9321d0fadb57833fb91bd9202f06fb654b9",
   "files": [
     {
       "path": "legacy_dat_sandbox.dat",
-      "byteLength": 13784,
-      "sha256": "7d7516ac7d48e5366b1e85431fb74cef34773fffa92a9235e27c3b57a070e559"
+      "byteLength": 13783,
+      "sha256": "32b545ac4277053b4467eabbeb2b8d48420df7870820945e2e991d5e5dc1235d"
     },
     {
       "path": "legacy_dat_sandbox.hints.json",
-      "byteLength": 44242,
-      "sha256": "92276d401a61b3b2b264d5f80d77276873f22396084454a23de59bf7517c2c62"
+      "byteLength": 44336,
+      "sha256": "98f1e5be2e1cbfe51c88c463515a5ac5360ad73156e40a8e61810a684bcfceab"
     },
     {
       "path": "replay-index.json",
-      "byteLength": 81743,
-      "sha256": "ab0e4ebbdd1fae8166298dcf967867f25692aabf9b04b6133610bac7cfa293d8"
+      "byteLength": 83179,
+      "sha256": "6d4c15769b342ca75b9d6cfcf5def08ea8ab671a516c4100e7c440b685d969d6"
     },
     {
-      "path": "replays/1.0.15/1-foundation-tour.hcr1",
+      "path": "replays/1.0.16/1-foundation-tour.hcr1",
       "byteLength": 6575,
-      "sha256": "a8d5737c4f6d69bf9aed683c42f3943d23dafe05a7ca53e73b4702c3188861af"
+      "sha256": "ca9d9ccde3106b85f16bd2ea9d5fb0a654729e1657cab59e1826d0ead622415c"
     },
     {
-      "path": "replays/1.0.15/10-block-bomb.hcr1",
+      "path": "replays/1.0.16/10-block-bomb.hcr1",
       "byteLength": 2582,
-      "sha256": "5c51a5e300a13172848368bbd1fe04aa1fbec695d38c4e07ec8d82b0bbf4ad0d"
+      "sha256": "15e10c1d8d9cd94e1272567697b04fa79c6559b792f6aa4a3c5469cf68653f5e"
     },
     {
-      "path": "replays/1.0.15/10-blocking-before-hostile.hcr1",
+      "path": "replays/1.0.16/10-blocking-before-hostile.hcr1",
       "byteLength": 2621,
-      "sha256": "3a6ce34f5e1061f721346a2ab29e9233464fab69be1834e61941a139b10ccda2"
+      "sha256": "83c1a438da2cba12bc7e04ec0afaa840979f95f4df3c9226b79b3170ea90a235"
     },
     {
-      "path": "replays/1.0.15/10-exit-plus-bomb.hcr1",
+      "path": "replays/1.0.16/10-exit-plus-bomb.hcr1",
       "byteLength": 1712,
-      "sha256": "9bdc3679212fe42856930afa1a708dd5d0d7e3324d70b1e4b4672b224ff5748b"
+      "sha256": "652e076b033708f1305f787956d98edd25311b203926e87cb2ce23c02dfdc4e4"
     },
     {
-      "path": "replays/1.0.15/10-hostiles-do-not-annihilate.hcr1",
+      "path": "replays/1.0.16/10-hostiles-do-not-annihilate.hcr1",
       "byteLength": 1541,
-      "sha256": "639f78bd2fe464423bfb3ac2787f7eab003e8fd5f404e00019738fbfde62e4b9"
+      "sha256": "93fc3fcc6e460e8f573d0d29bbb20312f72ca42f858eb7fe4103a4b5389f01a3"
     },
     {
-      "path": "replays/1.0.15/10-loss-order.hcr1",
+      "path": "replays/1.0.16/10-loss-order.hcr1",
       "byteLength": 992,
-      "sha256": "c51283a7f9c2a2b500cdadf791766677e1dd1e3358b14e7f8c18f0293035c8c6"
+      "sha256": "aa26a59fa14b7bca8c218af149b9447659a9f73e729527e584cb0c5bc13e9a30"
     },
     {
-      "path": "replays/1.0.15/10-monster-bomb.hcr1",
+      "path": "replays/1.0.16/10-monster-bomb.hcr1",
       "byteLength": 1541,
-      "sha256": "76be2082c13d16120e23ffd8b565bb593a51aff3b3c6b258fb427c93e36e3c50"
+      "sha256": "dc74699fed4ae9bc7923cff7ea8846c40f0732489faadb3c1a961e3350331056"
     },
     {
-      "path": "replays/1.0.15/10-player-bomb.hcr1",
+      "path": "replays/1.0.16/10-player-bomb.hcr1",
       "byteLength": 1712,
-      "sha256": "b3f5cc491c1b1c999d0ec6b2d1b2cd0c24a5187aee94e75099635bcab22f926c"
+      "sha256": "0b0e9707dbbb2ab004661c0adafb5d8358bed8a794261b1c3c1d21cf19a7ebfc"
     },
     {
-      "path": "replays/1.0.15/10-water-plus-key.hcr1",
+      "path": "replays/1.0.16/10-water-plus-key.hcr1",
       "byteLength": 992,
-      "sha256": "8bafdbd99e34f4877e332c221882d757e8a8e2a54ecaafa24de066f5839f4852"
+      "sha256": "6b71b31e82e7120fccbcb730c6806b53b53fcbd7d3aedb5c716703fbc492f0e2"
     },
     {
-      "path": "replays/1.0.15/11-trick-walls-blue-fake.hcr1",
+      "path": "replays/1.0.16/11-trick-walls-blue-fake.hcr1",
       "byteLength": 2546,
-      "sha256": "5a60428d0650f15761cb3fd19a19b98fdb1de1bfa02ecf35f2a937a3a06296b9"
+      "sha256": "3fc5c4d431fefaacd67b036c0f16cba5f051d520a6676f208d5851418a140445"
     },
     {
-      "path": "replays/1.0.15/11-trick-walls-blue-real.hcr1",
+      "path": "replays/1.0.16/11-trick-walls-blue-real.hcr1",
       "byteLength": 2498,
-      "sha256": "a4ffd35e1c1061bd30e7842bd46ac04d6ec87ad211be38d9fe64ef56045cbea0"
+      "sha256": "6f02bb26f7041c38b96a4ea27fd7d954832123c0d1f35088f0bc44dd57acf43a"
     },
     {
-      "path": "replays/1.0.15/11-trick-walls-invisible-appearing.hcr1",
+      "path": "replays/1.0.16/11-trick-walls-invisible-appearing.hcr1",
       "byteLength": 2288,
-      "sha256": "d5355371491d15aa4889e8bbe506524a7f8fd7cbaf39b1f3abc0ea17cea6b632"
+      "sha256": "d106f656e793c92df82571814a1cd0d96be8601547a544ef752a2156239a5381"
     },
     {
-      "path": "replays/1.0.15/11-trick-walls-ordinary.hcr1",
+      "path": "replays/1.0.16/11-trick-walls-ordinary.hcr1",
       "byteLength": 2393,
-      "sha256": "6b41bd5388ca6ca1ab1b33d42f24f220148dcf5a24d7c49086ee8a85f4f55308"
+      "sha256": "80801dc63303aa687fa780aed15ae13e141ac5b8392a080626d8d2d55358c32e"
     },
     {
-      "path": "replays/1.0.15/11-trick-walls-permanent-invisible-monster.hcr1",
+      "path": "replays/1.0.16/11-trick-walls-permanent-invisible-monster.hcr1",
       "byteLength": 1541,
-      "sha256": "778d113a09e008dfaf6fa550022f17a4a94d4ad890c06fc8f6de04247cb1e644"
+      "sha256": "852763ac824d196fabdc0634f05267e901cba3a7e0290436ddc01a3ee83bdefa"
     },
     {
-      "path": "replays/1.0.15/11-trick-walls-permanent-invisible-player.hcr1",
+      "path": "replays/1.0.16/11-trick-walls-permanent-invisible-player.hcr1",
       "byteLength": 2564,
-      "sha256": "c4d51e4fda5420a31e976b48aff1554ffa048ae08d9048c41cc0e55be75b6591"
+      "sha256": "2907310f0f9b418681abc5a335f1b553894c3122524dfaf3343066e4c24b058f"
     },
     {
-      "path": "replays/1.0.15/11-trick-walls-permanent-invisible-slap.hcr1",
+      "path": "replays/1.0.16/11-trick-walls-permanent-invisible-slap.hcr1",
       "byteLength": 2345,
-      "sha256": "a6ae46c7e12199856637b691a9d7595dc052c1becabbe4ad8e28c09d8d1ff3d9"
+      "sha256": "799825e8fb17f84d383597cad301f94ba31d7c5841ee7ebdc478790cbaaad849"
     },
     {
-      "path": "replays/1.0.15/12-panels-popups-block-blue-real-count-one.hcr1",
+      "path": "replays/1.0.16/12-panels-popups-block-blue-real-count-one.hcr1",
       "byteLength": 2483,
-      "sha256": "16f46ea5fd4f90c25d11e4f705656a174cdae186c2335468e56afe3d622e44e0"
+      "sha256": "b4bf5dce340c48ec0703564cc76a8e286273e61e32b4a9b7ac72d347481eec6d"
     },
     {
-      "path": "replays/1.0.15/12-panels-popups-cardinal-panels.hcr1",
+      "path": "replays/1.0.16/12-panels-popups-cardinal-panels.hcr1",
       "byteLength": 4430,
-      "sha256": "deea1f9369c49d2e55b225a0585b3cc4ad408dc01605b3513fa49f0977f8d552"
+      "sha256": "9ac7aef0806db97689e347ff0562219ce96204689818a133f6001ba0f2171388"
     },
     {
-      "path": "replays/1.0.15/12-panels-popups-popup-admission.hcr1",
+      "path": "replays/1.0.16/12-panels-popups-popup-admission.hcr1",
       "byteLength": 2903,
-      "sha256": "4c216382d3c6741745d30d6d7ef1726a6527bfd9538499fcf331c6e8cef5a98d"
+      "sha256": "138db93113600d306ea1074e2e2c10d8b3f73024c060a2c046169fae9a5f3ffa"
     },
     {
-      "path": "replays/1.0.15/12-panels-popups-popup-block-count-two.hcr1",
+      "path": "replays/1.0.16/12-panels-popups-popup-block-count-two.hcr1",
       "byteLength": 2660,
-      "sha256": "b74469093c4d1a3186c81034808c3d5e5dc3d99cc65d4dc0a45e145e2dd862f0"
+      "sha256": "449fc1ad8e6970c75bdea94dbf69a16414f9f3f3f485acb3a3a9602aeafbcfef"
     },
     {
-      "path": "replays/1.0.15/12-panels-popups-popup-player.hcr1",
+      "path": "replays/1.0.16/12-panels-popups-popup-player.hcr1",
       "byteLength": 2747,
-      "sha256": "a69d73c7169a7d046b637e262eed84a5e1bd075432f1390dd3a5e958e9c18847"
+      "sha256": "10af3845c38d624d3e275660b955f21b7f93e755164106899d7ffb4ce3e69756"
     },
     {
-      "path": "replays/1.0.15/12-panels-popups-southeast-panel.hcr1",
+      "path": "replays/1.0.16/12-panels-popups-southeast-panel.hcr1",
       "byteLength": 3230,
-      "sha256": "1ba5b9d6495b4e7358dbf5926378bd92b2efceeb9928ce6dcdcff930eca4ed4d"
+      "sha256": "73f759841633834d7249165353d53fbcfe8ccddb5ad623eced16dbad70ec8b87"
     },
     {
-      "path": "replays/1.0.15/12-panels-popups-special-art-51-59.hcr1",
+      "path": "replays/1.0.16/12-panels-popups-special-art-51-59.hcr1",
       "byteLength": 3929,
-      "sha256": "5e365fb5b612d993eacd7e1e0244b0b9efc550502c85fd9047b7d618b648d708"
+      "sha256": "0376e1d58f1c313c4e478ab3c6faf8d6c1ac784026f3c85f089372ab3d6620b4"
     },
     {
-      "path": "replays/1.0.15/12-panels-popups-static-art-60-63.hcr1",
+      "path": "replays/1.0.16/12-panels-popups-static-art-60-63.hcr1",
       "byteLength": 2801,
-      "sha256": "a08db6a078bdd8c50a8cff2a8cbc3c168de61b285724341ce20d6a2fa7e2b13f"
+      "sha256": "da1c39bec9d69a67e4bd7f65ea5411dbe31374fd77964cc1673ae1135cdb81bd"
     },
     {
-      "path": "replays/1.0.15/13-direct-four-directions.hcr1",
+      "path": "replays/1.0.16/13-direct-four-directions.hcr1",
       "byteLength": 4724,
-      "sha256": "5e20295b024f6862d0ea71f15d81e0047a7559d072438dd5e331969b9e0ceed3"
+      "sha256": "b21f07b59bf5c510c89fff9452eff74f605062040ee0553187728ebaa4bb0fe3"
     },
     {
-      "path": "replays/1.0.15/13-failed-four-directions.hcr1",
+      "path": "replays/1.0.16/13-failed-four-directions.hcr1",
       "byteLength": 3413,
-      "sha256": "0a7c675fe36ba0e57539a723ca979fa2d45f83ebe116488500aeac5f1c1130ac"
+      "sha256": "cb9c039b5246bffdd48c80a74549132746d3f78fed3f159180446763f99ac80f"
     },
     {
-      "path": "replays/1.0.15/13-monster-destination-rejects.hcr1",
+      "path": "replays/1.0.16/13-monster-destination-rejects.hcr1",
       "byteLength": 2837,
-      "sha256": "520a2035310ea642378110af38bf909ca158bd57fa246e540b8e26b20491ba23"
+      "sha256": "e57a425376e596fd20a45a3d307a52e187d1e3a29103faaf3a26c51b4e1d9383"
     },
     {
-      "path": "replays/1.0.15/13-second-block-rejects.hcr1",
+      "path": "replays/1.0.16/13-second-block-rejects.hcr1",
       "byteLength": 2453,
-      "sha256": "e2db7694c06ec7d41bf6dba44723ca93e1d5db7c0905448fdf1b4cd8a55d7c81"
+      "sha256": "8c2065037aed4a87fcf3acbff9093b35047a66592d45de27b42465069cfc6938"
     },
     {
-      "path": "replays/1.0.15/14-blocked-primary-no-slap.hcr1",
+      "path": "replays/1.0.16/14-blocked-primary-no-slap.hcr1",
       "byteLength": 2477,
-      "sha256": "ccc6f6fe9dfa63ba8a0fcc36c85f226fee90c050795a76eee3ac263d8e2565f3"
+      "sha256": "c8da393da7abf1e0ddf9047cc894f7940fd0d0c8152ee61c6a286ed1e00a40b6"
     },
     {
-      "path": "replays/1.0.15/14-blocked-slap-keeps-primary.hcr1",
+      "path": "replays/1.0.16/14-blocked-slap-keeps-primary.hcr1",
       "byteLength": 2468,
-      "sha256": "74b42602ddd7e84ecb868da33fbcf40a8f0fc9e97770c01b16648a223bfc36ad"
+      "sha256": "2cd0d49469bdf05836f09656bceb0c605340fce02dafb9965870c5d507176fc0"
     },
     {
-      "path": "replays/1.0.15/14-ordered-slap-es.hcr1",
+      "path": "replays/1.0.16/14-ordered-slap-es.hcr1",
       "byteLength": 2678,
-      "sha256": "dd88dd4c20a574df1f6927698c16fe9bc92c5b2447424c182edd8cd320185f84"
+      "sha256": "63510d1ca60194f9f77dfca9cc5bcdea5fec408944b2acf09c82ba71bd6249df"
     },
     {
-      "path": "replays/1.0.15/14-ordered-slap-se.hcr1",
+      "path": "replays/1.0.16/14-ordered-slap-se.hcr1",
       "byteLength": 2345,
-      "sha256": "cea6bc98a94888ad89a8f2b8ba22d4f33a28fb4eca6ab07a07030dce0f0360db"
+      "sha256": "9c3ecc254d80cdd4845635680789b8b5113af91ca5859178198ab871f5a84382"
     },
     {
-      "path": "replays/1.0.15/14-slap-all-quadrants.hcr1",
+      "path": "replays/1.0.16/14-slap-all-quadrants.hcr1",
       "byteLength": 4187,
-      "sha256": "f35be5c1896a295023bf1b9ea331d3f93c82399e37b44351b29450bfa6571206"
+      "sha256": "89817f0e1ee42704db4feba654a29c8ae5b63bb44ae3a5bd4a4f56e1bac40e83"
     },
     {
-      "path": "replays/1.0.15/14-slap-reveal.hcr1",
+      "path": "replays/1.0.16/14-slap-reveal.hcr1",
       "byteLength": 3062,
-      "sha256": "51cd6a243b5965a809e6d1c54567f96a5d949bbda250352e476691a534f733f2"
+      "sha256": "843e378871eaeafee5f7deefd832f7e8687a9e616965bbac2f13b22d9b265478"
     },
     {
-      "path": "replays/1.0.15/15-dependent-follow-normal.hcr1",
+      "path": "replays/1.0.16/15-dependent-follow-normal.hcr1",
       "byteLength": 2354,
-      "sha256": "3460cf3e2b636f85d6ead77300a67156cc462407e7122ba97840a4bd01a617bd"
+      "sha256": "14bf4785dd34bed7ccae8d1282bd46ec7d0aefb29600f996fbed30d447fb3e5b"
     },
     {
-      "path": "replays/1.0.15/15-dependent-popup-one.hcr1",
+      "path": "replays/1.0.16/15-dependent-popup-one.hcr1",
       "byteLength": 2306,
-      "sha256": "3963f35bbb66c185deed6df7bd9f47ec9780e5a03db99b656d77e97d6597be2b"
+      "sha256": "2a05446b98a4ea8e24b1ac9496de764795f8bc69b16dfb955ae74d25cb532032"
     },
     {
-      "path": "replays/1.0.15/15-dependent-popup-two.hcr1",
+      "path": "replays/1.0.16/15-dependent-popup-two.hcr1",
       "byteLength": 2477,
-      "sha256": "73b8814d39272fa0c8be3c1d1057ad137046a46bf5031bb068fd2fe8c0da5e00"
+      "sha256": "b3fff4e7127cf3b920fd7162a4df8778a754bd2d2010775b21c8b48070df935e"
     },
     {
-      "path": "replays/1.0.15/15-rejected-departure-no-start-exit.hcr1",
+      "path": "replays/1.0.16/15-rejected-departure-no-start-exit.hcr1",
       "byteLength": 2321,
-      "sha256": "67afae258d5cf13499476256ca0f75c36cd720ca01c404b32bd429e5e7ab57ce"
+      "sha256": "2fe51000e7dc35a927342fbb6f5e59a02220f0b44e742b2efe4f38f0ae3a25bc"
     },
     {
-      "path": "replays/1.0.15/16-external-push-off-force.hcr1",
+      "path": "replays/1.0.16/16-external-push-off-force.hcr1",
       "byteLength": 2750,
-      "sha256": "92c23263ede3b0939415f9706196df3b33592f29b4fe934d905346a809a6362c"
+      "sha256": "38d85c3bfd8c084af0bc55853330eaccd68b4b5215940f4fba3a530c7e33f2ee"
     },
     {
-      "path": "replays/1.0.15/16-external-push-off-ice.hcr1",
-      "byteLength": 2846,
-      "sha256": "7feca26a4cc0d94c2abdbb918049c4953847a19281e8e2ed3f3f405d4deef234"
+      "path": "replays/1.0.16/16-external-push-off-ice.hcr1",
+      "byteLength": 2741,
+      "sha256": "450efc16d9caa67040862aa738840bc58d4e642be523ce9976c9eb76cfdfc766"
     },
     {
-      "path": "replays/1.0.15/16-push-audio-boundary.hcr1",
+      "path": "replays/1.0.16/16-push-audio-boundary.hcr1",
       "byteLength": 2564,
-      "sha256": "0411a65911c44411c442a358e505b9521493c558b47e7de630c093cf6d525266"
+      "sha256": "786c753c356c1ad57426b1452f88d1cba036cb134966c1fb496c09b993c27f7d"
     },
     {
-      "path": "replays/1.0.15/16-push-onto-force.hcr1",
+      "path": "replays/1.0.16/16-push-onto-force.hcr1",
       "byteLength": 2660,
-      "sha256": "fe904e79b679e6d969c34ba3914720caa31c465e36ec23d2a7ef723d7c72db5e"
+      "sha256": "3862eb75adf5d4b36208dbcd7cbc21f89ac5f0bdcd211c6b71b4b56958136a79"
     },
     {
-      "path": "replays/1.0.15/16-push-onto-gravel.hcr1",
+      "path": "replays/1.0.16/16-push-onto-gravel.hcr1",
       "byteLength": 2660,
-      "sha256": "c6038b8449cf26d99fbe2028e576aba4a988ebdd04a7862ba746b43f63fd2889"
+      "sha256": "db4dbe56fc7d25fc0fc2b6db4f05aeafcb2df767d8ff61ef3e620ac1be8393f3"
     },
     {
-      "path": "replays/1.0.15/16-push-onto-ice.hcr1",
+      "path": "replays/1.0.16/16-push-onto-ice.hcr1",
       "byteLength": 2564,
-      "sha256": "62485a7b5e850ae6b507b1c4823d591518b42f07f2a40e34bfb4aad8fda225b4"
+      "sha256": "af4ee4d508d7fa851aa23e17989ba5f9bc5f329fb07025d56db90e50d39ea9fa"
     },
     {
-      "path": "replays/1.0.15/16-push-onto-ordinary.hcr1",
+      "path": "replays/1.0.16/16-push-onto-ordinary.hcr1",
       "byteLength": 2660,
-      "sha256": "a9eb20861b932002d7bead2865d76f64ec3b451c6ca1757c21267651cc7a14fb"
+      "sha256": "5d1cf6053c6cd213e0d018ab41c2e1ec364172fae637450424c136884f7d6b1c"
     },
     {
-      "path": "replays/1.0.15/16-terrain-driven-contact.hcr1",
+      "path": "replays/1.0.16/16-terrain-driven-contact.hcr1",
       "byteLength": 2003,
-      "sha256": "855e803550104bf4ee158ac5939c9d7f2eccfd11ef1000e30192dd6e62c5fc79"
+      "sha256": "9bb0168be613409602f91e0026d35599cd80261b0fceee1fcb3ab99e1f90d847"
     },
     {
-      "path": "replays/1.0.15/17-first-block-arrival-fast.hcr1",
+      "path": "replays/1.0.16/17-first-block-arrival-fast.hcr1",
       "byteLength": 3023,
-      "sha256": "c5fb77dd52e3afa6a1935b419124703e2616f0d23cf0e9d875d789f3c0aefcdb"
+      "sha256": "0c5d1091a845ef37e653b6459d6cf513d9c27055f69b877916f9a1778c6cef5e"
     },
     {
-      "path": "replays/1.0.15/17-first-monster-arrival-fast.hcr1",
+      "path": "replays/1.0.16/17-first-monster-arrival-fast.hcr1",
       "byteLength": 1598,
-      "sha256": "9e48278f6cfe29fdd79d23e7cc007c4749dfdeac76231a10bd4e1fe05649ae32"
+      "sha256": "351b0da3d4053b9eb4c944f0f23f3476c0295196619bab645c19fd0da109a360"
     },
     {
-      "path": "replays/1.0.15/17-first-player-arrival-fast.hcr1",
+      "path": "replays/1.0.16/17-first-player-arrival-fast.hcr1",
       "byteLength": 2894,
-      "sha256": "621af1754642f78a786e0a978deb0bcc1f6ba3066dbf3cf0e1c66e1a8d26df27"
+      "sha256": "4f22f365df8a5edb8b73de64a56e4bf24b853dcda636b740d4b0e41ce89a7024"
     },
     {
-      "path": "replays/1.0.15/17-initial-block-stationary.hcr1",
-      "byteLength": 2780,
-      "sha256": "b3240a6343abbda564b345f92c14021f8facc748537e89416ddd1ce29b8ef73e"
+      "path": "replays/1.0.16/17-initial-block-stationary.hcr1",
+      "byteLength": 2684,
+      "sha256": "6cf05b933632ab1eec59bf3805814aeee92ec6577eb680be99c2ae671473ffc6"
     },
     {
-      "path": "replays/1.0.15/17-initial-monsters-ordinary.hcr1",
+      "path": "replays/1.0.16/17-initial-monsters-ordinary.hcr1",
       "byteLength": 1598,
-      "sha256": "dd7b7d733901e8fff6d8d6e91f59f5be4f8b3e7f163bdb54696befacd4e7ce61"
+      "sha256": "c8cf8512be542611a50a3ef34e37173013cd7509cda06eaa79e29885d799f866"
     },
     {
-      "path": "replays/1.0.15/17-initial-player-ordinary.hcr1",
+      "path": "replays/1.0.16/17-initial-player-ordinary.hcr1",
       "byteLength": 1826,
-      "sha256": "2e8e07afa464900a10c91a2280ad7c4cb1cc1cf234dd48b74e66d185cfa0d9a7"
+      "sha256": "94f6df9364fb907c46c7da5c85ec48c281be611b4c46c763d06575ea0ebd352c"
     },
     {
-      "path": "replays/1.0.15/18-blocked-reverse.hcr1",
+      "path": "replays/1.0.16/18-blocked-reverse.hcr1",
       "byteLength": 2885,
-      "sha256": "ec63780fe32883d0f558a090c3c71760df763fed126b4ceb3374f8e89e7e6b2b"
+      "sha256": "c1486116de1ecc808a3334d5075fd03cfea4ff039aca2b4200ec2b1e68c37755"
     },
     {
-      "path": "replays/1.0.15/18-fully-blocked-retry.hcr1",
+      "path": "replays/1.0.16/18-fully-blocked-retry.hcr1",
       "byteLength": 2948,
-      "sha256": "9968cb8a050fbafbf8639923cbf182a8ebc60d7113f25870142e249fc83c1510"
+      "sha256": "b33eb7cc572816fdcbe3b9d158f9b15e364fa3bb1aa3bd752c0bc9fe4e616756"
     },
     {
-      "path": "replays/1.0.15/18-skates-arrival-ordinary.hcr1",
+      "path": "replays/1.0.16/18-skates-arrival-ordinary.hcr1",
       "byteLength": 2861,
-      "sha256": "a711cc69eeb92aca92b0b76f1d9baa2c9d80d52df7f6e6575d2b34e03deef69c"
+      "sha256": "1302a51895d574aa6fb3d50b081eb402e8b10a1602ee40345ed0830e01e63fda"
     },
     {
-      "path": "replays/1.0.15/18-straight-owned-forward.hcr1",
+      "path": "replays/1.0.16/18-straight-owned-forward.hcr1",
       "byteLength": 2885,
-      "sha256": "903c9a45863d803558155dc6a802b8c9ba65c05a46c76fe375dc27de158cba27"
+      "sha256": "8a406e811c87308ad23fcac94db9fb1efcdab7bc7dce919082f41bc48aac2427"
     },
     {
-      "path": "replays/1.0.15/19-corner-fully-blocked.hcr1",
+      "path": "replays/1.0.16/19-corner-fully-blocked.hcr1",
       "byteLength": 1541,
-      "sha256": "8f999794565cd464a693ffc18e6ceb594662321fcbc7883eb52988eae33fe4c6"
+      "sha256": "4a26fa244ff904c380be6ef99543886d3b7312fe7b1c02aedf5d45ff8f2ae51c"
     },
     {
-      "path": "replays/1.0.15/19-corner-ne.hcr1",
+      "path": "replays/1.0.16/19-corner-ne.hcr1",
       "byteLength": 2990,
-      "sha256": "c944ec3f849ed5cffc15cab3e2fd59eb43a364e0fbe5e755cf7c02a44aa84903"
+      "sha256": "f1172d22b6d888cc238f9e2b0a7279ddb7b102afc6141f044b1dc92e1e1b002b"
     },
     {
-      "path": "replays/1.0.15/19-corner-nw.hcr1",
+      "path": "replays/1.0.16/19-corner-nw.hcr1",
       "byteLength": 2990,
-      "sha256": "e8ba6f9bbaf28a99f5d5dc6131549f579c8ae546d3deb9b69279d4566eca0337"
+      "sha256": "79a259027b9dd6b7ecc5e0fd298edc4c2ba0a20620832a418edf5129d150e6ea"
     },
     {
-      "path": "replays/1.0.15/19-corner-reverse-fallback.hcr1",
+      "path": "replays/1.0.16/19-corner-reverse-fallback.hcr1",
       "byteLength": 1541,
-      "sha256": "5ca7627d10f3d91aecfe49050bb881da75a58d6a8c07a2496c57675ec03a92dd"
+      "sha256": "58010071c7bfbdb0c2f7b5a8fcf2368ae3da5c0c866ed546cbbdfd362d373c5b"
     },
     {
-      "path": "replays/1.0.15/19-corner-se.hcr1",
+      "path": "replays/1.0.16/19-corner-se.hcr1",
       "byteLength": 3104,
-      "sha256": "5790c976a4fd145a2b12a4803d46773ec87a15529b4af0a9cc86f7e7fbf40111"
+      "sha256": "00cf29a9af29f0dd0f90ce74009df8c28d1cc9630c64531bdaf073d8f45b1b16"
     },
     {
-      "path": "replays/1.0.15/19-corner-sw.hcr1",
+      "path": "replays/1.0.16/19-corner-sw.hcr1",
       "byteLength": 3104,
-      "sha256": "d678f18f273540dae36e74e350639306faa0155e51be3a5664e90022b5bd7e7c"
+      "sha256": "1e9d36d0bb84fe21dbf1ad7f521ca710f62dc3d27120dbeb30e33cf4ae8e8f7c"
     },
     {
-      "path": "replays/1.0.15/2-block-tour.hcr1",
+      "path": "replays/1.0.16/2-block-tour.hcr1",
       "byteLength": 6365,
-      "sha256": "2b407dccb1d59c7257851c53178bdfabba815d7c6b8dc35e8e3d3b56ec2412e9"
+      "sha256": "8066c3cf1e15ffecbbf928b888c31400ffbb5088720bdf6e07f6ebb7b1caeb8a"
     },
     {
-      "path": "replays/1.0.15/20-block-silent-autoslide.hcr1",
+      "path": "replays/1.0.16/20-block-silent-autoslide.hcr1",
       "byteLength": 2669,
-      "sha256": "d8b8f9bb5ae583dd8a5ad345f8fcd8237044fcedaa96f1cf7695cc0a497eb8d1"
+      "sha256": "2e74db49df7dc371e1472c8f0dcc25364c1499cd167cf1f4ea899a1315efcae8"
     },
     {
-      "path": "replays/1.0.15/20-exit-to-floor-continuity.hcr1",
+      "path": "replays/1.0.16/20-exit-to-floor-continuity.hcr1",
       "byteLength": 3077,
-      "sha256": "5550deb4ab98174668362f87e6b446667e2e514daac39fcc40132776b478098c"
+      "sha256": "c765abf8cf3d567e070d19dbfa8bf6864946833596814e551d449081a39d178d"
     },
     {
-      "path": "replays/1.0.15/20-long-slide-continuity.hcr1",
+      "path": "replays/1.0.16/20-long-slide-continuity.hcr1",
       "byteLength": 3053,
-      "sha256": "2ce3a14a3ebd3a0022ed31aeb6594d33c045f781f57e0367e9a427a66b8df7a1"
+      "sha256": "5d1e92937f5e6adaae05b9c0889327a6383d291152d58bdf8a4387c659afb299"
     },
     {
-      "path": "replays/1.0.15/20-slow-mob-terrain-control.hcr1",
+      "path": "replays/1.0.16/20-slow-mob-terrain-control.hcr1",
       "byteLength": 1541,
-      "sha256": "7191c6aa5aac635dd377a824edeacace0899aa9624a903ac9df6ec768419a130"
+      "sha256": "04acc46ae2e9c16524a1ba6fb1c0338604c37c4fb0bc4721918c79e93f7c35c7"
     },
     {
-      "path": "replays/1.0.15/20-tank-reversal-suppressed-while-sliding.hcr1",
+      "path": "replays/1.0.16/20-tank-reversal-suppressed-while-sliding.hcr1",
       "byteLength": 2432,
-      "sha256": "d6b808f1397cb58aa2b4d8f48210af917ba117ae6df104e352a5598aba6ca69b"
+      "sha256": "65cd126e537bcc4e8108b2ae535925e1a3844c21e84e781d31e20249be68efe6"
     },
     {
-      "path": "replays/1.0.15/21-first-monster-force-arrival-fast.hcr1",
+      "path": "replays/1.0.16/21-first-monster-force-arrival-fast.hcr1",
       "byteLength": 1769,
-      "sha256": "9d3a6b3dee04e2028e75fbf2a2d075dda1bf5de06f162c807f9e588896746fa1"
+      "sha256": "f7fdf838baaf4b67dcaeea32d6c58537b0a24b93ee21391463bd2fd95873bdc4"
     },
     {
-      "path": "replays/1.0.15/21-first-player-force-arrival-fast.hcr1",
+      "path": "replays/1.0.16/21-first-player-force-arrival-fast.hcr1",
       "byteLength": 2960,
-      "sha256": "e58419da7edc4684e8d8d863baa5a335482560699f1e81fc0c9bd986983e66ca"
+      "sha256": "2615a7484e287f571a1fffaa6fb0e79cc3e78085684576b51d7389afa5b09dcc"
     },
     {
-      "path": "replays/1.0.15/21-force-boots-gallery.hcr1",
+      "path": "replays/1.0.16/21-force-boots-gallery.hcr1",
       "byteLength": 3989,
-      "sha256": "8817fd34a1567ddc3297a64c150d0d2ff1444b6ffa2745160bf3b03b7e27584c"
+      "sha256": "f12a96ab85cf0c54faa6d72852863651421b1c28be433941d3545f4d6c818e4a"
     },
     {
-      "path": "replays/1.0.15/21-initial-block-owned.hcr1",
+      "path": "replays/1.0.16/21-initial-block-owned.hcr1",
       "byteLength": 2966,
-      "sha256": "697fc560b092ae457540c632bc126b530e09f410c74f4e9477206b22da6c964e"
+      "sha256": "da109a3417226de3e49bd10d1831bb11edd2f8e22e5496c0fcacce85834cd18d"
     },
     {
-      "path": "replays/1.0.15/21-initial-monsters-owned.hcr1",
+      "path": "replays/1.0.16/21-initial-monsters-owned.hcr1",
       "byteLength": 1769,
-      "sha256": "5f0481cf87a3c0f072b1fd058acf01e96d836a12f075806518287e23e7879d5b"
+      "sha256": "cbfac88b95853f22cd70ac97bc4058f33e9feafa5a95880032afd169e5bac8b7"
     },
     {
-      "path": "replays/1.0.15/21-initial-player-owned.hcr1",
+      "path": "replays/1.0.16/21-initial-player-owned.hcr1",
       "byteLength": 1769,
-      "sha256": "517e71bdea2000ad86a03b7963482f3664e2904afa07d9a3e3bad3a21ca8e0ee"
+      "sha256": "0de52e733240c1434f55ffd0e1f85a416335227a68bfb9e7ee86306079844a51"
     },
     {
-      "path": "replays/1.0.15/22-arrival-all-blocked.hcr1",
+      "path": "replays/1.0.16/22-arrival-all-blocked.hcr1",
       "byteLength": 3746,
-      "sha256": "2fce068efc5f9e8c69f962417c72169fa6436d4e873254671981b7aefd78796a"
+      "sha256": "bbde2685e4d56b18c3a5ef046c243270487cd62e4d821cafdeed71cb97274dbc"
     },
     {
-      "path": "replays/1.0.15/22-automatic-push-wins.hcr1",
+      "path": "replays/1.0.16/22-automatic-push-wins.hcr1",
       "byteLength": 1976,
-      "sha256": "3097df72b8fb84e3ddca16874af4c943663bd2236a9ecfc94de93f9f88bd7011"
+      "sha256": "4203f16a11f597d97b7b43e8a8a91db5aad6e8cd0dc0a4a2047a3f8e1eed4059"
     },
     {
-      "path": "replays/1.0.15/22-blocked-backward.hcr1",
+      "path": "replays/1.0.16/22-blocked-backward.hcr1",
       "byteLength": 2159,
-      "sha256": "80c36d250d27ecb58985be54ac1ecabf370fc4ac026691b10567103c212ab664"
+      "sha256": "876b7c3069479cd2830a9bfb3356847f4a5a71fbd5ed99dea39a2daf418c8879"
     },
     {
-      "path": "replays/1.0.15/22-blocked-sideways-north.hcr1",
+      "path": "replays/1.0.16/22-blocked-sideways-north.hcr1",
       "byteLength": 2552,
-      "sha256": "61f6fbbd685dd9e8dac8ab8484bab3b86e125f73ea305e1fe31e6db7cf4bfd5b"
+      "sha256": "6a1008c4e09af53aeda40a578e1bd036166a6064c81974d3f5051ab7f3e754ff"
     },
     {
-      "path": "replays/1.0.15/22-blocked-sideways-south.hcr1",
+      "path": "replays/1.0.16/22-blocked-sideways-south.hcr1",
       "byteLength": 2456,
-      "sha256": "cf21ac1e5258b533dba755b4477908ffe69cb088b348b365637025859646b8b8"
+      "sha256": "57d4b2e60602163e2b2a0e3a0f5eb7ece1b60b5d645374251c0c42e6213edb98"
     },
     {
-      "path": "replays/1.0.15/22-constructed-no-arrival-offer.hcr1",
+      "path": "replays/1.0.16/22-constructed-no-arrival-offer.hcr1",
       "byteLength": 977,
-      "sha256": "e7a5cfe967c427aa974eb5167145ecefa6970a55d20f596cfede530f2b9d9741"
+      "sha256": "9537a62863b344f1f37729d6203871d6ecebf0572fce7b83679d861a1d797510"
     },
     {
-      "path": "replays/1.0.15/22-open-auto-beats-north.hcr1",
+      "path": "replays/1.0.16/22-open-auto-beats-north.hcr1",
       "byteLength": 3617,
-      "sha256": "5812c863ef2cc693ebd5c20f9f8458d97778e2658d002ed5b57f250ad4dc6c8a"
+      "sha256": "5b5b6e3fbfa1a81e7155b1096f26101c0135bc80871bf6e63e1f0d6de2d4a104"
     },
     {
-      "path": "replays/1.0.15/22-open-auto-beats-south.hcr1",
+      "path": "replays/1.0.16/22-open-auto-beats-south.hcr1",
       "byteLength": 3617,
-      "sha256": "bbd09bc727f9c2302cfb7c59fc65c11c787b7e46d504046f602b591453159230"
+      "sha256": "df5bcd64054c60e559df86e175c5f425cb9645d57aa7c6973654e38cbaeab315"
     },
     {
-      "path": "replays/1.0.15/22-open-auto-beats-west.hcr1",
+      "path": "replays/1.0.16/22-open-auto-beats-west.hcr1",
       "byteLength": 3617,
-      "sha256": "2ae5a1c9c817f329a0c3b0fbb90c43936ea0344ead2d077be2ee1841b27f5678"
+      "sha256": "625899b55bc48c7db4bd359c754b36bf59cbb80ffeea7ebe83eb9dc0b3adcbdc"
     },
     {
-      "path": "replays/1.0.15/23-boost-to-floor.hcr1",
+      "path": "replays/1.0.16/23-boost-to-floor.hcr1",
       "byteLength": 3134,
-      "sha256": "86d7f9b85cab5937b03eb63e4c63d8bb7d947be6d92a36ac94471f51f0fa78e1"
+      "sha256": "5e2e3230b6cdebcc56aa71174d84872d56d3a8e3e79a396b7282c5da3e0d3b56"
     },
     {
-      "path": "replays/1.0.15/23-boost-to-force.hcr1",
+      "path": "replays/1.0.16/23-boost-to-force.hcr1",
       "byteLength": 2822,
-      "sha256": "4e0ec6b39e1883000da4ec42f5cfa6d8c54ce2048f35dd6058910710fa9c6d7c"
+      "sha256": "e1d0401947294e2379a62467d91f4e3d9c2003fcc17af5b90104c7884442a869"
     },
     {
-      "path": "replays/1.0.15/23-boost-to-ice.hcr1",
+      "path": "replays/1.0.16/23-boost-to-ice.hcr1",
       "byteLength": 3188,
-      "sha256": "865f9ab30708f9173d5c779e13fbcf919368d4cb44b598fc8b0ddbbb048441ed"
+      "sha256": "18a7431173491be7fbbb8cd080f5336aba1ab964ad52682be8dd506dafba19ed"
     },
     {
-      "path": "replays/1.0.15/23-boost-to-teleport.hcr1",
+      "path": "replays/1.0.16/23-boost-to-teleport.hcr1",
       "byteLength": 2732,
-      "sha256": "5f647d2f9bffd5230dadb8c2e4ca356ba19a2ac127a6ec7f2f5851102a37e455"
+      "sha256": "3a1f6e8a5e116e6157c25e1cf9fe2f30cf0f400c439c0574fe4bb2fbc3b620de"
     },
     {
-      "path": "replays/1.0.15/23-force-exit-to-floor-continuity.hcr1",
+      "path": "replays/1.0.16/23-force-exit-to-floor-continuity.hcr1",
       "byteLength": 2489,
-      "sha256": "a8fb65096708c1145bca6404d9ac928f7a1f1eaaeea180c3e5b9489012d1b30c"
+      "sha256": "e9c4faa2252abce7d4f11b17d7f06ccba84c8d105f03d8c3af5da027fde3c8c8"
     },
     {
-      "path": "replays/1.0.15/23-mobs-never-player-override.hcr1",
+      "path": "replays/1.0.16/23-mobs-never-player-override.hcr1",
       "byteLength": 1550,
-      "sha256": "4e7f40c4c11b86afc9e6fa531c94f2693cb6ef32bbc96603b84685dbe28adf8d"
+      "sha256": "66eddfe8879b5d3f9f0a638a96f021794587d9082e6072475a9a9dfd4866504a"
     },
     {
-      "path": "replays/1.0.15/23-tunnel-clearance.hcr1",
+      "path": "replays/1.0.16/23-tunnel-clearance.hcr1",
       "byteLength": 2708,
-      "sha256": "ff79455f70e37cdd9bdfb27e33c6e6eaed30d9a68a678e1358482c76c55dc14b"
+      "sha256": "5f5464ee74068d73190dff4e2bd91f343122195f84deefa3ac6e5d8ce3377e70"
     },
     {
-      "path": "replays/1.0.15/24-force-boots-on-force-pickup.hcr1",
+      "path": "replays/1.0.16/24-force-boots-on-force-pickup.hcr1",
       "byteLength": 3038,
-      "sha256": "d76f55ff3be7a46bf72b813a64b570632b073bfd5d48b578b80a398cb7a3afc0"
+      "sha256": "237d533acb41966997f1edfcd003b0019e7921eb36db6a9c2a5cccf5695956d5"
     },
     {
-      "path": "replays/1.0.15/24-ice-force-handoff.hcr1",
-      "byteLength": 1550,
-      "sha256": "6be5a863415c31ce305b19031c64d9c1500ed7e6c71c84f91e1e20036e9bf9a0"
+      "path": "replays/1.0.16/24-ice-arrival-no-run-override.hcr1",
+      "byteLength": 2909,
+      "sha256": "cca8aca283150e5565a713b964db6e30fa8321c9f16228cc76cad3c5253bdf7a"
     },
     {
-      "path": "replays/1.0.15/24-player-force-fire-loss.hcr1",
+      "path": "replays/1.0.16/24-ice-force-handoff.hcr1",
+      "byteLength": 2291,
+      "sha256": "20b262a26bb57c77bec188bddcf235c71461a7eaa1a5933abe4e82d6720dcb4e"
+    },
+    {
+      "path": "replays/1.0.16/24-player-force-fire-loss.hcr1",
       "byteLength": 1736,
-      "sha256": "631a7063178993f68db11e003addd420906be4f59af6de89cfc80a8dfd1ee42c"
+      "sha256": "27f089add45b00618f6054bd37f6e772f696b9fe99ac097b968df70d7f813ded"
     },
     {
-      "path": "replays/1.0.15/24-random-one-side-blocked.hcr1",
+      "path": "replays/1.0.16/24-player-ice-bridge-clears-run-override.hcr1",
+      "byteLength": 3077,
+      "sha256": "4e000b58d62fbb0269fc8904c6a2b3f80c05655166e2a6e8da877f1ab5de2a47"
+    },
+    {
+      "path": "replays/1.0.16/24-random-one-side-blocked.hcr1",
       "byteLength": 2732,
-      "sha256": "ff72a838b97f56c6456e7979e1a164ba62626bf7d53b392aa809936c92fd6244"
+      "sha256": "bb3569ae584c02867c4c4671ba0947257144322e089144482bcf4530f43f2d49"
     },
     {
-      "path": "replays/1.0.15/24-random-open-beats-input.hcr1",
+      "path": "replays/1.0.16/24-random-open-beats-input.hcr1",
       "byteLength": 2540,
-      "sha256": "71f15a0d592adb6a8fd8a55b542bba814fbc0037e2c5c68b34b78bcfc70a14f5"
+      "sha256": "b6e9bbd9266178eedcaa6c980fb92f9ee1f8e0373ef71145acb55261c1f3f2a3"
     },
     {
-      "path": "replays/1.0.15/24-random-three-sides-blocked.hcr1",
+      "path": "replays/1.0.16/24-random-three-sides-blocked.hcr1",
       "byteLength": 2348,
-      "sha256": "383d99fab6db64dd229754f7aa1354d6301925b1363f3ae25e78a9264fdffb8c"
+      "sha256": "289b49b43e21162ba38a3ed762d3b44d77f8734b6482d6260d29172ae08feabf"
     },
     {
-      "path": "replays/1.0.15/24-random-two-sides-blocked.hcr1",
+      "path": "replays/1.0.16/24-random-two-sides-blocked.hcr1",
       "byteLength": 2627,
-      "sha256": "e2545e330a01e3f9fbe3b36e720d4d6c8d1107ef455f5755ec38e357fd0d6261"
+      "sha256": "76c461840e63764e9bbe4bd85a21559968bc4283ac05d55bf71b6287b7cb91c0"
     },
     {
-      "path": "replays/1.0.15/24-skates-on-ice-pickup.hcr1",
+      "path": "replays/1.0.16/24-skates-on-ice-pickup.hcr1",
       "byteLength": 2924,
-      "sha256": "2de43d1e0ffb963b43bedd024f9c2b63ff14e8dff7c2e4d0b972879bfa8a1b87"
+      "sha256": "024ebee5b645c536e8a8da682c36597b5de17698557227215131872d4bc57b31"
     },
     {
-      "path": "replays/1.0.15/24-sliding-hazard-cross-section.hcr1",
+      "path": "replays/1.0.16/24-sliding-hazard-cross-section.hcr1",
       "byteLength": 1550,
-      "sha256": "d91d2ef16ce4b41d5193c604ba2ace703ec6e0e45de00d8868e940ac044366b2"
+      "sha256": "5f47cde744425678bf6e32b2005190f12b713f1c09cae19ec24030399cc85c6c"
     },
     {
-      "path": "replays/1.0.15/3-ordinary-lifecycle-tour.hcr1",
+      "path": "replays/1.0.16/3-ordinary-lifecycle-tour.hcr1",
       "byteLength": 5861,
-      "sha256": "2800cdaf988d6a378558ab4bcbba53736b69dece8cbc5e0a8aa5f41132b476aa"
+      "sha256": "20477c0a2c49fcd008d86b7153aad4c5489bbdb53fb16baffe62a089ef117086"
     },
     {
-      "path": "replays/1.0.15/4-blue-door.hcr1",
+      "path": "replays/1.0.16/4-blue-door.hcr1",
       "byteLength": 2336,
-      "sha256": "4a252a050c74725738701724c140ee796a822b33a9c0229b730776ec9b48a494"
+      "sha256": "ec5ebbc65d9ce57bae226d0401d7cede8f0afbcd4ee9a0a242781f2fb015b2f4"
     },
     {
-      "path": "replays/1.0.15/4-green-reusable.hcr1",
+      "path": "replays/1.0.16/4-green-reusable.hcr1",
       "byteLength": 2528,
-      "sha256": "08fc2949293358343aa4ad1748f55c00e8203ebe021d31f944939a1335f4d3f0"
+      "sha256": "cd4cfc578f9741f2e2ded7588cda83e564901805d7a9be51fc1c0ab3906e88a0"
     },
     {
-      "path": "replays/1.0.15/4-red-door.hcr1",
+      "path": "replays/1.0.16/4-red-door.hcr1",
       "byteLength": 2336,
-      "sha256": "bf5fb54f4895300df539594df661c3784811f992ce05b23dfb87949644b6ca31"
+      "sha256": "ed8c448ffeb5125be2568cc02c1864f6f272466480cae3e5687395d26f65d511"
     },
     {
-      "path": "replays/1.0.15/4-yellow-door.hcr1",
+      "path": "replays/1.0.16/4-yellow-door.hcr1",
       "byteLength": 2336,
-      "sha256": "ea96b64ab79c4fa54b341dac1b20f0a10ce821cf66108f517150e0fc39a19326"
+      "sha256": "3d1920caded92396bdf4aaf4802672e06840c3a8e5d241ded36767c546587c93"
     },
     {
-      "path": "replays/1.0.15/5-blue-key-fragile-block.hcr1",
+      "path": "replays/1.0.16/5-blue-key-fragile-block.hcr1",
       "byteLength": 2678,
-      "sha256": "70a34e0b40b0bacf69a52beae36412f6886fe3e8e34c655f77b93ae659d16e34"
+      "sha256": "11b8a3c691cb519dfd2c8e6af520a24bf5260c265870c10cea44b32e3a15c791"
     },
     {
-      "path": "replays/1.0.15/5-blue-key-fragile-monster.hcr1",
+      "path": "replays/1.0.16/5-blue-key-fragile-monster.hcr1",
       "byteLength": 1541,
-      "sha256": "59d724c9284b54ccde0c595ec908ecd6a1ab2991242ecabdbfc86b0b780fecda"
+      "sha256": "dcb8fd826942acd63f1c1d6694e2e1e75eb191fda7a5304bdc4f0b5f1124e202"
     },
     {
-      "path": "replays/1.0.15/5-green-key-acting-dirt.hcr1",
+      "path": "replays/1.0.16/5-green-key-acting-dirt.hcr1",
       "byteLength": 3146,
-      "sha256": "dadf62b49929f8cbffa00ad3d6aa4d553b8e67a3745d26a655d01b20d55531c6"
+      "sha256": "4fcdcfc2bf5deaf2b9ff054bf4ba49952962e4b2f8a1c4c08d75c94788ad6c59"
     },
     {
-      "path": "replays/1.0.15/5-multiple-finite-keys.hcr1",
+      "path": "replays/1.0.16/5-multiple-finite-keys.hcr1",
       "byteLength": 2756,
-      "sha256": "64274e5233a36638d3973ee46ad2a362d88cd9c2042c1a2456eaa0002232c1ea"
+      "sha256": "b46349176da93b70e18fb968f3fac7ca1982197fddef61a1c4ec03466a571340"
     },
     {
-      "path": "replays/1.0.15/5-red-key-passive-nonplayer.hcr1",
+      "path": "replays/1.0.16/5-red-key-passive-nonplayer.hcr1",
       "byteLength": 2390,
-      "sha256": "d854c1b39d956883d1ce08bffa571db51295be5a6d9998f157bb72dac23326f6"
+      "sha256": "0a31cdb4475a3ff734b7f849477078cd2694c151d759637de5330334b45c59bb"
     },
     {
-      "path": "replays/1.0.15/5-wrong-color-door.hcr1",
+      "path": "replays/1.0.16/5-wrong-color-door.hcr1",
       "byteLength": 2927,
-      "sha256": "4cebaf34a3ff7072ca8d6510290982cafe106d1600461abd76252c57b27df20c"
+      "sha256": "f83762e052f5723ddeccd68b33166a20274dc5b5dc531fb7e911bc62040042d5"
     },
     {
-      "path": "replays/1.0.15/5-yellow-key-acting-dirt.hcr1",
+      "path": "replays/1.0.16/5-yellow-key-acting-dirt.hcr1",
       "byteLength": 3434,
-      "sha256": "58dcc0ad55c828d9343cdeb02bf9d0a217e541e92a930a7b7b4bddde79ec60da"
+      "sha256": "ac6c496cf817488c5eafca0a2a27771e3f3ee35aad0ed21b9b180f38c34fc43c"
     },
     {
-      "path": "replays/1.0.15/6-header-field-override.hcr1",
+      "path": "replays/1.0.16/6-header-field-override.hcr1",
       "byteLength": 2564,
-      "sha256": "58c39b04bae2bcf3cf191e5a0ac9d87ad714716330b146395796d2bd945bd8bf"
+      "sha256": "c5e1f0a69b07ffe7f996f96bca17ac32ba697677c753c1881602874b2358053b"
     },
     {
-      "path": "replays/1.0.15/6-multiple-sockets.hcr1",
+      "path": "replays/1.0.16/6-multiple-sockets.hcr1",
       "byteLength": 2756,
-      "sha256": "7e9a3328d49042b06abc7ce9263e3b2c6e63105cf0d8332dc9737d7b9e147e3d"
+      "sha256": "ef73bbe6867317a0183015654553402a88be4499418161c720acffe25b44032d"
     },
     {
-      "path": "replays/1.0.15/6-socket-exact.hcr1",
+      "path": "replays/1.0.16/6-socket-exact.hcr1",
       "byteLength": 2564,
-      "sha256": "ecf717c8c8ffb9032274f06fe900c47ca68bdd6579a4e3d707b0d77a6d6ba1b9"
+      "sha256": "5669fbc756bf71b9750425f70cffb220a4131294d904e7b86bafc80f20d72a52"
     },
     {
-      "path": "replays/1.0.15/6-socket-short.hcr1",
+      "path": "replays/1.0.16/6-socket-short.hcr1",
       "byteLength": 2516,
-      "sha256": "7bdbfe1f2414465561cf93f2cfa44c5d8fd85c373d835d2df25a9e80363077c5"
+      "sha256": "60cde335a31eff1f46fd1e7530747ee4ea6a4d8d67e24bf7821b2c14718e573f"
     },
     {
-      "path": "replays/1.0.15/7-duplicate-tools-tour.hcr1",
+      "path": "replays/1.0.16/7-duplicate-tools-tour.hcr1",
       "byteLength": 3446,
-      "sha256": "879736c27ef87e827ea69a5f909e3425ec93a3ca67b621de90fc4d42d88694f2"
+      "sha256": "dba7990b12834568516c0b766309e45cd0e76d2a0b41031a6e44dca43fc069e1"
     },
     {
-      "path": "replays/1.0.15/7-singleton-tools-tour.hcr1",
+      "path": "replays/1.0.16/7-singleton-tools-tour.hcr1",
       "byteLength": 3971,
-      "sha256": "f6489a2740e5a64a4888c7d6c37c3ff6f35b04d4b689aae169d1b0eaae8ce66d"
+      "sha256": "23c823e46e874225f47a7d000533b77335bd428564f16022a82e5e031a60d690"
     },
     {
-      "path": "replays/1.0.15/7-thief-sequence.hcr1",
+      "path": "replays/1.0.16/7-thief-sequence.hcr1",
       "byteLength": 4478,
-      "sha256": "17aa64ff7b8db51aa7f9a74e27b0e6490c4b6ed756a932b55bdd42d4cb7b76d2"
+      "sha256": "e4e81752d3392ca18d297c80d000158072819c20607364242b981da9514bb9f8"
     },
     {
-      "path": "replays/1.0.15/76-socket-zero.hcr1",
+      "path": "replays/1.0.16/76-socket-zero.hcr1",
       "byteLength": 2336,
-      "sha256": "7ea0c8584bc374784614a03356ae8b4ec11a917f8a0f2cf704c434469d415f0a"
+      "sha256": "fea87def088b8c8cb59a17d8fc859434d6c5b5d4b388393c20242feff0b7f5c2"
     },
     {
-      "path": "replays/1.0.15/8-block-fire-win.hcr1",
+      "path": "replays/1.0.16/8-block-fire-win.hcr1",
       "byteLength": 2573,
-      "sha256": "e842788c10d19bec6b08f4242a9e641640f777dd1c77a6c2ba5bc44215e0e550"
+      "sha256": "eeced5014ca07b232f307c1530047f4660f44ac26ba16b6ad3f209faa6f59d39"
     },
     {
-      "path": "replays/1.0.15/8-block-water-win.hcr1",
+      "path": "replays/1.0.16/8-block-water-win.hcr1",
       "byteLength": 2573,
-      "sha256": "81f176d063586f8904c670ae6c73bcdf2c05f100926e4c7166e9f3ec222aab6e"
+      "sha256": "c8a1db0f226b819e0f8d527ef1f4c9e525dde21faca7e63f8b51e9c8839b7bc2"
     },
     {
-      "path": "replays/1.0.15/8-fire-boots-fire-win.hcr1",
+      "path": "replays/1.0.16/8-fire-boots-fire-win.hcr1",
       "byteLength": 2861,
-      "sha256": "79f1fffa8537096adb794b562f184552f0825caea98eebfdddc8db81d5fe9f25"
+      "sha256": "5595a8bfa446d84ce29c7ca33a631f5b2552ebabc2c373019e4247c7e7bed3fb"
     },
     {
-      "path": "replays/1.0.15/8-flippers-water-win.hcr1",
+      "path": "replays/1.0.16/8-flippers-water-win.hcr1",
       "byteLength": 2747,
-      "sha256": "121f15957bf51ecf1424765190e00127669002779171cdbcb2f1818811140998"
+      "sha256": "926a3160742ce829ed2d5ad755f1dffde360ef34f8cd7c009a9299786664f3fb"
     },
     {
-      "path": "replays/1.0.15/8-player-fire-loss.hcr1",
+      "path": "replays/1.0.16/8-player-fire-loss.hcr1",
       "byteLength": 1664,
-      "sha256": "95032ac825be7fdf8530d0d6ef18b0a21d333bbd8ddc6ecbc9aacbda97b6c11c"
+      "sha256": "8f6b6bea2261964aa3b0670ea298a31c04964393fc1625d9be8bb3d681e19309"
     },
     {
-      "path": "replays/1.0.15/8-player-water-loss.hcr1",
+      "path": "replays/1.0.16/8-player-water-loss.hcr1",
       "byteLength": 896,
-      "sha256": "fd8348d5396eb3cf6b8dc319645a288ef656aa15aa63483b50ffd063f61efe4a"
+      "sha256": "911d74830f34c0d44c7d8f4864d489efbb65e85d2e2c667c78850a6f8a27d614"
     },
     {
-      "path": "replays/1.0.15/9-monster-hazards-win.hcr1",
+      "path": "replays/1.0.16/9-monster-hazards-win.hcr1",
       "byteLength": 1541,
-      "sha256": "13a594dae0fc68f85a064bdc1ec28a6e1ad5c7340e30a730dd83533e0476abcd"
+      "sha256": "1e1111e22b9629eec0052d98717d9d128e4f890fcaa28dbfc8824775bc5cc97c"
     }
   ]
 }

@@ -27,7 +27,7 @@ import {
 } from "./legacyDatSandbox";
 
 const SERIES_FILE = "hybrid-v1:sandbox:legacy_dat_sandbox";
-const ACCEPTANCE_TIMEOUT_MS = 120_000;
+const ACCEPTANCE_TIMEOUT_MS = 240_000;
 const asset = (name: string) => new URL(`./assets/${name}`, import.meta.url);
 const TRICK_WALLS_NORTH_WEST_HINT = [
   "The ball in the small enclosure intentionally presses the ordinary wall to its right; it causes no reveal.",
@@ -56,14 +56,14 @@ const EXPECTED_GAMEPLAY_HASHES = [
   "402577b61238efa81003ca6f27142f29c7e7d37a502aff2085f71152b7d421a1",
   "82ffb10ecd0d5f60573685885c8271718bc7d61212f987d1920a7fad3a84d670",
   "fa64f8421b353790a7e971f4b7f369c00ab28c3df62617e493649412a16080e3",
-  "8568d4a7a77825bc996ab072a59ce263abb74b29c9b74333674ef75ee597c237",
+  "2b0c42311ec4c2bc74af40a8f63eb1fd661feadb08ac229d56214fc101bfa59c",
   "416ed2525c9190c1cf982e77847388337ec9ed0ee0dc8961368524e0d00cb892",
   "4eeafedc030eb751f261309c8255cc5de76eaa8a2c3d200bf423c1a2234697fe",
   "1031e6c27242ed36e0daff0925697522bd6e417f07df40102ae67a0ebd46627f",
   "15ada266ce71243e609d701cf9c6e80f9b8478297ef586f92e3a35f509cc6051",
   "4836f5806ad980da1cc260b81c02c1d0da0666550c88b179a680e79a77844ffc",
   "bbd6672ca9bb304a059ad781d19ae6426fd984a992fc7fb0309d4956a985ee5a",
-  "0985ce2ed1d962901a21a3979326e7a094360f888c58c6609a6e34e1da69162d",
+  "b0e9f181504d91f3c51c513ffc29464b33a5831cb47ccb679c91339670bdbe52",
 ] as const;
 
 async function loadModule(): Promise<HybridCcV1WasmModule> {
@@ -229,9 +229,9 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
       })),
     ));
     expect(loaded.gameplayHashes).toEqual(EXPECTED_GAMEPLAY_HASHES);
-    expect(loaded.referenceReplays).toHaveLength(126);
+    expect(loaded.referenceReplays).toHaveLength(128);
     expect(loaded.referenceReplays.filter((replay) => replay.expectedOutcome === "win"))
-      .toHaveLength(118);
+      .toHaveLength(120);
     expect(loaded.referenceReplays.filter((replay) => replay.expectedOutcome === "loss"))
       .toHaveLength(8);
     expect(loaded.boundedProofs).toHaveLength(1);
@@ -424,6 +424,60 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
       }
     }
     await fixture.adapter.disposeSession(force);
+  }, ACCEPTANCE_TIMEOUT_MS);
+
+  it("projects moving-block settlement and force-run provenance at their exact proof boundaries", async () => {
+    const fixture = await loadRealSandboxFixture();
+
+    let settlement = await startReferenceReplay(fixture, "initial-block-stationary");
+    settlement = await advanceToReplayBoundary(fixture, settlement, 40);
+    const repushedBlock = settlement.frame.render?.actors.find((actor) => (
+      actor.id === MS_TILE.Block && actor.pos === 23 * 32 + 8
+    ));
+    expect(settlement.frame.snapshot.tick).toBe(80);
+    expect(settlement.frame.render?.chip).toMatchObject({
+      pos: 23 * 32 + 7,
+      dir: MS_DIRECTION.east,
+      moving: 8,
+    });
+    expect(repushedBlock).toMatchObject({
+      dir: MS_DIRECTION.east,
+      moving: 8,
+    });
+    await fixture.adapter.disposeSession(settlement);
+
+    let plainIce = await startReferenceReplay(fixture, "ice-arrival-no-run-override");
+    plainIce = await advanceToReplayBoundary(fixture, plainIce, 83);
+    expect(plainIce.frame.snapshot.tick).toBe(166);
+    expect(plainIce.frame.render?.chip).toMatchObject({
+      pos: 20 * 32 + 21,
+      dir: MS_DIRECTION.east,
+      moving: 8,
+    });
+    await fixture.adapter.disposeSession(plainIce);
+
+    let forcedBridge = await startReferenceReplay(fixture, "ice-force-handoff");
+    forcedBridge = await advanceToReplayBoundary(fixture, forcedBridge, 58);
+    expect(forcedBridge.frame.snapshot.tick).toBe(116);
+    expect(forcedBridge.frame.render?.chip).toMatchObject({
+      pos: 19 * 32 + 26,
+      dir: MS_DIRECTION.north,
+      moving: 8,
+    });
+    await fixture.adapter.disposeSession(forcedBridge);
+
+    let playerBridge = await startReferenceReplay(
+      fixture,
+      "player-ice-bridge-clears-run-override",
+    );
+    playerBridge = await advanceToReplayBoundary(fixture, playerBridge, 78);
+    expect(playerBridge.frame.snapshot.tick).toBe(156);
+    expect(playerBridge.frame.render?.chip).toMatchObject({
+      pos: 26 * 32 + 21,
+      dir: MS_DIRECTION.east,
+      moving: 8,
+    });
+    await fixture.adapter.disposeSession(playerBridge);
   }, ACCEPTANCE_TIMEOUT_MS);
 
   it("changes player surface loops exactly when on-terrain boot pickups complete", async () => {

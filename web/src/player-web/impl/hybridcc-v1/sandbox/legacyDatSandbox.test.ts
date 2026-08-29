@@ -68,6 +68,7 @@ blocks.second-block-rejects
 blocks.side-slap
 blocks.slap-all-quadrants
 blocks.slap-reveal
+blocks.sliding-push-settlement
 blocks.terrain-driven-contact
 blocks.water-fill
 force.arrival-all-blocked
@@ -80,11 +81,14 @@ force.constructed-no-arrival-offer
 force.exit-to-floor-continuity
 force.first-monster-arrival-fast
 force.first-player-arrival-fast
+force.forced-ice-bridge-run-override
+force.ice-arrival-no-run-override
 force.initial-block-owned
 force.initial-monster-owned
 force.initial-player-owned
 force.mob-never-player-overrides
 force.open-auto-beats-input
+force.player-ice-bridge-clears-run-override
 force.random-all-blocked-retry
 force.random-fixed-permutation
 force.random-open-beats-input
@@ -225,21 +229,62 @@ describe("Legacy DAT Sandbox sidecars", () => {
     expect(index).toMatchObject({
       datSha256: LEGACY_DAT_SANDBOX_DAT_SHA256,
       hintSupplementSha256: LEGACY_DAT_SANDBOX_HINTS_SHA256,
-      ruleset: "1.0.15",
+      ruleset: "1.0.16",
     });
-    expect(index.replays).toHaveLength(126);
-    expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(126);
+    expect(index.replays).toHaveLength(128);
+    expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(128);
     expect(new Set(index.replays.map((replay) => replay.levelNumber))).toEqual(
       new Set(EXPECTED_ROOMS.map(([number]) => number)),
     );
-    expect(index.replays.filter((replay) => replay.expectedOutcome === "win")).toHaveLength(118);
+    expect(index.replays.filter((replay) => replay.expectedOutcome === "win")).toHaveLength(120);
     expect(index.replays.filter((replay) => replay.expectedOutcome === "loss")).toHaveLength(8);
-    expect(index.replays.every((replay) => replay.path.startsWith("replays/1.0.15/"))).toBe(true);
+    expect(index.replays.every((replay) => replay.path.startsWith("replays/1.0.16/"))).toBe(true);
 
     const terminalScenarioIds = index.replays.flatMap((replay) => replay.scenarioIds);
-    expect(terminalScenarioIds).toHaveLength(144);
-    expect(new Set(terminalScenarioIds).size).toBe(134);
+    expect(terminalScenarioIds).toHaveLength(148);
+    expect(new Set(terminalScenarioIds).size).toBe(138);
     expect(terminalScenarioIds).not.toContain("force.random-all-blocked-retry");
+
+    expect(index.replays).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "initial-block-stationary",
+        entryOrdinal: 18,
+        levelNumber: 17,
+        finalBoundary: 104,
+        expectedOutcome: "win",
+        scenarioIds: [
+          "ice.initial-block-stationary",
+          "blocks.sliding-push-settlement",
+        ],
+      }),
+      expect.objectContaining({
+        id: "ice-arrival-no-run-override",
+        entryOrdinal: 25,
+        levelNumber: 24,
+        finalBoundary: 113,
+        expectedOutcome: "win",
+        scenarioIds: ["force.ice-arrival-no-run-override"],
+      }),
+      expect.objectContaining({
+        id: "ice-force-handoff",
+        entryOrdinal: 25,
+        levelNumber: 24,
+        finalBoundary: 88,
+        expectedOutcome: "win",
+        scenarioIds: [
+          "sliding.ice-force-handoff",
+          "force.forced-ice-bridge-run-override",
+        ],
+      }),
+      expect.objectContaining({
+        id: "player-ice-bridge-clears-run-override",
+        entryOrdinal: 25,
+        levelNumber: 24,
+        finalBoundary: 120,
+        expectedOutcome: "win",
+        scenarioIds: ["force.player-ice-bridge-clears-run-override"],
+      }),
+    ]));
 
     expect(index.boundedProofs).toEqual([expect.objectContaining({
       id: "random-all-blocked-retry",
@@ -254,12 +299,13 @@ describe("Legacy DAT Sandbox sidecars", () => {
     expect(new Set([
       ...index.replays.map((replay) => replay.id),
       ...index.boundedProofs.map((proof) => proof.id),
-    ]).size).toBe(127);
+    ]).size).toBe(129);
     const coveredScenarioIds = [
       ...terminalScenarioIds,
       ...index.boundedProofs.flatMap((proof) => proof.scenarioIds),
     ];
-    expect(new Set(coveredScenarioIds).size).toBe(135);
+    expect(coveredScenarioIds).toHaveLength(149);
+    expect(new Set(coveredScenarioIds).size).toBe(139);
     expect([...new Set(coveredScenarioIds)].sort()).toEqual(EXPECTED_SCENARIO_IDS);
   });
 
@@ -297,7 +343,7 @@ describe("Legacy DAT Sandbox sidecars", () => {
 
   it("rejects any HCR1 path attached to bounded evidence", async () => {
     const index = JSON.parse(await readFile(asset("replay-index.json"), "utf8"));
-    index.boundedProofs[0].path = "replays/1.0.15/random-all-blocked-retry.hcr1";
+    index.boundedProofs[0].path = "replays/1.0.16/random-all-blocked-retry.hcr1";
 
     expect(() => parseLegacyDatSandboxReplayIndex(
       new TextEncoder().encode(JSON.stringify(index)),
