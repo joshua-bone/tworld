@@ -23,11 +23,11 @@ export const LEGACY_DAT_SANDBOX_ASSET_ID = "legacy_dat_sandbox";
 export const LEGACY_DAT_SANDBOX_FILENAME = "legacy_dat_sandbox.dat";
 export const LEGACY_DAT_SANDBOX_NAME = "Legacy DAT Sandbox";
 export const LEGACY_DAT_SANDBOX_DAT_SHA256 =
-  "32b545ac4277053b4467eabbeb2b8d48420df7870820945e2e991d5e5dc1235d";
+  "ccb4359eeba904d376688d38754808afb610891585bcda60c745efd4e0a68d7d";
 export const LEGACY_DAT_SANDBOX_HINTS_SHA256 =
-  "98f1e5be2e1cbfe51c88c463515a5ac5360ad73156e40a8e61810a684bcfceab";
+  "c26a72eaa92c324a333cdc728146d178c3ceb552b74eee3d5021f90b26d655d6";
 export const LEGACY_DAT_SANDBOX_REPLAY_INDEX_SHA256 =
-  "6d4c15769b342ca75b9d6cfcf5def08ea8ab671a516c4100e7c440b685d969d6";
+  "7bf4037ef2d71c67fb38e31f1899041a13adfc5572eb3677fc0b13d2f8d58c3a";
 
 interface HintTarget {
   kind: "tile";
@@ -81,10 +81,16 @@ interface ReplayIndexBoundedProof {
   expectedOutcome: "unfinished";
 }
 
+interface ReplayIndexProofPolicy {
+  strictCausalScenarioPlacements: number;
+  legacyExecutableScenarioPlacements: number;
+}
+
 interface ReplayIndex {
   datSha256: string;
   hintSupplementSha256: string;
   ruleset: string;
+  proofPolicy: ReplayIndexProofPolicy;
   replays: ReplayIndexEntry[];
   boundedProofs: ReplayIndexBoundedProof[];
 }
@@ -238,6 +244,10 @@ export function parseLegacyDatSandboxReplayIndex(bytes: Uint8Array): ReplayIndex
   if (root.schema !== "hybridcc.legacy-dat-sandbox.replay-index.v2") {
     throw new Error("Legacy DAT Sandbox replay index uses an unsupported schema.");
   }
+  const proofPolicy = record(
+    root.proofPolicy,
+    "Legacy DAT Sandbox replay index proof policy",
+  );
   const parseScenarioIds = (value: unknown, label: string): string[] => {
     const scenarioIds = array(value, `${label} scenario IDs`).map((scenarioValue, scenarioIndex) => {
       const id = string(scenarioValue, `${label} scenario ID ${scenarioIndex}`);
@@ -348,6 +358,18 @@ export function parseLegacyDatSandboxReplayIndex(bytes: Uint8Array): ReplayIndex
       "Legacy DAT Sandbox replay-index hint hash",
     ),
     ruleset: string(root.ruleset, "Legacy DAT Sandbox replay-index ruleset"),
+    proofPolicy: {
+      strictCausalScenarioPlacements: integer(
+        proofPolicy.strictCausalScenarioPlacements,
+        "Legacy DAT Sandbox strict causal scenario placements",
+        1,
+      ),
+      legacyExecutableScenarioPlacements: integer(
+        proofPolicy.legacyExecutableScenarioPlacements,
+        "Legacy DAT Sandbox legacy executable scenario placements",
+        1,
+      ),
+    },
     replays,
     boundedProofs,
   };
@@ -546,9 +568,15 @@ export async function loadLegacyDatSandbox(
     };
   });
 
+  const evidencedEntryOrdinals = new Set([
+    ...replayIndex.replays.map((replay) => replay.entryOrdinal),
+    ...replayIndex.boundedProofs.map((proof) => proof.entryOrdinal),
+  ]);
   for (const level of levels) {
-    if (!referenceReplays.some((replay) => replay.levelNumber === level.nativeLevel.number)) {
-      throw new Error(`Legacy DAT Sandbox level ${level.nativeLevel.number} has no reference replay.`);
+    if (!evidencedEntryOrdinals.has(level.entryOrdinal)) {
+      throw new Error(
+        `Legacy DAT Sandbox entry ${level.entryOrdinal} (level ${level.nativeLevel.number}) has neither a terminal reference replay nor a bounded proof.`,
+      );
     }
   }
   return { levels, gameplayHashes, referenceReplays, boundedProofs };
