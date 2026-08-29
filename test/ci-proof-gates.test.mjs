@@ -73,6 +73,18 @@ const UNUSED_STATIC_COMPOSERS = [
   "web/src/ccsolver-runtime/compose/projectVerifiedTworldLevelFacts.ts",
 ];
 
+const PRODUCER_REACHABLE_CONTENT_API_FILES = [
+  "web/src/content/api/contentBinary.ts",
+  "web/src/content/api/ruleset.ts",
+  "web/src/content/api/score.ts",
+  "web/src/content/api/series-file.ts",
+  "web/src/content/api/seriesConfig.ts",
+  "web/src/content/api/seriesDat.ts",
+  "web/src/content/api/solution-file.ts",
+  "web/src/content/api/solutionDataCodec.ts",
+  "web/src/content/api/solutionFileFormat.ts",
+];
+
 const EXPECTED_PROOFS = {
   p1b: {
     count: 12,
@@ -386,6 +398,11 @@ test("checked proof specs bind the audited P1B, P5, and P6A leaves", async () =>
 
   const p5Spec = await readJson(PROOF_BINDINGS.p5.specPath);
   const p5InputTrees = treePaths(p5Spec.inputScopes);
+  assert.equal(p5InputTrees.includes("web/src/content"), false);
+  assert.deepEqual(
+    filePaths(p5Spec.inputScopes).filter((path) => path.startsWith("web/src/content/")),
+    PRODUCER_REACHABLE_CONTENT_API_FILES,
+  );
   assert.equal(p5InputTrees.includes("ccsolver/fixtures/golden/p3/cclp1-001"), false);
   assert.ok(p5InputTrees.includes("ccsolver/src/events"));
   assert.ok(p5InputTrees.includes("ccsolver/src/plan"));
@@ -425,6 +442,11 @@ test("checked proof specs bind the audited P1B, P5, and P6A leaves", async () =>
   assert.ok(treePaths(p6aSpec.inputScopes).includes("ccsolver/src/plan"));
   const p6aInputs = new Set(filePaths(p6aSpec.inputScopes));
   const p6aInputTrees = treePaths(p6aSpec.inputScopes);
+  assert.equal(p6aInputTrees.includes("web/src/content"), false);
+  assert.deepEqual(
+    [...p6aInputs].filter((path) => path.startsWith("web/src/content/")),
+    PRODUCER_REACHABLE_CONTENT_API_FILES,
+  );
   assert.equal(p6aInputTrees.includes("web/src/ccsolver-runtime/compose/p3-review"), false);
   assert.equal(p6aInputTrees.includes("web/src/ccsolver-runtime/compose/p5-review"), false);
   for (const path of [
@@ -459,6 +481,13 @@ test("checked proof specs bind the audited P1B, P5, and P6A leaves", async () =>
   ]) {
     assert.equal(p6aInputs.has(presentationOnly), false, presentationOnly);
   }
+
+  const p7PresentationSpec = await readJson(PROOF_BINDINGS["p7-presentation"].specPath);
+  assert.equal(
+    treePaths(p7PresentationSpec.inputScopes).includes("web/src/content"),
+    true,
+    "the presentation proof must continue to bind the full deployable content tree",
+  );
 
   const p6aLeaf = readdir(
     resolve(repositoryRoot, "ccsolver/fixtures/golden/p6a/cclp1-001"),
@@ -743,6 +772,49 @@ test("selects P7 engine work by pack while keeping presentation independently at
   assert.equal(workflowOutputs(presentation).p7_selected, true);
 });
 
+test("a refreshed P7 presentation receipt cannot select Key Pyramid or native proof gates", async (t) => {
+  const fixture = await makeResolverFixture(t);
+  const binding = PROOF_BINDINGS["p7-presentation"];
+  await write(
+    fixture.root,
+    fixture.fixturePaths["p7-presentation"].input,
+    "coherently refreshed presentation source\n",
+  );
+  await writeProofReceipt({
+    receiptPath: binding.receiptPath,
+    root: fixture.root,
+    specPath: binding.specPath,
+  });
+
+  const result = await resolveProofGates({
+    changedPaths: [binding.receiptPath],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+
+  assert.equal(result.currentReceiptsValid, true);
+  assert.equal(result.proofs["p7-presentation"].heavy, true);
+  assert.equal(result.proofs["p7-presentation"].reuse, false);
+  assert.equal(result.gates.p7_presentation_attest, true);
+  assert.equal(result.gates.workspace, true);
+  assert.equal(result.gates.browser, true);
+  for (const gate of [
+    "native_qt",
+    "native_sdl_oracle",
+    "static_corpus_p1b",
+    "p5",
+    "runtime_p6_evidence",
+    "training_p7c",
+    "training_p7d",
+    "training_p7e",
+  ]) {
+    assert.equal(result.gates[gate], false, gate);
+  }
+  assert.equal(result.proofs.p5.heavy, false);
+  assert.equal(result.proofs.p6a.heavy, false);
+  assert.equal(result.proofs.p7c.heavy, false);
+});
+
 test("keeps presentation DTO drift out of engine receipts but binds browser transport semantics", async (t) => {
   const presentationFixture = await makeResolverFixture(t);
   const presentationBinding = PROOF_BINDINGS["p7-presentation"];
@@ -1013,6 +1085,36 @@ test("fails closed on a stale current receipt and forces all selected proofs on 
   );
   assertInactiveProof(dispatch.proofs, "p7d");
   assertInactiveProof(dispatch.proofs, "p7e");
+});
+
+test("a malformed known receipt still fails closed globally", async (t) => {
+  const fixture = await makeResolverFixture(t);
+  const receiptPath = PROOF_BINDINGS["p7-presentation"].receiptPath;
+  await write(fixture.root, receiptPath, "{}\n");
+
+  const result = await resolveProofGates({
+    changedPaths: [receiptPath],
+    root: fixture.root,
+    trustedRoot: fixture.trustedRoot,
+  });
+
+  assert.equal(result.currentReceiptsValid, false);
+  assert.equal(result.allHeavy, true);
+  assert.equal(result.proofs["p7-presentation"].currentValid, false);
+  assert.equal(
+    Object.values(result.proofs)
+      .filter(({ active }) => active)
+      .every(({ heavy, reuse }) => heavy && !reuse),
+    true,
+  );
+  assert.equal(
+    Object.entries(result.gates)
+      .filter(([gate]) => !["training_p7d", "training_p7e"].includes(gate))
+      .every(([, selected]) => selected),
+    true,
+  );
+  assertInactiveProof(result.proofs, "p7d");
+  assertInactiveProof(result.proofs, "p7e");
 });
 
 test("treats missing trusted receipts and unknown paths as all-heavy, never as cache authority", async (t) => {
