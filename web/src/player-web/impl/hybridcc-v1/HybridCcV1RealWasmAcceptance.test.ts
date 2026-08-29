@@ -824,7 +824,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
     const presentedX: number[] = [];
 
     try {
-      for (let hostSample = 0; hostSample < 28; hostSample += 1) {
+      for (let hostSample = 0; hostSample < 32; hostSample += 1) {
         session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.east);
         const snapshot = harness.engine.snapshot();
         if (hostSample % 4 === 0) {
@@ -852,7 +852,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
         },
       });
 
-      for (const startBoundary of [2n, 3n, 4n, 5n]) {
+      for (const startBoundary of [2n, 3n, 4n]) {
         const originX = Number(startBoundary - 1n);
         const snapshot = snapshotsByBoundary.get(startBoundary);
         const chip = snapshot?.actors.find(({ kind }) => kind === ELEMENT.player);
@@ -874,7 +874,22 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
         ))).toBe(false);
       }
 
-      const ordinary = snapshotsByBoundary.get(6n);
+      const floorLanding = snapshotsByBoundary.get(5n);
+      expect(floorLanding?.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 5, y: 1, z: 0 },
+        idleReason: IDLE_REASON.inProgress,
+        movement: {
+          origin: { x: 4, y: 1, z: 0 },
+          destination: { x: 5, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 5n,
+          completionBoundary: 7n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.boosted,
+        },
+      });
+
+      const ordinary = snapshotsByBoundary.get(7n);
       expect(ordinary?.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
         logicalPosition: { x: 6, y: 1, z: 0 },
         idleReason: IDLE_REASON.inProgress,
@@ -882,8 +897,8 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           origin: { x: 5, y: 1, z: 0 },
           destination: { x: 6, y: 1, z: 0 },
           direction: DIRECTION.east,
-          startBoundary: 6n,
-          completionBoundary: 8n,
+          startBoundary: 7n,
+          completionBoundary: 9n,
           owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
           movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
         },
@@ -893,7 +908,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
         index === 0 || presentationTicks[index] !== presentationTicks[index - 1]
       ));
       expect(twentyHertzX).toEqual([
-        0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 42, 44, 46,
+        0, 4, 8, 12, 16, 20, 24, 28, 32, 34, 36, 38, 40, 42, 44, 46,
       ]);
       expect(twentyHertzX.slice(1).every((x, index) => x > twentyHertzX[index]!)).toBe(true);
       expect(harness.engine.invariantStatus()).toBe(0);
@@ -957,7 +972,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           destination: { x: 2, y: 1, z: 0 },
           direction: DIRECTION.east,
           startBoundary: 2n,
-          completionBoundary: 3n,
+          completionBoundary: 4n,
           owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
           movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.forced,
         },
@@ -1521,12 +1536,20 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           },
           actor: { id: ELEMENT.player, direction: DIRECTION.east },
         },
-        {},
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+        },
         {},
         {},
       ],
       1,
       0,
+      HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+      HYBRID_CC_V1_MOVEMENT_CLASS.forced,
       HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
       HYBRID_CC_V1_MOVEMENT_CLASS.forced,
     ],
@@ -1539,13 +1562,15 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
         {},
         {},
       ],
-      2,
       1,
+      0,
+      HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+      HYBRID_CC_V1_MOVEMENT_CLASS.fast,
       HYBRID_CC_V1_MOVEMENT_OWNER.ice,
       HYBRID_CC_V1_MOVEMENT_CLASS.sliding,
     ],
   ] as const)(
-    "keeps the fast %s exit adjacent to completion-ready ordinary presentation",
+    "keeps the fast %s landing/internal segment adjacent to its ordinary landing",
     async (
       name,
       cells,
@@ -1553,6 +1578,8 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       fastOriginX,
       fastOwner,
       fastMovementClass,
+      ordinaryLandingOwner,
+      ordinaryLandingClass,
     ) => {
       const module = await loadModule();
       const nativeLevel = inspectHybridCcV1NativeLevel(
@@ -1608,7 +1635,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
 
         const fast = snapshotsByBoundary.get(BigInt(fastBoundary))
           ?.presentation.playerMotion;
-        const ordinary = snapshotsByBoundary.get(BigInt(fastBoundary + 1))
+        const ordinaryLanding = snapshotsByBoundary.get(BigInt(fastBoundary + 1))
           ?.presentation.playerMotion;
         const following = snapshotsByBoundary.get(BigInt(fastBoundary + 3))
           ?.presentation.playerMotion;
@@ -1621,17 +1648,17 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           owner: fastOwner,
           movementClass: fastMovementClass,
         });
-        expect(ordinary).toMatchObject({
+        expect(ordinaryLanding).toMatchObject({
           origin: { x: fastOriginX + 1, y: 0, z: 0 },
           destination: { x: fastOriginX + 2, y: 0, z: 0 },
           startBoundary: BigInt(fastBoundary + 1),
           completionBoundary: BigInt(fastBoundary + 3),
           presentationSampleCount: 4,
-          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
-          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+          owner: ordinaryLandingOwner,
+          movementClass: ordinaryLandingClass,
         });
-        expect(fast?.completionBoundary).toBe(ordinary?.startBoundary);
-        expect(ordinary?.completionBoundary).toBe(following?.startBoundary);
+        expect(fast?.completionBoundary).toBe(ordinaryLanding?.startBoundary);
+        expect(ordinaryLanding?.completionBoundary).toBe(following?.startBoundary);
 
         const traceTicks = ticks.slice(firstFastHostSample);
         const traceMoving = moving.slice(firstFastHostSample);
@@ -1660,7 +1687,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
   );
 
   it.each(FORCE_OVERRIDE_PHASE_CASES)(
-    "continues a $fixture.name blocked-force fallback at B3 when held from 25 ms host phase $inputPhase",
+    "continues a $fixture.name floor-bound force fallback at B4 from host phase $inputPhase",
     async ({ fixture, inputPhase }) => {
       const module = await loadModule();
       const nativeLevel = inspectHybridCcV1NativeLevel(
@@ -1698,7 +1725,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       const overrideOrigin = { x: 3, y: 3, z: 0 };
       const ticks: number[] = [];
       const coordinates: number[] = [];
-      let boundaryThree: ReturnType<typeof engine.snapshot> | undefined;
+      let boundaryFour: ReturnType<typeof engine.snapshot> | undefined;
       try {
         // B1 records the blocked automatic force attempt. Only that failure
         // makes a player fallback eligible at the following boundary.
@@ -1718,8 +1745,8 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
 
         const capture = () => {
           const snapshot = engine.snapshot();
-          if (snapshot.header.logicBoundary === 3n && !boundaryThree) {
-            boundaryThree = snapshot;
+          if (snapshot.header.logicBoundary === 4n && !boundaryFour) {
+            boundaryFour = snapshot;
           }
           const chip = session.frame.render?.chip;
           if (!chip) throw new Error(`Hybrid v1 ${fixture.name} fixture lost Chip`);
@@ -1743,7 +1770,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
             destination: fixture.overrideDestination,
             direction: fixture.direction,
             startBoundary: 2n,
-            completionBoundary: 3n,
+            completionBoundary: 4n,
             owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
             movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.boosted,
           },
@@ -1753,20 +1780,20 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           },
         });
 
-        for (let sample = 1; sample < 14; sample += 1) {
+        for (let sample = 1; sample < 18; sample += 1) {
           session = await adapter.advanceSession(session, fixture.input);
           capture();
         }
 
-        const continuation = boundaryThree;
-        if (!continuation) throw new Error("Hybrid v1 fixture did not reach B3");
+        const continuation = boundaryFour;
+        if (!continuation) throw new Error("Hybrid v1 fixture did not reach B4");
         const continuationChip = continuation.actors.find(({ kind }) => (
           kind === ELEMENT.player
         ));
 
-        // This is the regression boundary: B3 must complete the N2->N3 boost
-        // and immediately begin ordinary N3->N5 movement. A cooldown here is
-        // the visible 100 ms sideways/backward hitch.
+        // This is the regression boundary: B4 must complete the N2->N4
+        // floor-bound override and immediately begin ordinary N4->N6
+        // movement. A cooldown here is the visible sideways/backward hitch.
         expect(continuationChip).toMatchObject({
           idleReason: IDLE_REASON.inProgress,
           hasMovement: true,
@@ -1774,12 +1801,12 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
             origin: fixture.overrideDestination,
             destination: fixture.continuationDestination,
             direction: fixture.direction,
-            startBoundary: 3n,
-            completionBoundary: 5n,
+            startBoundary: 4n,
+            completionBoundary: 6n,
             owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
             movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
           },
-          nextOrdinaryBoundary: 5n,
+          nextOrdinaryBoundary: 6n,
           playerMomentum: {
             exitCreditAvailable: false,
             exitCreditEligibleBoundary: 0n,
@@ -1801,13 +1828,13 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
         expect(movementEvents).toEqual([
           expect.objectContaining({
             kind: HYBRID_CC_V1_EVENT.moveCompleted,
-            logicBoundary: 3n,
+            logicBoundary: 4n,
             owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
             movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.boosted,
           }),
           expect.objectContaining({
             kind: HYBRID_CC_V1_EVENT.moveStarted,
-            logicBoundary: 3n,
+            logicBoundary: 4n,
             owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
             movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
           }),
@@ -1817,9 +1844,9 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
         ))).toBe(false);
 
         // Readiness is completion-derived. This assertion is deliberately
-        // checked after the B3 seam so an old artifact reports the observable
-        // cooldown regression at B3 rather than stopping at an internal field.
-        expect(overrideChip?.nextOrdinaryBoundary).toBe(3n);
+        // checked after the B4 seam so an old artifact reports the observable
+        // duration mismatch rather than stopping at an internal field.
+        expect(overrideChip?.nextOrdinaryBoundary).toBe(4n);
 
         const firstCoordinate = directionalRenderCoordinate(
           {
@@ -1829,15 +1856,19 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           width,
           fixture.direction,
         );
-        const expectedOffsets = [0, 0, 4, 4, 8, 8, 10, 10, 12, 12, 14, 14, 16, 16];
-        expect(ticks).toEqual([4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10]);
+        const expectedOffsets = [
+          0, 0, 2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 12, 12, 14, 14, 16, 16,
+        ];
+        expect(ticks).toEqual([
+          4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12,
+        ]);
         expect(coordinates).toEqual(expectedOffsets.map((offset) => firstCoordinate + offset));
 
         const twentyHertzCoordinates = coordinates.filter((_, index) => (
           index === 0 || ticks[index] !== ticks[index - 1]
         ));
         expect(twentyHertzCoordinates).toEqual(
-          [0, 4, 8, 10, 12, 14, 16].map((offset) => firstCoordinate + offset),
+          [0, 2, 4, 6, 8, 10, 12, 14, 16].map((offset) => firstCoordinate + offset),
         );
         expect(twentyHertzCoordinates.slice(1).every((coordinate, index) => (
           coordinate > twentyHertzCoordinates[index]!
@@ -2022,7 +2053,29 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
     }
   });
 
-  it("keeps the source pad as the final legal teleport exit", async () => {
+  it.each([
+    ["ordinary floor", {}, 5n, 4, HYBRID_CC_V1_MOVEMENT_CLASS.ordinary],
+    ["ice", { terrain: { id: ELEMENT.ice } }, 4n, 2, HYBRID_CC_V1_MOVEMENT_CLASS.fast],
+    [
+      "force floor",
+      {
+        terrain: {
+          id: ELEMENT.forceFloor,
+          direction: DIRECTION.east,
+          rule: RULE.fromCenter,
+        },
+      },
+      4n,
+      2,
+      HYBRID_CC_V1_MOVEMENT_CLASS.fast,
+    ],
+  ] as const)("keeps the source pad as the final legal teleport exit onto %s", async (
+    _name,
+    destination,
+    completionBoundary,
+    presentationSampleCount,
+    movementClass,
+  ) => {
     const module = await loadModule();
     const channel = "SRC";
     const engine = createHybridCcV1Engine(module, nativeLine("real-Wasm source teleport exit", [
@@ -2035,7 +2088,7 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           channel,
         },
       },
-      {},
+      destination,
       {
         terrain: {
           id: ELEMENT.teleport,
@@ -2063,11 +2116,19 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           origin: { x: 1, y: 0, z: 0 },
           destination: { x: 2, y: 0, z: 0 },
           startBoundary: 3n,
-          completionBoundary: 5n,
+          completionBoundary,
           owner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
-          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+          movementClass,
           discontinuous: false,
         },
+      });
+      expect(snapshot.presentation.playerMotion).toMatchObject({
+        startBoundary: 3n,
+        completionBoundary,
+        presentationSampleCount,
+        owner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
+        movementClass,
+        discontinuous: false,
       });
       expect(engine.invariantStatus()).toBe(0);
     } finally {
@@ -2193,23 +2254,53 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
           origin: { x: 0, y: 0, z: 0 },
           destination: { x: 1, y: 0, z: 0 },
           startBoundary: 1n,
-          completionBoundary: 2n,
+          completionBoundary: 3n,
         },
       });
       expect(dead.events.filter(({ kind }) => kind === EVENT.terminal)).toEqual([
         expect.objectContaining({ lossCause: LOSS_CAUSE.dirtBlock }),
       ]);
 
-      const postDeathStep = engine.logicStep(HYBRIDCC_V1_INPUT.east);
-      const continued = engine.snapshot();
-      const arrivedBlock = continued.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+      const firstPostDeathStep = engine.logicStep(HYBRIDCC_V1_INPUT.east);
+      const stillMoving = engine.snapshot();
+      const continuingBlock = stillMoving.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
 
-      expect(postDeathStep).toMatchObject({
+      expect(firstPostDeathStep).toMatchObject({
         operationStatus: 0,
         stepStatus: 0,
         stateChanged: true,
         runtime: {
           logicBoundary: 2n,
+          outcome: {
+            kind: OUTCOME.loss,
+            logicBoundary: 1n,
+            lossCause: LOSS_CAUSE.dirtBlock,
+          },
+        },
+      });
+      expect(continuingBlock).toMatchObject({
+        id: initialBlock?.id,
+        logicalPosition: { x: 1, y: 0, z: 0 },
+        alive: true,
+        hasMovement: true,
+        movement: {
+          startBoundary: 1n,
+          completionBoundary: 3n,
+        },
+      });
+      expect(stillMoving.header.outcome).toEqual(dead.header.outcome);
+      expect(stillMoving.events.filter(({ kind }) => kind === EVENT.terminal)).toHaveLength(0);
+
+      const completionStep = engine.logicStep(HYBRIDCC_V1_INPUT.east);
+      const continued = engine.snapshot();
+      const arrivedBlock = continued.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+
+      expect(completionStep).toMatchObject({
+        operationStatus: 0,
+        stepStatus: 0,
+        stateChanged: true,
+        runtime: {
+          logicBoundary: 3n,
           outcome: {
             kind: OUTCOME.loss,
             logicBoundary: 1n,

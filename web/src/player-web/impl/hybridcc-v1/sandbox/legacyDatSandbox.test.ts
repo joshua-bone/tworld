@@ -36,7 +36,7 @@ const EXPECTED_ROOMS = [
   [17, ["initial-player-on-ice", "initial-monsters-on-ice", "initial-block-on-ice", "first-arrivals-are-fast"]],
   [18, ["skates-make-ice-ordinary", "straight-ice-owns-forward", "blocked-forward-reverses", "fully-blocked-ice-retries"]],
   [19, ["north-corners", "corner-reverse-fallbacks", "south-corners", "fully-blocked-corner"]],
-  [20, ["eight-cell-continuous-slide", "fast-ice-exit-readiness", "block-autoslide-is-not-pushing", "slow-mobs-and-sliding-tank"]],
+  [20, ["eight-cell-continuous-slide", "ice-to-floor-readiness", "block-autoslide-is-not-pushing", "slow-mobs-and-sliding-tank"]],
   [21, ["initial-player-force-owner", "initial-hostile-force-owners", "initial-block-force-owner", "force-arrivals-and-boots"]],
   [22, ["open-arrow-wins", "blocked-arrow-fallbacks", "blocked-arrival-retry", "constructed-force-has-no-arrival-offer"]],
   [23, ["boost-destination-matrix", "hostiles-never-player-override", "tunnel-clearance", "boost-to-floor-continuity"]],
@@ -123,7 +123,7 @@ ice.corner-nw
 ice.corner-reverse-fallback
 ice.corner-se
 ice.corner-sw
-ice.fast-exit-to-floor-continuity
+ice.exit-to-floor-continuity
 ice.first-block-arrival-fast
 ice.first-monster-arrival-fast
 ice.first-player-arrival-fast
@@ -225,7 +225,7 @@ describe("Legacy DAT Sandbox sidecars", () => {
     expect(index).toMatchObject({
       datSha256: LEGACY_DAT_SANDBOX_DAT_SHA256,
       hintSupplementSha256: LEGACY_DAT_SANDBOX_HINTS_SHA256,
-      ruleset: "1.0.14",
+      ruleset: "1.0.15",
     });
     expect(index.replays).toHaveLength(126);
     expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(126);
@@ -234,7 +234,7 @@ describe("Legacy DAT Sandbox sidecars", () => {
     );
     expect(index.replays.filter((replay) => replay.expectedOutcome === "win")).toHaveLength(118);
     expect(index.replays.filter((replay) => replay.expectedOutcome === "loss")).toHaveLength(8);
-    expect(index.replays.every((replay) => replay.path.startsWith("replays/1.0.14/"))).toBe(true);
+    expect(index.replays.every((replay) => replay.path.startsWith("replays/1.0.15/"))).toBe(true);
 
     const terminalScenarioIds = index.replays.flatMap((replay) => replay.scenarioIds);
     expect(terminalScenarioIds).toHaveLength(144);
@@ -297,7 +297,7 @@ describe("Legacy DAT Sandbox sidecars", () => {
 
   it("rejects any HCR1 path attached to bounded evidence", async () => {
     const index = JSON.parse(await readFile(asset("replay-index.json"), "utf8"));
-    index.boundedProofs[0].path = "replays/1.0.14/random-all-blocked-retry.hcr1";
+    index.boundedProofs[0].path = "replays/1.0.15/random-all-blocked-retry.hcr1";
 
     expect(() => parseLegacyDatSandboxReplayIndex(
       new TextEncoder().encode(JSON.stringify(index)),

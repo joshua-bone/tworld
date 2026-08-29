@@ -24,6 +24,26 @@ function safeBoundary(value: bigint): number {
   return result;
 }
 
+function motionSampleCount(track: HybridCcV1MotionTrack): number {
+  const durationBoundaries = track.completionBoundary - track.startBoundary;
+  const expectedSampleCount = Number(durationBoundaries * 2n);
+  if (
+    !Number.isSafeInteger(expectedSampleCount)
+    || (expectedSampleCount !== 2 && expectedSampleCount !== 4)
+  ) {
+    throw new Error(
+      `Hybrid v1 motion track published unsupported movement duration ${durationBoundaries}.`,
+    );
+  }
+  if (track.presentationSampleCount !== expectedSampleCount) {
+    throw new Error(
+      `Hybrid v1 motion track published ${track.presentationSampleCount} samples for `
+      + `${durationBoundaries} movement boundaries; expected ${expectedSampleCount}.`,
+    );
+  }
+  return expectedSampleCount;
+}
+
 function adjacentOrigin(
   destination: HybridCcV1Position,
   direction: number,
@@ -44,22 +64,18 @@ export function hybridCcV1PresentedMotion(
   if (!track) {
     return { active: false, frame: 0, moving: 0, position: null };
   }
-  if (track.presentationSampleCount !== 2 && track.presentationSampleCount !== 4) {
-    throw new Error(
-      `Hybrid v1 motion track published unsupported ${track.presentationSampleCount}-sample motion.`,
-    );
-  }
+  const presentationSampleCount = motionSampleCount(track);
 
   const startSample = safeBoundary(track.startBoundary) * 2;
   const elapsed = presentationSample - startSample;
-  if (elapsed < 0 || elapsed >= track.presentationSampleCount) {
+  if (elapsed < 0 || elapsed >= presentationSampleCount) {
     return { active: false, frame: 0, moving: 0, position: track.destination };
   }
 
   const motion: HybridCcV1PresentedMotion = {
     active: true,
-    frame: Math.max(0, 3 - Math.floor((elapsed * 4) / track.presentationSampleCount)),
-    moving: 8 - Math.floor((elapsed * 8) / track.presentationSampleCount),
+    frame: Math.max(0, 3 - Math.floor((elapsed * 4) / presentationSampleCount)),
+    moving: 8 - Math.floor((elapsed * 8) / presentationSampleCount),
     position: track.destination,
   };
   if (track.discontinuous) {

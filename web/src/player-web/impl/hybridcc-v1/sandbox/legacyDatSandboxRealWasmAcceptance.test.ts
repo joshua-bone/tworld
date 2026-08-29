@@ -59,11 +59,11 @@ const EXPECTED_GAMEPLAY_HASHES = [
   "8568d4a7a77825bc996ab072a59ce263abb74b29c9b74333674ef75ee597c237",
   "416ed2525c9190c1cf982e77847388337ec9ed0ee0dc8961368524e0d00cb892",
   "4eeafedc030eb751f261309c8255cc5de76eaa8a2c3d200bf423c1a2234697fe",
-  "b9fbd98c96dc48110ac3fb21e34635cabb44b5443b56fecf504916d57db389df",
-  "ceb6c01b86d16ffb6a2a7562ef47d63aa8b337cef64187072dd64cdc3efc3a73",
-  "4750f3a1ba373a751aecb3d4733b81311c580356c72a942957d4776d42f433f4",
-  "e5c0126b9a24956738cb71ed8ce9b6182a77b747c3d0ca8a9544e2a155685229",
-  "89beaef47f7e3587fc498aad839f3921ba51f7d53b1392e02ea707c8eb97ca87",
+  "1031e6c27242ed36e0daff0925697522bd6e417f07df40102ae67a0ebd46627f",
+  "15ada266ce71243e609d701cf9c6e80f9b8478297ef586f92e3a35f509cc6051",
+  "4836f5806ad980da1cc260b81c02c1d0da0666550c88b179a680e79a77844ffc",
+  "bbd6672ca9bb304a059ad781d19ae6426fd984a992fc7fb0309d4956a985ee5a",
+  "0985ce2ed1d962901a21a3979326e7a094360f888c58c6609a6e34e1da69162d",
 ] as const;
 
 async function loadModule(): Promise<HybridCcV1WasmModule> {
@@ -367,11 +367,11 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
     const fixture = await loadRealSandboxFixture();
 
     let ice = await startReferenceReplay(fixture, "long-slide-continuity");
-    const iceSamples = await collectPresentationTicks(fixture, ice, 78, 96);
+    const iceSamples = await collectPresentationTicks(fixture, ice, 78, 98);
     ice = iceSamples.session;
     const expectedIceX = [
       32, 36, 40, 44, 48, 52, 56, 60, 64, 68,
-      72, 76, 80, 84, 88, 92, 96, 100, 104,
+      72, 76, 80, 84, 88, 92, 96, 98, 100, 102, 104,
     ];
     for (const [offset, expectedX] of expectedIceX.entries()) {
       const tick = 78 + offset;
@@ -381,29 +381,27 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
         .toEqual([expectedX, expectedX]);
       expect(frames.map((frame) => frame.frame.snapshot.currentTime), `ice tick ${tick} clock`)
         .toEqual([tick, tick]);
-      if (tick < 96) {
+      if (tick < 94) {
         expect(frames.map((frame) => frame.frame.render?.chip?.visual?.frame), `ice tick ${tick} cel`)
           .toEqual(tick % 2 === 0 ? [3, 3] : [1, 1]);
-        if (tick < 94) {
-          const sound = tick < 80 ? LYNX_SOUND.SkatingTurn : LYNX_SOUND.SkatingForward;
-          expect(frames.every((frame) => soundIsActive(frame, sound)), `ice tick ${tick} sound`)
-            .toBe(true);
-        } else {
-          expect(frames.every((frame) => (
-            !soundIsActive(frame, LYNX_SOUND.SkatingForward)
-            && !soundIsActive(frame, LYNX_SOUND.SkatingTurn)
-          )), `ice tick ${tick} has reached ordinary floor`).toBe(true);
-        }
+        const sound = tick < 80 ? LYNX_SOUND.SkatingTurn : LYNX_SOUND.SkatingForward;
+        expect(frames.every((frame) => soundIsActive(frame, sound)), `ice tick ${tick} sound`)
+          .toBe(true);
+      } else if (tick < 98) {
+        expect(frames.every((frame) => (
+          !soundIsActive(frame, LYNX_SOUND.SkatingForward)
+          && !soundIsActive(frame, LYNX_SOUND.SkatingTurn)
+        )), `ice tick ${tick} has reached ordinary floor`).toBe(true);
       }
     }
     await fixture.adapter.disposeSession(ice);
 
     let force = await startReferenceReplay(fixture, "tunnel-clearance");
-    const forceSamples = await collectPresentationTicks(fixture, force, 46, 64);
+    const forceSamples = await collectPresentationTicks(fixture, force, 46, 66);
     force = forceSamples.session;
     const expectedForceY = [
       152, 156, 160, 164, 168, 172, 176, 180, 184, 188,
-      192, 196, 200, 204, 208, 210, 212, 214, 216,
+      192, 196, 200, 202, 204, 206, 208, 210, 212, 214, 216,
     ];
     for (const [offset, expectedY] of expectedForceY.entries()) {
       const tick = 46 + offset;
@@ -413,18 +411,16 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
         .toEqual([expectedY, expectedY]);
       expect(frames.map((frame) => frame.frame.snapshot.currentTime), `force tick ${tick} clock`)
         .toEqual([tick, tick]);
-      if (tick < 60) {
+      if (tick < 58) {
         expect(frames.map((frame) => frame.frame.render?.chip?.visual?.frame), `force tick ${tick} cel`)
           .toEqual(tick % 2 === 0 ? [3, 3] : [1, 1]);
-        if (tick < 58) {
-          expect(frames.every((frame) => soundIsActive(frame, LYNX_SOUND.Sliding)), `force tick ${tick} sound`)
-            .toBe(true);
-        } else {
-          expect(frames.every((frame) => (
-            !soundIsActive(frame, LYNX_SOUND.Sliding)
-            && !soundIsActive(frame, LYNX_SOUND.SlideWalking)
-          )), `force tick ${tick} has reached ordinary floor`).toBe(true);
-        }
+        expect(frames.every((frame) => soundIsActive(frame, LYNX_SOUND.Sliding)), `force tick ${tick} sound`)
+          .toBe(true);
+      } else if (tick < 66) {
+        expect(frames.every((frame) => (
+          !soundIsActive(frame, LYNX_SOUND.Sliding)
+          && !soundIsActive(frame, LYNX_SOUND.SlideWalking)
+        )), `force tick ${tick} has reached ordinary floor`).toBe(true);
       }
     }
     await fixture.adapter.disposeSession(force);
@@ -478,7 +474,7 @@ describe("Legacy DAT Sandbox real-Wasm browser acceptance", () => {
     await fixture.adapter.disposeSession(skates);
 
     let forceBoots = await startReferenceReplay(fixture, "force-boots-gallery");
-    forceBoots = await advanceToReplayBoundary(fixture, forceBoots, 90);
+    forceBoots = await advanceToReplayBoundary(fixture, forceBoots, 91);
     expect(forceBoots.frame.snapshot.inventory.boots[1]).toBe(1);
     expect(forceBoots.frame.render?.chip?.moving).toBe(8);
     expect(soundIsActive(forceBoots, LYNX_SOUND.SlideWalking)).toBe(true);

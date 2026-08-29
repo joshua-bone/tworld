@@ -12,7 +12,7 @@ merge, pull request, ruleset, ABI version, and SHA-256 digest of both shipped
 artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.14, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.15, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
 PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
 shared by direct pushes and side slaps, PR48's independent destination timing
@@ -23,7 +23,8 @@ M7 PR58's atomic adjacent-pad self-return occupancy, M8 PR60's category-aware
 released-trap arbitration, and sandbox PR63's explicit DAT 51–63 compatibility
 policy plus replay-publication guardrails, sandbox PR65's block-transaction
 and ordered-slap proof corpus, and sandbox PR67's ice/force-floor ownership,
-arrival, continuity, corner, boost, random-force, and mixed-track proofs. A button edge that
+arrival, continuity, corner, boost, random-force, and mixed-track proofs, and
+PR69's destination-resolved N+1/N+2 movement timing. A button edge that
 makes a later cloner actor ready is resolved
 before an immediately competing Player move without globally reordering
 unrelated nonplayer actors. On completion of a real arrival, force terrain
@@ -66,6 +67,11 @@ an immediate DAT-to-native conversion correction.
   held direction until the next deterministic boundary.
 - Presentation advances every second host sample (20 Hz). Duplicate 25 ms host
   samples intentionally render the same presentation coordinate.
+- Movement speed is an engine-published transition fact. The browser verifies
+  start boundary, completion boundary, and sample count agree; it never treats
+  `forced`, `sliding`, or `boosted` as synonyms for N+1. An unprotected ice or
+  force-floor destination is N+1, while an ordinary destination is N+2 even
+  when terrain still owns the movement.
 - At StartMove, the engine vacates the origin and gives the actor's destination
   immediate logical occupancy. `actor.logicalPosition` and `cell.occupant` are
   gameplay truth even while a movement interval is unfinished.
@@ -146,7 +152,8 @@ sibling HybridCC checkout.
 ## Acceptance coverage
 
 `HybridCcV1RealWasmAcceptance.test.ts` exercises the actual shipped artifact,
-including immediate occupancy, N+1-to-N+1 and N+1-to-N+2 track adjacency,
+including immediate occupancy, destination-resolved N+1 fast landing/internal
+slide continuity, and its direct handoff to an N+2 ordinary landing,
 monotonic coordinates under duplicate host samples, every directional blocked-
 force fallback input phase, automatic-force priority over conflicting input,
 the first arrival and full multi-tile Tunnel Clearance lateral force corridor,

@@ -5,7 +5,7 @@
   "dat": {
     "assetId": "legacy_dat_sandbox",
     "file": "legacy_dat_sandbox.dat",
-    "sha256": "cd304b8e282a8e2f84077fb5104bef030b7c84c92242618c97d19b8feaf24e18",
+    "sha256": "7d7516ac7d48e5366b1e85431fb74cef34773fffa92a9235e27c3b57a070e559",
     "levelCount": 25
   },
   "levels": [
@@ -1056,7 +1056,7 @@
       "rooms": [
         {
           "roomId": "eight-cell-continuous-slide",
-          "message": "Enter the eight-cell strip from the west and release input. The first arrival, every ice-to-ice leg, and the final ice-owned departure to floor join as consecutive one-boundary intervals without a presentation hitch.",
+          "message": "Enter the eight-cell ice strip from the west. Arrival and ice-to-ice legs are N+1. The final ice-owned move lands on floor, so it is N+2; it starts at the prior completion and slows smoothly without a pause.",
           "targets": [
             {
               "kind": "tile",
@@ -1066,8 +1066,8 @@
           ]
         },
         {
-          "roomId": "fast-ice-exit-readiness",
-          "message": "Hold Right through the seven-cell strip and onto floor. The ice-owned final departure remains fast and finishes at N+1; the next ordinary player move starts on that exact boundary and finishes at N+3, with no idle boundary.",
+          "roomId": "ice-to-floor-readiness",
+          "message": "Hold Right through the seven-cell ice strip. Its final floor-bound move is N+2, begins without an idle boundary, and slows smoothly. The next held floor move starts exactly at completion and is also N+2.",
           "targets": [
             {
               "kind": "tile",
@@ -1078,7 +1078,7 @@
         },
         {
           "roomId": "block-autoslide-is-not-pushing",
-          "message": "Push the block east onto the six-cell ice strip. Its first fast leg has one player-push cause; every later one-boundary ice-owned leg is collision-capable but emits neither a new push event nor a stationary push pose.",
+          "message": "Push the block east onto six ice cells. The fast entry has one player-push cause. Later ice-owned legs stay fast only when landing on ice; they remain collision-capable but emit no new push event or pose.",
           "targets": [
             {
               "kind": "tile",
@@ -1089,7 +1089,7 @@
         },
         {
           "roomId": "slow-mobs-and-sliding-tank",
-          "message": "Teeth and blob enter vertical ice lanes: ice drives every boundary, then every-fourth cadence resumes on floor. The lower tank keeps sliding; a blue-button edge while ice owns it is consumed without reversing now or later.",
+          "message": "Teeth and blob move fast while landing on ice; their final floor-bound leg is N+2, then every-fourth cadence resumes. The lower tank keeps sliding; a blue-button edge during ice ownership does not reverse it.",
           "targets": [
             {
               "kind": "tile",
@@ -1108,7 +1108,7 @@
       "rooms": [
         {
           "roomId": "initial-player-force-owner",
-          "message": "Chip starts on east force. At boundary one the open east arrow owns a fast move; a conflicting held direction cannot override construction-time force ownership.",
+          "message": "Chip starts on east force. At boundary one the open east arrow owns the move, and conflicting input cannot override it. Its ordinary-floor destination makes the move N+2.",
           "targets": [
             {
               "kind": "tile",
@@ -1119,7 +1119,7 @@
         },
         {
           "roomId": "initial-hostile-force-owners",
-          "message": "Nine sealed hostiles start on east force. Each first move is terrain-owned and fast, including slow teeth and blob; ordinary AI and cooldown do not choose it.",
+          "message": "Nine sealed hostiles start on east force. Terrain owns each first move, even for teeth and blob; ordinary AI and cooldown do not choose it. The floor-bound moves are N+2.",
           "targets": [
             {
               "kind": "tile",
@@ -1130,7 +1130,7 @@
         },
         {
           "roomId": "initial-block-force-owner",
-          "message": "The west block starts on open east force and moves immediately. The east block's arrow is walled; a later committed north push supersedes force only for that push.",
+          "message": "The west block starts on open east force and moves immediately to floor at N+2. The east block's arrow is walled; a later north push supersedes force only for that N+2 floor-bound push.",
           "targets": [
             {
               "kind": "tile",
@@ -1141,7 +1141,7 @@
         },
         {
           "roomId": "force-arrivals-and-boots",
-          "message": "West: Chip's first force arrival is fast. North: a ball's AI entry is fast, then force owns it. South: collect suction boots and cross N/E/S/W/random force as ordinary terrain.",
+          "message": "West: Chip enters force fast, then leaves to floor at N+2. North: a ball does the same. South: collect suction boots and cross directional and random force as ordinary terrain.",
           "targets": [
             {
               "kind": "tile",
@@ -1160,7 +1160,7 @@
       "rooms": [
         {
           "roomId": "open-arrow-wins",
-          "message": "Enter the east arrow from the west, then hold north, south, or west in separate branches. Its open east move always wins on the arrival boundary.",
+          "message": "Enter the east arrow from the west, then hold north, south, or west in separate branches. Its open east move always wins; the floor-bound automatic leg is N+2.",
           "targets": [
             {
               "kind": "tile",
@@ -1171,7 +1171,7 @@
         },
         {
           "roomId": "blocked-arrow-fallbacks",
-          "message": "Top-left: blocked east allows north/south boost. Top-right: blocked east allows west boost. Bottom: automatic east legally pushes the block and wins before conflicting input.",
+          "message": "Top-left: blocked east allows north/south override. Top-right: blocked east allows west. All land on floor and take N+2. Bottom: automatic east legally pushes the block and wins before input.",
           "targets": [
             {
               "kind": "tile",
@@ -1182,7 +1182,7 @@
         },
         {
           "roomId": "blocked-arrival-retry",
-          "message": "Enter east force while holding blocked north. Arrival consumes that failed offer without movement. On the later force opportunity, change to open south for one fast override.",
+          "message": "Enter east force holding blocked north. Arrival consumes that failed offer. Later change to open south: the override starts immediately but is N+2 because it lands on floor.",
           "targets": [
             {
               "kind": "tile",
@@ -1193,7 +1193,7 @@
         },
         {
           "roomId": "constructed-force-has-no-arrival-offer",
-          "message": "Chip starts here on east force with east blocked and north open. Boundary one only records blocked terrain control; north becomes eligible on the next regular force boundary.",
+          "message": "Chip starts on east force with east blocked and north open. Boundary one records only blocked terrain control. North is eligible next boundary and takes N+2 to floor.",
           "targets": [
             {
               "kind": "tile",
@@ -1212,7 +1212,7 @@
       "rooms": [
         {
           "roomId": "boost-destination-matrix",
-          "message": "Four blocked east arrows boost north onto floor, ice, force, and teleport. Every override leg is N-to-N+1; only completion transfers control to the destination.",
+          "message": "Blocked east arrows allow overrides onto floor, ice, force, and teleport. Ice/force landings are N+1; floor/teleport are N+2. Override chooses direction, destination chooses duration.",
           "targets": [
             {
               "kind": "tile",
@@ -1234,7 +1234,7 @@
         },
         {
           "roomId": "tunnel-clearance",
-          "message": "Enter the north end holding south. Every east arrow is blocked east, so first arrival and every lateral fallback join as fast moves with no idle boundary or visual jolt.",
+          "message": "Enter north holding south. Arrival and internal overrides land on force at N+1 with no idle or jolt. The final floor-bound move starts immediately but is N+2.",
           "targets": [
             {
               "kind": "tile",
@@ -1245,7 +1245,7 @@
         },
         {
           "roomId": "boost-to-floor-continuity",
-          "message": "Enter the blocked east arrow from the south while holding north. The north boost finishes in one boundary and the next held move begins immediately as an ordinary two-boundary interval.",
+          "message": "Enter the blocked east arrow from north holding south. The floor-bound override starts immediately but is N+2. The next held floor move starts on its exact completion, with no idle sample.",
           "targets": [
             {
               "kind": "tile",
@@ -1264,7 +1264,7 @@
       "rooms": [
         {
           "roomId": "random-fixed-permutations",
-          "message": "Enter the three random pads in separate seeded branches. Their fixtures block one, two, and three sides; each decision consumes exactly four draws before selecting its first legal direction.",
+          "message": "Enter the three random pads in separate seeded branches. Each decision draws a full permutation, selects its first legal direction, and takes N+2 when that direction lands on floor.",
           "targets": [
             {
               "kind": "tile",
@@ -1275,7 +1275,7 @@
         },
         {
           "roomId": "random-automatic-before-input",
-          "message": "Enter the open random pad with a pinned seed while holding a different legal direction. Its full four-draw automatic permutation is fixed and tried before input.",
+          "message": "Enter random force holding another legal direction. The seeded permutation chooses north first; that automatic move legally pushes the block and wins. Both floor-bound legs are N+2.",
           "targets": [
             {
               "kind": "tile",
@@ -1297,7 +1297,7 @@
         },
         {
           "roomId": "mixed-tracks-and-destinations",
-          "message": "Upper lanes hand ice to force and force to ice. Middle fixtures prove same-cell boot pickup, a fast Player fire loss, and an ice-owned water consequence. Lower force lanes sample water, fire, bomb, exit, block, and hostile outcomes.",
+          "message": "Upper lanes hand ice and force control at N+1, then leave to floor at N+2. Middle tests boot pickup and slow terrain-owned hazard arrivals. Lower lanes test hazards, exit, block, and hostile contact.",
           "targets": [
             {
               "kind": "tile",
