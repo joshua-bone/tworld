@@ -7,8 +7,9 @@
  * admission, PR #54's force-first arrival fallback, PR #55's signal-driven
  * release ordering, PR #56's entry-scoped teleport activation, PR #58's
  * atomic teleport self-return occupancy, PR #60's category-aware released-
- * trap arbitration, and the D029 DAT special-art policy,
- * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.14.
+ * trap arbitration, PR #69's destination-resolved movement timing, and the
+ * D029 DAT special-art policy, include/hybridcc/v1/c_api.h, ABI version 2,
+ * ruleset 1.0.15.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,

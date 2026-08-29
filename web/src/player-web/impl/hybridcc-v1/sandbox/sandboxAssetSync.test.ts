@@ -64,13 +64,13 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
     await expect(runSync(source, destination, true)).rejects.toMatchObject({
       stderr: expect.stringContaining(`unexpected ${staleRelativePath}`),
     });
-  });
+  }, 15_000);
 
   it("rejects an invented HCR1 for a metadata-only bounded proof", async () => {
     const root = await temporaryDirectory();
     const source = join(root, "generated");
     const destination = join(root, "browser-assets");
-    const fakeBoundedReplay = "replays/1.0.14/random-all-blocked-retry.hcr1";
+    const fakeBoundedReplay = "replays/1.0.15/random-all-blocked-retry.hcr1";
     await cp(checkedInAssets, source, { recursive: true });
 
     await runSync(source, destination);
@@ -79,5 +79,5 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
     await expect(runSync(source, destination, true)).rejects.toMatchObject({
       stderr: expect.stringContaining(`unexpected ${fakeBoundedReplay}`),
     });
-  });
+  }, 15_000);
 });

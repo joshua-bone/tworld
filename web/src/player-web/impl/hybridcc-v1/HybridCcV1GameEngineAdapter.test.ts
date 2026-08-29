@@ -259,8 +259,8 @@ describe("HybridCcV1GameEngineAdapter", () => {
     expect(fake.wasDisposed()).toBe(true);
   });
 
-  it("joins fast exit and ordinary player-input tracks without a stationary 20 Hz sample", async () => {
-    const fastExit = wideMovingSnapshot(
+  it("joins a fast internal force transition and ordinary landing without a stationary sample", async () => {
+    const fastInternalTransition = wideMovingSnapshot(
       1, 0, 1, 1, 2,
       HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
       HYBRID_CC_V1_MOVEMENT_CLASS.forced,
@@ -282,7 +282,7 @@ describe("HybridCcV1GameEngineAdapter", () => {
     );
     const fake = fakeEngine([
       wideStationarySnapshot(0, 0),
-      fastExit,
+      fastInternalTransition,
       ordinaryAtStart,
       ordinaryInProgress,
       followingOrdinary,

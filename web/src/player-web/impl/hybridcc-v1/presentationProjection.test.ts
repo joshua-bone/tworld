@@ -6,11 +6,17 @@ import {
   HYBRID_CC_V1_MOVEMENT_OWNER,
 } from "./engineFacts";
 import {
+  hybridCcV1ActorMotionTrack,
   hybridCcV1ChipPushing,
   hybridCcV1PresentedMotion,
   hybridCcV1TerminalCameraTrack,
 } from "./presentationProjection";
-import { testMotionTrack, testPlayerPush, testSnapshot } from "./testFacts";
+import {
+  testActor,
+  testMotionTrack,
+  testPlayerPush,
+  testSnapshot,
+} from "./testFacts";
 
 describe("Hybrid v1 motion presentation", () => {
   it("publishes the four descending Lynx phases for an ordinary move", () => {
@@ -32,8 +38,81 @@ describe("Hybrid v1 motion presentation", () => {
     expect(hybridCcV1PresentedMotion(null, 3)).toEqual({ active: false, frame: 0, moving: 0, position: null });
   });
 
-  it("joins a fast terrain exit directly to an ordinary player-input move", () => {
-    const fastExit = testMotionTrack({
+  it.each([
+    ["forced", HYBRID_CC_V1_MOVEMENT_CLASS.forced],
+    ["sliding", HYBRID_CC_V1_MOVEMENT_CLASS.sliding],
+    ["boosted", HYBRID_CC_V1_MOVEMENT_CLASS.boosted],
+  ])(
+    "uses the engine's published interval for %s motion instead of inferring speed from its class",
+    (_name, movementClass) => {
+      const fast = testMotionTrack({
+        completionBoundary: 2n,
+        presentationSampleCount: 2,
+        movementClass,
+      });
+      const ordinary = testMotionTrack({
+        completionBoundary: 3n,
+        presentationSampleCount: 4,
+        movementClass,
+      });
+
+      expect([2, 3].map((sample) => hybridCcV1PresentedMotion(fast, sample).moving))
+        .toEqual([8, 4]);
+      expect([2, 3, 4, 5].map((sample) => (
+        hybridCcV1PresentedMotion(ordinary, sample).moving
+      ))).toEqual([8, 6, 4, 2]);
+    },
+  );
+
+  it.each([
+    ["forced", HYBRID_CC_V1_MOVEMENT_CLASS.forced],
+    ["sliding", HYBRID_CC_V1_MOVEMENT_CLASS.sliding],
+    ["boosted", HYBRID_CC_V1_MOVEMENT_CLASS.boosted],
+  ])(
+    "derives %s actor sample count from start/completion boundaries, not movement class",
+    (_name, movementClass) => {
+      const actor = testActor({
+        hasMovement: true,
+        movement: {
+          ...testActor().movement,
+          origin: { x: 0, y: 0, z: 0 },
+          destination: { x: 1, y: 0, z: 0 },
+          startBoundary: 7n,
+          completionBoundary: 9n,
+          movementClass,
+        },
+      });
+
+      expect(hybridCcV1ActorMotionTrack(actor)).toMatchObject({
+        startBoundary: 7n,
+        completionBoundary: 9n,
+        presentationSampleCount: 4,
+        movementClass,
+      });
+      actor.movement.completionBoundary = 8n;
+      expect(hybridCcV1ActorMotionTrack(actor)).toMatchObject({
+        startBoundary: 7n,
+        completionBoundary: 8n,
+        presentationSampleCount: 2,
+        movementClass,
+      });
+    },
+  );
+
+  it("rejects a track whose published sample count contradicts its engine boundaries", () => {
+    const contradictory = testMotionTrack({
+      completionBoundary: 3n,
+      presentationSampleCount: 2,
+      movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.boosted,
+    });
+
+    expect(() => hybridCcV1PresentedMotion(contradictory, 2)).toThrow(
+      "published 2 samples for 2 movement boundaries; expected 4",
+    );
+  });
+
+  it("joins a fast internal force transition directly to an ordinary landing", () => {
+    const fastInternalTransition = testMotionTrack({
       origin: { x: 0, y: 0, z: 0 },
       destination: { x: 1, y: 0, z: 0 },
       startBoundary: 1n,
@@ -52,8 +131,8 @@ describe("Hybrid v1 motion presentation", () => {
       movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
     });
     const samples = [
-      [fastExit, 2],
-      [fastExit, 3],
+      [fastInternalTransition, 2],
+      [fastInternalTransition, 3],
       [ordinary, 4],
       [ordinary, 5],
       [ordinary, 6],
