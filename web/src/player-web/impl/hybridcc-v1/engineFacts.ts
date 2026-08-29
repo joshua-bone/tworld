@@ -8,7 +8,7 @@
  * release ordering, PR #56's entry-scoped teleport activation, PR #58's
  * atomic teleport self-return occupancy, PR #60's category-aware released-
  * trap arbitration, and the D029 DAT special-art policy,
- * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.13.
+ * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.14.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,

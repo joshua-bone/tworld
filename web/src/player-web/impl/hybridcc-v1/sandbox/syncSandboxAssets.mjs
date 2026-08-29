@@ -20,6 +20,7 @@ const engineManifestPath = join(
 const assetManifestFile = "assets-manifest.json";
 const assetManifestSchema = "hybridcc.legacy-dat-sandbox.browser-assets.v1";
 const defaultSourceCandidates = [
+  join(repositoryRoot, "../HybridCC2026-sandbox-pr4/sandbox/legacy_dat/generated"),
   join(repositoryRoot, "../HybridCC2026/sandbox/legacy_dat/generated"),
   join(repositoryRoot, "../HybridCC2026-sandbox-pr3/sandbox/legacy_dat/generated"),
   join(repositoryRoot, "../HybridCC2026-sandbox-pr2/sandbox/legacy_dat/generated"),
@@ -31,9 +32,9 @@ const requiredTopLevelFiles = [
   "replay-index.json",
 ];
 const pinnedTopLevelHashes = new Map([
-  ["legacy_dat_sandbox.dat", "75dcdced0cb4a81dfefdccb5c8180ee4ed65fe004d7a4c3802369bb0841ad91c"],
-  ["legacy_dat_sandbox.hints.json", "b17a36b308bf97d58ac92eef4dd36842a4467d2e45f39bd17ac8cdc4a1d644b2"],
-  ["replay-index.json", "75a5e416487a20b4babbae6fa5408b7f3dd8c453c4fa377bf15d2e578850fa3f"],
+  ["legacy_dat_sandbox.dat", "cd304b8e282a8e2f84077fb5104bef030b7c84c92242618c97d19b8feaf24e18"],
+  ["legacy_dat_sandbox.hints.json", "9589e1ce265b040dd38e3deb661f58ae32234bad0b8636f5ebae9cb4058b9819"],
+  ["replay-index.json", "12415d173d8efb9b0b0c7ca2411279bb0e1d8cfec513a8ece41acf25d5336cb0"],
 ]);
 
 function usage() {
@@ -86,10 +87,37 @@ function parseJson(bytes, label) {
 
 function parseReplayIndex(bytes) {
   const root = parseJson(bytes, "HybridCC sandbox replay-index.json");
-  if (!root || !Array.isArray(root.replays)) {
-    throw new Error("HybridCC sandbox replay-index.json has no replay list.");
+  if (
+    !root
+    || root.schema !== "hybridcc.legacy-dat-sandbox.replay-index.v2"
+    || !Array.isArray(root.replays)
+    || !Array.isArray(root.boundedProofs)
+  ) {
+    throw new Error("HybridCC sandbox replay-index.json has an unsupported schema.");
   }
+  const proofIds = [];
+  const validateEvidence = (entry, label) => {
+    if (typeof entry?.id !== "string" || entry.id.length === 0) {
+      throw new Error(`HybridCC sandbox ${label} has no proof ID.`);
+    }
+    proofIds.push(entry.id);
+    if (!Array.isArray(entry.scenarioIds) || entry.scenarioIds.length === 0) {
+      throw new Error(`HybridCC sandbox ${label} has no scenario IDs.`);
+    }
+    if (
+      entry.scenarioIds.some((scenarioId) => (
+        typeof scenarioId !== "string"
+        || !/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/u.test(scenarioId)
+      ))
+    ) {
+      throw new Error(`HybridCC sandbox ${label} has an unsafe scenario ID.`);
+    }
+    if (new Set(entry.scenarioIds).size !== entry.scenarioIds.length) {
+      throw new Error(`HybridCC sandbox ${label} contains duplicate scenario IDs.`);
+    }
+  };
   const paths = root.replays.map((entry, index) => {
+    validateEvidence(entry, `replay-index entry ${index}`);
     const path = entry?.path;
     if (
       typeof path !== "string"
@@ -99,6 +127,17 @@ function parseReplayIndex(bytes) {
     }
     return path;
   }).sort((left, right) => left.localeCompare(right));
+  root.boundedProofs.forEach((entry, index) => {
+    validateEvidence(entry, `bounded proof ${index}`);
+    if (entry.expectedOutcome !== "unfinished" || "path" in entry) {
+      throw new Error(
+        `HybridCC sandbox bounded proof ${index} must be unfinished metadata without an HCR1 path.`,
+      );
+    }
+  });
+  if (new Set(proofIds).size !== proofIds.length) {
+    throw new Error("HybridCC sandbox replay-index.json contains duplicate proof IDs.");
+  }
   if (new Set(paths).size !== paths.length) {
     throw new Error("HybridCC sandbox replay-index.json contains duplicate replay paths.");
   }

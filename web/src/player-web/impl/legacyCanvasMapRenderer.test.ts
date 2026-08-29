@@ -287,6 +287,27 @@ describe("buildLegacyGameDrawStateKey", () => {
   });
 });
 
+describe("animated terrain cache timing", () => {
+  it.each([
+    MS_TILE.Ice,
+    MS_TILE.Slide_East,
+  ])("advances animated tile %i once per 20 Hz presentation sample", (topId) => {
+    const session = createSession(topId);
+    const layer = session.frame.visibleLayers[0]!;
+    const animatedTileset: LegacyTileset = {
+      get: () => null,
+      getCellAnimationPeriod: (candidate) => candidate === topId ? 4 : 1,
+    };
+
+    const at78 = buildCachedLowerLayerKey(animatedTileset, session, "Hybrid", layer, 78, false);
+    const at79 = buildCachedLowerLayerKey(animatedTileset, session, "Hybrid", layer, 79, false);
+    const at82 = buildCachedLowerLayerKey(animatedTileset, session, "Hybrid", layer, 82, false);
+
+    expect(at79).not.toBe(at78);
+    expect(at82).toBe(at78);
+  });
+});
+
 describe("resolveLegacyMapViewport", () => {
   it("uses the same projected actor and camera presentation for Hybrid v0 as Lynx", () => {
     const session = createSession(MS_TILE.Empty, {

@@ -23,11 +23,11 @@ export const LEGACY_DAT_SANDBOX_ASSET_ID = "legacy_dat_sandbox";
 export const LEGACY_DAT_SANDBOX_FILENAME = "legacy_dat_sandbox.dat";
 export const LEGACY_DAT_SANDBOX_NAME = "Legacy DAT Sandbox";
 export const LEGACY_DAT_SANDBOX_DAT_SHA256 =
-  "75dcdced0cb4a81dfefdccb5c8180ee4ed65fe004d7a4c3802369bb0841ad91c";
+  "cd304b8e282a8e2f84077fb5104bef030b7c84c92242618c97d19b8feaf24e18";
 export const LEGACY_DAT_SANDBOX_HINTS_SHA256 =
-  "b17a36b308bf97d58ac92eef4dd36842a4467d2e45f39bd17ac8cdc4a1d644b2";
+  "9589e1ce265b040dd38e3deb661f58ae32234bad0b8636f5ebae9cb4058b9819";
 export const LEGACY_DAT_SANDBOX_REPLAY_INDEX_SHA256 =
-  "75a5e416487a20b4babbae6fa5408b7f3dd8c453c4fa377bf15d2e578850fa3f";
+  "12415d173d8efb9b0b0c7ca2411279bb0e1d8cfec513a8ece41acf25d5336cb0";
 
 interface HintTarget {
   kind: "tile";
@@ -68,11 +68,25 @@ interface ReplayIndexEntry {
   expectedOutcome: "win" | "loss";
 }
 
+interface ReplayIndexBoundedProof {
+  id: string;
+  scenarioIds: string[];
+  entryId: string;
+  entryOrdinal: number;
+  levelNumber: number;
+  inputSourceSha256: string;
+  levelContentSha256: string;
+  seed: number;
+  verifiedThroughBoundary: number;
+  expectedOutcome: "unfinished";
+}
+
 interface ReplayIndex {
   datSha256: string;
   hintSupplementSha256: string;
   ruleset: string;
   replays: ReplayIndexEntry[];
+  boundedProofs: ReplayIndexBoundedProof[];
 }
 
 export interface LegacyDatSandboxReferenceReplay {
@@ -85,10 +99,29 @@ export interface LegacyDatSandboxReferenceReplay {
   expectedOutcome: "win" | "loss";
 }
 
+/**
+ * A reviewed deterministic run that proves behavior through a finite boundary,
+ * but deliberately does not claim a terminal win or loss and is not playable.
+ */
+export interface LegacyDatSandboxBoundedProof {
+  id: string;
+  scenarioIds: string[];
+  entryId: string;
+  entryOrdinal: number;
+  levelNumber: number;
+  levelName: string;
+  gameplayHash: string;
+  inputSourceSha256: string;
+  seed: number;
+  verifiedThroughBoundary: number;
+  expectedOutcome: "unfinished";
+}
+
 export interface LoadedLegacyDatSandbox {
   levels: HybridCcV1ConvertedLevel[];
   gameplayHashes: string[];
   referenceReplays: LegacyDatSandboxReferenceReplay[];
+  boundedProofs: LegacyDatSandboxBoundedProof[];
 }
 
 export interface LegacyDatSandboxAssetSource {
@@ -202,9 +235,25 @@ export function parseLegacyDatSandboxHints(bytes: Uint8Array): HintSupplement {
 
 export function parseLegacyDatSandboxReplayIndex(bytes: Uint8Array): ReplayIndex {
   const root = record(parseJson(bytes, "Legacy DAT Sandbox replay index"), "Legacy DAT Sandbox replay index");
-  if (root.schema !== "hybridcc.legacy-dat-sandbox.replay-index.v1") {
+  if (root.schema !== "hybridcc.legacy-dat-sandbox.replay-index.v2") {
     throw new Error("Legacy DAT Sandbox replay index uses an unsupported schema.");
   }
+  const parseScenarioIds = (value: unknown, label: string): string[] => {
+    const scenarioIds = array(value, `${label} scenario IDs`).map((scenarioValue, scenarioIndex) => {
+      const id = string(scenarioValue, `${label} scenario ID ${scenarioIndex}`);
+      if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/u.test(id)) {
+        throw new Error(`Legacy DAT Sandbox scenario ID is unsafe or unsupported: ${id}`);
+      }
+      return id;
+    });
+    if (scenarioIds.length === 0) {
+      throw new Error(`${label} has no scenario IDs.`);
+    }
+    if (new Set(scenarioIds).size !== scenarioIds.length) {
+      throw new Error(`${label} contains duplicate scenario IDs.`);
+    }
+    return scenarioIds;
+  };
   const replays = array(root.replays, "Legacy DAT Sandbox replay index entries")
     .map((value, index): ReplayIndexEntry => {
       const replay = record(value, `Legacy DAT Sandbox replay ${index}`);
@@ -215,22 +264,10 @@ export function parseLegacyDatSandboxReplayIndex(bytes: Uint8Array): ReplayIndex
       if (replay.expectedOutcome !== "win" && replay.expectedOutcome !== "loss") {
         throw new Error(`Legacy DAT Sandbox replay ${index} has an invalid expected outcome.`);
       }
-      const scenarioIds = array(
+      const scenarioIds = parseScenarioIds(
         replay.scenarioIds,
-        `Legacy DAT Sandbox replay ${index} scenario IDs`,
-      ).map((value, scenarioIndex) => {
-        const id = string(
-          value,
-          `Legacy DAT Sandbox replay ${index} scenario ID ${scenarioIndex}`,
-        );
-        if (!/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/u.test(id)) {
-          throw new Error(`Legacy DAT Sandbox scenario ID is unsafe or unsupported: ${id}`);
-        }
-        return id;
-      });
-      if (scenarioIds.length === 0) {
-        throw new Error(`Legacy DAT Sandbox replay ${index} has no scenario IDs.`);
-      }
+        `Legacy DAT Sandbox replay ${index}`,
+      );
       return {
         id: string(replay.id, `Legacy DAT Sandbox replay ${index} id`),
         scenarioIds,
@@ -252,17 +289,57 @@ export function parseLegacyDatSandboxReplayIndex(bytes: Uint8Array): ReplayIndex
         expectedOutcome: replay.expectedOutcome,
       };
     });
-  const replayIds = replays.map((replay) => replay.id);
+  const boundedProofs = array(
+    root.boundedProofs,
+    "Legacy DAT Sandbox bounded proof index entries",
+  ).map((value, index): ReplayIndexBoundedProof => {
+    const proof = record(value, `Legacy DAT Sandbox bounded proof ${index}`);
+    if (proof.expectedOutcome !== "unfinished") {
+      throw new Error(`Legacy DAT Sandbox bounded proof ${index} must have unfinished outcome.`);
+    }
+    if ("path" in proof) {
+      throw new Error(`Legacy DAT Sandbox bounded proof ${index} must not name an HCR1 path.`);
+    }
+    return {
+      id: string(proof.id, `Legacy DAT Sandbox bounded proof ${index} id`),
+      scenarioIds: parseScenarioIds(
+        proof.scenarioIds,
+        `Legacy DAT Sandbox bounded proof ${index}`,
+      ),
+      entryId: string(proof.entryId, `Legacy DAT Sandbox bounded proof ${index} entry id`),
+      entryOrdinal: integer(
+        proof.entryOrdinal,
+        `Legacy DAT Sandbox bounded proof ${index} entry ordinal`,
+        1,
+      ),
+      levelNumber: integer(
+        proof.levelNumber,
+        `Legacy DAT Sandbox bounded proof ${index} level number`,
+        1,
+      ),
+      inputSourceSha256: sha256(
+        proof.inputSourceSha256,
+        `Legacy DAT Sandbox bounded proof ${index} input-source hash`,
+      ),
+      levelContentSha256: sha256(
+        proof.levelContentSha256,
+        `Legacy DAT Sandbox bounded proof ${index} level hash`,
+      ),
+      seed: integer(proof.seed, `Legacy DAT Sandbox bounded proof ${index} seed`),
+      verifiedThroughBoundary: integer(
+        proof.verifiedThroughBoundary,
+        `Legacy DAT Sandbox bounded proof ${index} verified boundary`,
+      ),
+      expectedOutcome: "unfinished",
+    };
+  });
+  const replayIds = [...replays, ...boundedProofs].map((replay) => replay.id);
   const replayPaths = replays.map((replay) => replay.path);
-  const scenarioIds = replays.flatMap((replay) => replay.scenarioIds);
   if (new Set(replayIds).size !== replayIds.length) {
-    throw new Error("Legacy DAT Sandbox replay index contains duplicate replay IDs.");
+    throw new Error("Legacy DAT Sandbox replay index contains duplicate proof IDs.");
   }
   if (new Set(replayPaths).size !== replayPaths.length) {
     throw new Error("Legacy DAT Sandbox replay index contains duplicate replay paths.");
-  }
-  if (new Set(scenarioIds).size !== scenarioIds.length) {
-    throw new Error("Legacy DAT Sandbox replay index contains duplicate scenario IDs.");
   }
   return {
     datSha256: sha256(root.datSha256, "Legacy DAT Sandbox replay-index DAT hash"),
@@ -272,6 +349,7 @@ export function parseLegacyDatSandboxReplayIndex(bytes: Uint8Array): ReplayIndex
     ),
     ruleset: string(root.ruleset, "Legacy DAT Sandbox replay-index ruleset"),
     replays,
+    boundedProofs,
   };
 }
 
@@ -443,10 +521,35 @@ export async function loadLegacyDatSandbox(
     } satisfies LegacyDatSandboxReferenceReplay;
   }));
 
+  const boundedProofs = replayIndex.boundedProofs.map((indexed): LegacyDatSandboxBoundedProof => {
+    const matched = levelsByOrdinal.get(indexed.entryOrdinal);
+    if (!matched || matched.level.nativeLevel.number !== indexed.levelNumber) {
+      throw new Error(`Legacy DAT Sandbox bounded proof ${indexed.id} names an unknown converted level.`);
+    }
+    if (matched.gameplayHash !== indexed.levelContentSha256) {
+      throw new Error(
+        `Legacy DAT Sandbox bounded proof ${indexed.id} is not attached to the enriched canonical HCLV level.`,
+      );
+    }
+    return {
+      id: indexed.id,
+      scenarioIds: indexed.scenarioIds,
+      entryId: indexed.entryId,
+      entryOrdinal: indexed.entryOrdinal,
+      levelNumber: indexed.levelNumber,
+      levelName: matched.level.nativeLevel.title,
+      gameplayHash: matched.gameplayHash,
+      inputSourceSha256: indexed.inputSourceSha256,
+      seed: indexed.seed,
+      verifiedThroughBoundary: indexed.verifiedThroughBoundary,
+      expectedOutcome: indexed.expectedOutcome,
+    };
+  });
+
   for (const level of levels) {
     if (!referenceReplays.some((replay) => replay.levelNumber === level.nativeLevel.number)) {
       throw new Error(`Legacy DAT Sandbox level ${level.nativeLevel.number} has no reference replay.`);
     }
   }
-  return { levels, gameplayHashes, referenceReplays };
+  return { levels, gameplayHashes, referenceReplays, boundedProofs };
 }

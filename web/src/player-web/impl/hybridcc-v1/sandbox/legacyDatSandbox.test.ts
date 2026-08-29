@@ -33,6 +33,14 @@ const EXPECTED_ROOMS = [
   [14, ["ordered-east-south", "ordered-south-east", "four-slap-orientations", "slap-rejections-and-reveal"]],
   [15, ["ordinary-dependent-follow", "count-one-recessed-source", "count-two-popup-source", "rejected-departure-is-atomic"]],
   [16, ["ordinary-and-ice-destinations", "force-and-gravel-destinations", "external-push-overrides", "terrain-contact-and-push-audio"]],
+  [17, ["initial-player-on-ice", "initial-monsters-on-ice", "initial-block-on-ice", "first-arrivals-are-fast"]],
+  [18, ["skates-make-ice-ordinary", "straight-ice-owns-forward", "blocked-forward-reverses", "fully-blocked-ice-retries"]],
+  [19, ["north-corners", "corner-reverse-fallbacks", "south-corners", "fully-blocked-corner"]],
+  [20, ["eight-cell-continuous-slide", "fast-ice-exit-readiness", "block-autoslide-is-not-pushing", "slow-mobs-and-sliding-tank"]],
+  [21, ["initial-player-force-owner", "initial-hostile-force-owners", "initial-block-force-owner", "force-arrivals-and-boots"]],
+  [22, ["open-arrow-wins", "blocked-arrow-fallbacks", "blocked-arrival-retry", "constructed-force-has-no-arrival-offer"]],
+  [23, ["boost-destination-matrix", "hostiles-never-player-override", "tunnel-clearance", "boost-to-floor-continuity"]],
+  [24, ["random-fixed-permutations", "random-automatic-before-input", "random-all-blocked-retry", "mixed-tracks-and-destinations"]],
 ] as const;
 
 const EXPECTED_SCENARIO_IDS = `
@@ -62,6 +70,25 @@ blocks.slap-all-quadrants
 blocks.slap-reveal
 blocks.terrain-driven-contact
 blocks.water-fill
+force.arrival-all-blocked
+force.automatic-push-wins
+force.blocked-backward-boost
+force.blocked-sideways-boost
+force.boost-destination-matrix
+force.boots-make-ordinary
+force.constructed-no-arrival-offer
+force.exit-to-floor-continuity
+force.first-monster-arrival-fast
+force.first-player-arrival-fast
+force.initial-block-owned
+force.initial-monster-owned
+force.initial-player-owned
+force.mob-never-player-overrides
+force.open-auto-beats-input
+force.random-all-blocked-retry
+force.random-fixed-permutation
+force.random-open-beats-input
+force.tunnel-clearance
 foundation.dirt-and-gravel
 foundation.exit-player-only
 foundation.failed-wall-facing
@@ -88,6 +115,27 @@ hazards.player-bomb
 hazards.player-fire
 hazards.player-water
 hazards.water-plus-key
+ice.block-silent-autoslide
+ice.blocked-reverse
+ice.corner-fully-blocked
+ice.corner-ne
+ice.corner-nw
+ice.corner-reverse-fallback
+ice.corner-se
+ice.corner-sw
+ice.fast-exit-to-floor-continuity
+ice.first-block-arrival-fast
+ice.first-monster-arrival-fast
+ice.first-player-arrival-fast
+ice.fully-blocked-retry
+ice.initial-block-stationary
+ice.initial-monster-ordinary
+ice.initial-player-ordinary
+ice.long-slide-continuity
+ice.skates-arrival-ordinary
+ice.slow-mob-terrain-control
+ice.straight-owned-forward
+ice.tank-reversal-suppressed-while-sliding
 inventory.blue-door
 inventory.blue-key-fragile-block
 inventory.blue-key-fragile-monster
@@ -114,6 +162,9 @@ objectives.socket-short
 objectives.socket-zero
 panels.cardinal-entry-exit
 panels.southeast-corner
+sliding.boot-pickup-on-terrain
+sliding.hazard-destination-cross-section
+sliding.ice-force-handoff
 walls.block-blue-real-count-one
 walls.blue-fake
 walls.blue-real
@@ -144,21 +195,29 @@ describe("Legacy DAT Sandbox sidecars", () => {
     });
   });
 
-  it("publishes one room-specific Hint message for every PR3 scenario room", async () => {
+  it("publishes one room-specific Hint message for every PR4 scenario room", async () => {
     const hints = parseLegacyDatSandboxHints(
       new Uint8Array(await readFile(asset("legacy_dat_sandbox.hints.json"))),
     );
 
     expect(hints.datSha256).toBe(LEGACY_DAT_SANDBOX_DAT_SHA256);
-    expect(hints.levelCount).toBe(17);
+    expect(hints.levelCount).toBe(25);
     expect(hints.levels.map((level) => [
       level.expectedNumber,
       level.rooms.map((room) => room.roomId),
     ])).toEqual(EXPECTED_ROOMS);
-    expect(hints.levels.flatMap((level) => level.rooms)).toHaveLength(68);
+    expect(hints.levels.flatMap((level) => level.rooms)).toHaveLength(100);
+
+    const trickWalls = hints.levels.find((level) => level.expectedNumber === 11)!;
+    expect(trickWalls.rooms.find((room) => room.roomId === "ordinary-and-invisible"))
+      .toEqual({
+        roomId: "ordinary-and-invisible",
+        message: "The ball in the small enclosure intentionally presses the ordinary wall to its right; it causes no reveal. Below, Player can press the visible ordinary wall on the left or a hidden permanent wall on the right. Both block; only the hidden wall flashes.",
+        targets: [{ kind: "tile", x: 8, y: 11 }],
+      });
   });
 
-  it("indexes every SHA-bound HCR1 proof against enriched native levels", async () => {
+  it("indexes terminal HCR1 proofs and metadata-only bounded evidence", async () => {
     const index = parseLegacyDatSandboxReplayIndex(
       new Uint8Array(await readFile(asset("replay-index.json"))),
     );
@@ -166,29 +225,83 @@ describe("Legacy DAT Sandbox sidecars", () => {
     expect(index).toMatchObject({
       datSha256: LEGACY_DAT_SANDBOX_DAT_SHA256,
       hintSupplementSha256: LEGACY_DAT_SANDBOX_HINTS_SHA256,
-      ruleset: "1.0.13",
+      ruleset: "1.0.14",
     });
-    expect(index.replays).toHaveLength(74);
-    expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(74);
+    expect(index.replays).toHaveLength(126);
+    expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(126);
     expect(new Set(index.replays.map((replay) => replay.levelNumber))).toEqual(
       new Set(EXPECTED_ROOMS.map(([number]) => number)),
     );
-    expect(index.replays.filter((replay) => replay.expectedOutcome === "win")).toHaveLength(67);
-    expect(index.replays.filter((replay) => replay.expectedOutcome === "loss")).toHaveLength(7);
-    expect(index.replays.every((replay) => replay.path.startsWith("replays/1.0.13/"))).toBe(true);
-    const scenarioIds = index.replays.flatMap((replay) => replay.scenarioIds);
-    expect(scenarioIds).toHaveLength(92);
-    expect(new Set(scenarioIds).size).toBe(92);
-    expect([...scenarioIds].sort()).toEqual(EXPECTED_SCENARIO_IDS);
+    expect(index.replays.filter((replay) => replay.expectedOutcome === "win")).toHaveLength(118);
+    expect(index.replays.filter((replay) => replay.expectedOutcome === "loss")).toHaveLength(8);
+    expect(index.replays.every((replay) => replay.path.startsWith("replays/1.0.14/"))).toBe(true);
+
+    const terminalScenarioIds = index.replays.flatMap((replay) => replay.scenarioIds);
+    expect(terminalScenarioIds).toHaveLength(144);
+    expect(new Set(terminalScenarioIds).size).toBe(134);
+    expect(terminalScenarioIds).not.toContain("force.random-all-blocked-retry");
+
+    expect(index.boundedProofs).toEqual([expect.objectContaining({
+      id: "random-all-blocked-retry",
+      entryId: "random-force-and-mixed-tracks",
+      entryOrdinal: 25,
+      levelNumber: 24,
+      seed: 24005,
+      verifiedThroughBoundary: 52,
+      expectedOutcome: "unfinished",
+      scenarioIds: ["force.random-all-blocked-retry"],
+    })]);
+    expect(new Set([
+      ...index.replays.map((replay) => replay.id),
+      ...index.boundedProofs.map((proof) => proof.id),
+    ]).size).toBe(127);
+    const coveredScenarioIds = [
+      ...terminalScenarioIds,
+      ...index.boundedProofs.flatMap((proof) => proof.scenarioIds),
+    ];
+    expect(new Set(coveredScenarioIds).size).toBe(135);
+    expect([...new Set(coveredScenarioIds)].sort()).toEqual(EXPECTED_SCENARIO_IDS);
   });
 
-  it("rejects duplicate scenario coverage instead of silently shrinking the corpus", async () => {
+  it("allows scenario matrix coverage across runs but rejects duplicates within one proof", async () => {
     const index = JSON.parse(await readFile(asset("replay-index.json"), "utf8"));
-    index.replays[1].scenarioIds[0] = index.replays[0].scenarioIds[0];
 
     expect(() => parseLegacyDatSandboxReplayIndex(
       new TextEncoder().encode(JSON.stringify(index)),
-    )).toThrow("duplicate scenario IDs");
+    )).not.toThrow();
+
+    index.replays[0].scenarioIds.push(index.replays[0].scenarioIds[0]);
+
+    expect(() => parseLegacyDatSandboxReplayIndex(
+      new TextEncoder().encode(JSON.stringify(index)),
+    )).toThrow("Legacy DAT Sandbox replay 0 contains duplicate scenario IDs");
+  });
+
+  it("rejects proof IDs duplicated between terminal and bounded evidence", async () => {
+    const index = JSON.parse(await readFile(asset("replay-index.json"), "utf8"));
+    index.boundedProofs[0].id = index.replays[0].id;
+
+    expect(() => parseLegacyDatSandboxReplayIndex(
+      new TextEncoder().encode(JSON.stringify(index)),
+    )).toThrow("duplicate proof IDs");
+  });
+
+  it("rejects duplicate terminal HCR1 paths", async () => {
+    const index = JSON.parse(await readFile(asset("replay-index.json"), "utf8"));
+    index.replays[1].path = index.replays[0].path;
+
+    expect(() => parseLegacyDatSandboxReplayIndex(
+      new TextEncoder().encode(JSON.stringify(index)),
+    )).toThrow("duplicate replay paths");
+  });
+
+  it("rejects any HCR1 path attached to bounded evidence", async () => {
+    const index = JSON.parse(await readFile(asset("replay-index.json"), "utf8"));
+    index.boundedProofs[0].path = "replays/1.0.14/random-all-blocked-retry.hcr1";
+
+    expect(() => parseLegacyDatSandboxReplayIndex(
+      new TextEncoder().encode(JSON.stringify(index)),
+    )).toThrow("must not name an HCR1 path");
   });
 
   it("rejects altered DAT bytes before invoking the native hint-overlay API", async () => {

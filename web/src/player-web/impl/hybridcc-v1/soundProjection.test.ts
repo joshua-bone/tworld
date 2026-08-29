@@ -207,6 +207,34 @@ describe("Hybrid v1 loop sound projection", () => {
   });
 
   it.each([
+    {
+      actorKind: HYBRID_CC_V1_ELEMENT.dirtBlock,
+      terrain: HYBRID_CC_V1_ELEMENT.ice,
+      forbidden: [LYNX_SOUND.SkatingForward, LYNX_SOUND.SkatingTurn, LYNX_SOUND.IceWalking],
+    },
+    {
+      actorKind: HYBRID_CC_V1_ELEMENT.ball,
+      terrain: HYBRID_CC_V1_ELEMENT.forceFloor,
+      forbidden: [LYNX_SOUND.Sliding, LYNX_SOUND.SlideWalking],
+    },
+  ])("keeps player surface loops silent for non-player actor $actorKind", ({
+    actorKind,
+    terrain,
+    forbidden,
+  }) => {
+    const snapshot = testSnapshot({
+      header: { ...testSnapshot().header, width: 2, cellCount: 2, logicBoundary: 1n },
+      cells: [testCell(), testCell({ terrain: testElement({ id: terrain }) })],
+    });
+    const track = testMotionTrack({ actorId: 2n, actorKind });
+    const sounds = projectHybridCcV1LoopSounds(snapshot, [track], 2);
+
+    for (const sound of forbidden) {
+      expect(sounds & bit(sound)).toBe(0);
+    }
+  });
+
+  it.each([
     { name: "ordinary N+2", completionBoundary: 3n, samples: 4, lastActive: 5, firstInactive: 6 },
     { name: "fast N+1", completionBoundary: 2n, samples: 2, lastActive: 3, firstInactive: 4 },
   ])("keeps block movement on for the complete $name pushed interval", ({

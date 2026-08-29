@@ -5,8 +5,8 @@
   "dat": {
     "assetId": "legacy_dat_sandbox",
     "file": "legacy_dat_sandbox.dat",
-    "sha256": "75dcdced0cb4a81dfefdccb5c8180ee4ed65fe004d7a4c3802369bb0841ad91c",
-    "levelCount": 17
+    "sha256": "cd304b8e282a8e2f84077fb5104bef030b7c84c92242618c97d19b8feaf24e18",
+    "levelCount": 25
   },
   "levels": [
     {
@@ -588,7 +588,7 @@
       "rooms": [
         {
           "roomId": "ordinary-and-invisible",
-          "message": "The sealed pink ball repeatedly attempts an ordinary wall without a reveal. Press into the ordinary wall, then the permanently invisible wall. Both reject; only Player's invisible-wall attempt emits a temporary reveal.",
+          "message": "The ball in the small enclosure intentionally presses the ordinary wall to its right; it causes no reveal. Below, Player can press the visible ordinary wall on the left or a hidden permanent wall on the right. Both block; only the hidden wall flashes.",
           "targets": [
             {
               "kind": "tile",
@@ -882,6 +882,422 @@
         {
           "roomId": "terrain-contact-and-push-audio",
           "message": "The west loop drives a pushed block back into stationary Chip; only Chip dies at block StartMove. The east ice lane separates one player push interval from later ice-owned sliding for sound and pose checks.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 18,
+      "expectedNumber": 17,
+      "expectedTitle": "Ice Arrival and Construction",
+      "rooms": [
+        {
+          "roomId": "initial-player-on-ice",
+          "message": "Chip began on the ice at the room center. Construction did not give ice control: the first perpendicular input moved onto ordinary floor in two boundaries. Re-entering ice later does transfer control.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "initial-monsters-on-ice",
+          "message": "Nine sealed monster lanes begin on ice. Eight use ordinary AI to move onto floor; teeth turns toward Chip and rejects its sealed lane. None receives an automatic ice slide from construction.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "initial-block-on-ice",
+          "message": "The dirt block began on ice but remains stationary. Approach from its west side and push east: the external push owns the block, while the exposed ice immediately accelerates Chip's dependent entry.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "first-arrivals-are-fast",
+          "message": "Three fixtures enter ice from floor. Chip at the west fixture, the sealed pink ball above, and the pushable block below each commit the first ice-bound interval in one boundary; ownership transfers only at completion.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 19,
+      "expectedNumber": 18,
+      "expectedTitle": "Ice Control and Blocking",
+      "rooms": [
+        {
+          "roomId": "skates-make-ice-ordinary",
+          "message": "Collect the skates west of the ice strip. Every move onto, along, or sideways off ice remains a two-boundary player-input move; ice never takes control while skates are held.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "straight-ice-owns-forward",
+          "message": "Enter either straight strip without skates and release input. At every completion boundary ice immediately starts the next forward one-boundary leg. The sealed ball demonstrates the same ownership independently.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blocked-forward-reverses",
+          "message": "Enter a two-cell ice strip toward its wall. On the boundary the forward move fails, ice immediately reverses onto the preceding ice cell instead of idling. The sealed ball below repeats the same plan.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "fully-blocked-ice-retries",
+          "message": "The ball leaves a solid real-blue source for ice. That source blocks reverse and the closed green toggle wall blocks forward, so ice keeps ownership and retries. Step on the green button to open its forward side.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 20,
+      "expectedNumber": 19,
+      "expectedTitle": "Ice Corners",
+      "rooms": [
+        {
+          "roomId": "north-corners",
+          "message": "Approach each upper corner from the north. The northeast corner turns east and the northwest corner turns west, each onto its other open edge without an idle boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "corner-reverse-fallbacks",
+          "message": "Four sealed balls enter the four corner orientations. Each redirected opening is walled, so ice rejects that preferred exit and immediately returns through the clear arrival edge; it never chooses a solid corner edge.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "south-corners",
+          "message": "Approach each lower corner from the south. The southeast corner turns east and the southwest corner turns west, each onto its other open edge without an idle boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "fully-blocked-corner",
+          "message": "The sealed ball moves south from a solid real-blue source into a northeast corner. Its east opening and its north source are blocked, so it remains corner-owned and retries only those two open edges.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 21,
+      "expectedNumber": 20,
+      "expectedTitle": "Ice Continuity and Actors",
+      "rooms": [
+        {
+          "roomId": "eight-cell-continuous-slide",
+          "message": "Enter the eight-cell strip from the west and release input. The first arrival, every ice-to-ice leg, and the final ice-owned departure to floor join as consecutive one-boundary intervals without a presentation hitch.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "fast-ice-exit-readiness",
+          "message": "Hold Right through the seven-cell strip and onto floor. The ice-owned final departure remains fast and finishes at N+1; the next ordinary player move starts on that exact boundary and finishes at N+3, with no idle boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "block-autoslide-is-not-pushing",
+          "message": "Push the block east onto the six-cell ice strip. Its first fast leg has one player-push cause; every later one-boundary ice-owned leg is collision-capable but emits neither a new push event nor a stationary push pose.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "slow-mobs-and-sliding-tank",
+          "message": "Teeth and blob enter vertical ice lanes: ice drives every boundary, then every-fourth cadence resumes on floor. The lower tank keeps sliding; a blue-button edge while ice owns it is consumed without reversing now or later.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 22,
+      "expectedNumber": 21,
+      "expectedTitle": "Force Ownership and Arrival",
+      "rooms": [
+        {
+          "roomId": "initial-player-force-owner",
+          "message": "Chip starts on east force. At boundary one the open east arrow owns a fast move; a conflicting held direction cannot override construction-time force ownership.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "initial-hostile-force-owners",
+          "message": "Nine sealed hostiles start on east force. Each first move is terrain-owned and fast, including slow teeth and blob; ordinary AI and cooldown do not choose it.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "initial-block-force-owner",
+          "message": "The west block starts on open east force and moves immediately. The east block's arrow is walled; a later committed north push supersedes force only for that push.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "force-arrivals-and-boots",
+          "message": "West: Chip's first force arrival is fast. North: a ball's AI entry is fast, then force owns it. South: collect suction boots and cross N/E/S/W/random force as ordinary terrain.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 23,
+      "expectedNumber": 22,
+      "expectedTitle": "Force Arrival Arbitration",
+      "rooms": [
+        {
+          "roomId": "open-arrow-wins",
+          "message": "Enter the east arrow from the west, then hold north, south, or west in separate branches. Its open east move always wins on the arrival boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blocked-arrow-fallbacks",
+          "message": "Top-left: blocked east allows north/south boost. Top-right: blocked east allows west boost. Bottom: automatic east legally pushes the block and wins before conflicting input.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blocked-arrival-retry",
+          "message": "Enter east force while holding blocked north. Arrival consumes that failed offer without movement. On the later force opportunity, change to open south for one fast override.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "constructed-force-has-no-arrival-offer",
+          "message": "Chip starts here on east force with east blocked and north open. Boundary one only records blocked terrain control; north becomes eligible on the next regular force boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 24,
+      "expectedNumber": 23,
+      "expectedTitle": "Force Boost Tracks",
+      "rooms": [
+        {
+          "roomId": "boost-destination-matrix",
+          "message": "Four blocked east arrows boost north onto floor, ice, force, and teleport. Every override leg is N-to-N+1; only completion transfers control to the destination.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "hostiles-never-player-override",
+          "message": "Nine sealed hostiles start on east force with east blocked and other space available. They stay force-owned and never borrow Chip's sideways/backward fallback.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "tunnel-clearance",
+          "message": "Enter the north end holding south. Every east arrow is blocked east, so first arrival and every lateral fallback join as fast moves with no idle boundary or visual jolt.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "boost-to-floor-continuity",
+          "message": "Enter the blocked east arrow from the south while holding north. The north boost finishes in one boundary and the next held move begins immediately as an ordinary two-boundary interval.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 25,
+      "expectedNumber": 24,
+      "expectedTitle": "Random Force and Mixed Tracks",
+      "rooms": [
+        {
+          "roomId": "random-fixed-permutations",
+          "message": "Enter the three random pads in separate seeded branches. Their fixtures block one, two, and three sides; each decision consumes exactly four draws before selecting its first legal direction.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "random-automatic-before-input",
+          "message": "Enter the open random pad with a pinned seed while holding a different legal direction. Its full four-draw automatic permutation is fixed and tried before input.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "random-all-blocked-retry",
+          "message": "Leave the count-one pop-up west of random force so it rises behind Chip. Ordinary walls then block every direction; each force opportunity consumes four draws, remains blocked, and retains ownership.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "mixed-tracks-and-destinations",
+          "message": "Upper lanes hand ice to force and force to ice. Middle fixtures prove same-cell boot pickup, a fast Player fire loss, and an ice-owned water consequence. Lower force lanes sample water, fire, bomb, exit, block, and hostile outcomes.",
           "targets": [
             {
               "kind": "tile",

@@ -34,4 +34,9 @@ run("npm", [
   "src/player-web/impl/hybridcc-v1/sandbox/legacyDatSandbox.test.ts",
   "src/player-web/impl/hybridcc-v1/sandbox/sandboxAssetSync.test.ts",
   "src/player-web/impl/hybridcc-v1/sandbox/legacyDatSandboxRealWasmAcceptance.test.ts",
+  "src/player-web/impl/hybridcc-v1/renderProjection.test.ts",
+  "src/player-web/impl/hybridcc-v1/soundProjection.test.ts",
+  "src/player-web/impl/legacyTileset.test.ts",
+  "src/player-web/impl/legacyCanvasMapRenderer.test.ts",
+  "src/player-web/impl/BrowserSoundEffectsPlayer.test.ts",
 ]);

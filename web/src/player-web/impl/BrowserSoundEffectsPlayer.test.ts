@@ -115,4 +115,30 @@ describe("BrowserSoundEffectsPlayer", () => {
     player.syncFrame("hybrid:1", "Hybrid", 2, 0);
     expect(FakeAudio.instances.filter((audio) => audio.loop).every((audio) => audio.paused)).toBe(true);
   });
+
+  it.each([
+    ["ice", LYNX_SOUND.SkatingForward, LYNX_SOUND.IceWalking],
+    ["force floor", LYNX_SOUND.Sliding, LYNX_SOUND.SlideWalking],
+  ])("switches a Hybrid %s loop directly to its booted walking loop", async (
+    _surface,
+    unbootedSound,
+    bootedSound,
+  ) => {
+    const player = new BrowserSoundEffectsPlayer();
+    player.prewarm();
+    await Promise.resolve();
+    const playerState = player as unknown as {
+      loopingAudio: Map<number, FakeAudio>;
+    };
+    const unbooted = playerState.loopingAudio.get(unbootedSound)!;
+    const booted = playerState.loopingAudio.get(bootedSound)!;
+
+    player.syncFrame("hybrid:boot-pickup", "Hybrid", 150, 1 << unbootedSound);
+    expect(unbooted.paused).toBe(false);
+    expect(booted.paused).toBe(true);
+
+    player.syncFrame("hybrid:boot-pickup", "Hybrid", 152, 1 << bootedSound);
+    expect(unbooted.paused).toBe(true);
+    expect(booted.paused).toBe(false);
+  });
 });
