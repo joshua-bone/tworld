@@ -145,23 +145,77 @@ describe("Hybrid v1 motion presentation", () => {
       .toEqual([0, 4, 8, 10, 12, 14]);
   });
 
-  it("presents a discontinuous teleport only as entry into its destination", () => {
-    const track = testMotionTrack({
+  it.each([
+    {
+      name: "short remote",
+      origin: { x: 1, y: 1, z: 0 },
+      destination: { x: 4, y: 1, z: 0 },
+      visualOrigin: { x: 3, y: 1, z: 0 },
+    },
+    {
+      name: "long remote",
       origin: { x: 1, y: 1, z: 0 },
       destination: { x: 20, y: 20, z: 0 },
-      direction: HYBRID_CC_V1_DIRECTION.east,
-      discontinuous: true,
-      presentationSampleCount: 4,
-      completionBoundary: 3n,
-    });
-    expect([2, 3, 4, 5].map((sample) => hybridCcV1PresentedMotion(track, sample)))
-      .toEqual([
-        { active: true, frame: 3, moving: 8, position: track.destination, visualOrigin: { x: 19, y: 20, z: 0 } },
-        { active: true, frame: 2, moving: 6, position: track.destination, visualOrigin: { x: 19, y: 20, z: 0 } },
-        { active: true, frame: 1, moving: 4, position: track.destination, visualOrigin: { x: 19, y: 20, z: 0 } },
-        { active: true, frame: 0, moving: 2, position: track.destination, visualOrigin: { x: 19, y: 20, z: 0 } },
+      visualOrigin: { x: 19, y: 20, z: 0 },
+    },
+    {
+      name: "equal-endpoint self-return",
+      origin: { x: 5, y: 5, z: 0 },
+      destination: { x: 5, y: 5, z: 0 },
+      visualOrigin: { x: 4, y: 5, z: 0 },
+    },
+  ])(
+    "presents a $name discontinuity only as destination-local entry",
+    ({ origin, destination, visualOrigin }) => {
+      const track = testMotionTrack({
+        origin,
+        destination,
+        direction: HYBRID_CC_V1_DIRECTION.east,
+        discontinuous: true,
+      });
+      const samples = [2, 3, 4, 5].map((sample) => (
+        hybridCcV1PresentedMotion(track, sample)
+      ));
+
+      expect(samples.map(({ position }) => position)).toEqual([
+        destination,
+        destination,
+        destination,
+        destination,
       ]);
-    expect(hybridCcV1PresentedMotion(track, 6).active).toBe(false);
+      expect(samples.map((motion) => motion.visualOrigin)).toEqual([
+        visualOrigin,
+        visualOrigin,
+        visualOrigin,
+        visualOrigin,
+      ]);
+      expect(samples.map(({ moving }) => moving)).toEqual([8, 6, 4, 2]);
+      expect(hybridCcV1PresentedMotion(track, 6)).toEqual({
+        active: false,
+        frame: 0,
+        moving: 0,
+        position: destination,
+      });
+    },
+  );
+
+  it("keeps a source-local continuous teleport on its true adjacent track", () => {
+    const track = testMotionTrack({
+      origin: { x: 1, y: 1, z: 0 },
+      destination: { x: 2, y: 1, z: 0 },
+      direction: HYBRID_CC_V1_DIRECTION.east,
+      owner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
+      movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+      discontinuous: false,
+    });
+    const samples = [2, 3, 4, 5].map((sample) => (
+      hybridCcV1PresentedMotion(track, sample)
+    ));
+
+    expect(samples.every((motion) => motion.position === track.destination)).toBe(true);
+    expect(samples.every((motion) => motion.visualOrigin === undefined)).toBe(true);
+    expect(samples.map(({ moving, position }) => (position?.x ?? 0) * 8 - moving))
+      .toEqual([8, 10, 12, 14]);
   });
 
   it("keeps terminal ghost motion available for the camera at its published speed", () => {

@@ -18,6 +18,7 @@ import {
   inspectHybridCcV1NativeLevel,
 } from "./wasmBridge";
 import { hybridCcV1PresentedMotion } from "./presentationProjection";
+import { resolveLegacyMapViewport } from "../legacyCanvasMapRenderer";
 
 const ELEMENT = {
   floor: 2,
@@ -2964,6 +2965,176 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
       expect(engine.invariantStatus()).toBe(0);
     } finally {
       engine.dispose();
+    }
+  });
+
+  it.each([
+    { name: "Player", actorKind: ELEMENT.player },
+    { name: "dirt block", actorKind: ELEMENT.dirtBlock },
+    { name: "pink ball", actorKind: ELEMENT.ball },
+  ])("projects the real-Wasm teleport sound pulse only for $name", async ({ actorKind }) => {
+    const module = await loadModule();
+    const teleport: ElementFixture = {
+      id: ELEMENT.teleport,
+      color: COLOR.blue,
+      rule: RULE.cannotOverride,
+      channel: "SND",
+    };
+    const encodedLevel = actorKind === ELEMENT.player
+      ? nativeLine("real-Wasm Player teleport sound", [
+          { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+          { terrain: teleport },
+          {},
+          { terrain: teleport },
+          {},
+        ])
+      : actorKind === ELEMENT.ball
+        ? nativeLine("real-Wasm ball teleport silence", [
+            { actor: { id: ELEMENT.ball, direction: DIRECTION.east } },
+            { terrain: teleport },
+            {},
+            { terrain: teleport },
+            {},
+            { terrain: { id: ELEMENT.wall } },
+            { actor: { id: ELEMENT.player, direction: DIRECTION.west } },
+          ])
+        : nativeRectangle("real-Wasm block teleport silence", 7, 2, [
+            {
+              terrain: {
+                id: ELEMENT.forceFloor,
+                direction: DIRECTION.east,
+                rule: RULE.fromCenter,
+              },
+              actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.east },
+            },
+            { terrain: teleport },
+            {},
+            { terrain: teleport },
+            {},
+            { terrain: { id: ELEMENT.wall } },
+            { terrain: { id: ELEMENT.wall } },
+            { terrain: { id: ELEMENT.wall } },
+            { terrain: { id: ELEMENT.wall } },
+            { terrain: { id: ELEMENT.wall } },
+            { terrain: { id: ELEMENT.wall } },
+            { terrain: { id: ELEMENT.wall } },
+            { terrain: { id: ELEMENT.wall } },
+            { actor: { id: ELEMENT.player, direction: DIRECTION.west } },
+          ]);
+    const harness = await startRealSession(
+      module,
+      `Hybrid-v1-real-Wasm-teleport-sound-${actorKind}`,
+      encodedLevel,
+    );
+    let session = harness.session;
+
+    try {
+      for (let hostSample = 0; hostSample < 9; hostSample += 1) {
+        session = await harness.adapter.advanceSession(
+          session,
+          actorKind === ELEMENT.player && hostSample === 0
+            ? HYBRIDCC_V1_INPUT.east
+            : HYBRIDCC_V1_INPUT.none,
+        );
+      }
+      const teleportStarts = harness.engine.snapshot().events.filter(({ kind, owner }) => (
+        kind === HYBRID_CC_V1_EVENT.moveStarted
+        && owner === HYBRID_CC_V1_MOVEMENT_OWNER.teleport
+      ));
+      expect(teleportStarts).toEqual([
+        expect.objectContaining({ actorKind }),
+      ]);
+      expect(session.frame.snapshot.soundEffects).toBe(
+        actorKind === ELEMENT.player ? 1 << LYNX_SOUND.Teleporting : 0,
+      );
+
+      session = await harness.adapter.advanceSession(session, HYBRIDCC_V1_INPUT.none);
+      expect(session.frame.snapshot.soundEffects & (1 << LYNX_SOUND.Teleporting)).toBe(0);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("acquires a far teleport destination immediately and follows its next ordinary move smoothly", async () => {
+    const module = await loadModule();
+    const width = 32;
+    const cells: CellFixture[] = Array.from({ length: width * width }, () => ({}));
+    const index = (x: number, y: number) => y * width + x;
+    const teleport: ElementFixture = {
+      id: ELEMENT.teleport,
+      color: COLOR.blue,
+      rule: RULE.cannotOverride,
+      channel: "FAR",
+    };
+    cells[index(1, 2)] = { actor: { id: ELEMENT.player, direction: DIRECTION.east } };
+    cells[index(2, 2)] = { terrain: teleport };
+    cells[index(25, 25)] = { terrain: teleport };
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-far-teleport-camera",
+      nativeRectangle("real-Wasm far teleport camera", width, width, cells),
+    );
+    let session = harness.session;
+
+    try {
+      for (let hostSample = 0; hostSample < 8; hostSample += 1) {
+        session = await harness.adapter.advanceSession(
+          session,
+          hostSample === 0 ? HYBRIDCC_V1_INPUT.east : HYBRIDCC_V1_INPUT.none,
+        );
+      }
+
+      const ticks: number[] = [];
+      const fixedX: number[] = [];
+      const viewports: Array<{ viewX: number; viewY: number }> = [];
+      let teleportStart: ReturnType<typeof harness.engine.snapshot> | undefined;
+      let ordinaryStart: ReturnType<typeof harness.engine.snapshot> | undefined;
+      for (let hostSample = 0; hostSample < 12; hostSample += 1) {
+        session = await harness.adapter.advanceSession(
+          session,
+          hostSample >= 8 ? HYBRIDCC_V1_INPUT.east : HYBRIDCC_V1_INPUT.none,
+        );
+        if (hostSample === 0) teleportStart = harness.engine.snapshot();
+        if (hostSample === 8) ordinaryStart = harness.engine.snapshot();
+        const chip = session.frame.render?.chip;
+        if (!chip) throw new Error("Far teleport fixture lost rendered Chip");
+        ticks.push(session.frame.snapshot.tick);
+        fixedX.push((chip.pos % width) * 8 - chip.moving);
+        viewports.push(resolveLegacyMapViewport(session, "Hybrid"));
+      }
+
+      expect(teleportStart?.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 26, y: 25, z: 0 },
+        movement: {
+          origin: { x: 2, y: 2, z: 0 },
+          destination: { x: 26, y: 25, z: 0 },
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.teleport,
+          discontinuous: true,
+        },
+      });
+      expect(ordinaryStart?.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 27, y: 25, z: 0 },
+        movement: {
+          origin: { x: 26, y: 25, z: 0 },
+          destination: { x: 27, y: 25, z: 0 },
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerInput,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.ordinary,
+          discontinuous: false,
+        },
+      });
+      const twentyHertzX = fixedX.filter((_, sample) => (
+        sample === 0 || ticks[sample] !== ticks[sample - 1]
+      ));
+      expect(twentyHertzX).toEqual([200, 202, 204, 206, 208, 210]);
+      expect(fixedX.every((coordinate) => coordinate >= 25 * 8)).toBe(true);
+      expect(viewports.every(({ viewX, viewY }) => viewX > 0 && viewY > 0)).toBe(true);
+      expect(viewports.slice(1).every(({ viewX }, sample) => (
+        viewX >= viewports[sample]!.viewX
+      ))).toBe(true);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
     }
   });
 

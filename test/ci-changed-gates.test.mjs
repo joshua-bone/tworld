@@ -333,8 +333,10 @@ test("routes all production web sources to presentation without widening engine 
 
 test("keeps Hybrid player and generated levelset assets in the P7 presentation graph only", () => {
   for (const path of [
-    "web/src/content/levelsets/hybridcc-v1/legacy_dat_sandbox.dat",
-    "web/src/content/levelsets/hybridcc-v1/legacy_dat_sandbox.hints.json",
+    "web/src/player-web/impl/hybridcc-v1/sandbox/assets/legacy_dat_sandbox.dat",
+    "web/src/player-web/impl/hybridcc-v1/sandbox/assets/legacy_dat_sandbox.hints.json",
+    "web/src/player-web/impl/hybridcc-v1/sandbox/assets/replay-index.json",
+    "web/src/player-web/impl/hybridcc-v1/sandbox/assets/replays/1.0.16/44-teleport-hostile-occupancy.hcr1",
     "web/src/player-web/impl/hybridcc-v1/HybridCcV1App.tsx",
   ]) {
     const result = assertSelection(

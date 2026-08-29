@@ -23,11 +23,11 @@ export const LEGACY_DAT_SANDBOX_ASSET_ID = "legacy_dat_sandbox";
 export const LEGACY_DAT_SANDBOX_FILENAME = "legacy_dat_sandbox.dat";
 export const LEGACY_DAT_SANDBOX_NAME = "Legacy DAT Sandbox";
 export const LEGACY_DAT_SANDBOX_DAT_SHA256 =
-  "ccb4359eeba904d376688d38754808afb610891585bcda60c745efd4e0a68d7d";
+  "d407f1b46cf378312958fffda162e3501002218a6c926e717ff4bc2968389f0d";
 export const LEGACY_DAT_SANDBOX_HINTS_SHA256 =
-  "c26a72eaa92c324a333cdc728146d178c3ceb552b74eee3d5021f90b26d655d6";
+  "8c3ed9ef96d2f302d9c797527b3fb7d84955599d299336852fa1689a8bcb856b";
 export const LEGACY_DAT_SANDBOX_REPLAY_INDEX_SHA256 =
-  "7bf4037ef2d71c67fb38e31f1899041a13adfc5572eb3677fc0b13d2f8d58c3a";
+  "b1b923a0bc11f10b4e0fe2bc025252868da221f6164c3310caa47ee8869f3881";
 
 interface HintTarget {
   kind: "tile";

@@ -1,22 +1,22 @@
 {
   "schema": "hybridcc.legacy-dat-sandbox.browser-assets.v1",
   "sourceRepository": "joshua-bone/HybridCC2026",
-  "sourceCommit": "d66bd4ac2b79e8b5ca69499d5498142945d1d2c8",
+  "sourceCommit": "05df0098f91420b21940a88bf829493c5d838c2a",
   "files": [
     {
       "path": "legacy_dat_sandbox.dat",
-      "byteLength": 27496,
-      "sha256": "ccb4359eeba904d376688d38754808afb610891585bcda60c745efd4e0a68d7d"
+      "byteLength": 46198,
+      "sha256": "d407f1b46cf378312958fffda162e3501002218a6c926e717ff4bc2968389f0d"
     },
     {
       "path": "legacy_dat_sandbox.hints.json",
-      "byteLength": 78685,
-      "sha256": "c26a72eaa92c324a333cdc728146d178c3ceb552b74eee3d5021f90b26d655d6"
+      "byteLength": 111204,
+      "sha256": "8c3ed9ef96d2f302d9c797527b3fb7d84955599d299336852fa1689a8bcb856b"
     },
     {
       "path": "replay-index.json",
-      "byteLength": 109351,
-      "sha256": "7bf4037ef2d71c67fb38e31f1899041a13adfc5572eb3677fc0b13d2f8d58c3a"
+      "byteLength": 137026,
+      "sha256": "b1b923a0bc11f10b4e0fe2bc025252868da221f6164c3310caa47ee8869f3881"
     },
     {
       "path": "replays/1.0.16/1-foundation-tour.hcr1",
@@ -209,6 +209,11 @@
       "sha256": "2fe51000e7dc35a927342fbb6f5e59a02220f0b44e742b2efe4f38f0ae3a25bc"
     },
     {
+      "path": "replays/1.0.16/151-teleport-hazard-personalities.hcr1",
+      "byteLength": 254,
+      "sha256": "42d030af9adc96df882f2c5717daeb8d3c3fedd937ef05d5a7f1fd5af46d9711"
+    },
+    {
       "path": "replays/1.0.16/16-external-push-off-force.hcr1",
       "byteLength": 2750,
       "sha256": "38d85c3bfd8c084af0bc55853330eaccd68b4b5215940f4fba3a530c7e33f2ee"
@@ -247,6 +252,16 @@
       "path": "replays/1.0.16/16-terrain-driven-contact.hcr1",
       "byteLength": 2003,
       "sha256": "9bb0168be613409602f91e0026d35599cd80261b0fceee1fcb3ab99e1f90d847"
+    },
+    {
+      "path": "replays/1.0.16/160-teleport-exit-bomb.hcr1",
+      "byteLength": 254,
+      "sha256": "2ab57e61261f4511c4f2ff1bd734b0371b87050f17265dd219117396b4c02baf"
+    },
+    {
+      "path": "replays/1.0.16/163-teleport-player-occupancy.hcr1",
+      "byteLength": 188,
+      "sha256": "56a81bab7667a74c9c445dc6b6879880f592d9f2509759d000a3f9be91461c20"
     },
     {
       "path": "replays/1.0.16/17-first-block-arrival-fast.hcr1",
@@ -557,6 +572,11 @@
       "path": "replays/1.0.16/4-yellow-door.hcr1",
       "byteLength": 2336,
       "sha256": "3d1920caded92396bdf4aaf4802672e06840c3a8e5d241ded36767c546587c93"
+    },
+    {
+      "path": "replays/1.0.16/44-teleport-hostile-occupancy.hcr1",
+      "byteLength": 206,
+      "sha256": "1ae30694a681222f358f4d98f2080195b8e08378d9b7cd08c1c237359f40fd49"
     },
     {
       "path": "replays/1.0.16/5-blue-key-fragile-block.hcr1",
