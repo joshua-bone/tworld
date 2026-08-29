@@ -5,8 +5,8 @@
   "dat": {
     "assetId": "legacy_dat_sandbox",
     "file": "legacy_dat_sandbox.dat",
-    "sha256": "32b545ac4277053b4467eabbeb2b8d48420df7870820945e2e991d5e5dc1235d",
-    "levelCount": 25
+    "sha256": "ccb4359eeba904d376688d38754808afb610891585bcda60c745efd4e0a68d7d",
+    "levelCount": 49
   },
   "levels": [
     {
@@ -1298,6 +1298,1221 @@
         {
           "roomId": "mixed-tracks-and-destinations",
           "message": "Three tracks compare open force arrows. Ice-to-force cannot preempt the arrow. A force-owned move through ice may preempt the next arrow once; a Player override through ice may not. Middle and lower fixtures retain boot and destination tests.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 26,
+      "expectedNumber": 25,
+      "expectedTitle": "Toggle Basics",
+      "rooms": [
+        {
+          "roomId": "closed-open-closed",
+          "message": "The ball crosses local green buttons at boundaries 3 and 7, then is destroyed. The initially closed and open walls each change on both edges, proving both complete parity cycles without later stray presses.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "open-closed-open",
+          "message": "Support room: the paired open and closed toggle-wall proof is in the northwest room, where one finite ball track supplies exactly two local edges.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "global-fanout",
+          "message": "After the two-edge ball cycle, an ant reaches the upper green button at boundary 9 and a tank reaches the lower one at 11. Every mixed-polarity wall follows both global edges.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "any-actor-press",
+          "message": "This actor matrix presses green with ball and ant together at 15, tank at 19, pushed block at 21, and Chip at 23. Hold east at 19, then north at 21; exact actor-bound event proofs distinguish the simultaneous pair.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 27,
+      "expectedNumber": 26,
+      "expectedTitle": "Toggle Boundaries",
+      "rooms": [
+        {
+          "roomId": "same-boundary-parity",
+          "message": "The upper pair reaches green together at boundary 3 in left-then-right order. The lower pair reaches green at 5 with the opposite declared order. Each two-edge batch preserves wall parity.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "close-under-occupant",
+          "message": "After the four-edge parity batches, the long-run ball supplies edge five at boundary 9. The toggle closes beneath the east-facing tank while its gate opens, so the tank departs without being erased.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "closed-rejects-all",
+          "message": "Hold east once to show Chip blocked at the first closed toggle. Walk south to the block lane and try east again before boundary 9; a ball independently bounces from another closed toggle.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "snapshot-drives-art",
+          "message": "The native snapshot publishes these walls unchanged after each even pair, then inverted on edge five at boundary 9. The local tank is blocked while closed and enters on that edge; the web host separately checks its 20 Hz art.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 28,
+      "expectedNumber": 27,
+      "expectedTitle": "Tanks and Button Edges",
+      "rooms": [
+        {
+          "roomId": "blue-global-reversal",
+          "message": "Four boxed tanks begin facing north, east, south, and west. The monster blue edge at boundary 2 reverses all four; the block blue edge at 9 restores every original facing.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "cooldown-reversal",
+          "message": "The east-facing tank starts an ordinary move at boundary 1. Blue arrives at 2 while it is still in flight; on completion at 3 its next eligible move immediately uses west.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "terrain-owned-tanks",
+          "message": "The blue edge at boundary 2 arrives during fast terrain-owned travel. Both tanks continue east on boundary 3; the signal neither reverses them immediately nor queues a later reversal.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "actor-generic-button-edges",
+          "message": "Hold east: block presses green/red/brown/blue at 3/5/7/9 and Chip follows at 5/7/9/11. The balls cover all four colors; bomb-on-brown releases atomically at 3. The host maps interaction facts to audio.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 29,
+      "expectedNumber": 28,
+      "expectedTitle": "Trap Player Release",
+      "rooms": [
+        {
+          "roomId": "starts-holding",
+          "message": "The ball was authored on an unlinked DAT trap. Across multiple logic boundaries it remains the same actor in the same cell, with the holding trap retaining movement ownership.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "player-intent-and-facing",
+          "message": "Chip faces west in the linked trap. East input wins on release; blocked north input visibly reveals a wall before west facing succeeds.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "retry-variant-guide",
+          "message": "The separately listed Blocked Retry variant isolates the later-opening-exit proof so this Player fixture stays unambiguous.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "release-observation",
+          "message": "Support room reserved for walking and visual comparison without another linked component changing the Player proof.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 30,
+      "expectedNumber": 128,
+      "expectedTitle": "Trap Player Blocked Retry",
+      "rooms": [
+        {
+          "roomId": "blocked-then-open",
+          "message": "Chip first retries against four blocked exits. Green later opens east while brown remains held, and fresh east input starts the departure immediately.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 31,
+      "expectedNumber": 29,
+      "expectedTitle": "Trap Pushables",
+      "rooms": [
+        {
+          "roomId": "direct-push-player-first",
+          "message": "At release, concrete Player east intent pushes the north-facing block east before its facing fallback. This entry records Player first.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "no-intent-facing",
+          "message": "With no external push in this room, a released DAT block uses imported north facing and leaves normally.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "ordered-variant-guide",
+          "message": "Separate logical variants reverse DAT actor order and place Chip at each exact direct-push or ordered-slap fixture.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "rejection-variant-guide",
+          "message": "The Rejected Push variant isolates a real Player contact so autonomous fallback cannot masquerade as a rejected push.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 32,
+      "expectedNumber": 129,
+      "expectedTitle": "Trap Direct Push Block First",
+      "rooms": [
+        {
+          "roomId": "direct-push-block-first",
+          "message": "Concrete east push still wins over north trap-facing fallback when the block precedes Chip in the logic list.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 33,
+      "expectedNumber": 130,
+      "expectedTitle": "Trap Side Slap Player First",
+      "rooms": [
+        {
+          "roomId": "side-slap-player-first",
+          "message": "Chip is north of the north-facing block. East is Chip's legal primary leg; South is the concrete slap and must beat north fallback.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 34,
+      "expectedNumber": 131,
+      "expectedTitle": "Trap Side Slap Block First",
+      "rooms": [
+        {
+          "roomId": "side-slap-block-first",
+          "message": "The same East-South transaction sends the block south before north facing even with inverse native actor order.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 35,
+      "expectedNumber": 132,
+      "expectedTitle": "Trap Rejected Push Fallback",
+      "rooms": [
+        {
+          "roomId": "rejected-push-fallback",
+          "message": "Hold East through release. The block cannot move east, Chip cannot enter its trap cell, and north trap-facing fallback begins on the same boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 36,
+      "expectedNumber": 30,
+      "expectedTitle": "Trap Monster Cadence",
+      "rooms": [
+        {
+          "roomId": "monster-facing-first",
+          "message": "The east-facing ant has east and north open. Trap release chooses east facing before the ant's ordinary left-turn policy.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "monster-ai-fallback",
+          "message": "This east-facing ant has an east wall. Release rejects facing, then accepts its north AI fallback on the same boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "slow-cooldown-gate",
+          "message": "Teeth and blob move east into holding traps at boundary one. Brown releases at completion, but blocked facing cannot fall back until T+4.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "slow-release-after-cooldown",
+          "message": "A second teeth/blob pair proves the same release remains live through cooldown and launches only on its boundary-five opportunity.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 37,
+      "expectedNumber": 31,
+      "expectedTitle": "Trap Links and Handoffs",
+      "rooms": [
+        {
+          "roomId": "unlinked-and-linked-control",
+          "message": "The west trap is truly unlinked. At boundary three a separate local brown component releases its east trap while the unlinked occupant stays owned.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "staggered-components-and-fanout",
+          "message": "Alpha presses at boundary three and releases two traps while beta stays held. Beta presses at boundary five, proving independent components and one-button fanout.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "release-state-prerequisites",
+          "message": "One occupied blocked trap and one empty trap change from holding to releasing on the exact brown completion. This certifies semantics, not pixels.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "handoff-variant-guide",
+          "message": "Dedicated logical variants isolate Player, block, and monster handoffs plus rehold and reopen races without simultaneous-room cross-talk.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 38,
+      "expectedNumber": 133,
+      "expectedTitle": "Trap Actor Button Links",
+      "rooms": [
+        {
+          "roomId": "actor-specific-button-edges",
+          "message": "Chip presses brown first, the ball presses its separate brown button, and Chip later pushes the block onto a third. Each edge has its own trapped witness.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 39,
+      "expectedNumber": 134,
+      "expectedTitle": "Trap Rehold Before Planning",
+      "rooms": [
+        {
+          "roomId": "rehold-before-planning",
+          "message": "Brown starts held down. At boundary three green opens Chip's east gate, the brown ball completes leaving first, and Chip must remain trapped even though east is now physically open.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 40,
+      "expectedNumber": 135,
+      "expectedTitle": "Trap Rehold After StartMove",
+      "rooms": [
+        {
+          "roomId": "accepted-departure-survives-rehold",
+          "message": "Brown begins held. At boundary one the tank starts east first; Chip then starts leaving brown and closes the trap, but that cannot cancel the tank's accepted movement.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 41,
+      "expectedNumber": 136,
+      "expectedTitle": "Trap Reopen Fresh State",
+      "rooms": [
+        {
+          "roomId": "rehold-then-fresh-reopen",
+          "message": "Green opens Chip's east gate at three as the first brown ball completes leaving and reholds the trap. A second ball reaches its linked brown at five, creating a fresh release that Chip may use.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 42,
+      "expectedNumber": 137,
+      "expectedTitle": "Trap Slide Player Handoff",
+      "rooms": [
+        {
+          "roomId": "player-slide-to-released-trap",
+          "message": "Hold east to enter ice, then hold north. Ice owns the east arrival into the released trap; at completion the trap gives Chip's north intent first priority.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 43,
+      "expectedNumber": 138,
+      "expectedTitle": "Trap Slide Block Handoff",
+      "rooms": [
+        {
+          "roomId": "block-slide-to-released-trap",
+          "message": "The block starts force-owned and arrives in the released trap at boundary three. Chip's north push on that boundary must win over the incoming east slide.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 44,
+      "expectedNumber": 139,
+      "expectedTitle": "Trap Slide Monster Handoff",
+      "rooms": [
+        {
+          "roomId": "monster-slide-to-released-trap",
+          "message": "The ball presses blue at boundary three before the tank completes its force-owned arrival. The released trap then launches the tank west using its newly reversed facing.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-ne",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "support-sw",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "support-se",
+          "message": "Support room.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 45,
+      "expectedNumber": 32,
+      "expectedTitle": "Cloner Gallery",
+      "rooms": [
+        {
+          "roomId": "classic-cloner-gallery",
+          "message": "The common red component launches four directional blocks and nine classic mobs into separate lanes, preserving kind and facing. Chip's cloner consumes the same edge without cloning Player.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 46,
+      "expectedNumber": 33,
+      "expectedTitle": "Cloner Activation",
+      "rooms": [
+        {
+          "roomId": "player-presses-red",
+          "message": "Walk onto red. Its edge appears only when Chip finishes entering; the block source then launches and is replenished.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "nonplayer-presses-red",
+          "message": "A monster and a pushed dirt block use separate red components. Each completed entry emits its own edge and launches only its linked source.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blocked-edge-consumption",
+          "message": "Red first finds a shut toggle wall and spends its edge. Green opens the wall without retrying; the next red entry launches the still-waiting source.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "occupied-source-solid",
+          "message": "Try Chip, a pushed block, and a monster against occupied cloner sources. Every approach rejects without displacing either source.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 47,
+      "expectedNumber": 34,
+      "expectedTitle": "Cloner Destinations",
+      "rooms": [
+        {
+          "roomId": "logical-visual-continuity",
+          "message": "A slow block launch vacates the source logically at StartMove while presentation keeps a stationary source duplicate until FinishExit creates the real clone.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "ordinary-and-ice",
+          "message": "The west source launches to ordinary floor in N+2; the east source launches onto ice in N+1, then ice takes ownership after completion.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "force-destination",
+          "message": "A source launches onto force in N+1. At completion the source clone appears exactly once and force becomes movement owner for the launched actor.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "teleport-destination",
+          "message": "A cloner launches onto teleport using destination timing. Only after FinishEnter does teleport own and search its network; cloning and teleporting never collapse into one instant action.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 48,
+      "expectedNumber": 35,
+      "expectedTitle": "Cloner Ordering",
+      "rooms": [
+        {
+          "roomId": "player-before-later-source",
+          "message": "Enter red from below and keep holding north. Chip is earlier than the east-facing source, but the fresh dependent input waits; the block claims the north cell and Chip rejects alive.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "source-before-player",
+          "message": "Approach this red button from below and keep holding north. The source is earlier than Chip and claims the north cell before Chip's fresh attempt, again rejecting without death.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "nonplayer-order-preserved",
+          "message": "Red releases two cloners while brown releases two trapped balls. Both pairs target one empty square; reversed DAT order makes a different actor win each twin.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "unrelated-player-control",
+          "message": "A ball finishes red while Chip continues across unrelated open floor. The later cloner and Chip both start their independent moves on that boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 49,
+      "expectedNumber": 36,
+      "expectedTitle": "Cloner Consequences",
+      "rooms": [
+        {
+          "roomId": "water-and-fire",
+          "message": "A block launch fills water and dies while its source is replenished. Fireball admits to fire and survives; ant rejects fire admission and stays at source.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "bomb-destination",
+          "message": "A launched actor completes onto a bomb; both are destroyed while the source clone appears exactly once and future red edges remain usable.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "player-contact",
+          "message": "Independent red buttons launch a block or hostile into Chip. Accepted StartMove destroys only Chip; the launched actor and source-clone lifecycle continue after loss.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "components-and-generations",
+          "message": "A cloner-owned tank ignores the early blue reversal edge. One red component then fans out twice to tank and teeth; a staggered independent component clones ant twice without cross-talk, preserving each source's actual facing.",
           "targets": [
             {
               "kind": "tile",

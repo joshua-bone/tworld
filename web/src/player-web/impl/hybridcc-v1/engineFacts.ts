@@ -8,9 +8,9 @@
  * release ordering, PR #56's entry-scoped teleport activation, PR #58's
  * atomic teleport self-return occupancy, PR #60's category-aware released-
  * trap arbitration, PR #69's destination-resolved movement timing, PR #71's
- * moving-pushable contact settlement and force-run provenance, and the D029
- * DAT special-art policy, include/hybridcc/v1/c_api.h, ABI version 2,
- * ruleset 1.0.16.
+ * moving-pushable contact settlement and force-run provenance, PR #73's
+ * linked-device certification, and the D029 DAT special-art policy,
+ * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.16.
  */
 export const HYBRID_CC_V1_DIRECTION = {
   north: 0,

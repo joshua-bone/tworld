@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -49,7 +49,7 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
 
     await runSync(source, destination);
     await expect(runSync(source, destination, true)).resolves.toMatchObject({
-      stdout: expect.stringContaining("Checked 131 HybridCC sandbox assets."),
+      stdout: expect.stringContaining("Checked 133 HybridCC sandbox assets."),
     });
 
     await mkdir(join(source, "replays/1.0.12"), { recursive: true });
@@ -78,6 +78,21 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
 
     await expect(runSync(source, destination, true)).rejects.toMatchObject({
       stderr: expect.stringContaining(`unexpected ${fakeBoundedReplay}`),
+    });
+  }, 15_000);
+
+  it("rejects a source replay index without the reviewed proof policy", async () => {
+    const root = await temporaryDirectory();
+    const source = join(root, "generated");
+    const destination = join(root, "browser-assets");
+    const indexPath = join(source, "replay-index.json");
+    await cp(checkedInAssets, source, { recursive: true });
+    const index = JSON.parse(await readFile(indexPath, "utf8"));
+    index.proofPolicy.strictCausalScenarioPlacements = 0;
+    await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`);
+
+    await expect(runSync(source, destination)).rejects.toMatchObject({
+      stderr: expect.stringContaining("replay-index.json has an unsupported schema"),
     });
   }, 15_000);
 });

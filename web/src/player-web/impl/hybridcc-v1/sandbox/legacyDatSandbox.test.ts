@@ -43,6 +43,33 @@ const EXPECTED_ROOMS = [
   [24, ["random-fixed-permutations", "random-automatic-before-input", "random-all-blocked-retry", "mixed-tracks-and-destinations"]],
 ] as const;
 
+const EXPECTED_PR8_LEVELS = [
+  [26, 25, "Toggle Basics", ["closed-open-closed", "open-closed-open", "global-fanout", "any-actor-press"]],
+  [27, 26, "Toggle Boundaries", ["same-boundary-parity", "close-under-occupant", "closed-rejects-all", "snapshot-drives-art"]],
+  [28, 27, "Tanks and Button Edges", ["blue-global-reversal", "cooldown-reversal", "terrain-owned-tanks", "actor-generic-button-edges"]],
+  [29, 28, "Trap Player Release", ["starts-holding", "player-intent-and-facing", "retry-variant-guide", "release-observation"]],
+  [30, 128, "Trap Player Blocked Retry", ["blocked-then-open", "support-ne", "support-sw", "support-se"]],
+  [31, 29, "Trap Pushables", ["direct-push-player-first", "no-intent-facing", "ordered-variant-guide", "rejection-variant-guide"]],
+  [32, 129, "Trap Direct Push Block First", ["direct-push-block-first", "support-ne", "support-sw", "support-se"]],
+  [33, 130, "Trap Side Slap Player First", ["side-slap-player-first", "support-ne", "support-sw", "support-se"]],
+  [34, 131, "Trap Side Slap Block First", ["side-slap-block-first", "support-ne", "support-sw", "support-se"]],
+  [35, 132, "Trap Rejected Push Fallback", ["rejected-push-fallback", "support-ne", "support-sw", "support-se"]],
+  [36, 30, "Trap Monster Cadence", ["monster-facing-first", "monster-ai-fallback", "slow-cooldown-gate", "slow-release-after-cooldown"]],
+  [37, 31, "Trap Links and Handoffs", ["unlinked-and-linked-control", "staggered-components-and-fanout", "release-state-prerequisites", "handoff-variant-guide"]],
+  [38, 133, "Trap Actor Button Links", ["actor-specific-button-edges", "support-ne", "support-sw", "support-se"]],
+  [39, 134, "Trap Rehold Before Planning", ["rehold-before-planning", "support-ne", "support-sw", "support-se"]],
+  [40, 135, "Trap Rehold After StartMove", ["accepted-departure-survives-rehold", "support-ne", "support-sw", "support-se"]],
+  [41, 136, "Trap Reopen Fresh State", ["rehold-then-fresh-reopen", "support-ne", "support-sw", "support-se"]],
+  [42, 137, "Trap Slide Player Handoff", ["player-slide-to-released-trap", "support-ne", "support-sw", "support-se"]],
+  [43, 138, "Trap Slide Block Handoff", ["block-slide-to-released-trap", "support-ne", "support-sw", "support-se"]],
+  [44, 139, "Trap Slide Monster Handoff", ["monster-slide-to-released-trap", "support-ne", "support-sw", "support-se"]],
+  [45, 32, "Cloner Gallery", ["classic-cloner-gallery"]],
+  [46, 33, "Cloner Activation", ["player-presses-red", "nonplayer-presses-red", "blocked-edge-consumption", "occupied-source-solid"]],
+  [47, 34, "Cloner Destinations", ["logical-visual-continuity", "ordinary-and-ice", "force-destination", "teleport-destination"]],
+  [48, 35, "Cloner Ordering", ["player-before-later-source", "source-before-player", "nonplayer-order-preserved", "unrelated-player-control"]],
+  [49, 36, "Cloner Consequences", ["water-and-fire", "bomb-destination", "player-contact", "components-and-generations"]],
+] as const;
+
 const EXPECTED_SCENARIO_IDS = `
 blocks.blocked-primary-no-slap
 blocks.blocked-push
@@ -185,6 +212,67 @@ walls.static-art-51-53-57-59
 walls.static-art-60-63
 `.trim().split(/\s+/u);
 
+const EXPECTED_PR8_SCENARIO_IDS = `
+buttons.destroyed-occupant-releases
+buttons.press-release-audio
+cloners.adjacent-player-claim-earlier-source
+cloners.adjacent-player-claim-later-source
+cloners.block-four-directions
+cloners.block-into-player-fatal
+cloners.blocked-launch-consumes-edge
+cloners.classic-mob-gallery
+cloners.facing-preserved-over-generations
+cloners.hazard-destination-bomb
+cloners.hazard-destination-fire
+cloners.hazard-destination-water
+cloners.hostile-into-player-fatal
+cloners.launch-to-force
+cloners.launch-to-ice
+cloners.launch-to-ordinary
+cloners.launch-to-teleport
+cloners.multiple-links-and-edges
+cloners.nonplayer-order-preserved
+cloners.nonplayer-presses-red
+cloners.player-noop
+cloners.player-presses-red
+cloners.player-unrelated-input-not-deferred
+cloners.source-logical-visual-continuity
+cloners.source-solid-to-entry
+tank.blue-reverses-all
+tank.nonplayer-blue-press
+tank.reverse-in-cooldown
+tank.toggle-suppressed-on-ice-force
+tank.two-presses-restore
+toggle.any-actor-press
+toggle.close-under-occupant
+toggle.closed-open-closed
+toggle.closed-rejects-all
+toggle.global-fanout
+toggle.open-closed-open
+toggle.same-boundary-parity
+toggle.snapshot-drives-art
+traps.block-and-mob-press-links
+traps.block-direct-push-first
+traps.block-no-intent-facing
+traps.block-rejected-push-fallback
+traps.block-side-slap-first
+traps.dat-starts-holding
+traps.monster-ai-fallback
+traps.monster-facing-first
+traps.multiple-linked-pairs
+traps.player-all-blocked-retries
+traps.player-facing-fallback
+traps.player-presses-own-link
+traps.player-release-intent-first
+traps.rehold-before-departure
+traps.release-after-cooldown
+traps.release-art-state
+traps.released-slide-direction-change
+traps.reopen-fresh-state
+traps.teeth-blob-cooldown-gate
+traps.unlinked-never-releases
+`.trim().split(/\s+/u);
+
 describe("Legacy DAT Sandbox sidecars", () => {
   it("pins browser assets to the same reviewed source commit as the Wasm engine", () => {
     expect(assetManifest).toMatchObject({
@@ -199,18 +287,24 @@ describe("Legacy DAT Sandbox sidecars", () => {
     });
   });
 
-  it("publishes one room-specific Hint message for every PR4 scenario room", async () => {
+  it("pins all 49 physical entries and publishes every room-specific Hint message", async () => {
     const hints = parseLegacyDatSandboxHints(
       new Uint8Array(await readFile(asset("legacy_dat_sandbox.hints.json"))),
     );
 
     expect(hints.datSha256).toBe(LEGACY_DAT_SANDBOX_DAT_SHA256);
-    expect(hints.levelCount).toBe(25);
-    expect(hints.levels.map((level) => [
+    expect(hints.levelCount).toBe(49);
+    expect(hints.levels.slice(0, EXPECTED_ROOMS.length).map((level) => [
       level.expectedNumber,
       level.rooms.map((room) => room.roomId),
     ])).toEqual(EXPECTED_ROOMS);
-    expect(hints.levels.flatMap((level) => level.rooms)).toHaveLength(100);
+    expect(hints.levels.slice(EXPECTED_ROOMS.length).map((level) => [
+      level.entryOrdinal,
+      level.expectedNumber,
+      level.expectedTitle,
+      level.rooms.map((room) => room.roomId),
+    ])).toEqual(EXPECTED_PR8_LEVELS);
+    expect(hints.levels.flatMap((level) => level.rooms)).toHaveLength(193);
 
     const trickWalls = hints.levels.find((level) => level.expectedNumber === 11)!;
     expect(trickWalls.rooms.find((room) => room.roomId === "ordinary-and-invisible"))
@@ -230,19 +324,26 @@ describe("Legacy DAT Sandbox sidecars", () => {
       datSha256: LEGACY_DAT_SANDBOX_DAT_SHA256,
       hintSupplementSha256: LEGACY_DAT_SANDBOX_HINTS_SHA256,
       ruleset: "1.0.16",
+      proofPolicy: {
+        strictCausalScenarioPlacements: 63,
+        legacyExecutableScenarioPlacements: 139,
+      },
     });
-    expect(index.replays).toHaveLength(128);
-    expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(128);
+    expect(index.replays).toHaveLength(130);
+    expect(new Set(index.replays.map((replay) => replay.id)).size).toBe(130);
     expect(new Set(index.replays.map((replay) => replay.levelNumber))).toEqual(
-      new Set(EXPECTED_ROOMS.map(([number]) => number)),
+      new Set([
+        ...EXPECTED_ROOMS.map(([number]) => number),
+        36,
+      ]),
     );
     expect(index.replays.filter((replay) => replay.expectedOutcome === "win")).toHaveLength(120);
-    expect(index.replays.filter((replay) => replay.expectedOutcome === "loss")).toHaveLength(8);
+    expect(index.replays.filter((replay) => replay.expectedOutcome === "loss")).toHaveLength(10);
     expect(index.replays.every((replay) => replay.path.startsWith("replays/1.0.16/"))).toBe(true);
 
     const terminalScenarioIds = index.replays.flatMap((replay) => replay.scenarioIds);
-    expect(terminalScenarioIds).toHaveLength(148);
-    expect(new Set(terminalScenarioIds).size).toBe(138);
+    expect(terminalScenarioIds).toHaveLength(150);
+    expect(new Set(terminalScenarioIds).size).toBe(140);
     expect(terminalScenarioIds).not.toContain("force.random-all-blocked-retry");
 
     expect(index.replays).toEqual(expect.arrayContaining([
@@ -286,7 +387,25 @@ describe("Legacy DAT Sandbox sidecars", () => {
       }),
     ]));
 
-    expect(index.boundedProofs).toEqual([expect.objectContaining({
+    expect(index.replays).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "block-contact-and-consequences",
+        entryOrdinal: 49,
+        levelNumber: 36,
+        expectedOutcome: "loss",
+        scenarioIds: ["cloners.block-into-player-fatal"],
+      }),
+      expect.objectContaining({
+        id: "hostile-contact",
+        entryOrdinal: 49,
+        levelNumber: 36,
+        expectedOutcome: "loss",
+        scenarioIds: ["cloners.hostile-into-player-fatal"],
+      }),
+    ]));
+
+    expect(index.boundedProofs).toHaveLength(51);
+    expect(index.boundedProofs).toContainEqual(expect.objectContaining({
       id: "random-all-blocked-retry",
       entryId: "random-force-and-mixed-tracks",
       entryOrdinal: 25,
@@ -295,18 +414,45 @@ describe("Legacy DAT Sandbox sidecars", () => {
       verifiedThroughBoundary: 52,
       expectedOutcome: "unfinished",
       scenarioIds: ["force.random-all-blocked-retry"],
-    })]);
+    }));
+    expect(index.boundedProofs).toContainEqual(expect.objectContaining({
+      id: "toggle-cycles",
+      entryOrdinal: 26,
+      levelNumber: 25,
+      expectedOutcome: "unfinished",
+      scenarioIds: ["toggle.closed-open-closed"],
+    }));
     expect(new Set([
       ...index.replays.map((replay) => replay.id),
       ...index.boundedProofs.map((proof) => proof.id),
-    ]).size).toBe(129);
+    ]).size).toBe(181);
     const coveredScenarioIds = [
       ...terminalScenarioIds,
       ...index.boundedProofs.flatMap((proof) => proof.scenarioIds),
     ];
-    expect(coveredScenarioIds).toHaveLength(149);
-    expect(new Set(coveredScenarioIds).size).toBe(139);
-    expect([...new Set(coveredScenarioIds)].sort()).toEqual(EXPECTED_SCENARIO_IDS);
+    expect(coveredScenarioIds).toHaveLength(222);
+    expect(new Set(coveredScenarioIds).size).toBe(197);
+    expect([...new Set(coveredScenarioIds)].sort()).toEqual([
+      ...EXPECTED_SCENARIO_IDS,
+      ...EXPECTED_PR8_SCENARIO_IDS,
+    ].sort());
+
+    const evidencedEntries = new Set([
+      ...index.replays.map((replay) => replay.entryOrdinal),
+      ...index.boundedProofs.map((proof) => proof.entryOrdinal),
+    ]);
+    expect(evidencedEntries).toEqual(new Set(Array.from({ length: 49 }, (_, index) => index + 1)));
+    expect(index.replays.some((replay) => replay.entryOrdinal === 26)).toBe(false);
+    expect(index.boundedProofs.some((proof) => proof.entryOrdinal === 26)).toBe(true);
+  });
+
+  it("rejects a replay index without positive strict and legacy proof-policy counts", async () => {
+    const index = JSON.parse(await readFile(asset("replay-index.json"), "utf8"));
+    index.proofPolicy.strictCausalScenarioPlacements = 0;
+
+    expect(() => parseLegacyDatSandboxReplayIndex(
+      new TextEncoder().encode(JSON.stringify(index)),
+    )).toThrow("strict causal scenario placements");
   });
 
   it("allows scenario matrix coverage across runs but rejects duplicates within one proof", async () => {

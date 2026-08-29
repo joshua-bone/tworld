@@ -1,22 +1,22 @@
 {
   "schema": "hybridcc.legacy-dat-sandbox.browser-assets.v1",
   "sourceRepository": "joshua-bone/HybridCC2026",
-  "sourceCommit": "9330c9321d0fadb57833fb91bd9202f06fb654b9",
+  "sourceCommit": "d66bd4ac2b79e8b5ca69499d5498142945d1d2c8",
   "files": [
     {
       "path": "legacy_dat_sandbox.dat",
-      "byteLength": 13783,
-      "sha256": "32b545ac4277053b4467eabbeb2b8d48420df7870820945e2e991d5e5dc1235d"
+      "byteLength": 27496,
+      "sha256": "ccb4359eeba904d376688d38754808afb610891585bcda60c745efd4e0a68d7d"
     },
     {
       "path": "legacy_dat_sandbox.hints.json",
-      "byteLength": 44336,
-      "sha256": "98f1e5be2e1cbfe51c88c463515a5ac5360ad73156e40a8e61810a684bcfceab"
+      "byteLength": 78685,
+      "sha256": "c26a72eaa92c324a333cdc728146d178c3ceb552b74eee3d5021f90b26d655d6"
     },
     {
       "path": "replay-index.json",
-      "byteLength": 83179,
-      "sha256": "6d4c15769b342ca75b9d6cfcf5def08ea8ab671a516c4100e7c440b685d969d6"
+      "byteLength": 109351,
+      "sha256": "7bf4037ef2d71c67fb38e31f1899041a13adfc5572eb3677fc0b13d2f8d58c3a"
     },
     {
       "path": "replays/1.0.16/1-foundation-tour.hcr1",
@@ -527,6 +527,16 @@
       "path": "replays/1.0.16/3-ordinary-lifecycle-tour.hcr1",
       "byteLength": 5861,
       "sha256": "20477c0a2c49fcd008d86b7153aad4c5489bbdb53fb16baffe62a089ef117086"
+    },
+    {
+      "path": "replays/1.0.16/36-block-contact-and-consequences.hcr1",
+      "byteLength": 197,
+      "sha256": "307cc474bc8ed4f65fd31c20a9cd6d4f5412434a179b737fbf09314e63e2d169"
+    },
+    {
+      "path": "replays/1.0.16/36-hostile-contact.hcr1",
+      "byteLength": 197,
+      "sha256": "64ff78f592f3c60fca742e249f1fb840139007d5cb0321e4c734982b6e0d9a02"
     },
     {
       "path": "replays/1.0.16/4-blue-door.hcr1",
