@@ -12,7 +12,7 @@ merge, pull request, ruleset, ABI version, and SHA-256 digest of both shipped
 artifacts.
 `wasmArtifact.test.ts` verifies those bytes rather than trusting filenames.
 
-The current artifact is Hybrid v1 ruleset 1.0.15, ABI/snapshot record version 2.
+The current artifact is Hybrid v1 ruleset 1.0.16, ABI/snapshot record version 2.
 It includes PR43's immediate logical occupancy and durable player-push state,
 PR44's HCR1 replay-version correction, PR45's generic pushable-actor transaction
 shared by direct pushes and side slaps, PR48's independent destination timing
@@ -23,15 +23,20 @@ M7 PR58's atomic adjacent-pad self-return occupancy, M8 PR60's category-aware
 released-trap arbitration, and sandbox PR63's explicit DAT 51–63 compatibility
 policy plus replay-publication guardrails, sandbox PR65's block-transaction
 and ordered-slap proof corpus, and sandbox PR67's ice/force-floor ownership,
-arrival, continuity, corner, boost, random-force, and mixed-track proofs, and
-PR69's destination-resolved N+1/N+2 movement timing. A button edge that
+arrival, continuity, corner, boost, random-force, and mixed-track proofs,
+PR69's destination-resolved N+1/N+2 movement timing, and PR71's systemic
+moving-pushable contact settlement plus explicit force-run provenance. A button edge that
 makes a later cloner actor ready is resolved
 before an immediately competing Player move without globally reordering
-unrelated nonplayer actors. On completion of a real arrival, force terrain
-tries its automatic direction first. An unblocked
-automatic move remains authoritative; only a completely blocked automatic move
-can offer the player a legal same-boundary N+1 fallback. Constructing an actor
-on force terrain is not an arrival and does not create that offer. The browser
+unrelated nonplayer actors. On an ordinary or plain-ice arrival, force terrain
+tries its automatic direction first; only a completely blocked automatic move
+can offer the player a legal same-boundary N+1 fallback. A qualifying automatic
+force-to-force run instead allows current legal side or backward input to
+preempt the next force arrow. That run permission can cross terrain-owned ice,
+including corners and reversals, but a player-selected force departure,
+ordinary terrain, boots, teleports, traps, cloners, or death clears it. Plain
+ice-to-force never creates run permission. Constructing an actor on force
+terrain is not an arrival and does not create a fallback offer. The browser
 refuses an ABI, snapshot, or exact ruleset mismatch.
 
 A released trap preserves distinct actor authorities. Player tries current
@@ -89,6 +94,12 @@ an immediate DAT-to-native conversion correction.
   player's follow-up is tested against the changed terrain. The player can
   therefore remain stationary and visibly pushing while the pushed actor
   completes its movement.
+- Player contact with a generic pushable whose accepted interval is strictly
+  between StartMove and FinishMove first settles that interval through its
+  normal Finish lifecycle, then re-evaluates the complete attempted move.
+  Aligned follow-up pushes and perpendicular direct pushes or side slaps can
+  therefore succeed without treating an interpolated sprite as a blocker;
+  anti-parallel contact remains blocked.
 - Block-moving audio is a loop derived from an active `pushableActor` movement
   track. It lasts for that pushed actor's complete N+1 or N+2 interval and ends
   at its completion; a later autonomous ice/force interval does not inherit it.
@@ -119,9 +130,9 @@ the host apply the sandbox's per-room Hint JSON through
 the exact built-in asset identity and SHA-256 digest; a local DAT with the same
 filename never receives the overlay.
 
-Sandbox PR4 publishes 25 physical DAT entries with 100 navigable scenario rooms,
-135 frozen scenario IDs, 126 independently verified terminal reference replays
-(118 wins and eight intentional losses), and one bounded deterministic proof.
+Sandbox PR7 publishes 25 physical DAT entries with 100 navigable scenario rooms,
+139 frozen scenario IDs, 128 independently verified terminal reference replays
+(120 wins and eight intentional losses), and one bounded deterministic proof.
 The bounded proof is accounting evidence, not a playable replay. The bundled
 official `CCLP2.dat` is omitted
 from the Hybrid v1 catalog before its bytes are loaded or converted; this does
@@ -152,7 +163,10 @@ sibling HybridCC checkout.
 ## Acceptance coverage
 
 `HybridCcV1RealWasmAcceptance.test.ts` exercises the actual shipped artifact,
-including immediate occupancy, destination-resolved N+1 fast landing/internal
+including moving-pushable settlement and re-push from strict-interior motion,
+perpendicular push/slap settlement, anti-parallel rejection, force-run override
+provenance, its permitted ice bridge, and every lineage-breaking case. It also
+retains immediate occupancy, destination-resolved N+1 fast landing/internal
 slide continuity, and its direct handoff to an N+2 ordinary landing,
 monotonic coordinates under duplicate host samples, every directional blocked-
 force fallback input phase, automatic-force priority over conflicting input,
@@ -170,7 +184,7 @@ fixtures verify Player intent-first, generic pushable external-intent priority
 in both native actor orders, and ordinary-monster facing-first through that
 same pinned engine and production adapter. Sandbox acceptance converts all 25
 entries through the shipped Wasm, proves the four DAT 60–63 sanitation messages
-remain nonmodal notes, verifies every enriched level hash, plays all 126
+remain nonmodal notes, verifies every enriched level hash, plays all 128
 terminal references to their declared win or loss outcome, and accounts for
 the bounded proof without offering a nonexistent replay file. Rendering tests cover each
 DAT special-art code 51–63 and the retained native-only marker fallbacks.

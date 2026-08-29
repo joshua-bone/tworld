@@ -49,7 +49,7 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
 
     await runSync(source, destination);
     await expect(runSync(source, destination, true)).resolves.toMatchObject({
-      stdout: expect.stringContaining("Checked 129 HybridCC sandbox assets."),
+      stdout: expect.stringContaining("Checked 131 HybridCC sandbox assets."),
     });
 
     await mkdir(join(source, "replays/1.0.12"), { recursive: true });
@@ -70,7 +70,7 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
     const root = await temporaryDirectory();
     const source = join(root, "generated");
     const destination = join(root, "browser-assets");
-    const fakeBoundedReplay = "replays/1.0.15/random-all-blocked-retry.hcr1";
+    const fakeBoundedReplay = "replays/1.0.16/random-all-blocked-retry.hcr1";
     await cp(checkedInAssets, source, { recursive: true });
 
     await runSync(source, destination);

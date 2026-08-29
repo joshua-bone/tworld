@@ -5,7 +5,7 @@
   "dat": {
     "assetId": "legacy_dat_sandbox",
     "file": "legacy_dat_sandbox.dat",
-    "sha256": "7d7516ac7d48e5366b1e85431fb74cef34773fffa92a9235e27c3b57a070e559",
+    "sha256": "32b545ac4277053b4467eabbeb2b8d48420df7870820945e2e991d5e5dc1235d",
     "levelCount": 25
   },
   "levels": [
@@ -922,7 +922,7 @@
         },
         {
           "roomId": "initial-block-on-ice",
-          "message": "The dirt block began on ice but remains stationary. Approach from its west side and push east: the external push owns the block, while the exposed ice immediately accelerates Chip's dependent entry.",
+          "message": "The block began on ice but stays still. Approach from west and hold east. First push exposes ice and speeds Chip's entry. On the next boundary Chip catches the moving block, settles its old leg once, and immediately pushes again instead of bouncing.",
           "targets": [
             {
               "kind": "tile",
@@ -1297,7 +1297,7 @@
         },
         {
           "roomId": "mixed-tracks-and-destinations",
-          "message": "Upper lanes hand ice and force control at N+1, then leave to floor at N+2. Middle tests boot pickup and slow terrain-owned hazard arrivals. Lower lanes test hazards, exit, block, and hostile contact.",
+          "message": "Three tracks compare open force arrows. Ice-to-force cannot preempt the arrow. A force-owned move through ice may preempt the next arrow once; a Player override through ice may not. Middle and lower fixtures retain boot and destination tests.",
           "targets": [
             {
               "kind": "tile",

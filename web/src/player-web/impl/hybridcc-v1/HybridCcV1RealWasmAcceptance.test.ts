@@ -363,6 +363,22 @@ function directionalRenderCoordinate(
   }
 }
 
+type RealWasmHarness = Awaited<ReturnType<typeof startRealSession>>;
+type RealWasmSession = RealWasmHarness["session"];
+type RealWasmInput = Parameters<RealWasmHarness["adapter"]["advanceSession"]>[1];
+
+async function advanceRealWasmBoundary(
+  harness: RealWasmHarness,
+  session: RealWasmSession,
+  input: RealWasmInput,
+): Promise<RealWasmSession> {
+  let next = session;
+  for (let hostSample = 0; hostSample < 4; hostSample += 1) {
+    next = await harness.adapter.advanceSession(next, input);
+  }
+  return next;
+}
+
 describe("HybridCC v1 real-Wasm correctness acceptance", () => {
   it("lets Player input override a conflicting released-trap facing", async () => {
     const module = await loadModule();
@@ -986,6 +1002,567 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
     }
   });
 
+  it.each([
+    {
+      name: "sideways",
+      input: HYBRIDCC_V1_INPUT.north,
+      direction: DIRECTION.north,
+      renderDirection: MS_DIRECTION.north,
+      destination: { x: 1, y: 0, z: 0 },
+      completionBoundary: 4n,
+      presentationSampleCount: 4,
+    },
+    {
+      name: "backward",
+      input: HYBRIDCC_V1_INPUT.west,
+      direction: DIRECTION.west,
+      renderDirection: MS_DIRECTION.west,
+      destination: { x: 0, y: 1, z: 0 },
+      completionBoundary: 3n,
+      presentationSampleCount: 2,
+    },
+  ] as const)(
+    "lets an automatic force-to-force leg earn one $name open-arrow override",
+    async ({
+      name,
+      input,
+      direction,
+      renderDirection,
+      destination,
+      completionBoundary,
+      presentationSampleCount,
+    }) => {
+      const module = await loadModule();
+      const force: ElementFixture = {
+        id: ELEMENT.forceFloor,
+        direction: DIRECTION.east,
+        rule: RULE.fromCenter,
+      };
+      const harness = await startRealSession(
+        module,
+        `Hybrid-v1-real-Wasm-force-run-${name}`,
+        nativeRectangle(`real-Wasm force-run ${name} override`, 3, 2, [
+          {},
+          {},
+          {},
+          { terrain: force, actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+          { terrain: force },
+          {},
+        ]),
+      );
+      let session = harness.session;
+
+      try {
+        // The first arrival has no run provenance yet. Even though the
+        // conflicting input is already held, the legal east arrow wins.
+        session = await advanceRealWasmBoundary(harness, session, input);
+        const automatic = harness.engine.snapshot();
+        const automaticChip = automatic.actors.find(({ kind }) => kind === ELEMENT.player);
+        expect(automatic.header.logicBoundary).toBe(1n);
+        expect(automaticChip).toMatchObject({
+          logicalPosition: { x: 1, y: 1, z: 0 },
+          movement: {
+            origin: { x: 0, y: 1, z: 0 },
+            destination: { x: 1, y: 1, z: 0 },
+            direction: DIRECTION.east,
+            startBoundary: 1n,
+            completionBoundary: 2n,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+            movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.forced,
+          },
+        });
+        expect(automatic.presentation.playerMotion).toMatchObject({
+          startBoundary: 1n,
+          completionBoundary: 2n,
+          presentationSampleCount: 2,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+        });
+
+        // Completing that automatic force-to-force leg creates run
+        // provenance. The still-held side/back input now preempts the same
+        // otherwise legal east arrow on the exact completion boundary.
+        session = await advanceRealWasmBoundary(harness, session, input);
+        const overridden = harness.engine.snapshot();
+        const chip = overridden.actors.find(({ kind }) => kind === ELEMENT.player);
+        expect(overridden.header.logicBoundary).toBe(2n);
+        expect(chip).toMatchObject({
+          logicalPosition: destination,
+          direction,
+          movement: {
+            origin: { x: 1, y: 1, z: 0 },
+            destination,
+            direction,
+            startBoundary: 2n,
+            completionBoundary,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+            movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.boosted,
+          },
+        });
+        const movementEvents = overridden.events.filter(({ actorKind, kind }) => (
+          actorKind === ELEMENT.player && (
+            kind === HYBRID_CC_V1_EVENT.moveCompleted
+            || kind === HYBRID_CC_V1_EVENT.moveStarted
+            || kind === HYBRID_CC_V1_EVENT.moveRejected
+          )
+        ));
+        expect(movementEvents.map(({ kind }) => kind)).toEqual([
+          HYBRID_CC_V1_EVENT.moveCompleted,
+          HYBRID_CC_V1_EVENT.moveStarted,
+        ]);
+        expect(movementEvents).toEqual([
+          expect.objectContaining({
+            kind: HYBRID_CC_V1_EVENT.moveCompleted,
+            logicBoundary: 2n,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+          }),
+          expect.objectContaining({
+            kind: HYBRID_CC_V1_EVENT.moveStarted,
+            logicBoundary: 2n,
+            owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+          }),
+        ]);
+        expect(overridden.presentation.playerMotion).toMatchObject({
+          origin: { x: 1, y: 1, z: 0 },
+          destination,
+          direction,
+          startBoundary: 2n,
+          completionBoundary,
+          presentationSampleCount,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+        });
+        expect(hybridCcV1PresentedMotion(
+          overridden.presentation.playerMotion,
+          4,
+        )).toMatchObject({ active: true, moving: 8, position: destination });
+        expect(session.frame.render?.chip).toMatchObject({
+          dir: renderDirection,
+          pushing: false,
+        });
+        expect(harness.engine.invariantStatus()).toBe(0);
+      } finally {
+        await harness.adapter.disposeSession(session);
+      }
+    },
+  );
+
+  it("keeps a plain ice-to-force arrival under the open force arrow", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-plain-ice-force-priority",
+      nativeRectangle("real-Wasm plain ice-to-force priority", 4, 2, [
+        {},
+        {},
+        {},
+        {},
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { terrain: { id: ELEMENT.ice } },
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+        },
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.east,
+      );
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      const iceArrival = harness.engine.snapshot();
+      expect(iceArrival.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 2, y: 1, z: 0 },
+        movement: {
+          origin: { x: 1, y: 1, z: 0 },
+          destination: { x: 2, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 2n,
+          completionBoundary: 3n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.ice,
+        },
+      });
+
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.north,
+      );
+      const forced = harness.engine.snapshot();
+      const chip = forced.actors.find(({ kind }) => kind === ELEMENT.player);
+      expect(forced.header.logicBoundary).toBe(3n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 3, y: 1, z: 0 },
+        direction: DIRECTION.east,
+        movement: {
+          origin: { x: 2, y: 1, z: 0 },
+          destination: { x: 3, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 3n,
+          completionBoundary: 5n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.forced,
+        },
+      });
+      expect(forced.events.filter(({ actorKind, kind }) => (
+        actorKind === ELEMENT.player && (
+          kind === HYBRID_CC_V1_EVENT.moveCompleted
+          || kind === HYBRID_CC_V1_EVENT.moveStarted
+          || kind === HYBRID_CC_V1_EVENT.moveRejected
+        )
+      )).map(({ kind }) => kind)).toEqual([
+        HYBRID_CC_V1_EVENT.moveCompleted,
+        HYBRID_CC_V1_EVENT.moveStarted,
+      ]);
+      expect(forced.presentation.playerMotion).toMatchObject({
+        origin: { x: 2, y: 1, z: 0 },
+        destination: { x: 3, y: 1, z: 0 },
+        startBoundary: 3n,
+        completionBoundary: 5n,
+        presentationSampleCount: 4,
+        owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+      });
+      expect(session.frame.render?.chip).toMatchObject({
+        pos: 7,
+        dir: MS_DIRECTION.east,
+        pushing: false,
+      });
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("retains an automatic force run through ice for one later open-arrow override", async () => {
+    const module = await loadModule();
+    const force: ElementFixture = {
+      id: ELEMENT.forceFloor,
+      direction: DIRECTION.east,
+      rule: RULE.fromCenter,
+    };
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-automatic-force-ice-force",
+      nativeRectangle("real-Wasm automatic force-to-ice-to-force run", 4, 2, [
+        {},
+        {},
+        {},
+        {},
+        { terrain: force, actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { terrain: { id: ELEMENT.ice } },
+        { terrain: force },
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      const bridged = harness.engine.snapshot();
+      const bridgedChip = bridged.actors.find(({ kind }) => kind === ELEMENT.player);
+      expect(bridgedChip).toMatchObject({
+        logicalPosition: { x: 2, y: 1, z: 0 },
+        movement: {
+          origin: { x: 1, y: 1, z: 0 },
+          destination: { x: 2, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 2n,
+          completionBoundary: 3n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.ice,
+        },
+        playerMomentum: {
+          forceOverrideAvailable: false,
+          forceOverrideEligibleBoundary: 2n,
+          sourceTerrain: ELEMENT.forceFloor,
+          sourceDirection: DIRECTION.east,
+        },
+      });
+
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.north,
+      );
+      const overridden = harness.engine.snapshot();
+      const chip = overridden.actors.find(({ kind }) => kind === ELEMENT.player);
+      expect(overridden.header.logicBoundary).toBe(3n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        movement: {
+          origin: { x: 2, y: 1, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          direction: DIRECTION.north,
+          startBoundary: 3n,
+          completionBoundary: 5n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.boosted,
+        },
+      });
+      expect(overridden.events.filter(({ actorKind, kind }) => (
+        actorKind === ELEMENT.player && (
+          kind === HYBRID_CC_V1_EVENT.moveCompleted
+          || kind === HYBRID_CC_V1_EVENT.moveStarted
+          || kind === HYBRID_CC_V1_EVENT.moveRejected
+        )
+      )).map(({ kind }) => kind)).toEqual([
+        HYBRID_CC_V1_EVENT.moveCompleted,
+        HYBRID_CC_V1_EVENT.moveStarted,
+      ]);
+      expect(overridden.presentation.playerMotion).toMatchObject({
+        origin: { x: 2, y: 1, z: 0 },
+        destination: { x: 2, y: 0, z: 0 },
+        startBoundary: 3n,
+        completionBoundary: 5n,
+        presentationSampleCount: 4,
+        owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+      });
+      expect(session.frame.render?.chip).toMatchObject({
+        pos: 2,
+        dir: MS_DIRECTION.north,
+        pushing: false,
+      });
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("clears force-run provenance after a Player-selected force-to-ice departure", async () => {
+    const module = await loadModule();
+    const force: ElementFixture = {
+      id: ELEMENT.forceFloor,
+      direction: DIRECTION.east,
+      rule: RULE.fromCenter,
+    };
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-player-force-ice-force",
+      nativeRectangle("real-Wasm Player-selected force-to-ice-to-force route", 3, 3, [
+        {},
+        { terrain: force },
+        {},
+        {},
+        { terrain: { id: ELEMENT.ice } },
+        {},
+        {},
+        { terrain: force, actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { terrain: { id: ELEMENT.wall } },
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      // The constructed force is blocked, so only its following-boundary
+      // fallback may select the northward departure onto ice.
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      expect(harness.engine.snapshot().actors.find(({ kind }) => (
+        kind === ELEMENT.player
+      ))).toMatchObject({
+        logicalPosition: { x: 1, y: 2, z: 0 },
+        hasMovement: false,
+        playerMomentum: {
+          forceOverrideAvailable: true,
+          forceOverrideEligibleBoundary: 2n,
+        },
+      });
+
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.north,
+      );
+      const selected = harness.engine.snapshot();
+      expect(selected.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 1, y: 1, z: 0 },
+        movement: {
+          origin: { x: 1, y: 2, z: 0 },
+          destination: { x: 1, y: 1, z: 0 },
+          direction: DIRECTION.north,
+          startBoundary: 2n,
+          completionBoundary: 3n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.playerForceOverride,
+        },
+        playerMomentum: {
+          forceOverrideAvailable: false,
+          forceOverrideEligibleBoundary: 0n,
+        },
+      });
+
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      const enteredForce = harness.engine.snapshot();
+      expect(enteredForce.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 1, y: 0, z: 0 },
+        movement: {
+          origin: { x: 1, y: 1, z: 0 },
+          destination: { x: 1, y: 0, z: 0 },
+          direction: DIRECTION.north,
+          startBoundary: 3n,
+          completionBoundary: 4n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.ice,
+        },
+      });
+
+      // A backward input is legal, but this route was Player-selected and did
+      // not carry automatic force provenance. The east arrow acts first.
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.west,
+      );
+      const forced = harness.engine.snapshot();
+      expect(forced.header.logicBoundary).toBe(4n);
+      expect(forced.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        direction: DIRECTION.east,
+        movement: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 4n,
+          completionBoundary: 6n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+        },
+      });
+      expect(forced.events.some(({ actorKind, kind }) => (
+        actorKind === ELEMENT.player && kind === HYBRID_CC_V1_EVENT.moveRejected
+      ))).toBe(false);
+      expect(forced.presentation.playerMotion).toMatchObject({
+        origin: { x: 1, y: 0, z: 0 },
+        destination: { x: 2, y: 0, z: 0 },
+        startBoundary: 4n,
+        completionBoundary: 6n,
+        presentationSampleCount: 4,
+        owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+      });
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("discards input sampled on bridge ice instead of buffering it for the force", async () => {
+    const module = await loadModule();
+    const force: ElementFixture = {
+      id: ELEMENT.forceFloor,
+      direction: DIRECTION.east,
+      rule: RULE.fromCenter,
+    };
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-bridge-ice-input-discard",
+      nativeRectangle("real-Wasm bridge-ice input discard", 4, 2, [
+        {},
+        {},
+        {},
+        {},
+        { terrain: force, actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        { terrain: { id: ELEMENT.ice } },
+        { terrain: force },
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.north,
+      );
+      const bridge = harness.engine.snapshot();
+      expect(bridge.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 2, y: 1, z: 0 },
+        direction: DIRECTION.east,
+        movement: {
+          origin: { x: 1, y: 1, z: 0 },
+          destination: { x: 2, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 2n,
+          completionBoundary: 3n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.ice,
+        },
+      });
+
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      const forced = harness.engine.snapshot();
+      expect(forced.header.logicBoundary).toBe(3n);
+      expect(forced.actors.find(({ kind }) => kind === ELEMENT.player)).toMatchObject({
+        logicalPosition: { x: 3, y: 1, z: 0 },
+        direction: DIRECTION.east,
+        movement: {
+          origin: { x: 2, y: 1, z: 0 },
+          destination: { x: 3, y: 1, z: 0 },
+          direction: DIRECTION.east,
+          startBoundary: 3n,
+          completionBoundary: 5n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+        },
+      });
+      expect(forced.events.filter(({ actorKind, kind }) => (
+        actorKind === ELEMENT.player && (
+          kind === HYBRID_CC_V1_EVENT.moveCompleted
+          || kind === HYBRID_CC_V1_EVENT.moveStarted
+          || kind === HYBRID_CC_V1_EVENT.moveRejected
+        )
+      )).map(({ kind }) => kind)).toEqual([
+        HYBRID_CC_V1_EVENT.moveCompleted,
+        HYBRID_CC_V1_EVENT.moveStarted,
+      ]);
+      expect(forced.presentation.playerMotion).toMatchObject({
+        origin: { x: 2, y: 1, z: 0 },
+        destination: { x: 3, y: 1, z: 0 },
+        startBoundary: 3n,
+        completionBoundary: 5n,
+        presentationSampleCount: 4,
+        owner: HYBRID_CC_V1_MOVEMENT_OWNER.forceFloor,
+      });
+      expect(session.frame.render?.chip).toMatchObject({
+        pos: 7,
+        dir: MS_DIRECTION.east,
+        pushing: false,
+      });
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
   it("keeps a real held wall contact facing and pushing until release", async () => {
     const module = await loadModule();
     const harness = await startRealSession(
@@ -1474,6 +2051,451 @@ describe("HybridCC v1 real-Wasm correctness acceptance", () => {
         logicalPosition: { x: 1, y: 2, z: 0 },
         hasMovement: false,
       });
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("settles a strictly interior longitudinal block interval before re-pushing it", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-longitudinal-settle-repush",
+      nativeLine("real-Wasm longitudinal moving-block contact", [
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        {
+          terrain: { id: ELEMENT.ice },
+          actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.east },
+        },
+        {},
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.east,
+      );
+      const staged = harness.engine.snapshot();
+      const stagedChip = staged.actors.find(({ kind }) => kind === ELEMENT.player);
+      const stagedBlock = staged.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+      expect(staged.header.logicBoundary).toBe(1n);
+      expect(stagedChip?.movement).toMatchObject({
+        origin: { x: 0, y: 0, z: 0 },
+        destination: { x: 1, y: 0, z: 0 },
+        startBoundary: 1n,
+        completionBoundary: 2n,
+      });
+      expect(stagedBlock?.movement).toMatchObject({
+        origin: { x: 1, y: 0, z: 0 },
+        destination: { x: 2, y: 0, z: 0 },
+        startBoundary: 1n,
+        completionBoundary: 3n,
+        owner: HYBRID_CC_V1_MOVEMENT_OWNER.pushableActor,
+      });
+
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.east,
+      );
+      const repushed = harness.engine.snapshot();
+      const chip = repushed.actors.find(({ kind }) => kind === ELEMENT.player);
+      const block = repushed.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+      if (!block) throw new Error("Longitudinal settlement fixture lost its block");
+
+      expect(repushed.header.logicBoundary).toBe(2n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        movement: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          startBoundary: 2n,
+          completionBoundary: 4n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.ice,
+        },
+      });
+      expect(block).toMatchObject({
+        logicalPosition: { x: 3, y: 0, z: 0 },
+        movement: {
+          origin: { x: 2, y: 0, z: 0 },
+          destination: { x: 3, y: 0, z: 0 },
+          startBoundary: 2n,
+          completionBoundary: 4n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.pushableActor,
+          movementClass: HYBRID_CC_V1_MOVEMENT_CLASS.pushed,
+        },
+      });
+      expect(repushed.cells.map(({ occupant }) => occupant)).toEqual([
+        null,
+        null,
+        chip?.id,
+        block.id,
+      ]);
+
+      const blockEvents = repushed.events.filter(({ actorId, kind }) => (
+        actorId === block.id && (
+          kind === HYBRID_CC_V1_EVENT.moveCompleted
+          || kind === HYBRID_CC_V1_EVENT.moveStarted
+        )
+      ));
+      expect(blockEvents).toEqual([
+        expect.objectContaining({
+          kind: HYBRID_CC_V1_EVENT.moveCompleted,
+          logicBoundary: 2n,
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+        }),
+        expect.objectContaining({
+          kind: HYBRID_CC_V1_EVENT.moveStarted,
+          logicBoundary: 2n,
+          origin: { x: 2, y: 0, z: 0 },
+          destination: { x: 3, y: 0, z: 0 },
+        }),
+      ]);
+      expect(blockEvents[0]?.sequence).toBeLessThan(blockEvents[1]?.sequence ?? 0);
+      expect(repushed.presentation).toMatchObject({
+        playerMotion: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          startBoundary: 2n,
+          completionBoundary: 4n,
+          presentationSampleCount: 4,
+        },
+        playerPush: {
+          blockActorId: block.id,
+          moving: true,
+          startBoundary: 2n,
+          completionBoundary: 4n,
+        },
+      });
+      expect([4, 5, 6, 7].map((sample) => (
+        hybridCcV1PresentedMotion(repushed.presentation.playerMotion, sample).moving
+      ))).toEqual([8, 6, 4, 2]);
+      expect(session.frame.render?.chip).toMatchObject({
+        pos: 2,
+        pushing: true,
+        visual: { tileId: MS_TILE.Pushing_Chip },
+      });
+      expect(session.frame.render?.actors).toEqual([
+        expect.objectContaining({ id: MS_TILE.Block, pos: 3 }),
+      ]);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("settles and redirects a strictly interior block for a perpendicular direct push", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-perpendicular-moving-block-push",
+      nativeRectangle("real-Wasm perpendicular moving-block push", 4, 3, [
+        {},
+        {},
+        { actor: { id: ELEMENT.player, direction: DIRECTION.south } },
+        {},
+        {},
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+          actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.east },
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      const stagedBlock = harness.engine.snapshot().actors.find(({ kind }) => (
+        kind === ELEMENT.dirtBlock
+      ));
+      expect(stagedBlock?.movement).toMatchObject({
+        origin: { x: 1, y: 1, z: 0 },
+        destination: { x: 2, y: 1, z: 0 },
+        startBoundary: 1n,
+        completionBoundary: 3n,
+      });
+
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.south,
+      );
+      const redirected = harness.engine.snapshot();
+      const chip = redirected.actors.find(({ kind }) => kind === ELEMENT.player);
+      const block = redirected.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+      if (!block) throw new Error("Perpendicular direct-push fixture lost its block");
+
+      expect(redirected.header.logicBoundary).toBe(2n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 2, y: 1, z: 0 },
+        movement: {
+          origin: { x: 2, y: 0, z: 0 },
+          destination: { x: 2, y: 1, z: 0 },
+          direction: DIRECTION.south,
+          startBoundary: 2n,
+          completionBoundary: 4n,
+        },
+      });
+      expect(block).toMatchObject({
+        logicalPosition: { x: 2, y: 2, z: 0 },
+        movement: {
+          origin: { x: 2, y: 1, z: 0 },
+          destination: { x: 2, y: 2, z: 0 },
+          direction: DIRECTION.south,
+          startBoundary: 2n,
+          completionBoundary: 4n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.pushableActor,
+        },
+      });
+      expect(redirected.cells[2]?.occupant).toBeNull();
+      expect(redirected.cells[6]?.occupant).toBe(chip?.id);
+      expect(redirected.cells[10]?.occupant).toBe(block.id);
+      const blockEvents = redirected.events.filter(({ actorId, kind }) => (
+        actorId === block.id && (
+          kind === HYBRID_CC_V1_EVENT.moveCompleted
+          || kind === HYBRID_CC_V1_EVENT.moveStarted
+        )
+      ));
+      expect(blockEvents.map(({ kind }) => kind)).toEqual([
+        HYBRID_CC_V1_EVENT.moveCompleted,
+        HYBRID_CC_V1_EVENT.moveStarted,
+      ]);
+      expect(blockEvents[0]?.sequence).toBeLessThan(blockEvents[1]?.sequence ?? 0);
+      expect(redirected.presentation).toMatchObject({
+        playerMotion: {
+          startBoundary: 2n,
+          completionBoundary: 4n,
+          presentationSampleCount: 4,
+        },
+        playerPush: {
+          blockActorId: block.id,
+          moving: true,
+          startBoundary: 2n,
+          completionBoundary: 4n,
+        },
+      });
+      expect(session.frame.render?.chip).toMatchObject({
+        pos: 6,
+        dir: MS_DIRECTION.south,
+        pushing: true,
+      });
+      expect(session.frame.render?.actors).toEqual([
+        expect.objectContaining({ id: MS_TILE.Block, pos: 10 }),
+      ]);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("settles and redirects a strictly interior block for a perpendicular slap", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-perpendicular-moving-block-slap",
+      nativeRectangle("real-Wasm perpendicular moving-block slap", 3, 3, [
+        {},
+        { actor: { id: ELEMENT.player, direction: DIRECTION.east } },
+        {},
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+          actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.east },
+        },
+        {},
+        {},
+        {},
+        {},
+        {},
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.eastSouth,
+      );
+      const redirected = harness.engine.snapshot();
+      const chip = redirected.actors.find(({ kind }) => kind === ELEMENT.player);
+      const block = redirected.actors.find(({ kind }) => kind === ELEMENT.dirtBlock);
+      if (!block) throw new Error("Perpendicular slap fixture lost its block");
+
+      expect(redirected.header.logicBoundary).toBe(2n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        movement: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          direction: DIRECTION.east,
+          slapDirection: DIRECTION.south,
+          startBoundary: 2n,
+          completionBoundary: 4n,
+        },
+      });
+      expect(block).toMatchObject({
+        logicalPosition: { x: 1, y: 2, z: 0 },
+        movement: {
+          origin: { x: 1, y: 1, z: 0 },
+          destination: { x: 1, y: 2, z: 0 },
+          direction: DIRECTION.south,
+          startBoundary: 2n,
+          completionBoundary: 4n,
+          owner: HYBRID_CC_V1_MOVEMENT_OWNER.pushableActor,
+        },
+      });
+      expect(redirected.cells[1]?.occupant).toBeNull();
+      expect(redirected.cells[2]?.occupant).toBe(chip?.id);
+      expect(redirected.cells[4]?.occupant).toBeNull();
+      expect(redirected.cells[7]?.occupant).toBe(block.id);
+      const blockEvents = redirected.events.filter(({ actorId, kind }) => (
+        actorId === block.id && (
+          kind === HYBRID_CC_V1_EVENT.moveCompleted
+          || kind === HYBRID_CC_V1_EVENT.moveStarted
+        )
+      ));
+      expect(blockEvents.map(({ kind }) => kind)).toEqual([
+        HYBRID_CC_V1_EVENT.moveCompleted,
+        HYBRID_CC_V1_EVENT.moveStarted,
+      ]);
+      expect(blockEvents[0]?.sequence).toBeLessThan(blockEvents[1]?.sequence ?? 0);
+      expect(redirected.presentation).toMatchObject({
+        playerMotion: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          startBoundary: 2n,
+          completionBoundary: 4n,
+          presentationSampleCount: 4,
+        },
+        playerPush: null,
+      });
+      expect(session.frame.render?.chip).toMatchObject({
+        pos: 2,
+        dir: MS_DIRECTION.east,
+        pushing: false,
+      });
+      expect(session.frame.render?.actors).toEqual([
+        expect.objectContaining({ id: MS_TILE.Block, pos: 7 }),
+      ]);
+      expect(harness.engine.invariantStatus()).toBe(0);
+    } finally {
+      await harness.adapter.disposeSession(session);
+    }
+  });
+
+  it("rejects anti-parallel contact without settling the oncoming block", async () => {
+    const module = await loadModule();
+    const harness = await startRealSession(
+      module,
+      "Hybrid-v1-real-Wasm-anti-parallel-moving-block-contact",
+      nativeLine("real-Wasm anti-parallel moving-block contact", [
+        {},
+        {
+          terrain: {
+            id: ELEMENT.forceFloor,
+            direction: DIRECTION.east,
+            rule: RULE.fromCenter,
+          },
+          actor: { id: ELEMENT.dirtBlock, direction: DIRECTION.east },
+        },
+        {},
+        { actor: { id: ELEMENT.player, direction: DIRECTION.west } },
+      ]),
+    );
+    let session = harness.session;
+
+    try {
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.none,
+      );
+      const staged = harness.engine.snapshot();
+      const blockId = staged.actors.find(({ kind }) => kind === ELEMENT.dirtBlock)?.id;
+      if (blockId === undefined) throw new Error("Anti-parallel fixture lost its block");
+
+      session = await advanceRealWasmBoundary(
+        harness,
+        session,
+        HYBRIDCC_V1_INPUT.west,
+      );
+      const rejected = harness.engine.snapshot();
+      const chip = rejected.actors.find(({ kind }) => kind === ELEMENT.player);
+      const block = rejected.actors.find(({ id }) => id === blockId);
+
+      expect(rejected.header.logicBoundary).toBe(2n);
+      expect(chip).toMatchObject({
+        logicalPosition: { x: 3, y: 0, z: 0 },
+        direction: DIRECTION.west,
+        hasMovement: false,
+      });
+      expect(block).toMatchObject({
+        logicalPosition: { x: 2, y: 0, z: 0 },
+        movement: {
+          origin: { x: 1, y: 0, z: 0 },
+          destination: { x: 2, y: 0, z: 0 },
+          startBoundary: 1n,
+          completionBoundary: 3n,
+        },
+      });
+      expect(rejected.events.filter(({ actorId, kind }) => (
+        actorId === blockId && (
+          kind === HYBRID_CC_V1_EVENT.moveCompleted
+          || kind === HYBRID_CC_V1_EVENT.moveStarted
+        )
+      ))).toHaveLength(0);
+      expect(rejected.events.filter(({ actorKind, kind }) => (
+        actorKind === ELEMENT.player && kind === HYBRID_CC_V1_EVENT.moveRejected
+      ))).toHaveLength(1);
+      expect(rejected.presentation).toMatchObject({
+        playerPush: {
+          direction: DIRECTION.west,
+          origin: { x: 3, y: 0, z: 0 },
+          contact: { x: 2, y: 0, z: 0 },
+          blockActorId: null,
+          moving: false,
+          startBoundary: 2n,
+          completionBoundary: 2n,
+        },
+      });
+      expect(session.frame.render?.chip).toMatchObject({
+        pos: 3,
+        dir: MS_DIRECTION.west,
+        pushing: true,
+        visual: { tileId: MS_TILE.Pushing_Chip },
+      });
+      expect(session.frame.render?.actors).toEqual([
+        expect.objectContaining({ id: MS_TILE.Block, pos: 2 }),
+      ]);
       expect(harness.engine.invariantStatus()).toBe(0);
     } finally {
       await harness.adapter.disposeSession(session);
