@@ -5,8 +5,8 @@
   "dat": {
     "assetId": "legacy_dat_sandbox",
     "file": "legacy_dat_sandbox.dat",
-    "sha256": "d407f1b46cf378312958fffda162e3501002218a6c926e717ff4bc2968389f0d",
-    "levelCount": 89
+    "sha256": "aff659b8c01427fbc2661bcebbeef619fcbe2ca8b3fcc091d3c06116aed420e4",
+    "levelCount": 130
   },
   "levels": [
     {
@@ -3537,6 +3537,1016 @@
         {
           "roomId": "live-motion-and-camera",
           "message": "Go east for a short remote entry, then west for a long jump. Go south, east, north into the distant pad; blocked remote north exits force a local departure. The camera acquires remote destinations immediately, and only Player requests teleport audio.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 90,
+      "expectedNumber": 53,
+      "expectedTitle": "Actor Priorities",
+      "rooms": [
+        {
+          "roomId": "ant-left-forward-right-reverse",
+          "message": "Four north-facing ants have zero, one, two, then three preferred exits blocked. They choose west, north, east, then south: left, forward, right, reverse.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "fireball-forward-right-left-reverse",
+          "message": "Four north-facing fireballs have zero, one, two, then three preferred exits blocked. They choose north, east, west, then south: forward, right, left, reverse.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "glider-forward-left-right-reverse",
+          "message": "Four north-facing gliders have zero, one, two, then three preferred exits blocked. They choose north, west, east, then south: forward, left, right, reverse.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "centipede-right-forward-left-reverse",
+          "message": "Four north-facing centipedes have zero, one, two, then three preferred exits blocked. They choose east, north, west, then south: right, forward, left, reverse.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 91,
+      "expectedNumber": 54,
+      "expectedTitle": "Fixed and Random Policies",
+      "rooms": [
+        {
+          "roomId": "ball-forward-reverse",
+          "message": "The east-facing ball advances twice, meets the east wall, and accepts west as its only fallback. It never chooses a side turn.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "tank-forward-only",
+          "message": "The north-facing tank stays put although its side and rear cells are open. At boundary 3 the ball completes a blue-button press; the tank reverses south and moves only forward.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "walker-forward-and-fallback",
+          "message": "The left Walker has forward open and takes it while still consuming its three fallback draws. The right Walker has forward blocked; seed 54054 makes west the first of west, east, south.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "blob-random-permutation",
+          "message": "After the two Walkers consume six draws, seed 54054 gives Blob east, north, west, south. East and north are walls, so west is the first admitted direction.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 92,
+      "expectedNumber": 55,
+      "expectedTitle": "Teeth and Rejected Facing",
+      "rooms": [
+        {
+          "roomId": "teeth-larger-axis",
+          "message": "Chip waits at the central hall. The west Teeth is farther from Chip horizontally and moves east. The north Teeth is farther vertically and moves south.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "teeth-vertical-tie",
+          "message": "This Teeth is six cells east and six cells north of Chip. Equal absolute distances choose the vertical chase direction first, so it moves south.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "teeth-axis-fallback",
+          "message": "Horizontal distance is larger, so east is primary. The east wall rejects it; Teeth immediately tries the nonzero vertical fallback and moves north on the same opportunity.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "rejected-facing",
+          "message": "The upper-left Teeth has both chase axes blocked and turns north, its rejected primary. Every other boxed monster stays in place and retains its authored facing after all candidates fail.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 93,
+      "expectedNumber": 164,
+      "expectedTitle": "Actor Direction Import",
+      "rooms": [
+        {
+          "roomId": "actor-direction-byte-gallery",
+          "message": "Columns are north, west, south, east; rows are ant, fireball, glider, ball, tank, Walker, Blob, Teeth, and classic paramecium/centipede. Unlinked traps preserve every imported facing. The lower-right dirt block defaults north.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 94,
+      "expectedNumber": 56,
+      "expectedTitle": "Actor Cadence",
+      "rooms": [
+        {
+          "roomId": "ordinary-continuous-cadence",
+          "message": "Seven ordinary-speed monsters start at boundary one and start their next N-to-N+2 move exactly at boundary three, with no extra idle boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "teeth-every-fourth",
+          "message": "The unobstructed teeth starts west at boundaries 1, 5, and 9. Each accepted move is followed by three cooldown boundaries.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "blob-every-fourth",
+          "message": "The seeded blob starts at boundaries 1, 5, and 9 regardless of its chosen direction. Only accepted moves anchor the next every-fourth opportunity.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "slow-failed-no-cooldown",
+          "message": "Teeth first rejects a shut west route. A force-owned ball finishes on green at boundary two; that earlier edge opens the toggle wall before teeth retries and moves on the same boundary.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 95,
+      "expectedNumber": 165,
+      "expectedTitle": "Slow Terrain Ownership",
+      "rooms": [
+        {
+          "roomId": "slow-terrain-ownership",
+          "message": "Each slow actor enters active terrain at boundary one, takes terrain-owned starts at boundaries two and three, lands on floor at five, and remains in ordinary cooldown through boundary six.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 96,
+      "expectedNumber": 166,
+      "expectedTitle": "Teeth After Death",
+      "rooms": [
+        {
+          "roomId": "teeth-post-death",
+          "message": "Hold east at boundary one. Chip logically enters 11,10 before the later west-facing tank kills him there. At boundary two the force-owned ball opens green, and teeth chase that durable death cell westward.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 97,
+      "expectedNumber": 57,
+      "expectedTitle": "RNG Ownership",
+      "rooms": [
+        {
+          "roomId": "suppressed-blob-force",
+          "message": "The first blob enters a blocked east force floor. At its next eligible boundary it consumes and discards one full blob permutation before force retries; the later free blob receives the following stream segment.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "suppressed-blob-ice",
+          "message": "The first blob leaves a pop-up wall and becomes trapped on ice between walls. Its eligible shadow plan is discarded while ice retains control; the later free blob proves the following RNG allocation.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "suppressed-device-owners",
+          "message": "A held-trap blob consumes one discarded shadow permutation before the first free probe blob. A dormant cloner blob consumes the next before a second free probe. The lower blob enters a two-pad teleport during cooldown and consumes no extra shadow plan.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "rng-replay-roundtrip",
+          "message": "Hold east to the exit while a random-force ball, a forward-open walker, and a bounded blob consume the pinned stream. The terminal HCR1 must replay with identical checkpoints natively and in Wasm.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 98,
+      "expectedNumber": 167,
+      "expectedTitle": "Two Blobs Order A",
+      "rooms": [
+        {
+          "roomId": "two-blobs-native-order-a",
+          "message": "Both blobs have four open exits. Field 10 lists the left blob first, so it receives permutation one and the right blob receives permutation two. The sibling entry reverses only that record.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 99,
+      "expectedNumber": 168,
+      "expectedTitle": "Two Blobs Order B",
+      "rooms": [
+        {
+          "roomId": "two-blobs-native-order-b",
+          "message": "Geometry and seed match Order A, but Field 10 lists the right blob first. Its identity now receives permutation one and the left blob receives permutation two.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 100,
+      "expectedNumber": 169,
+      "expectedTitle": "Walker Blob Order A",
+      "rooms": [
+        {
+          "roomId": "walker-before-blob-a",
+          "message": "The walker moves east without using fallback, but still consumes all three fallback draws before the four-way blob plans. The sibling reverses only Field 10 order.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 101,
+      "expectedNumber": 170,
+      "expectedTitle": "Walker Blob Order B",
+      "rooms": [
+        {
+          "roomId": "walker-before-blob-b",
+          "message": "Geometry and seed match Order A, but Field 10 lists the blob first. It plans from the initial stream; the forward-open walker consumes its three discarded draws afterward.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 102,
+      "expectedNumber": 58,
+      "expectedTitle": "Player Enters Ant",
+      "rooms": [
+        {
+          "roomId": "ant-contact",
+          "message": "Press east. Chip dies at StartMove with the ant loss cause. The trap-held ant survives; Chip never receives a destination FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 103,
+      "expectedNumber": 171,
+      "expectedTitle": "Player Enters Centipede",
+      "rooms": [
+        {
+          "roomId": "centipede-contact",
+          "message": "Press east. Chip dies at StartMove with the centipede loss cause. The trap-held centipede survives; Chip never receives a destination FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 104,
+      "expectedNumber": 172,
+      "expectedTitle": "Player Enters Glider",
+      "rooms": [
+        {
+          "roomId": "glider-contact",
+          "message": "Press east. Chip dies at StartMove with the glider loss cause. The trap-held glider survives; Chip never receives a destination FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 105,
+      "expectedNumber": 173,
+      "expectedTitle": "Player Enters Fireball",
+      "rooms": [
+        {
+          "roomId": "fireball-contact",
+          "message": "Press east. Chip dies at StartMove with the fireball loss cause. The trap-held fireball survives; Chip never receives a destination FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 106,
+      "expectedNumber": 174,
+      "expectedTitle": "Player Enters Blob",
+      "rooms": [
+        {
+          "roomId": "blob-contact",
+          "message": "Press east. Chip dies at StartMove with the blob loss cause. The trap-held blob survives; Chip never receives a destination FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 107,
+      "expectedNumber": 175,
+      "expectedTitle": "Player Enters Teeth",
+      "rooms": [
+        {
+          "roomId": "teeth-contact",
+          "message": "Press east. Chip dies at StartMove with the teeth loss cause. The trap-held teeth survives; Chip never receives a destination FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 108,
+      "expectedNumber": 176,
+      "expectedTitle": "Player Enters Ball",
+      "rooms": [
+        {
+          "roomId": "ball-contact",
+          "message": "Press east. Chip dies at StartMove with the ball loss cause. The trap-held ball survives; Chip never receives a destination FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 109,
+      "expectedNumber": 177,
+      "expectedTitle": "Player Enters Walker",
+      "rooms": [
+        {
+          "roomId": "walker-contact",
+          "message": "Press east. Chip dies at StartMove with the walker loss cause. The trap-held walker survives; Chip never receives a destination FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 110,
+      "expectedNumber": 178,
+      "expectedTitle": "Player Enters Tank",
+      "rooms": [
+        {
+          "roomId": "tank-contact",
+          "message": "Press east. Chip dies at StartMove with the tank loss cause. The trap-held tank survives; Chip never receives a destination FinishEnter.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 111,
+      "expectedNumber": 179,
+      "expectedTitle": "Ant Enters Player",
+      "rooms": [
+        {
+          "roomId": "ant-driven-contact",
+          "message": "Wait. The force-driven ant crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the ant may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 112,
+      "expectedNumber": 180,
+      "expectedTitle": "Centipede Enters Player",
+      "rooms": [
+        {
+          "roomId": "centipede-driven-contact",
+          "message": "Wait. The force-driven centipede crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the centipede may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 113,
+      "expectedNumber": 181,
+      "expectedTitle": "Glider Enters Player",
+      "rooms": [
+        {
+          "roomId": "glider-driven-contact",
+          "message": "Wait. The force-driven glider crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the glider may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 114,
+      "expectedNumber": 182,
+      "expectedTitle": "Fireball Enters Player",
+      "rooms": [
+        {
+          "roomId": "fireball-driven-contact",
+          "message": "Wait. The force-driven fireball crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the fireball may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 115,
+      "expectedNumber": 183,
+      "expectedTitle": "Blob Enters Player",
+      "rooms": [
+        {
+          "roomId": "blob-driven-contact",
+          "message": "Wait. The force-driven blob crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the blob may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 116,
+      "expectedNumber": 184,
+      "expectedTitle": "Teeth Enters Player",
+      "rooms": [
+        {
+          "roomId": "teeth-driven-contact",
+          "message": "Wait. The force-driven teeth crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the teeth may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 117,
+      "expectedNumber": 185,
+      "expectedTitle": "Ball Enters Player",
+      "rooms": [
+        {
+          "roomId": "ball-driven-contact",
+          "message": "Wait. The force-driven ball crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the ball may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 118,
+      "expectedNumber": 186,
+      "expectedTitle": "Walker Enters Player",
+      "rooms": [
+        {
+          "roomId": "walker-driven-contact",
+          "message": "Wait. The force-driven walker crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the walker may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 119,
+      "expectedNumber": 187,
+      "expectedTitle": "Tank Enters Player",
+      "rooms": [
+        {
+          "roomId": "tank-driven-contact",
+          "message": "Wait. The force-driven tank crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the tank may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 120,
+      "expectedNumber": 188,
+      "expectedTitle": "Block Enters Player",
+      "rooms": [
+        {
+          "roomId": "force-driven-block-contact",
+          "message": "Wait. The force-driven block crosses the empty staging tile and enters Chip at boundary 2. Chip alone dies. Moving north immediately is the safe comparison: Chip vacates the cell at StartMove, so the block may enter it without contact.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 121,
+      "expectedNumber": 189,
+      "expectedTitle": "Pending Player Finish",
+      "rooms": [
+        {
+          "roomId": "cancelled-player-finish",
+          "message": "Press east. Chip claims the red-key cell first, then the later northbound ball destroys Chip and takes it. At boundary 3 the ball is held; the red key remains and Chip received no pickup event.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 122,
+      "expectedNumber": 190,
+      "expectedTitle": "Same Destination Player First",
+      "rooms": [
+        {
+          "roomId": "player-first-same-destination",
+          "message": "Press east. Chip starts into the center first. The later ball contacts Chip there, destroys only Chip, and owns the center immediately. The center trap holds the surviving ball after completion.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 123,
+      "expectedNumber": 191,
+      "expectedTitle": "Same Destination Ball First",
+      "rooms": [
+        {
+          "roomId": "ball-first-same-destination",
+          "message": "Press east. The ball starts into the center first. Chip then contacts the logically present ball and dies without a push artifact. The center trap holds the same surviving ball after completion.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 124,
+      "expectedNumber": 192,
+      "expectedTitle": "Nonplayer Destination Contest",
+      "rooms": [
+        {
+          "roomId": "two-nonplayer-contests",
+          "message": "Wait. Left: the earlier tank claims center and the force-driven block rejects. Right: the earlier fireball claims center; the later ant sees occupancy and takes its next legal candidate east. No cell ever has two actors.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 125,
+      "expectedNumber": 59,
+      "expectedTitle": "Actor Order Races",
+      "rooms": [
+        {
+          "roomId": "same-direction-order-twins",
+          "message": "Upper lane lists the leader first: it vacates and the follower enters its origin on boundary 1. Lower lane lists the follower first: it rejects against the leader, which moves later without retroactive retry.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "perpendicular-order-twins",
+          "message": "Left pair lists the northbound leader first, so the eastbound follower enters its vacated origin. Right pair lists the follower first; it rejects, then the leader vacates with no retry.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "head-on-no-swap",
+          "message": "Both adjacent head-on pairs reject in either field order. The first actor cannot reserve a reciprocal swap because its destination is still occupied; the second sees the same unchanged occupancy.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "player-follows-perpendicular-monster",
+          "message": "Press east. The earlier northbound tank immediately vacates its origin; Chip safely claims that logical cell on the same boundary even while the tank sprite is still interpolating away.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 126,
+      "expectedNumber": 193,
+      "expectedTitle": "Movement Field Over Scan",
+      "rooms": [
+        {
+          "roomId": "field-order-and-visual-trail",
+          "message": "Press north. Top: field order moves the right leader before its earlier-scanned follower; the second pair reverses that order. Bottom: Chip moves before the earlier-scanned ball, so the ball safely enters Chip's vacated origin, never a visual trail.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 127,
+      "expectedNumber": 60,
+      "expectedTitle": "Mob Admission",
+      "rooms": [
+        {
+          "roomId": "all-hostiles-versus-gravel",
+          "message": "Nine isolated actors face gravel. Ant, fireball, glider, centipede, ball, walker, blob, and teeth take their next legal candidate; the forward-only tank stays put. No actor may enter gravel.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "classic-hostile-barriers",
+          "message": "Four boxed ants face dirt, a second hint, an exit, and a thief. Every move is rejected. MS differs only for the hint branch and is comparison evidence, not Hybrid's rule.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 11
+            }
+          ]
+        },
+        {
+          "roomId": "doors-and-socket",
+          "message": "Five boxed ants face red, blue, green, and yellow doors plus the level socket. Player inventory is irrelevant: every nonplayer gate admission is rejected.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 8,
+              "y": 19
+            }
+          ]
+        },
+        {
+          "roomId": "all-monsters-cross-buttons",
+          "message": "Nine force-driven rows carry every classic hostile across green, blue, brown, and red buttons. Every actor is admitted; each completed entry emits the same interaction edge and host sound fact as Player.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 23,
+              "y": 19
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 128,
+      "expectedNumber": 194,
+      "expectedTitle": "Actor Key Admission",
+      "rooms": [
+        {
+          "roomId": "player-block-ant-key-matrix",
+          "message": "Hold east along the top lane to collect blue, red, green, and yellow. Below it, blocks and ants approach one key each: blue disappears, red remains under the entrant, and green/yellow reject entry.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 129,
+      "expectedNumber": 195,
+      "expectedTitle": "Actor Cell Invariant",
+      "rooms": [
+        {
+          "roomId": "movement-creation-destruction-audit",
+          "message": "Hold east briefly. A block changes from force to ice, an ant enters water, a ball fails a one-pad teleport and treats it as floor, and another ball launches a cloned block. Every live actor must remain in exactly one logical cell.",
+          "targets": [
+            {
+              "kind": "tile",
+              "x": 15,
+              "y": 26
+            }
+          ]
+        }
+      ],
+      "datDefaultTargets": []
+    },
+    {
+      "entryOrdinal": 130,
+      "expectedNumber": 196,
+      "expectedTitle": "Pending Actor Invariant",
+      "rooms": [
+        {
+          "roomId": "pending-destruction-and-reuse",
+          "message": "Hold east at boundary 1. Chip starts onto the red key before the north ball claims that cell. An ant enters water while another ball launches a cloned block. Logic continues through boundary 5 with no stale finish or identity alias.",
           "targets": [
             {
               "kind": "tile",

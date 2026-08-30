@@ -10,7 +10,8 @@
  * trap arbitration, PR #69's destination-resolved movement timing, PR #71's
  * moving-pushable contact settlement and force-run provenance, PR #73's
  * linked-device certification, PR #75's classic DAT teleport certification,
- * and the D029 DAT special-art policy,
+ * PR #77's classic actor, cadence/RNG, collision/order, admission, and
+ * invariant certification, and the D029 DAT special-art policy,
  * include/hybridcc/v1/c_api.h, ABI version 2, ruleset 1.0.16.
  */
 export const HYBRID_CC_V1_DIRECTION = {
