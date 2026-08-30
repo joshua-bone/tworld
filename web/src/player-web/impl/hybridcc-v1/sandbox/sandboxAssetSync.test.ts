@@ -49,7 +49,7 @@ describe("Hybrid v1 sandbox asset synchronization", () => {
 
     await runSync(source, destination);
     await expect(runSync(source, destination, true)).resolves.toMatchObject({
-      stdout: expect.stringContaining("Checked 137 HybridCC sandbox assets."),
+      stdout: expect.stringContaining("Checked 162 HybridCC sandbox assets."),
     });
 
     await mkdir(join(source, "replays/1.0.12"), { recursive: true });

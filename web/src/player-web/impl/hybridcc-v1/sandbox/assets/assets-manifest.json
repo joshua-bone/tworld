@@ -1,22 +1,22 @@
 {
   "schema": "hybridcc.legacy-dat-sandbox.browser-assets.v1",
   "sourceRepository": "joshua-bone/HybridCC2026",
-  "sourceCommit": "05df0098f91420b21940a88bf829493c5d838c2a",
+  "sourceCommit": "6a792c06452d5a9b76c761a9a049c3a19c35acab",
   "files": [
     {
       "path": "legacy_dat_sandbox.dat",
-      "byteLength": 46198,
-      "sha256": "d407f1b46cf378312958fffda162e3501002218a6c926e717ff4bc2968389f0d"
+      "byteLength": 63442,
+      "sha256": "aff659b8c01427fbc2661bcebbeef619fcbe2ca8b3fcc091d3c06116aed420e4"
     },
     {
       "path": "legacy_dat_sandbox.hints.json",
-      "byteLength": 111204,
-      "sha256": "8c3ed9ef96d2f302d9c797527b3fb7d84955599d299336852fa1689a8bcb856b"
+      "byteLength": 143917,
+      "sha256": "32ba46d225a1264f0bc125cdcc9be92e0364dea2202d31e782c7a9e150c89430"
     },
     {
       "path": "replay-index.json",
-      "byteLength": 137026,
-      "sha256": "b1b923a0bc11f10b4e0fe2bc025252868da221f6164c3310caa47ee8869f3881"
+      "byteLength": 167676,
+      "sha256": "6e6c326deb23ab0187c5fb42d77510172e0b8d9021c6f70d94b4cf90c9a4ca6c"
     },
     {
       "path": "replays/1.0.16/1-foundation-tour.hcr1",
@@ -264,6 +264,11 @@
       "sha256": "56a81bab7667a74c9c445dc6b6879880f592d9f2509759d000a3f9be91461c20"
     },
     {
+      "path": "replays/1.0.16/166-teeth-post-death.hcr1",
+      "byteLength": 149,
+      "sha256": "4d9e2ba2f7648936ef395010fcc1005177cf8ff61976147d8761ad8a8f50b1fa"
+    },
+    {
       "path": "replays/1.0.16/17-first-block-arrival-fast.hcr1",
       "byteLength": 3023,
       "sha256": "0c5d1091a845ef37e653b6459d6cf513d9c27055f69b877916f9a1778c6cef5e"
@@ -294,6 +299,51 @@
       "sha256": "94f6df9364fb907c46c7da5c85ec48c281be611b4c46c763d06575ea0ebd352c"
     },
     {
+      "path": "replays/1.0.16/171-player-enters-centipede.hcr1",
+      "byteLength": 149,
+      "sha256": "34796a1e61e5abb995a6b0f79d3b6586769e95ce39c9b6f5b0e3c46b37a80887"
+    },
+    {
+      "path": "replays/1.0.16/172-player-enters-glider.hcr1",
+      "byteLength": 149,
+      "sha256": "18863e02cc733f4cdb1d6bf6aa4e58e6fda546e32840ad750d3b7c6d8f13790b"
+    },
+    {
+      "path": "replays/1.0.16/173-player-enters-fireball.hcr1",
+      "byteLength": 149,
+      "sha256": "9b3fb3b5f5ad1cfce0034cbb467b04d81d6e1aebb5cb24e97036fa7d40323082"
+    },
+    {
+      "path": "replays/1.0.16/174-player-enters-blob.hcr1",
+      "byteLength": 149,
+      "sha256": "f2d7c063b1d9edd6b28b53d4d5ea892142fa42f624791a646467cf81b02bb4c8"
+    },
+    {
+      "path": "replays/1.0.16/175-player-enters-teeth.hcr1",
+      "byteLength": 149,
+      "sha256": "135c8613b2c8b81d4de247f788c2397356d2b4bee9d7210e6a46625c7e6e68b4"
+    },
+    {
+      "path": "replays/1.0.16/176-player-enters-ball.hcr1",
+      "byteLength": 149,
+      "sha256": "83625b103f26a68a82568d515be6822fd5cbe32d24ce2546e19ce42ecc5bec21"
+    },
+    {
+      "path": "replays/1.0.16/177-player-enters-walker.hcr1",
+      "byteLength": 149,
+      "sha256": "f1970ae42752642bb35101ff94fa43d4e5bab44787baf674fd3fa77a091e5faa"
+    },
+    {
+      "path": "replays/1.0.16/178-player-enters-tank.hcr1",
+      "byteLength": 149,
+      "sha256": "a87698038b17caa12434742a00f6ad6971a0a6ee862d6d888a046536d33ea053"
+    },
+    {
+      "path": "replays/1.0.16/179-ant-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "2f6c3dd1b1b5caa1692a433839e2ece955686051d02d8b7534051d63c321ab19"
+    },
+    {
       "path": "replays/1.0.16/18-blocked-reverse.hcr1",
       "byteLength": 2885,
       "sha256": "c1486116de1ecc808a3334d5075fd03cfea4ff039aca2b4200ec2b1e68c37755"
@@ -312,6 +362,56 @@
       "path": "replays/1.0.16/18-straight-owned-forward.hcr1",
       "byteLength": 2885,
       "sha256": "8a406e811c87308ad23fcac94db9fb1efcdab7bc7dce919082f41bc48aac2427"
+    },
+    {
+      "path": "replays/1.0.16/180-centipede-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "cc216bb2d6516a5b47cc50ac46e5b4cf5c7edab651b9c676ebe72a192e808d89"
+    },
+    {
+      "path": "replays/1.0.16/181-glider-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "41887d02b0b8180b211b60fc2abae3e7c2e13f355b107e50c773fd3e965fdbb6"
+    },
+    {
+      "path": "replays/1.0.16/182-fireball-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "7cdc5d87246ec983d6f32431d0bf1791ef8e4f519df2f8c0a8b18d0a1a25691b"
+    },
+    {
+      "path": "replays/1.0.16/183-blob-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "757bc5c1be58dd46bb841705df67b9976c07e44b173a0d32931b2e714e8b8648"
+    },
+    {
+      "path": "replays/1.0.16/184-teeth-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "8357f66ea055df27e2abead9ee6332d5a386c6175633025fa3c80ef7a9153557"
+    },
+    {
+      "path": "replays/1.0.16/185-ball-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "35c11fec57799d27baf6a0418018236d3463c0fbfce6852351be9cdf5276f24a"
+    },
+    {
+      "path": "replays/1.0.16/186-walker-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "3ca28868dc333c73d383d49e70f6f4dc6a9ac58db0f1ea22a1ade9734ae7cf2a"
+    },
+    {
+      "path": "replays/1.0.16/187-tank-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "d0963ca9419d4990adfcf8e32c7801a65e9192c01179567de03dea0acdae5a59"
+    },
+    {
+      "path": "replays/1.0.16/188-block-enters-player.hcr1",
+      "byteLength": 164,
+      "sha256": "02bb2140e5a2a556faae511fbf72cf51d3243c972725c54171bce2957fc0d7f6"
+    },
+    {
+      "path": "replays/1.0.16/189-pending-player-finish.hcr1",
+      "byteLength": 149,
+      "sha256": "e76d20b5a612cc9f7b4e5534a1793f243b36393c78abe67e975ad5c3adaac508"
     },
     {
       "path": "replays/1.0.16/19-corner-fully-blocked.hcr1",
@@ -342,6 +442,21 @@
       "path": "replays/1.0.16/19-corner-sw.hcr1",
       "byteLength": 3104,
       "sha256": "1e9d36d0bb84fe21dbf1ad7f521ca710f62dc3d27120dbeb30e33cf4ae8e8f7c"
+    },
+    {
+      "path": "replays/1.0.16/190-same-destination-order-a.hcr1",
+      "byteLength": 149,
+      "sha256": "e7ea01a8766d9dbd981833ea5c96ee46198fb2b6a66b374dd3fdd349cbdcf900"
+    },
+    {
+      "path": "replays/1.0.16/191-same-destination-order-b.hcr1",
+      "byteLength": 149,
+      "sha256": "1e3215a5f77b39416b779ebb776511d039d97b303e51fcce60ce78fa8f715cd3"
+    },
+    {
+      "path": "replays/1.0.16/196-pending-actor-invariant.hcr1",
+      "byteLength": 149,
+      "sha256": "43c7479aebcf4ec796aa658ea883d608a551342a39b8535b2f097d4479d100cd"
     },
     {
       "path": "replays/1.0.16/2-block-tour.hcr1",
@@ -612,6 +727,16 @@
       "path": "replays/1.0.16/5-yellow-key-acting-dirt.hcr1",
       "byteLength": 3434,
       "sha256": "ac6c496cf817488c5eafca0a2a27771e3f3ee35aad0ed21b9b180f38c34fc43c"
+    },
+    {
+      "path": "replays/1.0.16/57-rng-ownership.hcr1",
+      "byteLength": 485,
+      "sha256": "0ef62fb3e706de01287ceb5c765cc7c187d186812084e7ee90d9afc80db664fb"
+    },
+    {
+      "path": "replays/1.0.16/58-player-enters-ant.hcr1",
+      "byteLength": 149,
+      "sha256": "3c5fc763a83ba6d5f43589fda3a2bfe5dba9b15d18ad29d19117e0d4a7f5e50b"
     },
     {
       "path": "replays/1.0.16/6-header-field-override.hcr1",
