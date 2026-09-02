@@ -5,6 +5,7 @@ import {
   MONSTER_RIPPLE_MAX_RADIUS_TILES,
   MONSTER_RIPPLE_PERIOD_MS,
   MONSTER_RIPPLE_RING_COUNT,
+  advanceMonsterRippleEmissions,
   flashlightDirectionTransitionAngle,
   inverseTransformCanvasPoint,
   monsterRippleArtworkOpacity,
@@ -117,6 +118,30 @@ describe("specialModesRender", () => {
     expect(monsterRippleExpansionOpacity(0.5)).toBe(0.25);
     expect(monsterRippleExpansionOpacity(0.75)).toBe(0.0625);
     expect(monsterRippleExpansionOpacity(1)).toBe(0);
+  });
+
+  it("keeps emitted ripples anchored when their monster moves", () => {
+    const initial = advanceMonsterRippleEmissions(null, [{
+      intensity: 1,
+      x: 24,
+      y: 48,
+      z: 1,
+    }], 1_000);
+    const originalPulse = initial.emissions[0]!;
+    const advanced = advanceMonsterRippleEmissions(initial, [{
+      intensity: 2,
+      x: 120,
+      y: 48,
+      z: 1,
+    }], initial.nextEmissionAtMs + 1);
+
+    expect(advanced.emissions).toContainEqual(originalPulse);
+    expect(advanced.emissions.at(-1)).toMatchObject({
+      intensity: 2,
+      x: 120,
+      y: 48,
+      z: 1,
+    });
   });
 
   it("allows ripples through fog but not complete darkness", () => {
