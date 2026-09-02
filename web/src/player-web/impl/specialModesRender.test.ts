@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   FLASHLIGHT_DIRECTION_TRANSITION_MS,
+  MONSTER_RIPPLE_MAX_RADIUS_TILES,
+  MONSTER_RIPPLE_PERIOD_MS,
+  MONSTER_RIPPLE_RING_COUNT,
   flashlightDirectionTransitionAngle,
   inverseTransformCanvasPoint,
   monsterRippleArtworkOpacity,
   monsterRippleIntensity,
+  monsterRippleMaximumRadiusTiles,
   monsterRipplesCanRenderOutsideDirectVisibility,
   remapDihedralArtworkTileId,
   sessionWithoutMonsterArtwork,
@@ -94,6 +98,16 @@ describe("specialModesRender", () => {
     expect(monsterRippleIntensity(0)).toBe(1);
     expect(monsterRippleIntensity(1)).toBe(2);
     expect(monsterRippleIntensity(8)).toBe(2);
+  });
+
+  it("keeps monster ripples local and slow", () => {
+    expect(MONSTER_RIPPLE_PERIOD_MS).toBe(4_000);
+    expect(MONSTER_RIPPLE_MAX_RADIUS_TILES).toBe(5);
+    expect(MONSTER_RIPPLE_RING_COUNT).toBe(12);
+    expect(MONSTER_RIPPLE_PERIOD_MS / MONSTER_RIPPLE_RING_COUNT).toBeCloseTo(333.33, 1);
+    expect(monsterRippleMaximumRadiusTiles(3)).toBe(1.5);
+    expect(monsterRippleMaximumRadiusTiles(9)).toBe(4.5);
+    expect(monsterRippleMaximumRadiusTiles(32)).toBe(5);
   });
 
   it("allows ripples through fog but not complete darkness", () => {
