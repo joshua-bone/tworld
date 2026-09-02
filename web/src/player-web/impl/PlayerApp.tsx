@@ -1839,6 +1839,7 @@ export function PlayerApp({
     gameplayRateRef: specialModesRuntime.gameplayRateRef,
     inputOrientation: specialModesRuntime.inputOrientation,
     inputOrientationEpoch: specialModesRuntime.inputOrientationEpoch,
+    inputFrozen: specialModesRuntime.inputFrozen,
     undoDisabled: specialModeActive,
   });
   resetGameplayInputBuffersRef.current = resetGameplayInputBuffers;
@@ -2902,6 +2903,8 @@ export function PlayerApp({
                     <option value="flashlight-fog">Flashlight fog</option>
                     <option value="lantern">Lantern</option>
                     <option value="lantern-fog">Lantern fog</option>
+                    <option value="line-of-sight">Line of Sight</option>
+                    <option value="line-of-sight-fog">Line of Sight fog</option>
                   </select>
                 </label>
                 {specialModesSettings.visibility.mode === "lantern" || specialModesSettings.visibility.mode === "lantern-fog" ? (
@@ -3962,6 +3965,7 @@ export function PlayerApp({
                 selectedSeriesFile={selectedSeriesFile}
                 session={session}
                 specialModesRuntimeRef={specialModesRuntime.runtimeRef}
+                specialModesArtworkOrientation={specialModesRuntime.inputOrientation}
                 specialModesSettings={specialModesSettings}
                 debugModeEnabled={debugModeEnabled}
                 visualEnhancementsEnabled={visualEnhancementsEnabled}
@@ -4074,6 +4078,7 @@ export function PlayerApp({
                   selectedSeriesFile={selectedSeriesFile}
                   session={session}
                   specialModesRuntimeRef={specialModesRuntime.runtimeRef}
+                  specialModesArtworkOrientation={specialModesRuntime.inputOrientation}
                   specialModesSettings={specialModesSettings}
                   debugModeEnabled={debugModeEnabled}
                   visualEnhancementsEnabled={visualEnhancementsEnabled}

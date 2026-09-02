@@ -15,6 +15,8 @@ import {
   composeDihedralOrientation,
   seededTransformAt,
   transformGameplayRate,
+  transformTransitionPhaseAt,
+  type TransformTransitionPhase,
 } from "@player-web/impl/specialModesTransform";
 
 const GAME_TICKS_PER_SECOND = 20;
@@ -25,6 +27,8 @@ export interface SpecialModesTransitionPresentation {
   from: DihedralOrientation;
   to: DihedralOrientation;
   progress: number;
+  phase: TransformTransitionPhase;
+  phaseProgress: number;
 }
 
 export interface SpecialModesRuntimeSnapshot {
@@ -54,6 +58,7 @@ interface UseSpecialModesRuntimeResult {
   gameplayRateRef: Readonly<MutableRefObject<number>>;
   inputOrientation: DihedralOrientation;
   inputOrientationEpoch: number;
+  inputFrozen: boolean;
   runtimeRef: Readonly<MutableRefObject<SpecialModesRuntimeSnapshot>>;
 }
 
@@ -81,6 +86,7 @@ export function useSpecialModesRuntime({
   });
   const [inputOrientation, setInputOrientation] = useState<DihedralOrientation>("identity");
   const [inputOrientationEpoch, setInputOrientationEpoch] = useState(0);
+  const [inputFrozen, setInputFrozen] = useState(false);
   const nextTransformTickRef = useRef<number | null>(null);
   const transformIndexRef = useRef(0);
   const transitionRef = useRef<ActiveTransition | null>(null);
@@ -102,6 +108,7 @@ export function useSpecialModesRuntime({
       revision: runtimeRef.current.revision + 1,
     };
     setInputOrientation("identity");
+    setInputFrozen(false);
     setInputOrientationEpoch((current) => current + 1);
   });
 
@@ -179,23 +186,24 @@ export function useSpecialModesRuntime({
       let transitionPresentation: SpecialModesTransitionPresentation | null = null;
       if (transition) {
         const progress = Math.max(0, Math.min(1, (nowMs - transition.startedAtMs) / transition.durationMs));
+        const { phase, phaseProgress } = transformTransitionPhaseAt(progress);
         transitionPresentation = {
           from: transition.from,
           to: transition.to,
           progress,
+          phase,
+          phaseProgress,
         };
-        if (progress < 0.5) {
-          gameplayRateRef.current = transformGameplayRate(progress);
-        } else {
-          if (!transition.switched) {
-            transition.switched = true;
-            runtimeRef.current.orientation = transition.to;
-            setInputOrientation(transition.to);
-            setInputOrientationEpoch((current) => current + 1);
-            gameplayRateRef.current = 0;
-          } else {
-            gameplayRateRef.current = transformGameplayRate(progress);
-          }
+        gameplayRateRef.current = transformGameplayRate(progress);
+        if ((phase === "viewport-transform" || phase === "artwork-normalize") && !transition.switched) {
+          setInputFrozen(true);
+        }
+        if (phase === "speed-up" && !transition.switched) {
+          transition.switched = true;
+          runtimeRef.current.orientation = transition.to;
+          setInputOrientation(transition.to);
+          setInputFrozen(false);
+          setInputOrientationEpoch((current) => current + 1);
         }
 
         if (progress >= 1) {
@@ -243,6 +251,7 @@ export function useSpecialModesRuntime({
     gameplayRateRef,
     inputOrientation,
     inputOrientationEpoch,
+    inputFrozen,
     runtimeRef,
   };
 }

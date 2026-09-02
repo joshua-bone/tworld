@@ -98,6 +98,14 @@ export function msTileHasCapability(id: number, capability: TileCapability): boo
   return lookupMsTilePolicy(id).capabilities.includes(capability);
 }
 
+export function msTileSightTransmission(id: number): number {
+  return lookupMsTilePolicy(id).sightTransmission;
+}
+
+export function msTileSightEdgeMask(id: number): number {
+  return lookupMsTilePolicy(id).sightEdgeMask;
+}
+
 export function msChipMovementMask(id: number): number {
   return lookupMsTilePolicy(id).chipMovementMask;
 }

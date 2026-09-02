@@ -60,6 +60,8 @@ export interface MsTilePolicyDefinition {
   readonly mobExitAction: MsMobExitAction;
   readonly chipEnterAction: MsChipEnterAction;
   readonly buttonAction: MsButtonAction;
+  readonly sightTransmission: number;
+  readonly sightEdgeMask: number;
 }
 
 const KEY_TILE_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
@@ -136,6 +138,8 @@ const DEFAULT_MS_TILE_POLICY: MsTilePolicyDefinition = {
   mobExitAction: "none",
   chipEnterAction: "none",
   buttonAction: "none",
+  sightTransmission: 1,
+  sightEdgeMask: 0,
 };
 
 function msTileConstName(id: number): string {
@@ -397,6 +401,64 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
     name: "closed-toggle-wall",
     tileIds: [MS_TILE.SwitchWall_Closed],
     tags: ["toggleable"],
+  }),
+  createRulesetTileFamily<MsTilePolicyDefinition, number>({
+    name: "sight-opaque",
+    tileIds: [
+      MS_TILE.Wall,
+      MS_TILE.BlueWall_Real,
+      MS_TILE.BlueWall_Fake,
+      MS_TILE.SwitchWall_Closed,
+      MS_TILE.CloneMachine,
+      MS_TILE.Door_Red,
+      MS_TILE.Door_Blue,
+      MS_TILE.Door_Yellow,
+      MS_TILE.Door_Green,
+      MS_TILE.Socket,
+      MS_TILE.Block,
+      MS_TILE.IceBlock,
+      MS_TILE.Block_Static,
+      MS_TILE.IceBlock_Static,
+    ],
+    policy: {
+      sightTransmission: 0,
+    },
+  }),
+  createRulesetTileFamily<MsTilePolicyDefinition, number>({
+    name: "sight-attenuating-pickups",
+    tileIds: [
+      MS_TILE.ICChip,
+      ...KEY_TILE_IDS,
+      ...BOOT_TILE_IDS,
+      MS_TILE.Sandbag,
+      MS_TILE.Hook,
+      MS_TILE.PetCarrier,
+      MS_TILE.BowlingBall_Still,
+    ],
+    policy: {
+      sightTransmission: 0.5,
+    },
+  }),
+  createRulesetTileFamily<MsTilePolicyDefinition, number>({
+    name: "sight-blocking-edges",
+    tileIds: [
+      MS_TILE.Wall_North,
+      MS_TILE.Wall_West,
+      MS_TILE.Wall_South,
+      MS_TILE.Wall_East,
+      MS_TILE.Wall_Southeast,
+    ],
+    policy: (id) => ({
+      sightEdgeMask: id === MS_TILE.Wall_North
+        ? MS_DIRECTION.north
+        : id === MS_TILE.Wall_West
+          ? MS_DIRECTION.west
+          : id === MS_TILE.Wall_South
+            ? MS_DIRECTION.south
+            : id === MS_TILE.Wall_East
+              ? MS_DIRECTION.east
+              : MS_DIRECTION.south | MS_DIRECTION.east,
+    }),
   }),
   createRulesetTileFamily<MsTilePolicyDefinition, number>({
     name: "actors",

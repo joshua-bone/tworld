@@ -108,6 +108,14 @@ export function lynxTileHasCapability(id: number, capability: TileCapability): b
   return lookupLynxTilePolicy(id).capabilities.includes(capability);
 }
 
+export function lynxTileSightTransmission(id: number): number {
+  return lookupLynxTilePolicy(id).sightTransmission;
+}
+
+export function lynxTileSightEdgeMask(id: number): number {
+  return lookupLynxTilePolicy(id).sightEdgeMask;
+}
+
 export function lynxInventorySlot(id: number): LynxInventorySlot | null {
   return lookupLynxTerrainPickupTileRegistration(id)?.inventorySlot ?? lookupLynxTilePolicy(id).inventorySlot ?? null;
 }

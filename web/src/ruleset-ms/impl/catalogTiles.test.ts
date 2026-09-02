@@ -17,6 +17,8 @@ import {
   msTileMobExitAction,
   msTileHasCapability,
   msTileHasTag,
+  msTileSightEdgeMask,
+  msTileSightTransmission,
 } from "@ruleset-ms/impl/catalog";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 
@@ -60,6 +62,17 @@ describe("MS catalog tile families", () => {
     expect(msCreatureMovementMask(MS_TILE.CloneMachine)).toBe(0);
     expect(msBlockMovementMask(MS_TILE.Dirt)).toBe(0);
     expect(msBlockMovementMask(MS_TILE.Water)).toBe(msChipMovementMask(MS_TILE.Water));
+  });
+
+  it("publishes line-of-sight transmission and thin-wall edges", () => {
+    expect(msTileSightTransmission(MS_TILE.Wall)).toBe(0);
+    expect(msTileSightTransmission(MS_TILE.BlueWall_Fake)).toBe(0);
+    expect(msTileSightTransmission(MS_TILE.HiddenWall_Perm)).toBe(1);
+    expect(msTileSightTransmission(MS_TILE.Key_Red)).toBe(0.5);
+    expect(msTileSightTransmission(MS_TILE.Block)).toBe(0);
+    expect(msTileSightEdgeMask(MS_TILE.Wall_Southeast)).toBe(
+      MS_DIRECTION.south | MS_DIRECTION.east,
+    );
   });
 
   it("provides inventory, portable-item, and door lookup policy", () => {

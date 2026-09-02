@@ -53,6 +53,7 @@ describe("specialModesSettings", () => {
   });
 
   it("maps the three speed choices to the full transition duration", () => {
+    expect(createDefaultBrowserSpecialModesSettings(() => 1).transform.intervalSeconds).toBe(10);
     expect(transformTransitionDurationSeconds("fast")).toBe(1);
     expect(transformTransitionDurationSeconds("medium")).toBe(2);
     expect(transformTransitionDurationSeconds("slow")).toBe(3);

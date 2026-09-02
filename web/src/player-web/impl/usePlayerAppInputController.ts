@@ -177,6 +177,7 @@ interface UsePlayerAppInputControllerOptions {
   gameplayRateRef?: Readonly<MutableRefObject<number>>;
   inputOrientation?: DihedralOrientation;
   inputOrientationEpoch?: number;
+  inputFrozen?: boolean;
   undoDisabled?: boolean;
 }
 
@@ -249,6 +250,7 @@ export function usePlayerAppInputController({
   gameplayRateRef,
   inputOrientation = "identity",
   inputOrientationEpoch = 0,
+  inputFrozen = false,
   undoDisabled = false,
 }: UsePlayerAppInputControllerOptions): UsePlayerAppInputControllerResult {
   const action1ActiveRef = useRef(false);
@@ -295,6 +297,9 @@ export function usePlayerAppInputController({
     }
 
     heldDisplayedDirectionsRef.current.add(input);
+    if (inputFrozen) {
+      return;
+    }
     const mappedInput = mapDisplayedDirectionInput(input, inputOrientation);
     if (activeSession.request.ruleset === "Hybrid") {
       hybridInputBufferRef.current.keyDown(mappedInput);
@@ -321,6 +326,9 @@ export function usePlayerAppInputController({
 
     heldDisplayedDirectionsRef.current.delete(input);
     resetEngineInputBuffers();
+    if (inputFrozen) {
+      return;
+    }
     for (const heldInput of heldDisplayedDirectionsRef.current) {
       const mappedInput = mapDisplayedDirectionInput(heldInput, inputOrientation);
       if (activeSession.request.ruleset === "Hybrid") {
@@ -339,6 +347,9 @@ export function usePlayerAppInputController({
       return;
     }
     resetEngineInputBuffers();
+    if (inputFrozen) {
+      return;
+    }
     for (const heldInput of heldDisplayedDirectionsRef.current) {
       const mappedInput = mapDisplayedDirectionInput(heldInput, inputOrientation);
       if (activeSession.request.ruleset === "Hybrid") {
@@ -349,7 +360,7 @@ export function usePlayerAppInputController({
         msInputBufferRef.current.keyDown(mappedInput);
       }
     }
-  }, [inputOrientation, inputOrientationEpoch, liveSessionRef, mode, resetEngineInputBuffers]);
+  }, [inputFrozen, inputOrientation, inputOrientationEpoch, liveSessionRef, mode, resetEngineInputBuffers]);
 
   const applyMobileDirectionalInputChanges = useEffectEvent(
     (changes: { pressed: DirectionInput[]; released: DirectionInput[] }) => {
