@@ -68,12 +68,24 @@ describe("Lynx catalog tile families", () => {
     expect(lynxTileMobExitAction(MS_TILE.Cloud)).toBe("turn-to-air");
   });
 
-  it("publishes line-of-sight transmission and thin-wall edges", () => {
+  it("publishes line-of-sight transmission and directional sight edges", () => {
     expect(lynxTileSightTransmission(MS_TILE.CloneMachine)).toBe(0);
     expect(lynxTileSightTransmission(MS_TILE.BlueWall_Fake)).toBe(0);
     expect(lynxTileSightTransmission(MS_TILE.HiddenWall_Temp)).toBe(1);
     expect(lynxTileSightTransmission(MS_TILE.Boots_Water)).toBe(0.5);
     expect(lynxTileSightEdgeMask(MS_TILE.Wall_North)).toBe(MS_DIRECTION.north);
+    expect(lynxTileSightEdgeMask(MS_TILE.IceWall_Northwest)).toBe(
+      MS_DIRECTION.north | MS_DIRECTION.west,
+    );
+    expect(lynxTileSightEdgeMask(MS_TILE.IceWall_Northeast)).toBe(
+      MS_DIRECTION.north | MS_DIRECTION.east,
+    );
+    expect(lynxTileSightEdgeMask(MS_TILE.IceWall_Southwest)).toBe(
+      MS_DIRECTION.south | MS_DIRECTION.west,
+    );
+    expect(lynxTileSightEdgeMask(MS_TILE.IceWall_Southeast)).toBe(
+      MS_DIRECTION.south | MS_DIRECTION.east,
+    );
   });
 
   it("provides movement masks and chip arrival helpers", () => {

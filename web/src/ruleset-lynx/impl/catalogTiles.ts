@@ -135,6 +135,18 @@ const EXIT_MASK_BY_TILE = new Map<number, number>([
   [MS_TILE.IceWall_Southeast, MS_DIRECTION.south | MS_DIRECTION.east],
 ]);
 
+const SIGHT_EDGE_MASK_BY_TILE = new Map<number, number>([
+  [MS_TILE.Wall_North, MS_DIRECTION.north],
+  [MS_TILE.Wall_West, MS_DIRECTION.west],
+  [MS_TILE.Wall_South, MS_DIRECTION.south],
+  [MS_TILE.Wall_East, MS_DIRECTION.east],
+  [MS_TILE.Wall_Southeast, MS_DIRECTION.south | MS_DIRECTION.east],
+  [MS_TILE.IceWall_Northwest, MS_DIRECTION.north | MS_DIRECTION.west],
+  [MS_TILE.IceWall_Northeast, MS_DIRECTION.north | MS_DIRECTION.east],
+  [MS_TILE.IceWall_Southwest, MS_DIRECTION.south | MS_DIRECTION.west],
+  [MS_TILE.IceWall_Southeast, MS_DIRECTION.south | MS_DIRECTION.east],
+]);
+
 const DEFAULT_LYNX_TILE_POLICY: LynxTilePolicyDefinition = {
   tags: [],
   capabilities: [],
@@ -451,17 +463,13 @@ const lynxTileFamilies: readonly LynxTileFamilyDefinition[] = [
       MS_TILE.Wall_South,
       MS_TILE.Wall_East,
       MS_TILE.Wall_Southeast,
+      MS_TILE.IceWall_Northwest,
+      MS_TILE.IceWall_Northeast,
+      MS_TILE.IceWall_Southwest,
+      MS_TILE.IceWall_Southeast,
     ],
     policy: (id) => ({
-      sightEdgeMask: id === MS_TILE.Wall_North
-        ? MS_DIRECTION.north
-        : id === MS_TILE.Wall_West
-          ? MS_DIRECTION.west
-          : id === MS_TILE.Wall_South
-            ? MS_DIRECTION.south
-            : id === MS_TILE.Wall_East
-              ? MS_DIRECTION.east
-              : MS_DIRECTION.south | MS_DIRECTION.east,
+      sightEdgeMask: SIGHT_EDGE_MASK_BY_TILE.get(id) ?? MS_DIRECTION.none,
     }),
   }),
   createRulesetTileFamily<LynxTilePolicyDefinition, number>({

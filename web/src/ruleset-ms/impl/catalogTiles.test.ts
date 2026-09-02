@@ -64,13 +64,25 @@ describe("MS catalog tile families", () => {
     expect(msBlockMovementMask(MS_TILE.Water)).toBe(msChipMovementMask(MS_TILE.Water));
   });
 
-  it("publishes line-of-sight transmission and thin-wall edges", () => {
+  it("publishes line-of-sight transmission and directional sight edges", () => {
     expect(msTileSightTransmission(MS_TILE.Wall)).toBe(0);
     expect(msTileSightTransmission(MS_TILE.BlueWall_Fake)).toBe(0);
     expect(msTileSightTransmission(MS_TILE.HiddenWall_Perm)).toBe(1);
     expect(msTileSightTransmission(MS_TILE.Key_Red)).toBe(0.5);
     expect(msTileSightTransmission(MS_TILE.Block)).toBe(0);
     expect(msTileSightEdgeMask(MS_TILE.Wall_Southeast)).toBe(
+      MS_DIRECTION.south | MS_DIRECTION.east,
+    );
+    expect(msTileSightEdgeMask(MS_TILE.IceWall_Northwest)).toBe(
+      MS_DIRECTION.north | MS_DIRECTION.west,
+    );
+    expect(msTileSightEdgeMask(MS_TILE.IceWall_Northeast)).toBe(
+      MS_DIRECTION.north | MS_DIRECTION.east,
+    );
+    expect(msTileSightEdgeMask(MS_TILE.IceWall_Southwest)).toBe(
+      MS_DIRECTION.south | MS_DIRECTION.west,
+    );
+    expect(msTileSightEdgeMask(MS_TILE.IceWall_Southeast)).toBe(
       MS_DIRECTION.south | MS_DIRECTION.east,
     );
   });
