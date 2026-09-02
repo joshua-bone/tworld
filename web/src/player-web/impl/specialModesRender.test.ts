@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { MS_TILE } from "@ruleset-ms/api/tiles";
-import { inverseTransformCanvasPoint, sessionWithoutMonsterArtwork } from "@player-web/impl/specialModesRender";
+import {
+  inverseTransformCanvasPoint,
+  remapDihedralArtworkTileId,
+  sessionWithoutMonsterArtwork,
+} from "@player-web/impl/specialModesRender";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 
 describe("specialModesRender", () => {
@@ -32,5 +36,13 @@ describe("specialModesRender", () => {
     const hidden = sessionWithoutMonsterArtwork(session);
     expect(hidden.frame.visibleLayers[0]!.cells[0]!.top.id).toBe(MS_TILE.Ice);
     expect(hidden.frame.render!.actors.map((actor) => actor.id)).toEqual([MS_TILE.Block]);
+  });
+
+  it("remaps directional artwork to its displayed semantics", () => {
+    expect(remapDihedralArtworkTileId(MS_TILE.Slide_North, "rotate-90")).toBe(MS_TILE.Slide_East);
+    expect(remapDihedralArtworkTileId(MS_TILE.IceWall_Northwest, "flip-horizontal")).toBe(
+      MS_TILE.IceWall_Northeast,
+    );
+    expect(remapDihedralArtworkTileId(MS_TILE.Wall_West, "rotate-180")).toBe(MS_TILE.Wall_East);
   });
 });

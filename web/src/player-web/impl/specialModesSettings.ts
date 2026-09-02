@@ -8,7 +8,7 @@ export const MAX_LANTERN_RADIUS = 16;
 export const DEFAULT_LANTERN_RADIUS = 4;
 export const MIN_TRANSFORM_INTERVAL_SECONDS = 5;
 export const MAX_TRANSFORM_INTERVAL_SECONDS = 60;
-export const DEFAULT_TRANSFORM_INTERVAL_SECONDS = 5;
+export const DEFAULT_TRANSFORM_INTERVAL_SECONDS = 10;
 export const SPECIAL_MODE_SEED_MAX = 0x7fff_ffff;
 
 export const SPECIAL_VISIBILITY_MODES = [
@@ -17,6 +17,8 @@ export const SPECIAL_VISIBILITY_MODES = [
   "flashlight-fog",
   "lantern",
   "lantern-fog",
+  "line-of-sight",
+  "line-of-sight-fog",
 ] as const;
 
 export type SpecialVisibilityMode = (typeof SPECIAL_VISIBILITY_MODES)[number];

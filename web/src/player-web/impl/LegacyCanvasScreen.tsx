@@ -75,9 +75,11 @@ import {
 import {
   createDefaultBrowserSpecialModesSettings,
   type BrowserSpecialModesSettings,
+  type DihedralOrientation,
 } from "@player-web/impl/specialModesSettings";
 import {
   createMonsterMadnessTileset,
+  createDihedralArtworkTileset,
   drawSpecialModesMap,
   inverseTransformCanvasPoint,
   sessionWithoutMonsterArtwork,
@@ -109,6 +111,7 @@ interface LegacyCanvasScreenProps {
   viewportTileCount?: number;
   specialModesSettings?: BrowserSpecialModesSettings;
   specialModesRuntimeRef?: Readonly<{ current: SpecialModesRuntimeSnapshot }>;
+  specialModesArtworkOrientation?: DihedralOrientation;
   visualEnhancementsEnabled?: boolean;
   debugModeEnabled?: boolean;
   buildCommitHash?: string;
@@ -485,6 +488,7 @@ export function LegacyCanvasScreen({
   viewportTileCount = LEGACY_MAP_TILES,
   specialModesSettings: specialModesSettingsProp,
   specialModesRuntimeRef,
+  specialModesArtworkOrientation = "identity",
   visualEnhancementsEnabled = true,
   debugModeEnabled = false,
   buildCommitHash = "unknown",
@@ -500,7 +504,7 @@ export function LegacyCanvasScreen({
   const tileset = useLegacyTileset(currentRuleset === "Lynx" || currentRuleset === "Hybrid" ? "Lynx" : "MS");
   const specialModesSettingsSeedRef = useRef(createDefaultBrowserSpecialModesSettings());
   const specialModesSettings = specialModesSettingsProp ?? specialModesSettingsSeedRef.current;
-  const renderTileset = useMemo(
+  const monsterMadnessTileset = useMemo(
     () => tileset ? createMonsterMadnessTileset(tileset, specialModesSettings.monsterMadness) : null,
     [
       specialModesSettings.monsterMadness.enabled,
@@ -508,6 +512,12 @@ export function LegacyCanvasScreen({
       specialModesSettings.monsterMadness.seed,
       tileset,
     ],
+  );
+  const renderTileset = useMemo(
+    () => monsterMadnessTileset
+      ? createDihedralArtworkTileset(monsterMadnessTileset, specialModesArtworkOrientation)
+      : null,
+    [monsterMadnessTileset, specialModesArtworkOrientation],
   );
   const specialSceneCacheRef = useRef<{
     key: string;
@@ -538,7 +548,8 @@ export function LegacyCanvasScreen({
     specialModesSettings.transform.enabled;
   const usesFogVisibility =
     specialModesSettings.visibility.mode === "flashlight-fog" ||
-    specialModesSettings.visibility.mode === "lantern-fog";
+    specialModesSettings.visibility.mode === "lantern-fog" ||
+    specialModesSettings.visibility.mode === "line-of-sight-fog";
 
   useEffect(() => {
     setPerfDiagnosticsEnabled(debugModeEnabled);

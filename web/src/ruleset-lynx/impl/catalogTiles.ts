@@ -76,6 +76,8 @@ export interface LynxTilePolicyDefinition {
   readonly mobExitAction: LynxMobExitAction;
   readonly chipEnterAction: LynxChipEnterAction;
   readonly buttonAction: LynxButtonAction;
+  readonly sightTransmission: number;
+  readonly sightEdgeMask: number;
 }
 
 export interface LynxChipMoveSoundOptions {
@@ -147,6 +149,8 @@ const DEFAULT_LYNX_TILE_POLICY: LynxTilePolicyDefinition = {
   mobExitAction: "none",
   chipEnterAction: "none",
   buttonAction: "none",
+  sightTransmission: 1,
+  sightEdgeMask: 0,
 };
 
 function lynxTileConstName(id: number): string {
@@ -401,6 +405,64 @@ const lynxTileFamilies: readonly LynxTileFamilyDefinition[] = [
     name: "closed-toggle-wall",
     tileIds: [MS_TILE.SwitchWall_Closed],
     tags: ["toggleable"],
+  }),
+  createRulesetTileFamily<LynxTilePolicyDefinition, number>({
+    name: "sight-opaque",
+    tileIds: [
+      MS_TILE.Wall,
+      MS_TILE.BlueWall_Real,
+      MS_TILE.BlueWall_Fake,
+      MS_TILE.SwitchWall_Closed,
+      MS_TILE.CloneMachine,
+      MS_TILE.Door_Red,
+      MS_TILE.Door_Blue,
+      MS_TILE.Door_Yellow,
+      MS_TILE.Door_Green,
+      MS_TILE.Socket,
+      MS_TILE.Block,
+      MS_TILE.IceBlock,
+      MS_TILE.Block_Static,
+      MS_TILE.IceBlock_Static,
+    ],
+    policy: {
+      sightTransmission: 0,
+    },
+  }),
+  createRulesetTileFamily<LynxTilePolicyDefinition, number>({
+    name: "sight-attenuating-pickups",
+    tileIds: [
+      MS_TILE.ICChip,
+      ...KEY_TILE_IDS,
+      ...BOOT_TILE_IDS,
+      MS_TILE.Sandbag,
+      MS_TILE.Hook,
+      MS_TILE.PetCarrier,
+      MS_TILE.BowlingBall_Still,
+    ],
+    policy: {
+      sightTransmission: 0.5,
+    },
+  }),
+  createRulesetTileFamily<LynxTilePolicyDefinition, number>({
+    name: "sight-blocking-edges",
+    tileIds: [
+      MS_TILE.Wall_North,
+      MS_TILE.Wall_West,
+      MS_TILE.Wall_South,
+      MS_TILE.Wall_East,
+      MS_TILE.Wall_Southeast,
+    ],
+    policy: (id) => ({
+      sightEdgeMask: id === MS_TILE.Wall_North
+        ? MS_DIRECTION.north
+        : id === MS_TILE.Wall_West
+          ? MS_DIRECTION.west
+          : id === MS_TILE.Wall_South
+            ? MS_DIRECTION.south
+            : id === MS_TILE.Wall_East
+              ? MS_DIRECTION.east
+              : MS_DIRECTION.south | MS_DIRECTION.east,
+    }),
   }),
   createRulesetTileFamily<LynxTilePolicyDefinition, number>({
     name: "ice-wall-exits",

@@ -386,6 +386,8 @@ export function ModernDashboardSettingsModal({
                 <option value="flashlight-fog">Flashlight fog</option>
                 <option value="lantern">Lantern</option>
                 <option value="lantern-fog">Lantern fog</option>
+                <option value="line-of-sight">Line of Sight</option>
+                <option value="line-of-sight-fog">Line of Sight fog</option>
               </select>
             </label>
             {specialModesSettings.visibility.mode === "lantern" || specialModesSettings.visibility.mode === "lantern-fog" ? (
@@ -498,7 +500,7 @@ export function ModernDashboardSettingsModal({
               <div>
                 <strong>Transform every N seconds</strong>
                 <p className="modern-dashboard__copy">
-                  Shake at 3, 2, and 1 seconds, slow to a stop, transform the entire viewport, then speed back up.
+                  Shake at 3, 2, and 1 seconds, slow to a stop, transform the viewport, ripple each cell upright, then speed back up.
                 </p>
               </div>
             </label>

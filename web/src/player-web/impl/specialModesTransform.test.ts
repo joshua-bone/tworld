@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { MS_DIRECTION } from "@ruleset-ms/api/tiles";
 import {
   composeDihedralOrientation,
+  cellArtworkNormalizationProgress,
   displayedDirectionToEngineDirection,
   inverseDihedralOrientation,
   seededTransformAt,
   transformDirection,
   transformGameplayRate,
+  transformTransitionPhaseAt,
 } from "@player-web/impl/specialModesTransform";
 
 describe("specialModesTransform", () => {
@@ -29,11 +31,26 @@ describe("specialModesTransform", () => {
     expect(allowed).toContain(seededTransformAt(42, 20, allowed));
   });
 
-  it("fades gameplay from full speed to stopped and back to full speed", () => {
+  it("slows, stays stopped for both transform phases, then speeds back up", () => {
     expect(transformGameplayRate(0)).toBe(1);
-    expect(transformGameplayRate(0.25)).toBe(0.5);
+    expect(transformGameplayRate(0.125)).toBe(0.5);
+    expect(transformGameplayRate(0.25)).toBe(0);
     expect(transformGameplayRate(0.5)).toBe(0);
-    expect(transformGameplayRate(0.75)).toBe(0.5);
+    expect(transformGameplayRate(0.75)).toBe(0);
+    expect(transformGameplayRate(0.875)).toBe(0.5);
     expect(transformGameplayRate(1)).toBe(1);
+  });
+
+  it("publishes the four transition phases at quarter boundaries", () => {
+    expect(transformTransitionPhaseAt(0.2).phase).toBe("slow-down");
+    expect(transformTransitionPhaseAt(0.25)).toEqual({ phase: "viewport-transform", phaseProgress: 0 });
+    expect(transformTransitionPhaseAt(0.5)).toEqual({ phase: "artwork-normalize", phaseProgress: 0 });
+    expect(transformTransitionPhaseAt(0.75)).toEqual({ phase: "speed-up", phaseProgress: 0 });
+  });
+
+  it("ripples artwork normalization outward from the player", () => {
+    expect(cellArtworkNormalizationProgress(0.25, 0, 10)).toBe(0.25);
+    expect(cellArtworkNormalizationProgress(0.25, 10, 10)).toBe(0);
+    expect(cellArtworkNormalizationProgress(1, 10, 10)).toBe(1);
   });
 });

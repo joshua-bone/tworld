@@ -11,6 +11,20 @@ export interface DihedralMatrix {
   d: number;
 }
 
+export const TRANSFORM_TRANSITION_PHASES = [
+  "slow-down",
+  "viewport-transform",
+  "artwork-normalize",
+  "speed-up",
+] as const;
+
+export type TransformTransitionPhase = (typeof TRANSFORM_TRANSITION_PHASES)[number];
+
+export interface TransformTransitionPhaseProgress {
+  phase: TransformTransitionPhase;
+  phaseProgress: number;
+}
+
 export const DIHEDRAL_MATRICES: Readonly<Record<DihedralOrientation, DihedralMatrix>> = {
   identity: { a: 1, b: 0, c: 0, d: 1 },
   "rotate-90": { a: 0, b: 1, c: -1, d: 0 },
@@ -141,6 +155,34 @@ export function interpolateDihedralMatrix(
 }
 
 export function transformGameplayRate(progress: number): number {
+  const { phase, phaseProgress } = transformTransitionPhaseAt(progress);
+  if (phase === "slow-down") {
+    return 1 - phaseProgress;
+  }
+  if (phase === "speed-up") {
+    return phaseProgress;
+  }
+  return 0;
+}
+
+export function transformTransitionPhaseAt(progress: number): TransformTransitionPhaseProgress {
   const clamped = Math.max(0, Math.min(1, progress));
-  return clamped < 0.5 ? 1 - clamped * 2 : (clamped - 0.5) * 2;
+  const phaseIndex = Math.min(3, Math.floor(clamped * 4));
+  return {
+    phase: TRANSFORM_TRANSITION_PHASES[phaseIndex]!,
+    phaseProgress: phaseIndex === 3 && clamped === 1 ? 1 : clamped * 4 - phaseIndex,
+  };
+}
+
+export function cellArtworkNormalizationProgress(
+  phaseProgress: number,
+  distanceFromPlayer: number,
+  maximumDistance: number,
+): number {
+  const clampedPhase = Math.max(0, Math.min(1, phaseProgress));
+  const normalizedDistance = maximumDistance <= 0
+    ? 0
+    : Math.max(0, Math.min(1, distanceFromPlayer / maximumDistance));
+  const delay = normalizedDistance * 0.55;
+  return Math.max(0, Math.min(1, (clampedPhase - delay) / (1 - delay)));
 }

@@ -18,6 +18,8 @@ import {
   lynxTileMobExitAction,
   lynxTileHasCapability,
   lynxTileHasTag,
+  lynxTileSightEdgeMask,
+  lynxTileSightTransmission,
   lynxToggledWallTileId,
 } from "@ruleset-lynx/impl/catalog";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
@@ -64,6 +66,14 @@ describe("Lynx catalog tile families", () => {
     expect(lynxTileForcedFloorKind(MS_TILE.Teleport)).toBe("teleport");
     expect(lynxTileForcedFloorKind(MS_TILE.Air)).toBe("air");
     expect(lynxTileMobExitAction(MS_TILE.Cloud)).toBe("turn-to-air");
+  });
+
+  it("publishes line-of-sight transmission and thin-wall edges", () => {
+    expect(lynxTileSightTransmission(MS_TILE.CloneMachine)).toBe(0);
+    expect(lynxTileSightTransmission(MS_TILE.BlueWall_Fake)).toBe(0);
+    expect(lynxTileSightTransmission(MS_TILE.HiddenWall_Temp)).toBe(1);
+    expect(lynxTileSightTransmission(MS_TILE.Boots_Water)).toBe(0.5);
+    expect(lynxTileSightEdgeMask(MS_TILE.Wall_North)).toBe(MS_DIRECTION.north);
   });
 
   it("provides movement masks and chip arrival helpers", () => {

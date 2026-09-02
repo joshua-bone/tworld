@@ -70,6 +70,7 @@ jobs:
             src/player-web/impl/viewportSettings.test.ts \
             src/player-web/impl/specialModesSettings.test.ts \
             src/player-web/impl/specialModesTransform.test.ts \
+            src/player-web/impl/specialModesVisibility.test.ts \
             src/player-web/impl/monsterMadness.test.ts \
             src/player-web/impl/specialModesRender.test.ts \
             src/player-web/impl/levelProgress.test.ts \
@@ -77,6 +78,8 @@ jobs:
             src/game-core/api/ruleset.test.ts \
             src/ruleset-ms/impl/level.test.ts \
             src/ruleset-ms/impl/tileEffects.test.ts \
+            src/ruleset-ms/impl/catalogTiles.test.ts \
+            src/ruleset-lynx/impl/catalogTiles.test.ts \
             src/ruleset-lynx/impl/tileEffects.test.ts
       - name: Build the browser product
         run: npm run build
