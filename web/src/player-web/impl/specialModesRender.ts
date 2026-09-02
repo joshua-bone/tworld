@@ -44,7 +44,8 @@ const FOG_BRIGHTNESS_PERCENT = 25;
 export const FLASHLIGHT_DIRECTION_TRANSITION_MS = 200;
 export const MONSTER_RIPPLE_PERIOD_MS = 4_000;
 export const MONSTER_RIPPLE_MAX_RADIUS_TILES = 5;
-export const MONSTER_RIPPLE_RING_COUNT = 12;
+export const LYNX_MONSTER_RIPPLE_EMISSION_INTERVAL_MS = 50;
+export const MS_MONSTER_RIPPLE_EMISSION_INTERVAL_MS = 100;
 const MONSTER_RIPPLE_BASE_ALPHA = 0.2;
 const LOWER_LAYER_SCALE = 0.9;
 const spotlightLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
@@ -688,6 +689,7 @@ export interface MonsterRippleEmission extends MonsterRippleOrigin {
 }
 
 export interface MonsterRippleEmissionTimeline {
+  emissionIntervalMs: number;
   emissions: MonsterRippleEmission[];
   nextEmissionAtMs: number;
 }
@@ -696,7 +698,13 @@ interface MonsterRippleCanvasState extends MonsterRippleEmissionTimeline {
   sessionHandle: InteractiveGameSession["handle"];
 }
 
-const monsterRippleEmissionIntervalMs = MONSTER_RIPPLE_PERIOD_MS / MONSTER_RIPPLE_RING_COUNT;
+export function monsterRippleEmissionIntervalMs(
+  ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
+): number {
+  return ruleset === "Lynx"
+    ? LYNX_MONSTER_RIPPLE_EMISSION_INTERVAL_MS
+    : MS_MONSTER_RIPPLE_EMISSION_INTERVAL_MS;
+}
 
 function appendMonsterRippleEmissions(
   emissions: MonsterRippleEmission[],
@@ -712,19 +720,26 @@ export function advanceMonsterRippleEmissions(
   previous: MonsterRippleEmissionTimeline | null,
   origins: readonly MonsterRippleOrigin[],
   nowMs: number,
+  emissionIntervalMs: number,
 ): MonsterRippleEmissionTimeline {
-  if (!previous || nowMs - previous.nextEmissionAtMs >= MONSTER_RIPPLE_PERIOD_MS) {
+  if (
+    !previous ||
+    previous.emissionIntervalMs !== emissionIntervalMs ||
+    nowMs - previous.nextEmissionAtMs >= MONSTER_RIPPLE_PERIOD_MS
+  ) {
     const emissions: MonsterRippleEmission[] = [];
-    for (let ring = 0; ring < MONSTER_RIPPLE_RING_COUNT; ring += 1) {
+    const emissionCount = Math.ceil(MONSTER_RIPPLE_PERIOD_MS / emissionIntervalMs);
+    for (let emission = 0; emission < emissionCount; emission += 1) {
       appendMonsterRippleEmissions(
         emissions,
         origins,
-        nowMs - ring * monsterRippleEmissionIntervalMs,
+        nowMs - emission * emissionIntervalMs,
       );
     }
     return {
+      emissionIntervalMs,
       emissions,
-      nextEmissionAtMs: nowMs + monsterRippleEmissionIntervalMs,
+      nextEmissionAtMs: nowMs + emissionIntervalMs,
     };
   }
 
@@ -733,14 +748,14 @@ export function advanceMonsterRippleEmissions(
   );
   let nextEmissionAtMs = previous.nextEmissionAtMs;
   if (origins.length === 0) {
-    nextEmissionAtMs = nowMs + monsterRippleEmissionIntervalMs;
+    nextEmissionAtMs = nowMs + emissionIntervalMs;
   } else {
     while (nextEmissionAtMs <= nowMs) {
       appendMonsterRippleEmissions(emissions, origins, nextEmissionAtMs);
-      nextEmissionAtMs += monsterRippleEmissionIntervalMs;
+      nextEmissionAtMs += emissionIntervalMs;
     }
   }
-  return { emissions, nextEmissionAtMs };
+  return { emissionIntervalMs, emissions, nextEmissionAtMs };
 }
 
 function monsterRippleOrigins(
@@ -863,6 +878,7 @@ function drawMonsterRipples(
     previousTimeline,
     monsterRippleOrigins(session),
     nowMs,
+    monsterRippleEmissionIntervalMs(ruleset),
   );
   monsterRippleStates.set(context.canvas, { ...timeline, sessionHandle: session.handle });
   for (const emission of timeline.emissions) {
