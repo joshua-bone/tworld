@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { MS_TILE } from "@ruleset-ms/api/tiles";
+import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   inverseTransformCanvasPoint,
   remapDihedralArtworkTileId,
   sessionWithoutMonsterArtwork,
   usesPerCellArtworkNormalization,
+  visibleThinWallOverlayTileId,
   visibilityModeUsesFogBackdrop,
 } from "@player-web/impl/specialModesRender";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
@@ -53,6 +54,21 @@ describe("specialModesRender", () => {
   it("keeps non-fog line of sight pitch black outside visible cells", () => {
     expect(visibilityModeUsesFogBackdrop("line-of-sight")).toBe(false);
     expect(visibilityModeUsesFogBackdrop("line-of-sight-fog")).toBe(true);
+  });
+
+  it("selects only the visible artwork edge of a hidden thin-wall tile", () => {
+    expect(visibleThinWallOverlayTileId(MS_TILE.Wall_South, MS_DIRECTION.south)).toBe(
+      MS_TILE.Wall_South,
+    );
+    expect(visibleThinWallOverlayTileId(MS_TILE.Wall_South, MS_DIRECTION.north)).toBeNull();
+    expect(visibleThinWallOverlayTileId(MS_TILE.Wall_Southeast, MS_DIRECTION.south)).toBe(
+      MS_TILE.Wall_South,
+    );
+    expect(visibleThinWallOverlayTileId(
+      MS_TILE.Wall_Southeast,
+      MS_DIRECTION.south | MS_DIRECTION.east,
+    )).toBe(MS_TILE.Wall_Southeast);
+    expect(visibleThinWallOverlayTileId(MS_TILE.Key_Blue, MS_DIRECTION.south)).toBeNull();
   });
 
   it("uses per-cell rendering only during the paused normalization ripple", () => {

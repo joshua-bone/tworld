@@ -20,6 +20,11 @@ export interface SpecialModesSightCell {
   edgeMask: number;
 }
 
+export interface SpecialModesLineOfSightProjection {
+  visibility: Float32Array;
+  visibleEdgeMasks: Uint8Array;
+}
+
 const OUTSIDE_CELL: SpecialModesSightCell = {
   transmission: 0,
   edgeMask: 0,
@@ -183,12 +188,12 @@ function traceSightRay(options: {
   return 0;
 }
 
-export function computeSpecialModesLineOfSight(options: {
+export function computeSpecialModesLineOfSightProjection(options: {
   cells: ReadonlyArray<SpecialModesSightCell>;
   originPos: number;
   width?: number;
   height?: number;
-}): Float32Array {
+}): SpecialModesLineOfSightProjection {
   const width = options.width ?? BOARD_WIDTH;
   const height = options.height ?? BOARD_HEIGHT;
   const originX = options.originPos % width + 0.5;
@@ -219,7 +224,49 @@ export function computeSpecialModesLineOfSight(options: {
     }
   }
 
-  return visibility;
+  const visibleEdgeMasks = new Uint8Array(width * height);
+  const directions = [
+    { direction: MS_DIRECTION.north, offsetX: 0, offsetY: -1 },
+    { direction: MS_DIRECTION.west, offsetX: -1, offsetY: 0 },
+    { direction: MS_DIRECTION.south, offsetX: 0, offsetY: 1 },
+    { direction: MS_DIRECTION.east, offsetX: 1, offsetY: 0 },
+  ] as const;
+  for (let cellY = 0; cellY < height; cellY += 1) {
+    for (let cellX = 0; cellX < width; cellX += 1) {
+      const cellPos = cellY * width + cellX;
+      if (visibility[cellPos]! > 0) {
+        continue;
+      }
+      const edgeMask = cellAt(options.cells, cellX, cellY, width, height).edgeMask;
+      for (const { direction, offsetX, offsetY } of directions) {
+        if ((edgeMask & direction) === 0) {
+          continue;
+        }
+        const neighborX = cellX + offsetX;
+        const neighborY = cellY + offsetY;
+        if (
+          neighborX >= 0 &&
+          neighborY >= 0 &&
+          neighborX < width &&
+          neighborY < height &&
+          visibility[neighborY * width + neighborX]! > 0
+        ) {
+          visibleEdgeMasks[cellPos] |= direction;
+        }
+      }
+    }
+  }
+
+  return { visibility, visibleEdgeMasks };
+}
+
+export function computeSpecialModesLineOfSight(options: {
+  cells: ReadonlyArray<SpecialModesSightCell>;
+  originPos: number;
+  width?: number;
+  height?: number;
+}): Float32Array {
+  return computeSpecialModesLineOfSightProjection(options).visibility;
 }
 
 function sessionLayerCells(session: InteractiveGameSession): EngineMapCell[] {
@@ -297,13 +344,23 @@ export function sessionSpecialModesLineOfSight(
   session: InteractiveGameSession,
   ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
 ): Float32Array {
+  return sessionSpecialModesLineOfSightProjection(session, ruleset).visibility;
+}
+
+export function sessionSpecialModesLineOfSightProjection(
+  session: InteractiveGameSession,
+  ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
+): SpecialModesLineOfSightProjection {
   const chip = session.frame.render?.chip;
   const snapshotChip = session.frame.snapshot.chip;
   const originPos = chip?.pos ?? snapshotChip?.position.pos;
   if (originPos === undefined) {
-    return new Float32Array(BOARD_WIDTH * BOARD_HEIGHT);
+    return {
+      visibility: new Float32Array(BOARD_WIDTH * BOARD_HEIGHT),
+      visibleEdgeMasks: new Uint8Array(BOARD_WIDTH * BOARD_HEIGHT),
+    };
   }
-  return computeSpecialModesLineOfSight({
+  return computeSpecialModesLineOfSightProjection({
     cells: sessionSpecialModesSightCells(session, ruleset),
     originPos,
   });
