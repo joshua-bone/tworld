@@ -41,7 +41,20 @@ import {
 } from "@ruleset-ms/api/tiles";
 
 const FOG_BRIGHTNESS_PERCENT = 25;
+export const FLASHLIGHT_DIRECTION_TRANSITION_MS = 200;
 const spotlightLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+interface FlashlightDirectionTransition {
+  sessionHandle: InteractiveGameSession["handle"];
+  direction: number;
+  fromAngle: number;
+  toAngle: number;
+  startedAtMs: number;
+  settled: boolean;
+}
+const flashlightDirectionTransitions = new WeakMap<
+  HTMLCanvasElement,
+  FlashlightDirectionTransition
+>();
 const lineOfSightCache = new WeakMap<
   InteractiveGameSession,
   {
@@ -419,6 +432,88 @@ function spotlightAngle(direction: number): number {
   }
 }
 
+function shortestAngleDelta(fromAngle: number, toAngle: number): number {
+  const fullTurn = Math.PI * 2;
+  let delta = (toAngle - fromAngle) % fullTurn;
+  if (delta > Math.PI) delta -= fullTurn;
+  if (delta <= -Math.PI) delta += fullTurn;
+  return delta;
+}
+
+function interpolateFlashlightAngle(
+  fromAngle: number,
+  toAngle: number,
+  elapsedMs: number,
+): number {
+  const progress = Math.max(0, Math.min(1, elapsedMs / FLASHLIGHT_DIRECTION_TRANSITION_MS));
+  const easedProgress = (1 - Math.cos(Math.PI * progress)) / 2;
+  return fromAngle + shortestAngleDelta(fromAngle, toAngle) * easedProgress;
+}
+
+export function flashlightDirectionTransitionAngle(
+  fromDirection: number,
+  toDirection: number,
+  elapsedMs: number,
+): number {
+  return interpolateFlashlightAngle(
+    spotlightAngle(fromDirection),
+    spotlightAngle(toDirection),
+    elapsedMs,
+  );
+}
+
+function flashlightAngleForFrame(
+  canvas: HTMLCanvasElement,
+  session: InteractiveGameSession,
+  direction: number,
+  nowMs: number,
+): number {
+  const targetAngle = spotlightAngle(direction);
+  const previous = flashlightDirectionTransitions.get(canvas);
+  if (!previous || previous.sessionHandle !== session.handle) {
+    flashlightDirectionTransitions.set(canvas, {
+      sessionHandle: session.handle,
+      direction,
+      fromAngle: targetAngle,
+      toAngle: targetAngle,
+      startedAtMs: nowMs,
+      settled: true,
+    });
+    return targetAngle;
+  }
+
+  const currentAngle = previous.settled
+    ? previous.toAngle
+    : interpolateFlashlightAngle(
+        previous.fromAngle,
+        previous.toAngle,
+        nowMs - previous.startedAtMs,
+      );
+  if (previous.direction !== direction) {
+    flashlightDirectionTransitions.set(canvas, {
+      sessionHandle: session.handle,
+      direction,
+      fromAngle: currentAngle,
+      toAngle: targetAngle,
+      startedAtMs: nowMs,
+      settled: false,
+    });
+    return currentAngle;
+  }
+
+  if (!previous.settled && nowMs - previous.startedAtMs >= FLASHLIGHT_DIRECTION_TRANSITION_MS) {
+    previous.settled = true;
+    return previous.toAngle;
+  }
+  return currentAngle;
+}
+
+export function isFlashlightDirectionTransitionActive(
+  canvas: HTMLCanvasElement | null,
+): boolean {
+  return canvas ? flashlightDirectionTransitions.get(canvas)?.settled === false : false;
+}
+
 function drawFlashlightComposite(
   context: CanvasRenderingContext2D,
   fullScene: HTMLCanvasElement,
@@ -444,7 +539,12 @@ function drawFlashlightComposite(
   layerContext.save();
   layerContext.globalCompositeOperation = "destination-in";
   layerContext.translate(chip.x, chip.y);
-  layerContext.rotate(spotlightAngle(chip.dir));
+  layerContext.rotate(flashlightAngleForFrame(
+    context.canvas,
+    session,
+    chip.dir,
+    performance.now(),
+  ));
   const forwardReach = Math.max(3, viewportTileCount * 0.7) * LEGACY_TILE_SIZE;
   const rearReach = 2 * LEGACY_TILE_SIZE;
   const longitudinalRadius = (forwardReach + rearReach) / 2;
@@ -777,6 +877,9 @@ export function drawSpecialModesMap(options: {
   }
   visibilityContext.imageSmoothingEnabled = false;
   visibilityContext.clearRect(0, 0, size, size);
+  if (settings.visibility.mode !== "flashlight" && settings.visibility.mode !== "flashlight-fog") {
+    flashlightDirectionTransitions.delete(visibilityCanvas);
+  }
   if (settings.visibility.mode === "normal") {
     visibilityContext.drawImage(fullScene, 0, 0);
   } else {

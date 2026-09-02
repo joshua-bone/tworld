@@ -82,6 +82,7 @@ import {
   createDihedralArtworkTileset,
   drawSpecialModesMap,
   inverseTransformCanvasPoint,
+  isFlashlightDirectionTransitionActive,
   sessionWithoutMonsterArtwork,
 } from "@player-web/impl/specialModesRender";
 import type { SpecialModesRuntimeSnapshot } from "@player-web/impl/useSpecialModesRuntime";
@@ -550,6 +551,9 @@ export function LegacyCanvasScreen({
     specialModesSettings.visibility.mode === "flashlight-fog" ||
     specialModesSettings.visibility.mode === "lantern-fog" ||
     specialModesSettings.visibility.mode === "line-of-sight-fog";
+  const usesFlashlightVisibility =
+    specialModesSettings.visibility.mode === "flashlight" ||
+    specialModesSettings.visibility.mode === "flashlight-fog";
 
   useEffect(() => {
     setPerfDiagnosticsEnabled(debugModeEnabled);
@@ -951,29 +955,39 @@ export function LegacyCanvasScreen({
       });
 
       const specialModesRevision = specialModesRuntimeRef?.current.revision ?? 0;
-      const nextRenderContextKey = `${renderContextKey}:${JSON.stringify(specialModesSettings)}:${specialModesRevision}`;
-      if (activeSession !== lastRenderedSession || nextRenderContextKey !== lastRenderContextKey) {
+      const flashlightFacingKey = usesFlashlightVisibility
+        ? activeSession?.frame.render?.chip?.dir ?? activeSession?.frame.snapshot.chip?.dir ?? ""
+        : "";
+      const nextRenderContextKey = `${renderContextKey}:${JSON.stringify(specialModesSettings)}:${specialModesRevision}:${flashlightFacingKey}`;
+      const renderInputsChanged =
+        activeSession !== lastRenderedSession || nextRenderContextKey !== lastRenderContextKey;
+      const flashlightTransitionActive =
+        usesFlashlightVisibility &&
+        isFlashlightDirectionTransitionActive(visibilitySceneCanvasRef.current);
+      if (renderInputsChanged || flashlightTransitionActive) {
         measurePerfSync("renderMs", () => {
           drawFrame(context, activeSession);
         });
-        if (activeSession) {
-          recordSessionVisualLoadPaint({
-            interactive: renderTileset !== null && !isLoading,
-            levelKey: createSessionVisualLoadLevelKey(activeSession.request),
-            sessionKey: createSessionVisualLoadSessionKey(activeSession.request),
-          });
-        } else {
-          const levelKey = selectedLevelPerfKey({
-            currentRuleset,
-            selectedLevelNumber: currentLevel?.number ?? null,
-            selectedSeriesFile,
-          });
-          if (levelKey) {
+        if (renderInputsChanged) {
+          if (activeSession) {
             recordSessionVisualLoadPaint({
-              interactive: false,
-              levelKey,
-              sessionKey: null,
+              interactive: renderTileset !== null && !isLoading,
+              levelKey: createSessionVisualLoadLevelKey(activeSession.request),
+              sessionKey: createSessionVisualLoadSessionKey(activeSession.request),
             });
+          } else {
+            const levelKey = selectedLevelPerfKey({
+              currentRuleset,
+              selectedLevelNumber: currentLevel?.number ?? null,
+              selectedSeriesFile,
+            });
+            if (levelKey) {
+              recordSessionVisualLoadPaint({
+                interactive: false,
+                levelKey,
+                sessionKey: null,
+              });
+            }
           }
         }
         lastRenderedSession = activeSession;
@@ -1006,6 +1020,7 @@ export function LegacyCanvasScreen({
     renderTileset,
     specialModesRuntimeRef,
     specialModesSettings,
+    usesFlashlightVisibility,
     usesDefaultMapTileSize,
     visualEnhancementsEnabled,
   ]);
