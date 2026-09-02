@@ -2957,6 +2957,22 @@ export function PlayerApp({
                 </label>
                 {specialModesSettings.monsterRipples.enabled ? (
                   <div className="mobile-sheet__settings-fields">
+                    <label className="mobile-sheet__checkbox">
+                      <input
+                        checked={specialModesSettings.monsterRipples.displayInDark}
+                        onChange={(event) => {
+                          applySpecialModesSettings({
+                            ...specialModesSettings,
+                            monsterRipples: {
+                              ...specialModesSettings.monsterRipples,
+                              displayInDark: event.currentTarget.checked,
+                            },
+                          });
+                        }}
+                        type="checkbox"
+                      />
+                      <span>Display in dark</span>
+                    </label>
                     <label className="mobile-sheet__field">
                       <span>Monster artwork reveal radius</span>
                       <input

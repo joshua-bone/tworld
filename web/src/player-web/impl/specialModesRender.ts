@@ -689,8 +689,9 @@ export function monsterRippleExpansionOpacity(progress: number): number {
 
 export function monsterRipplesCanRenderOutsideDirectVisibility(
   mode: BrowserSpecialModesSettings["visibility"]["mode"],
+  displayInDark: boolean,
 ): boolean {
-  return mode === "normal" || visibilityModeUsesFogBackdrop(mode);
+  return displayInDark || mode === "normal" || visibilityModeUsesFogBackdrop(mode);
 }
 
 export interface MonsterRippleOrigin {
@@ -928,7 +929,10 @@ function drawMonsterRipples(
     layerContext.stroke();
   }
 
-  if (!monsterRipplesCanRenderOutsideDirectVisibility(settings.visibility.mode)) {
+  if (!monsterRipplesCanRenderOutsideDirectVisibility(
+    settings.visibility.mode,
+    settings.monsterRipples.displayInDark,
+  )) {
     maskLayerToDirectVisibility(
       layerContext,
       context.canvas,

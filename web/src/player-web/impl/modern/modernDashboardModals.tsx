@@ -517,6 +517,22 @@ export function ModernDashboardSettingsModal({
             </label>
             {specialModesSettings.monsterRipples.enabled ? (
               <>
+                <label className="modern-settings-modal__option">
+                  <input
+                    checked={specialModesSettings.monsterRipples.displayInDark}
+                    onChange={(event) => {
+                      onSpecialModesSettingsChange({
+                        ...specialModesSettings,
+                        monsterRipples: {
+                          ...specialModesSettings.monsterRipples,
+                          displayInDark: event.currentTarget.checked,
+                        },
+                      });
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Display in dark</span>
+                </label>
                 <label className="modern-settings-modal__field">
                   <span>Monster artwork reveal radius</span>
                   <input
