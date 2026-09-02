@@ -75,6 +75,21 @@ export function inverseDihedralOrientation(orientation: DihedralOrientation): Di
   return result;
 }
 
+export function relativeDihedralOrientation(
+  from: DihedralOrientation,
+  to: DihedralOrientation,
+): DihedralOrientation {
+  const matrix = multiply(
+    DIHEDRAL_MATRICES[inverseDihedralOrientation(from)],
+    DIHEDRAL_MATRICES[to],
+  );
+  const result = ORIENTATION_BY_MATRIX.get(matrixKey(matrix));
+  if (!result) {
+    throw new Error(`Invalid relative dihedral orientation: ${from} to ${to}`);
+  }
+  return result;
+}
+
 function directionVector(direction: number): { x: number; y: number } {
   switch (direction) {
     case MS_DIRECTION.north:

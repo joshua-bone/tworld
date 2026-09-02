@@ -3,7 +3,7 @@ import {
   LEGACY_TILE_SIZE,
 } from "@player-web/impl/legacySprites";
 import { resolveLegacyMapViewport } from "@player-web/impl/legacyCanvasMapRenderer";
-import type { LegacyTileset } from "@player-web/impl/legacyTileset";
+import type { LegacyTileset, LegacyTileSprite } from "@player-web/impl/legacyTileset";
 import { legacyCreatureMovementOffset } from "@player-web/impl/legacyTileset";
 import {
   buildMonsterMadnessFamilyMap,
@@ -20,6 +20,7 @@ import {
   inverseDihedralOrientation,
   interpolateDihedralMatrix,
   DIHEDRAL_MATRICES,
+  relativeDihedralOrientation,
   type DihedralMatrix,
   transformDirection,
 } from "@player-web/impl/specialModesTransform";
@@ -39,6 +40,10 @@ const spotlightLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
 const lineOfSightCache = new WeakMap<
   InteractiveGameSession,
   { ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null; visibility: Float32Array }
+>();
+const counterTransformedSprites = new WeakMap<
+  HTMLCanvasElement,
+  Map<string, LegacyTileSprite>
 >();
 
 export function createMonsterMadnessTileset(
@@ -159,24 +164,96 @@ export function createDihedralArtworkTileset(
     return tileset;
   }
   const tileId = (id: number) => remapDihedralArtworkTileId(id, orientation);
+  const sprite = (value: LegacyTileSprite | null): LegacyTileSprite | null =>
+    value ? counterTransformArtworkSprite(value, orientation) : null;
   return {
-    get: (id) => tileset.get(tileId(id)),
-    getArtworkSprite: tileset.getArtworkSprite?.bind(tileset),
+    get: (id) => sprite(tileset.get(tileId(id))),
+    getArtworkSprite: tileset.getArtworkSprite
+      ? (spriteId) => sprite(tileset.getArtworkSprite!(spriteId))
+      : undefined,
     getCell: tileset.getCell
-      ? (topId, bottomId, timerval) => tileset.getCell!(tileId(topId), tileId(bottomId), timerval)
+      ? (topId, bottomId, timerval) => sprite(
+          tileset.getCell!(tileId(topId), tileId(bottomId), timerval),
+        )
       : undefined,
     getCreature: tileset.getCreature
-      ? (id, dir, moving, frame) => tileset.getCreature!(
-          id,
-          transformDirection(dir, orientation),
-          moving,
-          frame,
+      ? (id, dir, moving, frame) => sprite(
+          tileset.getCreature!(
+            id,
+            transformDirection(dir, orientation),
+            moving,
+            frame,
+          ),
         )
       : undefined,
     getCellAnimationPeriod: tileset.getCellAnimationPeriod
       ? (topId, bottomId) => tileset.getCellAnimationPeriod!(tileId(topId), tileId(bottomId))
       : undefined,
   };
+}
+
+function counterTransformArtworkSprite(
+  sprite: LegacyTileSprite,
+  orientation: DihedralOrientation,
+): LegacyTileSprite {
+  if (orientation === "identity") {
+    return sprite;
+  }
+  const cacheKey = [
+    orientation,
+    sprite.offsetX,
+    sprite.offsetY,
+    sprite.transparent ? 1 : 0,
+    sprite.preserveLayerTransparency ? 1 : 0,
+  ].join(":");
+  const cached = counterTransformedSprites.get(sprite.image)?.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const matrix = DIHEDRAL_MATRICES[inverseDihedralOrientation(orientation)];
+  const corners = [
+    { x: sprite.offsetX, y: sprite.offsetY },
+    { x: sprite.offsetX + sprite.image.width, y: sprite.offsetY },
+    { x: sprite.offsetX, y: sprite.offsetY + sprite.image.height },
+    { x: sprite.offsetX + sprite.image.width, y: sprite.offsetY + sprite.image.height },
+  ].map(({ x, y }) => {
+    const centeredX = x - LEGACY_TILE_SIZE / 2;
+    const centeredY = y - LEGACY_TILE_SIZE / 2;
+    return {
+      x: matrix.a * centeredX + matrix.c * centeredY,
+      y: matrix.b * centeredX + matrix.d * centeredY,
+    };
+  });
+  const minX = Math.min(...corners.map(({ x }) => x));
+  const minY = Math.min(...corners.map(({ y }) => y));
+  const maxX = Math.max(...corners.map(({ x }) => x));
+  const maxY = Math.max(...corners.map(({ y }) => y));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(maxX - minX));
+  canvas.height = Math.max(1, Math.round(maxY - minY));
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return sprite;
+  }
+  context.imageSmoothingEnabled = false;
+  context.translate(-minX, -minY);
+  context.transform(matrix.a, matrix.b, matrix.c, matrix.d, 0, 0);
+  context.drawImage(
+    sprite.image,
+    sprite.offsetX - LEGACY_TILE_SIZE / 2,
+    sprite.offsetY - LEGACY_TILE_SIZE / 2,
+  );
+  const transformed: LegacyTileSprite = {
+    ...sprite,
+    image: canvas,
+    offsetX: minX + LEGACY_TILE_SIZE / 2,
+    offsetY: minY + LEGACY_TILE_SIZE / 2,
+  };
+  const byOrientation = counterTransformedSprites.get(sprite.image) ?? new Map();
+  byOrientation.set(cacheKey, transformed);
+  counterTransformedSprites.set(sprite.image, byOrientation);
+  return transformed;
 }
 
 function hideMonsterCell(cell: InteractiveGameSession["frame"]["cells"][number]) {
@@ -267,7 +344,9 @@ function traceLanternPath(
   context.arc(chip.x, chip.y, radius, 0, Math.PI * 2);
 }
 
-function isFogVisibilityMode(mode: BrowserSpecialModesSettings["visibility"]["mode"]): boolean {
+export function visibilityModeUsesFogBackdrop(
+  mode: BrowserSpecialModesSettings["visibility"]["mode"],
+): boolean {
   return (
     mode === "flashlight-fog" ||
     mode === "lantern-fog" ||
@@ -322,7 +401,7 @@ function drawFlashlightComposite(
   viewportTileCount: number,
 ): void {
   const size = fullScene.width;
-  drawVisibilityBase(context, terrainScene, isFogVisibilityMode(settings.mode), size);
+  drawVisibilityBase(context, terrainScene, visibilityModeUsesFogBackdrop(settings.mode), size);
   const chip = chipCanvasPosition(session, ruleset, viewportTileCount);
   const layer = spotlightLayerFor(context.canvas);
   if (layer.width !== size) layer.width = size;
@@ -377,7 +456,7 @@ function drawLineOfSightComposite(
   viewportTileCount: number,
 ): void {
   const size = fullScene.width;
-  drawVisibilityBase(context, terrainScene, isFogVisibilityMode(settings.mode), size);
+  drawVisibilityBase(context, terrainScene, visibilityModeUsesFogBackdrop(settings.mode), size);
   const visibility = lineOfSightForSession(session, ruleset);
   const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset, viewportTileCount);
   const xOrigin = -(viewX * LEGACY_TILE_SIZE) / 4;
@@ -448,7 +527,7 @@ function drawVisibilityComposite(
     return;
   }
 
-  const fog = isFogVisibilityMode(settings.mode);
+  const fog = visibilityModeUsesFogBackdrop(settings.mode);
   const size = fullScene.width;
   drawVisibilityBase(context, terrainScene, fog, size);
   context.save();
@@ -483,16 +562,8 @@ function artworkMatrixForCell(
   maximumDistance: number,
 ): DihedralMatrix {
   const transition = runtime?.transition;
-  if (!transition) {
-    return DIHEDRAL_MATRICES[inverseDihedralOrientation(runtime?.orientation ?? "identity")];
-  }
-  const inverseFrom = inverseDihedralOrientation(transition.from);
-  if (transition.phase === "slow-down" || transition.phase === "viewport-transform") {
-    return DIHEDRAL_MATRICES[inverseFrom];
-  }
-  const inverseTo = inverseDihedralOrientation(transition.to);
-  if (transition.phase === "speed-up") {
-    return DIHEDRAL_MATRICES[inverseTo];
+  if (!transition || transition.phase !== "artwork-normalize") {
+    return DIHEDRAL_MATRICES.identity;
   }
   const distance = Math.hypot(cellCenterX - playerX, cellCenterY - playerY);
   const progress = cellArtworkNormalizationProgress(
@@ -500,7 +571,11 @@ function artworkMatrixForCell(
     distance,
     maximumDistance,
   );
-  return interpolateDihedralMatrix(inverseFrom, inverseTo, progress);
+  return interpolateDihedralMatrix(
+    relativeDihedralOrientation(transition.from, transition.to),
+    "identity",
+    progress,
+  );
 }
 
 function drawTransformedArtworkCells(options: {
@@ -524,6 +599,11 @@ function drawTransformedArtworkCells(options: {
   const size = source.width;
   const viewportMatrix = transitionViewportMatrix(runtime);
   const player = chipCanvasPosition(session, ruleset, viewportTileCount);
+  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset, viewportTileCount);
+  const tileGridOriginX = -(viewX * LEGACY_TILE_SIZE) / 4;
+  const tileGridOriginY = -(viewY * LEGACY_TILE_SIZE) / 4;
+  const firstCellX = tileGridOriginX - Math.ceil(tileGridOriginX / LEGACY_TILE_SIZE) * LEGACY_TILE_SIZE;
+  const firstCellY = tileGridOriginY - Math.ceil(tileGridOriginY / LEGACY_TILE_SIZE) * LEGACY_TILE_SIZE;
   const maximumDistance = Math.max(
     Math.hypot(player.x, player.y),
     Math.hypot(size - player.x, player.y),
@@ -541,12 +621,17 @@ function drawTransformedArtworkCells(options: {
     0,
     0,
   );
-  for (let sourceY = 0; sourceY < size; sourceY += LEGACY_TILE_SIZE) {
-    for (let sourceX = 0; sourceX < size; sourceX += LEGACY_TILE_SIZE) {
-      const width = Math.min(LEGACY_TILE_SIZE, size - sourceX);
-      const height = Math.min(LEGACY_TILE_SIZE, size - sourceY);
-      const centerX = sourceX + width / 2;
-      const centerY = sourceY + height / 2;
+  for (let cellY = firstCellY; cellY < size; cellY += LEGACY_TILE_SIZE) {
+    for (let cellX = firstCellX; cellX < size; cellX += LEGACY_TILE_SIZE) {
+      const sourceX = Math.max(0, cellX);
+      const sourceY = Math.max(0, cellY);
+      const width = Math.min(size, cellX + LEGACY_TILE_SIZE) - sourceX;
+      const height = Math.min(size, cellY + LEGACY_TILE_SIZE) - sourceY;
+      if (width <= 0 || height <= 0) {
+        continue;
+      }
+      const centerX = cellX + LEGACY_TILE_SIZE / 2;
+      const centerY = cellY + LEGACY_TILE_SIZE / 2;
       const artworkMatrix = artworkMatrixForCell(
         runtime,
         centerX,
@@ -571,8 +656,8 @@ function drawTransformedArtworkCells(options: {
         sourceY,
         width,
         height,
-        -width / 2,
-        -height / 2,
+        sourceX - cellX - LEGACY_TILE_SIZE / 2,
+        sourceY - cellY - LEGACY_TILE_SIZE / 2,
         width,
         height,
       );
@@ -634,8 +719,7 @@ export function drawSpecialModesMap(options: {
 
   context.fillStyle = "#000000";
   context.fillRect(0, 0, size, size);
-  const orientation = runtime?.orientation ?? "identity";
-  if (settings.transform.enabled && (runtime?.transition || orientation !== "identity")) {
+  if (usesPerCellArtworkNormalization(settings, runtime)) {
     drawTransformedArtworkCells({
       context,
       source: visibilityCanvas,
@@ -647,12 +731,24 @@ export function drawSpecialModesMap(options: {
     });
     return;
   }
-  const matrix = DIHEDRAL_MATRICES[orientation];
+  const matrix = settings.transform.mode === "off"
+    ? DIHEDRAL_MATRICES.identity
+    : transitionViewportMatrix(runtime);
   context.save();
   context.translate(size / 2 + (runtime?.warningShakeOffsetPx ?? 0), size / 2);
   context.transform(matrix.a, matrix.b, matrix.c, matrix.d, 0, 0);
   context.drawImage(visibilityCanvas, -size / 2, -size / 2);
   context.restore();
+}
+
+export function usesPerCellArtworkNormalization(
+  settings: BrowserSpecialModesSettings,
+  runtime: SpecialModesRuntimeSnapshot | null,
+): boolean {
+  return (
+    settings.transform.mode === "timed" &&
+    runtime?.transition?.phase === "artwork-normalize"
+  );
 }
 
 export function inverseTransformCanvasPoint(

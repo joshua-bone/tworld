@@ -486,26 +486,58 @@ export function ModernDashboardSettingsModal({
               </div>
             ) : null}
 
-            <label className="modern-settings-modal__option">
-              <input
-                checked={specialModesSettings.transform.enabled}
+            <label className="modern-settings-modal__field">
+              <span>Transform mode</span>
+              <select
+                className="modern-history-dock__select"
                 onChange={(event) => {
                   onSpecialModesSettingsChange({
                     ...specialModesSettings,
-                    transform: { ...specialModesSettings.transform, enabled: event.currentTarget.checked },
+                    transform: {
+                      ...specialModesSettings.transform,
+                      mode: event.currentTarget.value as BrowserSpecialModesSettings["transform"]["mode"],
+                    },
                   });
                 }}
-                type="checkbox"
-              />
-              <div>
-                <strong>Transform every N seconds</strong>
+                value={specialModesSettings.transform.mode}
+              >
+                <option value="off">Off</option>
+                <option value="static">Transform</option>
+                <option value="timed">Transform every N seconds</option>
+              </select>
+            </label>
+            {specialModesSettings.transform.mode === "static" ? (
+              <div className="modern-settings-modal__special-grid">
+                <label className="modern-settings-modal__field">
+                  <span>Transform</span>
+                  <select
+                    className="modern-history-dock__select"
+                    onChange={(event) => {
+                      onSpecialModesSettingsChange({
+                        ...specialModesSettings,
+                        transform: {
+                          ...specialModesSettings.transform,
+                          staticOrientation: event.currentTarget.value as BrowserSpecialModesSettings["transform"]["staticOrientation"],
+                        },
+                      });
+                    }}
+                    value={specialModesSettings.transform.staticOrientation}
+                  >
+                    {DIHEDRAL_TRANSFORMS.map((transform) => (
+                      <option key={transform} value={transform}>{DIHEDRAL_LABELS[transform]}</option>
+                    ))}
+                  </select>
+                </label>
+                <p className="modern-dashboard__copy">
+                  Keep the selected orientation for the whole level. Inputs remain screen-relative.
+                </p>
+              </div>
+            ) : null}
+            {specialModesSettings.transform.mode === "timed" ? (
+              <div className="modern-settings-modal__special-grid">
                 <p className="modern-dashboard__copy">
                   Shake at 3, 2, and 1 seconds, slow to a stop, transform the viewport, ripple each cell upright, then speed back up.
                 </p>
-              </div>
-            </label>
-            {specialModesSettings.transform.enabled ? (
-              <div className="modern-settings-modal__special-grid">
                 <label className="modern-settings-modal__field">
                   <span>Interval (seconds)</span>
                   <input

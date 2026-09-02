@@ -44,6 +44,7 @@ interface ActiveTransition {
   to: DihedralOrientation;
   startedAtMs: number;
   durationMs: number;
+  artworkSwitched: boolean;
   switched: boolean;
 }
 
@@ -56,6 +57,7 @@ interface UseSpecialModesRuntimeOptions {
 
 interface UseSpecialModesRuntimeResult {
   gameplayRateRef: Readonly<MutableRefObject<number>>;
+  artworkOrientation: DihedralOrientation;
   inputOrientation: DihedralOrientation;
   inputOrientationEpoch: number;
   inputFrozen: boolean;
@@ -85,6 +87,7 @@ export function useSpecialModesRuntime({
     revision: 0,
   });
   const [inputOrientation, setInputOrientation] = useState<DihedralOrientation>("identity");
+  const [artworkOrientation, setArtworkOrientation] = useState<DihedralOrientation>("identity");
   const [inputOrientationEpoch, setInputOrientationEpoch] = useState(0);
   const [inputFrozen, setInputFrozen] = useState(false);
   const nextTransformTickRef = useRef<number | null>(null);
@@ -94,6 +97,9 @@ export function useSpecialModesRuntime({
   const lastWarningSecondsRef = useRef<number | null>(null);
 
   const resetRuntime = useEffectEvent(() => {
+    const initialOrientation = enabled && settings.mode === "static"
+      ? settings.staticOrientation
+      : "identity";
     gameplayRateRef.current = 1;
     nextTransformTickRef.current = null;
     transformIndexRef.current = 0;
@@ -101,13 +107,14 @@ export function useSpecialModesRuntime({
     warningShakeStartedAtRef.current = null;
     lastWarningSecondsRef.current = null;
     runtimeRef.current = {
-      orientation: "identity",
+      orientation: initialOrientation,
       transition: null,
       warningSeconds: null,
       warningShakeOffsetPx: 0,
       revision: runtimeRef.current.revision + 1,
     };
-    setInputOrientation("identity");
+    setInputOrientation(initialOrientation);
+    setArtworkOrientation(initialOrientation);
     setInputFrozen(false);
     setInputOrientationEpoch((current) => current + 1);
   });
@@ -120,12 +127,14 @@ export function useSpecialModesRuntime({
     settings.allowedRandomTransforms.join(","),
     settings.intervalSeconds,
     settings.seed,
+    settings.mode,
+    settings.staticOrientation,
     settings.strategy,
     settings.transitionSpeed,
   ]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || settings.mode !== "timed") {
       gameplayRateRef.current = 1;
       return;
     }
@@ -174,6 +183,7 @@ export function useSpecialModesRuntime({
             to,
             startedAtMs: nowMs,
             durationMs: transformTransitionDurationSeconds(settings.transitionSpeed) * 1000,
+            artworkSwitched: false,
             switched: false,
           };
           transformIndexRef.current += 1;
@@ -197,6 +207,10 @@ export function useSpecialModesRuntime({
         gameplayRateRef.current = transformGameplayRate(progress);
         if ((phase === "viewport-transform" || phase === "artwork-normalize") && !transition.switched) {
           setInputFrozen(true);
+        }
+        if (phase === "artwork-normalize" && !transition.artworkSwitched) {
+          transition.artworkSwitched = true;
+          setArtworkOrientation(transition.to);
         }
         if (phase === "speed-up" && !transition.switched) {
           transition.switched = true;
@@ -249,6 +263,7 @@ export function useSpecialModesRuntime({
 
   return {
     gameplayRateRef,
+    artworkOrientation,
     inputOrientation,
     inputOrientationEpoch,
     inputFrozen,

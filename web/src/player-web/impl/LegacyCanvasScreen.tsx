@@ -542,10 +542,10 @@ export function LegacyCanvasScreen({
   const hasSpecialModesRendering =
     specialModesSettings.visibility.mode !== "normal" ||
     specialModesSettings.monsterMadness.enabled ||
-    specialModesSettings.transform.enabled;
+    specialModesSettings.transform.mode !== "off";
   const requiresSpecialModesComposite =
     specialModesSettings.visibility.mode !== "normal" ||
-    specialModesSettings.transform.enabled;
+    specialModesSettings.transform.mode !== "off";
   const usesFogVisibility =
     specialModesSettings.visibility.mode === "flashlight-fog" ||
     specialModesSettings.visibility.mode === "lantern-fog" ||
