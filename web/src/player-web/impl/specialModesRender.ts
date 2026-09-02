@@ -664,6 +664,11 @@ export function monsterRippleMaximumRadiusTiles(viewportTileCount: number): numb
   return Math.min(MONSTER_RIPPLE_MAX_RADIUS_TILES, viewportTileCount / 2);
 }
 
+export function monsterRippleExpansionOpacity(progress: number): number {
+  const remaining = 1 - Math.max(0, Math.min(1, progress));
+  return remaining * remaining;
+}
+
 export function monsterRipplesCanRenderOutsideDirectVisibility(
   mode: BrowserSpecialModesSettings["visibility"]["mode"],
 ): boolean {
@@ -784,7 +789,7 @@ function drawMonsterRipples(
     for (let ring = 0; ring < MONSTER_RIPPLE_RING_COUNT; ring += 1) {
       const progress = (cycle + ring / MONSTER_RIPPLE_RING_COUNT) % 1;
       const radius = progress * maximumRadius;
-      const alpha = MONSTER_RIPPLE_BASE_ALPHA * intensity * (1 - progress);
+      const alpha = MONSTER_RIPPLE_BASE_ALPHA * intensity * monsterRippleExpansionOpacity(progress);
       layerContext.beginPath();
       layerContext.arc(monster.x, monster.y, radius, 0, Math.PI * 2);
       layerContext.lineWidth = 1.5;

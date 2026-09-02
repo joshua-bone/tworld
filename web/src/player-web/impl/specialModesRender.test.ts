@@ -8,6 +8,7 @@ import {
   flashlightDirectionTransitionAngle,
   inverseTransformCanvasPoint,
   monsterRippleArtworkOpacity,
+  monsterRippleExpansionOpacity,
   monsterRippleIntensity,
   monsterRippleMaximumRadiusTiles,
   monsterRipplesCanRenderOutsideDirectVisibility,
@@ -108,6 +109,14 @@ describe("specialModesRender", () => {
     expect(monsterRippleMaximumRadiusTiles(3)).toBe(1.5);
     expect(monsterRippleMaximumRadiusTiles(9)).toBe(4.5);
     expect(monsterRippleMaximumRadiusTiles(32)).toBe(5);
+  });
+
+  it("fades monster ripples strongly as they expand", () => {
+    expect(monsterRippleExpansionOpacity(0)).toBe(1);
+    expect(monsterRippleExpansionOpacity(0.25)).toBe(0.5625);
+    expect(monsterRippleExpansionOpacity(0.5)).toBe(0.25);
+    expect(monsterRippleExpansionOpacity(0.75)).toBe(0.0625);
+    expect(monsterRippleExpansionOpacity(1)).toBe(0);
   });
 
   it("allows ripples through fog but not complete darkness", () => {
