@@ -42,8 +42,9 @@ import {
 
 const FOG_BRIGHTNESS_PERCENT = 25;
 export const FLASHLIGHT_DIRECTION_TRANSITION_MS = 200;
-const MONSTER_RIPPLE_PERIOD_MS = 1_600;
-const MONSTER_RIPPLE_RING_COUNT = 4;
+export const MONSTER_RIPPLE_PERIOD_MS = 4_000;
+export const MONSTER_RIPPLE_MAX_RADIUS_TILES = 5;
+export const MONSTER_RIPPLE_RING_COUNT = 12;
 const MONSTER_RIPPLE_BASE_ALPHA = 0.2;
 const LOWER_LAYER_SCALE = 0.9;
 const spotlightLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
@@ -659,6 +660,10 @@ export function monsterRippleIntensity(moving: number): number {
   return moving > 0 ? 2 : 1;
 }
 
+export function monsterRippleMaximumRadiusTiles(viewportTileCount: number): number {
+  return Math.min(MONSTER_RIPPLE_MAX_RADIUS_TILES, viewportTileCount / 2);
+}
+
 export function monsterRipplesCanRenderOutsideDirectVisibility(
   mode: BrowserSpecialModesSettings["visibility"]["mode"],
 ): boolean {
@@ -772,7 +777,7 @@ function drawMonsterRipples(
     return;
   }
   layerContext.clearRect(0, 0, size, size);
-  const maximumRadius = Math.SQRT2 * size;
+  const maximumRadius = monsterRippleMaximumRadiusTiles(viewportTileCount) * LEGACY_TILE_SIZE;
   const cycle = (nowMs % MONSTER_RIPPLE_PERIOD_MS) / MONSTER_RIPPLE_PERIOD_MS;
   for (const monster of monsterRippleProjections(session, ruleset, viewportTileCount)) {
     const intensity = monsterRippleIntensity(monster.moving);
