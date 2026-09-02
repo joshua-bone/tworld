@@ -14,7 +14,12 @@ describe("specialModesSettings", () => {
     expect(parseStoredSpecialModesSettings({
       visibility: { mode: "lantern-fog", lanternRadius: 99 },
       monsterMadness: { enabled: true, includePlayer: true, seed: 33 },
-      monsterRipples: { enabled: true, revealRadius: 99 },
+      monsterRipples: {
+        enabled: true,
+        propagationDistance: 99,
+        propagationSpeed: "slow",
+        revealRadius: 99,
+      },
       transform: {
         enabled: true,
         intervalSeconds: 1,
@@ -26,7 +31,12 @@ describe("specialModesSettings", () => {
     }, defaults)).toEqual({
       visibility: { mode: "lantern-fog", lanternRadius: 16 },
       monsterMadness: { enabled: true, includePlayer: true, seed: 33 },
-      monsterRipples: { enabled: true, revealRadius: 16 },
+      monsterRipples: {
+        enabled: true,
+        propagationDistance: 16,
+        propagationSpeed: "slow",
+        revealRadius: 16,
+      },
       transform: {
         mode: "timed",
         staticOrientation: "rotate-90",
@@ -67,6 +77,30 @@ describe("specialModesSettings", () => {
         monsterMadness: { ...specialModes.monsterMadness, seed: 8 },
       },
     })).not.toBe(specialModesConfigurationFingerprint({ viewport: enabled, specialModes }));
+    expect(specialModesConfigurationFingerprint({
+      viewport: enabled,
+      specialModes: {
+        ...specialModes,
+        monsterRipples: {
+          ...specialModes.monsterRipples,
+          propagationDistance: 8,
+        },
+      },
+    })).not.toBe(specialModesConfigurationFingerprint({ viewport: enabled, specialModes }));
+  });
+
+  it("migrates stored ripple settings to the current propagation defaults", () => {
+    const defaults = createDefaultBrowserSpecialModesSettings(() => 1);
+    const parsed = parseStoredSpecialModesSettings({
+      monsterRipples: { enabled: true, revealRadius: 2 },
+    }, defaults);
+
+    expect(parsed.monsterRipples).toEqual({
+      enabled: true,
+      propagationDistance: 5,
+      propagationSpeed: "normal",
+      revealRadius: 2,
+    });
   });
 
   it("maps the three speed choices to the full transition duration", () => {

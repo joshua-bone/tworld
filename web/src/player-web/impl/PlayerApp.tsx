@@ -148,9 +148,11 @@ import {
 import {
   DIHEDRAL_TRANSFORMS,
   MAX_LANTERN_RADIUS,
+  MAX_MONSTER_RIPPLE_PROPAGATION_DISTANCE,
   MAX_MONSTER_RIPPLE_REVEAL_RADIUS,
   MAX_TRANSFORM_INTERVAL_SECONDS,
   MIN_LANTERN_RADIUS,
+  MIN_MONSTER_RIPPLE_PROPAGATION_DISTANCE,
   MIN_MONSTER_RIPPLE_REVEAL_RADIUS,
   MIN_TRANSFORM_INTERVAL_SECONDS,
   SPECIAL_MODE_SEED_MAX,
@@ -2954,29 +2956,77 @@ export function PlayerApp({
                   <span>Monster Ripples</span>
                 </label>
                 {specialModesSettings.monsterRipples.enabled ? (
-                  <label className="mobile-sheet__field">
-                    <span>Monster artwork reveal radius</span>
-                    <input
-                      className="modern-settings-modal__number-input"
-                      max={maximumMonsterRippleRevealRadius}
-                      min={MIN_MONSTER_RIPPLE_REVEAL_RADIUS}
-                      onChange={(event) => {
-                        const revealRadius = Number(event.currentTarget.value);
-                        if (
-                          Number.isInteger(revealRadius) &&
-                          revealRadius >= MIN_MONSTER_RIPPLE_REVEAL_RADIUS &&
-                          revealRadius <= maximumMonsterRippleRevealRadius
-                        ) {
+                  <div className="mobile-sheet__settings-fields">
+                    <label className="mobile-sheet__field">
+                      <span>Monster artwork reveal radius</span>
+                      <input
+                        className="modern-settings-modal__number-input"
+                        max={maximumMonsterRippleRevealRadius}
+                        min={MIN_MONSTER_RIPPLE_REVEAL_RADIUS}
+                        onChange={(event) => {
+                          const revealRadius = Number(event.currentTarget.value);
+                          if (
+                            Number.isInteger(revealRadius) &&
+                            revealRadius >= MIN_MONSTER_RIPPLE_REVEAL_RADIUS &&
+                            revealRadius <= maximumMonsterRippleRevealRadius
+                          ) {
+                            applySpecialModesSettings({
+                              ...specialModesSettings,
+                              monsterRipples: { ...specialModesSettings.monsterRipples, revealRadius },
+                            });
+                          }
+                        }}
+                        type="number"
+                        value={specialModesSettings.monsterRipples.revealRadius}
+                      />
+                    </label>
+                    <label className="mobile-sheet__field">
+                      <span>Ripple propagation speed</span>
+                      <select
+                        className="modern-history-dock__select"
+                        onChange={(event) => {
                           applySpecialModesSettings({
                             ...specialModesSettings,
-                            monsterRipples: { ...specialModesSettings.monsterRipples, revealRadius },
+                            monsterRipples: {
+                              ...specialModesSettings.monsterRipples,
+                              propagationSpeed: event.currentTarget.value as BrowserSpecialModesSettings["monsterRipples"]["propagationSpeed"],
+                            },
                           });
-                        }
-                      }}
-                      type="number"
-                      value={specialModesSettings.monsterRipples.revealRadius}
-                    />
-                  </label>
+                        }}
+                        value={specialModesSettings.monsterRipples.propagationSpeed}
+                      >
+                        <option value="slow">Slow (8 seconds)</option>
+                        <option value="normal">Normal (4 seconds)</option>
+                        <option value="fast">Fast (2 seconds)</option>
+                      </select>
+                    </label>
+                    <label className="mobile-sheet__field">
+                      <span>Ripple propagation distance (tiles)</span>
+                      <input
+                        className="modern-settings-modal__number-input"
+                        max={MAX_MONSTER_RIPPLE_PROPAGATION_DISTANCE}
+                        min={MIN_MONSTER_RIPPLE_PROPAGATION_DISTANCE}
+                        onChange={(event) => {
+                          const propagationDistance = Number(event.currentTarget.value);
+                          if (
+                            Number.isInteger(propagationDistance) &&
+                            propagationDistance >= MIN_MONSTER_RIPPLE_PROPAGATION_DISTANCE &&
+                            propagationDistance <= MAX_MONSTER_RIPPLE_PROPAGATION_DISTANCE
+                          ) {
+                            applySpecialModesSettings({
+                              ...specialModesSettings,
+                              monsterRipples: {
+                                ...specialModesSettings.monsterRipples,
+                                propagationDistance,
+                              },
+                            });
+                          }
+                        }}
+                        type="number"
+                        value={specialModesSettings.monsterRipples.propagationDistance}
+                      />
+                    </label>
+                  </div>
                 ) : null}
               </div>
 

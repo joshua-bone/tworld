@@ -14,6 +14,7 @@ import {
   monsterRippleEmissionIntervalMs,
   monsterRippleIntensity,
   monsterRippleMaximumRadiusTiles,
+  monsterRipplePropagationPeriodMs,
   monsterRipplesCanRenderOutsideDirectVisibility,
   remapDihedralArtworkTileId,
   sessionWithoutMonsterArtwork,
@@ -104,12 +105,17 @@ describe("specialModesRender", () => {
     expect(monsterRippleIntensity(8)).toBe(2);
   });
 
-  it("keeps monster ripples local and slow", () => {
+  it("supports adjustable ripple propagation distance and speed", () => {
     expect(MONSTER_RIPPLE_PERIOD_MS).toBe(4_000);
     expect(MONSTER_RIPPLE_MAX_RADIUS_TILES).toBe(5);
     expect(monsterRippleMaximumRadiusTiles(3)).toBe(1.5);
     expect(monsterRippleMaximumRadiusTiles(9)).toBe(4.5);
     expect(monsterRippleMaximumRadiusTiles(32)).toBe(5);
+    expect(monsterRippleMaximumRadiusTiles(32, 16)).toBe(16);
+    expect(monsterRippleMaximumRadiusTiles(9, 16)).toBe(4.5);
+    expect(monsterRipplePropagationPeriodMs("slow")).toBe(8_000);
+    expect(monsterRipplePropagationPeriodMs("normal")).toBe(4_000);
+    expect(monsterRipplePropagationPeriodMs("fast")).toBe(2_000);
   });
 
   it("emits Lynx ripples every twentieth of a second and MS ripples every tenth", () => {
@@ -120,6 +126,18 @@ describe("specialModesRender", () => {
     const origin = [{ intensity: 1, x: 24, y: 48, z: 1 }];
     expect(advanceMonsterRippleEmissions(null, origin, 1_000, 50).emissions).toHaveLength(80);
     expect(advanceMonsterRippleEmissions(null, origin, 1_000, 100).emissions).toHaveLength(40);
+    expect(advanceMonsterRippleEmissions(null, origin, 1_000, 50, 8_000).emissions).toHaveLength(160);
+    expect(advanceMonsterRippleEmissions(null, origin, 1_000, 50, 2_000).emissions).toHaveLength(40);
+  });
+
+  it("rebuilds the live ripple history when propagation speed changes", () => {
+    const origin = [{ intensity: 1, x: 24, y: 48, z: 1 }];
+    const normal = advanceMonsterRippleEmissions(null, origin, 1_000, 50, 4_000);
+    const slow = advanceMonsterRippleEmissions(normal, origin, 1_050, 50, 8_000);
+
+    expect(slow.propagationPeriodMs).toBe(8_000);
+    expect(slow.emissions).toHaveLength(160);
+    expect(slow.emissions[0]!.emittedAtMs).toBe(1_050);
   });
 
   it("fades monster ripples strongly as they expand", () => {
