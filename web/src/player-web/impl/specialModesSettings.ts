@@ -6,6 +6,9 @@ export const SPECIAL_MODES_PRESETS_STORAGE_KEY = "tworld.special-modes-presets";
 export const MIN_LANTERN_RADIUS = 1;
 export const MAX_LANTERN_RADIUS = 16;
 export const DEFAULT_LANTERN_RADIUS = 4;
+export const MIN_MONSTER_RIPPLE_REVEAL_RADIUS = 1;
+export const MAX_MONSTER_RIPPLE_REVEAL_RADIUS = 16;
+export const DEFAULT_MONSTER_RIPPLE_REVEAL_RADIUS = 3;
 export const MIN_TRANSFORM_INTERVAL_SECONDS = 5;
 export const MAX_TRANSFORM_INTERVAL_SECONDS = 60;
 export const DEFAULT_TRANSFORM_INTERVAL_SECONDS = 10;
@@ -47,6 +50,10 @@ export interface BrowserSpecialModesSettings {
     enabled: boolean;
     includePlayer: boolean;
     seed: number;
+  };
+  monsterRipples: {
+    enabled: boolean;
+    revealRadius: number;
   };
   transform: {
     mode: SpecialTransformMode;
@@ -106,6 +113,10 @@ export function createDefaultBrowserSpecialModesSettings(
       includePlayer: false,
       seed: normalizedInteger(seedSource(), 0, 0, SPECIAL_MODE_SEED_MAX),
     },
+    monsterRipples: {
+      enabled: false,
+      revealRadius: DEFAULT_MONSTER_RIPPLE_REVEAL_RADIUS,
+    },
     transform: {
       mode: "off",
       staticOrientation: "rotate-90",
@@ -128,6 +139,7 @@ export function parseStoredSpecialModesSettings(
 
   const visibility = isRecord(value.visibility) ? value.visibility : {};
   const monsterMadness = isRecord(value.monsterMadness) ? value.monsterMadness : {};
+  const monsterRipples = isRecord(value.monsterRipples) ? value.monsterRipples : {};
   const transform = isRecord(value.transform) ? value.transform : {};
   const migratedTransformMode = typeof transform.enabled === "boolean"
     ? transform.enabled ? "timed" : "off"
@@ -161,6 +173,17 @@ export function parseStoredSpecialModesSettings(
         defaults.monsterMadness.seed,
         0,
         SPECIAL_MODE_SEED_MAX,
+      ),
+    },
+    monsterRipples: {
+      enabled: typeof monsterRipples.enabled === "boolean"
+        ? monsterRipples.enabled
+        : defaults.monsterRipples.enabled,
+      revealRadius: normalizedInteger(
+        monsterRipples.revealRadius,
+        defaults.monsterRipples.revealRadius,
+        MIN_MONSTER_RIPPLE_REVEAL_RADIUS,
+        MAX_MONSTER_RIPPLE_REVEAL_RADIUS,
       ),
     },
     transform: {
@@ -226,6 +249,7 @@ export function isSpecialModesConfigurationActive(
     configuration.viewport.enabled ||
     configuration.specialModes.visibility.mode !== "normal" ||
     configuration.specialModes.monsterMadness.enabled ||
+    configuration.specialModes.monsterRipples.enabled ||
     configuration.specialModes.transform.mode !== "off"
   );
 }
