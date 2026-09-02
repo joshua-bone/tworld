@@ -31,6 +31,12 @@ import {
   parseStoredPlayerKeyBindingsSettings,
   saveStoredPlayerKeyBindingsSettings,
 } from "@player-web/impl/playerKeyBindingsSettings";
+import {
+  type BrowserViewportSettings,
+  loadStoredViewportSettings,
+  parseStoredViewportSettings,
+  saveStoredViewportSettings,
+} from "@player-web/impl/viewportSettings";
 
 const PROFILE_BACKUP_KIND = "tworld-browser-profile-backup";
 const PROFILE_BACKUP_FORMAT_VERSION = 1;
@@ -41,6 +47,7 @@ export interface BrowserProfileLocalSettingsSnapshot {
   sound?: BrowserSoundSettings;
   undo?: BrowserUndoSettings;
   visualEnhancements?: BrowserVisualEnhancementsSettings;
+  viewport?: BrowserViewportSettings;
 }
 
 export interface BrowserProfileBackup {
@@ -63,6 +70,7 @@ export function exportBrowserLocalSettingsSnapshot(): BrowserProfileLocalSetting
     sound: loadStoredSoundSettings(),
     undo: loadStoredUndoSettings(),
     visualEnhancements: loadStoredVisualEnhancementsSettings(),
+    viewport: loadStoredViewportSettings(),
   };
 }
 
@@ -85,6 +93,9 @@ export function applyBrowserLocalSettingsSnapshot(snapshot: BrowserProfileLocalS
   }
   if (snapshot.visualEnhancements !== undefined) {
     saveStoredVisualEnhancementsSettings(parseStoredVisualEnhancementsSettings(snapshot.visualEnhancements));
+  }
+  if (snapshot.viewport !== undefined) {
+    saveStoredViewportSettings(parseStoredViewportSettings(snapshot.viewport));
   }
 }
 
@@ -141,6 +152,9 @@ export function parseBrowserProfileBackup(raw: string): BrowserProfileBackup {
           : undefined,
         visualEnhancements: parsed.localSettings.visualEnhancements !== undefined
           ? parseStoredVisualEnhancementsSettings(parsed.localSettings.visualEnhancements)
+          : undefined,
+        viewport: parsed.localSettings.viewport !== undefined
+          ? parseStoredViewportSettings(parsed.localSettings.viewport)
           : undefined,
       } satisfies BrowserProfileLocalSettingsSnapshot
     : undefined;

@@ -672,6 +672,27 @@ body {
   gap: 10px;
 }
 
+.modern-settings-modal__field {
+  display: grid;
+  gap: 6px;
+  color: #f3ecdd;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.82rem;
+}
+
+.modern-settings-modal__number-input {
+  width: 92px;
+  border: 1px solid rgba(243, 236, 221, 0.22);
+  background: rgba(13, 16, 20, 0.92);
+  color: #f3ecdd;
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.modern-settings-modal__number-input:disabled {
+  opacity: 0.45;
+}
+
 .modern-about-modal__links {
   gap: 10px 14px;
 }

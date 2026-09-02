@@ -153,7 +153,10 @@ export function ModernPlayerApp({
     setStoredPreferences,
     setUndoKey,
     setVisualEnhancementsEnabled,
+    setViewportRadius,
+    setViewportSettingsEnabled,
     visualEnhancementsEnabled,
+    viewportSettings,
   } = useModernDashboardSettingsController({
     closeSettings: () => {
       setIsSettingsOpen(false);
@@ -784,6 +787,7 @@ export function ModernPlayerApp({
               services={services}
               debugModeEnabled={preferences.debugModeEnabled}
               visualEnhancementsEnabled={visualEnhancementsEnabled}
+              viewportSettings={viewportSettings}
             />
           ) : (
             <div className="modern-empty-state modern-dashboard__player-empty">
@@ -843,9 +847,12 @@ export function ModernPlayerApp({
           onSetAutoSaveWinningHighScoreReplays={setAutoSaveWinningHighScoreReplays}
           onSetDebugModeEnabled={setDebugModeEnabled}
           onSetVisualEnhancementsEnabled={setVisualEnhancementsEnabled}
+          onSetViewportRadius={setViewportRadius}
+          onSetViewportSettingsEnabled={setViewportSettingsEnabled}
           playerKeyBindings={playerKeyBindings}
           preferences={preferences}
           visualEnhancementsEnabled={visualEnhancementsEnabled}
+          viewportSettings={viewportSettings}
         />
       ) : null}
 

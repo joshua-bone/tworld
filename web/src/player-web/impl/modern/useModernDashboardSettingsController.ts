@@ -17,6 +17,11 @@ import {
   type BrowserPlayerKeyBindingsSettings,
   type PlayerBindableKey,
 } from "@player-web/impl/playerKeyBindingsSettings";
+import {
+  loadStoredViewportSettings,
+  saveStoredViewportSettings,
+  type BrowserViewportSettings,
+} from "@player-web/impl/viewportSettings";
 import { prepareModernProfileBackupDownload, importModernProfileBackup } from "@player-web/impl/modern/modernDashboardTransferController";
 import {
   createDefaultBrowserProfilePreferences,
@@ -49,7 +54,10 @@ interface UseModernDashboardSettingsControllerResult {
   setStoredPreferences: (preferences: BrowserProfilePreferences) => void;
   setUndoKey: (key: PlayerBindableKey) => void;
   setVisualEnhancementsEnabled: (enabled: boolean) => void;
+  setViewportRadius: (radius: number) => void;
+  setViewportSettingsEnabled: (enabled: boolean) => void;
   visualEnhancementsEnabled: boolean;
+  viewportSettings: BrowserViewportSettings;
 }
 
 export function useModernDashboardSettingsController({
@@ -67,6 +75,9 @@ export function useModernDashboardSettingsController({
   );
   const [playerKeyBindings, setPlayerKeyBindingsState] = useState<BrowserPlayerKeyBindingsSettings>(
     () => loadStoredPlayerKeyBindingsSettings(),
+  );
+  const [viewportSettings, setViewportSettingsState] = useState<BrowserViewportSettings>(
+    () => loadStoredViewportSettings(),
   );
   const [preferences, setPreferences] = useState<BrowserProfilePreferences>(
     createDefaultBrowserProfilePreferences(),
@@ -86,6 +97,25 @@ export function useModernDashboardSettingsController({
   const setVisualEnhancementsEnabled = useEffectEvent((enabled: boolean) => {
     setVisualEnhancementsEnabledState(enabled);
     saveStoredVisualEnhancementsSettings({ enabled });
+  });
+
+  const applyViewportSettings = useEffectEvent((settings: BrowserViewportSettings) => {
+    setViewportSettingsState(settings);
+    saveStoredViewportSettings(settings);
+  });
+
+  const setViewportSettingsEnabled = useEffectEvent((enabled: boolean) => {
+    applyViewportSettings({
+      ...viewportSettings,
+      enabled,
+    });
+  });
+
+  const setViewportRadius = useEffectEvent((radius: number) => {
+    applyViewportSettings({
+      ...viewportSettings,
+      radius,
+    });
   });
 
   const persistPreferences = useEffectEvent((patch: Partial<BrowserProfilePreferences>) => {
@@ -163,6 +193,9 @@ export function useModernDashboardSettingsController({
       setPlayerKeyBindingsState(
         localSettings?.playerKeyBindings ?? loadStoredPlayerKeyBindingsSettings(),
       );
+      setViewportSettingsState(
+        localSettings?.viewport ?? loadStoredViewportSettings(),
+      );
       closeSettings();
       reloadPage();
     } catch (error: unknown) {
@@ -187,6 +220,9 @@ export function useModernDashboardSettingsController({
     setStoredPreferences,
     setUndoKey,
     setVisualEnhancementsEnabled,
+    setViewportRadius,
+    setViewportSettingsEnabled,
     visualEnhancementsEnabled,
+    viewportSettings,
   };
 }

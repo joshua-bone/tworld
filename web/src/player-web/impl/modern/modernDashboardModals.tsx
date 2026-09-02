@@ -1,5 +1,11 @@
 import { buildAppHref } from "@player-web/impl/appPaths";
 import { PLAYER_BINDABLE_KEYS, type BrowserPlayerKeyBindingsSettings, type PlayerBindableKey } from "@player-web/impl/playerKeyBindingsSettings";
+import {
+  MAX_VIEWPORT_RADIUS,
+  MIN_VIEWPORT_RADIUS,
+  viewportTileCountForSettings,
+  type BrowserViewportSettings,
+} from "@player-web/impl/viewportSettings";
 import type { SetFamily } from "@player-web/impl/modern/curatedCatalog";
 import type { BrowserProfilePreferences, BrowserPreferredRuleset } from "@player-web/ports/BrowserProfileStore";
 
@@ -198,9 +204,12 @@ export function ModernDashboardSettingsModal({
   onSetAutoSaveWinningHighScoreReplays,
   onSetDebugModeEnabled,
   onSetVisualEnhancementsEnabled,
+  onSetViewportRadius,
+  onSetViewportSettingsEnabled,
   playerKeyBindings,
   preferences,
   visualEnhancementsEnabled,
+  viewportSettings,
 }: {
   isProfileTransferBusy: boolean;
   onClose: () => void;
@@ -212,10 +221,15 @@ export function ModernDashboardSettingsModal({
   onSetAutoSaveWinningHighScoreReplays: (enabled: boolean) => void;
   onSetDebugModeEnabled: (enabled: boolean) => void;
   onSetVisualEnhancementsEnabled: (enabled: boolean) => void;
+  onSetViewportRadius: (radius: number) => void;
+  onSetViewportSettingsEnabled: (enabled: boolean) => void;
   playerKeyBindings: BrowserPlayerKeyBindingsSettings;
   preferences: BrowserProfilePreferences;
   visualEnhancementsEnabled: boolean;
+  viewportSettings: BrowserViewportSettings;
 }) {
+  const viewportTileCount = viewportTileCountForSettings(viewportSettings);
+
   return (
     <div
       aria-hidden="true"
@@ -264,6 +278,52 @@ export function ModernDashboardSettingsModal({
               </p>
             </div>
           </label>
+
+          <section className="modern-about-modal__section modern-settings-modal__section">
+            <label className="modern-settings-modal__option">
+              <input
+                checked={viewportSettings.enabled}
+                onChange={(event) => {
+                  onSetViewportSettingsEnabled(event.currentTarget.checked);
+                }}
+                type="checkbox"
+              />
+              <div>
+                <strong>Modify viewport size</strong>
+                <p className="modern-dashboard__copy">
+                  Keep the board frame fixed while showing more or fewer tiles around Chip.
+                </p>
+              </div>
+            </label>
+            <label className="modern-settings-modal__field">
+              <span>Tiles visible in each direction</span>
+              <input
+                className="modern-settings-modal__number-input"
+                disabled={!viewportSettings.enabled}
+                inputMode="numeric"
+                max={MAX_VIEWPORT_RADIUS}
+                min={MIN_VIEWPORT_RADIUS}
+                onChange={(event) => {
+                  const radius = Number(event.currentTarget.value);
+                  if (
+                    Number.isInteger(radius) &&
+                    radius >= MIN_VIEWPORT_RADIUS &&
+                    radius <= MAX_VIEWPORT_RADIUS
+                  ) {
+                    onSetViewportRadius(radius);
+                  }
+                }}
+                step="1"
+                type="number"
+                value={viewportSettings.radius}
+              />
+            </label>
+            <p className="modern-dashboard__copy">
+              {viewportTileCount === 32
+                ? "Current view: entire 32×32 board."
+                : `Current view: ${viewportTileCount}×${viewportTileCount} tiles.`}
+            </p>
+          </section>
 
           <section className="modern-about-modal__section modern-settings-modal__section">
             <p className="modern-preference-block__label">Keyboard</p>

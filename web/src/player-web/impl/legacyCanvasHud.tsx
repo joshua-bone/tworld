@@ -10,9 +10,7 @@ import {
 } from "@player-web/impl/legacyRenderPresets";
 import {
   LEGACY_INFO_X,
-  LEGACY_MAP_HEIGHT,
   LEGACY_MAP_TILES,
-  LEGACY_MAP_WIDTH,
   LEGACY_MAP_X,
   LEGACY_MAP_Y,
   LEGACY_MARGIN,
@@ -420,9 +418,11 @@ export function drawLegacyGameMapOnly(
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   lowerLayerCache: LegacyLayerCanvasCache,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): void {
+  const viewportPixelSize = viewportTileCount * LEGACY_TILE_SIZE;
   context.fillStyle = LEGACY_COLORS.background;
-  context.fillRect(0, 0, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+  context.fillRect(0, 0, viewportPixelSize, viewportPixelSize);
 
   if (!session || !level || !series) {
     drawLegacyText(context, isLoading ? "Loading level..." : "No level loaded.", 12, 12, LEGACY_COLORS.text);
@@ -430,12 +430,23 @@ export function drawLegacyGameMapOnly(
   }
 
   const snapshot = session.frame.snapshot;
-  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset);
+  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset, viewportTileCount);
   const timerval = (snapshot.statusFlags & MS_STATUS_FLAG.NoAnimation) !== 0 ? -1 : snapshot.currentTime;
 
   context.save();
   context.translate(-LEGACY_MAP_X, -LEGACY_MAP_Y);
-  drawVisibleLayerStack(context, tileset, session, ruleset, timerval, viewX, viewY, lowerLayerCache, visualEnhancementsEnabled);
+  drawVisibleLayerStack(
+    context,
+    tileset,
+    session,
+    ruleset,
+    timerval,
+    viewX,
+    viewY,
+    lowerLayerCache,
+    visualEnhancementsEnabled,
+    viewportTileCount,
+  );
   context.restore();
 }
 

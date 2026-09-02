@@ -12,6 +12,12 @@ describe("legacyRenderPresets", () => {
     expect(legacyMapPixelsForTileSize(24)).toBe(216);
   });
 
+  it("computes custom and full-board viewport sizes", () => {
+    expect(legacyMapPixelsForTileSize(48, 3)).toBe(144);
+    expect(legacyMapPixelsForTileSize(48, 32)).toBe(1536);
+    expect(legacyMapPixelsForTileSize(24, 32)).toBe(768);
+  });
+
   it("chooses the largest preset that fits the available board size", () => {
     expect(pickLegacyRenderTileSize(500)).toBe(48);
     expect(pickLegacyRenderTileSize(432)).toBe(48);

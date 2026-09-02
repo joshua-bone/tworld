@@ -63,6 +63,11 @@ jobs:
           npm test -- \
             src/player-web/impl/hybridcc-v1 \
             src/player-web/impl/modern \
+            src/player-web/impl/browserProfileBackup.test.ts \
+            src/player-web/impl/LegacyCanvasScreen.test.ts \
+            src/player-web/impl/legacyCanvasMapRenderer.test.ts \
+            src/player-web/impl/legacyRenderPresets.test.ts \
+            src/player-web/impl/viewportSettings.test.ts \
             src/game-core/api/ruleset.test.ts \
             src/ruleset-ms/impl/level.test.ts \
             src/ruleset-ms/impl/tileEffects.test.ts \

@@ -4,8 +4,11 @@ export type LegacyRenderTileSize = 24 | 32 | 48;
 
 export const LEGACY_RENDER_TILE_SIZES: readonly LegacyRenderTileSize[] = [48, 32, 24] as const;
 
-export function legacyMapPixelsForTileSize(tileSize: LegacyRenderTileSize): number {
-  return LEGACY_MAP_TILES * tileSize;
+export function legacyMapPixelsForTileSize(
+  tileSize: LegacyRenderTileSize,
+  viewportTileCount = LEGACY_MAP_TILES,
+): number {
+  return viewportTileCount * tileSize;
 }
 
 export function isDefaultLegacyRenderTileSize(tileSize: LegacyRenderTileSize): boolean {
