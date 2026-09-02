@@ -9,6 +9,9 @@ export const DEFAULT_LANTERN_RADIUS = 4;
 export const MIN_MONSTER_RIPPLE_REVEAL_RADIUS = 1;
 export const MAX_MONSTER_RIPPLE_REVEAL_RADIUS = 16;
 export const DEFAULT_MONSTER_RIPPLE_REVEAL_RADIUS = 3;
+export const MIN_MONSTER_RIPPLE_PROPAGATION_DISTANCE = 1;
+export const MAX_MONSTER_RIPPLE_PROPAGATION_DISTANCE = 16;
+export const DEFAULT_MONSTER_RIPPLE_PROPAGATION_DISTANCE = 5;
 export const MIN_TRANSFORM_INTERVAL_SECONDS = 5;
 export const MAX_TRANSFORM_INTERVAL_SECONDS = 60;
 export const DEFAULT_TRANSFORM_INTERVAL_SECONDS = 10;
@@ -39,6 +42,7 @@ export const DIHEDRAL_TRANSFORMS = [
 export type DihedralTransform = (typeof DIHEDRAL_TRANSFORMS)[number];
 export type DihedralOrientation = "identity" | DihedralTransform;
 export type TransformTransitionSpeed = "slow" | "medium" | "fast";
+export type MonsterRipplePropagationSpeed = "slow" | "normal" | "fast";
 export type SpecialTransformMode = "off" | "static" | "timed";
 
 export interface BrowserSpecialModesSettings {
@@ -53,6 +57,8 @@ export interface BrowserSpecialModesSettings {
   };
   monsterRipples: {
     enabled: boolean;
+    propagationDistance: number;
+    propagationSpeed: MonsterRipplePropagationSpeed;
     revealRadius: number;
   };
   transform: {
@@ -115,6 +121,8 @@ export function createDefaultBrowserSpecialModesSettings(
     },
     monsterRipples: {
       enabled: false,
+      propagationDistance: DEFAULT_MONSTER_RIPPLE_PROPAGATION_DISTANCE,
+      propagationSpeed: "normal",
       revealRadius: DEFAULT_MONSTER_RIPPLE_REVEAL_RADIUS,
     },
     transform: {
@@ -179,6 +187,17 @@ export function parseStoredSpecialModesSettings(
       enabled: typeof monsterRipples.enabled === "boolean"
         ? monsterRipples.enabled
         : defaults.monsterRipples.enabled,
+      propagationDistance: normalizedInteger(
+        monsterRipples.propagationDistance,
+        defaults.monsterRipples.propagationDistance,
+        MIN_MONSTER_RIPPLE_PROPAGATION_DISTANCE,
+        MAX_MONSTER_RIPPLE_PROPAGATION_DISTANCE,
+      ),
+      propagationSpeed: oneOf(
+        monsterRipples.propagationSpeed,
+        ["slow", "normal", "fast"] as const,
+        defaults.monsterRipples.propagationSpeed,
+      ),
       revealRadius: normalizedInteger(
         monsterRipples.revealRadius,
         defaults.monsterRipples.revealRadius,

@@ -662,8 +662,24 @@ export function monsterRippleIntensity(moving: number): number {
   return moving > 0 ? 2 : 1;
 }
 
-export function monsterRippleMaximumRadiusTiles(viewportTileCount: number): number {
-  return Math.min(MONSTER_RIPPLE_MAX_RADIUS_TILES, viewportTileCount / 2);
+export function monsterRippleMaximumRadiusTiles(
+  viewportTileCount: number,
+  propagationDistance = MONSTER_RIPPLE_MAX_RADIUS_TILES,
+): number {
+  return Math.min(propagationDistance, viewportTileCount / 2);
+}
+
+export function monsterRipplePropagationPeriodMs(
+  speed: BrowserSpecialModesSettings["monsterRipples"]["propagationSpeed"],
+): number {
+  switch (speed) {
+    case "slow":
+      return 8_000;
+    case "fast":
+      return 2_000;
+    default:
+      return MONSTER_RIPPLE_PERIOD_MS;
+  }
 }
 
 export function monsterRippleExpansionOpacity(progress: number): number {
@@ -692,6 +708,7 @@ export interface MonsterRippleEmissionTimeline {
   emissionIntervalMs: number;
   emissions: MonsterRippleEmission[];
   nextEmissionAtMs: number;
+  propagationPeriodMs: number;
 }
 
 interface MonsterRippleCanvasState extends MonsterRippleEmissionTimeline {
@@ -721,14 +738,16 @@ export function advanceMonsterRippleEmissions(
   origins: readonly MonsterRippleOrigin[],
   nowMs: number,
   emissionIntervalMs: number,
+  propagationPeriodMs = MONSTER_RIPPLE_PERIOD_MS,
 ): MonsterRippleEmissionTimeline {
   if (
     !previous ||
     previous.emissionIntervalMs !== emissionIntervalMs ||
-    nowMs - previous.nextEmissionAtMs >= MONSTER_RIPPLE_PERIOD_MS
+    previous.propagationPeriodMs !== propagationPeriodMs ||
+    nowMs - previous.nextEmissionAtMs >= propagationPeriodMs
   ) {
     const emissions: MonsterRippleEmission[] = [];
-    const emissionCount = Math.ceil(MONSTER_RIPPLE_PERIOD_MS / emissionIntervalMs);
+    const emissionCount = Math.ceil(propagationPeriodMs / emissionIntervalMs);
     for (let emission = 0; emission < emissionCount; emission += 1) {
       appendMonsterRippleEmissions(
         emissions,
@@ -740,11 +759,12 @@ export function advanceMonsterRippleEmissions(
       emissionIntervalMs,
       emissions,
       nextEmissionAtMs: nowMs + emissionIntervalMs,
+      propagationPeriodMs,
     };
   }
 
   const emissions = previous.emissions.filter(
-    (emission) => nowMs - emission.emittedAtMs < MONSTER_RIPPLE_PERIOD_MS,
+    (emission) => nowMs - emission.emittedAtMs < propagationPeriodMs,
   );
   let nextEmissionAtMs = previous.nextEmissionAtMs;
   if (origins.length === 0) {
@@ -755,7 +775,7 @@ export function advanceMonsterRippleEmissions(
       nextEmissionAtMs += emissionIntervalMs;
     }
   }
-  return { emissionIntervalMs, emissions, nextEmissionAtMs };
+  return { emissionIntervalMs, emissions, nextEmissionAtMs, propagationPeriodMs };
 }
 
 function monsterRippleOrigins(
@@ -869,7 +889,13 @@ function drawMonsterRipples(
     return;
   }
   layerContext.clearRect(0, 0, size, size);
-  const maximumRadius = monsterRippleMaximumRadiusTiles(viewportTileCount) * LEGACY_TILE_SIZE;
+  const maximumRadius = monsterRippleMaximumRadiusTiles(
+    viewportTileCount,
+    settings.monsterRipples.propagationDistance,
+  ) * LEGACY_TILE_SIZE;
+  const propagationPeriodMs = monsterRipplePropagationPeriodMs(
+    settings.monsterRipples.propagationSpeed,
+  );
   const previousState = monsterRippleStates.get(context.canvas);
   const previousTimeline = previousState?.sessionHandle === session.handle
     ? previousState
@@ -879,6 +905,7 @@ function drawMonsterRipples(
     monsterRippleOrigins(session),
     nowMs,
     monsterRippleEmissionIntervalMs(ruleset),
+    propagationPeriodMs,
   );
   monsterRippleStates.set(context.canvas, { ...timeline, sessionHandle: session.handle });
   for (const emission of timeline.emissions) {
@@ -886,7 +913,7 @@ function drawMonsterRipples(
     if (!origin) {
       continue;
     }
-    const progress = (nowMs - emission.emittedAtMs) / MONSTER_RIPPLE_PERIOD_MS;
+    const progress = (nowMs - emission.emittedAtMs) / propagationPeriodMs;
     const radius = progress * maximumRadius;
     const alpha = MONSTER_RIPPLE_BASE_ALPHA * emission.intensity * monsterRippleExpansionOpacity(progress);
     layerContext.beginPath();
