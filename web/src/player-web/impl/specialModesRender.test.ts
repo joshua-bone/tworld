@@ -4,8 +4,12 @@ import {
   inverseTransformCanvasPoint,
   remapDihedralArtworkTileId,
   sessionWithoutMonsterArtwork,
+  usesPerCellArtworkNormalization,
+  visibilityModeUsesFogBackdrop,
 } from "@player-web/impl/specialModesRender";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
+import { createDefaultBrowserSpecialModesSettings } from "@player-web/impl/specialModesSettings";
+import type { SpecialModesRuntimeSnapshot } from "@player-web/impl/useSpecialModesRuntime";
 
 describe("specialModesRender", () => {
   it("inverse-maps clicks through a displayed orientation", () => {
@@ -44,5 +48,33 @@ describe("specialModesRender", () => {
       MS_TILE.IceWall_Northeast,
     );
     expect(remapDihedralArtworkTileId(MS_TILE.Wall_West, "rotate-180")).toBe(MS_TILE.Wall_East);
+  });
+
+  it("keeps non-fog line of sight pitch black outside visible cells", () => {
+    expect(visibilityModeUsesFogBackdrop("line-of-sight")).toBe(false);
+    expect(visibilityModeUsesFogBackdrop("line-of-sight-fog")).toBe(true);
+  });
+
+  it("uses per-cell rendering only during the paused normalization ripple", () => {
+    const settings = createDefaultBrowserSpecialModesSettings(() => 1);
+    settings.transform.mode = "timed";
+    const runtime: SpecialModesRuntimeSnapshot = {
+      orientation: "rotate-90",
+      transition: null,
+      warningSeconds: null,
+      warningShakeOffsetPx: 0,
+      revision: 0,
+    };
+    expect(usesPerCellArtworkNormalization(settings, runtime)).toBe(false);
+    runtime.transition = {
+      from: "identity",
+      to: "rotate-90",
+      progress: 0.6,
+      phase: "artwork-normalize",
+      phaseProgress: 0.4,
+    };
+    expect(usesPerCellArtworkNormalization(settings, runtime)).toBe(true);
+    runtime.transition = { ...runtime.transition, phase: "speed-up" };
+    expect(usesPerCellArtworkNormalization(settings, runtime)).toBe(false);
   });
 });

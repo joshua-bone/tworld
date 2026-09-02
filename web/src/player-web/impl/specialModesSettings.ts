@@ -36,6 +36,7 @@ export const DIHEDRAL_TRANSFORMS = [
 export type DihedralTransform = (typeof DIHEDRAL_TRANSFORMS)[number];
 export type DihedralOrientation = "identity" | DihedralTransform;
 export type TransformTransitionSpeed = "slow" | "medium" | "fast";
+export type SpecialTransformMode = "off" | "static" | "timed";
 
 export interface BrowserSpecialModesSettings {
   visibility: {
@@ -48,7 +49,8 @@ export interface BrowserSpecialModesSettings {
     seed: number;
   };
   transform: {
-    enabled: boolean;
+    mode: SpecialTransformMode;
+    staticOrientation: DihedralTransform;
     intervalSeconds: number;
     transitionSpeed: TransformTransitionSpeed;
     strategy: "random" | DihedralTransform;
@@ -105,7 +107,8 @@ export function createDefaultBrowserSpecialModesSettings(
       seed: normalizedInteger(seedSource(), 0, 0, SPECIAL_MODE_SEED_MAX),
     },
     transform: {
-      enabled: false,
+      mode: "off",
+      staticOrientation: "rotate-90",
       intervalSeconds: DEFAULT_TRANSFORM_INTERVAL_SECONDS,
       transitionSpeed: "fast",
       strategy: "random",
@@ -126,6 +129,9 @@ export function parseStoredSpecialModesSettings(
   const visibility = isRecord(value.visibility) ? value.visibility : {};
   const monsterMadness = isRecord(value.monsterMadness) ? value.monsterMadness : {};
   const transform = isRecord(value.transform) ? value.transform : {};
+  const migratedTransformMode = typeof transform.enabled === "boolean"
+    ? transform.enabled ? "timed" : "off"
+    : defaults.transform.mode;
   const storedAllowedRandomTransforms = Array.isArray(transform.allowedRandomTransforms)
     ? transform.allowedRandomTransforms
     : null;
@@ -158,7 +164,16 @@ export function parseStoredSpecialModesSettings(
       ),
     },
     transform: {
-      enabled: typeof transform.enabled === "boolean" ? transform.enabled : defaults.transform.enabled,
+      mode: oneOf(
+        transform.mode,
+        ["off", "static", "timed"] as const,
+        migratedTransformMode,
+      ),
+      staticOrientation: oneOf(
+        transform.staticOrientation,
+        DIHEDRAL_TRANSFORMS,
+        defaults.transform.staticOrientation,
+      ),
       intervalSeconds: normalizedInteger(
         transform.intervalSeconds,
         defaults.transform.intervalSeconds,
@@ -211,7 +226,7 @@ export function isSpecialModesConfigurationActive(
     configuration.viewport.enabled ||
     configuration.specialModes.visibility.mode !== "normal" ||
     configuration.specialModes.monsterMadness.enabled ||
-    configuration.specialModes.transform.enabled
+    configuration.specialModes.transform.mode !== "off"
   );
 }
 

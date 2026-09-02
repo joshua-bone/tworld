@@ -782,7 +782,7 @@ export function PlayerApp({
     syncSoundForSession,
   });
   const specialModesRuntime = useSpecialModesRuntime({
-    enabled: specialModesSettings.transform.enabled && usesModernGameUi,
+    enabled: specialModesSettings.transform.mode !== "off" && usesModernGameUi,
     isActiveGameplay: mode === "game" && isRunning && !isPaused && manualRunStarted && !showHelp,
     liveSessionRef,
     settings: specialModesSettings.transform,
@@ -2993,20 +2993,45 @@ export function PlayerApp({
               </div>
 
               <div className="mobile-sheet__settings">
-                <label className="mobile-sheet__checkbox">
-                  <input
-                    checked={specialModesSettings.transform.enabled}
-                    onChange={(event) => {
-                      applySpecialModesSettings({
-                        ...specialModesSettings,
-                        transform: { ...specialModesSettings.transform, enabled: event.currentTarget.checked },
-                      });
-                    }}
-                    type="checkbox"
-                  />
-                  <span>Transform every N seconds</span>
+                <label className="mobile-sheet__field">
+                  <span>Transform mode</span>
+                  <select
+                    className="modern-history-dock__select"
+                    onChange={(event) => applySpecialModesSettings({
+                      ...specialModesSettings,
+                      transform: {
+                        ...specialModesSettings.transform,
+                        mode: event.currentTarget.value as BrowserSpecialModesSettings["transform"]["mode"],
+                      },
+                    })}
+                    value={specialModesSettings.transform.mode}
+                  >
+                    <option value="off">Off</option>
+                    <option value="static">Transform</option>
+                    <option value="timed">Transform every N seconds</option>
+                  </select>
                 </label>
-                {specialModesSettings.transform.enabled ? (
+                {specialModesSettings.transform.mode === "static" ? (
+                  <div className="mobile-sheet__settings-fields">
+                    <label className="mobile-sheet__field">
+                      <span>Transform</span>
+                      <select
+                        className="modern-history-dock__select"
+                        onChange={(event) => applySpecialModesSettings({
+                          ...specialModesSettings,
+                          transform: {
+                            ...specialModesSettings.transform,
+                            staticOrientation: event.currentTarget.value as BrowserSpecialModesSettings["transform"]["staticOrientation"],
+                          },
+                        })}
+                        value={specialModesSettings.transform.staticOrientation}
+                      >
+                        {DIHEDRAL_TRANSFORMS.map((transform) => <option key={transform} value={transform}>{transform.replaceAll("-", " ")}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
+                {specialModesSettings.transform.mode === "timed" ? (
                   <div className="mobile-sheet__settings-fields">
                     <label className="mobile-sheet__field">
                       <span>Interval</span>
@@ -3965,14 +3990,14 @@ export function PlayerApp({
                 selectedSeriesFile={selectedSeriesFile}
                 session={session}
                 specialModesRuntimeRef={specialModesRuntime.runtimeRef}
-                specialModesArtworkOrientation={specialModesRuntime.inputOrientation}
+                specialModesArtworkOrientation={specialModesRuntime.artworkOrientation}
                 specialModesSettings={specialModesSettings}
                 debugModeEnabled={debugModeEnabled}
                 visualEnhancementsEnabled={visualEnhancementsEnabled}
                 viewportTileCount={viewportTileCount}
               />
             )}
-            {!isPaused && specialModesSettings.transform.enabled && specialModesRuntime.runtimeRef.current.warningSeconds ? (
+            {!isPaused && specialModesSettings.transform.mode === "timed" && specialModesRuntime.runtimeRef.current.warningSeconds ? (
               <div className="special-modes-transform-warning" role="status">
                 Transform in {specialModesRuntime.runtimeRef.current.warningSeconds}
               </div>
@@ -4078,7 +4103,7 @@ export function PlayerApp({
                   selectedSeriesFile={selectedSeriesFile}
                   session={session}
                   specialModesRuntimeRef={specialModesRuntime.runtimeRef}
-                  specialModesArtworkOrientation={specialModesRuntime.inputOrientation}
+                  specialModesArtworkOrientation={specialModesRuntime.artworkOrientation}
                   specialModesSettings={specialModesSettings}
                   debugModeEnabled={debugModeEnabled}
                   visualEnhancementsEnabled={visualEnhancementsEnabled}
@@ -4086,7 +4111,7 @@ export function PlayerApp({
                 />
               </div>
             )}
-            {!isPaused && specialModesSettings.transform.enabled && specialModesRuntime.runtimeRef.current.warningSeconds ? (
+            {!isPaused && specialModesSettings.transform.mode === "timed" && specialModesRuntime.runtimeRef.current.warningSeconds ? (
               <div className="special-modes-transform-warning" role="status">
                 Transform in {specialModesRuntime.runtimeRef.current.warningSeconds}
               </div>

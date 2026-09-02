@@ -5,6 +5,7 @@ import {
   cellArtworkNormalizationProgress,
   displayedDirectionToEngineDirection,
   inverseDihedralOrientation,
+  relativeDihedralOrientation,
   seededTransformAt,
   transformDirection,
   transformGameplayRate,
@@ -23,6 +24,8 @@ describe("specialModesTransform", () => {
     expect(transformDirection(MS_DIRECTION.north, "rotate-90")).toBe(MS_DIRECTION.east);
     expect(displayedDirectionToEngineDirection(MS_DIRECTION.west, "rotate-90")).toBe(MS_DIRECTION.south);
     expect(inverseDihedralOrientation("rotate-90")).toBe("rotate-270");
+    expect(relativeDihedralOrientation("rotate-90", "rotate-180")).toBe("rotate-90");
+    expect(relativeDihedralOrientation("flip-horizontal", "flip-vertical")).toBe("rotate-180");
   });
 
   it("chooses deterministic allowed random transforms", () => {
