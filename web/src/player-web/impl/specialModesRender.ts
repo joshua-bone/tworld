@@ -50,6 +50,7 @@ const LOWER_LAYER_SCALE = 0.9;
 const spotlightLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
 const monsterRevealLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
 const monsterRippleLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+const monsterRippleStates = new WeakMap<HTMLCanvasElement, MonsterRippleCanvasState>();
 interface FlashlightDirectionTransition {
   sessionHandle: InteractiveGameSession["handle"];
   direction: number;
@@ -675,55 +676,126 @@ export function monsterRipplesCanRenderOutsideDirectVisibility(
   return mode === "normal" || visibilityModeUsesFogBackdrop(mode);
 }
 
-interface MonsterRippleProjection {
-  moving: number;
+export interface MonsterRippleOrigin {
+  intensity: number;
   x: number;
   y: number;
+  z: number;
 }
 
-function monsterRippleProjections(
+export interface MonsterRippleEmission extends MonsterRippleOrigin {
+  emittedAtMs: number;
+}
+
+export interface MonsterRippleEmissionTimeline {
+  emissions: MonsterRippleEmission[];
+  nextEmissionAtMs: number;
+}
+
+interface MonsterRippleCanvasState extends MonsterRippleEmissionTimeline {
+  sessionHandle: InteractiveGameSession["handle"];
+}
+
+const monsterRippleEmissionIntervalMs = MONSTER_RIPPLE_PERIOD_MS / MONSTER_RIPPLE_RING_COUNT;
+
+function appendMonsterRippleEmissions(
+  emissions: MonsterRippleEmission[],
+  origins: readonly MonsterRippleOrigin[],
+  emittedAtMs: number,
+): void {
+  for (const origin of origins) {
+    emissions.push({ ...origin, emittedAtMs });
+  }
+}
+
+export function advanceMonsterRippleEmissions(
+  previous: MonsterRippleEmissionTimeline | null,
+  origins: readonly MonsterRippleOrigin[],
+  nowMs: number,
+): MonsterRippleEmissionTimeline {
+  if (!previous || nowMs - previous.nextEmissionAtMs >= MONSTER_RIPPLE_PERIOD_MS) {
+    const emissions: MonsterRippleEmission[] = [];
+    for (let ring = 0; ring < MONSTER_RIPPLE_RING_COUNT; ring += 1) {
+      appendMonsterRippleEmissions(
+        emissions,
+        origins,
+        nowMs - ring * monsterRippleEmissionIntervalMs,
+      );
+    }
+    return {
+      emissions,
+      nextEmissionAtMs: nowMs + monsterRippleEmissionIntervalMs,
+    };
+  }
+
+  const emissions = previous.emissions.filter(
+    (emission) => nowMs - emission.emittedAtMs < MONSTER_RIPPLE_PERIOD_MS,
+  );
+  let nextEmissionAtMs = previous.nextEmissionAtMs;
+  if (origins.length === 0) {
+    nextEmissionAtMs = nowMs + monsterRippleEmissionIntervalMs;
+  } else {
+    while (nextEmissionAtMs <= nowMs) {
+      appendMonsterRippleEmissions(emissions, origins, nextEmissionAtMs);
+      nextEmissionAtMs += monsterRippleEmissionIntervalMs;
+    }
+  }
+  return { emissions, nextEmissionAtMs };
+}
+
+function monsterRippleOrigins(
   session: InteractiveGameSession,
-  ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
-  viewportTileCount: number,
-): MonsterRippleProjection[] {
+): MonsterRippleOrigin[] {
   const actors = session.frame.render?.actors ?? [];
-  const visibleLayers = session.frame.visibleLayers;
-  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset, viewportTileCount);
-  const viewportPixelSize = viewportTileCount * LEGACY_TILE_SIZE;
-  const projections: MonsterRippleProjection[] = [];
+  const visibleLayers = new Set(session.frame.visibleLayers.map((layer) => layer.z));
+  const origins: MonsterRippleOrigin[] = [];
 
   for (const actor of actors) {
     if (actor.hidden || !isMonsterMadnessMonsterActorId(actor.id)) {
       continue;
     }
-    const depth = visibleLayers.findIndex((layer) => layer.z === (actor.z ?? 1));
-    if (depth < 0) {
+    const z = actor.z ?? 1;
+    if (!visibleLayers.has(z)) {
       continue;
     }
-    const scale = LOWER_LAYER_SCALE ** depth;
-    const tileWindowSize = Math.ceil(viewportTileCount / scale);
-    const sourceSize = tileWindowSize * LEGACY_TILE_SIZE;
-    const padding = ((tileWindowSize - viewportTileCount) * LEGACY_TILE_SIZE) / 2;
-    const screenOrigin = (viewportPixelSize - sourceSize * scale) / 2;
     const movement = legacyCreatureMovementOffset(
       actor.dir,
       actor.moving,
       LEGACY_TILE_SIZE,
       LEGACY_TILE_SIZE,
     );
-    projections.push({
-      moving: actor.moving,
-      x: screenOrigin + (
-        padding - (viewX * LEGACY_TILE_SIZE) / 4 +
-        (actor.pos % 32) * LEGACY_TILE_SIZE + LEGACY_TILE_SIZE / 2 + movement.offsetX
-      ) * scale,
-      y: screenOrigin + (
-        padding - (viewY * LEGACY_TILE_SIZE) / 4 +
-        Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE + LEGACY_TILE_SIZE / 2 + movement.offsetY
-      ) * scale,
+    origins.push({
+      intensity: monsterRippleIntensity(actor.moving),
+      x: (actor.pos % 32) * LEGACY_TILE_SIZE + LEGACY_TILE_SIZE / 2 + movement.offsetX,
+      y: Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE + LEGACY_TILE_SIZE / 2 + movement.offsetY,
+      z,
     });
   }
-  return projections;
+  return origins;
+}
+
+function projectMonsterRippleOrigin(
+  origin: MonsterRippleOrigin,
+  session: InteractiveGameSession,
+  ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
+  viewportTileCount: number,
+): MonsterRippleOrigin | null {
+  const depth = session.frame.visibleLayers.findIndex((layer) => layer.z === origin.z);
+  if (depth < 0) {
+    return null;
+  }
+  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset, viewportTileCount);
+  const viewportPixelSize = viewportTileCount * LEGACY_TILE_SIZE;
+  const scale = LOWER_LAYER_SCALE ** depth;
+  const tileWindowSize = Math.ceil(viewportTileCount / scale);
+  const sourceSize = tileWindowSize * LEGACY_TILE_SIZE;
+  const padding = ((tileWindowSize - viewportTileCount) * LEGACY_TILE_SIZE) / 2;
+  const screenOrigin = (viewportPixelSize - sourceSize * scale) / 2;
+  return {
+    ...origin,
+    x: screenOrigin + (padding - (viewX * LEGACY_TILE_SIZE) / 4 + origin.x) * scale,
+    y: screenOrigin + (padding - (viewY * LEGACY_TILE_SIZE) / 4 + origin.y) * scale,
+  };
 }
 
 function drawMonsterArtworkReveal(
@@ -783,24 +855,34 @@ function drawMonsterRipples(
   }
   layerContext.clearRect(0, 0, size, size);
   const maximumRadius = monsterRippleMaximumRadiusTiles(viewportTileCount) * LEGACY_TILE_SIZE;
-  const cycle = (nowMs % MONSTER_RIPPLE_PERIOD_MS) / MONSTER_RIPPLE_PERIOD_MS;
-  for (const monster of monsterRippleProjections(session, ruleset, viewportTileCount)) {
-    const intensity = monsterRippleIntensity(monster.moving);
-    for (let ring = 0; ring < MONSTER_RIPPLE_RING_COUNT; ring += 1) {
-      const progress = (cycle + ring / MONSTER_RIPPLE_RING_COUNT) % 1;
-      const radius = progress * maximumRadius;
-      const alpha = MONSTER_RIPPLE_BASE_ALPHA * intensity * monsterRippleExpansionOpacity(progress);
-      layerContext.beginPath();
-      layerContext.arc(monster.x, monster.y, radius, 0, Math.PI * 2);
-      layerContext.lineWidth = 1.5;
-      layerContext.strokeStyle = `rgba(116, 220, 255, ${alpha})`;
-      layerContext.stroke();
-      layerContext.beginPath();
-      layerContext.arc(monster.x, monster.y, Math.max(0, radius - 2), 0, Math.PI * 2);
-      layerContext.lineWidth = 1;
-      layerContext.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
-      layerContext.stroke();
+  const previousState = monsterRippleStates.get(context.canvas);
+  const previousTimeline = previousState?.sessionHandle === session.handle
+    ? previousState
+    : null;
+  const timeline = advanceMonsterRippleEmissions(
+    previousTimeline,
+    monsterRippleOrigins(session),
+    nowMs,
+  );
+  monsterRippleStates.set(context.canvas, { ...timeline, sessionHandle: session.handle });
+  for (const emission of timeline.emissions) {
+    const origin = projectMonsterRippleOrigin(emission, session, ruleset, viewportTileCount);
+    if (!origin) {
+      continue;
     }
+    const progress = (nowMs - emission.emittedAtMs) / MONSTER_RIPPLE_PERIOD_MS;
+    const radius = progress * maximumRadius;
+    const alpha = MONSTER_RIPPLE_BASE_ALPHA * emission.intensity * monsterRippleExpansionOpacity(progress);
+    layerContext.beginPath();
+    layerContext.arc(origin.x, origin.y, radius, 0, Math.PI * 2);
+    layerContext.lineWidth = 1.5;
+    layerContext.strokeStyle = `rgba(116, 220, 255, ${alpha})`;
+    layerContext.stroke();
+    layerContext.beginPath();
+    layerContext.arc(origin.x, origin.y, Math.max(0, radius - 2), 0, Math.PI * 2);
+    layerContext.lineWidth = 1;
+    layerContext.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+    layerContext.stroke();
   }
 
   if (!monsterRipplesCanRenderOutsideDirectVisibility(settings.visibility.mode)) {
