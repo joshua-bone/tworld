@@ -14,6 +14,7 @@ describe("specialModesSettings", () => {
     expect(parseStoredSpecialModesSettings({
       visibility: { mode: "lantern-fog", lanternRadius: 99 },
       monsterMadness: { enabled: true, includePlayer: true, seed: 33 },
+      monsterRipples: { enabled: true, revealRadius: 99 },
       transform: {
         enabled: true,
         intervalSeconds: 1,
@@ -25,6 +26,7 @@ describe("specialModesSettings", () => {
     }, defaults)).toEqual({
       visibility: { mode: "lantern-fog", lanternRadius: 16 },
       monsterMadness: { enabled: true, includePlayer: true, seed: 33 },
+      monsterRipples: { enabled: true, revealRadius: 16 },
       transform: {
         mode: "timed",
         staticOrientation: "rotate-90",
@@ -44,6 +46,13 @@ describe("specialModesSettings", () => {
     const enabled = { ...viewport, enabled: true };
     expect(isSpecialModesConfigurationActive({ viewport: enabled, specialModes })).toBe(true);
     expect(specialModesConfigurationFingerprint({ viewport: enabled, specialModes })).toMatch(/^special-[0-9a-f]{8}$/u);
+    expect(isSpecialModesConfigurationActive({
+      viewport,
+      specialModes: {
+        ...specialModes,
+        monsterRipples: { ...specialModes.monsterRipples, enabled: true },
+      },
+    })).toBe(true);
     expect(isSpecialModesConfigurationActive({
       viewport,
       specialModes: {

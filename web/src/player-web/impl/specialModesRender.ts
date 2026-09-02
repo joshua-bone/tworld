@@ -42,7 +42,13 @@ import {
 
 const FOG_BRIGHTNESS_PERCENT = 25;
 export const FLASHLIGHT_DIRECTION_TRANSITION_MS = 200;
+const MONSTER_RIPPLE_PERIOD_MS = 1_600;
+const MONSTER_RIPPLE_RING_COUNT = 4;
+const MONSTER_RIPPLE_BASE_ALPHA = 0.2;
+const LOWER_LAYER_SCALE = 0.9;
 const spotlightLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+const monsterRevealLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
+const monsterRippleLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
 interface FlashlightDirectionTransition {
   sessionHandle: InteractiveGameSession["handle"];
   direction: number;
@@ -422,6 +428,18 @@ function spotlightLayerFor(target: HTMLCanvasElement): HTMLCanvasElement {
   return created;
 }
 
+function cachedLayerFor(
+  cache: WeakMap<HTMLCanvasElement, HTMLCanvasElement>,
+  target: HTMLCanvasElement,
+  size: number,
+): HTMLCanvasElement {
+  const cached = cache.get(target) ?? document.createElement("canvas");
+  cache.set(target, cached);
+  if (cached.width !== size) cached.width = size;
+  if (cached.height !== size) cached.height = size;
+  return cached;
+}
+
 function spotlightAngle(direction: number): number {
   switch (direction) {
     case MS_DIRECTION.east: return 0;
@@ -572,6 +590,223 @@ function lineOfSightForSession(
   const projection = sessionSpecialModesLineOfSightProjection(session, ruleset);
   lineOfSightCache.set(session, { ruleset, projection });
   return projection;
+}
+
+function traceLineOfSightVisibilityPath(
+  context: CanvasRenderingContext2D,
+  session: InteractiveGameSession,
+  ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
+  viewportTileCount: number,
+): void {
+  const { visibility } = lineOfSightForSession(session, ruleset);
+  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset, viewportTileCount);
+  const xOrigin = -(viewX * LEGACY_TILE_SIZE) / 4;
+  const yOrigin = -(viewY * LEGACY_TILE_SIZE) / 4;
+  context.beginPath();
+  for (let pos = 0; pos < visibility.length; pos += 1) {
+    if ((visibility[pos] ?? 0) <= 0) {
+      continue;
+    }
+    context.rect(
+      xOrigin + (pos % 32) * LEGACY_TILE_SIZE,
+      yOrigin + Math.floor(pos / 32) * LEGACY_TILE_SIZE,
+      LEGACY_TILE_SIZE,
+      LEGACY_TILE_SIZE,
+    );
+  }
+}
+
+function maskLayerToDirectVisibility(
+  layerContext: CanvasRenderingContext2D,
+  visibilityCanvas: HTMLCanvasElement,
+  session: InteractiveGameSession,
+  ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
+  settings: BrowserSpecialModesSettings["visibility"],
+  viewportTileCount: number,
+): void {
+  if (settings.mode === "normal") {
+    return;
+  }
+
+  layerContext.save();
+  layerContext.globalCompositeOperation = "destination-in";
+  layerContext.fillStyle = "#ffffff";
+  if (settings.mode === "flashlight" || settings.mode === "flashlight-fog") {
+    const spotlight = spotlightLayers.get(visibilityCanvas);
+    if (spotlight) {
+      layerContext.drawImage(spotlight, 0, 0);
+    } else {
+      layerContext.clearRect(0, 0, layerContext.canvas.width, layerContext.canvas.height);
+    }
+  } else if (settings.mode === "line-of-sight" || settings.mode === "line-of-sight-fog") {
+    traceLineOfSightVisibilityPath(layerContext, session, ruleset, viewportTileCount);
+    layerContext.fill();
+  } else {
+    traceLanternPath(layerContext, session, ruleset, settings, viewportTileCount);
+    layerContext.fill();
+  }
+  layerContext.restore();
+}
+
+export function monsterRippleArtworkOpacity(distanceTiles: number, revealRadius: number): number {
+  if (revealRadius <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, 1 - distanceTiles / revealRadius));
+}
+
+export function monsterRippleIntensity(moving: number): number {
+  return moving > 0 ? 2 : 1;
+}
+
+export function monsterRipplesCanRenderOutsideDirectVisibility(
+  mode: BrowserSpecialModesSettings["visibility"]["mode"],
+): boolean {
+  return mode === "normal" || visibilityModeUsesFogBackdrop(mode);
+}
+
+interface MonsterRippleProjection {
+  moving: number;
+  x: number;
+  y: number;
+}
+
+function monsterRippleProjections(
+  session: InteractiveGameSession,
+  ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
+  viewportTileCount: number,
+): MonsterRippleProjection[] {
+  const actors = session.frame.render?.actors ?? [];
+  const visibleLayers = session.frame.visibleLayers;
+  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset, viewportTileCount);
+  const viewportPixelSize = viewportTileCount * LEGACY_TILE_SIZE;
+  const projections: MonsterRippleProjection[] = [];
+
+  for (const actor of actors) {
+    if (actor.hidden || !isMonsterMadnessMonsterActorId(actor.id)) {
+      continue;
+    }
+    const depth = visibleLayers.findIndex((layer) => layer.z === (actor.z ?? 1));
+    if (depth < 0) {
+      continue;
+    }
+    const scale = LOWER_LAYER_SCALE ** depth;
+    const tileWindowSize = Math.ceil(viewportTileCount / scale);
+    const sourceSize = tileWindowSize * LEGACY_TILE_SIZE;
+    const padding = ((tileWindowSize - viewportTileCount) * LEGACY_TILE_SIZE) / 2;
+    const screenOrigin = (viewportPixelSize - sourceSize * scale) / 2;
+    const movement = legacyCreatureMovementOffset(
+      actor.dir,
+      actor.moving,
+      LEGACY_TILE_SIZE,
+      LEGACY_TILE_SIZE,
+    );
+    projections.push({
+      moving: actor.moving,
+      x: screenOrigin + (
+        padding - (viewX * LEGACY_TILE_SIZE) / 4 +
+        (actor.pos % 32) * LEGACY_TILE_SIZE + LEGACY_TILE_SIZE / 2 + movement.offsetX
+      ) * scale,
+      y: screenOrigin + (
+        padding - (viewY * LEGACY_TILE_SIZE) / 4 +
+        Math.floor(actor.pos / 32) * LEGACY_TILE_SIZE + LEGACY_TILE_SIZE / 2 + movement.offsetY
+      ) * scale,
+    });
+  }
+  return projections;
+}
+
+function drawMonsterArtworkReveal(
+  context: CanvasRenderingContext2D,
+  fullScene: HTMLCanvasElement,
+  session: InteractiveGameSession,
+  ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
+  settings: BrowserSpecialModesSettings,
+  viewportTileCount: number,
+): void {
+  const size = fullScene.width;
+  const layer = cachedLayerFor(monsterRevealLayers, context.canvas, size);
+  const layerContext = layer.getContext("2d");
+  if (!layerContext) {
+    return;
+  }
+  layerContext.clearRect(0, 0, size, size);
+  layerContext.drawImage(fullScene, 0, 0);
+  const chip = chipCanvasPosition(session, ruleset, viewportTileCount);
+  const maximumRevealRadius = viewportTileCount >= 32
+    ? 16
+    : Math.floor(viewportTileCount / 2);
+  const revealRadius = Math.min(settings.monsterRipples.revealRadius, maximumRevealRadius);
+  const radiusPx = revealRadius * LEGACY_TILE_SIZE;
+  const reveal = layerContext.createRadialGradient(chip.x, chip.y, 0, chip.x, chip.y, radiusPx);
+  reveal.addColorStop(0, "rgba(255,255,255,1)");
+  reveal.addColorStop(1, "rgba(255,255,255,0)");
+  layerContext.save();
+  layerContext.globalCompositeOperation = "destination-in";
+  layerContext.fillStyle = reveal;
+  layerContext.fillRect(0, 0, size, size);
+  layerContext.restore();
+  maskLayerToDirectVisibility(
+    layerContext,
+    context.canvas,
+    session,
+    ruleset,
+    settings.visibility,
+    viewportTileCount,
+  );
+  context.drawImage(layer, 0, 0);
+}
+
+function drawMonsterRipples(
+  context: CanvasRenderingContext2D,
+  session: InteractiveGameSession,
+  ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
+  settings: BrowserSpecialModesSettings,
+  viewportTileCount: number,
+  nowMs: number,
+): void {
+  const size = context.canvas.width;
+  const layer = cachedLayerFor(monsterRippleLayers, context.canvas, size);
+  const layerContext = layer.getContext("2d");
+  if (!layerContext) {
+    return;
+  }
+  layerContext.clearRect(0, 0, size, size);
+  const maximumRadius = Math.SQRT2 * size;
+  const cycle = (nowMs % MONSTER_RIPPLE_PERIOD_MS) / MONSTER_RIPPLE_PERIOD_MS;
+  for (const monster of monsterRippleProjections(session, ruleset, viewportTileCount)) {
+    const intensity = monsterRippleIntensity(monster.moving);
+    for (let ring = 0; ring < MONSTER_RIPPLE_RING_COUNT; ring += 1) {
+      const progress = (cycle + ring / MONSTER_RIPPLE_RING_COUNT) % 1;
+      const radius = progress * maximumRadius;
+      const alpha = MONSTER_RIPPLE_BASE_ALPHA * intensity * (1 - progress);
+      layerContext.beginPath();
+      layerContext.arc(monster.x, monster.y, radius, 0, Math.PI * 2);
+      layerContext.lineWidth = 1.5;
+      layerContext.strokeStyle = `rgba(116, 220, 255, ${alpha})`;
+      layerContext.stroke();
+      layerContext.beginPath();
+      layerContext.arc(monster.x, monster.y, Math.max(0, radius - 2), 0, Math.PI * 2);
+      layerContext.lineWidth = 1;
+      layerContext.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+      layerContext.stroke();
+    }
+  }
+
+  if (!monsterRipplesCanRenderOutsideDirectVisibility(settings.visibility.mode)) {
+    maskLayerToDirectVisibility(
+      layerContext,
+      context.canvas,
+      session,
+      ruleset,
+      settings.visibility,
+      viewportTileCount,
+    );
+  }
+  context.save();
+  context.globalCompositeOperation = "screen";
+  context.drawImage(layer, 0, 0);
+  context.restore();
 }
 
 function drawVisibleThinWallEdges(
@@ -880,18 +1115,39 @@ export function drawSpecialModesMap(options: {
   if (settings.visibility.mode !== "flashlight" && settings.visibility.mode !== "flashlight-fog") {
     flashlightDirectionTransitions.delete(visibilityCanvas);
   }
+  const baseScene = settings.monsterRipples.enabled && terrainScene
+    ? terrainScene
+    : fullScene;
   if (settings.visibility.mode === "normal") {
-    visibilityContext.drawImage(fullScene, 0, 0);
+    visibilityContext.drawImage(baseScene, 0, 0);
   } else {
     drawVisibilityComposite(
       visibilityContext,
-      fullScene,
+      baseScene,
       terrainScene,
       session,
       ruleset,
       settings.visibility,
       viewportTileCount,
       tileset,
+    );
+  }
+  if (settings.monsterRipples.enabled) {
+    drawMonsterArtworkReveal(
+      visibilityContext,
+      fullScene,
+      session,
+      ruleset,
+      settings,
+      viewportTileCount,
+    );
+    drawMonsterRipples(
+      visibilityContext,
+      session,
+      ruleset,
+      settings,
+      viewportTileCount,
+      performance.now(),
     );
   }
 

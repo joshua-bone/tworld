@@ -12,8 +12,10 @@ import type { BrowserProfilePreferences, BrowserPreferredRuleset } from "@player
 import {
   DIHEDRAL_TRANSFORMS,
   MAX_LANTERN_RADIUS,
+  MAX_MONSTER_RIPPLE_REVEAL_RADIUS,
   MAX_TRANSFORM_INTERVAL_SECONDS,
   MIN_LANTERN_RADIUS,
+  MIN_MONSTER_RIPPLE_REVEAL_RADIUS,
   MIN_TRANSFORM_INTERVAL_SECONDS,
   SPECIAL_MODE_SEED_MAX,
   createRandomSpecialModeSeed,
@@ -264,6 +266,10 @@ export function ModernDashboardSettingsModal({
   onDeleteSpecialModesPreset: (id: string) => void;
 }) {
   const viewportTileCount = viewportTileCountForSettings(viewportSettings);
+  const maximumMonsterRippleRevealRadius = Math.min(
+    MAX_MONSTER_RIPPLE_REVEAL_RADIUS,
+    viewportTileCount >= 32 ? 16 : Math.floor(viewportTileCount / 2),
+  );
   const [isSavePresetOpen, setIsSavePresetOpen] = useState(false);
   const [presetName, setPresetName] = useState("");
 
@@ -484,6 +490,53 @@ export function ModernDashboardSettingsModal({
                   Randomize seed
                 </button>
               </div>
+            ) : null}
+
+            <label className="modern-settings-modal__option">
+              <input
+                checked={specialModesSettings.monsterRipples.enabled}
+                onChange={(event) => {
+                  onSpecialModesSettingsChange({
+                    ...specialModesSettings,
+                    monsterRipples: {
+                      ...specialModesSettings.monsterRipples,
+                      enabled: event.currentTarget.checked,
+                    },
+                  });
+                }}
+                type="checkbox"
+              />
+              <div>
+                <strong>Monster Ripples</strong>
+                <p className="modern-dashboard__copy">
+                  Hide distant monster artwork while animated ripples reveal monster positions.
+                </p>
+              </div>
+            </label>
+            {specialModesSettings.monsterRipples.enabled ? (
+              <label className="modern-settings-modal__field">
+                <span>Monster artwork reveal radius</span>
+                <input
+                  className="modern-settings-modal__number-input"
+                  max={maximumMonsterRippleRevealRadius}
+                  min={MIN_MONSTER_RIPPLE_REVEAL_RADIUS}
+                  onChange={(event) => {
+                    const revealRadius = Number(event.currentTarget.value);
+                    if (
+                      Number.isInteger(revealRadius) &&
+                      revealRadius >= MIN_MONSTER_RIPPLE_REVEAL_RADIUS &&
+                      revealRadius <= maximumMonsterRippleRevealRadius
+                    ) {
+                      onSpecialModesSettingsChange({
+                        ...specialModesSettings,
+                        monsterRipples: { ...specialModesSettings.monsterRipples, revealRadius },
+                      });
+                    }
+                  }}
+                  type="number"
+                  value={specialModesSettings.monsterRipples.revealRadius}
+                />
+              </label>
             ) : null}
 
             <label className="modern-settings-modal__field">

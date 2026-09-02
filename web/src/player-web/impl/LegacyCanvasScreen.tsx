@@ -543,9 +543,11 @@ export function LegacyCanvasScreen({
   const hasSpecialModesRendering =
     specialModesSettings.visibility.mode !== "normal" ||
     specialModesSettings.monsterMadness.enabled ||
+    specialModesSettings.monsterRipples.enabled ||
     specialModesSettings.transform.mode !== "off";
   const requiresSpecialModesComposite =
     specialModesSettings.visibility.mode !== "normal" ||
+    specialModesSettings.monsterRipples.enabled ||
     specialModesSettings.transform.mode !== "off";
   const usesFogVisibility =
     specialModesSettings.visibility.mode === "flashlight-fog" ||
@@ -554,6 +556,8 @@ export function LegacyCanvasScreen({
   const usesFlashlightVisibility =
     specialModesSettings.visibility.mode === "flashlight" ||
     specialModesSettings.visibility.mode === "flashlight-fog";
+  const usesMonsterRipples = specialModesSettings.monsterRipples.enabled;
+  const needsMonsterlessScene = usesFogVisibility || usesMonsterRipples;
 
   useEffect(() => {
     setPerfDiagnosticsEnabled(debugModeEnabled);
@@ -640,7 +644,7 @@ export function LegacyCanvasScreen({
       currentRuleset ?? "None",
       effectiveViewportTileCount,
       isLoading ? 1 : 0,
-      usesFogVisibility ? 1 : 0,
+      needsMonsterlessScene ? 1 : 0,
       visualEnhancementsEnabled ? 1 : 0,
       sourceMapPixelSize,
     ].join(":");
@@ -667,7 +671,7 @@ export function LegacyCanvasScreen({
     }
 
     let terrainSceneCanvas: HTMLCanvasElement | null = null;
-    if (usesFogVisibility) {
+    if (needsMonsterlessScene) {
       terrainSceneCanvas = terrainSceneCanvasRef.current ?? createCanvas(sourceMapPixelSize, sourceMapPixelSize);
       terrainSceneCanvasRef.current = terrainSceneCanvas;
       ensureCanvasSize(terrainSceneCanvas, sourceMapPixelSize, sourceMapPixelSize);
@@ -964,7 +968,7 @@ export function LegacyCanvasScreen({
       const flashlightTransitionActive =
         usesFlashlightVisibility &&
         isFlashlightDirectionTransitionActive(visibilitySceneCanvasRef.current);
-      if (renderInputsChanged || flashlightTransitionActive) {
+      if (renderInputsChanged || flashlightTransitionActive || usesMonsterRipples) {
         measurePerfSync("renderMs", () => {
           drawFrame(context, activeSession);
         });
@@ -1021,6 +1025,7 @@ export function LegacyCanvasScreen({
     specialModesRuntimeRef,
     specialModesSettings,
     usesFlashlightVisibility,
+    usesMonsterRipples,
     usesDefaultMapTileSize,
     visualEnhancementsEnabled,
   ]);

@@ -148,8 +148,10 @@ import {
 import {
   DIHEDRAL_TRANSFORMS,
   MAX_LANTERN_RADIUS,
+  MAX_MONSTER_RIPPLE_REVEAL_RADIUS,
   MAX_TRANSFORM_INTERVAL_SECONDS,
   MIN_LANTERN_RADIUS,
+  MIN_MONSTER_RIPPLE_REVEAL_RADIUS,
   MIN_TRANSFORM_INTERVAL_SECONDS,
   SPECIAL_MODE_SEED_MAX,
   createRandomSpecialModeSeed,
@@ -886,6 +888,10 @@ export function PlayerApp({
   const viewportTileCount = usesModernGameUi
     ? viewportTileCountForSettings(viewportSettings)
     : LEGACY_MAP_TILES;
+  const maximumMonsterRippleRevealRadius = Math.min(
+    MAX_MONSTER_RIPPLE_REVEAL_RADIUS,
+    viewportTileCount >= 32 ? 16 : Math.floor(viewportTileCount / 2),
+  );
   const mobileRenderTileSize = 48;
   const mobileRenderedBoardSizePx = legacyMapPixelsForTileSize(mobileRenderTileSize);
   const mobileCanvasFrameSizePx = mobileBoardSizePx > 0
@@ -2925,6 +2931,50 @@ export function PlayerApp({
                       }}
                       type="number"
                       value={specialModesSettings.visibility.lanternRadius}
+                    />
+                  </label>
+                ) : null}
+              </div>
+
+              <div className="mobile-sheet__settings">
+                <label className="mobile-sheet__checkbox">
+                  <input
+                    checked={specialModesSettings.monsterRipples.enabled}
+                    onChange={(event) => {
+                      applySpecialModesSettings({
+                        ...specialModesSettings,
+                        monsterRipples: {
+                          ...specialModesSettings.monsterRipples,
+                          enabled: event.currentTarget.checked,
+                        },
+                      });
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Monster Ripples</span>
+                </label>
+                {specialModesSettings.monsterRipples.enabled ? (
+                  <label className="mobile-sheet__field">
+                    <span>Monster artwork reveal radius</span>
+                    <input
+                      className="modern-settings-modal__number-input"
+                      max={maximumMonsterRippleRevealRadius}
+                      min={MIN_MONSTER_RIPPLE_REVEAL_RADIUS}
+                      onChange={(event) => {
+                        const revealRadius = Number(event.currentTarget.value);
+                        if (
+                          Number.isInteger(revealRadius) &&
+                          revealRadius >= MIN_MONSTER_RIPPLE_REVEAL_RADIUS &&
+                          revealRadius <= maximumMonsterRippleRevealRadius
+                        ) {
+                          applySpecialModesSettings({
+                            ...specialModesSettings,
+                            monsterRipples: { ...specialModesSettings.monsterRipples, revealRadius },
+                          });
+                        }
+                      }}
+                      type="number"
+                      value={specialModesSettings.monsterRipples.revealRadius}
                     />
                   </label>
                 ) : null}

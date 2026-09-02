@@ -4,6 +4,9 @@ import {
   FLASHLIGHT_DIRECTION_TRANSITION_MS,
   flashlightDirectionTransitionAngle,
   inverseTransformCanvasPoint,
+  monsterRippleArtworkOpacity,
+  monsterRippleIntensity,
+  monsterRipplesCanRenderOutsideDirectVisibility,
   remapDihedralArtworkTileId,
   sessionWithoutMonsterArtwork,
   usesPerCellArtworkNormalization,
@@ -78,6 +81,27 @@ describe("specialModesRender", () => {
       MS_DIRECTION.west,
       FLASHLIGHT_DIRECTION_TRANSITION_MS / 2,
     )).toBeCloseTo(-3 * Math.PI / 4);
+  });
+
+  it("fades monster artwork linearly to zero at the reveal radius", () => {
+    expect(monsterRippleArtworkOpacity(0, 3)).toBe(1);
+    expect(monsterRippleArtworkOpacity(1.5, 3)).toBe(0.5);
+    expect(monsterRippleArtworkOpacity(3, 3)).toBe(0);
+    expect(monsterRippleArtworkOpacity(9, 3)).toBe(0);
+  });
+
+  it("makes moving monster ripples twice as intense", () => {
+    expect(monsterRippleIntensity(0)).toBe(1);
+    expect(monsterRippleIntensity(1)).toBe(2);
+    expect(monsterRippleIntensity(8)).toBe(2);
+  });
+
+  it("allows ripples through fog but not complete darkness", () => {
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("normal")).toBe(true);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("flashlight-fog")).toBe(true);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("line-of-sight-fog")).toBe(true);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("flashlight")).toBe(false);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("line-of-sight")).toBe(false);
   });
 
   it("selects only the visible artwork edge of a hidden thin-wall tile", () => {
