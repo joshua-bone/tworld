@@ -46,6 +46,8 @@ function createProgress(overrides: Partial<BrowserLevelProgressSummary> = {}): B
   return {
     ruleset: overrides.ruleset ?? "MS",
     gameplayHash: overrides.gameplayHash ?? "gameplay-hash",
+    modeFingerprint: overrides.modeFingerprint,
+    scoresDisabled: overrides.scoresDisabled,
     lastPlayedAtMs: overrides.lastPlayedAtMs ?? 100,
     lastResult: overrides.lastResult ?? "completed-clean",
     bestResult: overrides.bestResult ?? "completed-clean",
@@ -105,6 +107,27 @@ describe("levelProgress", () => {
     expect(resolveLevelProgressSummary(level, "MS", progressByKey)?.bestResult).toBe("completed-clean");
     expect(resolveLevelProgressSummary(level, "Lynx", progressByKey)).toBeNull();
     expect(resolveLevelProgressSummary(level, "Hybrid", progressByKey)).toBeNull();
+  });
+
+  it("keeps normal and Special Modes progress in separate configuration buckets", () => {
+    const normal = createProgress({ gameplayHash: "shared-hash", lastResult: "failed", bestResult: "failed" });
+    const special = createProgress({
+      gameplayHash: "shared-hash",
+      modeFingerprint: "special-abcd1234",
+      scoresDisabled: true,
+    });
+    const level = createLevel({ gameplayHash: "shared-hash" });
+
+    expect(resolveLevelProgressSummary(level, "MS", buildLevelProgressIndex([normal, special]))?.bestResult).toBe("failed");
+    expect(resolveLevelProgressSummary(
+      level,
+      "MS",
+      buildLevelProgressIndex([normal, special], "special-abcd1234"),
+    )).toMatchObject({
+      bestResult: "completed-clean",
+      bestScore: 0,
+      scoresDisabled: true,
+    });
   });
 
   it("counts Hybrid completion under its native-level content hash", () => {

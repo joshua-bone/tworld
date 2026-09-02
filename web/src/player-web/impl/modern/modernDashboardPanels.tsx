@@ -626,6 +626,7 @@ interface ModernDashboardLevelsPaneProps {
   onSelectLevel: (levelNumber: number) => void;
   onSelectRuleset: (ruleset: SetFamilyRuleset) => void;
   progressByKey: ReadonlyMap<string, BrowserLevelProgressSummary>;
+  scoresDisabled?: boolean;
 }
 
 export function ModernDashboardLevelsPane({
@@ -641,6 +642,7 @@ export function ModernDashboardLevelsPane({
   onSelectLevel,
   onSelectRuleset,
   progressByKey,
+  scoresDisabled = false,
 }: ModernDashboardLevelsPaneProps) {
   return (
     <aside className="modern-dashboard__sidebar modern-dashboard__sidebar--levels" tabIndex={-1}>
@@ -670,7 +672,7 @@ export function ModernDashboardLevelsPane({
 
         <div className="modern-dashboard__level-inline-meta">
           <span className="modern-dashboard__level-inline-meta-label">Best Score</span>
-          <strong>{activeLevelProgress ? activeLevelProgress.bestScore : 0}</strong>
+          <strong>{scoresDisabled || activeLevelProgress?.scoresDisabled ? "—" : activeLevelProgress ? activeLevelProgress.bestScore : 0}</strong>
         </div>
       </section>
 

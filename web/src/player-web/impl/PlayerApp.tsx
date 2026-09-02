@@ -139,11 +139,32 @@ import { loadStoredVisualEnhancementsSettings } from "@player-web/impl/visualEnh
 import {
   MAX_VIEWPORT_RADIUS,
   MIN_VIEWPORT_RADIUS,
+  createDefaultBrowserViewportSettings,
   loadStoredViewportSettings,
   saveStoredViewportSettings,
   viewportTileCountForSettings,
   type BrowserViewportSettings,
 } from "@player-web/impl/viewportSettings";
+import {
+  DIHEDRAL_TRANSFORMS,
+  MAX_LANTERN_RADIUS,
+  MAX_TRANSFORM_INTERVAL_SECONDS,
+  MIN_LANTERN_RADIUS,
+  MIN_TRANSFORM_INTERVAL_SECONDS,
+  SPECIAL_MODE_SEED_MAX,
+  createRandomSpecialModeSeed,
+  createDefaultBrowserSpecialModesSettings,
+  createSpecialModesPreset,
+  isSpecialModesConfigurationActive,
+  loadStoredSpecialModesPresets,
+  loadStoredSpecialModesSettings,
+  saveStoredSpecialModesSettings,
+  saveStoredSpecialModesPresets,
+  specialModesConfigurationFingerprint,
+  type BrowserSpecialModesSettings,
+  type BrowserSpecialModesPreset,
+} from "@player-web/impl/specialModesSettings";
+import { useSpecialModesRuntime } from "@player-web/impl/useSpecialModesRuntime";
 const GAME_TICKS_PER_SECOND = 20;
 const LOW_TIME_WARNING_TICKS = 10 * GAME_TICKS_PER_SECOND;
 const LEGACY_RANDOM_SEED_MAX = 0x7fffffff;
@@ -486,6 +507,7 @@ interface PlayerAppProps {
   playerKeyBindings?: BrowserPlayerKeyBindingsSettings;
   inventoryKeyCountLabelsEnabled?: boolean;
   viewportSettings?: BrowserViewportSettings;
+  specialModesSettings?: BrowserSpecialModesSettings;
   visualEnhancementsEnabled?: boolean;
   debugModeEnabled?: boolean;
   catalogSource?: "browser" | "provided";
@@ -513,6 +535,7 @@ export function PlayerApp({
   playerKeyBindings: playerKeyBindingsProp,
   inventoryKeyCountLabelsEnabled: inventoryKeyCountLabelsEnabledProp,
   viewportSettings: viewportSettingsProp,
+  specialModesSettings: specialModesSettingsProp,
   visualEnhancementsEnabled: visualEnhancementsEnabledProp,
   debugModeEnabled = createDefaultBrowserProfilePreferences().debugModeEnabled,
   catalogSource = "browser",
@@ -533,6 +556,10 @@ export function PlayerApp({
   const viewportSettingsSeedRef = useRef<BrowserViewportSettings | null>(null);
   if (viewportSettingsSeedRef.current === null) {
     viewportSettingsSeedRef.current = viewportSettingsProp ?? loadStoredViewportSettings();
+  }
+  const specialModesSettingsSeedRef = useRef<BrowserSpecialModesSettings | null>(null);
+  if (specialModesSettingsSeedRef.current === null) {
+    specialModesSettingsSeedRef.current = specialModesSettingsProp ?? loadStoredSpecialModesSettings();
   }
   const [mode, setMode] = useState<LegacyMode>(initialMode);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
@@ -567,6 +594,14 @@ export function PlayerApp({
   const [viewportSettingsState, setViewportSettingsState] = useState<BrowserViewportSettings>(
     viewportSettingsSeedRef.current,
   );
+  const [specialModesSettingsState, setSpecialModesSettingsState] = useState<BrowserSpecialModesSettings>(
+    specialModesSettingsSeedRef.current,
+  );
+  const [specialModePresets, setSpecialModePresets] = useState<BrowserSpecialModesPreset[]>(
+    () => loadStoredSpecialModesPresets(),
+  );
+  const [isMobileSavePresetOpen, setIsMobileSavePresetOpen] = useState(false);
+  const [mobilePresetName, setMobilePresetName] = useState("");
   const [mobileControlProfile, setMobileControlProfile] = useState<BrowserMobileControlProfile>(
     () => loadStoredMobileControlsSettings().profile,
   );
@@ -687,6 +722,27 @@ export function PlayerApp({
   const currentSeriesRuleset = currentSeries?.ruleset ?? null;
   const currentManualMsStepping = MS_MANUAL_STEP_STEPPING[manualMsStepParity];
   const currentLevelExists = currentLevel !== null;
+  const usesModernGameUi = chromeMode === "modern" || chromeMode === "modern-embedded" || chromeMode === "mobile";
+  const viewportSettings = viewportSettingsProp ?? viewportSettingsState;
+  const specialModesSettings = specialModesSettingsProp ?? specialModesSettingsState;
+  const specialModesConfiguration = {
+    viewport: usesModernGameUi ? viewportSettings : createDefaultBrowserViewportSettings(),
+    specialModes: usesModernGameUi
+      ? specialModesSettings
+      : createDefaultBrowserSpecialModesSettings(() => 0),
+  };
+  const specialModeActive = isSpecialModesConfigurationActive(specialModesConfiguration);
+  const specialModeFingerprint = specialModesConfigurationFingerprint(specialModesConfiguration);
+  const sessionStartOptions = toUndoSessionStartOptions(undoSettings);
+  undoStartOptionsRef.current = specialModeActive
+    ? {
+        ...sessionStartOptions,
+        undoSettings: {
+          ...sessionStartOptions.undoSettings,
+          enabled: false,
+        },
+      }
+    : sessionStartOptions;
   const {
     session,
     isSessionLoading,
@@ -716,7 +772,7 @@ export function PlayerApp({
     levelSeedOverridesRef,
     undoStartOptionsRef,
     isPaused,
-    enableRewindAndResume: undoSettings.enableRewindAndResume,
+    enableRewindAndResume: specialModeActive ? false : undoSettings.enableRewindAndResume,
     prepareForSessionTransition,
     clearGameplayInputs,
     setIsRunning,
@@ -725,9 +781,18 @@ export function PlayerApp({
     setMessage,
     syncSoundForSession,
   });
+  const specialModesRuntime = useSpecialModesRuntime({
+    enabled: specialModesSettings.transform.enabled && usesModernGameUi,
+    isActiveGameplay: mode === "game" && isRunning && !isPaused && manualRunStarted && !showHelp,
+    liveSessionRef,
+    settings: specialModesSettings.transform,
+  });
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
   const currentRulesetDisplayLabel = formatPlayerRulesetLabel(currentRuleset, rulesetLabel);
-  const replaysSupported = currentRuleset !== null && interactiveEngineSupportsReplay(currentRuleset, engines);
+  const replaysSupported =
+    !specialModeActive &&
+    currentRuleset !== null &&
+    interactiveEngineSupportsReplay(currentRuleset, engines);
   const replayRuleset = replaysSupported ? currentRuleset : null;
   const showManualMsStepToggle =
     currentSeriesRuleset === "MS" &&
@@ -770,8 +835,8 @@ export function PlayerApp({
     [catalog, currentSelection],
   );
   const progressByKey = useMemo(
-    () => buildLevelProgressIndex(levelProgressSummaries),
-    [levelProgressSummaries],
+    () => buildLevelProgressIndex(levelProgressSummaries, specialModeFingerprint),
+    [levelProgressSummaries, specialModeFingerprint],
   );
   const currentFamily = findSetFamilyForSelection(curatedCatalogView, currentSelection);
   const currentFamilyRuleset = currentFamily ? resolveSetFamilyRuleset(currentFamily, currentSelection) : null;
@@ -780,7 +845,10 @@ export function PlayerApp({
     currentFamily && currentFamilyRuleset ? currentFamily.launchEntries[currentFamilyRuleset] ?? null : currentSeries;
   const currentFamilyProgress = currentFamilyEntry ? summarizeEntryProgress(currentFamilyEntry, progressByKey) : null;
   const currentResolvedLevelProgressSummary =
-    knownLevelProgressSummary ?? resolveLevelProgressSummary(currentLevel, currentPreferredRuleset, progressByKey);
+    knownLevelProgressSummary &&
+    (knownLevelProgressSummary.modeFingerprint ?? null) === specialModeFingerprint
+      ? knownLevelProgressSummary
+      : resolveLevelProgressSummary(currentLevel, currentPreferredRuleset, progressByKey);
   const mobileVisibleFamilies = useMemo(
     () => listMobileLibraryFamilies(curatedCatalogView, mobileSetSection),
     [curatedCatalogView, mobileSetSection],
@@ -804,19 +872,17 @@ export function PlayerApp({
   const previousCoarseHistoryTick = session ? previousInteractiveGameSessionTickByCount(session, 4) : null;
   const previousHistoryCheckpointTick = session ? previousInteractiveGameSessionCheckpointTick(session) : null;
   const modernUndoTarget = session ? nextModernUndoTarget(session) : null;
-  const canUseModernUndo = Boolean(session?.history.enabled && modernUndoTarget !== null);
-  const canUndoToPreviousTick = Boolean(session?.history.enabled && previousHistoryTick !== null);
+  const canUseModernUndo = Boolean(!specialModeActive && session?.history.enabled && modernUndoTarget !== null);
+  const canUndoToPreviousTick = Boolean(!specialModeActive && session?.history.enabled && previousHistoryTick !== null);
   const canUndoToPreviousCheckpoint = Boolean(
-    session?.history.enabled && previousHistoryCheckpointTick !== null,
+    !specialModeActive && session?.history.enabled && previousHistoryCheckpointTick !== null,
   );
   const canResumeOriginalTimeline = canResumeInteractiveHistoryTimeline(
     session,
-    undoSettings.enableRewindAndResume,
+    specialModeActive ? false : undoSettings.enableRewindAndResume,
   );
   const isMobileChrome = chromeMode === "mobile";
   const isModernChrome = chromeMode === "modern" || chromeMode === "modern-embedded";
-  const usesModernGameUi = isModernChrome || isMobileChrome;
-  const viewportSettings = viewportSettingsProp ?? viewportSettingsState;
   const viewportTileCount = usesModernGameUi
     ? viewportTileCountForSettings(viewportSettings)
     : LEGACY_MAP_TILES;
@@ -1052,6 +1118,29 @@ export function PlayerApp({
   const applyViewportSettings = useEffectEvent((settings: BrowserViewportSettings) => {
     saveStoredViewportSettings(settings);
     setViewportSettingsState(settings);
+    if (mode === "game") {
+      setReplayLaunchRequest(null);
+      setReloadToken((current) => current + 1);
+    }
+  });
+
+  const applySpecialModesSettings = useEffectEvent((settings: BrowserSpecialModesSettings) => {
+    saveStoredSpecialModesSettings(settings);
+    setSpecialModesSettingsState(settings);
+    if (mode === "game") {
+      setReplayLaunchRequest(null);
+      setReloadToken((current) => current + 1);
+    }
+  });
+
+  const saveMobileSpecialModesPreset = useEffectEvent((name: string) => {
+    const preset = createSpecialModesPreset(name, {
+      viewport: viewportSettings,
+      specialModes: specialModesSettings,
+    });
+    const nextPresets = [preset, ...specialModePresets.filter((entry) => entry.name.toLocaleLowerCase() !== preset.name.toLocaleLowerCase())];
+    setSpecialModePresets(nextPresets);
+    saveStoredSpecialModesPresets(nextPresets);
   });
 
   useEffect(() => {
@@ -1132,9 +1221,18 @@ export function PlayerApp({
   }, [isMobileChrome, mode]);
 
   useEffect(() => {
-    undoStartOptionsRef.current = toUndoSessionStartOptions(undoSettings);
+    const nextOptions = toUndoSessionStartOptions(undoSettings);
+    undoStartOptionsRef.current = specialModeActive
+      ? {
+          ...nextOptions,
+          undoSettings: {
+            ...nextOptions.undoSettings,
+            enabled: false,
+          },
+        }
+      : nextOptions;
     saveStoredUndoSettings(undoSettings);
-  }, [undoSettings]);
+  }, [specialModeActive, undoSettings]);
 
   useEffect(() => {
     currentSelectionRef.current =
@@ -1172,6 +1270,8 @@ export function PlayerApp({
       },
       session,
       sessionStartedFromReplay: sessionStartedFromReplayRef.current,
+      modeFingerprint: specialModeFingerprint,
+      scoresDisabled: specialModeActive,
     });
     if (!progressSummary || !session || !session.run.result) {
       return;
@@ -1180,6 +1280,7 @@ export function PlayerApp({
     const result = session.run.result;
 
     if (
+      !specialModeActive &&
       session.run.replayAvailable &&
       shouldAutoSaveWinningHighScoreReplay({
         enabled: autoSaveWinningHighScoreReplays,
@@ -1198,6 +1299,8 @@ export function PlayerApp({
     profileStore,
     currentLevel,
     session,
+    specialModeActive,
+    specialModeFingerprint,
   ]);
 
   const dismissMessage = useEffectEvent(() => {
@@ -1733,6 +1836,10 @@ export function PlayerApp({
     unlockSound: () => {
       soundPlayerRef.current?.unlock();
     },
+    gameplayRateRef: specialModesRuntime.gameplayRateRef,
+    inputOrientation: specialModesRuntime.inputOrientation,
+    inputOrientationEpoch: specialModesRuntime.inputOrientationEpoch,
+    undoDisabled: specialModeActive,
   });
   resetGameplayInputBuffersRef.current = resetGameplayInputBuffers;
   stopHeldUndoRef.current = stopHeldUndo;
@@ -1976,7 +2083,7 @@ export function PlayerApp({
             </>
           ) : null}
 
-          {runResultScore ? (
+          {runResultScore && !specialModeActive ? (
             <section aria-label="Score calculation" className="modern-result-sheet__score">
               <p className="modern-result-sheet__score-title">Score</p>
               <div className="modern-result-sheet__score-equation">
@@ -2018,6 +2125,10 @@ export function PlayerApp({
                 </div>
               </div>
             </section>
+          ) : specialModeActive ? (
+            <p className="modern-result-sheet__notice">
+              Special Modes progress saved. Scores and replays are disabled for this configuration.
+            </p>
           ) : null}
 
           <section className="modern-result-sheet__panel modern-result-sheet__panel--summary">
@@ -2148,6 +2259,54 @@ export function PlayerApp({
             </button>
           </div>
         </div>
+      </div>
+    ) : null;
+
+  const mobileSavePresetModal =
+    isMobileChrome && isMobileSavePresetOpen ? (
+      <div
+        aria-hidden="true"
+        className="modern-message-modal"
+        onClick={() => setIsMobileSavePresetOpen(false)}
+      >
+        <form
+          aria-labelledby="mobile-special-modes-save-title"
+          aria-modal="true"
+          className="modern-message-modal__dialog"
+          onClick={(event) => event.stopPropagation()}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!mobilePresetName.trim()) return;
+            saveMobileSpecialModesPreset(mobilePresetName);
+            setIsMobileSavePresetOpen(false);
+            setMobilePresetName("");
+          }}
+          role="dialog"
+        >
+          <div className="modern-message-modal__header">
+            <div>
+              <p className="modern-section__eyebrow">Special Modes</p>
+              <h2 className="modern-dashboard__panel-title" id="mobile-special-modes-save-title">Save configuration</h2>
+            </div>
+          </div>
+          <div className="modern-message-modal__body">
+            <label className="mobile-sheet__field">
+              <span>Configuration name</span>
+              <input
+                autoFocus
+                className="modern-settings-modal__text-input"
+                maxLength={60}
+                onChange={(event) => setMobilePresetName(event.currentTarget.value)}
+                type="text"
+                value={mobilePresetName}
+              />
+            </label>
+          </div>
+          <div className="modern-message-modal__actions">
+            <button className="modern-button modern-button--secondary" onClick={() => setIsMobileSavePresetOpen(false)} type="button">Cancel</button>
+            <button className="modern-button" disabled={!mobilePresetName.trim()} type="submit">Save</button>
+          </div>
+        </form>
       </div>
     ) : null;
 
@@ -2671,9 +2830,9 @@ export function PlayerApp({
 
             <section className="modern-settings-modal__section mobile-sheet__section">
               <div className="mobile-sheet__section-header">
-                <p className="modern-section__eyebrow">Viewport</p>
+                <p className="modern-section__eyebrow">Special Modes</p>
                 <p className="mobile-sheet__section-copy">
-                  Keep the board frame fixed while showing more or fewer tiles around Chip.
+                  Each configuration has separate progress. Scores, replays, and undo are disabled while any option here is active.
                 </p>
               </div>
               <div className="mobile-sheet__settings">
@@ -2722,6 +2881,277 @@ export function PlayerApp({
                   ? "Current view: entire 32×32 board."
                   : `Current view: ${viewportTileCount}×${viewportTileCount} tiles.`}
               </p>
+              <div className="mobile-sheet__settings-fields">
+                <label className="mobile-sheet__field">
+                  <span>Visibility</span>
+                  <select
+                    className="modern-history-dock__select"
+                    onChange={(event) => {
+                      applySpecialModesSettings({
+                        ...specialModesSettings,
+                        visibility: {
+                          ...specialModesSettings.visibility,
+                          mode: event.currentTarget.value as BrowserSpecialModesSettings["visibility"]["mode"],
+                        },
+                      });
+                    }}
+                    value={specialModesSettings.visibility.mode}
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="flashlight">Flashlight</option>
+                    <option value="flashlight-fog">Flashlight fog</option>
+                    <option value="lantern">Lantern</option>
+                    <option value="lantern-fog">Lantern fog</option>
+                  </select>
+                </label>
+                {specialModesSettings.visibility.mode === "lantern" || specialModesSettings.visibility.mode === "lantern-fog" ? (
+                  <label className="mobile-sheet__field">
+                    <span>Lantern radius</span>
+                    <input
+                      className="modern-settings-modal__number-input"
+                      max={MAX_LANTERN_RADIUS}
+                      min={MIN_LANTERN_RADIUS}
+                      onChange={(event) => {
+                        const lanternRadius = Number(event.currentTarget.value);
+                        if (Number.isInteger(lanternRadius) && lanternRadius >= MIN_LANTERN_RADIUS && lanternRadius <= MAX_LANTERN_RADIUS) {
+                          applySpecialModesSettings({
+                            ...specialModesSettings,
+                            visibility: { ...specialModesSettings.visibility, lanternRadius },
+                          });
+                        }
+                      }}
+                      type="number"
+                      value={specialModesSettings.visibility.lanternRadius}
+                    />
+                  </label>
+                ) : null}
+              </div>
+
+              <div className="mobile-sheet__settings">
+                <label className="mobile-sheet__checkbox">
+                  <input
+                    checked={specialModesSettings.monsterMadness.enabled}
+                    onChange={(event) => {
+                      applySpecialModesSettings({
+                        ...specialModesSettings,
+                        monsterMadness: { ...specialModesSettings.monsterMadness, enabled: event.currentTarget.checked },
+                      });
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Monster Madness</span>
+                </label>
+                {specialModesSettings.monsterMadness.enabled ? (
+                  <>
+                    <label className="mobile-sheet__checkbox">
+                      <input
+                        checked={specialModesSettings.monsterMadness.includePlayer}
+                        onChange={(event) => {
+                          applySpecialModesSettings({
+                            ...specialModesSettings,
+                            monsterMadness: { ...specialModesSettings.monsterMadness, includePlayer: event.currentTarget.checked },
+                          });
+                        }}
+                        type="checkbox"
+                      />
+                      <span>Include Player?</span>
+                    </label>
+                    <label className="mobile-sheet__field">
+                      <span>Artwork seed</span>
+                      <input
+                        className="modern-settings-modal__seed-input"
+                        max={SPECIAL_MODE_SEED_MAX}
+                        min="0"
+                        onChange={(event) => {
+                          const seed = Number(event.currentTarget.value);
+                          if (Number.isInteger(seed) && seed >= 0 && seed <= SPECIAL_MODE_SEED_MAX) {
+                            applySpecialModesSettings({
+                              ...specialModesSettings,
+                              monsterMadness: { ...specialModesSettings.monsterMadness, seed },
+                            });
+                          }
+                        }}
+                        type="number"
+                        value={specialModesSettings.monsterMadness.seed}
+                      />
+                    </label>
+                    <button
+                      className="modern-button modern-button--secondary"
+                      onClick={() => applySpecialModesSettings({
+                        ...specialModesSettings,
+                        monsterMadness: { ...specialModesSettings.monsterMadness, seed: createRandomSpecialModeSeed() },
+                      })}
+                      type="button"
+                    >
+                      Randomize artwork
+                    </button>
+                  </>
+                ) : null}
+              </div>
+
+              <div className="mobile-sheet__settings">
+                <label className="mobile-sheet__checkbox">
+                  <input
+                    checked={specialModesSettings.transform.enabled}
+                    onChange={(event) => {
+                      applySpecialModesSettings({
+                        ...specialModesSettings,
+                        transform: { ...specialModesSettings.transform, enabled: event.currentTarget.checked },
+                      });
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Transform every N seconds</span>
+                </label>
+                {specialModesSettings.transform.enabled ? (
+                  <div className="mobile-sheet__settings-fields">
+                    <label className="mobile-sheet__field">
+                      <span>Interval</span>
+                      <input
+                        className="modern-settings-modal__number-input"
+                        max={MAX_TRANSFORM_INTERVAL_SECONDS}
+                        min={MIN_TRANSFORM_INTERVAL_SECONDS}
+                        onChange={(event) => {
+                          const intervalSeconds = Number(event.currentTarget.value);
+                          if (Number.isInteger(intervalSeconds) && intervalSeconds >= MIN_TRANSFORM_INTERVAL_SECONDS && intervalSeconds <= MAX_TRANSFORM_INTERVAL_SECONDS) {
+                            applySpecialModesSettings({
+                              ...specialModesSettings,
+                              transform: { ...specialModesSettings.transform, intervalSeconds },
+                            });
+                          }
+                        }}
+                        type="number"
+                        value={specialModesSettings.transform.intervalSeconds}
+                      />
+                    </label>
+                    <label className="mobile-sheet__field">
+                      <span>Transition</span>
+                      <select
+                        className="modern-history-dock__select"
+                        onChange={(event) => applySpecialModesSettings({
+                          ...specialModesSettings,
+                          transform: {
+                            ...specialModesSettings.transform,
+                            transitionSpeed: event.currentTarget.value as BrowserSpecialModesSettings["transform"]["transitionSpeed"],
+                          },
+                        })}
+                        value={specialModesSettings.transform.transitionSpeed}
+                      >
+                        <option value="slow">Slow · 3s</option>
+                        <option value="medium">Medium · 2s</option>
+                        <option value="fast">Fast · 1s</option>
+                      </select>
+                    </label>
+                    <label className="mobile-sheet__field">
+                      <span>Transform</span>
+                      <select
+                        className="modern-history-dock__select"
+                        onChange={(event) => applySpecialModesSettings({
+                          ...specialModesSettings,
+                          transform: {
+                            ...specialModesSettings.transform,
+                            strategy: event.currentTarget.value as BrowserSpecialModesSettings["transform"]["strategy"],
+                          },
+                        })}
+                        value={specialModesSettings.transform.strategy}
+                      >
+                        <option value="random">Random</option>
+                        {DIHEDRAL_TRANSFORMS.map((transform) => <option key={transform} value={transform}>{transform.replaceAll("-", " ")}</option>)}
+                      </select>
+                    </label>
+                    <label className="mobile-sheet__field">
+                      <span>Transform seed</span>
+                      <input
+                        className="modern-settings-modal__seed-input"
+                        max={SPECIAL_MODE_SEED_MAX}
+                        min="0"
+                        onChange={(event) => {
+                          const seed = Number(event.currentTarget.value);
+                          if (Number.isInteger(seed) && seed >= 0 && seed <= SPECIAL_MODE_SEED_MAX) {
+                            applySpecialModesSettings({
+                              ...specialModesSettings,
+                              transform: { ...specialModesSettings.transform, seed },
+                            });
+                          }
+                        }}
+                        type="number"
+                        value={specialModesSettings.transform.seed}
+                      />
+                    </label>
+                    <button
+                      className="modern-button modern-button--secondary"
+                      onClick={() => applySpecialModesSettings({
+                        ...specialModesSettings,
+                        transform: { ...specialModesSettings.transform, seed: createRandomSpecialModeSeed() },
+                      })}
+                      type="button"
+                    >
+                      Randomize transforms
+                    </button>
+                    {specialModesSettings.transform.strategy === "random" ? DIHEDRAL_TRANSFORMS.map((transform) => {
+                      const checked = specialModesSettings.transform.allowedRandomTransforms.includes(transform);
+                      return (
+                        <label className="mobile-sheet__checkbox" key={transform}>
+                          <input
+                            checked={checked}
+                            disabled={checked && specialModesSettings.transform.allowedRandomTransforms.length === 1}
+                            onChange={(event) => applySpecialModesSettings({
+                              ...specialModesSettings,
+                              transform: {
+                                ...specialModesSettings.transform,
+                                allowedRandomTransforms: event.currentTarget.checked
+                                  ? [...specialModesSettings.transform.allowedRandomTransforms, transform]
+                                  : specialModesSettings.transform.allowedRandomTransforms.filter((entry) => entry !== transform),
+                              },
+                            })}
+                            type="checkbox"
+                          />
+                          <span>{transform.replaceAll("-", " ")}</span>
+                        </label>
+                      );
+                    }) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mobile-sheet__button-grid">
+                <button
+                  className="modern-button modern-button--secondary"
+                  onClick={() => {
+                    setMobilePresetName("");
+                    setIsMobileSavePresetOpen(true);
+                  }}
+                  type="button"
+                >
+                  Save configuration
+                </button>
+              </div>
+              {specialModePresets.map((preset) => (
+                <div className="mobile-sheet__preset-row" key={preset.id}>
+                  <strong>{preset.name}</strong>
+                  <button
+                    className="modern-button modern-button--secondary"
+                    onClick={() => {
+                      applyViewportSettings(preset.configuration.viewport);
+                      applySpecialModesSettings(preset.configuration.specialModes);
+                    }}
+                    type="button"
+                  >
+                    Load
+                  </button>
+                  <button
+                    className="modern-button modern-button--secondary"
+                    onClick={() => {
+                      const nextPresets = specialModePresets.filter((entry) => entry.id !== preset.id);
+                      setSpecialModePresets(nextPresets);
+                      saveStoredSpecialModesPresets(nextPresets);
+                    }}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
             </section>
 
             <section className="modern-settings-modal__section mobile-sheet__section">
@@ -3531,11 +3961,18 @@ export function PlayerApp({
                 presentation="map-only"
                 selectedSeriesFile={selectedSeriesFile}
                 session={session}
+                specialModesRuntimeRef={specialModesRuntime.runtimeRef}
+                specialModesSettings={specialModesSettings}
                 debugModeEnabled={debugModeEnabled}
                 visualEnhancementsEnabled={visualEnhancementsEnabled}
                 viewportTileCount={viewportTileCount}
               />
             )}
+            {!isPaused && specialModesSettings.transform.enabled && specialModesRuntime.runtimeRef.current.warningSeconds ? (
+              <div className="special-modes-transform-warning" role="status">
+                Transform in {specialModesRuntime.runtimeRef.current.warningSeconds}
+              </div>
+            ) : null}
             {!isPaused && modernHintOverlayText ? (
               <div className="modern-game-board__hint-overlay" role="status" aria-live="polite">
                 <p className="modern-game-board__hint-overlay-copy">{modernHintOverlayText}</p>
@@ -3636,12 +4073,19 @@ export function PlayerApp({
                   renderTileSize={mobileRenderTileSize}
                   selectedSeriesFile={selectedSeriesFile}
                   session={session}
+                  specialModesRuntimeRef={specialModesRuntime.runtimeRef}
+                  specialModesSettings={specialModesSettings}
                   debugModeEnabled={debugModeEnabled}
                   visualEnhancementsEnabled={visualEnhancementsEnabled}
                   viewportTileCount={viewportTileCount}
                 />
               </div>
             )}
+            {!isPaused && specialModesSettings.transform.enabled && specialModesRuntime.runtimeRef.current.warningSeconds ? (
+              <div className="special-modes-transform-warning" role="status">
+                Transform in {specialModesRuntime.runtimeRef.current.warningSeconds}
+              </div>
+            ) : null}
             {!isPaused && modernHintOverlayText ? (
               <div className="modern-game-board__hint-overlay" role="status" aria-live="polite">
                 <p className="modern-game-board__hint-overlay-copy">{modernHintOverlayText}</p>
@@ -3654,6 +4098,7 @@ export function PlayerApp({
         {renderMobileSecondaryMargin()}
 
         {modernMessageModal}
+        {mobileSavePresetModal}
         {manageReplaysModal}
         {mobileSetSelectorSheet}
         {mobileLevelSelectorSheet}

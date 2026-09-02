@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { buildAppHref } from "@player-web/impl/appPaths";
 import { PLAYER_BINDABLE_KEYS, type BrowserPlayerKeyBindingsSettings, type PlayerBindableKey } from "@player-web/impl/playerKeyBindingsSettings";
 import {
@@ -8,6 +9,28 @@ import {
 } from "@player-web/impl/viewportSettings";
 import type { SetFamily } from "@player-web/impl/modern/curatedCatalog";
 import type { BrowserProfilePreferences, BrowserPreferredRuleset } from "@player-web/ports/BrowserProfileStore";
+import {
+  DIHEDRAL_TRANSFORMS,
+  MAX_LANTERN_RADIUS,
+  MAX_TRANSFORM_INTERVAL_SECONDS,
+  MIN_LANTERN_RADIUS,
+  MIN_TRANSFORM_INTERVAL_SECONDS,
+  SPECIAL_MODE_SEED_MAX,
+  createRandomSpecialModeSeed,
+  type BrowserSpecialModesPreset,
+  type BrowserSpecialModesSettings,
+  type DihedralTransform,
+} from "@player-web/impl/specialModesSettings";
+
+const DIHEDRAL_LABELS: Readonly<Record<DihedralTransform, string>> = {
+  "rotate-90": "Rotate 90°",
+  "rotate-180": "Rotate 180°",
+  "rotate-270": "Rotate 270°",
+  "flip-horizontal": "Flip horizontal",
+  "flip-vertical": "Flip vertical",
+  "flip-rising-diagonal": "Flip rising diagonal",
+  "flip-falling-diagonal": "Flip falling diagonal",
+};
 
 const ABOUT_LINKS = {
   browserPortRepo: "https://github.com/joshua-bone/tworld",
@@ -210,6 +233,12 @@ export function ModernDashboardSettingsModal({
   preferences,
   visualEnhancementsEnabled,
   viewportSettings,
+  specialModesSettings,
+  specialModePresets,
+  onSpecialModesSettingsChange,
+  onSaveSpecialModesPreset,
+  onLoadSpecialModesPreset,
+  onDeleteSpecialModesPreset,
 }: {
   isProfileTransferBusy: boolean;
   onClose: () => void;
@@ -227,8 +256,16 @@ export function ModernDashboardSettingsModal({
   preferences: BrowserProfilePreferences;
   visualEnhancementsEnabled: boolean;
   viewportSettings: BrowserViewportSettings;
+  specialModesSettings: BrowserSpecialModesSettings;
+  specialModePresets: BrowserSpecialModesPreset[];
+  onSpecialModesSettingsChange: (settings: BrowserSpecialModesSettings) => void;
+  onSaveSpecialModesPreset: (name: string) => void;
+  onLoadSpecialModesPreset: (preset: BrowserSpecialModesPreset) => void;
+  onDeleteSpecialModesPreset: (id: string) => void;
 }) {
   const viewportTileCount = viewportTileCountForSettings(viewportSettings);
+  const [isSavePresetOpen, setIsSavePresetOpen] = useState(false);
+  const [presetName, setPresetName] = useState("");
 
   return (
     <div
@@ -280,6 +317,11 @@ export function ModernDashboardSettingsModal({
           </label>
 
           <section className="modern-about-modal__section modern-settings-modal__section">
+            <p className="modern-preference-block__label">Special Modes</p>
+            <p className="modern-dashboard__copy">
+              Special Modes use separate progress for every configuration and disable scores, replays, and undo.
+              Changing a configuration restarts the current level.
+            </p>
             <label className="modern-settings-modal__option">
               <input
                 checked={viewportSettings.enabled}
@@ -323,6 +365,295 @@ export function ModernDashboardSettingsModal({
                 ? "Current view: entire 32×32 board."
                 : `Current view: ${viewportTileCount}×${viewportTileCount} tiles.`}
             </p>
+
+            <label className="modern-settings-modal__field">
+              <span>Visibility</span>
+              <select
+                className="modern-history-dock__select"
+                onChange={(event) => {
+                  onSpecialModesSettingsChange({
+                    ...specialModesSettings,
+                    visibility: {
+                      ...specialModesSettings.visibility,
+                      mode: event.currentTarget.value as BrowserSpecialModesSettings["visibility"]["mode"],
+                    },
+                  });
+                }}
+                value={specialModesSettings.visibility.mode}
+              >
+                <option value="normal">Normal</option>
+                <option value="flashlight">Flashlight</option>
+                <option value="flashlight-fog">Flashlight fog</option>
+                <option value="lantern">Lantern</option>
+                <option value="lantern-fog">Lantern fog</option>
+              </select>
+            </label>
+            {specialModesSettings.visibility.mode === "lantern" || specialModesSettings.visibility.mode === "lantern-fog" ? (
+              <label className="modern-settings-modal__field">
+                <span>Lantern radius</span>
+                <input
+                  className="modern-settings-modal__number-input"
+                  max={MAX_LANTERN_RADIUS}
+                  min={MIN_LANTERN_RADIUS}
+                  onChange={(event) => {
+                    const lanternRadius = Number(event.currentTarget.value);
+                    if (Number.isInteger(lanternRadius) && lanternRadius >= MIN_LANTERN_RADIUS && lanternRadius <= MAX_LANTERN_RADIUS) {
+                      onSpecialModesSettingsChange({
+                        ...specialModesSettings,
+                        visibility: { ...specialModesSettings.visibility, lanternRadius },
+                      });
+                    }
+                  }}
+                  type="number"
+                  value={specialModesSettings.visibility.lanternRadius}
+                />
+              </label>
+            ) : null}
+
+            <label className="modern-settings-modal__option">
+              <input
+                checked={specialModesSettings.monsterMadness.enabled}
+                onChange={(event) => {
+                  onSpecialModesSettingsChange({
+                    ...specialModesSettings,
+                    monsterMadness: {
+                      ...specialModesSettings.monsterMadness,
+                      enabled: event.currentTarget.checked,
+                    },
+                  });
+                }}
+                type="checkbox"
+              />
+              <div>
+                <strong>Monster Madness</strong>
+                <p className="modern-dashboard__copy">Shuffle complete monster animation families with a seeded derangement.</p>
+              </div>
+            </label>
+            {specialModesSettings.monsterMadness.enabled ? (
+              <div className="modern-settings-modal__actions modern-settings-modal__actions--wrap">
+                <label className="modern-settings-modal__option">
+                  <input
+                    checked={specialModesSettings.monsterMadness.includePlayer}
+                    onChange={(event) => {
+                      onSpecialModesSettingsChange({
+                        ...specialModesSettings,
+                        monsterMadness: {
+                          ...specialModesSettings.monsterMadness,
+                          includePlayer: event.currentTarget.checked,
+                        },
+                      });
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Include Player?</span>
+                </label>
+                <label className="modern-settings-modal__field">
+                  <span>Artwork seed</span>
+                  <input
+                    className="modern-settings-modal__seed-input"
+                    max={SPECIAL_MODE_SEED_MAX}
+                    min="0"
+                    onChange={(event) => {
+                      const seed = Number(event.currentTarget.value);
+                      if (Number.isInteger(seed) && seed >= 0 && seed <= SPECIAL_MODE_SEED_MAX) {
+                        onSpecialModesSettingsChange({
+                          ...specialModesSettings,
+                          monsterMadness: { ...specialModesSettings.monsterMadness, seed },
+                        });
+                      }
+                    }}
+                    type="number"
+                    value={specialModesSettings.monsterMadness.seed}
+                  />
+                </label>
+                <button
+                  className="modern-button modern-button--secondary"
+                  onClick={() => {
+                    onSpecialModesSettingsChange({
+                      ...specialModesSettings,
+                      monsterMadness: {
+                        ...specialModesSettings.monsterMadness,
+                        seed: createRandomSpecialModeSeed(),
+                      },
+                    });
+                  }}
+                  type="button"
+                >
+                  Randomize seed
+                </button>
+              </div>
+            ) : null}
+
+            <label className="modern-settings-modal__option">
+              <input
+                checked={specialModesSettings.transform.enabled}
+                onChange={(event) => {
+                  onSpecialModesSettingsChange({
+                    ...specialModesSettings,
+                    transform: { ...specialModesSettings.transform, enabled: event.currentTarget.checked },
+                  });
+                }}
+                type="checkbox"
+              />
+              <div>
+                <strong>Transform every N seconds</strong>
+                <p className="modern-dashboard__copy">
+                  Shake at 3, 2, and 1 seconds, slow to a stop, transform the entire viewport, then speed back up.
+                </p>
+              </div>
+            </label>
+            {specialModesSettings.transform.enabled ? (
+              <div className="modern-settings-modal__special-grid">
+                <label className="modern-settings-modal__field">
+                  <span>Interval (seconds)</span>
+                  <input
+                    className="modern-settings-modal__number-input"
+                    max={MAX_TRANSFORM_INTERVAL_SECONDS}
+                    min={MIN_TRANSFORM_INTERVAL_SECONDS}
+                    onChange={(event) => {
+                      const intervalSeconds = Number(event.currentTarget.value);
+                      if (Number.isInteger(intervalSeconds) && intervalSeconds >= MIN_TRANSFORM_INTERVAL_SECONDS && intervalSeconds <= MAX_TRANSFORM_INTERVAL_SECONDS) {
+                        onSpecialModesSettingsChange({
+                          ...specialModesSettings,
+                          transform: { ...specialModesSettings.transform, intervalSeconds },
+                        });
+                      }
+                    }}
+                    type="number"
+                    value={specialModesSettings.transform.intervalSeconds}
+                  />
+                </label>
+                <label className="modern-settings-modal__field">
+                  <span>Transition speed</span>
+                  <select
+                    className="modern-history-dock__select"
+                    onChange={(event) => {
+                      onSpecialModesSettingsChange({
+                        ...specialModesSettings,
+                        transform: {
+                          ...specialModesSettings.transform,
+                          transitionSpeed: event.currentTarget.value as BrowserSpecialModesSettings["transform"]["transitionSpeed"],
+                        },
+                      });
+                    }}
+                    value={specialModesSettings.transform.transitionSpeed}
+                  >
+                    <option value="slow">Slow · 3 seconds</option>
+                    <option value="medium">Medium · 2 seconds</option>
+                    <option value="fast">Fast · 1 second</option>
+                  </select>
+                </label>
+                <label className="modern-settings-modal__field">
+                  <span>Transform</span>
+                  <select
+                    className="modern-history-dock__select"
+                    onChange={(event) => {
+                      onSpecialModesSettingsChange({
+                        ...specialModesSettings,
+                        transform: {
+                          ...specialModesSettings.transform,
+                          strategy: event.currentTarget.value as BrowserSpecialModesSettings["transform"]["strategy"],
+                        },
+                      });
+                    }}
+                    value={specialModesSettings.transform.strategy}
+                  >
+                    <option value="random">Random</option>
+                    {DIHEDRAL_TRANSFORMS.map((transform) => (
+                      <option key={transform} value={transform}>{DIHEDRAL_LABELS[transform]}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="modern-settings-modal__field">
+                  <span>Transform seed</span>
+                  <span className="modern-settings-modal__inline-field">
+                    <input
+                      className="modern-settings-modal__seed-input"
+                      max={SPECIAL_MODE_SEED_MAX}
+                      min="0"
+                      onChange={(event) => {
+                        const seed = Number(event.currentTarget.value);
+                        if (Number.isInteger(seed) && seed >= 0 && seed <= SPECIAL_MODE_SEED_MAX) {
+                          onSpecialModesSettingsChange({
+                            ...specialModesSettings,
+                            transform: { ...specialModesSettings.transform, seed },
+                          });
+                        }
+                      }}
+                      type="number"
+                      value={specialModesSettings.transform.seed}
+                    />
+                    <button
+                      className="modern-button modern-button--secondary"
+                      onClick={() => {
+                        onSpecialModesSettingsChange({
+                          ...specialModesSettings,
+                          transform: { ...specialModesSettings.transform, seed: createRandomSpecialModeSeed() },
+                        });
+                      }}
+                      type="button"
+                    >
+                      Randomize
+                    </button>
+                  </span>
+                </label>
+                {specialModesSettings.transform.strategy === "random" ? (
+                  <fieldset className="modern-settings-modal__transform-list">
+                    <legend>Allowed random transforms</legend>
+                    {DIHEDRAL_TRANSFORMS.map((transform) => {
+                      const checked = specialModesSettings.transform.allowedRandomTransforms.includes(transform);
+                      return (
+                        <label className="modern-settings-modal__compact-option" key={transform}>
+                          <input
+                            checked={checked}
+                            disabled={checked && specialModesSettings.transform.allowedRandomTransforms.length === 1}
+                            onChange={(event) => {
+                              const allowedRandomTransforms = event.currentTarget.checked
+                                ? [...specialModesSettings.transform.allowedRandomTransforms, transform]
+                                : specialModesSettings.transform.allowedRandomTransforms.filter((entry) => entry !== transform);
+                              onSpecialModesSettingsChange({
+                                ...specialModesSettings,
+                                transform: { ...specialModesSettings.transform, allowedRandomTransforms },
+                              });
+                            }}
+                            type="checkbox"
+                          />
+                          <span>{DIHEDRAL_LABELS[transform]}</span>
+                        </label>
+                      );
+                    })}
+                  </fieldset>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="modern-settings-modal__preset-actions">
+              <button
+                className="modern-button modern-button--secondary"
+                onClick={() => {
+                  setPresetName("");
+                  setIsSavePresetOpen(true);
+                }}
+                type="button"
+              >
+                Save configuration
+              </button>
+            </div>
+            {specialModePresets.length > 0 ? (
+              <div className="modern-settings-modal__preset-list">
+                {specialModePresets.map((preset) => (
+                  <div className="modern-settings-modal__preset-row" key={preset.id}>
+                    <strong>{preset.name}</strong>
+                    <div className="modern-settings-modal__actions">
+                      <button className="modern-button modern-button--secondary" onClick={() => onLoadSpecialModesPreset(preset)} type="button">Load</button>
+                      <button className="modern-button modern-button--secondary" onClick={() => onDeleteSpecialModesPreset(preset.id)} type="button">Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="modern-dashboard__copy">No saved Special Modes configurations yet.</p>
+            )}
           </section>
 
           <section className="modern-about-modal__section modern-settings-modal__section">
@@ -440,6 +771,56 @@ export function ModernDashboardSettingsModal({
           </section>
         </div>
       </div>
+      {isSavePresetOpen ? (
+        <div
+          aria-hidden="true"
+          className="modern-message-modal modern-settings-modal__save-preset-backdrop"
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsSavePresetOpen(false);
+          }}
+        >
+          <form
+            aria-labelledby="special-modes-save-title"
+            aria-modal="true"
+            className="modern-message-modal__dialog"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!presetName.trim()) return;
+              onSaveSpecialModesPreset(presetName);
+              setIsSavePresetOpen(false);
+              setPresetName("");
+            }}
+            role="dialog"
+          >
+            <div className="modern-message-modal__header">
+              <div>
+                <p className="modern-section__eyebrow">Special Modes</p>
+                <h2 className="modern-dashboard__panel-title" id="special-modes-save-title">Save configuration</h2>
+              </div>
+            </div>
+            <div className="modern-message-modal__body">
+              <label className="modern-settings-modal__field">
+                <span>Configuration name</span>
+                <input
+                  autoFocus
+                  className="modern-settings-modal__text-input"
+                  maxLength={60}
+                  onChange={(event) => setPresetName(event.currentTarget.value)}
+                  placeholder="e.g. Foggy Madness"
+                  type="text"
+                  value={presetName}
+                />
+              </label>
+            </div>
+            <div className="modern-message-modal__actions">
+              <button className="modern-button modern-button--secondary" onClick={() => setIsSavePresetOpen(false)} type="button">Cancel</button>
+              <button className="modern-button" disabled={!presetName.trim()} type="submit">Save</button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

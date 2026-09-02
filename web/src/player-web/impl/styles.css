@@ -672,6 +672,73 @@ body {
   gap: 10px;
 }
 
+.modern-settings-modal__actions--wrap {
+  align-items: end;
+}
+
+.modern-settings-modal__special-grid,
+.modern-settings-modal__preset-list {
+  display: grid;
+  gap: 12px;
+}
+
+.modern-settings-modal__inline-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modern-settings-modal__seed-input,
+.modern-settings-modal__text-input {
+  min-width: 0;
+  border: 1px solid rgba(243, 236, 221, 0.22);
+  background: rgba(13, 16, 20, 0.92);
+  color: #f3ecdd;
+  font: inherit;
+  padding: 8px 10px;
+}
+
+.modern-settings-modal__seed-input {
+  width: 170px;
+}
+
+.modern-settings-modal__transform-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid rgba(243, 236, 221, 0.14);
+  color: #cdc6b8;
+}
+
+.modern-settings-modal__compact-option {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.modern-settings-modal__preset-actions {
+  padding-top: 4px;
+}
+
+.modern-settings-modal__preset-row,
+.mobile-sheet__preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  border: 1px solid rgba(243, 236, 221, 0.12);
+  color: #f3ecdd;
+}
+
+.modern-settings-modal__save-preset-backdrop {
+  z-index: 2;
+}
+
 .modern-settings-modal__field {
   display: grid;
   gap: 6px;
@@ -2334,6 +2401,23 @@ body {
   gap: 8px;
   color: #cdc6b8;
   font-size: 0.86rem;
+}
+
+.special-modes-transform-warning {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 4;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border: 1px solid rgba(240, 177, 49, 0.65);
+  background: rgba(13, 16, 20, 0.88);
+  color: #f0b131;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 .mobile-game-shell {

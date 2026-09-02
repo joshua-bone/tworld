@@ -47,6 +47,8 @@ export function persistTerminalSessionProgress(params: {
   save: (summary: BrowserLevelProgressSummary) => void;
   session: InteractiveGameSession | null;
   sessionStartedFromReplay: boolean;
+  modeFingerprint?: string | null;
+  scoresDisabled?: boolean;
 }): BrowserLevelProgressSummary | null {
   const session = params.session;
   if (
@@ -75,6 +77,8 @@ export function persistTerminalSessionProgress(params: {
   const progressSummary: BrowserLevelProgressSummary = {
     ruleset: session.request.ruleset,
     gameplayHash: params.gameplayHash,
+    modeFingerprint: params.modeFingerprint ?? undefined,
+    scoresDisabled: params.scoresDisabled === true ? true : undefined,
     lastPlayedAtMs: params.nowMs,
     lastResult: result.outcome,
     bestResult: result.outcome,

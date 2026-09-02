@@ -43,6 +43,9 @@ import { GAME_INPUT_MODIFIER_MASKS } from "@game-core/api/command";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type { LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import type { PlayerBindableKey } from "@player-web/impl/playerKeyBindingsSettings";
+import type { DihedralOrientation } from "@player-web/impl/specialModesSettings";
+import { displayedDirectionToEngineDirection } from "@player-web/impl/specialModesTransform";
+import { MS_DIRECTION } from "@ruleset-ms/api/tiles";
 
 const LEGACY_FAST_TICK_MS = 25;
 const LEGACY_MAX_CATCH_UP_TICKS = 4;
@@ -74,6 +77,33 @@ function keyToInput(key: string): DirectionInput | null {
     default:
       return null;
   }
+}
+
+function directionInputCode(input: DirectionInput): number {
+  switch (input) {
+    case "north": return MS_DIRECTION.north;
+    case "west": return MS_DIRECTION.west;
+    case "south": return MS_DIRECTION.south;
+    case "east": return MS_DIRECTION.east;
+  }
+}
+
+function directionInputFromCode(direction: number): DirectionInput {
+  switch (direction) {
+    case MS_DIRECTION.west: return "west";
+    case MS_DIRECTION.south: return "south";
+    case MS_DIRECTION.east: return "east";
+    default: return "north";
+  }
+}
+
+export function mapDisplayedDirectionInput(
+  input: DirectionInput,
+  orientation: DihedralOrientation,
+): DirectionInput {
+  return directionInputFromCode(
+    displayedDirectionToEngineDirection(directionInputCode(input), orientation),
+  );
 }
 
 function isBrowserScrollKey(key: string): boolean {
@@ -144,6 +174,10 @@ interface UsePlayerAppInputControllerOptions {
   setShowAdvancedMenu: Dispatch<SetStateAction<boolean>>;
   focusGameplaySurface: () => void;
   unlockSound: () => void;
+  gameplayRateRef?: Readonly<MutableRefObject<number>>;
+  inputOrientation?: DihedralOrientation;
+  inputOrientationEpoch?: number;
+  undoDisabled?: boolean;
 }
 
 interface UsePlayerAppInputControllerResult {
@@ -212,17 +246,27 @@ export function usePlayerAppInputController({
   setShowAdvancedMenu,
   focusGameplaySurface,
   unlockSound,
+  gameplayRateRef,
+  inputOrientation = "identity",
+  inputOrientationEpoch = 0,
+  undoDisabled = false,
 }: UsePlayerAppInputControllerOptions): UsePlayerAppInputControllerResult {
   const action1ActiveRef = useRef(false);
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
   const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
   const hybridInputBufferRef = useRef(new HybridCcInputBuffer());
   const mobileDirectionalInputRef = useRef(new MobileDirectionalInputTracker());
+  const heldDisplayedDirectionsRef = useRef(new Set<DirectionInput>());
 
-  const resetGameplayInputBuffers = useEffectEvent(() => {
+  const resetEngineInputBuffers = useEffectEvent(() => {
     msInputBufferRef.current.reset();
     lynxInputBufferRef.current.reset();
     hybridInputBufferRef.current.reset();
+  });
+
+  const resetGameplayInputBuffers = useEffectEvent(() => {
+    heldDisplayedDirectionsRef.current.clear();
+    resetEngineInputBuffers();
   });
 
   const stopHeldUndo = useEffectEvent(() => {
@@ -250,12 +294,14 @@ export function usePlayerAppInputController({
       return;
     }
 
+    heldDisplayedDirectionsRef.current.add(input);
+    const mappedInput = mapDisplayedDirectionInput(input, inputOrientation);
     if (activeSession.request.ruleset === "Hybrid") {
-      hybridInputBufferRef.current.keyDown(input);
+      hybridInputBufferRef.current.keyDown(mappedInput);
     } else if (activeSession.request.ruleset === "Lynx") {
-      lynxInputBufferRef.current.keyDown(input);
+      lynxInputBufferRef.current.keyDown(mappedInput);
     } else {
-      msInputBufferRef.current.keyDown(input);
+      msInputBufferRef.current.keyDown(mappedInput);
     }
 
     if (activeSession.mode === "manual" && !manualRunStarted) {
@@ -273,14 +319,37 @@ export function usePlayerAppInputController({
       return;
     }
 
-    if (activeSession.request.ruleset === "Hybrid") {
-      hybridInputBufferRef.current.keyUp(input);
-    } else if (activeSession.request.ruleset === "Lynx") {
-      lynxInputBufferRef.current.keyUp(input);
-    } else {
-      msInputBufferRef.current.keyUp(input);
+    heldDisplayedDirectionsRef.current.delete(input);
+    resetEngineInputBuffers();
+    for (const heldInput of heldDisplayedDirectionsRef.current) {
+      const mappedInput = mapDisplayedDirectionInput(heldInput, inputOrientation);
+      if (activeSession.request.ruleset === "Hybrid") {
+        hybridInputBufferRef.current.keyDown(mappedInput);
+      } else if (activeSession.request.ruleset === "Lynx") {
+        lynxInputBufferRef.current.keyDown(mappedInput);
+      } else {
+        msInputBufferRef.current.keyDown(mappedInput);
+      }
     }
   });
+
+  useEffect(() => {
+    const activeSession = liveSessionRef.current;
+    if (!activeSession || mode !== "game") {
+      return;
+    }
+    resetEngineInputBuffers();
+    for (const heldInput of heldDisplayedDirectionsRef.current) {
+      const mappedInput = mapDisplayedDirectionInput(heldInput, inputOrientation);
+      if (activeSession.request.ruleset === "Hybrid") {
+        hybridInputBufferRef.current.keyDown(mappedInput);
+      } else if (activeSession.request.ruleset === "Lynx") {
+        lynxInputBufferRef.current.keyDown(mappedInput);
+      } else {
+        msInputBufferRef.current.keyDown(mappedInput);
+      }
+    }
+  }, [inputOrientation, inputOrientationEpoch, liveSessionRef, mode, resetEngineInputBuffers]);
 
   const applyMobileDirectionalInputChanges = useEffectEvent(
     (changes: { pressed: DirectionInput[]; released: DirectionInput[] }) => {
@@ -378,7 +447,8 @@ export function usePlayerAppInputController({
     };
 
     const syncClockElapsed = (now: number) => {
-      accumulatedMs += now - lastClockAtMs;
+      const gameplayRate = Math.max(0, Math.min(1, gameplayRateRef?.current ?? 1));
+      accumulatedMs += (now - lastClockAtMs) * gameplayRate;
       lastClockAtMs = now;
     };
 
@@ -473,7 +543,7 @@ export function usePlayerAppInputController({
   ]);
 
   useEffect(() => {
-    if (mode !== "game" || heldUndoMode === null || showHelp) {
+    if (mode !== "game" || heldUndoMode === null || showHelp || undoDisabled) {
       return;
     }
 
@@ -677,7 +747,7 @@ export function usePlayerAppInputController({
         return;
       }
 
-      if (usesModernGameUi && activeSession?.history.enabled && isUndoKey(event, undoKeyBinding)) {
+      if (!undoDisabled && usesModernGameUi && activeSession?.history.enabled && isUndoKey(event, undoKeyBinding)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -687,7 +757,7 @@ export function usePlayerAppInputController({
         return;
       }
 
-      if (!usesModernGameUi && activeSession?.history.enabled && isUndoCheckpointKey(event, undoKeyBinding)) {
+      if (!undoDisabled && !usesModernGameUi && activeSession?.history.enabled && isUndoCheckpointKey(event, undoKeyBinding)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -697,7 +767,7 @@ export function usePlayerAppInputController({
         return;
       }
 
-      if (!usesModernGameUi && activeSession?.history.enabled && isFineUndoKey(event, undoKeyBinding)) {
+      if (!undoDisabled && !usesModernGameUi && activeSession?.history.enabled && isFineUndoKey(event, undoKeyBinding)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -707,7 +777,7 @@ export function usePlayerAppInputController({
         return;
       }
 
-      if (!usesModernGameUi && activeSession?.history.enabled && isUndoKey(event, undoKeyBinding)) {
+      if (!undoDisabled && !usesModernGameUi && activeSession?.history.enabled && isUndoKey(event, undoKeyBinding)) {
         event.preventDefault();
         if (event.repeat) {
           return;
@@ -940,6 +1010,7 @@ export function usePlayerAppInputController({
     toggleHelp,
     toggleModernPause,
     undoKeyBinding,
+    undoDisabled,
     undoPreviousCheckpoint,
     undoPreviousTick,
     undoPreviousTickBurst,
