@@ -2,14 +2,16 @@ import { describe, expect, it } from "vitest";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
   FLASHLIGHT_DIRECTION_TRANSITION_MS,
+  LYNX_MONSTER_RIPPLE_EMISSION_INTERVAL_MS,
   MONSTER_RIPPLE_MAX_RADIUS_TILES,
   MONSTER_RIPPLE_PERIOD_MS,
-  MONSTER_RIPPLE_RING_COUNT,
+  MS_MONSTER_RIPPLE_EMISSION_INTERVAL_MS,
   advanceMonsterRippleEmissions,
   flashlightDirectionTransitionAngle,
   inverseTransformCanvasPoint,
   monsterRippleArtworkOpacity,
   monsterRippleExpansionOpacity,
+  monsterRippleEmissionIntervalMs,
   monsterRippleIntensity,
   monsterRippleMaximumRadiusTiles,
   monsterRipplesCanRenderOutsideDirectVisibility,
@@ -105,11 +107,19 @@ describe("specialModesRender", () => {
   it("keeps monster ripples local and slow", () => {
     expect(MONSTER_RIPPLE_PERIOD_MS).toBe(4_000);
     expect(MONSTER_RIPPLE_MAX_RADIUS_TILES).toBe(5);
-    expect(MONSTER_RIPPLE_RING_COUNT).toBe(12);
-    expect(MONSTER_RIPPLE_PERIOD_MS / MONSTER_RIPPLE_RING_COUNT).toBeCloseTo(333.33, 1);
     expect(monsterRippleMaximumRadiusTiles(3)).toBe(1.5);
     expect(monsterRippleMaximumRadiusTiles(9)).toBe(4.5);
     expect(monsterRippleMaximumRadiusTiles(32)).toBe(5);
+  });
+
+  it("emits Lynx ripples every twentieth of a second and MS ripples every tenth", () => {
+    expect(LYNX_MONSTER_RIPPLE_EMISSION_INTERVAL_MS).toBe(50);
+    expect(MS_MONSTER_RIPPLE_EMISSION_INTERVAL_MS).toBe(100);
+    expect(monsterRippleEmissionIntervalMs("Lynx")).toBe(50);
+    expect(monsterRippleEmissionIntervalMs("MS")).toBe(100);
+    const origin = [{ intensity: 1, x: 24, y: 48, z: 1 }];
+    expect(advanceMonsterRippleEmissions(null, origin, 1_000, 50).emissions).toHaveLength(80);
+    expect(advanceMonsterRippleEmissions(null, origin, 1_000, 100).emissions).toHaveLength(40);
   });
 
   it("fades monster ripples strongly as they expand", () => {
@@ -126,14 +136,14 @@ describe("specialModesRender", () => {
       x: 24,
       y: 48,
       z: 1,
-    }], 1_000);
+    }], 1_000, LYNX_MONSTER_RIPPLE_EMISSION_INTERVAL_MS);
     const originalPulse = initial.emissions[0]!;
     const advanced = advanceMonsterRippleEmissions(initial, [{
       intensity: 2,
       x: 120,
       y: 48,
       z: 1,
-    }], initial.nextEmissionAtMs + 1);
+    }], initial.nextEmissionAtMs + 1, LYNX_MONSTER_RIPPLE_EMISSION_INTERVAL_MS);
 
     expect(advanced.emissions).toContainEqual(originalPulse);
     expect(advanced.emissions.at(-1)).toMatchObject({
