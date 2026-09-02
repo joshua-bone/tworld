@@ -4,6 +4,7 @@ import {
   attenuatingSightCell,
   clearSightCell,
   computeSpecialModesLineOfSight,
+  computeSpecialModesLineOfSightProjection,
   opaqueSightCell,
   type SpecialModesSightCell,
 } from "@player-web/impl/specialModesVisibility";
@@ -66,5 +67,20 @@ describe("specialModesVisibility", () => {
     expect(visible[pos(1, 0, 3)]).toBe(1);
     expect(visible[pos(2, 0, 3)]).toBe(0);
     expect(visible[pos(2, 1, 3)]).toBe(1);
+  });
+
+  it("exposes a thin-wall edge on an otherwise hidden boundary cell", () => {
+    const cells = grid(1, 2, clearSightCell);
+    cells[pos(0, 0, 1)] = { transmission: 1, edgeMask: MS_DIRECTION.south };
+
+    const projection = computeSpecialModesLineOfSightProjection({
+      cells,
+      originPos: pos(0, 1, 1),
+      width: 1,
+      height: 2,
+    });
+
+    expect(projection.visibility[pos(0, 0, 1)]).toBe(0);
+    expect(projection.visibleEdgeMasks[pos(0, 0, 1)]).toBe(MS_DIRECTION.south);
   });
 });

@@ -3,6 +3,8 @@ import {
   LEGACY_TILE_SIZE,
 } from "@player-web/impl/legacySprites";
 import { resolveLegacyMapViewport } from "@player-web/impl/legacyCanvasMapRenderer";
+import { drawLegacySpriteImage } from "@player-web/impl/legacyCanvasShared";
+import { getOrCreateThinWallOverlaySprite } from "@player-web/impl/legacyCanvasTileset";
 import type { LegacyTileset, LegacyTileSprite } from "@player-web/impl/legacyTileset";
 import { legacyCreatureMovementOffset } from "@player-web/impl/legacyTileset";
 import {
@@ -25,7 +27,10 @@ import {
   transformDirection,
 } from "@player-web/impl/specialModesTransform";
 import type { SpecialModesRuntimeSnapshot } from "@player-web/impl/useSpecialModesRuntime";
-import { sessionSpecialModesLineOfSight } from "@player-web/impl/specialModesVisibility";
+import {
+  sessionSpecialModesLineOfSightProjection,
+  type SpecialModesLineOfSightProjection,
+} from "@player-web/impl/specialModesVisibility";
 import {
   isMsCreature,
   msCreatureDir,
@@ -39,7 +44,10 @@ const FOG_BRIGHTNESS_PERCENT = 25;
 const spotlightLayers = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
 const lineOfSightCache = new WeakMap<
   InteractiveGameSession,
-  { ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null; visibility: Float32Array }
+  {
+    ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null;
+    projection: SpecialModesLineOfSightProjection;
+  }
 >();
 const counterTransformedSprites = new WeakMap<
   HTMLCanvasElement,
@@ -95,6 +103,26 @@ const THIN_WALL_BY_DIRECTION = new Map<number, number>([
   [MS_DIRECTION.south, MS_TILE.Wall_South],
   [MS_DIRECTION.east, MS_TILE.Wall_East],
 ]);
+
+function thinWallDirectionMask(tileId: number): number {
+  if (tileId === MS_TILE.Wall_North) return MS_DIRECTION.north;
+  if (tileId === MS_TILE.Wall_West) return MS_DIRECTION.west;
+  if (tileId === MS_TILE.Wall_South) return MS_DIRECTION.south;
+  if (tileId === MS_TILE.Wall_East) return MS_DIRECTION.east;
+  if (tileId === MS_TILE.Wall_Southeast) return MS_DIRECTION.south | MS_DIRECTION.east;
+  return MS_DIRECTION.none;
+}
+
+export function visibleThinWallOverlayTileId(
+  tileId: number,
+  visibleEdgeMask: number,
+): number | null {
+  const visibleTileEdges = thinWallDirectionMask(tileId) & visibleEdgeMask;
+  if (visibleTileEdges === (MS_DIRECTION.south | MS_DIRECTION.east)) {
+    return MS_TILE.Wall_Southeast;
+  }
+  return THIN_WALL_BY_DIRECTION.get(visibleTileEdges) ?? null;
+}
 
 const ICE_CORNER_DIRECTIONS = new Map<number, readonly [number, number]>([
   [MS_TILE.IceWall_Northwest, [MS_DIRECTION.north, MS_DIRECTION.west]],
@@ -436,14 +464,46 @@ function drawFlashlightComposite(
 function lineOfSightForSession(
   session: InteractiveGameSession,
   ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
-): Float32Array {
+): SpecialModesLineOfSightProjection {
   const cached = lineOfSightCache.get(session);
   if (cached?.ruleset === ruleset) {
-    return cached.visibility;
+    return cached.projection;
   }
-  const visibility = sessionSpecialModesLineOfSight(session, ruleset);
-  lineOfSightCache.set(session, { ruleset, visibility });
-  return visibility;
+  const projection = sessionSpecialModesLineOfSightProjection(session, ruleset);
+  lineOfSightCache.set(session, { ruleset, projection });
+  return projection;
+}
+
+function drawVisibleThinWallEdges(
+  context: CanvasRenderingContext2D,
+  session: InteractiveGameSession,
+  tileset: LegacyTileset,
+  visibleEdgeMasks: Uint8Array,
+  xOrigin: number,
+  yOrigin: number,
+): void {
+  const layerCells = session.frame.visibleLayers.find(
+    (layer) => layer.z === session.frame.currentZ,
+  )?.cells ?? session.frame.cells;
+  for (let pos = 0; pos < visibleEdgeMasks.length; pos += 1) {
+    const visibleEdgeMask = visibleEdgeMasks[pos]!;
+    const cell = layerCells[pos];
+    if (visibleEdgeMask === 0 || !cell) {
+      continue;
+    }
+    const cellX = xOrigin + (pos % 32) * LEGACY_TILE_SIZE;
+    const cellY = yOrigin + Math.floor(pos / 32) * LEGACY_TILE_SIZE;
+    for (const tileId of [cell.bottom.id, cell.top.id]) {
+      const overlayTileId = visibleThinWallOverlayTileId(tileId, visibleEdgeMask);
+      if (overlayTileId === null) {
+        continue;
+      }
+      const sprite = getOrCreateThinWallOverlaySprite(tileset, overlayTileId);
+      if (sprite) {
+        drawLegacySpriteImage(context, sprite, cellX, cellY);
+      }
+    }
+  }
 }
 
 function drawLineOfSightComposite(
@@ -454,10 +514,11 @@ function drawLineOfSightComposite(
   ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
   settings: BrowserSpecialModesSettings["visibility"],
   viewportTileCount: number,
+  tileset: LegacyTileset,
 ): void {
   const size = fullScene.width;
   drawVisibilityBase(context, terrainScene, visibilityModeUsesFogBackdrop(settings.mode), size);
-  const visibility = lineOfSightForSession(session, ruleset);
+  const { visibility, visibleEdgeMasks } = lineOfSightForSession(session, ruleset);
   const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset, viewportTileCount);
   const xOrigin = -(viewX * LEGACY_TILE_SIZE) / 4;
   const yOrigin = -(viewY * LEGACY_TILE_SIZE) / 4;
@@ -490,6 +551,15 @@ function drawLineOfSightComposite(
       sourceHeight,
     );
   }
+  context.globalAlpha = 1;
+  drawVisibleThinWallEdges(
+    context,
+    session,
+    tileset,
+    visibleEdgeMasks,
+    xOrigin,
+    yOrigin,
+  );
   context.restore();
 }
 
@@ -501,6 +571,7 @@ function drawVisibilityComposite(
   ruleset: "MS" | "Lynx" | "Hybrid" | "None" | null,
   settings: BrowserSpecialModesSettings["visibility"],
   viewportTileCount: number,
+  tileset: LegacyTileset,
 ): void {
   if (settings.mode === "flashlight" || settings.mode === "flashlight-fog") {
     drawFlashlightComposite(
@@ -523,6 +594,7 @@ function drawVisibilityComposite(
       ruleset,
       settings,
       viewportTileCount,
+      tileset,
     );
     return;
   }
@@ -677,6 +749,7 @@ export function drawSpecialModesMap(options: {
   settings: BrowserSpecialModesSettings;
   runtime: SpecialModesRuntimeSnapshot | null;
   viewportTileCount: number;
+  tileset: LegacyTileset;
 }): void {
   const {
     context,
@@ -688,6 +761,7 @@ export function drawSpecialModesMap(options: {
     settings,
     runtime,
     viewportTileCount,
+    tileset,
   } = options;
   const size = fullScene.width;
   const visibilityCanvas = visibilityScene ?? document.createElement("canvas");
@@ -714,6 +788,7 @@ export function drawSpecialModesMap(options: {
       ruleset,
       settings.visibility,
       viewportTileCount,
+      tileset,
     );
   }
 

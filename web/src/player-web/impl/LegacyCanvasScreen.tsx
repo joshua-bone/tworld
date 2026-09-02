@@ -708,6 +708,7 @@ export function LegacyCanvasScreen({
       settings: specialModesSettings,
       runtime: specialModesRuntimeRef?.current ?? null,
       viewportTileCount: effectiveViewportTileCount,
+      tileset: renderTileset,
     });
   });
 
