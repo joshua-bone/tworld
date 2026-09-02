@@ -25,6 +25,8 @@ export interface BrowserRecentSelectionRecord {
 export interface BrowserLevelProgressSummary {
   ruleset: BrowserPreferredRuleset;
   gameplayHash: string;
+  modeFingerprint?: string;
+  scoresDisabled?: boolean;
   lastPlayedAtMs: number;
   lastResult: BrowserLevelRunResult;
   bestResult: BrowserLevelRunResult;
@@ -37,6 +39,8 @@ export interface BrowserLevelProgressSummary {
 export interface BrowserResolvedLevelProgressSummary {
   ruleset: BrowserPreferredRuleset;
   gameplayHash: string;
+  modeFingerprint?: string;
+  scoresDisabled?: boolean;
   lastPlayedAtMs: number;
   lastResult: BrowserLevelRunResult;
   bestResult: BrowserLevelRunResult;

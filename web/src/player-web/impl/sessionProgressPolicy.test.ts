@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import {
+  persistTerminalSessionProgress,
   shouldPersistLevelProgress,
   terminalSessionRecordKey,
 } from "@player-web/impl/sessionProgressPolicy";
@@ -83,5 +84,44 @@ describe("sessionProgressPolicy", () => {
     } as InteractiveGameSession;
 
     expect(terminalSessionRecordKey(observerFrame)).toBe(terminalSessionRecordKey(session));
+  });
+
+  it("persists Special Modes completion without a score-bearing bucket", () => {
+    const session = {
+      request: { seriesFile: "CCLP1.dat", levelNumber: 7, ruleset: "Lynx" },
+      mode: "manual",
+      frame: { snapshot: { currentTime: 120, tick: 120 } },
+      run: {
+        undoUsedCount: 0,
+        replayAvailable: false,
+        result: {
+          outcome: "completed-clean",
+          endPosition: null,
+          cause: null,
+          score: { finalScore: 999 },
+        },
+      },
+    } as unknown as InteractiveGameSession;
+    const saved: unknown[] = [];
+    const summary = persistTerminalSessionProgress({
+      attemptCounts: new Map(),
+      gameplayHash: "hash",
+      mode: "game",
+      modeFingerprint: "special-12345678",
+      nowMs: 10,
+      recordedSession: { current: null },
+      save: (value) => saved.push(value),
+      scoresDisabled: true,
+      session,
+      sessionStartedFromReplay: false,
+    });
+
+    expect(summary).toMatchObject({
+      modeFingerprint: "special-12345678",
+      scoresDisabled: true,
+      bestResult: "completed-clean",
+    });
+    expect(saved).toEqual([summary]);
+    expect(summary).not.toHaveProperty("score");
   });
 });

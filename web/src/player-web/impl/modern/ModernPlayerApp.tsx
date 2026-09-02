@@ -67,6 +67,7 @@ import {
   type BrowserPreferredRuleset,
 } from "@player-web/ports/BrowserProfileStore";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
+import { specialModesConfigurationFingerprint } from "@player-web/impl/specialModesSettings";
 
 interface ModernPlayerAppProps {
   services: BrowserAppServices;
@@ -157,6 +158,12 @@ export function ModernPlayerApp({
     setViewportSettingsEnabled,
     visualEnhancementsEnabled,
     viewportSettings,
+    specialModesSettings,
+    specialModePresets,
+    setSpecialModesSettings,
+    saveSpecialModesPreset,
+    loadSpecialModesPreset,
+    deleteSpecialModesPreset,
   } = useModernDashboardSettingsController({
     closeSettings: () => {
       setIsSettingsOpen(false);
@@ -164,6 +171,10 @@ export function ModernPlayerApp({
     profileStore,
     setMessage,
     setRequestedRuleset,
+  });
+  const specialModeFingerprint = specialModesConfigurationFingerprint({
+    viewport: viewportSettings,
+    specialModes: specialModesSettings,
   });
 
   useEffect(() => {
@@ -374,6 +385,7 @@ export function ModernPlayerApp({
         deferredSearchQuery,
         lastSelection,
         levelProgressSummaries,
+        modeFingerprint: specialModeFingerprint,
         requestedLevelsByFamily,
         requestedRuleset,
       }),
@@ -384,6 +396,7 @@ export function ModernPlayerApp({
       deferredSearchQuery,
       lastSelection,
       levelProgressSummaries,
+      specialModeFingerprint,
       requestedLevelsByFamily,
       requestedRuleset,
     ],
@@ -752,6 +765,7 @@ export function ModernPlayerApp({
                 persistPreferences({ defaultRuleset: ruleset });
               }}
               progressByKey={progressByKey}
+              scoresDisabled={specialModeFingerprint !== null}
             />
           )}
         </div>
@@ -772,6 +786,7 @@ export function ModernPlayerApp({
         <section className="modern-dashboard__player">
           {activeSelection ? (
             <PlayerApp
+              key={`${activeSelection.seriesFile}:${activeSelection.levelNumber}:${specialModeFingerprint ?? "normal"}`}
               autoDownloadReplaysOnSave={preferences.autoDownloadReplaysOnSave}
               autoSaveWinningHighScoreReplays={preferences.autoSaveWinningHighScoreReplays}
               chromeMode="modern-embedded"
@@ -788,6 +803,7 @@ export function ModernPlayerApp({
               debugModeEnabled={preferences.debugModeEnabled}
               visualEnhancementsEnabled={visualEnhancementsEnabled}
               viewportSettings={viewportSettings}
+              specialModesSettings={specialModesSettings}
             />
           ) : (
             <div className="modern-empty-state modern-dashboard__player-empty">
@@ -853,6 +869,12 @@ export function ModernPlayerApp({
           preferences={preferences}
           visualEnhancementsEnabled={visualEnhancementsEnabled}
           viewportSettings={viewportSettings}
+          specialModesSettings={specialModesSettings}
+          specialModePresets={specialModePresets}
+          onSpecialModesSettingsChange={setSpecialModesSettings}
+          onSaveSpecialModesPreset={saveSpecialModesPreset}
+          onLoadSpecialModesPreset={loadSpecialModesPreset}
+          onDeleteSpecialModesPreset={deleteSpecialModesPreset}
         />
       ) : null}
 

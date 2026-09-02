@@ -37,6 +37,16 @@ import {
   parseStoredViewportSettings,
   saveStoredViewportSettings,
 } from "@player-web/impl/viewportSettings";
+import {
+  type BrowserSpecialModesPreset,
+  type BrowserSpecialModesSettings,
+  loadStoredSpecialModesPresets,
+  loadStoredSpecialModesSettings,
+  parseStoredSpecialModesPresets,
+  parseStoredSpecialModesSettings,
+  saveStoredSpecialModesPresets,
+  saveStoredSpecialModesSettings,
+} from "@player-web/impl/specialModesSettings";
 
 const PROFILE_BACKUP_KIND = "tworld-browser-profile-backup";
 const PROFILE_BACKUP_FORMAT_VERSION = 1;
@@ -48,6 +58,8 @@ export interface BrowserProfileLocalSettingsSnapshot {
   undo?: BrowserUndoSettings;
   visualEnhancements?: BrowserVisualEnhancementsSettings;
   viewport?: BrowserViewportSettings;
+  specialModes?: BrowserSpecialModesSettings;
+  specialModePresets?: BrowserSpecialModesPreset[];
 }
 
 export interface BrowserProfileBackup {
@@ -71,6 +83,8 @@ export function exportBrowserLocalSettingsSnapshot(): BrowserProfileLocalSetting
     undo: loadStoredUndoSettings(),
     visualEnhancements: loadStoredVisualEnhancementsSettings(),
     viewport: loadStoredViewportSettings(),
+    specialModes: loadStoredSpecialModesSettings(),
+    specialModePresets: loadStoredSpecialModesPresets(),
   };
 }
 
@@ -96,6 +110,12 @@ export function applyBrowserLocalSettingsSnapshot(snapshot: BrowserProfileLocalS
   }
   if (snapshot.viewport !== undefined) {
     saveStoredViewportSettings(parseStoredViewportSettings(snapshot.viewport));
+  }
+  if (snapshot.specialModes !== undefined) {
+    saveStoredSpecialModesSettings(parseStoredSpecialModesSettings(snapshot.specialModes));
+  }
+  if (snapshot.specialModePresets !== undefined) {
+    saveStoredSpecialModesPresets(parseStoredSpecialModesPresets(snapshot.specialModePresets));
   }
 }
 
@@ -155,6 +175,12 @@ export function parseBrowserProfileBackup(raw: string): BrowserProfileBackup {
           : undefined,
         viewport: parsed.localSettings.viewport !== undefined
           ? parseStoredViewportSettings(parsed.localSettings.viewport)
+          : undefined,
+        specialModes: parsed.localSettings.specialModes !== undefined
+          ? parseStoredSpecialModesSettings(parsed.localSettings.specialModes)
+          : undefined,
+        specialModePresets: parsed.localSettings.specialModePresets !== undefined
+          ? parseStoredSpecialModesPresets(parsed.localSettings.specialModePresets)
           : undefined,
       } satisfies BrowserProfileLocalSettingsSnapshot
     : undefined;

@@ -55,6 +55,7 @@ interface BuildModernDashboardNavigationModelArgs {
   deferredSearchQuery: string;
   lastSelection: PlayableSelection | null;
   levelProgressSummaries: readonly BrowserLevelProgressSummary[];
+  modeFingerprint?: string | null;
   requestedLevelsByFamily: Readonly<Record<string, number>>;
   requestedRuleset: BrowserPreferredRuleset;
 }
@@ -144,6 +145,7 @@ export function buildModernDashboardNavigationModel({
   deferredSearchQuery,
   lastSelection,
   levelProgressSummaries,
+  modeFingerprint = null,
   requestedLevelsByFamily,
   requestedRuleset,
 }: BuildModernDashboardNavigationModelArgs): ModernDashboardNavigationModel {
@@ -168,7 +170,7 @@ export function buildModernDashboardNavigationModel({
     activeFamily && activeRuleset && activeLevel
       ? resolveSetFamilySelection(activeFamily, activeRuleset, activeLevel.number)
       : null;
-  const progressByKey = buildLevelProgressIndex(levelProgressSummaries);
+  const progressByKey = buildLevelProgressIndex(levelProgressSummaries, modeFingerprint);
   const activeLevelProgress =
     activeLevel && activeRuleset
       ? resolveLevelProgressSummary(activeLevel, activeRuleset, progressByKey)

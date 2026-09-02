@@ -17,14 +17,15 @@ export interface LevelProgressSummaryCounts {
 export function buildLevelProgressKey(
   ruleset: BrowserPreferredRuleset,
   gameplayHash: string,
+  modeFingerprint: string | null = null,
 ): string {
-  return `${ruleset}#${gameplayHash}`;
+  return `${ruleset}#${gameplayHash}${modeFingerprint ? `#${modeFingerprint}` : ""}`;
 }
 
 export function buildStoredLevelProgressKey(
-  summary: Pick<BrowserLevelProgressSummary, "ruleset" | "gameplayHash">,
+  summary: Pick<BrowserLevelProgressSummary, "ruleset" | "gameplayHash" | "modeFingerprint">,
 ): string {
-  return buildLevelProgressKey(summary.ruleset, summary.gameplayHash);
+  return buildLevelProgressKey(summary.ruleset, summary.gameplayHash, summary.modeFingerprint ?? null);
 }
 
 function timedLevelLimitTicks(level: Pick<SeriesLevel, "timeLimitSeconds">): number {
@@ -102,6 +103,8 @@ export function mergeLevelProgressSummaries(
   byKey.set(key, {
     ruleset: incoming.ruleset,
     gameplayHash: incoming.gameplayHash,
+    modeFingerprint: incoming.modeFingerprint,
+    scoresDisabled: incoming.scoresDisabled,
     lastPlayedAtMs: Math.max(current?.lastPlayedAtMs ?? 0, incoming.lastPlayedAtMs),
     lastResult: incoming.lastResult,
     bestResult: shouldReplaceBest ? incoming.bestResult : (current?.bestResult ?? incoming.bestResult),
@@ -118,8 +121,13 @@ export function mergeLevelProgressSummaries(
 
 export function buildLevelProgressIndex(
   summaries: readonly BrowserLevelProgressSummary[],
+  modeFingerprint: string | null = null,
 ): ReadonlyMap<string, BrowserLevelProgressSummary> {
-  return new Map(summaries.map((summary) => [buildStoredLevelProgressKey(summary), summary] as const));
+  return new Map(
+    summaries
+      .filter((summary) => (summary.modeFingerprint ?? null) === modeFingerprint)
+      .map((summary) => [buildLevelProgressKey(summary.ruleset, summary.gameplayHash), summary] as const),
+  );
 }
 
 export function resolveLevelProgressSummary(
@@ -142,13 +150,19 @@ export function resolveLevelProgressSummary(
   return {
     ruleset: raw.ruleset,
     gameplayHash: raw.gameplayHash,
+    modeFingerprint: raw.modeFingerprint,
+    scoresDisabled: raw.scoresDisabled,
     lastPlayedAtMs: raw.lastPlayedAtMs,
     lastResult,
     bestResult,
     lastElapsedTicks: raw.lastElapsedTicks,
     bestElapsedTicks: raw.bestElapsedTicks,
-    lastScore: deriveDisplayScore(level, lastResult, raw.lastElapsedTicks, raw.lastUndoUsedCount),
-    bestScore: deriveDisplayScore(level, bestResult, raw.bestElapsedTicks, raw.bestUndoUsedCount),
+    lastScore: raw.scoresDisabled
+      ? 0
+      : deriveDisplayScore(level, lastResult, raw.lastElapsedTicks, raw.lastUndoUsedCount),
+    bestScore: raw.scoresDisabled
+      ? 0
+      : deriveDisplayScore(level, bestResult, raw.bestElapsedTicks, raw.bestUndoUsedCount),
     lastUndoUsedCount: raw.lastUndoUsedCount,
     bestUndoUsedCount: raw.bestUndoUsedCount,
   };

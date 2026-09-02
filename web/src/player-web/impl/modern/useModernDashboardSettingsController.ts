@@ -22,6 +22,15 @@ import {
   saveStoredViewportSettings,
   type BrowserViewportSettings,
 } from "@player-web/impl/viewportSettings";
+import {
+  createSpecialModesPreset,
+  loadStoredSpecialModesPresets,
+  loadStoredSpecialModesSettings,
+  saveStoredSpecialModesPresets,
+  saveStoredSpecialModesSettings,
+  type BrowserSpecialModesPreset,
+  type BrowserSpecialModesSettings,
+} from "@player-web/impl/specialModesSettings";
 import { prepareModernProfileBackupDownload, importModernProfileBackup } from "@player-web/impl/modern/modernDashboardTransferController";
 import {
   createDefaultBrowserProfilePreferences,
@@ -56,6 +65,12 @@ interface UseModernDashboardSettingsControllerResult {
   setVisualEnhancementsEnabled: (enabled: boolean) => void;
   setViewportRadius: (radius: number) => void;
   setViewportSettingsEnabled: (enabled: boolean) => void;
+  setSpecialModesSettings: (settings: BrowserSpecialModesSettings) => void;
+  saveSpecialModesPreset: (name: string) => void;
+  loadSpecialModesPreset: (preset: BrowserSpecialModesPreset) => void;
+  deleteSpecialModesPreset: (id: string) => void;
+  specialModesSettings: BrowserSpecialModesSettings;
+  specialModePresets: BrowserSpecialModesPreset[];
   visualEnhancementsEnabled: boolean;
   viewportSettings: BrowserViewportSettings;
 }
@@ -78,6 +93,12 @@ export function useModernDashboardSettingsController({
   );
   const [viewportSettings, setViewportSettingsState] = useState<BrowserViewportSettings>(
     () => loadStoredViewportSettings(),
+  );
+  const [specialModesSettings, setSpecialModesSettingsState] = useState<BrowserSpecialModesSettings>(
+    () => loadStoredSpecialModesSettings(),
+  );
+  const [specialModePresets, setSpecialModePresets] = useState<BrowserSpecialModesPreset[]>(
+    () => loadStoredSpecialModesPresets(),
   );
   const [preferences, setPreferences] = useState<BrowserProfilePreferences>(
     createDefaultBrowserProfilePreferences(),
@@ -116,6 +137,32 @@ export function useModernDashboardSettingsController({
       ...viewportSettings,
       radius,
     });
+  });
+
+  const setSpecialModesSettings = useEffectEvent((settings: BrowserSpecialModesSettings) => {
+    setSpecialModesSettingsState(settings);
+    saveStoredSpecialModesSettings(settings);
+  });
+
+  const saveSpecialModesPreset = useEffectEvent((name: string) => {
+    const preset = createSpecialModesPreset(name, {
+      viewport: viewportSettings,
+      specialModes: specialModesSettings,
+    });
+    const nextPresets = [preset, ...specialModePresets.filter((entry) => entry.name.toLocaleLowerCase() !== preset.name.toLocaleLowerCase())];
+    setSpecialModePresets(nextPresets);
+    saveStoredSpecialModesPresets(nextPresets);
+  });
+
+  const loadSpecialModesPreset = useEffectEvent((preset: BrowserSpecialModesPreset) => {
+    applyViewportSettings(preset.configuration.viewport);
+    setSpecialModesSettings(preset.configuration.specialModes);
+  });
+
+  const deleteSpecialModesPreset = useEffectEvent((id: string) => {
+    const nextPresets = specialModePresets.filter((entry) => entry.id !== id);
+    setSpecialModePresets(nextPresets);
+    saveStoredSpecialModesPresets(nextPresets);
   });
 
   const persistPreferences = useEffectEvent((patch: Partial<BrowserProfilePreferences>) => {
@@ -196,6 +243,12 @@ export function useModernDashboardSettingsController({
       setViewportSettingsState(
         localSettings?.viewport ?? loadStoredViewportSettings(),
       );
+      setSpecialModesSettingsState(
+        localSettings?.specialModes ?? loadStoredSpecialModesSettings(),
+      );
+      setSpecialModePresets(
+        localSettings?.specialModePresets ?? loadStoredSpecialModesPresets(),
+      );
       closeSettings();
       reloadPage();
     } catch (error: unknown) {
@@ -222,6 +275,12 @@ export function useModernDashboardSettingsController({
     setVisualEnhancementsEnabled,
     setViewportRadius,
     setViewportSettingsEnabled,
+    setSpecialModesSettings,
+    saveSpecialModesPreset,
+    loadSpecialModesPreset,
+    deleteSpecialModesPreset,
+    specialModesSettings,
+    specialModePresets,
     visualEnhancementsEnabled,
     viewportSettings,
   };

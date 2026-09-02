@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   isDefaultLegacyRenderTileSize,
   legacyMapPixelsForTileSize,
@@ -72,6 +72,17 @@ import {
   LEGACY_WINDOW_HEIGHT,
   LEGACY_WINDOW_WIDTH,
 } from "@player-web/impl/legacySprites";
+import {
+  createDefaultBrowserSpecialModesSettings,
+  type BrowserSpecialModesSettings,
+} from "@player-web/impl/specialModesSettings";
+import {
+  createMonsterMadnessTileset,
+  drawSpecialModesMap,
+  inverseTransformCanvasPoint,
+  sessionWithoutMonsterArtwork,
+} from "@player-web/impl/specialModesRender";
+import type { SpecialModesRuntimeSnapshot } from "@player-web/impl/useSpecialModesRuntime";
 
 export type LegacyMode = "series-list" | "game";
 export type LegacyCanvasPresentation = "legacy" | "map-only";
@@ -96,6 +107,8 @@ interface LegacyCanvasScreenProps {
   renderTileSize?: LegacyRenderTileSize;
   inventoryKeyCountLabelsEnabled?: boolean;
   viewportTileCount?: number;
+  specialModesSettings?: BrowserSpecialModesSettings;
+  specialModesRuntimeRef?: Readonly<{ current: SpecialModesRuntimeSnapshot }>;
   visualEnhancementsEnabled?: boolean;
   debugModeEnabled?: boolean;
   buildCommitHash?: string;
@@ -470,16 +483,37 @@ export function LegacyCanvasScreen({
   renderTileSize = LEGACY_TILE_SIZE,
   inventoryKeyCountLabelsEnabled,
   viewportTileCount = LEGACY_MAP_TILES,
+  specialModesSettings: specialModesSettingsProp,
+  specialModesRuntimeRef,
   visualEnhancementsEnabled = true,
   debugModeEnabled = false,
   buildCommitHash = "unknown",
 }: LegacyCanvasScreenProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scaledMapCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fullSceneCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const terrainSceneCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const visibilitySceneCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const lowerLayerCacheRef = useRef(createLayerCanvasCache());
   const perfTrackerRef = useRef(createLegacyCanvasPerfTrackerState());
   const debugReadoutKeyRef = useRef("");
   const tileset = useLegacyTileset(currentRuleset === "Lynx" || currentRuleset === "Hybrid" ? "Lynx" : "MS");
+  const specialModesSettingsSeedRef = useRef(createDefaultBrowserSpecialModesSettings());
+  const specialModesSettings = specialModesSettingsProp ?? specialModesSettingsSeedRef.current;
+  const renderTileset = useMemo(
+    () => tileset ? createMonsterMadnessTileset(tileset, specialModesSettings.monsterMadness) : null,
+    [
+      specialModesSettings.monsterMadness.enabled,
+      specialModesSettings.monsterMadness.includePlayer,
+      specialModesSettings.monsterMadness.seed,
+      tileset,
+    ],
+  );
+  const specialSceneCacheRef = useRef<{
+    key: string;
+    session: InteractiveGameSession;
+    tileset: object;
+  } | null>(null);
   const [isDatDragActive, setIsDatDragActive] = useState(false);
   const [hoveredMapPosition, setHoveredMapPosition] = useState<number | null>(null);
   const [capturedDebugReadout, setCapturedDebugReadout] = useState<string[] | null>(null);
@@ -495,6 +529,16 @@ export function LegacyCanvasScreen({
     visualEnhancementsEnabled,
   );
   const selectedSeriesIndex = catalog.findIndex((series) => series.filebase === selectedSeriesFile);
+  const hasSpecialModesRendering =
+    specialModesSettings.visibility.mode !== "normal" ||
+    specialModesSettings.monsterMadness.enabled ||
+    specialModesSettings.transform.enabled;
+  const requiresSpecialModesComposite =
+    specialModesSettings.visibility.mode !== "normal" ||
+    specialModesSettings.transform.enabled;
+  const usesFogVisibility =
+    specialModesSettings.visibility.mode === "flashlight-fog" ||
+    specialModesSettings.visibility.mode === "lantern-fog";
 
   useEffect(() => {
     setPerfDiagnosticsEnabled(debugModeEnabled);
@@ -519,13 +563,141 @@ export function LegacyCanvasScreen({
     const x = (clientX - bounds.left) * scaleX;
     const y = (clientY - bounds.top) * scaleY;
     const mapScale = presentation === "map-only" ? LEGACY_TILE_SIZE / renderTileSize : 1;
+    let sourceX = presentation === "map-only" ? x * mapScale : x - LEGACY_MAP_X;
+    let sourceY = presentation === "map-only" ? y * mapScale : y - LEGACY_MAP_Y;
+    const runtime = specialModesRuntimeRef?.current;
+    if (presentation === "map-only" && hasSpecialModesRendering && runtime) {
+      if (runtime.transition) {
+        return null;
+      }
+      const mapped = inverseTransformCanvasPoint(
+        sourceX - runtime.warningShakeOffsetPx,
+        sourceY,
+        sourceMapPixelSize,
+        runtime.orientation,
+      );
+      sourceX = mapped.x;
+      sourceY = mapped.y;
+    }
     return mapPositionAtCanvasPoint(
       activeSession,
       currentRuleset,
-      presentation === "map-only" ? x * mapScale + LEGACY_MAP_X : x,
-      presentation === "map-only" ? y * mapScale + LEGACY_MAP_Y : y,
+      sourceX + LEGACY_MAP_X,
+      sourceY + LEGACY_MAP_Y,
       effectiveViewportTileCount,
     );
+  });
+
+  const drawMapOnlyFrame = useEffectEvent((
+    targetContext: CanvasRenderingContext2D,
+    activeSession: InteractiveGameSession | null,
+  ) => {
+    if (!renderTileset || !requiresSpecialModesComposite || !activeSession) {
+      if (!renderTileset) {
+        drawLegacyTilesLoadingPlaceholder(targetContext, "map-only", effectiveViewportTileCount);
+      } else {
+        drawLegacyGameMapOnly(
+          targetContext,
+          renderTileset,
+          activeSession,
+          currentLevel,
+          currentSeries,
+          isLoading,
+          currentRuleset,
+          lowerLayerCacheRef.current,
+          visualEnhancementsEnabled,
+          effectiveViewportTileCount,
+        );
+      }
+      return;
+    }
+
+    const fullSceneCanvas = fullSceneCanvasRef.current ?? createCanvas(sourceMapPixelSize, sourceMapPixelSize);
+    fullSceneCanvasRef.current = fullSceneCanvas;
+    ensureCanvasSize(fullSceneCanvas, sourceMapPixelSize, sourceMapPixelSize);
+    const fullSceneContext = fullSceneCanvas.getContext("2d");
+    if (!fullSceneContext) {
+      return;
+    }
+    const specialSceneKey = [
+      currentSeries?.filebase ?? "",
+      currentLevel?.number ?? 0,
+      currentRuleset ?? "None",
+      effectiveViewportTileCount,
+      isLoading ? 1 : 0,
+      usesFogVisibility ? 1 : 0,
+      visualEnhancementsEnabled ? 1 : 0,
+      sourceMapPixelSize,
+    ].join(":");
+    const cachedScene = specialSceneCacheRef.current;
+    const shouldRebuildScenes =
+      cachedScene?.session !== activeSession ||
+      cachedScene.tileset !== renderTileset ||
+      cachedScene.key !== specialSceneKey;
+
+    if (shouldRebuildScenes) {
+      fullSceneContext.imageSmoothingEnabled = false;
+      drawLegacyGameMapOnly(
+        fullSceneContext,
+        renderTileset,
+        activeSession,
+        currentLevel,
+        currentSeries,
+        isLoading,
+        currentRuleset,
+        lowerLayerCacheRef.current,
+        visualEnhancementsEnabled,
+        effectiveViewportTileCount,
+      );
+    }
+
+    let terrainSceneCanvas: HTMLCanvasElement | null = null;
+    if (usesFogVisibility) {
+      terrainSceneCanvas = terrainSceneCanvasRef.current ?? createCanvas(sourceMapPixelSize, sourceMapPixelSize);
+      terrainSceneCanvasRef.current = terrainSceneCanvas;
+      ensureCanvasSize(terrainSceneCanvas, sourceMapPixelSize, sourceMapPixelSize);
+      const terrainSceneContext = terrainSceneCanvas.getContext("2d");
+      if (terrainSceneContext && shouldRebuildScenes) {
+        terrainSceneContext.imageSmoothingEnabled = false;
+        drawLegacyGameMapOnly(
+          terrainSceneContext,
+          renderTileset,
+          sessionWithoutMonsterArtwork(activeSession),
+          currentLevel,
+          currentSeries,
+          isLoading,
+          currentRuleset,
+          lowerLayerCacheRef.current,
+          visualEnhancementsEnabled,
+          effectiveViewportTileCount,
+        );
+      }
+    }
+
+    if (shouldRebuildScenes) {
+      specialSceneCacheRef.current = {
+        key: specialSceneKey,
+        session: activeSession,
+        tileset: renderTileset,
+      };
+    }
+
+    const visibilitySceneCanvas = visibilitySceneCanvasRef.current
+      ?? createCanvas(sourceMapPixelSize, sourceMapPixelSize);
+    visibilitySceneCanvasRef.current = visibilitySceneCanvas;
+    ensureCanvasSize(visibilitySceneCanvas, sourceMapPixelSize, sourceMapPixelSize);
+
+    drawSpecialModesMap({
+      context: targetContext,
+      fullScene: fullSceneCanvas,
+      terrainScene: terrainSceneCanvas,
+      visibilityScene: visibilitySceneCanvas,
+      session: activeSession,
+      ruleset: currentRuleset,
+      settings: specialModesSettings,
+      runtime: specialModesRuntimeRef?.current ?? null,
+      viewportTileCount: effectiveViewportTileCount,
+    });
   });
 
   const drawFrame = useEffectEvent((
@@ -547,52 +719,26 @@ export function LegacyCanvasScreen({
       }
 
       scaledMapContext.imageSmoothingEnabled = false;
-      if (!tileset) {
-        drawLegacyTilesLoadingPlaceholder(scaledMapContext, "map-only", effectiveViewportTileCount);
-      } else {
-        drawLegacyGameMapOnly(
-          scaledMapContext,
-          tileset,
-          activeSession,
-          currentLevel,
-          currentSeries,
-          isLoading,
-          currentRuleset,
-          lowerLayerCacheRef.current,
-          visualEnhancementsEnabled,
-          effectiveViewportTileCount,
-        );
-      }
+      drawMapOnlyFrame(scaledMapContext, activeSession);
 
       targetContext.clearRect(0, 0, targetMapWidth, targetMapHeight);
       targetContext.drawImage(scaledMapCanvas, 0, 0, targetMapWidth, targetMapHeight);
       return;
     }
 
-    if (!tileset) {
+    if (!renderTileset) {
       drawLegacyTilesLoadingPlaceholder(targetContext, presentation, effectiveViewportTileCount);
       return;
     }
 
     if (presentation === "map-only") {
-      drawLegacyGameMapOnly(
-        targetContext,
-        tileset,
-        activeSession,
-        currentLevel,
-        currentSeries,
-        isLoading,
-        currentRuleset,
-        lowerLayerCacheRef.current,
-        visualEnhancementsEnabled,
-        effectiveViewportTileCount,
-      );
+      drawMapOnlyFrame(targetContext, activeSession);
       return;
     }
 
     drawLegacyGameScreen(
       targetContext,
-      tileset,
+      renderTileset,
       activeSession,
       currentLevel,
       currentSeries,
@@ -627,11 +773,15 @@ export function LegacyCanvasScreen({
     currentLevel?.number,
     effectiveViewportTileCount,
     tileset,
+    renderTileset,
+    specialModesSettings.monsterMadness.enabled,
+    specialModesSettings.monsterMadness.includePlayer,
+    specialModesSettings.monsterMadness.seed,
     visualEnhancementsEnabled,
   ]);
 
   useEffect(() => {
-    if (mode !== "game" || !tileset || !session) {
+    if (mode !== "game" || !renderTileset || !session) {
       return;
     }
 
@@ -662,7 +812,7 @@ export function LegacyCanvasScreen({
       const sliceStartedAtMs = performance.now();
       while (nextTaskIndex < warmupTasks.length) {
         prewarmVisibleLayerCacheTask(
-          tileset,
+          renderTileset,
           session,
           currentRuleset,
           lowerLayerCacheRef.current,
@@ -709,7 +859,7 @@ export function LegacyCanvasScreen({
     mode,
     sourceMapPixelSize,
     session?.handle,
-    tileset,
+    renderTileset,
     visualEnhancementsEnabled,
   ]);
 
@@ -779,7 +929,7 @@ export function LegacyCanvasScreen({
         currentLevel,
         currentRuleset,
         currentSeries,
-        hasTileset: tileset !== null,
+        hasTileset: renderTileset !== null,
         isLoading,
         message,
         presentation,
@@ -788,13 +938,15 @@ export function LegacyCanvasScreen({
         visualEnhancementsEnabled,
       });
 
-      if (activeSession !== lastRenderedSession || renderContextKey !== lastRenderContextKey) {
+      const specialModesRevision = specialModesRuntimeRef?.current.revision ?? 0;
+      const nextRenderContextKey = `${renderContextKey}:${JSON.stringify(specialModesSettings)}:${specialModesRevision}`;
+      if (activeSession !== lastRenderedSession || nextRenderContextKey !== lastRenderContextKey) {
         measurePerfSync("renderMs", () => {
           drawFrame(context, activeSession);
         });
         if (activeSession) {
           recordSessionVisualLoadPaint({
-            interactive: tileset !== null && !isLoading,
+            interactive: renderTileset !== null && !isLoading,
             levelKey: createSessionVisualLoadLevelKey(activeSession.request),
             sessionKey: createSessionVisualLoadSessionKey(activeSession.request),
           });
@@ -813,7 +965,7 @@ export function LegacyCanvasScreen({
           }
         }
         lastRenderedSession = activeSession;
-        lastRenderContextKey = renderContextKey;
+        lastRenderContextKey = nextRenderContextKey;
       }
 
       animationFrameId = window.requestAnimationFrame(drawLiveFrame);
@@ -839,7 +991,9 @@ export function LegacyCanvasScreen({
     session,
     targetMapHeight,
     targetMapWidth,
-    tileset,
+    renderTileset,
+    specialModesRuntimeRef,
+    specialModesSettings,
     usesDefaultMapTileSize,
     visualEnhancementsEnabled,
   ]);

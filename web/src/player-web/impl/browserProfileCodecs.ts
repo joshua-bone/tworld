@@ -166,6 +166,10 @@ export function parseStoredLevelProgressSummaries(value: unknown): BrowserLevelP
         {
           ruleset: entry.ruleset,
           gameplayHash: entry.gameplayHash,
+          modeFingerprint: typeof entry.modeFingerprint === "string" && entry.modeFingerprint.length > 0
+            ? entry.modeFingerprint
+            : undefined,
+          scoresDisabled: entry.scoresDisabled === true ? true : undefined,
           lastPlayedAtMs: entry.lastPlayedAtMs as number,
           lastResult: normalizeLevelRunResult(entry.lastResult),
           bestResult: normalizeLevelRunResult(entry.bestResult),
