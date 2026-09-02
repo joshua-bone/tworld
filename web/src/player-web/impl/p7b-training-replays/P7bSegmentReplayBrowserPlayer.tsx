@@ -26,6 +26,10 @@ import {
   type P7bReplayBrowserManifestV1,
 } from "./p7bReplayBrowserRuntime";
 import type { InteractiveGameFrame } from "@game-core/api/interactive";
+import {
+  loadStoredViewportSettings,
+  viewportTileCountForSettings,
+} from "@player-web/impl/viewportSettings";
 
 const PLAYER_SPEEDS = [0.5, 1, 2, 4] as const;
 const NOOP = () => undefined;
@@ -95,6 +99,10 @@ export function P7bLegacyCanvasReplayMap({
   message,
 }: P7bReplayMapRendererProps) {
   const series = useMemo(() => p7bBrowserSeriesForTarget(manifest, target), [manifest, target]);
+  const viewportTileCount = useMemo(
+    () => viewportTileCountForSettings(loadStoredViewportSettings()),
+    [],
+  );
   const liveSessionRef = useRef<InteractiveGameSession | null>(session);
   liveSessionRef.current = session;
   return (
@@ -113,6 +121,7 @@ export function P7bLegacyCanvasReplayMap({
       presentation="map-only"
       selectedSeriesFile={series.filebase}
       session={session}
+      viewportTileCount={viewportTileCount}
     />
   );
 }

@@ -27,9 +27,7 @@ import {
   msCreatureId,
 } from "@ruleset-ms/api/tiles";
 import {
-  LEGACY_MAP_HEIGHT,
   LEGACY_MAP_TILES,
-  LEGACY_MAP_WIDTH,
   LEGACY_MAP_X,
   LEGACY_MAP_Y,
   LEGACY_TILE_SIZE,
@@ -58,9 +56,6 @@ const LOWER_LAYER_SCALE = 0.9;
 const LOWER_LAYER_BLUR_PX = 1;
 const LOWER_LAYER_DARKEN_PER_DEPTH = 0.25;
 const MAX_CACHED_LOWER_LAYER_DEPTH = 3;
-const LAYER_CANVAS_PADDING_TILES = Math.ceil((layerViewportTileWindow(MAX_CACHED_LOWER_LAYER_DEPTH) - LEGACY_MAP_TILES) / 2);
-const LAYER_CANVAS_PADDING_PX = LAYER_CANVAS_PADDING_TILES * LEGACY_TILE_SIZE;
-const LAYER_CANVAS_BOARD_SIZE = 32 * LEGACY_TILE_SIZE + LAYER_CANVAS_PADDING_PX * 2;
 const INITIAL_RENDER_PREWARM_TICK_COUNT = 4;
 const SUPPORT_BORDER_COLOR = "#2c8cff";
 const ELEVATOR_FAILURE_BORDER_COLOR = "#ff4040";
@@ -452,12 +447,13 @@ export function buildCachedLowerLayerKey(
   layer: InteractiveGameVisibleLayer,
   timerval: number,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): string {
   const cellsSummary = buildVisibleLayerCellsSummary(tileset, layer);
   const overlayHash = buildLayerOverlayHash(session.frame.tileOverlays, layer.z);
   const renderHash = buildRenderLayerHash(session, layer.z);
   const timeToken = animationFrameToken(cellsSummary.animationPeriod, timerval);
-  return `${ruleset ?? "None"}:${visualEnhancementsEnabled ? 1 : 0}:${layer.z}:${cellsSummary.hash.toString(16)}:${timeToken}:${overlayHash.toString(16)}:${renderHash.toString(16)}`;
+  return `${ruleset ?? "None"}:${visualEnhancementsEnabled ? 1 : 0}:${viewportTileCount}:${layer.z}:${cellsSummary.hash.toString(16)}:${timeToken}:${overlayHash.toString(16)}:${renderHash.toString(16)}`;
 }
 
 export function hasCachedLowerLayerCanvas(
@@ -468,8 +464,17 @@ export function hasCachedLowerLayerCanvas(
   layer: InteractiveGameVisibleLayer,
   timerval: number,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): boolean {
-  const key = buildCachedLowerLayerKey(tileset, session, ruleset, layer, timerval, visualEnhancementsEnabled);
+  const key = buildCachedLowerLayerKey(
+    tileset,
+    session,
+    ruleset,
+    layer,
+    timerval,
+    visualEnhancementsEnabled,
+    viewportTileCount,
+  );
   return peekCachedLayerCanvas(cache, key) !== null;
 }
 
@@ -1036,20 +1041,31 @@ function drawLayerOverlays(
   }
 }
 
-function layerViewportTileWindow(depth: number): number {
+function layerViewportTileWindow(depth: number, viewportTileCount: number): number {
   if (depth <= 0) {
-    return LEGACY_MAP_TILES;
+    return viewportTileCount;
   }
-  return Math.ceil(LEGACY_MAP_TILES / (LOWER_LAYER_SCALE ** depth));
+  return Math.ceil(viewportTileCount / (LOWER_LAYER_SCALE ** depth));
+}
+
+function mapViewportPixelSize(viewportTileCount: number): number {
+  return viewportTileCount * LEGACY_TILE_SIZE;
+}
+
+function layerCanvasPaddingPx(viewportTileCount: number): number {
+  const maximumTileWindow = layerViewportTileWindow(MAX_CACHED_LOWER_LAYER_DEPTH, viewportTileCount);
+  return Math.ceil((maximumTileWindow - viewportTileCount) / 2) * LEGACY_TILE_SIZE;
 }
 
 export function withLegacyMapViewportClip(
   context: Pick<CanvasRenderingContext2D, "save" | "beginPath" | "rect" | "clip" | "restore">,
   draw: () => void,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): void {
   context.save();
   context.beginPath();
-  context.rect(LEGACY_MAP_X, LEGACY_MAP_Y, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+  const viewportPixelSize = mapViewportPixelSize(viewportTileCount);
+  context.rect(LEGACY_MAP_X, LEGACY_MAP_Y, viewportPixelSize, viewportPixelSize);
   context.clip();
 
   try {
@@ -1069,8 +1085,9 @@ function renderMapLayerCanvas(
   viewY: number,
   depth: number,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount: number,
 ): HTMLCanvasElement {
-  const tileWindowSize = layerViewportTileWindow(depth);
+  const tileWindowSize = layerViewportTileWindow(depth, viewportTileCount);
   const canvas = createCanvas(tileWindowSize * LEGACY_TILE_SIZE, tileWindowSize * LEGACY_TILE_SIZE);
   const context = canvas.getContext("2d");
   if (!context) {
@@ -1078,7 +1095,7 @@ function renderMapLayerCanvas(
   }
 
   context.imageSmoothingEnabled = false;
-  const padding = ((tileWindowSize - LEGACY_MAP_TILES) * LEGACY_TILE_SIZE) / 2;
+  const padding = ((tileWindowSize - viewportTileCount) * LEGACY_TILE_SIZE) / 2;
   const xOrigin = padding - (viewX * LEGACY_TILE_SIZE) / 4;
   const yOrigin = padding - (viewY * LEGACY_TILE_SIZE) / 4;
   const pickupRevealTileIds = buildPickupRevealOverlayTileIds(
@@ -1151,16 +1168,19 @@ function renderCachedLowerLayerCanvas(
   layer: InteractiveGameVisibleLayer,
   timerval: number,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount: number,
 ): HTMLCanvasElement {
-  const canvas = createCanvas(LAYER_CANVAS_BOARD_SIZE, LAYER_CANVAS_BOARD_SIZE);
+  const canvasPaddingPx = layerCanvasPaddingPx(viewportTileCount);
+  const canvasBoardSize = 32 * LEGACY_TILE_SIZE + canvasPaddingPx * 2;
+  const canvas = createCanvas(canvasBoardSize, canvasBoardSize);
   const context = canvas.getContext("2d");
   if (!context) {
     return canvas;
   }
 
   context.imageSmoothingEnabled = false;
-  const xOrigin = LAYER_CANVAS_PADDING_PX;
-  const yOrigin = LAYER_CANVAS_PADDING_PX;
+  const xOrigin = canvasPaddingPx;
+  const yOrigin = canvasPaddingPx;
   const pickupRevealTileIds = buildPickupRevealOverlayTileIds(
     session.frame.tileOverlays,
     layer.z,
@@ -1228,8 +1248,17 @@ function getOrRenderCachedLowerLayerCanvas(
   layer: InteractiveGameVisibleLayer,
   timerval: number,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount: number,
 ): HTMLCanvasElement {
-  const key = buildCachedLowerLayerKey(tileset, session, ruleset, layer, timerval, visualEnhancementsEnabled);
+  const key = buildCachedLowerLayerKey(
+    tileset,
+    session,
+    ruleset,
+    layer,
+    timerval,
+    visualEnhancementsEnabled,
+    viewportTileCount,
+  );
   const cached = getCachedLayerCanvas(cache, key);
   if (cached) {
     return cached;
@@ -1238,7 +1267,15 @@ function getOrRenderCachedLowerLayerCanvas(
   return storeCachedLayerCanvas(
     cache,
     key,
-    renderCachedLowerLayerCanvas(tileset, session, ruleset, layer, timerval, visualEnhancementsEnabled),
+    renderCachedLowerLayerCanvas(
+      tileset,
+      session,
+      ruleset,
+      layer,
+      timerval,
+      visualEnhancementsEnabled,
+      viewportTileCount,
+    ),
   );
 }
 
@@ -1250,8 +1287,17 @@ function getCachedLowerLayerCanvasIfReady(
   layer: InteractiveGameVisibleLayer,
   timerval: number,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount: number,
 ): HTMLCanvasElement | null {
-  const key = buildCachedLowerLayerKey(tileset, session, ruleset, layer, timerval, visualEnhancementsEnabled);
+  const key = buildCachedLowerLayerKey(
+    tileset,
+    session,
+    ruleset,
+    layer,
+    timerval,
+    visualEnhancementsEnabled,
+    viewportTileCount,
+  );
   return getCachedLayerCanvas(cache, key);
 }
 
@@ -1265,6 +1311,7 @@ export function drawVisibleLayerStack(
   viewY: number,
   lowerLayerCache: LegacyLayerCanvasCache,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): void {
   const visibleLayers = session.frame.visibleLayers;
   if (visibleLayers.length === 0) {
@@ -1281,8 +1328,11 @@ export function drawVisibleLayerStack(
     viewY,
     0,
     visualEnhancementsEnabled,
+    viewportTileCount,
   );
 
+  const viewportPixelSize = mapViewportPixelSize(viewportTileCount);
+  const canvasPaddingPx = layerCanvasPaddingPx(viewportTileCount);
   withLegacyMapViewportClip(context, () => {
     for (let index = visibleLayers.length - 1; index >= 1; index -= 1) {
       const layer = visibleLayers[index]!;
@@ -1294,18 +1344,19 @@ export function drawVisibleLayerStack(
         layer,
         timerval,
         visualEnhancementsEnabled,
+        viewportTileCount,
       );
       const scale = LOWER_LAYER_SCALE ** index;
       const brightness = Math.max(0, 1 - index * LOWER_LAYER_DARKEN_PER_DEPTH);
-      const tileWindowSize = layerViewportTileWindow(index);
+      const tileWindowSize = layerViewportTileWindow(index, viewportTileCount);
       const sourceSize = tileWindowSize * LEGACY_TILE_SIZE;
-      const layerPadding = ((tileWindowSize - LEGACY_MAP_TILES) * LEGACY_TILE_SIZE) / 2;
-      const sourceX = LAYER_CANVAS_PADDING_PX + (viewX * LEGACY_TILE_SIZE) / 4 - layerPadding;
-      const sourceY = LAYER_CANVAS_PADDING_PX + (viewY * LEGACY_TILE_SIZE) / 4 - layerPadding;
+      const layerPadding = ((tileWindowSize - viewportTileCount) * LEGACY_TILE_SIZE) / 2;
+      const sourceX = canvasPaddingPx + (viewX * LEGACY_TILE_SIZE) / 4 - layerPadding;
+      const sourceY = canvasPaddingPx + (viewY * LEGACY_TILE_SIZE) / 4 - layerPadding;
       const width = sourceSize * scale;
       const height = sourceSize * scale;
-      const x = LEGACY_MAP_X + (LEGACY_MAP_WIDTH - width) / 2;
-      const y = LEGACY_MAP_Y + (LEGACY_MAP_HEIGHT - height) / 2;
+      const x = LEGACY_MAP_X + (viewportPixelSize - width) / 2;
+      const y = LEGACY_MAP_Y + (viewportPixelSize - height) / 2;
 
       context.save();
       context.filter = `blur(${LOWER_LAYER_BLUR_PX}px) brightness(${brightness})`;
@@ -1322,6 +1373,7 @@ export function drawVisibleLayerStack(
           viewY,
           index,
           visualEnhancementsEnabled,
+          viewportTileCount,
         );
         context.drawImage(transientLayerCanvas, x, y, width, height);
       }
@@ -1329,7 +1381,7 @@ export function drawVisibleLayerStack(
     }
 
     context.drawImage(topLayerCanvas, LEGACY_MAP_X, LEGACY_MAP_Y);
-  });
+  }, viewportTileCount);
 }
 
 function collectInitialWarmupTimervals(session: InteractiveGameSession): number[] {
@@ -1385,6 +1437,7 @@ export function prewarmVisibleLayerCacheTask(
   lowerLayerCache: LegacyLayerCanvasCache,
   task: LegacyVisibleLayerCacheWarmupTask,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): void {
   const layer = session.frame.visibleLayers[task.layerIndex];
   if (!layer || task.layerIndex === 0 || layer.z !== task.layerZ) {
@@ -1399,6 +1452,7 @@ export function prewarmVisibleLayerCacheTask(
     layer,
     task.timerval,
     visualEnhancementsEnabled,
+    viewportTileCount,
   );
 }
 
@@ -1408,6 +1462,7 @@ export function prewarmVisibleLayerCaches(
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   lowerLayerCache: LegacyLayerCanvasCache,
   visualEnhancementsEnabled: boolean,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): void {
   for (const task of collectVisibleLayerCacheWarmupTasks(session)) {
     prewarmVisibleLayerCacheTask(
@@ -1417,6 +1472,7 @@ export function prewarmVisibleLayerCaches(
       lowerLayerCache,
       task,
       visualEnhancementsEnabled,
+      viewportTileCount,
     );
   }
 }
@@ -1454,14 +1510,15 @@ function renderedLynxViewFromChip(
 export function resolveLegacyMapViewport(
   session: InteractiveGameSession,
   ruleset: SeriesCatalogEntry["ruleset"] | null,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): { viewX: number; viewY: number } {
   const renderView = usesProjectedLynxRender(ruleset)
     ? renderedLynxViewFromChip(session.frame.render?.chip)
     : null;
   const sourceView = renderView ?? session.frame.snapshot.view;
   return {
-    viewX: clamp(sourceView.x / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4),
-    viewY: clamp(sourceView.y / 2 - (Math.floor(LEGACY_MAP_TILES / 2) * 4), 0, (32 - LEGACY_MAP_TILES) * 4),
+    viewX: clamp(sourceView.x / 2 - (Math.floor(viewportTileCount / 2) * 4), 0, (32 - viewportTileCount) * 4),
+    viewY: clamp(sourceView.y / 2 - (Math.floor(viewportTileCount / 2) * 4), 0, (32 - viewportTileCount) * 4),
   };
 }
 
@@ -1470,17 +1527,19 @@ export function mapPositionAtCanvasPoint(
   ruleset: SeriesCatalogEntry["ruleset"] | null,
   canvasX: number,
   canvasY: number,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): number | null {
+  const viewportPixelSize = mapViewportPixelSize(viewportTileCount);
   if (
     canvasX < LEGACY_MAP_X ||
     canvasY < LEGACY_MAP_Y ||
-    canvasX >= LEGACY_MAP_X + LEGACY_MAP_WIDTH ||
-    canvasY >= LEGACY_MAP_Y + LEGACY_MAP_HEIGHT
+    canvasX >= LEGACY_MAP_X + viewportPixelSize ||
+    canvasY >= LEGACY_MAP_Y + viewportPixelSize
   ) {
     return null;
   }
 
-  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset);
+  const { viewX, viewY } = resolveLegacyMapViewport(session, ruleset, viewportTileCount);
   const xOrigin = LEGACY_MAP_X - (viewX * LEGACY_TILE_SIZE) / 4;
   const yOrigin = LEGACY_MAP_Y - (viewY * LEGACY_TILE_SIZE) / 4;
   const tileX = Math.floor((canvasX - xOrigin) / LEGACY_TILE_SIZE);

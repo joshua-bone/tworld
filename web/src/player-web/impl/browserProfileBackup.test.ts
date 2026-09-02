@@ -53,6 +53,10 @@ describe("browserProfileBackup", () => {
       visualEnhancements: {
         enabled: true,
       },
+      viewport: {
+        enabled: false,
+        radius: 4,
+      },
     });
   });
 

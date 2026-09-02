@@ -6,6 +6,7 @@ import {
   collectVisibleLayerCacheWarmupTasks,
   hasCachedLowerLayerCanvas,
   usesProjectedLynxRender,
+  mapPositionAtCanvasPoint,
   resolveLegacyMapViewport,
   shouldDrawOpenTrapOccupant,
   shouldRenderOpenTrap,
@@ -16,6 +17,7 @@ import type { EngineMapCell } from "@game-core/api/model";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
 import type { LegacyTileset } from "@player-web/impl/legacyTileset";
+import { LEGACY_MAP_X, LEGACY_MAP_Y, LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 
 function createCell(pos: number, z: number, topId: number, bottomId: number = MS_TILE.Empty): EngineMapCell {
   return {
@@ -396,6 +398,52 @@ describe("resolveLegacyMapViewport", () => {
       viewX: 64,
       viewY: 64,
     });
+  });
+
+  it("centers smaller custom viewports on Chip and clamps the full-board view", () => {
+    const session = createSession(MS_TILE.Empty);
+    session.frame.snapshot.view = { x: 160, y: 160 };
+
+    expect(resolveLegacyMapViewport(session, "MS", 3)).toEqual({
+      viewX: 76,
+      viewY: 76,
+    });
+    expect(resolveLegacyMapViewport(session, "MS", 32)).toEqual({
+      viewX: 0,
+      viewY: 0,
+    });
+  });
+});
+
+describe("mapPositionAtCanvasPoint", () => {
+  it("maps clicks through custom camera offsets", () => {
+    const session = createSession(MS_TILE.Empty);
+    session.frame.snapshot.view = { x: 160, y: 160 };
+
+    expect(
+      mapPositionAtCanvasPoint(
+        session,
+        "MS",
+        LEGACY_MAP_X + LEGACY_TILE_SIZE / 2,
+        LEGACY_MAP_Y + LEGACY_TILE_SIZE / 2,
+        3,
+      ),
+    ).toBe(19 * 32 + 19);
+  });
+
+  it("maps the complete 32x32 board without camera scrolling", () => {
+    const session = createSession(MS_TILE.Empty);
+    session.frame.snapshot.view = { x: 240, y: 240 };
+
+    expect(
+      mapPositionAtCanvasPoint(
+        session,
+        "MS",
+        LEGACY_MAP_X + 31 * LEGACY_TILE_SIZE + LEGACY_TILE_SIZE / 2,
+        LEGACY_MAP_Y + 5 * LEGACY_TILE_SIZE + LEGACY_TILE_SIZE / 2,
+        32,
+      ),
+    ).toBe(5 * 32 + 31);
   });
 });
 

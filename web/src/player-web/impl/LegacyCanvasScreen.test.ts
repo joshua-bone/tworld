@@ -62,6 +62,25 @@ describe("withLegacyMapViewportClip", () => {
     })).toThrow(error);
     expect(context.restore).toHaveBeenCalledTimes(1);
   });
+
+  it("clips a full-board viewport to all 32 tiles", () => {
+    const context = {
+      save: vi.fn(),
+      beginPath: vi.fn(),
+      rect: vi.fn(),
+      clip: vi.fn(),
+      restore: vi.fn(),
+    } as unknown as Pick<CanvasRenderingContext2D, "save" | "beginPath" | "rect" | "clip" | "restore">;
+
+    withLegacyMapViewportClip(context, vi.fn(), 32);
+
+    expect(context.rect).toHaveBeenCalledWith(
+      LEGACY_MAP_X,
+      LEGACY_MAP_Y,
+      32 * LEGACY_TILE_SIZE,
+      32 * LEGACY_TILE_SIZE,
+    );
+  });
 });
 
 describe("inventoryTileCountLabel", () => {

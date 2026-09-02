@@ -64,8 +64,7 @@ import {
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import type { SeriesCatalogEntry, SeriesLevel } from "@content/api/series";
 import {
-  LEGACY_MAP_HEIGHT,
-  LEGACY_MAP_WIDTH,
+  LEGACY_MAP_TILES,
   LEGACY_MAP_X,
   LEGACY_MAP_Y,
   LEGACY_MARGIN,
@@ -96,6 +95,7 @@ interface LegacyCanvasScreenProps {
   onDatDrop?: (files: File[]) => void;
   renderTileSize?: LegacyRenderTileSize;
   inventoryKeyCountLabelsEnabled?: boolean;
+  viewportTileCount?: number;
   visualEnhancementsEnabled?: boolean;
   debugModeEnabled?: boolean;
   buildCommitHash?: string;
@@ -269,6 +269,7 @@ function buildLegacyCanvasRenderContextKey(options: {
   message: string | null;
   presentation: LegacyCanvasPresentation;
   inventoryKeyCountLabelsEnabled: boolean;
+  viewportTileCount: number;
   visualEnhancementsEnabled: boolean;
 }): string {
   return [
@@ -278,6 +279,7 @@ function buildLegacyCanvasRenderContextKey(options: {
     options.isLoading ? 1 : 0,
     options.message ?? "",
     options.presentation,
+    options.viewportTileCount,
     options.hasTileset ? 1 : 0,
     options.inventoryKeyCountLabelsEnabled ? 1 : 0,
     options.visualEnhancementsEnabled ? 1 : 0,
@@ -435,13 +437,15 @@ function updateLegacyCanvasPerfTracker(
 function drawLegacyTilesLoadingPlaceholder(
   context: CanvasRenderingContext2D,
   presentation: LegacyCanvasPresentation,
+  viewportTileCount = LEGACY_MAP_TILES,
 ): void {
+  const viewportPixelSize = viewportTileCount * LEGACY_TILE_SIZE;
   context.fillStyle = LEGACY_COLORS.background;
   context.fillRect(
     0,
     0,
-    presentation === "map-only" ? LEGACY_MAP_WIDTH : LEGACY_WINDOW_WIDTH,
-    presentation === "map-only" ? LEGACY_MAP_HEIGHT : LEGACY_WINDOW_HEIGHT,
+    presentation === "map-only" ? viewportPixelSize : LEGACY_WINDOW_WIDTH,
+    presentation === "map-only" ? viewportPixelSize : LEGACY_WINDOW_HEIGHT,
   );
   drawLegacyText(context, "Loading tiles...", LEGACY_MARGIN, LEGACY_MARGIN, LEGACY_COLORS.text);
 }
@@ -465,6 +469,7 @@ export function LegacyCanvasScreen({
   onDatDrop,
   renderTileSize = LEGACY_TILE_SIZE,
   inventoryKeyCountLabelsEnabled,
+  viewportTileCount = LEGACY_MAP_TILES,
   visualEnhancementsEnabled = true,
   debugModeEnabled = false,
   buildCommitHash = "unknown",
@@ -480,8 +485,10 @@ export function LegacyCanvasScreen({
   const [capturedDebugReadout, setCapturedDebugReadout] = useState<string[] | null>(null);
   const [debugReadout, setDebugReadout] = useState<string[]>([]);
   const [seriesScrollOffset, setSeriesScrollOffset] = useState(0);
-  const targetMapWidth = legacyMapPixelsForTileSize(renderTileSize);
-  const targetMapHeight = legacyMapPixelsForTileSize(renderTileSize);
+  const effectiveViewportTileCount = presentation === "map-only" ? viewportTileCount : LEGACY_MAP_TILES;
+  const sourceMapPixelSize = effectiveViewportTileCount * LEGACY_TILE_SIZE;
+  const targetMapWidth = legacyMapPixelsForTileSize(renderTileSize, effectiveViewportTileCount);
+  const targetMapHeight = legacyMapPixelsForTileSize(renderTileSize, effectiveViewportTileCount);
   const usesDefaultMapTileSize = isDefaultLegacyRenderTileSize(renderTileSize);
   const keyCountLabelsEnabled = resolveInventoryKeyCountLabelsEnabled(
     inventoryKeyCountLabelsEnabled,
@@ -517,6 +524,7 @@ export function LegacyCanvasScreen({
       currentRuleset,
       presentation === "map-only" ? x * mapScale + LEGACY_MAP_X : x,
       presentation === "map-only" ? y * mapScale + LEGACY_MAP_Y : y,
+      effectiveViewportTileCount,
     );
   });
 
@@ -530,9 +538,9 @@ export function LegacyCanvasScreen({
     }
 
     if (presentation === "map-only" && !usesDefaultMapTileSize) {
-      const scaledMapCanvas = scaledMapCanvasRef.current ?? createCanvas(LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+      const scaledMapCanvas = scaledMapCanvasRef.current ?? createCanvas(sourceMapPixelSize, sourceMapPixelSize);
       scaledMapCanvasRef.current = scaledMapCanvas;
-      ensureCanvasSize(scaledMapCanvas, LEGACY_MAP_WIDTH, LEGACY_MAP_HEIGHT);
+      ensureCanvasSize(scaledMapCanvas, sourceMapPixelSize, sourceMapPixelSize);
       const scaledMapContext = scaledMapCanvas.getContext("2d");
       if (!scaledMapContext) {
         return;
@@ -540,7 +548,7 @@ export function LegacyCanvasScreen({
 
       scaledMapContext.imageSmoothingEnabled = false;
       if (!tileset) {
-        drawLegacyTilesLoadingPlaceholder(scaledMapContext, "map-only");
+        drawLegacyTilesLoadingPlaceholder(scaledMapContext, "map-only", effectiveViewportTileCount);
       } else {
         drawLegacyGameMapOnly(
           scaledMapContext,
@@ -552,6 +560,7 @@ export function LegacyCanvasScreen({
           currentRuleset,
           lowerLayerCacheRef.current,
           visualEnhancementsEnabled,
+          effectiveViewportTileCount,
         );
       }
 
@@ -561,7 +570,7 @@ export function LegacyCanvasScreen({
     }
 
     if (!tileset) {
-      drawLegacyTilesLoadingPlaceholder(targetContext, presentation);
+      drawLegacyTilesLoadingPlaceholder(targetContext, presentation, effectiveViewportTileCount);
       return;
     }
 
@@ -576,6 +585,7 @@ export function LegacyCanvasScreen({
         currentRuleset,
         lowerLayerCacheRef.current,
         visualEnhancementsEnabled,
+        effectiveViewportTileCount,
       );
       return;
     }
@@ -611,7 +621,14 @@ export function LegacyCanvasScreen({
 
   useEffect(() => {
     clearLayerCanvasCache(lowerLayerCacheRef.current);
-  }, [currentRuleset, currentSeries?.filebase, currentLevel?.number, tileset, visualEnhancementsEnabled]);
+  }, [
+    currentRuleset,
+    currentSeries?.filebase,
+    currentLevel?.number,
+    effectiveViewportTileCount,
+    tileset,
+    visualEnhancementsEnabled,
+  ]);
 
   useEffect(() => {
     if (mode !== "game" || !tileset || !session) {
@@ -651,6 +668,7 @@ export function LegacyCanvasScreen({
           lowerLayerCacheRef.current,
           warmupTasks[nextTaskIndex]!,
           visualEnhancementsEnabled,
+          effectiveViewportTileCount,
         );
         nextTaskIndex += 1;
 
@@ -687,7 +705,9 @@ export function LegacyCanvasScreen({
     currentLevel?.number,
     currentRuleset,
     currentSeries?.filebase,
+    effectiveViewportTileCount,
     mode,
+    sourceMapPixelSize,
     session?.handle,
     tileset,
     visualEnhancementsEnabled,
@@ -764,6 +784,7 @@ export function LegacyCanvasScreen({
         message,
         presentation,
         inventoryKeyCountLabelsEnabled: keyCountLabelsEnabled,
+        viewportTileCount: effectiveViewportTileCount,
         visualEnhancementsEnabled,
       });
 
@@ -807,6 +828,7 @@ export function LegacyCanvasScreen({
     currentRuleset,
     currentSeries,
     drawFrame,
+    effectiveViewportTileCount,
     isLoading,
     liveSessionRef,
     message,

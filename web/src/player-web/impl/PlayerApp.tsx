@@ -18,6 +18,7 @@ import type { DirectionInput } from "@player-web/impl/legacyInput";
 import {
   legacyMapPixelsForTileSize,
 } from "@player-web/impl/legacyRenderPresets";
+import { LEGACY_MAP_TILES } from "@player-web/impl/legacySprites";
 import { LegacyCanvasScreen, LegacyInventoryStrip, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
 import { TWORLD_BUILD_COMMIT } from "@player-web/impl/buildInfo";
 import {
@@ -135,6 +136,14 @@ import {
   saveStoredSoundSettings,
 } from "@player-web/impl/soundSettings";
 import { loadStoredVisualEnhancementsSettings } from "@player-web/impl/visualEnhancementsSettings";
+import {
+  MAX_VIEWPORT_RADIUS,
+  MIN_VIEWPORT_RADIUS,
+  loadStoredViewportSettings,
+  saveStoredViewportSettings,
+  viewportTileCountForSettings,
+  type BrowserViewportSettings,
+} from "@player-web/impl/viewportSettings";
 const GAME_TICKS_PER_SECOND = 20;
 const LOW_TIME_WARNING_TICKS = 10 * GAME_TICKS_PER_SECOND;
 const LEGACY_RANDOM_SEED_MAX = 0x7fffffff;
@@ -476,6 +485,7 @@ interface PlayerAppProps {
   onSelectionChange?: (selection: PlayableSelection) => void;
   playerKeyBindings?: BrowserPlayerKeyBindingsSettings;
   inventoryKeyCountLabelsEnabled?: boolean;
+  viewportSettings?: BrowserViewportSettings;
   visualEnhancementsEnabled?: boolean;
   debugModeEnabled?: boolean;
   catalogSource?: "browser" | "provided";
@@ -502,6 +512,7 @@ export function PlayerApp({
   onSelectionChange,
   playerKeyBindings: playerKeyBindingsProp,
   inventoryKeyCountLabelsEnabled: inventoryKeyCountLabelsEnabledProp,
+  viewportSettings: viewportSettingsProp,
   visualEnhancementsEnabled: visualEnhancementsEnabledProp,
   debugModeEnabled = createDefaultBrowserProfilePreferences().debugModeEnabled,
   catalogSource = "browser",
@@ -519,6 +530,10 @@ export function PlayerApp({
     playerKeyBindingsSeedRef.current = playerKeyBindingsProp ?? loadStoredPlayerKeyBindingsSettings();
   }
   const visualEnhancementsEnabledSeedRef = useRef(loadStoredVisualEnhancementsSettings().enabled);
+  const viewportSettingsSeedRef = useRef<BrowserViewportSettings | null>(null);
+  if (viewportSettingsSeedRef.current === null) {
+    viewportSettingsSeedRef.current = viewportSettingsProp ?? loadStoredViewportSettings();
+  }
   const [mode, setMode] = useState<LegacyMode>(initialMode);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
   const [levelProgressSummaries, setLevelProgressSummaries] = useState<BrowserLevelProgressSummary[]>([]);
@@ -548,6 +563,9 @@ export function PlayerApp({
   const [undoSettings, setUndoSettings] = useState<BrowserUndoSettings>(undoSettingsSeedRef.current);
   const [playerKeyBindingsState, setPlayerKeyBindingsState] = useState<BrowserPlayerKeyBindingsSettings>(
     playerKeyBindingsSeedRef.current,
+  );
+  const [viewportSettingsState, setViewportSettingsState] = useState<BrowserViewportSettings>(
+    viewportSettingsSeedRef.current,
   );
   const [mobileControlProfile, setMobileControlProfile] = useState<BrowserMobileControlProfile>(
     () => loadStoredMobileControlsSettings().profile,
@@ -798,6 +816,10 @@ export function PlayerApp({
   const isMobileChrome = chromeMode === "mobile";
   const isModernChrome = chromeMode === "modern" || chromeMode === "modern-embedded";
   const usesModernGameUi = isModernChrome || isMobileChrome;
+  const viewportSettings = viewportSettingsProp ?? viewportSettingsState;
+  const viewportTileCount = usesModernGameUi
+    ? viewportTileCountForSettings(viewportSettings)
+    : LEGACY_MAP_TILES;
   const mobileRenderTileSize = 48;
   const mobileRenderedBoardSizePx = legacyMapPixelsForTileSize(mobileRenderTileSize);
   const mobileCanvasFrameSizePx = mobileBoardSizePx > 0
@@ -1025,6 +1047,11 @@ export function PlayerApp({
     saveStoredPlayerKeyBindingsSettings(settings);
     setPlayerKeyBindingsState(settings);
     onPlayerKeyBindingsChange?.(settings);
+  });
+
+  const applyViewportSettings = useEffectEvent((settings: BrowserViewportSettings) => {
+    saveStoredViewportSettings(settings);
+    setViewportSettingsState(settings);
   });
 
   useEffect(() => {
@@ -2644,6 +2671,61 @@ export function PlayerApp({
 
             <section className="modern-settings-modal__section mobile-sheet__section">
               <div className="mobile-sheet__section-header">
+                <p className="modern-section__eyebrow">Viewport</p>
+                <p className="mobile-sheet__section-copy">
+                  Keep the board frame fixed while showing more or fewer tiles around Chip.
+                </p>
+              </div>
+              <div className="mobile-sheet__settings">
+                <label className="mobile-sheet__checkbox">
+                  <input
+                    checked={viewportSettings.enabled}
+                    onChange={(event) => {
+                      applyViewportSettings({
+                        ...viewportSettings,
+                        enabled: event.currentTarget.checked,
+                      });
+                    }}
+                    type="checkbox"
+                  />
+                  <span>Modify viewport size</span>
+                </label>
+              </div>
+              <label className="mobile-sheet__field">
+                <span>Tiles visible in each direction</span>
+                <input
+                  className="modern-settings-modal__number-input"
+                  disabled={!viewportSettings.enabled}
+                  inputMode="numeric"
+                  max={MAX_VIEWPORT_RADIUS}
+                  min={MIN_VIEWPORT_RADIUS}
+                  onChange={(event) => {
+                    const radius = Number(event.currentTarget.value);
+                    if (
+                      Number.isInteger(radius) &&
+                      radius >= MIN_VIEWPORT_RADIUS &&
+                      radius <= MAX_VIEWPORT_RADIUS
+                    ) {
+                      applyViewportSettings({
+                        ...viewportSettings,
+                        radius,
+                      });
+                    }
+                  }}
+                  step="1"
+                  type="number"
+                  value={viewportSettings.radius}
+                />
+              </label>
+              <p className="mobile-sheet__section-copy">
+                {viewportTileCount === 32
+                  ? "Current view: entire 32×32 board."
+                  : `Current view: ${viewportTileCount}×${viewportTileCount} tiles.`}
+              </p>
+            </section>
+
+            <section className="modern-settings-modal__section mobile-sheet__section">
+              <div className="mobile-sheet__section-header">
                 <p className="modern-section__eyebrow">Keyboard</p>
                 <p className="mobile-sheet__section-copy">Choose the Action 1 and Undo keys without conflicting with other controls.</p>
               </div>
@@ -3451,6 +3533,7 @@ export function PlayerApp({
                 session={session}
                 debugModeEnabled={debugModeEnabled}
                 visualEnhancementsEnabled={visualEnhancementsEnabled}
+                viewportTileCount={viewportTileCount}
               />
             )}
             {!isPaused && modernHintOverlayText ? (
@@ -3555,6 +3638,7 @@ export function PlayerApp({
                   session={session}
                   debugModeEnabled={debugModeEnabled}
                   visualEnhancementsEnabled={visualEnhancementsEnabled}
+                  viewportTileCount={viewportTileCount}
                 />
               </div>
             )}
