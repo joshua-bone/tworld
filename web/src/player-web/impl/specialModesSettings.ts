@@ -56,6 +56,7 @@ export interface BrowserSpecialModesSettings {
     seed: number;
   };
   monsterRipples: {
+    displayInDark: boolean;
     enabled: boolean;
     propagationDistance: number;
     propagationSpeed: MonsterRipplePropagationSpeed;
@@ -120,6 +121,7 @@ export function createDefaultBrowserSpecialModesSettings(
       seed: normalizedInteger(seedSource(), 0, 0, SPECIAL_MODE_SEED_MAX),
     },
     monsterRipples: {
+      displayInDark: true,
       enabled: false,
       propagationDistance: DEFAULT_MONSTER_RIPPLE_PROPAGATION_DISTANCE,
       propagationSpeed: "normal",
@@ -184,6 +186,9 @@ export function parseStoredSpecialModesSettings(
       ),
     },
     monsterRipples: {
+      displayInDark: typeof monsterRipples.displayInDark === "boolean"
+        ? monsterRipples.displayInDark
+        : defaults.monsterRipples.displayInDark,
       enabled: typeof monsterRipples.enabled === "boolean"
         ? monsterRipples.enabled
         : defaults.monsterRipples.enabled,

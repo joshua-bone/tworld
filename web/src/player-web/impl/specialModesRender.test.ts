@@ -172,12 +172,14 @@ describe("specialModesRender", () => {
     });
   });
 
-  it("allows ripples through fog but not complete darkness", () => {
-    expect(monsterRipplesCanRenderOutsideDirectVisibility("normal")).toBe(true);
-    expect(monsterRipplesCanRenderOutsideDirectVisibility("flashlight-fog")).toBe(true);
-    expect(monsterRipplesCanRenderOutsideDirectVisibility("line-of-sight-fog")).toBe(true);
-    expect(monsterRipplesCanRenderOutsideDirectVisibility("flashlight")).toBe(false);
-    expect(monsterRipplesCanRenderOutsideDirectVisibility("line-of-sight")).toBe(false);
+  it("allows ripples through fog and optionally through complete darkness", () => {
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("normal", false)).toBe(true);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("flashlight-fog", false)).toBe(true);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("line-of-sight-fog", false)).toBe(true);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("flashlight", false)).toBe(false);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("line-of-sight", false)).toBe(false);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("flashlight", true)).toBe(true);
+    expect(monsterRipplesCanRenderOutsideDirectVisibility("line-of-sight", true)).toBe(true);
   });
 
   it("selects only the visible artwork edge of a hidden thin-wall tile", () => {

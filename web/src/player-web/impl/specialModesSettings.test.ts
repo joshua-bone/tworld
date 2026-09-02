@@ -15,6 +15,7 @@ describe("specialModesSettings", () => {
       visibility: { mode: "lantern-fog", lanternRadius: 99 },
       monsterMadness: { enabled: true, includePlayer: true, seed: 33 },
       monsterRipples: {
+        displayInDark: false,
         enabled: true,
         propagationDistance: 99,
         propagationSpeed: "slow",
@@ -32,6 +33,7 @@ describe("specialModesSettings", () => {
       visibility: { mode: "lantern-fog", lanternRadius: 16 },
       monsterMadness: { enabled: true, includePlayer: true, seed: 33 },
       monsterRipples: {
+        displayInDark: false,
         enabled: true,
         propagationDistance: 16,
         propagationSpeed: "slow",
@@ -87,6 +89,16 @@ describe("specialModesSettings", () => {
         },
       },
     })).not.toBe(specialModesConfigurationFingerprint({ viewport: enabled, specialModes }));
+    expect(specialModesConfigurationFingerprint({
+      viewport: enabled,
+      specialModes: {
+        ...specialModes,
+        monsterRipples: {
+          ...specialModes.monsterRipples,
+          displayInDark: false,
+        },
+      },
+    })).not.toBe(specialModesConfigurationFingerprint({ viewport: enabled, specialModes }));
   });
 
   it("migrates stored ripple settings to the current propagation defaults", () => {
@@ -96,6 +108,7 @@ describe("specialModesSettings", () => {
     }, defaults);
 
     expect(parsed.monsterRipples).toEqual({
+      displayInDark: true,
       enabled: true,
       propagationDistance: 5,
       propagationSpeed: "normal",
