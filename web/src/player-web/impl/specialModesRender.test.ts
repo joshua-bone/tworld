@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
 import {
+  FLASHLIGHT_DIRECTION_TRANSITION_MS,
+  flashlightDirectionTransitionAngle,
   inverseTransformCanvasPoint,
   remapDihedralArtworkTileId,
   sessionWithoutMonsterArtwork,
@@ -54,6 +56,28 @@ describe("specialModesRender", () => {
   it("keeps non-fog line of sight pitch black outside visible cells", () => {
     expect(visibilityModeUsesFogBackdrop("line-of-sight")).toBe(false);
     expect(visibilityModeUsesFogBackdrop("line-of-sight-fog")).toBe(true);
+  });
+
+  it("eases flashlight turns over one fifth of a second", () => {
+    expect(flashlightDirectionTransitionAngle(MS_DIRECTION.east, MS_DIRECTION.south, 0)).toBe(0);
+    expect(flashlightDirectionTransitionAngle(
+      MS_DIRECTION.east,
+      MS_DIRECTION.south,
+      FLASHLIGHT_DIRECTION_TRANSITION_MS / 2,
+    )).toBeCloseTo(Math.PI / 4);
+    expect(flashlightDirectionTransitionAngle(
+      MS_DIRECTION.east,
+      MS_DIRECTION.south,
+      FLASHLIGHT_DIRECTION_TRANSITION_MS,
+    )).toBeCloseTo(Math.PI / 2);
+  });
+
+  it("takes the shortest path when a flashlight turn crosses the angle boundary", () => {
+    expect(flashlightDirectionTransitionAngle(
+      MS_DIRECTION.north,
+      MS_DIRECTION.west,
+      FLASHLIGHT_DIRECTION_TRANSITION_MS / 2,
+    )).toBeCloseTo(-3 * Math.PI / 4);
   });
 
   it("selects only the visible artwork edge of a hidden thin-wall tile", () => {
