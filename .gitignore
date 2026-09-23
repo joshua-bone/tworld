@@ -17,3 +17,8 @@
 /CHIPS.dat
 /data/CHIPS.dat
 /debug_uploads_gitignore
+.DS_Store
+/.codex-temp/
+/data/*.dat-lynx.dac
+/data/*.dat-ms.dac
+/web/dist-*/
