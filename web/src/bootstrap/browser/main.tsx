@@ -7,7 +7,9 @@ import { HybridCcV1App } from "@player-web/impl/hybridcc-v1/HybridCcV1App";
 import { isHybridCcV1Path } from "@player-web/impl/hybridcc-v1/route";
 import "@player-web/impl/styles.css";
 
-const BrowserApp = isHybridCcV1Path(window.location.pathname, import.meta.env.BASE_URL)
+const BrowserApp = import.meta.env.DEV && window.location.pathname.replace(/\/+$/u, "") === "/dev/play-lab"
+  ? React.lazy(() => import("@player-web/impl/play-lab/PlayLabApp").then((module) => ({ default: module.PlayLabApp })))
+  : isHybridCcV1Path(window.location.pathname, import.meta.env.BASE_URL)
   ? HybridCcV1App
   : isHybridCcV0Path(window.location.pathname, import.meta.env.BASE_URL)
     ? HybridCcV0App
@@ -15,6 +17,8 @@ const BrowserApp = isHybridCcV1Path(window.location.pathname, import.meta.env.BA
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <BrowserApp />
+    <React.Suspense fallback={<p>Loading Tile World…</p>}>
+      <BrowserApp />
+    </React.Suspense>
   </React.StrictMode>,
 );

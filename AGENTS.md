@@ -1,5 +1,23 @@
 # Local Codex Working Agreements
 
+## Workspace lifecycle
+
+- `git/tworld` is the canonical checkout; `git/HybridCC2026` is the canonical
+  engine checkout. Never leave current work in a task-named worktree.
+- Keep one active history on `master`. Squash short-lived PR branches at
+  completion and remove them; do not accumulate checkpoint/archive branches or
+  rewrite published default-branch history. Keep recovery bundles outside Git.
+- Temporary checkouts belong in `git/.worktrees/tworld/<task>`, maximum two
+  without explicit approval. Register their relative path, purpose, owner and
+  removal condition in `.worktree-policy.json`; remove or account for them at
+  task completion. Preserve all unique changes/data before removal.
+- At handoff, commit/push reviewed changes, fetch, and run
+  `node ../HybridCC2026/tools/workspace-health.mjs . --check`.
+  This is a read-only maintenance tool, not a production dependency.
+- Ignore status is not deletion permission. Never automatically delete dirty,
+  unknown or ignored data. Historical snapshots from the September cleanup are
+  indexed in `~/workspace-recovery-20260923-P1X8nc/manifest.json`.
+
 - Long-running tooling such as tests, replay sweeps, fixture generation, Docker Compose, and migrations must be invoked with sensible timeouts or in non-interactive batch mode.
 - Full-corpus replay sweeps must set an explicit timeout that exceeds the expected wall time or use a direct non-vitest path. Do not rely on the default `verify:*` vitest timeout for all-corpus Lynx sweeps; use `TWORLD_LYNX_SWEEP_TIMEOUT_MS` or split the run into bounded per-file sweeps.
 - Never leave a shell command waiting indefinitely. Prefer explicit timeouts, scripted one-shot runs, or bounded polling, and summarize/stop if a command runs materially longer than expected.

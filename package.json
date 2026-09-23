@@ -11,6 +11,8 @@
     "ccsolver"
   ],
   "scripts": {
+    "play:lab": "node --experimental-strip-types scripts/play-lab/server.mjs",
+    "test:play-lab": "node --experimental-strip-types --test --test-timeout=30000 scripts/play-lab/*.test.mjs",
     "dev": "npm --workspace web run dev --",
     "build": "npm --workspace web run build --",
     "test": "npm --workspace web run test --",
