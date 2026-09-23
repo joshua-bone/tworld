@@ -4,6 +4,9 @@
 
 - `git/tworld` is the canonical checkout; `git/HybridCC2026` is the canonical
   engine checkout. Never leave current work in a task-named worktree.
+- Keep one active history on `master`. Squash short-lived PR branches at
+  completion and remove them; do not accumulate checkpoint/archive branches or
+  rewrite published default-branch history. Keep recovery bundles outside Git.
 - Temporary checkouts belong in `git/.worktrees/tworld/<task>`, maximum two
   without explicit approval. Register their relative path, purpose, owner and
   removal condition in `.worktree-policy.json`; remove or account for them at
