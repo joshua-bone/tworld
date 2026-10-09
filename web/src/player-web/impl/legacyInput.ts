@@ -49,13 +49,13 @@ export class LegacyMsInputBuffer {
     });
   }
 
-  keyUp(input: DirectionInput): void {
+  keyUp(input: DirectionInput, discardPending = false): void {
     const existing = this.states.get(input);
     if (!existing) {
       return;
     }
 
-    if (existing.pending) {
+    if (existing.pending && !discardPending) {
       existing.active = false;
       return;
     }
@@ -147,13 +147,13 @@ export class LegacyLynxInputBuffer {
     });
   }
 
-  keyUp(input: DirectionInput): void {
+  keyUp(input: DirectionInput, discardPending = false): void {
     const existing = this.states.get(input);
     if (!existing) {
       return;
     }
 
-    if (existing.pending) {
+    if (existing.pending && !discardPending) {
       existing.active = false;
       return;
     }

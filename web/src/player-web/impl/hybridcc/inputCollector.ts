@@ -16,6 +16,10 @@ export class HybridCcInputCollector {
     this.sample = 0;
   }
 
+  discard(direction: HybridCcDirection): void {
+    this.pressedAtSample.delete(direction);
+  }
+
   private advanceLogicWindow(): void {
     for (const [direction, pressedAt] of this.pressedAtSample) {
       if (pressedAt === 0) {
@@ -103,8 +107,12 @@ export class HybridCcInputBuffer {
     this.latchedSinceSample.push(direction);
   }
 
-  keyUp(direction: HybridCcDirection): void {
+  keyUp(direction: HybridCcDirection, discardPending = false): void {
     this.held = this.held.filter((candidate) => candidate !== direction);
+    if (discardPending) {
+      this.latchedSinceSample = this.latchedSinceSample.filter((candidate) => candidate !== direction);
+      this.collector.discard(direction);
+    }
   }
 
   nextSampleInputCode(): number {
