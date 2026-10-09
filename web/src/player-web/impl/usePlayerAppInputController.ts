@@ -318,26 +318,25 @@ export function usePlayerAppInputController({
     }
   });
 
-  const applyDirectionalInputRelease = useEffectEvent((input: DirectionInput) => {
+  const applyDirectionalInputRelease = useEffectEvent((input: DirectionInput, discardPending = false) => {
     const activeSession = liveSessionRef.current;
     if (!activeSession || mode !== "game") {
       return;
     }
 
     heldDisplayedDirectionsRef.current.delete(input);
-    resetEngineInputBuffers();
     if (inputFrozen) {
       return;
     }
-    for (const heldInput of heldDisplayedDirectionsRef.current) {
-      const mappedInput = mapDisplayedDirectionInput(heldInput, inputOrientation);
-      if (activeSession.request.ruleset === "Hybrid") {
-        hybridInputBufferRef.current.keyDown(mappedInput);
-      } else if (activeSession.request.ruleset === "Lynx") {
-        lynxInputBufferRef.current.keyDown(mappedInput);
-      } else {
-        msInputBufferRef.current.keyDown(mappedInput);
-      }
+    // Preserve other keys' repeat timing. Only cancellation discards a tap
+    // before the next poll; a normal release must keep it available.
+    const mappedInput = mapDisplayedDirectionInput(input, inputOrientation);
+    if (activeSession.request.ruleset === "Hybrid") {
+      hybridInputBufferRef.current.keyUp(mappedInput, discardPending);
+    } else if (activeSession.request.ruleset === "Lynx") {
+      lynxInputBufferRef.current.keyUp(mappedInput, discardPending);
+    } else {
+      msInputBufferRef.current.keyUp(mappedInput, discardPending);
     }
   });
 
@@ -363,9 +362,9 @@ export function usePlayerAppInputController({
   }, [inputFrozen, inputOrientation, inputOrientationEpoch, liveSessionRef, mode, resetEngineInputBuffers]);
 
   const applyMobileDirectionalInputChanges = useEffectEvent(
-    (changes: { pressed: DirectionInput[]; released: DirectionInput[] }) => {
+    (changes: { pressed: DirectionInput[]; released: DirectionInput[] }, discardPending = false) => {
       for (const input of changes.released) {
-        applyDirectionalInputRelease(input);
+        applyDirectionalInputRelease(input, discardPending);
       }
 
       for (const input of changes.pressed) {
@@ -375,7 +374,7 @@ export function usePlayerAppInputController({
   );
 
   const resetMobileDirectionalInputState = useEffectEvent(() => {
-    applyMobileDirectionalInputChanges(mobileDirectionalInputRef.current.reset());
+    applyMobileDirectionalInputChanges(mobileDirectionalInputRef.current.reset(), true);
   });
 
   const stepHeldUndo = useEffectEvent((nextMode: Exclude<HeldUndoMode, null>) => {
@@ -1069,6 +1068,7 @@ export function usePlayerAppInputController({
     event.stopPropagation();
     applyMobileDirectionalInputChanges(
       mobileDirectionalInputRef.current.releasePointer(event.pointerId),
+      event.type !== "pointerup",
     );
   });
 
