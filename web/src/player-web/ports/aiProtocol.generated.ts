@@ -1,6 +1,6 @@
 // Generated from joshua-bone/ai-plays-chips-challenge src/protocol.ts
-// Source commit: 72fc19752d0c23f5c05f5a3e260b8f232e7ab5b2
-// SHA256: e515ce52662024e186ae3f4d9f3e825c5e50aa596cc9704b833ae479b85b2517
+// Source commit: 8f8f5b73be456b8c74c03a4ab653a27fd18f0dd0
+// SHA256: f2e21fa72efc36697c72b0166469f733cf5db3263eff493eb1f8327031616f29
 // Protocol v1 is shared with the TWO browser adapter. No Node or engine imports.
 export type Direction = "north" | "south" | "east" | "west" | "none";
 export interface Identity { sessionId: string; generation: number }
@@ -13,7 +13,7 @@ export type ConsolePayload =
   | { kind: "decision"; payload: { command: InputCommand; summary: string; provider: "mock" } }
   | { kind: "receipt"; payload: InputReceipt };
 export type ConsoleEvent = Identity & { version: 1; eventId: number; atMs: number; source: "system" } & ConsolePayload;
-export interface RunExport { version: 1; provider: "mock"; running: boolean; context: RunContext | null; observations: Observation[]; events: ConsoleEvent[] }
+export interface RunExport { version: 1; provider: "mock"; running: boolean; truncated: boolean; context: RunContext | null; observations: Observation[]; events: ConsoleEvent[] }
 export const MAX_OBSERVATION_AGE_MS = 500;
 export const MAX_PNG_LENGTH = 2_000_000;
 export const DIRECTIONS: Direction[] = ["north", "south", "east", "west", "none"];

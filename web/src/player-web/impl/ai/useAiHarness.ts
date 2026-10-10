@@ -23,7 +23,7 @@ export function useAiHarness(host: AiHost) {
   const operation = useRef(0);
   const generation = useRef(0);
   const frameId = useRef(0);
-  const capturePending = useRef(false);
+  const capturePending = useRef<{ target: Configured; promise: Promise<boolean> } | null>(null);
   const [connected, setConnected] = useState<Connected | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [running, setRunning] = useState(false);
@@ -45,22 +45,27 @@ export function useAiHarness(host: AiHost) {
     if (old) { void old.transport.post("disconnect", {}).catch(() => {}); old.abort.abort(); }
     setConnected(null); setConnecting(false); setFresh(false); setRunning(false); setStatus(message);
   }, []);
-  const capture = useCallback(async () => {
+  const capture = useCallback((): Promise<boolean> => {
     const target = configured.current;
     const conn = connection.current;
     const view = current.current;
-    if (!target || !conn || !view.ready || target.runKey !== view.runKey || document.hidden || capturePending.current) return false;
-    capturePending.current = true;
-    try {
-      const canvas = view.screen.current?.querySelector<HTMLCanvasElement>(".legacy-canvas-shell canvas") ?? null;
-      const frame = captureObservation(canvas, target.identity, ++frameId.current, Date.now());
-      target.owner.observe(frame.frameId, frame.capturedAtMs);
-      await conn.transport.post("observe", frame);
-      if (configured.current !== target) return false;
-      const isFresh = Date.now() - frame.capturedAtMs <= 500;
-      setFresh(isFresh);
-      return isFresh;
-    } finally { capturePending.current = false; }
+    if (!target || !conn || !view.ready || target.runKey !== view.runKey || document.hidden) return Promise.resolve(false);
+    if (capturePending.current?.target === target) return capturePending.current.promise;
+    const pending = { target, promise: Promise.resolve(false) };
+    pending.promise = (async () => {
+      try {
+        const canvas = view.screen.current?.querySelector<HTMLCanvasElement>(".legacy-canvas-shell canvas") ?? null;
+        const frame = captureObservation(canvas, target.identity, ++frameId.current, Date.now());
+        target.owner.observe(frame.frameId, frame.capturedAtMs);
+        await conn.transport.post("observe", frame);
+        if (configured.current !== target) return false;
+        const isFresh = Date.now() - frame.capturedAtMs <= 500;
+        setFresh(isFresh);
+        return isFresh;
+      } finally { if (capturePending.current === pending) capturePending.current = null; }
+    })();
+    capturePending.current = pending;
+    return pending.promise;
   }, []);
 
   const connect = async (token: string) => {
@@ -96,8 +101,9 @@ export function useAiHarness(host: AiHost) {
     const target: Configured = { identity, runKey: host.runKey, owner: new AiInputOwnership(host.ruleset, identity, (receipt) => {
       if (configured.current !== target) return;
       setRunning(false);
+      const receiptOperation = operation.current;
       void connected.transport.post("receipt", receipt).catch(() => {
-        if (configured.current === target) stop();
+        if (configured.current === target && operation.current === receiptOperation) stop();
       });
     }) };
     let cancelled = false;
@@ -131,7 +137,8 @@ export function useAiHarness(host: AiHost) {
     if (!connected) return;
     let pingPending = false;
     const screens = window.setInterval(() => {
-      void capture().catch(() => { if (connection.current === connected) disconnect("Capture or connection failed. AI keys released; check the displayed screen and companion."); });
+      const target = configured.current;
+      void capture().catch(() => { if (connection.current === connected && configured.current === target) disconnect("Capture or connection failed. AI keys released; check the displayed screen and companion."); });
     }, 150);
     const heartbeat = window.setInterval(() => {
       if (pingPending) return;
@@ -147,21 +154,26 @@ export function useAiHarness(host: AiHost) {
     const target = configured.current; const conn = connection.current;
     if (!target || !conn || !current.current.ready || target.runKey !== current.current.runKey) return;
     const attempt = ++operation.current;
+    const isCurrent = () => attempt === operation.current && configured.current === target && connection.current === conn
+      && current.current.ready && current.current.runKey === target.runKey && !document.hidden;
     target.owner.start(); setRunning(true);
-    current.current.startGame();
     try {
-      // Interval capture may be in flight; its response must finish before Start.
-      if (!await capture()) { stop(); setStatus("Waiting for a fresh screen. Try Start again."); return; }
-      if (attempt !== operation.current || configured.current !== target) return;
+      const captured = await capture();
+      if (!isCurrent()) return;
+      if (!captured) { stop(); setStatus("Waiting for a fresh screen. Try Start again."); return; }
       const response = await conn.transport.post("start", { direction }) as { command: unknown };
-      if (attempt !== operation.current || configured.current !== target) return;
-      if (!target.owner.accept(parseInputCommand(response.command), Date.now())) { stop(); setStatus("Action rejected because its screen was stale. Try again."); }
-    } catch { stop(); setStatus("Mock action failed. Check the connection and try again."); }
+      if (!isCurrent()) return;
+      if (!target.owner.accept(parseInputCommand(response.command), Date.now())) {
+        stop(); setStatus("Action rejected because its screen was stale. Try again.");
+      } else current.current.startGame();
+    } catch { if (isCurrent()) { stop(); setStatus("Mock action failed. Check the connection and try again."); } }
   };
+
   const exportRun = async () => {
     try {
       if (!connection.current) return;
       const data = await connection.current.transport.exportRun();
+      if ((data as { truncated?: boolean }).truncated) setStatus("Exported the recent evidence window. Earlier records remain in the companion’s local journal.");
       const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
       const link = document.createElement("a"); link.href = url; link.download = "chips-ai-run.json"; link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);

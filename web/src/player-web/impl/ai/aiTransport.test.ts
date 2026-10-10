@@ -34,3 +34,19 @@ it("calls browser fetch without an incompatible receiver", async () => {
   }) as typeof fetch);
   expect(await transport.pair("p")).toBe("s");
 });
+it("orders Stop before a subsequent Start even with delayed responses", async () => {
+  let finish!: () => void;
+  const paths: string[] = [];
+  const transport = new AiTransport((async (url: string) => {
+    paths.push(url);
+    if (url.endsWith("stop")) await new Promise<void>((resolve) => { finish = resolve; });
+    return new Response("{}");
+  }) as typeof fetch);
+  const stop = transport.post("stop", {});
+  await Promise.resolve();
+  const start = transport.post("start", { direction: "east" });
+  await Promise.resolve();
+  expect(paths).toEqual(["http://127.0.0.1:5175/v1/stop"]);
+  finish(); await Promise.all([stop, start]);
+  expect(paths).toEqual(["http://127.0.0.1:5175/v1/stop", "http://127.0.0.1:5175/v1/start"]);
+});

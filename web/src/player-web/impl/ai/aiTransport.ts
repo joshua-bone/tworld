@@ -3,6 +3,7 @@ const BASE = "http://127.0.0.1:5175/v1/";
 
 export class AiTransport {
   private token: string | null = null;
+  private commands: Promise<unknown> = Promise.resolve();
   constructor(private fetcher: typeof fetch = fetch) {}
   private async request(path: string, body?: unknown, signal = AbortSignal.timeout(4000)): Promise<Response> {
     const response = await this.fetcher.call(undefined, BASE + path, {
@@ -19,7 +20,12 @@ export class AiTransport {
     this.token = result.token;
     return result.sessionId;
   }
-  async post(path: string, body: unknown): Promise<unknown> { return (await this.request(path, body)).json(); }
+  post(path: string, body: unknown): Promise<unknown> {
+    // Preserve mutation order across Stop/Start, reset, frames and receipts.
+    const result = this.commands.then(async () => (await this.request(path, body)).json());
+    this.commands = result.catch(() => undefined);
+    return result;
+  }
   async exportRun(): Promise<unknown> { return (await this.request("journal")).json(); }
   async stream(receive: (event: ConsoleEvent) => void, signal: AbortSignal): Promise<void> {
     const response = await this.request("events", undefined, signal);
