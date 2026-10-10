@@ -1,3 +1,6 @@
+import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
+import { resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
+import { aiHarnessEnabled, withoutAiFlag } from "@player-web/impl/ai/aiRunPolicy";
 import { useEffect, useState } from "react";
 import { createBrowserAppServices } from "@player-web/compose/createBrowserAppServices";
 import { prewarmLegacyTileset, type LegacyMode } from "@player-web/impl/LegacyCanvasScreen";
@@ -58,11 +61,28 @@ function saveDesktopMobileRedirectOverride(enabled: boolean): void {
 
 export function App() {
   const [routeState, setRouteState] = useState<AppRouteState>(() => currentRouteState());
+  const aiEnabled = aiHarnessEnabled(routeState.search);
+  const [aiLaunchReady, setAiLaunchReady] = useState(false);
+  const [aiLaunchMessage, setAiLaunchMessage] = useState<string | null>(null);
   const [classicState, setClassicState] = useState<{
     initialMode: LegacyMode;
     initialSelection: PlayableSelection | null;
     token: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (!aiEnabled) { setAiLaunchReady(false); return; }
+    let active = true;
+    setAiLaunchReady(false);
+    void loadPlayableSelection(services.selectionStore)
+      .then((selection) => resolveUrlLaunchSelection(services, selection))
+      .then((launch) => {
+        if (!active) return;
+        setClassicState((previous) => ({ initialMode: launch.overrideApplied ? "game" : "series-list", initialSelection: launch.selection, token: (previous?.token ?? 0) + 1 }));
+        setAiLaunchMessage(launch.message); setAiLaunchReady(true);
+      }).catch(() => { if (active) { setAiLaunchMessage("Could not restore the launch link. Use the levelset picker below."); setAiLaunchReady(true); } });
+    return () => { active = false; };
+  }, [aiEnabled, routeState.search, routeState.hash]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -100,6 +120,7 @@ export function App() {
   };
 
   useEffect(() => {
+    if (aiEnabled) return;
     const redirect = resolveMobileShellRedirect({
       baseUrl: APP_BASE_URL,
       desktopOverride: hasDesktopMobileRedirectOverride(),
@@ -152,7 +173,7 @@ export function App() {
     openClassicShell();
   };
 
-  if (routeState.shellMode === "modern") {
+  if (!aiEnabled && routeState.shellMode === "modern") {
     return (
       <ModernPlayerApp
         onOpenClassic={openClassicShell}
@@ -162,7 +183,7 @@ export function App() {
     );
   }
 
-  if (routeState.shellMode === "mobile") {
+  if (!aiEnabled && routeState.shellMode === "mobile") {
     return (
       <MobilePlayerApp
         onOpenClassic={openClassicShellFromMobile}
@@ -183,23 +204,23 @@ export function App() {
       <div className="modern-classic-banner">
         <div>
           <p className="modern-classic-banner__eyebrow">Classic</p>
-          <h1 className="modern-classic-banner__title">Original interface, still available</h1>
+          <h1 className="modern-classic-banner__title">{aiEnabled ? "AI play lab" : "Original interface, still available"}</h1>
           <p className="modern-classic-banner__body">
-            This is the preserved legacy shell. Local progress, imported DATs, and replays stay shared with Tile World Online.
+            {aiEnabled ? "Experimental local companion controls. Use the usual levelset picker or import a DAT below." : "This is the preserved legacy shell. Local progress, imported DATs, and replays stay shared with Tile World Online."}
           </p>
         </div>
         <div className="modern-classic-banner__controls">
           <button
             className="modern-link-button"
-            onClick={openMobileShell}
+            onClick={() => { if (aiEnabled) window.location.href = withoutAiFlag(window.location.href); else openMobileShell(); }}
             type="button"
           >
-            Open Mobile UI
+            {aiEnabled ? "Exit AI lab" : "Open Mobile UI"}
           </button>
           <button
             className="modern-link-button modern-link-button--light"
             onClick={() => {
-              openDesktopShell();
+              if (aiEnabled) window.location.href = withoutAiFlag(window.location.href); else openDesktopShell();
             }}
             type="button"
           >
@@ -207,12 +228,17 @@ export function App() {
           </button>
         </div>
       </div>
-      <PlayerApp
+      {aiLaunchMessage && aiEnabled ? <p role="status">{aiLaunchMessage}</p> : null}
+      {aiEnabled && !aiLaunchReady ? <p>Loading level selection…</p> : <PlayerApp
         initialMode={resolvedClassicState.initialMode}
         initialSelection={resolvedClassicState.initialSelection}
         key={`${resolvedClassicState.token}:${resolvedClassicState.initialMode}:${resolvedClassicState.initialSelection?.seriesFile ?? "classic"}`}
         services={services}
-      />
+        aiHarnessEnabled={aiEnabled}
+        debugModeEnabled={aiEnabled ? false : undefined}
+        visualEnhancementsEnabled={aiEnabled ? false : undefined}
+        inventoryKeyCountLabelsEnabled={aiEnabled ? false : undefined}
+      />}
     </div>
   );
 }

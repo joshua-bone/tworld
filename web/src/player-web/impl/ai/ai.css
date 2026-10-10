@@ -1,0 +1,11 @@
+.ai-panel { max-width: 900px; width: 100%; box-sizing: border-box; margin: 0 auto 16px; padding: 18px; border: 1px solid #8095a9; border-radius: 12px; background: #132735; color: #edf5fa; font: 14px/1.5 system-ui, sans-serif; }
+.ai-panel h2 { margin: 0 0 8px; font-size: 20px; }
+.ai-panel h2 span { display: inline-block; margin-left: 12px; color: #95e6c2; font-size: 13px; }
+.ai-panel p { margin: 6px 0; }
+.ai-panel__controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin: 14px 0; }
+.ai-panel label { display: grid; gap: 4px; }
+.ai-panel input, .ai-panel select, .ai-panel button { color: #112737; background: #eef5fa; border: 1px solid #8499aa; border-radius: 6px; padding: 8px 12px; font: inherit; }
+.ai-panel button { cursor: pointer; }
+.ai-panel button:disabled { opacity: .5; cursor: default; }
+.ai-panel__events { max-height: 180px; overflow-y: auto; padding-left: 24px; font-size: 13px; }
+.ai-panel__events strong { color: #95e6c2; margin-right: 6px; }
