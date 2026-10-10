@@ -16,11 +16,6 @@ interface InputState {
 // legacy_c/generic/in.c's default casual keyboard mode preserves an
 // unconsumed command for two polls before a held arrow starts repeating.
 const MS_REPEAT_DELAY_TICKS = 2;
-// Human controls send a first repeat after 6 polls (330 ms), then one
-// command every 4 polls (220 ms). Continuous per-tick commands let MS's
-// global movement phases bunch two steps only 110 ms apart.
-const MS_MANUAL_INITIAL_DELAY_TICKS = 5;
-const MS_MANUAL_REPEAT_DELAY_TICKS = 3;
 const MS_ABSOLUTE_MOUSE_MOVE_FIRST = 512;
 const LEGACY_DIRECTION_PRIORITY: readonly DirectionInput[] = ["north", "west", "south", "east"];
 
@@ -36,9 +31,6 @@ export function absoluteMouseMoveCode(position: number): number {
 export class LegacyMsInputBuffer {
   private readonly states = new Map<DirectionInput, InputState>();
   private readonly queuedCodes: number[] = [];
-  private lastManualDirection: DirectionInput | null = null;
-
-  constructor(private readonly mode: "native" | "manual" = "native") {}
 
   keyDown(input: DirectionInput): void {
     const existing = this.states.get(input);
@@ -50,7 +42,7 @@ export class LegacyMsInputBuffer {
     this.states.set(input, {
       active: true,
       pending: true,
-      repeatDelay: this.mode === "manual" ? MS_MANUAL_INITIAL_DELAY_TICKS : MS_REPEAT_DELAY_TICKS,
+      repeatDelay: MS_REPEAT_DELAY_TICKS,
     });
   }
 
@@ -72,13 +64,13 @@ export class LegacyMsInputBuffer {
     return this.nextKeyboardInput();
   }
 
-  nextTickInputCode(modifierMask = 0, continuousHold = false): number {
+  nextTickInputCode(modifierMask = 0): number {
     const queued = this.queuedCodes.shift();
     if (queued !== undefined) {
       return queued;
     }
 
-    return encodeRuntimeInputCode(getGameInputCode(this.nextKeyboardInput(continuousHold)), modifierMask);
+    return encodeRuntimeInputCode(getGameInputCode(this.nextKeyboardInput()), modifierMask);
   }
 
   queueAbsoluteMouseMove(position: number, modifierMask = 0): void {
@@ -93,13 +85,9 @@ export class LegacyMsInputBuffer {
   reset(): void {
     this.states.clear();
     this.queuedCodes.length = 0;
-    this.lastManualDirection = null;
   }
 
-  private nextKeyboardInput(continuousHold = false): GameInputName {
-    if (this.mode === "manual") {
-      return this.nextManualKeyboardInput(continuousHold);
-    }
+  private nextKeyboardInput(): GameInputName {
     let held: DirectionInput | null = null;
     let struck: DirectionInput | null = null;
     let preserve = false;
@@ -129,46 +117,6 @@ export class LegacyMsInputBuffer {
       }
     }
     return held ?? struck ?? (preserve ? "preserve" : "none");
-  }
-
-  private nextManualKeyboardInput(continuousHold: boolean): GameInputName {
-    // Map insertion order records real presses; OS repeats do not reorder it.
-    // Keep the newest direction selected through its repeat delay, so an
-    // older held arrow cannot pull Chip back while the new turn is held.
-    const selected = Array.from(this.states.entries()).at(-1);
-    if (!selected) {
-      this.lastManualDirection = null;
-      return "none";
-    }
-    const [input, selectedState] = selected;
-    const firstPoll = selectedState.pending;
-    const ready = firstPoll || selectedState.repeatDelay === 0 || continuousHold;
-
-    for (const [direction, state] of this.states) {
-      if (!state.active) {
-        this.states.delete(direction);
-      } else if (state.pending) {
-        state.pending = false;
-      } else if (state.repeatDelay > 0) {
-        state.repeatDelay -= 1;
-      }
-    }
-    if (ready && (!firstPoll || continuousHold) && selectedState.active) {
-      selectedState.repeatDelay = MS_MANUAL_REPEAT_DELAY_TICKS;
-    }
-    if (ready) {
-      this.lastManualDirection = input;
-      return input;
-    }
-    if (this.lastManualDirection !== input) {
-      // A newer turn may still be queued in MS when it is released. Do not
-      // preserve that canceled turn while an older arrow waits to repeat.
-      this.lastManualDirection = null;
-      return "none";
-    }
-    // Preserve only a command the engine has not consumed yet. Once a move
-    // consumes it, preserve resolves to none, not another movement command.
-    return "preserve";
   }
 }
 

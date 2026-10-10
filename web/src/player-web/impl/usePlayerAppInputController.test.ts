@@ -194,7 +194,7 @@ describe("shared directional input release", () => {
     });
     if (source === "keyboard") app.keyDown("ArrowRight");
     else app.touchDown("east", 1);
-    await app.poll(5); // 275 ms held; the old controls have already taken two steps.
+    await app.poll(3); // Release within the original casual-input grace period.
     if (source === "keyboard") app.keyUp("ArrowRight");
     else app.touchUp(1);
     await app.poll(8);
@@ -220,7 +220,7 @@ describe("shared directional input release", () => {
     });
     syncFrame();
     app.keyDown("ArrowRight");
-    await app.poll(6);
+    await app.poll(3);
     expect(engine.state.internal.chipPos).toBe(pos(9, 16));
   });
 
@@ -251,7 +251,7 @@ describe("shared directional input release", () => {
     if (source === "keyboard") app.keyUp("ArrowUp");
     else app.touchUp(2);
     await app.poll(5);
-    expect(app.inputs).toEqual([8, 1, 0, 0, 0, 0, 8]);
+    expect(app.inputs).toEqual([8, 1, 1568, 8, 8, 8, 8]);
   });
 
   it.each(["MS", "Lynx"] as const)("continues walking while held and stops supplying input on release in %s", async (ruleset) => {
@@ -260,7 +260,7 @@ describe("shared directional input release", () => {
     await app.poll(7);
     app.keyUp("ArrowRight");
     await app.poll(2);
-    expect(app.inputs).toEqual(ruleset === "MS" ? [8, 1568, 1568, 1568, 1568, 1568, 8, 0, 0] : [8, 8, 8, 8, 8, 8, 8, 0, 0]);
+    expect(app.inputs).toEqual(ruleset === "MS" ? [8, 1568, 1568, 8, 8, 8, 8, 0, 0] : [8, 8, 8, 8, 8, 8, 8, 0, 0]);
   });
 
   it("releases the mapped direction on a rotated board", async () => {
@@ -273,7 +273,7 @@ describe("shared directional input release", () => {
     await app.poll(5);
     app.keyUp("ArrowLeft");
     await app.poll();
-    expect(app.inputs).toEqual([4, 2, 0, 0, 0, 0, 4, 0]);
+    expect(app.inputs).toEqual([4, 2, 1568, 4, 4, 4, 4, 0]);
   });
 
   it("preserves the Hybrid sample window across a phone release", async () => {
@@ -328,7 +328,7 @@ describe("shared directional input release", () => {
     app.touchDown("north", 2);
     app.touchCancel(2);
     await app.poll(6);
-    expect(app.inputs).toEqual([8, 1568, 1568, 1568, 1568, 1568, 8]);
+    expect(app.inputs).toEqual([8, 1568, 1568, 8, 8, 8, 8]);
   });
 
   it("removes a canceled Hybrid direction from the pending logic window", async () => {
@@ -401,7 +401,7 @@ describe("sliding phone movement", () => {
     app.touchMove(1, 240, 140);
     app.inputs.length = 0;
     await app.poll(7);
-    expect(app.inputs).toEqual(ruleset === "MS" ? [8, 1568, 1568, 1568, 1568, 1568, 8] : Array(7).fill(ruleset === "Hybrid" ? 2 : 8));
+    expect(app.inputs).toEqual(ruleset === "MS" ? [8, 1568, 1568, 8, 8, 8, 8] : Array(7).fill(ruleset === "Hybrid" ? 2 : 8));
   });
 
   it.each(["MS", "Lynx"] as const)("releases the old direction when sliding to a different arrow before a poll in %s", async (ruleset) => {
@@ -431,10 +431,10 @@ describe("sliding phone movement", () => {
     app.touchUp(1);
     app.inputs.length = 0;
     await app.poll(3);
-    expect(app.inputs).toEqual([1568, 1568, 8]);
+    expect(app.inputs).toEqual([8, 8, 8]);
     app.touchUp(2);
     await app.poll();
-    expect(app.inputs).toEqual([1568, 1568, 8, 0]);
+    expect(app.inputs).toEqual([8, 8, 8, 0]);
   });
 
   it.each(["reset", "cancel", "release"])("does not re-arm a pointer after %s", async (end) => {

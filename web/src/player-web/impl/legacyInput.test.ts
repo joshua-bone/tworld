@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { absoluteMouseMoveCode, LegacyLynxInputBuffer, LegacyMsInputBuffer } from "@player-web/impl/legacyInput";
+import { compileNativeInputOracle } from "./testSupport/nativeInputOracle";
 import { GAME_INPUT_CODES } from "@game-core/api/command";
 import { advanceMsInteractiveSession, createMsInteractiveSession } from "@ruleset-ms/impl/engine";
 import { createEmptyCells, createLevel, createRequest, pos } from "@ruleset-ms/impl/testSupport";
@@ -145,104 +146,49 @@ describe("LegacyMsInputBuffer", () => {
   });
 });
 
-describe("manual MS repeat cadence", () => {
-  function playing(phase: number) {
-    const cells = createEmptyCells();
-    const start = pos(8, 16);
-    cells[start]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
-    let session = createMsInteractiveSession(createRequest(), createLevel({ cells, creaturePositions: [start] }));
-    for (let i = 0; i < phase; i += 1) session = advanceMsInteractiveSession(session, 0);
-    const buffer = new LegacyMsInputBuffer("manual");
-    const moves: Array<{ at: number; position: number }> = [];
-    let elapsed = 0;
-    return {
-      buffer, moves,
-      position: () => session.state.internal.chipPos,
-      step(count = 1) {
-        for (let i = 0; i < count; i += 1) {
-          const before = session.state.internal.chipPos;
-          session = advanceMsInteractiveSession(session, buffer.nextTickInputCode());
-          if (session.state.internal.chipPos !== before) moves.push({ at: elapsed, position: session.state.internal.chipPos });
-          elapsed += 55;
-        }
-      },
-    };
+describe("MS input against original Tile World C", () => {
+  let native: ReturnType<typeof compileNativeInputOracle>;
+  beforeAll(() => { native = compileNativeInputOracle(); });
+  afterAll(() => native?.dispose());
+
+  function browserPolls(events: readonly string[]) {
+    const buffer = new LegacyMsInputBuffer();
+    const directions = { N: "north", W: "west", S: "south", E: "east" } as const;
+    return events.map((batch) => {
+      for (const event of batch) {
+        const direction = directions[event.toUpperCase() as keyof typeof directions];
+        if (!direction) continue;
+        if (event === event.toUpperCase()) buffer.keyDown(direction);
+        else buffer.keyUp(direction);
+      }
+      return buffer.nextTickInputCode();
+    });
   }
 
-  it.each([0, 1, 2, 3])("makes a sub-300 ms press one step at MS phase %i", (phase) => {
-    const game = playing(phase);
-    game.buffer.keyDown("east");
-    game.step(6);
-    game.buffer.keyUp("east");
-    game.step(8);
-    expect(game.moves).toEqual([{ at: 0, position: pos(9, 16) }]);
+  it.each([
+    { name: "held direction and release", events: ["E", "", "", "", "", "", "", "e", "", ""] },
+    { name: "between-poll taps", events: ["Ee", "", "Nn", "", "Ww", "", "Ss", ""] },
+    { name: "overlapping held directions", events: ["N", "", "E", "", "", "n", "", "", "e", ""] },
+    { name: "release and new direction", events: ["E", "", "", "eN", "", "", "", "n", ""] },
+  ])("matches compiled in.c for $name", ({ events }) => {
+    expect(browserPolls(events)).toEqual(native.poll(events));
   });
 
-  it.each([0, 1, 2, 3])("keeps continuous walking evenly spaced at MS phase %i", (phase) => {
-    const game = playing(phase);
-    game.buffer.keyDown("east");
-    game.step(20);
-    expect(game.moves.map((move) => move.at)).toEqual([0, 330, 550, 770, 990]);
-    game.buffer.keyUp("east");
-    game.step(8);
-    expect(game.moves).toHaveLength(5);
-  });
-
-  it("turns toward the latest press even while an older higher-priority arrow is held", () => {
-    const game = playing(0);
-    game.buffer.keyDown("north");
-    game.step(4);
-    game.buffer.keyDown("east");
-    game.step(4);
-    expect(game.moves).toEqual([
-      { at: 0, position: pos(8, 15) },
-      { at: 220, position: pos(9, 15) },
-    ]);
-  });
-
-  it("keeps deliberate new taps responsive during the repeat delay", () => {
-    const game = playing(0);
-    game.buffer.keyDown("east");
-    game.step(4);
-    game.buffer.keyUp("east");
-    game.buffer.keyDown("east");
-    game.step();
-    expect(game.position()).toBe(pos(10, 16));
-  });
-
-  it("treats a released and re-pressed arrow as the latest intent before a poll", () => {
-    const buffer = new LegacyMsInputBuffer("manual");
-    buffer.keyDown("north");
-    buffer.keyDown("south");
-    buffer.keyUp("north");
-    buffer.keyDown("north");
-    expect(buffer.nextTickInput()).toBe("north");
-  });
-
-  it("preserves a busy turn until accepted but cancels its repeats on release", () => {
-    const game = playing(0);
-    game.buffer.keyDown("east");
-    game.step(3);
-    game.buffer.keyUp("east");
-    game.buffer.keyDown("north");
-    game.step(2);
-    game.buffer.keyUp("north");
-    game.step(8);
-    expect(game.moves).toEqual([
-      { at: 0, position: pos(9, 16) },
-      { at: 220, position: pos(9, 15) },
-    ]);
-  });
-
-  it("clears a released pending turn even when an older direction remains held", () => {
-    const game = playing(0);
-    game.buffer.keyDown("north");
-    game.step(3);
-    game.buffer.keyDown("east");
-    game.step(); // MS has already moved this cycle; east is still pending.
-    game.buffer.keyUp("east");
-    game.step();
-    expect(game.position()).toBe(pos(8, 15));
+  it("matches compiled in.c across 4096 mixed hold, tap, overlap, and release polls", () => {
+    const keys = ["N", "W", "S", "E"];
+    const held = new Set<string>();
+    let seed = 12345;
+    const events = Array.from({ length: 4096 }, () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const key = keys[(seed >>> 16) % 4]!;
+      const action = (seed >>> 24) % 6;
+      if (action === 0 && !held.has(key)) return key + key.toLowerCase();
+      if (action > 2) return "";
+      if (held.delete(key)) return key.toLowerCase();
+      held.add(key);
+      return key;
+    });
+    expect(browserPolls(events)).toEqual(native.poll(events));
   });
 });
 
