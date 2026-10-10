@@ -67,6 +67,7 @@ jobs:
             src/player-web/impl/urlLaunch.test.ts \
             src/player-web/impl/play-lab/PlayInputQueue.test.ts \
             src/player-web/impl/usePlayerAppInputController.test.ts \
+            src/player-web/impl/usePlayerAppInputController.react.test.tsx \
             src/player-web/impl/legacyInput.test.ts \
             src/player-web/impl/mobileDirectionalInput.test.ts \
             src/player-web/impl/hybridcc-v0/inputCollector.test.ts \
