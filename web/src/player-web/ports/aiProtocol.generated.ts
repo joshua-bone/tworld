@@ -1,19 +1,36 @@
 // Generated from joshua-bone/ai-plays-chips-challenge src/protocol.ts
-// Source commit: 8f8f5b73be456b8c74c03a4ab653a27fd18f0dd0
-// SHA256: f2e21fa72efc36697c72b0166469f733cf5db3263eff493eb1f8327031616f29
-// Protocol v1 is shared with the TWO browser adapter. No Node or engine imports.
+// Source commit: 25bcc2c5d33148d25b33c8e60788f256ceb49043
+// SHA256: 888c9a9a55d67c72ab1b92000d26fee657caddbe005a5b21949e846003202f4d
+// Versioned protocol is shared with the TWO browser adapter. No Node or engine imports.
 export type Direction = "north" | "south" | "east" | "west" | "none";
 export interface Identity { sessionId: string; generation: number }
 export interface Observation extends Identity { version: 1; frameId: number; capturedAtMs: number; png: string }
 export interface RunContext extends Identity { ruleset: "MS" | "Lynx"; mode: "strict" | "assisted" }
 export interface InputCommand extends Identity { decisionId: number; frameId: number; direction: Direction; ticks: number }
-export interface InputReceipt extends Identity { decisionId: number; outcome: "finished" | "cancelled" | "stale"; executedTicks: number }
+export interface InputReceipt extends Identity { decisionId: number; outcome: "finished" | "cancelled" | "stale"; executedTicks: number; timing?: { firstInputAtMs: number | null; lastInputAtMs: number | null } }
 export type ConsolePayload =
   | { kind: "lifecycle"; payload: { running: boolean; message: string } }
-  | { kind: "decision"; payload: { command: InputCommand; summary: string; provider: "mock" } }
+  | { kind: "decision"; payload: { command: InputCommand; summary: string; provider: "mock" | "jev" } }
+  | { kind: "evaluation"; payload: Evaluation }
   | { kind: "receipt"; payload: InputReceipt };
-export type ConsoleEvent = Identity & { version: 1; eventId: number; atMs: number; source: "system" } & ConsolePayload;
-export interface RunExport { version: 1; provider: "mock"; running: boolean; truncated: boolean; context: RunContext | null; observations: Observation[]; events: ConsoleEvent[] }
+export type ConsoleEvent = Identity & { version: 1 | 2; eventId: number; atMs: number; source: "system" | "jev" } & ConsolePayload;
+export interface RunExport { version: 1 | 2; provider: "mock" | "jev"; running: boolean; truncated: boolean; context: RunContext | null; observations: Observation[]; events: ConsoleEvent[] }
+export interface ProviderUsage {
+  requestId: string;
+  provider: "jev";
+  billingMode: "api";
+  inputTokens: number | null;
+  outputTokens: number | null;
+  reasoningTokens: null;
+  costUsdMicros: number | null;
+  status: "completed" | "failed" | "aborted" | "invalid" | "budget-denied";
+}
+export interface Evaluation {
+  sessionId: string; generation: number; requestId: string; frameId: number;
+  model: string; status: "completed" | "stale" | "failed" | "cancelled" | "invalid" | "budget-denied" | "abstained";
+  latencyMs: number; observationAgeMs: number; choice: string | null; confidence: number | null;
+  probabilities: Record<string, number> | null; usage: ProviderUsage | null;
+}
 export const MAX_OBSERVATION_AGE_MS = 500;
 export const MAX_PNG_LENGTH = 2_000_000;
 export const DIRECTIONS: Direction[] = ["north", "south", "east", "west", "none"];
@@ -57,21 +74,36 @@ export function parseInputCommand(value: unknown): InputCommand {
   return { ...identity(r), decisionId: r.decisionId, frameId: r.frameId, direction: parseDirection(r.direction), ticks: r.ticks };
 }
 export function parseReceipt(value: unknown): InputReceipt {
-  const r = objectWithKeys(value, ["sessionId", "generation", "decisionId", "outcome", "executedTicks"]);
+  const timed = Boolean(value && typeof value === "object" && Object.hasOwn(value, "timing"));
+  const r = objectWithKeys(value, ["sessionId", "generation", "decisionId", "outcome", "executedTicks", ...(timed ? ["timing"] : [])]);
   integer(r.decisionId); integer(r.executedTicks, 0, 4);
   if (!["finished", "cancelled", "stale"].includes(r.outcome as string)) throw new Error("Invalid receipt.");
-  return { ...identity(r), decisionId: r.decisionId, outcome: r.outcome as InputReceipt["outcome"], executedTicks: r.executedTicks };
+  let timing: InputReceipt["timing"];
+  if (timed) {
+    const t = objectWithKeys(r.timing, ["firstInputAtMs", "lastInputAtMs"]);
+    if (r.executedTicks === 0) { if (t.firstInputAtMs !== null || t.lastInputAtMs !== null) throw new Error("Unexpected input times."); }
+    else { integer(t.firstInputAtMs, 0); integer(t.lastInputAtMs, t.firstInputAtMs); }
+    timing = t as InputReceipt["timing"];
+  }
+  return { ...(timing ? { timing } : {}), ...identity(r), decisionId: r.decisionId, outcome: r.outcome as InputReceipt["outcome"], executedTicks: r.executedTicks };
 }
 export function parseConsoleEvent(value: unknown): ConsoleEvent {
   const r = objectWithKeys(value, ["version", "sessionId", "generation", "eventId", "atMs", "source", "kind", "payload"]);
   const id = identity(r); integer(r.eventId); integer(r.atMs, 0);
-  if (r.version !== 1 || r.source !== "system") throw new Error("Unsupported console event.");
-  const base = { ...id, version: 1 as const, eventId: r.eventId, atMs: r.atMs, source: "system" as const };
+  if (![1, 2].includes(r.version as number) || !["system", "jev"].includes(r.source as string) || (r.version === 1 && r.source !== "system")) throw new Error("Unsupported console event.");
+  const base = { ...id, version: r.version as 1 | 2, eventId: r.eventId, atMs: r.atMs, source: r.source as "system" | "jev" };
+  if (r.kind === "evaluation") {
+    if (r.version !== 2 || r.source !== "jev") throw new Error("Invalid evaluation source.");
+    const payload = parseEvaluation(r.payload);
+    if (payload.sessionId !== id.sessionId || payload.generation !== id.generation) throw new Error("Evaluation identity differs.");
+    return { ...base, kind: "evaluation", payload };
+  }
+  if (r.source !== "system" && r.kind !== "decision") throw new Error("Invalid event source.");
   if (r.kind === "receipt") return { ...base, kind: "receipt", payload: parseReceipt(r.payload) };
   if (r.kind === "decision") {
     const p = objectWithKeys(r.payload, ["command", "summary", "provider"]);
-    if (p.provider !== "mock" || typeof p.summary !== "string" || p.summary.length > 500) throw new Error("Invalid decision event.");
-    return { ...base, kind: "decision", payload: { command: parseInputCommand(p.command), summary: p.summary, provider: "mock" } };
+    if (!(["mock", "jev"].includes(p.provider as string)) || (p.provider === "jev" ? r.version !== 2 || r.source !== "jev" : r.source !== "system") || typeof p.summary !== "string" || p.summary.length > 500) throw new Error("Invalid decision event.");
+    return { ...base, kind: "decision", payload: { command: parseInputCommand(p.command), summary: p.summary, provider: p.provider as "mock" | "jev" } };
   }
   if (r.kind === "lifecycle") {
     const p = objectWithKeys(r.payload, ["running", "message"]);
@@ -79,4 +111,23 @@ export function parseConsoleEvent(value: unknown): ConsoleEvent {
     return { ...base, kind: "lifecycle", payload: { running: p.running, message: p.message } };
   }
   throw new Error("Unsupported event kind.");
+}
+
+function parseEvaluation(value: unknown): Evaluation {
+  const p = objectWithKeys(value, ["sessionId", "generation", "requestId", "frameId", "model", "status", "latencyMs", "observationAgeMs", "choice", "confidence", "probabilities", "usage"]);
+  identity(p); integer(p.frameId); integer(p.latencyMs, 0); integer(p.observationAgeMs, 0);
+  if (typeof p.requestId !== "string" || p.requestId.length > 200 || typeof p.model !== "string" || p.model.length > 80
+    || !["completed", "stale", "failed", "cancelled", "invalid", "budget-denied", "abstained"].includes(p.status as string)
+    || (p.choice !== null && (typeof p.choice !== "string" || p.choice.length > 80))) throw new Error("Invalid evaluation.");
+  const probability = (v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1;
+  if (p.confidence !== null && !probability(p.confidence)) throw new Error("Invalid confidence.");
+  if (p.probabilities !== null && (typeof p.probabilities !== "object" || Array.isArray(p.probabilities)
+    || Object.entries(p.probabilities).length > 20 || Object.entries(p.probabilities).some(([k, v]) => k.length > 80 || !probability(v)))) throw new Error("Invalid probabilities.");
+  if (p.usage !== null) {
+    const u = objectWithKeys(p.usage, ["requestId", "provider", "billingMode", "inputTokens", "outputTokens", "reasoningTokens", "costUsdMicros", "status"]);
+    if (u.requestId !== p.requestId || u.provider !== "jev" || u.billingMode !== "api" || u.reasoningTokens !== null
+      || !["completed", "failed", "aborted", "invalid", "budget-denied"].includes(u.status as string)) throw new Error("Invalid usage.");
+    for (const key of ["inputTokens", "outputTokens", "costUsdMicros"]) if (u[key] !== null) integer(u[key], 0);
+  }
+  return p as unknown as Evaluation;
 }
