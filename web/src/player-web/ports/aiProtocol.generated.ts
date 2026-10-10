@@ -1,6 +1,6 @@
 // Generated from joshua-bone/ai-plays-chips-challenge src/protocol.ts
-// Source commit: f621f7e9219e44180d97ff8bde83753ef4063cdd
-// SHA256: 667d625b014394d41fcd3d7558c2174da9bfe02216d4ed9828c57c4fabf92dca
+// Source commit: 934ad3caf99f583957a72e6557c1782b012a6ae6
+// SHA256: 7faf442fd88031a4df4c555e8aaa78cfe0c4fc6c2926c03e194530709bd205ef
 // Versioned protocol is shared with the TWO browser adapter. No Node or engine imports.
 export type Direction = "north" | "south" | "east" | "west" | "none";
 export interface Identity { sessionId: string; generation: number }
@@ -12,16 +12,26 @@ export type ConsolePayload =
   | { kind: "lifecycle"; payload: { running: boolean; message: string } }
   | { kind: "decision"; payload: { command: InputCommand; summary: string; provider: "mock" | "jev" } }
   | { kind: "evaluation"; payload: Evaluation }
+  | { kind: "strategy"; payload: StrategyNotice }
+  | { kind: "feedback"; payload: FeedbackNotice }
   | { kind: "receipt"; payload: InputReceipt };
-export type ConsoleEvent = Identity & { version: 1 | 2; eventId: number; atMs: number; source: "system" | "jev" } & ConsolePayload;
-export interface RunExport { version: 1 | 2; provider: "mock" | "jev"; running: boolean; truncated: boolean; context: RunContext | null; observations: Observation[]; events: ConsoleEvent[]; pendingRequests?: { requestId: string; frameId: number }[] }
+export type ConsoleEvent = Identity & { version: 1 | 2 | 3; eventId: number; atMs: number; source: "system" | "jev" | "astra" | "luna" } & ConsolePayload;
+export interface RunExport { version: 1 | 2 | 3; provider: "mock" | "jev"; running: boolean; truncated: boolean; context: RunContext | null; observations: Observation[]; events: ConsoleEvent[]; pendingRequests?: { requestId: string; frameId: number; evidenceIds?: number[] }[] }
+export interface StrategyNotice {
+  publicOutput?: string;
+  requestId: string; status: "planning" | "accepted" | "stale" | "failed" | "cancelled" | "limited"; evidenceIds: number[];
+  goal: { id: string; objective: string; constraints: string[]; explanation: string } | null;
+  usage: ProviderUsage | null; latencyMs: number; message: string;
+}
+export interface FeedbackNotice { decisionId: number; direction: Direction; goalId: string | null; evidenceIds: number[];
+  movement: "moved" | "unchanged" | "unknown"; displacement: { x: number; y: number } | null; hudChanges: string[]; message: string }
 export interface ProviderUsage {
   requestId: string;
-  provider: "jev";
-  billingMode: "api";
+  provider: "jev" | "astra" | "luna";
+  billingMode: "api" | "subscription";
   inputTokens: number | null;
   outputTokens: number | null;
-  reasoningTokens: null;
+  reasoningTokens: number | null;
   costUsdMicros: number | null;
   status: "completed" | "failed" | "aborted" | "invalid" | "budget-denied";
 }
@@ -90,10 +100,37 @@ export function parseReceipt(value: unknown): InputReceipt {
 export function parseConsoleEvent(value: unknown): ConsoleEvent {
   const r = objectWithKeys(value, ["version", "sessionId", "generation", "eventId", "atMs", "source", "kind", "payload"]);
   const id = identity(r); integer(r.eventId); integer(r.atMs, 0);
-  if (![1, 2].includes(r.version as number) || !["system", "jev"].includes(r.source as string) || (r.version === 1 && r.source !== "system")) throw new Error("Unsupported console event.");
-  const base = { ...id, version: r.version as 1 | 2, eventId: r.eventId, atMs: r.atMs, source: r.source as "system" | "jev" };
+  if (![1, 2, 3].includes(r.version as number) || !["system", "jev", "astra", "luna"].includes(r.source as string) || (r.version === 1 && r.source !== "system") || (["astra", "luna"].includes(r.source as string) && r.version !== 3)) throw new Error("Unsupported console event.");
+  const base = { ...id, version: r.version as 1 | 2 | 3, eventId: r.eventId, atMs: r.atMs, source: r.source as "system" | "jev" | "astra" | "luna" };
+  if (r.kind === "strategy") {
+    if (r.version !== 3 || !["astra", "luna"].includes(r.source as string)) throw new Error("Invalid strategy source.");
+    const p = objectWithKeys(r.payload, ["requestId", "status", "evidenceIds", "goal", "usage", "latencyMs", "message",
+      ...(r.payload && typeof r.payload === "object" && Object.hasOwn(r.payload, "publicOutput") ? ["publicOutput"] : [])]);
+    if (p.publicOutput !== undefined) boundedText(p.publicOutput, 8000);
+    boundedText(p.requestId, 200); boundedText(p.message, 500); integer(p.latencyMs, 0); evidenceIds(p.evidenceIds, 3);
+    if (!["planning", "accepted", "stale", "failed", "cancelled", "limited"].includes(p.status as string)) throw new Error("Invalid strategy status.");
+    if ((p.status === "accepted") !== (p.goal !== null)) throw new Error("Only accepted strategies may publish a goal.");
+    if (p.goal !== null) {
+      const g = objectWithKeys(p.goal, ["id", "objective", "constraints", "explanation"]);
+      boundedText(g.id, 80); boundedText(g.objective, 500); boundedText(g.explanation, 500); stringList(g.constraints, 8, 240);
+    }
+    if (p.usage !== null) parseUsage(p.usage, p.requestId as string, r.source as "astra" | "luna");
+    return { ...base, kind: "strategy", payload: p as unknown as StrategyNotice };
+  }
+  if (r.kind === "feedback") {
+    if (r.version !== 3 || r.source !== "system") throw new Error("Invalid feedback source.");
+    const p = objectWithKeys(r.payload, ["decisionId", "direction", "goalId", "evidenceIds", "movement", "displacement", "hudChanges", "message"]);
+    integer(p.decisionId); parseDirection(p.direction); if (p.goalId !== null) boundedText(p.goalId, 80); evidenceIds(p.evidenceIds, 2);
+    if ((p.evidenceIds as number[]).length !== 2 || !["moved", "unchanged", "unknown"].includes(p.movement as string)) throw new Error("Invalid observed feedback.");
+    if (p.displacement !== null) {
+      const d = objectWithKeys(p.displacement, ["x", "y"]);
+      if (![d.x, d.y].every(v => typeof v === "number" && Number.isFinite(v) && Math.abs(v) < 4096)) throw new Error("Invalid observed displacement.");
+    }
+    stringList(p.hudChanges, 9, 80); boundedText(p.message, 500);
+    return { ...base, kind: "feedback", payload: p as unknown as FeedbackNotice };
+  }
   if (r.kind === "evaluation") {
-    if (r.version !== 2 || r.source !== "jev") throw new Error("Invalid evaluation source.");
+    if (r.version === 1 || r.source !== "jev") throw new Error("Invalid evaluation source.");
     const payload = parseEvaluation(r.payload);
     if (payload.sessionId !== id.sessionId || payload.generation !== id.generation) throw new Error("Evaluation identity differs.");
     return { ...base, kind: "evaluation", payload };
@@ -102,7 +139,7 @@ export function parseConsoleEvent(value: unknown): ConsoleEvent {
   if (r.kind === "receipt") return { ...base, kind: "receipt", payload: parseReceipt(r.payload) };
   if (r.kind === "decision") {
     const p = objectWithKeys(r.payload, ["command", "summary", "provider"]);
-    if (!(["mock", "jev"].includes(p.provider as string)) || (p.provider === "jev" ? r.version !== 2 || r.source !== "jev" : r.source !== "system") || typeof p.summary !== "string" || p.summary.length > 500) throw new Error("Invalid decision event.");
+    if (!(["mock", "jev"].includes(p.provider as string)) || (p.provider === "jev" ? r.version === 1 || r.source !== "jev" : r.source !== "system") || typeof p.summary !== "string" || p.summary.length > 500) throw new Error("Invalid decision event.");
     return { ...base, kind: "decision", payload: { command: parseInputCommand(p.command), summary: p.summary, provider: p.provider as "mock" | "jev" } };
   }
   if (r.kind === "lifecycle") {
@@ -123,11 +160,16 @@ function parseEvaluation(value: unknown): Evaluation {
   if (p.confidence !== null && !probability(p.confidence)) throw new Error("Invalid confidence.");
   if (p.probabilities !== null && (typeof p.probabilities !== "object" || Array.isArray(p.probabilities)
     || Object.entries(p.probabilities).length > 20 || Object.entries(p.probabilities).some(([k, v]) => k.length > 80 || !probability(v)))) throw new Error("Invalid probabilities.");
-  if (p.usage !== null) {
-    const u = objectWithKeys(p.usage, ["requestId", "provider", "billingMode", "inputTokens", "outputTokens", "reasoningTokens", "costUsdMicros", "status"]);
-    if (u.requestId !== p.requestId || u.provider !== "jev" || u.billingMode !== "api" || u.reasoningTokens !== null
-      || !["completed", "failed", "aborted", "invalid", "budget-denied"].includes(u.status as string)) throw new Error("Invalid usage.");
-    for (const key of ["inputTokens", "outputTokens", "costUsdMicros"]) if (u[key] !== null) integer(u[key], 0);
-  }
+  if (p.usage !== null) parseUsage(p.usage, p.requestId as string, "jev");
   return p as unknown as Evaluation;
+}
+function boundedText(v: unknown, max: number): asserts v is string { if (typeof v !== "string" || !v.trim() || v.length > max) throw new Error("Invalid text."); }
+function stringList(v: unknown, max: number, length: number): void { if (!Array.isArray(v) || v.length > max) throw new Error("Invalid list."); v.forEach(s => boundedText(s, length)); }
+function evidenceIds(v: unknown, max: number): void { if (!Array.isArray(v) || !v.length || v.length > max) throw new Error("Invalid evidence."); v.forEach(id => integer(id)); }
+function parseUsage(value: unknown, requestId: string, provider: "jev" | "astra" | "luna"): void {
+  const u = objectWithKeys(value, ["requestId", "provider", "billingMode", "inputTokens", "outputTokens", "reasoningTokens", "costUsdMicros", "status"]);
+  if (u.requestId !== requestId || u.provider !== provider || !["api", "subscription"].includes(u.billingMode as string)
+    || (provider === "jev" && (u.billingMode !== "api" || u.reasoningTokens !== null)) || (u.billingMode === "subscription" && u.costUsdMicros !== null)
+    || !["completed", "failed", "aborted", "invalid", "budget-denied"].includes(u.status as string)) throw new Error("Invalid usage.");
+  for (const key of ["inputTokens", "outputTokens", "reasoningTokens", "costUsdMicros"]) if (u[key] !== null) integer(u[key], 0);
 }
