@@ -63,6 +63,9 @@ jobs:
           npm test -- \
             src/player-web/impl/hybridcc-v1 \
             src/player-web/impl/modern \
+            src/player-web/impl/ai \
+            src/player-web/impl/urlLaunch.test.ts \
+            src/player-web/impl/play-lab/PlayInputQueue.test.ts \
             src/player-web/impl/usePlayerAppInputController.test.ts \
             src/player-web/impl/legacyInput.test.ts \
             src/player-web/impl/mobileDirectionalInput.test.ts \
