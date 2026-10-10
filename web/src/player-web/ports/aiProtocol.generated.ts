@@ -1,6 +1,6 @@
 // Generated from joshua-bone/ai-plays-chips-challenge src/protocol.ts
-// Source commit: 25bcc2c5d33148d25b33c8e60788f256ceb49043
-// SHA256: 888c9a9a55d67c72ab1b92000d26fee657caddbe005a5b21949e846003202f4d
+// Source commit: f621f7e9219e44180d97ff8bde83753ef4063cdd
+// SHA256: 667d625b014394d41fcd3d7558c2174da9bfe02216d4ed9828c57c4fabf92dca
 // Versioned protocol is shared with the TWO browser adapter. No Node or engine imports.
 export type Direction = "north" | "south" | "east" | "west" | "none";
 export interface Identity { sessionId: string; generation: number }
@@ -14,7 +14,7 @@ export type ConsolePayload =
   | { kind: "evaluation"; payload: Evaluation }
   | { kind: "receipt"; payload: InputReceipt };
 export type ConsoleEvent = Identity & { version: 1 | 2; eventId: number; atMs: number; source: "system" | "jev" } & ConsolePayload;
-export interface RunExport { version: 1 | 2; provider: "mock" | "jev"; running: boolean; truncated: boolean; context: RunContext | null; observations: Observation[]; events: ConsoleEvent[] }
+export interface RunExport { version: 1 | 2; provider: "mock" | "jev"; running: boolean; truncated: boolean; context: RunContext | null; observations: Observation[]; events: ConsoleEvent[]; pendingRequests?: { requestId: string; frameId: number }[] }
 export interface ProviderUsage {
   requestId: string;
   provider: "jev";
