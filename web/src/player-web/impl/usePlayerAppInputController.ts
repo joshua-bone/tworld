@@ -32,6 +32,7 @@ import {
   type DirectionInput,
 } from "@player-web/impl/legacyInput";
 import { mobileDirectionAtPoint, MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
+import { msManualInputNeedsContinuousHold } from "@player-web/impl/manualMsInputContext";
 import { HybridCcInputBuffer } from "@player-web/impl/hybridcc/inputCollector";
 import { hybridCcInputSampleIntervalMs } from "@player-web/impl/hybridcc/clockPolicy";
 import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
@@ -260,7 +261,7 @@ export function usePlayerAppInputController({
   aiInput,
 }: UsePlayerAppInputControllerOptions): UsePlayerAppInputControllerResult {
   const action1ActiveRef = useRef(false);
-  const msInputBufferRef = useRef(new LegacyMsInputBuffer());
+  const msInputBufferRef = useRef(new LegacyMsInputBuffer("manual"));
   const lynxInputBufferRef = useRef(new LegacyLynxInputBuffer());
   const hybridInputBufferRef = useRef(new HybridCcInputBuffer());
   const mobileDirectionalInputRef = useRef(new MobileDirectionalInputTracker());
@@ -464,7 +465,9 @@ export function usePlayerAppInputController({
       }
       return activeSession.request.ruleset === "Lynx"
         ? lynxInputBufferRef.current.nextTickInputCode(currentActionModifierMask())
-        : msInputBufferRef.current.nextTickInputCode(currentActionModifierMask());
+        : msInputBufferRef.current.nextTickInputCode(
+            currentActionModifierMask(), msManualInputNeedsContinuousHold(activeSession.frame),
+          );
     };
 
     const syncClockElapsed = (now: number) => {

@@ -145,6 +145,107 @@ describe("LegacyMsInputBuffer", () => {
   });
 });
 
+describe("manual MS repeat cadence", () => {
+  function playing(phase: number) {
+    const cells = createEmptyCells();
+    const start = pos(8, 16);
+    cells[start]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
+    let session = createMsInteractiveSession(createRequest(), createLevel({ cells, creaturePositions: [start] }));
+    for (let i = 0; i < phase; i += 1) session = advanceMsInteractiveSession(session, 0);
+    const buffer = new LegacyMsInputBuffer("manual");
+    const moves: Array<{ at: number; position: number }> = [];
+    let elapsed = 0;
+    return {
+      buffer, moves,
+      position: () => session.state.internal.chipPos,
+      step(count = 1) {
+        for (let i = 0; i < count; i += 1) {
+          const before = session.state.internal.chipPos;
+          session = advanceMsInteractiveSession(session, buffer.nextTickInputCode());
+          if (session.state.internal.chipPos !== before) moves.push({ at: elapsed, position: session.state.internal.chipPos });
+          elapsed += 55;
+        }
+      },
+    };
+  }
+
+  it.each([0, 1, 2, 3])("makes a sub-300 ms press one step at MS phase %i", (phase) => {
+    const game = playing(phase);
+    game.buffer.keyDown("east");
+    game.step(6);
+    game.buffer.keyUp("east");
+    game.step(8);
+    expect(game.moves).toEqual([{ at: 0, position: pos(9, 16) }]);
+  });
+
+  it.each([0, 1, 2, 3])("keeps continuous walking evenly spaced at MS phase %i", (phase) => {
+    const game = playing(phase);
+    game.buffer.keyDown("east");
+    game.step(20);
+    expect(game.moves.map((move) => move.at)).toEqual([0, 330, 550, 770, 990]);
+    game.buffer.keyUp("east");
+    game.step(8);
+    expect(game.moves).toHaveLength(5);
+  });
+
+  it("turns toward the latest press even while an older higher-priority arrow is held", () => {
+    const game = playing(0);
+    game.buffer.keyDown("north");
+    game.step(4);
+    game.buffer.keyDown("east");
+    game.step(4);
+    expect(game.moves).toEqual([
+      { at: 0, position: pos(8, 15) },
+      { at: 220, position: pos(9, 15) },
+    ]);
+  });
+
+  it("keeps deliberate new taps responsive during the repeat delay", () => {
+    const game = playing(0);
+    game.buffer.keyDown("east");
+    game.step(4);
+    game.buffer.keyUp("east");
+    game.buffer.keyDown("east");
+    game.step();
+    expect(game.position()).toBe(pos(10, 16));
+  });
+
+  it("treats a released and re-pressed arrow as the latest intent before a poll", () => {
+    const buffer = new LegacyMsInputBuffer("manual");
+    buffer.keyDown("north");
+    buffer.keyDown("south");
+    buffer.keyUp("north");
+    buffer.keyDown("north");
+    expect(buffer.nextTickInput()).toBe("north");
+  });
+
+  it("preserves a busy turn until accepted but cancels its repeats on release", () => {
+    const game = playing(0);
+    game.buffer.keyDown("east");
+    game.step(3);
+    game.buffer.keyUp("east");
+    game.buffer.keyDown("north");
+    game.step(2);
+    game.buffer.keyUp("north");
+    game.step(8);
+    expect(game.moves).toEqual([
+      { at: 0, position: pos(9, 16) },
+      { at: 220, position: pos(9, 15) },
+    ]);
+  });
+
+  it("clears a released pending turn even when an older direction remains held", () => {
+    const game = playing(0);
+    game.buffer.keyDown("north");
+    game.step(3);
+    game.buffer.keyDown("east");
+    game.step(); // MS has already moved this cycle; east is still pending.
+    game.buffer.keyUp("east");
+    game.step();
+    expect(game.position()).toBe(pos(8, 15));
+  });
+});
+
 describe("LegacyLynxInputBuffer", () => {
   it("combines held orthogonal keys into a diagonal command", () => {
     const buffer = new LegacyLynxInputBuffer();
