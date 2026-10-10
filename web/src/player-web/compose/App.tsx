@@ -200,23 +200,23 @@ export function App() {
   };
 
   return (
-    <div className="modern-classic-shell">
+    <div className={`modern-classic-shell${aiEnabled ? " modern-classic-shell--ai" : ""}`}>
       <div className="modern-classic-banner">
         <div>
-          <p className="modern-classic-banner__eyebrow">Classic</p>
+          {!aiEnabled && <p className="modern-classic-banner__eyebrow">Classic</p>}
           <h1 className="modern-classic-banner__title">{aiEnabled ? "AI play lab" : "Original interface, still available"}</h1>
           <p className="modern-classic-banner__body">
-            {aiEnabled ? "Experimental local companion controls. Use the usual levelset picker or import a DAT below." : "This is the preserved legacy shell. Local progress, imported DATs, and replays stay shared with Tile World Online."}
+            {aiEnabled ? "Load a level normally, then start the AI. Escape opens the levelset picker." : "This is the preserved legacy shell. Local progress, imported DATs, and replays stay shared with Tile World Online."}
           </p>
         </div>
         <div className="modern-classic-banner__controls">
-          <button
+          {!aiEnabled && <button
             className="modern-link-button"
-            onClick={() => { if (aiEnabled) window.location.href = withoutAiFlag(window.location.href); else openMobileShell(); }}
+            onClick={openMobileShell}
             type="button"
           >
-            {aiEnabled ? "Exit AI lab" : "Open Mobile UI"}
-          </button>
+            Open Mobile UI
+          </button>}
           <button
             className="modern-link-button modern-link-button--light"
             onClick={() => {

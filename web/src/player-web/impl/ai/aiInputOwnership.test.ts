@@ -45,3 +45,24 @@ it("reports ticks already executed when the next sample expires", () => {
   owner.nextInput(1540);
   expect(receipts).toEqual([{ ...identity, decisionId: 1, outcome: "stale", executedTicks: 1 }]);
 });
+it.each(["MS", "Lynx"] as const)("retains %s ownership between live decisions without holding the previous direction", ruleset => {
+  const { owner, receipts } = setup(ruleset); owner.start(true);
+  expect(owner.accept({ ...command, ticks: 4 }, 1000)).toBe(true);
+  for (let i = 0; i < 4; i++) owner.nextInput(1000 + i * 55);
+  expect(owner.nextInput(1220)).toBe(0);
+  owner.observe(2, 1220); expect(owner.accept({ ...command, decisionId: 2, frameId: 2, ticks: 1 }, 1220)).toBe(true);
+  owner.nextInput(1220); expect(owner.nextInput(1275)).toBe(0);
+  expect(receipts.map(r => r.executedTicks)).toEqual([4, 1]); owner.stop(); expect(owner.nextInput(1275)).toBe(null);
+});
+it("a stale live sample releases the direction and allows a later fresh decision", () => {
+  const { owner, receipts } = setup(); owner.start(true); owner.accept(command, 1000); owner.nextInput(1490);
+  expect(owner.nextInput(1501)).toBe(0); expect(receipts[0]).toMatchObject({ outcome: "stale", executedTicks: 1 });
+  owner.observe(2,1501); expect(owner.accept({...command,frameId:2,decisionId:2},1501)).toBe(true);
+});
+it("live receipts record the actual first and last browser input samples", () => {
+  const { owner, receipts } = setup(); owner.start(true); owner.accept(command, 1000);
+  owner.nextInput(1111); owner.nextInput(1166);
+  expect(receipts[0].timing).toEqual({ firstInputAtMs: 1111, lastInputAtMs: 1166 });
+  owner.observe(2,1200); owner.accept({...command,frameId:2,decisionId:2},1200); owner.nextInput(1701);
+  expect(receipts[1].timing).toEqual({ firstInputAtMs:null,lastInputAtMs:null });
+});
