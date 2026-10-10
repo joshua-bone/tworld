@@ -63,7 +63,7 @@ function session(ruleset: "MS" | "Lynx" | "Hybrid"): InteractiveGameSession {
   };
 }
 
-function mountController(ruleset: "MS" | "Lynx" | "Hybrid", inputOrientation: DihedralOrientation = "identity", aiInput?: { nextInput(): number | null; takeOver(): void }) {
+function mountController(ruleset: "MS" | "Lynx" | "Hybrid", inputOrientation: DihedralOrientation = "identity", aiInput?: { nextInput(): number | null; takeOver(): void }, isFastForwarding = false) {
   let nowMs = 0;
   const inputs: InteractiveInput[] = [];
   const events = new EventTarget();
@@ -80,7 +80,7 @@ function mountController(ruleset: "MS" | "Lynx" | "Hybrid", inputOrientation: Di
     showReplayMenu: false, showAdvancedMenu: false, showManageReplays: false,
     mobileSheet: null, message: null, manualRunStarted: true,
     setManualRunStarted: vi.fn(), setIsRunning: vi.fn(),
-    isFastForwarding: false, setIsFastForwarding: vi.fn(),
+    isFastForwarding, setIsFastForwarding: vi.fn(),
     heldUndoMode: null, setHeldUndoMode: vi.fn(), undoKeyBinding: "Z", action1KeyBinding: "C",
     allowTakeoverDuringHistoricalReplay: false, canResumeOriginalTimeline: false,
     sessionStatus: "playing", liveSessionRef: { current: session(ruleset) },
@@ -100,25 +100,46 @@ function mountController(ruleset: "MS" | "Lynx" | "Hybrid", inputOrientation: Di
       key, code: key, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, repeat: false,
     }));
   };
-  const pointer = (pointerId: number, type: string) => ({
-    pointerId, type, preventDefault() {}, stopPropagation() {}, currentTarget: { setPointerCapture() {} },
+  const bounds = {
+    north: { left: 100, right: 180, top: 0, bottom: 80 },
+    west: { left: 0, right: 80, top: 100, bottom: 180 },
+    south: { left: 100, right: 180, top: 100, bottom: 180 },
+    east: { left: 200, right: 280, top: 100, bottom: 180 },
+  };
+  const buttons = Object.entries(bounds).map(([direction, rect]) => ({
+    dataset: { mobileDirection: direction },
+    getBoundingClientRect: () => rect,
+    closest: () => ({ querySelectorAll: () => buttons }),
+    setPointerCapture() {},
+  }));
+  const captures = new Map<number, typeof buttons[number]>();
+  const pointer = (pointerId: number, type: string, clientX = 0, clientY = 0) => ({
+    pointerId, type, clientX, clientY, preventDefault() {}, stopPropagation() {}, currentTarget: captures.get(pointerId),
   }) as unknown as ReactPointerEvent<HTMLElement>;
+  const elapse = async (milliseconds: number) => {
+    nowMs += milliseconds;
+    TestClockWorker.current.pulse();
+    // advanceTick resolves immediately; yield to the clock pump continuation.
+    await Promise.resolve();
+  };
 
   return {
     inputs,
     controller,
     keyDown: (key: string) => keyboard("keydown", key),
     keyUp: (key: string) => keyboard("keyup", key),
-    touchDown: (direction: DirectionInput, pointerId: number) => controller.handleMobileDirectionPointerDown(direction, pointer(pointerId, "pointerdown")),
+    touchDown: (direction: DirectionInput, pointerId: number) => {
+      captures.set(pointerId, buttons.find((button) => button.dataset.mobileDirection === direction)!);
+      controller.handleMobileDirectionPointerDown(direction, pointer(pointerId, "pointerdown"));
+    },
+    touchMove: (pointerId: number, x: number, y: number) => controller.handleMobileDirectionPointerMove(pointer(pointerId, "pointermove", x, y)),
     touchUp: (pointerId: number) => controller.handleMobileDirectionPointerEnd(pointer(pointerId, "pointerup")),
     touchCancel: (pointerId: number, type = "pointercancel") => controller.handleMobileDirectionPointerEnd(pointer(pointerId, type)),
     blur: () => events.dispatchEvent(new Event("blur")),
+    elapse,
     async poll(count = 1) {
       for (let index = 0; index < count; index += 1) {
-        nowMs += ruleset === "Hybrid" ? 25 : 50;
-        TestClockWorker.current.pulse();
-        // advanceTick resolves immediately; yield to the clock pump continuation.
-        await Promise.resolve();
+        await elapse((ruleset === "Hybrid" ? 25 : ruleset === "MS" ? 55 : 50) / (isFastForwarding ? 2 : 1));
       }
     },
   };
@@ -157,7 +178,7 @@ describe("shared directional input release", () => {
     if (source === "keyboard") app.keyUp("ArrowUp");
     else app.touchUp(2);
     await app.poll(4);
-    expect(app.inputs).toEqual([8, 1, 0, 0, 8, 8]);
+    expect(app.inputs).toEqual([8, 1, 1568, 8, 8, 8]);
   });
 
   it.each(["MS", "Lynx"] as const)("continues walking while held and stops supplying input on release in %s", async (ruleset) => {
@@ -166,7 +187,7 @@ describe("shared directional input release", () => {
     await app.poll(7);
     app.keyUp("ArrowRight");
     await app.poll(2);
-    expect(app.inputs).toEqual(ruleset === "MS" ? [8, 0, 0, 8, 8, 8, 8, 0, 0] : [8, 8, 8, 8, 8, 8, 8, 0, 0]);
+    expect(app.inputs).toEqual(ruleset === "MS" ? [8, 1568, 1568, 8, 8, 8, 8, 0, 0] : [8, 8, 8, 8, 8, 8, 8, 0, 0]);
   });
 
   it("releases the mapped direction on a rotated board", async () => {
@@ -179,7 +200,7 @@ describe("shared directional input release", () => {
     await app.poll(3);
     app.keyUp("ArrowLeft");
     await app.poll();
-    expect(app.inputs).toEqual([4, 2, 0, 0, 4, 0]);
+    expect(app.inputs).toEqual([4, 2, 1568, 4, 4, 0]);
   });
 
   it("preserves the Hybrid sample window across a phone release", async () => {
@@ -234,7 +255,7 @@ describe("shared directional input release", () => {
     app.touchDown("north", 2);
     app.touchCancel(2);
     await app.poll(3);
-    expect(app.inputs).toEqual([8, 0, 0, 8]);
+    expect(app.inputs).toEqual([8, 1568, 1568, 8]);
   });
 
   it("removes a canceled Hybrid direction from the pending logic window", async () => {
@@ -259,6 +280,101 @@ describe("shared directional input release", () => {
     app.touchUp(1);
     await app.poll(4);
     expect(app.inputs).toEqual([0, 0, 1, 5, 1, 1, 1, 1, 0]);
+  });
+});
+
+describe("native ruleset clock timing", () => {
+  it.each([false, true])("uses 55 ms MS ticks with AI controls present=%s", async (withAi) => {
+    const app = mountController("MS", "identity", withAi ? { nextInput: () => null, takeOver() {} } : undefined);
+    app.keyDown("ArrowRight");
+    await app.elapse(50);
+    expect(app.inputs).toEqual([]);
+    await app.elapse(5);
+    expect(app.inputs).toEqual([8]);
+    await app.elapse(50);
+    expect(app.inputs).toHaveLength(1);
+    await app.elapse(5);
+    expect(app.inputs).toEqual([8, 1568]);
+  });
+
+  it("keeps Lynx at 50 ms per tick", async () => {
+    const app = mountController("Lynx");
+    app.keyDown("ArrowRight");
+    await app.elapse(49);
+    expect(app.inputs).toEqual([]);
+    await app.elapse(1);
+    expect(app.inputs).toEqual([8]);
+  });
+
+  it("fast-forwards MS at twice its native speed", async () => {
+    const app = mountController("MS", "identity", undefined, true);
+    app.keyDown("ArrowRight");
+    await app.elapse(25);
+    expect(app.inputs).toEqual([]);
+    await app.elapse(2.5);
+    expect(app.inputs).toEqual([8]);
+  });
+});
+
+describe("sliding phone movement", () => {
+  it.each(["MS", "Lynx", "Hybrid"] as const)("stops in neutral space and resumes a held direction on re-entry in %s", async (ruleset) => {
+    const app = mountController(ruleset);
+    app.touchDown("east", 1);
+    await app.poll(7);
+    app.touchMove(1, 190, 195);
+    app.inputs.length = 0;
+    await app.poll(4);
+    expect(app.inputs).toEqual([0, 0, 0, 0]);
+    app.touchMove(1, 240, 140);
+    app.inputs.length = 0;
+    await app.poll(6);
+    expect(app.inputs).toEqual(ruleset === "MS" ? [8, 1568, 1568, 8, 8, 8] : Array(6).fill(ruleset === "Hybrid" ? 2 : 8));
+  });
+
+  it.each(["MS", "Lynx"] as const)("releases the old direction when sliding to a different arrow before a poll in %s", async (ruleset) => {
+    const app = mountController(ruleset);
+    app.touchDown("east", 1);
+    app.touchMove(1, 40, 140);
+    app.touchUp(1);
+    await app.poll(3);
+    expect(app.inputs).toEqual([2, 0, 0]);
+  });
+
+  it("does not submit an unpolled tap when sliding off and lifting", async () => {
+    const app = mountController("MS");
+    app.touchDown("east", 1);
+    app.touchMove(1, 190, 195);
+    app.touchUp(1);
+    await app.poll(4);
+    expect(app.inputs).toEqual([0, 0, 0, 0]);
+  });
+
+  it("keeps a second finger holding the same arrow when the first slides off", async () => {
+    const app = mountController("MS");
+    app.touchDown("east", 1);
+    app.touchDown("east", 2);
+    await app.poll(4);
+    app.touchMove(1, 190, 195);
+    app.touchUp(1);
+    app.inputs.length = 0;
+    await app.poll(2);
+    expect(app.inputs).toEqual([8, 8]);
+    app.touchUp(2);
+    await app.poll();
+    expect(app.inputs).toEqual([8, 8, 0]);
+  });
+
+  it.each(["reset", "cancel", "release"])("does not re-arm a pointer after %s", async (end) => {
+    const app = mountController("MS");
+    app.touchDown("east", 1);
+    await app.poll();
+    if (end === "reset") app.controller.resetMobileDirectionalInputState();
+    else if (end === "cancel") app.touchCancel(1);
+    else app.touchUp(1);
+    app.touchMove(1, 240, 140);
+    app.inputs.length = 0;
+    await app.poll(3);
+    expect(app.inputs).toEqual([0, 0, 0]);
   });
 });
 

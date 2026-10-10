@@ -1797,6 +1797,7 @@ export function PlayerApp({
 
   const {
     handleMobileDirectionPointerDown,
+    handleMobileDirectionPointerMove,
     handleMobileDirectionPointerEnd,
     handleModernMapClick,
     preventMobileTouchDefault,
@@ -3696,6 +3697,7 @@ export function PlayerApp({
       aria-hidden="true"
       className={`mobile-game-shell__touch-button ${modifierClassName}${mobileMovementControlsDisabled ? " mobile-game-shell__touch-button--disabled" : ""}`}
       data-label={label}
+      data-mobile-direction={direction}
       draggable={false}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -3711,6 +3713,7 @@ export function PlayerApp({
         handleMobileDirectionPointerDown(direction, event);
       }}
       onPointerUp={handleMobileDirectionPointerEnd}
+      onPointerMove={handleMobileDirectionPointerMove}
       onTouchCancel={preventMobileTouchDefault}
       onTouchEnd={preventMobileTouchDefault}
       onTouchMove={preventMobileTouchDefault}
@@ -3723,6 +3726,7 @@ export function PlayerApp({
   const renderMobileTouchControls = () => (
     <div
       aria-label="Touch movement controls"
+      data-mobile-direction-controls=""
       className={`mobile-game-shell__touch-controls mobile-game-shell__touch-controls--${mobileControlProfile}`}
       onContextMenu={(event) => {
         event.preventDefault();

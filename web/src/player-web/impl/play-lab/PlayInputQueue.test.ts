@@ -18,9 +18,9 @@ describe("visual play input execution", () => {
     expect(queue.nextInput()).toBe(0);
     expect(receipts).toEqual([{ decisionId: 2, outcome: "cancelled", executedTicks: 1 }]);
   });
-  it("preserves the existing MS keyboard repeat delay", () => {
+  it("preserves unconsumed input during the native MS keyboard repeat delay", () => {
     const queue = new PlayInputQueue("MS", () => {});
     queue.enqueue(3, [{ direction: "east", ticks: 5 }]);
-    expect(Array.from({ length: 6 }, () => queue.nextInput())).toEqual([8, 0, 0, 8, 8, 0]);
+    expect(Array.from({ length: 6 }, () => queue.nextInput())).toEqual([8, 1568, 1568, 8, 8, 0]);
   });
 });

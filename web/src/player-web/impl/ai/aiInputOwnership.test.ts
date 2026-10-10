@@ -14,7 +14,7 @@ describe("AI input ownership", () => {
     const { owner, receipts } = setup(ruleset);
     owner.start();
     expect(owner.accept(command, 1000)).toBe(true);
-    expect([owner.nextInput(1000), owner.nextInput(1050), owner.nextInput(1100)]).toEqual(ruleset === "MS" ? [8, 0, null] : [8, 8, null]);
+    expect([owner.nextInput(1000), owner.nextInput(1055), owner.nextInput(1110)]).toEqual(ruleset === "MS" ? [8, 1568, null] : [8, 8, null]);
     expect(receipts).toEqual([{ ...identity, decisionId: 1, outcome: "finished", executedTicks: 2 }]);
   });
   it("takes over immediately and rejects a late command without rearming", () => {
