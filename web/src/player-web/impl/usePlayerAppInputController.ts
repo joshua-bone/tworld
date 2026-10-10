@@ -1,3 +1,4 @@
+import type { AiInputPort } from "@player-web/impl/ai/aiInputOwnership";
 import {
   useEffect,
   useEffectEvent,
@@ -179,6 +180,7 @@ interface UsePlayerAppInputControllerOptions {
   inputOrientationEpoch?: number;
   inputFrozen?: boolean;
   undoDisabled?: boolean;
+  aiInput?: AiInputPort;
 }
 
 interface UsePlayerAppInputControllerResult {
@@ -252,6 +254,7 @@ export function usePlayerAppInputController({
   inputOrientationEpoch = 0,
   inputFrozen = false,
   undoDisabled = false,
+  aiInput,
 }: UsePlayerAppInputControllerOptions): UsePlayerAppInputControllerResult {
   const action1ActiveRef = useRef(false);
   const msInputBufferRef = useRef(new LegacyMsInputBuffer());
@@ -284,6 +287,7 @@ export function usePlayerAppInputController({
   });
 
   const applyDirectionalInputPress = useEffectEvent((input: DirectionInput) => {
+    aiInput?.takeOver();
     const activeSession = liveSessionRef.current;
     if (!activeSession || mode !== "game" || isPaused) {
       return;
@@ -419,7 +423,7 @@ export function usePlayerAppInputController({
       return;
     }
 
-    const tickIntervalMs = liveSessionRef.current.request.ruleset === "Hybrid"
+    const tickIntervalMs = aiInput ? LEGACY_NORMAL_TICK_MS : liveSessionRef.current.request.ruleset === "Hybrid"
       ? hybridCcInputSampleIntervalMs(isFastForwarding)
       : isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
     const maxAccumulatedMs = tickIntervalMs * LEGACY_MAX_CATCH_UP_TICKS;
@@ -448,6 +452,8 @@ export function usePlayerAppInputController({
         return null;
       }
 
+      const aiCode = aiInput?.nextInput();
+      if (aiCode !== undefined && aiCode !== null) return aiCode;
       if (activeSession.request.ruleset === "Hybrid") {
         return hybridInputBufferRef.current.nextSampleInputCode();
       }
@@ -606,7 +612,7 @@ export function usePlayerAppInputController({
       const activeSession = liveSessionRef.current;
       const editableKeyboardFocus = shouldBypassPlayerHotkeys(event.target, document.activeElement);
       unlockSound();
-      setIsFastForwarding(isFastForwardModifierActive(mode, event));
+      setIsFastForwarding(!aiInput && isFastForwardModifierActive(mode, event));
 
       if (editableKeyboardFocus) {
         stopHeldUndo();
@@ -901,7 +907,7 @@ export function usePlayerAppInputController({
 
     const onKeyUp = (event: KeyboardEvent) => {
       const editableKeyboardFocus = shouldBypassPlayerHotkeys(event.target, document.activeElement);
-      setIsFastForwarding(isFastForwardModifierActive(mode, event));
+      setIsFastForwarding(!aiInput && isFastForwardModifierActive(mode, event));
 
       if (mode !== "game") {
         return;
@@ -951,10 +957,11 @@ export function usePlayerAppInputController({
 
     const onPointerDown = (event: PointerEvent) => {
       unlockSound();
-      setIsFastForwarding(isFastForwardModifierActive(mode, event));
+      setIsFastForwarding(!aiInput && isFastForwardModifierActive(mode, event));
     };
 
     const onWindowBlur = () => {
+      aiInput?.takeOver();
       setIsFastForwarding(false);
       stopHeldUndo();
       resetAction1Input();

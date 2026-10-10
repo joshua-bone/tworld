@@ -63,7 +63,7 @@ function session(ruleset: "MS" | "Lynx" | "Hybrid"): InteractiveGameSession {
   };
 }
 
-function mountController(ruleset: "MS" | "Lynx" | "Hybrid", inputOrientation: DihedralOrientation = "identity") {
+function mountController(ruleset: "MS" | "Lynx" | "Hybrid", inputOrientation: DihedralOrientation = "identity", aiInput?: { nextInput(): number | null; takeOver(): void }) {
   let nowMs = 0;
   const inputs: InteractiveInput[] = [];
   const events = new EventTarget();
@@ -92,7 +92,7 @@ function mountController(ruleset: "MS" | "Lynx" | "Hybrid", inputOrientation: Di
     proceedAfterLevelEnd: vi.fn(), restartCurrentLevel: vi.fn(), exitCurrentGame: vi.fn(),
     changeLevelBy: vi.fn(), jumpLevel: vi.fn(), toggleHelp: vi.fn(), closeHelp: vi.fn(),
     closeSoundControls: vi.fn(), closeHistoryControls: vi.fn(), setShowReplayMenu: vi.fn(),
-    setShowAdvancedMenu: vi.fn(), focusGameplaySurface: vi.fn(), unlockSound: vi.fn(), inputOrientation,
+    setShowAdvancedMenu: vi.fn(), focusGameplaySurface: vi.fn(), unlockSound: vi.fn(), inputOrientation, aiInput,
   });
 
   const keyboard = (type: "keydown" | "keyup", key: string) => {
@@ -259,5 +259,23 @@ describe("shared directional input release", () => {
     app.touchUp(1);
     await app.poll(4);
     expect(app.inputs).toEqual([0, 0, 1, 5, 1, 1, 1, 1, 0]);
+  });
+});
+
+
+describe("AI ownership at the actual player clock", () => {
+  it.each(["keyboard", "phone", "blur"] as const)("releases AI input before %s takeover", async (source) => {
+    let owned = true;
+    const app = mountController("Lynx", "identity", {
+      nextInput: () => owned ? 8 : null,
+      takeOver: () => { owned = false; },
+    });
+    await app.poll();
+    expect(app.inputs).toEqual([8]);
+    if (source === "keyboard") app.keyDown("ArrowUp");
+    else if (source === "phone") app.touchDown("north", 1);
+    else app.blur();
+    await app.poll();
+    expect(app.inputs).toEqual([8, source === "blur" ? 0 : 1]);
   });
 });

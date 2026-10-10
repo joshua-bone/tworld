@@ -1,3 +1,6 @@
+import { lazy, Suspense } from "react";
+import type { AiInputPort } from "@player-web/impl/ai/aiInputOwnership";
+import { maySaveHumanProgress } from "@player-web/impl/ai/aiRunPolicy";
 import {
   startTransition,
   useEffect,
@@ -491,7 +494,10 @@ const GLOBAL_HELP: HelpSection[] = [
   },
 ];
 
+const AiPanel = lazy(() => import("@player-web/impl/ai/AiPanel"));
+
 interface PlayerAppProps {
+  aiHarnessEnabled?: boolean;
   autoDownloadReplaysOnSave?: boolean;
   autoSaveWinningHighScoreReplays?: boolean;
   services: BrowserAppServices;
@@ -520,6 +526,7 @@ interface PlayerAppProps {
 }
 
 export function PlayerApp({
+  aiHarnessEnabled = false,
   autoDownloadReplaysOnSave = createDefaultBrowserProfilePreferences().autoDownloadReplaysOnSave,
   autoSaveWinningHighScoreReplays = createDefaultBrowserProfilePreferences().autoSaveWinningHighScoreReplays,
   services,
@@ -627,6 +634,12 @@ export function PlayerApp({
   } | null>(null);
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
+  const aiScreenRef = useRef<HTMLElement>(null);
+  const aiInputRef = useRef<AiInputPort | null>(null);
+  const aiInputPort = useRef<AiInputPort>({
+    nextInput: () => aiInputRef.current?.nextInput() ?? null,
+    takeOver: () => aiInputRef.current?.takeOver(),
+  });
   const datFileInputRef = useRef<HTMLInputElement | null>(null);
   const gameplayFocusRef = useRef<HTMLElement | null>(null);
   const mobileShellRef = useRef<HTMLElement | null>(null);
@@ -657,6 +670,7 @@ export function PlayerApp({
   });
 
   const prepareForSessionTransition = useEffectEvent(() => {
+    aiInputRef.current?.takeOver();
     resetGameplayInputBuffersRef.current();
     setIsRunning(false);
     setIsPaused(false);
@@ -738,7 +752,7 @@ export function PlayerApp({
   const specialModeActive = isSpecialModesConfigurationActive(specialModesConfiguration);
   const specialModeFingerprint = specialModesConfigurationFingerprint(specialModesConfiguration);
   const sessionStartOptions = toUndoSessionStartOptions(undoSettings);
-  undoStartOptionsRef.current = specialModeActive
+  undoStartOptionsRef.current = (specialModeActive || aiHarnessEnabled)
     ? {
         ...sessionStartOptions,
         undoSettings: {
@@ -776,7 +790,7 @@ export function PlayerApp({
     levelSeedOverridesRef,
     undoStartOptionsRef,
     isPaused,
-    enableRewindAndResume: specialModeActive ? false : undoSettings.enableRewindAndResume,
+    enableRewindAndResume: (specialModeActive || aiHarnessEnabled) ? false : undoSettings.enableRewindAndResume,
     prepareForSessionTransition,
     clearGameplayInputs,
     setIsRunning,
@@ -794,7 +808,7 @@ export function PlayerApp({
   const currentRuleset = session?.request.ruleset ?? (currentSeries?.ruleset === "None" ? null : currentSeries?.ruleset ?? null);
   const currentRulesetDisplayLabel = formatPlayerRulesetLabel(currentRuleset, rulesetLabel);
   const replaysSupported =
-    !specialModeActive &&
+    !aiHarnessEnabled && !specialModeActive &&
     currentRuleset !== null &&
     interactiveEngineSupportsReplay(currentRuleset, engines);
   const replayRuleset = replaysSupported ? currentRuleset : null;
@@ -1230,7 +1244,7 @@ export function PlayerApp({
 
   useEffect(() => {
     const nextOptions = toUndoSessionStartOptions(undoSettings);
-    undoStartOptionsRef.current = specialModeActive
+    undoStartOptionsRef.current = (specialModeActive || aiHarnessEnabled)
       ? {
           ...nextOptions,
           undoSettings: {
@@ -1265,6 +1279,7 @@ export function PlayerApp({
   }, [runResult]);
 
   useEffect(() => {
+    if (!maySaveHumanProgress(aiHarnessEnabled)) return;
     const progressSummary = persistTerminalSessionProgress({
       attemptCounts: levelAttemptCountsRef.current,
       gameplayHash: currentLevel?.gameplayHash ?? null,
@@ -1300,6 +1315,7 @@ export function PlayerApp({
       void saveReplayForCurrentRun({ autoTriggered: true });
     }
   }, [
+    aiHarnessEnabled,
     autoSaveWinningHighScoreReplays,
     mode,
     onLevelProgressSaved,
@@ -1848,7 +1864,8 @@ export function PlayerApp({
     inputOrientation: specialModesRuntime.inputOrientation,
     inputOrientationEpoch: specialModesRuntime.inputOrientationEpoch,
     inputFrozen: specialModesRuntime.inputFrozen,
-    undoDisabled: specialModeActive,
+    undoDisabled: specialModeActive || aiHarnessEnabled,
+    aiInput: aiHarnessEnabled ? aiInputPort.current : undefined,
   });
   resetGameplayInputBuffersRef.current = resetGameplayInputBuffers;
   stopHeldUndoRef.current = stopHeldUndo;
@@ -4379,7 +4396,17 @@ export function PlayerApp({
   }
 
   return (
-    <main className="legacy-shell">
+    <main className="legacy-shell" ref={aiScreenRef}>
+      {aiHarnessEnabled && <Suspense fallback={<p>Loading AI controls…</p>}><AiPanel host={{
+        runKey: `${selectedSeriesFile}:${selectedLevelNumber}:${currentRuleset}:${reloadToken}:${replayLaunchRequest !== null}`,
+        ruleset: currentRuleset === "MS" || currentRuleset === "Lynx" ? currentRuleset : null,
+        ready: mode === "game" && !isSessionLoading && !isCatalogLoading && !isPaused && !showHelp && !message
+          && session?.mode === "manual" && session.history.restoreMode === "live" && session.frame.snapshot.status === "playing"
+          && session.request.seriesFile === selectedSeriesFile && session.request.levelNumber === selectedLevelNumber,
+        screen: aiScreenRef, input: aiInputRef,
+        startGame: () => { resetGameplayInputBuffersRef.current(); setManualRunStarted(true); setIsRunning(true); setIsPaused(false); },
+      }} /></Suspense>}
+
       <input
         accept=".dat,.DAT"
         hidden
@@ -4460,6 +4487,7 @@ export function PlayerApp({
         <div className="legacy-history">
           <button
             aria-expanded={showHistoryControls}
+            disabled={aiHarnessEnabled}
             aria-label="Open undo and rewind controls"
             className="legacy-toolbar__button"
             onClick={toggleHistoryControls}
