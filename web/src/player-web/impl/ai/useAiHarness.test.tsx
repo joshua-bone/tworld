@@ -99,6 +99,16 @@ it("takeover during capture prevents a delayed Start", async () => {
   expect(remote.calls).not.toContain("start");
   act(() => { expect(host.input.current!.nextInput()).toBe(null); });
 });
+it("keeps the accepted goal visible after tactical logs roll over and clears it on a fresh run", async () => {
+  await connectJev(); await act(async () => api.start("none"));
+  const goal = { id: "g", objective: "Go north", constraints: ["Avoid east"], explanation: "East failed" };
+  await act(async () => remote.receive({ version: 3, sessionId: "s", generation, eventId: 1, atMs: 1000, source: "astra", kind: "strategy", payload: { status: "accepted", goal } }));
+  for (let i = 2; i < 105; i++) await act(async () => remote.receive({ version: 3, sessionId: "s", generation, eventId: i, atMs: 1000, source: "system", kind: "feedback", payload: { message: "Observed movement" } }));
+  expect(api.events.filter((e: any) => e.kind === "strategy")).toHaveLength(1);
+  expect(api.events.some((e: any) => e.kind === "feedback")).toBe(false);
+  expect(api.goal).toEqual(goal); expect(host.startGame).not.toHaveBeenCalled();
+  await act(async () => api.stop()); await flush(); expect(api.goal).toBeNull();
+});
 
 async function connectJev() {
   await act(async () => api.disconnect()); remote.provider = "jev";

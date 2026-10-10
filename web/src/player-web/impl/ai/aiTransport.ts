@@ -14,11 +14,11 @@ export class AiTransport {
     if (!response.ok) throw new Error(`Companion rejected the request (${response.status}). Restart it to get a fresh pairing token.`);
     return response;
   }
-  async pair(pairingToken: string): Promise<{ sessionId: string; provider: "mock" | "jev" }> {
-    const result = await (await this.request("pair", { version: 2, pairingToken })).json();
-    if (result.version !== 2 || !["mock", "jev"].includes(result.provider) || typeof result.token !== "string" || typeof result.sessionId !== "string") throw new Error("Incompatible companion protocol; update both projects.");
+  async pair(pairingToken: string): Promise<{ sessionId: string; provider: "mock" | "jev"; strategy: "off" | "subscription" | "api" }> {
+    const result = await (await this.request("pair", { version: 3, pairingToken })).json();
+    if (result.version !== 3 || !["mock", "jev"].includes(result.provider) || !["off", "subscription", "api"].includes(result.strategy) || typeof result.token !== "string" || typeof result.sessionId !== "string") throw new Error("Incompatible companion protocol; update both projects.");
     this.token = result.token;
-    return { sessionId: result.sessionId, provider: result.provider };
+    return { sessionId: result.sessionId, provider: result.provider, strategy: result.strategy };
   }
   post(path: string, body: unknown): Promise<unknown> {
     // Preserve mutation order across Stop/Start, reset, frames and receipts.

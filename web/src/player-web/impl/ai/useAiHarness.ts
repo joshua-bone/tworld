@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject, type RefObject } from "react";
-import { parseInputCommand, type ConsoleEvent, type Direction, type Identity } from "@player-web/ports/aiProtocol.generated";
+import { parseInputCommand, parseObservation, type ConsoleEvent, type Direction, type Identity, type StrategyNotice } from "@player-web/ports/aiProtocol.generated";
 import { AiInputOwnership, type AiInputPort } from "./aiInputOwnership";
 import { AiTransport } from "./aiTransport";
 import { captureObservation } from "./captureObservation";
+import { appendInsight } from "./strategicInsights";
 
 export interface AiHost {
   runKey: string;
@@ -12,7 +13,7 @@ export interface AiHost {
   input: MutableRefObject<AiInputPort | null>;
   startGame(): void;
 }
-interface Connected { transport: AiTransport; sessionId: string; provider: "mock" | "jev"; abort: AbortController }
+interface Connected { transport: AiTransport; sessionId: string; provider: "mock" | "jev"; strategy: "off" | "subscription" | "api"; abort: AbortController }
 interface Configured { runKey: string; identity: Identity; owner: AiInputOwnership; clockStarted: boolean }
 
 export function useAiHarness(host: AiHost) {
@@ -33,6 +34,8 @@ export function useAiHarness(host: AiHost) {
   const [fresh, setFresh] = useState(false);
   const [status, setStatus] = useState("Start the local companion, then paste its pairing token.");
   const [events, setEvents] = useState<ConsoleEvent[]>([]);
+  const [goal, setGoal] = useState<StrategyNotice["goal"]>(null);
+  const [goalSource, setGoalSource] = useState("Astra");
 
   const stop = useCallback(() => {
     operation.current += 1;
@@ -77,16 +80,21 @@ export function useAiHarness(host: AiHost) {
     setConnecting(true); setStatus("Connecting to this computer…");
     const transport = new AiTransport();
     try {
-      const { sessionId, provider } = await transport.pair(token.trim());
+      const { sessionId, provider, strategy = "off" } = await transport.pair(token.trim());
       if (attempt !== epoch.current) { void transport.post("disconnect", {}).catch(() => {}); return; }
-      const conn = { transport, sessionId, provider, abort: new AbortController() };
+      const conn = { transport, sessionId, provider, strategy, abort: new AbortController() };
       connection.current = conn; setConnected(conn); setEvents([]); setConnecting(false);
       setStatus("Connected. Load an MS or Lynx level normally.");
       let lastEvent = 0;
       void transport.stream((event) => {
         if (connection.current !== conn || event.sessionId !== sessionId || event.generation !== configured.current?.identity.generation) return;
         if (event.eventId <= lastEvent) return; lastEvent = event.eventId;
-        setEvents((previous) => [...previous.slice(-99), event]);
+        setEvents((previous) => appendInsight(previous, event));
+        if (event.kind === "strategy") {
+          if (event.payload.status === "accepted") { setGoal(event.payload.goal); setGoalSource(event.source === "luna" ? "Luna" : "Astra"); }
+          else if (["stale", "failed", "cancelled", "limited"].includes(event.payload.status)) setGoal(null);
+          setStatus(event.payload.message);
+        }
         if (event.kind === "lifecycle") {
           if (!event.payload.running && active.current) stop();
           setStatus(event.payload.message);
@@ -110,7 +118,7 @@ export function useAiHarness(host: AiHost) {
   useEffect(() => {
     operation.current += 1;
     configured.current?.owner.stop(); configured.current = null;
-    setFresh(false); markRunning(false);
+    setFresh(false); markRunning(false); setGoal(null);
     if (!connected || !host.ruleset) return;
     const identity = { sessionId: connected.sessionId, generation: ++generation.current };
     const target: Configured = { identity, runKey: host.runKey, clockStarted: false, owner: new AiInputOwnership(host.ruleset, identity, (receipt) => {
@@ -198,5 +206,13 @@ export function useAiHarness(host: AiHost) {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch { setStatus("Run export failed. Check the companion connection."); }
   };
-  return { connect, disconnect, start, stop, exportRun, connected: Boolean(connected), connecting, running, fresh, status, events, provider: connected?.provider ?? "mock" };
+  const inspectPlan = async (event: ConsoleEvent) => {
+    const conn = connection.current;
+    if (!conn || event.kind !== "strategy") return [];
+    const run = await conn.transport.exportRun() as { observations?: unknown[] };
+    if (!Array.isArray(run?.observations) || run.observations.length > 100) throw new Error("Invalid evidence export.");
+    return run.observations.map(parseObservation).filter(frame => frame.sessionId === event.sessionId && frame.generation === event.generation && event.payload.evidenceIds.includes(frame.frameId));
+  };
+  return { connect, disconnect, start, stop, exportRun, inspectPlan, connected: Boolean(connected), connecting, running, fresh, status, events, goal, goalSource,
+    provider: connected?.provider ?? "mock", strategy: connected?.strategy ?? "off" };
 }
