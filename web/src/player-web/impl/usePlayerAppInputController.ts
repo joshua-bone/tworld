@@ -367,7 +367,10 @@ export function usePlayerAppInputController({
         msInputBufferRef.current.keyDown(mappedInput);
       }
     }
-  }, [inputFrozen, inputOrientation, inputOrientationEpoch, liveSessionRef, mode, resetEngineInputBuffers]);
+    // Effect Events change identity every render. Depending on the reset
+    // callback here turns each 125 ms UI refresh into a new directional press,
+    // bypassing repeat delays and erasing taps that have not been polled yet.
+  }, [inputFrozen, inputOrientation, inputOrientationEpoch, liveSessionRef, mode]);
 
   const applyMobileDirectionalInputChanges = useEffectEvent(
     (changes: { pressed: DirectionInput[]; released: DirectionInput[] }, discardPending = false) => {
