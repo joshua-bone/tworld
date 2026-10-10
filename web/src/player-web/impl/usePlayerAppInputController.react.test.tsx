@@ -1,13 +1,18 @@
 // @vitest-environment jsdom
 import { act, type PointerEvent as ReactPointerEvent } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import { advanceMsInteractiveSession, createMsInteractiveSession } from "@ruleset-ms/impl/engine";
 import { projectMsInteractiveFrame } from "@ruleset-ms/impl/interactiveProjection";
 import { createEmptyCells, createLevel, createRequest, pos } from "@ruleset-ms/impl/testSupport";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
 import { usePlayerAppInputController } from "./usePlayerAppInputController";
+import { compileNativeInputOracle } from "./testSupport/nativeInputOracle";
+
+let native: ReturnType<typeof compileNativeInputOracle>;
+beforeAll(() => { native = compileNativeInputOracle(); });
+afterAll(() => native?.dispose());
 
 // Keep React's real render/effect lifecycle. Only the clock worker is driven
 // manually, so UI refreshes can be interleaved with actual MS engine ticks.
@@ -28,7 +33,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-async function mountGame() {
+async function mountGame(phase = 0) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("Worker", ClockWorker);
   let now = 0;
@@ -38,6 +43,7 @@ async function mountGame() {
   cells[start]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.east);
   const request = createRequest();
   let engine = createMsInteractiveSession(request, createLevel({ cells, creaturePositions: [start] }));
+  for (let i = 0; i < phase; i += 1) engine = advanceMsInteractiveSession(engine, 0);
   const liveSessionRef: { current: InteractiveGameSession } = { current: {
     request, mode: "manual", hintText: null, frame: projectMsInteractiveFrame(engine, "initial"),
     history: {
@@ -49,6 +55,7 @@ async function mountGame() {
     handle: {} as InteractiveGameSession["handle"],
   } };
   const moves: number[] = [];
+  const inputs: number[] = [];
   const options: Parameters<typeof usePlayerAppInputController>[0] = {
     mode: "game", selectedSeriesFile: "input-test", usesModernGameUi: true, isMobileChrome: true,
     isPaused: false, isRunning: true, isSessionLoading: false,
@@ -62,6 +69,7 @@ async function mountGame() {
     sessionStatus: "playing", liveSessionRef,
     advanceTick: async (input) => {
       if (typeof input !== "number") throw new Error("Expected MS input");
+      inputs.push(input);
       const before = engine.state.internal.chipPos;
       engine = advanceMsInteractiveSession(engine, input);
       liveSessionRef.current = { ...liveSessionRef.current, frame: projectMsInteractiveFrame(engine, "tick") };
@@ -86,7 +94,7 @@ async function mountGame() {
     pointerId: 1, type, preventDefault() {}, stopPropagation() {}, currentTarget: { setPointerCapture() {} },
   }) as unknown as ReactPointerEvent<HTMLElement>;
   return {
-    moves, options, render,
+    moves, inputs, options, render,
     position: () => engine.state.internal.chipPos,
     press(source: "keyboard" | "phone") {
       act(() => {
@@ -115,20 +123,33 @@ async function mountGame() {
 it.each(["keyboard", "phone"] as const)("keeps a short %s hold to one tile across real React updates", async (source) => {
   const game = await mountGame();
   game.press(source);
-  await game.runUntil(275);
+  await game.runUntil(165);
   game.release(source);
   await game.runUntil(700);
   expect(game.position()).toBe(pos(9, 16));
   expect(game.moves).toEqual([55]);
 });
 
-it.each(["keyboard", "phone"] as const)("preserves continuous %s repeat timing through React updates", async (source) => {
-  const game = await mountGame();
+it.each([0, 1, 2, 3].flatMap((phase) => (["keyboard", "phone"] as const).map((source) => ({ phase, source }))))(
+  "matches original C held input through React updates: $source, MS phase $phase", async ({ phase, source }) => {
+  const game = await mountGame(phase);
   game.press(source);
   await game.runUntil(1100);
   game.release(source);
-  await game.runUntil(1500);
-  expect(game.moves).toEqual([55, 385, 605, 825, 1045]);
+  await game.runUntil(1540);
+  const expected = native.poll(["E", ...Array<string>(19).fill(""), "e", ...Array<string>(7).fill("")]);
+  expect(game.inputs).toEqual(expected);
+  // Native commands allow a first repeat no later than ordinary full-speed
+  // walking. The removed manual mode instead delayed it until 385 ms.
+  // mslogic.c clears CS_HASMOVED when currenttime & 3 is zero. A hold
+  // begun mid-cycle aligns to that global phase, then steps every 220 ms.
+  const nativePhaseMoves = [
+    [55, 275, 495, 715, 935],
+    [55, 220, 440, 660, 880, 1100],
+    [55, 220, 385, 605, 825, 1045],
+    [55, 220, 330, 550, 770, 990],
+  ];
+  expect(game.moves).toEqual(nativePhaseMoves[phase]);
 });
 
 it.each(["keyboard", "phone"] as const)("does not erase a quick %s tap when React renders before the next tick", async (source) => {
