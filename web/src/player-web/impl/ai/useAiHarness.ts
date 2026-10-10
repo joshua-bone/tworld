@@ -12,8 +12,8 @@ export interface AiHost {
   input: MutableRefObject<AiInputPort | null>;
   startGame(): void;
 }
-interface Connected { transport: AiTransport; sessionId: string; abort: AbortController }
-interface Configured { runKey: string; identity: Identity; owner: AiInputOwnership }
+interface Connected { transport: AiTransport; sessionId: string; provider: "mock" | "jev"; abort: AbortController }
+interface Configured { runKey: string; identity: Identity; owner: AiInputOwnership; clockStarted: boolean }
 
 export function useAiHarness(host: AiHost) {
   const current = useRef(host); current.current = host;
@@ -27,6 +27,9 @@ export function useAiHarness(host: AiHost) {
   const [connected, setConnected] = useState<Connected | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [running, setRunning] = useState(false);
+  const active = useRef(false);
+  const markRunning = useCallback((value: boolean) => { active.current = value; setRunning(value); }, []);
+  const [resetSerial, setResetSerial] = useState(0);
   const [fresh, setFresh] = useState(false);
   const [status, setStatus] = useState("Start the local companion, then paste its pairing token.");
   const [events, setEvents] = useState<ConsoleEvent[]>([]);
@@ -34,8 +37,9 @@ export function useAiHarness(host: AiHost) {
   const stop = useCallback(() => {
     operation.current += 1;
     configured.current?.owner.stop();
-    setRunning(false);
+    markRunning(false); setStatus("AI stopped; keys released.");
     if (connection.current) void connection.current.transport.post("stop", {}).catch(() => {});
+    if (configured.current) { configured.current = null; setFresh(false); setResetSerial(value => value + 1); }
   }, []);
   const disconnect = useCallback((message = "Disconnected. Restart the companion for a fresh pairing token.") => {
     epoch.current += 1;
@@ -43,7 +47,7 @@ export function useAiHarness(host: AiHost) {
     configured.current?.owner.stop(); configured.current = null;
     const old = connection.current; connection.current = null;
     if (old) { void old.transport.post("disconnect", {}).catch(() => {}); old.abort.abort(); }
-    setConnected(null); setConnecting(false); setFresh(false); setRunning(false); setStatus(message);
+    setConnected(null); setConnecting(false); setFresh(false); markRunning(false); setStatus(message);
   }, []);
   const capture = useCallback((): Promise<boolean> => {
     const target = configured.current;
@@ -73,15 +77,26 @@ export function useAiHarness(host: AiHost) {
     setConnecting(true); setStatus("Connecting to this computer…");
     const transport = new AiTransport();
     try {
-      const sessionId = await transport.pair(token.trim());
+      const { sessionId, provider } = await transport.pair(token.trim());
       if (attempt !== epoch.current) { void transport.post("disconnect", {}).catch(() => {}); return; }
-      const conn = { transport, sessionId, abort: new AbortController() };
+      const conn = { transport, sessionId, provider, abort: new AbortController() };
       connection.current = conn; setConnected(conn); setEvents([]); setConnecting(false);
       setStatus("Connected. Load an MS or Lynx level normally.");
+      let lastEvent = 0;
       void transport.stream((event) => {
         if (connection.current !== conn || event.sessionId !== sessionId || event.generation !== configured.current?.identity.generation) return;
+        if (event.eventId <= lastEvent) return; lastEvent = event.eventId;
         setEvents((previous) => [...previous.slice(-99), event]);
-        if (event.kind === "lifecycle") setStatus(event.payload.message);
+        if (event.kind === "lifecycle") {
+          if (!event.payload.running && active.current) stop();
+          setStatus(event.payload.message);
+        }
+        if (event.kind === "decision" && provider === "jev" && active.current) {
+          const target = configured.current;
+          if (!target || !current.current.ready || document.hidden || target.runKey !== current.current.runKey) { stop(); return; }
+          if (!target.owner.accept(event.payload.command, Date.now())) { stop(); setStatus("Jev action rejected: stale screen or invalid identity. Start again when ready."); }
+          else if (!target.clockStarted) { target.clockStarted = true; current.current.startGame(); }
+        }
       }, conn.abort.signal).catch(() => {
         if (connection.current === conn) disconnect("Connection lost. AI keys released. Restart the companion to reconnect.");
       });
@@ -95,12 +110,12 @@ export function useAiHarness(host: AiHost) {
   useEffect(() => {
     operation.current += 1;
     configured.current?.owner.stop(); configured.current = null;
-    setFresh(false); setRunning(false);
+    setFresh(false); markRunning(false);
     if (!connected || !host.ruleset) return;
     const identity = { sessionId: connected.sessionId, generation: ++generation.current };
-    const target: Configured = { identity, runKey: host.runKey, owner: new AiInputOwnership(host.ruleset, identity, (receipt) => {
+    const target: Configured = { identity, runKey: host.runKey, clockStarted: false, owner: new AiInputOwnership(host.ruleset, identity, (receipt) => {
       if (configured.current !== target) return;
-      setRunning(false);
+      if (connected.provider === "mock") markRunning(false);
       const receiptOperation = operation.current;
       void connected.transport.post("receipt", receipt).catch(() => {
         if (configured.current === target && operation.current === receiptOperation) stop();
@@ -111,7 +126,7 @@ export function useAiHarness(host: AiHost) {
       if (!cancelled && connection.current === connected) configured.current = target;
     }).catch(() => { if (!cancelled) disconnect("Could not initialize the run. Restart the companion and reconnect."); });
     return () => { cancelled = true; target.owner.stop(); if (configured.current === target) configured.current = null; };
-  }, [connected, host.runKey, host.ruleset, disconnect, stop]);
+  }, [connected, host.runKey, host.ruleset, resetSerial, disconnect, stop]);
 
   useEffect(() => {
     host.input.current = {
@@ -156,17 +171,21 @@ export function useAiHarness(host: AiHost) {
     const attempt = ++operation.current;
     const isCurrent = () => attempt === operation.current && configured.current === target && connection.current === conn
       && current.current.ready && current.current.runKey === target.runKey && !document.hidden;
-    target.owner.start(); setRunning(true);
+    target.clockStarted = false; target.owner.start(conn.provider === "jev"); markRunning(true);
     try {
       const captured = await capture();
       if (!isCurrent()) return;
       if (!captured) { stop(); setStatus("Waiting for a fresh screen. Try Start again."); return; }
       const response = await conn.transport.post("start", { direction }) as { command: unknown };
       if (!isCurrent()) return;
+      if (conn.provider === "jev") {
+        if (response.command !== null) throw new Error("Unexpected live start response.");
+        return;
+      }
       if (!target.owner.accept(parseInputCommand(response.command), Date.now())) {
         stop(); setStatus("Action rejected because its screen was stale. Try again.");
       } else current.current.startGame();
-    } catch { if (isCurrent()) { stop(); setStatus("Mock action failed. Check the connection and try again."); } }
+    } catch { if (isCurrent()) { stop(); setStatus("AI start failed. Check the connection and try again."); } }
   };
 
   const exportRun = async () => {
@@ -179,5 +198,5 @@ export function useAiHarness(host: AiHost) {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch { setStatus("Run export failed. Check the companion connection."); }
   };
-  return { connect, disconnect, start, stop, exportRun, connected: Boolean(connected), connecting, running, fresh, status, events };
+  return { connect, disconnect, start, stop, exportRun, connected: Boolean(connected), connecting, running, fresh, status, events, provider: connected?.provider ?? "mock" };
 }

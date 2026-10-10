@@ -4400,17 +4400,7 @@ export function PlayerApp({
   }
 
   return (
-    <main className="legacy-shell" ref={aiScreenRef}>
-      {aiHarnessEnabled && <Suspense fallback={<p>Loading AI controls…</p>}><AiPanel host={{
-        runKey: `${selectedSeriesFile}:${selectedLevelNumber}:${currentRuleset}:${reloadToken}:${replayLaunchRequest !== null}`,
-        ruleset: currentRuleset === "MS" || currentRuleset === "Lynx" ? currentRuleset : null,
-        ready: mode === "game" && !isSessionLoading && !isCatalogLoading && !isPaused && !showHelp && !message
-          && session?.mode === "manual" && session.history.restoreMode === "live" && session.frame.snapshot.status === "playing"
-          && session.request.seriesFile === selectedSeriesFile && session.request.levelNumber === selectedLevelNumber,
-        screen: aiScreenRef, input: aiInputRef,
-        startGame: () => { resetGameplayInputBuffersRef.current(); setManualRunStarted(true); setIsRunning(true); setIsPaused(false); },
-      }} /></Suspense>}
-
+    <main className={`legacy-shell${aiHarnessEnabled ? " legacy-shell--ai" : ""}`} ref={aiScreenRef}>
       <input
         accept=".dat,.DAT"
         hidden
@@ -4745,6 +4735,15 @@ export function PlayerApp({
         debugModeEnabled={debugModeEnabled}
         visualEnhancementsEnabled={visualEnhancementsEnabled}
       />
+      {aiHarnessEnabled && <Suspense fallback={<p>Loading AI controls…</p>}><AiPanel host={{
+        runKey: `${selectedSeriesFile}:${selectedLevelNumber}:${currentRuleset}:${reloadToken}:${replayLaunchRequest !== null}`,
+        ruleset: currentRuleset === "MS" || currentRuleset === "Lynx" ? currentRuleset : null,
+        ready: mode === "game" && !isSessionLoading && !isCatalogLoading && !isPaused && !showHelp && !message
+          && session?.mode === "manual" && session.history.restoreMode === "live" && session.frame.snapshot.status === "playing"
+          && session.request.seriesFile === selectedSeriesFile && session.request.levelNumber === selectedLevelNumber,
+        screen: aiScreenRef, input: aiInputRef,
+        startGame: () => { resetGameplayInputBuffersRef.current(); setManualRunStarted(true); setIsRunning(true); setIsPaused(false); },
+      }} /></Suspense>}
       {helpOverlay}
     </main>
   );
