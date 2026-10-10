@@ -31,7 +31,7 @@ import {
   LegacyMsInputBuffer,
   type DirectionInput,
 } from "@player-web/impl/legacyInput";
-import { MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
+import { mobileDirectionAtPoint, MobileDirectionalInputTracker } from "@player-web/impl/mobileDirectionalInput";
 import { HybridCcInputBuffer } from "@player-web/impl/hybridcc/inputCollector";
 import { hybridCcInputSampleIntervalMs } from "@player-web/impl/hybridcc/clockPolicy";
 import { isEditableKeyTarget, shouldBypassPlayerHotkeys } from "@player-web/impl/playerHotkeyFocus";
@@ -48,9 +48,11 @@ import type { DihedralOrientation } from "@player-web/impl/specialModesSettings"
 import { displayedDirectionToEngineDirection } from "@player-web/impl/specialModesTransform";
 import { MS_DIRECTION } from "@ruleset-ms/api/tiles";
 
-const LEGACY_FAST_TICK_MS = 25;
 const LEGACY_MAX_CATCH_UP_TICKS = 4;
-const LEGACY_NORMAL_TICK_MS = 50;
+// Native Tile World uses a 1100 ms game second for MS and 1000 ms for Lynx
+// (legacy_c/play.c:setrulesetbehavior), with 20 ticks per game second.
+const MS_NORMAL_TICK_MS = 55;
+const LYNX_NORMAL_TICK_MS = 50;
 const LEGACY_CLOCK_HEARTBEAT_MS = 8;
 const UNDO_HOLD_REPEAT_DELAY_MS = 160;
 const UNDO_HOLD_REPEAT_INTERVAL_MS = 40;
@@ -188,6 +190,7 @@ interface UsePlayerAppInputControllerResult {
     direction: DirectionInput,
     event: ReactPointerEvent<HTMLElement>,
   ) => void;
+  handleMobileDirectionPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
   handleMobileDirectionPointerEnd: (event: ReactPointerEvent<HTMLElement>) => void;
   handleModernMapClick: (position: number) => void;
   preventMobileTouchDefault: (event: ReactTouchEvent<HTMLElement>) => void;
@@ -423,9 +426,11 @@ export function usePlayerAppInputController({
       return;
     }
 
-    const tickIntervalMs = aiInput ? LEGACY_NORMAL_TICK_MS : liveSessionRef.current.request.ruleset === "Hybrid"
+    const ruleset = liveSessionRef.current.request.ruleset;
+    const legacyTickMs = ruleset === "MS" ? MS_NORMAL_TICK_MS : LYNX_NORMAL_TICK_MS;
+    const tickIntervalMs = ruleset === "Hybrid"
       ? hybridCcInputSampleIntervalMs(isFastForwarding)
-      : isFastForwarding ? LEGACY_FAST_TICK_MS : LEGACY_NORMAL_TICK_MS;
+      : legacyTickMs / (isFastForwarding ? 2 : 1);
     const maxAccumulatedMs = tickIntervalMs * LEGACY_MAX_CATCH_UP_TICKS;
     let accumulatedMs = 0;
     let cancelled = false;
@@ -1079,6 +1084,25 @@ export function usePlayerAppInputController({
     );
   });
 
+  const handleMobileDirectionPointerMove = useEffectEvent((event: ReactPointerEvent<HTMLElement>) => {
+    const tracker = mobileDirectionalInputRef.current;
+    if (!tracker.hasPointer(event.pointerId)) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const controls = event.currentTarget.closest("[data-mobile-direction-controls]");
+    const buttons = controls?.querySelectorAll<HTMLElement>("[data-mobile-direction]") ?? [];
+    const regions = Array.from(buttons, (button) => {
+      const { left, right, top, bottom } = button.getBoundingClientRect();
+      return { direction: button.dataset.mobileDirection as DirectionInput, left, right, top, bottom };
+    });
+    const direction = mobileDirectionAtPoint(
+      event.clientX, event.clientY, regions, tracker.pointerDirection(event.pointerId),
+    );
+    applyMobileDirectionalInputChanges(tracker.assignPointer(event.pointerId, direction), true);
+  });
+
   const preventMobileTouchDefault = useEffectEvent((event: ReactTouchEvent<HTMLElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -1086,6 +1110,7 @@ export function usePlayerAppInputController({
 
   return {
     handleMobileDirectionPointerDown,
+    handleMobileDirectionPointerMove,
     handleMobileDirectionPointerEnd,
     handleModernMapClick,
     preventMobileTouchDefault,

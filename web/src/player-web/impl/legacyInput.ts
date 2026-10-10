@@ -11,14 +11,13 @@ interface InputState {
   active: boolean;
   pending: boolean;
   repeatDelay: number;
-  order: number;
 }
 
-// MS runs with keyboard-style arrows plus casual input handling, which
-// inserts two non-repeating polls before a held key starts repeating.
+// legacy_c/generic/in.c's default casual keyboard mode preserves an
+// unconsumed command for two polls before a held arrow starts repeating.
 const MS_REPEAT_DELAY_TICKS = 2;
 const MS_ABSOLUTE_MOUSE_MOVE_FIRST = 512;
-const LYNX_DIRECTION_PRIORITY: readonly DirectionInput[] = ["north", "west", "south", "east"];
+const LEGACY_DIRECTION_PRIORITY: readonly DirectionInput[] = ["north", "west", "south", "east"];
 
 interface LynxInputState {
   active: boolean;
@@ -32,7 +31,6 @@ export function absoluteMouseMoveCode(position: number): number {
 export class LegacyMsInputBuffer {
   private readonly states = new Map<DirectionInput, InputState>();
   private readonly queuedCodes: number[] = [];
-  private order = 0;
 
   keyDown(input: DirectionInput): void {
     const existing = this.states.get(input);
@@ -40,12 +38,10 @@ export class LegacyMsInputBuffer {
       return;
     }
 
-    this.order += 1;
     this.states.set(input, {
       active: true,
       pending: true,
       repeatDelay: MS_REPEAT_DELAY_TICKS,
-      order: this.order,
     });
   }
 
@@ -88,47 +84,38 @@ export class LegacyMsInputBuffer {
   reset(): void {
     this.states.clear();
     this.queuedCodes.length = 0;
-    this.order = 0;
   }
 
   private nextKeyboardInput(): GameInputName {
-    const pending = this.selectState(([, state]) => state.pending);
-    if (pending) {
-      const [input, state] = pending;
-      state.pending = false;
-      if (!state.active) {
-        this.states.delete(input);
-      }
-      return input;
-    }
-
-    const active = this.selectState(([, state]) => state.active);
-    if (!active) {
-      return "none";
-    }
-
-    const [input, state] = active;
-    if (state.repeatDelay > 0) {
-      state.repeatDelay -= 1;
-      return "none";
-    }
-
-    return input;
-  }
-
-  private selectState(
-    predicate: (entry: [DirectionInput, InputState]) => boolean,
-  ): [DirectionInput, InputState] | null {
-    let selected: [DirectionInput, InputState] | null = null;
-    for (const entry of this.states.entries()) {
-      if (!predicate(entry)) {
+    let held: DirectionInput | null = null;
+    let struck: DirectionInput | null = null;
+    let preserve = false;
+    for (const input of LEGACY_DIRECTION_PRIORITY) {
+      const state = this.states.get(input);
+      if (!state) {
         continue;
       }
-      if (!selected || entry[1].order > selected[1].order) {
-        selected = entry;
+
+      // Native MS selects the first pressed/repeating arrow in key-map order.
+      // A struck (already released) key only wins if no held arrow is ready.
+      if (state.active && (state.pending || state.repeatDelay === 0)) {
+        held ??= input;
+      } else if (state.pending) {
+        struck = input;
+      } else {
+        preserve = true;
+      }
+
+      // Age every key on every poll, even when another arrow wins priority.
+      if (!state.active) {
+        this.states.delete(input);
+      } else if (state.pending) {
+        state.pending = false;
+      } else if (state.repeatDelay > 0) {
+        state.repeatDelay -= 1;
       }
     }
-    return selected;
+    return held ?? struck ?? (preserve ? "preserve" : "none");
   }
 }
 
@@ -185,7 +172,7 @@ export class LegacyLynxInputBuffer {
     let heldCode: number = GAME_INPUT_CODES.none;
     let struckCode: number = GAME_INPUT_CODES.none;
 
-    for (const input of LYNX_DIRECTION_PRIORITY) {
+    for (const input of LEGACY_DIRECTION_PRIORITY) {
       const state = this.states.get(input);
       if (!state) {
         continue;
