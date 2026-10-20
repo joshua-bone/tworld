@@ -49,6 +49,7 @@ export interface GameRandomState {
 }
 
 export interface GameSnapshot {
+  hintTrail?: HintTrailState;
   phase: string;
   input: string;
   inputCode: number;
@@ -81,6 +82,11 @@ export interface GameSnapshot {
   creaturesHash: string;
   mapHash: string;
   creatures: GameActor[];
+}
+
+export interface HintTrailState {
+  nextIndex: number;
+  marks: Array<{ pos: number; z: number; text: string }>;
 }
 
 export interface GameTrace {

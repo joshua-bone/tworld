@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  msActorControlMode,
+  msActorMovementStrategyId,
   msBlockMovementMask,
   msButtonAction,
   msChipEnterAction,
@@ -21,8 +23,26 @@ import {
   msTileSightTransmission,
 } from "@ruleset-ms/impl/catalog";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
+import { lookupMsTankPolicy } from "@ruleset-ms/impl/catalogActors";
 
 describe("MS catalog tile families", () => {
+  it("registers Meme pickup, tank movement and independent quarter-turn button policies", () => {
+    expect(msInventorySlot(MS_TILE.Boots_Hint)).toBe("boots");
+    expect(msInventoryIndex(MS_TILE.Boots_Hint)).toBe(4);
+    expect(msChipEnterAction(MS_TILE.Boots_Hint)).toBe("collect-item");
+    expect(msActorControlMode(MS_TILE.RedTank)).toBe("ai");
+    expect(msActorMovementStrategyId(MS_TILE.RedTank)).toBe("creature-like");
+    expect(lookupMsTankPolicy(MS_TILE.RedTank)).toEqual({ buttonFamily: "red", intermediateTurnSprite: false });
+    expect(msButtonAction(MS_TILE.Button_RedTankCW)).toBe("turn-red-tanks-cw");
+    expect(msButtonAction(MS_TILE.Button_RedTankCCW)).toBe("turn-red-tanks-ccw");
+    for (const button of [MS_TILE.Button_RedTankCW, MS_TILE.Button_RedTankCCW]) {
+      expect(msTileHasTag(button, "button")).toBe(true);
+      expect(msChipMovementMask(button)).toBe(15);
+      expect(msCreatureMovementMask(button)).toBe(15);
+      expect(msBlockMovementMask(button)).toBe(15);
+    }
+  });
+
   it("surfaces tags and capabilities for terrain, pickups, and buttons", () => {
     expect(msTileHasTag(MS_TILE.Button_Red, "button")).toBe(true);
     expect(msTileHasTag(MS_TILE.Button_Red, "walkable")).toBe(true);

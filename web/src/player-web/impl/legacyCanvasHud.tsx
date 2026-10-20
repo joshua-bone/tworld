@@ -50,7 +50,7 @@ const FILE_COLUMN_X = LEGACY_MARGIN;
 const RULESET_COLUMN_X = 520;
 
 const LEGACY_INVENTORY_KEY_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
-const LEGACY_INVENTORY_BOOT_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
+const LEGACY_INVENTORY_BOOT_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water, MS_TILE.Boots_Hint] as const;
 const LEGACY_INVENTORY_TOOL_IDS = [MS_TILE.Sandbag] as const;
 
 export type LegacyInventoryStripKind = "keys" | "boots" | "tools";
@@ -354,6 +354,10 @@ export function drawLegacyGameScreen(
     ? (["keys", "boots", "tools"] as const)
     : (["keys", "boots"] as const);
   inventoryKinds.forEach((kind, rowIndex) => {
+    const rowScale = Math.min(1, 4 / inventoryStripTileIds(kind).length);
+    context.save();
+    context.translate(inventoryX, inventoryY + rowIndex * LEGACY_TILE_SIZE);
+    context.scale(rowScale, rowScale);
     inventoryStripTileIds(kind).forEach((tileId, columnIndex) => {
       const count = kind === "keys" ? snapshot.inventory.keys[columnIndex] ?? 0 : 0;
       drawInventoryTile(
@@ -362,10 +366,11 @@ export function drawLegacyGameScreen(
         inventoryStripOverlayTileId(snapshot.inventory, kind, columnIndex),
         kind === "tools" ? session.frame.inventoryRender?.tools?.[columnIndex] ?? null : null,
         kind === "keys" && inventoryKeyCountLabelsEnabled ? inventoryTileCountLabel(tileId, count) : null,
-        inventoryX + columnIndex * LEGACY_TILE_SIZE,
-        inventoryY + rowIndex * LEGACY_TILE_SIZE,
+        columnIndex * LEGACY_TILE_SIZE,
+        0,
       );
     });
+    context.restore();
   });
 
   let hintText = "";

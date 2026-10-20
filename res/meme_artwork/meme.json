@@ -1,0 +1,47 @@
+{
+  "image": "meme.png",
+  "frames": {
+    "HINT_BOOTS": {
+      "x": 0,
+      "y": 0,
+      "width": 444,
+      "height": 444
+    },
+    "RED_TANK_N": {
+      "x": 444,
+      "y": 0,
+      "width": 443,
+      "height": 444
+    },
+    "RED_TANK_W": {
+      "x": 887,
+      "y": 0,
+      "width": 443,
+      "height": 444
+    },
+    "RED_TANK_S": {
+      "x": 1330,
+      "y": 0,
+      "width": 444,
+      "height": 444
+    },
+    "RED_TANK_E": {
+      "x": 0,
+      "y": 444,
+      "width": 444,
+      "height": 443
+    },
+    "RED_TANK_BUTTON_CW": {
+      "x": 444,
+      "y": 444,
+      "width": 443,
+      "height": 443
+    },
+    "RED_TANK_BUTTON_CCW": {
+      "x": 887,
+      "y": 444,
+      "width": 443,
+      "height": 443
+    }
+  }
+}

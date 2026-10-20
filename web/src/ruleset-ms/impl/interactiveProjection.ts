@@ -1,3 +1,4 @@
+import { hintTrailOverlays } from "@game-core/impl/hintTrail";
 import type { InteractiveGameFrame } from "@game-core/api/interactive";
 import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-core/impl/interactiveProjection";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
@@ -240,6 +241,7 @@ export function projectMsInteractiveFrame(
       layers: session.state.engine.map.layers,
       previousFrame,
       tileOverlays: [
+        ...hintTrailOverlays(session.state.engine.hintTrail),
         ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectMsRenderableOverlay(overlay)) ?? []),
         ...mappedOccupiedCarriers.map((item) => {
           const overlay = projectMsRenderableOverlay({

@@ -40,6 +40,7 @@ describe("ms tile effects", () => {
     const toggleSound = applyMsTileActivationEffect(
       {
         turnTanks: () => {},
+        turnRedTanks: () => {},
         toggleWalls: () => {
           toggled = true;
         },
@@ -57,6 +58,7 @@ describe("ms tile effects", () => {
     const trapSound = applyMsTileActivationEffect(
       {
         turnTanks: () => {},
+        turnRedTanks: () => {},
         toggleWalls: () => {},
         activateCloner: () => {},
         springTrap: () => {

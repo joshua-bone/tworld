@@ -43,6 +43,7 @@ export interface MsChipMovementContext {
   pushStaticBlock(targetCells: EngineMapCell[], pos: number, pushDir: number): boolean;
   normalizeDirection(dir: number): number;
   recordCausalEvent?(event: MsNativeCausalEventSeed): void;
+  recordArrival?(pos: number, z: number): void;
 }
 
 function chipTileId(internal: MsChipMovementInternal, dir: number): number {
@@ -86,6 +87,7 @@ function placeChipOnDestination(
   context.internal.chipPos = nextPos;
   context.internal.chipDir = dir;
   context.internal.chipZ = targetZ;
+  context.recordArrival?.(nextPos, targetZ);
   if (context.internal.goalPos === context.internal.chipPos) {
     context.internal.goalPos = -1;
   }
@@ -181,6 +183,7 @@ export function moveMsChipPlanar(
   context.applyMobExitFloorEffect(cells, oldPos);
 
   if (enteredEffects.enteredTeleport) {
+    context.recordArrival?.(nextPos, oldZ);
     context.settlePrimedToolDrop(cells, nextPos, oldZ);
     const teleported = context.teleportDestination(cells, nextPos, dir);
     nextPos = teleported.destination;
@@ -251,6 +254,7 @@ export function moveMsChipDownOneLayer(
   context.internal.chipZ = targetZ;
 
   if (enteredEffects.enteredTeleport) {
+    context.recordArrival?.(nextPos, targetZ);
     context.settlePrimedToolDrop(targetCells, nextPos, targetZ);
     const teleported = context.teleportDestination(targetCells, nextPos, context.internal.chipDir);
     nextPos = teleported.destination;

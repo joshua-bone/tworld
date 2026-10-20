@@ -1,3 +1,4 @@
+import { lookupMsTankPolicy } from "@ruleset-ms/impl/catalogActors";
 import { reverseDirection as backDirection } from "@game-core/impl/grid";
 import { MS_DIRECTION, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 import { msActorControlMode } from "@ruleset-ms/impl/catalog";
@@ -74,7 +75,7 @@ function creatureSkippedForCurrentTick(
 
   if (
     creature.turning &&
-    creature.id === MS_TILE.Tank &&
+    lookupMsTankPolicy(creature.id) !== undefined &&
     creature.floorMovement !== "none" &&
     creature.floorMovementDir !== MS_DIRECTION.none
   ) {
@@ -130,8 +131,11 @@ function chooseTrapOrCloneFloorDirections(
     };
   }
 
+  if (lookupMsTankPolicy(creature.id)) {
+    return { choices: [creature.dir], preferredDir: creature.dir, immediateDir: null };
+  }
+
   switch (creature.id) {
-    case MS_TILE.Tank:
     case MS_TILE.Ball:
     case MS_TILE.Glider:
     case MS_TILE.Fireball:
@@ -175,9 +179,11 @@ function chooseStandardDirections(
     return { choices: [creature.dir], preferredDir: creature.dir };
   }
 
+  if (lookupMsTankPolicy(creature.id)) {
+    return { choices: [creature.dir], preferredDir: creature.dir };
+  }
+
   switch (creature.id) {
-    case MS_TILE.Tank:
-      return { choices: [creature.dir], preferredDir: creature.dir };
     case MS_TILE.Ball:
       return { choices: [creature.dir, backDirection(creature.dir)], preferredDir: creature.dir };
     case MS_TILE.Glider:
@@ -232,7 +238,7 @@ function shouldTurnTowardPreferredDirection(
   preferredDir: number,
 ): boolean {
   return (
-    creature.id !== MS_TILE.Tank &&
+    lookupMsTankPolicy(creature.id) === undefined &&
     floor !== MS_TILE.Beartrap &&
     floor !== MS_TILE.CloneMachine &&
     preferredDir !== MS_DIRECTION.none &&
@@ -265,7 +271,7 @@ export function chooseMsCreatureDirection(
   }
 
   const { choices, preferredDir } = trapOrCloneChoice ?? chooseStandardDirections(context, creature);
-  if (creature.id === MS_TILE.Tank) {
+  if (lookupMsTankPolicy(creature.id) !== undefined) {
     creature.tdir = creature.dir;
   }
 
@@ -283,7 +289,7 @@ export function chooseMsCreatureDirection(
   }
 
   creature.tdir = preferredDir;
-  if (creature.id === MS_TILE.Tank) {
+  if (lookupMsTankPolicy(creature.id) !== undefined) {
     if (creature.released || floor !== MS_TILE.Beartrap) {
       creature.hasMoved = true;
     }

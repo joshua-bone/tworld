@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGameEngine";
 import {
   buildLegacyGameDrawStateKey,
+  drawLayerOverlays,
   buildCachedLowerLayerKey,
   collectVisibleLayerCacheWarmupTasks,
   hasCachedLowerLayerCanvas,
@@ -546,5 +547,34 @@ describe("hasCachedLowerLayerCanvas", () => {
     );
 
     expect(hasCachedLowerLayerCanvas(cache, tileset, session, "Lynx", layer, 10, true)).toBe(true);
+  });
+});
+
+
+describe("persistent hint letters", () => {
+  it("invalidates the draw cache when a restored trail letter or opacity changes", () => {
+    const before = createSession(MS_TILE.Empty);
+    before.frame.tileOverlays = [{ pos: 0, z: 2, kind: "hint-letter", render: { mode: "hint-letter", text: "A", alpha: 0.6 } }];
+    const key = () => buildLegacyGameDrawStateKey(before, null, null, "Lynx", false, null, "legacy", true, true);
+    const first = key();
+    before.frame.tileOverlays[0]!.render = { mode: "hint-letter", text: "B", alpha: 0.6 };
+    expect(key()).not.toBe(first);
+    const second = key();
+    before.frame.tileOverlays[0]!.render = { mode: "hint-letter", text: "B", alpha: 0.3 };
+    expect(key()).not.toBe(second);
+  });
+  it("draws centered translucent letters on the correct layer even without enhancements", () => {
+    const alphas: number[] = [];
+    const context = {
+      globalAlpha: 1, save: vi.fn(), restore: vi.fn(), strokeRect: vi.fn(),
+      strokeText: vi.fn(), fillText: vi.fn(() => alphas.push(context.globalAlpha)),
+    };
+    drawLayerOverlays(context as unknown as CanvasRenderingContext2D, { get: () => null }, [
+      { pos: 33, z: 1, kind: "hint-letter", render: { mode: "hint-letter", text: "A", alpha: 0.6 } },
+      { pos: 33, z: 2, kind: "hint-letter", render: { mode: "hint-letter", text: "B", alpha: 0.6 } },
+    ], 1, 0, 0, 432, 432, false);
+    expect(context.fillText).toHaveBeenCalledExactlyOnceWith("A", 72, 72);
+    expect(alphas).toEqual([0.6]);
+    expect(context.restore).toHaveBeenCalledOnce();
   });
 });

@@ -31,6 +31,11 @@ export type InteractiveGameActorDecoration =
 
 export type InteractiveGameTileOverlayRender =
   | {
+      mode: "hint-letter";
+      text: string;
+      alpha?: number;
+    }
+  | {
       mode: "tile";
       tileId: number;
       artworkSpriteId?: string;
@@ -91,6 +96,7 @@ export interface InteractiveGameVisibleLayer {
 }
 
 export type InteractiveGameTileOverlayKind =
+  | "hint-letter"
   | "support"
   | "elevator-failure"
   | "hidden-wall-reveal"

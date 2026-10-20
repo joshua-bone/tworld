@@ -495,3 +495,9 @@ describe("visualEnhancementThinWallActorPassTileId", () => {
     expect(visualEnhancementThinWallActorPassTileId("Lynx", MS_TILE.Ball, MS_TILE.Wall_South, MS_TILE.Empty)).toBeNull();
   });
 });
+
+
+it("reserves a fifth visible boot slot in both inventory orientations", () => {
+  expect(inventoryStripPixelDimensionsForKind(48, "horizontal", "boots")).toEqual({ height: 48, width: 240 });
+  expect(inventoryStripPixelDimensionsForKind(48, "vertical", "boots")).toEqual({ height: 240, width: 48 });
+});

@@ -5,9 +5,11 @@ import type {
   GameRequest,
   GameRuntimeCommand,
   GameSnapshot,
+  HintTrailState,
 } from "@game-core/api/types";
 
 export type InventorySlots = [number, number, number, number];
+export type BootInventorySlots = [number, number, number, number, ...number[]];
 export type ToolInventorySlots = [number];
 
 export interface EngineTile {
@@ -23,7 +25,7 @@ export interface EngineMapCell {
 
 export interface EngineInventory {
   keys: InventorySlots;
-  boots: InventorySlots;
+  boots: BootInventorySlots;
   tools: ToolInventorySlots;
   chipsNeeded: number;
 }
@@ -62,6 +64,7 @@ export interface EngineMoveState {
 }
 
 export interface EngineState {
+  hintTrail?: HintTrailState;
   request: GameRequest;
   status: string;
   timer: EngineTimer;

@@ -1,3 +1,4 @@
+import { lookupMsTankPolicy } from "@ruleset-ms/impl/catalogActors";
 import type { EngineMapCell } from "@game-core/api/model";
 import type { ActorArrivalOutcome } from "@game-core/api/actorInteractions";
 import { actorFallingCollisionFailsChip } from "@game-core/api/actorSpecialFloorHooks";
@@ -114,7 +115,7 @@ export function moveMsCreaturePlanar(
   const targetBottomState = cells[nextPos]!.bottom.state;
   const standingFloorWasTop = !isMsCreature(targetTop);
   const preserveHasMoved =
-    creature.id === MS_TILE.Tank &&
+    lookupMsTankPolicy(creature.id) !== undefined &&
     creature.turning &&
     creature.hasMoved &&
     creature.floorMovement !== "none" &&

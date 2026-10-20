@@ -90,12 +90,16 @@ export const MS_TILE = {
   Pushing_Chip: 0x70,
   BowlingBall: 0x74,
   IceBlock: 0x78,
+  RedTank: 0x7c,
   Sandbag: 0x80,
   Hook: 0x81,
   BowlingBall_Still: 0x82,
   Cloud: 0x83,
   IceBlock_Static: 0x84,
   PetCarrier: 0x85,
+  Boots_Hint: 0x86,
+  Button_RedTankCW: 0x87,
+  Button_RedTankCCW: 0x88,
 } as const;
 
 export type MsBlockSpeciesId = "dirt" | "ice";
@@ -165,7 +169,7 @@ export const MS_SOUND = {
 
 const KEY_RANGE = [MS_TILE.Key_Red, MS_TILE.Key_Green] as const;
 const BOOT_RANGE = [MS_TILE.Boots_Ice, MS_TILE.Boots_Water] as const;
-const CREATURE_RANGE = [MS_TILE.Chip, 0x7c] as const;
+const CREATURE_RANGE = [MS_TILE.Chip, 0x80] as const;
 const msBlockSpeciesByActorId = new Map<number, MsBlockSpeciesRegistration>(
   MS_BLOCK_SPECIES_REGISTRATIONS.map((registration) => [registration.actorId, registration] as const),
 );

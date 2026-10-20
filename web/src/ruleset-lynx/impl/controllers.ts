@@ -1,4 +1,5 @@
 import { lynxActorControlMode } from "@ruleset-lynx/impl/catalog";
+import { lynxTankPolicy } from "@ruleset-lynx/impl/catalogActors";
 import {
   resolveLynxForcedFloorDirection,
 } from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
@@ -79,8 +80,11 @@ function chooseLynxCreatureFirstDirection(
 ): number {
   const dir = actor.dir;
 
+  if (lynxTankPolicy(actor.id)?.directionPolicy === "forward-only") {
+    return dir;
+  }
+
   switch (actor.id) {
-    case MS_TILE.Tank:
     case MS_TILE.Ball:
     case MS_TILE.Glider:
     case MS_TILE.Fireball:
@@ -110,9 +114,10 @@ function chooseLynxCreatureFirstDirection(
 }
 
 function chooseLynxCreatureFallbackDirections(actor: LynxCreatureControllerActor, firstChoice: number): number[] {
+  if (lynxTankPolicy(actor.id)?.directionPolicy === "forward-only") {
+    return firstChoice ? [firstChoice] : [];
+  }
   switch (actor.id) {
-    case MS_TILE.Tank:
-      return firstChoice ? [firstChoice] : [];
     case MS_TILE.Ball:
       return [firstChoice, back(actor.dir)].filter((dir, index, dirs) => dir !== 0 && dirs.indexOf(dir) === index);
     case MS_TILE.Glider:

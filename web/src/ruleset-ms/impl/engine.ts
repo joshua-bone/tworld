@@ -1,3 +1,6 @@
+import { recordHintTrail } from "@game-core/impl/hintTrail";
+import { lookupMsTankPolicy, type MsTankButtonFamily } from "@ruleset-ms/impl/catalogActors";
+import { levelHintTextAtZ } from "@ruleset-ms/api/level";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
@@ -907,16 +910,9 @@ function tryReleaseMsPetCarrierFacingBlock(
   updateBlockReleaseAfterMove(cells, internal, block, internal.chipPos, targetTop, landingPos);
   setBlockFloorMovementAfterSuccessfulMove(block, targetTop, targetTopState, internal, "none", false);
 
-  let soundEffects = 0;
-  if (
-    targetTop === MS_TILE.Button_Blue ||
-    targetTop === MS_TILE.Button_Green ||
-    targetTop === MS_TILE.Button_Red ||
-    targetTop === MS_TILE.Button_Brown
-  ) {
-    soundEffects |= resolveButtonFloorEffects(cells, internal, null, landingPos, targetTop);
-  }
-  internal.pendingSoundEffects |= soundEffects;
+  internal.pendingSoundEffects |= resolveDeferredOrImmediateButtonLandingEffects(
+    cells, internal, landingPos, targetTop, false, null, z,
+  );
   return true;
 }
 
@@ -1181,6 +1177,8 @@ interface MsPortableToolRuntimeState extends MsPortableToolStateStore {}
 interface MsStatefulActorRuntimeState extends StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry> {}
 
 export interface MsInternalState {
+  hintTrail?: EngineState["hintTrail"];
+  hintTextsByZ?: ReadonlyMap<number, string>;
   chipPos: number;
   chipZ?: number;
   chipDir: number;
@@ -1902,6 +1900,7 @@ function updateEngine(
   return {
     engine: {
       ...state.engine,
+      ...(state.internal.hintTrail ? { hintTrail: state.internal.hintTrail } : {}),
       status: statusName(state.internal),
       timer,
         replay: {
@@ -2285,6 +2284,9 @@ export function initializeMsGameState(
   }
 
   const internal: MsInternalState = {
+    ...(layers.some((layer) => levelHintTextAtZ(level, layer.z).length > 0)
+      ? { hintTextsByZ: new Map(layers.map((layer) => [layer.z, levelHintTextAtZ(level, layer.z)])) }
+      : {}),
     chipPos: startup.chipPos,
     chipZ: startup.chipZ,
     chipDir: startup.chipDir,
@@ -2932,24 +2934,10 @@ function attemptMsTrackedBlockMove(
   if (previousFloorMovement === "none" && block.floorMovement !== "none") {
     internal.controllerDir = block.floorMovementDir;
   }
-  let soundEffects = 0;
   const landedButtonFloor = targetCreatureId !== MS_TILE.Empty ? targetBottom : targetTop;
-  if (
-    landedButtonFloor === MS_TILE.Button_Blue ||
-    landedButtonFloor === MS_TILE.Button_Green ||
-    landedButtonFloor === MS_TILE.Button_Red ||
-    landedButtonFloor === MS_TILE.Button_Brown
-  ) {
-    if (deferButtons) {
-      addBottomTileFlags(cells, landingPos, MS_FLOOR_STATE.ButtonDown);
-      if (landedButtonFloor !== MS_TILE.Button_Green) {
-        soundEffects |= 1 << MS_SOUND.ButtonPushed;
-      }
-    } else {
-      const buttonSoundEffects = resolveButtonFloorEffects(cells, internal, null, landingPos, landedButtonFloor);
-      soundEffects |= buttonSoundEffects;
-    }
-  }
+  const soundEffects = resolveDeferredOrImmediateButtonLandingEffects(
+    cells, internal, landingPos, landedButtonFloor, deferButtons, null, blockZ,
+  );
 
   recordMsNativeCausalEvent(internal, {
     kind: "move-completed",
@@ -3113,6 +3101,10 @@ function resolveButtonFloorEffects(
       turnTanks: (activeCreature) => {
         recordButtonActivation(buttonPos, buttonZ, MS_TILE.Button_Blue, "overlay", "cc1:turn-tanks");
         turnTanks(cells, internal, activeCreature ?? null);
+      },
+      turnRedTanks: (clockwise, activeCreature) => {
+        recordButtonActivation(buttonPos, buttonZ, floor, "overlay", clockwise ? "meme:turn-red-tanks-cw" : "meme:turn-red-tanks-ccw");
+        turnTanks(cells, internal, activeCreature ?? null, "red", clockwise);
       },
       toggleWalls: () => {
         toggleWalls(internal.runtimeLayers, (targetPos, targetZ, beforeTileId, afterTileId) => {
@@ -3351,7 +3343,8 @@ function updateCreatureTileWithForce(cells: EngineMapCell[], creature: MsTracked
   }
 
   cells[creature.pos]!.top = {
-    id: msCreatureTile(creature.id, creature.turning ? rightDirection(creature.dir) : creature.dir),
+    id: msCreatureTile(creature.id, creature.turning && lookupMsTankPolicy(creature.id)?.intermediateTurnSprite
+      ? rightDirection(creature.dir) : creature.dir),
     state: cells[creature.pos]!.top.state,
   };
 }
@@ -4055,20 +4048,29 @@ function updateBlockReleaseAfterMove(
   block.released = false;
 }
 
-function turnTanks(cells: EngineMapCell[], internal: MsInternalState, inMidMove: MsTrackedCreature | null = null): void {
+function turnTanks(
+  cells: EngineMapCell[],
+  internal: MsInternalState,
+  inMidMove: MsTrackedCreature | null = null,
+  buttonFamily: MsTankButtonFamily = "blue",
+  clockwise = true,
+): void {
+  const turn = (dir: number): number => buttonFamily === "blue"
+    ? backDirection(dir)
+    : clockwise ? rightDirection(dir) : backDirection(rightDirection(dir));
   for (const creature of internal.creatures) {
-    if (creature.hidden || creature.id !== MS_TILE.Tank) {
+    if (creature.hidden || lookupMsTankPolicy(creature.id)?.buttonFamily !== buttonFamily) {
       continue;
     }
     const creatureCells = runtimeCellsForZ(internal.runtimeLayers, creature.z ?? runtimeCellZ(cells, creature.pos));
-    creature.dir = backDirection(creature.dir);
+    creature.dir = turn(creature.dir);
     if (
       creature.floorMovement !== "none" &&
       !creature.sliding &&
       creature.frame !== MS_DIRECTION.none &&
       creature.moving === 0
     ) {
-      creature.dir = backDirection(creature.frame);
+      creature.dir = turn(creature.frame);
     }
     if (!creature.turning) {
       creature.turning = true;
@@ -4079,16 +4081,18 @@ function turnTanks(cells: EngineMapCell[], internal: MsInternalState, inMidMove:
     }
     if (
       isMsCreature(creatureCells[creature.pos]!.top.id) &&
-      msCreatureId(creatureCells[creature.pos]!.top.id) === MS_TILE.Tank
+      msCreatureId(creatureCells[creature.pos]!.top.id) === creature.id
     ) {
       updateCreatureTile(creatureCells, creature);
-    } else if (creature.moving !== 0) {
+    } else if (creature.moving !== 0 && buttonFamily === "blue") {
+      // During nested activation, pos still identifies the already-vacated source.
+      // Only the native blue reversal uses this temporary source-tile rewrite.
       if (creature.turning) {
         creature.turning = false;
         updateCreatureTileWithForce(creatureCells, creature, true);
         creature.turning = true;
       }
-      creature.dir = backDirection(creature.dir);
+      creature.dir = turn(creature.dir);
     }
   }
 }
@@ -5038,6 +5042,11 @@ function createMsChipMovementContext(
   return {
     internal,
     runtimeCellZ,
+    recordArrival: (pos: number, z: number) => {
+      const trailState = { inventory, hintTrail: internal.hintTrail };
+      recordHintTrail(trailState, internal.hintTextsByZ?.get(z) ?? internal.hintTextsByZ?.get(1) ?? "", pos, z);
+      if (trailState.hintTrail) internal.hintTrail = trailState.hintTrail;
+    },
     applyEnterEffects: (cells: EngineMapCell[], nextPos: number) =>
       applyMsChipEnterEffects(
         cells,
@@ -5531,6 +5540,7 @@ function createMsAdvanceTickRuntime(
   const layerCellsByZ = new Map<number, EngineMapCell[]>(mapLayers.map((layer) => [layer.z, layer.cells]));
   const initialCells = layerCellsByZ.get(state.internal.chipZ ?? 1) ?? mapLayers[0]!.cells;
   const internal = cloneInternalState(state.internal);
+  if (state.engine.hintTrail) internal.hintTrail = state.engine.hintTrail;
   const inputLatchInternal = cloneInternalState(state.internal);
   internal.runtimeLayers = mapLayers.map((layer) => ({
     z: layer.z,

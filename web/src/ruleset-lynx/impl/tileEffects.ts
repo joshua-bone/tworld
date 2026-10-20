@@ -23,6 +23,7 @@ import { isMsBlockActorId, isMsCreature, MS_TILE } from "@ruleset-ms/api/tiles";
 export interface LynxTileActivationContext {
   toggleWalls(): void;
   queueTankReversals(): void;
+  queueRedTankTurns?(quarterTurns: number): void;
   activateCloner(buttonPos: number): boolean;
   buttonPushedSound: number;
 }
@@ -141,6 +142,12 @@ export function applyLynxTileActivationEffect(
   switch (lynxButtonAction(tileId)) {
     case "turn-tanks":
       context.queueTankReversals();
+      return context.buttonPushedSound;
+    case "turn-red-tanks-cw":
+      context.queueRedTankTurns?.(1);
+      return context.buttonPushedSound;
+    case "turn-red-tanks-ccw":
+      context.queueRedTankTurns?.(-1);
       return context.buttonPushedSound;
     case "toggle-walls":
       context.toggleWalls();

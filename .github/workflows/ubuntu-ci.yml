@@ -84,6 +84,13 @@ jobs:
             src/player-web/impl/levelProgress.test.ts \
             src/player-web/impl/sessionProgressPolicy.test.ts \
             src/game-core/api/ruleset.test.ts \
+            src/game-core/impl/hintTrail.test.ts \
+            src/game-core/impl/memeContracts.test.ts \
+            src/game-core/impl/memeDatAcceptance.test.ts \
+            src/ruleset-ms/impl/memeTiles.test.ts \
+            src/ruleset-lynx/impl/memeTiles.test.ts \
+            src/undo-runtime/impl/memeElementHistory.test.ts \
+            src/player-web/impl/legacyCanvasTileset.test.ts \
             src/ruleset-ms/impl/level.test.ts \
             src/ruleset-ms/impl/tileEffects.test.ts \
             src/ruleset-ms/impl/catalogTiles.test.ts \

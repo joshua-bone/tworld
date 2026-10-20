@@ -21,6 +21,7 @@ import { isMsBlockActorId, msStaticBlockActorId, MS_TILE, isMsCreature, msCreatu
 
 export interface MsTileActivationContext<TCreature> {
   turnTanks(inMidMove?: TCreature | null): void;
+  turnRedTanks(clockwise: boolean, inMidMove?: TCreature | null): void;
   toggleWalls(): void;
   activateCloner(buttonPos: number, buttonZ: number): void;
   springTrap(buttonPos: number, buttonZ: number): void;
@@ -141,6 +142,10 @@ export function applyMsTileActivationEffect<TCreature>(
   switch (msButtonAction(tileId)) {
     case "turn-tanks":
       context.turnTanks(inMidMove);
+      return context.buttonPushedSound;
+    case "turn-red-tanks-cw":
+    case "turn-red-tanks-ccw":
+      context.turnRedTanks(msButtonAction(tileId) === "turn-red-tanks-cw", inMidMove);
       return context.buttonPushedSound;
     case "toggle-walls":
       context.toggleWalls();

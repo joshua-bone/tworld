@@ -46,6 +46,7 @@ export const msTerrainPickupFamilyRegistrations = [
       { tileId: MS_TILE.Boots_Slide, inventorySlot: "boots", inventoryIndex: 1 },
       { tileId: MS_TILE.Boots_Fire, inventorySlot: "boots", inventoryIndex: 2 },
       { tileId: MS_TILE.Boots_Water, inventorySlot: "boots", inventoryIndex: 3 },
+      { tileId: MS_TILE.Boots_Hint, inventorySlot: "boots", inventoryIndex: 4 },
     ],
   },
   {
@@ -73,6 +74,8 @@ export const msTerrainPickupFamilyRegistrations = [
       { tileId: MS_TILE.Button_Green },
       { tileId: MS_TILE.Button_Red },
       { tileId: MS_TILE.Button_Brown },
+      { tileId: MS_TILE.Button_RedTankCW },
+      { tileId: MS_TILE.Button_RedTankCCW },
     ],
   },
 ] as const satisfies readonly MsTerrainPickupFamilyRegistration[];

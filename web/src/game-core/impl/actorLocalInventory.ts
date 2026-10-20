@@ -1,5 +1,5 @@
 import type { ActorLocalInventoryMode } from "@game-core/api/actorCapabilities";
-import type { InventorySlots, ToolInventorySlots } from "@game-core/api/model";
+import type { BootInventorySlots, InventorySlots, ToolInventorySlots } from "@game-core/api/model";
 
 declare const actorInventoryOwnerIdBrand: unique symbol;
 export type ActorInventoryOwnerId = string & { readonly [actorInventoryOwnerIdBrand]: "ActorInventoryOwnerId" };
@@ -10,7 +10,7 @@ export function createActorInventoryOwnerId(scope: string, actorId: number | str
 
 export interface ActorKeysBootsInventory {
   keys: InventorySlots;
-  boots: InventorySlots;
+  boots: BootInventorySlots;
 }
 
 export interface ActorKeysBootsToolsInventory extends ActorKeysBootsInventory {
@@ -140,7 +140,7 @@ export function actorInventoryCollectIndexedItem(
     return false;
   }
 
-  owner.inventory[slot][index] += 1;
+  owner.inventory[slot][index] = (owner.inventory[slot][index] ?? 0) + 1;
   return true;
 }
 
