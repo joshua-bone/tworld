@@ -1,4 +1,5 @@
 import type { EngineState } from "@game-core/api/model";
+import { recordHintTrail } from "@game-core/impl/hintTrail";
 import {
   completedArrival,
   noArrival,
@@ -40,6 +41,7 @@ export interface LynxCompletedChipMoveContext {
   hasBoot(tileId: number): boolean;
   applyIceWallTurn(dir: number, floorId: number): number;
   activeLayerZ(): number;
+  hintText?(): string;
   recordCausalEvent?(event: LynxNativeCausalEventSeed): void;
   failChip(
     chipPos: number,
@@ -231,6 +233,8 @@ export function applyCompletedLynxChipMove(
       };
     }
   }
+
+  recordHintTrail(context.state, context.hintText?.() ?? "", chipPos, activeZ);
 
   if (lynxButtonAction(resolvedFloorAfterMove) === "spring-trap") {
     context.springTrap(chipPos);

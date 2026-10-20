@@ -14,6 +14,7 @@ import { createLynxSpecialFloorActorBehavior } from "@ruleset-lynx/impl/elements
 const CHIP_ACTOR_IDS = [MS_TILE.Chip, MS_TILE.Swimming_Chip, MS_TILE.Pushing_Chip] as const;
 const MONSTER_ACTOR_IDS = [
   MS_TILE.Tank,
+  MS_TILE.RedTank,
   MS_TILE.Ball,
   MS_TILE.Glider,
   MS_TILE.Fireball,
@@ -23,6 +24,21 @@ const MONSTER_ACTOR_IDS = [
   MS_TILE.Bug,
   MS_TILE.Paramecium,
 ] as const;
+
+export interface LynxTankPolicy {
+  readonly buttonFamily: "blue" | "red";
+  readonly directionPolicy: "forward-only";
+}
+
+const LYNX_TANK_POLICIES = new Map<number, LynxTankPolicy>([
+  [MS_TILE.Tank, { buttonFamily: "blue", directionPolicy: "forward-only" }],
+  [MS_TILE.RedTank, { buttonFamily: "red", directionPolicy: "forward-only" }],
+]);
+
+export function lynxTankPolicy(actorId: number): LynxTankPolicy | null {
+  return LYNX_TANK_POLICIES.get(actorId) ?? null;
+}
+
 const ACTIVE_MOB_ACTOR_IDS = [...CHIP_ACTOR_IDS, ...MONSTER_ACTOR_IDS, MS_TILE.BowlingBall] as const;
 
 const BLOCK_ACTOR_IDS = [MS_TILE.Block, MS_TILE.IceBlock] as const;

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import lynxTilesUrl from "@res/atiles.bmp?url";
 import msTilesUrl from "@res/tiles.bmp?url";
+import memeArtworkUrl from "@res/meme_artwork/meme.png?url";
+import memeArtworkKey from "@res/meme_artwork/meme.json";
 import expandedArtworkUrl from "@res/expansion_artwork/expanded.png?url";
 import type {
   InteractiveGamePetCarrierRender,
@@ -8,7 +10,7 @@ import type {
 } from "@game-core/api/interactive";
 import { expansionArtworkFrameRect, type ExpansionArtworkFrameRect } from "@player-web/impl/expansionArtwork";
 import { measurePerfAsync, measurePerfSync } from "@player-web/impl/runtimePerf";
-import { buildLegacyTileset, type LegacyTileSprite, type LegacyTileset } from "@player-web/impl/legacyTileset";
+import { legacyCreatureMovementOffset, buildLegacyTileset, type LegacyTileSprite, type LegacyTileset } from "@player-web/impl/legacyTileset";
 import { LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import { createCanvas, drawLegacySpriteImage, loadLegacyImage } from "@player-web/impl/legacyCanvasShared";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
@@ -348,6 +350,26 @@ function shouldDrawSyntheticFloorBehindTransparentSprite(sprite: LegacyTileSprit
   return sprite?.transparent === true && sprite.preserveLayerTransparency !== true;
 }
 
+export function createLegacyMemeArtworkOverrides(image: CanvasImageSource): ReadonlyMap<number, LegacyTileSprite> {
+  const tiles = {
+    HINT_BOOTS: MS_TILE.Boots_Hint,
+    RED_TANK_N: msCreatureTile(MS_TILE.RedTank, MS_DIRECTION.north),
+    RED_TANK_W: msCreatureTile(MS_TILE.RedTank, MS_DIRECTION.west),
+    RED_TANK_S: msCreatureTile(MS_TILE.RedTank, MS_DIRECTION.south),
+    RED_TANK_E: msCreatureTile(MS_TILE.RedTank, MS_DIRECTION.east),
+    RED_TANK_BUTTON_CW: MS_TILE.Button_RedTankCW,
+    RED_TANK_BUTTON_CCW: MS_TILE.Button_RedTankCCW,
+  };
+  const overrides = new Map<number, LegacyTileSprite>();
+  for (const name of Object.keys(tiles) as Array<keyof typeof tiles>) {
+    const sprite = createLegacyArtworkSpriteFromFrame(image, {
+      ...memeArtworkKey.frames[name], transparent: true, preserveLayerTransparency: false,
+    });
+    if (sprite) overrides.set(tiles[name], sprite);
+  }
+  return overrides;
+}
+
 export function createLegacyExpansionArtworkOverrides(
   image: CanvasImageSource,
 ): ReadonlyMap<number, LegacyTileSprite> {
@@ -431,6 +453,13 @@ export function applyLegacyTileOverrides(
     get(tileId: number): LegacyTileSprite | null {
       return overrides.get(tileId) ?? tileset.get(tileId);
     },
+    getCreature(id: number, dir: number, moving: number, frame: number): LegacyTileSprite | null {
+      const sprite = overrides.get(msCreatureTile(id, dir || MS_DIRECTION.north));
+      if (sprite) {
+        return { ...sprite, ...legacyCreatureMovementOffset(dir, moving, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE) };
+      }
+      return tileset.getCreature?.(id, dir, moving, frame) ?? null;
+    },
     getArtworkSprite(spriteId: string): LegacyTileSprite | null {
       return artworkSprites.get(spriteId) ?? tileset.getArtworkSprite?.(spriteId) ?? null;
     },
@@ -500,10 +529,11 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
   }
 
   const nextPromise = measurePerfAsync("tilesetLoadMs", async () => {
-    const [image, expandedArtworkImage] = await measurePerfAsync("tilesetImageLoadMs", () =>
+    const [image, expandedArtworkImage, memeArtworkImage] = await measurePerfAsync("tilesetImageLoadMs", () =>
       Promise.all([
         loadLegacyImage(LEGACY_TILESET_URLS[ruleset]),
         loadLegacyImage(expandedArtworkUrl),
+        loadLegacyImage(memeArtworkUrl),
       ]),
     );
     const tileset = measurePerfSync("tilesetBuildMs", () => {
@@ -519,7 +549,7 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
       const artworkSprites = createLegacyExpansionArtworkSprites(expandedArtworkImage);
       return applyLegacyTileOverrides(
         buildLegacyTileset(canvas, ruleset),
-        createLegacyExpansionArtworkOverrides(expandedArtworkImage),
+        new Map([...createLegacyExpansionArtworkOverrides(expandedArtworkImage), ...createLegacyMemeArtworkOverrides(memeArtworkImage)]),
         artworkSprites,
       );
     });

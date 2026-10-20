@@ -47,7 +47,7 @@ export function snapshotToEngineState(
     timer: snapshotToEngineTimer(snapshot),
     inventory: {
       keys: toInventorySlots(snapshot.inventory.keys),
-      boots: toInventorySlots(snapshot.inventory.boots),
+      boots: [...toInventorySlots(snapshot.inventory.boots), ...snapshot.inventory.boots.slice(4)],
       tools: toToolInventorySlots(snapshot.inventory.tools),
       chipsNeeded: snapshot.chipsNeeded,
     },
@@ -77,6 +77,7 @@ export function snapshotToEngineState(
       code: snapshot.lastMoveCode,
       name: snapshot.lastMove,
     },
+    ...(snapshot.hintTrail ? { hintTrail: structuredClone(snapshot.hintTrail) } : {}),
   };
 }
 

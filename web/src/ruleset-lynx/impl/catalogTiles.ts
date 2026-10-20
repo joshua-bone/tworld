@@ -46,7 +46,7 @@ export type LynxChipEnterAction =
   | "trap"
   | "button"
   | "exit";
-export type LynxButtonAction = "none" | "turn-tanks" | "toggle-walls" | "activate-cloner" | "spring-trap";
+export type LynxButtonAction = "none" | "turn-tanks" | "turn-red-tanks-cw" | "turn-red-tanks-ccw" | "toggle-walls" | "activate-cloner" | "spring-trap";
 export type LynxAnimationKind = "none" | "water-splash" | "bomb-explosion";
 export type LynxFloorSoundAction =
   | "none"
@@ -88,13 +88,15 @@ export interface LynxChipMoveSoundOptions {
 }
 
 const KEY_TILE_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
-const BOOT_TILE_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
+const BOOT_TILE_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water, MS_TILE.Boots_Hint] as const;
 const DOOR_TILE_IDS = [MS_TILE.Door_Red, MS_TILE.Door_Blue, MS_TILE.Door_Yellow, MS_TILE.Door_Green] as const;
 const BUTTON_TILE_IDS = [
   MS_TILE.Button_Blue,
   MS_TILE.Button_Green,
   MS_TILE.Button_Red,
   MS_TILE.Button_Brown,
+  MS_TILE.Button_RedTankCW,
+  MS_TILE.Button_RedTankCCW,
 ] as const;
 const SLIDE_TILE_IDS = [
   MS_TILE.Slide_North,
@@ -182,6 +184,10 @@ function lynxButtonActionForTile(id: number): LynxButtonAction {
   switch (id) {
     case MS_TILE.Button_Blue:
       return "turn-tanks";
+    case MS_TILE.Button_RedTankCW:
+      return "turn-red-tanks-cw";
+    case MS_TILE.Button_RedTankCCW:
+      return "turn-red-tanks-ccw";
     case MS_TILE.Button_Green:
       return "toggle-walls";
     case MS_TILE.Button_Red:
@@ -319,7 +325,7 @@ const lynxTileFamilies: readonly LynxTileFamilyDefinition[] = [
     tags: ["boots", "collectible"],
     chipEnterAction: "collect-item",
     inventorySlot: "boots",
-    inventoryIndex: (id) => id - MS_TILE.Boots_Ice,
+    inventoryIndex: (id) => id === MS_TILE.Boots_Hint ? 4 : id - MS_TILE.Boots_Ice,
   }),
   createLynxPickupTileFamily({
     name: "sandbag",

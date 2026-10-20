@@ -2926,8 +2926,17 @@ body {
   }
 }
 
+.mobile-game-shell--portrait .mobile-game-shell__margin--secondary {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.mobile-game-shell--portrait .mobile-game-shell__controls-slot {
+  container-type: size;
+}
+
 .mobile-game-shell--portrait .mobile-game-shell__touch-controls--wasd-cluster {
-  width: min(100%, 420px);
+  /* Two 1.2:1 button rows and 12px gaps must fit below the inventory. */
+  width: min(100%, 420px, calc((100cqh - 12px) * 1.8 + 24px));
   gap: 12px;
 }
 

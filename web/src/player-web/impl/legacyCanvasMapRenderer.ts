@@ -133,6 +133,10 @@ function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverla
     hash = hashLayerValue(hash, overlay.tileId ?? 0);
     hash = hashLayerValue(hash, overlay.render?.mode === "tile" || overlay.render?.mode === "pickup-reveal" ? overlay.render.tileId : 0);
     hash = hashLayerString(hash, overlay.render?.mode === "tile" || overlay.render?.mode === "pickup-reveal" ? overlay.render.artworkSpriteId : undefined);
+    if (overlay.render?.mode === "hint-letter") {
+      hash = hashLayerString(hash, overlay.render.text);
+      hash = hashLayerValue(hash, Math.round((overlay.render.alpha ?? 0.6) * 1000));
+    }
     hash = hashPetCarrierRender(hash, overlay.render?.mode === "tile" ? overlay.render.petCarrierRender : undefined);
     hash = hashLayerValue(hash, overlay.render?.mode === "outline" ? (overlay.render.style === "support" ? 1 : 2) : 0);
   }
@@ -165,6 +169,8 @@ function hashOverlayRenderKind(
   switch (render.mode) {
     case "outline":
       return render.style === "support" ? 1 : 2;
+    case "hint-letter":
+      return 8;
     case "pickup-reveal":
       return 5;
     case "tile":
@@ -981,7 +987,7 @@ function drawCompositedCell(
   }
 }
 
-function drawLayerOverlays(
+export function drawLayerOverlays(
   context: CanvasRenderingContext2D,
   tileset: LegacyTileset,
   overlays: ReadonlyArray<InteractiveGameTileOverlay>,
@@ -1032,6 +1038,21 @@ function drawLayerOverlays(
         x,
         y,
       );
+      continue;
+    }
+
+    if (render.mode === "hint-letter") {
+      context.save();
+      context.globalAlpha = render.alpha ?? 0.6;
+      context.font = `bold ${Math.round(LEGACY_TILE_SIZE * 0.75)}px 'Courier New', monospace`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.lineWidth = 3;
+      context.strokeStyle = "#161205";
+      context.fillStyle = "#fff17a";
+      context.strokeText(render.text, x + LEGACY_TILE_SIZE / 2, y + LEGACY_TILE_SIZE / 2);
+      context.fillText(render.text, x + LEGACY_TILE_SIZE / 2, y + LEGACY_TILE_SIZE / 2);
+      context.restore();
       continue;
     }
 

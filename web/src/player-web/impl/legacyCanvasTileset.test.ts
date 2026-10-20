@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   applyLegacyTileOverrides,
+  createLegacyMemeArtworkOverrides,
   createLegacyExpansionArtworkSprites,
   createLegacyExpansionArtworkOverrides,
   getOrCreateHeldTrapSprite,
@@ -445,5 +446,31 @@ describe("createLegacyExpansionArtworkOverrides", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+
+describe("Meme artwork", () => {
+  it("renders each generated atlas frame, including directional creatures in Lynx", () => {
+    const image = { width: 1774, height: 887 } as HTMLCanvasElement;
+    const context = { drawImage: vi.fn(), imageSmoothingEnabled: true };
+    vi.stubGlobal("document", { createElement: () => ({ getContext: () => context }) });
+    try {
+      const overrides = createLegacyMemeArtworkOverrides(image);
+      expect([...overrides.keys()]).toEqual([
+        MS_TILE.Boots_Hint, ...[1, 2, 4, 8].map(dir => msCreatureTile(MS_TILE.RedTank, dir)),
+        MS_TILE.Button_RedTankCW, MS_TILE.Button_RedTankCCW,
+      ]);
+      expect(context.drawImage).toHaveBeenCalledTimes(7);
+      expect(context.drawImage).toHaveBeenNthCalledWith(1, image, 0, 0, 444, 444, 0, 0, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+      const baseCreature = vi.fn(() => null);
+      const tileset = applyLegacyTileOverrides({ get: () => null, getCreature: baseCreature }, overrides);
+      for (const dir of [1, 2, 4, 8]) {
+        expect(tileset.getCreature?.(MS_TILE.RedTank, dir, 0, 0)).toEqual(overrides.get(msCreatureTile(MS_TILE.RedTank, dir)));
+      }
+      expect(tileset.getCreature?.(MS_TILE.RedTank, MS_DIRECTION.east, 4, 0)).toMatchObject({ offsetX: -24, offsetY: 0 });
+      expect(tileset.getCreature?.(MS_TILE.Tank, 1, 4, 0)).toBeNull();
+      expect(baseCreature).toHaveBeenCalledWith(MS_TILE.Tank, 1, 4, 0);
+    } finally { vi.unstubAllGlobals(); }
   });
 });

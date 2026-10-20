@@ -70,6 +70,7 @@ export const lynxActorFamilyRegistrations = [
     familyId: "creature",
     actorIds: [
       MS_TILE.Tank,
+      MS_TILE.RedTank,
       MS_TILE.Ball,
       MS_TILE.Glider,
       MS_TILE.Fireball,

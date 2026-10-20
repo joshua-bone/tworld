@@ -2,6 +2,8 @@ import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive";
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@game-core/api/debug";
 import { cloneBowlingBallState } from "@game-core/impl/bowlingBall";
+import { recordHintTrail } from "@game-core/impl/hintTrail";
+import { lynxTankPolicy } from "@ruleset-lynx/impl/catalogActors";
 import { findHiddenActorAtPosition, findVisibleActorAtPosition, storeActorInReusableHiddenSlot } from "@game-core/impl/actors";
 import {
   addTopTileFlags,
@@ -261,7 +263,7 @@ import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import { levelLayers, type MsLevelLayer } from "@ruleset-ms/api/level";
+import { levelHintTextAtZ, levelLayers, type MsLevelLayer } from "@ruleset-ms/api/level";
 import type { GameRuntimeCommand } from "@game-core/api/types";
 const LYNX_DEBUG_SCHEMA_VERSION = 2;
 const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
@@ -925,6 +927,7 @@ export interface LynxRuntimeActor {
   deferPush: boolean;
   deferPushArmed: boolean;
   reversePending: boolean;
+  quarterTurnsPending?: number;
   dormant: boolean;
   animationReserved: boolean;
 }
@@ -1875,6 +1878,7 @@ function createLynxCompletedChipMoveContext(
     applyIceWallTurn: applyLynxIceWallTurn,
     activeLayerZ: () => activeLynxLayerZ(state),
     recordCausalEvent: (event: LynxNativeCausalEventSeed) => recordLynxNativeCausalEvent(state, event),
+    hintText: () => levelHintTextAtZ(level, activeLynxLayerZ(state)),
     failChip: (
       chipPos: number,
       chipDir: number,
@@ -2452,6 +2456,10 @@ function resolveLynxButtonEffects(
     case "turn-tanks":
       recordButtonActivation(pos, MS_TILE.Button_Blue, "overlay", "cc1:turn-tanks");
       break;
+    case "turn-red-tanks-cw":
+    case "turn-red-tanks-ccw":
+      recordButtonActivation(pos, tileId, "overlay", `meme:${lynxButtonAction(tileId)}`);
+      break;
     case "activate-cloner": {
       const clonerPos = findLynxClonerTarget(level, pos, buttonZ);
       if (clonerPos !== null) {
@@ -2471,6 +2479,12 @@ function resolveLynxButtonEffects(
     {
       queueTankReversals: () => {
         queueLynxTankReversals(state, actors);
+      },
+      queueRedTankTurns: (quarterTurns: number) => {
+        for (const actor of actors) {
+          if (actor.hidden || lynxTankPolicy(actor.id)?.buttonFamily !== "red") continue;
+          actor.quarterTurnsPending = ((actor.quarterTurnsPending ?? 0) + quarterTurns + 4) % 4;
+        }
       },
       toggleWalls: () => {
         for (const layer of state.map.layers ?? [{ z: buttonZ, cells: state.map.cells }]) {
@@ -2947,6 +2961,7 @@ function resolveLynxTeleports(
     chipMoving,
   );
   if (destinationPos !== originPos) {
+    recordHintTrail(state, levelHintTextAtZ(level, z), destinationPos, z);
     recordLynxNativeCausalEvent(state, {
       kind: "teleport",
       actorId: MS_TILE.Chip,
@@ -3687,7 +3702,7 @@ function findLynxTrapTarget(level: LynxLevel, buttonPos: number, z = 1): number 
 
 function queueLynxTankReversals(state: EngineState, actors: LynxRuntimeActor[]): void {
   for (const actor of actors) {
-    if (actor.hidden || actor.id !== MS_TILE.Tank) {
+    if (actor.hidden || lynxTankPolicy(actor.id)?.buttonFamily !== "blue") {
       continue;
     }
     withLynxLayer(state, actor.z ?? 1, () => {
@@ -3712,9 +3727,23 @@ function applyPendingLynxTankReversals(actors: LynxRuntimeActor[]): void {
   }
 }
 
+function applyPendingLynxTankQuarterTurns(actors: LynxRuntimeActor[]): void {
+  const clockwise: number[] = [MS_DIRECTION.north, MS_DIRECTION.east, MS_DIRECTION.south, MS_DIRECTION.west];
+  for (const actor of actors) {
+    // Facing also defines the in-flight render origin and arrival direction.
+    if (actor.hidden || actor.moving > 0 || !actor.quarterTurnsPending) continue;
+    const facingIndex = clockwise.indexOf(actor.dir);
+    if (facingIndex >= 0) {
+      actor.dir = clockwise[(facingIndex + actor.quarterTurnsPending) % 4]!;
+    }
+    delete actor.quarterTurnsPending;
+  }
+}
+
 function runLynxInitialHousekeeping(state: EngineState, actors: LynxRuntimeActor[]): void {
   clearFinishedPushedBlocks(state, actors);
   applyPendingLynxTankReversals(actors);
+  applyPendingLynxTankQuarterTurns(actors);
   clearLynxTileOverlays(state);
 
   const runtime = lynxRuntimeState(state);

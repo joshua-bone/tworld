@@ -41,6 +41,7 @@ const HASH_REMAINDERS = [
 ] as const;
 
 const SPECIAL_TOOL_FILE_ID_FIRST = 0x70;
+const SPECIAL_TOOL_FILE_ID_LAST = 0x75;
 
 export interface ParsedDatFile {
   headerRuleset: Exclude<RulesetName, "None">;
@@ -132,7 +133,7 @@ function layerContainsSpecialToolFileId(levelData: Uint8Array, startOffset: numb
       offset += 1;
     }
 
-    if (fileId >= SPECIAL_TOOL_FILE_ID_FIRST) {
+    if (fileId >= SPECIAL_TOOL_FILE_ID_FIRST && fileId <= SPECIAL_TOOL_FILE_ID_LAST) {
       return true;
     }
   }

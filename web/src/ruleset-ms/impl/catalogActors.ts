@@ -14,6 +14,7 @@ import { createMsSpecialFloorActorBehavior } from "@ruleset-ms/impl/elements/act
 const CHIP_ACTOR_IDS = [MS_TILE.Chip, MS_TILE.Swimming_Chip, MS_TILE.Pushing_Chip] as const;
 const MONSTER_ACTOR_IDS = [
   MS_TILE.Tank,
+  MS_TILE.RedTank,
   MS_TILE.Ball,
   MS_TILE.Glider,
   MS_TILE.Fireball,
@@ -168,4 +169,18 @@ export function lookupMsActorDefinition(id: number): ActorDefinition<number> | u
     return msActorDefinitionsById.get(msCreatureId(id));
   }
   return undefined;
+}
+
+export type MsTankButtonFamily = "blue" | "red";
+export interface MsTankPolicy {
+  readonly buttonFamily: MsTankButtonFamily;
+  readonly intermediateTurnSprite: boolean;
+}
+const msTankPolicies = new Map<number, MsTankPolicy>([
+  [MS_TILE.Tank, { buttonFamily: "blue", intermediateTurnSprite: true }],
+  [MS_TILE.RedTank, { buttonFamily: "red", intermediateTurnSprite: false }],
+]);
+
+export function lookupMsTankPolicy(id: number): MsTankPolicy | undefined {
+  return msTankPolicies.get(id);
 }

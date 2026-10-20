@@ -1,4 +1,5 @@
 import type { InteractiveGameFrame } from "@game-core/api/interactive";
+import { hintTrailOverlays } from "@game-core/impl/hintTrail";
 import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-core/impl/interactiveProjection";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
@@ -284,6 +285,7 @@ export function projectLynxInteractiveFrame(
       layers: session.state.map.layers,
       previousFrame,
       tileOverlays: [
+        ...hintTrailOverlays(session.state.hintTrail),
         ...(runtime?.visuals?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectLynxRenderableOverlay(overlay)) ?? []),
         ...mappedOccupiedCarriers.map((item) => {
           const overlay = projectLynxRenderableOverlay({

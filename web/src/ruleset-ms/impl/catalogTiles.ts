@@ -41,7 +41,7 @@ export type MsChipEnterAction =
   | "fire-death"
   | "teleport"
   | "collision";
-export type MsButtonAction = "none" | "turn-tanks" | "toggle-walls" | "activate-cloner" | "spring-trap";
+export type MsButtonAction = "none" | "turn-tanks" | "turn-red-tanks-cw" | "turn-red-tanks-ccw" | "toggle-walls" | "activate-cloner" | "spring-trap";
 
 export interface MsTilePolicyDefinition {
   readonly tags: readonly TileTag[];
@@ -65,13 +65,15 @@ export interface MsTilePolicyDefinition {
 }
 
 const KEY_TILE_IDS = [MS_TILE.Key_Red, MS_TILE.Key_Blue, MS_TILE.Key_Yellow, MS_TILE.Key_Green] as const;
-const BOOT_TILE_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water] as const;
+const BOOT_TILE_IDS = [MS_TILE.Boots_Ice, MS_TILE.Boots_Slide, MS_TILE.Boots_Fire, MS_TILE.Boots_Water, MS_TILE.Boots_Hint] as const;
 const DOOR_TILE_IDS = [MS_TILE.Door_Red, MS_TILE.Door_Blue, MS_TILE.Door_Yellow, MS_TILE.Door_Green] as const;
 const BUTTON_TILE_IDS = [
   MS_TILE.Button_Blue,
   MS_TILE.Button_Green,
   MS_TILE.Button_Red,
   MS_TILE.Button_Brown,
+  MS_TILE.Button_RedTankCW,
+  MS_TILE.Button_RedTankCCW,
 ] as const;
 const SLIDE_TILE_IDS = [
   MS_TILE.Slide_North,
@@ -92,6 +94,7 @@ const ACTOR_TILE_IDS = [
   MS_TILE.Block,
   MS_TILE.IceBlock,
   MS_TILE.Tank,
+  MS_TILE.RedTank,
   MS_TILE.Ball,
   MS_TILE.Glider,
   MS_TILE.Fireball,
@@ -171,6 +174,10 @@ function msButtonActionForTile(id: number): MsButtonAction {
   switch (id) {
     case MS_TILE.Button_Blue:
       return "turn-tanks";
+    case MS_TILE.Button_RedTankCW:
+      return "turn-red-tanks-cw";
+    case MS_TILE.Button_RedTankCCW:
+      return "turn-red-tanks-ccw";
     case MS_TILE.Button_Green:
       return "toggle-walls";
     case MS_TILE.Button_Red:
@@ -308,7 +315,7 @@ const msTileFamilies: readonly MsTileFamilyDefinition[] = [
     tags: ["boots", "collectible"],
     chipEnterAction: "collect-item",
     inventorySlot: "boots",
-    inventoryIndex: (id) => id - MS_TILE.Boots_Ice,
+    inventoryIndex: (id) => id === MS_TILE.Boots_Hint ? 4 : id - MS_TILE.Boots_Ice,
     blockMovementMask: MS_FULL_MOVEMENT_MASK,
   }),
   createMsPickupTileFamily({

@@ -61,5 +61,6 @@ export function engineStateToSnapshot(
     creaturesHash: state.map.creaturesHash,
     mapHash: state.map.hash,
     creatures: state.actors.map(cloneActor),
+    ...(state.hintTrail ? { hintTrail: structuredClone(state.hintTrail) } : {}),
   };
 }
