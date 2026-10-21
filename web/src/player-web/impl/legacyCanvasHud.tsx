@@ -106,12 +106,15 @@ export function seriesIndexAt(y: number, itemCount: number, scrollOffset: number
   return index >= 0 && index < itemCount ? index : -1;
 }
 
-function inventoryStripTileIds(kind: LegacyInventoryStripKind): readonly number[] {
+function inventoryStripTileIds(
+  kind: LegacyInventoryStripKind,
+  inventory: GameSnapshot["inventory"] | null = null,
+): readonly number[] {
   switch (kind) {
     case "keys":
       return LEGACY_INVENTORY_KEY_IDS;
     case "boots":
-      return LEGACY_INVENTORY_BOOT_IDS;
+      return (inventory?.boots[4] ?? 0) > 0 ? LEGACY_INVENTORY_BOOT_IDS : LEGACY_INVENTORY_BOOT_IDS.slice(0, 4);
     case "tools":
       return LEGACY_INVENTORY_TOOL_IDS;
   }
@@ -168,11 +171,12 @@ export function inventoryStripPixelDimensionsForKind(
   tileSize: number,
   direction: LegacyInventoryStripDirection,
   kind: LegacyInventoryStripKind,
+  inventory: GameSnapshot["inventory"] | null = null,
 ): {
   height: number;
   width: number;
 } {
-  const tileCount = inventoryStripTileIds(kind).length;
+  const tileCount = inventoryStripTileIds(kind, inventory).length;
   return direction === "horizontal"
     ? { height: tileSize, width: tileCount * tileSize }
     : { height: tileCount * tileSize, width: tileSize };
@@ -234,7 +238,7 @@ function drawInventoryStrip(
   direction: LegacyInventoryStripDirection,
   inventoryKeyCountLabelsEnabled: boolean,
 ): void {
-  const tileIds = inventoryStripTileIds(kind);
+  const tileIds = inventoryStripTileIds(kind, inventory);
   const stripWidth = direction === "horizontal" ? tileIds.length * LEGACY_TILE_SIZE : LEGACY_TILE_SIZE;
   const stripHeight = direction === "horizontal" ? LEGACY_TILE_SIZE : tileIds.length * LEGACY_TILE_SIZE;
   context.fillStyle = LEGACY_COLORS.background;
@@ -354,11 +358,12 @@ export function drawLegacyGameScreen(
     ? (["keys", "boots", "tools"] as const)
     : (["keys", "boots"] as const);
   inventoryKinds.forEach((kind, rowIndex) => {
-    const rowScale = Math.min(1, 4 / inventoryStripTileIds(kind).length);
+    const tileIds = inventoryStripTileIds(kind, snapshot.inventory);
+    const rowScale = Math.min(1, 4 / tileIds.length);
     context.save();
     context.translate(inventoryX, inventoryY + rowIndex * LEGACY_TILE_SIZE);
     context.scale(rowScale, rowScale);
-    inventoryStripTileIds(kind).forEach((tileId, columnIndex) => {
+    tileIds.forEach((tileId, columnIndex) => {
       const count = kind === "keys" ? snapshot.inventory.keys[columnIndex] ?? 0 : 0;
       drawInventoryTile(
         context,
@@ -481,8 +486,8 @@ export function LegacyInventoryStrip({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scaledCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const tileset = useLegacyTileset(currentRuleset === "Lynx" || currentRuleset === "Hybrid" ? "Lynx" : "MS");
-  const { height: sourceHeight, width: sourceWidth } = inventoryStripPixelDimensionsForKind(LEGACY_TILE_SIZE, direction, kind);
-  const { height: targetHeight, width: targetWidth } = inventoryStripPixelDimensionsForKind(renderTileSize, direction, kind);
+  const { height: sourceHeight, width: sourceWidth } = inventoryStripPixelDimensionsForKind(LEGACY_TILE_SIZE, direction, kind, inventory);
+  const { height: targetHeight, width: targetWidth } = inventoryStripPixelDimensionsForKind(renderTileSize, direction, kind, inventory);
   const usesDefaultTileSize = isDefaultLegacyRenderTileSize(renderTileSize);
   const keyCountLabelsEnabled = resolveInventoryKeyCountLabelsEnabled(
     inventoryKeyCountLabelsEnabled,
