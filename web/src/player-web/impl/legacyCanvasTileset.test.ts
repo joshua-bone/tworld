@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applyLegacyTileOverrides,
   createLegacyMemeArtworkOverrides,
+  createLegacySmartTeethArtworkOverrides,
   createLegacyExpansionArtworkSprites,
   createLegacyExpansionArtworkOverrides,
   getOrCreateHeldTrapSprite,
   getOrCreateOccupiedPetCarrierSprite,
 } from "@player-web/impl/legacyCanvasTileset";
+import smartTeethArtworkKey from "@res/smart_teeth_artwork/smart-teeth.json";
 import { LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import type { LegacyTileSprite, LegacyTileset } from "@player-web/impl/legacyTileset";
 import { MS_DIRECTION, MS_TILE, msCreatureTile } from "@ruleset-ms/api/tiles";
@@ -472,5 +474,46 @@ describe("Meme artwork", () => {
       expect(tileset.getCreature?.(MS_TILE.Tank, 1, 4, 0)).toBeNull();
       expect(baseCreature).toHaveBeenCalledWith(MS_TILE.Tank, 1, 4, 0);
     } finally { vi.unstubAllGlobals(); }
+  });
+});
+
+
+describe("Smart Teeth artwork", () => {
+  it("extracts four transparent directions and applies them to static and moving creatures", () => {
+    const image = {} as HTMLCanvasElement;
+    const context = { drawImage: vi.fn(), imageSmoothingEnabled: true };
+    vi.stubGlobal("document", { createElement: () => ({ getContext: () => context }) });
+    try {
+      const overrides = createLegacySmartTeethArtworkOverrides(image);
+      const directions = [MS_DIRECTION.north, MS_DIRECTION.west, MS_DIRECTION.south, MS_DIRECTION.east];
+      const names = ["SMART_TEETH_N", "SMART_TEETH_W", "SMART_TEETH_S", "SMART_TEETH_E"] as const;
+      expect([...overrides.keys()]).toEqual(directions.map((dir) => msCreatureTile(MS_TILE.SmartTeeth, dir)));
+      const tileset = applyLegacyTileOverrides({ get: () => null }, overrides);
+      for (const [index, dir] of directions.entries()) {
+        const { x, y, width, height } = smartTeethArtworkKey.frames[names[index]!];
+        expect(context.drawImage).toHaveBeenNthCalledWith(
+          index + 1,
+          image,
+          x,
+          y,
+          width,
+          height,
+          0,
+          0,
+          LEGACY_TILE_SIZE,
+          LEGACY_TILE_SIZE,
+        );
+        const sprite = overrides.get(msCreatureTile(MS_TILE.SmartTeeth, dir));
+        expect(sprite).toMatchObject({ transparent: true, preserveLayerTransparency: false });
+        expect(tileset.get(msCreatureTile(MS_TILE.SmartTeeth, dir))).toBe(sprite);
+        expect(tileset.getCreature?.(MS_TILE.SmartTeeth, dir, 0, 0)).toEqual(sprite);
+      }
+      expect(tileset.getCreature?.(MS_TILE.SmartTeeth, MS_DIRECTION.east, 4, 0)).toMatchObject({
+        offsetX: -24,
+        offsetY: 0,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

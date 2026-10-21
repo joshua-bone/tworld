@@ -100,6 +100,7 @@ export const MS_TILE = {
   Boots_Hint: 0x86,
   Button_RedTankCW: 0x87,
   Button_RedTankCCW: 0x88,
+  SmartTeeth: 0x8c,
 } as const;
 
 export type MsBlockSpeciesId = "dirt" | "ice";
@@ -198,7 +199,7 @@ export function msCreatureDir(id: number): number {
 }
 
 export function isMsCreature(id: number): boolean {
-  return id >= CREATURE_RANGE[0] && id < CREATURE_RANGE[1];
+  return (id >= CREATURE_RANGE[0] && id < CREATURE_RANGE[1]) || msCreatureId(id) === MS_TILE.SmartTeeth;
 }
 
 export function lookupMsBlockSpeciesByActorId(actorId: number): MsBlockSpeciesRegistration | undefined {

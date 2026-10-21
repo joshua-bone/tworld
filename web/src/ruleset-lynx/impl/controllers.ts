@@ -1,5 +1,5 @@
 import { lynxActorControlMode } from "@ruleset-lynx/impl/catalog";
-import { lynxTankPolicy } from "@ruleset-lynx/impl/catalogActors";
+import { lynxActorPlanningPolicy, lynxTankPolicy } from "@ruleset-lynx/impl/catalogActors";
 import {
   resolveLynxForcedFloorDirection,
 } from "@ruleset-lynx/impl/elements/tiles/families/forcedFloor";
@@ -27,6 +27,7 @@ export interface LynxCreatureControllerContext {
   chooseWalkerRandomDirection(dir: number): number;
   slideDirection(floorId: number): number;
   treatsForcedFloorAsNormal(actor: LynxCreatureControllerActor, floorId: number): boolean;
+  plannedDirection?(actor: LynxCreatureControllerActor): number;
 }
 
 function left(dir: number): number {
@@ -183,6 +184,13 @@ export function chooseLynxCreatureMoveForTick(
 
     if (lynxActorHoldsDirectionOnFloor(floor, actor.id)) {
       actor.intentDir = actor.dir;
+      return;
+    }
+
+    if (lynxActorPlanningPolicy(actor.id)?.strategy === "coordinated-safe-chase") {
+      if (((context.currentTime + context.stepping) & 4) === 0) {
+        actor.intentDir = context.plannedDirection?.(actor) ?? 0;
+      }
       return;
     }
 

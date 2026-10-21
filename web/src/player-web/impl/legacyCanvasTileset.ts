@@ -3,6 +3,8 @@ import lynxTilesUrl from "@res/atiles.bmp?url";
 import msTilesUrl from "@res/tiles.bmp?url";
 import memeArtworkUrl from "@res/meme_artwork/meme.png?url";
 import memeArtworkKey from "@res/meme_artwork/meme.json";
+import smartTeethArtworkUrl from "@res/smart_teeth_artwork/smart-teeth.png?url";
+import smartTeethArtworkKey from "@res/smart_teeth_artwork/smart-teeth.json";
 import expandedArtworkUrl from "@res/expansion_artwork/expanded.png?url";
 import type {
   InteractiveGamePetCarrierRender,
@@ -370,6 +372,27 @@ export function createLegacyMemeArtworkOverrides(image: CanvasImageSource): Read
   return overrides;
 }
 
+export function createLegacySmartTeethArtworkOverrides(
+  image: CanvasImageSource,
+): ReadonlyMap<number, LegacyTileSprite> {
+  const tiles = {
+    SMART_TEETH_N: msCreatureTile(MS_TILE.SmartTeeth, MS_DIRECTION.north),
+    SMART_TEETH_W: msCreatureTile(MS_TILE.SmartTeeth, MS_DIRECTION.west),
+    SMART_TEETH_S: msCreatureTile(MS_TILE.SmartTeeth, MS_DIRECTION.south),
+    SMART_TEETH_E: msCreatureTile(MS_TILE.SmartTeeth, MS_DIRECTION.east),
+  };
+  const overrides = new Map<number, LegacyTileSprite>();
+  for (const name of Object.keys(tiles) as Array<keyof typeof tiles>) {
+    const sprite = createLegacyArtworkSpriteFromFrame(image, {
+      ...smartTeethArtworkKey.frames[name],
+      transparent: true,
+      preserveLayerTransparency: false,
+    });
+    if (sprite) overrides.set(tiles[name], sprite);
+  }
+  return overrides;
+}
+
 export function createLegacyExpansionArtworkOverrides(
   image: CanvasImageSource,
 ): ReadonlyMap<number, LegacyTileSprite> {
@@ -529,11 +552,12 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
   }
 
   const nextPromise = measurePerfAsync("tilesetLoadMs", async () => {
-    const [image, expandedArtworkImage, memeArtworkImage] = await measurePerfAsync("tilesetImageLoadMs", () =>
+    const [image, expandedArtworkImage, memeArtworkImage, smartTeethArtworkImage] = await measurePerfAsync("tilesetImageLoadMs", () =>
       Promise.all([
         loadLegacyImage(LEGACY_TILESET_URLS[ruleset]),
         loadLegacyImage(expandedArtworkUrl),
         loadLegacyImage(memeArtworkUrl),
+        loadLegacyImage(smartTeethArtworkUrl),
       ]),
     );
     const tileset = measurePerfSync("tilesetBuildMs", () => {
@@ -549,7 +573,7 @@ function loadLegacyTileset(ruleset: LegacyTilesetRuleset): Promise<LegacyTileset
       const artworkSprites = createLegacyExpansionArtworkSprites(expandedArtworkImage);
       return applyLegacyTileOverrides(
         buildLegacyTileset(canvas, ruleset),
-        new Map([...createLegacyExpansionArtworkOverrides(expandedArtworkImage), ...createLegacyMemeArtworkOverrides(memeArtworkImage)]),
+        new Map([...createLegacyExpansionArtworkOverrides(expandedArtworkImage), ...createLegacyMemeArtworkOverrides(memeArtworkImage), ...createLegacySmartTeethArtworkOverrides(smartTeethArtworkImage)]),
         artworkSprites,
       );
     });

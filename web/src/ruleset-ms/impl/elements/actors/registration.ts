@@ -56,6 +56,7 @@ export const msActorFamilyRegistrations = [
       MS_TILE.Walker,
       MS_TILE.Blob,
       MS_TILE.Teeth,
+      MS_TILE.SmartTeeth,
       MS_TILE.Bug,
       MS_TILE.Paramecium,
     ],

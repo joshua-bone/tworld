@@ -1,5 +1,6 @@
 import type { InteractiveGameFrame } from "@game-core/api/interactive";
 import { hintTrailOverlays } from "@game-core/impl/hintTrail";
+import { smartTeethRouteOverlays } from "@game-core/impl/smartTeethPathfinding";
 import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-core/impl/interactiveProjection";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import { engineStateToSnapshot } from "@game-core/impl/snapshot";
@@ -286,6 +287,14 @@ export function projectLynxInteractiveFrame(
       previousFrame,
       tileOverlays: [
         ...hintTrailOverlays(session.state.hintTrail),
+        ...smartTeethRouteOverlays(session.actors
+          .filter((actor) => !actor.hidden && actor.plannedPath !== undefined)
+          .map((actor) => ({
+            serial: actor.serial,
+            z: actor.z ?? 1,
+            path: actor.plannedPath!,
+            direct: actor.plannedDirect ?? false,
+          }))),
         ...(runtime?.visuals?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectLynxRenderableOverlay(overlay)) ?? []),
         ...mappedOccupiedCarriers.map((item) => {
           const overlay = projectLynxRenderableOverlay({

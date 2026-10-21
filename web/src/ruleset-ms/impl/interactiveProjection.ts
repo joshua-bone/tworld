@@ -1,4 +1,5 @@
 import { hintTrailOverlays } from "@game-core/impl/hintTrail";
+import { smartTeethRouteOverlays } from "@game-core/impl/smartTeethPathfinding";
 import type { InteractiveGameFrame } from "@game-core/api/interactive";
 import { projectInteractiveFrame, type InteractiveProjectionPhase } from "@game-core/impl/interactiveProjection";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
@@ -241,6 +242,14 @@ export function projectMsInteractiveFrame(
       layers: session.state.engine.map.layers,
       previousFrame,
       tileOverlays: [
+        ...smartTeethRouteOverlays((session.state.internal.creatures ?? []).filter((creature) =>
+          !creature.hidden && creature.plannedPath !== undefined,
+        ).map((creature) => ({
+          serial: creature.serial,
+          z: creature.z ?? 1,
+          path: creature.plannedPath!,
+          direct: creature.plannedDirect ?? false,
+        }))),
         ...hintTrailOverlays(session.state.engine.hintTrail),
         ...(runtime?.tileOverlays?.map(({ ttl: _ttl, ...overlay }) => projectMsRenderableOverlay(overlay)) ?? []),
         ...mappedOccupiedCarriers.map((item) => {

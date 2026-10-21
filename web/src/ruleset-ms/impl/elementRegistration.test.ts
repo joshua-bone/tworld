@@ -102,6 +102,6 @@ describe("MS element registration", () => {
   it("assembles dedicated actor, pickup, and decode registration bundles", () => {
     expect(msElementFamilyRegistration.actorFamilies).toBe(msActorFamilyRegistrations);
     expect(msElementFamilyRegistration.terrainPickupFamilies).toBe(msTerrainPickupFamilyRegistrations);
-    expect(msRegisteredLevelDecodeEntries).toHaveLength(0x7d);
+    expect(msRegisteredLevelDecodeEntries).toHaveLength(0x81);
   });
 });

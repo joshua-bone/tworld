@@ -136,6 +136,10 @@ const MS_BUILTIN_LEVEL_DECODE_ENTRIES = [
   msCreatureTile(MS_TILE.RedTank, 8),
   MS_TILE.Button_RedTankCW,
   MS_TILE.Button_RedTankCCW,
+  msCreatureTile(MS_TILE.SmartTeeth, 1),
+  msCreatureTile(MS_TILE.SmartTeeth, 2),
+  msCreatureTile(MS_TILE.SmartTeeth, 4),
+  msCreatureTile(MS_TILE.SmartTeeth, 8),
 ] as const;
 
 function remapBuiltinMsTile(tileId: number, context: MsLevelDecodeContext): number {
