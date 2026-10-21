@@ -1,0 +1,9 @@
+{
+  "image": "smart-teeth.png",
+  "frames": {
+    "SMART_TEETH_N": { "x": 0, "y": 0, "width": 627, "height": 627 },
+    "SMART_TEETH_W": { "x": 627, "y": 0, "width": 627, "height": 627 },
+    "SMART_TEETH_S": { "x": 0, "y": 627, "width": 627, "height": 627 },
+    "SMART_TEETH_E": { "x": 627, "y": 627, "width": 627, "height": 627 }
+  }
+}

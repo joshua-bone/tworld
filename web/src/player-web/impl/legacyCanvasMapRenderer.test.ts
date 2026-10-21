@@ -3,6 +3,7 @@ import type { InteractiveGameSession } from "@game-runtime/ports/InteractiveGame
 import {
   buildLegacyGameDrawStateKey,
   drawLayerOverlays,
+  drawVisibleLayerStack,
   buildCachedLowerLayerKey,
   collectVisibleLayerCacheWarmupTasks,
   hasCachedLowerLayerCanvas,
@@ -14,6 +15,8 @@ import {
   visualEnhancementActorDecorationPosition,
 } from "@player-web/impl/legacyCanvasMapRenderer";
 import { createLayerCanvasCache, storeCachedLayerCanvas } from "@player-web/impl/legacyLayerCanvasCache";
+import type { InteractiveGameTileOverlay, InteractiveGameTileOverlayRender } from "@game-core/api/interactive";
+import { smartTeethRouteOverlays } from "@game-core/impl/smartTeethRoutes";
 import type { EngineMapCell } from "@game-core/api/model";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
 import { MS_DIRECTION, MS_FLOOR_STATE, MS_TILE } from "@ruleset-ms/api/tiles";
@@ -576,5 +579,190 @@ describe("persistent hint letters", () => {
     expect(context.fillText).toHaveBeenCalledExactlyOnceWith("A", 72, 72);
     expect(alphas).toEqual([0.6]);
     expect(context.restore).toHaveBeenCalledOnce();
+  });
+});
+
+
+describe("planned Smart Teeth routes", () => {
+  function route(
+    pos: number,
+    z: number,
+    patch: Partial<Extract<InteractiveGameTileOverlayRender, { mode: "planned-route" }>> = {},
+  ): InteractiveGameTileOverlay {
+    return {
+      pos,
+      z,
+      kind: "planned-route",
+      render: {
+        mode: "planned-route",
+        serial: 7,
+        color: "#00ddff",
+        alpha: 0.35,
+        direct: true,
+        connections: [pos + 1],
+        endpoint: true,
+        ...patch,
+      },
+    };
+  }
+
+  function recordingContext() {
+    const alphas: number[] = [];
+    const events: string[] = [];
+    const savedAlphas: number[] = [];
+    const context = {
+      globalAlpha: 1,
+      strokeStyle: "",
+      fillStyle: "",
+      lineWidth: 1,
+      lineCap: "butt",
+      save: vi.fn(() => savedAlphas.push(context.globalAlpha)),
+      restore: vi.fn(() => {
+        context.globalAlpha = savedAlphas.pop() ?? 1;
+      }),
+      beginPath: vi.fn(),
+      rect: vi.fn(),
+      clip: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      arc: vi.fn(),
+      strokeRect: vi.fn(),
+      fillRect: vi.fn(),
+      stroke: vi.fn(() => {
+        alphas.push(context.globalAlpha);
+        events.push("route");
+      }),
+      fill: vi.fn(() => {
+        alphas.push(context.globalAlpha);
+      }),
+      drawImage: vi.fn(() => events.push("image")),
+    };
+    return { context, alphas, events };
+  }
+
+  it("draws translucent connected segments and endpoints only in the visible layer and viewport", () => {
+    const { context, alphas } = recordingContext();
+    drawLayerOverlays(
+      context as unknown as CanvasRenderingContext2D,
+      { get: () => null },
+      [route(33, 1), route(33, 2), route(1000, 1)],
+      1,
+      0,
+      0,
+      432,
+      432,
+      false,
+    );
+    expect(context.moveTo).toHaveBeenCalledExactlyOnceWith(72, 72);
+    expect(context.lineTo).toHaveBeenCalledExactlyOnceWith(96, 72);
+    expect(context.arc).toHaveBeenCalledExactlyOnceWith(72, 72, 5, 0, Math.PI * 2);
+    expect(alphas).toEqual([0.35, 0.35]);
+    expect(context.globalAlpha).toBe(1);
+  });
+
+  it.each([
+    { serial: 8 },
+    { color: "#ff55ff" },
+    { alpha: 0.5 },
+    { direct: false },
+    { connections: [32] },
+    { endpoint: false },
+  ])("invalidates both draw caches for route render changes %j", (patch) => {
+    const session = createSession(MS_TILE.Empty);
+    const overlay = route(33, 2);
+    session.frame.tileOverlays = [overlay];
+    const tileset = { get: () => null };
+    const keys = () => [
+      buildLegacyGameDrawStateKey(session, null, null, "Lynx", false, null, "legacy", true, false),
+      buildCachedLowerLayerKey(tileset, session, "Lynx", session.frame.visibleLayers[0]!, 10, false),
+    ];
+    const before = keys();
+    overlay.render = {
+      ...(overlay.render as Extract<InteractiveGameTileOverlayRender, { mode: "planned-route" }>),
+      ...patch,
+    };
+    const after = keys();
+    expect(after[0]).not.toBe(before[0]);
+    expect(after[1]).not.toBe(before[1]);
+  });
+
+  it("paints routes beneath projected Lynx actors while enhancements are disabled", () => {
+    const { context, events } = recordingContext();
+    const session = createSession(MS_TILE.Empty, {
+      actors: [
+        {
+          id: MS_TILE.SmartTeeth,
+          pos: 33,
+          z: 2,
+          dir: MS_DIRECTION.east,
+          moving: 0,
+          frame: 0,
+          hidden: false,
+          visual: { kind: "creature", tileId: MS_TILE.SmartTeeth, dir: MS_DIRECTION.east },
+        },
+      ],
+    });
+    session.frame.visibleLayers = [session.frame.visibleLayers[0]!];
+    session.frame.tileOverlays = [route(33, 2)];
+    const actorImage = {} as HTMLCanvasElement;
+    context.drawImage.mockImplementation((image?: unknown) => events.push(image === actorImage ? "actor" : "image"));
+    vi.stubGlobal("document", { createElement: () => ({ getContext: () => context }) });
+    try {
+      drawVisibleLayerStack(
+        context as unknown as CanvasRenderingContext2D,
+        {
+          get: () => null,
+          getCreature: () => ({ image: actorImage, offsetX: 0, offsetY: 0, transparent: true }),
+        },
+        session,
+        "Lynx",
+        0,
+        0,
+        0,
+        createLayerCanvasCache(),
+        false,
+      );
+      expect(events).toContain("route");
+      expect(events.indexOf("route")).toBeLessThan(events.indexOf("actor"));
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("leaves MS actor cells unobscured by route paint", () => {
+    const { context } = recordingContext();
+    const session = createSession(MS_TILE.Empty);
+    session.frame.visibleLayers = [
+      { z: 2, cells: [createCell(33, 2, MS_TILE.SmartTeeth), createCell(34, 2, MS_TILE.Empty)] },
+    ];
+    session.frame.tileOverlays = smartTeethRouteOverlays([
+      {
+        serial: 1,
+        z: 2,
+        direct: true,
+        path: [
+          { pos: 33, dir: 8 },
+          { pos: 34, dir: 8 },
+        ],
+      },
+    ]);
+    vi.stubGlobal("document", { createElement: () => ({ getContext: () => context }) });
+    try {
+      drawVisibleLayerStack(
+        context as unknown as CanvasRenderingContext2D,
+        { get: () => null },
+        session,
+        "MS",
+        0,
+        0,
+        0,
+        createLayerCanvasCache(),
+        false,
+      );
+      expect(context.moveTo).toHaveBeenCalledExactlyOnceWith(120, 72);
+      expect(context.lineTo).toHaveBeenCalledExactlyOnceWith(96, 72);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

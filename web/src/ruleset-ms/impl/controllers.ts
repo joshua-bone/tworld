@@ -1,4 +1,4 @@
-import { lookupMsTankPolicy } from "@ruleset-ms/impl/catalogActors";
+import { lookupMsCreaturePlanningPolicy, lookupMsTankPolicy } from "@ruleset-ms/impl/catalogActors";
 import { reverseDirection as backDirection } from "@game-core/impl/grid";
 import { MS_DIRECTION, MS_GRID_WIDTH, MS_TILE } from "@ruleset-ms/api/tiles";
 import { msActorControlMode } from "@ruleset-ms/impl/catalog";
@@ -30,6 +30,7 @@ export interface MsCreatureControllerContext {
   getControllerDir(): number;
   setControllerDir(dir: number): void;
   canMove(creature: MsCreatureControllerCreature, dir: number): boolean;
+  plannedDirection?(creature: MsCreatureControllerCreature): number;
   updateCreatureTile(creature: MsCreatureControllerCreature): void;
   randomize3(array: number[]): void;
   randomize4(array: number[]): void;
@@ -87,7 +88,7 @@ function creatureSkippedForCurrentTick(
   }
 
   return (
-    (creature.id === MS_TILE.Teeth || creature.id === MS_TILE.Blob) &&
+    lookupMsCreaturePlanningPolicy(creature.id)?.cadence === "half-speed" &&
     ((context.currentTime + context.stepping) & 4) !== 0
   );
 }
@@ -263,6 +264,12 @@ export function chooseMsCreatureDirection(
   }
 
   const floor = context.floorAt(creature.pos);
+  if (lookupMsCreaturePlanningPolicy(creature.id)?.strategy === "coordinated-pursuit") {
+    const dir = context.plannedDirection?.(creature) ?? MS_DIRECTION.none;
+    creature.tdir = dir;
+    context.setControllerDir(dir);
+    return dir;
+  }
   const trapOrCloneFloor = msActorHoldsDirectionOnFloor(floor, creature.id);
   const trapOrCloneChoice = trapOrCloneFloor ? chooseTrapOrCloneFloorDirections(context, creature) : null;
   if (trapOrCloneChoice && trapOrCloneChoice.immediateDir !== null) {

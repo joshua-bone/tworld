@@ -6,10 +6,27 @@ import {
   MS_CHIP_ACTOR_CAPABILITIES,
   MS_CREATURE_ACTOR_CAPABILITIES,
   lookupMsActorDefinition,
+  lookupMsCreaturePlanningPolicy,
 } from "@ruleset-ms/impl/catalogActors";
 import { msRulesetCatalog } from "@ruleset-ms/impl/catalog";
 
 describe("ms catalogActors", () => {
+  it("registers Smart Teeth as a slow coordinated monster without inventory", () => {
+    expect(lookupMsActorDefinition(MS_TILE.SmartTeeth)).toMatchObject({
+      name: "Smart Teeth",
+      tags: expect.arrayContaining(["creature"]),
+      capabilities: {
+        movement: { strategyId: "creature-like" },
+        inventory: { localInventoryMode: "none", itemCollectionKind: "none" },
+        hazards: { responses: { water: "destroy", fire: "destroy", bomb: "destroy" } },
+      },
+    });
+    expect(lookupMsCreaturePlanningPolicy(MS_TILE.SmartTeeth)).toEqual({
+      strategy: "coordinated-pursuit", cadence: "half-speed",
+    });
+    expect(lookupMsCreaturePlanningPolicy(MS_TILE.Teeth)?.cadence).toBe("half-speed");
+    expect(lookupMsCreaturePlanningPolicy(MS_TILE.Blob)?.cadence).toBe("half-speed");
+  });
   it("keeps the baseline actor family policies stable", () => {
     expect(MS_CHIP_ACTOR_CAPABILITIES.control.mode).toBe("player-input");
     expect(MS_BLOCK_ACTOR_CAPABILITIES.movement.strategyId).toBe("block-like");

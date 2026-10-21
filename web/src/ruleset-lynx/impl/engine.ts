@@ -3,7 +3,9 @@ import type { InteractiveGameTileOverlayKind } from "@game-core/api/interactive"
 import type { GameDebugPhaseSnapshot, GameDebugTrace } from "@game-core/api/debug";
 import { cloneBowlingBallState } from "@game-core/impl/bowlingBall";
 import { recordHintTrail } from "@game-core/impl/hintTrail";
-import { lynxTankPolicy } from "@ruleset-lynx/impl/catalogActors";
+import { lynxActorPlanningPolicy, lynxTankPolicy } from "@ruleset-lynx/impl/catalogActors";
+import { coordinateSmartTeethRoutes, type SmartTeethAgent, type SmartTeethNode } from "@game-core/impl/smartTeethPathfinding";
+import { lynxSmartTeethNeighbors, resolveLynxSmartTeethPendingTeleport, type LynxSmartTeethProbeContext } from "@ruleset-lynx/impl/smartTeeth";
 import { findHiddenActorAtPosition, findVisibleActorAtPosition, storeActorInReusableHiddenSlot } from "@game-core/impl/actors";
 import {
   addTopTileFlags,
@@ -263,7 +265,7 @@ import type { GameCommand, GameRequest, GameTrace } from "@game-core/api/types";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
 import type { LynxLevel } from "@ruleset-lynx/api/level";
 import { LYNX_CELL_FLAG } from "@ruleset-lynx/api/cellFlags";
-import { levelHintTextAtZ, levelLayers, type MsLevelLayer } from "@ruleset-ms/api/level";
+import { collectLevelConnections, levelHintTextAtZ, levelLayers, type MsLevelLayer } from "@ruleset-ms/api/level";
 import type { GameRuntimeCommand } from "@game-core/api/types";
 const LYNX_DEBUG_SCHEMA_VERSION = 2;
 const LYNX_REPLAY_MOVE_TICK_MASK = 0x7fffff;
@@ -442,6 +444,8 @@ function quietlyRemoveLynxActor(
   }
 
   actor.hidden = true;
+  delete actor.plannedPath;
+  delete actor.plannedDirect;
   actor.moving = 0;
   actor.frame = 0;
   actor.intentDir = 0;
@@ -930,6 +934,8 @@ export interface LynxRuntimeActor {
   quarterTurnsPending?: number;
   dormant: boolean;
   animationReserved: boolean;
+  plannedPath?: readonly SmartTeethNode[];
+  plannedDirect?: boolean;
 }
 
 interface LynxAnimationState {
@@ -958,6 +964,7 @@ function lynxAnimationTileId(kind: "water-splash" | "bomb-explosion" | "none"): 
 
 interface LynxRuntimeState {
   toggleWallsPending: boolean;
+  smartTeethRoutesDirty?: boolean;
   visuals: {
     animations: LynxAnimationState[];
     tileOverlays: Array<{
@@ -1517,6 +1524,8 @@ function removeLynxActor(
   }
 
   actor.hidden = true;
+  delete actor.plannedPath;
+  delete actor.plannedDirect;
   actor.frame = 0;
   actor.moveKind = "planar";
   actor.ignoreIceFromAir = false;
@@ -2512,6 +2521,9 @@ function resolveLynxButtonEffects(
           }
         }
         lynxRuntimeState(state).toggleWallsPending = !lynxRuntimeState(state).toggleWallsPending;
+        if (actors.some((actor) => actor.plannedPath !== undefined)) {
+          lynxRuntimeState(state).smartTeethRoutesDirty = true;
+        }
       },
       activateCloner: (buttonPos) => activateLynxCloner(state, level, actors, buttonPos),
       buttonPushedSound: 1 << LYNX_SOUND.ButtonPushed,
@@ -3209,6 +3221,10 @@ function createLynxCreatureControllerContext(
     chooseWalkerRandomDirection: (dir) => [dir, right(dir), back(dir), left(dir)][advanceLynxPrng(state) & 3] ?? dir,
     slideDirection: (floorId) => getLynxSlideDirection(state, floorId, true),
     treatsForcedFloorAsNormal: (actor, floorId) => lynxActorTreatsForcedFloorAsNormal(state, actor as LynxRuntimeActor, floorId),
+    plannedDirection: (actor) => {
+      const nextStep = (actor as LynxRuntimeActor).plannedPath?.[1];
+      return nextStep?.wait ? 0 : nextStep?.dir ?? 0;
+    },
   };
 }
 
@@ -4176,7 +4192,7 @@ function createLynxInteractiveToken(
     runtime,
     runtimeEntry: (actorSerial) => lynxRuntimeActorEntry(state, actorSerial),
   });
-  return {
+  const session: LynxInteractiveSessionState = {
     level,
     state,
     lastInput: createRuntimeCommand(0, -1),
@@ -4202,6 +4218,8 @@ function createLynxInteractiveToken(
     endGameAnimationTileId: null,
     endGameAnimationFrame: null,
   };
+  planLynxSmartTeethRoutes({ ...session, chipZ: startup.chipSeed.z, nextTick: 0 }, true);
+  return session;
 }
 
 function recordLynxReplayMove(
@@ -4409,6 +4427,28 @@ function resolveLynxChipMoveSelectionForRuntime(runtime: LynxAdvanceTickRuntime)
 function finishLynxInteractiveTick(runtime: LynxAdvanceTickRuntime): LynxInteractiveSessionState {
   setLynxActiveLayer(runtime.state, runtime.chipZ);
   setLynxRuntimeChipState(runtime.state, runtime.chipPos, runtime.chipZ);
+  if (lynxRuntimeState(runtime.state).smartTeethRoutesDirty ||
+    runtime.actors.some((actor) => !actor.hidden && !actor.dormant && actor.plannedPath === undefined &&
+      lynxActorPlanningPolicy(actor.id)?.strategy === "coordinated-safe-chase")) {
+    planLynxSmartTeethRoutes(runtime, true);
+    delete lynxRuntimeState(runtime.state).smartTeethRoutesDirty;
+  }
+  for (const actor of runtime.actors) {
+    const path = actor.plannedPath;
+    if (actor.hidden || path === undefined || path[0]?.pos === actor.pos) continue;
+    const currentIndex = path.findIndex((node) => node.pos === actor.pos);
+    if (currentIndex >= 0) {
+      actor.plannedPath = Object.freeze(path.slice(currentIndex));
+    } else if (actor.moving > 0 &&
+      lynxTileForcedFloorKind(lynxCellsForZ(runtime.state.map, actor.z ?? 1)[actor.pos]?.top.id ?? MS_TILE.Empty) === "teleport") {
+      // The search edge lands at the remote portal; the in-flight actor is still
+      // on the entrance until native teleport resolution finishes the step.
+      actor.plannedPath = Object.freeze([Object.freeze({ pos: actor.pos, dir: actor.dir }), ...path.slice(1)]);
+    } else {
+      actor.plannedPath = Object.freeze([Object.freeze({ pos: actor.pos, dir: actor.dir })]);
+      actor.plannedDirect = false;
+    }
+  }
 
   return {
     level: runtime.level,
@@ -4556,7 +4596,88 @@ function runLynxInitialHousekeepingPhase(runtime: LynxAdvanceTickRuntime): void 
   recordLynxTickPhase(runtime, TURN_DEBUG_PHASE.postInitialHousekeeping, runtime.currentInputCode);
 }
 
+function planLynxSmartTeethRoutes(
+  runtime: Pick<LynxAdvanceTickRuntime, "actors" | "state" | "level" | "chipPos" | "chipZ" | "chipMoving" | "nextTick">,
+  initialize = false,
+): void {
+  const planningActors = runtime.actors.filter((actor) =>
+    !actor.hidden && !actor.dormant && lynxActorPlanningPolicy(actor.id)?.strategy === "coordinated-safe-chase",
+  );
+  const hasReadyActor = planningActors.some((actor) => actor.moving === 0 &&
+    (((runtime.nextTick + runtime.state.replay.stepping) & 4) === 0 ||
+      lynxTileForcedFloorKind(lynxCellsForZ(runtime.state.map, actor.z ?? 1)?.[actor.pos]?.top.id ?? MS_TILE.Empty) !== "none"),
+  );
+  if (initialize || hasReadyActor) {
+    const probeContext = (agent: SmartTeethAgent): LynxSmartTeethProbeContext => ({
+      cells: runtime.state.map.cells,
+      currentTime: runtime.nextTick,
+      rootMoving: (planningActors.find((actor) => actor.serial === agent.serial)?.moving ?? 0) > 0,
+      effectiveTileId: (tileId) => effectiveLynxTargetTileId(runtime.state, tileId),
+      isReleased: (pos) => isLynxTrapSpecialFloor(runtime.state.map.cells[pos]?.top.id ?? MS_TILE.Empty) && (
+        isLynxTrapHeldOpen(runtime.state, runtime.level, runtime.actors,
+          lynxPortableToolRuntime(runtime.state).portableItems, pos, agent.z) ||
+        (runtime.chipMoving === 0 && runtime.chipZ === agent.z &&
+          runtime.state.map.cells[runtime.chipPos]?.top.id === MS_TILE.Button_Brown &&
+          collectLevelConnections(runtime.level, "traps").some((connection) => connection.from === runtime.chipPos &&
+            connection.to === pos && (connection.fromZ ?? 1) === agent.z && (connection.toZ ?? 1) === agent.z))
+      ),
+      isBlocked: (pos) => {
+        if (pos === agent.pos) return false;
+        if (lynxChipActsWallForMobs(runtime.state, pos, agent.z)) return true;
+        const target = queryLynxOccupancyOnLayer(runtime.state, runtime.actors, pos, agent.z);
+        return target.claimed ||
+          (target.kind !== OCCUPANCY_TARGET_KIND.empty && target.kind !== OCCUPANCY_TARGET_KIND.chip);
+      },
+    });
+    const plans = coordinateSmartTeethRoutes(
+      planningActors.map((actor) => {
+        const floor = lynxCellsForZ(runtime.state.map, actor.z ?? 1)[actor.pos]?.top.id ?? MS_TILE.Empty;
+        const agent: SmartTeethAgent = {
+          serial: actor.serial, pos: actor.pos, z: actor.z ?? 1, dir: actor.dir,
+          // Position updates at movement start; green acts only when arrival finishes.
+          ...(actor.moving > 0 && lynxButtonAction(floor) === "toggle-walls" ? { pendingToggle: true } : {}),
+        };
+        if (actor.moving > 0 && lynxTileForcedFloorKind(floor) === "teleport") {
+          return { ...agent, pendingStep: withLynxLayer(runtime.state, agent.z, () =>
+            resolveLynxSmartTeethPendingTeleport(probeContext(agent), agent)) };
+        }
+        return agent;
+      }),
+      {
+        width: MS_GRID_WIDTH,
+        height: MS_GRID_HEIGHT,
+        player: { pos: runtime.chipPos, z: runtime.chipZ },
+        hasToggleButtons: planningActors.some((actor) => lynxCellsForZ(runtime.state.map, actor.z ?? 1)
+          .some((cell) => lynxButtonAction(cell.top.id) === "toggle-walls" && lynxActorEntryMask(cell.top.id, actor.id) !== 0)),
+        hasNonlocalEdges: planningActors.some((actor) => lynxCellsForZ(runtime.state.map, actor.z ?? 1)
+          .some((cell) => lynxTileForcedFloorKind(cell.top.id) === "teleport")),
+        canWait: (agent, node) => {
+          const currentFloor = effectiveLynxTargetTileId(runtime.state,
+            lynxCellsForZ(runtime.state.map, agent.z)[node.pos]?.top.id ?? MS_TILE.Wall);
+          const floor = node.toggled ? lynxToggledWallTileId(currentFloor) : currentFloor;
+          const released = lynxRequiresReleaseToExit(floor) && withLynxLayer(runtime.state, agent.z, () =>
+            probeContext(agent).isReleased?.(node.pos));
+          return lynxTileForcedFloorKind(floor) === "none" && !released &&
+            lynxActorHazardOutcome(floor, MS_TILE.SmartTeeth) === "none";
+        },
+        directionMatters: (agent, node) => {
+          const floor = lynxCellsForZ(runtime.state.map, agent.z)[node.pos]?.top.id ?? MS_TILE.Empty;
+          return lynxTileForcedFloorKind(floor) !== "none" || lynxRequiresReleaseToExit(floor);
+        },
+        neighbors: (agent, node) => withLynxLayer(runtime.state, agent.z, () =>
+          lynxSmartTeethNeighbors(probeContext(agent), agent, node)),
+      },
+    );
+    for (const plan of plans) {
+      const actor = planningActors.find((candidate) => candidate.serial === plan.serial)!;
+      actor.plannedPath = Object.freeze(plan.path.map((node) => Object.freeze({ ...node })));
+      actor.plannedDirect = plan.direct;
+    }
+  }
+}
+
 function runLynxCreatureIntentPhase(runtime: LynxAdvanceTickRuntime): void {
+  planLynxSmartTeethRoutes(runtime);
   for (let index = runtime.actors.length - 1; index >= 0; index -= 1) {
     const actor = runtime.actors[index]!;
     if (actor.hidden || actor.moving > 0 || actor.dormant) {

@@ -1,5 +1,7 @@
 import { recordHintTrail } from "@game-core/impl/hintTrail";
-import { lookupMsTankPolicy, type MsTankButtonFamily } from "@ruleset-ms/impl/catalogActors";
+import { lookupMsCreaturePlanningPolicy, lookupMsTankPolicy, type MsTankButtonFamily } from "@ruleset-ms/impl/catalogActors";
+import { coordinateSmartTeethRoutes, type SmartTeethNode } from "@game-core/impl/smartTeethPathfinding";
+import { msSmartTeethCanWait, msSmartTeethDirectionMatters, msSmartTeethHasToggleButtons, msSmartTeethNeighbors, type MsSmartTeethPlanningContext } from "@ruleset-ms/impl/smartTeethPlanning";
 import { levelHintTextAtZ } from "@ruleset-ms/api/level";
 import type { EngineMapCell, EngineState } from "@game-core/api/model";
 import type { ReplayRecordedMove, ReplaySolutionPayload } from "@game-core/api/codec";
@@ -293,6 +295,8 @@ export interface MsTrackedCreature {
   floorMovementDir: number;
   sliding: boolean;
   fireballIceBlockMeltBlockedDir?: number;
+  plannedPath?: readonly SmartTeethNode[];
+  plannedDirect?: boolean;
 }
 
 interface MsCreatureSlipEntry {
@@ -1177,6 +1181,7 @@ interface MsPortableToolRuntimeState extends MsPortableToolStateStore {}
 interface MsStatefulActorRuntimeState extends StatefulActorRuntimeStore<MsStatefulActorRuntimeEntry> {}
 
 export interface MsInternalState {
+  smartTeethPlansDirty?: boolean;
   hintTrail?: EngineState["hintTrail"];
   hintTextsByZ?: ReadonlyMap<number, string>;
   chipPos: number;
@@ -1814,7 +1819,10 @@ function trackedBlockActorId(block: Pick<MsTrackedBlock, "id"> | null | undefine
 function cloneInternalState(internal: MsInternalState): MsInternalState {
   return {
     ...internal,
-    creatures: internal.creatures.map((creature) => ({ ...creature })),
+    creatures: internal.creatures.map((creature) => ({
+      ...creature,
+      ...(creature.plannedPath ? { plannedPath: creature.plannedPath.map((node) => ({ ...node })) } : {}),
+    })),
     creatureIndexBySerial: new Map(internal.creatureIndexBySerial),
     creatureSlipList: internal.creatureSlipList.map((entry) => ({ ...entry })),
     blocks: internal.blocks.map((block) => ({ ...block })),
@@ -2423,6 +2431,7 @@ export function initializeMsGameState(
   });
   projectMsPortableToolState(msPortableToolState(internal), engine.inventory);
   const activeCells = runtimeCellsForZ(mapLayers, internal.chipZ);
+  planMsSmartTeethRoutes(runtimeLayerCellsByZ(mapLayers), internal);
   engine.map.cells = activeCells;
 
   return updateEngine({ engine, internal }, activeCells, 0, false, mapLayers, {
@@ -3107,6 +3116,11 @@ function resolveButtonFloorEffects(
         turnTanks(cells, internal, activeCreature ?? null, "red", clockwise);
       },
       toggleWalls: () => {
+        if (internal.creatures.some((creature) =>
+          !creature.hidden && lookupMsCreaturePlanningPolicy(creature.id)?.strategy === "coordinated-pursuit",
+        )) {
+          internal.smartTeethPlansDirty = true;
+        }
         toggleWalls(internal.runtimeLayers, (targetPos, targetZ, beforeTileId, afterTileId) => {
           recordMsNativeCausalEvent(internal, {
             kind: "device-state-changed",
@@ -4394,6 +4408,12 @@ function moveCreatureOnce(
   ) {
     holdMsCreatureOnCloneMachine(cells, internal, creature);
   }
+  if (creature.plannedPath && result.status === "moved") {
+    const nextIndex = creature.plannedPath.findIndex((node, index) =>
+      index > 0 && node.pos === creature.pos && node.dir === creature.dir,
+    );
+    creature.plannedPath = nextIndex < 0 ? [] : creature.plannedPath.slice(nextIndex);
+  }
   return result;
 }
 
@@ -4458,6 +4478,10 @@ function chooseCreatureDirection(
     },
     canMove: (candidate, dir) =>
       canMoveCreatureWithOptions(cells, candidate as MsTrackedCreature, dir, false, false, internal, inventory, null, "attempt"),
+    plannedDirection: (candidate) => {
+      const next = (candidate as MsTrackedCreature).plannedPath?.[1];
+      return next?.wait ? MS_DIRECTION.none : next?.dir ?? MS_DIRECTION.none;
+    },
     updateCreatureTile: (candidate) => updateCreatureTile(cells, candidate as MsTrackedCreature),
     randomize3: (array) => randomp3(internal, array),
     randomize4: (array) => randomp4(internal, array),
@@ -4919,7 +4943,86 @@ function runCreatureFloorMovements(
 
   queue.syncBackToState();
   queue.trace("end", queue.entries.length, advance);
+  if (internal.smartTeethPlansDirty) {
+    planMsSmartTeethRoutes(layerCellsByZ, internal);
+  }
   return soundEffects;
+}
+
+function planMsSmartTeethRoutes(
+  layerCellsByZ: ReadonlyMap<number, EngineMapCell[]>,
+  internal: MsInternalState,
+): void {
+  if (internal.smartTeethPlansDirty) {
+    internal.smartTeethPlansDirty = false;
+  }
+  const hunters = internal.creatures.filter((creature) =>
+    !creature.hidden &&
+    lookupMsCreaturePlanningPolicy(creature.id)?.strategy === "coordinated-pursuit",
+  );
+  if (hunters.length === 0) {
+    return;
+  }
+  const contexts = new Map<number, MsSmartTeethPlanningContext>();
+  for (const hunter of hunters) {
+    const z = hunter.z ?? 1;
+    const cells = layerCellsByZ.get(z);
+    if (!cells) {
+      continue;
+    }
+    const blockedPositions = new Set<number>();
+    for (const actor of [...internal.creatures, ...internal.blocks]) {
+      if (!actor.hidden && (actor.z ?? 1) === z && actor !== hunter) {
+        blockedPositions.add(actor.pos);
+      }
+    }
+    for (const item of internal.portableTools.portableItems) {
+      if (item.state.mode === "map" && item.state.z === z) {
+        blockedPositions.add(item.state.pos);
+      }
+    }
+    if (msChipActsWallForMobs(internal, internal.chipPos, z)) {
+      blockedPositions.add(internal.chipPos);
+    }
+    contexts.set(hunter.serial, {
+      cells,
+      actorId: hunter.id,
+      released: hunter.released,
+      blockedPositions,
+      isTrapOpen: (trapPos, skipButtonPos) => isMsTrapOpen({ cells, traps: internal.traps, trapPos, skipButtonPos, z }),
+    });
+  }
+  const plans = coordinateSmartTeethRoutes(
+    hunters.map((hunter) => ({ serial: hunter.serial, z: hunter.z ?? 1, pos: hunter.pos, dir: hunter.dir })),
+    {
+      width: MS_GRID_WIDTH,
+      height: MS_GRID_HEIGHT,
+      player: { pos: internal.chipPos, z: internal.chipZ ?? 1 },
+      hasNonlocalEdges: [...contexts.values()].some(({ cells }) =>
+        cells.some((cell) => cell.top.id === MS_TILE.Teleport || cell.bottom.id === MS_TILE.Teleport),
+      ),
+      hasToggleButtons: [...contexts.values()].some((context) => msSmartTeethHasToggleButtons(context)),
+      canWait: (agent, node) => {
+        const context = contexts.get(agent.serial);
+        return context ? msSmartTeethCanWait(context, node) : false;
+      },
+      directionMatters: (agent, node) => {
+        const context = contexts.get(agent.serial);
+        return context ? msSmartTeethDirectionMatters(context, node) : true;
+      },
+      neighbors: (agent, node) => {
+        const context = contexts.get(agent.serial);
+        return context ? msSmartTeethNeighbors(context, agent, node) : [];
+      },
+    },
+  );
+  for (const plan of plans) {
+    const hunter = hunters.find((creature) => creature.serial === plan.serial);
+    if (hunter) {
+      hunter.plannedPath = plan.path;
+      hunter.plannedDirect = plan.direct;
+    }
+  }
 }
 
 function runCreatureMovements(
@@ -4936,6 +5039,9 @@ function runCreatureMovements(
 
   const fallbackCells = layerCellsByZ.values().next().value as EngineMapCell[] | undefined;
   const cellsForZ = (z = 1): EngineMapCell[] => layerCellsByZ.get(z) ?? fallbackCells ?? [];
+  if ((currentTime & 2) === 0 && ((currentTime + stepping) & 4) === 0) {
+    planMsSmartTeethRoutes(layerCellsByZ, internal);
+  }
   let soundEffects = 0;
   const applyBlockedCreatureAttempt = (creatureCells: EngineMapCell[], creature: MsTrackedCreature, dir: number): void => {
     revealMsBallisticBlockedEnter(creatureCells, creature, dir);
@@ -4962,6 +5068,9 @@ function runCreatureMovements(
         soundEffects |= moveResult.soundEffects;
         if (!movementDidSucceed(moveResult)) {
           applyBlockedCreatureAttempt(creatureCells, creature, dir);
+        }
+        if (internal.smartTeethPlansDirty) {
+          planMsSmartTeethRoutes(layerCellsByZ, internal);
         }
       } else {
         applyBlockedCreatureAttempt(creatureCells, creature, dir);
@@ -5595,6 +5704,9 @@ function finishMsTick(
 ): MsAdvanceTickResult {
   const activeCells = msAdvanceTickActiveChipCells(runtime);
   projectMsPortableToolState(msPortableToolState(runtime.internal), runtime.inventory);
+  if (runtime.internal.smartTeethPlansDirty) {
+    planMsSmartTeethRoutes(runtime.layerCellsByZ, runtime.internal);
+  }
   const nextState = updateEngine(
     {
       engine: {

@@ -21,6 +21,7 @@ const MONSTER_ACTOR_IDS = [
   MS_TILE.Walker,
   MS_TILE.Blob,
   MS_TILE.Teeth,
+  MS_TILE.SmartTeeth,
   MS_TILE.Bug,
   MS_TILE.Paramecium,
 ] as const;
@@ -135,7 +136,7 @@ function msTileConstName(id: number): string {
 }
 
 function humanizeMsTileName(name: string): string {
-  return name.replaceAll("_", " ");
+  return name === "SmartTeeth" ? "Smart Teeth" : name.replaceAll("_", " ");
 }
 
 function createMsActorDefinition(id: number): ActorDefinition<number> {
@@ -183,4 +184,19 @@ const msTankPolicies = new Map<number, MsTankPolicy>([
 
 export function lookupMsTankPolicy(id: number): MsTankPolicy | undefined {
   return msTankPolicies.get(id);
+}
+
+export interface MsCreaturePlanningPolicy {
+  readonly strategy: "native" | "coordinated-pursuit";
+  readonly cadence: "normal" | "half-speed";
+}
+
+const msCreaturePlanningPolicies = new Map<number, MsCreaturePlanningPolicy>([
+  [MS_TILE.Teeth, { strategy: "native", cadence: "half-speed" }],
+  [MS_TILE.Blob, { strategy: "native", cadence: "half-speed" }],
+  [MS_TILE.SmartTeeth, { strategy: "coordinated-pursuit", cadence: "half-speed" }],
+]);
+
+export function lookupMsCreaturePlanningPolicy(id: number): MsCreaturePlanningPolicy | undefined {
+  return msCreaturePlanningPolicies.get(id);
 }

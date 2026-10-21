@@ -7,6 +7,12 @@ import { msRegisteredLevelDecodeRegistration } from "@ruleset-ms/impl/builtinLev
 import { isMsCreature, msCreatureDir, msCreatureId } from "@ruleset-ms/api/tiles";
 
 describe("Meme tile data contracts", () => {
+  it.each([[0x7d, 0x8c, 1], [0x7e, 0x8d, 2], [0x7f, 0x8e, 4], [0x80, 0x8f, 8]])("decodes Smart Teeth DAT %i with its facing", (code, tile, dir) => {
+    expect(msRegisteredLevelDecodeRegistration.resolveTileId(code, { z: 1, hasHigherLayers: false })).toBe(tile);
+    expect(isMsCreature(tile)).toBe(true);
+    expect(msCreatureId(tile)).toBe(0x8c);
+    expect(msCreatureDir(tile)).toBe(dir);
+  });
   it("collects a fifth boot without NaN and removes it with the other boots", () => {
     const state = createTestEngineState([], "MS");
     const owner = createKeysBootsActorLocalInventoryOwner(createActorInventoryOwnerId("test", "chip"), state.inventory);

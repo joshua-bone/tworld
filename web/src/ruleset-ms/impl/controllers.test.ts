@@ -42,6 +42,25 @@ function createContext(overrides: Partial<MsCreatureControllerContext> = {}): Ms
 }
 
 describe("ms controllers", () => {
+  it("uses the planned Smart Teeth direction on the same ticks as ordinary Teeth", () => {
+    const plannedTicks: number[] = [];
+    for (let currentTime = 0; currentTime < 16; currentTime += 1) {
+      const creature = createCreature({ id: MS_TILE.SmartTeeth });
+      const context = createContext({
+        currentTime,
+        canMove: () => true,
+        plannedDirection: () => {
+          plannedTicks.push(currentTime);
+          return MS_DIRECTION.east;
+        },
+      });
+      const direction = chooseMsCreatureDirection(context, creature);
+      const teeth = createCreature({ id: MS_TILE.Teeth, pos: 0 });
+      const teethDirection = chooseMsCreatureDirection(createContext({ currentTime, chipPos: 1, canMove: () => true }), teeth);
+      expect(direction).toBe(teethDirection);
+    }
+    expect(plannedTicks).toEqual([0, 1, 8, 9]);
+  });
   it("uses the global controller direction for bugs on trap-like floors", () => {
     const creature = createCreature({
       id: MS_TILE.Bug,

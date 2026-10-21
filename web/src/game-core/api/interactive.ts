@@ -31,6 +31,15 @@ export type InteractiveGameActorDecoration =
 
 export type InteractiveGameTileOverlayRender =
   | {
+      mode: "planned-route";
+      serial: number;
+      color: string;
+      alpha: number;
+      direct: boolean;
+      connections: readonly number[];
+      endpoint: boolean;
+    }
+  | {
       mode: "hint-letter";
       text: string;
       alpha?: number;
@@ -96,6 +105,7 @@ export interface InteractiveGameVisibleLayer {
 }
 
 export type InteractiveGameTileOverlayKind =
+  | "planned-route"
   | "hint-letter"
   | "support"
   | "elevator-failure"

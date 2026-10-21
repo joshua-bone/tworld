@@ -21,6 +21,7 @@ const MONSTER_ACTOR_IDS = [
   MS_TILE.Walker,
   MS_TILE.Blob,
   MS_TILE.Teeth,
+  MS_TILE.SmartTeeth,
   MS_TILE.Bug,
   MS_TILE.Paramecium,
 ] as const;
@@ -37,6 +38,19 @@ const LYNX_TANK_POLICIES = new Map<number, LynxTankPolicy>([
 
 export function lynxTankPolicy(actorId: number): LynxTankPolicy | null {
   return LYNX_TANK_POLICIES.get(actorId) ?? null;
+}
+
+export interface LynxActorPlanningPolicy {
+  readonly strategy: "coordinated-safe-chase";
+  readonly cadence: "teeth";
+}
+
+const LYNX_ACTOR_PLANNING_POLICIES = new Map<number, LynxActorPlanningPolicy>([
+  [MS_TILE.SmartTeeth, { strategy: "coordinated-safe-chase", cadence: "teeth" }],
+]);
+
+export function lynxActorPlanningPolicy(actorId: number): LynxActorPlanningPolicy | null {
+  return LYNX_ACTOR_PLANNING_POLICIES.get(actorId) ?? null;
 }
 
 const ACTIVE_MOB_ACTOR_IDS = [...CHIP_ACTOR_IDS, ...MONSTER_ACTOR_IDS, MS_TILE.BowlingBall] as const;

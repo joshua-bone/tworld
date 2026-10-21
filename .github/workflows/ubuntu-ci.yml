@@ -87,6 +87,13 @@ jobs:
             src/game-core/impl/hintTrail.test.ts \
             src/game-core/impl/memeContracts.test.ts \
             src/game-core/impl/memeDatAcceptance.test.ts \
+            src/game-core/impl/smartTeethPathfinding.test.ts \
+            src/game-core/impl/smartTeethRoutes.test.ts \
+            src/game-core/impl/smartTeethDatAcceptance.test.ts \
+            src/ruleset-ms/impl/smartTeethEngine.test.ts \
+            src/ruleset-ms/impl/smartTeethPlanning.test.ts \
+            src/ruleset-lynx/impl/smartTeeth.test.ts \
+            src/ruleset-lynx/impl/smartTeethPlanning.test.ts \
             src/ruleset-ms/impl/memeTiles.test.ts \
             src/ruleset-lynx/impl/memeTiles.test.ts \
             src/undo-runtime/impl/memeElementHistory.test.ts \

@@ -137,6 +137,16 @@ function buildLayerOverlayHash(overlays: ReadonlyArray<InteractiveGameTileOverla
       hash = hashLayerString(hash, overlay.render.text);
       hash = hashLayerValue(hash, Math.round((overlay.render.alpha ?? 0.6) * 1000));
     }
+    if (overlay.render?.mode === "planned-route") {
+      const render = overlay.render;
+      hash = hashLayerValue(hash, render.serial);
+      hash = hashLayerString(hash, render.color);
+      hash = hashLayerString(hash, String(render.alpha));
+      hash = hashLayerValue(hash, render.direct ? 1 : 0);
+      hash = hashLayerValue(hash, render.endpoint ? 1 : 0);
+      hash = hashLayerValue(hash, render.connections.length);
+      for (const pos of render.connections) hash = hashLayerValue(hash, pos);
+    }
     hash = hashPetCarrierRender(hash, overlay.render?.mode === "tile" ? overlay.render.petCarrierRender : undefined);
     hash = hashLayerValue(hash, overlay.render?.mode === "outline" ? (overlay.render.style === "support" ? 1 : 2) : 0);
   }
@@ -149,6 +159,8 @@ function hashOverlayRenderKind(
 ): number {
   if (!render) {
     switch (fallbackKind) {
+      case "planned-route":
+        return 9;
       case "support":
         return 1;
       case "elevator-failure":
@@ -167,6 +179,8 @@ function hashOverlayRenderKind(
   }
 
   switch (render.mode) {
+    case "planned-route":
+      return 9;
     case "outline":
       return render.style === "support" ? 1 : 2;
     case "hint-letter":
@@ -997,6 +1011,8 @@ export function drawLayerOverlays(
   canvasWidth: number,
   canvasHeight: number,
   visualEnhancementsEnabled: boolean,
+  pass: "all" | "routes" | "other" = "all",
+  blockedRoutePositions?: ReadonlySet<number>,
 ): void {
   for (const overlay of overlays) {
     if (overlay.z !== layerZ) {
@@ -1011,6 +1027,42 @@ export function drawLayerOverlays(
 
     const render = overlay.render;
     if (!render) {
+      continue;
+    }
+
+    if (pass === "routes" && render.mode !== "planned-route") continue;
+    if (pass === "other" && render.mode === "planned-route") continue;
+
+    if (render.mode === "planned-route") {
+      if (blockedRoutePositions?.has(overlay.pos)) continue;
+      const centerX = x + LEGACY_TILE_SIZE / 2;
+      const centerY = y + LEGACY_TILE_SIZE / 2;
+      context.save();
+      context.globalAlpha *= render.alpha;
+      context.strokeStyle = render.color;
+      context.fillStyle = render.color;
+      context.lineWidth = render.direct ? 5 : 3;
+      context.lineCap = "round";
+      // Clip half-segments to this cell so a neighboring MS actor remains unobscured.
+      context.beginPath();
+      context.rect(x, y, LEGACY_TILE_SIZE, LEGACY_TILE_SIZE);
+      context.clip();
+      context.beginPath();
+      for (const pos of render.connections) {
+        const dx = pos % 32 - overlay.pos % 32;
+        const dy = Math.floor(pos / 32) - Math.floor(overlay.pos / 32);
+        if (Math.abs(dx) + Math.abs(dy) !== 1) continue;
+        context.moveTo(centerX, centerY);
+        context.lineTo(centerX + dx * LEGACY_TILE_SIZE / 2, centerY + dy * LEGACY_TILE_SIZE / 2);
+      }
+      context.stroke();
+      if (render.endpoint) {
+        context.beginPath();
+        context.arc(centerX, centerY, render.direct ? 5 : 4, 0, Math.PI * 2);
+        if (render.direct) context.fill();
+        else context.stroke();
+      }
+      context.restore();
       continue;
     }
 
@@ -1153,6 +1205,24 @@ function renderMapLayerCanvas(
     );
   }
 
+  if (session.frame.tileOverlays.some(overlay => overlay.z === layer.z && overlay.render?.mode === "planned-route")) {
+    drawLayerOverlays(
+      context,
+      tileset,
+      session.frame.tileOverlays,
+      layer.z,
+      xOrigin,
+      yOrigin,
+      canvas.width,
+      canvas.height,
+      visualEnhancementsEnabled,
+      "routes",
+      usesProjectedLynxRender(ruleset) ? undefined : new Set(layer.cells
+        .filter(cell => visualEnhancementActorId(cell.top.id) !== null || visualEnhancementActorId(cell.bottom.id) !== null)
+        .map(cell => cell.position.pos)),
+    );
+  }
+
   if (usesProjectedLynxRender(ruleset) && session.frame.render) {
     drawProjectedLynxRender(context, tileset, session.frame.render, xOrigin, yOrigin, layer.z);
   }
@@ -1178,6 +1248,7 @@ function renderMapLayerCanvas(
     canvas.width,
     canvas.height,
     visualEnhancementsEnabled,
+    "other",
   );
   return canvas;
 }
@@ -1232,6 +1303,24 @@ function renderCachedLowerLayerCanvas(
     );
   }
 
+  if (session.frame.tileOverlays.some(overlay => overlay.z === layer.z && overlay.render?.mode === "planned-route")) {
+    drawLayerOverlays(
+      context,
+      tileset,
+      session.frame.tileOverlays,
+      layer.z,
+      xOrigin,
+      yOrigin,
+      canvas.width,
+      canvas.height,
+      visualEnhancementsEnabled,
+      "routes",
+      usesProjectedLynxRender(ruleset) ? undefined : new Set(layer.cells
+        .filter(cell => visualEnhancementActorId(cell.top.id) !== null || visualEnhancementActorId(cell.bottom.id) !== null)
+        .map(cell => cell.position.pos)),
+    );
+  }
+
   if (usesProjectedLynxRender(ruleset) && session.frame.render) {
     drawProjectedLynxRender(context, tileset, session.frame.render, xOrigin, yOrigin, layer.z);
   }
@@ -1257,6 +1346,7 @@ function renderCachedLowerLayerCanvas(
     canvas.width,
     canvas.height,
     visualEnhancementsEnabled,
+    "other",
   );
   return canvas;
 }
