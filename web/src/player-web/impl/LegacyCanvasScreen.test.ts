@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   applyLegacyTileOverrides,
   createLegacyArtworkSpriteFromFrame,
@@ -14,7 +16,7 @@ import {
   visualEnhancementThinWallOverlayTileId,
   withLegacyMapViewportClip,
 } from "@player-web/impl/LegacyCanvasScreen";
-import { drawInventoryTile } from "@player-web/impl/legacyCanvasHud";
+import { drawInventoryTile, LegacyInventoryStrip } from "@player-web/impl/legacyCanvasHud";
 import { LEGACY_MAP_HEIGHT, LEGACY_MAP_WIDTH, LEGACY_MAP_X, LEGACY_MAP_Y, LEGACY_TILE_SIZE } from "@player-web/impl/legacySprites";
 import type { LegacyTileSprite, LegacyTileset } from "@player-web/impl/legacyTileset";
 import { MS_DIRECTION, MS_TILE } from "@ruleset-ms/api/tiles";
@@ -497,7 +499,28 @@ describe("visualEnhancementThinWallActorPassTileId", () => {
 });
 
 
-it("reserves a fifth visible boot slot in both inventory orientations", () => {
-  expect(inventoryStripPixelDimensionsForKind(48, "horizontal", "boots")).toEqual({ height: 48, width: 240 });
-  expect(inventoryStripPixelDimensionsForKind(48, "vertical", "boots")).toEqual({ height: 240, width: 48 });
+describe("conditional Hint boots inventory slot", () => {
+  it("defaults to four slots without an inventory", () => {
+    expect(inventoryStripPixelDimensionsForKind(48, "horizontal", "boots")).toEqual({ height: 48, width: 192 });
+    expect(inventoryStripPixelDimensionsForKind(48, "vertical", "boots")).toEqual({ height: 192, width: 48 });
+  });
+
+  it.each(["MS", "Lynx"] as const)("renders four, five, then four slots as %s Hint boots ownership changes", (currentRuleset) => {
+    for (const direction of ["horizontal", "vertical"] as const) {
+      for (const renderTileSize of [32, 48] as const) {
+        for (const [boots, slots] of [
+          [[1, 1, 1, 1], 4],
+          [[1, 1, 1, 1, 1], 5],
+          [[0, 0, 0, 0, 0], 4],
+        ] as const) {
+          const html = renderToStaticMarkup(createElement(LegacyInventoryStrip, {
+            currentRuleset, direction, renderTileSize, kind: "boots",
+            inventory: { keys: [0, 0, 0, 0], boots: [...boots], tools: [] },
+          }));
+          expect(html).toContain(`width="${renderTileSize * (direction === "horizontal" ? slots : 1)}"`);
+          expect(html).toContain(`height="${renderTileSize * (direction === "vertical" ? slots : 1)}"`);
+        }
+      }
+    }
+  });
 });
