@@ -740,7 +740,7 @@ function isMsDirectCloneMachinePetCarrierReleaseTarget(
     targetOccupancy.kind === "empty" &&
     targetTop === MS_TILE.Empty &&
     isMsClonerSpecialFloor(targetBottom) &&
-    msActorClonerFamilyHooks(actorId).entryBehavior === "none"
+    msActorEntryMask(targetBottom, actorId) === 0
   );
 }
 
@@ -2653,7 +2653,7 @@ function canMoveCreatureWithOptions(
   }
   if (
     isMsClonerSpecialFloor(cells[to]!.bottom.id) &&
-    msActorClonerFamilyHooks(creature.id).entryBehavior === "none"
+    (msActorEntryMask(cells[to]!.bottom.id, creature.id) & dir) === 0
   ) {
     return false;
   }
