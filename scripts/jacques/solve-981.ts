@@ -9,6 +9,6 @@ function go(x:number,y:number){const target=x+y*32;let steps=0;while(run.session
 // Collect the reusable green key and the three unguarded starting chips.
 for(const p of[[16,26],[16,25],[16,26],[15,26],[16,26],[17,26],[16,26],[16,28],[19,27]])go(...p as[number,number]);
 // Open the southeast inner chamber, draw its teeth up the outside loop, then enter behind it.
-for(const p of[[19,22],[18,22],[19,22],[24,22],[24,20],[26,20],[26,14],[24,13],[24,12],[24,13],[23,13],[19,13],[19,22],[18,22],[17,22],[17,24],[17,22],[19,22]]){go(...p as[number,number]);if(snapshot(run).status!=='playing')break;}
+for(const p of[[19,22],[18,22],[19,22],[19,13],[17,12],[13,12],[13,16],[14,20],[17,20],[19,20],[18,22],[17,22],[17,24],[17,22],[19,22]]){go(...p as[number,number]);if(snapshot(run).status!=='playing')break;}
 await writeFile(join(ROOT,'web/public/dev/solutions/jacques/evidence/981-route-attempt.json'),JSON.stringify({level:981,status:snapshot(run).status,tick:snapshot(run).currentTime,chipsRemaining:snapshot(run).chipsNeeded,inputs:run.inputs},null,2));
 if(snapshot(run).status==='completed')console.log(await saveWinningReplay(run,join(ROOT,'web/public/dev/solutions/jacques/replays/981.tws')));

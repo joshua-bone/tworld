@@ -1,0 +1,14 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { serializeSolutionFile } from '../../web/src/content/api/solution-file';
+import { loadLevel, createRun, tick, snapshot, verifyNativeReplay, ROOT } from './harness';
+const path=join(ROOT,'web/public/dev/solutions/jacques/evidence/910-partial-route.json');
+const evidence=JSON.parse(await readFile(path,'utf8'));
+const loaded=await loadLevel(910),run=createRun(loaded);
+for(const input of evidence.inputs)tick(run,input);
+const bytes=serializeSolutionFile({ruleset:'MS',flags:0,extraHeader:new Uint8Array(),setName:'Jacques-MS.dac',entries:[{levelNumber:910,password:loaded.metadata.password,bestTimeTicks:evidence.inputs.length+100,solutionData:null,expandedSolution:{flags:0,randomSlideDirection:1,stepping:0,randomSeed:0,moves:run.session.recordedMoves}}]});
+const native=await verifyNativeReplay(loaded,bytes,evidence.inputs.length);
+const last=native.trace.steps.at(-1)!;
+const expected=snapshot(run); if(last.status!==expected.status||last.chipsNeeded!==expected.chipsNeeded||last.chip?.position.pos!==expected.chip?.position.pos)throw new Error('Native partial route mismatch '+JSON.stringify({expected,last}));
+await writeFile(path,JSON.stringify({...evidence,native:{status:last.status,tick:last.currentTime,chipsRemaining:last.chipsNeeded,chip:last.chip},nativeStderr:native.stderr,exactInputBytesRead:native.exactInputBytesRead},null,2));
+console.log(JSON.stringify({typescript:snapshot(run).status,native:last.status,tick:last.currentTime,chipsRemaining:last.chipsNeeded,chip:last.chip}));

@@ -8,7 +8,7 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
   "status": "unresolved",
-  "summary": "All 16 chips required in 100 seconds; one reusable green key and seven teeth form a lure-and-collect puzzle. No proven obstruction yet.",
+  "summary": "Native-verified partial route collects five of 16 chips by tick 227 and parks a freed teeth against the east thin wall at (21,20). Eleven chips remain; no winning replay or impossibility proof yet.",
   "visualEvidence": [
     "981-initial.svg",
     "981-initial.png",
@@ -22,18 +22,45 @@
     {
       "kind": "data audit",
       "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    },
+    {
+      "kind": "native partial replay",
+      "result": "Exact DAT, seed 0, stepping 0: status playing at tick 227,11 chips remaining, Chip (22,20).",
+      "artifact": "web/public/dev/solutions/jacques/evidence/981-partial-route.json"
+    },
+    {
+      "kind": "bounded local route searches",
+      "bound": "20,000 expanded nodes or 45,000 ms per local target; depth 70 four-tick inputs; nonexhaustive heuristic search",
+      "result": "The first guarded-chip loop succeeded. Subsequent lower-right-room/return-anchor attempts stopped at the declared time bounds without a route; these failures do not prove impossibility."
     }
   ],
   "sources": [
     "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
     "legacy_c/mslogic.c:1597",
     "legacy_c/mslogic.c:1829",
-    "web/src/ruleset-ms/impl/chipMovement.ts:104"
+    "web/src/ruleset-ms/impl/chipMovement.ts:104",
+    "scripts/jacques/park-981.ts",
+    "scripts/jacques/verify-981-progress.ts",
+    "legacy_c/mslogic.c:1242"
   ],
   "title": "Green Kittens Aren't Aliens",
-  "argument": [],
+  "argument": [
+    "The reusable green key at (16,26) unlocks the rooms without resource depletion. Three starting chips are safely collectible.",
+    "A short timing loop frees the teeth from the southeast inner chamber, collects its chip at (17,24), and escapes north.",
+    "A hand-derived dodge around (19,18) leads that teeth onto the east thin wall at (21,20). Its preferred south and east moves then fail while Chip reaches the chip at (22,20).",
+    "The legacy native MS oracle confirms the partial route remains playing at tick 227, Chip (22,20), with 11 chips still required. This is progress evidence, not a solution."
+  ],
   "evidence": {
-    "facts": {},
+    "facts": {
+      "partialRouteTick": 227,
+      "partialRouteChipsCollected": 5,
+      "partialRouteChipsRemaining": 11,
+      "nativeStatus": "playing",
+      "chipPosition": [
+        22,
+        20
+      ]
+    },
     "sourceReferences": [
       "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
       "legacy_c/mslogic.c:1597",
@@ -44,7 +71,10 @@
       "981-initial.svg",
       "981-initial.png",
       "981-bottom.svg"
+    ],
+    "files": [
+      "web/public/dev/solutions/jacques/evidence/981-partial-route.json"
     ]
   },
-  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+  "engineCommit": "f5ad1c7f160038fe808d8447848bce32334ff345"
 }

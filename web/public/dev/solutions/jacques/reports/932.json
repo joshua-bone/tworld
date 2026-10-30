@@ -8,15 +8,21 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
   "status": "unresolved",
-  "summary": "No explicit Chip tile; native MS nevertheless creates the player at (0,0). 1029 raw chips cover the 999 requirement, so missing start is not an impossibility proof.",
+  "summary": "Unresolved. A corrected MS route has collected 959 of the required 999 chips and matches native C at every recorded step. The final 40-chip route is still being constructed.",
   "visualEvidence": [
     "932-initial.svg",
     "932-initial.png",
     "932-bottom.svg"
   ],
-  "proofSteps": [],
+  "proofSteps": [
+    "MS supplies a default player at (0,0) despite the missing Chip tile. The surrounding chips initially separate the outer shell from the central monster moat.",
+    "A TypeScript candidate reached 892 collected chips, but its encoded replay dies in the native C engine at tick 2948. That candidate is not a valid MS solution.",
+    "The first native/TypeScript divergence occurs at tick 16: a Teeth at (12,23) attempts to move east into Empty over CloneMachine at (13,23). Native rejects the move; TypeScript permits it. The random states and selected eastward direction agree.",
+    "A reduced board reproduces the discrepancy without cloning or randomness. The correction uses the existing MS catalog entry policy and passes the reduced regression, preserves bowling-ball and Pet Carrier cloner behavior, and matches the entire original 2949-step native trace. That original route now correctly fails in both engines; it remains unsuitable as a solution."
+  ],
   "limitations": [
-    "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
+    "No winning replay or universal impossibility proof has been established.",
+    "The earlier candidate that relied on the buried-cloner mismatch is invalid. The new 959-chip prefix has complete native trace parity, but no winning completion has yet been produced."
   ],
   "experiments": [
     {
@@ -26,7 +32,32 @@
     {
       "kind": "bounded constructive route attempt",
       "method": "Nearest-chip route with a four-tick survival check for each next action; one seed and stepping setting, no seed/parameter sweep.",
-      "result": "167 chips collected by tick 667;832 remain. Stopped at (24,5) after all five local four-tick movement/wait choices were lethal. This does not establish impossibility."
+      "result": "Unverified TypeScript-only observation, superseded by the native mismatch below. 167 chips collected by tick 667;832 remain. Stopped at (24,5) after all five local four-tick movement/wait choices were lethal. This does not establish impossibility."
+    },
+    {
+      "kind": "protected collection prefix",
+      "result": "Unverified TypeScript-only observation, superseded by the native mismatch below. TypeScript runtime: 668 chips collected, 331 required chips remaining, alive at (2,17), tick 2931. The runtime listed 196 creatures in total, including Chip and the ball outside the moat; 194 were in the moat. Exact inputs are preserved in 932-shell-probe.json."
+    },
+    {
+      "kind": "blob timing portal",
+      "result": "Unverified TypeScript-only observation, superseded by the native mismatch below. Entering (5,17) at tick 2940 dies at 2944. Waiting four ticks, entering at 2944 and retreating at 2948 survives; the saved prefix reaches (1,17) at tick 2963 with 330 chips required. This is not a complete replay and has not yet received native certification."
+    },
+    {
+      "kind": "native validation and reduced regression",
+      "result": "Encoded TypeScript replay matches manual simulation for the first 400 ticks. Native differs first at tick 16, then the candidate dies at tick 2948. Reduced native probe at tick 8 retains Teeth at (5,5), while the TypeScript regression fails with Teeth at (6,5).",
+      "regressionSource": "web/src/ruleset-ms/impl/engine.test.ts",
+      "nativeProbe": "932-buried-cloner-native.json",
+      "nativeFixture": "932-buried-cloner.dat"
+    },
+    {
+      "kind": "buried-cloner correction verification",
+      "result": "The reduced engine test failed before the correction and passed afterward. All 269 tests across six nearby engine/catalog/controller suites passed. MS typecheck passed. Initial state, all 2949 steps, and result of the original replay match native with no differences, empty stderr, and identical replay bytes.",
+      "evidence": "932-regression-parity.json"
+    },
+    {
+      "kind": "corrected outer and core route",
+      "result": "After collecting the protected outer shell and most outer boundary chips, Chip enters the core through (9,16). Retained chips at (10,15), (10,17), and (11,16) isolate the entry corridor while the rest of the interior is collected. Native and TypeScript agree on the initial state, all 4404 steps, and the result: alive at (11,15), tick 4403, with 40 chips required. Native stderr is empty and replay bytes are identical.",
+      "evidence": "932-core-corrected-partial-parity.json"
     }
   ],
   "sources": [
@@ -37,7 +68,12 @@
     "legacy_c/mslogic.c:2277"
   ],
   "title": "RUN!!! IV",
-  "argument": [],
+  "argument": [
+    "MS supplies a default player at (0,0) despite the missing Chip tile. The surrounding chips initially separate the outer shell from the central monster moat.",
+    "A TypeScript candidate reached 892 collected chips, but its encoded replay dies in the native C engine at tick 2948. That candidate is not a valid MS solution.",
+    "The first native/TypeScript divergence occurs at tick 16: a Teeth at (12,23) attempts to move east into Empty over CloneMachine at (13,23). Native rejects the move; TypeScript permits it. The random states and selected eastward direction agree.",
+    "A reduced board reproduces the discrepancy without cloning or randomness. The correction uses the existing MS catalog entry policy and passes the reduced regression, preserves bowling-ball and Pet Carrier cloner behavior, and matches the entire original 2949-step native trace. That original route now correctly fails in both engines; it remains unsuitable as a solution."
+  ],
   "evidence": {
     "facts": {},
     "sourceReferences": [
@@ -51,7 +87,34 @@
       "932-initial.svg",
       "932-initial.png",
       "932-bottom.svg"
-    ]
+    ],
+    "firstDivergence": {
+      "tick": 16,
+      "source": [
+        12,
+        23
+      ],
+      "target": [
+        13,
+        23
+      ],
+      "targetTop": "Empty",
+      "targetBottom": "CloneMachine",
+      "nativeResult": "blocked",
+      "typescriptResult": "entered",
+      "rngEqual": true,
+      "suspectCommit": "9fe5d405",
+      "nativeRule": "legacy_c/mslogic.c:1105",
+      "typescriptRule": "web/src/ruleset-ms/impl/engine.ts:2654",
+      "historyVerification": {
+        "method": "Executed the same reduced probe against exact archived source trees for adjacent commits.",
+        "parent": "9fe5d405^",
+        "parentResult": "passed: Teeth remains at (5,5), matching native",
+        "commit": "9fe5d405",
+        "commitResult": "failed: Teeth enters (6,5)",
+        "changesToCurrentEngine": false
+      }
+    }
   },
-  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+  "engineCommit": "f5ad1c7f160038fe808d8447848bce32334ff345"
 }

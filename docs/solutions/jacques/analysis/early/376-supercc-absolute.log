@@ -1,0 +1,21 @@
+BEFORE half=365 c=45 pos=(0, 18) dir=UP slide=true goal=1025
+AFTER half=366 pos=(0, 17) dir=UP slide=true goal=1025 dead=false
+BEFORE half=366 c=45 pos=(0, 17) dir=UP slide=true goal=1025
+AFTER half=367 pos=(0, 16) dir=UP slide=true goal=1025 dead=false
+BEFORE half=367 c=45 pos=(0, 16) dir=UP slide=true goal=1025
+AFTER half=368 pos=(0, 15) dir=UP slide=true goal=1025 dead=false
+BEFORE half=368 c=45 pos=(0, 15) dir=UP slide=true goal=1025
+AFTER half=369 pos=(0, 14) dir=UP slide=true goal=1025 dead=false
+BEFORE half=369 c=45 pos=(0, 14) dir=UP slide=true goal=1025
+AFTER half=370 pos=(0, 13) dir=UP slide=true goal=1025 dead=false
+BEFORE half=370 c=45 pos=(0, 13) dir=UP slide=true goal=1025
+AFTER half=371 pos=(0, 12) dir=UP slide=true goal=1025 dead=false
+BEFORE half=371 c=237 pos=(0, 12) dir=UP slide=true goal=320
+AFTER half=372 pos=(0, 11) dir=UP slide=true goal=320 dead=false
+BEFORE half=372 c=45 pos=(0, 11) dir=UP slide=true goal=320
+AFTER half=373 pos=(0, 10) dir=UP slide=true goal=1025 dead=false
+BEFORE half=373 c=114 pos=(0, 10) dir=UP slide=true goal=1025
+AFTER half=374 pos=(0, 7) dir=UP slide=true goal=1025 dead=false
+BEFORE half=374 c=114 pos=(0, 7) dir=UP slide=true goal=1025
+AFTER half=375 pos=(1, 6) dir=RIGHT slide=false goal=1025 dead=true
+FINAL half=375 pos=(1, 6) won=false dead=true

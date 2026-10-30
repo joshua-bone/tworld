@@ -1,0 +1,44 @@
+{
+  "kind": "nonwinning chip collection prefix",
+  "native": {
+    "status": "playing",
+    "finalTick": 141295,
+    "stepCount": 141296
+  },
+  "typescript": {
+    "status": "playing",
+    "currentTime": 141295,
+    "chipsNeeded": 0,
+    "chip": {
+      "id": 64,
+      "layer": 1,
+      "dir": "west",
+      "position": {
+        "x": 10,
+        "y": 11,
+        "pos": 362
+      },
+      "state": 0
+    }
+  },
+  "nativeFinal": {
+    "status": "playing",
+    "currentTime": 141295,
+    "chipsNeeded": 0,
+    "chip": {
+      "id": 64,
+      "layer": 1,
+      "dir": "west",
+      "position": {
+        "x": 10,
+        "y": 11,
+        "pos": 362
+      },
+      "state": 0
+    }
+  },
+  "exactInputBytesRead": true,
+  "nativeStderr": "",
+  "twsSha256": "1ae31b504540c2e38a13de2ad654737b7029e40d891489e4ff308c66423e0758",
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+}

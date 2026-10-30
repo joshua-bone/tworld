@@ -31,5 +31,10 @@
   },
   "nativeStderr": "",
   "exactInputBytesRead": true,
-  "exactTraceParity": true
+  "exactTraceParity": true,
+  "inputAudit": {
+    "kind": "original-ms-command-alphabet",
+    "keyboardMoves": 773,
+    "mouseMoves": 0
+  }
 }

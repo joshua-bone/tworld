@@ -9,6 +9,8 @@ test('a solved label requires an exact-byte, dual-engine completion certificate'
   assert.throws(() => validateReport(report), /certificate/);
   const bytes = Buffer.from('a replay');
   const certificate = { level: { number: 937 }, datSha256: 'dat', twsSha256: createHash('sha256').update(bytes).digest('hex'), native: { status: 'completed', finalTick: 20 }, typescript: { status: 'completed', finalTick: 20 }, exactTraceParity: true, exactInputBytesRead: true };
+  assert.throws(() => validateReport(report, { certificate, bytes, datSha256: 'dat' }), /input command audit/);
+  certificate.inputAudit = { kind: 'original-ms-command-alphabet', keyboardMoves: 1, mouseMoves: 0 };
   assert.doesNotThrow(() => validateReport(report, { certificate, bytes, datSha256: 'dat' }));
   assert.throws(() => validateReport(report, { certificate, bytes: Buffer.from('different'), datSha256: 'dat' }), /hash/);
   assert.throws(() => validateReport(report, { certificate: { ...certificate, native: { status: 'failed' } }, bytes, datSha256: 'dat' }), /completion/);

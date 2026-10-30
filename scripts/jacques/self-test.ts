@@ -30,3 +30,12 @@ tick(winning, 'E', 20);
 assert.equal(snapshot(winning).status, 'completed');
 assert.equal(buildWinningReplay(winning).trace.result.status, 'completed');
 console.log('Synthetic terminal win round-trips through encoded TWS replay');
+const northExit = structuredClone(synthetic);
+northExit.level.cells = northExit.level.cells.map((cell, pos) => ({ ...cell, top: { id: pos === 32 ? MS_TILE.Chip : pos === 0 ? MS_TILE.Exit : MS_TILE.Wall, state: 0 } }));
+const invalidInputWin = createRun(northExit);
+tick(invalidInputWin, 'N', 20);
+assert.equal(snapshot(invalidInputWin).status, 'completed');
+// Native replay normalizes NE to N, so this would otherwise replay successfully.
+invalidInputWin.session.recordedMoves[0]!.dir = 9;
+assert.throws(() => buildWinningReplay(invalidInputWin), /original MS input.*9/);
+console.log('Replay-only diagonal commands cannot certify an MS solution');
