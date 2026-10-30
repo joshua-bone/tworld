@@ -7,6 +7,7 @@ export interface ParsedUrlLaunchRequest {
   levelNumber: number;
   ruleset: BrowserPreferredRuleset;
   slotName: string | null;
+  replayUrl: string | null;
 }
 
 function parseLevelNumber(value: string | null): number {
@@ -34,6 +35,7 @@ export function parseUrlLaunchRequest(location: Pick<Location, "hash" | "search"
   }
 
   return {
+    replayUrl: searchParams.get("replay") ?? hashParams.get("replay"),
     datPayload,
     packToken,
     setToken,

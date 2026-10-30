@@ -1,0 +1,69 @@
+{
+  "level": 675,
+  "name": "Saturn",
+  "timeLimitSeconds": 550,
+  "chipsRequired": 244,
+  "chipsPresent": 253,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "status": "unresolved",
+  "summary": "Candidate force-floor obstruction; independent review pending.",
+  "proofSteps": [
+    "The alternate exit (5, 16) is in a six-cell component x 4..5, y 15..17. Its complete boundary is permanent hidden walls, with ordinary Walls (4, 18),(5, 18) below. No teleport lies inside. Therefore that exit is unreachable.",
+    "The main exit (0, 0) and its red key (5, 1) lie north of south-force fields x 1..4 andx 6..9, y 4..7. Column x 5 and the outer side boundaries are permanent Walls here; row 0 provides no entrance from the rest of the level. There are no suction boots or upper-region teleports.",
+    "Any first entrance into this northern region must climb from row 8 through south-force row 7 into row 6. A manual north move from row 8 enters row 7 and sets the moved flag. Before Chip can make another manual move, the next forced-movement poll pushes Chip south back into the cell just vacated on row 8. Manual north can return Chip to row 7 but cannot gain a further row.",
+    "This backward push cannot be blocked by a pre-existing block in the vacated cell, because Chip just occupied that cell. No autonomous block or block cloner can insert a block there while Chip is on row 7. A monster occupying that cell causes a lethal collision rather than a safe backstop. There is no side entry at row 7 that bypasses the first north-entry argument.",
+    "The lower block cloner cannot launch a block directly into these cells. Ordinary blocks pushed north onto the south-force field are sliding and cannot be pushed again parallel or opposite to that force. They cannot give Chip a new source position above the barrier.",
+    "Inductively Chip cannot reach row 6 of either field, hence cannot reach the red key, door (1, 0), or exit (0, 0). Together with the sealed alternate-exit component, this prevents completion."
+  ],
+  "visualEvidence": "675-initial.svg",
+  "experiments": [
+    {
+      "kind": "DAT two-layer inventory",
+      "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    }
+  ],
+  "limitations": [
+    "Ordinary legal MS play; cheats and editor changes excluded.",
+    "Force-field proof should receive independent review of the blocked-force/backstop case before publication."
+  ],
+  "sourceEvidence": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+    "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+    "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+    "legacy_c/mslogic.c:1825-1832 (exit completion)",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
+    "legacy_c/mslogic.c:1347-1370 (manual movement flag and force override)",
+    "legacy_c/mslogic.c:1916-1958 (forced moves clear moved flag after the forced displacement)",
+    "legacy_c/mslogic.c:2380-2404 (forced movement precedes manual input)",
+    "legacy_c/mslogic.c:962-968 (parallel/opposite sliding-block push rejected)"
+  ],
+  "title": "Saturn",
+  "argument": [
+    "The alternate exit (5, 16) is in a six-cell component x 4..5, y 15..17. Its complete boundary is permanent hidden walls, with ordinary Walls (4, 18),(5, 18) below. No teleport lies inside. Therefore that exit is unreachable.",
+    "The main exit (0, 0) and its red key (5, 1) lie north of south-force fields x 1..4 andx 6..9, y 4..7. Column x 5 and the outer side boundaries are permanent Walls here; row 0 provides no entrance from the rest of the level. There are no suction boots or upper-region teleports.",
+    "Any first entrance into this northern region must climb from row 8 through south-force row 7 into row 6. A manual north move from row 8 enters row 7 and sets the moved flag. Before Chip can make another manual move, the next forced-movement poll pushes Chip south back into the cell just vacated on row 8. Manual north can return Chip to row 7 but cannot gain a further row.",
+    "This backward push cannot be blocked by a pre-existing block in the vacated cell, because Chip just occupied that cell. No autonomous block or block cloner can insert a block there while Chip is on row 7. A monster occupying that cell causes a lethal collision rather than a safe backstop. There is no side entry at row 7 that bypasses the first north-entry argument.",
+    "The lower block cloner cannot launch a block directly into these cells. Ordinary blocks pushed north onto the south-force field are sliding and cannot be pushed again parallel or opposite to that force. They cannot give Chip a new source position above the barrier.",
+    "Inductively Chip cannot reach row 6 of either field, hence cannot reach the red key, door (1, 0), or exit (0, 0). Together with the sealed alternate-exit component, this prevents completion."
+  ],
+  "evidence": {
+    "visual": "675-initial.svg",
+    "sources": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+      "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+      "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+      "legacy_c/mslogic.c:1825-1832 (exit completion)",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
+      "legacy_c/mslogic.c:1347-1370 (manual movement flag and force override)",
+      "legacy_c/mslogic.c:1916-1958 (forced moves clear moved flag after the forced displacement)",
+      "legacy_c/mslogic.c:2380-2404 (forced movement precedes manual input)",
+      "legacy_c/mslogic.c:962-968 (parallel/opposite sliding-block push rejected)"
+    ],
+    "coordinates": "zero-based x,y",
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+  }
+}

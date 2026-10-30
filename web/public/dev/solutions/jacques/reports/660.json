@@ -1,0 +1,61 @@
+{
+  "level": 660,
+  "name": "Unlok the Blok",
+  "timeLimitSeconds": 0,
+  "chipsRequired": 136,
+  "chipsPresent": 136,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "status": "impossible",
+  "summary": "Mandatory chips under the bottom water channel cannot be exposed.",
+  "proofSteps": [
+    "There are 136 required chips and exactly 136 chips across both layers. Each cell (x, 31), 18<=x<=30, contains top Water over a chip. There are no flippers, teleporters, or functional clone connections.",
+    "For this horizontal channel the north neighbor (x, 30) is permanent Wall for every 18<=x<=30; its south side is the board boundary. The only lateral approaches are through (17, 31) and (31, 31).",
+    "An ordinary pushed block can enter the first interior water cell from the west only by moving east from (17, 31); Chip would have to stand at (16, 31), which is a permanent Wall. Entry from the east requires moving west from (31, 31), with Chip at (32, 31), outside the board.",
+    "There are no blocks initially in the channel, no force floors/ice/teleports to move blocks there autonomously, and no active cloners. A block pushed down into an endpoint fills that endpoint and disappears; it does not continue sideways.",
+    "Therefore no block can ever enter/fill any of the 13 interior water cells. Monsters cannot turn water into walkable ground, and Chip without flippers dies on Water before collecting its buried chip. At least 13 required chips remain uncollectible.",
+    "The only Exit is (31, 16). Its other three sides are permanent Wall/HiddenWall/board edge; entrance is via Socket (31, 17), which cannot open while any required chip remains."
+  ],
+  "visualEvidence": "660-initial.svg",
+  "experiments": [
+    {
+      "kind": "DAT two-layer inventory",
+      "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    }
+  ],
+  "limitations": [
+    "Proof concerns ordinary legal play; cheats/editor changes excluded."
+  ],
+  "sourceEvidence": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+    "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+    "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+    "legacy_c/mslogic.c:1825-1832 (exit completion)",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+  ],
+  "title": "Unlok the Blok",
+  "argument": [
+    "There are 136 required chips and exactly 136 chips across both layers. Each cell (x, 31), 18<=x<=30, contains top Water over a chip. There are no flippers, teleporters, or functional clone connections.",
+    "For this horizontal channel the north neighbor (x, 30) is permanent Wall for every 18<=x<=30; its south side is the board boundary. The only lateral approaches are through (17, 31) and (31, 31).",
+    "An ordinary pushed block can enter the first interior water cell from the west only by moving east from (17, 31); Chip would have to stand at (16, 31), which is a permanent Wall. Entry from the east requires moving west from (31, 31), with Chip at (32, 31), outside the board.",
+    "There are no blocks initially in the channel, no force floors/ice/teleports to move blocks there autonomously, and no active cloners. A block pushed down into an endpoint fills that endpoint and disappears; it does not continue sideways.",
+    "Therefore no block can ever enter/fill any of the 13 interior water cells. Monsters cannot turn water into walkable ground, and Chip without flippers dies on Water before collecting its buried chip. At least 13 required chips remain uncollectible.",
+    "The only Exit is (31, 16). Its other three sides are permanent Wall/HiddenWall/board edge; entrance is via Socket (31, 17), which cannot open while any required chip remains."
+  ],
+  "evidence": {
+    "visual": "660-initial.svg",
+    "sources": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+      "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+      "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+      "legacy_c/mslogic.c:1825-1832 (exit completion)",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+    ],
+    "coordinates": "zero-based x,y",
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+  },
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

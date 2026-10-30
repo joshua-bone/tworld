@@ -1,0 +1,289 @@
+{
+  "level": 970,
+  "name": "Stalker",
+  "ruleset": "MS",
+  "timeLimitSeconds": 999,
+  "chipsRequired": 36,
+  "rawChipTilesBothPlanes": 36,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "impossible",
+  "summary": "Four required chips are permanently sealed behind immutable walls; both exits lie behind the socket requiring all 36 chips.",
+  "visualEvidence": [
+    "970-initial.svg",
+    "970-initial.png",
+    "970-bottom.svg"
+  ],
+  "proofSteps": [
+    "All 36 chips are required and exactly 36 exist. No blocks, cloners, teleports, keys, switches or wall-changing tools occur.",
+    "The chip at (3,3) is in the five-cell room {(3,3),(4,3),(5,3),(6,3),(7,3)}. Walls at x=2 and x=8 on y=3, and x=3..7 on y=2 and y=4 enclose it. Chip starts outside at (1,8).",
+    "Ordinary walls cannot be removed or traversed by any available actor or mechanism. Thus this chip can never be collected; the chip count cannot reach zero.",
+    "Both exits (14,28) and (17,28) belong to an inner region connected to the starting/outside region only by socket (15,16). A flood-fill overapproximation allows arbitrary entry across every non-wall/non-socket tile, including all force floors and monsters, and still reaches neither exit.",
+    "The socket cannot open while any chip remains. There is no alternate win condition, so the level is impossible regardless of monster timing or random choices."
+  ],
+  "limitations": [],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    }
+  ],
+  "sources": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1597",
+    "legacy_c/mslogic.c:1829",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104"
+  ],
+  "facts": {
+    "start": [
+      1,
+      8
+    ],
+    "sealedChip": [
+      3,
+      3
+    ],
+    "sealedRoom": [
+      [
+        3,
+        3
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        5,
+        3
+      ],
+      [
+        6,
+        3
+      ],
+      [
+        7,
+        3
+      ]
+    ],
+    "sealedRoomBoundary": [
+      [
+        2,
+        3
+      ],
+      [
+        8,
+        3
+      ],
+      [
+        3,
+        2
+      ],
+      [
+        4,
+        2
+      ],
+      [
+        5,
+        2
+      ],
+      [
+        6,
+        2
+      ],
+      [
+        7,
+        2
+      ],
+      [
+        3,
+        4
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        5,
+        4
+      ],
+      [
+        6,
+        4
+      ],
+      [
+        7,
+        4
+      ]
+    ],
+    "allSealedChips": [
+      [
+        3,
+        3
+      ],
+      [
+        28,
+        3
+      ],
+      [
+        3,
+        28
+      ],
+      [
+        28,
+        28
+      ]
+    ],
+    "socket": [
+      15,
+      16
+    ],
+    "exits": [
+      [
+        14,
+        28
+      ],
+      [
+        17,
+        28
+      ]
+    ],
+    "optimisticReachableCellsWithSocketClosed": 311
+  },
+  "title": "Stalker",
+  "argument": [
+    "All 36 chips are required and exactly 36 exist. No blocks, cloners, teleports, keys, switches or wall-changing tools occur.",
+    "The chip at (3,3) is in the five-cell room {(3,3),(4,3),(5,3),(6,3),(7,3)}. Walls at x=2 and x=8 on y=3, and x=3..7 on y=2 and y=4 enclose it. Chip starts outside at (1,8).",
+    "Ordinary walls cannot be removed or traversed by any available actor or mechanism. Thus this chip can never be collected; the chip count cannot reach zero.",
+    "Both exits (14,28) and (17,28) belong to an inner region connected to the starting/outside region only by socket (15,16). A flood-fill overapproximation allows arbitrary entry across every non-wall/non-socket tile, including all force floors and monsters, and still reaches neither exit.",
+    "The socket cannot open while any chip remains. There is no alternate win condition, so the level is impossible regardless of monster timing or random choices."
+  ],
+  "evidence": {
+    "facts": {
+      "start": [
+        1,
+        8
+      ],
+      "sealedChip": [
+        3,
+        3
+      ],
+      "sealedRoom": [
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          7,
+          3
+        ]
+      ],
+      "sealedRoomBoundary": [
+        [
+          2,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ]
+      ],
+      "allSealedChips": [
+        [
+          3,
+          3
+        ],
+        [
+          28,
+          3
+        ],
+        [
+          3,
+          28
+        ],
+        [
+          28,
+          28
+        ]
+      ],
+      "socket": [
+        15,
+        16
+      ],
+      "exits": [
+        [
+          14,
+          28
+        ],
+        [
+          17,
+          28
+        ]
+      ],
+      "optimisticReachableCellsWithSocketClosed": 311
+    },
+    "sourceReferences": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1597",
+      "legacy_c/mslogic.c:1829",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104"
+    ],
+    "visualFiles": [
+      "970-initial.svg",
+      "970-initial.png",
+      "970-bottom.svg"
+    ]
+  },
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

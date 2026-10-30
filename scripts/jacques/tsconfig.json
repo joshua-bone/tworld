@@ -1,0 +1,24 @@
+{
+  "extends": "../../web/tsconfig.base.json",
+  "compilerOptions": {
+    "types": [
+      "node"
+    ],
+    "typeRoots": [
+      "../../web/node_modules/@types"
+    ]
+  },
+  "include": [
+    "harness.ts",
+    "cli.ts",
+    "self-test.ts",
+    "native-smoke.ts",
+    "render-all.ts",
+    "verify-probes.ts",
+    "prove-middle.ts",
+    "review-791.ts",
+    "ice-analysis.ts",
+    "navigate-ice.ts",
+    "prove-ice-trap.ts"
+  ]
+}

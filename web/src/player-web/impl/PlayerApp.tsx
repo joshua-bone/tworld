@@ -1,3 +1,4 @@
+import type { UrlReplayLaunch } from "@player-web/impl/urlReplayLaunch";
 import { lazy, Suspense } from "react";
 import type { AiInputPort } from "@player-web/impl/ai/aiInputOwnership";
 import { maySaveHumanProgress } from "@player-web/impl/ai/aiRunPolicy";
@@ -506,6 +507,7 @@ interface PlayerAppProps {
   initialLevelSeedOverrides?: BrowserLevelSeedOverride[];
   initialMode?: LegacyMode;
   initialReplayEntries?: BrowserReplayEntry[];
+  initialReplayLaunch?: UrlReplayLaunch | null;
   initialSelection?: PlayableSelection | null;
   knownLevelProgressSummary?: BrowserResolvedLevelProgressSummary | null;
   onOpenClassicShell?: () => void;
@@ -535,6 +537,7 @@ export function PlayerApp({
   initialLevelSeedOverrides = [],
   initialMode = "series-list",
   initialReplayEntries = [],
+  initialReplayLaunch = null,
   initialSelection = null,
   knownLevelProgressSummary = null,
   onOpenClassicShell,
@@ -631,7 +634,7 @@ export function PlayerApp({
     replayName: string;
     seriesFile: string;
     token: number;
-  } | null>(null);
+  } | null>(initialReplayLaunch);
   const soundPlayerRef = useRef<BrowserSoundEffectsPlayer | null>(null);
   const undoStartOptionsRef = useRef(toUndoSessionStartOptions(undoSettingsSeedRef.current));
   const aiScreenRef = useRef<HTMLElement>(null);

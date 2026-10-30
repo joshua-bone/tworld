@@ -1,3 +1,4 @@
+import { resolveUrlReplayLaunch, type UrlReplayLaunch } from "@player-web/impl/urlReplayLaunch";
 import { startTransition, useEffect, useState } from "react";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
 import { loadModernBootstrapPlayableCatalog } from "@player-web/impl/loadBrowserPlayableCatalog";
@@ -18,6 +19,7 @@ interface MobileBootstrapState {
   message: string | null;
   ready: boolean;
   selection: PlayableSelection | null;
+  replay: UrlReplayLaunch | null;
 }
 
 export function MobilePlayerApp({
@@ -30,6 +32,7 @@ export function MobilePlayerApp({
     message: null,
     ready: false,
     selection: null,
+    replay: null,
   });
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export function MobilePlayerApp({
       .then(async (storedSelection) => {
         const launch = await resolveUrlLaunchSelection(services, storedSelection);
         const catalog = await loadModernBootstrapPlayableCatalog(services, launch.selection);
+        const replayLaunch = await resolveUrlReplayLaunch(launch, catalog);
         if (!active) {
           return;
         }
@@ -46,7 +50,8 @@ export function MobilePlayerApp({
         startTransition(() => {
           setBootstrapState({
             catalog,
-            message: launch.message,
+            message: replayLaunch.message,
+            replay: replayLaunch.replay,
             ready: true,
             selection: launch.selection,
           });
@@ -62,6 +67,7 @@ export function MobilePlayerApp({
           message: error instanceof Error ? error.message : String(error),
           ready: true,
           selection: null,
+          replay: null,
         });
       });
 
@@ -85,6 +91,7 @@ export function MobilePlayerApp({
             initialCatalog={bootstrapState.catalog}
             initialMode="game"
             initialSelection={bootstrapState.selection}
+            initialReplayLaunch={bootstrapState.replay}
             onOpenClassicShell={onOpenClassic}
             onOpenDesktopShell={onOpenDesktop}
             services={services}

@@ -1,0 +1,25 @@
+import { runMsReplayTrace } from '../../web/src/ruleset-ms/impl/engine';
+import { parseSolutionFile } from '../../web/src/content/api/solution-file';
+import { collectTraceMismatches } from '../../web/src/replay-verifier/impl/engine/comparators/traceComparison';
+import assert from 'node:assert/strict';
+import { serializeSolutionFile } from '../../web/src/content/api/solution-file';
+import { loadLevel, verifyNativeReplay, createRun, tick, snapshot } from './harness';
+const loaded = await loadLevel(186);
+const bytes = serializeSolutionFile({ ruleset: 'MS', flags: 0, extraHeader: new Uint8Array(), setName: 'Jacques-MS.dac', entries: [{ levelNumber: 186, password: loaded.metadata.password, bestTimeTicks: 1000, solutionData: null, expandedSolution: { flags: 0, randomSlideDirection: 1, stepping: 0, randomSeed: 0, moves: [{when: 0, dir: 8}] } }] });
+const result = await verifyNativeReplay(loaded, bytes, 8);
+assert.equal(result.exactInputBytesRead, true);
+assert.equal(result.trace.request.levelNumber, 186);
+assert.equal(result.trace.request.ruleset, 'MS');
+const run = createRun(loaded);
+assert.deepEqual(result.trace.initialState.chip, snapshot(run).chip);
+tick(run, 'E');
+assert.deepEqual(result.trace.steps[0]?.chip, snapshot(run).chip);
+console.log(JSON.stringify({result: result.trace.result, stderr: result.stderr, initialChip: result.trace.initialState.chip}));
+
+const parsed = parseSolutionFile(bytes).entries[0]!;
+const ts = runMsReplayTrace(loaded.request, loaded.level, { ...parsed.expandedSolution!, bestTimeTicks: 1000 } as any, 8);
+const differences: any[] = [];
+collectTraceMismatches(JSON.parse(JSON.stringify(ts.initialState)), JSON.parse(JSON.stringify(result.trace.initialState)), '$.initial', differences, 10);
+collectTraceMismatches(JSON.parse(JSON.stringify(ts.steps)), JSON.parse(JSON.stringify(result.trace.steps)), '$.steps', differences, 10);
+assert.deepEqual(differences, []);
+console.log('Native and TypeScript full initial state and eight replay ticks match');

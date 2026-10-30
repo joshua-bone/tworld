@@ -1,0 +1,82 @@
+{
+  "level": 915,
+  "title": "RUN! III",
+  "name": "RUN! III",
+  "status": "impossible",
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "chipsRequired": 385,
+  "chipsPresent": 394,
+  "timeLimitSeconds": 999,
+  "experiments": [],
+  "sourceEvidence": [
+    "legacy_c/mslogic.c:1002-1011",
+    "legacy_c/mslogic.c:1616-1736",
+    "legacy_c/mslogic.c:1825-1832"
+  ],
+  "summary": "Ten chips are permanently buried under frozen blocks; at most 384 of the required 385 can be collected.",
+  "proofSteps": [
+    "There are 394 chips across both layers and 385 are required. Ten chips lie beneath three immovable groups of ordinary blocks: (17,28)–(19,28), (31,28)–(31,29), and (10,31)–(14,31).",
+    "The first three-block row is backed by permanent walls immediately south. The other two groups sit against the east or south board edge. Perpendicular pushes require standing in a wall or outside the board, or would push into that barrier. Parallel pushes cannot start because each endpoint requires standing on the adjacent block, and blocks cannot push another block. None of these groups can make a first move.",
+    "No hazard or forced floor lies under these ten blocks; monsters do not push blocks. The level has no teleporters. Other block movement and cloning therefore cannot free these chips. Even granting collection of every other chip, only 394 − 10 = 384 can be collected.",
+    "Every Exit is in the room east of column 28, rows 0–10. Its only usable entrance from outside is the socket at (28,5). The apparent alternative openings at (28,3) and (28,4) are shielded on their west sides by east-facing thin walls at (27,3) and (27,4); the remaining boundary is permanent walls or the board edge. Opening the toggle wall does not remove those thin walls.",
+    "The socket requires all 385 chips, but at most 384 are collectible. Hence Chip can never enter the exit room."
+  ],
+  "frozenBlockGroups": [
+    [
+      [
+        17,
+        28
+      ],
+      [
+        18,
+        28
+      ],
+      [
+        19,
+        28
+      ]
+    ],
+    [
+      [
+        31,
+        28
+      ],
+      [
+        31,
+        29
+      ]
+    ],
+    [
+      [
+        10,
+        31
+      ],
+      [
+        11,
+        31
+      ],
+      [
+        12,
+        31
+      ],
+      [
+        13,
+        31
+      ],
+      [
+        14,
+        31
+      ]
+    ]
+  ],
+  "argument": [
+    "There are 394 chips across both layers and 385 are required. Ten chips lie beneath three immovable groups of ordinary blocks: (17,28)–(19,28), (31,28)–(31,29), and (10,31)–(14,31).",
+    "The first three-block row is backed by permanent walls immediately south. The other two groups sit against the east or south board edge. Perpendicular pushes require standing in a wall or outside the board, or would push into that barrier. Parallel pushes cannot start because each endpoint requires standing on the adjacent block, and blocks cannot push another block. None of these groups can make a first move.",
+    "No hazard or forced floor lies under these ten blocks; monsters do not push blocks. The level has no teleporters. Other block movement and cloning therefore cannot free these chips. Even granting collection of every other chip, only 394 − 10 = 384 can be collected.",
+    "Every Exit is in the room east of column 28, rows 0–10. Its only usable entrance from outside is the socket at (28,5). The apparent alternative openings at (28,3) and (28,4) are shielded on their west sides by east-facing thin walls at (27,3) and (27,4); the remaining boundary is permanent walls or the board edge. Opening the toggle wall does not remove those thin walls.",
+    "The socket requires all 385 chips, but at most 384 are collectible. Hence Chip can never enter the exit room."
+  ],
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

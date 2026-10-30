@@ -1,0 +1,736 @@
+{
+  "level": 732,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "probeOnlyNotWinning": true,
+  "nativeResult": {
+    "status": "playing",
+    "finalTick": 19,
+    "stepCount": 20
+  },
+  "typescriptResult": {
+    "status": "playing",
+    "finalTick": 19,
+    "stepCount": 20
+  },
+  "nativeStderr": "",
+  "exactInputBytesRead": true,
+  "moves": [
+    {
+      "when": 0,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 4,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 8,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 12,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 16,
+      "dir": 8,
+      "modifierMask": 0
+    }
+  ],
+  "selected": [
+    {
+      "tick": 0,
+      "status": "playing",
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "north",
+        "position": {
+          "x": 16,
+          "y": 10,
+          "pos": 336
+        },
+        "state": 0
+      },
+      "actors": [
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 12,
+            "y": 2,
+            "pos": 76
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 13,
+            "y": 2,
+            "pos": 77
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 30,
+            "y": 2,
+            "pos": 94
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 10,
+            "y": 4,
+            "pos": 138
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 30,
+            "y": 4,
+            "pos": 158
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 31,
+            "y": 5,
+            "pos": 191
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 0,
+            "y": 7,
+            "pos": 224
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 0,
+            "y": 8,
+            "pos": 256
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 31,
+            "y": 8,
+            "pos": 287
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 0,
+            "y": 9,
+            "pos": 288
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 0,
+            "y": 10,
+            "pos": 320
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "tick": 4,
+      "status": "playing",
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 16,
+          "y": 11,
+          "pos": 368
+        },
+        "state": 0
+      },
+      "actors": [
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 12,
+            "y": 1,
+            "pos": 44
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 14,
+            "y": 2,
+            "pos": 78
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 29,
+            "y": 2,
+            "pos": 93
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 11,
+            "y": 4,
+            "pos": 139
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 29,
+            "y": 4,
+            "pos": 157
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 30,
+            "y": 5,
+            "pos": 190
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 1,
+            "y": 7,
+            "pos": 225
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 1,
+            "y": 8,
+            "pos": 257
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 30,
+            "y": 8,
+            "pos": 286
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 1,
+            "y": 9,
+            "pos": 289
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 1,
+            "y": 10,
+            "pos": 321
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "tick": 8,
+      "status": "playing",
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "west",
+        "position": {
+          "x": 15,
+          "y": 11,
+          "pos": 367
+        },
+        "state": 0
+      },
+      "actors": [
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 12,
+            "y": 0,
+            "pos": 12
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 15,
+            "y": 2,
+            "pos": 79
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 29,
+            "y": 3,
+            "pos": 125
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 12,
+            "y": 4,
+            "pos": 140
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 29,
+            "y": 5,
+            "pos": 189
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 30,
+            "y": 6,
+            "pos": 222
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 2,
+            "y": 7,
+            "pos": 226
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 2,
+            "y": 8,
+            "pos": 258
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 29,
+            "y": 8,
+            "pos": 285
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 2,
+            "y": 9,
+            "pos": 290
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 2,
+            "y": 10,
+            "pos": 322
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "tick": 12,
+      "status": "playing",
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "west",
+        "position": {
+          "x": 14,
+          "y": 11,
+          "pos": 366
+        },
+        "state": 0
+      },
+      "actors": [
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 11,
+            "y": 0,
+            "pos": 11
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 16,
+            "y": 2,
+            "pos": 80
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 13,
+            "y": 4,
+            "pos": 141
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 29,
+            "y": 4,
+            "pos": 157
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 29,
+            "y": 6,
+            "pos": 221
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 3,
+            "y": 7,
+            "pos": 227
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 30,
+            "y": 7,
+            "pos": 254
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 3,
+            "y": 8,
+            "pos": 259
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 28,
+            "y": 8,
+            "pos": 284
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 3,
+            "y": 9,
+            "pos": 291
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 3,
+            "y": 10,
+            "pos": 323
+          },
+          "state": 0
+        }
+      ]
+    },
+    {
+      "tick": 16,
+      "status": "playing",
+      "chip": {
+        "id": 64,
+        "layer": 1,
+        "dir": "east",
+        "position": {
+          "x": 15,
+          "y": 11,
+          "pos": 367
+        },
+        "state": 0
+      },
+      "actors": [
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "west",
+          "position": {
+            "x": 10,
+            "y": 0,
+            "pos": 10
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 17,
+            "y": 2,
+            "pos": 81
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 14,
+            "y": 4,
+            "pos": 142
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 29,
+            "y": 5,
+            "pos": 189
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 4,
+            "y": 7,
+            "pos": 228
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "north",
+          "position": {
+            "x": 28,
+            "y": 7,
+            "pos": 252
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 29,
+            "y": 7,
+            "pos": 253
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 4,
+            "y": 8,
+            "pos": 260
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "south",
+          "position": {
+            "x": 30,
+            "y": 8,
+            "pos": 286
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 4,
+            "y": 9,
+            "pos": 292
+          },
+          "state": 0
+        },
+        {
+          "id": 80,
+          "layer": 1,
+          "dir": "east",
+          "position": {
+            "x": 4,
+            "y": 10,
+            "pos": 324
+          },
+          "state": 0
+        }
+      ]
+    }
+  ]
+}

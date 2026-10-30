@@ -1,3 +1,4 @@
+import { resolveUrlReplayLaunch, type UrlReplayLaunch } from "@player-web/impl/urlReplayLaunch";
 import {
   startTransition,
   useDeferredValue,
@@ -119,6 +120,7 @@ export function ModernPlayerApp({
   const [activeTab, setActiveTab] = useState<LibrarySidebarTab>("official");
   const [activeFamilyId, setActiveFamilyId] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<SeriesCatalogEntry[]>([]);
+  const [initialReplayLaunch, setInitialReplayLaunch] = useState<UrlReplayLaunch | null>(null);
   const [lastSelection, setLastSelection] = useState<PlayableSelection | null>(null);
   const [levelProgressSummaries, setLevelProgressSummaries] = useState<BrowserLevelProgressSummary[]>([]);
   const [levelSeedOverrides, setLevelSeedOverrides] = useState<BrowserLevelSeedOverride[]>([]);
@@ -202,6 +204,7 @@ export function ModernPlayerApp({
         const bootstrapCatalog = await measurePerfAsync("catalogBootstrapMs", () =>
           loadModernBootstrapPlayableCatalog(services, initialSelection),
         );
+        const replayLaunch = await resolveUrlReplayLaunch(launch, bootstrapCatalog);
         if (!active) {
           return;
         }
@@ -232,7 +235,8 @@ export function ModernPlayerApp({
           );
           setLevelProgressSummaries(storedLevelProgressSummaries);
           setLevelSeedOverrides(storedLevelSeedOverrides);
-          setMessage(launch.message);
+          setMessage(replayLaunch.message);
+          setInitialReplayLaunch(replayLaunch.replay);
           setIsCatalogLoading(false);
         });
 
@@ -794,6 +798,12 @@ export function ModernPlayerApp({
               initialLevelSeedOverrides={levelSeedOverrides}
               initialMode="game"
               initialSelection={activeSelection}
+              initialReplayLaunch={
+                initialReplayLaunch?.seriesFile === activeSelection.seriesFile &&
+                initialReplayLaunch.levelNumber === activeSelection.levelNumber
+                  ? initialReplayLaunch
+                  : null
+              }
               knownLevelProgressSummary={activeLevelProgress}
               onLevelProgressSaved={handleLevelProgressSaved}
               onPlayerKeyBindingsChange={applyPlayerKeyBindings}

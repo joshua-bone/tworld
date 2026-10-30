@@ -1,0 +1,56 @@
+{
+  "level": 527,
+  "name": "Bloboy",
+  "timeLimitSeconds": 300,
+  "chipsRequired": 37,
+  "chipsPresent": 37,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "status": "impossible",
+  "summary": "A keyless green-door cut separates Chip from the exit.",
+  "proofSteps": [
+    "Initial Chip (21, 8) starts in the upper/right area. There are zero keys of any color in either layer, and no cloners or teleports.",
+    "The west-hand lower chamber has its only entrance from the starting side through green door (6, 14). Row 13 consists of permanent Walls from x 0 through 13 except the opening at x 6. Column 13 separates this chamber from the right side through y 31, apart from openings above the chamber. The bottom-left exterior is accessible only through Exit (1, 21).",
+    "A permissive flood fill that treats every non-permanent tile as passable except green doors and sockets reaches 582 cells from Chip but not Exit (1, 21); its only green-door frontier is (6, 14). This is a certificate of the stated immutable cut, not a heuristic gameplay search.",
+    "Chip starts without a green key and none can be produced. Monsters/blocks cannot enter or remove a green door. Thus the cut cannot open. Independently eight required chips lie under the eight green doors, with 37 required and exactly 37 present."
+  ],
+  "visualEvidence": "527-initial.svg",
+  "experiments": [
+    {
+      "kind": "DAT two-layer inventory",
+      "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    }
+  ],
+  "limitations": [
+    "Proof concerns ordinary legal play; cheats/editor changes excluded."
+  ],
+  "sourceEvidence": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+    "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+    "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+    "legacy_c/mslogic.c:1825-1832 (exit completion)",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+  ],
+  "title": "Bloboy",
+  "argument": [
+    "Initial Chip (21, 8) starts in the upper/right area. There are zero keys of any color in either layer, and no cloners or teleports.",
+    "The west-hand lower chamber has its only entrance from the starting side through green door (6, 14). Row 13 consists of permanent Walls from x 0 through 13 except the opening at x 6. Column 13 separates this chamber from the right side through y 31, apart from openings above the chamber. The bottom-left exterior is accessible only through Exit (1, 21).",
+    "A permissive flood fill that treats every non-permanent tile as passable except green doors and sockets reaches 582 cells from Chip but not Exit (1, 21); its only green-door frontier is (6, 14). This is a certificate of the stated immutable cut, not a heuristic gameplay search.",
+    "Chip starts without a green key and none can be produced. Monsters/blocks cannot enter or remove a green door. Thus the cut cannot open. Independently eight required chips lie under the eight green doors, with 37 required and exactly 37 present."
+  ],
+  "evidence": {
+    "visual": "527-initial.svg",
+    "sources": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+      "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+      "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+      "legacy_c/mslogic.c:1825-1832 (exit completion)",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+    ],
+    "coordinates": "zero-based x,y",
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+  }
+}

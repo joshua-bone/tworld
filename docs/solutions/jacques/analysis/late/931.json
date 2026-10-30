@@ -1,0 +1,49 @@
+{
+  "level": 931,
+  "name": "AGE DJ",
+  "ruleset": "MS",
+  "timeLimitSeconds": 999,
+  "chipsRequired": 599,
+  "rawChipTilesBothPlanes": 621,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "unresolved",
+  "summary": "599 of 621 chips required; layered fake walls, bomb-covered chips and block cloners require a constructive route. Secondary exit is walled off.",
+  "visualEvidence": [
+    "931-initial.svg",
+    "931-initial.png",
+    "931-bottom.svg"
+  ],
+  "proofSteps": [],
+  "limitations": [
+    "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
+  ],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    }
+  ],
+  "sources": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1597",
+    "legacy_c/mslogic.c:1829",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104"
+  ],
+  "title": "AGE DJ",
+  "argument": [],
+  "evidence": {
+    "facts": {},
+    "sourceReferences": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1597",
+      "legacy_c/mslogic.c:1829",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104"
+    ],
+    "visualFiles": [
+      "931-initial.svg",
+      "931-initial.png",
+      "931-bottom.svg"
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "level": {
+    "index": 936,
+    "number": 937,
+    "name": "Running BomberMan",
+    "author": "",
+    "password": "RJGP",
+    "timeLimitSeconds": 999,
+    "chipsRequired": 130,
+    "bestTimeTicks": 2147483647,
+    "levelSize": 544,
+    "solutionSize": 0,
+    "levelHash": "12919501130182435192",
+    "gameplayHash": "12973602765546254999",
+    "hasSolution": false,
+    "sgflags": 0,
+    "unsolvable": null,
+    "hasSpecialTools": false
+  },
+  "twsSha256": "82dd91e53af67cfc1224cc25b83ed04543813071e700255792b4c726831190bb",
+  "typescript": {
+    "status": "completed",
+    "finalTick": 18780,
+    "stepCount": 18781
+  },
+  "native": {
+    "status": "completed",
+    "finalTick": 18780,
+    "stepCount": 18781
+  },
+  "nativeStderr": "",
+  "exactInputBytesRead": true,
+  "exactTraceParity": true
+}

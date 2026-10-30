@@ -1,0 +1,54 @@
+{
+  "level": 791,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "kind": "plain-ice-axis-invariant",
+  "requiredChips": 77,
+  "totalChips": 77,
+  "inaccessibleChips": [
+    {
+      "x": 11,
+      "y": 10
+    },
+    {
+      "x": 13,
+      "y": 10
+    }
+  ],
+  "commonAccess": {
+    "x": 12,
+    "y": 10
+  },
+  "argument": "Choose the first visit to either chip alcove. Its three other neighbors are permanent real blue walls, so the visit must leave (12,10) horizontally. Before this first alcove visit, (12,10) can only be entered vertically from plain ice (12,9) or (12,11), giving a north/south slipping direction. Player input is discarded while slipping on ice. A blocked forced move on plain ice reverses its direction by 180 degrees; it does not permit a perpendicular turn, even when both directions are blocked. Thus the direction axis at (12,10) remains north/south and neither alcove can be entered first, a contradiction. No skates, ice corners, teleports or blocks occur on either map plane. Gliders (including the cloner output) do not alter ice or permanent walls; contact cannot provide a surviving perpendicular turn. All77 chips are needed, and both neighbors of the sole corner exit are sockets, so these two unreachable chips prevent winning.",
+  "sourceReferences": [
+    {
+      "path": "legacy_c/mslogic.c",
+      "lines": "1347-1390",
+      "reason": "choosechipmove discards movement input when slipping"
+    },
+    {
+      "path": "legacy_c/mslogic.c",
+      "lines": "1437-1439",
+      "reason": "ice CS_SLIP passes discard and skips manual move"
+    },
+    {
+      "path": "legacy_c/mslogic.c",
+      "lines": "1930-1955",
+      "reason": "blocked ice reverses then re-enters floor movement; no free manual movement"
+    },
+    {
+      "path": "legacy_c/mslogic.c",
+      "lines": "413-425",
+      "reason": "plain ice preserves supplied direction; only ice corners turn"
+    },
+    {
+      "path": "web/src/ruleset-ms/impl/chipInput.ts",
+      "lines": "74-86",
+      "reason": "matching TypeScript ice input discard"
+    },
+    {
+      "path": "web/src/ruleset-ms/impl/engine.ts",
+      "lines": "5413-5436",
+      "reason": "matching TypeScript reversal of forced ice direction"
+    }
+  ]
+}

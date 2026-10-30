@@ -1,0 +1,49 @@
+{
+  "level": 952,
+  "name": "Extremely Tough Jumping Swarm!",
+  "ruleset": "MS",
+  "timeLimitSeconds": 999,
+  "chipsRequired": 376,
+  "rawChipTilesBothPlanes": 419,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "unresolved",
+  "summary": "376 of 419 chips required. Extra chips permit bypassing some inaccessible-looking pockets, so a local obstruction alone is insufficient.",
+  "visualEvidence": [
+    "952-initial.svg",
+    "952-initial.png",
+    "952-bottom.svg"
+  ],
+  "proofSteps": [],
+  "limitations": [
+    "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
+  ],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    }
+  ],
+  "sources": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1597",
+    "legacy_c/mslogic.c:1829",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104"
+  ],
+  "title": "Extremely Tough Jumping Swarm!",
+  "argument": [],
+  "evidence": {
+    "facts": {},
+    "sourceReferences": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1597",
+      "legacy_c/mslogic.c:1829",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104"
+    ],
+    "visualFiles": [
+      "952-initial.svg",
+      "952-initial.png",
+      "952-bottom.svg"
+    ]
+  }
+}

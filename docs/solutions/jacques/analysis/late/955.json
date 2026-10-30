@@ -1,0 +1,100 @@
+{
+  "level": 955,
+  "name": "Look the Editor II",
+  "ruleset": "MS",
+  "timeLimitSeconds": 999,
+  "chipsRequired": 434,
+  "rawChipTilesBothPlanes": 434,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "impossible",
+  "summary": "246 required chips lie on unconnected beartraps; collecting any one permanently traps Chip away from the exit.",
+  "visualEvidence": [
+    "955-initial.svg",
+    "955-initial.png",
+    "955-bottom.svg"
+  ],
+  "proofSteps": [
+    "All 434 chips are required and exactly 434 chip tiles exist; none can be omitted.",
+    "246 of these chips have a Beartrap immediately underneath. Example: chip at (1,1), bottom file-code43. No trap connections are encoded and no brown buttons, blocks or cloners exist.",
+    "Collecting the chip pops its top tile and leaves Chip standing on Beartrap. The native/MS arrival path only releases such a buried trap when a trap connection targets it; none does.",
+    "Subsequent movement rejects leaving Beartrap when Chip is not released. No available gameplay mechanism removes this trap or releases it. Roaming monsters cannot collect chips for the player, and collision is not a win.",
+    "Since (1,1) must be collected, every purported winning route becomes permanently trapped there (or at another required trap chip) before reaching the distinct sole exit at (0,31). Therefore no winning input sequence exists."
+  ],
+  "limitations": [],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    },
+    {
+      "kind": "production runtime targeted reproduction",
+      "inputs": "E4,S4,S4,S4,S4,W4,E4,N4 (four ticks per letter)",
+      "result": "At tick 3 Chip(1,0); tick 7 Chip(1,1),432 chips remain. At ticks11..31 Chip stays(1,1), status playing/okay, chipReleased false, bottom tile Beartrap."
+    },
+    {
+      "kind": "native MS replay confirmation",
+      "evidenceFile": "web/public/dev/solutions/jacques/evidence/955-native-probe.json",
+      "result": "Native and TypeScript E4,S4,S4,N4,W4,E4 remain at (1,1) fromtick7 through23; native stderr empty."
+    }
+  ],
+  "sources": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1597",
+    "legacy_c/mslogic.c:1829",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104",
+    "legacy_c/mslogic.c:1026",
+    "legacy_c/mslogic.c:1815"
+  ],
+  "facts": {
+    "requiredChipOnTrap": [
+      1,
+      1
+    ],
+    "buriedTrapCount": 261,
+    "requiredChipsOnTrapCount": 246,
+    "trapConnectionCount": 0,
+    "brownButtonCount": 0,
+    "exit": [
+      0,
+      31
+    ]
+  },
+  "title": "Look the Editor II",
+  "argument": [
+    "All 434 chips are required and exactly 434 chip tiles exist; none can be omitted.",
+    "246 of these chips have a Beartrap immediately underneath. Example: chip at (1,1), bottom file-code43. No trap connections are encoded and no brown buttons, blocks or cloners exist.",
+    "Collecting the chip pops its top tile and leaves Chip standing on Beartrap. The native/MS arrival path only releases such a buried trap when a trap connection targets it; none does.",
+    "Subsequent movement rejects leaving Beartrap when Chip is not released. No available gameplay mechanism removes this trap or releases it. Roaming monsters cannot collect chips for the player, and collision is not a win.",
+    "Since (1,1) must be collected, every purported winning route becomes permanently trapped there (or at another required trap chip) before reaching the distinct sole exit at (0,31). Therefore no winning input sequence exists."
+  ],
+  "evidence": {
+    "facts": {
+      "requiredChipOnTrap": [
+        1,
+        1
+      ],
+      "buriedTrapCount": 261,
+      "requiredChipsOnTrapCount": 246,
+      "trapConnectionCount": 0,
+      "brownButtonCount": 0,
+      "exit": [
+        0,
+        31
+      ]
+    },
+    "sourceReferences": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1597",
+      "legacy_c/mslogic.c:1829",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104",
+      "legacy_c/mslogic.c:1026",
+      "legacy_c/mslogic.c:1815"
+    ],
+    "visualFiles": [
+      "955-initial.svg",
+      "955-initial.png",
+      "955-bottom.svg"
+    ]
+  }
+}

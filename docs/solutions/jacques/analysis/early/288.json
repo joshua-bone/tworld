@@ -1,0 +1,54 @@
+{
+  "level": 288,
+  "name": "Ladder",
+  "timeLimitSeconds": 0,
+  "chipsRequired": 216,
+  "chipsPresent": 216,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "status": "impossible",
+  "summary": "The sole exit lies across a full-height permanent wall.",
+  "proofSteps": [
+    "The initial player is at (14, 0), east of column x=5. Every one of the 32 top-layer cells (5, y), 0<=y<=31, is an ordinary Wall, with Empty below.",
+    "The only Exit in either layer is (4, 0), west of that column. The level has no teleporters. Cardinal movement cannot leave or wrap around the 32 x 32 board.",
+    "Ordinary walls cannot be removed by the available actors or buttons. Toggle buttons only exchange the toggle-wall tiles. Therefore no legal play can transfer Chip to the west side and reach the exit."
+  ],
+  "visualEvidence": "288-initial.svg",
+  "experiments": [
+    {
+      "kind": "DAT two-layer inventory",
+      "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    }
+  ],
+  "limitations": [
+    "Proof concerns ordinary legal play; cheats/editor changes excluded."
+  ],
+  "sourceEvidence": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+    "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+    "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+    "legacy_c/mslogic.c:1825-1832 (exit completion)",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+  ],
+  "title": "Ladder",
+  "argument": [
+    "The initial player is at (14, 0), east of column x=5. Every one of the 32 top-layer cells (5, y), 0<=y<=31, is an ordinary Wall, with Empty below.",
+    "The only Exit in either layer is (4, 0), west of that column. The level has no teleporters. Cardinal movement cannot leave or wrap around the 32 x 32 board.",
+    "Ordinary walls cannot be removed by the available actors or buttons. Toggle buttons only exchange the toggle-wall tiles. Therefore no legal play can transfer Chip to the west side and reach the exit."
+  ],
+  "evidence": {
+    "visual": "288-initial.svg",
+    "sources": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+      "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+      "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+      "legacy_c/mslogic.c:1825-1832 (exit completion)",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+    ],
+    "coordinates": "zero-based x,y",
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+  }
+}
