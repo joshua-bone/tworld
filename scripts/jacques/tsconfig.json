@@ -24,6 +24,7 @@
     "park-981.ts",
     "plan-981.ts",
     "verify-981-progress.ts",
+    "replay-981.ts",
     "route-910.ts",
     "verify-910-progress.ts",
     "probe-723.ts"

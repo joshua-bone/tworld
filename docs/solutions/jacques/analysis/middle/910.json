@@ -1,0 +1,64 @@
+{
+  "level": 910,
+  "title": "Lost in Letterland III",
+  "status": "solved",
+  "summary": "A winning MS replay collects all 275 chips and exits at tick 4176. TypeScript and native Tile World traces match exactly.",
+  "argument": [
+    "The route follows the letters through their one-use chip strokes, preserving necessary crossings before exposing the underlying blocking tiles.",
+    "It releases the glider into the O entrance bomb, crosses the Q ice ring with released input between deliberate moves, and uses local Teeth lures through H, P, S, W and U.",
+    "The T chip at (22,21) is collected and Chip returns safely. After releasing its Tooth via (19,18), a sixteen-tick pause at (0,22) draws the approaching Teeth farther west before the descent through the green doors. A later loop through the lower rooms and upper corridor clears the return path.",
+    "A later detour uses still-covered green-door chips as barriers, draws the checkerboard Tooth into the lower key room, gathers all eight remaining blue keys and clears the lower-left chip room and four door chips.",
+    "After clearing the T dead end, lure the green-passage Teeth upstairs, loop through W and return behind them to reach X.",
+    "X requires a continuous traversal of its one-use wall chips and a loop around both Teeth. Collect its yellow key, spend all eight saved blue keys on Y, then walk back over the chips buried under those doors.",
+    "Clear the remaining Y and Z chips. Pass through the socket, take the provided flippers and fire boots after their respective burglar tiles, then enter the exit at (31,19).",
+    "The saved TWS completes the unchanged DAT in both the TypeScript and native Tile World MS engines at tick 4176. Every trace step matches; all 1000 recorded moves are cardinal keyboard commands."
+  ],
+  "evidence": [
+    "scripts/jacques/route-910.ts",
+    "web/public/dev/solutions/jacques/evidence/910-winning-route.json",
+    "web/public/dev/solutions/jacques/replays/910.tws",
+    "web/public/dev/solutions/jacques/replays/910.tws.json",
+    "web/public/dev/solutions/jacques/maps/910.svg",
+    "web/public/dev/solutions/jacques/maps/910-bottom.svg"
+  ],
+  "limitations": [],
+  "experiments": [
+    {
+      "kind": "partial-route",
+      "tick": 3375,
+      "status": "playing",
+      "chipsCollected": 232,
+      "chipsRemaining": 43,
+      "position": [
+        14,
+        18
+      ],
+      "keys": {
+        "red": 1,
+        "blue": 8,
+        "yellow": 0,
+        "green": 1
+      },
+      "nativeEndpointMatched": true,
+      "exactInputBytesRead": true,
+      "fullTraceParityClaimed": false,
+      "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+    },
+    {
+      "kind": "winning replay",
+      "status": "completed",
+      "chipsCollected": 275,
+      "chipsRemaining": 0,
+      "typescriptFinalTick": 4176,
+      "nativeFinalTick": 4176,
+      "stepCount": 4177,
+      "exactTraceParity": true,
+      "exactInputBytesRead": true,
+      "keyboardMoves": 1000,
+      "mouseMoves": 0,
+      "seed": 0,
+      "stepping": 0,
+      "twsSha256": "a63d85be21969d13934f227f33310e9a63a9a0a6cb0140506077fefca423c421"
+    }
+  ]
+}

@@ -7,74 +7,74 @@
   "rawChipTilesBothPlanes": 16,
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
-  "status": "unresolved",
-  "summary": "Native-verified partial route collects five of 16 chips by tick 227 and parks a freed teeth against the east thin wall at (21,20). Eleven chips remain; no winning replay or impossibility proof yet.",
+  "status": "solved",
+  "summary": "A cardinal-input replay collects all 16 chips and exits at tick 1,784 (89.2 seconds). The web and original Tile World MS engines match exactly through all 1,785 ticks.",
   "visualEvidence": [
     "981-initial.svg",
     "981-initial.png",
     "981-bottom.svg"
   ],
-  "proofSteps": [],
+  "proofSteps": [
+    "Take the reusable green key at (16,26) and the three starting chips. Green doors do not consume this key, so the task is to manage the seven Teeth as each room opens.",
+    "Collect (17,24), then lure the released Teeth against the thin wall at (21,20) while taking (22,20). Use the lower-right loop to take (23,24) and return safely to the inner corridor.",
+    "Clear the eastern rooms next: (24,12), (23,16), and (24,17). Leave the central Teeth behind its door while visiting the western rooms, so it cannot cut off those return paths.",
+    "Collect (9,24) and (10,22). Combine the neighboring upper-left rooms in one visit, taking (8,17) and (9,16); this avoids an extra lure circuit and keeps the route within the 100-second limit.",
+    "Visit the inner-left chip at (15,24), release and evade the central Teeth to collect (16,17), then take the last chip at (8,12). Loop back to the socket at (16,13) and enter the exit immediately south at (16,14).",
+    "The unmodified level completes at tick 1,784 with seed 0 and stepping 0. The 431 recorded moves are cardinal keyboard commands; there are no mouse or diagonal commands. The encoded TWS has identical complete native and web traces."
+  ],
   "limitations": [
-    "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
+    "Verified against the original Tile World MS C engine and the production web MS engine. This replay has not been separately tested in Microsoft CHIP.EXE or SuCC."
   ],
   "experiments": [
     {
-      "kind": "data audit",
-      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+      "kind": "visual and rules inspection",
+      "result": "Inspected both map layers, green-door/key behavior, thin-wall entry/exit restrictions, and the original half-speed Teeth pursuit order."
     },
     {
-      "kind": "native partial replay",
-      "result": "Exact DAT, seed 0, stepping 0: status playing at tick 227,11 chips remaining, Chip (22,20).",
-      "artifact": "web/public/dev/solutions/jacques/evidence/981-partial-route.json"
+      "kind": "route construction",
+      "result": "Used room ordering and deliberate Teeth lures, followed by bounded local route planning. Accepted local paths were replayed against the complete web engine; the final TWS was checked independently against native Tile World."
     },
     {
-      "kind": "bounded local route searches",
-      "bound": "20,000 expanded nodes or 45,000 ms per local target; depth 70 four-tick inputs; nonexhaustive heuristic search",
-      "result": "The first guarded-chip loop succeeded. Subsequent lower-right-room/return-anchor attempts stopped at the declared time bounds without a route; these failures do not prove impossibility."
+      "kind": "winning replay",
+      "result": "Both engines completed at tick 1,784 with identical initial state, all 1,785 tick snapshots, and final result; native stderr was empty.",
+      "tws": "981.tws",
+      "certificate": "981.tws.json",
+      "seed": 0,
+      "stepping": 0,
+      "keyboardMoves": 431,
+      "mouseMoves": 0
     }
   ],
   "sources": [
-    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
-    "legacy_c/mslogic.c:1597",
-    "legacy_c/mslogic.c:1829",
-    "web/src/ruleset-ms/impl/chipMovement.ts:104",
-    "scripts/jacques/park-981.ts",
-    "scripts/jacques/verify-981-progress.ts",
-    "legacy_c/mslogic.c:1242"
+    "legacy_c/mslogic.c:1242",
+    "scripts/jacques/replay-981.ts",
+    "scripts/jacques/harness.ts"
   ],
   "title": "Green Kittens Aren't Aliens",
   "argument": [
-    "The reusable green key at (16,26) unlocks the rooms without resource depletion. Three starting chips are safely collectible.",
-    "A short timing loop frees the teeth from the southeast inner chamber, collects its chip at (17,24), and escapes north.",
-    "A hand-derived dodge around (19,18) leads that teeth onto the east thin wall at (21,20). Its preferred south and east moves then fail while Chip reaches the chip at (22,20).",
-    "The legacy native MS oracle confirms the partial route remains playing at tick 227, Chip (22,20), with 11 chips still required. This is progress evidence, not a solution."
+    "Take the reusable green key at (16,26) and the three starting chips. Green doors do not consume this key, so the task is to manage the seven Teeth as each room opens.",
+    "Collect (17,24), then lure the released Teeth against the thin wall at (21,20) while taking (22,20). Use the lower-right loop to take (23,24) and return safely to the inner corridor.",
+    "Clear the eastern rooms next: (24,12), (23,16), and (24,17). Leave the central Teeth behind its door while visiting the western rooms, so it cannot cut off those return paths.",
+    "Collect (9,24) and (10,22). Combine the neighboring upper-left rooms in one visit, taking (8,17) and (9,16); this avoids an extra lure circuit and keeps the route within the 100-second limit.",
+    "Visit the inner-left chip at (15,24), release and evade the central Teeth to collect (16,17), then take the last chip at (8,12). Loop back to the socket at (16,13) and enter the exit immediately south at (16,14).",
+    "The unmodified level completes at tick 1,784 with seed 0 and stepping 0. The 431 recorded moves are cardinal keyboard commands; there are no mouse or diagonal commands. The encoded TWS has identical complete native and web traces."
   ],
   "evidence": {
+    "winningReplay": "981.tws",
+    "certificate": "981.tws.json",
+    "inputs": "981-winning-inputs.json",
     "facts": {
-      "partialRouteTick": 227,
-      "partialRouteChipsCollected": 5,
-      "partialRouteChipsRemaining": 11,
-      "nativeStatus": "playing",
-      "chipPosition": [
-        22,
-        20
-      ]
+      "finalTick": 1784,
+      "chipsCollected": 16,
+      "chipsRemaining": 0,
+      "nativeStatus": "completed",
+      "exactTraceParity": true,
+      "keyboardMoves": 431,
+      "mouseMoves": 0
     },
-    "sourceReferences": [
-      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
-      "legacy_c/mslogic.c:1597",
-      "legacy_c/mslogic.c:1829",
-      "web/src/ruleset-ms/impl/chipMovement.ts:104"
-    ],
-    "visualFiles": [
-      "981-initial.svg",
-      "981-initial.png",
-      "981-bottom.svg"
-    ],
     "files": [
-      "web/public/dev/solutions/jacques/evidence/981-partial-route.json"
+      "web/public/dev/solutions/jacques/evidence/981-winning-route.json"
     ]
   },
-  "engineCommit": "f5ad1c7f160038fe808d8447848bce32334ff345"
+  "engineCommit": "d589c90fb057e241d86dedf98c8fb5d4de0647d6"
 }
