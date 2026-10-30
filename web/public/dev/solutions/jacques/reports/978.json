@@ -8,13 +8,17 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
   "status": "unresolved",
-  "summary": "1940 chips required and exactly 1940 present, including 966 double-chip stacks and one under the starting player. Each underlying chip needs a return visit.",
+  "summary": "All 1,940 chips are required. The main obstacle is opening the double-chip boundary around a continuously cloned walker corridor without being trapped by the released walkers. No winning replay or complete impossibility argument is established.",
   "visualEvidence": [
     "978-initial.svg",
     "978-initial.png",
     "978-bottom.svg"
   ],
-  "proofSteps": [],
+  "proofSteps": [
+    "The source walker at (6,2) faces west on a cloner. A ball repeatedly crosses the connected red button at (23,3), filling the corridor from (2,2) to (6,2).",
+    "The surrounding chips initially contain the walkers. Removing the last chip from a boundary cell admits monsters into that cell; a state can appear alive until the next monster movement phase, when Chip may be killed before being able to leave.",
+    "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution."
+  ],
   "limitations": [
     "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
   ],
@@ -22,6 +26,19 @@
     {
       "kind": "data audit",
       "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    },
+    {
+      "kind": "collection attempt",
+      "result": "A deterministic collection attempt reached 20 chips remaining before time became limiting. The remaining cells were concentrated near the walker cloner. This was not a winning replay."
+    },
+    {
+      "kind": "localized opening search",
+      "result": "Used a fixed seed and stepping value to search movement choices around the cloner after inspecting its mechanism. A next-window survival check rejected apparently successful openings that were killed on the following monster phase. Clearing the full surrounding region and finishing the level remain unresolved."
+    },
+    {
+      "kind": "native opening validation",
+      "result": "The 116-input opening that clears the 18 critical adjacent chips also matches the native final state: alive at (1,2), tick 115, with 1914 of 1940 chips still required. Exact replay bytes were read and native stderr was empty. This is a partial route, not a win.",
+      "evidence": "978-opening-native-probe.json"
     }
   ],
   "sources": [
@@ -31,7 +48,11 @@
     "web/src/ruleset-ms/impl/chipMovement.ts:104"
   ],
   "title": "A Bit Walkery",
-  "argument": [],
+  "argument": [
+    "The source walker at (6,2) faces west on a cloner. A ball repeatedly crosses the connected red button at (23,3), filling the corridor from (2,2) to (6,2).",
+    "The surrounding chips initially contain the walkers. Removing the last chip from a boundary cell admits monsters into that cell; a state can appear alive until the next monster movement phase, when Chip may be killed before being able to leave.",
+    "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution."
+  ],
   "evidence": {
     "facts": {},
     "sourceReferences": [
@@ -46,5 +67,5 @@
       "978-bottom.svg"
     ]
   },
-  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+  "engineCommit": "4d9af67da059d9aee72675aef6001cbd2a61b8a6"
 }

@@ -1,10 +1,10 @@
 {
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
-  "engineCommit": "332f3aa99cd8c4195cc94c199a60e80526a4678e",
+  "engineCommit": "4d9af67da059d9aee72675aef6001cbd2a61b8a6",
   "counts": {
     "solved": 3,
-    "impossible": 25,
-    "unresolved": 10
+    "impossible": 27,
+    "unresolved": 8
   },
   "levels": [
     {
@@ -124,8 +124,8 @@
     {
       "level": 914,
       "title": "whileuwait",
-      "status": "unresolved",
-      "summary": "Investigation is continuing; no winning replay or complete impossibility argument is established yet."
+      "status": "impossible",
+      "summary": "Permanent walls and unconnected traps limit every potentially winning route to at most 36 chips, below the 131 required by the exit socket."
     },
     {
       "level": 915,
@@ -142,8 +142,8 @@
     {
       "level": 925,
       "title": "Somewhat Tedious II",
-      "status": "unresolved",
-      "summary": "Investigation is continuing; no winning replay or complete impossibility argument is established yet."
+      "status": "impossible",
+      "summary": "The sole exit is buried under water behind a permanent block-delivery obstruction. Swimming destroys the buried exit instead of opening it."
     },
     {
       "level": 931,
@@ -155,7 +155,7 @@
       "level": 932,
       "title": "RUN!!! IV",
       "status": "unresolved",
-      "summary": "MS supplies a default player at (0,0) despite the missing Chip tile. A constructive prefix collects 669 chips and opens a portal through the monster boundary, but no complete replay or impossibility argument is established."
+      "summary": "Unresolved. A corrected MS route has collected 959 of the required 999 chips and matches native C at every recorded step. The final 40-chip route is still being constructed."
     },
     {
       "level": 937,

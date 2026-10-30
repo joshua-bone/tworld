@@ -19,6 +19,13 @@
     "review-791.ts",
     "ice-analysis.ts",
     "navigate-ice.ts",
-    "prove-ice-trap.ts"
+    "prove-ice-trap.ts",
+    "solve-981.ts",
+    "park-981.ts",
+    "plan-981.ts",
+    "verify-981-progress.ts",
+    "route-910.ts",
+    "verify-910-progress.ts",
+    "probe-723.ts"
   ]
 }

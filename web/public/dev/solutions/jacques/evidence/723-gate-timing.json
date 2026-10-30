@@ -1,0 +1,1823 @@
+{
+  "level": 723,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "probeOnlyNotWinning": true,
+  "description": "All four manual-push phases at the upper-right block gate, followed by earliest south, east and north inputs. This timing check supports a semantic argument; it is not a global search.",
+  "prefixInputs": [
+    4,
+    4,
+    4,
+    4,
+    4,
+    8,
+    8,
+    8,
+    8,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    8,
+    8,
+    8,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    8,
+    8,
+    8,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    8,
+    8,
+    8,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    4,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    4,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    4,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    4,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    4,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    4,
+    4,
+    4,
+    4,
+    1,
+    1,
+    1,
+    1,
+    8,
+    8,
+    8,
+    8,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    4,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    8,
+    0,
+    0
+  ],
+  "probes": [
+    {
+      "phase": 0,
+      "pushTick": 564,
+      "arrivals": {
+        "south": 568,
+        "east": 572,
+        "northAttempt": 576
+      },
+      "selected": [
+        {
+          "tick": 564,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "86cc77f650be93d8"
+        },
+        {
+          "tick": 565,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "86cc77f650be93d8"
+        },
+        {
+          "tick": 566,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "ba63d14bedde8298"
+        },
+        {
+          "tick": 567,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "ba63d14bedde8298"
+        },
+        {
+          "tick": 568,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "763cfc270c98cbfb"
+        },
+        {
+          "tick": 569,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "763cfc270c98cbfb"
+        },
+        {
+          "tick": 570,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 22,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "bc75155bd3a441fb"
+        },
+        {
+          "tick": 571,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 22,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "bc75155bd3a441fb"
+        },
+        {
+          "tick": 572,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "72c0f14e288697a4"
+        },
+        {
+          "tick": 573,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "72c0f14e288697a4"
+        },
+        {
+          "tick": 574,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "df129391005a6906"
+        },
+        {
+          "tick": 575,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "df129391005a6906"
+        },
+        {
+          "tick": 576,
+          "chip": {
+            "x": 21,
+            "y": 1,
+            "pos": 53
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "80b67c280e0d2605"
+        },
+        {
+          "tick": 577,
+          "chip": {
+            "x": 21,
+            "y": 1,
+            "pos": 53
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "80b67c280e0d2605"
+        },
+        {
+          "tick": 578,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "4b5543991a7fcc85"
+        },
+        {
+          "tick": 579,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "4b5543991a7fcc85"
+        },
+        {
+          "tick": 580,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "8ef6ebfd6ba9043f"
+        }
+      ],
+      "exactTraceParity": true,
+      "nativeResult": {
+        "status": "playing",
+        "finalTick": 580,
+        "stepCount": 581
+      },
+      "nativeStderr": ""
+    },
+    {
+      "phase": 1,
+      "pushTick": 565,
+      "arrivals": {
+        "south": 568,
+        "east": 572,
+        "northAttempt": 576
+      },
+      "selected": [
+        {
+          "tick": 565,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "86cc77f650be93d8"
+        },
+        {
+          "tick": 566,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "ba63d14bedde8298"
+        },
+        {
+          "tick": 567,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "ba63d14bedde8298"
+        },
+        {
+          "tick": 568,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "763cfc270c98cbfb"
+        },
+        {
+          "tick": 569,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "763cfc270c98cbfb"
+        },
+        {
+          "tick": 570,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 22,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "bc75155bd3a441fb"
+        },
+        {
+          "tick": 571,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 22,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "bc75155bd3a441fb"
+        },
+        {
+          "tick": 572,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "72c0f14e288697a4"
+        },
+        {
+          "tick": 573,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "72c0f14e288697a4"
+        },
+        {
+          "tick": 574,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "df129391005a6906"
+        },
+        {
+          "tick": 575,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "df129391005a6906"
+        },
+        {
+          "tick": 576,
+          "chip": {
+            "x": 21,
+            "y": 1,
+            "pos": 53
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "80b67c280e0d2605"
+        },
+        {
+          "tick": 577,
+          "chip": {
+            "x": 21,
+            "y": 1,
+            "pos": 53
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "80b67c280e0d2605"
+        },
+        {
+          "tick": 578,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "4b5543991a7fcc85"
+        },
+        {
+          "tick": 579,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "4b5543991a7fcc85"
+        },
+        {
+          "tick": 580,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "8ef6ebfd6ba9043f"
+        }
+      ],
+      "exactTraceParity": true,
+      "nativeResult": {
+        "status": "playing",
+        "finalTick": 580,
+        "stepCount": 581
+      },
+      "nativeStderr": ""
+    },
+    {
+      "phase": 2,
+      "pushTick": 566,
+      "arrivals": {
+        "south": 568,
+        "east": 572,
+        "northAttempt": 576
+      },
+      "selected": [
+        {
+          "tick": 566,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "ba63d14bedde8298"
+        },
+        {
+          "tick": 567,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "ba63d14bedde8298"
+        },
+        {
+          "tick": 568,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "763cfc270c98cbfb"
+        },
+        {
+          "tick": 569,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "763cfc270c98cbfb"
+        },
+        {
+          "tick": 570,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "8e07212b9d5722db"
+        },
+        {
+          "tick": 571,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "8e07212b9d5722db"
+        },
+        {
+          "tick": 572,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "eb37e70ce98aad46"
+        },
+        {
+          "tick": 573,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "eb37e70ce98aad46"
+        },
+        {
+          "tick": 574,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "ee2c16b02b50c1c6"
+        },
+        {
+          "tick": 575,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "ee2c16b02b50c1c6"
+        },
+        {
+          "tick": 576,
+          "chip": {
+            "x": 21,
+            "y": 1,
+            "pos": 53
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 22,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "3e8c62c332eb0a37"
+        },
+        {
+          "tick": 577,
+          "chip": {
+            "x": 21,
+            "y": 1,
+            "pos": 53
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 22,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "3e8c62c332eb0a37"
+        },
+        {
+          "tick": 578,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "088c1b48ed5c2db5"
+        },
+        {
+          "tick": 579,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "088c1b48ed5c2db5"
+        },
+        {
+          "tick": 580,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "7c6abc0bc263580d"
+        }
+      ],
+      "exactTraceParity": true,
+      "nativeResult": {
+        "status": "playing",
+        "finalTick": 580,
+        "stepCount": 581
+      },
+      "nativeStderr": ""
+    },
+    {
+      "phase": 3,
+      "pushTick": 563,
+      "arrivals": {
+        "south": 564,
+        "east": 568,
+        "northAttempt": 572
+      },
+      "selected": [
+        {
+          "tick": 563,
+          "chip": {
+            "x": 20,
+            "y": 1,
+            "pos": 52
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "546f39fbdc58f4d8"
+        },
+        {
+          "tick": 564,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "2ba69e8f0d425679"
+        },
+        {
+          "tick": 565,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "2ba69e8f0d425679"
+        },
+        {
+          "tick": 566,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 22,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "8b538916044cb1d9"
+        },
+        {
+          "tick": 567,
+          "chip": {
+            "x": 20,
+            "y": 2,
+            "pos": 84
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 22,
+                "y": 1
+              },
+              "direction": 8,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "8b538916044cb1d9"
+        },
+        {
+          "tick": 568,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "2b4f2f23a1730346"
+        },
+        {
+          "tick": 569,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 21,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": true
+            }
+          ],
+          "nativeMapHash": "2b4f2f23a1730346"
+        },
+        {
+          "tick": 570,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "9cc96a56e893dbd6"
+        },
+        {
+          "tick": 571,
+          "chip": {
+            "x": 21,
+            "y": 2,
+            "pos": 85
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "9cc96a56e893dbd6"
+        },
+        {
+          "tick": 572,
+          "chip": {
+            "x": 21,
+            "y": 1,
+            "pos": 53
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "d64d6ebc373c19b7"
+        },
+        {
+          "tick": 573,
+          "chip": {
+            "x": 21,
+            "y": 1,
+            "pos": 53
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "d64d6ebc373c19b7"
+        },
+        {
+          "tick": 574,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "720b25842ba3d615"
+        },
+        {
+          "tick": 575,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "720b25842ba3d615"
+        },
+        {
+          "tick": 576,
+          "chip": {
+            "x": 21,
+            "y": 0,
+            "pos": 21
+          },
+          "gateBlocks": [
+            {
+              "position": {
+                "x": 20,
+                "y": 1
+              },
+              "direction": 2,
+              "sliding": false
+            }
+          ],
+          "nativeMapHash": "8836c6bfee78f165"
+        }
+      ],
+      "exactTraceParity": true,
+      "nativeResult": {
+        "status": "playing",
+        "finalTick": 576,
+        "stepCount": 577
+      },
+      "nativeStderr": ""
+    }
+  ]
+}

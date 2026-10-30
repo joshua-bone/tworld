@@ -141,5 +141,5 @@
       "result": "Native MS fails on tick32 for all eight stepping settings; precise glider/button/tank positions retained. The timing probes support the independent intervention-distance argument; failed play alone is not treated as impossibility."
     }
   ],
-  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+  "engineCommit": "4d9af67da059d9aee72675aef6001cbd2a61b8a6"
 }

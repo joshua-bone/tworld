@@ -22,6 +22,10 @@
     {
       "kind": "data audit",
       "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    },
+    {
+      "kind": "bounded collection attempt",
+      "result": "A short run collected 37 of the required 376 chips, then was cornered by the automatically cloned swarm near (0,10). This is an unsuccessful attempt, not an impossibility argument."
     }
   ],
   "sources": [
@@ -46,5 +50,5 @@
       "952-bottom.svg"
     ]
   },
-  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+  "engineCommit": "4d9af67da059d9aee72675aef6001cbd2a61b8a6"
 }

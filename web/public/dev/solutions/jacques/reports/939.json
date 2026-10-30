@@ -22,6 +22,10 @@
     {
       "kind": "data audit",
       "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    },
+    {
+      "kind": "bounded collection attempt",
+      "result": "A run confined to the upper region collected 213 of the required 411 chips and acquired the buried red key, then became cornered near (24,18). No complete solution or impossibility follows."
     }
   ],
   "sources": [
@@ -46,5 +50,5 @@
       "939-bottom.svg"
     ]
   },
-  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+  "engineCommit": "4d9af67da059d9aee72675aef6001cbd2a61b8a6"
 }

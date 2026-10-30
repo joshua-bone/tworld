@@ -1,0 +1,68 @@
+{
+  "level": 925,
+  "name": "Somewhat Tedious II",
+  "title": "Somewhat Tedious II",
+  "ruleset": "MS",
+  "timeLimitSeconds": 0,
+  "chipsRequired": 999,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinates": "zero-based x,y",
+  "status": "impossible",
+  "summary": "The sole exit is buried under water behind a permanent block-delivery obstruction. Swimming destroys the buried exit instead of opening it.",
+  "argument": [
+    "The only Exit is at (0,31), beneath Water. Its north neighbor (0,30) is a south-facing directional Block over a Clone Machine; no cloner connection targets that cell. The remainder of the north barrier, (1..9,30), consists of bare Clone Machines. The board boundary closes the west and south sides.",
+    "The unwired directional block cannot leave its cloner autonomously. Chip cannot manually push it: floorat resolves its underlying Clone Machine, whose entry rule rejects Chip. Neither blocks nor monsters can enter a Clone Machine and dislodge it. Thus every external block approaching the exit must travel west along row 31.",
+    "Every such westward route crosses the east force floor at (6,31). A block first entering from (7,31) immediately acquires eastward slipping state. pushblock rejects both pushes parallel to and opposite its slip direction before moving the block or clearing that state. Therefore another west push cannot advance it to (5,31), regardless of input timing.",
+    "Blocking the forced return east does not help: a failed forced move restarts floor movement using the same east force direction. A failed perpendicular manual push could clear slipping, but its required stance is either (6,30), an impassable Clone Machine, or (6,32), outside the board. There is no local teleport to supply the special teleport-push exception.",
+    "Mutant blocks do not bypass this cut. They display Chip and cannot be manually pushed. Fire at (7,31) ends forced movement, so a mutant from elsewhere cannot travel west across that ordinary-floor approach. Creating an overlap locally requires a block to enter Chip on the force-floor corridor, which is a losing collision; the special cloner-squish exception applies only when a block leaves a Clone Machine. No cloner is adjacent to the force-floor cell in a traversable direction.",
+    "Consequently no block can reach Water (5,31), much less the Water covering Exit (0,31). Only a block converts Water to Dirt while preserving its lower tile. Swimming does not uncover the Exit: the Water arrival action does not pop the tile, and adding Chip to the map replaces the lower Exit with Water before the completion check. Other monsters either die in Water without uncovering it, or, for a glider, overwrite the buried Exit in the same way. Therefore no play can complete the level, even after collecting all 999 required chips."
+  ],
+  "proofSteps": [
+    "The only Exit is at (0,31), beneath Water. Its north neighbor (0,30) is a south-facing directional Block over a Clone Machine; no cloner connection targets that cell. The remainder of the north barrier, (1..9,30), consists of bare Clone Machines. The board boundary closes the west and south sides.",
+    "The unwired directional block cannot leave its cloner autonomously. Chip cannot manually push it: floorat resolves its underlying Clone Machine, whose entry rule rejects Chip. Neither blocks nor monsters can enter a Clone Machine and dislodge it. Thus every external block approaching the exit must travel west along row 31.",
+    "Every such westward route crosses the east force floor at (6,31). A block first entering from (7,31) immediately acquires eastward slipping state. pushblock rejects both pushes parallel to and opposite its slip direction before moving the block or clearing that state. Therefore another west push cannot advance it to (5,31), regardless of input timing.",
+    "Blocking the forced return east does not help: a failed forced move restarts floor movement using the same east force direction. A failed perpendicular manual push could clear slipping, but its required stance is either (6,30), an impassable Clone Machine, or (6,32), outside the board. There is no local teleport to supply the special teleport-push exception.",
+    "Mutant blocks do not bypass this cut. They display Chip and cannot be manually pushed. Fire at (7,31) ends forced movement, so a mutant from elsewhere cannot travel west across that ordinary-floor approach. Creating an overlap locally requires a block to enter Chip on the force-floor corridor, which is a losing collision; the special cloner-squish exception applies only when a block leaves a Clone Machine. No cloner is adjacent to the force-floor cell in a traversable direction.",
+    "Consequently no block can reach Water (5,31), much less the Water covering Exit (0,31). Only a block converts Water to Dirt while preserving its lower tile. Swimming does not uncover the Exit: the Water arrival action does not pop the tile, and adding Chip to the map replaces the lower Exit with Water before the completion check. Other monsters either die in Water without uncovering it, or, for a glider, overwrite the buried Exit in the same way. Therefore no play can complete the level, even after collecting all 999 required chips."
+  ],
+  "evidence": {
+    "mapAssertions": "925-reproduce-exit.ts",
+    "visualFiles": [
+      "925-exit.svg"
+    ],
+    "sourceMap": "web/public/dev/solutions/jacques/maps/925.json",
+    "sources": [
+      "legacy_c/mslogic.c:491-497 (pushtile overwrites the lower plane)",
+      "legacy_c/mslogic.c:646-652 (adding an actor uses pushtile)",
+      "legacy_c/mslogic.c:723-750 (force-floor arrival gives blocks the floor direction)",
+      "legacy_c/mslogic.c:871-872 (Clone Machine entry masks)",
+      "legacy_c/mslogic.c:961-968 (parallel and opposite slipping-block pushes rejected)",
+      "legacy_c/mslogic.c:978-985 (only failed attempted block movement cancels slipping)",
+      "legacy_c/mslogic.c:1034-1050 (floor-based entry and creature occupancy)",
+      "legacy_c/mslogic.c:1104-1105 (underlying cloner rejects entry)",
+      "legacy_c/mslogic.c:1619-1622 (Water arrival does not pop its lower tile)",
+      "legacy_c/mslogic.c:1693-1696 (block fills Water with Dirt)",
+      "legacy_c/mslogic.c:1769 (actor added before completion test)",
+      "legacy_c/mslogic.c:1829-1831 (completion requires bottom Exit)",
+      "legacy_c/mslogic.c:1833-1840 (block collision and cloner-only squish exception)",
+      "legacy_c/mslogic.c:1847-1865 (forced movement ends on ordinary floor)",
+      "legacy_c/mslogic.c:1988-2004 (blocked forced movement restarts the same force direction)"
+    ],
+    "chipCollectionProbe": "925-all-chips-not-winning.json"
+  },
+  "visualEvidence": [
+    "925-exit.svg"
+  ],
+  "experiments": [
+    {
+      "kind": "independent source and visual review",
+      "result": "Inspected the exact exit corridor and both layers, cloner wiring, original C push rejection ordering, failed forced-movement restart, perpendicular cancellation, teleport exception, mutant blocks, and Water-over-Exit completion semantics."
+    },
+    {
+      "kind": "constructive countercheck",
+      "result": "An unchanged-level replay collects all 999 required chips by tick 141295. The original C engine independently reaches the same playing endpoint, Chip (10,11), with zero required chips remaining. The exact TWS bytes are preserved as 925-all-chips-not-winning.tws; this is not a winning replay and is not needed for the exit proof."
+    }
+  ],
+  "limitations": [],
+  "chipsPresent": 1000
+}

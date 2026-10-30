@@ -11,7 +11,7 @@
   "summary": "A keyless green door seals at least five needed chips; both exit routes remain closed.",
   "proofSteps": [
     "Exactly 136 chips are present and 132 required. There is no green key in either layer.",
-    "The vertical corridor x 10, y 0..8 is bounded by permanent Walls at x 9 andx 11 on every row 0..8, the north board edge, and GreenDoor (10, 9) to the south. Four chips at (10, 1),(10, 3),(10, 5),(10, 7) are inside. A fifth chip lies beneath the green door itself. There is no teleport in this corridor.",
+    "The vertical corridor x 10, y 0..8 is bounded by permanent Walls at x 9 and x 11 on every row 0..8, the north board edge, and GreenDoor (10, 9) to the south. Four chips at (10, 1),(10, 3),(10, 5),(10, 7) are inside. A fifth chip lies beneath the green door itself. There is no teleport in this corridor.",
     "No legal operation can acquire a green key or remove a green door without one. The four interior chips and the buried fifth chip therefore remain inaccessible. At most 131 chips can be collected, less than 132. Additionally chip (6, 24) is under a permanent real blue wall, but that extra deficit is not needed.",
     "The main exit (30, 20) lies in a horizontal fire corridor closed by Walls above/below/right. Its sole entrance passes Socket (21, 20), which cannot open with the chip deficit.",
     "The alternate exit (14, 31) has permanent Walls north/east and the board edge south. Its only west neighbor (13, 31) is a glider on Beartrap. No trap control targets that square. The glider is permanently trapped; ordinary blocks and other monsters cannot remove it or push it out, and there is no bomb/cloner/teleport there.",
@@ -41,7 +41,7 @@
   "title": "Number Soup",
   "argument": [
     "Exactly 136 chips are present and 132 required. There is no green key in either layer.",
-    "The vertical corridor x 10, y 0..8 is bounded by permanent Walls at x 9 andx 11 on every row 0..8, the north board edge, and GreenDoor (10, 9) to the south. Four chips at (10, 1),(10, 3),(10, 5),(10, 7) are inside. A fifth chip lies beneath the green door itself. There is no teleport in this corridor.",
+    "The vertical corridor x 10, y 0..8 is bounded by permanent Walls at x 9 and x 11 on every row 0..8, the north board edge, and GreenDoor (10, 9) to the south. Four chips at (10, 1),(10, 3),(10, 5),(10, 7) are inside. A fifth chip lies beneath the green door itself. There is no teleport in this corridor.",
     "No legal operation can acquire a green key or remove a green door without one. The four interior chips and the buried fifth chip therefore remain inaccessible. At most 131 chips can be collected, less than 132. Additionally chip (6, 24) is under a permanent real blue wall, but that extra deficit is not needed.",
     "The main exit (30, 20) lies in a horizontal fire corridor closed by Walls above/below/right. Its sole entrance passes Socket (21, 20), which cannot open with the chip deficit.",
     "The alternate exit (14, 31) has permanent Walls north/east and the board edge south. Its only west neighbor (13, 31) is a glider on Beartrap. No trap control targets that square. The glider is permanently trapped; ordinary blocks and other monsters cannot remove it or push it out, and there is no bomb/cloner/teleport there.",

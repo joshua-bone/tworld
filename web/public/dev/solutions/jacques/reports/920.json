@@ -26,5 +26,5 @@
     "The native MS completion condition requires Chip to arrive on an actual Exit. No available movement, button, clone, or terrain transformation creates an Exit tile.",
     "Therefore no legal input sequence can complete this unmodified level. This does not depend on random seed or timing."
   ],
-  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+  "engineCommit": "4d9af67da059d9aee72675aef6001cbd2a61b8a6"
 }
