@@ -1,0 +1,797 @@
+{
+  "level": 376,
+  "nativeManualResult": {
+    "status": "completed",
+    "finalTick": 920,
+    "stepCount": 921
+  },
+  "nativeRecorderMouse": {
+    "when": 742,
+    "dir": 177
+  },
+  "nativeRecorderMoves": [
+    {
+      "when": 85,
+      "dir": 4
+    },
+    {
+      "when": 187,
+      "dir": 2
+    },
+    {
+      "when": 188,
+      "dir": 2
+    },
+    {
+      "when": 192,
+      "dir": 2
+    },
+    {
+      "when": 196,
+      "dir": 2
+    },
+    {
+      "when": 200,
+      "dir": 2
+    },
+    {
+      "when": 204,
+      "dir": 4
+    },
+    {
+      "when": 208,
+      "dir": 2
+    },
+    {
+      "when": 212,
+      "dir": 8
+    },
+    {
+      "when": 216,
+      "dir": 8
+    },
+    {
+      "when": 220,
+      "dir": 8
+    },
+    {
+      "when": 224,
+      "dir": 8
+    },
+    {
+      "when": 228,
+      "dir": 8
+    },
+    {
+      "when": 232,
+      "dir": 1
+    },
+    {
+      "when": 236,
+      "dir": 8
+    },
+    {
+      "when": 279,
+      "dir": 1
+    },
+    {
+      "when": 280,
+      "dir": 1
+    },
+    {
+      "when": 284,
+      "dir": 1
+    },
+    {
+      "when": 288,
+      "dir": 2
+    },
+    {
+      "when": 292,
+      "dir": 1
+    },
+    {
+      "when": 296,
+      "dir": 1
+    },
+    {
+      "when": 300,
+      "dir": 1
+    },
+    {
+      "when": 304,
+      "dir": 2
+    },
+    {
+      "when": 308,
+      "dir": 1
+    },
+    {
+      "when": 312,
+      "dir": 1
+    },
+    {
+      "when": 316,
+      "dir": 2
+    },
+    {
+      "when": 320,
+      "dir": 1
+    },
+    {
+      "when": 324,
+      "dir": 1
+    },
+    {
+      "when": 328,
+      "dir": 2
+    },
+    {
+      "when": 332,
+      "dir": 1
+    },
+    {
+      "when": 336,
+      "dir": 1
+    },
+    {
+      "when": 340,
+      "dir": 2
+    },
+    {
+      "when": 344,
+      "dir": 1
+    },
+    {
+      "when": 348,
+      "dir": 1
+    },
+    {
+      "when": 352,
+      "dir": 4
+    },
+    {
+      "when": 356,
+      "dir": 1
+    },
+    {
+      "when": 360,
+      "dir": 4
+    },
+    {
+      "when": 364,
+      "dir": 4
+    },
+    {
+      "when": 368,
+      "dir": 4
+    },
+    {
+      "when": 372,
+      "dir": 4
+    },
+    {
+      "when": 376,
+      "dir": 4
+    },
+    {
+      "when": 380,
+      "dir": 2
+    },
+    {
+      "when": 384,
+      "dir": 4
+    },
+    {
+      "when": 388,
+      "dir": 4
+    },
+    {
+      "when": 392,
+      "dir": 4
+    },
+    {
+      "when": 396,
+      "dir": 4
+    },
+    {
+      "when": 400,
+      "dir": 4
+    },
+    {
+      "when": 404,
+      "dir": 4
+    },
+    {
+      "when": 408,
+      "dir": 4
+    },
+    {
+      "when": 412,
+      "dir": 4
+    },
+    {
+      "when": 416,
+      "dir": 4
+    },
+    {
+      "when": 418,
+      "dir": 4
+    },
+    {
+      "when": 420,
+      "dir": 1
+    },
+    {
+      "when": 424,
+      "dir": 4
+    },
+    {
+      "when": 473,
+      "dir": 8
+    },
+    {
+      "when": 476,
+      "dir": 8
+    },
+    {
+      "when": 480,
+      "dir": 8
+    },
+    {
+      "when": 484,
+      "dir": 8
+    },
+    {
+      "when": 488,
+      "dir": 8
+    },
+    {
+      "when": 492,
+      "dir": 8
+    },
+    {
+      "when": 496,
+      "dir": 1
+    },
+    {
+      "when": 500,
+      "dir": 1
+    },
+    {
+      "when": 504,
+      "dir": 8
+    },
+    {
+      "when": 508,
+      "dir": 8
+    },
+    {
+      "when": 512,
+      "dir": 8
+    },
+    {
+      "when": 516,
+      "dir": 8
+    },
+    {
+      "when": 520,
+      "dir": 8
+    },
+    {
+      "when": 524,
+      "dir": 1
+    },
+    {
+      "when": 528,
+      "dir": 1
+    },
+    {
+      "when": 532,
+      "dir": 1
+    },
+    {
+      "when": 536,
+      "dir": 8
+    },
+    {
+      "when": 540,
+      "dir": 8
+    },
+    {
+      "when": 544,
+      "dir": 8
+    },
+    {
+      "when": 550,
+      "dir": 4
+    },
+    {
+      "when": 552,
+      "dir": 4
+    },
+    {
+      "when": 556,
+      "dir": 4
+    },
+    {
+      "when": 560,
+      "dir": 1
+    },
+    {
+      "when": 564,
+      "dir": 1
+    },
+    {
+      "when": 568,
+      "dir": 1
+    },
+    {
+      "when": 572,
+      "dir": 8
+    },
+    {
+      "when": 576,
+      "dir": 8
+    },
+    {
+      "when": 580,
+      "dir": 8
+    },
+    {
+      "when": 584,
+      "dir": 2
+    },
+    {
+      "when": 588,
+      "dir": 8
+    },
+    {
+      "when": 592,
+      "dir": 2
+    },
+    {
+      "when": 596,
+      "dir": 4
+    },
+    {
+      "when": 600,
+      "dir": 4
+    },
+    {
+      "when": 604,
+      "dir": 4
+    },
+    {
+      "when": 608,
+      "dir": 4
+    },
+    {
+      "when": 612,
+      "dir": 2
+    },
+    {
+      "when": 616,
+      "dir": 2
+    },
+    {
+      "when": 620,
+      "dir": 2
+    },
+    {
+      "when": 624,
+      "dir": 2
+    },
+    {
+      "when": 628,
+      "dir": 4
+    },
+    {
+      "when": 632,
+      "dir": 2
+    },
+    {
+      "when": 636,
+      "dir": 2
+    },
+    {
+      "when": 640,
+      "dir": 4
+    },
+    {
+      "when": 644,
+      "dir": 2
+    },
+    {
+      "when": 648,
+      "dir": 2
+    },
+    {
+      "when": 652,
+      "dir": 2
+    },
+    {
+      "when": 656,
+      "dir": 2
+    },
+    {
+      "when": 660,
+      "dir": 2
+    },
+    {
+      "when": 664,
+      "dir": 2
+    },
+    {
+      "when": 668,
+      "dir": 2
+    },
+    {
+      "when": 672,
+      "dir": 4
+    },
+    {
+      "when": 676,
+      "dir": 4
+    },
+    {
+      "when": 680,
+      "dir": 4
+    },
+    {
+      "when": 684,
+      "dir": 1
+    },
+    {
+      "when": 690,
+      "dir": 4
+    },
+    {
+      "when": 692,
+      "dir": 4
+    },
+    {
+      "when": 698,
+      "dir": 2
+    },
+    {
+      "when": 700,
+      "dir": 2
+    },
+    {
+      "when": 718,
+      "dir": 2
+    },
+    {
+      "when": 742,
+      "dir": 177
+    },
+    {
+      "when": 747,
+      "dir": 8
+    },
+    {
+      "when": 748,
+      "dir": 8
+    },
+    {
+      "when": 752,
+      "dir": 8
+    },
+    {
+      "when": 756,
+      "dir": 8
+    },
+    {
+      "when": 760,
+      "dir": 8
+    },
+    {
+      "when": 764,
+      "dir": 8
+    },
+    {
+      "when": 768,
+      "dir": 8
+    },
+    {
+      "when": 772,
+      "dir": 8
+    },
+    {
+      "when": 776,
+      "dir": 8
+    },
+    {
+      "when": 780,
+      "dir": 8
+    },
+    {
+      "when": 784,
+      "dir": 8
+    },
+    {
+      "when": 788,
+      "dir": 4
+    },
+    {
+      "when": 792,
+      "dir": 4
+    },
+    {
+      "when": 796,
+      "dir": 8
+    },
+    {
+      "when": 800,
+      "dir": 8
+    },
+    {
+      "when": 804,
+      "dir": 8
+    },
+    {
+      "when": 811,
+      "dir": 1
+    },
+    {
+      "when": 812,
+      "dir": 1
+    },
+    {
+      "when": 816,
+      "dir": 8
+    },
+    {
+      "when": 820,
+      "dir": 2
+    },
+    {
+      "when": 824,
+      "dir": 8
+    },
+    {
+      "when": 831,
+      "dir": 8
+    },
+    {
+      "when": 832,
+      "dir": 8
+    },
+    {
+      "when": 836,
+      "dir": 2
+    },
+    {
+      "when": 840,
+      "dir": 8
+    },
+    {
+      "when": 844,
+      "dir": 1
+    },
+    {
+      "when": 848,
+      "dir": 1
+    },
+    {
+      "when": 852,
+      "dir": 1
+    },
+    {
+      "when": 856,
+      "dir": 1
+    },
+    {
+      "when": 860,
+      "dir": 1
+    },
+    {
+      "when": 864,
+      "dir": 1
+    },
+    {
+      "when": 868,
+      "dir": 1
+    },
+    {
+      "when": 870,
+      "dir": 1
+    },
+    {
+      "when": 872,
+      "dir": 8
+    },
+    {
+      "when": 876,
+      "dir": 8
+    },
+    {
+      "when": 880,
+      "dir": 8
+    },
+    {
+      "when": 884,
+      "dir": 8
+    },
+    {
+      "when": 888,
+      "dir": 8
+    },
+    {
+      "when": 892,
+      "dir": 8
+    },
+    {
+      "when": 896,
+      "dir": 8
+    },
+    {
+      "when": 900,
+      "dir": 8
+    },
+    {
+      "when": 904,
+      "dir": 8
+    },
+    {
+      "when": 908,
+      "dir": 8
+    },
+    {
+      "when": 912,
+      "dir": 4
+    },
+    {
+      "when": 915,
+      "dir": 8
+    },
+    {
+      "when": 916,
+      "dir": 8
+    },
+    {
+      "when": 920,
+      "dir": 1
+    }
+  ],
+  "nativeInputPollCodes": [
+    832,
+    1568,
+    1568,
+    1568,
+    0
+  ],
+  "absoluteMouseCommand": 832,
+  "target": {
+    "x": 0,
+    "y": 10
+  },
+  "viewportAtTick741": {
+    "x": 0,
+    "y": 96
+  },
+  "beforeTick742": {
+    "id": 64,
+    "layer": 1,
+    "dir": "north",
+    "position": {
+      "x": 0,
+      "y": 12,
+      "pos": 384
+    },
+    "state": 0
+  },
+  "afterTick742": {
+    "id": 64,
+    "layer": 1,
+    "dir": "north",
+    "position": {
+      "x": 0,
+      "y": 10,
+      "pos": 320
+    },
+    "state": 0
+  },
+  "nativeStderr": "",
+  "inputOracleStderr": "",
+  "implementationNote": "Temporary oracle CLI parser accepts numeric live commands and exposes the existing native move recorder. It links unchanged original engine/play objects. Real generic/in.c handles mouse event, viewport hit testing, and preserve polls.",
+  "commands": [
+    [
+      "/usr/bin/c++",
+      "-g",
+      "-std=gnu++11",
+      "-arch",
+      "arm64",
+      "-DSAVEDIR=\"./save\"",
+      "-Dstricmp=strcasecmp",
+      "-I",
+      "/Users/joshuabone/git/tworld/legacy_c",
+      "-c",
+      "/tmp/jacques-early-376-native-live/oracle-main-mouse.cpp",
+      "-o",
+      "/tmp/jacques-early-376-native-live/oracle-main-mouse.o"
+    ],
+    [
+      "/usr/bin/c++",
+      "-g",
+      "-arch",
+      "arm64",
+      "/tmp/jacques-early-376-native-live/oracle-main-mouse.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/unslist.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/solution.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/play.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/lxlogic.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/err.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/fileio.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/random.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/mslogic.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/encoding.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/series.c.o",
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/CMakeFiles/tworld-oracle.dir/score.cpp.o",
+      "-o",
+      "/tmp/jacques-early-376-native-live/tworld-oracle-mouse"
+    ],
+    [
+      "/tmp/jacques-early-376-native-live/tworld-oracle-mouse",
+      "--root",
+      "/Users/joshuabone/git/tworld",
+      "--series-dir",
+      "/tmp/jacques-early-376-native-live/sets",
+      "--data-dir",
+      "/tmp/jacques-early-376-native-live/data",
+      "--save-dir",
+      "/tmp/jacques-early-376-native-live/save",
+      "input-trace",
+      "Jacques-MS.dac",
+      "376",
+      "85:s,187:w,188:w,189:w,190:w,191:w,192:w,193:w,194:w,195:w,196:w,197:w,198:w,199:w,200:w,201:w,202:w,203:w,204:s,205:s,206:s,207:s,208:w,209:w,210:w,211:w,212:e,213:e,214:e,215:e,216:e,217:e,218:e,219:e,220:e,221:e,222:e,223:e,224:e,225:e,226:e,227:e,228:e,229:e,230:e,231:e,232:n,233:n,234:n,235:n,236:e,279:n,280:n,281:n,282:n,283:n,284:n,285:n,286:n,287:n,288:w,289:w,290:w,291:w,292:n,293:n,294:n,295:n,296:n,297:n,298:n,299:n,300:n,301:n,302:n,303:n,304:w,305:w,306:w,307:w,308:n,309:n,310:n,311:n,312:n,313:n,314:n,315:n,316:w,317:w,318:w,319:w,320:n,321:n,322:n,323:n,324:n,325:n,326:n,327:n,328:w,329:w,330:w,331:w,332:n,333:n,334:n,335:n,336:n,337:n,338:n,339:n,340:w,341:w,342:w,343:w,344:n,345:n,346:n,347:n,348:n,349:n,350:n,351:n,352:s,353:s,354:s,355:s,356:n,357:n,358:n,359:n,360:s,361:s,362:s,363:s,364:s,365:s,366:s,367:s,368:s,369:s,370:s,371:s,372:s,373:s,374:s,375:s,376:s,377:s,378:s,379:s,380:w,381:w,382:w,383:w,384:s,385:s,386:s,387:s,388:s,389:s,390:s,391:s,392:s,393:s,394:s,395:s,396:s,397:s,398:s,399:s,400:s,401:s,402:s,403:s,404:s,405:s,406:s,407:s,408:s,409:s,410:s,411:s,412:s,413:s,414:s,415:s,416:s,417:s,418:s,419:s,420:n,421:n,422:n,423:n,424:s,473:e,474:e,475:e,476:e,477:e,478:e,479:e,480:e,481:e,482:e,483:e,484:e,485:e,486:e,487:e,488:e,489:e,490:e,491:e,492:e,493:e,494:n,495:n,496:n,497:n,498:n,499:n,500:n,501:n,502:e,503:e,504:e,505:e,506:e,507:e,508:e,509:e,510:e,511:e,512:e,513:e,514:e,515:e,516:e,517:e,518:e,519:e,520:e,521:e,522:n,523:n,524:n,525:n,526:n,527:n,528:n,529:n,530:n,531:n,532:n,533:n,534:e,535:e,536:e,537:e,538:e,539:e,540:e,541:e,542:e,543:e,544:e,545:e,550:s,551:s,552:s,553:s,554:s,555:s,556:s,557:s,558:n,559:n,560:n,561:n,562:n,563:n,564:n,565:n,566:n,567:n,568:n,569:n,570:e,571:e,572:e,573:e,574:e,575:e,576:e,577:e,578:e,579:e,580:e,581:e,582:w,583:w,584:w,585:w,586:e,587:e,588:e,589:e,590:w,591:w,592:w,593:w,594:s,595:s,596:s,597:s,598:s,599:s,600:s,601:s,602:s,603:s,604:s,605:s,606:s,607:s,608:s,609:s,610:w,611:w,612:w,613:w,614:w,615:w,616:w,617:w,618:w,619:w,620:w,621:w,622:w,623:w,624:w,625:w,626:s,627:s,628:s,629:s,630:w,631:w,632:w,633:w,634:w,635:w,636:w,637:w,638:s,639:s,640:s,641:s,642:w,643:w,644:w,645:w,646:w,647:w,648:w,649:w,650:w,651:w,652:w,653:w,654:w,655:w,656:w,657:w,658:w,659:w,660:w,661:w,662:w,663:w,664:w,665:w,666:w,667:w,668:w,669:w,670:s,671:s,672:s,673:s,674:s,675:s,676:s,677:s,678:s,679:s,680:s,681:s,682:n,683:n,684:n,685:n,690:s,691:s,692:s,693:s,698:w,699:w,700:w,701:w,718:w,742:832,743:preserve,744:preserve,745:preserve,747:e,748:e,749:e,750:e,751:e,752:e,753:e,754:e,755:e,756:e,757:e,758:e,759:e,760:e,761:e,762:e,763:e,764:e,765:e,766:e,767:e,768:e,769:e,770:e,771:e,772:e,773:e,774:e,775:e,776:e,777:e,778:e,779:e,780:e,781:e,782:e,783:e,784:e,785:e,786:e,787:s,788:s,789:s,790:s,791:s,792:s,793:s,794:s,795:e,796:e,797:e,798:e,799:e,800:e,801:e,802:e,803:e,804:e,805:e,806:e,811:n,812:n,813:n,814:n,815:e,816:e,817:e,818:e,819:w,820:w,821:w,822:w,823:e,824:e,825:e,826:e,831:e,832:e,833:e,834:e,835:w,836:w,837:w,838:w,839:e,840:e,841:e,842:e,843:n,844:n,845:n,846:n,847:n,848:n,849:n,850:n,851:n,852:n,853:n,854:n,855:n,856:n,857:n,858:n,859:n,860:n,861:n,862:n,863:n,864:n,865:n,866:n,867:n,868:n,869:n,870:n,871:e,872:e,873:e,874:e,875:e,876:e,877:e,878:e,879:e,880:e,881:e,882:e,883:e,884:e,885:e,886:e,887:e,888:e,889:e,890:e,891:e,892:e,893:e,894:e,895:e,896:e,897:e,898:e,899:e,900:e,901:e,902:e,903:e,904:e,905:e,906:e,907:e,908:e,909:e,910:e,911:s,912:s,913:s,914:s,915:e,916:e,917:e,918:e,919:n,920:n",
+      "1000",
+      "67"
+    ],
+    [
+      "cc",
+      "-std=c99",
+      "-I",
+      "/tmp/jacques-early-376-native-live",
+      "-I",
+      "/Users/joshuabone/git/tworld/legacy_c/generic",
+      "/tmp/jacques-early-376-native-live/native-mouse-input.c",
+      "-o",
+      "/tmp/jacques-early-376-native-live/input-oracle-mouse"
+    ],
+    [
+      "/tmp/jacques-early-376-native-live/input-oracle-mouse"
+    ],
+    [
+      "/Users/joshuabone/git/tworld/build-verify/legacy_c/tworld-oracle",
+      "--root",
+      "/Users/joshuabone/git/tworld",
+      "--series-dir",
+      "/tmp/jacques-early-376-native-live/sets",
+      "--data-dir",
+      "/tmp/jacques-early-376-native-live/data",
+      "--save-dir",
+      "/tmp/jacques-early-376-native-live/save",
+      "replay-trace",
+      "Jacques-MS.dac",
+      "376",
+      "1000"
+    ]
+  ],
+  "nativeLiveVersusReplay": {
+    "resultEqual": true,
+    "gameplayStepsEqual": true,
+    "comparedSteps": 921,
+    "excludedInputBookkeepingFields": [
+      "input",
+      "inputCode",
+      "lastMove",
+      "lastMoveCode",
+      "replayCursor"
+    ],
+    "differences": [],
+    "nativeReplayStderr": ""
+  },
+  "nativeRecorderEqualsExportedReplay": true
+}

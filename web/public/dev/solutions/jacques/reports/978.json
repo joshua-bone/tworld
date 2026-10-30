@@ -8,7 +8,7 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
   "status": "unresolved",
-  "summary": "All 1,940 chips are required. The main obstacle is opening the double-chip boundary around a continuously cloned walker corridor without being trapped by the released walkers. No winning replay or complete impossibility argument is established.",
+  "summary": "A native-verified partial replay collects 1,914 of the 1,940 required chips and remains alive at tick 9675. The final chips around the walker cloner remain unresolved; no winning replay or complete impossibility argument is established.",
   "visualEvidence": [
     "978-initial.svg",
     "978-initial.png",
@@ -17,7 +17,8 @@
   "proofSteps": [
     "The source walker at (6,2) faces west on a cloner. A ball repeatedly crosses the connected red button at (23,3), filling the corridor from (2,2) to (6,2).",
     "The surrounding chips initially contain the walkers. Removing the last chip from a boundary cell admits monsters into that cell; a state can appear alive until the next monster movement phase, when Chip may be killed before being able to leave.",
-    "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution."
+    "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution.",
+    "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation."
   ],
   "limitations": [
     "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
@@ -39,6 +40,11 @@
       "kind": "native opening validation",
       "result": "The 116-input opening that clears the 18 critical adjacent chips also matches the native final state: alive at (1,2), tick 115, with 1914 of 1940 chips still required. Exact replay bytes were read and native stderr was empty. This is a partial route, not a win.",
       "evidence": "978-opening-native-probe.json"
+    },
+    {
+      "kind": "native full-trace partial validation",
+      "result": "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation.",
+      "evidence": "978-board-partial-parity.json"
     }
   ],
   "sources": [
@@ -51,7 +57,8 @@
   "argument": [
     "The source walker at (6,2) faces west on a cloner. A ball repeatedly crosses the connected red button at (23,3), filling the corridor from (2,2) to (6,2).",
     "The surrounding chips initially contain the walkers. Removing the last chip from a boundary cell admits monsters into that cell; a state can appear alive until the next monster movement phase, when Chip may be killed before being able to leave.",
-    "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution."
+    "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution.",
+    "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation."
   ],
   "evidence": {
     "facts": {},
@@ -65,7 +72,8 @@
       "978-initial.svg",
       "978-initial.png",
       "978-bottom.svg"
-    ]
+    ],
+    "partialReplay": "978-board-partial-parity.json"
   },
-  "engineCommit": "4d9af67da059d9aee72675aef6001cbd2a61b8a6"
+  "engineCommit": "77ac8facae61216c94c1328d14d680d21feb9053"
 }

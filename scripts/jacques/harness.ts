@@ -70,9 +70,22 @@ export function snapshot(run: Run) {
 export function dump(run: Run) {
   return { datSha256: DAT_SHA256, metadata: run.loaded.metadata, snapshot: snapshot(run), internal: { chipStatus: run.session.state.internal.chipStatus, completed: run.session.state.internal.completed, floorMovement: run.session.state.internal.floorMovement, chipWait: run.session.state.internal.chipWait, creatures: run.session.state.internal.creatures, blocks: run.session.state.internal.blocks }, cells: run.session.state.engine.map.cells, traps: run.loaded.level.traps, cloners: run.loaded.level.cloners, inputs: run.inputs, recordedMoves: run.session.recordedMoves };
 }
+/** Replay decoding accepts diagonals that the original MS keyboard cannot emit. */
+export function auditMsReplayInputs(moves: readonly { when: number; dir: number }[]) {
+  let keyboardMoves = 0;
+  let mouseMoves = 0;
+  for (const { when, dir } of moves) {
+    if ([1, 2, 4, 8].includes(dir)) keyboardMoves++;
+    // legacy_c/defs.h: relative mouse commands cover a 19 x 19 square.
+    else if (Number.isInteger(dir) && dir >= 16 && dir <= 376) mouseMoves++;
+    else throw new Error(`Command unavailable from original MS input: ${dir} at tick ${when}`);
+  }
+  return { kind: 'original-ms-command-alphabet' as const, keyboardMoves, mouseMoves };
+}
 export function buildWinningReplay(run: Run) {
   if (run.session.state.engine.status !== 'completed' || !run.session.state.internal.completed) throw new Error('Run must be completed; reaching an exit coordinate is insufficient');
   if (run.session.recordedMoves.some(move => (move.modifierMask ?? 0) !== 0)) throw new Error('Ordinary MS TWS cannot preserve modifier actions');
+  const inputAudit = auditMsReplayInputs(run.session.recordedMoves);
   const bestTimeTicks = run.session.state.engine.timer.currentTime;
   const expandedSolution = { flags: 0, randomSlideDirection: 1, stepping: run.stepping, randomSeed: run.randomSeed, moves: run.session.recordedMoves.map(({when, dir}) => ({when, dir})) };
   const bytes = serializeSolutionFile({ ruleset: 'MS', flags: 0, extraHeader: new Uint8Array(), setName: 'Jacques-MS.dac', entries: [{ levelNumber: run.loaded.metadata.number, password: run.loaded.metadata.password, bestTimeTicks, solutionData: null, expandedSolution }] });
@@ -81,7 +94,7 @@ export function buildWinningReplay(run: Run) {
   const replay = { ...parsed.entries[0]!.expandedSolution!, bestTimeTicks };
   const trace = runMsReplayTrace(run.loaded.request, run.loaded.level, replay, bestTimeTicks + 100);
   if (trace.result.status !== 'completed') throw new Error(`Encoded replay failed TypeScript replay: ${trace.result.status}`);
-  return { bytes, replay, trace };
+  return { bytes, replay, trace, inputAudit };
 }
 export async function verifyNativeReplay(loaded: LoadedLevel, twsBytes: Uint8Array, maxTicks: number) {
   if (!Number.isInteger(maxTicks) || maxTicks < 1 || maxTicks > 200000) throw new Error('Native maxTicks must be 1..200000');
@@ -114,7 +127,7 @@ export async function saveWinningReplay(run: Run, outputPath: string) {
   if (differences.length) throw new Error(`Native/TypeScript replay mismatch: ${JSON.stringify(differences)}`);
   await mkdir(dirname(resolve(outputPath)), { recursive: true });
   await writeFile(outputPath, built.bytes);
-  const certificate = { datSha256: DAT_SHA256, level: run.loaded.metadata, twsSha256: native.twsSha256, typescript: built.trace.result, native: native.trace.result, nativeStderr: native.stderr, exactInputBytesRead: true, exactTraceParity: true };
+  const certificate = { datSha256: DAT_SHA256, level: run.loaded.metadata, twsSha256: native.twsSha256, typescript: built.trace.result, native: native.trace.result, nativeStderr: native.stderr, exactInputBytesRead: true, exactTraceParity: true, inputAudit: built.inputAudit };
   await writeFile(`${outputPath}.json`, JSON.stringify(certificate, null, 2));
   return certificate;
 }

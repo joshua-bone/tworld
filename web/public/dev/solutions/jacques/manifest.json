@@ -1,10 +1,10 @@
 {
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
-  "engineCommit": "4d9af67da059d9aee72675aef6001cbd2a61b8a6",
+  "engineCommit": "77ac8facae61216c94c1328d14d680d21feb9053",
   "counts": {
     "solved": 3,
-    "impossible": 27,
-    "unresolved": 8
+    "impossible": 28,
+    "unresolved": 7
   },
   "levels": [
     {
@@ -23,7 +23,7 @@
       "level": 376,
       "title": "Empty Islands",
       "status": "solved",
-      "summary": "A winning MS replay preserves the disposable bridge, collects all four chips, uses a diagonal replay command to return through the teleports, and exits at tick 920. Native and TypeScript traces match exactly."
+      "summary": "A mouse click replaces the invalid diagonal in the earlier replay. The corrected MS replay uses ordinary keyboard commands and one visible-tile click, collects all four chips, and completes at tick 920 in native Tile World and TWO with identical traces."
     },
     {
       "level": 379,
@@ -166,8 +166,8 @@
     {
       "level": 939,
       "title": "The Nab II",
-      "status": "unresolved",
-      "summary": "411 of 443 raw chips required. Dirt-covered chips are collectible after revealing them; the cloner-tile partition and key sequence need a constructive route."
+      "status": "impossible",
+      "summary": "The only passages out of the upper area strip the sole fire boots, making return to the exit lethal. Staying inside yields at most 317 of 411 required chips."
     },
     {
       "level": 945,
@@ -215,7 +215,7 @@
       "level": 978,
       "title": "A Bit Walkery",
       "status": "unresolved",
-      "summary": "All 1,940 chips are required. The main obstacle is opening the double-chip boundary around a continuously cloned walker corridor without being trapped by the released walkers. No winning replay or complete impossibility argument is established."
+      "summary": "A native-verified partial replay collects 1,914 of the 1,940 required chips and remains alive at tick 9675. The final chips around the walker cloner remain unresolved; no winning replay or complete impossibility argument is established."
     },
     {
       "level": 981,

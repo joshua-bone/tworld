@@ -28,6 +28,7 @@ export function validateReport(report, replay = {}) {
     assert.ok(certificate.native.status === 'completed' && certificate.typescript.status === 'completed', 'Both engines must verify completion');
     assert.equal(certificate.native.finalTick, certificate.typescript.finalTick, 'Completion tick mismatch');
     assert.ok(certificate.exactTraceParity && certificate.exactInputBytesRead, 'Replay requires exact trace and byte verification');
+    assert.ok(certificate.inputAudit?.kind === 'original-ms-command-alphabet', 'Replay requires an original MS input command audit');
   }
   return report;
 }

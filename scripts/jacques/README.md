@@ -13,7 +13,7 @@ node_modules/.bin/vite-node ../scripts/jacques/cli.ts run 732 /tmp/jacques input
 node_modules/.bin/vite-node ../scripts/jacques/render-all.ts
 ```
 
-`inputs.json` is an array of exact per-tick inputs: integers or `N`, `W`, `S`, `E`, `.`. Direction codes are north=1, west=2, south=4, east=8, idle=0. Multiple direction bits and legacy preserve=1568 are available as integer inputs. The initial tick is -1 and the first input executes tick 0. An ordinary MS move takes four ticks; forced surfaces and timing can change observed motion.
+`inputs.json` is an array of exact per-tick inputs: integers or `N`, `W`, `S`, `E`, `.`. Direction codes are north=1, west=2, south=4, east=8, idle=0. Legacy preserve=1568 and absolute mouse commands (512 + y * 32 + x) are available as integer inputs. Original MS keyboard play emits only one cardinal direction; replay-only diagonal commands cannot certify a solution. The initial tick is -1 and the first input executes tick 0. An ordinary MS move takes four ticks; forced surfaces and timing can change observed motion.
 
 For investigation scripts import from `./harness`:
 
@@ -32,7 +32,7 @@ await saveWinningReplay(run, '/tmp/732.tws');
 
 `renderSvg` writes self-contained artwork using the production legacy sprite coordinates and transparency. Default `plane:'both'` shows the composite scene; `plane:'bottom'` exposes the buried map plane. Hover titles record exact cell IDs. Empty top tiles can visually cover buried terrain, so the separate bottom-plane view is necessary. Rendering never changes gameplay.
 
-Replay export rejects live or failed states, requires a real completed status, round-trips the complete TWS, replays its encoded inputs in TypeScript, then stages the exact DAT and TWS in fresh isolated directories for the native `build-verify/legacy_c/tworld-oracle`. Native verification has a 30-second timeout and a 200,000-tick limit. Export requires native completion and exact initial-state, tick-by-tick and result parity. A neighboring `.tws.json` certificate records DAT/TWS hashes and terminal results. Unknown stderr is retained in the certificate. Native temporary directories are removed after use.
+Replay export audits recorded commands against the original MS cardinal/mouse command alphabet, rejects live or failed states, requires a real completed status, round-trips the complete TWS, replays its encoded inputs in TypeScript, then stages the exact DAT and TWS in fresh isolated directories for the native `build-verify/legacy_c/tworld-oracle`. Native verification has a 30-second timeout and a 200,000-tick limit. Export requires native completion and exact initial-state, tick-by-tick and result parity. A neighboring `.tws.json` certificate records DAT/TWS hashes and terminal results. Unknown stderr is retained in the certificate. Native temporary directories are removed after use.
 
 The harness does not change levels, engine rules or existing donor replay files. Initial map generation is bounded to the requested 38 levels. A winning replay establishes one solution under its recorded seed and stepping, not a general claim about other initializations.
 

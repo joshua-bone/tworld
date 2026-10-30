@@ -61,6 +61,19 @@ try{
  // from the two green-door chips and Q's dead-end extension before returning.
  for(const d of [1, 4, 2, 2, 2, 1, 2, 4, 4, 8, 4, 8, 4, 1, 4, 2, 4, 4, 2, 1, 0, 1, 2, 8, 1, 1, 8, 8, 1, 8, 1, 4, 4, 4, 8, 8, 1, 1, 8, 2, 4, 4, 2, 4, 0, 2, 2, 2, 2, 4, 4, 2, 2, 8, 2])tick(run,d,4);
  console.log('S EXIT',snapshot(run).currentTime,snapshot(run).chipsNeeded,run.session.state.internal.chipPos);
+ // T's key and seven lower chips before the blue door.
+ for(const p of[[21,23],[20,23],[19,23],[19,22],[19,21],[19,20],[18,21],[19,21],[20,21],[19,21],[19,22],[19,23],[19,24],[19,25],[18,25],[17,26],[16,26],[17,26],[16,26]])go(...p as[number,number]);
+ // V's three tank lanes stay horizontal; cross at their clear endpoints.
+ for(const p of[[15,26],[14,26],[13,26],[12,26],[11,26],[11,24],[12,24],[13,24],[13,22],[12,22],[11,22],[11,23],[11,24],[11,26],[10,26],[9,26],[10,26],[9,26]])go(...p as[number,number]);
+ // W: exact local route uses gravel anchors and the westward slide.
+ for(const d of [2, 1, 1, 2, 2, 2, 1, 1, 4, 4, 4, 4, 8, 8, 1, 1, 8, 8, 1, 1, 2, 1, 2, 8, 2, 2, 2, 1, 1]){tick(run,d);tick(run,0,3);}
+ console.log('W EXIT',snapshot(run).currentTime,snapshot(run).chipsNeeded,run.session.state.internal.chipPos);
+ // Lure the teeth off the checkerboard before crossing the upper corridor.
+ tick(run,0,4);
+ for(const p of[[6,19],[7,19],[8,19],[7,19],[7,18],[6,18],[7,18],[8,18],[9,18],[10,18]])go(...p as[number,number]);
+ for(const d of [4, 8, 8, 1, 4, 2, 8, 8, 8, 8])tick(run,d,4);
+ // U: the short pause pulls the pursuer below the northern exit.
+ for(const d of [4,4,4,8,1,0,1,1,1])tick(run,d,4);
 }catch(error){console.log('STOP',String(error));}
 await writeFile(join(ROOT,'web/public/dev/solutions/jacques/evidence/910-partial-route.json'),JSON.stringify({level:910,datSha256:run.loaded.datSha256,probeOnlyNotWinning:true,status:snapshot(run).status,tick:snapshot(run).currentTime,chipsRemaining:snapshot(run).chipsNeeded,inputs:run.inputs},null,2));
 await writeFile('/tmp/jacques-910-progress.svg',await renderSvg(run));

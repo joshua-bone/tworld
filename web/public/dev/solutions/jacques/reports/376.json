@@ -8,13 +8,13 @@
   "ruleset": "MS",
   "coordinates": "zero-based x,y",
   "status": "solved",
-  "summary": "A winning MS replay preserves the disposable bridge, collects all four chips, uses a diagonal replay command to return through the teleports, and exits at tick 920. Native and TypeScript traces match exactly.",
+  "summary": "A mouse click replaces the invalid diagonal in the earlier replay. The corrected MS replay uses ordinary keyboard commands and one visible-tile click, collects all four chips, and completes at tick 920 in native Tile World and TWO with identical traces.",
   "proofSteps": [
     "Keep the Empty-over-Water bridge at (1,8),(2,8) unused. Wait until a Teeth covers the upper teleport (0,7), then enter the lower teleport southward. Because MS skips covered teleport destinations, Chip emerges onto the outer force-floor circuit. The replay uses random seed 67 and starts this maneuver at tick 85.",
     "Collect the right-island chip (23,16), return through the original right-island entrance, then collect the center chip (19,17) and lower-left chip (17,16). Hidden chips require leaving and reentering after the covering Empty tile disappears.",
-    "Return to the left force lane with a gap behind another creature. At tick 743, a diagonal N+E replay command produces an extra north step on the north force floor: the same-direction suppression check occurs before the diagonal is reduced to north. This puts Chip in the brief window where the upper teleport is covered, so teleportation fails and Chip advances onto starting Gravel (0,8) at tick 746.",
+    "Return to the left force lane with a gap behind another creature. At tick 742, left-click visible tile (0,10). Chip begins this tick at (0,12); forced movement puts him at (0,11), and the mouse goal adds a north step to (0,10). The original mouse handler emits absolute command 832, which the live engine records as relative mouse command 177. This reaches the brief window where the upper teleport is covered, so teleportation fails and Chip advances onto starting Gravel (0,8) at tick 746.",
     "Cross the preserved bridge, collect the final hidden chip (14,8), then open socket (17,8), leave and reenter for the flippers beneath it. Swim to exit (31,0).",
-    "The saved TWS completes the unchanged DAT in both engines at tick 920 with all four chips collected. The full native and TypeScript traces match."
+    "The corrected TWS contains only original MS cardinal keyboard commands and one mouse command. It completes the unchanged DAT in both engines at tick 920 with all four chips collected. The full native and TypeScript traces match."
   ],
   "visualEvidence": "376-initial.svg",
   "experiments": [
@@ -46,15 +46,28 @@
       "nativeStderr": "",
       "seed": 67,
       "stepping": 0,
-      "diagonalCommand": {
-        "tick": 743,
-        "code": 9,
-        "direction": "N+E"
-      }
+      "mouseCommand": {
+        "tick": 742,
+        "absoluteCode": 832,
+        "target": [
+          0,
+          10
+        ],
+        "recordedCode": 177
+      },
+      "sha256": "8c2cf373930654ef5eb252dba030359f838d2112680b77f8b51236f78a400fd9"
+    },
+    {
+      "kind": "correction of the previous replay",
+      "result": "The earlier 146-byte replay used N+E command 9 at tick 743. Original MS keyboard input cannot emit that command; passing replay verification did not make it a legal player solution. It is replaced by a normal mouse click at tick 742, with no replay-mode override during construction."
+    },
+    {
+      "kind": "original live mouse input and recorder",
+      "result": "The unchanged native input module maps a left click on visible tile (0,10) to command 832, followed by three Preserve polls. A temporary CLI parser submits those live commands to unchanged native gameplay code: completion at tick 920, with the native recorder emitting relative mouse command 177 at tick 742. All 161 recorded moves match the exported replay; 921 gameplay snapshots match native replay."
     }
   ],
   "limitations": [
-    "The replay contains a diagonal N+E command at tick 743. It is verified as a native MS TWS replay; manual keyboard reproduction is not established."
+    "The original Tile World MS mouse behavior is used. The earlier diagonal replay is withdrawn as a player-valid solution. Completion has not been checked in Microsoft CHIP.EXE or SuCC."
   ],
   "sourceEvidence": [
     "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
@@ -65,15 +78,20 @@
     "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
     "legacy_c/mslogic.c:1365-1386 (same-direction force suppression precedes diagonal normalization)",
     "legacy_c/mslogic.c:1396-1434 (only uncovered teleport destinations are considered)",
-    "web/src/ruleset-ms/impl/chipInput.ts:263-273 (replay input latching preserves direction codes)"
+    "web/src/ruleset-ms/impl/chipInput.ts:263-273 (replay input latching preserves direction codes)",
+    "legacy_c/generic/in.c:338 (left click emits absolute map command)",
+    "legacy_c/generic/in.c:419 (MS keyboard returns one cardinal command)",
+    "legacy_c/play.c:103 (MS disables joystick-style diagonal input)",
+    "legacy_c/mslogic.c:1373 (mouse goal is processed after force-direction filtering)",
+    "legacy_c/mslogic.c:1386 (mouse goal movement occurs on tick phase 2)"
   ],
   "title": "Empty Islands",
   "argument": [
     "Keep the Empty-over-Water bridge at (1,8),(2,8) unused. Wait until a Teeth covers the upper teleport (0,7), then enter the lower teleport southward. Because MS skips covered teleport destinations, Chip emerges onto the outer force-floor circuit. The replay uses random seed 67 and starts this maneuver at tick 85.",
     "Collect the right-island chip (23,16), return through the original right-island entrance, then collect the center chip (19,17) and lower-left chip (17,16). Hidden chips require leaving and reentering after the covering Empty tile disappears.",
-    "Return to the left force lane with a gap behind another creature. At tick 743, a diagonal N+E replay command produces an extra north step on the north force floor: the same-direction suppression check occurs before the diagonal is reduced to north. This puts Chip in the brief window where the upper teleport is covered, so teleportation fails and Chip advances onto starting Gravel (0,8) at tick 746.",
+    "Return to the left force lane with a gap behind another creature. At tick 742, left-click visible tile (0,10). Chip begins this tick at (0,12); forced movement puts him at (0,11), and the mouse goal adds a north step to (0,10). The original mouse handler emits absolute command 832, which the live engine records as relative mouse command 177. This reaches the brief window where the upper teleport is covered, so teleportation fails and Chip advances onto starting Gravel (0,8) at tick 746.",
     "Cross the preserved bridge, collect the final hidden chip (14,8), then open socket (17,8), leave and reenter for the flippers beneath it. Swim to exit (31,0).",
-    "The saved TWS completes the unchanged DAT in both engines at tick 920 with all four chips collected. The full native and TypeScript traces match."
+    "The corrected TWS contains only original MS cardinal keyboard commands and one mouse command. It completes the unchanged DAT in both engines at tick 920 with all four chips collected. The full native and TypeScript traces match."
   ],
   "evidence": {
     "visual": "376-initial.svg",
@@ -89,9 +107,10 @@
     "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
     "winningReplay": "376.tws",
     "certificate": "376.tws.json",
-    "method": "Semantic island routing and a targeted diagonal replay command; bounded seed/timing experiments found a safe actor-congestion schedule."
+    "method": "Semantic island routing, an ordinary visible-tile mouse click, and native/TypeScript exact-trace verification. The replay-only diagonal from the earlier version was rejected and replaced.",
+    "nativeLiveMouseAudit": "376-mouse-native-live.json"
   },
   "replayPath": "replays/376.tws",
   "certificate": "replays/376.tws.json",
-  "engineCommit": "4d9af67da059d9aee72675aef6001cbd2a61b8a6"
+  "engineCommit": "77ac8facae61216c94c1328d14d680d21feb9053"
 }

@@ -2,9 +2,6 @@
   "level": 376,
   "randomSeed": 67,
   "stepping": 0,
-  "diagonalTicks": [
-    743
-  ],
   "inputs": [
     0,
     0,
@@ -748,8 +745,8 @@
     0,
     0,
     0,
+    832,
     0,
-    9,
     0,
     0,
     0,
@@ -927,5 +924,16 @@
     8,
     1,
     1
+  ],
+  "mouseClicks": [
+    {
+      "tick": 742,
+      "target": [
+        0,
+        10
+      ],
+      "absoluteCommand": 832,
+      "recordedRelativeCommand": 177
+    }
   ]
 }

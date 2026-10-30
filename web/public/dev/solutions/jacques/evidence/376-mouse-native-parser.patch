@@ -1,0 +1,56 @@
+--- original/oracle_main.cpp
++++ temporary/oracle-main-mouse.cpp
+@@ -9,19 +9,19 @@
+ #include <vector>
+ 
+ extern "C" {
+-#include "../defs.h"
+-#include "../encoding.h"
+-#include "../err.h"
+-#include "../fileio.h"
+-#include "../oshw.h"
+-#include "../play.h"
+-#include "../random.h"
+-#include "../res.h"
+-#include "../score.h"
+-#include "../series.h"
+-#include "../solution.h"
+-#include "../state.h"
+-#include "../unslist.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/defs.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/encoding.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/err.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/fileio.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/oshw.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/play.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/random.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/res.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/score.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/series.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/solution.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/state.h"
++#include "/Users/joshuabone/git/tworld/legacy_c/unslist.h"
+ }
+ 
+ extern "C" int mslogicoraclecreaturecount(void);
+@@ -1406,6 +1406,9 @@
+         *cmd = CmdEast;
+         return TRUE;
+     }
++    char* end = NULL;
++    long numeric = std::strtol(token.c_str(), &end, 10);
++    if (end && *end == '\0' && numeric >= CmdMoveFirst && numeric <= CmdMoveLast) { *cmd = static_cast<int>(numeric); return TRUE; }
+     return FALSE;
+ }
+ 
+@@ -1749,7 +1752,9 @@
+         advancetick();
+     }
+ 
+-    std::printf("],\"result\":{\"status\":");
++    std::printf("],\"recordedMoves\":");
++    print_moves_json(currentgamestate()->moves);
++    std::printf(",\"result\":{\"status\":");
+     print_json_string(trace_status_name(outcome));
+     std::printf(",\"finalTick\":%d,\"stepCount\":%d}}\n",
+                 currentgamestate()->currenttime, step_count);
