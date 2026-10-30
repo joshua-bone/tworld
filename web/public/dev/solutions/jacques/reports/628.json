@@ -7,18 +7,50 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "ruleset": "MS",
   "coordinates": "zero-based x,y",
-  "status": "unresolved",
-  "summary": "Layered boots, green doors, chips over fire, and a red key under socket create a dependency puzzle. No decisive obstruction established; teleports must be included in reachability.",
-  "proofSteps": [],
+  "status": "solved",
+  "summary": "Winning MS replay verified in both the TypeScript runtime and native Tile World: 3111 steps, final tick 3110.",
+  "proofSteps": [
+    "Expose and collect the initial flippers at (6,8). Reach the fire boots at (20,0), wait for the Ball to turn away, then leave and reenter to collect the boots.",
+    "Collect the upper fire-corridor chips and green key (22,20), then clear the accessible upper and left areas before crossing the burglar (24,12). Collect replacement fire boots (25,12).",
+    "Use all nine blocks in the right room to fill the nine Water-over-Chip cells (28,19) through (28,27). After every fill, walk onto the resulting Dirt, leave, and reenter to collect the buried chip before sending the next block along the same column. The block-source chips are collected while pushing.",
+    "Collect the lower perimeter and all chips in the two-Bug room. Push the final block (10,28) north into Water (10,27), then clear the Dirt and collect its buried chip. All 99 chips are now collected.",
+    "Open the socket at (5,29), leave and reenter for the red key beneath it, open the door (1,27), and enter teleport (6,27) to reach the exit (29,7)."
+  ],
   "visualEvidence": "628-initial.svg",
   "experiments": [
     {
       "kind": "DAT two-layer inventory",
       "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    },
+    {
+      "kind": "exact-runtime constructive prefix",
+      "ticks": 2696,
+      "result": "59 of 99 chips collected; nine-water bridge complete; fire boots and green key held."
+    },
+    {
+      "kind": "winning TWS roundtrip and independent runtime verification",
+      "typescript": {
+        "status": "completed",
+        "finalTick": 3110,
+        "stepCount": 3111
+      },
+      "native": {
+        "status": "completed",
+        "finalTick": 3110,
+        "stepCount": 3111
+      },
+      "exactTraceParity": true,
+      "nativeStderr": "",
+      "tws": "628.tws",
+      "certificate": "628.tws.json",
+      "typescriptFinalTick": 3110,
+      "nativeFinalTick": 3110,
+      "seed": 0,
+      "stepping": 0
     }
   ],
   "limitations": [
-    "No winning replay or all-play impossibility proof established."
+    "The supplied replay uses ordinary MS inputs and random seed 0; it is a winning example, not an optimized-time solution."
   ],
   "sourceEvidence": [
     "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
@@ -29,7 +61,13 @@
     "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
   ],
   "title": "Escape from the Dungeon",
-  "argument": [],
+  "argument": [
+    "Expose and collect the initial flippers at (6,8). Reach the fire boots at (20,0), wait for the Ball to turn away, then leave and reenter to collect the boots.",
+    "Collect the upper fire-corridor chips and green key (22,20), then clear the accessible upper and left areas before crossing the burglar (24,12). Collect replacement fire boots (25,12).",
+    "Use all nine blocks in the right room to fill the nine Water-over-Chip cells (28,19) through (28,27). After every fill, walk onto the resulting Dirt, leave, and reenter to collect the buried chip before sending the next block along the same column. The block-source chips are collected while pushing.",
+    "Collect the lower perimeter and all chips in the two-Bug room. Push the final block (10,28) north into Water (10,27), then clear the Dirt and collect its buried chip. All 99 chips are now collected.",
+    "Open the socket at (5,29), leave and reenter for the red key beneath it, open the door (1,27), and enter teleport (6,27) to reach the exit (29,7)."
+  ],
   "evidence": {
     "visual": "628-initial.svg",
     "sources": [
@@ -41,7 +79,12 @@
       "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
     ],
     "coordinates": "zero-based x,y",
-    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+    "replay": "628.tws",
+    "certificate": "628.tws.json",
+    "winningReplay": "628.tws"
   },
-  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+  "replayPath": "replays/628.tws",
+  "certificate": "replays/628.tws.json",
+  "engineCommit": "b5d59abc240f2f3f940ee1c288c468ae34d62131"
 }

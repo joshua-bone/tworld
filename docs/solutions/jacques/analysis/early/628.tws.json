@@ -1,0 +1,35 @@
+{
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "level": {
+    "index": 627,
+    "number": 628,
+    "name": "Escape from the Dungeon",
+    "author": "",
+    "password": "PVGU",
+    "timeLimitSeconds": 300,
+    "chipsRequired": 99,
+    "bestTimeTicks": 2147483647,
+    "levelSize": 896,
+    "solutionSize": 0,
+    "levelHash": "8218947857202777856",
+    "gameplayHash": "9762898367452074334",
+    "hasSolution": false,
+    "sgflags": 0,
+    "unsolvable": null,
+    "hasSpecialTools": false
+  },
+  "twsSha256": "7c0e8d5b18f763ade903a4e066b8e5ef0c070895fa2a16b3b72d80d859729a8e",
+  "typescript": {
+    "status": "completed",
+    "finalTick": 3110,
+    "stepCount": 3111
+  },
+  "native": {
+    "status": "completed",
+    "finalTick": 3110,
+    "stepCount": 3111
+  },
+  "nativeStderr": "",
+  "exactInputBytesRead": true,
+  "exactTraceParity": true
+}
