@@ -1,0 +1,89 @@
+{
+  "level": 376,
+  "status": "unresolved alternative",
+  "objective": "Keyboard-only return using a delayed creature at the upper teleporter. The separate mouse replay is verified in Tile World MS and TWO, but fails SuCC.",
+  "mechanism": [
+    "Chip follows a creature by two cells on the northbound force lane.",
+    "The creature reaches the upper teleporter (0,7). If a separate blocked slider causes the queue to skip its next forced move, it remains there while Chip enters the lower teleporter (0,9).",
+    "The occupied upper teleporter is excluded as a destination, leaving Chip on the lower teleporter and allowing northward movement onto Gravel (0,8)."
+  ],
+  "observed_collision": {
+    "prefix": "Original seed67 inputs through701; then E2 S6 W2, each tile held4ticks, reaching (1,29).",
+    "tick": 752,
+    "blockedActor": {
+      "serial": 3,
+      "position": [
+        0,
+        24
+      ]
+    },
+    "skippedActor": {
+      "serial": 10,
+      "position": [
+        29,
+        16
+      ]
+    },
+    "subsequentPermanentLowerTeleporterJamTick": 762,
+    "nativeVerification": "376-delay-probe.json: all764 steps exactly match original C, still playing at tick763; empty stderr"
+  },
+  "experiments": [
+    {
+      "script": "/tmp/jacques-early-376-cardinal-return.ts",
+      "scope": "Both row23 and row29 outlet prefixes; launch waits0..179; neutral or immediate reverse at upper exit; at most550 ticks after launch",
+      "result": "No return"
+    },
+    {
+      "script": "/tmp/jacques-early-376-hover-return.ts",
+      "scope": "Original row23 outlet; launch waits0..99; try opposing the force to wait above upper teleporter",
+      "result": "No return; following creatures collide"
+    },
+    {
+      "script": "/tmp/jacques-early-376-delay-gravel.ts",
+      "scope": "Insert waits0..600, step4, at safe consumed-chip Gravel (16,16) after input593; continue known route; launch waits0..63",
+      "survivingWaits": [
+        0,
+        332,
+        436,
+        440,
+        444,
+        448,
+        452,
+        456,
+        460,
+        556,
+        560,
+        564
+      ],
+      "result": "No return"
+    },
+    {
+      "script": "/tmp/jacques-early-376-return-paths.ts",
+      "scope": "From safe (16,16), go west to x3..10 then south to row23 then west to outlet; waits0,4,8,12,16,24,32,48,64",
+      "result": "No alternative prefix survived to the outlet"
+    },
+    {
+      "script": "/tmp/jacques-early-376-delay-seeds.ts",
+      "scope": "Original route through input701 under seeds0..255, stepping0",
+      "survivingSeeds": [
+        67
+      ],
+      "result": "No natural upper-teleporter stall was observed in surviving live hold"
+    },
+    {
+      "script": "/tmp/jacques-early-376-old-states.ts",
+      "scope": "Existing seed0 and seed13 routes collecting three chips",
+      "result": "Both already have a permanent monster jam on lower teleporter, blocking this approach"
+    },
+    {
+      "script": "/tmp/jacques-early-376-stepping.ts",
+      "scope": "Known route through input701 with MS stepping4 and seeds0..255",
+      "result": "No surviving full prefix"
+    }
+  ],
+  "limitations": [
+    "These are bounded negative experiments, not an all-play impossibility proof.",
+    "Earlier route choices and creature release orders remain unexhausted.",
+    "No keyboard-only winning replay has been generated or claimed."
+  ]
+}

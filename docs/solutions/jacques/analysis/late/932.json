@@ -8,7 +8,7 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
   "status": "unresolved",
-  "summary": "Unresolved. A corrected MS route has collected 959 of the required 999 chips and matches native C at every recorded step. The final 40-chip route is still being constructed.",
+  "summary": "Unresolved. A split-visit MS route has collected 997 of the required 999 chips and matches native C at every recorded step. No winning completion has been established.",
   "visualEvidence": [
     "932-initial.svg",
     "932-initial.png",
@@ -22,7 +22,7 @@
   ],
   "limitations": [
     "No winning replay or universal impossibility proof has been established.",
-    "The earlier candidate that relied on the buried-cloner mismatch is invalid. The new 959-chip prefix has complete native trace parity, but no winning completion has yet been produced."
+    "The earlier candidate that relied on the buried-cloner mismatch is invalid. The new 997-chip prefix has complete native trace parity, but its explored continuations did not win. Earlier checkpoints remain available for alternate continuations."
   ],
   "experiments": [
     {
@@ -58,6 +58,16 @@
       "kind": "corrected outer and core route",
       "result": "After collecting the protected outer shell and most outer boundary chips, Chip enters the core through (9,16). Retained chips at (10,15), (10,17), and (11,16) isolate the entry corridor while the rest of the interior is collected. Native and TypeScript agree on the initial state, all 4404 steps, and the result: alive at (11,15), tick 4403, with 40 chips required. Native stderr is empty and replay bytes are identical.",
       "evidence": "932-core-corrected-partial-parity.json"
+    },
+    {
+      "kind": "split-visit core route with preserved chip barriers",
+      "result": "An early visit collects core perimeter chips, then returns through the bottom double-chip airlock before the moat becomes crowded. After collecting the outer shell and most of its boundary, Chip returns to the core, collects the protected interior, and takes seven additional chips while retaining the remaining barrier layers. Native and TypeScript agree on the initial state, all 4612 steps, and the result: alive at (18,19), tick 4611, with 35 chips required. Native stderr is empty and replay bytes are identical. Subsequent bounded cleanup attempts are exploratory and do not establish impossibility.",
+      "evidence": "932-split-safe-partial-parity.json"
+    },
+    {
+      "kind": "right-border-first final collection",
+      "result": "After the native-certified split-visit checkpoint, collecting the right border before opening the north border reaches 997 collected chips. Native and TypeScript agree on the initial state, all 4836 steps, and the result: alive at (11,15), tick 4835, with 2 chips required. Native stderr is empty and replay bytes are identical. The bounded continuation search did not complete the level; this prefix is not a solution or an impossibility proof.",
+      "evidence": "932-two-remaining-partial-parity.json"
     }
   ],
   "sources": [

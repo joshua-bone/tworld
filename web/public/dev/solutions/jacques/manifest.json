@@ -1,10 +1,10 @@
 {
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
-  "engineCommit": "d589c90fb057e241d86dedf98c8fb5d4de0647d6",
+  "engineCommit": "996539349b420b1d08f5c76a49c0275e5eca4e2e",
   "counts": {
     "solved": 5,
-    "impossible": 28,
-    "unresolved": 5
+    "impossible": 29,
+    "unresolved": 4
   },
   "levels": [
     {
@@ -89,7 +89,7 @@
       "level": 723,
       "title": "Marsupilami Block",
       "status": "unresolved",
-      "summary": "Investigation is continuing; no winning replay or complete impossibility argument is established yet."
+      "summary": "A native-verified partial route collects 40 of 54 chips. The first ice-block gate and central bomb passage are open, but no winning replay or impossibility proof is established."
     },
     {
       "level": 732,
@@ -148,14 +148,14 @@
     {
       "level": 931,
       "title": "AGE DJ",
-      "status": "unresolved",
-      "summary": "599 of 621 chips required; layered fake walls, bomb-covered chips and block cloners require a constructive route. Secondary exit is walled off."
+      "status": "impossible",
+      "summary": "Twenty-two water chips are inaccessible, and collecting the boxed Walker chip is necessarily fatal. A successful play can use at most 598 chips, but the only reachable exit requires 599."
     },
     {
       "level": 932,
       "title": "RUN!!! IV",
       "status": "unresolved",
-      "summary": "Unresolved. A corrected MS route has collected 959 of the required 999 chips and matches native C at every recorded step. The final 40-chip route is still being constructed."
+      "summary": "Unresolved. A split-visit MS route has collected 997 of the required 999 chips and matches native C at every recorded step. No winning completion has been established."
     },
     {
       "level": 937,

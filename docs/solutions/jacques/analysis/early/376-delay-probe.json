@@ -1,0 +1,47 @@
+{
+  "level": 376,
+  "purpose": "Nonwinning diagnostic of a remote creature delay",
+  "native": {
+    "status": "playing",
+    "finalTick": 763,
+    "stepCount": 764
+  },
+  "exactTraceParity": true,
+  "nativeStderr": "",
+  "twsSha256": "586299ea3275ac90d781cfd2b89740ee0e89d6099a09cb26c9fb7361064276b1",
+  "events": [
+    {
+      "tick": 752,
+      "phase": "non-chip-floor",
+      "action": "requeue-creature-blocked",
+      "slipIndex": 2,
+      "advance": 0,
+      "entry": "creature:3:768",
+      "queue": [
+        "creature:1:317",
+        "creature:2:1013",
+        "creature:3:768",
+        "creature:10:541",
+        "creature:6:52",
+        "creature:7:96",
+        "creature:4:224",
+        "creature:14:448",
+        "creature:32:893",
+        "creature:17:989",
+        "creature:35:43",
+        "creature:8:93",
+        "creature:9:58",
+        "creature:16:56",
+        "creature:11:48",
+        "creature:15:608",
+        "creature:12:994",
+        "creature:5:1018",
+        "creature:13:733",
+        "creature:31:384",
+        "creature:25:413",
+        "creature:23:736"
+      ]
+    }
+  ],
+  "explanation": "At tick752 the blocked Teeth at(0,24) is requeued. The next Walker in the queue is skipped remotely at(29,16). It is not the creature on the upper teleporter, so this prefix does not solve the return."
+}

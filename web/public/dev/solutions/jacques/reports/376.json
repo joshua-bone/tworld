@@ -68,6 +68,11 @@
     {
       "kind": "SuCC public-source compatibility check",
       "result": "Unmodified SuperCC commit 3e92380dabbae2dcf4e86ed5dc7572695311c8d4 fails this exact 147-byte replay. Its replay loader resolves relative mouse command 177 before the forced move, targeting (0,11); Tile World resolves it after that move, targeting (0,10). A second probe supplying the intended absolute target (0,10) still fails: SuCC explicitly suppresses a mouse move in the current slide direction, while Tile World tests the raw command before mouse conversion. Both SuCC probes end with Chip dead at (1,6), after half-tick 374. See 376-supercc-audit.json and its source links and reproduction files."
+    },
+    {
+      "kind": "keyboard-only delayed-creature diagnostic",
+      "result": "A blocked Teeth at (0,24) causes a remote Walker at (29,16) to miss a forced move at tick752. All764 steps match native Tile World exactly, but this delays the wrong creature: the upper teleport is not held for Chip and the lower teleport subsequently jams. Bounded launch-time, route, seed and stepping variations have not produced a keyboard-only return. These negative experiments are not an impossibility proof.",
+      "evidence": "376-delay-probe.json"
     }
   ],
   "limitations": [
@@ -114,9 +119,11 @@
     "certificate": "376.tws.json",
     "method": "Semantic island routing, an ordinary visible-tile mouse click, and native/TypeScript exact-trace verification. The replay-only diagonal from the earlier version was rejected and replaced.",
     "nativeLiveMouseAudit": "376-mouse-native-live.json",
-    "superccCompatibilityAudit": "376-supercc-audit.json"
+    "superccCompatibilityAudit": "376-supercc-audit.json",
+    "delayedCreatureDiagnostic": "376-delay-probe.json",
+    "delayedCreatureProgress": "376-delayed-creature-progress.json"
   },
   "replayPath": "replays/376.tws",
   "certificate": "replays/376.tws.json",
-  "engineCommit": "d589c90fb057e241d86dedf98c8fb5d4de0647d6"
+  "engineCommit": "996539349b420b1d08f5c76a49c0275e5eca4e2e"
 }

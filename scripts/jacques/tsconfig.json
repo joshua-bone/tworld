@@ -27,6 +27,7 @@
     "replay-981.ts",
     "route-910.ts",
     "verify-910-progress.ts",
-    "probe-723.ts"
+    "probe-723.ts",
+    "verify-723-progress.ts"
   ]
 }

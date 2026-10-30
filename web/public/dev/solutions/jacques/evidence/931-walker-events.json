@@ -1,0 +1,172 @@
+[
+  {
+    "tick": 6768,
+    "input": "S",
+    "beforeChip": {
+      "x": 1,
+      "y": 25,
+      "pos": 801
+    },
+    "afterChip": {
+      "x": 1,
+      "y": 26,
+      "pos": 833
+    },
+    "chipsNeeded": 221,
+    "status": "playing",
+    "walker": {
+      "serial": 23,
+      "id": 88,
+      "dir": 1,
+      "tdir": 1,
+      "pos": 832,
+      "z": 1,
+      "hidden": false,
+      "moving": 0,
+      "frame": 0,
+      "cloning": false,
+      "released": false,
+      "turning": false,
+      "hasMoved": false,
+      "floorMovement": "none",
+      "floorMovementDir": 0,
+      "sliding": false
+    }
+  },
+  {
+    "tick": 6769,
+    "input": "S",
+    "beforeChip": {
+      "x": 1,
+      "y": 26,
+      "pos": 833
+    },
+    "afterChip": {
+      "x": 1,
+      "y": 26,
+      "pos": 833
+    },
+    "chipsNeeded": 221,
+    "status": "playing",
+    "walker": {
+      "serial": 23,
+      "id": 88,
+      "dir": 1,
+      "tdir": 1,
+      "pos": 832,
+      "z": 1,
+      "hidden": false,
+      "moving": 0,
+      "frame": 0,
+      "cloning": false,
+      "released": false,
+      "turning": false,
+      "hasMoved": false,
+      "floorMovement": "none",
+      "floorMovementDir": 0,
+      "sliding": false
+    }
+  },
+  {
+    "tick": 6770,
+    "input": "S",
+    "beforeChip": {
+      "x": 1,
+      "y": 26,
+      "pos": 833
+    },
+    "afterChip": {
+      "x": 1,
+      "y": 26,
+      "pos": 833
+    },
+    "chipsNeeded": 221,
+    "status": "playing",
+    "walker": {
+      "serial": 23,
+      "id": 88,
+      "dir": 1,
+      "tdir": 0,
+      "pos": 832,
+      "z": 1,
+      "hidden": false,
+      "moving": 0,
+      "frame": 0,
+      "cloning": false,
+      "released": false,
+      "turning": false,
+      "hasMoved": false,
+      "floorMovement": "none",
+      "floorMovementDir": 0,
+      "sliding": false
+    }
+  },
+  {
+    "tick": 6771,
+    "input": "S",
+    "beforeChip": {
+      "x": 1,
+      "y": 26,
+      "pos": 833
+    },
+    "afterChip": {
+      "x": 1,
+      "y": 26,
+      "pos": 833
+    },
+    "chipsNeeded": 221,
+    "status": "playing",
+    "walker": {
+      "serial": 23,
+      "id": 88,
+      "dir": 1,
+      "tdir": 0,
+      "pos": 832,
+      "z": 1,
+      "hidden": false,
+      "moving": 0,
+      "frame": 0,
+      "cloning": false,
+      "released": false,
+      "turning": false,
+      "hasMoved": false,
+      "floorMovement": "none",
+      "floorMovementDir": 0,
+      "sliding": false
+    }
+  },
+  {
+    "tick": 6772,
+    "input": "S",
+    "beforeChip": {
+      "x": 1,
+      "y": 26,
+      "pos": 833
+    },
+    "afterChip": {
+      "x": 1,
+      "y": 26,
+      "pos": 833
+    },
+    "chipsNeeded": 221,
+    "status": "failed",
+    "walker": {
+      "serial": 23,
+      "id": 88,
+      "dir": 8,
+      "tdir": 8,
+      "pos": 833,
+      "z": 1,
+      "hidden": false,
+      "moving": 0,
+      "frame": 0,
+      "cloning": false,
+      "released": false,
+      "turning": false,
+      "hasMoved": false,
+      "floorMovement": "none",
+      "floorMovementDir": 0,
+      "sliding": false
+    }
+  }
+]

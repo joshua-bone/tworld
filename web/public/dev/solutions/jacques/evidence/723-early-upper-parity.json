@@ -1,0 +1,34 @@
+{
+  "proofOnlyNotWinning": true,
+  "level": 723,
+  "fixture": "723-early-upper-route.json",
+  "fixtureSha256": "565e83a867024096634da336ff1ad80d2166811d76c9c41354a15596b4791210",
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "twsSha256": "38118eb8954a61eae34f8834989115a4a7dc2681c5a50b0f4445e2e735ccfe56",
+  "exactInputBytesRead": true,
+  "nativeStderr": "",
+  "exactTraceParity": true,
+  "checkedTicks": 837,
+  "chipsCollected": 17,
+  "chipsRemaining": 37,
+  "position": {
+    "x": 30,
+    "y": 8,
+    "pos": 286
+  },
+  "typescript": {
+    "status": "playing",
+    "finalTick": 836,
+    "stepCount": 837
+  },
+  "native": {
+    "status": "playing",
+    "finalTick": 836,
+    "stepCount": 837
+  },
+  "inputAudit": {
+    "kind": "original-ms-command-alphabet",
+    "keyboardMoves": 198,
+    "mouseMoves": 0
+  }
+}

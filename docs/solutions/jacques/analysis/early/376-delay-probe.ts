@@ -1,0 +1,28 @@
+// Nonwinning diagnostic. Run from web with vite-node and this file's path.
+import { readFile, writeFile } from 'node:fs/promises';
+import { strict as assert } from 'node:assert';
+import { loadLevel, createRun, tick, verifyNativeReplay } from '../../../../../scripts/jacques/harness';
+import { serializeSolutionFile } from '../../../../../web/src/content/api/solution-file';
+import { runMsReplayTrace, setMsQueueTraceHook } from '../../../../../web/src/ruleset-ms/impl/engine';
+import { collectTraceMismatches } from '../../../../../web/src/replay-verifier/impl/engine/comparators/traceComparison';
+const source = JSON.parse(await readFile(new URL('./376-inputs.json', import.meta.url), 'utf8'));
+const loaded = await loadLevel(376);
+const run = createRun(loaded, { randomSeed: 67 });
+const events: unknown[] = [];
+setMsQueueTraceHook(event => { if (event.tick === 752 && event.action.includes('requeue')) events.push(event); });
+for (const input of source.inputs.slice(0, 702)) tick(run, input);
+for (const [direction, tiles] of [['E', 2], ['S', 6], ['W', 2]] as const) tick(run, direction, tiles * 4);
+tick(run, 0, 22);
+setMsQueueTraceHook(null);
+const solution = { flags: 0, randomSlideDirection: 1, stepping: 0, randomSeed: 67, moves: run.session.recordedMoves.map(({ when, dir }) => ({ when, dir })) };
+const bytes = serializeSolutionFile({ ruleset: 'MS', flags: 0, extraHeader: new Uint8Array(), setName: 'Jacques-MS.dac', entries: [{ levelNumber: 376, password: loaded.metadata.password, bestTimeTicks: 763, solutionData: null, expandedSolution: solution }] });
+const native = await verifyNativeReplay(loaded, bytes, 764);
+const typescript = runMsReplayTrace(loaded.request, loaded.level, { ...solution, bestTimeTicks: 763 }, 764);
+const differences: { path: string; actual: unknown; expected: unknown }[] = [];
+const normalize = (value: unknown) => JSON.parse(JSON.stringify(value));
+for (const key of ['initialState', 'steps', 'result'] as const) collectTraceMismatches(normalize(typescript[key]), normalize(native.trace[key]), '$.' + key, differences, 10);
+assert.deepEqual(differences, []);
+assert.equal(native.stderr, '');
+const evidence = { level: 376, purpose: 'Nonwinning diagnostic of a remote creature delay', native: native.trace.result, exactTraceParity: true, nativeStderr: native.stderr, twsSha256: native.twsSha256, events, explanation: 'At tick752 the blocked Teeth at(0,24) is requeued. The next Walker in the queue is skipped remotely at(29,16). It is not the creature on the upper teleporter, so this prefix does not solve the return.' };
+await writeFile(new URL('./376-delay-probe.json', import.meta.url), JSON.stringify(evidence, null, 2) + '\n');
+console.log(JSON.stringify(evidence));
