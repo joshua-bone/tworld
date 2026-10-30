@@ -1,6 +1,6 @@
 {
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
-  "engineCommit": "77ac8facae61216c94c1328d14d680d21feb9053",
+  "engineCommit": "f5ad1c7f160038fe808d8447848bce32334ff345",
   "counts": {
     "solved": 3,
     "impossible": 28,
@@ -23,7 +23,7 @@
       "level": 376,
       "title": "Empty Islands",
       "status": "solved",
-      "summary": "A mouse click replaces the invalid diagonal in the earlier replay. The corrected MS replay uses ordinary keyboard commands and one visible-tile click, collects all four chips, and completes at tick 920 in native Tile World and TWO with identical traces."
+      "summary": "A mouse click replaces the invalid diagonal in the earlier replay. It collects all four chips and completes at tick 920 in native Tile World MS and TWO with identical traces. It fails in SuCC because mouse target timing and force-floor input rules differ; Microsoft CHIP.EXE compatibility is unverified."
     },
     {
       "level": 379,
@@ -185,7 +185,7 @@
       "level": 952,
       "title": "Extremely Tough Jumping Swarm!",
       "status": "unresolved",
-      "summary": "376 of 419 chips required. Extra chips permit bypassing some inaccessible-looking pockets, so a local obstruction alone is insufficient."
+      "summary": "A native-verified partial route collects 206 of the 376 required chips. The automatic cloners still prevent a complete route; neither a winning replay nor an impossibility proof is established."
     },
     {
       "level": 955,

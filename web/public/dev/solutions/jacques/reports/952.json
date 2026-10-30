@@ -8,7 +8,7 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
   "status": "unresolved",
-  "summary": "376 of 419 chips required. Extra chips permit bypassing some inaccessible-looking pockets, so a local obstruction alone is insufficient.",
+  "summary": "A native-verified partial route collects 206 of the 376 required chips. The automatic cloners still prevent a complete route; neither a winning replay nor an impossibility proof is established.",
   "visualEvidence": [
     "952-initial.svg",
     "952-initial.png",
@@ -26,6 +26,11 @@
     {
       "kind": "bounded collection attempt",
       "result": "A short run collected 37 of the required 376 chips, then was cornered by the automatically cloned swarm near (0,10). This is an unsuccessful attempt, not an impossibility argument."
+    },
+    {
+      "kind": "native full-trace partial validation",
+      "result": "A bottom-first partial route collects 206 of the 376 required chips and is alive at (7,22) at tick 1395, but is then cornered. Its full initial state, 1,396 steps, and result match the original native engine; exact replay bytes were read and native stderr was empty. This is not a winning replay.",
+      "evidence": "952-bottom-partial-parity.json"
     }
   ],
   "sources": [
@@ -48,7 +53,8 @@
       "952-initial.svg",
       "952-initial.png",
       "952-bottom.svg"
-    ]
+    ],
+    "partialReplay": "952-bottom-partial-parity.json"
   },
-  "engineCommit": "77ac8facae61216c94c1328d14d680d21feb9053"
+  "engineCommit": "f5ad1c7f160038fe808d8447848bce32334ff345"
 }

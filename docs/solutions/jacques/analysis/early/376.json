@@ -8,7 +8,7 @@
   "ruleset": "MS",
   "coordinates": "zero-based x,y",
   "status": "solved",
-  "summary": "A mouse click replaces the invalid diagonal in the earlier replay. The corrected MS replay uses ordinary keyboard commands and one visible-tile click, collects all four chips, and completes at tick 920 in native Tile World and TWO with identical traces.",
+  "summary": "A mouse click replaces the invalid diagonal in the earlier replay. It collects all four chips and completes at tick 920 in native Tile World MS and TWO with identical traces. It fails in SuCC because mouse target timing and force-floor input rules differ; Microsoft CHIP.EXE compatibility is unverified.",
   "proofSteps": [
     "Keep the Empty-over-Water bridge at (1,8),(2,8) unused. Wait until a Teeth covers the upper teleport (0,7), then enter the lower teleport southward. Because MS skips covered teleport destinations, Chip emerges onto the outer force-floor circuit. The replay uses random seed 67 and starts this maneuver at tick 85.",
     "Collect the right-island chip (23,16), return through the original right-island entrance, then collect the center chip (19,17) and lower-left chip (17,16). Hidden chips require leaving and reentering after the covering Empty tile disappears.",
@@ -64,10 +64,15 @@
     {
       "kind": "original live mouse input and recorder",
       "result": "The unchanged native input module maps a left click on visible tile (0,10) to command 832, followed by three Preserve polls. A temporary CLI parser submits those live commands to unchanged native gameplay code: completion at tick 920, with the native recorder emitting relative mouse command 177 at tick 742. All 161 recorded moves match the exported replay; 921 gameplay snapshots match native replay."
+    },
+    {
+      "kind": "SuCC public-source compatibility check",
+      "result": "Unmodified SuperCC commit 3e92380dabbae2dcf4e86ed5dc7572695311c8d4 fails this exact 147-byte replay. Its replay loader resolves relative mouse command 177 before the forced move, targeting (0,11); Tile World resolves it after that move, targeting (0,10). A second probe supplying the intended absolute target (0,10) still fails: SuCC explicitly suppresses a mouse move in the current slide direction, while Tile World tests the raw command before mouse conversion. Both SuCC probes end with Chip dead at (1,6), after half-tick 374. See 376-supercc-audit.json and its source links and reproduction files."
     }
   ],
   "limitations": [
-    "The original Tile World MS mouse behavior is used. The earlier diagonal replay is withdrawn as a player-valid solution. Completion has not been checked in Microsoft CHIP.EXE or SuCC."
+    "This is a verified original Tile World MS solution, with a matching TWO replay. It is not a verified Microsoft CHIP.EXE solution. The earlier diagonal replay is withdrawn as a player-valid solution.",
+    "SuCC rejects the required extra mouse step even when supplied the intended absolute target. Changing only the replay's relative mouse coordinates is therefore insufficient. The comparison establishes an engine difference; it does not establish which implementation matches Microsoft CHIP.EXE. A cardinal-keyboard-only solution remains under investigation."
   ],
   "sourceEvidence": [
     "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
@@ -108,7 +113,8 @@
     "winningReplay": "376.tws",
     "certificate": "376.tws.json",
     "method": "Semantic island routing, an ordinary visible-tile mouse click, and native/TypeScript exact-trace verification. The replay-only diagonal from the earlier version was rejected and replaced.",
-    "nativeLiveMouseAudit": "376-mouse-native-live.json"
+    "nativeLiveMouseAudit": "376-mouse-native-live.json",
+    "superccCompatibilityAudit": "376-supercc-audit.json"
   },
   "replayPath": "replays/376.tws",
   "certificate": "replays/376.tws.json"

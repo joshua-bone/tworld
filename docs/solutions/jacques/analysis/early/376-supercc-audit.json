@@ -1,0 +1,165 @@
+{
+  "level": 376,
+  "title": "Empty Islands",
+  "scope": "Public SuperCC comparison with the existing Tile World MS reference; no claim about CHIP.EXE authority.",
+  "publicSource": {
+    "repository": "https://github.com/SicklySilverMoon/SuperCC",
+    "branchObserved": "master",
+    "commit": "3e92380dabbae2dcf4e86ed5dc7572695311c8d4",
+    "trackedSourceUnchangedBeforeAndAfter": true
+  },
+  "dat": {
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+    "name": "Jacques.dat"
+  },
+  "replay": {
+    "path": "web/public/dev/solutions/jacques/replays/376.tws",
+    "bytes": 147,
+    "sha256": "8c2cf373930654ef5eb252dba030359f838d2112680b77f8b51236f78a400fd9",
+    "mouseCommand": {
+      "tick": 742,
+      "recordedRelative": 177,
+      "offset": [
+        0,
+        -1
+      ],
+      "originalLiveAbsolute": 832,
+      "originalLiveTarget": [
+        0,
+        10
+      ]
+    }
+  },
+  "runtime": {
+    "java": "OpenJDK 17.0.18",
+    "gui": false,
+    "levelFilter": 376,
+    "jsonSimpleVersion": "1.1.1",
+    "jsonSimpleSha256": "4e69696892b88b41c55d49ab2fdcc21eead92bf54acc588c0050596c3b75199c"
+  },
+  "probes": [
+    {
+      "name": "exact-tws-import",
+      "observed": true,
+      "input": "Unmodified 147-byte replay through public TWSReader and Solution.load",
+      "before": {
+        "superccHalfTick": 371,
+        "position": [
+          0,
+          12
+        ],
+        "sliding": true,
+        "direction": "UP",
+        "mouseGoal": [
+          0,
+          11
+        ]
+      },
+      "after": {
+        "superccHalfTick": 372,
+        "position": [
+          0,
+          11
+        ],
+        "mouseGoal": "NO_CLICK (1025)"
+      },
+      "final": {
+        "superccHalfTick": 375,
+        "position": [
+          1,
+          6
+        ],
+        "won": false,
+        "dead": true
+      },
+      "log": "376-supercc-relative.log",
+      "logSha256": "350cd5241191e1650d088eb422207da9e5822ae53038c9faaead566f104be914"
+    },
+    {
+      "name": "absolute-target-control",
+      "observed": true,
+      "input": "Same replay; observation subclass supplies absolute target (0,10) at half tick371, bypassing relative target conversion for that click. Engine source unchanged.",
+      "before": {
+        "superccHalfTick": 371,
+        "position": [
+          0,
+          12
+        ],
+        "sliding": true,
+        "direction": "UP",
+        "mouseGoal": [
+          0,
+          10
+        ]
+      },
+      "after": {
+        "superccHalfTick": 372,
+        "position": [
+          0,
+          11
+        ],
+        "mouseGoal": [
+          0,
+          10
+        ]
+      },
+      "final": {
+        "superccHalfTick": 375,
+        "position": [
+          1,
+          6
+        ],
+        "won": false,
+        "dead": true
+      },
+      "log": "376-supercc-absolute.log",
+      "logSha256": "94b84e8129b927d07f493bcc50f8312070ce55c92b33e8d82a64bd850268ec27"
+    }
+  ],
+  "divergences": [
+    {
+      "name": "relative mouse target is anchored at a different point in the tick",
+      "observedEffect": "SuCC resolves relative177=(0,-1) from pre-forced-movement position (0,12), targeting (0,11). Tile World reconstructs it after its forced movement to (0,11), targeting (0,10).",
+      "sourceExplanation": "TWSReader correctly decodes the relative pair; Solution.tickBasicMoves turns it into an absolute click before calling the engine. Tile World floormovements precedes choosemove and relative mouse expansion.",
+      "sources": [
+        "https://github.com/SicklySilverMoon/SuperCC/blob/3e92380dabbae2dcf4e86ed5dc7572695311c8d4/src/main/java/io/TWSReader.java#L178-L217",
+        "https://github.com/SicklySilverMoon/SuperCC/blob/3e92380dabbae2dcf4e86ed5dc7572695311c8d4/src/main/java/emulator/Solution.java#L87-L105",
+        "https://github.com/SicklySilverMoon/SuperCC/blob/3e92380dabbae2dcf4e86ed5dc7572695311c8d4/src/main/java/game/MS/MSLevel.java#L508-L520"
+      ],
+      "tileWorldSources": [
+        "legacy_c/mslogic.c:2378",
+        "legacy_c/mslogic.c:2396",
+        "legacy_c/mslogic.c:1377"
+      ]
+    },
+    {
+      "name": "same-direction voluntary mouse movement on a force floor is suppressed",
+      "observedEffect": "Even when the probe supplies intended absolute goal (0,10), SuCC advances only to (0,11); the goal remains (0,10).",
+      "sourceExplanation": "MSLevel rejects CLICK_EARLY when the sought direction equals the sliding direction; moveChip repeats that suppression. Tile World tests the raw command against the slide direction before converting a mouse command into a cardinal direction, so the mouse command bypasses that comparison.",
+      "sources": [
+        "https://github.com/SicklySilverMoon/SuperCC/blob/3e92380dabbae2dcf4e86ed5dc7572695311c8d4/src/main/java/game/MS/MSLevel.java#L513-L526",
+        "https://github.com/SicklySilverMoon/SuperCC/blob/3e92380dabbae2dcf4e86ed5dc7572695311c8d4/src/main/java/game/MS/MSLevel.java#L400-L416"
+      ],
+      "tileWorldSources": [
+        "legacy_c/mslogic.c:1367",
+        "legacy_c/mslogic.c:1373",
+        "legacy_c/mslogic.c:1387"
+      ]
+    }
+  ],
+  "reproduction": {
+    "script": "376-reproduce-supercc.py",
+    "probeSource": "376-supercc-probe.java",
+    "command": "python3 docs/solutions/jacques/analysis/early/376-reproduce-supercc.py --checkout /tmp/jacques-supercc-audit",
+    "subprocessTimeoutSeconds": 45,
+    "downloadTimeoutSeconds": 30,
+    "outputDirectory": "/tmp/jacques-supercc-376-evidence",
+    "validation": "Script rerun successfully; both expected failures reproduced, exact DAT/replay hashes and replay byte size checked, tracked SuperCC source clean before and after."
+  },
+  "limitations": [
+    "This establishes observable differences between the pinned public SuperCC source and the project's Tile World MS reference. It does not establish which matches the original Microsoft executable.",
+    "SuperCC uses half ticks; the observed transition from half371 to half372 corresponds to Tile World processing native tick742.",
+    "The absolute-target control deliberately changes one supplied input; it is a control experiment, not the unchanged TWS result.",
+    "The probe is a subclass with logging and read-only reflection; SuperCC engine source is not patched."
+  ]
+}
