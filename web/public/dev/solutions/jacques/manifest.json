@@ -1,10 +1,10 @@
 {
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
-  "engineCommit": "b5d59abc240f2f3f940ee1c288c468ae34d62131",
+  "engineCommit": "332f3aa99cd8c4195cc94c199a60e80526a4678e",
   "counts": {
-    "solved": 2,
+    "solved": 3,
     "impossible": 25,
-    "unresolved": 11
+    "unresolved": 10
   },
   "levels": [
     {
@@ -22,8 +22,8 @@
     {
       "level": 376,
       "title": "Empty Islands",
-      "status": "unresolved",
-      "summary": "Constructive alternative found: wait for an actor to cover the lower teleport, then leave the start northward without using the disposable bridge."
+      "status": "solved",
+      "summary": "A winning MS replay preserves the disposable bridge, collects all four chips, uses a diagonal replay command to return through the teleports, and exits at tick 920. Native and TypeScript traces match exactly."
     },
     {
       "level": 379,
@@ -155,7 +155,7 @@
       "level": 932,
       "title": "RUN!!! IV",
       "status": "unresolved",
-      "summary": "No explicit Chip tile; native MS nevertheless creates the player at (0,0). 1029 raw chips cover the 999 requirement, so missing start is not an impossibility proof."
+      "summary": "MS supplies a default player at (0,0) despite the missing Chip tile. A constructive prefix collects 669 chips and opens a portal through the monster boundary, but no complete replay or impossibility argument is established."
     },
     {
       "level": 937,
