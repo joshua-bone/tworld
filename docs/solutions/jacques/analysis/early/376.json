@@ -7,18 +7,54 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "ruleset": "MS",
   "coordinates": "zero-based x,y",
-  "status": "unresolved",
-  "summary": "Four-chip multi-island puzzle; flippers lie under socket (17, 8). The apparently dangerous initial empty-over-water bridge is MS layered terrain, not automatically impassable. Need timed route through all island sections; no sound impossibility established.",
-  "proofSteps": [],
+  "status": "solved",
+  "summary": "A winning MS replay preserves the disposable bridge, collects all four chips, uses a diagonal replay command to return through the teleports, and exits at tick 920. Native and TypeScript traces match exactly.",
+  "proofSteps": [
+    "Keep the Empty-over-Water bridge at (1,8),(2,8) unused. Wait until a Teeth covers the upper teleport (0,7), then enter the lower teleport southward. Because MS skips covered teleport destinations, Chip emerges onto the outer force-floor circuit. The replay uses random seed 67 and starts this maneuver at tick 85.",
+    "Collect the right-island chip (23,16), return through the original right-island entrance, then collect the center chip (19,17) and lower-left chip (17,16). Hidden chips require leaving and reentering after the covering Empty tile disappears.",
+    "Return to the left force lane with a gap behind another creature. At tick 743, a diagonal N+E replay command produces an extra north step on the north force floor: the same-direction suppression check occurs before the diagonal is reduced to north. This puts Chip in the brief window where the upper teleport is covered, so teleportation fails and Chip advances onto starting Gravel (0,8) at tick 746.",
+    "Cross the preserved bridge, collect the final hidden chip (14,8), then open socket (17,8), leave and reenter for the flippers beneath it. Swim to exit (31,0).",
+    "The saved TWS completes the unchanged DAT in both engines at tick 920 with all four chips collected. The full native and TypeScript traces match."
+  ],
   "visualEvidence": "376-initial.svg",
   "experiments": [
     {
       "kind": "DAT two-layer inventory",
       "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    },
+    {
+      "kind": "exact-runtime initial-island skip",
+      "inputs": "140 idle ticks, N for 1 tick, then idle",
+      "result": "Chip reaches (0,4) at tick 148 while both Empty-over-Water bridge cells remain intact. This invalidates a simple no-return argument for the initial island."
+    },
+    {
+      "kind": "constructive prefix",
+      "seed": 13,
+      "steps": 742,
+      "chipsCollected": 3,
+      "chipsRequired": 4,
+      "result": "Initial bridge intact; Chip at (1,23); returning west collides with a jammed creature."
+    },
+    {
+      "kind": "winning replay",
+      "tws": "376.tws",
+      "certificate": "376.tws.json",
+      "typescriptFinalTick": 920,
+      "nativeFinalTick": 920,
+      "exactTraceParity": true,
+      "exactInputBytesRead": true,
+      "nativeStderr": "",
+      "seed": 67,
+      "stepping": 0,
+      "diagonalCommand": {
+        "tick": 743,
+        "code": 9,
+        "direction": "N+E"
+      }
     }
   ],
   "limitations": [
-    "No winning replay or all-play impossibility proof established."
+    "The replay contains a diagonal N+E command at tick 743. It is verified as a native MS TWS replay; manual keyboard reproduction is not established."
   ],
   "sourceEvidence": [
     "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
@@ -26,10 +62,19 @@
     "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
     "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
     "legacy_c/mslogic.c:1825-1832 (exit completion)",
-    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
+    "legacy_c/mslogic.c:1365-1386 (same-direction force suppression precedes diagonal normalization)",
+    "legacy_c/mslogic.c:1396-1434 (only uncovered teleport destinations are considered)",
+    "web/src/ruleset-ms/impl/chipInput.ts:263-273 (replay input latching preserves direction codes)"
   ],
   "title": "Empty Islands",
-  "argument": [],
+  "argument": [
+    "Keep the Empty-over-Water bridge at (1,8),(2,8) unused. Wait until a Teeth covers the upper teleport (0,7), then enter the lower teleport southward. Because MS skips covered teleport destinations, Chip emerges onto the outer force-floor circuit. The replay uses random seed 67 and starts this maneuver at tick 85.",
+    "Collect the right-island chip (23,16), return through the original right-island entrance, then collect the center chip (19,17) and lower-left chip (17,16). Hidden chips require leaving and reentering after the covering Empty tile disappears.",
+    "Return to the left force lane with a gap behind another creature. At tick 743, a diagonal N+E replay command produces an extra north step on the north force floor: the same-direction suppression check occurs before the diagonal is reduced to north. This puts Chip in the brief window where the upper teleport is covered, so teleportation fails and Chip advances onto starting Gravel (0,8) at tick 746.",
+    "Cross the preserved bridge, collect the final hidden chip (14,8), then open socket (17,8), leave and reenter for the flippers beneath it. Swim to exit (31,0).",
+    "The saved TWS completes the unchanged DAT in both engines at tick 920 with all four chips collected. The full native and TypeScript traces match."
+  ],
   "evidence": {
     "visual": "376-initial.svg",
     "sources": [
@@ -41,6 +86,11 @@
       "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
     ],
     "coordinates": "zero-based x,y",
-    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
-  }
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+    "winningReplay": "376.tws",
+    "certificate": "376.tws.json",
+    "method": "Semantic island routing and a targeted diagonal replay command; bounded seed/timing experiments found a safe actor-congestion schedule."
+  },
+  "replayPath": "replays/376.tws",
+  "certificate": "replays/376.tws.json"
 }

@@ -1,0 +1,35 @@
+{
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "level": {
+    "index": 375,
+    "number": 376,
+    "name": "Empty Islands",
+    "author": "",
+    "password": "JCBM",
+    "timeLimitSeconds": 120,
+    "chipsRequired": 4,
+    "bestTimeTicks": 2147483647,
+    "levelSize": 952,
+    "solutionSize": 0,
+    "levelHash": "665933201583964985",
+    "gameplayHash": "17088403593588818345",
+    "hasSolution": false,
+    "sgflags": 0,
+    "unsolvable": null,
+    "hasSpecialTools": false
+  },
+  "twsSha256": "948ebbe595ea138b5c089cdbee6d6b3b2f33c548252c2ac490852be8edbda0f6",
+  "typescript": {
+    "status": "completed",
+    "finalTick": 920,
+    "stepCount": 921
+  },
+  "native": {
+    "status": "completed",
+    "finalTick": 920,
+    "stepCount": 921
+  },
+  "nativeStderr": "",
+  "exactInputBytesRead": true,
+  "exactTraceParity": true
+}
