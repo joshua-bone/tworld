@@ -7,26 +7,30 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "ruleset": "MS",
   "coordinates": "zero-based x,y",
-  "status": "unresolved",
-  "summary": "Candidate force-floor obstruction; independent review pending.",
+  "status": "impossible",
+  "summary": "Both exits are inaccessible: one is sealed by permanent walls, and a south-force barrier prevents reaching the red key needed for the other. Blocks cannot provide a safe backstop.",
   "proofSteps": [
-    "The alternate exit (5, 16) is in a six-cell component x 4..5, y 15..17. Its complete boundary is permanent hidden walls, with ordinary Walls (4, 18),(5, 18) below. No teleport lies inside. Therefore that exit is unreachable.",
-    "The main exit (0, 0) and its red key (5, 1) lie north of south-force fields x 1..4 andx 6..9, y 4..7. Column x 5 and the outer side boundaries are permanent Walls here; row 0 provides no entrance from the rest of the level. There are no suction boots or upper-region teleports.",
-    "Any first entrance into this northern region must climb from row 8 through south-force row 7 into row 6. A manual north move from row 8 enters row 7 and sets the moved flag. Before Chip can make another manual move, the next forced-movement poll pushes Chip south back into the cell just vacated on row 8. Manual north can return Chip to row 7 but cannot gain a further row.",
-    "This backward push cannot be blocked by a pre-existing block in the vacated cell, because Chip just occupied that cell. No autonomous block or block cloner can insert a block there while Chip is on row 7. A monster occupying that cell causes a lethal collision rather than a safe backstop. There is no side entry at row 7 that bypasses the first north-entry argument.",
-    "The lower block cloner cannot launch a block directly into these cells. Ordinary blocks pushed north onto the south-force field are sliding and cannot be pushed again parallel or opposite to that force. They cannot give Chip a new source position above the barrier.",
-    "Inductively Chip cannot reach row 6 of either field, hence cannot reach the red key, door (1, 0), or exit (0, 0). Together with the sealed alternate-exit component, this prevents completion."
+    "The alternate exit at (5,16) lies in a six-cell component: columns 4\u20135, rows 15\u201317. Permanent hidden walls form its boundary, with ordinary walls at (4,18) and (5,18) below. No teleport lies inside, so Chip cannot reach this exit.",
+    "The main exit at (0,0) and the only red key at (5,1) lie north of two south-force fields: columns 1\u20134 and 6\u20139, rows 4\u20137. Permanent walls at columns 0, 5 and 10 prevent side entry at these rows. Row 0 offers no entrance from elsewhere. Neither layer contains suction boots, and no teleport reaches this northern region.",
+    "Any first approach from below must move north from row 8 into row 7. This manual move sets the moved flag. Before another manual move is allowed, the next even-tick force poll moves Chip south again. A move immediately before a four-tick boundary does not help: forced movement occurs before the flag reset and manual input. A subsequent north move returns only to row 7.",
+    "A safe backstop cannot appear in the row 8 cell that Chip just vacated. Row 8, columns 1\u20139, initially contains water; filling it with blocks produces dirt. These cells contain no force floor, ice, teleport or cloner, so a block cannot move into the cell autonomously from an adjacent row 8 cell. Permanent walls across row 9 prevent entry from the south.",
+    "A block entering that row 8 cell from the north would first have to pass through Chip at row 7. An ordinary block collision is fatal. The special temporary squish state applies only to a block leaving a cloner, and no cloner is adjacent to this barrier. A monster in the destination also causes a lethal collision rather than providing a safe backstop.",
+    "Chip\u2019s forced movement runs before forced movement of blocks and monsters. Pushing a block north onto the south-force field cannot create a higher starting position: the block becomes sliding, and MS rejects another push parallel or opposite to its sliding direction. The lower block cloner therefore supplies no way to defeat the row 7 obstruction.",
+    "Thus every surviving visit to row 7 returns to row 8 before Chip can climb to row 6. Chip cannot reach the red key or pass the red door at (1,0) to the main exit. The other exit is sealed, so no legal MS play can complete the level."
   ],
   "visualEvidence": "675-initial.svg",
   "experiments": [
     {
       "kind": "DAT two-layer inventory",
       "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    },
+    {
+      "kind": "independent semantic review",
+      "result": "A second investigator inspected both map layers, the sprite map, and native force, block and collision code. The review checked four-tick boundary timing, the order of forced movement, all directions from which a backstop could enter row 8, and the cloner-only squish exception. No surviving route across the barrier was found; the argument is an invariant, not a failed search."
     }
   ],
   "limitations": [
-    "Ordinary legal MS play; cheats and editor changes excluded.",
-    "Force-field proof should receive independent review of the blocked-force/backstop case before publication."
+    "Ordinary legal MS play; cheats and editor changes excluded."
   ],
   "sourceEvidence": [
     "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
@@ -38,16 +42,20 @@
     "legacy_c/mslogic.c:1347-1370 (manual movement flag and force override)",
     "legacy_c/mslogic.c:1916-1958 (forced moves clear moved flag after the forced displacement)",
     "legacy_c/mslogic.c:2380-2404 (forced movement precedes manual input)",
-    "legacy_c/mslogic.c:962-968 (parallel/opposite sliding-block push rejected)"
+    "legacy_c/mslogic.c:962-968 (parallel/opposite sliding-block push rejected)",
+    "legacy_c/mslogic.c:1833-1842 (ordinary collision and cloner-only squish exception)",
+    "legacy_c/mslogic.c:1860-1870 (leaving forced terrain ends sliding)",
+    "legacy_c/mslogic.c:2017-2027 (Chip forced movement precedes blocks and monsters)"
   ],
   "title": "Saturn",
   "argument": [
-    "The alternate exit (5, 16) is in a six-cell component x 4..5, y 15..17. Its complete boundary is permanent hidden walls, with ordinary Walls (4, 18),(5, 18) below. No teleport lies inside. Therefore that exit is unreachable.",
-    "The main exit (0, 0) and its red key (5, 1) lie north of south-force fields x 1..4 andx 6..9, y 4..7. Column x 5 and the outer side boundaries are permanent Walls here; row 0 provides no entrance from the rest of the level. There are no suction boots or upper-region teleports.",
-    "Any first entrance into this northern region must climb from row 8 through south-force row 7 into row 6. A manual north move from row 8 enters row 7 and sets the moved flag. Before Chip can make another manual move, the next forced-movement poll pushes Chip south back into the cell just vacated on row 8. Manual north can return Chip to row 7 but cannot gain a further row.",
-    "This backward push cannot be blocked by a pre-existing block in the vacated cell, because Chip just occupied that cell. No autonomous block or block cloner can insert a block there while Chip is on row 7. A monster occupying that cell causes a lethal collision rather than a safe backstop. There is no side entry at row 7 that bypasses the first north-entry argument.",
-    "The lower block cloner cannot launch a block directly into these cells. Ordinary blocks pushed north onto the south-force field are sliding and cannot be pushed again parallel or opposite to that force. They cannot give Chip a new source position above the barrier.",
-    "Inductively Chip cannot reach row 6 of either field, hence cannot reach the red key, door (1, 0), or exit (0, 0). Together with the sealed alternate-exit component, this prevents completion."
+    "The alternate exit at (5,16) lies in a six-cell component: columns 4\u20135, rows 15\u201317. Permanent hidden walls form its boundary, with ordinary walls at (4,18) and (5,18) below. No teleport lies inside, so Chip cannot reach this exit.",
+    "The main exit at (0,0) and the only red key at (5,1) lie north of two south-force fields: columns 1\u20134 and 6\u20139, rows 4\u20137. Permanent walls at columns 0, 5 and 10 prevent side entry at these rows. Row 0 offers no entrance from elsewhere. Neither layer contains suction boots, and no teleport reaches this northern region.",
+    "Any first approach from below must move north from row 8 into row 7. This manual move sets the moved flag. Before another manual move is allowed, the next even-tick force poll moves Chip south again. A move immediately before a four-tick boundary does not help: forced movement occurs before the flag reset and manual input. A subsequent north move returns only to row 7.",
+    "A safe backstop cannot appear in the row 8 cell that Chip just vacated. Row 8, columns 1\u20139, initially contains water; filling it with blocks produces dirt. These cells contain no force floor, ice, teleport or cloner, so a block cannot move into the cell autonomously from an adjacent row 8 cell. Permanent walls across row 9 prevent entry from the south.",
+    "A block entering that row 8 cell from the north would first have to pass through Chip at row 7. An ordinary block collision is fatal. The special temporary squish state applies only to a block leaving a cloner, and no cloner is adjacent to this barrier. A monster in the destination also causes a lethal collision rather than providing a safe backstop.",
+    "Chip\u2019s forced movement runs before forced movement of blocks and monsters. Pushing a block north onto the south-force field cannot create a higher starting position: the block becomes sliding, and MS rejects another push parallel or opposite to its sliding direction. The lower block cloner therefore supplies no way to defeat the row 7 obstruction.",
+    "Thus every surviving visit to row 7 returns to row 8 before Chip can climb to row 6. Chip cannot reach the red key or pass the red door at (1,0) to the main exit. The other exit is sealed, so no legal MS play can complete the level."
   ],
   "evidence": {
     "visual": "675-initial.svg",
@@ -61,9 +69,31 @@
       "legacy_c/mslogic.c:1347-1370 (manual movement flag and force override)",
       "legacy_c/mslogic.c:1916-1958 (forced moves clear moved flag after the forced displacement)",
       "legacy_c/mslogic.c:2380-2404 (forced movement precedes manual input)",
-      "legacy_c/mslogic.c:962-968 (parallel/opposite sliding-block push rejected)"
+      "legacy_c/mslogic.c:962-968 (parallel/opposite sliding-block push rejected)",
+      "legacy_c/mslogic.c:1833-1842 (ordinary collision and cloner-only squish exception)",
+      "legacy_c/mslogic.c:1860-1870 (leaving forced terrain ends sliding)",
+      "legacy_c/mslogic.c:2017-2027 (Chip forced movement precedes blocks and monsters)"
     ],
     "coordinates": "zero-based x,y",
-    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+    "independentReview": {
+      "verdict": "supports impossibility",
+      "barrierEntry": {
+        "row": 7,
+        "columns": [
+          [
+            1,
+            4
+          ],
+          [
+            6,
+            9
+          ]
+        ]
+      },
+      "backstopRow": 8,
+      "southBoundaryRow": 9,
+      "backstopTerrain": "Water initially; Dirt when filled. No ice, force, teleport or cloner on these cells."
+    }
   }
 }

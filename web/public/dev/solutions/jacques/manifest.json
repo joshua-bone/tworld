@@ -1,10 +1,10 @@
 {
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
-  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5",
+  "engineCommit": "b5d59abc240f2f3f940ee1c288c468ae34d62131",
   "counts": {
-    "solved": 1,
-    "impossible": 24,
-    "unresolved": 13
+    "solved": 2,
+    "impossible": 25,
+    "unresolved": 11
   },
   "levels": [
     {
@@ -23,7 +23,7 @@
       "level": 376,
       "title": "Empty Islands",
       "status": "unresolved",
-      "summary": "Four-chip multi-island puzzle; flippers lie under socket (17, 8). The apparently dangerous initial empty-over-water bridge is MS layered terrain, not automatically impassable. Need timed route through all island sections; no sound impossibility established."
+      "summary": "Constructive alternative found: wait for an actor to cover the lower teleport, then leave the start northward without using the disposable bridge."
     },
     {
       "level": 379,
@@ -52,8 +52,8 @@
     {
       "level": 628,
       "title": "Escape from the Dungeon",
-      "status": "unresolved",
-      "summary": "Layered boots, green doors, chips over fire, and a red key under socket create a dependency puzzle. No decisive obstruction established; teleports must be included in reachability."
+      "status": "solved",
+      "summary": "Winning MS replay verified in both the TypeScript runtime and native Tile World: 3111 steps, final tick 3110."
     },
     {
       "level": 643,
@@ -82,8 +82,8 @@
     {
       "level": 675,
       "title": "Saturn",
-      "status": "unresolved",
-      "summary": "Candidate force-floor obstruction; independent review pending."
+      "status": "impossible",
+      "summary": "Both exits are inaccessible: one is sealed by permanent walls, and a south-force barrier prevents reaching the red key needed for the other. Blocks cannot provide a safe backstop."
     },
     {
       "level": 723,
@@ -215,13 +215,13 @@
       "level": 978,
       "title": "A Bit Walkery",
       "status": "unresolved",
-      "summary": "1940 chips required and exactly 1940 present, including 966 double-chip stacks and one under the starting player. Each underlying chip needs a return visit."
+      "summary": "All 1,940 chips are required. The main obstacle is opening the double-chip boundary around a continuously cloned walker corridor without being trapped by the released walkers. No winning replay or complete impossibility argument is established."
     },
     {
       "level": 981,
       "title": "Green Kittens Aren't Aliens",
       "status": "unresolved",
-      "summary": "All 16 chips required in 100 seconds; one reusable green key and seven teeth form a lure-and-collect puzzle. No proven obstruction yet."
+      "summary": "Native-verified partial route collects five of 16 chips by tick 227 and parks a freed teeth against the east thin wall at (21,20). Eleven chips remain; no winning replay or impossibility proof yet."
     },
     {
       "level": 982,
