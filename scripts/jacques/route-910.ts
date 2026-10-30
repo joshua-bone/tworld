@@ -69,12 +69,33 @@ try{
  for(const d of [2, 1, 1, 2, 2, 2, 1, 1, 4, 4, 4, 4, 8, 8, 1, 1, 8, 8, 1, 1, 2, 1, 2, 8, 2, 2, 2, 1, 1]){tick(run,d);tick(run,0,3);}
  console.log('W EXIT',snapshot(run).currentTime,snapshot(run).chipsNeeded,run.session.state.internal.chipPos);
  // Lure the teeth off the checkerboard before crossing the upper corridor.
- tick(run,0,4);
- for(const p of[[6,19],[7,19],[8,19],[7,19],[7,18],[6,18],[7,18],[8,18],[9,18],[10,18]])go(...p as[number,number]);
+ go(6,19);tick(run,0,4);
+ for(const p of[[7,19],[8,19],[7,19],[7,18],[6,18],[7,18],[8,18],[9,18],[10,18]])go(...p as[number,number]);
  for(const d of [4, 8, 8, 1, 4, 2, 8, 8, 8, 8])tick(run,d,4);
- // U: the short pause pulls the pursuer below the northern exit.
- for(const d of [4,4,4,8,1,0,1,1,1])tick(run,d,4);
-}catch(error){console.log('STOP',String(error));}
-await writeFile(join(ROOT,'web/public/dev/solutions/jacques/evidence/910-partial-route.json'),JSON.stringify({level:910,datSha256:run.loaded.datSha256,probeOnlyNotWinning:true,status:snapshot(run).status,tick:snapshot(run).currentTime,chipsRemaining:snapshot(run).chipsNeeded,inputs:run.inputs},null,2));
+ // Collect U and open the T corridor, then draw its Tooth west.
+ for(const d of [8, 1, 2, 1, 4, 4, 4, 4, 1, 8, 1, 4, 8, 4, 1, 1, 1, 1, 8, 8, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 0, 0, 0, 0, 0, 1])tick(run,d,4);
+ // Use the green-door chips as barriers while preparing the lower rooms.
+ for(const p of [[4,18],[3,18],[2,18],[1,18],[0,18],[0,19],[0,20],[0,21],[0,22]])go(...p as[number,number]);
+ // Keep the three approaching Teeth west of the W entrance before descending.
+ tick(run,0,16);for(const p of[[0,23],[1,23],[2,23],[3,23],[3,22],[3,21],[2,21],[2,22],[3,22],[3,23],[3,24]])go(...p as[number,number]);
+for(const p of[[3,23],[2,23],[2,22],[2,21],[3,21],[3,22],[3,23],[2,23],[1,23]])go(...p as[number,number]);
+tick(run,2,4);tick(run,1,4);tick(run,0,16);for(const p of[[0,23],[1,23],[2,23],[3,23],[3,24],[3,25],[3,26],[3,27],[3,28],[4,29],[4,30],[5,30],[6,30],[7,30],[8,30],[8,29],[6,29]])go(...p as[number,number]);
+for(const d of[8,8,4,4,2,2,2,1,2,2,2,1,2]){tick(run,d);tick(run,0,3);}
+for(const p of[[1,28],[1,27],[1,26],[1,25],[0,25],[0,26],[0,27],[0,28],[0,29],[0,30],[0,31],[1,31],[1,30]])go(...p as[number,number]);
+for(const d of[4,8,4,1,1,1,1,1,4,4,4,1,2,1,1,8,8,1]){tick(run,d);tick(run,0,3);}
+for(const p of[[3,23],[0,23],[0,22],[0,21],[0,20],[0,19],[1,19],[2,19],[1,19],[0,19],[0,18],[1,18],[2,18],[3,18],[4,18],[4,19],[4,18],[5,18],[6,18],[14,18],[17,18],[22,18],[22,21],[22,18],[14,18]])go(...p as[number,number]);
+for(const p of[[0,19],[0,23],[1,23]])go(...p as[number,number]);
+// Draw the green-passage Teeth upstairs, loop through W, then return behind them.
+for(const d of[2, 0, 1, 0, 1, 0, 1, 0, 1, 2, 8, 8, 4, 1, 8, 8, 4, 8, 8, 2, 4, 4, 2, 8, 8, 8, 2, 4, 2, 4, 0, 8, 0, 4, 1, 1, 1, 8, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 4, 4, 4, 4])tick(run,d,4);
+for(const p of[[1,23],[2,23],[3,23],[3,28],[8,31],[9,31],[10,31],[9,31],[10,31]])go(...p as[number,number]);
+// X: traverse each closing wall-chip once, leaving a route around both Teeth.
+// This local 45-move plan was checked stepwise against the full engine.
+for(const d of[8, 1, 1, 1, 8, 8, 4, 8, 4, 8, 4, 2, 2, 8, 8, 8, 4, 8, 1, 8, 8, 8, 8, 1, 2, 1, 2, 2, 2, 4, 2, 4, 1, 2, 1, 1, 8, 8, 8, 8, 8, 8, 4, 4, 4])tick(run,d,4);
+// Y: spend eight blue keys, return over the exposed chips, then finish Z.
+for(const p of[[22, 31], [23, 31], [22, 31], [23, 31], [23, 30], [23, 29], [23, 28], [23, 27], [24, 27], [24, 26], [24, 25], [25, 25], [24, 25], [24, 26], [24, 27], [23, 27], [23, 28], [23, 29], [23, 30], [23, 31], [23, 30], [23, 29], [23, 28], [23, 27], [24, 27], [24, 26], [24, 25], [25, 25], [26, 25], [26, 26], [26, 27], [26, 28], [26, 29], [26, 30], [26, 31], [25, 31], [26, 31], [27, 31], [28, 31], [29, 31], [30, 31], [31, 31], [29, 30], [30, 29], [31, 28], [31, 27], [30, 27], [29, 27], [28, 27], [31, 27], [31, 26], [31, 25], [31, 24], [31, 23], [31, 22], [31, 21], [31, 20]])go(...p as[number,number]);
+tick(run,1,4);
+}catch(error){throw new Error('910 route did not complete', {cause:error});}
+if(snapshot(run).status!=='completed')throw new Error('910 route did not reach completion');
+await writeFile(join(ROOT,'web/public/dev/solutions/jacques/evidence/910-winning-route.json'),JSON.stringify({level:910,datSha256:run.loaded.datSha256,status:snapshot(run).status,tick:snapshot(run).currentTime,chipsRemaining:snapshot(run).chipsNeeded,inputs:run.inputs},null,2));
 await writeFile('/tmp/jacques-910-progress.svg',await renderSvg(run));
 if(snapshot(run).status==='completed')console.log(await saveWinningReplay(run,join(ROOT,'web/public/dev/solutions/jacques/replays/910.tws')));

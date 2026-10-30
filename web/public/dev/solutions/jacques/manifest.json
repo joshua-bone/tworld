@@ -1,10 +1,10 @@
 {
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
-  "engineCommit": "f5ad1c7f160038fe808d8447848bce32334ff345",
+  "engineCommit": "d589c90fb057e241d86dedf98c8fb5d4de0647d6",
   "counts": {
-    "solved": 3,
+    "solved": 5,
     "impossible": 28,
-    "unresolved": 7
+    "unresolved": 5
   },
   "levels": [
     {
@@ -118,8 +118,8 @@
     {
       "level": 910,
       "title": "Lost in Letterland III",
-      "status": "unresolved",
-      "summary": "Investigation is continuing; no winning replay or complete impossibility argument is established yet."
+      "status": "solved",
+      "summary": "A winning MS replay collects all 275 chips and exits at tick 4176. TypeScript and native Tile World traces match exactly."
     },
     {
       "level": 914,
@@ -220,8 +220,8 @@
     {
       "level": 981,
       "title": "Green Kittens Aren't Aliens",
-      "status": "unresolved",
-      "summary": "Native-verified partial route collects five of 16 chips by tick 227 and parks a freed teeth against the east thin wall at (21,20). Eleven chips remain; no winning replay or impossibility proof yet."
+      "status": "solved",
+      "summary": "A cardinal-input replay collects all 16 chips and exits at tick 1,784 (89.2 seconds). The web and original Tile World MS engines match exactly through all 1,785 ticks."
     },
     {
       "level": 982,

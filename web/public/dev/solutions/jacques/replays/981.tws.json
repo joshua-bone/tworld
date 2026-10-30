@@ -1,0 +1,40 @@
+{
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "level": {
+    "index": 980,
+    "number": 981,
+    "name": "Green Kittens Aren't Aliens",
+    "author": "",
+    "password": "SEJK",
+    "timeLimitSeconds": 100,
+    "chipsRequired": 16,
+    "bestTimeTicks": 2147483647,
+    "levelSize": 568,
+    "solutionSize": 0,
+    "levelHash": "12787209689800848387",
+    "gameplayHash": "842040308680413727",
+    "hasSolution": false,
+    "sgflags": 0,
+    "unsolvable": null,
+    "hasSpecialTools": false
+  },
+  "twsSha256": "f6af69d76e45aeaed4e2f21c586727c9276ade9b18d18e44095423261ce7a450",
+  "typescript": {
+    "status": "completed",
+    "finalTick": 1784,
+    "stepCount": 1785
+  },
+  "native": {
+    "status": "completed",
+    "finalTick": 1784,
+    "stepCount": 1785
+  },
+  "nativeStderr": "",
+  "exactInputBytesRead": true,
+  "exactTraceParity": true,
+  "inputAudit": {
+    "kind": "original-ms-command-alphabet",
+    "keyboardMoves": 431,
+    "mouseMoves": 0
+  }
+}

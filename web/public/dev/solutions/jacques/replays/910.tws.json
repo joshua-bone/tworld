@@ -1,0 +1,40 @@
+{
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "level": {
+    "index": 909,
+    "number": 910,
+    "name": "Lost in Letterland III",
+    "author": "",
+    "password": "IBCO",
+    "timeLimitSeconds": 600,
+    "chipsRequired": 275,
+    "bestTimeTicks": 2147483647,
+    "levelSize": 1365,
+    "solutionSize": 0,
+    "levelHash": "6347444752116624776",
+    "gameplayHash": "10988702965349285330",
+    "hasSolution": false,
+    "sgflags": 0,
+    "unsolvable": null,
+    "hasSpecialTools": false
+  },
+  "twsSha256": "a63d85be21969d13934f227f33310e9a63a9a0a6cb0140506077fefca423c421",
+  "typescript": {
+    "status": "completed",
+    "finalTick": 4176,
+    "stepCount": 4177
+  },
+  "native": {
+    "status": "completed",
+    "finalTick": 4176,
+    "stepCount": 4177
+  },
+  "nativeStderr": "",
+  "exactInputBytesRead": true,
+  "exactTraceParity": true,
+  "inputAudit": {
+    "kind": "original-ms-command-alphabet",
+    "keyboardMoves": 1000,
+    "mouseMoves": 0
+  }
+}
