@@ -8587,6 +8587,33 @@ describe("MS engine regressions", () => {
     expect(session.state.engine.map.cells[clonerPos]?.top.id).toBe(msCreatureTile(MS_TILE.BowlingBall, MS_DIRECTION.east));
   });
 
+  it("keeps native Teeth out of an empty tile over a clone machine", () => {
+    const cells = createEmptyCells();
+    for (const cell of cells) {
+      cell.top.id = MS_TILE.Wall;
+    }
+    const teethPos = pos(5, 5);
+    const clonerPos = pos(6, 5);
+    const chipPos = pos(10, 5);
+    cells[teethPos]!.top.id = msCreatureTile(MS_TILE.Teeth, MS_DIRECTION.east);
+    cells[clonerPos]!.top.id = MS_TILE.Empty;
+    cells[clonerPos]!.bottom.id = MS_TILE.CloneMachine;
+    cells[chipPos]!.top.id = msCreatureTile(MS_TILE.Chip, MS_DIRECTION.south);
+
+    const session = advanceMsTicksForTest(
+      createMsInteractiveSession(
+        createRequest(),
+        createLevel({ cells, creaturePositions: [teethPos] }),
+      ),
+      9,
+    );
+
+    // Native canmakemove rejects a buried CloneMachine, even beneath Empty.
+    expect(session.state.internal.creatures.find((creature) => creature.id === MS_TILE.Teeth)?.pos).toBe(teethPos);
+    expect(session.state.engine.map.cells[clonerPos]!.top.id).toBe(MS_TILE.Empty);
+    expect(session.state.engine.map.cells[clonerPos]!.bottom.id).toBe(MS_TILE.CloneMachine);
+  });
+
   it("lets a moving bowling ball enter and stay on a clone machine", () => {
     const cells = createEmptyCells();
     const chipPos = pos(1, 1);
