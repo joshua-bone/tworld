@@ -1,0 +1,76 @@
+{
+  "level": 379,
+  "name": "Wait",
+  "timeLimitSeconds": 0,
+  "chipsRequired": 0,
+  "chipsPresent": 0,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "status": "impossible",
+  "summary": "Every released glider follows a fixed route into fire before reaching the green button.",
+  "proofSteps": [
+    "Chip starts enclosed at (14, 15) with Walls on three sides and closed toggle (15, 15) on the east. The only exit is (16, 15). The only green button is (18, 28).",
+    "The outside blob is separated from the inner glider chamber by permanent Walls. It can activate red button (1, 3), wired to east-facing glider cloner (3, 3), but cannot itself reach the green button.",
+    "An unobstructed glider follows the straight eastward row 3 to southwest ice corner (28, 3), turns south along column 28 to northwest ice corner (28, 28), then turns west and enters Fire (20, 28). Gliders die on fire. The green button at (18, 28) is two cells farther west.",
+    "The blob moves at most once each 8 ticks on its ordinary-floor circuit. Each new activation requires leaving and re-entering the red button, so clone launches are at least 16 ticks apart. Along the fixed glider route each tile occupancy lasts at most 4 ticks, with ice transitions faster. Identical launches separated by 16 ticks cannot meet or block one another.",
+    "By induction, every successfully released glider follows that same unobstructed route and dies at (20, 28). No clone can turn inward toward the green button. Chip cannot affect either external route while enclosed.",
+    "Consequently no actor ever activates green; the toggle remains closed, preserving Chip enclosure and making the exit unreachable."
+  ],
+  "visualEvidence": "379-initial.svg",
+  "experiments": [
+    {
+      "kind": "DAT two-layer inventory",
+      "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    },
+    {
+      "kind": "bounded live simulation",
+      "input": "E held 20000 ticks, stepping 0 seed 0",
+      "result": "playing at tick 19999; Chip remains (14, 15); one active blob; not a proof"
+    }
+  ],
+  "limitations": [
+    "Ordinary legal MS play, with no cheats or edits."
+  ],
+  "sourceEvidence": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+    "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+    "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+    "legacy_c/mslogic.c:1825-1832 (exit completion)",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
+    "legacy_c/mslogic.c:1128-1137 (normal blob cadence)",
+    "legacy_c/mslogic.c:1204-1209 (glider direction preference)",
+    "legacy_c/mslogic.c:412-425 (ice turns)",
+    "legacy_c/mslogic.c:1720-1724 (glider dies on fire)",
+    "legacy_c/mslogic.c:1787-1797 (red button activated on arrival)"
+  ],
+  "title": "Wait",
+  "argument": [
+    "Chip starts enclosed at (14, 15) with Walls on three sides and closed toggle (15, 15) on the east. The only exit is (16, 15). The only green button is (18, 28).",
+    "The outside blob is separated from the inner glider chamber by permanent Walls. It can activate red button (1, 3), wired to east-facing glider cloner (3, 3), but cannot itself reach the green button.",
+    "An unobstructed glider follows the straight eastward row 3 to southwest ice corner (28, 3), turns south along column 28 to northwest ice corner (28, 28), then turns west and enters Fire (20, 28). Gliders die on fire. The green button at (18, 28) is two cells farther west.",
+    "The blob moves at most once each 8 ticks on its ordinary-floor circuit. Each new activation requires leaving and re-entering the red button, so clone launches are at least 16 ticks apart. Along the fixed glider route each tile occupancy lasts at most 4 ticks, with ice transitions faster. Identical launches separated by 16 ticks cannot meet or block one another.",
+    "By induction, every successfully released glider follows that same unobstructed route and dies at (20, 28). No clone can turn inward toward the green button. Chip cannot affect either external route while enclosed.",
+    "Consequently no actor ever activates green; the toggle remains closed, preserving Chip enclosure and making the exit unreachable."
+  ],
+  "evidence": {
+    "visual": "379-initial.svg",
+    "sources": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+      "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+      "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+      "legacy_c/mslogic.c:1825-1832 (exit completion)",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
+      "legacy_c/mslogic.c:1128-1137 (normal blob cadence)",
+      "legacy_c/mslogic.c:1204-1209 (glider direction preference)",
+      "legacy_c/mslogic.c:412-425 (ice turns)",
+      "legacy_c/mslogic.c:1720-1724 (glider dies on fire)",
+      "legacy_c/mslogic.c:1787-1797 (red button activated on arrival)"
+    ],
+    "coordinates": "zero-based x,y",
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+  },
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

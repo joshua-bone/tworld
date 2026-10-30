@@ -65,6 +65,8 @@ jobs:
             src/player-web/impl/modern \
             src/player-web/impl/ai \
             src/player-web/impl/urlLaunch.test.ts \
+            src/player-web/impl/urlReplayLaunch.test.ts \
+            src/player-web/impl/mobile/MobilePlayerApp.replay.test.tsx \
             src/player-web/impl/play-lab/PlayInputQueue.test.ts \
             src/player-web/impl/usePlayerAppInputController.test.ts \
             src/player-web/impl/usePlayerAppInputController.react.test.tsx \

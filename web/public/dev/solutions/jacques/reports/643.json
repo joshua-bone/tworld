@@ -1,0 +1,65 @@
+{
+  "level": 643,
+  "name": "Bug island",
+  "timeLimitSeconds": 333,
+  "chipsRequired": 33,
+  "chipsPresent": 34,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "status": "impossible",
+  "summary": "Four chips lie inside an immutable fire ring, with no fire boots.",
+  "proofSteps": [
+    "The file contains 34 chips and requires 33. Four chips are at (26, 10),(27, 11),(26, 12),(27, 13), inside the rectangle x 24..29, y 8..15.",
+    "Every boundary cell of that rectangle is top-layer Fire. None has a concealed alternate floor that could be exposed; the four chips lie strictly inside. There is no teleporter inside the rectangle.",
+    "Neither layer contains fire boots. Chip cannot survive crossing Fire. There is no mechanism in this level that creates fire boots or opens a hole in this ring.",
+    "MS ordinary blocks can move onto Fire but do not remove it; the block arrival switch changes Water/Bomb, not Fire. Pushing such a block off reveals the same Fire, so blocks cannot form a safe bridge. Monsters also do not remove Fire.",
+    "Consequently all four interior chips are permanently inaccessible, giving at most 30 collectible chips, below 33 required. Both approaches to the only Exit (31, 0) are sockets (30, 0),(31, 1); the other sides are board boundaries. Thus no exit bypass exists."
+  ],
+  "visualEvidence": "643-initial.svg",
+  "experiments": [
+    {
+      "kind": "DAT two-layer inventory",
+      "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    }
+  ],
+  "limitations": [
+    "Ordinary legal MS play; cheats/editor changes excluded."
+  ],
+  "sourceEvidence": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+    "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+    "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+    "legacy_c/mslogic.c:1825-1832 (exit completion)",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
+    "legacy_c/mslogic.c:1625-1629 (fire without boots kills Chip)",
+    "legacy_c/mslogic.c:1690-1708 (block Fire leaves terrain unchanged)",
+    "legacy_c/mslogic.c:1713-1737 (monster hazard effects do not extinguish Fire)"
+  ],
+  "title": "Bug island",
+  "argument": [
+    "The file contains 34 chips and requires 33. Four chips are at (26, 10),(27, 11),(26, 12),(27, 13), inside the rectangle x 24..29, y 8..15.",
+    "Every boundary cell of that rectangle is top-layer Fire. None has a concealed alternate floor that could be exposed; the four chips lie strictly inside. There is no teleporter inside the rectangle.",
+    "Neither layer contains fire boots. Chip cannot survive crossing Fire. There is no mechanism in this level that creates fire boots or opens a hole in this ring.",
+    "MS ordinary blocks can move onto Fire but do not remove it; the block arrival switch changes Water/Bomb, not Fire. Pushing such a block off reveals the same Fire, so blocks cannot form a safe bridge. Monsters also do not remove Fire.",
+    "Consequently all four interior chips are permanently inaccessible, giving at most 30 collectible chips, below 33 required. Both approaches to the only Exit (31, 0) are sockets (30, 0),(31, 1); the other sides are board boundaries. Thus no exit bypass exists."
+  ],
+  "evidence": {
+    "visual": "643-initial.svg",
+    "sources": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+      "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+      "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+      "legacy_c/mslogic.c:1825-1832 (exit completion)",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
+      "legacy_c/mslogic.c:1625-1629 (fire without boots kills Chip)",
+      "legacy_c/mslogic.c:1690-1708 (block Fire leaves terrain unchanged)",
+      "legacy_c/mslogic.c:1713-1737 (monster hazard effects do not extinguish Fire)"
+    ],
+    "coordinates": "zero-based x,y",
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+  },
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

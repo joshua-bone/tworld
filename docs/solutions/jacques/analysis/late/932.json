@@ -1,0 +1,56 @@
+{
+  "level": 932,
+  "name": "RUN!!! IV",
+  "ruleset": "MS",
+  "timeLimitSeconds": 999,
+  "chipsRequired": 999,
+  "rawChipTilesBothPlanes": 1029,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "unresolved",
+  "summary": "No explicit Chip tile; native MS nevertheless creates the player at (0,0). 1029 raw chips cover the 999 requirement, so missing start is not an impossibility proof.",
+  "visualEvidence": [
+    "932-initial.svg",
+    "932-initial.png",
+    "932-bottom.svg"
+  ],
+  "proofSteps": [],
+  "limitations": [
+    "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
+  ],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    },
+    {
+      "kind": "bounded constructive route attempt",
+      "method": "Nearest-chip route with a four-tick survival check for each next action; one seed and stepping setting, no seed/parameter sweep.",
+      "result": "167 chips collected by tick 667;832 remain. Stopped at (24,5) after all five local four-tick movement/wait choices were lethal. This does not establish impossibility."
+    }
+  ],
+  "sources": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1597",
+    "legacy_c/mslogic.c:1829",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104",
+    "legacy_c/mslogic.c:2277"
+  ],
+  "title": "RUN!!! IV",
+  "argument": [],
+  "evidence": {
+    "facts": {},
+    "sourceReferences": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1597",
+      "legacy_c/mslogic.c:1829",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104",
+      "legacy_c/mslogic.c:2277"
+    ],
+    "visualFiles": [
+      "932-initial.svg",
+      "932-initial.png",
+      "932-bottom.svg"
+    ]
+  }
+}

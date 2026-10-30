@@ -1,0 +1,71 @@
+{
+  "level": 186,
+  "name": "Chip Fight",
+  "timeLimitSeconds": 0,
+  "chipsRequired": 92,
+  "chipsPresent": 92,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "status": "impossible",
+  "summary": "An indestructible horizontal ball blocks the single corridor before a mandatory chip.",
+  "proofSteps": [
+    "Ignoring movable objects and chips, the non-Wall cells form a single 543-cell path from Fire (0, 0) through Chip start (0, 2) to Exit (16, 14). There is no second route, teleport, clone machine, or movable block.",
+    "The ball starts at (11, 27), facing east, immediately west of required chip (12, 27). This chip is the 263 rd position after the fire end of the corridor; the player approaches from the west. Before that chip can be collected, it blocks all monster entry from the west.",
+    "At the west turn (4, 27) the tile is ordinary Empty, not ice; (3, 27) is permanent Wall. Until chip (12, 27) is collected, this ball can therefore only move horizontally within x 4..11 on row 27. A ball chooses forward or reverse only; no tile in that interval redirects it north/south.",
+    "The interval has no water, fire, bombs, or other means to destroy the ball. Other monsters cannot destroy it, and collision/blocking can only reverse its horizontal direction.",
+    "Chip and the surviving ball cannot pass each other along a one-cell-wide path without a lethal collision. Chip initially precedes the ball, whereas chip (12, 27) and the sole exit lie after it. Thus Chip cannot collect that chip or reach the exit. This ordering invariant holds for all timing and random seeds.",
+    "A constructive exact-runtime experiment cleared 45 earlier chips by collecting each next chip and retreating to the fire/water disposal cells. It reached this specific ball obstruction. Failure of later timing probes is not used as proof."
+  ],
+  "visualEvidence": "186-initial.svg",
+  "experiments": [
+    {
+      "kind": "DAT two-layer inventory",
+      "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    },
+    {
+      "kind": "derived strategy executed in exact runtime",
+      "result": "Both hazard boots acquired; 45 chips collected; 47 remain at tick 43444. Ball confinement at row 27 identified.256 one-tick departure variants then failed, but impossibility rests on invariant, not search."
+    }
+  ],
+  "limitations": [
+    "Ordinary legal MS play, with no cheats or edits."
+  ],
+  "sourceEvidence": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+    "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+    "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+    "legacy_c/mslogic.c:1825-1832 (exit completion)",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
+    "legacy_c/mslogic.c:1200-1203 (Ball tries only forward/back)",
+    "legacy_c/mslogic.c:412-425 (only ice corners redirect the ball)",
+    "legacy_c/mslogic.c:1070-1113 (monster occupancy and collision)"
+  ],
+  "title": "Chip Fight",
+  "argument": [
+    "Ignoring movable objects and chips, the non-Wall cells form a single 543-cell path from Fire (0, 0) through Chip start (0, 2) to Exit (16, 14). There is no second route, teleport, clone machine, or movable block.",
+    "The ball starts at (11, 27), facing east, immediately west of required chip (12, 27). This chip is the 263 rd position after the fire end of the corridor; the player approaches from the west. Before that chip can be collected, it blocks all monster entry from the west.",
+    "At the west turn (4, 27) the tile is ordinary Empty, not ice; (3, 27) is permanent Wall. Until chip (12, 27) is collected, this ball can therefore only move horizontally within x 4..11 on row 27. A ball chooses forward or reverse only; no tile in that interval redirects it north/south.",
+    "The interval has no water, fire, bombs, or other means to destroy the ball. Other monsters cannot destroy it, and collision/blocking can only reverse its horizontal direction.",
+    "Chip and the surviving ball cannot pass each other along a one-cell-wide path without a lethal collision. Chip initially precedes the ball, whereas chip (12, 27) and the sole exit lie after it. Thus Chip cannot collect that chip or reach the exit. This ordering invariant holds for all timing and random seeds.",
+    "A constructive exact-runtime experiment cleared 45 earlier chips by collecting each next chip and retreating to the fire/water disposal cells. It reached this specific ball obstruction. Failure of later timing probes is not used as proof."
+  ],
+  "evidence": {
+    "visual": "186-initial.svg",
+    "sources": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+      "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+      "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+      "legacy_c/mslogic.c:1825-1832 (exit completion)",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)",
+      "legacy_c/mslogic.c:1200-1203 (Ball tries only forward/back)",
+      "legacy_c/mslogic.c:412-425 (only ice corners redirect the ball)",
+      "legacy_c/mslogic.c:1070-1113 (monster occupancy and collision)"
+    ],
+    "coordinates": "zero-based x,y",
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+  },
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

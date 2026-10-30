@@ -1,0 +1,58 @@
+{
+  "level": 672,
+  "name": "Buggy Day",
+  "timeLimitSeconds": 445,
+  "chipsRequired": 40,
+  "chipsPresent": 40,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "status": "impossible",
+  "summary": "Every required chip is separated from Chip by an unbridgeable water moat.",
+  "proofSteps": [
+    "The 40 required chips are the only 40 chips in the file. They form a snake at x 22..30, y 23..30. Every chip additionally has Water beneath it.",
+    "The chip snake is entirely surrounded by top-layer Water. The mainland opening is gravel (20, 27), but its eastern neighbor (21, 27) is Water; it is not a direct entrance onto chip (22, 27). The entire x 21 boundary of the lake, y 22..31, is Water.",
+    "There are no flippers or blocks in either layer. The only cloner is a glider cloner, so it cannot create blocks or boots. No teleports exist.",
+    "Entering the separating top-layer Water without flippers kills Chip. Only blocks could fill it, and none exist or can be created. Monsters cannot bridge water. Thus no required chip can be collected.",
+    "All three exits are under Sockets at (11, 11),(12, 11),(15, 11), so none can be entered with 40 chips outstanding."
+  ],
+  "visualEvidence": "672-initial.svg",
+  "experiments": [
+    {
+      "kind": "DAT two-layer inventory",
+      "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    }
+  ],
+  "limitations": [
+    "Proof concerns ordinary legal play; cheats/editor changes excluded."
+  ],
+  "sourceEvidence": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+    "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+    "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+    "legacy_c/mslogic.c:1825-1832 (exit completion)",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+  ],
+  "title": "Buggy Day",
+  "argument": [
+    "The 40 required chips are the only 40 chips in the file. They form a snake at x 22..30, y 23..30. Every chip additionally has Water beneath it.",
+    "The chip snake is entirely surrounded by top-layer Water. The mainland opening is gravel (20, 27), but its eastern neighbor (21, 27) is Water; it is not a direct entrance onto chip (22, 27). The entire x 21 boundary of the lake, y 22..31, is Water.",
+    "There are no flippers or blocks in either layer. The only cloner is a glider cloner, so it cannot create blocks or boots. No teleports exist.",
+    "Entering the separating top-layer Water without flippers kills Chip. Only blocks could fill it, and none exist or can be created. Monsters cannot bridge water. Thus no required chip can be collected.",
+    "All three exits are under Sockets at (11, 11),(12, 11),(15, 11), so none can be entered with 40 chips outstanding."
+  ],
+  "evidence": {
+    "visual": "672-initial.svg",
+    "sources": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+      "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+      "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+      "legacy_c/mslogic.c:1825-1832 (exit completion)",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+    ],
+    "coordinates": "zero-based x,y",
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+  }
+}

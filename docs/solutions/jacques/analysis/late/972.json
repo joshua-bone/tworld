@@ -1,0 +1,287 @@
+{
+  "level": 972,
+  "name": "Variations I",
+  "ruleset": "MS",
+  "timeLimitSeconds": 300,
+  "chipsRequired": 23,
+  "rawChipTilesBothPlanes": 23,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "impossible",
+  "summary": "The required chip at (10,8) can be collected, but doing so consumes the only ice pivot and traps Chip permanently in a closed cross.",
+  "visualEvidence": [
+    "972-initial.svg",
+    "972-initial.png",
+    "972-bottom.svg"
+  ],
+  "proofSteps": [
+    "All 23 chips are required, including (10,8); the only exit is outside the ice cross, behind its socket.",
+    "The horizontal track through (10,8) consists of plain ice at x=8..18 in row 8 and is sealed at both ends by permanent walls at (7,8) and (19,8). The vertical track consists of x=10, y=6..16 and is sealed at (10,5) and (10,17).",
+    "Apart from the chip itself, the only possible stopping point in these tracks is the fake blue wall at (10,11), which hides Ice. Any first approach to the chip must use this one-time pivot; otherwise neither track has a point where Chip can first turn toward the chip.",
+    "Native MS pops the fake wall on arrival and permits a turn based on the encountered fake-wall tile. This makes the chip collectable, but permanently consumes the pivot and exposes plain ice at (10,11).",
+    "After collecting (10,8), its empty floor is the only remaining stopping point in the cross. Each of four departures slides to a permanent end wall and reverses along the same axis, returning to the chip cell. Manual input cannot turn on plain ice, including after a blocked move.",
+    "No skates, ice corners, blocks or teleports occur in the cross. Walkers cannot create a safe perpendicular turn or remove the end walls; contact can only obstruct or kill Chip. Chip therefore cannot escape the 21-cell cross to the exit after collecting this mandatory chip."
+  ],
+  "limitations": [],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    },
+    {
+      "kind": "structural proof audit",
+      "result": "Asserted both tracks, their permanent end walls, the fake wall hiding Ice, absence of skates/corners/blocks, exact required-chip count and exit barriers in prove-ice-trap.ts."
+    },
+    {
+      "kind": "scope note",
+      "result": "Native partial-run witness is for the identical trap geometry in974. The972 conclusion is a structural/source proof, not an assertion that its entire level was replayed to completion."
+    }
+  ],
+  "sources": [
+    "legacy_c/mslogic.c:1631",
+    "legacy_c/mslogic.c:1846",
+    "legacy_c/mslogic.c:1930",
+    "legacy_c/mslogic.c:1367",
+    "scripts/jacques/prove-ice-trap.ts"
+  ],
+  "title": "Variations I",
+  "argument": [
+    "All 23 chips are required, including (10,8); the only exit is outside the ice cross, behind its socket.",
+    "The horizontal track through (10,8) consists of plain ice at x=8..18 in row 8 and is sealed at both ends by permanent walls at (7,8) and (19,8). The vertical track consists of x=10, y=6..16 and is sealed at (10,5) and (10,17).",
+    "Apart from the chip itself, the only possible stopping point in these tracks is the fake blue wall at (10,11), which hides Ice. Any first approach to the chip must use this one-time pivot; otherwise neither track has a point where Chip can first turn toward the chip.",
+    "Native MS pops the fake wall on arrival and permits a turn based on the encountered fake-wall tile. This makes the chip collectable, but permanently consumes the pivot and exposes plain ice at (10,11).",
+    "After collecting (10,8), its empty floor is the only remaining stopping point in the cross. Each of four departures slides to a permanent end wall and reverses along the same axis, returning to the chip cell. Manual input cannot turn on plain ice, including after a blocked move.",
+    "No skates, ice corners, blocks or teleports occur in the cross. Walkers cannot create a safe perpendicular turn or remove the end walls; contact can only obstruct or kill Chip. Chip therefore cannot escape the 21-cell cross to the exit after collecting this mandatory chip."
+  ],
+  "evidence": {
+    "facts": {
+      "mandatoryChip": {
+        "x": 10,
+        "y": 8
+      },
+      "oneUsePivot": {
+        "x": 10,
+        "y": 11,
+        "top": "BlueWall_Fake",
+        "bottom": "Ice"
+      },
+      "horizontal": [
+        {
+          "x": 8,
+          "y": 8
+        },
+        {
+          "x": 9,
+          "y": 8
+        },
+        {
+          "x": 10,
+          "y": 8
+        },
+        {
+          "x": 11,
+          "y": 8
+        },
+        {
+          "x": 12,
+          "y": 8
+        },
+        {
+          "x": 13,
+          "y": 8
+        },
+        {
+          "x": 14,
+          "y": 8
+        },
+        {
+          "x": 15,
+          "y": 8
+        },
+        {
+          "x": 16,
+          "y": 8
+        },
+        {
+          "x": 17,
+          "y": 8
+        },
+        {
+          "x": 18,
+          "y": 8
+        }
+      ],
+      "vertical": [
+        {
+          "x": 10,
+          "y": 6
+        },
+        {
+          "x": 10,
+          "y": 7
+        },
+        {
+          "x": 10,
+          "y": 8
+        },
+        {
+          "x": 10,
+          "y": 9
+        },
+        {
+          "x": 10,
+          "y": 10
+        },
+        {
+          "x": 10,
+          "y": 11
+        },
+        {
+          "x": 10,
+          "y": 12
+        },
+        {
+          "x": 10,
+          "y": 13
+        },
+        {
+          "x": 10,
+          "y": 14
+        },
+        {
+          "x": 10,
+          "y": 15
+        },
+        {
+          "x": 10,
+          "y": 16
+        }
+      ],
+      "exit": {
+        "x": 29,
+        "y": 30
+      }
+    },
+    "sourceReferences": [
+      "legacy_c/mslogic.c:1631",
+      "legacy_c/mslogic.c:1846",
+      "legacy_c/mslogic.c:1930",
+      "legacy_c/mslogic.c:1367",
+      "scripts/jacques/prove-ice-trap.ts"
+    ],
+    "visualFiles": [
+      "972-initial.svg",
+      "972-initial.png",
+      "972-bottom.svg"
+    ],
+    "proofFile": "web/public/dev/solutions/jacques/evidence/972-impossibility.json"
+  },
+  "facts": {
+    "mandatoryChip": {
+      "x": 10,
+      "y": 8
+    },
+    "oneUsePivot": {
+      "x": 10,
+      "y": 11,
+      "top": "BlueWall_Fake",
+      "bottom": "Ice"
+    },
+    "horizontal": [
+      {
+        "x": 8,
+        "y": 8
+      },
+      {
+        "x": 9,
+        "y": 8
+      },
+      {
+        "x": 10,
+        "y": 8
+      },
+      {
+        "x": 11,
+        "y": 8
+      },
+      {
+        "x": 12,
+        "y": 8
+      },
+      {
+        "x": 13,
+        "y": 8
+      },
+      {
+        "x": 14,
+        "y": 8
+      },
+      {
+        "x": 15,
+        "y": 8
+      },
+      {
+        "x": 16,
+        "y": 8
+      },
+      {
+        "x": 17,
+        "y": 8
+      },
+      {
+        "x": 18,
+        "y": 8
+      }
+    ],
+    "vertical": [
+      {
+        "x": 10,
+        "y": 6
+      },
+      {
+        "x": 10,
+        "y": 7
+      },
+      {
+        "x": 10,
+        "y": 8
+      },
+      {
+        "x": 10,
+        "y": 9
+      },
+      {
+        "x": 10,
+        "y": 10
+      },
+      {
+        "x": 10,
+        "y": 11
+      },
+      {
+        "x": 10,
+        "y": 12
+      },
+      {
+        "x": 10,
+        "y": 13
+      },
+      {
+        "x": 10,
+        "y": 14
+      },
+      {
+        "x": 10,
+        "y": 15
+      },
+      {
+        "x": 10,
+        "y": 16
+      }
+    ],
+    "exit": {
+      "x": 29,
+      "y": 30
+    }
+  }
+}

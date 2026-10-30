@@ -1,0 +1,50 @@
+{
+  "level": 939,
+  "name": "The Nab II",
+  "ruleset": "MS",
+  "timeLimitSeconds": 999,
+  "chipsRequired": 411,
+  "rawChipTilesBothPlanes": 443,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "unresolved",
+  "summary": "411 of 443 raw chips required. Dirt-covered chips are collectible after revealing them; the cloner-tile partition and key sequence need a constructive route.",
+  "visualEvidence": [
+    "939-initial.svg",
+    "939-initial.png",
+    "939-bottom.svg"
+  ],
+  "proofSteps": [],
+  "limitations": [
+    "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
+  ],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    }
+  ],
+  "sources": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1597",
+    "legacy_c/mslogic.c:1829",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104"
+  ],
+  "title": "The Nab II",
+  "argument": [],
+  "evidence": {
+    "facts": {},
+    "sourceReferences": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1597",
+      "legacy_c/mslogic.c:1829",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104"
+    ],
+    "visualFiles": [
+      "939-initial.svg",
+      "939-initial.png",
+      "939-bottom.svg"
+    ]
+  },
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

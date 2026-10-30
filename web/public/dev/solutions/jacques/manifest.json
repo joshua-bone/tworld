@@ -1,0 +1,239 @@
+{
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5",
+  "counts": {
+    "solved": 1,
+    "impossible": 24,
+    "unresolved": 13
+  },
+  "levels": [
+    {
+      "level": 186,
+      "title": "Chip Fight",
+      "status": "impossible",
+      "summary": "An indestructible horizontal ball blocks the single corridor before a mandatory chip."
+    },
+    {
+      "level": 288,
+      "title": "Ladder",
+      "status": "impossible",
+      "summary": "The sole exit lies across a full-height permanent wall."
+    },
+    {
+      "level": 376,
+      "title": "Empty Islands",
+      "status": "unresolved",
+      "summary": "Four-chip multi-island puzzle; flippers lie under socket (17, 8). The apparently dangerous initial empty-over-water bridge is MS layered terrain, not automatically impassable. Need timed route through all island sections; no sound impossibility established."
+    },
+    {
+      "level": 379,
+      "title": "Wait",
+      "status": "impossible",
+      "summary": "Every released glider follows a fixed route into fire before reaching the green button."
+    },
+    {
+      "level": 402,
+      "title": "Number Soup",
+      "status": "impossible",
+      "summary": "A keyless green door seals at least five needed chips; both exit routes remain closed."
+    },
+    {
+      "level": 431,
+      "title": "Altar",
+      "status": "impossible",
+      "summary": "Neither DAT layer contains an Exit tile."
+    },
+    {
+      "level": 527,
+      "title": "Bloboy",
+      "status": "impossible",
+      "summary": "A keyless green-door cut separates Chip from the exit."
+    },
+    {
+      "level": 628,
+      "title": "Escape from the Dungeon",
+      "status": "unresolved",
+      "summary": "Layered boots, green doors, chips over fire, and a red key under socket create a dependency puzzle. No decisive obstruction established; teleports must be included in reachability."
+    },
+    {
+      "level": 643,
+      "title": "Bug island",
+      "status": "impossible",
+      "summary": "Four chips lie inside an immutable fire ring, with no fire boots."
+    },
+    {
+      "level": 660,
+      "title": "Unlok the Blok",
+      "status": "impossible",
+      "summary": "Mandatory chips under the bottom water channel cannot be exposed."
+    },
+    {
+      "level": 668,
+      "title": "Wait II (In Hell)",
+      "status": "impossible",
+      "summary": "The maze containing the only green button has no mobile actor and an unconnected cloner."
+    },
+    {
+      "level": 672,
+      "title": "Buggy Day",
+      "status": "impossible",
+      "summary": "Every required chip is separated from Chip by an unbridgeable water moat."
+    },
+    {
+      "level": 675,
+      "title": "Saturn",
+      "status": "unresolved",
+      "summary": "Candidate force-floor obstruction; independent review pending."
+    },
+    {
+      "level": 723,
+      "title": "Marsupilami Block",
+      "status": "unresolved",
+      "summary": "Investigation is continuing; no winning replay or complete impossibility argument is established yet."
+    },
+    {
+      "level": 732,
+      "title": "Bazzar",
+      "status": "impossible",
+      "summary": "At least 46 red keys are needed for the start gate and nine mandatory chip alcoves, but only 45 red keys exist."
+    },
+    {
+      "level": 756,
+      "title": "Leve5",
+      "status": "impossible",
+      "summary": "A remote glider reverses a tank into a decorative Swimming Chip on tick32, killing the game before the player can intervene or exit."
+    },
+    {
+      "level": 791,
+      "title": "Adventures of Freddy 21",
+      "status": "impossible",
+      "summary": "Two mandatory chip alcoves require a perpendicular turn on plain ice; the ice axis cannot change at their only approach."
+    },
+    {
+      "level": 909,
+      "title": "Tough Dirt Scramble",
+      "status": "impossible",
+      "summary": "Neither map layer contains an Exit tile."
+    },
+    {
+      "level": 910,
+      "title": "Lost in Letterland III",
+      "status": "unresolved",
+      "summary": "Investigation is continuing; no winning replay or complete impossibility argument is established yet."
+    },
+    {
+      "level": 914,
+      "title": "whileuwait",
+      "status": "unresolved",
+      "summary": "Investigation is continuing; no winning replay or complete impossibility argument is established yet."
+    },
+    {
+      "level": 915,
+      "title": "RUN! III",
+      "status": "impossible",
+      "summary": "Ten chips are permanently buried under frozen blocks; at most 384 of the required 385 can be collected."
+    },
+    {
+      "level": 920,
+      "title": "Diamonds II",
+      "status": "impossible",
+      "summary": "Neither map layer contains an Exit tile."
+    },
+    {
+      "level": 925,
+      "title": "Somewhat Tedious II",
+      "status": "unresolved",
+      "summary": "Investigation is continuing; no winning replay or complete impossibility argument is established yet."
+    },
+    {
+      "level": 931,
+      "title": "AGE DJ",
+      "status": "unresolved",
+      "summary": "599 of 621 chips required; layered fake walls, bomb-covered chips and block cloners require a constructive route. Secondary exit is walled off."
+    },
+    {
+      "level": 932,
+      "title": "RUN!!! IV",
+      "status": "unresolved",
+      "summary": "No explicit Chip tile; native MS nevertheless creates the player at (0,0). 1029 raw chips cover the 999 requirement, so missing start is not an impossibility proof."
+    },
+    {
+      "level": 937,
+      "title": "Running BomberMan",
+      "status": "solved",
+      "summary": "A winning MS replay clears all 130 bombs with cloned blocks, collects the buried chips, and exits at tick 18,780. The native and TypeScript traces match exactly."
+    },
+    {
+      "level": 939,
+      "title": "The Nab II",
+      "status": "unresolved",
+      "summary": "411 of 443 raw chips required. Dirt-covered chips are collectible after revealing them; the cloner-tile partition and key sequence need a constructive route."
+    },
+    {
+      "level": 945,
+      "title": "The Nab III",
+      "status": "impossible",
+      "summary": "Neither map plane contains an Exit tile, and MS gameplay cannot create one."
+    },
+    {
+      "level": 949,
+      "title": "Splash Splesh Splish Splosh Spulsh",
+      "status": "impossible",
+      "summary": "Neither map plane contains an Exit tile, and MS gameplay cannot create one."
+    },
+    {
+      "level": 952,
+      "title": "Extremely Tough Jumping Swarm!",
+      "status": "unresolved",
+      "summary": "376 of 419 chips required. Extra chips permit bypassing some inaccessible-looking pockets, so a local obstruction alone is insufficient."
+    },
+    {
+      "level": 955,
+      "title": "Look the Editor II",
+      "status": "impossible",
+      "summary": "246 required chips lie on unconnected beartraps; collecting any one permanently traps Chip away from the exit."
+    },
+    {
+      "level": 970,
+      "title": "Stalker",
+      "status": "impossible",
+      "summary": "Four required chips are permanently sealed behind immutable walls; both exits lie behind the socket requiring all 36 chips."
+    },
+    {
+      "level": 972,
+      "title": "Variations I",
+      "status": "impossible",
+      "summary": "The required chip at (10,8) can be collected, but doing so consumes the only ice pivot and traps Chip permanently in a closed cross."
+    },
+    {
+      "level": 974,
+      "title": "Variations II",
+      "status": "impossible",
+      "summary": "The required chip at (10,8) can be collected, but doing so consumes the only ice pivot and traps Chip permanently in a closed cross."
+    },
+    {
+      "level": 978,
+      "title": "A Bit Walkery",
+      "status": "unresolved",
+      "summary": "1940 chips required and exactly 1940 present, including 966 double-chip stacks and one under the starting player. Each underlying chip needs a return visit."
+    },
+    {
+      "level": 981,
+      "title": "Green Kittens Aren't Aliens",
+      "status": "unresolved",
+      "summary": "All 16 chips required in 100 seconds; one reusable green key and seven teeth form a lure-and-collect puzzle. No proven obstruction yet."
+    },
+    {
+      "level": 982,
+      "title": "Key Maze",
+      "status": "impossible",
+      "summary": "The only green key is trapped behind green doors or the all-chip socket, while eight mandatory chips themselves require a green key. The exit also requires green."
+    },
+    {
+      "level": 984,
+      "title": "Dancing with the Stars",
+      "status": "impossible",
+      "summary": "Neither map plane contains an Exit tile, and MS gameplay cannot create one."
+    }
+  ]
+}

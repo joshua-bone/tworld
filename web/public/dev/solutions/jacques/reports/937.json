@@ -1,0 +1,78 @@
+{
+  "level": 937,
+  "name": "Running BomberMan",
+  "ruleset": "MS",
+  "timeLimitSeconds": 999,
+  "chipsRequired": 130,
+  "rawChipTilesBothPlanes": 130,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "solved",
+  "summary": "A winning MS replay clears all 130 bombs with cloned blocks, collects the buried chips, and exits at tick 18,780. The native and TypeScript traces match exactly.",
+  "visualEvidence": [
+    "937-initial.svg",
+    "937-initial.png",
+    "937-bottom.svg"
+  ],
+  "proofSteps": [
+    "The button at (13,5) activates the bug cloner at (27,1). A cloned bug crosses the button at (28,1), which activates the block cloner at (12,5) and emits a southbound block at (12,6).",
+    "MS bug cloner release follows the controller direction set by the ball in row 1. Queue each subsequent clone while delivering the current block so that the next block is ready without a separate wait.",
+    "Push one block into each bomb. The block and bomb disappear, leaving the chip below intact. Keep Chip out of the ball corridor in row 1 during this work.",
+    "Delivery paths collect some exposed chips. After clearing all 130 bombs, collect the remaining chips, then enter the socket over the exit at (17,1).",
+    "The saved TWS completes the unchanged DAT in both engines at tick 18,780, with all 130 chips collected. The complete traces match."
+  ],
+  "limitations": [],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    },
+    {
+      "kind": "winning replay",
+      "tws": "937.tws",
+      "certificate": "937.tws.json",
+      "typescriptFinalTick": 18780,
+      "nativeFinalTick": 18780,
+      "exactTraceParity": true,
+      "nativeStderr": "",
+      "seed": 0,
+      "stepping": 0
+    }
+  ],
+  "sources": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1597",
+    "legacy_c/mslogic.c:1829",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104",
+    "legacy_c/mslogic.c:1696",
+    "legacy_c/mslogic.c:1725"
+  ],
+  "title": "Running BomberMan",
+  "argument": [
+    "The button at (13,5) activates the bug cloner at (27,1). A cloned bug crosses the button at (28,1), which activates the block cloner at (12,5) and emits a southbound block at (12,6).",
+    "MS bug cloner release follows the controller direction set by the ball in row 1. Queue each subsequent clone while delivering the current block so that the next block is ready without a separate wait.",
+    "Push one block into each bomb. The block and bomb disappear, leaving the chip below intact. Keep Chip out of the ball corridor in row 1 during this work.",
+    "Delivery paths collect some exposed chips. After clearing all 130 bombs, collect the remaining chips, then enter the socket over the exit at (17,1).",
+    "The saved TWS completes the unchanged DAT in both engines at tick 18,780, with all 130 chips collected. The complete traces match."
+  ],
+  "evidence": {
+    "facts": {},
+    "sourceReferences": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1597",
+      "legacy_c/mslogic.c:1829",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104",
+      "legacy_c/mslogic.c:1696",
+      "legacy_c/mslogic.c:1725"
+    ],
+    "visualFiles": [
+      "937-initial.svg",
+      "937-initial.png",
+      "937-bottom.svg"
+    ],
+    "winningReplay": "937.tws",
+    "certificate": "937.tws.json",
+    "method": "Semantic block routing with queued clones and deterministic paths for individual blocks. The replay uses one seed and stepping value; no parameter sweep was needed."
+  },
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

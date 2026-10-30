@@ -1,0 +1,65 @@
+{
+  "level": 949,
+  "name": "Splash Splesh Splish Splosh Spulsh",
+  "ruleset": "MS",
+  "timeLimitSeconds": 999,
+  "chipsRequired": 149,
+  "rawChipTilesBothPlanes": 251,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "impossible",
+  "summary": "Neither map plane contains an Exit tile, and MS gameplay cannot create one.",
+  "visualEvidence": [
+    "949-initial.svg",
+    "949-initial.png",
+    "949-bottom.svg"
+  ],
+  "proofSteps": [
+    "Both raw DAT planes contain zero file-code 21 (Exit), verified over all 2048 tiles.",
+    "Native MS endmovement is the sole place setting completed() to true, and requires the floor beneath Chip to be Exit.",
+    "All transitions available in this map only move/reveal existing tiles or create fixed non-Exit tiles (empty floor, dirt, walls, actors); none produces an Exit. Cloners copy actors, not Exit terrain.",
+    "By induction no reachable state contains an Exit; therefore no input sequence can satisfy the completion condition."
+  ],
+  "limitations": [],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    }
+  ],
+  "sources": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1597",
+    "legacy_c/mslogic.c:1829",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104"
+  ],
+  "facts": {
+    "topExitCount": 0,
+    "bottomExitCount": 0
+  },
+  "title": "Splash Splesh Splish Splosh Spulsh",
+  "argument": [
+    "Both raw DAT planes contain zero file-code 21 (Exit), verified over all 2048 tiles.",
+    "Native MS endmovement is the sole place setting completed() to true, and requires the floor beneath Chip to be Exit.",
+    "All transitions available in this map only move/reveal existing tiles or create fixed non-Exit tiles (empty floor, dirt, walls, actors); none produces an Exit. Cloners copy actors, not Exit terrain.",
+    "By induction no reachable state contains an Exit; therefore no input sequence can satisfy the completion condition."
+  ],
+  "evidence": {
+    "facts": {
+      "topExitCount": 0,
+      "bottomExitCount": 0
+    },
+    "sourceReferences": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1597",
+      "legacy_c/mslogic.c:1829",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104"
+    ],
+    "visualFiles": [
+      "949-initial.svg",
+      "949-initial.png",
+      "949-bottom.svg"
+    ]
+  },
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

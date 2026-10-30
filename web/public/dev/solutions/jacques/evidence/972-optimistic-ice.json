@@ -1,0 +1,6 @@
+{
+  "level": 972,
+  "model": "optimistic plain-ice directional reachability, ignoring actors, keys, sockets, thin walls and pickup consumption; teleports connect freely; water always passable, fake walls removable",
+  "states": 822,
+  "unreachableChips": []
+}

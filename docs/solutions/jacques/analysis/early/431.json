@@ -1,0 +1,54 @@
+{
+  "level": 431,
+  "name": "Altar",
+  "timeLimitSeconds": 300,
+  "chipsRequired": 64,
+  "chipsPresent": 64,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "status": "impossible",
+  "summary": "Neither DAT layer contains an Exit tile.",
+  "proofSteps": [
+    "Both decoded layers contain zero actual Exit tiles (DAT file code 21 / MS_TILE.Exit). The 212 Exited_Chip tiles (DAT 57) are decorative solid tiles, not exits.",
+    "The normal MS completion transition requires Chip alive with an actual Exit under Chip after an arrival. Collecting all 64 chips alone does not complete a level.",
+    "No game operation available in this level creates an Exit from another tile. There are no cloners, blocks, teleports, or buttons. Thus the exit-absence invariant holds for every play."
+  ],
+  "visualEvidence": "431-initial.svg",
+  "experiments": [
+    {
+      "kind": "DAT two-layer inventory",
+      "result": "Exact DAT metadata/layers decoded; initial production runtime loaded and rendered with repository sprites."
+    }
+  ],
+  "limitations": [
+    "Proof concerns ordinary legal play; cheats/editor changes excluded."
+  ],
+  "sourceEvidence": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+    "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+    "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+    "legacy_c/mslogic.c:1825-1832 (exit completion)",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+  ],
+  "title": "Altar",
+  "argument": [
+    "Both decoded layers contain zero actual Exit tiles (DAT file code 21 / MS_TILE.Exit). The 212 Exited_Chip tiles (DAT 57) are decorative solid tiles, not exits.",
+    "The normal MS completion transition requires Chip alive with an actual Exit under Chip after an arrival. Collecting all 64 chips alone does not complete a level.",
+    "No game operation available in this level creates an Exit from another tile. There are no cloners, blocks, teleports, or buttons. Thus the exit-absence invariant holds for every play."
+  ],
+  "evidence": {
+    "visual": "431-initial.svg",
+    "sources": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1002-1011 (bounded cardinal movement)",
+      "legacy_c/mslogic.c:1034-1042 (socket/key requirements)",
+      "legacy_c/mslogic.c:1616-1736 (arrival/terrain effects)",
+      "legacy_c/mslogic.c:1825-1832 (exit completion)",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104-108 (TypeScript completion)"
+    ],
+    "coordinates": "zero-based x,y",
+    "sha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f"
+  }
+}

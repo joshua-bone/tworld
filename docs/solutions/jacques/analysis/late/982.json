@@ -1,0 +1,302 @@
+{
+  "level": 982,
+  "name": "Key Maze",
+  "ruleset": "MS",
+  "timeLimitSeconds": 1999,
+  "chipsRequired": 134,
+  "rawChipTilesBothPlanes": 134,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "status": "impossible",
+  "summary": "The only green key is trapped behind green doors or the all-chip socket, while eight mandatory chips themselves require a green key. The exit also requires green.",
+  "visualEvidence": [
+    "982-initial.svg",
+    "982-initial.png",
+    "982-bottom.svg"
+  ],
+  "proofSteps": [
+    "The only green key is (2,2). Its north, west and south neighbors are green doors; its east neighbor is socket (3,2), requiring all 134 chips.",
+    "Before the first green key is collected, every green door stays closed: inventory starts empty, no other green key exists, and the map has no blocks/cloners/teleports or mechanisms that bypass/change doors. The only monster is teeth, which cannot open these doors.",
+    "Eight required chips in the small cluster x=2..4,y=4..8 are completely surrounded by green doors. Even granting free passage through all red, blue and yellow doors, this cluster remains separate from the player start (23,21).",
+    "Hence at least these eight chips remain before the first green key; the socket cannot open. The first green key therefore cannot ever be collected (circular dependency).",
+    "The sole Exit (25,21) has ordinary walls north, east and south, and green door (24,21) west. Since no green key can be acquired, the exit remains unreachable even if chips are ignored for exit entry."
+  ],
+  "limitations": [],
+  "experiments": [
+    {
+      "kind": "data audit",
+      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+    }
+  ],
+  "sources": [
+    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+    "legacy_c/mslogic.c:1597",
+    "legacy_c/mslogic.c:1829",
+    "web/src/ruleset-ms/impl/chipMovement.ts:104"
+  ],
+  "facts": {
+    "start": [
+      23,
+      21
+    ],
+    "greenKey": [
+      2,
+      2
+    ],
+    "socket": [
+      3,
+      2
+    ],
+    "sealedChipCluster": [
+      [
+        2,
+        4
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        3,
+        5
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        2,
+        8
+      ],
+      [
+        4,
+        8
+      ]
+    ],
+    "greenBoundary": [
+      [
+        2,
+        3
+      ],
+      [
+        3,
+        3
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        5,
+        4
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        1,
+        6
+      ],
+      [
+        5,
+        6
+      ],
+      [
+        2,
+        7
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        1,
+        8
+      ],
+      [
+        5,
+        8
+      ],
+      [
+        2,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        4,
+        9
+      ]
+    ],
+    "exit": [
+      25,
+      21
+    ],
+    "exitGreenDoor": [
+      24,
+      21
+    ]
+  },
+  "title": "Key Maze",
+  "argument": [
+    "The only green key is (2,2). Its north, west and south neighbors are green doors; its east neighbor is socket (3,2), requiring all 134 chips.",
+    "Before the first green key is collected, every green door stays closed: inventory starts empty, no other green key exists, and the map has no blocks/cloners/teleports or mechanisms that bypass/change doors. The only monster is teeth, which cannot open these doors.",
+    "Eight required chips in the small cluster x=2..4,y=4..8 are completely surrounded by green doors. Even granting free passage through all red, blue and yellow doors, this cluster remains separate from the player start (23,21).",
+    "Hence at least these eight chips remain before the first green key; the socket cannot open. The first green key therefore cannot ever be collected (circular dependency).",
+    "The sole Exit (25,21) has ordinary walls north, east and south, and green door (24,21) west. Since no green key can be acquired, the exit remains unreachable even if chips are ignored for exit entry."
+  ],
+  "evidence": {
+    "facts": {
+      "start": [
+        23,
+        21
+      ],
+      "greenKey": [
+        2,
+        2
+      ],
+      "socket": [
+        3,
+        2
+      ],
+      "sealedChipCluster": [
+        [
+          2,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          2,
+          6
+        ],
+        [
+          4,
+          6
+        ],
+        [
+          3,
+          7
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          4,
+          8
+        ]
+      ],
+      "greenBoundary": [
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          1,
+          6
+        ],
+        [
+          5,
+          6
+        ],
+        [
+          2,
+          7
+        ],
+        [
+          4,
+          7
+        ],
+        [
+          1,
+          8
+        ],
+        [
+          5,
+          8
+        ],
+        [
+          2,
+          9
+        ],
+        [
+          3,
+          9
+        ],
+        [
+          4,
+          9
+        ]
+      ],
+      "exit": [
+        25,
+        21
+      ],
+      "exitGreenDoor": [
+        24,
+        21
+      ]
+    },
+    "sourceReferences": [
+      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
+      "legacy_c/mslogic.c:1597",
+      "legacy_c/mslogic.c:1829",
+      "web/src/ruleset-ms/impl/chipMovement.ts:104"
+    ],
+    "visualFiles": [
+      "982-initial.svg",
+      "982-initial.png",
+      "982-bottom.svg"
+    ]
+  }
+}

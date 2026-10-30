@@ -1,0 +1,136 @@
+{
+  "level": 972,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "kind": "mandatory-chip-one-way-ice-trap",
+  "requiredChips": 23,
+  "totalChips": 23,
+  "mandatoryChip": {
+    "x": 10,
+    "y": 8
+  },
+  "oneUsePivot": {
+    "x": 10,
+    "y": 11,
+    "top": "BlueWall_Fake",
+    "bottom": "Ice"
+  },
+  "horizontal": [
+    {
+      "x": 8,
+      "y": 8
+    },
+    {
+      "x": 9,
+      "y": 8
+    },
+    {
+      "x": 10,
+      "y": 8
+    },
+    {
+      "x": 11,
+      "y": 8
+    },
+    {
+      "x": 12,
+      "y": 8
+    },
+    {
+      "x": 13,
+      "y": 8
+    },
+    {
+      "x": 14,
+      "y": 8
+    },
+    {
+      "x": 15,
+      "y": 8
+    },
+    {
+      "x": 16,
+      "y": 8
+    },
+    {
+      "x": 17,
+      "y": 8
+    },
+    {
+      "x": 18,
+      "y": 8
+    }
+  ],
+  "vertical": [
+    {
+      "x": 10,
+      "y": 6
+    },
+    {
+      "x": 10,
+      "y": 7
+    },
+    {
+      "x": 10,
+      "y": 8
+    },
+    {
+      "x": 10,
+      "y": 9
+    },
+    {
+      "x": 10,
+      "y": 10
+    },
+    {
+      "x": 10,
+      "y": 11
+    },
+    {
+      "x": 10,
+      "y": 12
+    },
+    {
+      "x": 10,
+      "y": 13
+    },
+    {
+      "x": 10,
+      "y": 14
+    },
+    {
+      "x": 10,
+      "y": 15
+    },
+    {
+      "x": 10,
+      "y": 16
+    }
+  ],
+  "exit": {
+    "x": 29,
+    "y": 30
+  },
+  "argument": "The chip at (10,8) is collectable, but collecting it prevents a win. Its horizontal ice track runs from (8,8) to (18,8), bounded by permanent walls at (7,8) and (19,8). Its vertical track runs from (10,6) to (10,16), bounded by permanent walls at (10,5) and (10,17). Apart from the chip itself, the sole non-ice stopping point in either track is a fake blue wall at (10,11), with ice underneath. A first approach to the chip must use that fake wall as a pivot; there is no horizontal entry from either end or other turn point in the row. MS permits a turn when the fake wall is removed, but removal exposes plain ice permanently. After collecting the chip, its cell becomes the only stopping point in the cross. Any departure slides to one of the four permanent end walls and reverses along the same axis, returning to the chip cell; side inputs cannot turn on plain ice. Thus Chip can change axis only at (10,8) and can never leave these 21 cells. No skates, ice corners or blocks exist, and no teleporter lies in the cross. Walkers can block a path or kill Chip, but cannot remove a wall, create a safe turn, or push Chip out. The exit lies outside the cross, so a winning run cannot collect this mandatory chip. All chips are needed by the socket guarding the exit.",
+  "sourceReferences": [
+    {
+      "path": "legacy_c/mslogic.c",
+      "lines": "1631-1633",
+      "reason": "entering fake blue wall pops its top tile"
+    },
+    {
+      "path": "legacy_c/mslogic.c",
+      "lines": "1846-1863",
+      "reason": "floor movement starts from the encountered floor kind; fake-wall arrival permits the one-time pivot"
+    },
+    {
+      "path": "legacy_c/mslogic.c",
+      "lines": "1930-1955",
+      "reason": "plain ice blockage reverses movement and reinstates slipping"
+    },
+    {
+      "path": "legacy_c/mslogic.c",
+      "lines": "1347-1390",
+      "reason": "direction input is discarded during ice slipping"
+    }
+  ]
+}

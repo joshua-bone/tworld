@@ -1,0 +1,11 @@
+{
+  "level": 910,
+  "title": "Lost in Letterland III",
+  "status": "unresolved",
+  "summary": "Investigation is continuing; no winning replay or complete impossibility argument is established yet.",
+  "argument": [],
+  "chipsRequired": 275,
+  "timeLimitSeconds": 600,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

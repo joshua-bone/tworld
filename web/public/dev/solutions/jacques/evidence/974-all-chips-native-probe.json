@@ -1,0 +1,601 @@
+{
+  "level": 974,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "probeOnlyNotWinning": true,
+  "result": {
+    "status": "playing",
+    "finalTick": 360,
+    "stepCount": 361
+  },
+  "finalState": {
+    "phase": "tick",
+    "tick": 360,
+    "status": "playing",
+    "input": "none",
+    "inputCode": 0,
+    "replayCursor": 82,
+    "currentTime": 360,
+    "timeOffset": 0,
+    "secondsPlayed": 18,
+    "timelimit": 6000,
+    "chipsNeeded": 0,
+    "statusFlags": 16,
+    "lastMoveCode": 0,
+    "lastMove": "none",
+    "stepping": 0,
+    "initRandomSlideDir": "north",
+    "randomState": {
+      "main": {
+        "initial": "0",
+        "value": "1157490780",
+        "shared": false
+      },
+      "lynx": {
+        "prng1": 0,
+        "prng2": 0
+      }
+    },
+    "soundEffects": 64,
+    "view": {
+      "x": 80,
+      "y": 64
+    },
+    "inventory": {
+      "keys": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "boots": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "tools": [
+        0
+      ]
+    },
+    "chip": {
+      "id": 64,
+      "layer": 1,
+      "dir": "north",
+      "position": {
+        "x": 10,
+        "y": 8,
+        "pos": 266
+      },
+      "state": 0
+    },
+    "creatureCount": 10,
+    "creaturesHash": "fc8120f5cf95f560",
+    "mapHash": "252d7a2f9fd29827",
+    "creatures": [
+      {
+        "id": 88,
+        "layer": 1,
+        "dir": "west",
+        "position": {
+          "x": 30,
+          "y": 1,
+          "pos": 62
+        },
+        "state": 0
+      },
+      {
+        "id": 88,
+        "layer": 1,
+        "dir": "west",
+        "position": {
+          "x": 30,
+          "y": 2,
+          "pos": 94
+        },
+        "state": 0
+      },
+      {
+        "id": 88,
+        "layer": 1,
+        "dir": "west",
+        "position": {
+          "x": 30,
+          "y": 3,
+          "pos": 126
+        },
+        "state": 0
+      },
+      {
+        "id": 96,
+        "layer": 1,
+        "dir": "west",
+        "position": {
+          "x": 31,
+          "y": 3,
+          "pos": 127
+        },
+        "state": 0
+      },
+      {
+        "id": 88,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 11,
+          "y": 7,
+          "pos": 235
+        },
+        "state": 0
+      },
+      {
+        "id": 64,
+        "layer": 1,
+        "dir": "north",
+        "position": {
+          "x": 10,
+          "y": 8,
+          "pos": 266
+        },
+        "state": 0
+      },
+      {
+        "id": 88,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 15,
+          "y": 8,
+          "pos": 271
+        },
+        "state": 0
+      },
+      {
+        "id": 88,
+        "layer": 1,
+        "dir": "east",
+        "position": {
+          "x": 17,
+          "y": 8,
+          "pos": 273
+        },
+        "state": 0
+      },
+      {
+        "id": 88,
+        "layer": 1,
+        "dir": "south",
+        "position": {
+          "x": 14,
+          "y": 10,
+          "pos": 334
+        },
+        "state": 0
+      },
+      {
+        "id": 88,
+        "layer": 1,
+        "dir": "west",
+        "position": {
+          "x": 15,
+          "y": 13,
+          "pos": 431
+        },
+        "state": 0
+      }
+    ]
+  },
+  "exactInputBytesRead": true,
+  "nativeStderr": "",
+  "recordedMoves": [
+    {
+      "when": 0,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 7,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 15,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 19,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 23,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 25,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 29,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 33,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 47,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 55,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 57,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 61,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 67,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 73,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 76,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 80,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 84,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 88,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 92,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 96,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 100,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 104,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 108,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 113,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 116,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 121,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 123,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 127,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 129,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 131,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 135,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 141,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 143,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 147,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 153,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 155,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 163,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 165,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 168,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 172,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 176,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 180,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 183,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 189,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 191,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 192,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 196,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 200,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 204,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 208,
+      "dir": 8,
+      "modifierMask": 0
+    },
+    {
+      "when": 212,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 216,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 233,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 236,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 240,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 244,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 248,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 252,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 256,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 260,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 264,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 268,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 272,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 276,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 280,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 284,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 288,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 292,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 296,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 300,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 304,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 308,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 312,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 316,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 320,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 324,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 328,
+      "dir": 4,
+      "modifierMask": 0
+    },
+    {
+      "when": 332,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 336,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 341,
+      "dir": 1,
+      "modifierMask": 0
+    },
+    {
+      "when": 351,
+      "dir": 2,
+      "modifierMask": 0
+    },
+    {
+      "when": 357,
+      "dir": 1,
+      "modifierMask": 0
+    }
+  ]
+}

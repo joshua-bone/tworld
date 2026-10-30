@@ -1,0 +1,30 @@
+{
+  "level": 909,
+  "title": "Tough Dirt Scramble",
+  "name": "Tough Dirt Scramble",
+  "status": "impossible",
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinates": "zero-based x,y",
+  "chipsRequired": 267,
+  "chipsPresent": 267,
+  "timeLimitSeconds": 530,
+  "experiments": [],
+  "sourceEvidence": [
+    "legacy_c/mslogic.c:1002-1011",
+    "legacy_c/mslogic.c:1616-1736",
+    "legacy_c/mslogic.c:1825-1832"
+  ],
+  "summary": "Neither map layer contains an Exit tile.",
+  "proofSteps": [
+    "An exhaustive inventory of all 1,024 cells in both layers finds zero actual Exit tiles. Decorative Chip images are different tile types and cannot finish the level.",
+    "The native MS completion condition requires Chip to arrive on an actual Exit. No available movement, button, clone, or terrain transformation creates an Exit tile.",
+    "Therefore no legal input sequence can complete this unmodified level. This does not depend on random seed or timing."
+  ],
+  "argument": [
+    "An exhaustive inventory of all 1,024 cells in both layers finds zero actual Exit tiles. Decorative Chip images are different tile types and cannot finish the level.",
+    "The native MS completion condition requires Chip to arrive on an actual Exit. No available movement, button, clone, or terrain transformation creates an Exit tile.",
+    "Therefore no legal input sequence can complete this unmodified level. This does not depend on random seed or timing."
+  ],
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}

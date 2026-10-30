@@ -1,0 +1,145 @@
+{
+  "level": 756,
+  "title": "Leve5",
+  "name": "Leve5",
+  "status": "impossible",
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "ruleset": "MS",
+  "coordinateConvention": "zero-based x,y",
+  "chipsRequired": 5,
+  "timeLimitSeconds": 337,
+  "summary": "A remote glider reverses a tank into a decorative Swimming Chip on tick32, killing the game before the player can intervene or exit.",
+  "argument": [
+    "The south-facing tank is blocked by a real blue wall at (22,11)",
+    "A glider confined to the four-cell horizontal passage (19..22,12) reaches the only blue button at (22,12) on tick 12, reversing the tank",
+    "It advances north along its column and hits the stationary Swimming Chip tile at (22,5) on tick 32",
+    "MS treats collision with this extra Chip image as loss of the whole game",
+    "All eight stepping settings reproduce loss on tick 32",
+    "The real Chip begins at (5,4): even ignoring every wall, reaching the assembly at x=19 or greater takes at least 14 ordinary moves (52 ticks for the fourteenth move), and reaching the only exit requires at least 29 moves",
+    "No forced floors or teleporters exist",
+    "The sole reachable early button is brown at (2,2), connected only to the unrelated trap (7,3); it cannot alter the isolated tank/glider assembly",
+    "The blue-button glider passage is sealed",
+    "The tank column is open to the east, but the only random actor, the blob at (14,8), needs at least eight moves just to reach that column, at eight ticks per blob move; every wall only increases this bound",
+    "Other mobile actors also cannot reach the column or its button before tick 32",
+    "Therefore seed choice cannot prevent the collision."
+  ],
+  "proofSteps": [
+    "The south-facing tank is blocked by a real blue wall at (22,11)",
+    "A glider confined to the four-cell horizontal passage (19..22,12) reaches the only blue button at (22,12) on tick 12, reversing the tank",
+    "It advances north along its column and hits the stationary Swimming Chip tile at (22,5) on tick 32",
+    "MS treats collision with this extra Chip image as loss of the whole game",
+    "All eight stepping settings reproduce loss on tick 32",
+    "The real Chip begins at (5,4): even ignoring every wall, reaching the assembly at x=19 or greater takes at least 14 ordinary moves (52 ticks for the fourteenth move), and reaching the only exit requires at least 29 moves",
+    "No forced floors or teleporters exist",
+    "The sole reachable early button is brown at (2,2), connected only to the unrelated trap (7,3); it cannot alter the isolated tank/glider assembly",
+    "The blue-button glider passage is sealed",
+    "The tank column is open to the east, but the only random actor, the blob at (14,8), needs at least eight moves just to reach that column, at eight ticks per blob move; every wall only increases this bound",
+    "Other mobile actors also cannot reach the column or its button before tick 32",
+    "Therefore seed choice cannot prevent the collision."
+  ],
+  "limitations": [],
+  "sources": [
+    "legacy_c/mslogic.c:1834-1841",
+    "legacy_c/mslogic.c:1365-1385"
+  ],
+  "sourceEvidence": [
+    "legacy_c/mslogic.c:1834-1841",
+    "legacy_c/mslogic.c:1365-1385"
+  ],
+  "evidence": {
+    "proofFile": "web/public/dev/solutions/jacques/evidence/756-impossibility.json",
+    "facts": {
+      "level": 756,
+      "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+      "kind": "unavoidable-remote-collision",
+      "nativeTiming": [
+        {
+          "stepping": 0,
+          "status": "failed",
+          "finalTick": 32,
+          "stepCount": 33
+        },
+        {
+          "stepping": 1,
+          "status": "failed",
+          "finalTick": 32,
+          "stepCount": 33
+        },
+        {
+          "stepping": 2,
+          "status": "failed",
+          "finalTick": 32,
+          "stepCount": 33
+        },
+        {
+          "stepping": 3,
+          "status": "failed",
+          "finalTick": 32,
+          "stepCount": 33
+        },
+        {
+          "stepping": 4,
+          "status": "failed",
+          "finalTick": 32,
+          "stepCount": 33
+        },
+        {
+          "stepping": 5,
+          "status": "failed",
+          "finalTick": 32,
+          "stepCount": 33
+        },
+        {
+          "stepping": 6,
+          "status": "failed",
+          "finalTick": 32,
+          "stepCount": 33
+        },
+        {
+          "stepping": 7,
+          "status": "failed",
+          "finalTick": 32,
+          "stepCount": 33
+        }
+      ],
+      "realChip": {
+        "x": 5,
+        "y": 4
+      },
+      "dummySwimmingChip": {
+        "x": 22,
+        "y": 5
+      },
+      "tankStart": {
+        "x": 22,
+        "y": 10,
+        "direction": "south"
+      },
+      "blueButton": {
+        "x": 22,
+        "y": 12
+      },
+      "gliderStart": {
+        "x": 19,
+        "y": 12,
+        "direction": "east"
+      },
+      "exit": {
+        "x": 31,
+        "y": 1
+      }
+    },
+    "sourceReferences": [
+      "legacy_c/mslogic.c:1834-1841",
+      "legacy_c/mslogic.c:1365-1385"
+    ]
+  },
+  "experiments": [
+    {
+      "kind": "native exact-DAT timing probes",
+      "evidenceFile": "web/public/dev/solutions/jacques/evidence/756-native-probe.json",
+      "result": "Native MS fails on tick32 for all eight stepping settings; precise glider/button/tank positions retained. The timing probes support the independent intervention-distance argument; failed play alone is not treated as impossibility."
+    }
+  ],
+  "engineCommit": "1ebb6729094e057dfb853e15a3c5dda39e9ba3d5"
+}
