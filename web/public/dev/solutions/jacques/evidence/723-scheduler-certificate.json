@@ -1,0 +1,170 @@
+{
+  "level": 723,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "kind": "Finite arithmetic and geometry certificate; source and mathematical lemmas are in 723-scheduler-proof.md",
+  "proofOnlyNotWinning": true,
+  "requiredChips": 54,
+  "originalIceCells": 118,
+  "pocketWithoutGateway": [
+    29,
+    30,
+    31,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61
+  ],
+  "exits": [
+    743,
+    942
+  ],
+  "socket": 911,
+  "optimisticChipReachableBeforeSocket": 541,
+  "optimisticMonsterReachableBeforeSocket": 358,
+  "originalTeleports": [
+    11,
+    153
+  ],
+  "longRows": [
+    [
+      231,
+      232,
+      233,
+      234,
+      235,
+      236,
+      237
+    ],
+    [
+      263,
+      264,
+      265,
+      266,
+      267,
+      268,
+      269
+    ],
+    [
+      295,
+      296,
+      297,
+      298,
+      299,
+      300,
+      301
+    ],
+    [
+      327,
+      328,
+      329,
+      330,
+      331,
+      332,
+      333
+    ]
+  ],
+  "chamber": [
+    242,
+    243,
+    244,
+    245,
+    274,
+    275,
+    276,
+    277,
+    306,
+    307,
+    308,
+    309,
+    338,
+    339,
+    340,
+    341
+  ],
+  "originalChamberMonsterCount": 6,
+  "maximumShortIceRun": 4,
+  "shortBudgetFormula": "118 -28 -16 +6 -1 isolated -1 target +2 teleports",
+  "shortPredecessorBudget": 80,
+  "costsByNormalAdvances": [
+    1,
+    1,
+    1,
+    1,
+    2,
+    3,
+    4
+  ],
+  "weights": [
+    1,
+    1,
+    1,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    10,
+    13,
+    17,
+    22,
+    28
+  ],
+  "laneBudgets": [
+    {
+      "contributingBlocks": 0,
+      "maximumNormalAdvances": 6,
+      "budget": 0
+    },
+    {
+      "contributingBlocks": 1,
+      "maximumNormalAdvances": 6,
+      "budget": 4
+    },
+    {
+      "contributingBlocks": 2,
+      "maximumNormalAdvances": 6,
+      "budget": 8
+    },
+    {
+      "contributingBlocks": 3,
+      "maximumNormalAdvances": 6,
+      "budget": 12
+    },
+    {
+      "contributingBlocks": 4,
+      "maximumNormalAdvances": 5,
+      "budget": 12
+    },
+    {
+      "contributingBlocks": 5,
+      "maximumNormalAdvances": 4,
+      "budget": 10
+    },
+    {
+      "contributingBlocks": 6,
+      "maximumNormalAdvances": 3,
+      "budget": 6
+    },
+    {
+      "contributingBlocks": 7,
+      "maximumNormalAdvances": 2,
+      "budget": 7
+    }
+  ],
+  "abstractSequencesChecked": 178628,
+  "abstractMaximumEmittingPrefixLength": 6,
+  "abstractMaximumMixedDeparturePrefixLength": 4,
+  "abstractCheckDeadlineMs": 20000,
+  "requiredFor16Skips": 129,
+  "available": 128,
+  "maximumSkipsPerInterval": 15,
+  "gateIntervals": 2,
+  "maximumGateAdvances": 5,
+  "maximumGateReturnTicks": 70,
+  "minimumSafeEscapeTicks": 73
+}

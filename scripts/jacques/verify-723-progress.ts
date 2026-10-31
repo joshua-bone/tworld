@@ -1,4 +1,4 @@
-// Run from web: node_modules/.bin/vite-node ../scripts/jacques/verify-723-progress.ts
+// Run from web: node_modules/.bin/vite-node ../scripts/jacques/verify-723-progress.ts [fixture-name]
 // These fixtures are partial routes, not winning solutions.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -11,12 +11,16 @@ import { ROOT, loadLevel, createRun, tick, snapshot, verifyNativeReplay, auditMs
 
 const directory = join(ROOT, 'web/public/dev/solutions/jacques/evidence');
 const normalize = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
-for (const [name, count, remaining, position] of [
+const fixtures = [
   ['partial', 2137, 14, 670],
   ['early-upper', 837, 37, 286],
   ['52', 3173, 2, 1023],
   ['53', 3809, 1, 23],
-] as const) {
+  ['54-trapped', 3997, 0, 56],
+] as const;
+const selectedName = process.argv[2];
+assert.ok(!selectedName || fixtures.some(([name]) => name === selectedName), 'Unknown fixture name');
+for (const [name, count, remaining, position] of fixtures.filter(([name]) => !selectedName || name === selectedName)) {
   const fixtureBytes = await readFile(join(directory, `723-${name}-route.json`));
   const fixture = JSON.parse(fixtureBytes.toString());
   const loaded = await loadLevel(723);
@@ -33,6 +37,11 @@ for (const [name, count, remaining, position] of [
   assert.equal(endpoint.status, 'playing');
   assert.equal(endpoint.chipsNeeded, remaining);
   assert.equal(endpoint.chip?.position.pos, position);
+  if (name === '54-trapped') {
+    assert.equal(manual[3924]!.chipsNeeded, 0);
+    assert.equal(manual[3924]!.chip?.position.pos, 31);
+    assert.equal(run.session.state.engine.map.cells[24]!.top.id, 54);
+  }
   const bestTimeTicks = count + 100;
   const bytes = serializeSolutionFile({ ruleset: 'MS', flags: 0, extraHeader: new Uint8Array(), setName: 'Jacques-MS.dac', entries: [{
     levelNumber: 723, password: loaded.metadata.password, bestTimeTicks, solutionData: null,
@@ -61,6 +70,7 @@ for (const [name, count, remaining, position] of [
     exactInputBytesRead: native.exactInputBytesRead, nativeStderr: native.stderr,
     exactTraceParity: true, checkedTicks: count, chipsCollected: 54 - remaining,
     chipsRemaining: remaining, position: endpoint.chip?.position,
+    ...(name === '54-trapped' ? { lastChipCollectedAtTick: 3924, stoppedGateBlockPosition: 24 } : {}),
     typescript: replay.result, native: native.trace.result,
     inputAudit: auditMsReplayInputs(solution.moves),
   };

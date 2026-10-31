@@ -1,21 +1,18 @@
 {
   "level": 723,
   "title": "Marsupilami Block",
-  "status": "unresolved",
-  "summary": "A native-verified partial route collects 53 of 54 chips and returns alive to the upper gate. Only the chip at (31,0) remains; no winning replay or impossibility proof is established.",
+  "status": "impossible",
+  "summary": "The chip at (31,0) can be collected, but Chip cannot escape its corridor. A global scheduler resource bound returns the gate block within 70 ticks; safe escape needs at least 73. All 54 chips are required to reach an exit, so the original level is impossible in native Tile World MS.",
   "argument": [
-    "The strongest preserved route is alive at tick 3808 with Chip at (23,0), 53 chips collected and only (31,0) remaining. All 3,809 steps, the initial state and terminal result match native Tile World MS exactly. An intermediate 52-chip checkpoint at tick 3172 is also separately native-verified.",
-    "The left dead-end chip at (2,12) must be collected before pushing the block from (2,9) down the column. The older 40-chip route leaves that block at (2,11), where it seals the uncollected chip. The new prefix visits (2,12) and (2,14) from the outside before entering the block enclosure.",
-    "The first block gate remains reversible: park its returning block at (21,0), use the loop beneath the ice to reach (22,0), and return through (22,2), (21,2) and (20,2).",
-    "The new route collects (27,4) in the teleporter room, then visits the glider-column side rooms before leaving through the block at (26,9). With water boots, push the block at (23,12) west across its ice, collect the upper dead-end (23,7), and visit (16,12), (15,13) and (18,14). It also collects (29,5) before the central passage is opened.",
-    "The central bomb at (8,16) is cleared with a freshly cloned block extracted south from (11,13) and pushed west along row 15. The new route additionally collects the previously untouched chip at (10,14).",
-    "All sixteen chips beneath the lower ice-grid blocks are collected by pushing west on a tick congruent to 2 modulo 4 and retreating east at the next eligible input poll.",
-    "The right-hand room is solved constructively. Reach (31,22) from below through (31,23). Transport two lower-left stock blocks east through row 28, push them south at x=26, and then east along cleared rows 30 and 31 into their bombs; collect (31,30) and (31,31).",
-    "After clearing the right-hand room, the route returns through the outer corridor and teleporter to the upper gate. A 99-tick wait permits safe passage past the changed fireball timing. Push the gate block east to collect (24,0), then retreat west before it returns; the preserved checkpoint is alive on the accessible side of the gate.",
-    "The second upper gate remains unresolved. Its block starts over (24,0), slides across (25..27,0), and returns from the wall at (28,0). Removing gateway (24,0) leaves a nine-cell final pocket containing (31,0); the directed static geometry has no ordinary exit to the lower board. North-facing thin walls prevent a perpendicular push from row 1 into the ice.",
-    "Native movement checks reject the thin-wall departure before attempting a block push, including moves selected by a mouse goal. A stationary block at (24,0) cannot be pushed away from inside the final pocket: the required standing cell or destination is outside the pocket or board. Neither original teleport is adjacent to the gate. An optimistic pre-final-chip ordinary-monster reachability model excludes the listed gate cells and both teleports; its assumptions and limits are preserved separately.",
-    "A fresh ordinary push from (23,0) followed solely by the corridor trip to (31,0) and back requires at least 69 ticks: the earliest first move is one tick after the push, followed by seventeen moves four ticks apart. This bound assumes no forced-ice excursion, movement-state reset or other shortcut; it is not a universal return-time bound.",
-    "The remaining question is global slipper scheduling and eventual return reachability. Native list reordering can skip or repeat block movements, so a fixed nominal opening time does not prove impossibility. No invariant covers all attainable helper oscillators, mixed normal/reversing predecessors, clone-corridor occupancy, forced-ice departures, legitimate mouse timing or returns on later block cycles. No complete winning route has been established."
+    "Exactly 54 chip units exist and 54 are required. Both exits lie behind the socket at (15,28), so the chip at (31,0) is mandatory.",
+    "Removing gateway (24,0) leaves a nine-cell pocket containing (31,0). Permanent walls and north thin walls exclude alternate entry, escape, and perpendicular pushes into the gate ice. No exit or teleporter lies in the pocket.",
+    "Consider the last entry from (23,0) into (24,0) before collecting that chip and escaping. All earlier helper construction is allowed. The leftmost gate block needs at most five forced advances, with at most one reversal/requeue, to stop at (24,0). Other gate blocks only obstruct it sooner.",
+    "Native queue reordering can delay the gate. For one target queue interval, a predecessor's first removal/requeue absorbs earlier skips and can emit one replacement skip. Silent departures delete roots; departures that clone a slider can still emit a root. New clones append behind the target.",
+    "These skip dependencies form a forest. Give a predecessor cost 1 for at most 3 normal advances, cost 2 for 4, cost 3 for 5, and cost 4 for 6. Exact integer recurrence proves that sixteen target skips require at least 129 total cost, regardless of queue order or mixed phases.",
+    "The board permits at most 80 short predecessors and cost 12 in each of four long ice rows: total 128. Long-row blocks cannot pass, disappear or leave their nine-cell extended row; k contributors have at most min(6,9-k) normal advances. Teleporter and collision audits exclude surviving actor overlaps that could evade this occupancy bound.",
+    "Therefore each of the gate's at most two queue intervals has at most 15 skips. Five advances plus thirty skipped two-tick passes return the block to (24,0) within 70 ticks. It then stops on ordinary floor, with no later autonomous reopening and no removal possible from inside.",
+    "Last entry to ordinary floor (24,0) sets HASMOVED. Keyboard and mouse input are rejected until the next four-tick boundary. Optional ice excursions cannot accelerate first pocket entry. The nineteen manual moves needed to collect (31,0) and clear west to (23,0) therefore require at least 73 ticks.",
+    "Arriving merely at (24,0) is insufficient: the incoming block kills Chip before the same-tick manual west input. The universal 70-tick return is earlier than the 73-tick minimum safe escape, proving impossibility in original native Tile World MS."
   ],
   "evidence": [
     "scripts/jacques/verify-723-progress.ts",
@@ -35,13 +32,17 @@
     "web/public/dev/solutions/jacques/evidence/723-monster-cut.json",
     "web/public/dev/solutions/jacques/evidence/723-alternatives-summary.json",
     "scripts/jacques/probe-723-late-gate.ts",
-    "web/public/dev/solutions/jacques/evidence/723-late-gate-prefix.json"
+    "web/public/dev/solutions/jacques/evidence/723-late-gate-prefix.json",
+    "scripts/jacques/prove-723.ts",
+    "web/public/dev/solutions/jacques/evidence/723-scheduler-proof.md",
+    "web/public/dev/solutions/jacques/evidence/723-scheduler-certificate.json",
+    "web/public/dev/solutions/jacques/evidence/723-54-trapped-route.json",
+    "web/public/dev/solutions/jacques/evidence/723-54-trapped-parity.json"
   ],
   "limitations": [
-    "The 53-chip fixture is a single native-verified partial route, not a winning TWS file. It replaces the older 40-chip route as the strongest constructive checkpoint; the intermediate 52-chip fixture remains available.",
-    "No complete impossibility argument is claimed. Bounded local searches and timing probes cover selected configurations only.",
-    "Native verification refers to the original Tile World MS implementation. These routes were not independently verified in CHIP.EXE or SuCC.",
-    "The topology and ordinary-monster models establish only their stated geometric exclusions. They do not bound every attainable global slipper schedule; the 69-tick fresh-push estimate is conditional, and the separate ice-excursion probe is TypeScript-only."
+    "The proof concerns the original native Tile World MS implementation and exact Jacques DAT hash. CHIP.EXE and SuCC were not independently audited.",
+    "The integer verifier checks the finite geometry/arithmetic certificate; the native-source and forest lemmas are written mathematical arguments, not a machine-checked exhaustive state-space proof.",
+    "The preserved 53-chip and 54-chip routes are nonwinning evidence. Historical timing probes and their conditional 69-tick estimate are superseded by the universal 70-versus73 argument; no winning TWS is claimed."
   ],
   "experiments": [
     {
@@ -132,6 +133,26 @@
       "result": "No successful return among 128 safe excursions in this bounded TypeScript-only probe. This changes Chip slip participation but does not exhaust helper configurations, later cycles or mouse inputs.",
       "runner": "scripts/jacques/probe-723-late-gate.ts",
       "observationNote": "Recorded exploratory run; elapsed time and cutoff-limited trial counts are machine-dependent. The preserved runner repeats the same prefix and bounded strategy, not guaranteed identical timing metrics."
+    },
+    {
+      "kind": "global scheduler resource certificate",
+      "result": "Sixteen skips require cost 129; board capacity is 128. At most 15 skips per interval imply gate return within 70 ticks, below73 needed for safe escape. Portable checker also matches 178,628 abstract queue sequences including silent departures."
+    },
+    {
+      "kind": "full-trace all-chips trapped probe",
+      "tick": 3996,
+      "chipsCollected": 54,
+      "chipsRemaining": 0,
+      "position": [
+        24,
+        1
+      ],
+      "checkedTicks": 3997,
+      "exactTraceParity": true,
+      "keyboardMoves": 951,
+      "mouseMoves": 0,
+      "lastChipCollectedAtTick": 3924,
+      "result": "Playing, with all 54 chips. Every step, initial state and result match native Tile World MS; the gate block prevents returning from (24,1). No winning TWS is exported."
     }
   ],
   "remainingChipCoordinatesAtLongestCheckpoint": [
@@ -140,5 +161,39 @@
       0
     ]
   ],
-  "reproduce": "From web/: node_modules/.bin/vite-node ../scripts/jacques/verify-723-progress.ts; bounded TypeScript-only timing probes: node_modules/.bin/vite-node ../scripts/jacques/probe-723-late-gate.ts /path/to/Jacques.dat /tmp/jacques-723-late-gate (1200 wait candidates / 30 seconds, then 256 / 12 seconds; wall-clock cutoff checked between bounded trials)."
+  "reproduce": "From web/: node_modules/.bin/vite-node ../scripts/jacques/prove-723.ts /path/to/Jacques.dat; native all-chips trapped route: node_modules/.bin/vite-node ../scripts/jacques/verify-723-progress.ts 54-trapped. The proof checker has a 20-second queue-check deadline; native replay verification has a 30-second timeout.",
+  "ruleset": "MS",
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "coordinateConvention": "zero-based x,y",
+  "chipsRequired": 54,
+  "progressNotes": [
+    "The preserved route before entering the terminal pocket is alive at tick 3808 with Chip at (23,0), 53 chips collected and only (31,0) remaining. All 3,809 steps, the initial state and terminal result match native Tile World MS exactly. An intermediate 52-chip checkpoint at tick 3172 is also separately native-verified.",
+    "The left dead-end chip at (2,12) must be collected before pushing the block from (2,9) down the column. The older 40-chip route leaves that block at (2,11), where it seals the uncollected chip. The new prefix visits (2,12) and (2,14) from the outside before entering the block enclosure.",
+    "The first block gate remains reversible: park its returning block at (21,0), use the loop beneath the ice to reach (22,0), and return through (22,2), (21,2) and (20,2).",
+    "The new route collects (27,4) in the teleporter room, then visits the glider-column side rooms before leaving through the block at (26,9). With water boots, push the block at (23,12) west across its ice, collect the upper dead-end (23,7), and visit (16,12), (15,13) and (18,14). It also collects (29,5) before the central passage is opened.",
+    "The central bomb at (8,16) is cleared with a freshly cloned block extracted south from (11,13) and pushed west along row 15. The new route additionally collects the previously untouched chip at (10,14).",
+    "All sixteen chips beneath the lower ice-grid blocks are collected by pushing west on a tick congruent to 2 modulo 4 and retreating east at the next eligible input poll.",
+    "The right-hand room is solved constructively. Reach (31,22) from below through (31,23). Transport two lower-left stock blocks east through row 28, push them south at x=26, and then east along cleared rows 30 and 31 into their bombs; collect (31,30) and (31,31).",
+    "After clearing the right-hand room, the route returns through the outer corridor and teleporter to the upper gate. A 99-tick wait permits safe passage past the changed fireball timing. Push the gate block east to collect (24,0), then retreat west before it returns; the preserved checkpoint is alive on the accessible side of the gate."
+  ],
+  "proofSteps": [
+    "Exactly 54 chip units exist and 54 are required. Both exits lie behind the socket at (15,28), so the chip at (31,0) is mandatory.",
+    "Removing gateway (24,0) leaves a nine-cell pocket containing (31,0). Permanent walls and north thin walls exclude alternate entry, escape, and perpendicular pushes into the gate ice. No exit or teleporter lies in the pocket.",
+    "Consider the last entry from (23,0) into (24,0) before collecting that chip and escaping. All earlier helper construction is allowed. The leftmost gate block needs at most five forced advances, with at most one reversal/requeue, to stop at (24,0). Other gate blocks only obstruct it sooner.",
+    "Native queue reordering can delay the gate. For one target queue interval, a predecessor's first removal/requeue absorbs earlier skips and can emit one replacement skip. Silent departures delete roots; departures that clone a slider can still emit a root. New clones append behind the target.",
+    "These skip dependencies form a forest. Give a predecessor cost 1 for at most 3 normal advances, cost 2 for 4, cost 3 for 5, and cost 4 for 6. Exact integer recurrence proves that sixteen target skips require at least 129 total cost, regardless of queue order or mixed phases.",
+    "The board permits at most 80 short predecessors and cost 12 in each of four long ice rows: total 128. Long-row blocks cannot pass, disappear or leave their nine-cell extended row; k contributors have at most min(6,9-k) normal advances. Teleporter and collision audits exclude surviving actor overlaps that could evade this occupancy bound.",
+    "Therefore each of the gate's at most two queue intervals has at most 15 skips. Five advances plus thirty skipped two-tick passes return the block to (24,0) within 70 ticks. It then stops on ordinary floor, with no later autonomous reopening and no removal possible from inside.",
+    "Last entry to ordinary floor (24,0) sets HASMOVED. Keyboard and mouse input are rejected until the next four-tick boundary. Optional ice excursions cannot accelerate first pocket entry. The nineteen manual moves needed to collect (31,0) and clear west to (23,0) therefore require at least 73 ticks.",
+    "Arriving merely at (24,0) is insufficient: the incoming block kills Chip before the same-tick manual west input. The universal 70-tick return is earlier than the 73-tick minimum safe escape, proving impossibility in original native Tile World MS."
+  ],
+  "sourceEvidence": [
+    "legacy_c/mslogic.c:307-379",
+    "legacy_c/mslogic.c:946-1105",
+    "legacy_c/mslogic.c:1347-1430",
+    "legacy_c/mslogic.c:1449-1485",
+    "legacy_c/mslogic.c:1597-1867",
+    "legacy_c/mslogic.c:1916-2028",
+    "legacy_c/mslogic.c:2378-2404"
+  ]
 }
