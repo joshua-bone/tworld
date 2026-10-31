@@ -78,5 +78,5 @@
     "Every Exit is in the room east of column 28, rows 0–10. Its only usable entrance from outside is the socket at (28,5). The apparent alternative openings at (28,3) and (28,4) are shielded on their west sides by east-facing thin walls at (27,3) and (27,4); the remaining boundary is permanent walls or the board edge. Opening the toggle wall does not remove those thin walls.",
     "The socket requires all 385 chips, but at most 384 are collectible. Hence Chip can never enter the exit room."
   ],
-  "engineCommit": "eb92d9bca2813229cd67a65e4d8c71eefe3be4af"
+  "engineCommit": "3ecf6543bda0da6fdeda40f9b8c49cc221e579e9"
 }

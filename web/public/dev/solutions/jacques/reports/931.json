@@ -100,5 +100,5 @@
     "legacy_c/mslogic.c:1717-1720 (other actors in Water)",
     "legacy_c/mslogic.c:2361-2405 (creatures and ending check before Chip input)"
   ],
-  "engineCommit": "eb92d9bca2813229cd67a65e4d8c71eefe3be4af"
+  "engineCommit": "3ecf6543bda0da6fdeda40f9b8c49cc221e579e9"
 }

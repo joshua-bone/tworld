@@ -1,10 +1,10 @@
 {
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
-  "engineCommit": "eb92d9bca2813229cd67a65e4d8c71eefe3be4af",
+  "engineCommit": "3ecf6543bda0da6fdeda40f9b8c49cc221e579e9",
   "counts": {
-    "solved": 6,
+    "solved": 7,
     "impossible": 30,
-    "unresolved": 2
+    "unresolved": 1
   },
   "levels": [
     {
@@ -154,8 +154,8 @@
     {
       "level": 932,
       "title": "RUN!!! IV",
-      "status": "unresolved",
-      "summary": "Unresolved. A revised core-first route collects all 999 required chips and reaches (28,4) alive at tick 4755, with complete native C trace parity. Chip has not reached the Exit; no winning replay or impossibility proof has been established."
+      "status": "solved",
+      "summary": "Pin the controller Ball and five Teeth on six cloning buttons, clear the outer regions and core, then enter the exit through a preserved chip corridor. Wins at tick 10,544 (527.2 seconds), with exact native Tile World 2.3 and web MS trace parity."
     },
     {
       "level": 937,

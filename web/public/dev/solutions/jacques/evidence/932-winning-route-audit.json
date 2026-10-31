@@ -1,0 +1,128 @@
+{
+  "level": 932,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "checkedTicks": 10545,
+  "pinnedFromTick": 1543,
+  "pinnedTicks": 9002,
+  "pinnedActors": [
+    {
+      "serial": 1,
+      "id": 76,
+      "pos": 1016
+    },
+    {
+      "serial": 48,
+      "id": 96,
+      "pos": 1017
+    },
+    {
+      "serial": 55,
+      "id": 96,
+      "pos": 1018
+    },
+    {
+      "serial": 56,
+      "id": 96,
+      "pos": 1019
+    },
+    {
+      "serial": 95,
+      "id": 96,
+      "pos": 1020
+    },
+    {
+      "serial": 97,
+      "id": 96,
+      "pos": 1021
+    }
+  ],
+  "walkerOutletPreserved": 553,
+  "corridor": [
+    368,
+    400,
+    432
+  ],
+  "corridorProtectedUntilTick": 10531,
+  "rawInitialChipUnits": 1029,
+  "initialSpawnOverwriteChipUnits": 1,
+  "collectibleChipUnits": 1028,
+  "remainingChipUnits": 28,
+  "pickedUpChipUnits": 1000,
+  "milestones": [
+    {
+      "tick": 1543,
+      "chip": {
+        "x": 22,
+        "y": 31,
+        "pos": 1014
+      },
+      "chipsNeeded": 808,
+      "creatureCount": 176
+    },
+    {
+      "tick": 6735,
+      "chip": {
+        "x": 5,
+        "y": 4,
+        "pos": 133
+      },
+      "chipsNeeded": 263,
+      "creatureCount": 258
+    },
+    {
+      "tick": 10531,
+      "chip": {
+        "x": 16,
+        "y": 10,
+        "pos": 336
+      },
+      "chipsNeeded": 2,
+      "creatureCount": 303
+    },
+    {
+      "tick": 10544,
+      "chip": {
+        "x": 16,
+        "y": 14,
+        "pos": 464
+      },
+      "chipsNeeded": 0,
+      "creatureCount": 303
+    }
+  ],
+  "descent": [
+    {
+      "tick": 10532,
+      "position": 368,
+      "chipsNeeded": 1,
+      "status": "playing"
+    },
+    {
+      "tick": 10536,
+      "position": 400,
+      "chipsNeeded": 0,
+      "status": "playing"
+    },
+    {
+      "tick": 10540,
+      "position": 432,
+      "chipsNeeded": 0,
+      "status": "playing"
+    },
+    {
+      "tick": 10544,
+      "position": 464,
+      "chipsNeeded": 0,
+      "status": "completed"
+    }
+  ],
+  "endpoint": {
+    "tick": 10544,
+    "status": "completed",
+    "chip": {
+      "x": 16,
+      "y": 14,
+      "pos": 464
+    }
+  }
+}

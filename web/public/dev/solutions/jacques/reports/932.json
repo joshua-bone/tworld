@@ -7,158 +7,80 @@
   "rawChipTilesBothPlanes": 1029,
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
-  "status": "unresolved",
-  "summary": "Unresolved. A revised core-first route collects all 999 required chips and reaches (28,4) alive at tick 4755, with complete native C trace parity. Chip has not reached the Exit; no winning replay or impossibility proof has been established.",
   "visualEvidence": [
     "932-initial.svg",
     "932-initial.png",
     "932-bottom.svg"
   ],
+  "status": "solved",
+  "summary": "Pin the controller Ball and five Teeth on six cloning buttons, clear the outer regions and core, then enter the exit through a preserved chip corridor. Wins at tick 10,544 (527.2 seconds), with exact native Tile World 2.3 and web MS trace parity.",
   "proofSteps": [
-    "MS supplies a default player at (0,0) despite the missing Chip tile. The surrounding chips initially separate the outer shell from the central monster moat.",
-    "A TypeScript candidate reached 892 collected chips, but its encoded replay dies in the native C engine at tick 2948. That candidate is not a valid MS solution.",
-    "The first native/TypeScript divergence occurs at tick 16: a Teeth at (12,23) attempts to move east into Empty over CloneMachine at (13,23). Native rejects the move; TypeScript permits it. The random states and selected eastward direction agree.",
-    "A reduced board reproduces the discrepancy without cloning or randomness. The correction uses the existing MS catalog entry policy and passes the reduced regression, preserves bowling-ball and Pet Carrier cloner behavior, and matches the entire original 2949-step native trace. That original route now correctly fails in both engines; it remains unsuitable as a solution."
+    "MS supplies the default player at (0,0). Its first move overwrites the starting chip without counting it toward the quota, leaving 1,028 collectible units from the 1,029 raw chip tiles. The 29 surplus units above the required 999 allow selected chips to remain as permanent monster barriers and protect the final approach to the exit.",
+    "Preclear the upper-right approach, then lure five Teeth down the right edge and west along the bottom button row. By tick 1,543 the controller Ball is pinned at (24,31) and five Teeth occupy (25,31) through (29,31). Retained chips directly above them prevent the Teeth from following Chip north. These six actors stay on their buttons for the rest of the replay, preventing repeated activations of six sources. The seventh button at (30,31) controls a Bug cloner and is not pinned.",
+    "Clear the outer regions in a planned circuit: bottom, west, top, then the right boundary and southeast pocket. Advance through cleared floor and protected chip landings, checking that each collected group has a safe departure. Retain the right-edge guide chips, the roof above the Teeth queue, two unsafe southeast chips, and the Walker outlet at (9,17). The outer collection is finished by tick 6,735.",
+    "Enter the core from its southwest corner and clear paired rows from the bottom upward, using short delays and retreats through cleared floor to avoid monsters. Keep both layers of the three chips at (16,11), (16,12), and (16,13) intact throughout the cleanup. The final compact upper group is cleared while preserving this exit corridor.",
+    "At tick 10,531, Chip stands at (16,10) with two required chips remaining. Hold south: the landings at (16,11) and (16,12) satisfy the quota; (16,13) supplies one optional extra chip. Each landing leaves its lower chip layer in place as a monster barrier. Chip enters the Socket-over-Exit at (16,14) at tick 10,544.",
+    "The exact TWS completes in both the repository native Tile World 2.3 MS engine and production web MS engine, with matching initial state, all 10,545 tick snapshots, and final result. Seed 0, stepping 4, and all 2,274 recorded commands are cardinal keyboard inputs; no mouse or diagonal commands are used."
   ],
+  "argument": [
+    "MS supplies the default player at (0,0). Its first move overwrites the starting chip without counting it toward the quota, leaving 1,028 collectible units from the 1,029 raw chip tiles. The 29 surplus units above the required 999 allow selected chips to remain as permanent monster barriers and protect the final approach to the exit.",
+    "Preclear the upper-right approach, then lure five Teeth down the right edge and west along the bottom button row. By tick 1,543 the controller Ball is pinned at (24,31) and five Teeth occupy (25,31) through (29,31). Retained chips directly above them prevent the Teeth from following Chip north. These six actors stay on their buttons for the rest of the replay, preventing repeated activations of six sources. The seventh button at (30,31) controls a Bug cloner and is not pinned.",
+    "Clear the outer regions in a planned circuit: bottom, west, top, then the right boundary and southeast pocket. Advance through cleared floor and protected chip landings, checking that each collected group has a safe departure. Retain the right-edge guide chips, the roof above the Teeth queue, two unsafe southeast chips, and the Walker outlet at (9,17). The outer collection is finished by tick 6,735.",
+    "Enter the core from its southwest corner and clear paired rows from the bottom upward, using short delays and retreats through cleared floor to avoid monsters. Keep both layers of the three chips at (16,11), (16,12), and (16,13) intact throughout the cleanup. The final compact upper group is cleared while preserving this exit corridor.",
+    "At tick 10,531, Chip stands at (16,10) with two required chips remaining. Hold south: the landings at (16,11) and (16,12) satisfy the quota; (16,13) supplies one optional extra chip. Each landing leaves its lower chip layer in place as a monster barrier. Chip enters the Socket-over-Exit at (16,14) at tick 10,544.",
+    "The exact TWS completes in both the repository native Tile World 2.3 MS engine and production web MS engine, with matching initial state, all 10,545 tick snapshots, and final result. Seed 0, stepping 4, and all 2,274 recorded commands are cardinal keyboard inputs; no mouse or diagonal commands are used."
+  ],
+  "title": "RUN!!! IV",
   "limitations": [
-    "No winning replay or universal impossibility proof has been established.",
-    "The earlier candidate that relied on the buried-cloner mismatch is invalid. An earlier 997-chip prefix has complete native trace parity, but its explored continuations did not win. Earlier checkpoints remain available for alternate continuations.",
-    "The preserved-gate prefix leaves two chips beside the exit, but the crowded core prevents any currently established route to use them. Its matching native trace does not establish improved solvability.",
-    "The zero-chip northeast-lure prefix has complete native trace parity, but its direct and east-waypoint return searches did not reach the Exit. Other routes and earlier checkpoints remain under investigation; collecting every required chip is not completion."
+    "Verified against the repository native Tile World 2.3 MS implementation and current production web engine. The source DAT and native reference engine were not modified. The web engine includes the earlier buried-cloner compatibility correction established during this investigation.",
+    "This ruleset includes the existing turning-tank/cloning identity bug in canmakemove. The replay has not been certified against the proposed correction, Microsoft CHIP.EXE, or SuCC. Matching the repository native engine is not a claim of compatibility with those other implementations."
   ],
   "experiments": [
     {
-      "kind": "data audit",
-      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+      "kind": "constructive route and local timing",
+      "result": "Full-map and buried-layer inspection established the five-Teeth queue, retained chip barriers, outer circuit, core strips, and final descent. Bounded searches using unchanged native gameplay resolved local move orders and timing; global remaining chip count was not used as a completion criterion."
     },
     {
-      "kind": "bounded constructive route attempt",
-      "method": "Nearest-chip route with a four-tick survival check for each next action; one seed and stepping setting, no seed/parameter sweep.",
-      "result": "Unverified TypeScript-only observation, superseded by the native mismatch below. 167 chips collected by tick 667;832 remain. Stopped at (24,5) after all five local four-tick movement/wait choices were lethal. This does not establish impossibility."
+      "kind": "independent winning-route audit",
+      "result": "Replayed from tick zero. The Ball and five Teeth remain pinned from tick 1,543 through completion; the Walker outlet remains blocked, and all three exit-corridor cells remain doubled through tick 10,531. The four final landings reach the actual completed state.",
+      "evidence": "932-winning-route-audit.json"
     },
     {
-      "kind": "protected collection prefix",
-      "result": "Unverified TypeScript-only observation, superseded by the native mismatch below. TypeScript runtime: 668 chips collected, 331 required chips remaining, alive at (2,17), tick 2931. The runtime listed 196 creatures in total, including Chip and the ball outside the moat; 194 were in the moat. Exact inputs are preserved in 932-shell-probe.json."
+      "kind": "winning replay",
+      "result": "Initial state, all 10,545 snapshots, and final result agree exactly between the native C and web engines. Exact staged TWS bytes were read back, native stderr was empty, and the native trace was compared incrementally.",
+      "tws": "932.tws",
+      "certificate": "932.tws.json",
+      "seed": 0,
+      "stepping": 4,
+      "keyboardMoves": 2274,
+      "mouseMoves": 0
     },
     {
-      "kind": "blob timing portal",
-      "result": "Unverified TypeScript-only observation, superseded by the native mismatch below. Entering (5,17) at tick 2940 dies at 2944. Waiting four ticks, entering at 2944 and retreating at 2948 survives; the saved prefix reaches (1,17) at tick 2963 with 330 chips required. This is not a complete replay and has not yet received native certification."
-    },
-    {
-      "kind": "native validation and reduced regression",
-      "result": "Encoded TypeScript replay matches manual simulation for the first 400 ticks. Native differs first at tick 16, then the candidate dies at tick 2948. Reduced native probe at tick 8 retains Teeth at (5,5), while the TypeScript regression fails with Teeth at (6,5).",
-      "regressionSource": "web/src/ruleset-ms/impl/engine.test.ts",
-      "nativeProbe": "932-buried-cloner-native.json",
-      "nativeFixture": "932-buried-cloner.dat"
-    },
-    {
-      "kind": "buried-cloner correction verification",
-      "result": "The reduced engine test failed before the correction and passed afterward. All 269 tests across six nearby engine/catalog/controller suites passed. MS typecheck passed. Initial state, all 2949 steps, and result of the original replay match native with no differences, empty stderr, and identical replay bytes.",
-      "evidence": "932-regression-parity.json"
-    },
-    {
-      "kind": "corrected outer and core route",
-      "result": "After collecting the protected outer shell and most outer boundary chips, Chip enters the core through (9,16). Retained chips at (10,15), (10,17), and (11,16) isolate the entry corridor while the rest of the interior is collected. Native and TypeScript agree on the initial state, all 4404 steps, and the result: alive at (11,15), tick 4403, with 40 chips required. Native stderr is empty and replay bytes are identical.",
-      "evidence": "932-core-corrected-partial-parity.json"
-    },
-    {
-      "kind": "split-visit core route with preserved chip barriers",
-      "result": "An early visit collects core perimeter chips, then returns through the bottom double-chip airlock before the moat becomes crowded. After collecting the outer shell and most of its boundary, Chip returns to the core, collects the protected interior, and takes seven additional chips while retaining the remaining barrier layers. Native and TypeScript agree on the initial state, all 4612 steps, and the result: alive at (18,19), tick 4611, with 35 chips required. Native stderr is empty and replay bytes are identical. Subsequent bounded cleanup attempts are exploratory and do not establish impossibility.",
-      "evidence": "932-split-safe-partial-parity.json"
-    },
-    {
-      "kind": "right-border-first final collection",
-      "result": "After the native-certified split-visit checkpoint, collecting the right border before opening the north border reaches 997 collected chips. Native and TypeScript agree on the initial state, all 4836 steps, and the result: alive at (11,15), tick 4835, with 2 chips required. Native stderr is empty and replay bytes are identical. The bounded continuation search did not complete the level; this prefix is not a solution or an impossibility proof.",
-      "evidence": "932-two-remaining-partial-parity.json"
-    },
-    {
-      "kind": "preserved exit-gate partial route",
-      "result": "A revised right-border-first route retains the double chip at (16,13), directly north of the Socket-over-Exit at (16,14). A late N/W/N sequence collects the formerly preserved Walker outlet at (9,17), reaching (9,16) at tick 4807 with 2 chips required. Both chips at (16,13) remain available. Manual play, encoded TypeScript replay, and native C agree on all 4808 steps; initial state and result also match, replay bytes are identical, and native stderr is empty. This is an alternate 997-chip prefix, not a winning replay. A bounded continuation allowing the last two gate chips exhausted its explored frontier without completing.",
-      "evidence": "932-preserved-exit-gate-partial-parity.json"
-    },
-    {
-      "kind": "geometric safe-shell route",
-      "result": "A deterministic route joins five perimeter cycles into a path through 531 safe outer cells and uses paired bounces to collect stacked chips. It collects all 646 safe outer chip units in 683 moves, including (22,31); the earlier greedy route took 704 moves and skipped that tile. Native C and TypeScript agree on the initial state, all 3144 steps, and the result: alive at (31,30), tick 3143, with 269 chips required (730 collected). Original MS command audit and exact replay byte roundtrip pass; native stderr is empty. This is a partial route. Its subsequent bounded boundary-collection attempt reached 192 required at tick 3743, then exhausted the explored frontier without establishing a return or completion.",
-      "evidence": "932-efficient-shell-partial-parity.json"
-    },
-    {
-      "kind": "protected exit gate and Teeth-lure refinements",
-      "result": "The actual Exit is at (16,14), below a Socket. Preserving one or both chips at (16,13) permits a possible final collection beside it, but bounded right-first cleanup attempts still did not complete. Inside-core northwest/northeast lures changed Teeth facing without draining their packed border: a retained chip blocks the horizontal choice and alignment with Chip removes the vertical fallback. A proposed outside northwest lure would supply both northward and westward choices; it remains unproved. A north airlock at (16,11) preserves a chip behind Chip, but the tested exit through (16,10) did not pass the moving Glider traffic in the next row. These failures do not establish impossibility. The neighboring double-chip portal at (15,11) reaches (15,9) in a direct probe, but that state dies before the next move; a bounded search preserving the portal chip also found no safe exit (760 expansions, 100 move-depth limit). At that checkpoint the full outside lure remained untested. Later work deliberately opened several north cells and established an escape, but its tested return paths failed; this does not rule out other routes."
-    },
-    {
-      "kind": "core-first collection and northeast lure",
-      "result": "An earlier route clears the central area, then escapes through the alternative double-chip gate at (5,20), reaching (4,20) at tick 1359 with 721 chips required. Safe outer collection reaches 75 required at tick 4115. Clearing the outer boundary in bottom/left/top/right order reaches zero required chips. A subsequent explicit northeast lure reaches (28,4) alive at tick 4755. Manual play, encoded TypeScript replay and native C agree on all 4756 steps, including initial state and result; original MS input audit and exact replay-byte checks pass. This remains a partial route: bounded return attempts have not reached the Exit.",
-      "evidence": "932-zero-chip-northeast-lure-partial-parity.json"
+      "kind": "earlier unsuccessful routes",
+      "result": "Earlier shell-first and core-first attempts reached the chip quota but could not return to the exit. Their preserved partial certificates remain historical evidence only. The winning route instead fixes the button-controller traffic and protects the final exit approach."
     }
   ],
   "sources": [
-    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
-    "legacy_c/mslogic.c:1597",
-    "legacy_c/mslogic.c:1829",
-    "web/src/ruleset-ms/impl/chipMovement.ts:104",
-    "legacy_c/mslogic.c:2277"
-  ],
-  "title": "RUN!!! IV",
-  "argument": [
-    "MS supplies a default player at (0,0) despite the missing Chip tile. The surrounding chips initially separate the outer shell from the central monster moat.",
-    "A TypeScript candidate reached 892 collected chips, but its encoded replay dies in the native C engine at tick 2948. That candidate is not a valid MS solution.",
-    "The first native/TypeScript divergence occurs at tick 16: a Teeth at (12,23) attempts to move east into Empty over CloneMachine at (13,23). Native rejects the move; TypeScript permits it. The random states and selected eastward direction agree.",
-    "A reduced board reproduces the discrepancy without cloning or randomness. The correction uses the existing MS catalog entry policy and passes the reduced regression, preserves bowling-ball and Pet Carrier cloner behavior, and matches the entire original 2949-step native trace. That original route now correctly fails in both engines; it remains unsuitable as a solution."
+    "legacy_c/mslogic.c:1083",
+    "scripts/jacques/native-stream.ts",
+    "scripts/jacques/harness.ts"
   ],
   "evidence": {
+    "winningReplay": "932.tws",
+    "certificate": "932.tws.json",
+    "inputs": "932-winning-inputs.json",
+    "routeAudit": "932-winning-route-audit.json",
     "facts": {
-      "bestNativeVerifiedCollection": {
-        "collected": 999,
-        "required": 999,
-        "tick": 4755,
-        "position": [
-          28,
-          4
-        ],
-        "status": "playing",
-        "completed": false,
-        "certificate": "932-zero-chip-northeast-lure-partial-parity.json"
-      }
-    },
-    "sourceReferences": [
-      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
-      "legacy_c/mslogic.c:1597",
-      "legacy_c/mslogic.c:1829",
-      "web/src/ruleset-ms/impl/chipMovement.ts:104",
-      "legacy_c/mslogic.c:2277"
-    ],
-    "visualFiles": [
-      "932-initial.svg",
-      "932-initial.png",
-      "932-bottom.svg"
-    ],
-    "firstDivergence": {
-      "tick": 16,
-      "source": [
-        12,
-        23
-      ],
-      "target": [
-        13,
-        23
-      ],
-      "targetTop": "Empty",
-      "targetBottom": "CloneMachine",
-      "nativeResult": "blocked",
-      "typescriptResult": "entered",
-      "rngEqual": true,
-      "suspectCommit": "9fe5d405",
-      "nativeRule": "legacy_c/mslogic.c:1105",
-      "typescriptRule": "web/src/ruleset-ms/impl/engine.ts:2654",
-      "historyVerification": {
-        "method": "Executed the same reduced probe against exact archived source trees for adjacent commits.",
-        "parent": "9fe5d405^",
-        "parentResult": "passed: Teeth remains at (5,5), matching native",
-        "commit": "9fe5d405",
-        "commitResult": "failed: Teeth enters (6,5)",
-        "changesToCurrentEngine": false
-      }
+      "finalTick": 10544,
+      "requiredChips": 999,
+      "chipsRemaining": 0,
+      "nativeStatus": "completed",
+      "exactTraceParity": true,
+      "keyboardMoves": 2274,
+      "mouseMoves": 0,
+      "stepping": 4,
+      "seed": 0
     }
   },
-  "engineCommit": "eb92d9bca2813229cd67a65e4d8c71eefe3be4af"
+  "engineCommit": "3ecf6543bda0da6fdeda40f9b8c49cc221e579e9"
 }

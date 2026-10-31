@@ -73,5 +73,5 @@
     "verification": "952-329-parity.json"
   },
   "reproduce": "From web/: node_modules/.bin/vite-node ../scripts/jacques/verify-952-progress.ts",
-  "engineCommit": "eb92d9bca2813229cd67a65e4d8c71eefe3be4af"
+  "engineCommit": "3ecf6543bda0da6fdeda40f9b8c49cc221e579e9"
 }

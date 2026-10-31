@@ -1,0 +1,44 @@
+{
+  "level": {
+    "index": 931,
+    "number": 932,
+    "name": "RUN!!! IV",
+    "author": "",
+    "password": "MMYE",
+    "timeLimitSeconds": 999,
+    "chipsRequired": 999,
+    "bestTimeTicks": 2147483647,
+    "levelSize": 640,
+    "solutionSize": 0,
+    "levelHash": "7482404094667928828",
+    "gameplayHash": "2782050330616172861",
+    "hasSolution": false,
+    "sgflags": 0,
+    "unsolvable": null,
+    "hasSpecialTools": false
+  },
+  "typescript": {
+    "status": "completed",
+    "finalTick": 10544,
+    "stepCount": 10545
+  },
+  "native": {
+    "status": "completed",
+    "finalTick": 10544,
+    "stepCount": 10545
+  },
+  "checkedTicks": 10545,
+  "exactTraceParity": true,
+  "exactInputBytesRead": true,
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "twsSha256": "8bdb6b2e88e939746b711d8cebbe1974dd061f833e4c58c4980e7f096c4c6d8e",
+  "nativeStdoutSha256": "600e846497efafaf559a9ffc9c20ee9796598f213ec6f38f33c2f17b1abf42e9",
+  "nativeStdoutBytes": 195370112,
+  "nativeStderr": "",
+  "timeoutMs": 60000,
+  "inputAudit": {
+    "kind": "original-ms-command-alphabet",
+    "keyboardMoves": 2274,
+    "mouseMoves": 0
+  }
+}
