@@ -1,0 +1,181 @@
+{
+  "description": "Directed static reachability from (31,0), omitting gateway (24,0): only permanent walls, board edges and original thin-wall direction masks obstruct movement; all other objects are treated as passable.",
+  "component": [
+    [
+      31,
+      0
+    ],
+    [
+      30,
+      0
+    ],
+    [
+      29,
+      0
+    ],
+    [
+      29,
+      1
+    ],
+    [
+      28,
+      1
+    ],
+    [
+      27,
+      1
+    ],
+    [
+      26,
+      1
+    ],
+    [
+      25,
+      1
+    ],
+    [
+      24,
+      1
+    ]
+  ],
+  "boundary": [
+    {
+      "from": 31,
+      "to": 63,
+      "fromTile": 45,
+      "toTile": 25,
+      "d": 4
+    },
+    {
+      "from": 30,
+      "to": 62,
+      "fromTile": 1,
+      "toTile": 25,
+      "d": 4
+    },
+    {
+      "from": 29,
+      "to": 28,
+      "fromTile": 27,
+      "toTile": 25,
+      "d": 2
+    },
+    {
+      "from": 61,
+      "to": 93,
+      "fromTile": 1,
+      "toTile": 25,
+      "d": 4
+    },
+    {
+      "from": 61,
+      "to": 62,
+      "fromTile": 1,
+      "toTile": 25,
+      "d": 8
+    },
+    {
+      "from": 60,
+      "to": 28,
+      "fromTile": 26,
+      "toTile": 25,
+      "d": 1
+    },
+    {
+      "from": 60,
+      "to": 92,
+      "fromTile": 26,
+      "toTile": 25,
+      "d": 4
+    },
+    {
+      "from": 59,
+      "to": 27,
+      "fromTile": 26,
+      "toTile": 7,
+      "d": 1
+    },
+    {
+      "from": 59,
+      "to": 91,
+      "fromTile": 26,
+      "toTile": 25,
+      "d": 4
+    },
+    {
+      "from": 58,
+      "to": 26,
+      "fromTile": 26,
+      "toTile": 7,
+      "d": 1
+    },
+    {
+      "from": 58,
+      "to": 90,
+      "fromTile": 26,
+      "toTile": 25,
+      "d": 4
+    },
+    {
+      "from": 57,
+      "to": 25,
+      "fromTile": 26,
+      "toTile": 7,
+      "d": 1
+    },
+    {
+      "from": 57,
+      "to": 89,
+      "fromTile": 26,
+      "toTile": 25,
+      "d": 4
+    },
+    {
+      "from": 56,
+      "to": 24,
+      "fromTile": 1,
+      "toTile": 54,
+      "d": 1
+    },
+    {
+      "from": 56,
+      "to": 55,
+      "fromTile": 1,
+      "toTile": 25,
+      "d": 2
+    },
+    {
+      "from": 56,
+      "to": 88,
+      "fromTile": 1,
+      "toTile": 25,
+      "d": 4
+    }
+  ],
+  "level": 723,
+  "sourceDatSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "boardSource": "web/public/dev/solutions/jacques/maps/723.json",
+  "scope": "Original level; static geometry and source inspection supplement the native-verified partial route. Not a complete impossibility proof.",
+  "coordinateEncoding": "Boundary from/to values are y*32+x; d uses N=1, W=2, S=4, E=8. Boundary list omits off-board edges.",
+  "excludedGateway": [
+    24,
+    0
+  ],
+  "directionMasks": {
+    "exitBlocked": {
+      "26": 1,
+      "27": 2,
+      "28": 4,
+      "29": 8,
+      "30": 12
+    },
+    "entryBlocked": {
+      "26": 4,
+      "27": 8,
+      "28": 1,
+      "29": 2,
+      "30": 3
+    }
+  },
+  "limitation": "This directed model establishes the pocket exit cut for ordinary moves. It does not constrain global forced-movement scheduling or prove every dynamic helper construction impossible."
+}

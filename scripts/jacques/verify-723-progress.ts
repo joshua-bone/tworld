@@ -14,6 +14,8 @@ const normalize = (value: unknown): unknown => JSON.parse(JSON.stringify(value))
 for (const [name, count, remaining, position] of [
   ['partial', 2137, 14, 670],
   ['early-upper', 837, 37, 286],
+  ['52', 3173, 2, 1023],
+  ['53', 3809, 1, 23],
 ] as const) {
   const fixtureBytes = await readFile(join(directory, `723-${name}-route.json`));
   const fixture = JSON.parse(fixtureBytes.toString());

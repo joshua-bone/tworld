@@ -1,0 +1,93 @@
+{
+  "level": 723,
+  "kind": "semantic follow-up; not a winning replay or complete impossibility proof",
+  "finalPocketWithoutGateway": [
+    [
+      31,
+      0
+    ],
+    [
+      30,
+      0
+    ],
+    [
+      29,
+      0
+    ],
+    [
+      29,
+      1
+    ],
+    [
+      28,
+      1
+    ],
+    [
+      27,
+      1
+    ],
+    [
+      26,
+      1
+    ],
+    [
+      25,
+      1
+    ],
+    [
+      24,
+      1
+    ]
+  ],
+  "gateway": [
+    24,
+    0
+  ],
+  "nativeCode": {
+    "boundsBeforePush": "legacy_c/mslogic.c:1005",
+    "thinWallLeaveCheckBeforePush": "legacy_c/mslogic.c:1011-1027",
+    "blockPush": "legacy_c/mslogic.c:1052",
+    "parallelSlidingPushRejected": "legacy_c/mslogic.c:964-969",
+    "mouseUsesSameMovementCheck": "legacy_c/mslogic.c:1314",
+    "iceDiscardsInputBeforeMouseGoalHandling": "legacy_c/mslogic.c:1366-1377",
+    "slipperIterationAndRequeue": "legacy_c/mslogic.c:1961"
+  },
+  "claims": [
+    "The directed static model leaves a nine-cell final pocket after gateway (24,0) is removed. Ordinary movement cannot leave it by a lower-board path: the remaining boundaries are permanent walls, board edges or north-facing thin walls.",
+    "A stationary block at (24,0) cannot be removed from inside the final pocket: its north move leaves the board, its west push requires Chip at (25,0), its east push requires Chip at (23,0), and its south push requires Chip outside the board.",
+    "The native thin-wall leave check happens before pushblock, so a mouse goal from row 1 cannot perform a perpendicular slap on an ice block in row 0.",
+    "The only teleports are (11,0) and (25,4); teleport-push exemptions cannot act on any final-gate ice cell.",
+    "Before the final chip is collected, optimistic ordinary-monster reachability excludes the listed gate cells and both teleports under the assumptions in 723-monster-cut.json. Both cloners produce blocks only.",
+    "For blocks confined to the straight ice cells (25..27,0), blocks to the right of the leftmost block do not obstruct its westward exit while (24,0) is empty; they can cause earlier reversal. This local collision observation does not bound scheduler delay. Occupying (24,0) itself closes the gateway."
+  ],
+  "distinctLocalProbe": {
+    "description": "Follow pushed block onto ice25,0, bounce safely back to24,0, then attempt outward-and-return corridor route; alters Chip slip participation.",
+    "maximumWaitTicks": 255,
+    "timeoutMs": 12000,
+    "actualElapsedMs": 12068,
+    "safeExcursions": 128,
+    "successfulReturns": 0,
+    "nativeCertified": false,
+    "runner": "scripts/jacques/probe-723-late-gate.ts",
+    "prefixFixture": "web/public/dev/solutions/jacques/evidence/723-late-gate-prefix.json",
+    "observationNote": "Recorded exploratory run; elapsed time and cutoff-limited trial counts vary across machines. Runner preserves the bounded strategy and exact prefix, not identical wall-clock metrics."
+  },
+  "remainingLoophole": "No bound or construction covers every attainable global slipper configuration, including helper-created persistent oscillators, mixed normal/reversing predecessors, altered clone-corridor occupancy, forced-ice departures or legitimate mouse timing. Return on later block cycles also remains part of the unresolved reachability question. Count-only or logarithmic index-contraction bounds are not established: a reversing immediate predecessor can shift the gate left by only one list index and skip it. These local constraints do not establish impossibility.",
+  "sourceDatSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "boardSource": "web/public/dev/solutions/jacques/maps/723.json",
+  "scope": "Original level; static geometry and source inspection supplement the native-verified partial route. Not a complete impossibility proof.",
+  "freshPushTiming": {
+    "minimumTicks": 69,
+    "ordinaryMoves": 18,
+    "earliestFirstMoveAfterPushTicks": 1,
+    "remainingMoves": 17,
+    "ticksPerRemainingMove": 4,
+    "assumptions": [
+      "Start with a fresh ordinary east push from (23,0) into (24,0), setting Chip HASMOVED.",
+      "Use the ordinary corridor out to (31,0) and back to (24,0), with no intervening forced-ice excursion, movement-state reset or other shortcut.",
+      "Choose the most favorable push phase, allowing the first south move one tick later; the remaining seventeen ordinary moves are four ticks apart."
+    ],
+    "limitation": "This is a conditional fresh-push route bound, not a universal return-time bound. An ice excursion can change Chip movement state and requires separate timing analysis."
+  },
+  "mouseScope": "The source checks rule out the stated geometric perpendicular push, including mouse goals. They do not rule out every timing effect of legitimate absolute mouse retargeting elsewhere."
+}

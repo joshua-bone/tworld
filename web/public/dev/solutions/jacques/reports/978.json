@@ -8,7 +8,7 @@
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
   "status": "unresolved",
-  "summary": "A native-verified partial replay collects 1,914 of the 1,940 required chips and remains alive at tick 9675. The final chips around the walker cloner remain unresolved; no winning replay or complete impossibility argument is established.",
+  "summary": "A native-verified partial replay collects 1,914 of the 1,940 required chips and remains alive at tick 9675, but its walker source is sealed in a fully occupied chip-bounded component. A separate native-verified connected route collects 1,053 chips by tick 4387 while keeping Chip and all active actors in one chip-free component. Neither route establishes a win or a complete impossibility argument.",
   "visualEvidence": [
     "978-initial.svg",
     "978-initial.png",
@@ -18,7 +18,11 @@
     "The source walker at (6,2) faces west on a cloner. A ball repeatedly crosses the connected red button at (23,3), filling the corridor from (2,2) to (6,2).",
     "The surrounding chips initially contain the walkers. Removing the last chip from a boundary cell admits monsters into that cell; a state can appear alive until the next monster movement phase, when Chip may be killed before being able to leave.",
     "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution.",
-    "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation."
+    "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation.",
+    "An audit of both planes finds exactly one exit at (31,0), buried below a socket. There is no alternate buried-exit shortcut; the socket requires the chip counter to reach zero.",
+    "Chip-barrier connectivity explains the previous bulk-route failure: at its final state, the source component has 18 cells occupied by 18 non-Chip actors, while a separate 988-cell component contains seven actors. A state-specific saturated component is not a level-wide impossibility argument.",
+    "A protected setup that clears the surrounding rectangle while retaining one chip on each of the nine corridor boundary cells matches the native engine for all 244 inputs. In a separate bounded TypeScript probe, eight seeds, waits of zero through seven ticks, and reachable approach sides give 960 entry cases: 240 survive the entry window, but none has a surviving four-tick cardinal departure. Arbitrary schedules and seeds remain unexhausted.",
+    "Alternating visits to adjacent chip cells and local actual-engine routing produce a different connected prefix: 1,053 chips collected by tick 4387, exact native parity for all 4,388 inputs. Its chip-barrier diagnostic has one 575-cell component containing Chip and all 289 active non-Chip actors, with 285 cells empty after counting Chip separately. This is a route-development checkpoint, not a winning replay."
   ],
   "limitations": [
     "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
@@ -45,6 +49,21 @@
       "kind": "native full-trace partial validation",
       "result": "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation.",
       "evidence": "978-board-partial-parity.json"
+    },
+    {
+      "kind": "exit and component audit",
+      "result": "An audit of both planes finds exactly one exit at (31,0), buried below a socket. There is no alternate buried-exit shortcut; the socket requires the chip counter to reach zero. Chip-barrier connectivity explains the previous bulk-route failure: at its final state, the source component has 18 cells occupied by 18 non-Chip actors, while a separate 988-cell component contains seven actors. A state-specific saturated component is not a level-wide impossibility argument."
+    },
+    {
+      "kind": "bounded jammed-boundary phase probe",
+      "result": "A protected setup that clears the surrounding rectangle while retaining one chip on each of the nine corridor boundary cells matches the native engine for all 244 inputs. In a separate bounded TypeScript probe, eight seeds, waits of zero through seven ticks, and reachable approach sides give 960 entry cases: 240 survive the entry window, but none has a surviving four-tick cardinal departure. Arbitrary schedules and seeds remain unexhausted.",
+      "evidence": "978-jammed-phase-probe.json",
+      "nativeSetupEvidence": "978-jammed-boundary-native.json"
+    },
+    {
+      "kind": "connected-region native checkpoint",
+      "result": "Alternating visits to adjacent chip cells and local actual-engine routing produce a different connected prefix: 1,053 chips collected by tick 4387, exact native parity for all 4,388 inputs. Its chip-barrier diagnostic has one 575-cell component containing Chip and all 289 active non-Chip actors, with 285 cells empty after counting Chip separately. This is a route-development checkpoint, not a winning replay.",
+      "evidence": "978-connected-partial-parity.json"
     }
   ],
   "sources": [
@@ -58,7 +77,11 @@
     "The source walker at (6,2) faces west on a cloner. A ball repeatedly crosses the connected red button at (23,3), filling the corridor from (2,2) to (6,2).",
     "The surrounding chips initially contain the walkers. Removing the last chip from a boundary cell admits monsters into that cell; a state can appear alive until the next monster movement phase, when Chip may be killed before being able to leave.",
     "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution.",
-    "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation."
+    "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation.",
+    "An audit of both planes finds exactly one exit at (31,0), buried below a socket. There is no alternate buried-exit shortcut; the socket requires the chip counter to reach zero.",
+    "Chip-barrier connectivity explains the previous bulk-route failure: at its final state, the source component has 18 cells occupied by 18 non-Chip actors, while a separate 988-cell component contains seven actors. A state-specific saturated component is not a level-wide impossibility argument.",
+    "A protected setup that clears the surrounding rectangle while retaining one chip on each of the nine corridor boundary cells matches the native engine for all 244 inputs. In a separate bounded TypeScript probe, eight seeds, waits of zero through seven ticks, and reachable approach sides give 960 entry cases: 240 survive the entry window, but none has a surviving four-tick cardinal departure. Arbitrary schedules and seeds remain unexhausted.",
+    "Alternating visits to adjacent chip cells and local actual-engine routing produce a different connected prefix: 1,053 chips collected by tick 4387, exact native parity for all 4,388 inputs. Its chip-barrier diagnostic has one 575-cell component containing Chip and all 289 active non-Chip actors, with 285 cells empty after counting Chip separately. This is a route-development checkpoint, not a winning replay."
   ],
   "evidence": {
     "facts": {},
@@ -73,7 +96,10 @@
       "978-initial.png",
       "978-bottom.svg"
     ],
-    "partialReplay": "978-board-partial-parity.json"
+    "partialReplay": "978-board-partial-parity.json",
+    "connectedPartialReplay": "978-connected-partial-parity.json",
+    "jammedBoundaryReplay": "978-jammed-boundary-native.json",
+    "boundedJammedPhaseProbe": "978-jammed-phase-probe.json"
   },
-  "engineCommit": "996539349b420b1d08f5c76a49c0275e5eca4e2e"
+  "engineCommit": "7d8d7b62a5b05e4cbad7411a1f3db222a38e86ec"
 }

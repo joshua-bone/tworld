@@ -86,5 +86,5 @@
       "result": "Review-791.ts checks all77 chips required, alcove walls, plain-ice approach and absence of skates/corners/blocks/teleports. Native choosechipmove, icewallturn and floormovements_of_chip establish input discard and same-axis reversal."
     }
   ],
-  "engineCommit": "996539349b420b1d08f5c76a49c0275e5eca4e2e"
+  "engineCommit": "7d8d7b62a5b05e4cbad7411a1f3db222a38e86ec"
 }
