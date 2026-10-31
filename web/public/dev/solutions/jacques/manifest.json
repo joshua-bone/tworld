@@ -1,10 +1,10 @@
 {
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
-  "engineCommit": "7d8d7b62a5b05e4cbad7411a1f3db222a38e86ec",
+  "engineCommit": "df2a32419b1068c1b2dfdf338b0206164eb184c4",
   "counts": {
     "solved": 5,
-    "impossible": 29,
-    "unresolved": 4
+    "impossible": 30,
+    "unresolved": 3
   },
   "levels": [
     {
@@ -88,8 +88,8 @@
     {
       "level": 723,
       "title": "Marsupilami Block",
-      "status": "unresolved",
-      "summary": "A native-verified partial route collects 53 of 54 chips and returns alive to the upper gate. Only the chip at (31,0) remains; no winning replay or impossibility proof is established."
+      "status": "impossible",
+      "summary": "The chip at (31,0) can be collected, but Chip cannot escape its corridor. A global scheduler resource bound returns the gate block within 70 ticks; safe escape needs at least 73. All 54 chips are required to reach an exit, so the original level is impossible in native Tile World MS."
     },
     {
       "level": 732,
@@ -155,7 +155,7 @@
       "level": 932,
       "title": "RUN!!! IV",
       "status": "unresolved",
-      "summary": "Unresolved. A split-visit MS route has collected 997 of the required 999 chips and matches native C at every recorded step. No winning completion has been established."
+      "summary": "Unresolved. A revised core-first route collects all 999 required chips and reaches (28,4) alive at tick 4755, with complete native C trace parity. Chip has not reached the Exit; no winning replay or impossibility proof has been established."
     },
     {
       "level": 937,
