@@ -31,6 +31,8 @@
     "prove-723.ts",
     "verify-723-progress.ts",
     "probe-723-late-gate.ts",
-    "verify-952-progress.ts"
+    "verify-952-progress.ts",
+    "native-stream-test.ts",
+    "replay-978.ts"
   ]
 }

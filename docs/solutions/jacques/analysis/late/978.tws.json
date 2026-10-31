@@ -1,0 +1,44 @@
+{
+  "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "level": {
+    "index": 977,
+    "number": 978,
+    "name": "A Bit Walkery",
+    "author": "",
+    "password": "TCSY",
+    "timeLimitSeconds": 999,
+    "chipsRequired": 1940,
+    "bestTimeTicks": 2147483647,
+    "levelSize": 296,
+    "solutionSize": 0,
+    "levelHash": "692565606899692469",
+    "gameplayHash": "6360632543433929405",
+    "hasSolution": false,
+    "sgflags": 0,
+    "unsolvable": null,
+    "hasSpecialTools": false
+  },
+  "typescript": {
+    "status": "completed",
+    "finalTick": 9812,
+    "stepCount": 9813
+  },
+  "native": {
+    "status": "completed",
+    "finalTick": 9812,
+    "stepCount": 9813
+  },
+  "checkedTicks": 9813,
+  "exactTraceParity": true,
+  "exactInputBytesRead": true,
+  "twsSha256": "357b711120c200e025d3c562d6164973896b4204d389e10a1def23c57ee960bf",
+  "nativeStdoutSha256": "6065fea10aaed9cc9054d4d5c1d7eed32d5ec12818cf3dbf88db96cd652039bd",
+  "nativeStdoutBytes": 281971286,
+  "nativeStderr": "",
+  "timeoutMs": 60000,
+  "inputAudit": {
+    "kind": "original-ms-command-alphabet",
+    "keyboardMoves": 2067,
+    "mouseMoves": 0
+  }
+}
