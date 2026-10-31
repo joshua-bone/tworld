@@ -74,5 +74,5 @@
     "certificate": "937.tws.json",
     "method": "Semantic block routing with queued clones and deterministic paths for individual blocks. The replay uses one seed and stepping value; no parameter sweep was needed."
   },
-  "engineCommit": "eb92d9bca2813229cd67a65e4d8c71eefe3be4af"
+  "engineCommit": "3ecf6543bda0da6fdeda40f9b8c49cc221e579e9"
 }
