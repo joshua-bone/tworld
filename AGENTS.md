@@ -1,5 +1,17 @@
 # Local Codex Working Agreements
 
+## Private optimization routes
+
+- Newly generated optimization routes, replay files, route traces, certificates,
+  screenshots revealing private routes, and private score snapshots must stay out
+  of this public repository and its deployments. Keep working artifacts outside
+  Git and archive them in private GCS. Existing public reference replays remain
+  reference inputs; do not overwrite them with private improvements.
+- Use the authenticated CC scores page and the private publication workflow in
+  `docs/private-cc-routes.md`. Commit tools, schemas, synthetic tests, and general
+  documentation only. Do not publish route instructions or a replay link that
+  bypasses owner authentication unless the user explicitly authorizes release.
+
 ## Workspace lifecycle
 
 - `git/tworld` is the canonical checkout; `git/HybridCC2026` is the canonical
