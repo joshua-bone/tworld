@@ -1,0 +1,36 @@
+{
+  "cases": 960,
+  "entered": 240,
+  "survived": 0,
+  "details": [],
+  "proofOnlyNotWinning": true,
+  "level": 978,
+  "engine": "production TypeScript MS engine; the seed-zero starting prefix is separately native verified",
+  "nativeSetupEvidence": "978-jammed-boundary-native.json",
+  "bounds": {
+    "randomSeeds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "waitTicks": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "entryHoldTicks": 4,
+    "departureHoldTicks": 4,
+    "approaches": "Each reachable orthogonal side of the nine single-chip corridor boundary cells, using paths in the cleared 8 by 5 rectangle."
+  },
+  "limitation": "This finite probe does not prove the level impossible and does not exhaust arbitrary input schedules or random seeds."
+}

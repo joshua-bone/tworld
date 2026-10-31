@@ -22,7 +22,8 @@
   ],
   "limitations": [
     "No winning replay or universal impossibility proof has been established.",
-    "The earlier candidate that relied on the buried-cloner mismatch is invalid. The new 997-chip prefix has complete native trace parity, but its explored continuations did not win. Earlier checkpoints remain available for alternate continuations."
+    "The earlier candidate that relied on the buried-cloner mismatch is invalid. The new 997-chip prefix has complete native trace parity, but its explored continuations did not win. Earlier checkpoints remain available for alternate continuations.",
+    "The preserved-gate prefix leaves two chips beside the exit, but the crowded core prevents any currently established route to use them. Its matching native trace does not establish improved solvability."
   ],
   "experiments": [
     {
@@ -68,6 +69,20 @@
       "kind": "right-border-first final collection",
       "result": "After the native-certified split-visit checkpoint, collecting the right border before opening the north border reaches 997 collected chips. Native and TypeScript agree on the initial state, all 4836 steps, and the result: alive at (11,15), tick 4835, with 2 chips required. Native stderr is empty and replay bytes are identical. The bounded continuation search did not complete the level; this prefix is not a solution or an impossibility proof.",
       "evidence": "932-two-remaining-partial-parity.json"
+    },
+    {
+      "kind": "preserved exit-gate partial route",
+      "result": "A revised right-border-first route retains the double chip at (16,13), directly north of the Socket-over-Exit at (16,14). A late N/W/N sequence collects the formerly preserved Walker outlet at (9,17), reaching (9,16) at tick 4807 with 2 chips required. Both chips at (16,13) remain available. Manual play, encoded TypeScript replay, and native C agree on all 4808 steps; initial state and result also match, replay bytes are identical, and native stderr is empty. This is an alternate 997-chip prefix, not a winning replay. A bounded continuation allowing the last two gate chips exhausted its explored frontier without completing.",
+      "evidence": "932-preserved-exit-gate-partial-parity.json"
+    },
+    {
+      "kind": "geometric safe-shell route",
+      "result": "A deterministic route joins five perimeter cycles into a path through 531 safe outer cells and uses paired bounces to collect stacked chips. It collects all 646 safe outer chip units in 683 moves, including (22,31); the earlier greedy route took 704 moves and skipped that tile. Native C and TypeScript agree on the initial state, all 3144 steps, and the result: alive at (31,30), tick 3143, with 269 chips required (730 collected). Original MS command audit and exact replay byte roundtrip pass; native stderr is empty. This is a partial route. Its subsequent bounded boundary-collection attempt reached 192 required at tick 3743, then exhausted the explored frontier without establishing a return or completion.",
+      "evidence": "932-efficient-shell-partial-parity.json"
+    },
+    {
+      "kind": "protected exit gate and Teeth-lure refinements",
+      "result": "The actual Exit is at (16,14), below a Socket. Preserving one or both chips at (16,13) permits a possible final collection beside it, but bounded right-first cleanup attempts still did not complete. Inside-core northwest/northeast lures changed Teeth facing without draining their packed border: a retained chip blocks the horizontal choice and alignment with Chip removes the vertical fallback. A proposed outside northwest lure would supply both northward and westward choices; it remains unproved. A north airlock at (16,11) preserves a chip behind Chip, but the tested exit through (16,10) did not pass the moving Glider traffic in the next row. These failures do not establish impossibility. The neighboring double-chip portal at (15,11) reaches (15,9) in a direct probe, but that state dies before the next move; a bounded search preserving the portal chip also found no safe exit (760 expansions, 100 move-depth limit). This leaves the full outside-lure construction untested; it does not rule out other exits or a route that deliberately opens the core."
     }
   ],
   "sources": [
@@ -126,5 +141,5 @@
       }
     }
   },
-  "engineCommit": "996539349b420b1d08f5c76a49c0275e5eca4e2e"
+  "engineCommit": "7d8d7b62a5b05e4cbad7411a1f3db222a38e86ec"
 }

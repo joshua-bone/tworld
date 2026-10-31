@@ -1,0 +1,125 @@
+{
+  "kind": "optimistic initial-monster reachability with removables passable, water/fire ignored, both teleports connected",
+  "excludedTileIds": [
+    25,
+    12,
+    33,
+    43
+  ],
+  "clonerBottomAlwaysExcluded": true,
+  "initialMonsters": [
+    242,
+    275,
+    308,
+    341,
+    338,
+    245,
+    388,
+    555,
+    618
+  ],
+  "reachableCells": 358,
+  "gatePositions": [
+    {
+      "p": 21,
+      "reachable": false
+    },
+    {
+      "p": 22,
+      "reachable": false
+    },
+    {
+      "p": 23,
+      "reachable": false
+    },
+    {
+      "p": 24,
+      "reachable": false
+    },
+    {
+      "p": 25,
+      "reachable": false
+    },
+    {
+      "p": 26,
+      "reachable": false
+    },
+    {
+      "p": 27,
+      "reachable": false
+    },
+    {
+      "p": 31,
+      "reachable": false
+    },
+    {
+      "p": 56,
+      "reachable": false
+    },
+    {
+      "p": 57,
+      "reachable": false
+    },
+    {
+      "p": 58,
+      "reachable": false
+    },
+    {
+      "p": 59,
+      "reachable": false
+    },
+    {
+      "p": 60,
+      "reachable": false
+    },
+    {
+      "p": 61,
+      "reachable": false
+    }
+  ],
+  "teleports": [
+    {
+      "p": 11,
+      "reachable": false
+    },
+    {
+      "p": 153,
+      "reachable": false
+    }
+  ],
+  "level": 723,
+  "sourceDatSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
+  "boardSource": "web/public/dev/solutions/jacques/maps/723.json",
+  "scope": "Original level; static geometry and source inspection supplement the native-verified partial route. Not a complete impossibility proof.",
+  "coordinateEncoding": "Positions are y*32+x.",
+  "excludedTileNames": {
+    "25": "Wall",
+    "12": "Gravel",
+    "33": "BlueWall_Real",
+    "43": "Socket"
+  },
+  "modelAssumptions": [
+    "Start from the nine original non-block creatures; follow every orthogonal edge allowed by the stated terrain exclusions and thin-wall direction masks, regardless of creature AI.",
+    "For actor tiles (top id >= 64), use bottom terrain; otherwise use top terrain. Treat other objects as passable and ignore fire/water hazards. This deliberately admits extra ordinary paths.",
+    "Connect both original teleport positions in both directions; forbid cells whose bottom layer is CloneMachine.",
+    "Sockets remain closed while the final chip is uncollected. This pre-final-chip reachability result is not extended to states after that chip is collected.",
+    "Both original cloners produce blocks; this graph addresses ordinary travel of the original monsters, not block transport or arbitrary scheduler effects."
+  ],
+  "directionMasks": {
+    "exitBlocked": {
+      "26": 1,
+      "27": 2,
+      "28": 4,
+      "29": 8,
+      "30": 12
+    },
+    "entryBlocked": {
+      "26": 4,
+      "27": 8,
+      "28": 1,
+      "29": 2,
+      "30": 3
+    }
+  },
+  "limitation": "The graph excludes the listed gate positions and both teleports for ordinary monster travel under these assumptions; it is not an exhaustive dynamic-state or engine-glitch analysis."
+}

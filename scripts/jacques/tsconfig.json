@@ -28,6 +28,8 @@
     "route-910.ts",
     "verify-910-progress.ts",
     "probe-723.ts",
-    "verify-723-progress.ts"
+    "verify-723-progress.ts",
+    "probe-723-late-gate.ts",
+    "verify-952-progress.ts"
   ]
 }
