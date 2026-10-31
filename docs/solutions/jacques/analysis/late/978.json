@@ -7,98 +7,74 @@
   "rawChipTilesBothPlanes": 1940,
   "datSha256": "c10acac13135586a4ce7b45f0427010229c51ac2fc5b6d0631a7036b86a90b6f",
   "coordinateConvention": "zero-based x,y",
-  "status": "unresolved",
-  "summary": "A native-verified partial replay collects 1,914 of the 1,940 required chips and remains alive at tick 9675, but its walker source is sealed in a fully occupied chip-bounded component. A separate native-verified connected route collects 1,053 chips by tick 4387 while keeping Chip and all active actors in one chip-free component. Neither route establishes a win or a complete impossibility argument.",
+  "status": "solved",
+  "summary": "An ordered sweep clears every region before advancing and wins at tick 9,812 (490.6 seconds). The original Tile World MS and web engines match exactly through all 9,813 ticks.",
   "visualEvidence": [
     "978-initial.svg",
     "978-initial.png",
     "978-bottom.svg"
   ],
   "proofSteps": [
-    "The source walker at (6,2) faces west on a cloner. A ball repeatedly crosses the connected red button at (23,3), filling the corridor from (2,2) to (6,2).",
-    "The surrounding chips initially contain the walkers. Removing the last chip from a boundary cell admits monsters into that cell; a state can appear alive until the next monster movement phase, when Chip may be killed before being able to leave.",
-    "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution.",
-    "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation.",
-    "An audit of both planes finds exactly one exit at (31,0), buried below a socket. There is no alternate buried-exit shortcut; the socket requires the chip counter to reach zero.",
-    "Chip-barrier connectivity explains the previous bulk-route failure: at its final state, the source component has 18 cells occupied by 18 non-Chip actors, while a separate 988-cell component contains seven actors. A state-specific saturated component is not a level-wide impossibility argument.",
-    "A protected setup that clears the surrounding rectangle while retaining one chip on each of the nine corridor boundary cells matches the native engine for all 244 inputs. In a separate bounded TypeScript probe, eight seeds, waits of zero through seven ticks, and reachable approach sides give 960 entry cases: 240 survive the entry window, but none has a surviving four-tick cardinal departure. Arbitrary schedules and seeds remain unexhausted.",
-    "Alternating visits to adjacent chip cells and local actual-engine routing produce a different connected prefix: 1,053 chips collected by tick 4387, exact native parity for all 4,388 inputs. Its chip-barrier diagnostic has one 575-cell component containing Chip and all 289 active non-Chip actors, with 285 cells empty after counting Chip separately. This is a route-development checkpoint, not a winning replay."
+    "Clear the top-left 2×3 rectangle with S S E N W S E N N W E, holding each direction for four ticks. This opens the Walker source outlet into a growing cleared area instead of leaving a saturated pocket behind mandatory chips.",
+    "Clear the adjacent top 2×2 block by alternating visits to its upper pair and lower pair. Both layers of the full 4×3 opening are empty by tick 72.",
+    "Sweep the remaining map in 2×2 regions, following pairs of columns from left to right. Sweep alternate column pairs downward and upward. The final pair, columns 30–31, runs upward toward the exit at (31,0).",
+    "Finish both chip layers of each active region before advancing. Never collect from a future region. At every completed-region transition, all remaining chips lie in at most one connected component; no scattered groups are left for a dangerous return trip.",
+    "Within each small region, choose a safe order of cardinal moves, short delays, and retreats through already-cleared floor. The actual native engine resolves Walker movement and collisions; a seemingly productive pickup is rejected if the following monster phase kills Chip.",
+    "The resulting replay collects all 1,940 required chips and enters the socket/exit at (31,0) at tick 9,812, using seed 0 and stepping 0. All 2,067 recorded moves are cardinal keyboard inputs. The original native MS engine and production web engine have identical initial states, all 9,813 tick snapshots, and final results."
   ],
   "limitations": [
-    "No winning replay and no universal impossibility proof established. Data counts or unsuccessful play are not treated as impossibility."
+    "Verified against the original Tile World MS C engine and production web MS engine. This replay has not been separately tested in Microsoft CHIP.EXE or SuCC."
   ],
   "experiments": [
     {
-      "kind": "data audit",
-      "result": "Decoded both 1024-cell DAT planes and exact level metadata; initialized production MS runtime and rendered actual game sprites."
+      "kind": "spatial route construction",
+      "result": "Inspected both tile layers and source geometry, then fixed a whole-map order of 255 regions. Bounded native planning selected the local movement order and delays while forbidding future-region pickups."
     },
     {
-      "kind": "collection attempt",
-      "result": "A deterministic collection attempt reached 20 chips remaining before time became limiting. The remaining cells were concentrated near the walker cloner. This was not a winning replay."
+      "kind": "independent ordered-route audit",
+      "result": "Replayed from tick 0 with no prefix exceptions: all 255 regions fully clear, no future-region pickups, and at most one remaining-chip component at every completed-region transition.",
+      "evidence": "978-ordered-completion-audit.json"
     },
     {
-      "kind": "localized opening search",
-      "result": "Used a fixed seed and stepping value to search movement choices around the cloner after inspecting its mechanism. A next-window survival check rejected apparently successful openings that were killed on the following monster phase. Clearing the full surrounding region and finishing the level remain unresolved."
-    },
-    {
-      "kind": "native opening validation",
-      "result": "The 116-input opening that clears the 18 critical adjacent chips also matches the native final state: alive at (1,2), tick 115, with 1914 of 1940 chips still required. Exact replay bytes were read and native stderr was empty. This is a partial route, not a win.",
-      "evidence": "978-opening-native-probe.json"
-    },
-    {
-      "kind": "native full-trace partial validation",
-      "result": "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation.",
-      "evidence": "978-board-partial-parity.json"
-    },
-    {
-      "kind": "exit and component audit",
-      "result": "An audit of both planes finds exactly one exit at (31,0), buried below a socket. There is no alternate buried-exit shortcut; the socket requires the chip counter to reach zero. Chip-barrier connectivity explains the previous bulk-route failure: at its final state, the source component has 18 cells occupied by 18 non-Chip actors, while a separate 988-cell component contains seven actors. A state-specific saturated component is not a level-wide impossibility argument."
-    },
-    {
-      "kind": "bounded jammed-boundary phase probe",
-      "result": "A protected setup that clears the surrounding rectangle while retaining one chip on each of the nine corridor boundary cells matches the native engine for all 244 inputs. In a separate bounded TypeScript probe, eight seeds, waits of zero through seven ticks, and reachable approach sides give 960 entry cases: 240 survive the entry window, but none has a surviving four-tick cardinal departure. Arbitrary schedules and seeds remain unexhausted.",
-      "evidence": "978-jammed-phase-probe.json",
-      "nativeSetupEvidence": "978-jammed-boundary-native.json"
-    },
-    {
-      "kind": "connected-region native checkpoint",
-      "result": "Alternating visits to adjacent chip cells and local actual-engine routing produce a different connected prefix: 1,053 chips collected by tick 4387, exact native parity for all 4,388 inputs. Its chip-barrier diagnostic has one 575-cell component containing Chip and all 289 active non-Chip actors, with 285 cells empty after counting Chip separately. This is a route-development checkpoint, not a winning replay.",
-      "evidence": "978-connected-partial-parity.json"
+      "kind": "winning replay",
+      "result": "Both engines complete at tick 9,812 with identical initial state, all 9,813 tick snapshots, and final result. Exact staged TWS bytes were read and native stderr was empty. The 281,971,286-byte native trace was compared incrementally.",
+      "tws": "978.tws",
+      "certificate": "978.tws.json",
+      "seed": 0,
+      "stepping": 0,
+      "keyboardMoves": 2067,
+      "mouseMoves": 0
     }
   ],
   "sources": [
-    "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
-    "legacy_c/mslogic.c:1597",
-    "legacy_c/mslogic.c:1829",
-    "web/src/ruleset-ms/impl/chipMovement.ts:104"
+    "legacy_c/mslogic.c",
+    "scripts/jacques/replay-978.ts",
+    "scripts/jacques/native-stream.ts",
+    "scripts/jacques/harness.ts"
   ],
   "title": "A Bit Walkery",
   "argument": [
-    "The source walker at (6,2) faces west on a cloner. A ball repeatedly crosses the connected red button at (23,3), filling the corridor from (2,2) to (6,2).",
-    "The surrounding chips initially contain the walkers. Removing the last chip from a boundary cell admits monsters into that cell; a state can appear alive until the next monster movement phase, when Chip may be killed before being able to leave.",
-    "A bounded opening search found a legal prefix that collects all 18 chips on the nine corridor-adjacent cells by tick 115 and has at least one surviving continuation. This rules out treating those cells as permanently inaccessible. It does not establish a complete solution.",
-    "After clearing the 18 corridor-adjacent chips, Chip escapes to the open board by tick 143. A longer route collects 1,914 chips and is alive at (1,0) at tick 9675. Every initial-state, step, and result field matches the original native engine for this 9,676-input prefix. The corner is then obstructed by walkers, so this prefix does not demonstrate a winning continuation.",
-    "An audit of both planes finds exactly one exit at (31,0), buried below a socket. There is no alternate buried-exit shortcut; the socket requires the chip counter to reach zero.",
-    "Chip-barrier connectivity explains the previous bulk-route failure: at its final state, the source component has 18 cells occupied by 18 non-Chip actors, while a separate 988-cell component contains seven actors. A state-specific saturated component is not a level-wide impossibility argument.",
-    "A protected setup that clears the surrounding rectangle while retaining one chip on each of the nine corridor boundary cells matches the native engine for all 244 inputs. In a separate bounded TypeScript probe, eight seeds, waits of zero through seven ticks, and reachable approach sides give 960 entry cases: 240 survive the entry window, but none has a surviving four-tick cardinal departure. Arbitrary schedules and seeds remain unexhausted.",
-    "Alternating visits to adjacent chip cells and local actual-engine routing produce a different connected prefix: 1,053 chips collected by tick 4387, exact native parity for all 4,388 inputs. Its chip-barrier diagnostic has one 575-cell component containing Chip and all 289 active non-Chip actors, with 285 cells empty after counting Chip separately. This is a route-development checkpoint, not a winning replay."
+    "Clear the top-left 2×3 rectangle with S S E N W S E N N W E, holding each direction for four ticks. This opens the Walker source outlet into a growing cleared area instead of leaving a saturated pocket behind mandatory chips.",
+    "Clear the adjacent top 2×2 block by alternating visits to its upper pair and lower pair. Both layers of the full 4×3 opening are empty by tick 72.",
+    "Sweep the remaining map in 2×2 regions, following pairs of columns from left to right. Sweep alternate column pairs downward and upward. The final pair, columns 30–31, runs upward toward the exit at (31,0).",
+    "Finish both chip layers of each active region before advancing. Never collect from a future region. At every completed-region transition, all remaining chips lie in at most one connected component; no scattered groups are left for a dangerous return trip.",
+    "Within each small region, choose a safe order of cardinal moves, short delays, and retreats through already-cleared floor. The actual native engine resolves Walker movement and collisions; a seemingly productive pickup is rejected if the following monster phase kills Chip.",
+    "The resulting replay collects all 1,940 required chips and enters the socket/exit at (31,0) at tick 9,812, using seed 0 and stepping 0. All 2,067 recorded moves are cardinal keyboard inputs. The original native MS engine and production web engine have identical initial states, all 9,813 tick snapshots, and final results."
   ],
   "evidence": {
-    "facts": {},
-    "sourceReferences": [
-      "web/src/ruleset-ms/impl/builtinLevelRegistration.ts",
-      "legacy_c/mslogic.c:1597",
-      "legacy_c/mslogic.c:1829",
-      "web/src/ruleset-ms/impl/chipMovement.ts:104"
-    ],
-    "visualFiles": [
-      "978-initial.svg",
-      "978-initial.png",
-      "978-bottom.svg"
-    ],
-    "partialReplay": "978-board-partial-parity.json",
-    "connectedPartialReplay": "978-connected-partial-parity.json",
-    "jammedBoundaryReplay": "978-jammed-boundary-native.json",
-    "boundedJammedPhaseProbe": "978-jammed-phase-probe.json"
+    "winningReplay": "978.tws",
+    "certificate": "978.tws.json",
+    "inputs": "978-winning-inputs.json",
+    "orderedRouteAudit": "978-ordered-completion-audit.json",
+    "facts": {
+      "finalTick": 9812,
+      "chipsCollected": 1940,
+      "chipsRemaining": 0,
+      "nativeStatus": "completed",
+      "exactTraceParity": true,
+      "keyboardMoves": 2067,
+      "mouseMoves": 0,
+      "fullyClearedRegions": 255
+    }
   }
 }
