@@ -27,6 +27,10 @@
 - Engine compatibility alone does not establish scoreboard eligibility. The FAQ
   requires TW routes to be valid in MSCC; label generated routing results
   accurately and do not represent them as accepted scoreboard submissions.
+- The experimental original-MSCC checker lives in `scripts/mscc/README.md`.
+  Keep its licensed executable in private storage. Use it as additional evidence
+  within its documented supported inputs; do not silently ignore unsupported
+  RNG/stepping or claim that it replaces full Windows execution.
 
 ## Workspace lifecycle
 

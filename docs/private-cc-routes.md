@@ -37,11 +37,13 @@ inputs inside Git, including symlink-resolved paths. It does not change bucket
 permissions or create public URLs. Keep receipts outside Git too.
 
 Archiving a candidate does not prove it wins and does not alter dashboard scores.
-Validate the exact replay against the intended ruleset and native reference
-before accepting a score. The current dashboard is the explicitly chosen bundled
-reference baseline. A future private score overlay must preserve source digests,
-accepted win evidence and per-level replay identity; do not substitute a private
-route into a public reference pack to update the page.
+Validate the exact replay in TWO, legacy Tile World, and SuCC before accepting a
+score. The experimental [original MSCC checker](../scripts/mscc/README.md) provides
+additional binary-level evidence for supported inputs. Keep its original assets
+private as well. The dashboard began with the explicitly chosen bundled baseline;
+private improvements must preserve source digests, accepted win evidence and
+per-level replay identity. Do not substitute a private route into a public
+reference pack to update the page.
 
 ## Baseline and benchmarks
 
