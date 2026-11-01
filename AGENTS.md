@@ -12,6 +12,22 @@
   documentation only. Do not publish route instructions or a replay link that
   bypasses owner authentication unless the user explicitly authorizes release.
 
+## Scoreboard rules and replay validation
+
+- Consult the current [BitBusters scoreboard FAQ](https://scores.bitbusters.club/faq)
+  before optimizing or assessing scoreboard eligibility.
+- Use original, unedited level packs; follow the FAQ's documented exception for
+  adding time limits to untimed levels.
+- Mouse experiments are encouraged. Respect the FAQ's one-input/one-output
+  remapping rule, RNG-manipulation prohibition, and ban on the long-first-second
+  glitch. Only the teleport application of the Twice Step Glitch is permitted.
+- Validate candidate routes in SuCC and original legacy Tile World, as well as
+  TWO. Record versions, replay hashes, completion, and scores; investigate
+  disagreements rather than treating one engine's success as sufficient.
+- Engine compatibility alone does not establish scoreboard eligibility. The FAQ
+  requires TW routes to be valid in MSCC; label generated routing results
+  accurately and do not represent them as accepted scoreboard submissions.
+
 ## Workspace lifecycle
 
 - `git/tworld` is the canonical checkout; `git/HybridCC2026` is the canonical
