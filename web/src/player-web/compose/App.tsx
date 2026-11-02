@@ -1,3 +1,4 @@
+import { hasPrivateReplayLaunch } from "@player-web/impl/privateReplayLaunch";
 import { loadPlayableSelection } from "@player-web/impl/loadPlayableSelection";
 import { resolveUrlLaunchSelection } from "@player-web/impl/urlLaunch";
 import { aiHarnessEnabled, withoutAiFlag } from "@player-web/impl/ai/aiRunPolicy";
@@ -20,7 +21,7 @@ import { ModernPlayerApp } from "@player-web/impl/modern/ModernPlayerApp";
 import { PlayerApp } from "@player-web/impl/PlayerApp";
 import type { PlayableSelection } from "@player-web/ports/PlayableSelectionStore";
 
-const services = createBrowserAppServices();
+const services = createBrowserAppServices({ privateReplay: hasPrivateReplayLaunch(window.location) });
 const APP_BASE_URL = import.meta.env.BASE_URL;
 
 interface AppRouteState {
