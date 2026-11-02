@@ -17,7 +17,7 @@ from unicorn.x86_const import (UC_X86_REG_AX, UC_X86_REG_BP, UC_X86_REG_CS,
                               UC_X86_REG_IP, UC_X86_REG_SP, UC_X86_REG_SS)
 
 EXE_SHA256 = "8e26acd67cf120bd5b512de4b4e78b80aca1579413cd04f3b2b68909a375866c"
-VERSION = "experimental-1"
+VERSION = "experimental-2"
 CARDINALS = {1: (0, -1), 2: (-1, 0), 4: (0, 1), 8: (1, 0)}
 
 
@@ -109,9 +109,25 @@ def parse_dat(data, number):
     return selected
 
 
+def native_startup_milliseconds():
+    # Python 3.9 on macOS makes monotonic_ns process-relative. Read the system
+    # monotonic clock directly where available, as Win16 GetCurrentTime did.
+    if hasattr(time, "CLOCK_MONOTONIC"):
+        return time.clock_gettime_ns(time.CLOCK_MONOTONIC) // 1_000_000
+    return time.monotonic_ns() // 1_000_000
+
+
+def timer_start_for_stepping(stepping):
+    if type(stepping) is not int or not 0 <= stepping <= 7:
+        raise UnsupportedReplay("MS stepping must be an integer from 0 to 7")
+    # Original DoTick gates monsters by mod 2, Teeth/Blobs by mod 4, and
+    # countdown by mod 10. Starting at 10 flips only the half-speed phase
+    # while preserving a full first second. MS uses only stepping's bit 2.
+    return 10 if stepping & 4 else 0
+
+
 def validate_replay(replay, max_ticks):
-    if replay.get("stepping") != 0:
-        raise UnsupportedReplay("only stepping 0 is currently supported")
+    timer_start_for_stepping(replay.get("stepping"))
     best = replay.get("bestTimeTicks")
     if type(best) is not int or not 0 <= best <= max_ticks:
         raise ValueError("replay time exceeds configured tick bound")
@@ -138,7 +154,13 @@ class MSCC:
                     (2, 0x306), (2, 0x56E), (2, 0xC1A), (2, 0xC7E),
                     (2, 0xCBE), (8, 0x56C)}
 
-    def __init__(self, exe):
+    def __init__(self, exe, native_rng_startup_ms=None):
+        if native_rng_startup_ms is not None and (
+                type(native_rng_startup_ms) is not int or native_rng_startup_ms < 0):
+            raise ValueError("native RNG startup milliseconds must be a nonnegative integer")
+        self.native_rng_startup_ms = native_rng_startup_ms
+        self.rng_calls = 0
+        self.timer_start = 0
         data = Path(exe).read_bytes()
         if hashlib.sha256(data).hexdigest() != EXE_SHA256:
             raise ValueError("unsupported CHIPS.EXE SHA-256")
@@ -160,6 +182,10 @@ class MSCC:
         self.w16(0x22, 0)
         self.w16(0x24, 0)
         self.w16(0x64E, 0)
+        if native_rng_startup_ms is not None:
+            # CreateWindowsAndInitGame passes GetCurrentTime's low word to srand.
+            # Run that original function; never interpret a TWS seed as its state.
+            self.call(1, 0xC4, [native_rng_startup_ms & 0xFFFF])
 
     def _load_executable(self, data):
         ne = struct.unpack_from("<I", data, 0x3C)[0]
@@ -240,7 +266,10 @@ class MSCC:
             return
         location = divmod(address, 65536)
         if location == (1, 0xDC):
-            raise UnsupportedReplay("MSCC RNG called; TWS seed translation is not supported")
+            if self.native_rng_startup_ms is None:
+                raise UnsupportedReplay("MSCC RNG called; TWS seed translation is not supported; "
+                                        "use explicit native RNG mode for a separate startup run")
+            self.rng_calls += 1  # Continue into the original rand instructions.
         if location == (7, 0xCCA):
             self.won = True
             self._halt_call()
@@ -301,7 +330,8 @@ class MSCC:
             raise RuntimeError("emulated instruction/time bound exceeded")
         return self.u.reg_read(UC_X86_REG_AX)
 
-    def load_bytes(self, data, number):
+    def load_bytes(self, data, number, stepping=0):
+        timer_start = timer_start_for_stepping(stepping)
         if self.loaded:
             raise ValueError("create a fresh MSCC instance for each replay")
         level = parse_dat(data, number)
@@ -326,6 +356,8 @@ class MSCC:
         self.call(3, 0x54C)        # InitBoard
         self.w16(0x1692, level["chips"])
         self.w16(0x1694, level["seconds"])
+        self.timer_start = timer_start
+        self.w16(0x64E, timer_start)
         self.loaded = True
 
     def advance(self, tick, command=None):
@@ -333,8 +365,9 @@ class MSCC:
             raise ValueError("advance requires consecutive replay ticks after loading")
         self.tick = tick
         if tick and tick % 2 == 0:
-            self.w16(0x64E, tick // 2)
-            self.call(7, 0, [tick // 2])  # WM_TIMER before input at this instant
+            timer_tick = self.timer_start + tick // 2
+            self.w16(0x64E, timer_tick)
+            self.call(7, 0, [timer_tick])  # WM_TIMER before input at this instant
         if self.won or self.r16(self.gs + 0x816) or command is None:
             return
         if command in CARDINALS:
@@ -355,7 +388,7 @@ class MSCC:
             raise UnsupportedReplay("unsupported input")
 
     def snapshot(self):
-        return {"tick": self.tick, "pos": self.r16(self.gs + 0x808) + 32 * self.r16(self.gs + 0x80A),
+        return {"tick": self.tick, "timerCounter": self.r16(0x64E), "pos": self.r16(self.gs + 0x808) + 32 * self.r16(self.gs + 0x80A),
                 "dead": self.r16(self.gs + 0x816), "chips": self.r16(0x1692),
                 "time": self.r16(0x1694), "sliding": self.r16(self.gs + 0x80C),
                 "buffered": self.r16(self.gs + 0x80E), "won": self.won}
@@ -364,7 +397,7 @@ class MSCC:
 def run_replay(engine, data, level, replay, max_ticks=200_000, wall_seconds=60, trace=None):
     validate_replay(replay, max_ticks)
     started = time.monotonic()
-    engine.load_bytes(data, level)
+    engine.load_bytes(data, level, stepping=replay["stepping"])
     commands = {move["when"]: move["dir"] for move in replay["moves"]}
     limit = min(max_ticks, replay["bestTimeTicks"] + 100)
     for tick in range(limit + 1):
@@ -381,9 +414,16 @@ def run_replay(engine, data, level, replay, max_ticks=200_000, wall_seconds=60, 
             "status": "completed" if state["won"] else "dead" if state["dead"] else "incomplete",
             "final": state, "recordedTicks": replay["bestTimeTicks"],
             "elapsedSeconds": time.monotonic() - started, "imports": engine.calls,
+            "stepping": replay["stepping"], "initialTimerCounter": engine.timer_start,
+            "rng": {"mode": "reject" if engine.native_rng_startup_ms is None else "native-startup-clock",
+                    "startupMilliseconds": engine.native_rng_startup_ms,
+                    "seed": None if engine.native_rng_startup_ms is None else engine.native_rng_startup_ms & 0xFFFF,
+                    "calls": engine.rng_calls, "twsRandomSeed": replay.get("randomSeed")},
             "limitations": ["experimental adapter, not full Windows execution",
                             "mouse targets do not verify screen click visibility",
-                            "engine completion does not establish scoreboard eligibility"]}
+                            "engine completion does not establish scoreboard eligibility"] +
+                           (["native RNG uses a separate startup clock; TWS RNG seed is not reproduced"]
+                            if engine.native_rng_startup_ms is not None else [])}
 
 
 def private_json(path, value):
@@ -402,6 +442,11 @@ def main():
     parser.add_argument("--trace")
     parser.add_argument("--max-ticks", type=int, default=200_000)
     parser.add_argument("--wall-seconds", type=float, default=60)
+    rng = parser.add_mutually_exclusive_group()
+    rng.add_argument("--native-rng", action="store_true",
+                     help="run original RNG seeded once from the local monotonic startup clock")
+    rng.add_argument("--native-rng-startup-ms", type=int,
+                     help="reproduce a previously recorded native startup clock, not a TWS seed")
     args = parser.parse_args()
     if args.max_ticks < 0 or not 0 < args.wall_seconds <= 3600:
         parser.error("invalid execution bounds")
@@ -411,11 +456,15 @@ def main():
     if request.get("datSha256") != hashlib.sha256(data).hexdigest():
         parser.error("exported replay DAT hash does not match --dat")
     rows = [] if args.trace else None
+    startup_ms = (native_startup_milliseconds() if args.native_rng else
+                  args.native_rng_startup_ms)
     try:
-        result = run_replay(MSCC(args.exe), data, request["level"], request["replay"],
+        result = run_replay(MSCC(args.exe, native_rng_startup_ms=startup_ms),
+                            data, request["level"], request["replay"],
                             args.max_ticks, args.wall_seconds, rows)
     except (UnsupportedReplay, ValueError, RuntimeError, TimeoutError) as error:
-        result = {"adapterVersion": VERSION, "status": "error", "error": str(error)}
+        result = {"adapterVersion": VERSION, "status": "error", "error": str(error),
+                  "nativeRngStartupMilliseconds": startup_ms}
     result["replayJsonSha256"] = hashlib.sha256(source).hexdigest()
     result["twsSha256"] = request.get("twsSha256")
     private_json(args.output, result)
