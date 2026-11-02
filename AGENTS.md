@@ -19,14 +19,25 @@
 - Use original, unedited level packs; follow the FAQ's documented exception for
   adding time limits to untimed levels.
 - Mouse experiments are encouraged. Respect the FAQ's one-input/one-output
-  remapping rule, RNG-manipulation prohibition, and ban on the long-first-second
-  glitch. Only the teleport application of the Twice Step Glitch is permitted.
+  remapping rule and ban on the long-first-second glitch. Only the teleport
+  application of the Twice Step Glitch is permitted.
+- For this private AI-assisted optimization project, RNG state inspection,
+  deterministic lookahead, and seed searches are explicitly authorized. Do not
+  impose scoreboard eligibility as an RNG-search constraint or discard a compatible
+  replay solely because its route used RNG knowledge.
+- Document every RNG-related gain in that level's private evidence: the starting
+  seed and engine, what was inspected or searched, the changed inputs and timing,
+  the measured gain, and whether any engine or RNG state was modified. Distinguish
+  ordinary replay inputs and initial-seed selection from injected RNG outcomes
+  or altered engine behavior. Preserve enough information to reproduce the run.
 - Validate candidate routes in SuCC and original legacy Tile World, as well as
   TWO. Record versions, replay hashes, completion, and scores; investigate
   disagreements rather than treating one engine's success as sufficient.
 - Engine compatibility alone does not establish scoreboard eligibility. The FAQ
-  requires TW routes to be valid in MSCC; label generated routing results
-  accurately and do not represent them as accepted scoreboard submissions.
+  prohibits prior knowledge of random outcomes and requires TW routes to be valid
+  in MSCC, but does not explain every seed-search workflow. Label these results
+  as AI-assisted research, describe the actual method, and do not represent them
+  as accepted scoreboard submissions or infer community rulings from tool names.
 - The experimental original-MSCC checker lives in `scripts/mscc/README.md`.
   Original MSCC is best-effort additional evidence; the required replay checks
   are SuCC, original legacy Tile World, and TWO. Keep its licensed executable in
