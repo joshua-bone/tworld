@@ -1,3 +1,4 @@
+import { createPrivateReplayProfile } from "@player-web/impl/privateReplayProfile";
 import { WorkerBackedInteractiveGameEngine } from "@game-runtime/impl/WorkerBackedInteractiveGameEngine";
 import { LynxGameEngineAdapter } from "@game-runtime/impl/LynxGameEngineAdapter";
 import { MsGameEngineAdapter } from "@game-runtime/impl/MsGameEngineAdapter";
@@ -14,8 +15,8 @@ function requestKey(request: Pick<GameRequest, "seriesFile" | "levelNumber" | "r
   return `${request.seriesFile}:${request.levelNumber}:${request.ruleset}`;
 }
 
-export function createBrowserAppServices(): BrowserAppServices {
-  const profileStore = new IndexedDbBrowserProfileStore();
+export function createBrowserAppServices({ privateReplay = false }: { privateReplay?: boolean } = {}): BrowserAppServices {
+  const profileStore = privateReplay ? createPrivateReplayProfile() : new IndexedDbBrowserProfileStore();
   const levelRepository = new BrowserLevelRepository(profileStore);
   const workerEngine = typeof Worker === "undefined" ? null : new WorkerBackedInteractiveGameEngine();
   const directEngines = {
@@ -72,7 +73,9 @@ export function createBrowserAppServices(): BrowserAppServices {
     fixtureRepository: new StaticCharacterizationFixtureRepository(),
     profileStore,
     selectionStore: profileStore,
-    replayTransfer: new BrowserReplayTransfer(),
+    replayTransfer: privateReplay
+      ? { importReplay: async () => null, exportReplay: async () => { throw new Error("Download private replays from the owner dashboard."); } }
+      : new BrowserReplayTransfer(),
     engines,
     importDatFile: async (file) => importDatBytes(file.name, new Uint8Array(await file.arrayBuffer())),
     importDatBytes,
