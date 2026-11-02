@@ -28,9 +28,15 @@
   requires TW routes to be valid in MSCC; label generated routing results
   accurately and do not represent them as accepted scoreboard submissions.
 - The experimental original-MSCC checker lives in `scripts/mscc/README.md`.
-  Keep its licensed executable in private storage. Use it as additional evidence
+  Original MSCC is best-effort additional evidence; the required replay checks
+  are SuCC, original legacy Tile World, and TWO. Keep its licensed executable in
+  private storage. Use it as additional evidence
   within its documented supported inputs; do not silently ignore unsupported
   RNG/stepping or claim that it replaces full Windows execution.
+- Deliberate MSCC RNG control is allowed for explicitly labeled research using
+  the adapter's `--research-rng-seed` or `--research-rng-from-tws` modes. Such runs
+  are not scoreboard eligible. Keep their evidence separate from score-route
+  validation and never promote a controlled-RNG win as an ordinary native check.
 
 ## Workspace lifecycle
 
