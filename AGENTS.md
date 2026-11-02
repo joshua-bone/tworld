@@ -11,6 +11,12 @@
   `docs/private-cc-routes.md`. Commit tools, schemas, synthetic tests, and general
   documentation only. Do not publish route instructions or a replay link that
   bypasses owner authentication unless the user explicitly authorizes release.
+- Use GCP Spot/preemptible CPU liberally for seed searches and other work that
+  benefits from parallel compute. Partition meaningful search cases, keep inputs
+  and results in private GCS, and checkpoint enough state to resume after
+  preemption. Set explicit job and VM runtime limits, record search parameters,
+  and shut down or remove workers after preserving their results. A timeout,
+  preemption, or capped expansion is unfinished work, not evidence of exhaustion.
 
 ## Scoreboard rules and replay validation
 
