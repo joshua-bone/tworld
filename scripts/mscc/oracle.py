@@ -17,7 +17,7 @@ from unicorn.x86_const import (UC_X86_REG_AX, UC_X86_REG_BP, UC_X86_REG_CS,
                               UC_X86_REG_IP, UC_X86_REG_SP, UC_X86_REG_SS)
 
 EXE_SHA256 = "8e26acd67cf120bd5b512de4b4e78b80aca1579413cd04f3b2b68909a375866c"
-VERSION = "experimental-2"
+VERSION = "experimental-3"
 CARDINALS = {1: (0, -1), 2: (-1, 0), 4: (0, 1), 8: (1, 0)}
 
 
@@ -126,6 +126,17 @@ def timer_start_for_stepping(stepping):
     return 10 if stepping & 4 else 0
 
 
+def validate_research_seed(seed):
+    if type(seed) is not int or not 0 <= seed <= 65535:
+        raise ValueError("research RNG seed must be a 16-bit integer from 0 to 65535")
+    return seed
+
+
+def research_rng_metadata(seed, source, tws_seed, calls):
+    return {"mode": "research-fixed-seed", "seed": seed, "seedSource": source,
+            "startupMilliseconds": None, "calls": calls, "twsRandomSeed": tws_seed}
+
+
 def validate_replay(replay, max_ticks):
     timer_start_for_stepping(replay.get("stepping"))
     best = replay.get("bestTimeTicks")
@@ -154,11 +165,20 @@ class MSCC:
                     (2, 0x306), (2, 0x56E), (2, 0xC1A), (2, 0xC7E),
                     (2, 0xCBE), (8, 0x56C)}
 
-    def __init__(self, exe, native_rng_startup_ms=None):
+    def __init__(self, exe, native_rng_startup_ms=None, *, research_rng_seed=None,
+                 research_rng_source="explicit"):
         if native_rng_startup_ms is not None and (
                 type(native_rng_startup_ms) is not int or native_rng_startup_ms < 0):
             raise ValueError("native RNG startup milliseconds must be a nonnegative integer")
+        if research_rng_seed is not None:
+            validate_research_seed(research_rng_seed)
+            if native_rng_startup_ms is not None:
+                raise ValueError("native and research RNG modes are mutually exclusive")
+        if research_rng_source not in ("explicit", "tws"):
+            raise ValueError("research RNG source must be explicit or tws")
         self.native_rng_startup_ms = native_rng_startup_ms
+        self.research_rng_seed = research_rng_seed
+        self.research_rng_source = research_rng_source
         self.rng_calls = 0
         self.timer_start = 0
         data = Path(exe).read_bytes()
@@ -182,7 +202,10 @@ class MSCC:
         self.w16(0x22, 0)
         self.w16(0x24, 0)
         self.w16(0x64E, 0)
-        if native_rng_startup_ms is not None:
+        if research_rng_seed is not None:
+            # Deliberate, non-scoreboard seed control. Execute original srand/rand.
+            self.call(1, 0xC4, [research_rng_seed])
+        elif native_rng_startup_ms is not None:
             # CreateWindowsAndInitGame passes GetCurrentTime's low word to srand.
             # Run that original function; never interpret a TWS seed as its state.
             self.call(1, 0xC4, [native_rng_startup_ms & 0xFFFF])
@@ -266,9 +289,9 @@ class MSCC:
             return
         location = divmod(address, 65536)
         if location == (1, 0xDC):
-            if self.native_rng_startup_ms is None:
+            if self.native_rng_startup_ms is None and self.research_rng_seed is None:
                 raise UnsupportedReplay("MSCC RNG called; TWS seed translation is not supported; "
-                                        "use explicit native RNG mode for a separate startup run")
+                                        "choose native RNG or controlled research RNG explicitly")
             self.rng_calls += 1  # Continue into the original rand instructions.
         if location == (7, 0xCCA):
             self.won = True
@@ -409,7 +432,7 @@ def run_replay(engine, data, level, replay, max_ticks=200_000, wall_seconds=60, 
             trace.append(state)
         if state["won"] or state["dead"]:
             break
-    return {"adapterVersion": VERSION, "exeSha256": EXE_SHA256,
+    result = {"adapterVersion": VERSION, "exeSha256": EXE_SHA256,
             "datSha256": hashlib.sha256(data).hexdigest(), "level": level,
             "status": "completed" if state["won"] else "dead" if state["dead"] else "incomplete",
             "final": state, "recordedTicks": replay["bestTimeTicks"],
@@ -424,6 +447,14 @@ def run_replay(engine, data, level, replay, max_ticks=200_000, wall_seconds=60, 
                             "engine completion does not establish scoreboard eligibility"] +
                            (["native RNG uses a separate startup clock; TWS RNG seed is not reproduced"]
                             if engine.native_rng_startup_ms is not None else [])}
+    if engine.research_rng_seed is not None:
+        result.update(validationPurpose="controlled-rng-research", scoreboardEligible=False)
+        result["rng"] = research_rng_metadata(engine.research_rng_seed,
+                                              engine.research_rng_source,
+                                              replay.get("randomSeed"), engine.rng_calls)
+        result["limitations"].append("deliberate RNG control: not scoreboard eligible; "
+                                     "does not reproduce Tile World random outcomes")
+    return result
 
 
 def private_json(path, value):
@@ -447,6 +478,11 @@ def main():
                      help="run original RNG seeded once from the local monotonic startup clock")
     rng.add_argument("--native-rng-startup-ms", type=int,
                      help="reproduce a previously recorded native startup clock, not a TWS seed")
+    rng.add_argument("--research-rng-seed", type=int,
+                     help="NON-SCOREBOARD research: seed original MSCC srand with 0..65535")
+    rng.add_argument("--research-rng-from-tws", action="store_true",
+                     help="NON-SCOREBOARD research: interpret the exported TWS seed as a "
+                          "16-bit MSCC seed (not a translation of TW random outcomes)")
     args = parser.parse_args()
     if args.max_ticks < 0 or not 0 < args.wall_seconds <= 3600:
         parser.error("invalid execution bounds")
@@ -458,19 +494,38 @@ def main():
     rows = [] if args.trace else None
     startup_ms = (native_startup_milliseconds() if args.native_rng else
                   args.native_rng_startup_ms)
+    research_requested = args.research_rng_seed is not None or args.research_rng_from_tws
+    research_seed = (request["replay"].get("randomSeed") if args.research_rng_from_tws
+                     else args.research_rng_seed)
+    research_source = "tws" if args.research_rng_from_tws else "explicit"
+    engine = None
     try:
-        result = run_replay(MSCC(args.exe, native_rng_startup_ms=startup_ms),
-                            data, request["level"], request["replay"],
+        if research_requested:
+            validate_research_seed(research_seed)
+        engine = MSCC(args.exe, native_rng_startup_ms=startup_ms,
+                      research_rng_seed=research_seed, research_rng_source=research_source)
+        result = run_replay(engine, data, request["level"], request["replay"],
                             args.max_ticks, args.wall_seconds, rows)
     except (UnsupportedReplay, ValueError, RuntimeError, TimeoutError) as error:
         result = {"adapterVersion": VERSION, "status": "error", "error": str(error),
                   "nativeRngStartupMilliseconds": startup_ms}
+        if research_requested:
+            result["rng"] = research_rng_metadata(research_seed, research_source,
+                                                  request["replay"].get("randomSeed"),
+                                                  engine.rng_calls if engine else None)
+    if research_requested:
+        result.update(validationPurpose="controlled-rng-research", scoreboardEligible=False)
+    result["datSha256"] = hashlib.sha256(data).hexdigest()
+    result["level"] = request["level"]
     result["replayJsonSha256"] = hashlib.sha256(source).hexdigest()
     result["twsSha256"] = request.get("twsSha256")
     private_json(args.output, result)
     if args.trace:
         private_json(args.trace, rows)
-    print(json.dumps({"status": result["status"], "output": args.output}))
+    summary = {"status": result["status"], "output": args.output}
+    if research_requested:
+        summary.update(validationPurpose="controlled-rng-research", scoreboardEligible=False)
+    print(json.dumps(summary))
     return 0 if result["status"] == "completed" else 1
 
 

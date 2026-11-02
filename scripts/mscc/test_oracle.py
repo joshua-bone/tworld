@@ -1,7 +1,11 @@
 """Synthetic adapter tests; no original game assets or private routes are included."""
+import hashlib
+import json
 import os
 from pathlib import Path
 import struct
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -31,6 +35,16 @@ def replay(moves=None, **changes):
 
 
 class FormatTests(unittest.TestCase):
+    def test_research_seed_validation_precedes_executable_loading(self):
+        for seed in (-1, 65536, True, 1.5, "1"):
+            with self.subTest(seed=seed):
+                with self.assertRaisesRegex(ValueError, "16-bit"):
+                    MSCC("unused.exe", research_rng_seed=seed)
+        with self.assertRaisesRegex(ValueError, "mutually exclusive"):
+            MSCC("unused.exe", native_rng_startup_ms=1, research_rng_seed=1)
+        with self.assertRaisesRegex(ValueError, "source"):
+            MSCC("unused.exe", research_rng_seed=1, research_rng_source="clock")
+
     @unittest.skipUnless(hasattr(time, "CLOCK_MONOTONIC"), "requires the system monotonic clock")
     def test_native_startup_clock_uses_system_not_process_origin(self):
         before = time.clock_gettime_ns(time.CLOCK_MONOTONIC) // 1_000_000
@@ -172,6 +186,93 @@ class BinaryTests(unittest.TestCase):
         engine = MSCC(os.environ["MSCC_EXE"], native_rng_startup_ms=65537)
         self.assertEqual([engine.call(1, 0xDC) for _ in range(3)], [41, 18467, 6334])
         self.assertEqual(engine.rng_calls, 3)
+
+    def test_research_seed_runs_original_rng_and_accepts_both_boundaries(self):
+        for seed, first in ((0, 38), (1, 41), (65535, 17440)):
+            with self.subTest(seed=seed):
+                engine = MSCC(os.environ["MSCC_EXE"], research_rng_seed=seed)
+                self.assertEqual(engine.call(1, 0xDC), first)
+                if seed == 1:
+                    self.assertEqual([engine.call(1, 0xDC) for _ in range(2)], [18467, 6334])
+
+    def test_research_replay_repeats_and_stays_distinct_from_tws_rng(self):
+        data = level_bytes({100: 0x5C}, fields=bytes([10, 2, 4, 3]))
+        traces = []
+        for tws_seed in (1, 987654321):
+            engine = MSCC(os.environ["MSCC_EXE"], research_rng_seed=0)
+            trace = []
+            result = run_replay(engine, data, 1, replay(randomSeed=tws_seed), trace=trace)
+            self.assertEqual(result["status"], "completed")
+            self.assertEqual(result["rng"]["mode"], "research-fixed-seed")
+            self.assertEqual(result["rng"]["seed"], 0)
+            self.assertEqual(result["rng"]["seedSource"], "explicit")
+            self.assertIsNone(result["rng"]["startupMilliseconds"])
+            self.assertEqual(result["rng"]["twsRandomSeed"], tws_seed)
+            self.assertGreater(result["rng"]["calls"], 0)
+            self.assertEqual(result["validationPurpose"], "controlled-rng-research")
+            self.assertIs(result["scoreboardEligible"], False)
+            traces.append(trace)
+        self.assertEqual(traces[0], traces[1])
+
+    def run_cli(self, options, replay_value=None, data=None):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            dat = level_bytes() if data is None else data
+            (root / "pack.dat").write_bytes(dat)
+            request = {"schemaVersion": 1, "level": 1,
+                       "datSha256": hashlib.sha256(dat).hexdigest(),
+                       "twsSha256": "a" * 64,
+                       "replay": replay() if replay_value is None else replay_value}
+            (root / "input.json").write_text(json.dumps(request))
+            output = root / "result.json"
+            process = subprocess.run([
+                sys.executable, str(Path(__file__).with_name("oracle.py")),
+                "--exe", os.environ["MSCC_EXE"], "--dat", str(root / "pack.dat"),
+                "--replay-json", str(root / "input.json"), "--output", str(output),
+                *options], capture_output=True, text=True, timeout=15)
+            return process, json.loads(output.read_text()) if output.exists() else None
+
+    def test_cli_direct_research_seed_and_tws_seed_are_explicit_and_reproducible(self):
+        for options, source in ((["--research-rng-seed", "0"], "explicit"),
+                                (["--research-rng-from-tws"], "tws")):
+            with self.subTest(source=source):
+                process, result = self.run_cli(options, replay(randomSeed=0))
+                self.assertEqual(process.returncode, 0, process.stderr)
+                self.assertEqual(result["rng"]["seed"], 0)
+                self.assertEqual(result["rng"]["seedSource"], source)
+                self.assertIs(result["scoreboardEligible"], False)
+                self.assertIs(json.loads(process.stdout)["scoreboardEligible"], False)
+                self.assertEqual(result["twsSha256"], "a" * 64)
+
+    def test_cli_research_does_not_truncate_or_default_invalid_tws_seeds(self):
+        for seed in (None, -1, 65536, True, 1.5, "1"):
+            with self.subTest(seed=seed):
+                process, result = self.run_cli(["--research-rng-from-tws"], replay(randomSeed=seed))
+                self.assertEqual(process.returncode, 1, process.stderr)
+                self.assertEqual(result["status"], "error")
+                self.assertIn("16-bit", result["error"])
+                self.assertIs(result["scoreboardEligible"], False)
+
+    def test_cli_research_failure_retains_provenance(self):
+        process, result = self.run_cli(["--research-rng-seed", "12"],
+                                       replay([{"when": 0, "dir": 3}]))
+        self.assertEqual(process.returncode, 1)
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["rng"]["seed"], 12)
+        self.assertEqual(result["rng"]["seedSource"], "explicit")
+        self.assertIs(result["scoreboardEligible"], False)
+        self.assertEqual(result["datSha256"], hashlib.sha256(level_bytes()).hexdigest())
+        self.assertEqual(result["level"], 1)
+
+    def test_cli_rng_modes_are_mutually_exclusive(self):
+        for options in (["--research-rng-seed", "1", "--native-rng"],
+                        ["--research-rng-from-tws", "--native-rng-startup-ms", "1"],
+                        ["--research-rng-seed", "1", "--research-rng-from-tws"]):
+            with self.subTest(options=options):
+                process, result = self.run_cli(options)
+                self.assertEqual(process.returncode, 2)
+                self.assertIn("not allowed with argument", process.stderr)
+                self.assertIsNone(result)
 
     def test_native_rng_does_not_use_the_tws_random_seed(self):
         data = level_bytes({100: 0x5C}, fields=bytes([10, 2, 4, 3]))

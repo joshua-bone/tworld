@@ -48,7 +48,8 @@ time limit. Override with `--max-ticks` and `--wall-seconds` when needed.
 - Only the pinned executable is supported. All eight TWS stepping values are
   accepted: MS uses bit 2, so 0–3 share one phase and 4–7 share the other.
   Diagonal commands remain unsupported. RNG calls fail closed by default; the
-  separate native RNG mode below does not translate the TWS seed.
+  separate native RNG mode below does not translate the TWS seed. Explicit
+  controlled-seed research is available separately and is not scoreboard legal.
 - One original timer callback runs per two replay ticks, before input on even
   ticks starting at tick two; keyboard events run `MoveChip` immediately.
   Original `DoTick` (segment 7, offset 0) moves normal monsters on even callbacks,
@@ -74,8 +75,9 @@ time limit. Override with `--max-ticks` and `--wall-seconds` when needed.
   `ShowDeathMessage` after the original code sets the autopsy. This prevents
   later processing from changing the score or restarting the level.
 - A matching Chip/chip-count trace is narrower evidence than full-state parity.
-  Continue validating in legacy Tile World, SuCC, and TWO. This experimental
-  checker adds original-binary evidence; it does not replace those checks or
+  Continue validating in legacy Tile World, SuCC, and TWO: these are the required
+  checks. Original MSCC is best effort. This experimental checker adds
+  original-binary evidence; it does not replace those checks or
   establish [scoreboard eligibility](https://scores.bitbusters.club/faq).
 
 ## Native RNG runs
@@ -94,10 +96,81 @@ state in such a session.
 The result records `rng.mode`, `rng.startupMilliseconds`, `rng.seed`, the number
 of original `rand` calls, and the distinct `rng.twsRandomSeed`. To reproduce a
 recorded experiment, use `--native-rng-startup-ms NUMBER` with that exact recorded
-startup value, in place of `--native-rng`. Never search startup values or resample
-until a route passes. Native RNG results are separate evidence, and random
+startup value, in place of `--native-rng`. Do not select favorable startup values
+or inspect future random outcomes when assessing scoreboard routes. Ordinary
+blind retries are distinct from seed selection, but this adapter models a fresh
+application startup per run; it does not yet implement in-process retries that
+continue the existing RNG state. Native RNG results are separate evidence, and random
 monster traces can legitimately differ from TW/SuCC. Investigate a death or
 desynchronization; do not label it a matching deterministic TWS replay.
+
+## Controlled RNG research (not scoreboard eligible)
+
+The adapter can deliberately seed original MSCC for reproducible experiments.
+The executable stays unchanged: the adapter calls its original `srand` once,
+then lets every original `rand` instruction execute normally. Nothing substitutes
+individual random outcomes. Choose exactly one RNG option per run.
+
+For an explicit seed, add this to the normal checker command:
+
+```sh
+--research-rng-seed 12345
+```
+
+The seed must be an integer from **0 through 65535**, inclusive, matching the
+original 16-bit `srand` argument. This option preserves the TWS's own seed and is
+the recommended way to retain independent TW/SuCC replay evidence.
+
+A standard TWS already carries a 32-bit random-seed field. Original MSCC does not
+read TWS files itself; our exporter and adapter can explicitly use that field as
+a carrier for a research MSCC seed. Export the modified TWS normally, then add:
+
+```sh
+--research-rng-from-tws
+```
+
+This uses `replay.randomSeed` from the exported JSON and requires it to be in
+0–65535. Missing or oversized seeds are rejected, never truncated. No new TWS
+format is needed. Editing a TWS seed also changes its TW random history, so a
+modified TWS needs fresh TW/SuCC validation if used there. Without this flag,
+the TWS seed is **never** automatically interpreted as an MSCC seed.
+
+Every emitted research result, including unsuccessful runs and engine errors, is labeled
+`validationPurpose: "controlled-rng-research"` and `scoreboardEligible: false`.
+Their `rng` object records `mode: "research-fixed-seed"`, `seed`, `seedSource`
+(`explicit` or `tws`), `twsRandomSeed`, and the original RNG call count. The
+startup-clock field is null. Errors before the engine starts have a null call
+count. Results retain the DAT, TWS, and exported-JSON hashes. Invalid CLI options,
+unreadable inputs, or a DAT-hash mismatch fail before a result file is created.
+Repeating the same
+inputs, adapter version, binary, and research seed reproduces the experiment;
+use new output paths because evidence files cannot be overwritten.
+
+This deliberately manipulated mode is **unsuitable for scoreboard evidence**.
+Keep its generated inputs, results and traces private and separate from normal
+score-route validation. The CLI does not search seeds; research tooling can use
+the Python constructor's `research_rng_seed` argument for controlled experiments.
+
+### Why equal seed numbers do not reproduce TW randomness
+
+Research of the pinned executable, using the annotated
+[magical/CHIPS.EXE disassembly](https://github.com/magical/CHIPS.EXE), established:
+
+- Original `srand` is at segment 1, offset `0x00c4`; it initializes a 32-bit
+  state from a 16-bit argument, with the high word zero.
+- Original `rand` is at `1:00dc`: the state becomes
+  `(214013 * state + 2531011) mod 2^32`, returning `(state >> 16) & 0x7fff`.
+  Seed 1 starts with outputs `41, 18467, 6334`; binary regression tests pin this.
+- The original application seeds once during startup from `GetCurrentTime`.
+  Ordinary level retries can continue an already-advanced state.
+- Tile World uses a different generator and consumes it differently for random
+  creatures. For example, MSCC Walkers draw after forward movement is blocked;
+  TW constructs a random direction order before attempting forward movement.
+
+An identical seed value therefore does not imply identical monster movement,
+random-force behavior, route completion, or score across engines. A controlled
+MSCC success is a separate experimental execution, not a seed translation or
+proof of an ordinary native run.
 
 ## Tests
 
@@ -106,7 +179,9 @@ death, keyboard buffering, mouse replacement, both stepping phases (all eight
 metadata values), normal versus half-speed monster turns, countdown boundaries,
 and explicit unsupported cases. Native RNG tests execute the original routines,
 check repeatability from a recorded startup value, and ensure TWS seeds are not
-silently mapped. No real level routes are embedded in tests.
+silently mapped. Research tests cover both seed boundaries, invalid values,
+explicit TWS opt-in, mutually exclusive modes, repeatability, and non-scoreboard
+labels on completion and errors. No real level routes are embedded in tests.
 
 ```sh
 MSCC_EXE=/private/path/CHIPS.EXE /tmp/tworld-mscc-venv/bin/python \
