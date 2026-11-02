@@ -45,15 +45,23 @@ time limit. Override with `--max-ticks` and `--wall-seconds` when needed.
 
 ## What is established, and what is not
 
-- Only the pinned executable and stepping zero are supported. Nonzero stepping
-  and diagonal commands are rejected. Runtime calls to the original RNG are
-  rejected: a TW replay seed is not assumed to reproduce the Windows RNG.
+- Only the pinned executable is supported. All eight TWS stepping values are
+  accepted: MS uses bit 2, so 0–3 share one phase and 4–7 share the other.
+  Diagonal commands remain unsupported. RNG calls fail closed by default; the
+  separate native RNG mode below does not translate the TWS seed.
 - One original timer callback runs per two replay ticks, before input on even
-  ticks starting at tick two; keyboard events run `MoveChip` immediately. The
-  countdown decreases every ten callbacks, including the first second. This is
-  logical timing normalization: original MSCC requests a 110 ms Windows timer,
-  so the adapter does not reproduce its wall-clock cadence. There is no
-  long-first-second trick.
+  ticks starting at tick two; keyboard events run `MoveChip` immediately.
+  Original `DoTick` (segment 7, offset 0) moves normal monsters on even callbacks,
+  Teeth/Blobs when the callback counter is divisible by four, and decrements the
+  countdown every ten callbacks. The adapter starts that counter at **0** for
+  stepping 0–3 and **10** for stepping 4–7. Starting at 10 changes only the
+  half-speed phase while retaining full first and subsequent seconds. Starting
+  at 2 would incorrectly shorten the first second. `initialTimerCounter` in the
+  result and `timerCounter` in traces expose this mapping.
+- Timing remains a logical normalization: original MSCC requests a 110 ms
+  Windows timer, so the adapter does not reproduce its wall-clock cadence.
+  No gameplay is run before replay tick zero and no long-first-second trick is
+  used. The original 16-bit callback counter still wraps in very long runs.
 - Mouse commands set the original target and clear the buffered key, matching
   the window handler after its pixel-to-map conversion. Targets outside the map
   are rejected. This does **not** establish that each target was clickable in a
@@ -70,11 +78,35 @@ time limit. Override with `--max-ticks` and `--wall-seconds` when needed.
   checker adds original-binary evidence; it does not replace those checks or
   establish [scoreboard eligibility](https://scores.bitbusters.club/faq).
 
+## Native RNG runs
+
+TW and original MSCC use different random generators. A TW seed cannot be
+assumed to reproduce a Windows run. The default rejects a runtime RNG call.
+For a separate original-MSCC startup experiment, add `--native-rng` to the
+command above. It samples the local system monotonic clock once, passes its low
+16 bits into the original `srand`, and then executes the original `rand`
+instructions without substituting random outcomes. This matches the original
+startup dependency (`CreateWindowsAndInitGame`, 2:092e, calls
+`GetCurrentTime` then `srand` at 1:00c4); it is not a reconstruction of an unknown
+historical Windows session. Prior levels and retries can also have consumed RNG
+state in such a session.
+
+The result records `rng.mode`, `rng.startupMilliseconds`, `rng.seed`, the number
+of original `rand` calls, and the distinct `rng.twsRandomSeed`. To reproduce a
+recorded experiment, use `--native-rng-startup-ms NUMBER` with that exact recorded
+startup value, in place of `--native-rng`. Never search startup values or resample
+until a route passes. Native RNG results are separate evidence, and random
+monster traces can legitimately differ from TW/SuCC. Investigate a death or
+desynchronization; do not label it a matching deterministic TWS replay.
+
 ## Tests
 
 Synthetic DAT fixtures exercise parsing, clone connection stride, collection,
-death, keyboard buffering, mouse replacement, timing, and explicit unsupported
-cases. No real level routes are embedded in tests.
+death, keyboard buffering, mouse replacement, both stepping phases (all eight
+metadata values), normal versus half-speed monster turns, countdown boundaries,
+and explicit unsupported cases. Native RNG tests execute the original routines,
+check repeatability from a recorded startup value, and ensure TWS seeds are not
+silently mapped. No real level routes are embedded in tests.
 
 ```sh
 MSCC_EXE=/private/path/CHIPS.EXE /tmp/tworld-mscc-venv/bin/python \
