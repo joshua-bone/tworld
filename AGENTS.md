@@ -37,11 +37,14 @@
   global proof. Evaluate candidates through the exit in the required engines;
   local timing gains or chip counts can conceal traps, lost escape routes, or
   downstream equalizer gates.
-- Use [Melinda Router and MVS](scripts/melinda/README.md) where appropriate: MR
-  adds quarter-tick/mouse replay checks; MVS supplies vicinity and block searches.
-  Reproduce a known route before narrowing a search, record neighborhood and
-  simulator limitations, and validate complete candidates in the required engines.
-  Run stock MVS searches on Linux x86_64; keep all route inputs/results private.
+- Prefer [Melinda Router and MVS](scripts/melinda/README.md) for replay work when
+  their capabilities fit: MR for quarter-tick/mouse routing and inspection; MVS
+  for vicinity, block, transposition, and TSP-assisted searches. Check their
+  existing tools before writing a replacement search. Choose a semantic fragment,
+  reproduce its known route, and record neighborhood and simulator limitations.
+  Reassess stalled routes using these tools rather than only increasing caps.
+  Validate complete candidates in the required engines. Run stock MVS searches
+  on Linux x86_64; keep all route inputs/results private.
 
 ## Scoreboard rules and replay validation
 
