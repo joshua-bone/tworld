@@ -40,7 +40,9 @@ Archiving a candidate does not prove it wins and does not alter dashboard scores
 Validate the exact replay in TWO, legacy Tile World, and SuCC before accepting a
 score. The experimental [original MSCC checker](../scripts/mscc/README.md) provides
 additional binary-level evidence for supported inputs. Keep its original assets
-private as well. The dashboard began with the explicitly chosen bundled baseline;
+private as well. The [Melinda tools](../scripts/melinda/README.md) provide a pinned
+headless MR checker and MVS setup; their traces and search inputs also stay private.
+The dashboard began with the explicitly chosen bundled baseline;
 private improvements must preserve source digests, accepted win evidence and
 per-level replay identity. Do not substitute a private route into a public
 reference pack to update the page.
