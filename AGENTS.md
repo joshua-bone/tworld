@@ -37,6 +37,11 @@
   global proof. Evaluate candidates through the exit in the required engines;
   local timing gains or chip counts can conceal traps, lost escape routes, or
   downstream equalizer gates.
+- Use [Melinda Router and MVS](scripts/melinda/README.md) where appropriate: MR
+  adds quarter-tick/mouse replay checks; MVS supplies vicinity and block searches.
+  Reproduce a known route before narrowing a search, record neighborhood and
+  simulator limitations, and validate complete candidates in the required engines.
+  Run stock MVS searches on Linux x86_64; keep all route inputs/results private.
 
 ## Scoreboard rules and replay validation
 
@@ -59,6 +64,9 @@
 - Validate candidate routes in SuCC and original legacy Tile World, as well as
   TWO. Record versions, replay hashes, completion, and scores; investigate
   disagreements rather than treating one engine's success as sufficient.
+- Also check new MS candidates with the pinned headless Melinda Router adapter.
+  Record its TSG/trap options and investigate discrepancies. MR is additional
+  compatibility evidence, not a replacement for the three required engines.
 - Engine compatibility alone does not establish scoreboard eligibility. The FAQ
   prohibits prior knowledge of random outcomes and requires TW routes to be valid
   in MSCC, but does not explain every seed-search workflow. Label these results
