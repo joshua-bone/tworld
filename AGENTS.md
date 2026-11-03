@@ -74,6 +74,28 @@
   Validate complete candidates in the required engines. Run stock MVS searches
   on Linux x86_64; keep all route inputs/results private.
 
+## Mechanics knowledge
+
+- Use known game mechanics to generate and constrain hypotheses before searching.
+  Name the mechanism, predict its effect on the actual actor and terrain, and
+  check that prediction against the original ruleset code and a witnessed trace.
+  Preserve newly learned mechanics here with their scope and exceptions; do not
+  repeatedly rediscover them through failed routes. Keep level-specific examples
+  and private route evidence outside this public repository.
+- **[Concussion Rule](https://wiki.bitbusters.club/Concussion_Rule):** an MS
+  glider, fireball, pink ball, or walker on a released trap tries its facing
+  direction only. If that exit is blocked, it stays put instead of applying its
+  normal floor turning or bouncing behavior. An open trap is not ordinary floor.
+  Use this to identify persistent blockers and stop mechanisms, or reject a
+  proposed worker path. A removable obstacle can make the stall temporary.
+- Keep the MS exceptions explicit: blobs can choose other directions; bugs,
+  paramecia, and teeth use the **Controller and Boss Glitch** direction; tanks
+  can be turned by a blue button. Inspect `choosecreaturemove`, `canmakemove`,
+  and `springtrap` in `legacy_c/mslogic.c` for the exact interaction. The
+  Concussion Rule also exists in Lynx, with different trap-release behavior;
+  it does not apply to CC2 open traps. Do not transfer MS exceptions between
+  rulesets without checking their implementation.
+
 ## Scoreboard rules and replay validation
 
 - Consult the current [BitBusters scoreboard FAQ](https://scores.bitbusters.club/faq)
