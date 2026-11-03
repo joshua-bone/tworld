@@ -7,6 +7,9 @@
   of this public repository and its deployments. Keep working artifacts outside
   Git and archive them in private GCS. Existing public reference replays remain
   reference inputs; do not overwrite them with private improvements.
+- Do not save generated routes, GIFs, reports, or other work artifacts in
+  `~/Downloads` unless the user explicitly asks again. Use private working
+  storage outside Git and private GCS instead.
 - Use the authenticated CC scores page and the private publication workflow in
   `docs/private-cc-routes.md`. Commit tools, schemas, synthetic tests, and general
   documentation only. Do not publish route instructions or a replay link that
