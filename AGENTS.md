@@ -22,6 +22,9 @@
 
 - Start with a visual and semantic level review: identify dependencies, forced
   traversals, irreversible actions, and possible task orders before searching.
+  Check proposed mechanics against the actual ruleset and original engine before
+  building a search around them; inspect destination, support, and buried tiles.
+  In particular, MS blocks cannot enter uncleared dirt or uncollected chips.
 - Identify **equalizer gates** early: waits that erase upstream time savings.
   Measure arrival-to-earliest-exit windows, their period, and the entry-state
   assumptions. Target an earlier window, bypass, or changed task order; do not
@@ -29,9 +32,31 @@
 - Use geometry, resource constraints, deadlocks, and sound lower bounds to prune
   search. Choose suitable algorithms such as assignment, subset DP, or push-state
   search; avoid broad input mutation without a concrete hypothesis.
-- When progress stalls, challenge fixed routes, room boundaries, and task order.
-  Explore interleaving and alternate mechanisms before scaling the same model.
-  Keep states distinct when actor phase, inventory, or world changes matter.
+- Being one or two ticks from the target is not evidence that the current route
+  family is best. Keep at least one independent line of work on a different task
+  order, dependency, resource assignment, or mechanism. More seeds, timing offsets,
+  larger caps, and wider vicinities around the same fixed prefix are, by themselves,
+  local variants, not independent strategies. Assign workers by hypothesis, not
+  merely by tool.
+- After two bounded batches without an exit-time gain, checkpoint that family and
+  revisit the map and assumptions before extending it. Name what the next run can
+  discover that earlier runs could not. Explicitly examine fixed prefixes, room
+  boundaries, objective order, input alphabet, and pruning assumptions. Do not
+  spend the whole budget rediscovering a known positive: replay its exact witness
+  and audit the search bounds against it, then test the proposed improvement.
+- Accept slower intermediate routes and later fragment arrivals when they change
+  a gate, preserve a resource, or leave useful work completed. First construct a
+  legal full-route control for the new idea, then optimize it. Preserve distinct
+  endpoint worlds and actor phases; earliest arrival alone is not dominance.
+- Look for overlap between tasks: stage a block or resource, release a worker,
+  then finish another job while it travels. Reconsider when irreversible actions
+  happen and whether rooms can be split across visits. Combine individually legal
+  variations when their timing or resource effects interact; test the combination
+  through the exit rather than assuming their savings add.
+- Keep a private variation ledger grouped by semantic hypothesis: tested result,
+  fixed assumptions, completed scope versus cap/overflow, and next distinct idea.
+  A failed splice with the old suffix does not reject the new prefix. Mechanical
+  mistakes and incomplete searches must remain visible, not become negative proofs.
 - Reproduce a known passing route within each search model. Record its scope and
   limits: a capped search is unfinished, and a restricted-model optimum is not a
   global proof. Evaluate candidates through the exit in the required engines;
