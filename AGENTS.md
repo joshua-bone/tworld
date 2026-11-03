@@ -35,6 +35,11 @@
 - Use geometry, resource constraints, deadlocks, and sound lower bounds to prune
   search. Choose suitable algorithms such as assignment, subset DP, or push-state
   search; avoid broad input mutation without a concrete hypothesis.
+- Screen each new mechanism for resource cost, pushing support, access and escape
+  before searching its timing. Count blocks consumed by water or bombs separately
+  from blocks needed as permanent posts. Include teleports and forced movement in
+  optimistic bounds. Treat uncleared dirt and stalled actors as possible resources;
+  verify tile identities and both layers when artwork is ambiguous.
 - Being one or two ticks from the target is not evidence that the current route
   family is best. Keep at least one independent line of work on a different task
   order, dependency, resource assignment, or mechanism. More seeds, timing offsets,
@@ -95,6 +100,16 @@
   Concussion Rule also exists in Lynx, with different trap-release behavior;
   it does not apply to CC2 open traps. Do not transfer MS exceptions between
   rulesets without checking their implementation.
+- **[Slide delay](https://wiki.bitbusters.club/Slide_delay) (MS):** a blocked or
+  rebounding slipper can leave and rejoin the slip list without reducing its
+  length, skipping another block or monster's forced move. Chip is not delayed
+  this way. A nailed block can deliberately supply delay; its effect depends on
+  slip-list order and phase, not just the number of stalled objects. Inspect
+  `floormovements_of_blocks_and_monsters` and an actual trace.
+- **[Dirty Trick](https://wiki.bitbusters.club/Dirty_trick) (MS):** sufficient
+  slide delay can let Chip push a block onto a sliding tile that sends it back,
+  then escape before its return. Establish the delay source and escape timing;
+  pushing and stepping aside alone does not make this safe.
 
 ## Scoreboard rules and replay validation
 
