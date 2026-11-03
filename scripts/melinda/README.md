@@ -88,6 +88,21 @@ or expand its neighborhood. MVS is a separate simulator with documented limitati
 (including TSG and some teleporter behavior); all resulting routes need full exit
 checks in the required engines, plus MR and best-effort original MSCC.
 
+Prefer replaying an exact prefix and searching from its saved full-world state.
+In the native protocol, a `from STATE TICK` replay block must end with
+`final TICK 0` before a `bfsearch` command; otherwise the helper can continue
+parsing replay input without starting the search. `winpathULDR` imports a known
+route from state 1. Returned `WIN`/`tWIN` paths start at the chosen search state;
+prepend its exact prefix before checking the full replay. Preserve wrapped `WIN`
+output through `ENDWIN` when reconstructing a candidate, and calibrate its
+completion tick against the known TWS rather than assuming the two tools label
+states identically.
+
+Check the complete output and process status. `bfsearch is complete` alone does
+not establish exhaustion: require a normal calculation end and successful process
+exit, with no overflow or stopped-calculation message. A hash-table overflow can
+end a search early even when a later message says it is complete.
+
 Do not feed raw TWS mouse commands into MVS's directional input protocol. For
 fragments, import the actual starting world state, including actor state, inventory,
 RNG, wiring, and timer phase. A synthetic exit or modified fragment is search
