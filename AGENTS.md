@@ -18,6 +18,26 @@
   and shut down or remove workers after preserving their results. A timeout,
   preemption, or capped expansion is unfinished work, not evidence of exhaustion.
 
+## Optimization
+
+- Start with a visual and semantic level review: identify dependencies, forced
+  traversals, irreversible actions, and possible task orders before searching.
+- Identify **equalizer gates** early: waits that erase upstream time savings.
+  Measure arrival-to-earliest-exit windows, their period, and the entry-state
+  assumptions. Target an earlier window, bypass, or changed task order; do not
+  treat an earlier arrival as a gain when the final completion time is unchanged.
+- Use geometry, resource constraints, deadlocks, and sound lower bounds to prune
+  search. Choose suitable algorithms such as assignment, subset DP, or push-state
+  search; avoid broad input mutation without a concrete hypothesis.
+- When progress stalls, challenge fixed routes, room boundaries, and task order.
+  Explore interleaving and alternate mechanisms before scaling the same model.
+  Keep states distinct when actor phase, inventory, or world changes matter.
+- Reproduce a known passing route within each search model. Record its scope and
+  limits: a capped search is unfinished, and a restricted-model optimum is not a
+  global proof. Evaluate candidates through the exit in the required engines;
+  local timing gains or chip counts can conceal traps, lost escape routes, or
+  downstream equalizer gates.
+
 ## Scoreboard rules and replay validation
 
 - Consult the current [BitBusters scoreboard FAQ](https://scores.bitbusters.club/faq)
