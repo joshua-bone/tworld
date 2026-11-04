@@ -1,4 +1,10 @@
 """Synthetic MVS resource tests; no private level data."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 
 from mvs_memory import configure_input, memory_plan, inspect_log
@@ -13,6 +19,24 @@ quit
 
 
 class MemoryTests(unittest.TestCase):
+    def test_cli_preserves_line_endings_and_hashes_exact_input_bytes(self):
+        original = PROTOCOL.replace("\n", "\r\n").encode()
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "source.input"
+            output = Path(folder) / "budgeted.input"
+            source.write_bytes(original)
+            subprocess.run(
+                [sys.executable, str(Path(__file__).with_name("mvs_memory.py")),
+                 "configure", "--input", str(source), "--output", str(output),
+                 "--memory-mib", "4096"],
+                check=True, capture_output=True, timeout=10,
+            )
+            receipt = json.loads(Path(str(output) + ".memory.json").read_text())
+            self.assertEqual(receipt["inputSha256"], hashlib.sha256(original).hexdigest())
+            configured, _ = configure_input(original.decode(), 4096)
+            self.assertEqual(output.read_bytes(), configured.encode())
+            self.assertEqual(receipt["outputSha256"], hashlib.sha256(output.read_bytes()).hexdigest())
+
     def test_budget_includes_old_and_new_pagers_during_flush(self):
         for budget in (1024, 4096, 12288, 32768, 65536):
             plan = memory_plan(budget)
