@@ -73,7 +73,8 @@
 - Compare task orders and RNG variants at a common fragment exit, accounting for
   remaining work, resources, and actor phases. Include all travel to that exit
   and compare against the best existing order. A local gain can merely catch up
-  with an existing route; confirm the saving through the level exit.
+  with an existing route. State any equivalence assumptions, and confirm the
+  saving through the level exit.
 - Look for overlap between tasks: stage a block or resource, release a worker,
   then finish another job while it travels. Reconsider when irreversible actions
   happen and whether rooms can be split across visits. Combine individually legal
