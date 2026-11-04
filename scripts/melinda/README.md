@@ -103,6 +103,47 @@ not establish exhaustion: require a normal calculation end and successful proces
 exit, with no overflow or stopped-calculation message. A hash-table overflow can
 end a search early even when a later message says it is complete.
 
+### Memory budgets and overflow diagnosis
+
+`Other Hash Overflow` can mean a **state-storage limit**, even when the hash
+table is mostly empty. In MVS 9.74, recycling retains the live queue's states;
+if those still exceed 90% of `OHmb`, it stops with this same message. More CPU
+or more hash buckets alone will not fix that limit. Check the final `OHbytes`,
+`OHnew`, and configured recycling thresholds before choosing the next run.
+
+Prepare each breadth-search input with an explicit **per-process** memory budget:
+
+```sh
+python3 scripts/melinda/mvs_memory.py configure \
+  --input "$HOME/private-cc/search.input" \
+  --output "$HOME/private-cc/search-budgeted.input" --memory-mib 12288
+```
+
+This changes only the three table capacities and the two pager limits in one
+`bfsearch`/`bfrecycle` protocol. The adjacent `.memory.json` records the allocation
+plan and input hashes. It reserves space for both old and new pagers during
+recycling, plus headroom for queues and other allocations. Divide VM memory
+between concurrent jobs and leave room for the OS. This plan is **not a hard
+memory limit**: a breadth layer, TSP data, or reconstruction can exceed the
+reserve. Use a process/container memory limit and a wall timeout as well.
+
+For example, on Linux a 12 GiB process can be bounded with
+`timeout 300 prlimit --as=12884901888 -- /path/to/MVS-Helper-MS-9.74-linux`.
+Capture its actual exit status, stdout and stderr. Upstream allocation failure
+can crash rather than report a clean stop; it remains an incomplete search.
+Diagnose a captured run with:
+
+```sh
+python3 scripts/melinda/mvs_memory.py inspect --log "$HOME/private-cc/run.log" --exit-code 0
+```
+
+Use the real process exit code in that command. The report distinguishes an
+observed live-frontier pager limit from table pressure; an ambiguous overflow
+stays unspecified. A normal end is only evidence about the configured search
+scope. Reproduce a known control, compare identical search settings at the old
+and new budgets, and preserve both logs. Capacity increases do not replace
+task decomposition or stronger valid bounds when the frontier grows rapidly.
+
 Do not feed raw TWS mouse commands into MVS's directional input protocol. For
 fragments, import the actual starting world state, including actor state, inventory,
 RNG, wiring, and timer phase. A synthetic exit or modified fragment is search
