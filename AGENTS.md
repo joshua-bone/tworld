@@ -98,6 +98,11 @@
   global proof. Evaluate candidates through the exit in the required engines;
   local timing gains or chip counts can conceal traps, lost escape routes, or
   downstream equalizer gates.
+- Also calibrate each claimed search freedom with a positive that requires it,
+  such as a changed block layout or resource count. An unchanged-route control
+  cannot detect an accidentally restrictive neighborhood. Audit interacting
+  bounds before increasing caps; narrow a capped positive to a diagnostic
+  fragment rather than treating it as validation.
 - Prefer [Melinda Router and MVS](scripts/melinda/README.md) for replay work when
   their capabilities fit: MR for quarter-tick/mouse routing and inspection; MVS
   for vicinity, block, transposition, and TSP-assisted searches. Check their
