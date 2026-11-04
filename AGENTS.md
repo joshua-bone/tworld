@@ -33,7 +33,11 @@
   outcomes that control access, occupancy, or timing. One order at its bound
   does not rule out an RNG-sensitive alternative. Test specific useful outcome
   patterns early; validate any reduced simulator against the original engine
-  before using it to screen seeds.
+  before using it to screen seeds. When useful, first test an optimistic model
+  that permits any random outcome at each draw: if even that cannot improve the
+  stated route contract, a larger seed sweep cannot help it. Such a model is a
+  research bound, not a replay; realize any positive with an ordinary seed and
+  inputs before validating it as a candidate.
 - Identify **equalizer gates** early: waits that erase upstream time savings.
   Measure arrival-to-earliest-exit windows, their period, and the entry-state
   assumptions. Target an earlier window, bypass, or changed task order; do not
@@ -44,6 +48,8 @@
 - Use geometry, resource constraints, deadlocks, and sound lower bounds to prune
   search. Choose suitable algorithms such as assignment, subset DP, or push-state
   search; avoid broad input mutation without a concrete hypothesis.
+  Check goal feasibility before exploring waiting schedules: identify what can
+  cause every required event under the fixed terrain and actor boundaries.
 - Screen each new mechanism for resource cost, pushing support, access and escape
   before searching its timing. Count blocks consumed by water or bombs separately
   from blocks needed as permanent posts. Include teleports and forced movement in
@@ -65,7 +71,10 @@
   remains queued, which states still meet the finish bound, and why work stopped.
   Resume or partition saved frontiers instead of repeatedly checking only the
   endpoints discovered before a cap. Audit state-merging rules against native
-  successors. Keep inexpensive, viable unfinished work on the active agenda.
+  successors. Canonicalize named gameplay fields, not raw struct padding or
+  allocator addresses; preserve live actor order, pending effects and referenced
+  identities. Exclude history only with a source argument and successor audits.
+  Keep inexpensive, viable unfinished work on the active agenda.
 - Accept slower intermediate routes and later fragment arrivals when they change
   a gate, preserve a resource, or leave useful work completed. First construct a
   legal full-route control for the new idea, then optimize it. Preserve distinct
