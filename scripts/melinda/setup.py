@@ -1,4 +1,4 @@
-"""Build pinned upstream Melinda helpers outside Git; no game logic patches."""
+"""Build pinned Melinda helpers outside Git; optional search-only MVS patch."""
 import argparse
 import hashlib
 import io
@@ -8,6 +8,8 @@ from pathlib import Path
 import platform
 import subprocess
 import tarfile
+
+from mvs_exit_bound import apply as apply_exit_bound
 
 
 SOURCES = {
@@ -49,13 +51,14 @@ def extract_verified(blob, expected_sha256, target):
         archive.extractall(target, members=members)
 
 
-def build(tool, archives, output, jobs):
+def build(tool, archives, output, jobs, mvs_exit_bound=False):
     source = SOURCES[tool]
     if tool == "mvs" and (platform.system() != "Linux"
                           or platform.machine() not in ("x86_64", "AMD64")):
         raise ValueError("stock MVS search requires Linux x86_64; use a Linux worker")
     target = outside_git(output / tool)
     extract_verified((archives / source["archive"]).read_bytes(), source["sha256"], target)
+    patches = [apply_exit_bound(target)] if tool == "mvs" and mvs_exit_bound else []
     with (target / "build.log").open("w") as log:
         subprocess.run(["make", f"-j{jobs}", source["helper"]], cwd=target,
                        stdout=log, stderr=subprocess.STDOUT, timeout=600, check=True)
@@ -72,7 +75,7 @@ def build(tool, archives, output, jobs):
         "tool": tool, **source,
         "url": "http://cc-optimization.byethost12.com/" + source["archive"],
         "helperSha256": hashlib.sha256((target / source["helper"]).read_bytes()).hexdigest(),
-        "platform": platform.platform(), "sourcePatches": [],
+        "platform": platform.platform(), "sourcePatches": patches,
     }
     (target / "build-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
@@ -84,13 +87,18 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--tool", choices=["mr", "mvs", "both"], default="both")
     parser.add_argument("--jobs", type=int, default=4)
+    parser.add_argument("--mvs-exit-bound", action="store_true",
+                        help="enable optional MVS_EXIT_TICK_LIMIT search-only patch")
     args = parser.parse_args()
     if not 1 <= args.jobs <= 64:
         parser.error("--jobs must be between 1 and 64")
+    if args.mvs_exit_bound and args.tool == "mr":
+        parser.error("--mvs-exit-bound requires --tool mvs or both")
     os.umask(0o077)
     output = outside_git(args.output)
     for tool in (SOURCES if args.tool == "both" else [args.tool]):
-        print(json.dumps(build(tool, args.archives, output, args.jobs)), flush=True)
+        print(json.dumps(build(tool, args.archives, output, args.jobs,
+                               args.mvs_exit_bound)), flush=True)
 
 
 if __name__ == "__main__":

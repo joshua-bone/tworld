@@ -28,7 +28,7 @@ python3 scripts/melinda/setup.py \
 ```
 
 The setup verifies pinned SHA256 digests before extraction, rejects archive
-links/path escapes, builds the unmodified C helper, and compiles a small Java
+links/path escapes, builds the unmodified C helper by default, and compiles a small Java
 bridge using MR's own DAT importer. The output must be new; builds never overwrite
 an existing directory. `build-manifest.json` records source and executable hashes.
 The upstream helper name ends in `-linux` even when built natively on macOS.
@@ -37,7 +37,8 @@ For **MVS search, use Linux x86_64** and `--tool mvs` (or `--tool both`). The
 original source contains x86 assembly. An experimental ARM intrinsic substitution
 could replay a fragment on macOS but its breadth search crashed during startup;
 it is not included or claimed supported here. Use an isolated Linux worker with
-an explicit runtime/memory budget. The helper is built from unchanged source.
+an explicit runtime/memory budget. The default helper uses unchanged source;
+the optional search-only patch below is explicitly recorded in its manifest.
 
 ## Check an MS TWS in MR
 
@@ -112,6 +113,46 @@ The target is the low 56 bits of `MAIN_HASH1`; `PRINTSTATE` prints that hash as 
 For MS searches, a non-winning state at `tick >= maxtick` is killed before target matching. Use a bound greater than the desired endpoint tick for a positive control. A successful stored-path join sets `tWIN_FOUND`; `queue_loop` then stops before its next search layer, regardless of the deadline sign. Treat transposition search as **first-improvement**, not a proof of the best full exit, and rerun after validating and adopting a better route. Without an explicit target, stored-path joins require an earlier arrival; a target also permits the unchanged endpoint needed for a positive control. (`MVS-MS.c`: `move_routine_ms_internal`; `bf-common.c`: `queue_loop`; `bf-common-hash.c`: `improves_stored_win`, `unwind_win`.)
 
 A negative `maxtick` selects `USE_FINAL_TIME`, preserving the absolute search horizon. With a positive bound, `unwind_win` instead changes `MAXTICK` to the full exit tick, although the transposition-stop condition still prevents another search layer. Negative mode also sets `WIN_TIME` to the local horizon after the first report, suppressing subsequent full exits beyond that horizon even within the current layer. Do not assume negative mode enumerates all equally early joins or their best continuations. Always impose external runtime and memory limits, and report capped runs as incomplete. (`bf-common.c`: `bf_searcher`, `queue_loop`; `bf-common-hash.c`: `unwind_win`.)
+
+### Optional full-exit bound
+
+When several `winpathULDR` routes share a state, stock MVS keeps the last
+registered move for that state. Register the best route last. Do not simply
+change the table to retain the earliest occurrence: a repeated state within
+one route needs its later move to escape the loop. Even with corrected order,
+a locally earlier join to an alternative route can produce an unwanted full
+exit and stop the search.
+
+An opt-in patch lets a search require a full exit at or below an absolute MVS
+tick while keeping its separate local search horizon:
+
+```sh
+python3 scripts/melinda/setup.py \
+  --archives "$HOME/cc-tools/archives" --output "$HOME/cc-tools/mvs-bounded" \
+  --tool mvs --mvs-exit-bound
+
+MVS_EXIT_TICK_LIMIT=2000 timeout 300 prlimit --as=12884901888 -- \
+  "$HOME/cc-tools/mvs-bounded/mvs/MVS-Helper-MS-9.74-linux" \
+  < "$HOME/private-cc/search.input" > "$HOME/private-cc/search.log" 2>&1
+```
+
+The limit is inclusive, in **MVS's absolute tick convention**, not a fragment
+duration or TWS score. Calibrate it against the known full replay first. Values
+must be decimal integers from 1 to 65535; invalid values exit with status 2.
+With the variable unset, the patched build retains stock search behavior.
+
+The patch tests a proposed stored suffix on a copy of the matched state before
+accepting the join. A suffix above the limit is rejected, while that state
+remains available for ordinary search. Checking only the output would be too
+late: stock MVS discards a matched state even when reconstruction reports no win.
+No movement, RNG, level, or replay rules are patched. Source hashes and the two
+search-file changes are recorded in `build-manifest.json`; MR remains stock.
+
+This is still a first-accepted-join search, not an exhaustive optimizer. A hash
+flush that loses reconstruction history is incomplete evidence, and an overflow
+or timeout remains unfinished. Reproduce a known control with the bound equal
+to its exit, then tighten it. Preserve the exact bound, helper hash and search
+input with each result, and validate every full candidate in the required engines.
 
 ### Memory budgets and overflow diagnosis
 
