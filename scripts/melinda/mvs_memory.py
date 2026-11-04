@@ -122,11 +122,12 @@ def main():
     receipt = output.with_name(output.name + ".memory.json")
     if output.exists() or receipt.exists():
         raise FileExistsError("output and memory receipt must be new")
-    original = args.input.read_text()
-    configured, plan = configure_input(original, args.memory_mib)
-    plan.update(inputSha256=hashlib.sha256(original.encode()).hexdigest(),
-                outputSha256=hashlib.sha256(configured.encode()).hexdigest())
-    with output.open("x") as target:
+    original = args.input.read_bytes()
+    configured, plan = configure_input(original.decode("utf-8"), args.memory_mib)
+    configured = configured.encode("utf-8")
+    plan.update(inputSha256=hashlib.sha256(original).hexdigest(),
+                outputSha256=hashlib.sha256(configured).hexdigest())
+    with output.open("xb") as target:
         target.write(configured)
     with receipt.open("x") as target:
         target.write(json.dumps(plan, indent=2) + "\n")
