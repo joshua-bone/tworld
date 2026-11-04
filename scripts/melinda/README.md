@@ -103,6 +103,16 @@ not establish exhaustion: require a normal calculation end and successful proces
 exit, with no overflow or stopped-calculation message. A hash-table overflow can
 end a search early even when a later message says it is complete.
 
+### Stock MVS target hashes and stored winning paths
+
+In pinned MVS 9.74, `bfsearch ... target 0x...` is not a standalone endpoint reporter. A target match is handled as a transposition to a stored winning path: without a usable `winpathULDR`, the match is silently discarded. Supply `winpathULDR` followed by the **full winning route from state 1**, before any `xorvicULDR` lines. The command does not accept a starting-state number. (`MVS-common.c`: `do_bf_search`, `do_winpath_ULDR`; `bf-common-hash.c`: `improves_stored_win`, `unwind_win`, `elongate_win_string`.)
+
+The target is the low 56 bits of `MAIN_HASH1`; `PRINTSTATE` prints that hash as high and low 32-bit words, followed by `MAIN_HASH2`. A reported `tWIN` includes the searched root-to-join path **and the simulated continuation through the exit**. Its tick is the absolute exit tick. When reconstructing a full candidate, prepend the retained prefix only; do not append the old suffix again. The continuation runs from the actual matched world and tick, and still requires independent replay validation. (`state-manager-MS.c`: `print_state`; `bf-common-hash.c`: `get_path_from`, `elongate_win_string`, `unwind_win`.)
+
+For MS searches, a non-winning state at `tick >= maxtick` is killed before target matching. Use a bound greater than the desired endpoint tick for a positive control. A successful stored-path join sets `tWIN_FOUND`; `queue_loop` then stops before its next search layer, regardless of the deadline sign. Treat transposition search as **first-improvement**, not a proof of the best full exit, and rerun after validating and adopting a better route. Without an explicit target, stored-path joins require an earlier arrival; a target also permits the unchanged endpoint needed for a positive control. (`MVS-MS.c`: `move_routine_ms_internal`; `bf-common.c`: `queue_loop`; `bf-common-hash.c`: `improves_stored_win`, `unwind_win`.)
+
+A negative `maxtick` selects `USE_FINAL_TIME`, preserving the absolute search horizon. With a positive bound, `unwind_win` instead changes `MAXTICK` to the full exit tick, although the transposition-stop condition still prevents another search layer. Negative mode also sets `WIN_TIME` to the local horizon after the first report, suppressing subsequent full exits beyond that horizon even within the current layer. Do not assume negative mode enumerates all equally early joins or their best continuations. Always impose external runtime and memory limits, and report capped runs as incomplete. (`bf-common.c`: `bf_searcher`, `queue_loop`; `bf-common-hash.c`: `unwind_win`.)
+
 ### Memory budgets and overflow diagnosis
 
 `Other Hash Overflow` can mean a **state-storage limit**, even when the hash
