@@ -32,6 +32,9 @@
   Measure arrival-to-earliest-exit windows, their period, and the entry-state
   assumptions. Target an earlier window, bypass, or changed task order; do not
   treat an earlier arrival as a gain when the final completion time is unchanged.
+  Padding needed by one fixed continuation is not a proven gate. Before rejecting
+  an earlier legal prefix, reroute a bounded region through the obstruction to a
+  safe common exit, then check the complete replay at its new phase.
 - Use geometry, resource constraints, deadlocks, and sound lower bounds to prune
   search. Choose suitable algorithms such as assignment, subset DP, or push-state
   search; avoid broad input mutation without a concrete hypothesis.
