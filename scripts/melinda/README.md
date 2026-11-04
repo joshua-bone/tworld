@@ -104,6 +104,29 @@ not establish exhaustion: require a normal calculation end and successful proces
 exit, with no overflow or stopped-calculation message. A hash-table overflow can
 end a search early even when a later message says it is complete.
 
+### XOR block neighborhoods
+
+In pinned MVS 9.74, `xorvicULDR` applies several independent restrictions.
+For a candidate and one stored block layout, let `c` be their XOR bit count and
+`diff` their block-count difference. The helper computes
+`trade = (c - abs(diff)) / 2`. It checks the global `posbd`/`negbd` limits,
+the `trade` limit, the corresponding `tradeinfo` row, and finally the `xor`
+limit. All must pass. See `xor-vic-common.c`, `xor_vic_is_ok`.
+
+Moving one block without changing the block count changes two bits: it needs
+`xor >= 2` and `trade >= 1`. Setting `posbd 0 negbd 0 trade 0` permits only
+stored block layouts even if `xor` is large. To allow blocks to be consumed,
+also permit the appropriate negative block-count difference in both `negbd`
+and the relevant `tradeinfo ... xornegbd` rows. Specify every intended trade row
+explicitly rather than relying on defaults.
+
+Calibrate the requested freedom as well as the baseline replay. For a block
+variation search, recover a known continuation from a changed block layout that
+requires nonzero trade; for block consumption, exercise the count difference.
+An unchanged-route positive does not prove those neighborhoods are enabled.
+A capped positive is still unfinished: narrow it to a shorter diagnostic
+fragment before interpreting improvement searches or spending more compute.
+
 ### Stock MVS target hashes and stored winning paths
 
 In pinned MVS 9.74, `bfsearch ... target 0x...` is not a standalone endpoint reporter. A target match is handled as a transposition to a stored winning path: without a usable `winpathULDR`, the match is silently discarded. Supply `winpathULDR` followed by the **full winning route from state 1**, before any `xorvicULDR` lines. The command does not accept a starting-state number. (`MVS-common.c`: `do_bf_search`, `do_winpath_ULDR`; `bf-common-hash.c`: `improves_stored_win`, `unwind_win`, `elongate_win_string`.)
