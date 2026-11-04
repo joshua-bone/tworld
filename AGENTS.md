@@ -113,7 +113,8 @@
   slide delay can let Chip push a block onto a sliding tile that sends it back,
   then escape before its return. Establish the delay source and escape timing;
   pushing and stepping aside alone does not make this safe.
-- **Mouse block slaps (MS):** for a mouse goal on both axes,
+- **[Mouse Panel Glitch](https://wiki.bitbusters.club/Mouse_Panel_Glitch) (MS):**
+  for a mouse goal on both axes,
   `chipmovetogoalpos` probes the primary direction with `canmakemove`. That probe
   can push a block off a thin wall even when the exposed wall prevents Chip's
   entry; Chip can then walk in the secondary direction in the same update.
