@@ -28,6 +28,12 @@
   Check proposed mechanics against the actual ruleset and original engine before
   building a search around them; inspect destination, support, and buried tiles.
   In particular, MS blocks cannot enter uncleared dirt or uncollected chips.
+- Audit RNG during the initial strategy review. For competing task orders,
+  compare current execution with geometric no-wait bounds and identify random
+  outcomes that control access, occupancy, or timing. One order at its bound
+  does not rule out an RNG-sensitive alternative. Test specific useful outcome
+  patterns early; validate any reduced simulator against the original engine
+  before using it to screen seeds.
 - Identify **equalizer gates** early: waits that erase upstream time savings.
   Measure arrival-to-earliest-exit windows, their period, and the entry-state
   assumptions. Target an earlier window, bypass, or changed task order; do not
@@ -55,10 +61,20 @@
   boundaries, objective order, input alphabet, and pruning assumptions. Do not
   spend the whole budget rediscovering a known positive: replay its exact witness
   and audit the search bounds against it, then test the proposed improvement.
+- Review unfinished search frontiers during each strategy review: record what
+  remains queued, which states still meet the finish bound, and why work stopped.
+  Resume or partition saved frontiers instead of repeatedly checking only the
+  endpoints discovered before a cap. Audit state-merging rules against native
+  successors. Keep inexpensive, viable unfinished work on the active agenda.
 - Accept slower intermediate routes and later fragment arrivals when they change
   a gate, preserve a resource, or leave useful work completed. First construct a
   legal full-route control for the new idea, then optimize it. Preserve distinct
   endpoint worlds and actor phases; earliest arrival alone is not dominance.
+- Compare task orders and RNG variants at a common fragment exit, accounting for
+  remaining work, resources, and actor phases. Include all travel to that exit
+  and compare against the best existing order. A local gain can merely catch up
+  with an existing route. State any equivalence assumptions, and confirm the
+  saving through the level exit.
 - Look for overlap between tasks: stage a block or resource, release a worker,
   then finish another job while it travels. Reconsider when irreversible actions
   happen and whether rooms can be split across visits. Combine individually legal
