@@ -50,6 +50,12 @@
   search; avoid broad input mutation without a concrete hypothesis.
   Check goal feasibility before exploring waiting schedules: identify what can
   cause every required event under the fixed terrain and actor boundaries.
+- Audit search goals against actual level completion. Fixed final block posts,
+  complete monster disposal, and prescribed room exits are route assumptions
+  unless their necessity is proved. Test safe surviving actors and alternative
+  posts. Assert the required inventory, block positions, and other endpoint
+  conditions in the native trace before calling a fragment a positive control;
+  visiting a waypoint does not establish the intended world state.
 - Screen each new mechanism for resource cost, pushing support, access and escape
   before searching its timing. Count blocks consumed by water or bombs separately
   from blocks needed as permanent posts. Include teleports and forced movement in
