@@ -155,6 +155,12 @@
   this way. A nailed block can deliberately supply delay; its effect depends on
   slip-list order and phase, not just the number of stalled objects. Inspect
   `floormovements_of_blocks_and_monsters` and an actual trace.
+- **Ordinary boosting (MS):** Chip can move voluntarily after a forced move in
+  the same native tick, once the other slippers have updated. This is distinct
+  from the Twice Step Glitch, which inserts the extra move before those updates.
+  Two displacements in one tick alone do not establish TSG. Preserve ordinary
+  boosts in timing bounds; distinguish the phases with a native trace and an
+  MR `--no-tsg` control before restricting the input model.
 - **[Dirty Trick](https://wiki.bitbusters.club/Dirty_trick) (MS):** sufficient
   slide delay can let Chip push a block onto a sliding tile that sends it back,
   then escape before its return. Establish the delay source and escape timing;
