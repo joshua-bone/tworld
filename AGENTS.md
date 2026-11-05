@@ -157,6 +157,14 @@
   released Tank without another Brown visit. Model the actor's release and
   stalled states separately, rather than treating the trap as latched-open
   floor; verify future arrivals and other rulesets independently.
+- **Tank facing versus forced direction (MS):** a Blue button reverses a
+  Tank's facing, but its slip-list entry retains a separate movement direction.
+  If the Tank is still sliding, its next forced move can restore that direction
+  and continue its old course while other Tanks reverse. Check actual slip-list
+  membership, phase, and terrain in `turntanks` and
+  `floormovements_of_blocks_and_monsters`; a single corner does not necessarily
+  leave a usable input window. Distinguish this from the Tank Top Glitch's
+  separate mid-movement `frame` handling and validate in the required engines.
 - **[Slide delay](https://wiki.bitbusters.club/Slide_delay) (MS):** a blocked or
   rebounding slipper can leave and rejoin the slip list without reducing its
   length, skipping another block or monster's forced move. Chip is not delayed
