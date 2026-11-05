@@ -45,11 +45,21 @@
   Padding needed by one fixed continuation is not a proven gate. Before rejecting
   an earlier legal prefix, reroute a bounded region through the obstruction to a
   safe common exit, then check the complete replay at its new phase.
+- Measure producer periods before and after pickups or terrain changes. A
+  collectible beneath an actor can prevent re-entry until Chip collects it;
+  collection may change the actor's route, button cadence, and later traffic.
+  Preserve those different histories instead of transferring a fixed clock
+  between task orders without a native trace.
 - Use geometry, resource constraints, deadlocks, and sound lower bounds to prune
   search. Choose suitable algorithms such as assignment, subset DP, or push-state
   search; avoid broad input mutation without a concrete hypothesis.
   Check goal feasibility before exploring waiting schedules: identify what can
   cause every required event under the fixed terrain and actor boundaries.
+- Verify that an optimistic model retains every relevant legal transition.
+  Removing an obstruction can change a teleport destination or remove a useful
+  forced-movement stop, making a supposedly relaxed distance larger. Allow the
+  alternative destinations/stops or limit the claim; matching one control route
+  alone does not establish that a pruning bound is safe.
 - Audit search goals against actual level completion. Fixed final block posts,
   complete monster disposal, and prescribed room exits are route assumptions
   unless their necessity is proved. Test safe surviving actors and alternative
