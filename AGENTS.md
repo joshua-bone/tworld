@@ -171,6 +171,15 @@
   this way. A nailed block can deliberately supply delay; its effect depends on
   slip-list order and phase, not just the number of stalled objects. Inspect
   `floormovements_of_blocks_and_monsters` and an actual trace.
+- **Failed perpendicular pushes can nail a block (MS):** `pushblock` first
+  rejects an ordinary push along or against the block's saved slip direction.
+  A perpendicular attempt reaches `advancecreature`; if that push fails, it
+  clears the block's sliding flags and removes it from the slip list. Thus a
+  wall beyond a sliding block can make a deliberate failed push useful, even
+  though Chip stays put. Preserve this side effect when skipping stationary
+  inputs or comparing states. A mouse direction probe can also reach this code,
+  but a combined probe-and-walk needs separate cross-engine validation; a
+  passing cardinal nailing action does not establish mouse compatibility.
 - **Ordinary boosting (MS):** Chip can move voluntarily after a forced move in
   the same native tick, once the other slippers have updated. This is distinct
   from the Twice Step Glitch, which inserts the extra move before those updates.
