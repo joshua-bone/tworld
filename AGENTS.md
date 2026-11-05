@@ -149,6 +149,14 @@
   Concussion Rule also exists in Lynx, with different trap-release behavior;
   it does not apply to CC2 open traps. Do not transfer MS exceptions between
   rulesets without checking their implementation.
+- **Prepared trap releases (MS):** `springtrap` sets `CS_RELEASED` on the
+  current occupant. A blocked attempt preserves that flag, and leaving the
+  Brown button does not revoke it; `startmovement` clears it after a successful
+  move. A blocked Tank also becomes stalled (`CS_HASMOVED`), so removing its
+  obstacle alone does not restart it. A later Blue reversal can move the
+  released Tank without another Brown visit. Model the actor's release and
+  stalled states separately, rather than treating the trap as latched-open
+  floor; verify future arrivals and other rulesets independently.
 - **[Slide delay](https://wiki.bitbusters.club/Slide_delay) (MS):** a blocked or
   rebounding slipper can leave and rejoin the slip list without reducing its
   length, skipping another block or monster's forced move. Chip is not delayed
