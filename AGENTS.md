@@ -154,6 +154,11 @@
   Reassess stalled routes using these tools rather than only increasing caps.
   Validate complete candidates in the required engines. Run stock MVS searches
   on Linux x86_64; keep all route inputs/results private.
+- MVS action codes are not TWS direction codes: its MS compound actions
+  `3/6/9/12` encode a direction probe followed by a movement attempt. Realize
+  them as mouse inputs and verify the native successor and complete replay, or
+  reject them explicitly; do not serialize them as diagonal keyboard commands.
+  A cardinal-only control does not validate this conversion.
 
 ## Mechanics knowledge
 
