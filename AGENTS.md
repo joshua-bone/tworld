@@ -45,11 +45,20 @@
   Padding needed by one fixed continuation is not a proven gate. Before rejecting
   an earlier legal prefix, reroute a bounded region through the obstruction to a
   safe common exit, then check the complete replay at its new phase.
+- Compare an obstruction's clearance with Chip's next legal movement tick.
+  An actor delay can be entirely hidden by Chip's own cooldown. Test departure
+  on the first legal tick in the actual update order before budgeting an extra
+  wait or removing the delaying actor.
 - Measure producer periods before and after pickups or terrain changes. A
   collectible beneath an actor can prevent re-entry until Chip collects it;
   collection may change the actor's route, button cadence, and later traffic.
   Preserve those different histories instead of transferring a fixed clock
   between task orders without a native trace.
+- For proposed overlap with final monster disposal, compare the last button
+  activation, the last surviving actor, and downstream clearance separately.
+  A stopped producer can leave traffic in flight. Bound those event delays and
+  verify their extremal witnesses in the native engine before expanding a
+  scheduling search; record which terrain, actor order and obstacles are fixed.
 - Use geometry, resource constraints, deadlocks, and sound lower bounds to prune
   search. Choose suitable algorithms such as assignment, subset DP, or push-state
   search; avoid broad input mutation without a concrete hypothesis.
