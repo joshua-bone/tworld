@@ -167,6 +167,12 @@
   Concussion Rule also exists in Lynx, with different trap-release behavior;
   it does not apply to CC2 open traps. Do not transfer MS exceptions between
   rulesets without checking their implementation.
+- **Cloner exit direction (MS):** the same facing-only move selection applies
+  to gliders, fireballs, pink balls, walkers, and tanks while they remain on a
+  cloner. A blocked awakened actor can remain pending there; do not apply its
+  ordinary-floor turning rule before it leaves. Check the shared
+  `CloneMachine`/`Beartrap` branch in `choosecreaturemove`, and distinguish
+  activation, pending departure, and actual arrival outside the cloner.
 - **Prepared trap releases (MS):** `springtrap` sets `CS_RELEASED` on the
   current occupant. A blocked attempt preserves that flag, and leaving the
   Brown button does not revoke it; `startmovement` clears it after a successful
@@ -239,6 +245,9 @@
 - Validate candidate routes in SuCC and original legacy Tile World, as well as
   TWO. Record versions, replay hashes, completion, and scores; investigate
   disagreements rather than treating one engine's success as sufficient.
+- A successful parity check on a partial replay is not a win. When harvesting
+  route libraries or promoting scores, require explicit completed status and
+  matching completion time, as well as matching hashes and trace parity.
 - Also check new MS candidates with the pinned headless Melinda Router adapter.
   Record its TSG/trap options and investigate discrepancies. MR is additional
   compatibility evidence, not a replacement for the three required engines.
