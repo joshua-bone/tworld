@@ -105,6 +105,12 @@
   happen and whether rooms can be split across visits. Combine individually legal
   variations when their timing or resource effects interact; test the combination
   through the exit rather than assuming their savings add.
+- Keep passing alternatives as a fragment library. Try bounded combinations at
+  named room interfaces, matching exact remaining-chip masks and inventory.
+  Execute the new continuation on the actual prefix world; never transplant the
+  reference state. Compare the resulting input stream with the incumbent: a
+  successful combination may expose a simple timing gain without needing the
+  resource change that originally motivated that fragment.
 - Keep a private variation ledger grouped by semantic hypothesis: tested result,
   fixed assumptions, completed scope versus cap/overflow, and next distinct idea.
   A failed splice with the old suffix does not reject the new prefix. Mechanical
@@ -119,6 +125,9 @@
   cannot detect an accidentally restrictive neighborhood. Audit interacting
   bounds before increasing caps; narrow a capped positive to a diagnostic
   fragment rather than treating it as validation.
+- When a verified improvement escapes an optimizer, use that exact witness to
+  audit its input conversion, intermediate contracts, simulator and pruning.
+  Reproducing the slower route alone does not validate the missed freedom.
 - Prefer [Melinda Router and MVS](scripts/melinda/README.md) for replay work when
   their capabilities fit: MR for quarter-tick/mouse routing and inspection; MVS
   for vicinity, block, transposition, and TSP-assisted searches. Check their
