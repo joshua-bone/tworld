@@ -69,6 +69,15 @@
   forced-movement stop, making a supposedly relaxed distance larger. Allow the
   alternative destinations/stops or limit the claim; matching one control route
   alone does not establish that a pruning bound is safe.
+- Build search regions from possible terrain changes, not only the starting
+  walkable cells. Remote actors can clear bombs, fill water, or open gates after
+  the prefix. Admit those cells and let native transitions decide access; check
+  every position of a known witness against region and inventory guards.
+- Rank proposed routes by the obstruction that controls access or completion.
+  Monster retirement counts can reward harmless disposal while leaving the
+  critical producer active. Use actual button cadence, downstream traffic and
+  safe access windows; keep speculative forecasts as ordering hints, with exact
+  state restoration, rather than unproved pruning rules.
 - Audit search goals against actual level completion. Fixed final block posts,
   complete monster disposal, and prescribed room exits are route assumptions
   unless their necessity is proved. Test safe surviving actors and alternative
