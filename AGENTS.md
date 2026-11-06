@@ -245,6 +245,9 @@
 - Validate candidate routes in SuCC and original legacy Tile World, as well as
   TWO. Record versions, replay hashes, completion, and scores; investigate
   disagreements rather than treating one engine's success as sufficient.
+- A successful parity check on a partial replay is not a win. When harvesting
+  route libraries or promoting scores, require explicit completed status and
+  matching completion time, as well as matching hashes and trace parity.
 - Also check new MS candidates with the pinned headless Melinda Router adapter.
   Record its TSG/trap options and investigate discrepancies. MR is additional
   compatibility evidence, not a replacement for the three required engines.
