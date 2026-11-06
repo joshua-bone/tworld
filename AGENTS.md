@@ -262,6 +262,10 @@
 - A successful parity check on a partial replay is not a win. When harvesting
   route libraries or promoting scores, require explicit completed status and
   matching completion time, as well as matching hashes and trace parity.
+- A partial replay's later `failed` status does not establish Chip's death.
+  Legacy `play.c` stops playback after the recorded `besttime` expires; inspect
+  the terminal cause and validate the intended endpoint explicitly. Test any
+  proposed continuation with actual inputs beyond that endpoint.
 - Also check new MS candidates with the pinned headless Melinda Router adapter.
   Record its TSG/trap options and investigate discrepancies. MR is additional
   compatibility evidence, not a replacement for the three required engines.
